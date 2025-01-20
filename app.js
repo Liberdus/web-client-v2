@@ -36,7 +36,7 @@ let parameters = {
   },
 };
 
-const LIB_RRC_METHODS = {
+const LIB_RPC_METHODS = {
   SEND_TRANSACTION: "lib_sendTransaction",
   GET_ACCOUNT: "lib_getAccount",
   GET_TRANSACTION_RECEIPT: "lib_getTransactionReceipt",
@@ -58,24 +58,21 @@ async function checkOnlineStatus() {
 }
 
 async function checkUsernameAvailability(username) {
-  // Get random gateway
-  const randomGateway =
-    network.gateways[Math.floor(Math.random() * network.gateways.length)];
   const usernameBytes = utf82bin(username);
   const usernameHash = blake.blake2bHex(usernameBytes, myHashKey, 32);
   console.log("usernameHash", usernameHash);
+  
   try {
-    const response = await fetch(
-      `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}/address/${usernameHash}`
-    );
-    const data = await response.json();
-    if (data && data.address) {
+    const accountData = await makeJsonRpcRequest(LIB_RPC_METHODS.GET_ACCOUNT, [usernameHash]);
+    
+    // If we get account data with an address field, username is taken
+    if (accountData && accountData.address) {
       return "taken";
     }
-    if (!data) {
-      return "error";
-    }
+    
+    // If we get null (account not found) or account data without address, username is available
     return "available";
+    
   } catch (error) {
     console.log("Error checking username:", error);
     return "error2";
@@ -276,8 +273,9 @@ async function handleCreateAccount(event) {
   myData = newDataRecord(myAccount);
   const res = await postRegisterAlias(username, myAccount.keys);
 
-  if (res && (res.error || !res.result.success)) {
-    showToast("Failed to create account. Please try again.", res.result);
+  // Update this check to match the RPC response format
+  if (!res || !res.success) {
+    showToast("Failed to create account. Please try again.", res?.reason);
     return;
   }
 
@@ -827,8 +825,6 @@ async function updateWalletBalances() {
   }
 
   let totalWalletBalance = 0;
-  const randomGateway =
-    network.gateways[Math.floor(Math.random() * network.gateways.length)];
 
   // Update balances for each asset and address
   for (const asset of myData.wallet.assets) {
@@ -838,18 +834,16 @@ async function updateWalletBalances() {
     for (const addr of asset.addresses) {
       try {
         const address = longAddress(addr.address);
-        const response = await fetch(
-          `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}/account/${address}/balance`
-        );
-        const data = await response.json();
-        console.log("response", response);
-        console.log("response.json", data);
-        // Update address balance
-        addr.balance = hex2big(data.balance.value) || 0;
+        const accountData = await makeJsonRpcRequest(LIB_RPC_METHODS.GET_ACCOUNT, [address]);
+        
+        if (accountData && accountData.balance) {
+          // Update address balance
+          addr.balance = hex2big(accountData.balance.value) || 0;
 
-        // Add to asset total (convert to USD using asset price)
-        const balanceUSD = bigxnum2num(addr.balance, asset.price);
-        assetTotalBalance += balanceUSD;
+          // Add to asset total (convert to USD using asset price)
+          const balanceUSD = bigxnum2num(addr.balance, asset.price);
+          assetTotalBalance += balanceUSD;
+        }
       } catch (error) {
         console.error(
           `Error fetching balance for address ${addr.address}:`,
@@ -1405,20 +1399,14 @@ async function handleNewChat(event) {
     const usernameHash = blake.blake2bHex(usernameBytes, myHashKey, 32);
 
     try {
-      // Get random gateway
-      const randomGateway =
-        network.gateways[Math.floor(Math.random() * network.gateways.length)];
-      const response = await fetch(
-        `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}/address/${usernameHash}`
-      );
-      const data = await response.json();
+      const accountData = await makeJsonRpcRequest(LIB_RPC_METHODS.GET_ACCOUNT, [usernameHash]);
 
-      if (!data || !data.address) {
+      if (!accountData || !accountData.address) {
         showRecipientError("Username not found");
         return;
       }
-      // Normalize address from API if it has 0x prefix or trailing zeros
-      recipientAddress = normalizeAddress(data.address);
+      // Normalize address from account data if it has 0x prefix or trailing zeros
+      recipientAddress = normalizeAddress(accountData.address);
     } catch (error) {
       console.log("Error looking up username:", error);
       showRecipientError("Error looking up username");
@@ -1454,9 +1442,6 @@ async function handleNewChat(event) {
       unread: 0,
     });
   }
-
-  // Save updated data
-  //            localStorage.setItem('chatsData', JSON.stringify(chatsData));
 
   // Close new chat modal and open chat modal
   closeNewChatModal();
@@ -1771,23 +1756,18 @@ async function handleSend(event) {
       return;
     }
 
-    // Look up username on network
+    // Look up username using RPC
     const usernameBytes = utf82bin(recipientInput);
     const usernameHash = blake.blake2bHex(usernameBytes, myHashKey, 32);
 
     try {
-      const randomGateway =
-        network.gateways[Math.floor(Math.random() * network.gateways.length)];
-      const response = await fetch(
-        `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}/address/${usernameHash}`
-      );
-      const data = await response.json();
+      const accountData = await makeJsonRpcRequest(LIB_RPC_METHODS.GET_ACCOUNT, [usernameHash]);
 
-      if (!data || !data.address) {
+      if (!accountData || !accountData.address) {
         alert("Username not found");
         return;
       }
-      toAddress = normalizeAddress(data.address);
+      toAddress = normalizeAddress(accountData.address);
     } catch (error) {
       console.error("Error looking up username:", error);
       alert("Error looking up username");
@@ -1813,8 +1793,9 @@ async function handleSend(event) {
     // Send the transaction using postTransferAsset
     const response = await postTransferAsset(toAddress, amount, memo, keys);
 
-    if (!response || !response.result || !response.result.success) {
-      console.error("Transaction failed:", response.result.reason);
+    // Update this check to match the RPC response format
+    if (!response || !response.success) {
+      console.error("Transaction failed:", response?.reason);
       sendButton.textContent = "Send";
       sendButton.disabled = false;
       showToast("Transaction failed. Please try again.");
@@ -1842,7 +1823,6 @@ async function handleSend(event) {
     sendButton.textContent = "Send";
     sendButton.disabled = false;
     showToast("Transaction failed. Please try again.");
-    // alert("Transaction failed. Please try again.");
   }
 }
 
@@ -1920,10 +1900,10 @@ async function handleSendMessage() {
     // Send the message transaction using postSendMessage with default toll of 1
     const response = await postSendMessage(currentAddress, payload, 1, keys);
 
-    if (!response || !response.result || !response.result.success) {
+    if (!response || !response.success) {
       alert(
         "Message failed to send: " +
-          (response.result?.reason || "Unknown error")
+          (response?.reason || "Unknown error")
       );
       return;
     }
@@ -2135,7 +2115,7 @@ async function updateTransactionHistory() {
 
   // Fetch transaction history for the selected address
   const result = await makeJsonRpcRequest(
-    LIB_RRC_METHODS.GET_TRANSACTION_HISTORY,
+    LIB_RPC_METHODS.GET_TRANSACTION_HISTORY,
     [longAddress(address.address)]
   );
 
@@ -2440,24 +2420,17 @@ function longAddress(address) {
 
 async function injectTx(tx, keys) {
   const txid = await signObj(tx, keys); // add the sign obj to tx
-  // Get random gateway
-  const randomGateway =
-    network.gateways[Math.floor(Math.random() * network.gateways.length)];
-  const options = {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: stringify({ tx: stringify(tx) }),
-  };
+  
   try {
-    const response = await fetch(
-      `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}/inject`,
-      options
+    const response = await makeJsonRpcRequest(
+      LIB_RPC_METHODS.SEND_TRANSACTION,
+      [stringify(tx)]
     );
-    const data = await response.json();
-    data.txid = txid;
-    return data;
+    
+    if (response) {
+      response.txid = txid;
+    }
+    return response;
   } catch (error) {
     console.error("Error injecting tx:", error, tx);
     return error;
@@ -2624,6 +2597,11 @@ async function makeJsonRpcRequest(method, params = []) {
     const data = await response.json();
 
     if (data.error) {
+      // Special handling for "Account not found" error
+      if (data.error.code === -32600 && data.error.message.includes("Account not found")) {
+        console.warn("Account not found");
+        return null;  // Return null for non-existent accounts
+      }
       console.error("RPC Error:", method, data.error);
       return null;
     }
