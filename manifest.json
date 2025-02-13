@@ -9,8 +9,15 @@
       "purpose": "any maskable"
     }
   ],
-  "start_url": "./",
+  "start_url": "/dev/",
+  "scope": "/dev/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#007bff"
+  "theme_color": "#007bff",
+  "description": "Secure messaging app",
+  "orientation": "any",
+  "categories": ["social", "communication"],
+  "permissions": ["notifications", "periodic-background-sync"],
+  "related_applications": [],
+  "prefer_related_applications": false
 }

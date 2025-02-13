@@ -764,14 +764,66 @@ console.log('stop back button')
 }
 
 // This is for installed apps where we can't stop the back button; just save the state
-function handleVisibilityChange(e) {
+async function handleVisibilityChange(e) {
     console.log('in handleVisibilityChange', document.visibilityState);
+    
+    // Only manage state if logged in
+    if (!myData || !myAccount) return;
+
     if (document.visibilityState === 'hidden') {
         saveState();
         if (handleSignOut.exit) {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             return;
         }
+
+        // App is being hidden/closed
+        console.log('📱 App hidden - starting service worker polling');
+        
+        // Ensure main thread polling is stopped first
+        if (typeof pollChatsTimer !== 'undefined') {
+            clearTimeout(pollChatsTimer);
+            pollChatsTimer = undefined; // Explicitly clear the timer reference
+        }
+
+        // Wait a moment to ensure main thread polling is fully stopped
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        try {
+            const timestamp = Date.now().toString();
+            localStorage.setItem('appPaused', timestamp);
+            
+            // Prepare account data for service worker
+            const accountData = {
+                address: myAccount.keys.address,
+                network: {
+                    gateways: network.gateways
+                }
+            };
+            
+            // Start service worker polling only after main thread is stopped
+            const registration = await navigator.serviceWorker.ready;
+            registration.active?.postMessage({ 
+                type: 'start_polling',
+                timestamp,
+                account: accountData  
+            });
+        } catch (error) {
+            console.error('Error starting background polling:', error);
+        }
+    } else {
+        // App becoming visible - ensure clean handoff back to main thread
+        console.log('📱 App visible - stopping service worker polling');
+        
+        // Stop service worker polling first
+        const registration = await navigator.serviceWorker.ready;
+        await registration.active?.postMessage({ type: 'stop_polling' });
+        
+        // Wait for service worker to stop
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        localStorage.setItem('appPaused', '0');
+        await updateChatList('force');
     }
 }
 
@@ -954,6 +1006,42 @@ function setupAddToHomeScreen(){
             updateButtonVisibility();
         });
     }
+
+    // Add handler for successful installation
+    window.addEventListener('appinstalled', async (event) => {
+        console.log('👍 App installed');
+        addToHomeScreenButton.style.display = 'none';
+
+        try {
+            // First request notification permission
+            if ('Notification' in window) {
+                const notificationPermission = await Notification.requestPermission();
+                console.log('📱 Notification permission:', notificationPermission);
+            }
+
+            // Then explicitly request periodic sync permission
+            if ('serviceWorker' in navigator) {
+                const registration = await navigator.serviceWorker.ready;
+                if ('periodicSync' in registration) {
+                    // Explicitly request the permission
+                    const status = await navigator.permissions.request({
+                        name: 'periodic-background-sync'
+                    });
+                    
+                    console.log('📱 Periodic sync permission requested:', status.state);
+                    
+                    if (status.state === 'granted') {
+                        await registration.periodicSync.register('check-messages', {
+                            minInterval: 60 * 1000
+                        });
+                        console.log('📱 Periodic sync registered successfully');
+                    }
+                }
+            }
+        } catch (error) {
+            console.log('📱 Error requesting permissions:', error);
+        }
+    });
 }
 
 // Update chat list UI
@@ -2353,8 +2441,9 @@ console.log('query', `${randomGateway.protocol}://${randomGateway.host}:${random
 console.log('response', data)
         return data
     } catch (error) {
-        console.error(`Error fetching balance for address ${addr.address}:`, error);
-        return null
+        // Changed error message to not reference undefined addr variable
+        console.error('Network request failed:', error);
+        return null;
     }
 }
 
@@ -2808,12 +2897,12 @@ async function registerServiceWorker() {
     }
 
     try {
-        // Check if there's an existing registration
-        const existingReg = await navigator.serviceWorker.getRegistration();
+        // Check if there's an existing registration with correct scope
+        const existingReg = await navigator.serviceWorker.getRegistration('/dev/');
         if (existingReg) {
             // If service worker is already registered and active
             if (existingReg.active) {
-                console.log('Service Worker already registered and active');
+                console.log('Service Worker already registered and active:', existingReg.scope);
                 return existingReg;
             }
             // If not active, unregister and re-register
@@ -2821,14 +2910,15 @@ async function registerServiceWorker() {
         }
 
         // Register new service worker with correct path and scope
-        const registration = await navigator.serviceWorker.register('./service-worker.js', {
-            scope: './'
+        const registration = await navigator.serviceWorker.register('/dev/service-worker.js', {
+            scope: '/dev/',
+            updateViaCache: 'none'
         });
         console.log('Service Worker registered successfully:', registration.scope);
 
         // Wait for the service worker to be ready
         await navigator.serviceWorker.ready;
-        console.log('Service Worker ready');
+        console.log('Service Worker ready with scope:', registration.scope);
 
         return registration;
     } catch (error) {
@@ -2841,6 +2931,9 @@ async function registerServiceWorker() {
 function setupServiceWorkerMessaging() {
     if (!('serviceWorker' in navigator)) return;
 
+    let lastSoundPlayed = 0;
+    const SOUND_COOLDOWN = 1000; // Prevent multiple sounds within 1 second
+
     // Listen for messages from service worker
     navigator.serviceWorker.addEventListener('message', (event) => {
         const data = event.data;
@@ -2849,6 +2942,37 @@ function setupServiceWorkerMessaging() {
         switch (data.type) {
             case 'error':
                 console.error('Service Worker error:', data.error);
+                break;
+            case 'new_notification':
+                console.log('🖥️ Desktop notification handling');
+                // Show desktop notification
+                if (Notification.permission === 'granted') {
+                    const notificationText = data.chatCount === 1 
+                        ? 'You have new messages in a conversation'
+                        : `You have new messages in ${data.chatCount} conversations`;
+                        
+                    new Notification('New Messages', {
+                        body: notificationText,
+                        icon: './liberdus_logo_250.png'
+                    });
+                }
+                
+                // Play sound if tabbed away
+                if (document.hidden) {
+                    // Prevent duplicate sounds
+                    if (data.timestamp - lastSoundPlayed < SOUND_COOLDOWN) {
+                        return;
+                    }
+                    
+                    const audio = new Audio('./noti.wav');
+                    audio.volume = 0.20;
+                    audio.play()
+                        .then(() => {
+                            lastSoundPlayed = Date.now();
+                            console.log('✅ Sound played successfully');
+                        })
+                        .catch(error => console.error('❌ Error playing sound:', error));
+                }
                 break;
         }
     });
@@ -2865,45 +2989,6 @@ function setupAppStateManagement() {
             registration.active?.postMessage({ type: 'stop_polling' });
         });
     }
-
-    // Handle visibility changes
-    document.addEventListener('visibilitychange', async () => {
-        if (!myData || !myAccount) return; // Only manage state if logged in
-        
-        if (document.hidden) {
-            // App is being hidden/closed
-            console.log('📱 App hidden - starting service worker polling');
-            const timestamp = Date.now().toString();
-            localStorage.setItem('appPaused', timestamp);
-            
-            // Prepare account data for service worker
-            const accountData = {
-                address: myAccount.keys.address,
-                network: {
-                    gateways: network.gateways
-                }
-            };
-            
-            
-            // Start polling in service worker with timestamp and account data
-            const registration = await navigator.serviceWorker.ready;
-            registration.active?.postMessage({ 
-                type: 'start_polling',
-                timestamp,
-                account: accountData  
-            });
-        } else {
-            // App is becoming visible/open
-            console.log('📱 App visible - stopping service worker polling');
-            localStorage.setItem('appPaused', '0');
-            
-            // Stop polling in service worker
-            const registration = await navigator.serviceWorker.ready;
-            registration.active?.postMessage({ type: 'stop_polling' });
-
-            await updateChatList('force');
-        }
-    });
 }
 
 function requestNotificationPermission() {
