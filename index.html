@@ -1,29 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
     <!-- These did not seem to help with avoiding stale pages 
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     -->
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <meta name="theme-color" content="#ffffff" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="mobile-web-app-capable" content="yes">
-    
+    <meta name="mobile-web-app-capable" content="yes" />
+
     <!-- Add these new meta tags for splash screen -->
-    <link rel="apple-touch-icon" href="liberdus_logo_512.png">
-    <meta name="apple-mobile-web-app-title" content="Liberdus">
-    
+    <link rel="apple-touch-icon" href="liberdus_logo_512.png" />
+    <meta name="apple-mobile-web-app-title" content="Liberdus" />
+
     <!-- Add splash screen images for different iPhone sizes -->
-    <link rel="apple-touch-startup-image" href="splash_640x1136.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)">
-    <link rel="apple-touch-startup-image" href="splash_750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)">
-    <link rel="apple-touch-startup-image" href="splash_1170x2532.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)">
-    <link rel="apple-touch-startup-image" href="splash_1179x2556.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)">
-    <link rel="apple-touch-startup-image" href="splash_1290x2796.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)">
-    
+    <link
+      rel="apple-touch-startup-image"
+      href="splash_640x1136.png"
+      media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      href="splash_750x1334.png"
+      media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      href="splash_1170x2532.png"
+      media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      href="splash_1179x2556.png"
+      media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      href="splash_1290x2796.png"
+      media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)"
+    />
+
     <title>Liberdus</title>
     <!--
       QRCode lib from
@@ -33,435 +56,652 @@
     <script src="./log-utils.js"></script>
     <script src="./qrcode.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css">
-    <link rel="manifest" href="./manifest.json">
-</head>
-<body>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="manifest" href="./manifest.json" />
+  </head>
+  <body>
     <script src="./app.js" type="module"></script>
     <div class="container">
-        <header class="header" id="header">
-            <div id="logo"><img src="liberdus_logo_50.png"></div>
-            <div class="app-name">Liberdus</div>
-            <div class="header-icons">
-                <button class="icon-button" id="search"></button>
-                <button class="icon-button" id="toggleMenu"></button>
-            </div>
-        </header>
-
-        <div class="welcome-screen" id="welcomeScreen">
-            <img src="./liberdus_logo_250.png" alt="Liberdus Logo" style="margin-bottom: 20px;">
-            <h1>Liberdus<br>
-                <div style="font-size: 0.8rem; margin-top: 1px; text-align: center;" id="networkNameDisplay"></div>
-            </h1>
-            <div class="welcome-buttons">
-                <button id="signInButton" class="secondary-button">Sign In</button>
-                <button id="createAccountButton" class="secondary-button">Create Account</button>
-                <button id="importAccountButton" class="secondary-button">Import Account</button>
-                <button id="addToHomeScreenButton" class="secondary-button">Install</button>
-            </div>
-            <div style="font-size: 0.8rem; margin-top: 10px; text-align: center;">Version <span id="versionDisplay"></span></div>
+      <header class="header" id="header">
+        <div id="logo"><img src="liberdus_logo_50.png" /></div>
+        <div class="app-name">Liberdus</div>
+        <div class="header-icons">
+          <button class="icon-button" id="toggleMenu"></button>
         </div>
+      </header>
 
-        <div class="app-screen" id="chatsScreen">
-            <ul class="chat-list" id="chatList">
-                <!-- Chat items will be inserted here -->
-            </ul>
+      <div class="welcome-screen" id="welcomeScreen">
+        <img
+          src="./liberdus_logo_250.png"
+          alt="Liberdus Logo"
+          style="margin-bottom: 20px"
+        />
+        <h1>
+          Liberdus<br />
+          <div
+            style="font-size: 0.8rem; margin-top: 1px; text-align: center"
+            id="networkNameDisplay"
+          ></div>
+        </h1>
+        <div class="welcome-buttons">
+          <button id="signInButton" class="secondary-button">Sign In</button>
+          <button id="createAccountButton" class="secondary-button">
+            Create Account
+          </button>
+          <button id="importAccountButton" class="secondary-button">
+            Import Account
+          </button>
+          <button id="addToHomeScreenButton" class="secondary-button">
+            Install
+          </button>
         </div>
-        <button class="floating-button" id="newChatButton">+</button>
-
-        <!-- New Chat Modal -->
-        <div class="modal" id="newChatModal">
-            <div class="modal-header">
-                <button class="back-button" id="closeNewChatModal"></button>
-                <div class="modal-title">New Chat</div>
-            </div>
-            <div class="form-container">
-                <form id="newChatForm">
-                    <div class="form-group">
-                        <label for="recipient">Recipient <span id="chatRecipientError" style="color: #dc3545; display: none;"></span></label>
-                        <input type="text" id="chatRecipient" class="form-control" required>
-                    </div>
-                    <button type="submit" class="update-button">Continue</button>
-                </form>
-            </div>
+        <div style="font-size: 0.8rem; margin-top: 10px; text-align: center">
+          Version <span id="versionDisplay"></span>
         </div>
+      </div>
 
-        <div class="app-screen" id="contactsScreen">
-            <ul class="chat-list" id="contactsList">
-                <!-- Contact items will be inserted here -->
-            </ul>
+      <div class="app-screen" id="chatsScreen">
+        <!-- search bar -->
+        <div class="search-bar-container" id="searchBarContainer">
+          <div class="search-bar">
+            <span class="search-icon"></span>
+            <input
+              type="text"
+              id="searchInput"
+              class="search-input"
+              placeholder="Search messages..."
+              autocomplete="off"
+              readonly
+            />
+          </div>
         </div>
+        <ul class="chat-list" id="chatList">
+          <!-- Chat items will be inserted here -->
+        </ul>
+      </div>
+      <button class="floating-button" id="newChatButton">+</button>
 
-        <div class="app-screen" id="walletScreen">
-            <div class="wallet-balance">
-                <div class="balance-label">Total Balance</div>
-                <div class="balance-amount">
-                    <span id="walletTotalBalance">0.00</span>
-                    <button class="refresh-button" id="refreshBalance">↻</button>
-                </div>
-            </div>
-            <div class="wallet-actions">
-                <button class="wallet-action-button" id="openSendModal">
-                    <span class="action-icon"></span>
-                    <span class="action-label">Send</span>
-                </button>
-                <button class="wallet-action-button" id="openReceiveModal">
-                    <span class="action-icon"></span>
-                    <span class="action-label">Receive</span>
-                </button>
-                <button class="wallet-action-button" id="openHistoryModal">
-                    <span class="action-icon"></span>
-                    <span class="action-label">History</span>
-                </button>
-            </div>
-            <div class="wallet-assets">
-                <div class="section-title">Assets</div>
-                <div id="assetsList"></div>
-            </div>
+      <!-- New Chat Modal -->
+      <div class="modal" id="newChatModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeNewChatModal"></button>
+          <div class="modal-title">New Chat</div>
         </div>
-
-        <footer class="footer" id="footer">
-            <div class="nav-buttons">
-                <button class="nav-button" id="switchToChats">Chats</button>
-                <button class="nav-button" id="switchToContacts">Contacts</button>
-                <button class="nav-button" id="switchToWallet">Wallet</button>
+        <div class="form-container">
+          <form id="newChatForm">
+            <div class="form-group">
+              <label for="recipient"
+                >Recipient
+                <span
+                  id="chatRecipientError"
+                  style="color: #dc3545; display: none"
+                ></span
+              ></label>
+              <input
+                type="text"
+                id="chatRecipient"
+                class="form-control"
+                required
+              />
             </div>
-        </footer>
+            <button type="submit" class="update-button">Continue</button>
+          </form>
+        </div>
+      </div>
 
-        <!-- Menu Modal -->
-        <div class="modal" id="menuModal">
-            <div class="modal-header">
-                <button class="back-button" id="closeMenu"></button>
-                <div class="modal-title">Menu</div>
-            </div>
-            <ul class="menu-list">
-                <li class="menu-item" id="openAccountForm">Account</li>
-                <li class="menu-item" id="openExportForm">Export</li>
-<!--                <li class="menu-item" id="openNetwork">Gateway</li>  -->
-<!--                <li class="menu-item" id="openSettings">Settings</li> -->
-                <li class="menu-item" id="openExplorer">Explorer</li>
-                <li class="menu-item" id="openMonitor">Network</li>
-<!--
+      <div class="app-screen" id="contactsScreen">
+        <!-- Add search bar for contacts -->
+        <div class="search-bar-container" id="contactSearchBarContainer">
+          <div class="search-bar">
+            <span class="search-icon"></span>
+            <input
+              type="text"
+              id="contactSearchInput"
+              class="search-input"
+              placeholder="Search contacts..."
+              autocomplete="off"
+              readonly
+            />
+          </div>
+        </div>
+        <ul class="chat-list" id="contactsList">
+          <!-- Contact items will be inserted here -->
+        </ul>
+      </div>
+
+      <div class="app-screen" id="walletScreen">
+        <div class="wallet-balance">
+          <div class="balance-label">Total Balance</div>
+          <div class="balance-amount">
+            <span id="walletTotalBalance">0.00</span>
+            <button class="refresh-button" id="refreshBalance">↻</button>
+          </div>
+        </div>
+        <div class="wallet-actions">
+          <button class="wallet-action-button" id="openSendModal">
+            <span class="action-icon"></span>
+            <span class="action-label">Send</span>
+          </button>
+          <button class="wallet-action-button" id="openReceiveModal">
+            <span class="action-icon"></span>
+            <span class="action-label">Receive</span>
+          </button>
+          <button class="wallet-action-button" id="openHistoryModal">
+            <span class="action-icon"></span>
+            <span class="action-label">History</span>
+          </button>
+        </div>
+        <div class="wallet-assets">
+          <div class="section-title">Assets</div>
+          <div id="assetsList"></div>
+        </div>
+      </div>
+
+      <footer class="footer" id="footer">
+        <div class="nav-buttons">
+          <button class="nav-button" id="switchToChats">Chats</button>
+          <button class="nav-button" id="switchToContacts">Contacts</button>
+          <button class="nav-button" id="switchToWallet">Wallet</button>
+        </div>
+      </footer>
+
+      <!-- Menu Modal -->
+      <div class="modal" id="menuModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeMenu"></button>
+          <div class="modal-title">Menu</div>
+        </div>
+        <ul class="menu-list">
+          <li class="menu-item" id="openAccountForm">Account</li>
+          <li class="menu-item" id="openExportForm">Export</li>
+          <!--                <li class="menu-item" id="openNetwork">Gateway</li>  -->
+          <!--                <li class="menu-item" id="openSettings">Settings</li> -->
+          <li class="menu-item" id="openExplorer">Explorer</li>
+          <li class="menu-item" id="openMonitor">Network</li>
+          <!--
                 <li class="menu-item" id="openImportFormMenu">Import</li>
 -->
-                <li class="menu-item" id="openRemoveAccount">Remove</li>
-                <li class="menu-item" id="openAbout">About</li>
-                <li class="menu-item" id="openLogs">View Logs</li>
-                <li class="menu-item" id="handleSignOut">Sign Out</li>
-            </ul>
-        </div>
+          <li class="menu-item" id="openRemoveAccount">Remove</li>
+          <li class="menu-item" id="openAbout">About</li>
+          <li class="menu-item" id="openLogs">View Logs</li>
+          <li class="menu-item" id="handleSignOut">Sign Out</li>
+        </ul>
+      </div>
 
-        <!-- About Modal -->
-        <div class="modal" id="aboutModal">
-            <div class="modal-header">
-                <button class="back-button" id="closeAboutModal"></button>
-                <div class="modal-title">About Liberdus</div>
-            </div>
-            <div class="form-container">
-                <div style="padding: 1rem;">
-                    <img src="./liberdus_logo_250.png" alt="Liberdus Logo" style="margin-bottom: 20px; width: 100%; max-width: 200px;">
-                    <p>
-                        Liberdus is a decentralized messaging and wallet application.
-                    </p>
-                    <br><br>
-                    <div style="font-size: 0.8rem; margin-top: 10px; text-align: center;">Version <span id="versionDisplayAbout"></span></div>
-                    <div style="font-size: 0.8rem; margin-top: 10px; text-align: center;">Network Name: <span id="networkNameAbout"></span></div>
-                    <div style="font-size: 0.8rem; margin-top: 10px; text-align: center;">Net ID:<br> 
-                        <span style="font-size: 0.7rem;" id="netIdAbout"></span>
-                    </div><br><br>
-                    <div><a href="https://liberdus.com" target="_blank">Liberdus.com</a></div>
-                    <p><a href="https://github.com/liberdus" target="_blank">Source Code</a></p>
-                    <br>
-                    <p><a href="index.html.txt" target="_blank">index.html</a>
-                    <a href="styles.css" target="_blank">styles.css</a>
-                    <a href="app.js" target="_blank">app.js</a></p>
-                    <br>
-                    <a href="network.js" target="_blank">network.js</a>
-                    <a href="lib.js" target="_blank">lib.js</a>
-                    <a href="service-worker.js" target="_blank">service-worker.js</a>
-                    <br>
-                    <p>
-                        <a href="noble-post-quantum.js" target="_blank">noble-post-quantum.js</a>
-                        <a href="noble-secp256k1.js" target="_blank">noble-secp256k1.js</a>
-                        <a href="noble-ciphers.js" target="_blank">noble-ciphers.js</a>
-                        <a href="blake2b.js" target="_blank">blake2b.js</a>
-                        <a href="keccak256.js" target="_blank">keccak256.js</a>
-                        <a href="stringify-shardus.js" target="_blank">stringify-shardus.js</a>
-                        <a href="qrcode.js" target="_blank">qrcode.js</a>
-                    </p>
-                </div>
-            </div>
+      <!-- About Modal -->
+      <div class="modal" id="aboutModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeAboutModal"></button>
+          <div class="modal-title">About Liberdus</div>
         </div>
-
-        <!-- Sign In Modal -->
-        <div class="modal" id="signInModal">
-            <div class="modal-header">
-                <button class="back-button" id="closeSignInModal"></button>
-                <div class="modal-title">Sign In</div>
+        <div class="form-container">
+          <div style="padding: 1rem">
+            <img
+              src="./liberdus_logo_250.png"
+              alt="Liberdus Logo"
+              style="margin-bottom: 20px; width: 100%; max-width: 200px"
+            />
+            <p>Liberdus is a decentralized messaging and wallet application.</p>
+            <br /><br />
+            <div
+              style="font-size: 0.8rem; margin-top: 10px; text-align: center"
+            >
+              Version <span id="versionDisplayAbout"></span>
             </div>
-            <div class="form-container">
-                <form id="signInForm">
-                    <div class="form-group">
-                        <label for="username">Select Account <span id="usernameNotFound" style="color: #dc3545; display: none; display: inline;"></span></label>
-                        <select id="username" class="form-control" required>
-                        </select>
-                    </div>
-                    <button type="submit" class="update-button" disabled>Sign In</button>
-                    <button type="button" id="removeAccountButton" class="secondary-button" style="display: none;">Remove</button>
-                </form>
+            <div
+              style="font-size: 0.8rem; margin-top: 10px; text-align: center"
+            >
+              Network Name: <span id="networkNameAbout"></span>
             </div>
+            <div
+              style="font-size: 0.8rem; margin-top: 10px; text-align: center"
+            >
+              Net ID:<br />
+              <span style="font-size: 0.7rem" id="netIdAbout"></span>
+            </div>
+            <br /><br />
+            <div>
+              <a href="https://liberdus.com" target="_blank">Liberdus.com</a>
+            </div>
+            <p>
+              <a href="https://github.com/liberdus" target="_blank"
+                >Source Code</a
+              >
+            </p>
+            <br />
+            <p>
+              <a href="index.html.txt" target="_blank">index.html</a>
+              <a href="styles.css" target="_blank">styles.css</a>
+              <a href="app.js" target="_blank">app.js</a>
+            </p>
+            <br />
+            <a href="network.js" target="_blank">network.js</a>
+            <a href="lib.js" target="_blank">lib.js</a>
+            <a href="service-worker.js" target="_blank">service-worker.js</a>
+            <br />
+            <p>
+              <a href="noble-post-quantum.js" target="_blank"
+                >noble-post-quantum.js</a
+              >
+              <a href="noble-secp256k1.js" target="_blank"
+                >noble-secp256k1.js</a
+              >
+              <a href="noble-ciphers.js" target="_blank">noble-ciphers.js</a>
+              <a href="blake2b.js" target="_blank">blake2b.js</a>
+              <a href="keccak256.js" target="_blank">keccak256.js</a>
+              <a href="stringify-shardus.js" target="_blank"
+                >stringify-shardus.js</a
+              >
+              <a href="qrcode.js" target="_blank">qrcode.js</a>
+            </p>
+          </div>
         </div>
+      </div>
 
-        <!-- Create Account Modal -->
-        <div class="modal" id="createAccountModal">
-            <div class="modal-header">
-                <button class="back-button" id="closeCreateAccountModal"></button>
-                <div class="modal-title">Create Account</div>
-            </div>
-            <div class="form-container">
-                <form id="createAccountForm">
-                    <div class="form-group">
-                        <label for="newUsername">Username <span id="newUsernameAvailable" style="color: #28a745; display: none;">available</span></label>
-                        <div style="position: relative;">
-                            <input type="text" id="newUsername" class="form-control" placeholder="Select a username" required>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="newPrivateKey">Private Key (hex, optional) <span id="newPrivateKeyError" style="color: #dc3545; display: none;"></span></label>
-                        <input type="text" id="newPrivateKey" class="form-control" placeholder="Enter private key in hex format">
-                    </div>
-                    <button type="submit" class="update-button" disabled>Create Account</button>
-                </form>
-            </div>
+      <!-- Sign In Modal -->
+      <div class="modal" id="signInModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeSignInModal"></button>
+          <div class="modal-title">Sign In</div>
         </div>
-
-        <!-- Account Form Modal -->
-        <div class="modal" id="accountModal">
-            <div class="modal-header">
-                <button class="back-button" id="closeAccountForm"></button>
-                <div class="modal-title">Account</div>
+        <div class="form-container">
+          <form id="signInForm">
+            <div class="form-group">
+              <label for="username"
+                >Select Account
+                <span
+                  id="usernameNotFound"
+                  style="color: #dc3545; display: none; display: inline"
+                ></span
+              ></label>
+              <select id="username" class="form-control" required></select>
             </div>
-            <div class="form-container">
-                <form id="accountForm">
-                    <div class="form-group">
-                        <label for="name">Name</label>
-                        <input type="text" id="name" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="email">Email</label>
-                        <input type="text" id="email" class="form-control">
-                    </div>
-                    <div class="form-group">
-                        <label for="phone">Phone</label>
-                        <input type="text" id="phone" class="form-control">
-                    </div>
-                    <div class="form-group">
-                        <label for="linkedin">LinkedIn</label>
-                        <input type="text" id="linkedin" class="form-control">
-                    </div>
-                     <div class="form-group">
-                        <label for="x">X</label>
-                        <input type="text" id="x" class="form-control">
-                    </div>
-                    <button type="submit" class="update-button">Update Profile</button>
-                    <div id="successMessage" class="success-message">Profile updated successfully!</div>
-                </form>
-            </div>
+            <button type="submit" class="update-button" disabled>
+              Sign In
+            </button>
+            <button
+              type="button"
+              id="removeAccountButton"
+              class="secondary-button"
+              style="display: none"
+            >
+              Remove
+            </button>
+          </form>
         </div>
+      </div>
 
-        <!-- Import Modal -->
-        <div class="modal" id="importModal">
-            <div class="modal-header">
-                <button class="back-button" id="closeImportForm"></button>
-                <div class="modal-title">Import Account</div>
-            </div>
-            <div class="form-container">
-                <form id="importForm">
-                    <div class="form-group">
-                        <label for="importFile">Select File</label>
-                        <input type="file" id="importFile" class="form-control" 
-                               accept="application/json" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="importPassword">Password (if encrypted)</label>
-                        <input type="password" id="importPassword" class="form-control" 
-                               placeholder="Enter password for encrypted files">
-                    </div>
-                    <button type="submit" class="update-button">Load Account</button>
-                    <div id="importMessage" class="success-message">Account imported successfully!</div>
-                </form>
-            </div>
+      <!-- Create Account Modal -->
+      <div class="modal" id="createAccountModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeCreateAccountModal"></button>
+          <div class="modal-title">Create Account</div>
         </div>
+        <div class="form-container">
+          <form id="createAccountForm">
+            <div class="form-group">
+              <label for="newUsername"
+                >Username
+                <span
+                  id="newUsernameAvailable"
+                  style="color: #28a745; display: none"
+                  >available</span
+                ></label
+              >
+              <div style="position: relative">
+                <input
+                  type="text"
+                  id="newUsername"
+                  class="form-control"
+                  placeholder="Select a username"
+                  required
+                />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="newPrivateKey"
+                >Private Key (hex, optional)
+                <span
+                  id="newPrivateKeyError"
+                  style="color: #dc3545; display: none"
+                ></span
+              ></label>
+              <input
+                type="text"
+                id="newPrivateKey"
+                class="form-control"
+                placeholder="Enter private key in hex format"
+              />
+            </div>
+            <button type="submit" class="update-button" disabled>
+              Create Account
+            </button>
+          </form>
+        </div>
+      </div>
 
-        <!-- Chat Modal -->
-        <div class="modal" id="chatModal">
-            <div class="modal-header">
-                <button class="back-button" id="closeChatModal"></button>
-                <div class="chat-user-info">
-                    <div class="modal-avatar"></div>
-                    <div class="modal-title"></div>
-                </div>
+      <!-- Account Form Modal -->
+      <div class="modal" id="accountModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeAccountForm"></button>
+          <div class="modal-title">Account</div>
+        </div>
+        <div class="form-container">
+          <form id="accountForm">
+            <div class="form-group">
+              <label for="name">Name</label>
+              <input type="text" id="name" class="form-control" required />
             </div>
-            <div class="messages-container">
-                <div class="messages-list"></div>
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input type="text" id="email" class="form-control" />
             </div>
-            <div class="message-input-container">
-                <textarea 
-                    class="message-input" 
-                    placeholder="Type a message..."
-                ></textarea>
-                <button class="send-button" id="handleSendMessage">
-                    <svg viewBox="0 0 24 24">
-                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                    </svg>
+            <div class="form-group">
+              <label for="phone">Phone</label>
+              <input type="text" id="phone" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label for="linkedin">LinkedIn</label>
+              <input type="text" id="linkedin" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label for="x">X</label>
+              <input type="text" id="x" class="form-control" />
+            </div>
+            <button type="submit" class="update-button">Update Profile</button>
+            <div id="successMessage" class="success-message">
+              Profile updated successfully!
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Import Modal -->
+      <div class="modal" id="importModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeImportForm"></button>
+          <div class="modal-title">Import Account</div>
+        </div>
+        <div class="form-container">
+          <form id="importForm">
+            <div class="form-group">
+              <label for="importFile">Select File</label>
+              <input
+                type="file"
+                id="importFile"
+                class="form-control"
+                accept="application/json"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="importPassword">Password (if encrypted)</label>
+              <input
+                type="password"
+                id="importPassword"
+                class="form-control"
+                placeholder="Enter password for encrypted files"
+              />
+            </div>
+            <button type="submit" class="update-button">Load Account</button>
+            <div id="importMessage" class="success-message">
+              Account imported successfully!
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Chat Modal -->
+      <div class="modal" id="chatModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeChatModal"></button>
+          <div class="chat-user-info">
+            <div class="modal-avatar"></div>
+            <div class="modal-title"></div>
+          </div>
+        </div>
+        <div class="messages-container">
+          <div class="messages-list"></div>
+        </div>
+        <div class="message-input-container">
+          <textarea
+            class="message-input"
+            placeholder="Type a message..."
+          ></textarea>
+          <button class="send-button" id="handleSendMessage">
+            <svg viewBox="0 0 24 24">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Receive Modal -->
+      <div class="modal" id="receiveModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeReceiveModal"></button>
+          <div class="modal-title">Receive</div>
+        </div>
+        <div class="form-container">
+          <div class="form-group">
+            <label>Your Address</label>
+            <div style="display: flex; align-items: flex-start; gap: 0.5rem">
+              <div
+                id="displayAddress"
+                class="form-control"
+                style="
+                  flex: 1;
+                  font-size: 0.875rem;
+                  padding: 8px 12px;
+                  word-break: break-all;
+                  line-height: 1.4;
+                  background-color: #f8f9fa;
+                  cursor: default;
+                "
+              ></div>
+              <button
+                id="copyAddress"
+                class="icon-button"
+                style="color: #007bff; margin-top: 4px; flex-shrink: 0"
+              ></button>
+            </div>
+            <div
+              id="qrcode"
+              style="margin-top: 1rem; display: flex; justify-content: center"
+            ></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Send Modal -->
+      <div class="modal" id="sendModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeSendModal"></button>
+          <div class="modal-title">Send</div>
+        </div>
+        <div class="form-container">
+          <form id="sendForm">
+            <div class="form-group">
+              <label for="sendAsset">Asset</label>
+              <select id="sendAsset" class="form-control" required></select>
+            </div>
+            <div class="form-group">
+              <label for="sendToAddress"
+                >Recipient
+                <span
+                  id="sendToAddressError"
+                  style="color: #dc3545; display: none"
+                ></span
+              ></label>
+              <input
+                type="text"
+                id="sendToAddress"
+                class="form-control"
+                placeholder="Enter username or address"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="sendAmount">Amount</label>
+              <div
+                id="availableBalance"
+                style="margin-bottom: 0.5rem; color: #6c757d; cursor: pointer"
+              >
+                Available: <span id="balanceAmount">0.00</span>
+                <span id="balanceSymbol"></span>
+              </div>
+              <input
+                type="number"
+                id="sendAmount"
+                class="form-control"
+                step="any"
+                min="0"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="sendMemo">Memo (Optional)</label>
+              <textarea id="sendMemo" class="form-control"></textarea>
+            </div>
+            <button type="submit" class="update-button">Send</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- History Modal -->
+      <div class="modal" id="historyModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeHistoryModal"></button>
+          <div class="modal-title">Transaction History</div>
+        </div>
+        <div class="form-container">
+          <div class="form-group">
+            <label for="historyAsset">Asset</label>
+            <select id="historyAsset" class="form-control"></select>
+          </div>
+          <div class="transaction-list" id="transactionList">
+            <!-- Transactions will be populated here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Export Modal -->
+      <div class="modal" id="exportModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeExportForm"></button>
+          <div class="modal-title">Export Data</div>
+        </div>
+        <div class="form-container">
+          <form id="exportForm">
+            <div class="form-group">
+              <label for="exportPassword">Password</label>
+              <input
+                type="password"
+                id="exportPassword"
+                class="form-control"
+                placeholder="Leave empty for unencrypted export"
+              />
+            </div>
+            <button type="submit" class="update-button">Download Data</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Contact Info Modal -->
+      <div class="modal" id="contactInfoModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeContactInfoModal"></button>
+          <div class="modal-title">Contact Info</div>
+          <!-- Add header actions container -->
+          <div class="header-actions">
+            <button
+              class="icon-button chat-icon"
+              id="contactInfoChatButton"
+              aria-label="Open chat"
+            ></button>
+            <div class="dropdown">
+              <button
+                class="dropdown-menu-button"
+                id="contactInfoMenuButton"
+                aria-label="More options"
+              >
+                ⋮
+              </button>
+              <div class="dropdown-menu" id="contactInfoMenuDropdown">
+                <button class="dropdown-item" id="editContactButton">
+                  <span class="dropdown-icon edit-icon"></span>
+                  <span class="dropdown-text">Edit</span>
                 </button>
+                <button class="dropdown-item add-friend" id="addFriendButton">
+                  <span class="dropdown-icon add-friend-icon"></span>
+                  <span class="dropdown-text">Add Friend</span>
+                </button>
+              </div>
             </div>
+          </div>
         </div>
+        <div class="form-container">
+          <div class="contact-info-list">
+            <!-- Template for contact info items -->
+            <template id="contactInfoItemTemplate">
+              <div class="contact-info-item">
+                <div class="contact-info-label"></div>
+                <div class="contact-info-value"></div>
+              </div>
+            </template>
+            <!-- Contact info fields -->
+            <div class="contact-info-item">
+              <div class="contact-info-label">Username</div>
+              <div class="contact-info-value" id="contactInfoUsername"></div>
+            </div>
+            <div class="contact-info-item">
+              <div class="contact-info-label">Name</div>
+              <div class="contact-info-value" id="contactInfoName"></div>
+            </div>
+            <div class="contact-info-item">
+              <div class="contact-info-label">Email</div>
+              <div class="contact-info-value" id="contactInfoEmail"></div>
+            </div>
+            <div class="contact-info-item">
+              <div class="contact-info-label">Phone</div>
+              <div class="contact-info-value" id="contactInfoPhone"></div>
+            </div>
+            <div class="contact-info-item">
+              <div class="contact-info-label">LinkedIn</div>
+              <div class="contact-info-value" id="contactInfoLinkedin"></div>
+            </div>
+            <div class="contact-info-item">
+              <div class="contact-info-label">X</div>
+              <div class="contact-info-value" id="contactInfoX"></div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-        <!-- Receive Modal -->
-        <div class="modal" id="receiveModal">
-            <div class="modal-header">
-                <button class="back-button" id="closeReceiveModal"></button>
-                <div class="modal-title">Receive</div>
-            </div>
-            <div class="form-container">
-                <div class="form-group">
-                    <label>Your Address</label>
-                    <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
-                        <div id="displayAddress" class="form-control" 
-                             style="flex: 1; font-size: 0.875rem; padding: 8px 12px; 
-                                    word-break: break-all; line-height: 1.4; 
-                                    background-color: #f8f9fa; cursor: default;"></div>
-                        <button id="copyAddress" class="icon-button" 
-                                style="color: #007bff; margin-top: 4px; flex-shrink: 0;"></button>
-                    </div>
-                    <div id="qrcode" style="margin-top: 1rem; display: flex; justify-content: center;"></div>
-                </div>
-            </div>
+      <!-- Remove Account Modal -->
+      <div class="modal" id="removeAccountModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeRemoveAccountModal"></button>
+          <div class="modal-title">Remove Account</div>
         </div>
-
-        <!-- Send Modal -->
-        <div class="modal" id="sendModal">
-            <div class="modal-header">
-                <button class="back-button" id="closeSendModal"></button>
-                <div class="modal-title">Send</div>
-            </div>
-            <div class="form-container">
-                <form id="sendForm">
-                    <div class="form-group">
-                        <label for="sendAsset">Asset</label>
-                        <select id="sendAsset" class="form-control" required>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="sendToAddress">Recipient <span id="sendToAddressError" style="color: #dc3545; display: none;"></span></label>
-                        <input type="text" id="sendToAddress" class="form-control" placeholder="Enter username or address" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="sendAmount">Amount</label>
-                        <div id="availableBalance" style="margin-bottom: 0.5rem; color: #6c757d; cursor: pointer;">
-                            Available: <span id="balanceAmount">0.00</span> <span id="balanceSymbol"></span>
-                        </div>
-                        <input type="number" id="sendAmount" class="form-control" step="any" min="0" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="sendMemo">Memo (Optional)</label>
-                        <textarea id="sendMemo" class="form-control"></textarea>
-                    </div>
-                    <button type="submit" class="update-button">Send</button>
-                </form>
-            </div>
+        <div class="form-container">
+          <div style="padding: 1rem">
+            <p>
+              Before removing your account, please export your data to ensure
+              you have a backup. This action only removes the account from this
+              device and not from the network. You can still use the account
+              after importing it.
+            </p>
+            <button
+              id="confirmRemoveAccount"
+              class="update-button"
+              style="margin-top: 1rem"
+            >
+              Remove
+            </button>
+          </div>
         </div>
-
-        <!-- History Modal -->
-        <div class="modal" id="historyModal">
-            <div class="modal-header">
-                <button class="back-button" id="closeHistoryModal"></button>
-                <div class="modal-title">Transaction History</div>
-            </div>
-            <div class="form-container">
-                <div class="form-group">
-                    <label for="historyAsset">Asset</label>
-                    <select id="historyAsset" class="form-control">
-                    </select>
-                </div>
-                <div class="transaction-list" id="transactionList">
-                    <!-- Transactions will be populated here -->
-                </div>
-            </div>
-        </div>
-
-        <!-- Export Modal -->
-        <div class="modal" id="exportModal">
-            <div class="modal-header">
-                <button class="back-button" id="closeExportForm"></button>
-                <div class="modal-title">Export Data</div>
-            </div>
-            <div class="form-container">
-                <form id="exportForm">
-                    <div class="form-group">
-                        <label for="exportPassword">Password</label>
-                        <input type="password" id="exportPassword" class="form-control" 
-                               placeholder="Leave empty for unencrypted export">
-                    </div>
-                    <button type="submit" class="update-button">Download Data</button>
-                </form>
-            </div>
-        </div>
-        
-        <!-- Contact Info Modal -->
-        <div class="modal" id="contactInfoModal">
-            <div class="modal-header">
-                <button class="back-button" id="closeContactInfoModal"></button>
-                <div class="modal-title">Contact Info</div>
-            </div>
-            <div class="form-container">
-                <div class="contact-info-list">
-                    <div class="contact-info-item">
-                        <div class="contact-info-label">Username</div>
-                        <div class="contact-info-value" id="contactInfoUsername"></div>
-                    </div>
-                    <div class="contact-info-item">
-                        <div class="contact-info-label">Name</div>
-                        <div class="contact-info-value" id="contactInfoName"></div>
-                    </div>
-                    <div class="contact-info-item">
-                        <div class="contact-info-label">Email</div>
-                        <div class="contact-info-value" id="contactInfoEmail"></div>
-                    </div>
-                    <div class="contact-info-item">
-                        <div class="contact-info-label">Phone</div>
-                        <div class="contact-info-value" id="contactInfoPhone"></div>
-                    </div>
-                    <div class="contact-info-item">
-                        <div class="contact-info-label">LinkedIn</div>
-                        <div class="contact-info-value" id="contactInfoLinkedin"></div>
-                    </div>
-                    <div class="contact-info-item">
-                        <div class="contact-info-label">X</div>
-                        <div class="contact-info-value" id="contactInfoX"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Remove Account Modal -->
-        <div class="modal" id="removeAccountModal">
-            <div class="modal-header">
-                <button class="back-button" id="closeRemoveAccountModal"></button>
-                <div class="modal-title">Remove Account</div>
-            </div>
-            <div class="form-container">
-                <div style="padding: 1rem;">
-                    <p>
-                        Before removing your account, please export your data to ensure you have a backup. This action
-                        only removes the account from this device and not from the network. You can still use the account
-                        after importing it.
-                    </p>
-                    <button id="confirmRemoveAccount" class="update-button" style="margin-top: 1rem;">Remove</button>
-                </div>
-            </div>
-        </div>
+      </div>
 
       <!-- Logs Modal -->
       <div class="modal" id="logsModal">
@@ -474,8 +714,55 @@
         <div class="logs-container" id="logsContainer">
           <!-- Logs will be populated here -->
         </div>
+      </div>
+
+      <!-- Add search modal before the other modals -->
+      <div class="modal search-modal" id="searchModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeSearchModal"></button>
+          <div class="modal-title">Search Messages</div>
         </div>
+        <div class="form-container">
+          <div class="search-bar">
+            <span class="search-icon"></span>
+            <input
+              type="text"
+              id="messageSearch"
+              class="search-input"
+              placeholder="Search messages..."
+              autocomplete="off"
+              autofocus
+            />
+          </div>
+          <div id="searchResults" class="chat-list">
+            <!-- Results will be populated here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Add new contact search modal before closing body tag -->
+      <div class="modal search-modal" id="contactSearchModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeContactSearchModal"></button>
+          <div class="modal-title">Search Contacts</div>
+        </div>
+        <div class="form-container">
+          <div class="search-bar">
+            <span class="search-icon"></span>
+            <input
+              type="text"
+              id="contactSearch"
+              class="search-input"
+              placeholder="Search contacts..."
+              autocomplete="off"
+              autofocus
+            />
+          </div>
+          <div id="contactSearchResults" class="chat-list">
+            <!-- Contact search results will be populated here -->
+          </div>
+        </div>
+      </div>
     </div>
-    
-</body>
+  </body>
 </html>

@@ -640,9 +640,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Add event listeners
-    document.getElementById('search').addEventListener('click', () => {
-        console.log("poll next, last, timer", pollChats.nextPoll, pollChats.lastPoll, pollChats.timer)
-    });
     document.getElementById('toggleMenu').addEventListener('click', toggleMenu);
     document.getElementById('closeMenu').addEventListener('click', toggleMenu);
 
@@ -721,7 +718,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     document.getElementById('handleSignOut').addEventListener('click', handleSignOut);
     document.getElementById('closeChatModal').addEventListener('click', closeChatModal);
-    document.getElementById('closeContactInfoModal').addEventListener('click', closeContactInfoModal);
+    document.getElementById('closeContactInfoModal').addEventListener('click', () => contactInfoModal.close());
     document.getElementById('handleSendMessage').addEventListener('click', handleSendMessage);
     
     // Add refresh balance button handler
@@ -741,24 +738,98 @@ document.addEventListener('DOMContentLoaded', async () => {
         this.style.height = Math.min(this.scrollHeight, 120) + 'px';
     });
 
-    document.getElementById('openLogs').addEventListener('click', openLogsModal);
+    document.getElementById('openLogs').addEventListener('click', () => {
+        // Close the menu modal first
+        document.getElementById('menuModal').classList.remove('active');
+        // Then open the logs modal and update view
+        document.getElementById('logsModal').classList.add('active');
+        updateLogsView();
+    });
+
     document.getElementById('closeLogsModal').addEventListener('click', () => {
         document.getElementById('logsModal').classList.remove('active');
     });
+
+    document.getElementById('refreshLogs').addEventListener('click', () => {
+        updateLogsView();
+    });
+
     document.getElementById('clearLogs').addEventListener('click', async () => {
         await Logger.clearLogs();
         updateLogsView();
     });
-    document.getElementById('refreshLogs').addEventListener('click', async () => {
-        updateLogsView();
+
+    // Add new search functionality
+    const searchInput = document.getElementById('searchInput');
+    const messageSearch = document.getElementById('messageSearch');
+    const searchModal = document.getElementById('searchModal');
+
+    // Close search modal
+    document.getElementById('closeSearchModal').addEventListener('click', () => {
+        searchModal.classList.remove('active');
+        messageSearch.value = '';
+        document.getElementById('searchResults').innerHTML = '';
     });
-    document.getElementById('openLogs').addEventListener('click', () => {
-        // Close the menu modal first
-        document.getElementById('menuModal').classList.remove('active');
-        // Then open the logs modal
-        openLogsModal();
+
+    // Handle search input with debounce
+    messageSearch.addEventListener('input', debounce((e) => {
+        const searchText = e.target.value.trim();
+        if (searchText.length < 2) {
+            displayEmptyState('searchResults', "No messages found");
+            return;
+        }
+
+        const results = searchMessages(searchText);
+        if (results.length === 0) {
+            displayEmptyState('searchResults', "No messages found");
+        } else {
+            displaySearchResults(results);
+        }
+    }, 300));
+
+    document.getElementById('closeChatModal')?.addEventListener('click', () => {
+        document.getElementById('chatModal').classList.remove('active');
     });
+    initializeSearch();
+
     
+
+    // Add contact search functionality
+    const contactSearchInput = document.getElementById("contactSearchInput");
+    const contactSearch = document.getElementById("contactSearch");
+    const contactSearchModal = document.getElementById("contactSearchModal");
+
+    // Open contact search modal when clicking the search bar
+    contactSearchInput.addEventListener("click", () => {
+        contactSearchModal.classList.add("active");
+        contactSearch.focus();
+    });
+
+    // Close contact search modal
+    document.getElementById("closeContactSearchModal").addEventListener("click", () => {
+        contactSearchModal.classList.remove("active");
+        contactSearch.value = "";
+        document.getElementById("contactSearchResults").innerHTML = "";
+    });
+
+    // Handle contact search input with debounce
+    contactSearch.addEventListener("input", debounce((e) => {
+        const searchText = e.target.value.trim();
+
+        // Just clear results if empty
+        if (!searchText) {
+            document.getElementById("contactSearchResults").innerHTML = "";
+            return;
+        }
+
+        const results = searchContacts(searchText);
+        if (results.length === 0) {
+            displayEmptyState('contactSearchResults', "No contacts found");
+        } else {
+            displayContactResults(results, searchText);
+        }
+    }, (searchText) => searchText.length === 1 ? 600 : 300)); // Dynamic wait time
+
     setupAddToHomeScreen()
 });
 
@@ -1175,7 +1246,10 @@ async function updateContactsList() {
     
     // Add click handlers to contact items
     document.querySelectorAll('#contactsList .chat-item').forEach((item, index) => {
-        item.onclick = () => openChatModal(contactsArray[index].address);
+        item.onclick = () => {
+            const contact = contactsArray[index];
+            contactInfoModal.open(createDisplayInfo(contact));
+        };
     });
 }
 
@@ -1616,8 +1690,8 @@ function openChatModal(address) {
     const userInfo = modal.querySelector('.chat-user-info');
     userInfo.onclick = () => {
         const contact = myData.contacts[address];
-        if (contact && contact.senderInfo) {
-            openContactInfoModal(contact.senderInfo);
+        if (contact) {
+            contactInfoModal.open(createDisplayInfo(contact));
         }
     };
 
@@ -1998,24 +2072,97 @@ console.log('payload is', payload)
     }
 }
 
-function openContactInfoModal(senderInfo) {
-    const modal = document.getElementById('contactInfoModal');
-    
-    // Set values
-    document.getElementById('contactInfoUsername').textContent = senderInfo.username || 'Not provided';
-    document.getElementById('contactInfoName').textContent = senderInfo.name || 'Not provided';
-    document.getElementById('contactInfoEmail').textContent = senderInfo.email || 'Not provided';
-    document.getElementById('contactInfoPhone').textContent = senderInfo.phone || 'Not provided';
-    document.getElementById('contactInfoLinkedin').textContent = senderInfo.linkedin || 'Not provided';
-    document.getElementById('contactInfoX').textContent = senderInfo.x || 'Not provided';
-    
-    // Show modal
-    modal.classList.add('active');
+// Contact Info Modal Management
+class ContactInfoModalManager {
+    constructor() {
+        this.modal = document.getElementById('contactInfoModal');
+        this.menuDropdown = document.getElementById('contactInfoMenuDropdown');
+        this.setupEventListeners();
+    }
+
+    // Initialize event listeners that only need to be set up once
+    setupEventListeners() {
+        // Back button
+        this.modal.querySelector('.back-button').addEventListener('click', () => {
+            this.close();
+        });
+
+        // Menu toggle
+        const menuButton = document.getElementById('contactInfoMenuButton');
+        menuButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.menuDropdown.classList.toggle('active');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', () => {
+            this.menuDropdown.classList.remove('active');
+        });
+
+        // Edit button
+        document.getElementById('editContactButton').addEventListener('click', () => {
+            // TODO: Implement edit functionality
+            console.log('Edit contact clicked');
+        });
+
+        // Add friend button
+        document.getElementById('addFriendButton').addEventListener('click', () => {
+            // TODO: Implement add friend functionality
+            console.log('Add friend clicked');
+        });
+    }
+
+    // Update contact info values
+    updateContactInfo(displayInfo) {
+        const fields = {
+            'Username': 'contactInfoUsername',
+            'Name': 'contactInfoName',
+            'Email': 'contactInfoEmail',
+            'Phone': 'contactInfoPhone',
+            'LinkedIn': 'contactInfoLinkedin',
+            'X': 'contactInfoX'
+        };
+
+        Object.entries(fields).forEach(([field, elementId]) => {
+            const element = document.getElementById(elementId);
+            if (element) {
+                const value = displayInfo[field.toLowerCase()] || 'Not provided';
+                element.textContent = value;
+            }
+        });
+    }
+
+    // Set up chat button functionality
+    setupChatButton(displayInfo) {
+        const chatButton = document.getElementById('contactInfoChatButton');
+        if (displayInfo.address) {
+            chatButton.addEventListener('click', () => {
+                this.close();
+                openChatModal(displayInfo.address);
+            });
+            chatButton.style.display = 'block';
+        } else {
+            chatButton.style.display = 'none';
+        }
+    }
+
+    // Open the modal
+    open(displayInfo) {
+        this.updateContactInfo(displayInfo);
+        this.setupChatButton(displayInfo);
+        this.modal.classList.add('active');
+    }
+
+    // Close the modal
+    close() {
+        this.modal.classList.remove('active');
+        this.menuDropdown.classList.remove('active');
+    }
 }
 
-function closeContactInfoModal() {
-    document.getElementById('contactInfoModal').classList.remove('active');
-}
+// Create a singleton instance
+const contactInfoModal = new ContactInfoModalManager();
+
 
 function handleSignOut() {
 //    const shouldLeave = confirm('Do you want to leave this page?');
@@ -3002,11 +3149,11 @@ function requestNotificationPermission() {
     }
 }
 
-function openLogsModal() {
+/* function openLogsModal() {
   const modal = document.getElementById('logsModal');
   modal.classList.add('active');
   updateLogsView();
-}
+} */
 
 async function updateLogsView() {
     const logsContainer = document.getElementById('logsContainer');
@@ -3075,5 +3222,383 @@ function escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+}
+
+function debounce(func, waitFn) {
+    let timeout;
+    return function executedFunction(...args) {
+        const wait = typeof waitFn === 'function' ? waitFn(args[0]) : waitFn;
+        
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+function truncateMessage(message, maxLength = 50) {
+    return message.length > maxLength
+        ? message.substring(0, maxLength) + '...'
+        : message;
+}
+
+// Add these search-related functions
+function searchMessages(searchText) {
+    if (!searchText || !myData?.contacts) return [];
+    
+    const results = [];
+    const searchLower = searchText.toLowerCase();
+    
+    // Search through all contacts and their messages
+    Object.entries(myData.contacts).forEach(([address, contact]) => {
+        if (!contact.messages) return;
+        
+        contact.messages.forEach((message, index) => {
+            if (message.message.toLowerCase().includes(searchLower)) {
+                // Highlight matching text
+                const messageText = message.message;
+                const highlightedText = messageText.replace(
+                    new RegExp(searchText, 'gi'),
+                    match => `<mark>${match}</mark>`
+                );
+                
+                results.push({
+                    contactAddress: address,
+                    username: contact.username || address,
+                    messageId: index,
+                    message: message,  // Pass the entire message object
+                    timestamp: message.timestamp,
+                    preview: truncateMessage(highlightedText, 100),
+                    my: message.my  // Include the my property
+                });
+            }
+        });
+    });
+    
+    return results.sort((a, b) => b.timestamp - a.timestamp);
+}
+
+function displaySearchResults(results) {
+    const searchResults = document.getElementById('searchResults');
+    // Create a ul element to properly contain the list items
+    const resultsList = document.createElement('ul');
+    resultsList.className = 'chat-list';
+    
+    results.forEach(async result => {
+        const resultElement = document.createElement('li');
+        resultElement.className = 'chat-item search-result-item';
+        
+        // Generate identicon for the contact
+        const identicon = await generateIdenticon(result.contactAddress);
+        
+        // Format message preview with "You:" prefix if it's a sent message
+        const messagePreview = result.my ? `You: ${result.preview}` : result.preview;
+        
+        resultElement.innerHTML = `
+            <div class="chat-avatar">
+                ${identicon}
+            </div>
+            <div class="chat-content">
+                <div class="chat-header">
+                    <div class="chat-name">${result.username}</div>
+                    <div class="chat-time">${formatTime(result.timestamp)}</div>
+                </div>
+                <div class="chat-message">
+                    ${messagePreview}
+                </div>
+            </div>
+        `;
+
+        resultElement.addEventListener('click', () => {
+            handleSearchResultClick(result);
+        });
+
+        resultsList.appendChild(resultElement);
+    });
+
+    // Clear and append the new list
+    searchResults.innerHTML = '';
+    searchResults.appendChild(resultsList);
+}
+
+function displayEmptyState(containerId, message = "No results found") {
+    const resultsContainer = document.getElementById(containerId);
+    resultsContainer.innerHTML = `
+        <div class="empty-state">
+            <div class="empty-state-message">${message}</div>
+        </div>
+    `;
+}
+
+function handleSearchResultClick(result) {
+    try {
+        // Close search modal
+        document.getElementById('searchModal').classList.remove('active');
+        
+        // Switch to chats view if not already there
+        switchView('chats');
+        
+        // Open the chat with this contact
+        handleResultClick(result.contactAddress);
+        
+        // Scroll to and highlight the message
+        setTimeout(() => {
+            const messageElement = document.querySelector(`[data-message-id="${result.messageId}"]`);
+            if (messageElement) {
+                messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                messageElement.classList.add('highlighted');
+                setTimeout(() => messageElement.classList.remove('highlighted'), 2000);
+            } else {
+                console.error('Message not found');
+                // Could add a toast notification here
+            }
+        }, 300);
+    } catch (error) {
+        console.error('Error handling search result:', error);
+        // Could add error notification here
+    }
+}
+
+// Add the search input handler
+function initializeSearch() {
+    const searchInput = document.getElementById('searchInput');
+    const messageSearch = document.getElementById('messageSearch');
+    const searchResults = document.getElementById('searchResults');
+    const searchModal = document.getElementById('searchModal');
+    
+    // Debounced search function
+    const debouncedSearch = debounce((searchText) => {
+        const trimmedText = searchText.trim();
+        
+        if (!trimmedText) {
+            searchResults.innerHTML = '';
+            return;
+        }
+
+        const results = searchMessages(trimmedText);
+        if (results.length === 0) {
+            displayEmptyState('searchResults', "No messages found");
+        } else {
+            displaySearchResults(results);
+        }
+    }, (searchText) => searchText.length === 1 ? 600 : 300); // Dynamic wait time
+    
+    // Connect search input to modal input
+    searchInput.addEventListener('click', () => {
+        searchModal.classList.add('active');
+        messageSearch.focus();
+    });
+    
+    // Handle search input
+    messageSearch.addEventListener('input', (e) => {
+        debouncedSearch(e.target.value);
+    });
+}
+
+// Add loading state display function
+function displayLoadingState() {
+    const searchResults = document.getElementById('searchResults');
+    searchResults.innerHTML = `
+        <div class="search-loading">
+            Searching messages
+        </div>
+    `;
+}
+
+async function handleResultClick(contactAddress) {
+    // Get the contact info
+    const contact = myData.contacts[contactAddress];
+    if (!contact) return;
+
+    // Open chat modal
+    const chatModal = document.getElementById('chatModal');
+    chatModal.classList.add('active');
+
+    // Generate the identicon first
+    const identicon = await generateIdenticon(contactAddress);
+
+    // Update chat header with contact info and avatar - match exact structure from chat view
+    const modalHeader = chatModal.querySelector('.modal-header');
+    modalHeader.innerHTML = `
+        <button class="back-button" id="closeChatModal"></button>
+        <div class="chat-user-info">
+            <div class="modal-avatar">${identicon}</div>
+            <div class="modal-title">${contact.username || contactAddress}</div>
+        </div>
+    `;
+
+    // Re-attach close button event listener
+    document.getElementById('closeChatModal').addEventListener('click', () => {
+        chatModal.classList.remove('active');
+    });
+
+
+    // Ensure messages container structure matches
+    const messagesContainer = chatModal.querySelector('.messages-container');
+    if (!messagesContainer) {
+        const container = document.createElement('div');
+        container.className = 'messages-container';
+        container.innerHTML = '<div class="messages-list"></div>';
+        chatModal.appendChild(container);
+    }
+
+    // Load messages
+    const messagesList = chatModal.querySelector('.messages-list');
+    messagesList.innerHTML = ''; // Clear existing messages
+
+    // Add messages if they exist
+    if (contact.messages && contact.messages.length > 0) {
+        contact.messages.forEach((msg, index) => {
+            const messageElement = document.createElement('div');
+            messageElement.className = `message ${msg.my ? 'sent' : 'received'}`;
+            messageElement.setAttribute('data-message-id', index);
+            messageElement.innerHTML = `
+                <div class="message-content">${msg.message}</div>
+                <div class="message-time">${formatTime(msg.timestamp)}</div>
+            `;
+            messagesList.appendChild(messageElement);
+        });
+        
+        // Scroll to bottom of messages
+        messagesList.scrollTop = messagesList.scrollHeight;
+    }
+
+    // Ensure input container exists
+    const inputContainer = chatModal.querySelector('.message-input-container');
+    if (!inputContainer) {
+        const container = document.createElement('div');
+        container.className = 'message-input-container';
+        container.innerHTML = `
+            <textarea class="message-input" placeholder="Type a message..."></textarea>
+            <button class="send-button" id="handleSendMessage">
+                <svg viewBox="0 0 24 24">
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+                </svg>
+            </button>
+        `;
+        chatModal.appendChild(container);
+    }
+
+    // Store current contact for message sending
+    handleResultClick.currentContact = contactAddress;
+}
+
+// Contact search functions
+function searchContacts(searchText) {
+    if (!searchText || !myData?.contacts) return [];
+
+    const results = [];
+    const searchLower = searchText.toLowerCase();
+
+    // Search through all contacts
+    Object.entries(myData.contacts).forEach(([address, contact]) => {
+        // Fields to search through
+        const searchFields = [
+            contact.username,
+            contact.name,
+            contact.email,
+            contact.phone,
+            contact.linkedin,
+            contact.x,
+        ].filter(Boolean); // Remove null/undefined values
+
+        // Check if any field matches
+        const matches = searchFields.some((field) =>
+            field.toLowerCase().includes(searchLower)
+        );
+
+        if (matches) {
+            // Determine match type for sorting
+            const exactMatch = searchFields.some(
+                (field) => field.toLowerCase() === searchLower
+            );
+            const startsWithMatch = searchFields.some((field) =>
+                field.toLowerCase().startsWith(searchLower)
+            );
+
+            results.push({
+                ...contact,
+                address,
+                matchType: exactMatch ? 2 : startsWithMatch ? 1 : 0,
+            });
+        }
+    });
+
+    // Sort results by match type and then alphabetically by username
+    return results.sort((a, b) => {
+        if (a.matchType !== b.matchType) {
+            return b.matchType - a.matchType;
+        }
+        return (a.username || "").localeCompare(b.username || "");
+    });
+}
+
+function displayContactResults(results, searchText) {
+    const resultsContainer = document.getElementById("contactSearchResults");
+    resultsContainer.innerHTML = "";
+
+    results.forEach(async (contact) => {
+        const contactElement = document.createElement("div");
+        contactElement.className = "chat-item contact-item";
+        
+        // Generate identicon for the contact
+        const identicon = await generateIdenticon(contact.address);
+        
+        // Determine which field matched for display
+        const matchedField = [
+            { field: 'username', value: contact.username },
+            { field: 'name', value: contact.name },
+            { field: 'email', value: contact.email },
+            { field: 'phone', value: contact.phone },
+            { field: 'linkedin', value: contact.linkedin },
+            { field: 'x', value: contact.x }
+        ].find(f => f.value && f.value.toLowerCase().includes(searchText.toLowerCase()));
+
+        // Create match preview with label and highlighted matched value
+        const matchPreview = matchedField 
+            ? `${matchedField.field}: ${matchedField.value.replace(
+                new RegExp(searchText, 'gi'),
+                match => `<mark>${match}</mark>`
+              )}`
+            : '';
+        
+        contactElement.innerHTML = `
+            <div class="chat-avatar">
+                ${identicon}
+            </div>
+            <div class="chat-content">
+                <div class="chat-header">
+                    <span class="chat-name">${contact.username || "Unknown"}</span>
+                </div>
+                <div class="chat-message">
+                    <span class="match-label">${matchPreview}</span>
+                </div>
+            </div>
+        `;
+
+        // Add click handler to show contact info
+        contactElement.addEventListener("click", () => {
+            openChatModal(contact.address);
+            // Close the search modal
+            document.getElementById("contactSearchModal").classList.remove("active");
+        });
+
+        resultsContainer.appendChild(contactElement);
+    });
+}
+
+// Create a display info object from a contact object
+function createDisplayInfo(contact) {
+    return {
+        username: contact.senderInfo?.username || contact.username || contact.address.slice(0,8) + '...' + contact.address.slice(-6),
+        name: contact.name || contact.senderInfo?.name || 'Not provided',
+        email: contact.senderInfo?.email || 'Not provided',
+        phone: contact.senderInfo?.phone || 'Not provided',
+        linkedin: contact.senderInfo?.linkedin || 'Not provided',
+        x: contact.senderInfo?.x || 'Not provided',
+        address: contact.address
+    };
 }
 
