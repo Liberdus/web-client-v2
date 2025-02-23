@@ -1,3 +1,14 @@
+:root {
+  --border-color: #dee2e6;
+  --background-color: white;
+  --hover-background: #f8f9fa;
+  --text-color: #1c1c21;
+  --secondary-text-color: #65676b;
+  --highlight-color: rgba(216, 119, 0, 0.444);
+  --input-background: #e4e6e9;
+  --hover-background-dark: #d0d2d6;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -98,6 +109,7 @@ body {
 
 .header {
   display: none;
+  align-items: center;
   width: 100%;
   padding: 16px;
   background-color: white;
@@ -118,11 +130,18 @@ body {
 }
 
 #logo {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+#logo img {
   width: 40px;
   height: 40px;
   padding: 1px;
+  object-fit: contain;
 }
-  
+
 .header.active {
   display: flex;
   justify-content: space-between;
@@ -210,23 +229,46 @@ body {
   flex-shrink: 0;
 }
 
-/* Chat List Styles */
+/* Base chat list styles */
 .chat-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-.chat-item {
+/* Main chat list items */
+#chatList .chat-item {
   display: flex;
-  padding: 16px;
-  border-bottom: 1px solid #dee2e6;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--background-color);
   cursor: pointer;
-  transition: background-color 0.2s;
 }
 
+/* Search Results Container */
+#searchResults {
+  padding: 0;
+  margin: 0;
+}
+
+/* Search Results List */
+#searchResults .chat-list {
+  padding: 0;
+  margin: 0;
+}
+
+/* Search result items */
+#searchResults .chat-list .chat-item {
+  display: flex;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--background-color);
+  cursor: pointer;
+}
+
+/* Hover effects for both */
 .chat-item:hover {
-  background-color: #f8f9fa;
+  background: var(--hover-background);
 }
 
 .chat-content {
@@ -537,9 +579,14 @@ button:disabled {
   top: 0;
   background-color: white;
   z-index: 1002;
+  border-bottom: 1px solid var(--border-color);
+  position: relative;
 }
 
 .back-button {
+  position: absolute;
+  left: 16px;
+  z-index: 1;
   background: none;
   border: none;
   cursor: pointer;
@@ -559,14 +606,34 @@ button:disabled {
   background-repeat: no-repeat;
 }
 
+.chat-user-info {
+  display: flex;
+  align-items: center;
+  margin-left: 48px;
+  gap: 12px;
+}
+
+.modal-avatar {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-avatar svg {
+  width: 100%;
+  height: 100%;
+}
+
 .modal-title {
-  font-family: "Inter", sans-serif;
-  font-size: 24px;
-  font-weight: 600;
-  color: #333;
   flex: 1;
   text-align: center;
-  margin-right: 40px;
+  font-family: "Inter", sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-color);
+  margin: 0 auto;
 }
 
 .menu-list {
@@ -845,18 +912,11 @@ input[type="file"].form-control::file-selector-button {
 }
 
 .chat-user-info {
-  display: flex;
-  align-items: center;
-  flex: 1;
+  cursor: pointer;
 }
 
-.modal-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 20px;
-  margin-right: 1rem;
-  background-color: #e9ecef;
-  overflow: hidden;
+.chat-user-info:hover {
+  opacity: 0.8;
 }
 
 /* Wallet Styles */
@@ -1564,4 +1624,205 @@ pre.log-message {
   margin-left: 8px;
   padding: 6px 12px;
   font-size: 0.9rem;
+}
+
+/* Search Bar Container */
+.search-bar-container {
+  padding: 8px 16px;
+  background: var(--background-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Search Bar */
+.search-bar {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--input-background);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border: none;
+}
+
+.search-bar:hover {
+  background: var(--hover-background-dark);
+}
+
+/* Search input styles */
+.search-input {
+  border: none;
+  background: transparent;
+  width: 100%;
+  color: var(--text-color);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0;
+}
+
+.search-input::placeholder {
+  color: var(--secondary-text-color);
+  opacity: 1;
+}
+
+.search-input:focus {
+  outline: none;
+}
+
+/* Search Modal */
+.search-modal {
+  display: none;
+}
+
+.search-modal.active {
+  display: flex;
+}
+
+/* Search Results */
+.search-results {
+  padding: 8px 0;
+}
+
+.search-result-item {
+  display: flex;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color) !important;
+  background: var(--background-color);
+  cursor: pointer;
+  align-items: center;
+}
+
+.search-result-item:hover {
+  background: var(--hover-background);
+}
+
+/* Use existing chat-item styles for consistency */
+.search-result-item.chat-item {
+  display: flex;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Remove old search result styles that conflict */
+.search-result-header,
+.search-result-username,
+.search-result-time,
+.search-result-preview {
+  display: none;
+}
+
+/* Message Highlight Animation */
+.message.highlighted {
+  animation: highlight-message 2s ease;
+}
+
+@keyframes highlight-message {
+  0%,
+  100% {
+    background: transparent;
+  }
+  20%,
+  80% {
+    background: var(--highlight-color);
+  }
+}
+
+/* Update search modal input to match main search bar */
+#messageSearch {
+  border: none;
+  background: var(--input-background);
+  width: 100%;
+  color: var(--text-color);
+  font-size: 0.9rem;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+#messageSearch:focus {
+  outline: none;
+  background: var(--hover-background);
+}
+
+/* Add search icon to modal search input */
+.form-container {
+  position: relative;
+}
+
+#messageSearch {
+  padding-left: 12px; /* Reset to normal padding */
+}
+
+/* Style for highlighted search matches */
+mark {
+  background-color: var(--highlight-color);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+/* Form container spacing */
+.form-container {
+  padding: 16px;
+}
+
+/* Search bar spacing */
+.form-container .search-bar {
+  margin-bottom: 16px;
+}
+
+/* Chat list and search results styling */
+.chat-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* Individual chat/search items */
+.chat-list .chat-item {
+  display: flex;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--background-color);
+}
+
+/* Specific search result item styling */
+.chat-list .search-result-item {
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+/* Last item border removal */
+.chat-list .search-result-item:last-child {
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+/* Hover effect */
+.chat-list .search-result-item:hover {
+  background: var(--hover-background);
+}
+
+/* Search Results Container */
+#searchResults {
+  padding: 0;
+  margin: 0;
+}
+
+/* Search Results List */
+#searchResults .chat-list {
+  padding: 0;
+  margin: 0;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Individual search result items */
+#searchResults .chat-list .chat-item {
+  display: flex;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--background-color);
+  margin: 0;
+}
+
+/* Ensure border shows on hover */
+#searchResults .chat-list .chat-item:hover {
+  background: var(--hover-background);
 }
