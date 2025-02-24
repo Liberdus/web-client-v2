@@ -35,6 +35,8 @@ class Logger {
   static _retryQueue = [];         // Queue for failed saves
   static _processingRetries = false;
 
+  static _counter = 0;
+
   static async initDB() {
     const db = await new Promise((resolve, reject) => {
       const request = indexedDB.open(this.DB_NAME, 1);
@@ -179,13 +181,9 @@ class Logger {
 
   static generateUniqueId() {
     const timestamp = Date.now();
-    if (timestamp <= this._lastTimestamp) {
-      // If we get the same timestamp, increment last value
-      this._lastTimestamp++;
-    } else {
-      this._lastTimestamp = timestamp;
-    }
-    return this._lastTimestamp;
+    const counter = (this._counter = (this._counter + 1) % 1000); // Reset at 1000 to keep IDs manageable
+    const random = Math.floor(Math.random() * 1000); // Add random component
+    return `${timestamp}-${counter.toString().padStart(3, '0')}-${random.toString().padStart(3, '0')}`;
   }
 
   static queueLog(level, messages, source) {
