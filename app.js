@@ -91,21 +91,21 @@ async function forceReload(urls) {
 
 // https://github.com/paulmillr/noble-post-quantum
 // https://github.com/paulmillr/noble-post-quantum/releases
-import { ml_kem1024, randomBytes } from './noble-post-quantum.js';
+import { ml_kem1024, randomBytes } from './external/noble-post-quantum.js';
 
 // https://github.com/paulmillr/noble-secp256k1
 // https://github.com/paulmillr/noble-secp256k1/raw/refs/heads/main/index.js
-import * as secp from './noble-secp256k1.js'; 
+import * as secp from './external/noble-secp256k1.js'; 
 
 // https://github.com/adraffy/keccak.js
 // https://github.com/adraffy/keccak.js/blob/main/src/keccak256.js
 //   permute.js and utils.js were copied into keccak256.js instead of being imported
-import keccak256 from './keccak256.js';
+import keccak256 from './external/keccak256.js';
 
 // https://github.com/dcposch/blakejs
 // https://github.com/dcposch/blakejs/blob/master/blake2b.js
 //   some functions from util.js were copied into blake2b.js
-import blake from './blake2b.js';
+import blake from './external/blake2b.js';
 
 // https://github.com/shardus/lib-crypto-web/blob/main/utils/stringify.js
 // Needed to stringify and parse bigints; also deterministic stringify
@@ -115,7 +115,7 @@ import { stringify, parse } from './stringify-shardus.js';
 // We want to use encryption that we can see the source code for; don't use the native browser encryption
 // https://github.com/paulmillr/noble-ciphers/releases
 // https://github.com/paulmillr/noble-ciphers/releases/download/1.2.0/noble-ciphers.js
-import { cbc, xchacha20poly1305 } from './noble-ciphers.js';
+import { cbc, xchacha20poly1305 } from './external/noble-ciphers.js';
 
 // Put standalone conversion function in lib.js
 import { normalizeUsername, generateIdenticon, formatTime, 
@@ -3540,7 +3540,7 @@ async function updateWalletView() {
 console.log('asset balance', asset, asset.balance)
         return `
             <div class="asset-item">
-                <div class="asset-logo"><img src="liberdus_logo_50.png" class="asset-logo"></div>
+                <div class="asset-logo"><img src="./media/liberdus_logo_50.png" class="asset-logo"></div>
                 <div class="asset-info">
                     <div class="asset-name">${asset.name}</div>
                     <div class="asset-symbol">$${asset.price} / ${asset.symbol}</div>

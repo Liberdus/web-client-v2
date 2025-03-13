@@ -54,7 +54,7 @@
       https://github.com/davidshimjs/qrcodejs/blob/master/qrcode.js
     -->
     <script src="./log-utils.js"></script>
-    <script src="./qrcode.js"></script>
+    <script src="./external/qrcode.js"></script>
     <script src="./network.js"></script>
     <link rel="stylesheet" href="./styles.css" />
     <link rel="manifest" href="./manifest.json" />
@@ -63,7 +63,7 @@
     <script src="./app.js" type="module"></script>
     <div class="container">
       <header class="header" id="header">
-        <div id="logo"><img src="liberdus_logo_50.png" /></div>
+        <div id="logo"><img src="./media/liberdus_logo_50.png" /></div>
         <div class="app-name">Liberdus</div>
         <div class="header-icons">
           <div class="offline-indicator" id="offlineIndicator">Offline</div>
@@ -73,7 +73,7 @@
 
       <div class="welcome-screen" id="welcomeScreen">
         <img
-          src="./liberdus_logo_250.png"
+          src="./media/liberdus_logo_250.png"
           alt="Liberdus Logo"
           style="margin-bottom: 20px"
         />
@@ -238,7 +238,7 @@
         <div class="form-container">
           <div style="padding: 1rem">
             <img
-              src="./liberdus_logo_250.png"
+              src="./media/liberdus_logo_250.png"
               alt="Liberdus Logo"
               style="margin-bottom: 20px; width: 100%; max-width: 200px"
             />
@@ -281,19 +281,21 @@
             <a href="service-worker.js" target="_blank">service-worker.js</a>
             <br />
             <p>
-              <a href="noble-post-quantum.js" target="_blank"
+              <a href="./external/noble-post-quantum.js" target="_blank"
                 >noble-post-quantum.js</a
               >
-              <a href="noble-secp256k1.js" target="_blank"
+              <a href="./external/noble-secp256k1.js" target="_blank"
                 >noble-secp256k1.js</a
               >
-              <a href="noble-ciphers.js" target="_blank">noble-ciphers.js</a>
-              <a href="blake2b.js" target="_blank">blake2b.js</a>
-              <a href="keccak256.js" target="_blank">keccak256.js</a>
-              <a href="stringify-shardus.js" target="_blank"
+              <a href="./external/noble-ciphers.js" target="_blank"
+                >noble-ciphers.js</a
+              >
+              <a href="./external/blake2b.js" target="_blank">blake2b.js</a>
+              <a href="./external/keccak256.js" target="_blank">keccak256.js</a>
+              <a href="./external/stringify-shardus.js" target="_blank"
                 >stringify-shardus.js</a
               >
-              <a href="qrcode.js" target="_blank">qrcode.js</a>
+              <a href="./external/qrcode.js" target="_blank">qrcode.js</a>
             </p>
           </div>
         </div>
