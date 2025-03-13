@@ -110,7 +110,7 @@ import blake from './external/blake2b.js';
 // https://github.com/shardus/lib-crypto-web/blob/main/utils/stringify.js
 // Needed to stringify and parse bigints; also deterministic stringify
 //   modified to use export
-import { stringify, parse } from './stringify-shardus.js';
+import { stringify, parse } from './external/stringify-shardus.js';
 
 // We want to use encryption that we can see the source code for; don't use the native browser encryption
 // https://github.com/paulmillr/noble-ciphers/releases
