@@ -669,7 +669,7 @@
             <button type="submit" class="update-button">Send</button>
           </form>
 
-          <!-- QR Scanner Container -->
+          <!-- QR Scan Container -->
           <div
             id="qrScannerContainer"
             class="qr-scanner-container"
@@ -689,6 +689,21 @@
         </div>
       </div>
 
+      <!-- QR Scan Modal -->
+      <div class="modal fixed-header" id="qrScanModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeQRScanModal"></button>
+          <div class="modal-title">Scan QR</div>
+        </div>
+        <div class="scanner-container">
+          <p id="scan-waiting" class="status">Waiting for camera access...</p>
+          <video id="video"></video>
+          <div class="scan-region-highlight"></div>
+          <div class="scan-highlight" id="scan-highlight"></div>
+          <canvas id="canvas"></canvas>
+        </div>
+      </div>
+      
       <!-- History Modal -->
       <div class="modal fixed-header" id="historyModal">
         <div class="modal-header">

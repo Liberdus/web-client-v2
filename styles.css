@@ -2917,6 +2917,7 @@ mark {
   min-width: 80px;
 }
 
+/* start of scanner stuff added by DB */
 .qr-data-preview {
   font-size: 0.875rem;
   padding: 12px 15px;
@@ -3201,6 +3202,8 @@ mark {
     height: -webkit-fill-available;
   }
 }
+/* end of scanner stuff added by DB */
+
 .modal.fixed-header {
   overflow: hidden;
   display: flex;
@@ -3224,3 +3227,58 @@ input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
+/* the following qr code scan stuff was added by Omar */
+.scanner-container {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+  aspect-ratio: 4/3;
+}
+
+#video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.scan-region-highlight {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 200px;
+  height: 200px;
+  border: 2px dashed #3498db;
+  border-radius: 8px;
+  pointer-events: none;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3);
+}
+
+.scan-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+  border: 2px solid #3498db;
+  border-radius: 8px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.scan-highlight.active {
+  opacity: 1;
+  background-color: rgba(52, 152, 219, 0.3);
+}
+
+#canvas {
+  display: none;
+}
+/* end of additions by Omar */

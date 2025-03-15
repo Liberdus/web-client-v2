@@ -28,7 +28,7 @@ console.log(parseInt(myVersion.replace(/\D/g, '')), parseInt(newVersion.replace(
             alert('Updating to new version: ' + newVersion)
         }
         localStorage.setItem('version', newVersion); // Save new version
-        forceReload(['index.html','styles.css','app.js','lib.js', 'network.js'])
+        forceReload(['./', 'index.html','styles.css','app.js','lib.js', 'network.js', 'db.js', 'log-utils.js', 'service-worker.js', 'offline.html'])
         const newUrl = window.location.href
 //console.log('reloading', newUrl)
         window.location.replace(newUrl);
@@ -659,9 +659,10 @@ function checkIsInstalledPWA() {
 
 // Load saved account data and update chat list on page load
 document.addEventListener('DOMContentLoaded', async () => {
-    const isInstalledPWA = checkIsInstalledPWA();
+    await checkVersion()  // version needs to be checked before anything else happens
     
     // Initialize service worker only if running as installed PWA
+    const isInstalledPWA = checkIsInstalledPWA();
     if (isInstalledPWA && 'serviceWorker' in navigator) {
         await registerServiceWorker();
         setupServiceWorkerMessaging(); 
@@ -672,7 +673,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('Running in web-only mode, skipping service worker initialization');
     }
 
-    checkVersion()
     document.getElementById('versionDisplay').textContent = myVersion + ' '+version;
     document.getElementById('networkNameDisplay').textContent = network.name;
 
@@ -904,6 +904,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             displayContactResults(results, searchText);
         }
     }, (searchText) => searchText.length === 1 ? 600 : 300)); // Dynamic wait time
+
+
+    // Omar added
+    document.getElementById('scanQRButton').addEventListener('click', scanQRCode);
+    document.getElementById('closeQRScanModal').addEventListener('click', closeQRScanModal);    
 
     setupAddToHomeScreen()
 });
@@ -2317,6 +2322,7 @@ function openSendModal() {
     usernameAvailable.style.display = 'none';
     submitButton.disabled = true;
     
+/* This is now done in the DOMContentLoaded funtion
     // Add QR code scan button handler
     const scanButton = document.getElementById('scanQRButton');
     // Remove any existing event listeners first
@@ -2324,7 +2330,8 @@ function openSendModal() {
     scanButton.parentNode.replaceChild(newScanButton, scanButton);
     newScanButton.addEventListener('click', scanQRCode);
     console.log("Added click event listener to scan QR button");
-    
+ */
+
     // Check availability on input changes
     let checkTimeout;
     usernameInput.addEventListener('input', (e) => {
@@ -2379,8 +2386,19 @@ function openSendModal() {
     updateSendAddresses();
 }
 
+// Function to handle QR code scanning Omar
+function scanQRCode() {
+    const modal = document.getElementById('qrScanModal');
+    modal.classList.add('active');
+}
+
+function closeQRScanModal(){
+    document.getElementById('qrScanModal').classList.remove('active');
+}
+
+// this was the old scanQRCode function; not needed anymore
 // Function to handle QR code scanning
-async function scanQRCode() {
+async function scanQRCodeOld() {
     try {
         console.log("scanQRCode function called");
         
