@@ -1451,10 +1451,19 @@ async function switchView(view) {
         if (previousView && previousButton) {
             console.log(`Restoring previous view: ${previousView}`);
             
-            // Hide all screens
-            document.querySelectorAll('.app-screen').forEach(screen => {
-                screen.classList.remove('active');
-            });
+            // Get references to screens and buttons
+            const chatScreen = document.getElementById('chatsScreen');
+            const contactsScreen = document.getElementById('contactsScreen');
+            const walletScreen = document.getElementById('walletScreen');
+            
+            const chatButton = document.getElementById('switchToChats');
+            const contactsButton = document.getElementById('switchToContacts');
+            const walletButton = document.getElementById('switchToWallet');
+            
+            // Hide all screens with direct references
+            chatScreen.classList.remove('active');
+            contactsScreen.classList.remove('active');
+            walletScreen.classList.remove('active');
             
             // Show previous screen
             const previousScreenElement = document.getElementById(`${previousView}Screen`);
@@ -1462,11 +1471,22 @@ async function switchView(view) {
                 previousScreenElement.classList.add('active');
             }
             
-            // Restore previous button state
-            document.querySelectorAll('.nav-button').forEach(button => {
-                button.classList.remove('active');
-            });
-            previousButton.classList.add('active');
+            // Remove active class from all buttons with direct references
+            chatButton.classList.remove('active');
+            contactsButton.classList.remove('active');
+            walletButton.classList.remove('active');
+            
+            // Add active to the correct button based on previousView
+            if (previousView === 'chats') {
+                chatButton.classList.add('active');
+            } else if (previousView === 'contacts') {
+                contactsButton.classList.add('active');
+            } else if (previousView === 'wallet') {
+                walletButton.classList.add('active');
+            } else {
+                // Fallback if previousButton is available
+                previousButton.classList.add('active');
+            }
             
             // Display error toast to user
             showToast(`Failed to switch to ${view} view`, 3000, "error");
