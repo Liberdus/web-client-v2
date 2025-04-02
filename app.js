@@ -1372,61 +1372,106 @@ async function updateWalletBalances() {
 }
 
 async function switchView(view) {
-    // Hide all screens
-    document.querySelectorAll('.app-screen').forEach(screen => {
-        screen.classList.remove('active');
-    });
+    // Store the current view for potential rollback
+    const previousView = document.querySelector('.app-screen.active')?.id?.replace('Screen', '') || 'chats';
+    const previousButton = document.querySelector('.nav-button.active');
     
-    // Show selected screen
-    document.getElementById(`${view}Screen`).classList.add('active');
+    try {
+        // Direct references to view elements
+        const chatScreen = document.getElementById('chatsScreen');
+        const contactsScreen = document.getElementById('contactsScreen');
+        const walletScreen = document.getElementById('walletScreen');
+        
+        // Direct references to button elements
+        const chatButton = document.getElementById('switchToChats');
+        const contactsButton = document.getElementById('switchToContacts');
+        const walletButton = document.getElementById('switchToWallet');
+        
+        // Hide all screens
+        chatScreen.classList.remove('active');
+        contactsScreen.classList.remove('active');
+        walletScreen.classList.remove('active');
+        
+        // Show selected screen
+        document.getElementById(`${view}Screen`).classList.add('active');
 
-    // Show header and footer
-    document.getElementById('header').classList.add('active');
-    document.getElementById('footer').classList.add('active');
-    
-    // Update header with username if signed in
-    const appName = document.querySelector('.app-name');
-    if (myAccount && myAccount.username) {
-        appName.textContent = `${myAccount.username}`;
-    } else {
-        appName.textContent = '';
-    }   
+        // Update nav buttons - remove active class from all
+        chatButton.classList.remove('active');
+        contactsButton.classList.remove('active');
+        walletButton.classList.remove('active');
+        
+        // Add active class to selected button
+        if (view === 'chats') {
+            chatButton.classList.add('active');
+        } else if (view === 'contacts') {
+            contactsButton.classList.add('active');
+        } else if (view === 'wallet') {
+            walletButton.classList.add('active');
+        }
 
-    // Show/hide new chat button
-    const newChatButton = document.getElementById('newChatButton');
-    if (view === 'chats') {
-        newChatButton.classList.add('visible');
-    } else if (view === 'contacts') {
-        newChatButton.classList.add('visible');
-    } else {
-        newChatButton.classList.remove('visible');
-    }
+        // Show header and footer
+        document.getElementById('header').classList.add('active');
+        document.getElementById('footer').classList.add('active');
+        
+        // Update header with username if signed in
+        const appName = document.querySelector('.app-name');
+        if (myAccount && myAccount.username) {
+            appName.textContent = `${myAccount.username}`;
+        } else {
+            appName.textContent = '';
+        }   
 
-    // Update lists when switching views
-    if (view === 'chats') {
-        document.getElementById('switchToChats').classList.remove('has-notification');
-        await updateChatList('force');
-        if (isOnline) {
-            if (wsManager && !wsManager.isSubscribed()) {
-                pollChatInterval(pollIntervalNormal)
+        // Show/hide new chat button
+        const newChatButton = document.getElementById('newChatButton');
+        if (view === 'chats' || view === 'contacts') {
+            newChatButton.classList.add('visible');
+        } else {
+            newChatButton.classList.remove('visible');
+        }
+
+        // Update lists when switching views
+        if (view === 'chats') {
+            chatButton.classList.remove('has-notification');
+            await updateChatList('force');
+            if (isOnline) {
+                if (wsManager && !wsManager.isSubscribed()) {
+                    pollChatInterval(pollIntervalNormal);
+                }
             }
+        } else if (view === 'contacts') {
+            await updateContactsList();
+        } else if (view === 'wallet') {
+            walletButton.classList.remove('has-notification');
+            await updateWalletView();
         }
-    } else if (view === 'contacts') {
-        await updateContactsList();
-    } else if (view === 'wallet') {
-//        await updateAssetPricesIfNeeded(); // New function to update asset prices
-//        await updateWalletBalances();
-        document.getElementById('switchToWallet').classList.remove('has-notification');
-        await updateWalletView();
+    } catch (error) {
+        console.error(`Error switching to ${view} view:`, error);
+        
+        // Restore previous view if there was an error
+        if (previousView && previousButton) {
+            console.log(`Restoring previous view: ${previousView}`);
+            
+            // Hide all screens
+            document.querySelectorAll('.app-screen').forEach(screen => {
+                screen.classList.remove('active');
+            });
+            
+            // Show previous screen
+            const previousScreenElement = document.getElementById(`${previousView}Screen`);
+            if (previousScreenElement) {
+                previousScreenElement.classList.add('active');
+            }
+            
+            // Restore previous button state
+            document.querySelectorAll('.nav-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            previousButton.classList.add('active');
+            
+            // Display error toast to user
+            showToast(`Failed to switch to ${view} view`, 3000, "error");
+        }
     }
-    
-    // Update nav button states
-    document.querySelectorAll('.nav-button').forEach(button => {
-        button.classList.remove('active');
-        if (button.textContent.toLowerCase() === view) {
-            button.classList.add('active');
-        }
-    });
 }
 
 // Update contacts list UI
