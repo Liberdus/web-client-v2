@@ -2004,7 +2004,11 @@ function createNewContact(addr, username){
     c.unread = 0
 }
 
+// Add these variables at the top with other globals
+let openChatModalSource = null;
+let openChatModalSourceAddress = null;
 
+// Update the openChatModal function
 function openChatModal(address) {
     const modal = document.getElementById('chatModal');
     const modalAvatar = modal.querySelector('.modal-avatar');
@@ -2012,7 +2016,17 @@ function openChatModal(address) {
     const messagesList = modal.querySelector('.messages-list');
     const editButton = document.getElementById('chatEditButton');
     document.getElementById('newChatButton').classList.remove('visible');
-    const contact = myData.contacts[address]
+    
+    // Only set source if not already set by the chat button in contact info
+    if (openChatModalSource !== 'contactInfo') {
+        openChatModalSource = document.getElementById('contactInfoModal').classList.contains('active') ? 'contactInfo' : null;
+        if (openChatModalSource === 'contactInfo') {
+            openChatModalSourceAddress = address;
+        }
+    }
+    
+    const contact = myData.contacts[address];
+    
     // Set user info
     modalTitle.textContent = contact.name || contact.senderInfo?.name || contact.username || `${contact.address.slice(0,8)}...${contact.address.slice(-6)}`;
     
@@ -2034,12 +2048,12 @@ function openChatModal(address) {
             <div class="message-time">${formatTime(msg.timestamp)}</div>
         </div>
     `).join('');
-
+    
     // Scroll to bottom
     setTimeout(() => {
         messagesList.parentElement.scrollTop = messagesList.parentElement.scrollHeight;
     }, 100);
-
+    
     // Add click handler for username to show contact info
     const userInfo = modal.querySelector('.chat-user-info');
     userInfo.onclick = () => {
@@ -2048,7 +2062,7 @@ function openChatModal(address) {
             contactInfoModal.open(createDisplayInfo(contact));
         }
     };
-
+    
     // Add click handler for edit button
     editButton.onclick = () => {
         const contact = myData.contacts[address];
@@ -2073,6 +2087,41 @@ function openChatModal(address) {
     if (isOnline) {
         if (wsManager && !wsManager.isSubscribed()) {
             pollChatInterval(pollIntervalChatting) // poll for messages at a faster rate
+        }
+    }
+}
+
+// Update the closeChatModal function
+function closeChatModal() {
+    document.getElementById('chatModal').classList.remove('active');
+    
+    // If chat was opened from contact info modal, reopen it
+    if (openChatModalSource === 'contactInfo' && openChatModalSourceAddress) {
+        // Use the stored address directly instead of appendChatModal.address
+        const contactAddress = openChatModalSourceAddress;
+        if (myData.contacts[contactAddress]) {
+            contactInfoModal.open(createDisplayInfo(myData.contacts[contactAddress]));
+        }
+        // Reset the source tracking
+        openChatModalSource = null;
+        openChatModalSourceAddress = null;
+    } else {
+        // Regular back behavior - update the current view
+        if (document.getElementById('chatsScreen').classList.contains('active')) {
+            updateChatList('force');
+            document.getElementById('newChatButton').classList.add('visible');
+        }
+        if (document.getElementById('contactsScreen').classList.contains('active')) {
+            updateContactsList();
+            document.getElementById('newChatButton').classList.add('visible');
+        }
+    }
+    
+    appendChatModal.address = null;
+    appendChatModal.len = 0;
+    if (isOnline) {
+        if (wsManager && !wsManager.isSubscribed()) {
+            pollChatInterval(pollIntervalNormal); // back to polling at slower rate
         }
     }
 }
@@ -2105,27 +2154,9 @@ function appendChatModal(){
     // Scroll to bottom
     messagesList.parentElement.scrollTop = messagesList.parentElement.scrollHeight;
 }
+
 appendChatModal.address = null
 appendChatModal.len = 0
-
-function closeChatModal() {
-    document.getElementById('chatModal').classList.remove('active');
-    if (document.getElementById('chatsScreen').classList.contains('active')) {
-        updateChatList('force')
-        document.getElementById('newChatButton').classList.add('visible');
-    }
-    if (document.getElementById('contactsScreen').classList.contains('active')) {
-        updateContactsList()
-        document.getElementById('newChatButton').classList.add('visible');
-    }
-    appendChatModal.address = null
-    appendChatModal.len = 0
-    if (isOnline) {
-        if (wsManager && !wsManager.isSubscribed()) {
-            pollChatInterval(pollIntervalNormal) // back to polling at slower rate
-        }
-    }
-}
 
 function openReceiveModal() {
     const modal = document.getElementById('receiveModal');
@@ -3429,6 +3460,9 @@ class ContactInfoModalManager {
         const chatButton = document.getElementById('contactInfoChatButton');
         if (displayInfo.address) {
             chatButton.addEventListener('click', () => {
+                // Explicitly set source before closing the modal
+                openChatModalSource = 'contactInfo';
+                openChatModalSourceAddress = displayInfo.address;
                 this.close();
                 openChatModal(displayInfo.address);
             });
