@@ -3,8 +3,8 @@ const network = {
   "name": "Testnet",
   "gateways": [
     {
-      "protocol": "http",
-      "host": "localhost",
+      "protocol": "https",
+      "host": "test.liberdus.com",
       "port": 3030    
     },
   ],
@@ -15,6 +15,6 @@ const network = {
     "url": "https://test.liberdus.com/explorer"
   },
   websocket: {
-    url: "ws://localhost:3031",
+    url: "wss://dev.liberdus.com:3031",
   }
 }

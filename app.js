@@ -825,6 +825,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateAvailableBalance();
     });
     document.getElementById('availableBalance').addEventListener('click', fillAmount);
+    // amount input listener for real-time balance validation
+    document.getElementById('sendAmount').addEventListener('input', updateAvailableBalance);
     
     // Add blur event listener for recipient validation
 //    document.getElementById('sendToAddress').addEventListener('blur', handleSendToAddressValidation);
@@ -2992,28 +2994,70 @@ function updateSendAddresses() {
 }
 
 function updateAvailableBalance() {
-    const walletData = myData.wallet
+    const walletData = myData.wallet;
     const assetIndex = document.getElementById('sendAsset').value;
-
-    const balanceAmount = document.getElementById('balanceAmount');
-    const balanceSymbol = document.getElementById('balanceSymbol');
-
+    const balanceWarning = document.getElementById('balanceWarning');
+    
     // Check if we have any assets
     if (!walletData.assets || walletData.assets.length === 0) {
-        balanceAmount.textContent = '0.00';
-        balanceSymbol.textContent = '';
+        updateBalanceDisplay(null);
+        return;
+    }
+    
+    updateBalanceDisplay(walletData.assets[assetIndex]);
+    
+    // Validate balance and disable submit button if needed
+    document.querySelector('#sendForm button[type="submit"]').disabled = 
+        validateBalance(document.getElementById('sendAmount').value, assetIndex, balanceWarning);
+}
+
+function updateBalanceDisplay(asset) {
+    if (!asset) {
+        document.getElementById('balanceAmount').textContent = '0.0000';
+        document.getElementById('balanceSymbol').textContent = '';
+        document.getElementById('transactionFee').textContent = '0.00';
         return;
     }
 
-    const asset = walletData.assets[assetIndex];
+    const txFeeInLIB = BigInt(parameters.current.transactionFee || 1) * wei;
     
-    balanceAmount.textContent = big2str(asset.balance, weiDigits);
-    balanceSymbol.textContent = asset.symbol;
+    document.getElementById('balanceAmount').textContent = big2str(BigInt(asset.balance), 18).slice(0, -12);
+    document.getElementById('balanceSymbol').textContent = asset.symbol;
+    document.getElementById('transactionFee').textContent = big2str(txFeeInLIB, 18).slice(0, -16);
 }
 
+
+function validateBalance(amount, assetIndex, balanceWarning = null) {
+    if (!amount) {
+        if (balanceWarning) balanceWarning.style.display = 'none';
+        return false;
+    }
+
+    const asset = myData.wallet.assets[assetIndex];
+    const feeInWei = BigInt(parameters.current.transactionFee || 1) * wei;
+    const totalRequired = bigxnum2big(wei, amount.toString()) + feeInWei;
+    const hasInsufficientBalance = BigInt(asset.balance) < totalRequired;
+
+    if (balanceWarning) {
+        if (hasInsufficientBalance) {
+            balanceWarning.textContent = `Insufficient balance (including ${big2str(feeInWei, 18).slice(0, -16)} LIB fee)`;
+            balanceWarning.style.display = 'block';
+        } else {
+            balanceWarning.style.display = 'none';
+        }
+    }
+
+    return hasInsufficientBalance;
+}
+
+
 function fillAmount() {
-    const amount = document.getElementById('balanceAmount').textContent;
-    document.getElementById('sendAmount').value = amount;
+    const asset = myData.wallet.assets[document.getElementById('sendAsset').value];
+    const feeInWei = BigInt(parameters.current.transactionFee || 1) * wei;
+    const maxAmount = BigInt(asset.balance) - feeInWei;
+    
+    document.getElementById('sendAmount').value = big2str(maxAmount > 0n ? maxAmount : 0n, 18).slice(0, -16);
+    document.getElementById('sendAmount').dispatchEvent(new Event('input'));
 }
 
 // The user has filled out the form to send assets to a recipient and clicked the Send button
@@ -3034,9 +3078,17 @@ async function handleSendAsset(event) {
     const keys = myAccount.keys;
     let toAddress;
 
-    // Validate amount
-    if (amount > fromAddress.balance) {  // TODO - include tx fee
-        alert('Insufficient balance');
+    // Validate amount including transaction fee
+    if (!validateBalance(amount, assetIndex)) {
+        const txFeeInLIB = BigInt(parameters.current.transactionFee || 1) * wei;
+        const amountInWei = bigxnum2big(wei, amount.toString());
+        const balance = BigInt(wallet.assets[assetIndex].balance);
+        
+        const amountStr = big2str(amountInWei, 18).slice(0, -16);
+        const feeStr = big2str(txFeeInLIB, 18).slice(0, -16);
+        const balanceStr = big2str(balance, 18).slice(0, -16);
+        
+        alert(`Insufficient balance: ${amountStr} + ${feeStr} (fee) > ${balanceStr} LIB`);
         return;
     }
 

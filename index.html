@@ -97,7 +97,7 @@
             Install
           </button>
           <button id="clearCacheButton" class="secondary-button">
-            Clear Cache
+            Check Update
           </button>
         </div>
         <div style="font-size: 0.8rem; margin-top: 10px; text-align: center">
@@ -749,12 +749,17 @@
             </div>
             <div class="form-group">
               <label for="sendAmount">Amount</label>
-              <div
-                id="availableBalance"
-                style="margin-bottom: 0.5rem; color: #6c757d; cursor: pointer"
-              >
-                Available: <span id="balanceAmount">0.00</span>
-                <span id="balanceSymbol"></span>
+              <div id="availableBalance" class="available-balance">
+                <div class="balance-info">
+                  <span
+                    >Available: <span id="balanceAmount">0.00</span>
+                    <span id="balanceSymbol"></span
+                  ></span>
+                  <span class="fee-info"
+                    >Fee: <span id="transactionFee">0.00</span> LIB</span
+                  >
+                </div>
+                <div id="balanceWarning" class="balance-warning"></div>
               </div>
               <input
                 type="number"

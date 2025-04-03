@@ -1551,6 +1551,29 @@ input[type="file"].form-control {
   font-family: var(--font-primary);
   font-size: var(--font-size-sm);
   color: var(--secondary-text-color) !important;
+  margin-bottom: 0.5rem;
+}
+
+.available-balance {
+  margin-bottom: 0.5rem;
+}
+
+.balance-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--secondary-text-color);
+}
+
+.fee-info {
+  color: var(--secondary-text-color);
+}
+
+.balance-warning {
+  font-size: 0.8em;
+  color: var(--danger-color);
+  display: none;
+  margin-top: 0.25rem;
 }
 
 #sendToAddressError {
