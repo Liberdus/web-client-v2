@@ -2945,7 +2945,7 @@ async function closeSendModal() {
     await updateChatList()
     document.getElementById('sendModal').classList.remove('active');
     document.getElementById('sendForm').reset();
-    opensendModal.username = null
+    openSendModal.username = null
 }
 
 function updateSendAddresses() {
