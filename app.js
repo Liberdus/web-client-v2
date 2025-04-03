@@ -2008,7 +2008,6 @@ function createNewContact(addr, username){
 let openChatModalSource = null;
 let openChatModalSourceAddress = null;
 
-// Update the openChatModal function
 function openChatModal(address) {
     const modal = document.getElementById('chatModal');
     const modalAvatar = modal.querySelector('.modal-avatar');
@@ -2091,11 +2090,8 @@ function openChatModal(address) {
     }
 }
 
-// Update the closeChatModal function
 function closeChatModal() {
     document.getElementById('chatModal').classList.remove('active');
-    
-    // If chat was opened from contact info modal, reopen it
     if (openChatModalSource === 'contactInfo' && openChatModalSourceAddress) {
         // Use the stored address directly instead of appendChatModal.address
         const contactAddress = openChatModalSourceAddress;
