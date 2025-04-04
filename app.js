@@ -2060,14 +2060,8 @@ function openChatModal(address) {
     userInfo.onclick = () => {
         const contact = myData.contacts[address];
         if (contact) {
-            // Temporarily hide chat modal
-            modal.classList.remove('active'); 
-            
-            // Open contact info, passing flags
-            contactInfoModal.open(createDisplayInfo(contact), { 
-                openedFromChat: true, 
-                chatAddress: address 
-            });
+            modal.classList.remove('active');
+            contactInfoModal.open(createDisplayInfo(contact), { openedFromChat: true, originatingChatAddress: address });
         }
     };
     
@@ -2075,7 +2069,8 @@ function openChatModal(address) {
     editButton.onclick = () => {
         const contact = myData.contacts[address];
         if (contact) {
-            contactInfoModal.open(createDisplayInfo(contact));
+            modal.classList.remove('active');
+            contactInfoModal.open(createDisplayInfo(contact), { openedFromChat: true, originatingChatAddress: address });
         }
     };
 
@@ -2101,22 +2096,30 @@ function openChatModal(address) {
 
 function closeChatModal() {
     document.getElementById('chatModal').classList.remove('active');
-    
-    // Regular back behavior - update the current view
-    if (document.getElementById('chatsScreen').classList.contains('active')) {
-        updateChatList('force');
-        document.getElementById('newChatButton').classList.add('visible');
+
+    if (openChatModalSource === 'contactInfo' && openChatModalSourceAddress) {
+        const contactAddress = openChatModalSourceAddress;
+        if (myData.contacts[contactAddress]) {
+            contactInfoModal.open(createDisplayInfo(myData.contacts[contactAddress]));
+        }
+        openChatModalSource = null;
+        openChatModalSourceAddress = null;
+    } else {
+        if (document.getElementById('chatsScreen').classList.contains('active')) {
+            updateChatList('force');
+            document.getElementById('newChatButton').classList.add('visible');
+        }
+        if (document.getElementById('contactsScreen').classList.contains('active')) {
+            updateContactsList();
+            document.getElementById('newChatButton').classList.add('visible');
+        }
     }
-    if (document.getElementById('contactsScreen').classList.contains('active')) {
-        updateContactsList();
-        document.getElementById('newChatButton').classList.add('visible');
-    }
-    
+
     appendChatModal.address = null;
     appendChatModal.len = 0;
     if (isOnline) {
         if (wsManager && !wsManager.isSubscribed()) {
-            pollChatInterval(pollIntervalNormal); // back to polling at slower rate
+            pollChatInterval(pollIntervalNormal);
         }
     }
 }
@@ -3507,8 +3510,9 @@ class ContactInfoModalManager {
         const chatButton = document.getElementById('contactInfoChatButton');
         if (displayInfo.address) {
             chatButton.addEventListener('click', () => {
-                // Keep contact info modal open; open chat modal on top
-                // this.close(); // Removed this line
+                openChatModalSource = 'contactInfo';
+                openChatModalSourceAddress = displayInfo.address;
+                this.close(); 
                 openChatModal(displayInfo.address);
             });
             chatButton.style.display = 'block';
@@ -3523,7 +3527,6 @@ class ContactInfoModalManager {
         await this.updateContactInfo(displayInfo);
         this.setupChatButton(displayInfo);
 
-        // Update friend button status
         const contact = myData.contacts[displayInfo.address];
         if (contact) {
             this.updateFriendButton(contact.friend || false);
@@ -3531,7 +3534,6 @@ class ContactInfoModalManager {
 
         this.modal.classList.add('active');
 
-        // Set flags based on options
         this.openedFromChat = options.openedFromChat || false;
         this.originatingChatAddress = options.originatingChatAddress || null;
     }
@@ -3541,24 +3543,24 @@ class ContactInfoModalManager {
         const openedFromChatFlag = this.openedFromChat;
         const originatingChatAddr = this.originatingChatAddress;
         
-        // Reset flags before closing
+        this.modal.classList.remove('active');
+
+        if (openedFromChatFlag && originatingChatAddr) {
+            const chatModal = document.getElementById('chatModal');
+            chatModal.classList.add('active');
+            this.currentContactAddress = null;
+            this.openedFromChat = false;
+            this.originatingChatAddress = null;
+            return;
+        }
+        
         this.currentContactAddress = null;
         this.openedFromChat = false;
         this.originatingChatAddress = null;
-        
-        this.modal.classList.remove('active');
 
-        // If opened from chat, re-show the chat modal instead of default behavior
-        if (openedFromChatFlag && originatingChatAddr) {
-            const chatModal = document.getElementById('chatModal');
-            chatModal.classList.add('active'); // Re-show the chat modal
-            // No need to update lists here, as we are returning to the chat
-        } else {
-            // Default close behavior: update lists if needed
-            if (this.needsContactListUpdate) {
-                updateContactsList();
-                this.needsContactListUpdate = false;
-            }
+        if (this.needsContactListUpdate) {
+            updateContactsList();
+            this.needsContactListUpdate = false;
         }
     }
 }
