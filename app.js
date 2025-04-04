@@ -1,6 +1,6 @@
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MM.DD.HH.mm like 2025.01.25.10.05
-const version = 'k'   // Also increment this when you increment version.html
+const version = 'n'   // Also increment this when you increment version.html
 let myVersion = '0'
 async function checkVersion(){
     myVersion = localStorage.getItem('version') || '0';
@@ -2147,6 +2147,7 @@ appendChatModal.len = 0
 
 function closeChatModal() {
     document.getElementById('chatModal').classList.remove('active');
+    document.querySelector('.message-input').value = '';
     if (document.getElementById('chatsScreen').classList.contains('active')) {
         updateChatList('force')
         document.getElementById('newChatButton').classList.add('visible');
