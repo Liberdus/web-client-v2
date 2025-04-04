@@ -2055,12 +2055,19 @@ function openChatModal(address) {
         messagesList.parentElement.scrollTop = messagesList.parentElement.scrollHeight;
     }, 100);
     
-    // Add click handler for username to show contact info
+    // Add click handler for username/avatar area to show contact info
     const userInfo = modal.querySelector('.chat-user-info');
     userInfo.onclick = () => {
         const contact = myData.contacts[address];
         if (contact) {
-            contactInfoModal.open(createDisplayInfo(contact));
+            // Temporarily hide chat modal
+            modal.classList.remove('active'); 
+            
+            // Open contact info, passing flags
+            contactInfoModal.open(createDisplayInfo(contact), { 
+                openedFromChat: true, 
+                chatAddress: address 
+            });
         }
     };
     
@@ -2094,25 +2101,15 @@ function openChatModal(address) {
 
 function closeChatModal() {
     document.getElementById('chatModal').classList.remove('active');
-    if (openChatModalSource === 'contactInfo' && openChatModalSourceAddress) {
-        // Use the stored address directly instead of appendChatModal.address
-        const contactAddress = openChatModalSourceAddress;
-        if (myData.contacts[contactAddress]) {
-            contactInfoModal.open(createDisplayInfo(myData.contacts[contactAddress]));
-        }
-        // Reset the source tracking
-        openChatModalSource = null;
-        openChatModalSourceAddress = null;
-    } else {
-        // Regular back behavior - update the current view
-        if (document.getElementById('chatsScreen').classList.contains('active')) {
-            updateChatList('force');
-            document.getElementById('newChatButton').classList.add('visible');
-        }
-        if (document.getElementById('contactsScreen').classList.contains('active')) {
-            updateContactsList();
-            document.getElementById('newChatButton').classList.add('visible');
-        }
+    
+    // Regular back behavior - update the current view
+    if (document.getElementById('chatsScreen').classList.contains('active')) {
+        updateChatList('force');
+        document.getElementById('newChatButton').classList.add('visible');
+    }
+    if (document.getElementById('contactsScreen').classList.contains('active')) {
+        updateContactsList();
+        document.getElementById('newChatButton').classList.add('visible');
     }
     
     appendChatModal.address = null;
@@ -3245,6 +3242,8 @@ class ContactInfoModalManager {
         this.needsContactListUpdate = false;  // track if we need to update the contact list
         this.isEditing = false;
         this.originalName = null;
+        this.openedFromChat = false;
+        this.originatingChatAddress = null;
         this.setupEventListeners();
     }
 
@@ -3508,10 +3507,8 @@ class ContactInfoModalManager {
         const chatButton = document.getElementById('contactInfoChatButton');
         if (displayInfo.address) {
             chatButton.addEventListener('click', () => {
-                // Explicitly set source before closing the modal
-                openChatModalSource = 'contactInfo';
-                openChatModalSourceAddress = displayInfo.address;
-                this.close();
+                // Keep contact info modal open; open chat modal on top
+                // this.close(); // Removed this line
                 openChatModal(displayInfo.address);
             });
             chatButton.style.display = 'block';
@@ -3521,7 +3518,7 @@ class ContactInfoModalManager {
     }
 
     // Open the modal
-    async open(displayInfo) {
+    async open(displayInfo, options = {}) {
         this.currentContactAddress = displayInfo.address;
         await this.updateContactInfo(displayInfo);
         this.setupChatButton(displayInfo);
@@ -3533,17 +3530,35 @@ class ContactInfoModalManager {
         }
 
         this.modal.classList.add('active');
+
+        // Set flags based on options
+        this.openedFromChat = options.openedFromChat || false;
+        this.originatingChatAddress = options.originatingChatAddress || null;
     }
 
     // Close the modal
     close() {
+        const openedFromChatFlag = this.openedFromChat;
+        const originatingChatAddr = this.originatingChatAddress;
+        
+        // Reset flags before closing
         this.currentContactAddress = null;
+        this.openedFromChat = false;
+        this.originatingChatAddress = null;
+        
         this.modal.classList.remove('active');
 
-        // If we made changes that affect the contact list, update it
-        if (this.needsContactListUpdate) {
-            updateContactsList();
-            this.needsContactListUpdate = false;
+        // If opened from chat, re-show the chat modal instead of default behavior
+        if (openedFromChatFlag && originatingChatAddr) {
+            const chatModal = document.getElementById('chatModal');
+            chatModal.classList.add('active'); // Re-show the chat modal
+            // No need to update lists here, as we are returning to the chat
+        } else {
+            // Default close behavior: update lists if needed
+            if (this.needsContactListUpdate) {
+                updateContactsList();
+                this.needsContactListUpdate = false;
+            }
         }
     }
 }
