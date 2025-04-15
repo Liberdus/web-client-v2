@@ -1321,7 +1321,7 @@ function setupAddToHomeScreen(){
 }
 
 // Update chat list UI
-async function updateChatList(force) {
+async function updateChatList(force, webSocketMessage = false) {
     let gotChats = 0
     if (myAccount && myAccount.keys) {
         if (isOnline) {
@@ -1364,18 +1364,7 @@ async function updateChatList(force) {
     const contacts = myData.contacts
     const chats = myData.chats
     
-    if (document.getElementById('chatModal').classList.contains('active')) { 
-        // append only if new messages has been added for this chat since the last append
-        const lastMessageTimestamp = contacts[appendChatModal.address].messages[0].timestamp || 0
-        const currentMessageCount = contacts[appendChatModal.address].messages.length || 0
-        console.log('appendChatModal.previousMessageCount', appendChatModal.previousMessageCount)
-        console.log('currentMessageCount', currentMessageCount)
-        if (currentMessageCount > appendChatModal.previousMessageCount) {
-            console.log('appendChatModal because new messages have been added for this chat')
-            appendChatModal() 
-        }
-    
-    }
+    if (document.getElementById('chatModal').classList.contains('active')) { appendChatModal(webSocketMessage) }
 
     if (chats.length === 0) {
         chatList.innerHTML = `
@@ -2099,8 +2088,6 @@ function createNewContact(addr, username){
 
 
 function openChatModal(address) {
-    appendChatModal.previousMessageCount = 0
-
     const modal = document.getElementById('chatModal');
     const modalAvatar = modal.querySelector('.modal-avatar');
     const modalTitle = modal.querySelector('.modal-title');
@@ -2165,7 +2152,7 @@ function openChatModal(address) {
     }
 }
 
-function appendChatModal() {
+function appendChatModal(webSocketMessage = false) {
     console.log('appendChatModal running for address:', appendChatModal.address);
     if (!appendChatModal.address) { return; }
 
@@ -2175,18 +2162,14 @@ function appendChatModal() {
             return;
     }
     const messages = contact.messages; // Already sorted descending
-    const newMessageTimestamps = appendChatModal.newMessageTimestamps
 
     const modal = document.getElementById('chatModal');
     if (!modal) return;
     const messagesList = modal.querySelector('.messages-list');
     if (!messagesList) return;
     
-    // --- Optional: Check scroll position BEFORE clearing ---
-    // const messageContainer = messagesList.parentElement;
-    // const scrollThreshold = 50; // Pixels from bottom
-    // const isScrolledToBottom = messageContainer.scrollHeight - messageContainer.clientHeight <= messageContainer.scrollTop + scrollThreshold;
-    // --- End Optional Check ---
+    // --- Tracking Variable ---
+    let lastReceivedElement = null; 
 
     // 1. Clear the entire list
     messagesList.innerHTML = '';
@@ -2195,56 +2178,50 @@ function appendChatModal() {
     for (let i = messages.length - 1; i >= 0; i--) {
         const m = messages[i];
         m.type = m.my ? 'sent' : 'received';
-        // 3. Append each message (results in oldest at top visually)
+
+        // 3. Append each message
         messagesList.insertAdjacentHTML('beforeend', `
             <div class="message ${m.type}" data-message-timestamp="${m.timestamp}">  
                 <div class="message-content" style="white-space: pre-wrap">${linkifyUrls(m.message)}</div>
                 <div class="message-time">${formatTime(m.timestamp)}</div>
             </div>
-        `); // Added data-message-timestamp
+        `);
+
+        // 4. If this message is received, update our tracker to the latest one
+        if (m.type === 'received') {
+            lastReceivedElement = messagesList.lastElementChild; // Get the actual DOM element just added
+        }
     }
     
-    // 4. Conditional Scrolling Logic
-    const messageContainer = messagesList.parentElement; // Get parent for scrolling
-    if (newMessageTimestamps && newMessageTimestamps.length > 0) {
-        // Find the highest timestamp among the newly received messages from this batch
-        const latestNewTimestamp = Math.max(...newMessageTimestamps);
-        const targetElement = messagesList.querySelector(`[data-message-timestamp="${latestNewTimestamp}"]`);
-        
-        if (targetElement) {
-             targetElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // 5. Delayed Scrolling & Highlighting Logic (after loop)
+    setTimeout(() => {
+        const messageContainer = messagesList.parentElement; 
+        if (lastReceivedElement && webSocketMessage) {
+            // Found a received message, scroll to and highlight it
+            //console.log('Scrolling to and highlighting last received message (after delay):', lastReceivedElement);
+            lastReceivedElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-             // **** Conditional Highlight with Delay START ****
-             // Add a short delay before applying highlight to allow scrolling to potentially finish
-             setTimeout(() => {
-                 // Re-check if the element still exists and has the class (safety)
-                 const currentTarget = messagesList.querySelector(`[data-message-timestamp="${latestNewTimestamp}"]`);
-                 if (currentTarget && currentTarget.classList.contains('received')) {
-                     console.log(`Highlight check for ${latestNewTimestamp}: Applying highlight AFTER DELAY.`);
-                     currentTarget.classList.add('highlighted');
-                     // Set timeout to remove the highlight
-                     setTimeout(() => currentTarget.classList.remove('highlighted'), 2000);
-                 } else {
-                     console.log(`Highlight check for ${latestNewTimestamp}: NOT applying highlight AFTER DELAY (element missing or not received).`);
+            // Apply highlight immediately 
+            lastReceivedElement.classList.add('highlighted');
+            
+            // Set timeout to remove the highlight after a duration
+            setTimeout(() => {
+                 // Check if element still exists before removing class
+                 if (lastReceivedElement && lastReceivedElement.parentNode) {
+                    lastReceivedElement.classList.remove('highlighted'); 
                  }
-             }, 100); // Delay of 100ms (adjust if needed)
-            // **** Conditional Highlight with Delay END ****
+            }, 2000); 
 
-             appendChatModal.newMessageTimestamps = []; // Clear timestamps after starting scroll/highlight process
         } else {
-            // Fallback if element not found (shouldn't happen often but safety first)
-             console.warn('Newly added message element not found for timestamp:', latestNewTimestamp);
-             messageContainer.scrollTop = messageContainer.scrollHeight;
-             appendChatModal.newMessageTimestamps = []; // Clear timestamps even on fallback
+            // No received messages found, just scroll to the bottom
+            //console.log('No received messages found, scrolling to bottom (after delay).');
+            // Ensure container exists before scrolling
+            if (messageContainer) {
+                messageContainer.scrollTop = messageContainer.scrollHeight;
+            }
         }
-    } else {
-        // Default behavior: scroll to the absolute bottom if no new messages
-        messageContainer.scrollTop = messageContainer.scrollHeight;
-    }
-    appendChatModal.previousMessageCount = messages.length;
+    }, 300); // <<< Delay of 500 milliseconds
 }
-appendChatModal.newMessageTimestamps = []
-appendChatModal.previousMessageCount = null
 appendChatModal.address = null
 
 function closeChatModal() {
@@ -2258,8 +2235,6 @@ function closeChatModal() {
         document.getElementById('newChatButton').classList.add('visible');
     }
     appendChatModal.address = null
-    appendChatModal.previousMessageCount = null
-    appendChatModal.newMessageTimestamps = []
     if (isOnline) {
         if (wsManager && !wsManager.isSubscribed()) {
             pollChatInterval(pollIntervalNormal) // back to polling at slower rate
@@ -3936,13 +3911,6 @@ async function processChats(chats, keys) {
                         chatsButton.classList.add('has-notification');
                     }
                     
-                }
-                // contacts.messages[0].my is the latest message
-                // new message timestamps for appendChatModal and not my own message
-                if (inActiveChatWithSender){
-                    console.log('inActiveChatWithSender', contact.messages.length)
-                    appendChatModal.chatLength = contact.messages.length
-                    appendChatModal.newMessageTimestamps.push(latestMessage.timestamp)
                 }
             }
             
@@ -5809,7 +5777,7 @@ class WSManager {
             }
           } else if (data.account_id && data.timestamp) {
             console.log('Received new chat notification in ws');
-            updateChatList(true);
+            updateChatList(true, true);
           } else {
             // Handle any other unexpected message formats
             console.warn('Received unrecognized websocket message format:', data);
