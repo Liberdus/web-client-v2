@@ -89,6 +89,20 @@ async function forceReload(urls) {
     }
 }
 
+// Function to attempt locking orientation to portrait
+async function lockToPortrait() {
+    try {
+        // Attempt to lock the orientation to any portrait mode.
+        // This will throw an error if screen.orientation or screen.orientation.lock is undefined,
+        // or if the lock operation itself fails.
+        await screen.orientation.lock("portrait");
+        console.log("Screen orientation locked to portrait.");
+    } catch (error) {
+        // Log any error encountered during the attempt
+        console.warn("Could not lock screen orientation:", error);
+    }
+}
+
 // https://github.com/paulmillr/qr
 //import { encodeQR } from './external/qr.js';
 
@@ -708,7 +722,7 @@ function checkIsInstalledPWA() {
 // Load saved account data and update chat list on page load
 document.addEventListener('DOMContentLoaded', async () => {
     await checkVersion()  // version needs to be checked before anything else happens
-    
+    await lockToPortrait()
     // Initialize service worker only if running as installed PWA
     isInstalledPWA = checkIsInstalledPWA(); // Set the global variable
     if (isInstalledPWA && 'serviceWorker' in navigator) {
