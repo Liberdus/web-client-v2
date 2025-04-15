@@ -1321,7 +1321,7 @@ function setupAddToHomeScreen(){
 }
 
 // Update chat list UI
-async function updateChatList(force, webSocketMessage = false) {
+async function updateChatList(force, triggeredByWebSocket = false) {
     let gotChats = 0
     if (myAccount && myAccount.keys) {
         if (isOnline) {
@@ -1364,7 +1364,9 @@ async function updateChatList(force, webSocketMessage = false) {
     const contacts = myData.contacts
     const chats = myData.chats
     
-    if (document.getElementById('chatModal').classList.contains('active')) { appendChatModal(webSocketMessage) }
+    if (document.getElementById('chatModal').classList.contains('active')) { 
+        appendChatModal(triggeredByWebSocket);
+    };
 
     if (chats.length === 0) {
         chatList.innerHTML = `
@@ -2152,7 +2154,7 @@ function openChatModal(address) {
     }
 }
 
-function appendChatModal(webSocketMessage = false) {
+function appendChatModal(triggeredByWebSocket = false) {
     console.log('appendChatModal running for address:', appendChatModal.address);
     if (!appendChatModal.address) { return; }
 
@@ -2196,9 +2198,8 @@ function appendChatModal(webSocketMessage = false) {
     // 5. Delayed Scrolling & Highlighting Logic (after loop)
     setTimeout(() => {
         const messageContainer = messagesList.parentElement; 
-        if (lastReceivedElement && webSocketMessage) {
+        if (lastReceivedElement && triggeredByWebSocket) {
             // Found a received message, scroll to and highlight it
-            //console.log('Scrolling to and highlighting last received message (after delay):', lastReceivedElement);
             lastReceivedElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
             // Apply highlight immediately 
@@ -2214,7 +2215,6 @@ function appendChatModal(webSocketMessage = false) {
 
         } else {
             // No received messages found, just scroll to the bottom
-            //console.log('No received messages found, scrolling to bottom (after delay).');
             // Ensure container exists before scrolling
             if (messageContainer) {
                 messageContainer.scrollTop = messageContainer.scrollHeight;

@@ -15,6 +15,6 @@ const network = {
     "url": "https://test.liberdus.com/explorer"
   },
   websocket: {
-    url: "wss://dev.liberdus.com:3031",
+    url: "wss://test.liberdus.com:3031",
   }
 }
