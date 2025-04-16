@@ -1337,6 +1337,7 @@ function setupAddToHomeScreen(){
 // Update chat list UI
 async function updateChatList(force, triggeredByWebSocket = false) {
     let gotChats = 0
+    let shouldPlaySound = false; // Initialize flag here
     if (myAccount && myAccount.keys) {
         if (isOnline) {
             // Online: Get from network and cache
@@ -1346,7 +1347,9 @@ async function updateChatList(force, triggeredByWebSocket = false) {
                 
                 while (retryCount <= maxRetries) {
                     try {
-                        gotChats = await getChats(myAccount.keys);
+                        const result = await getChats(myAccount.keys);
+                        gotChats = result.chatCount;
+                        shouldPlaySound = result.shouldPlaySound;
                         break; // Success, exit the retry loop
                     } catch (networkError) {
                         retryCount++;
@@ -1372,9 +1375,11 @@ async function updateChatList(force, triggeredByWebSocket = false) {
     }
     console.log('force gotChats', force === undefined ? 'undefined' : JSON.stringify(force), 
                              gotChats === undefined ? 'undefined' : JSON.stringify(gotChats))
-    if (! (force || gotChats)){ return }
+    // if force or gotChats is undefined or 0 or false, return. 
+    // otherwise, update the chat list
+    if (! (force || gotChats > 0)){ return }
     const chatList = document.getElementById('chatList');
-//            const chatsData = myData
+    //const chatsData = myData
     const contacts = myData.contacts
     const chats = myData.chats
     
@@ -1423,6 +1428,16 @@ async function updateChatList(force, triggeredByWebSocket = false) {
     document.querySelectorAll('.chat-item').forEach((item, index) => {
         item.onclick = () => openChatModal(chats[index].address);
     });
+
+    // Play sound if needed, based on result from getChats
+    if (shouldPlaySound) {
+        const notificationAudio = document.getElementById('notificationSound');
+        if (notificationAudio) {
+            notificationAudio.play().catch(error => {
+                console.warn("Notification sound playback failed:", error);
+            });
+        }
+    }
 }
 
 // refresh wallet balance
@@ -3530,7 +3545,7 @@ async function updateTransactionHistory() {
     const contacts = myData.contacts
 
     transactionList.innerHTML = walletData.history.map(tx => `
-        <div class="transaction-item">
+        <div class="transaction-item" data-address="${tx.address}">
             <div class="transaction-info">
                 <div class="transaction-type ${tx.sign === -1 ? 'send' : 'receive'}">
                     ${tx.sign === -1 ? '↑ Sent' : '↓ Received'}
@@ -3713,20 +3728,33 @@ async function getChats(keys) {  // needs to return the number of chats that nee
     const timestamp = myAccount.chatTimestamp || 0
 //    const timestamp = myData.contacts[keys.address]?.messages?.at(-1).timestamp || 0
 
+    let shouldPlaySound = false;
     const senders = await queryNetwork(`/account/${longAddress(keys.address)}/chats/${timestamp}`) // TODO get this working
 //    const senders = await queryNetwork(`/account/${longAddress(keys.address)}/chats/0`) // TODO stop using this
-    const chatCount = Object.keys(senders.chats).length
+    const chatCount = senders?.chats ? Object.keys(senders.chats).length : 0; // Handle null/undefined senders.chats
     console.log('getChats senders', 
         timestamp === undefined ? 'undefined' : JSON.stringify(timestamp),
         chatCount === undefined ? 'undefined' : JSON.stringify(chatCount),
         senders === undefined ? 'undefined' : JSON.stringify(senders))
     if (senders && senders.chats && chatCount){     // TODO check if above is working
         await processChats(senders.chats, keys)
+
+        // Determine if sound should play AFTER processing messages
+        const senderKeys = Object.keys(senders.chats);
+        for (const sender of senderKeys) {
+            const from = normalizeAddress(sender);
+            const inActiveChatWithSender = appendChatModal.address === from && 
+                document.getElementById('chatModal')?.classList.contains('active');
+            if (!inActiveChatWithSender) {
+                shouldPlaySound = true; // Play sound if any sender's chat is not active
+                break; // No need to check further senders
+            }
+        }
     }
     if (appendChatModal.address){   // clear the unread count of address for open chat modal
         myData.contacts[appendChatModal.address].unread = 0 
     }
-    return chatCount
+    return { chatCount: chatCount, shouldPlaySound: shouldPlaySound };
 }
 getChats.lastCall = 0
 
@@ -3796,6 +3824,7 @@ async function processChats(chats, keys) {
                         }
                     }
                     if (alreadyExists) {
+                        //console.log(`Skipping already existing message: ${payload.sent_timestamp}`);
                         continue; // Skip to the next message
                     }
 
@@ -3852,6 +3881,7 @@ async function processChats(chats, keys) {
                         }
                     }
                     if (alreadyInHistory) {
+                        //console.log(`Skipping already existing transfer: ${txidHex}`);
                         continue; // Skip to the next message
                     }
                     // add the transfer tx to the wallet history
