@@ -894,6 +894,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('openHistoryModal').addEventListener('click', openHistoryModal);
     document.getElementById('closeHistoryModal').addEventListener('click', closeHistoryModal);
     document.getElementById('historyAsset').addEventListener('change', updateHistoryAddresses);
+    document.getElementById('transactionList').addEventListener('click', handleHistoryItemClick);
     
     // Receive Modal input listeners
     document.getElementById('receiveAsset').addEventListener('change', updateQRCode);
@@ -3530,7 +3531,7 @@ async function updateTransactionHistory() {
     const contacts = myData.contacts
 
     transactionList.innerHTML = walletData.history.map(tx => `
-        <div class="transaction-item">
+        <div class="transaction-item" data-address="${tx.address}">
             <div class="transaction-info">
                 <div class="transaction-type ${tx.sign === -1 ? 'send' : 'receive'}">
                     ${tx.sign === -1 ? '↑ Sent' : '↓ Received'}
@@ -3548,6 +3549,23 @@ async function updateTransactionHistory() {
             ${tx.memo ? `<div class="transaction-memo">${linkifyUrls(tx.memo)}</div>` : ''}
         </div>
     `).join('');
+}
+
+// Handle clicks on transaction history items
+function handleHistoryItemClick(event) {
+    // Find the closest ancestor element with the class 'transaction-item'
+    const item = event.target.closest('.transaction-item');
+
+    if (item) {
+        // Get the address from the data-address attribute
+        const address = item.dataset.address;
+        if (address) {
+            // Close the history modal
+            closeHistoryModal();
+            // Open the chat modal for the corresponding address
+            openChatModal(address);
+        }
+    }
 }
 
 // Form to allow user to enter info about themself
