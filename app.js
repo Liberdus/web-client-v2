@@ -1335,7 +1335,7 @@ function setupAddToHomeScreen(){
 }
 
 // Update chat list UI
-async function updateChatList(force, triggeredByWebSocket = false) {
+async function updateChatList(force) {
     let gotChats = 0
     let shouldPlaySound = false; // Initialize flag here
     if (myAccount && myAccount.keys) {
@@ -1382,11 +1382,6 @@ async function updateChatList(force, triggeredByWebSocket = false) {
     //const chatsData = myData
     const contacts = myData.contacts
     const chats = myData.chats
-    
-    if (document.getElementById('chatModal').classList.contains('active')) { 
-        appendChatModal(triggeredByWebSocket);
-    };
-
     if (chats.length === 0) {
         chatList.innerHTML = `
             <div class="empty-state">
@@ -2174,8 +2169,8 @@ function openChatModal(address) {
 
     // Setup state for appendChatModal and perform initial render
     appendChatModal.address = address
-    appendChatModal(); // Call appendChatModal to render messages
-
+    appendChatModal(false); // Call appendChatModal to render messages, ensure highlight=false
+    
     if (isOnline) {
         if (wsManager && !wsManager.isSubscribed()) {
             pollChatInterval(pollIntervalChatting) // poll for messages at a faster rate
@@ -2183,8 +2178,8 @@ function openChatModal(address) {
     }
 }
 
-function appendChatModal(triggeredByWebSocket = false) {
-    console.log('appendChatModal running for address:', appendChatModal.address);
+function appendChatModal(highlightNewMessage = false) {
+    console.log('appendChatModal running for address:', appendChatModal.address, 'Highlight:', highlightNewMessage);
     if (!appendChatModal.address) { return; }
 
     const contact = myData.contacts[appendChatModal.address];
@@ -2227,7 +2222,7 @@ function appendChatModal(triggeredByWebSocket = false) {
     // 5. Delayed Scrolling & Highlighting Logic (after loop)
     setTimeout(() => {
         const messageContainer = messagesList.parentElement; 
-        if (lastReceivedElement && triggeredByWebSocket) {
+        if (lastReceivedElement && highlightNewMessage) {
             // Found a received message, scroll to and highlight it
             lastReceivedElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
@@ -3762,9 +3757,13 @@ getChats.lastCall = 0
 async function processChats(chats, keys) {
     let newTimestamp = 0
     const timestamp = myAccount.chatTimestamp || 0
+    // Use timestamp - 1 for the messages query to potentially include messages arriving *at* the last timestamp. Added this to since it fixed situation where a receiver sent a message right after the sender sent 3 sequential messages.
+    const messageQueryTimestamp = Math.max(0, timestamp - 1);
+
     for (let sender in chats) {
-        const res = await queryNetwork(`/messages/${chats[sender]}/${timestamp}`)
-        console.log("processChats sender", sender)
+        // Fetch messages using the adjusted timestamp
+        const res = await queryNetwork(`/messages/${chats[sender]}/${messageQueryTimestamp}`)
+        console.log("processChats sender", sender, "fetching since", messageQueryTimestamp)
         if (res && res.messages){  
             const from = normalizeAddress(sender)
             if (!myData.contacts[from]){ createNewContact(from) }
@@ -3776,7 +3775,7 @@ async function processChats(chats, keys) {
             // This check determines if we're currently chatting with the sender
             // We ONLY want to avoid notifications if we're actively viewing this exact chat
             const inActiveChatWithSender = appendChatModal.address === from && 
-                document.getElementById('chatModal').classList.contains('active');
+                document.getElementById('chatModal')?.classList.contains('active'); // Added null check for safety
             
             for (let i in res.messages){
                 const tx = res.messages[i] // the messages are actually the whole tx
@@ -3924,7 +3923,14 @@ async function processChats(chats, keys) {
                     timestamp: latestMessage.timestamp,
                 };
 
-                contact.unread += added;  // setting this will show a unread bubble count
+                // Update unread count ONLY if the chat modal for this sender is NOT active
+                if (!inActiveChatWithSender) {
+                    contact.unread = (contact.unread || 0) + added; // Ensure unread is initialized
+                } else {
+                    // If chat modal is active, explicitly call appendChatModal to update it
+                    // and trigger highlight/scroll for the new message.
+                    appendChatModal(true); // Pass true for highlightNewMessage flag
+                }
 
                 // Remove existing chat for this contact if it exists
                 const existingChatIndex = myData.chats.findIndex(chat => chat.address === from);
@@ -3976,6 +3982,7 @@ async function processChats(chats, keys) {
     if (newTimestamp > 0){
         // Update the timestamp
         myAccount.chatTimestamp = newTimestamp
+        console.log("Updated global chat timestamp to", newTimestamp);
     }
 }
 
