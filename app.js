@@ -3541,7 +3541,7 @@ async function updateTransactionHistory() {
             </div>
             <div class="transaction-details">
                 <div class="transaction-address">
-                    ${tx.sign === -1 ? 'To:' : 'From:'} ${contacts[tx.address].username}
+                    ${tx.sign === -1 ? 'To:' : 'From:'} ${contacts[tx.address]?.name || contacts[tx.address]?.senderInfo?.name || contacts[tx.address]?.username || `${contacts[tx.address]?.address.slice(0,8)}...${contacts[tx.address]?.address.slice(-6)}`}
                 </div>
                 <div class="transaction-time">${formatTime(tx.timestamp)}</div>
             </div>
