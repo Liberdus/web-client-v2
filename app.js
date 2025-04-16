@@ -1337,7 +1337,7 @@ function setupAddToHomeScreen(){
 // Update chat list UI
 async function updateChatList(force) {
     let gotChats = 0
-    let shouldPlaySound = false; // Initialize flag here
+    let result = null // result from getChats
     if (myAccount && myAccount.keys) {
         if (isOnline) {
             // Online: Get from network and cache
@@ -1347,9 +1347,8 @@ async function updateChatList(force) {
                 
                 while (retryCount <= maxRetries) {
                     try {
-                        const result = await getChats(myAccount.keys);
+                        result = await getChats(myAccount.keys);
                         gotChats = result.chatCount;
-                        shouldPlaySound = result.shouldPlaySound;
                         break; // Success, exit the retry loop
                     } catch (networkError) {
                         retryCount++;
@@ -1425,8 +1424,32 @@ async function updateChatList(force) {
     });
 
     // Play sound if needed, based on result from getChats
-    if (shouldPlaySound) {
+   // playSound(result.shouldPlayChatSound);
+
+    
+    const historyModalIsOpen = document.getElementById('historyModal')?.classList.contains('active');
+    const walletScreenIsOpen = document.getElementById('walletScreen')?.classList.contains('active');
+    if (!walletScreenIsOpen && !historyModalIsOpen) {
+        playTransferSound(result?.shouldPlayTransferSound);
+    }
+    playChatSound(result?.shouldPlayChatSound && !result?.shouldPlayTransferSound);
+}
+
+// play sound if true or false parameter
+function playChatSound(shouldPlay) {
+    if (shouldPlay) {
         const notificationAudio = document.getElementById('notificationSound');
+        if (notificationAudio) {
+            notificationAudio.play().catch(error => {
+                console.warn("Notification sound playback failed:", error);
+            });
+        }
+    }
+}
+
+function playTransferSound(shouldPlay) {
+    if (shouldPlay) {
+        const notificationAudio = document.getElementById('transferSound');
         if (notificationAudio) {
             notificationAudio.play().catch(error => {
                 console.warn("Notification sound playback failed:", error);
@@ -3540,7 +3563,7 @@ async function updateTransactionHistory() {
     const contacts = myData.contacts
 
     transactionList.innerHTML = walletData.history.map(tx => `
-        <div class="transaction-item" data-address="${tx.address}">
+        <div class="transaction-item">
             <div class="transaction-info">
                 <div class="transaction-type ${tx.sign === -1 ? 'send' : 'receive'}">
                     ${tx.sign === -1 ? '↑ Sent' : '↓ Received'}
@@ -3723,7 +3746,9 @@ async function getChats(keys) {  // needs to return the number of chats that nee
     const timestamp = myAccount.chatTimestamp || 0
 //    const timestamp = myData.contacts[keys.address]?.messages?.at(-1).timestamp || 0
 
-    let shouldPlaySound = false;
+    let shouldPlayChatSound = false;
+    let shouldPlayTransferSound = false;
+
     const senders = await queryNetwork(`/account/${longAddress(keys.address)}/chats/${timestamp}`) // TODO get this working
 //    const senders = await queryNetwork(`/account/${longAddress(keys.address)}/chats/0`) // TODO stop using this
     const chatCount = senders?.chats ? Object.keys(senders.chats).length : 0; // Handle null/undefined senders.chats
@@ -3732,16 +3757,17 @@ async function getChats(keys) {  // needs to return the number of chats that nee
         chatCount === undefined ? 'undefined' : JSON.stringify(chatCount),
         senders === undefined ? 'undefined' : JSON.stringify(senders))
     if (senders && senders.chats && chatCount){     // TODO check if above is working
-        await processChats(senders.chats, keys)
+        // Get transfer sound flag from processChats
+        shouldPlayTransferSound = await processChats(senders.chats, keys);
 
-        // Determine if sound should play AFTER processing messages
+        // Determine if sound should play AFTER processing messages (for CHATS)
         const senderKeys = Object.keys(senders.chats);
         for (const sender of senderKeys) {
             const from = normalizeAddress(sender);
             const inActiveChatWithSender = appendChatModal.address === from && 
                 document.getElementById('chatModal')?.classList.contains('active');
             if (!inActiveChatWithSender) {
-                shouldPlaySound = true; // Play sound if any sender's chat is not active
+                shouldPlayChatSound = true; // Play sound if any sender's chat is not active
                 break; // No need to check further senders
             }
         }
@@ -3749,16 +3775,19 @@ async function getChats(keys) {  // needs to return the number of chats that nee
     if (appendChatModal.address){   // clear the unread count of address for open chat modal
         myData.contacts[appendChatModal.address].unread = 0 
     }
-    return { chatCount: chatCount, shouldPlaySound: shouldPlaySound };
+    // Return combined flags
+    return { chatCount: chatCount, shouldPlayChatSound: shouldPlayChatSound, shouldPlayTransferSound: shouldPlayTransferSound };
 }
 getChats.lastCall = 0
 
 // Actually payments also appear in the chats, so we can add these to
+// Returns true if a transfer sound should be played, false otherwise.
 async function processChats(chats, keys) {
     let newTimestamp = 0
     const timestamp = myAccount.chatTimestamp || 0
     // Use timestamp - 1 for the messages query to potentially include messages arriving *at* the last timestamp. Added this to since it fixed situation where a receiver sent a message right after the sender sent 3 sequential messages.
     const messageQueryTimestamp = Math.max(0, timestamp - 1);
+    let playTransferSound = false; // Flag for transfer sound
 
     for (let sender in chats) {
         // Fetch messages using the adjusted timestamp
@@ -3910,6 +3939,7 @@ async function processChats(chats, keys) {
                     if (historyModalActive) {
                         updateTransactionHistory();
                     }
+                    playTransferSound = true;
                 }
             }
             // If messages were added to contact.messages, update myData.chats
@@ -3984,6 +4014,7 @@ async function processChats(chats, keys) {
         myAccount.chatTimestamp = newTimestamp
         console.log("Updated global chat timestamp to", newTimestamp);
     }
+    return playTransferSound; // Return the flag
 }
 
 // We purposely do not encrypt/decrypt using browser native crypto functions; all crypto functions must be readable
