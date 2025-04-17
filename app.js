@@ -3546,6 +3546,15 @@ async function updateTransactionHistory() {
             ${tx.memo ? `<div class="transaction-memo">${linkifyUrls(tx.memo)}</div>` : ''}
         </div>
     `).join('');
+
+    // Scroll the form container to top after rendering
+    requestAnimationFrame(() => {
+        const modal = document.getElementById('historyModal');
+        const formContainer = modal?.querySelector('.form-container'); // Find the form container within the modal
+        if (formContainer) {
+            formContainer.scrollTop = 0;
+        }
+    });
 }
 
 // Handle clicks on transaction history items
