@@ -3387,29 +3387,14 @@ async function handleSendMessage() {
         // Always encrypt and send senderInfo (which will contain at least the username)
         payload.senderInfo = encryptChacha(dhkey, stringify(senderInfo));
 
-        //console.log('payload is', payload)
-        // Send the message transaction using postChatMessage with default toll of 1
-        const response = await postChatMessage(currentAddress, payload, 1, keys);
-        
-        if (!response || !response.result || !response.result.success) {
-            alert('Message failed to send: ' + (response.result?.reason || 'Unknown error'));
-            return;
-        }
-
-        // Not needed since it is created when the New Chat form was submitted
-        /*
-                // Create contact if needed
-                if (!chatsData.contacts[currentAddress].messages) {   // TODO check if this is really needed; should be created already
-                    createNewContact(currentAddress)
-                }
-        */
-
-        // Create new message
+        // --- Optimistic UI Update ---
+        // Create new message object for local display immediately
         const newMessage = {
             message,
-            timestamp: Date.now(),
-            sent_timestamp: Date.now(),
-            my: true
+            timestamp: Date.now(), // Use current time for local display
+            sent_timestamp: payload.sent_timestamp, // Keep the timestamp that will be sent
+            my: true,
+            status: 'sending' // Add a temporary status
         };
         insertSorted(chatsData.contacts[currentAddress].messages, newMessage, 'timestamp');
 
@@ -3431,11 +3416,43 @@ async function handleSendMessage() {
         messageInput.value = '';
         messageInput.style.height = '44px'; // original height
 
-        appendChatModal()
+        // Update the chat modal UI immediately
+        appendChatModal(); // This should now display the 'sending' message
 
         // Scroll to bottom of chat modal
         messagesList.parentElement.scrollTop = messagesList.parentElement.scrollHeight;
+        // --- End Optimistic UI Update ---
 
+
+        //console.log('payload is', payload)
+        // Send the message transaction using postChatMessage with default toll of 1
+        const response = await postChatMessage(currentAddress, payload, 1, keys);
+
+        // Find the message we just added optimistically
+        const optimisticallyAddedMessage = chatsData.contacts[currentAddress].messages.find(
+            msg => msg.sent_timestamp === newMessage.sent_timestamp && msg.my === true && msg.status === 'sending'
+        );
+        
+        if (!response || !response.result || !response.result.success) {
+             // Handle failure: Update message status
+            if (optimisticallyAddedMessage) {
+                optimisticallyAddedMessage.status = 'failed';
+                // Optionally add error reason: optimisticallyAddedMessage.error = response.result?.reason || 'Unknown error';
+            }
+            // Update the UI again to show the failure state
+            appendChatModal();
+            alert('Message failed to send: ' + (response.result?.reason || 'Unknown error'));
+            // Note: Button is re-enabled in finally block, which is correct.
+            return; // Stop further processing on failure
+        }
+
+        // --- Update message status on successful send ---
+        if (optimisticallyAddedMessage) {
+            optimisticallyAddedMessage.status = 'sent'; // Or 'delivered' if you get confirmation
+            // Update the UI to reflect the 'sent' status if needed (e.g., remove 'sending' indicator)
+             appendChatModal(); // Refresh UI to potentially change message style based on 'sent' status
+        }
+        // --- End Status Update ---
     } catch (error) {
         console.error('Message error:', error);
         alert('Failed to send message. Please try again.');
