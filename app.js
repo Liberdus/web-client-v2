@@ -3557,6 +3557,11 @@ function handleHistoryItemClick(event) {
         // Get the address from the data-address attribute
         const address = item.dataset.address;
         if (address) {
+            // close contactInfoModal if it is open
+            if (document.getElementById('contactInfoModal').classList.contains('active')) {
+                document.getElementById('contactInfoModal').classList.remove('active');
+            }
+
             // Close the history modal
             closeHistoryModal();
             // Open the chat modal for the corresponding address
