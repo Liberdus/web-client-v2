@@ -3680,3 +3680,82 @@ small {
   text-align: left;
   letter-spacing: 0.5px;
 }
+
+/* Styles for Payment Messages in Chat */
+
+/* Base styles for payment header (center, monospace, gap) */
+.payment-header {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 25px 0; /* User adjusted */
+  font-family: var(--font-monospace);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+/* Base styles for payment memo (italic, top border) */
+.payment-memo {
+  font-size: var(--font-size-sm);
+  font-style: italic;
+  opacity: 0.9;
+  margin-top: 4px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1); /* User changed to solid */
+  padding-top: 4px;
+  white-space: normal;
+  overflow: hidden;
+  word-wrap: break-word;
+  word-break: break-all;
+}
+
+/* Make direction and amount stand out */
+.payment-amount,
+.payment-direction {
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-base);
+}
+
+/* Common bubble padding */
+.message.sent.payment-info,
+.message.received.payment-info {
+  padding: 0.75rem 1rem;
+  /* Bubble background/color/border inherited from .message.sent/.received */
+}
+
+/* --- Styling for elements INSIDE SENT payments --- */
+.message.sent.payment-info .payment-header {
+  color: white;
+  /* No bottom border needed */
+}
+.message.sent.payment-info .payment-memo {
+  color: rgba(255, 255, 255, 0.9);
+  border-top-color: rgba(255, 255, 255, 0.2);
+}
+.message.sent.payment-info .payment-memo a {
+  color: white;
+  text-decoration: underline;
+}
+.message.sent.payment-info .message-time {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* --- Styling for elements INSIDE RECEIVED payments --- */
+.message.received.payment-info .payment-header {
+  color: var(--text-color);
+  width: 100%; /* Keep full width */
+  /* No bottom border needed (user removed) */
+}
+.message.received.payment-info .payment-memo {
+  color: var(--secondary-text-color);
+  border-top-color: rgba(0, 0, 0, 0.15);
+}
+.message.received.payment-info .payment-memo a {
+  color: var(--primary-color);
+  text-decoration: underline;
+}
+.message.received.payment-info .message-time {
+  color: var(--secondary-text-color);
+  opacity: 0.7;
+}
