@@ -3774,10 +3774,10 @@ small {
 /* Styles for Payment Previews in Chat List */
 .chat-item .chat-message .payment-preview {
   font-weight: var(--font-weight-bold);
-  color: var(--primary-color); /* Or a distinct color */
+  /* color: var(--text-color); */ /* Or a distinct color */
 }
 
 .chat-item .chat-message .memo-preview {
   font-style: italic;
-  color: var(--secondary-text-color); /* Or a muted color */
+  /* color: var(--secondary-text-color); */ /* Or a muted color */
 }

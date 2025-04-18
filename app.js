@@ -1381,7 +1381,7 @@ async function updateChatList(force, retry = 0) {
                 previewHTML = `<span class="payment-preview">${directionText} ${amountDisplay}</span>`;
                  // Optionally add memo preview
                  if (latestActivity.message) { // Memo is stored in the 'message' field for transfers
-                     previewHTML += ` <span class="memo-preview">(${truncateMessage(escapeHtml(latestActivity.message), 25)})</span>`;
+                     previewHTML += ` <span class="memo-preview"> | ${truncateMessage(escapeHtml(latestActivity.message), 25)}</span>`;
                  }
             } else {
                 // Latest item is a regular message
@@ -2253,26 +2253,20 @@ function appendChatModal(highlightNewMessage = false) {
         // 4. Append the constructed HTML
         // Insert at the end of the list to maintain correct chronological order
         messagesList.insertAdjacentHTML('beforeend', messageHTML);
-
-        // 5. Remove the incorrect tracking logic from the loop
         // The newest received element will be found after the loop completes
     }
 
-    console.log('appendChatModal: After loop, rendering complete.');
-
-    // --- 6. Find the corresponding DOM element after rendering ---
+    // --- 5. Find the corresponding DOM element after rendering ---
     // This happens inside the setTimeout to ensure elements are in the DOM
 
-    // 7. Delayed Scrolling & Highlighting Logic (after loop)
+    // 6. Delayed Scrolling & Highlighting Logic (after loop)
     setTimeout(() => {
-        console.log('appendChatModal: Inside setTimeout, attempting to find and highlight.');
         const messageContainer = messagesList.parentElement; 
 
         // Find the DOM element for the actual newest received item using its timestamp
         // Only proceed if newestReceivedItem was found and highlightNewMessage is true
         if (newestReceivedItem && highlightNewMessage) {
             const newestReceivedElementDOM = messagesList.querySelector(`[data-message-timestamp="${newestReceivedItem.timestamp}"]`);
-            console.log('appendChatModal: Found newestReceivedElementDOM:', newestReceivedElementDOM);
 
             if (newestReceivedElementDOM) {
                 // Found the element, scroll to and highlight it
@@ -2287,7 +2281,7 @@ function appendChatModal(highlightNewMessage = false) {
                      if (newestReceivedElementDOM && newestReceivedElementDOM.parentNode) {
                         newestReceivedElementDOM.classList.remove('highlighted'); 
                      }
-                }, 2000); 
+                }, 3000); 
             } else {
                  console.warn('appendChatModal: Could not find DOM element for newestReceivedItem with timestamp:', newestReceivedItem.timestamp);
                  // If element not found, just scroll to bottom
@@ -4073,15 +4067,13 @@ async function processChats(chats, keys) {
                     hasNewTransfer = true
 
                     // --- Create and Insert Transfer Message into contact.messages ---
-                    console.log('Processing received transfer for chat:', from);
-                    console.log('Transfer details - tx.amount:', tx.amount, 'payload.message:', payload.message, 'payload.sent_timestamp:', payload.sent_timestamp);
                     const transferMessage = {
                         timestamp: payload.sent_timestamp,
                         sent_timestamp: payload.sent_timestamp,
                         my: false, // Received transfer
                         message: payload.message, // Use the memo as the message content
                         amount: parse(stringify(tx.amount)), // Ensure amount is stored as BigInt
-                        symbol: '???', // Assuming LIB for now
+                        symbol: '???', // TODO: get the symbol from the asset
                     };
                     // Insert the transfer message into the contact's message list, maintaining sort order
                     insertSorted(contact.messages, transferMessage, 'timestamp');
