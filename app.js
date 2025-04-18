@@ -2191,13 +2191,19 @@ function appendChatModal(highlightNewMessage = false) {
     const messagesList = modal.querySelector('.messages-list');
     if (!messagesList) return;
 
-    // --- Tracking Variable for the newest received message's DOM element ---
-    let lastReceivedElementDOM = null; // Initialize to null
+    // --- 1. Identify the actual newest received message data item ---
+    // Since messages are sorted descending (newest first), the first item with my: false is the newest received.
+    const newestReceivedItem = messages.find(item => !item.my);
+    console.log('appendChatModal: Identified newestReceivedItem data:', newestReceivedItem);
 
-    // 1. Clear the entire list
+    // --- Tracking Variable for the newest received message's DOM element ---
+    // This will now be found *after* rendering
+    let newestReceivedElementDOM = null;
+
+    // 2. Clear the entire list
     messagesList.innerHTML = '';
 
-    // 2. Iterate backwards through messages (oldest to newest for rendering order)
+    // 3. Iterate backwards through messages (oldest to newest for rendering order)
     // messages are already sorted descending (newest first) in myData
     for (let i = messages.length - 1; i >= 0; i--) {
         const item = messages[i];
@@ -2256,41 +2262,55 @@ function appendChatModal(highlightNewMessage = false) {
             `;
         }
 
-        // 3. Append the constructed HTML
+        // 4. Append the constructed HTML
         // Insert at the end of the list to maintain correct chronological order
         messagesList.insertAdjacentHTML('beforeend', messageHTML);
 
-        // 4. Track the DOM element for the newest received item
-        // Since we are iterating backwards (oldest to newest) and appending to end,
-        // the first received item we encounter in the backward loop is the newest.
-        // After appending, its DOM element is the last child.
-        if (!item.my && lastReceivedElementDOM === null) {
-            lastReceivedElementDOM = messagesList.lastElementChild; // Capture the DOM element
-        }
+        // 5. Remove the incorrect tracking logic from the loop
+        // The newest received element will be found after the loop completes
     }
 
-    // 5. Delayed Scrolling & Highlighting Logic (after loop)
-    setTimeout(() => {
-        const messageContainer = messagesList.parentElement; 
-        // Use the captured DOM element for the newest received message
-        if (lastReceivedElementDOM && highlightNewMessage) {
-            // Found a received message, scroll to and highlight it
-            lastReceivedElementDOM.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    console.log('appendChatModal: After loop, rendering complete.');
 
-            // Apply highlight immediately 
-            lastReceivedElementDOM.classList.add('highlighted');
-            
-            // Set timeout to remove the highlight after a duration
-            setTimeout(() => {
-                 // Check if element still exists before removing class
-                 if (lastReceivedElementDOM && lastReceivedElementDOM.parentNode) {
-                    lastReceivedElementDOM.classList.remove('highlighted'); 
+    // --- 6. Find the corresponding DOM element after rendering ---
+    // This happens inside the setTimeout to ensure elements are in the DOM
+
+    // 7. Delayed Scrolling & Highlighting Logic (after loop)
+    setTimeout(() => {
+        console.log('appendChatModal: Inside setTimeout, attempting to find and highlight.');
+        const messageContainer = messagesList.parentElement; 
+
+        // Find the DOM element for the actual newest received item using its timestamp
+        // Only proceed if newestReceivedItem was found and highlightNewMessage is true
+        if (newestReceivedItem && highlightNewMessage) {
+            const newestReceivedElementDOM = messagesList.querySelector(`[data-message-timestamp="${newestReceivedItem.timestamp}"]`);
+            console.log('appendChatModal: Found newestReceivedElementDOM:', newestReceivedElementDOM);
+
+            if (newestReceivedElementDOM) {
+                // Found the element, scroll to and highlight it
+                newestReceivedElementDOM.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+                // Apply highlight immediately 
+                newestReceivedElementDOM.classList.add('highlighted');
+                
+                // Set timeout to remove the highlight after a duration
+                setTimeout(() => {
+                     // Check if element still exists before removing class
+                     if (newestReceivedElementDOM && newestReceivedElementDOM.parentNode) {
+                        newestReceivedElementDOM.classList.remove('highlighted'); 
+                     }
+                }, 2000); 
+            } else {
+                 console.warn('appendChatModal: Could not find DOM element for newestReceivedItem with timestamp:', newestReceivedItem.timestamp);
+                 // If element not found, just scroll to bottom
+                 if (messageContainer) {
+                    messageContainer.scrollTop = messageContainer.scrollHeight;
                  }
-            }, 2000); 
+            }
 
         } else {
-            // No received messages found or not highlighting, just scroll to the bottom
-            // Ensure container exists before scrolling
+            // No received messages found, not highlighting, or highlightNewMessage is false,
+            // just scroll to the bottom if the container exists.
             if (messageContainer) {
                 messageContainer.scrollTop = messageContainer.scrollHeight;
             }
@@ -4065,12 +4085,14 @@ async function processChats(chats, keys) {
                     hasNewTransfer = true
 
                     // --- Create and Insert Transfer Message into contact.messages ---
+                    console.log('Processing received transfer for chat:', from);
+                    console.log('Transfer details - tx.amount:', tx.amount, 'payload.message:', payload.message, 'payload.sent_timestamp:', payload.sent_timestamp);
                     const transferMessage = {
                         timestamp: payload.sent_timestamp,
                         sent_timestamp: payload.sent_timestamp,
                         my: false, // Received transfer
                         message: payload.message, // Use the memo as the message content
-                        amount: tx.amount, // Keep as bigint
+                        amount: parse(stringify(tx.amount)), // Ensure amount is stored as BigInt
                         symbol: '???', // Assuming LIB for now
                     };
                     // Insert the transfer message into the contact's message list, maintaining sort order
