@@ -2188,10 +2188,6 @@ function appendChatModal(highlightNewMessage = false) {
     const newestReceivedItem = messages.find(item => !item.my);
     console.log('appendChatModal: Identified newestReceivedItem data:', newestReceivedItem);
 
-    // --- Tracking Variable for the newest received message's DOM element ---
-    // This will now be found *after* rendering
-    let newestReceivedElementDOM = null;
-
     // 2. Clear the entire list
     messagesList.innerHTML = '';
 
