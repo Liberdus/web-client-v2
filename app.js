@@ -1362,47 +1362,39 @@ async function updateChatList(force, retry = 0) {
         const contact = contacts[chat.address];
         if (!contact) return ''; // Safety check
 
-        // Find the latest message for this contact
-        const latestMessage = contact.messages?.[0]; // Assumes messages are sorted descending
-
-        // Find the latest payment involving this contact from history
-        const latestPayment = myData.wallet?.history
-                                ?.filter(tx => tx.address === chat.address)
-                                .sort((a, b) => b.timestamp - a.timestamp)[0]; // Find newest payment
+        // Find the latest message/activity for this contact (which is the first in the messages array)
+        const latestActivity = contact.messages?.[0]; // Assumes messages array includes transfers and is sorted descending
 
         let latestItemTimestamp = 0;
         let previewHTML = '<span class="empty-preview">No recent activity</span>'; // Default
 
-        // Determine which item is truly the latest
-        if (latestMessage && (!latestPayment || latestMessage.timestamp >= latestPayment.timestamp)) {
-            // Latest item is a message
-            latestItemTimestamp = latestMessage.timestamp;
-            const messageText = escapeHtml(latestMessage.message);
-            // Add "You:" prefix for sent messages
-            const prefix = latestMessage.my ? 'You: ' : '';
-            previewHTML = `${prefix}${truncateMessage(messageText, 50)}`; // Truncate for preview
-        } else if (latestPayment) {
-            // Latest item is a payment
-            latestItemTimestamp = latestPayment.timestamp;
-            // Format payment amount (assuming LIB 18 decimals for preview)
-            const amountStr = big2str(latestPayment.amount, 18).slice(0, -16);
-            const amountDisplay = `${amountStr} LIB`;
-            const directionText = latestPayment.sign === -1 ? 'Sent' : 'Received';
-            // Create payment preview text
-            previewHTML = `<span class="payment-preview">${directionText} ${amountDisplay}</span>`;
-             // Optionally add memo preview
-             if (latestPayment.memo) {
-                 previewHTML += ` <span class="memo-preview">(${truncateMessage(escapeHtml(latestPayment.memo), 25)})</span>`;
-             }
+        if (latestActivity) {
+            latestItemTimestamp = latestActivity.timestamp;
+
+            // Check if the latest activity is a payment/transfer message
+            if (typeof latestActivity.amount === 'bigint') {
+                // Latest item is a payment/transfer
+                const amountStr = big2str(latestActivity.amount, 18);
+                const amountDisplay = `${amountStr.slice(0, 6)} ${latestActivity.symbol || 'LIB'}`;
+                const directionText = latestActivity.my ? '-' : '+';
+                // Create payment preview text
+                previewHTML = `<span class="payment-preview">${directionText} ${amountDisplay}</span>`;
+                 // Optionally add memo preview
+                 if (latestActivity.message) { // Memo is stored in the 'message' field for transfers
+                     previewHTML += ` <span class="memo-preview">(${truncateMessage(escapeHtml(latestActivity.message), 25)})</span>`;
+                 }
+            } else {
+                // Latest item is a regular message
+                const messageText = escapeHtml(latestActivity.message);
+                // Add "You:" prefix for sent messages
+                const prefix = latestActivity.my ? 'You: ' : '';
+                previewHTML = `${prefix}${truncateMessage(messageText, 50)}`; // Truncate for preview
+            }
         }
 
-        // If no messages or payments found, timestamp will be 0
+        // If no messages or payments found, timestamp will be 0. Use current time as a fallback.
         if (latestItemTimestamp === 0) {
-           // Optionally handle chats with no activity (e.g., return '' to hide them)
-           // For now, we'll let it display "No recent activity" with current time
-           latestItemTimestamp = Date.now(); // Use current time if no activity found yet
-           // If you want to hide chats with 0 activity, return '' here:
-           // return '';
+           latestItemTimestamp = Date.now();
         }
 
         // Use the determined latest timestamp for display
@@ -2221,12 +2213,12 @@ function appendChatModal(highlightNewMessage = false) {
             // Assuming LIB (18 decimals) for now. TODO: Handle different asset decimals if needed.
             // Format amount correctly using big2str
             const amountStr = big2str(itemAmount, 18);
-            const amountDisplay = `${amountStr} ${item.symbol || 'LIB'}`; // Use item.symbol or fallback
+            const amountDisplay = `${amountStr.slice(0, 6)} ${item.symbol || 'LIB'}`; // Use item.symbol or fallback
 
             // Check item.my for sent/received
             if (item.my) { // item is sent
                 // --- Render SENT Payment Transaction (like a sent message) ---
-                const directionText = 'Sent';
+                const directionText = '-';
                 messageHTML = `
                     <div class="message sent payment-info" ${timestampAttribute}> 
                         <div class="payment-header">
@@ -2239,7 +2231,7 @@ function appendChatModal(highlightNewMessage = false) {
                 `;
             } else { // item.my is false (received)
                 // --- Render RECEIVED Payment Transaction (like a received message) ---
-                const directionText = 'Received';
+                const directionText = '+';
                 messageHTML = `
                     <div class="message received payment-info" ${timestampAttribute}>
                         <div class="payment-header">
