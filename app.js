@@ -2183,62 +2183,42 @@ function appendChatModal(highlightNewMessage = false) {
     if (!currentAddress) { return; }
 
     const contact = myData.contacts[currentAddress];
-    const messages = contact?.messages || []; // Handle case where contact exists but messages don't
+    // Ensure messages array exists and is sorted descending (newest first)
+    const messages = contact?.messages || [];
 
     const modal = document.getElementById('chatModal');
     if (!modal) return;
     const messagesList = modal.querySelector('.messages-list');
     if (!messagesList) return;
 
-    // --- Fetch and Standardize Payments ---
-    const walletHistory = myData.wallet?.history || [];
-    const relevantPayments = walletHistory.filter(tx => tx.address === currentAddress);
-    const standardizedPayments = relevantPayments.map(tx => ({
-        timestamp: tx.timestamp,
-        type: tx.sign === -1 ? 'payment-sent' : 'payment-received',
-        amount: tx.amount, // Keep as bigint for now, format during render
-        memo: tx.memo || '',
-        isPayment: true,
-    }));
-
-    // --- Standardize Messages ---
-    // Messages are already sorted descending (newest first) in myData
-    const standardizedMessages = messages.map(m => ({
-        timestamp: m.timestamp,
-        type: m.my ? 'sent' : 'received',
-        message: m.message,
-        isPayment: false,
-        originalMessage: m
-    }));
-
-    // --- Combine and Sort ---
-    const combinedList = [...standardizedPayments, ...standardizedMessages];
-    // Sort ascending by timestamp (oldest first) for rendering order
-    combinedList.sort((a, b) => a.timestamp - b.timestamp);
-
-
-    // --- Tracking Variable ---
-    let lastReceivedElement = null; 
+    // --- Tracking Variable for the newest received message's DOM element ---
+    let lastReceivedElementDOM = null; // Initialize to null
 
     // 1. Clear the entire list
     messagesList.innerHTML = '';
 
-    // 2. Iterate through the COMBINED list (oldest to newest)
-    for (const item of combinedList) { // <<< Changed from iterating over 'messages'
+    // 2. Iterate backwards through messages (oldest to newest for rendering order)
+    // messages are already sorted descending (newest first) in myData
+    for (let i = messages.length - 1; i >= 0; i--) {
+        const item = messages[i];
         let messageHTML = '';
         const timeString = formatTime(item.timestamp);
         // Use a consistent timestamp attribute for potential future use (e.g., message jumping)
-        const timestampAttribute = `data-message-timestamp="${item.timestamp}"`; 
+        const timestampAttribute = `data-message-timestamp="${item.timestamp}"`;
 
-        if (item.isPayment) {
-            // Define common payment variables outside the inner if/else
-            const timeString = formatTime(item.timestamp);
-            const timestampAttribute = `data-message-timestamp="${item.timestamp}"`;
+        // Check if it's a payment based on the presence of the amount property (BigInt)
+        if (typeof item.amount === 'bigint') {
+            // Define common payment variables
+            const itemAmount = item.amount;
+            const itemMemo = item.message; // Memo is stored in the 'message' field for transfers
+
             // Assuming LIB (18 decimals) for now. TODO: Handle different asset decimals if needed.
-            const amountStr = big2str(item.amount, 18).slice(0, -16); // Format and remove fractional part for now
-            const amountDisplay = `${amountStr} LIB`; // Add symbol
+            // Format amount correctly using big2str
+            const amountStr = big2str(itemAmount, 18);
+            const amountDisplay = `${amountStr} ${item.symbol || 'LIB'}`; // Use item.symbol or fallback
 
-            if (item.type === 'payment-sent') {
+            // Check item.my for sent/received
+            if (item.my) { // item is sent
                 // --- Render SENT Payment Transaction (like a sent message) ---
                 const directionText = 'Sent';
                 messageHTML = `
@@ -2247,11 +2227,11 @@ function appendChatModal(highlightNewMessage = false) {
                             <span class="payment-direction">${directionText}</span>
                             <span class="payment-amount">${amountDisplay}</span>
                         </div>
-                        ${item.memo ? `<div class="payment-memo">${linkifyUrls(item.memo)}</div>` : ''}
+                        ${itemMemo ? `<div class="payment-memo">${linkifyUrls(itemMemo)}</div>` : ''}
                         <div class="message-time">${timeString}</div>
                     </div>
                 `;
-            } else { // item.type === 'payment-received'
+            } else { // item.my is false (received)
                 // --- Render RECEIVED Payment Transaction (like a received message) ---
                 const directionText = 'Received';
                 messageHTML = `
@@ -2260,14 +2240,14 @@ function appendChatModal(highlightNewMessage = false) {
                             <span class="payment-direction">${directionText}</span>
                             <span class="payment-amount">${amountDisplay}</span>
                         </div>
-                        ${item.memo ? `<div class="payment-memo">${linkifyUrls(item.memo)}</div>` : ''}
+                        ${itemMemo ? `<div class="payment-memo">${linkifyUrls(itemMemo)}</div>` : ''}
                         <div class="message-time">${timeString}</div>
                     </div>
                 `;
             }
         } else {
             // --- Render Chat Message ---
-            const messageClass = item.type; // 'sent' or 'received'
+            const messageClass = item.my ? 'sent' : 'received'; // Use item.my directly
             messageHTML = `
                 <div class="message ${messageClass}" ${timestampAttribute}>
                     <div class="message-content" style="white-space: pre-wrap">${linkifyUrls(item.message)}</div>
@@ -2277,40 +2257,45 @@ function appendChatModal(highlightNewMessage = false) {
         }
 
         // 3. Append the constructed HTML
+        // Insert at the end of the list to maintain correct chronological order
         messagesList.insertAdjacentHTML('beforeend', messageHTML);
 
-        // 4. Update tracker for the *last received item* (message or payment)
-        if (item.type === 'received' || item.type === 'payment-received') {
-            lastReceivedElement = messagesList.lastElementChild; // Track the DOM element
+        // 4. Track the DOM element for the newest received item
+        // Since we are iterating backwards (oldest to newest) and appending to end,
+        // the first received item we encounter in the backward loop is the newest.
+        // After appending, its DOM element is the last child.
+        if (!item.my && lastReceivedElementDOM === null) {
+            lastReceivedElementDOM = messagesList.lastElementChild; // Capture the DOM element
         }
     }
-    
+
     // 5. Delayed Scrolling & Highlighting Logic (after loop)
     setTimeout(() => {
         const messageContainer = messagesList.parentElement; 
-        if (lastReceivedElement && highlightNewMessage) {
+        // Use the captured DOM element for the newest received message
+        if (lastReceivedElementDOM && highlightNewMessage) {
             // Found a received message, scroll to and highlight it
-            lastReceivedElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            lastReceivedElementDOM.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
             // Apply highlight immediately 
-            lastReceivedElement.classList.add('highlighted');
+            lastReceivedElementDOM.classList.add('highlighted');
             
             // Set timeout to remove the highlight after a duration
             setTimeout(() => {
                  // Check if element still exists before removing class
-                 if (lastReceivedElement && lastReceivedElement.parentNode) {
-                    lastReceivedElement.classList.remove('highlighted'); 
+                 if (lastReceivedElementDOM && lastReceivedElementDOM.parentNode) {
+                    lastReceivedElementDOM.classList.remove('highlighted'); 
                  }
             }, 2000); 
 
         } else {
-            // No received messages found, just scroll to the bottom
+            // No received messages found or not highlighting, just scroll to the bottom
             // Ensure container exists before scrolling
             if (messageContainer) {
                 messageContainer.scrollTop = messageContainer.scrollHeight;
             }
         }
-    }, 300); // <<< Delay of 500 milliseconds
+    }, 300); // <<< Delay of 300 milliseconds for rendering
 }
 appendChatModal.address = null
 
@@ -2944,11 +2929,13 @@ console.log('payload is', payload)
         }
 
         // Add transaction to history
+        const currentTime = Date.now();
+
         const newPayment = {
             txid: response.txid,
             amount: amount,
             sign: -1,
-            timestamp: Date.now(),
+            timestamp: currentTime,
             address: toAddress,
             memo: memo
         };
@@ -2964,6 +2951,29 @@ console.log('payload is', payload)
         // Update wallet view and close modal
         updateWalletView();
 */
+
+        // --- Create and Insert Sent Transfer Message into contact.messages ---
+        const transferMessage = {
+            timestamp: currentTime,
+            sent_timestamp: currentTime,
+            my: true, // Sent transfer
+            message: memo, // Use the memo as the message content
+            amount: amount, // Use the BigInt amount
+            symbol: '???', // Using '??' as in processChats for now
+        };
+        // Insert the transfer message into the contact's message list, maintaining sort order
+        insertSorted(myData.contacts[toAddress].messages, transferMessage, 'timestamp');
+        // --------------------------------------------------------------
+
+        // Update the chat modal to show the newly sent transfer message
+        // Check if the chat modal for this recipient is currently active
+        const chatModalActive = document.getElementById('chatModal')?.classList.contains('active');
+        const inActiveChatWithRecipient = appendChatModal.address === toAddress && chatModalActive;
+
+        if (inActiveChatWithRecipient) {
+            appendChatModal(true); // Re-render the chat modal and highlight the new item
+        }
+
         closeSendModal();
         closeSendConfirmationModal();
         document.getElementById('sendToAddress').value = '';
@@ -4053,6 +4063,19 @@ async function processChats(chats, keys) {
                     
                     // Mark that we have a new transfer for toast notification
                     hasNewTransfer = true
+
+                    // --- Create and Insert Transfer Message into contact.messages ---
+                    const transferMessage = {
+                        timestamp: payload.sent_timestamp,
+                        sent_timestamp: payload.sent_timestamp,
+                        my: false, // Received transfer
+                        message: payload.message, // Use the memo as the message content
+                        amount: tx.amount, // Keep as bigint
+                        symbol: '???', // Assuming LIB for now
+                    };
+                    // Insert the transfer message into the contact's message list, maintaining sort order
+                    insertSorted(contact.messages, transferMessage, 'timestamp');
+                    // --------------------------------------------------------------
 
                     const walletScreenActive = document.getElementById("walletScreen")?.classList.contains("active");
                     const historyModalActive = document.getElementById("historyModal")?.classList.contains("active");
