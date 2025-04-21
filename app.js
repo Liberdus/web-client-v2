@@ -4079,6 +4079,8 @@ async function processChats(chats, keys) {
                     insertSorted(contact.messages, transferMessage, 'timestamp');
                     // --------------------------------------------------------------
 
+                    added += 1;
+
                     const walletScreenActive = document.getElementById("walletScreen")?.classList.contains("active");
                     const historyModalActive = document.getElementById("historyModal")?.classList.contains("active");
                     // Update wallet view if it's active
