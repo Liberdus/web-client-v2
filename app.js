@@ -2961,7 +2961,7 @@ console.log('payload is', payload)
             my: true, // Sent transfer
             message: memo, // Use the memo as the message content
             amount: amount, // Use the BigInt amount
-            symbol: '???', // Using '??' as in processChats for now
+            symbol: 'LIB', // TODO: Use the asset symbol
         };
         // Insert the transfer message into the contact's message list, maintaining sort order
         insertSorted(myData.contacts[toAddress].messages, transferMessage, 'timestamp');
@@ -4073,7 +4073,7 @@ async function processChats(chats, keys) {
                         my: false, // Received transfer
                         message: payload.message, // Use the memo as the message content
                         amount: parse(stringify(tx.amount)), // Ensure amount is stored as BigInt
-                        symbol: '???', // TODO: get the symbol from the asset
+                        symbol: 'LIB', // TODO: get the symbol from the asset
                     };
                     // Insert the transfer message into the contact's message list, maintaining sort order
                     insertSorted(contact.messages, transferMessage, 'timestamp');
