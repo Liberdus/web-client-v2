@@ -2175,6 +2175,10 @@ function appendChatModal(highlightNewMessage = false) {
     if (!currentAddress) { return; }
 
     const contact = myData.contacts[currentAddress];
+    if (!contact || !contact.messages) {
+            console.log('No contact or messages found for address:', appendChatModal.address);
+            return;
+    }
     // Ensure messages array exists and is sorted descending (newest first)
     const messages = contact?.messages || [];
 
