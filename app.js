@@ -3388,14 +3388,6 @@ async function handleSendMessage() {
 
         // --- Optimistic UI Update ---
         // Create new message object for local display immediately
-
-        // Not needed since it is created when the New Chat form was submitted
-        /*
-                // Create contact if needed
-                if (!chatsData.contacts[currentAddress].messages) {   // TODO check if this is really needed; should be created already
-                    createNewContact(currentAddress)
-                }
-        */
         const newMessage = {
             message,
             timestamp: payload.sent_timestamp,
