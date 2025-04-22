@@ -1366,36 +1366,29 @@ async function updateChatList(force, retry = 0) {
         const latestActivity = contact.messages[0]; // Assumes messages array includes transfers and is sorted descending
         if (!latestActivity){ return '' }
 
-        let latestItemTimestamp = 0;
-        let previewHTML = '<span class="empty-preview">No recent activity</span>'; // Default
+        let previewHTML = ''; // Default
 
-        if (latestActivity) {
-            latestItemTimestamp = latestActivity.timestamp;
+        
+        const latestItemTimestamp = latestActivity.timestamp;
 
-            // Check if the latest activity is a payment/transfer message
-            if (typeof latestActivity.amount === 'bigint') {
-                // Latest item is a payment/transfer
-                const amountStr = big2str(latestActivity.amount, 18);
-                const amountDisplay = `${amountStr.slice(0, 6)} ${latestActivity.symbol || 'LIB'}`;
-                const directionText = latestActivity.my ? '-' : '+';
-                // Create payment preview text
-                previewHTML = `<span class="payment-preview">${directionText} ${amountDisplay}</span>`;
-                 // Optionally add memo preview
-                 if (latestActivity.message) { // Memo is stored in the 'message' field for transfers
-                     previewHTML += ` <span class="memo-preview"> | ${truncateMessage(escapeHtml(latestActivity.message), 25)}</span>`;
-                 }
-            } else {
-                // Latest item is a regular message
-                const messageText = escapeHtml(latestActivity.message);
-                // Add "You:" prefix for sent messages
-                const prefix = latestActivity.my ? 'You: ' : '';
-                previewHTML = `${prefix}${truncateMessage(messageText, 50)}`; // Truncate for preview
-            }
-        }
-
-        // If no messages or payments found, timestamp will be 0. Use current time as a fallback.
-        if (latestItemTimestamp === 0) {
-           latestItemTimestamp = Date.now();
+        // Check if the latest activity is a payment/transfer message
+        if (typeof latestActivity.amount === 'bigint') {
+            // Latest item is a payment/transfer
+            const amountStr = big2str(latestActivity.amount, 18);
+            const amountDisplay = `${amountStr.slice(0, 6)} ${latestActivity.symbol || 'LIB'}`;
+            const directionText = latestActivity.my ? '-' : '+';
+            // Create payment preview text
+            previewHTML = `<span class="payment-preview">${directionText} ${amountDisplay}</span>`;
+                // Optionally add memo preview
+                if (latestActivity.message) { // Memo is stored in the 'message' field for transfers
+                    previewHTML += ` <span class="memo-preview"> | ${truncateMessage(escapeHtml(latestActivity.message), 25)}</span>`;
+                }
+        } else {
+            // Latest item is a regular message
+            const messageText = escapeHtml(latestActivity.message);
+            // Add "You:" prefix for sent messages
+            const prefix = latestActivity.my ? 'You: ' : '';
+            previewHTML = `${prefix}${truncateMessage(messageText, 50)}`; // Truncate for preview
         }
 
         // Use the determined latest timestamp for display
