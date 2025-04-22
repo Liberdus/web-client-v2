@@ -2179,8 +2179,7 @@ function appendChatModal(highlightNewMessage = false) {
             console.log('No contact or messages found for address:', appendChatModal.address);
             return;
     }
-    // Ensure messages array exists and is sorted descending (newest first)
-    const messages = contact?.messages || [];
+    const messages = contact.messages; // Already sorted descending
 
     const modal = document.getElementById('chatModal');
     if (!modal) return;
