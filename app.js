@@ -2957,7 +2957,7 @@ console.log('payload is', payload)
         const inActiveChatWithRecipient = appendChatModal.address === toAddress && chatModalActive;
 
         if (inActiveChatWithRecipient) {
-            appendChatModal(true); // Re-render the chat modal and highlight the new item
+            appendChatModal(); // Re-render the chat modal and highlight the new item
         }
 
         closeSendModal();
