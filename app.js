@@ -1301,7 +1301,7 @@ function setupAddToHomeScreen(){
 }
 
 // Update chat list UI
-async function updateChatList(force) {
+async function updateChatList(force, retry = 0) {
     let gotChats = 0
     if (myAccount && myAccount.keys) {
         if (isOnline) {
@@ -1312,7 +1312,7 @@ async function updateChatList(force) {
                 
                 while (retryCount <= maxRetries) {
                     try {
-                        gotChats = await getChats(myAccount.keys);
+                        gotChats = await getChats(myAccount.keys, retry);
                         break; // Success, exit the retry loop
                     } catch (networkError) {
                         retryCount++;
@@ -3692,7 +3692,7 @@ function scheduleNextPoll() {
     window.chatUpdateTimer = setTimeout(pollChats, interval);
 }
 
-async function getChats(keys) {  // needs to return the number of chats that need to be processed
+async function getChats(keys, retry = 0) {  // needs to return the number of chats that need to be processed
 //console.log('keys', keys)
     if (! keys){ console.log('no keys in getChats'); return 0 }     // TODO don't require passing in keys
     const now = Date.now()
@@ -3716,6 +3716,15 @@ async function getChats(keys) {  // needs to return the number of chats that nee
         senders === undefined ? 'undefined' : JSON.stringify(senders))
     if (senders && senders.chats && chatCount){     // TODO check if above is working
         await processChats(senders.chats, keys)
+    } else {
+        if(retry > 0){
+            console.log('getChats retry', retry)
+            if (retry < 3) {
+                setTimeout(() => getChats(keys, retry + 1), 1000);
+            } else {
+                console.error('Failed to get chats after 3 retries');
+            }
+        }
     }
     if (appendChatModal.address){   // clear the unread count of address for open chat modal
         myData.contacts[appendChatModal.address].unread = 0 
@@ -3751,7 +3760,6 @@ function playTransferSound(shouldPlay) {
 async function processChats(chats, keys) {
     let newTimestamp = 0
     const timestamp = myAccount.chatTimestamp || 0
-    // Use timestamp - 1 for the messages query to potentially include messages arriving *at* the last timestamp. Added this to since it fixed situation where a receiver sent a message right after the sender sent 3 sequential messages.
     const messageQueryTimestamp = Math.max(0, timestamp - 1);
 
     for (let sender in chats) {
@@ -5828,7 +5836,7 @@ class WSManager {
             }
           } else if (data.account_id && data.timestamp) {
             console.log('Received new chat notification in ws');
-            updateChatList(true, true);
+            updateChatList(true, 1);
           } else {
             // Handle any other unexpected message formats
             console.warn('Received unrecognized websocket message format:', data);
