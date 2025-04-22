@@ -2212,8 +2212,9 @@ function appendChatModal(highlightNewMessage = false) {
 
             // --- Render Payment Transaction ---
             const directionText = item.my ? '-' : '+';
+            const messageClass = item.my ? 'sent' : 'received';
             messageHTML = `
-                <div class="message sent payment-info" ${timestampAttribute}> 
+                <div class="message ${messageClass} payment-info" ${timestampAttribute}> 
                     <div class="payment-header">
                         <span class="payment-direction">${directionText}</span>
                         <span class="payment-amount">${amountDisplay}</span>
