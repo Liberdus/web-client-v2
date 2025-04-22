@@ -3304,7 +3304,6 @@ async function handleSendMessage() {
     try {
         const messageInput = document.querySelector('.message-input');
         messageInput.focus(); // Add focus back to keep keyboard open
-        //await updateChatList()  // before sending the message check and show received messages
         
         const message = messageInput.value.trim();
         if (!message) return;
