@@ -2209,33 +2209,19 @@ function appendChatModal(highlightNewMessage = false) {
             const amountDisplay = `${amountStr.slice(0, 6)} ${item.symbol || 'LIB'}`; // Use item.symbol or fallback
 
             // Check item.my for sent/received
-            if (item.my) { // item is sent
-                // --- Render SENT Payment Transaction (like a sent message) ---
-                const directionText = '-';
-                messageHTML = `
-                    <div class="message sent payment-info" ${timestampAttribute}> 
-                        <div class="payment-header">
-                            <span class="payment-direction">${directionText}</span>
-                            <span class="payment-amount">${amountDisplay}</span>
-                        </div>
-                        ${itemMemo ? `<div class="payment-memo">${linkifyUrls(itemMemo)}</div>` : ''}
-                        <div class="message-time">${timeString}</div>
+
+            // --- Render Payment Transaction ---
+            const directionText = item.my ? '-' : '+';
+            messageHTML = `
+                <div class="message sent payment-info" ${timestampAttribute}> 
+                    <div class="payment-header">
+                        <span class="payment-direction">${directionText}</span>
+                        <span class="payment-amount">${amountDisplay}</span>
                     </div>
-                `;
-            } else { // item.my is false (received)
-                // --- Render RECEIVED Payment Transaction (like a received message) ---
-                const directionText = '+';
-                messageHTML = `
-                    <div class="message received payment-info" ${timestampAttribute}>
-                        <div class="payment-header">
-                            <span class="payment-direction">${directionText}</span>
-                            <span class="payment-amount">${amountDisplay}</span>
-                        </div>
-                        ${itemMemo ? `<div class="payment-memo">${linkifyUrls(itemMemo)}</div>` : ''}
-                        <div class="message-time">${timeString}</div>
-                    </div>
-                `;
-            }
+                    ${itemMemo ? `<div class="payment-memo">${linkifyUrls(itemMemo)}</div>` : ''}
+                    <div class="message-time">${timeString}</div>
+                </div>
+            `;
         } else {
             // --- Render Chat Message ---
             const messageClass = item.my ? 'sent' : 'received'; // Use item.my directly
