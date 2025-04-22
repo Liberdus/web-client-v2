@@ -1364,7 +1364,7 @@ async function updateChatList(force, retry = 0) {
 
         // Find the latest message/activity for this contact (which is the first in the messages array)
         const latestActivity = contact.messages[0]; // Assumes messages array includes transfers and is sorted descending
-        if (!message){ return '' }
+        if (!latestActivity){ return '' }
 
         let latestItemTimestamp = 0;
         let previewHTML = '<span class="empty-preview">No recent activity</span>'; // Default
