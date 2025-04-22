@@ -3760,7 +3760,7 @@ function playTransferSound(shouldPlay) {
 async function processChats(chats, keys) {
     let newTimestamp = 0
     const timestamp = myAccount.chatTimestamp || 0
-    const messageQueryTimestamp = Math.max(0, timestamp - 1);
+    const messageQueryTimestamp = Math.max(0, timestamp);
 
     for (let sender in chats) {
         // Fetch messages using the adjusted timestamp
