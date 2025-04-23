@@ -3781,3 +3781,16 @@ small {
   font-style: italic;
   /* color: var(--secondary-text-color); */ /* Or a muted color */
 }
+
+.ws-status-indicator {
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-weight: bold;
+  color: #fff;
+  background: #d32f2f; /* default red */
+  transition: background 0.3s;
+  margin-left: 10px; /* adjust as needed */
+}
+.ws-status-indicator.ws-red    { background: #d32f2f; }
+.ws-status-indicator.ws-yellow { background: #fbc02d; color: #222; }
+.ws-status-indicator.ws-green  { background: #388e3c; }
