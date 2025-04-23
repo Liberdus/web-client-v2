@@ -2969,12 +2969,7 @@ console.log('payload is', payload)
             timestamp: currentTime,
         };
         // Find insertion point to maintain timestamp order (newest first)
-        const insertIndex = myData.chats.findIndex(chat => chat.timestamp < chatUpdate.timestamp);
-        if (insertIndex === -1) {
-            myData.chats.push(chatUpdate); // Append if newest or list is empty
-        } else {
-            myData.chats.splice(insertIndex, 0, chatUpdate); // Insert at correct position
-        }
+        insertSorted(myData.chats, chatUpdate, 'timestamp');
         // --- End Update myData.chats ---
 
         // Update the chat modal to show the newly sent transfer message
