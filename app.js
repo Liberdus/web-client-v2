@@ -6487,42 +6487,61 @@ function insertSorted(array, item, timestampField = 'timestamp') {
 
 /**
  * Calculates the time difference between the client's local time and the server's time.
- * This function fetches the current UTC time from a remote API and compares it to the client's local time.
- * The difference is stored in the global variable `timeSkew`.
- * 
- * @returns {number} The time difference in milliseconds.
+ * Fetches UTC time from a remote API, compares it to local time, and stores the difference in `timeSkew`.
+ * Includes a retry mechanism for transient network errors.
+ *
+ * @param {number} [retryCount=0] - The current retry attempt number.
  */
-async function timeDifference() {
+async function timeDifference(retryCount = 0) {
+    const maxRetries = 2; // Maximum number of retries
+    const retryDelay = 1000; // Delay between retries in milliseconds (1 second)
+
     try {
-        const response = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC');
+        // Add 'cache: "no-store"' to potentially help with hard-refresh issues,
+        // ensuring we always go to the network.
+        const response = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC', { cache: 'no-store' });
+
         if (!response.ok) {
+            // Throw an error for bad HTTP status codes (e.g., 4xx, 5xx)
             throw new Error(`HTTP error! status: ${response.status}`);
         }
+
         const data = await response.json();
-        const clientTimeMs = Date.now();
+        const clientTimeMs = Date.now(); // Get client time as close as possible to response processing
         const serverTimeString = data.utc_datetime;
 
-        // Attempt to parse the server time string
         const serverTimeMs = new Date(serverTimeString).getTime();
         if (isNaN(serverTimeMs)) {
             console.error('Error parsing server time:', serverTimeString);
-            return; // Exit if parsing failed
+            // Don't retry on parsing errors, it's likely a data issue
+            return;
         }
 
-        
         const difference = serverTimeMs - clientTimeMs;
+        timeSkew = difference; // Store the calculated skew
 
+        // Optional: Keep logging for verification
         console.log(`Server time (UTC): ${serverTimeString}`);
-        console.log(`Client time (approx): ${new Date(clientTimeMs).toISOString()}`);
+        console.log(`Client time (local): ${new Date(clientTimeMs).toISOString()}`);
         console.log(`Time difference (Server - Client): ${difference} ms`);
-        //log difference in minutes/seconds/milliseconds
-        const minutes = Math.floor(difference / 60000);
-        const seconds = Math.floor((difference % 60000) / 1000);
-        const milliseconds = difference % 1000;
-        console.log(`Time difference: ${minutes}m ${seconds}s ${milliseconds}ms`);
-        timeSkew = difference // in milliseconds
+        const minutes = Math.floor(Math.abs(difference) / 60000);
+        const seconds = Math.floor((Math.abs(difference) % 60000) / 1000);
+        const milliseconds = Math.abs(difference) % 1000;
+        const sign = difference < 0 ? "-" : "+";
+        console.log(`Time difference: ${sign}${minutes}m ${seconds}s ${milliseconds}ms`);
+        console.log(`Successfully obtained time skew (${timeSkew}ms) on attempt ${retryCount + 1}.`);
+
+
     } catch (error) {
-        console.error('Failed to fetch or process time from API:', error);
+        console.warn(`Attempt ${retryCount + 1} failed to fetch time:`, error);
+
+        if (retryCount < maxRetries) {
+            console.log(`Retrying time fetch in ${retryDelay}ms... (Attempt ${retryCount + 2})`);
+            setTimeout(() => timeDifference(retryCount + 1), retryDelay);
+        } else {
+            console.error(`Failed to fetch time from API after ${maxRetries + 1} attempts. Time skew might be inaccurate.`);
+            // Keep timeSkew at its default (0) or last known value if applicable
+        }
     }
 }
 
