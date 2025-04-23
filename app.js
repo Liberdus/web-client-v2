@@ -2958,6 +2958,25 @@ console.log('payload is', payload)
         insertSorted(myData.contacts[toAddress].messages, transferMessage, 'timestamp');
         // --------------------------------------------------------------
 
+        // --- Update myData.chats to reflect the new message ---
+        const existingChatIndex = myData.chats.findIndex(chat => chat.address === toAddress);
+        if (existingChatIndex !== -1) {
+            myData.chats.splice(existingChatIndex, 1); // Remove existing entry
+        }
+        // Create the new chat entry
+        const chatUpdate = {
+            address: toAddress,
+            timestamp: currentTime,
+        };
+        // Find insertion point to maintain timestamp order (newest first)
+        const insertIndex = myData.chats.findIndex(chat => chat.timestamp < chatUpdate.timestamp);
+        if (insertIndex === -1) {
+            myData.chats.push(chatUpdate); // Append if newest or list is empty
+        } else {
+            myData.chats.splice(insertIndex, 0, chatUpdate); // Insert at correct position
+        }
+        // --- End Update myData.chats ---
+
         // Update the chat modal to show the newly sent transfer message
         // Check if the chat modal for this recipient is currently active
         const chatModalActive = document.getElementById('chatModal')?.classList.contains('active');
