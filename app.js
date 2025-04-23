@@ -28,7 +28,7 @@ console.log(parseInt(myVersion.replace(/\D/g, '')), parseInt(newVersion.replace(
             alert('Updating to new version: ' + newVersion + ' ' + version)
         }
         localStorage.setItem('version', newVersion); // Save new version
-        forceReload(['./', 'index.html','styles.css','app.js','lib.js', 'network.js', 'db.js', 'log-utils.js', 'service-worker.js', 'offline.html'])
+        forceReload(['./', 'index.html','styles.css','app.js','lib.js', 'network.js', 'service-worker.js', 'offline.html'])
         const newUrl = window.location.href
 //console.log('reloading', newUrl)
         window.location.replace(newUrl);
@@ -141,9 +141,6 @@ import { normalizeUsername, generateIdenticon, formatTime,
     big2str, base642bin, bin2base64, hex2bin, bin2hex, linkifyUrls, escapeHtml, 
     debounce, truncateMessage
 } from './lib.js';
-
-// Import database functions
-import { STORES, saveData, getData, addVersionToData, closeAllConnections } from './db.js';
 
 const myHashKey = hex2bin('69fa4195670576c0160d660c3be36556ff8d504725be8a59b5a96509e0c994bc')
 const weiDigits = 18; 
@@ -899,25 +896,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         this.style.height = Math.min(this.scrollHeight, 120) + 'px';
     });
 
-    document.getElementById('openLogs').addEventListener('click', () => {
-        // Then open the logs modal and update view
-        document.getElementById('logsModal').classList.add('active');
-        //updateLogsView();
-    });
-
-    document.getElementById('closeLogsModal').addEventListener('click', () => {
-        document.getElementById('logsModal').classList.remove('active');
-    });
-
-    document.getElementById('refreshLogs').addEventListener('click', () => {
-        //updateLogsView();
-    });
-
-    document.getElementById('clearLogs').addEventListener('click', async () => {
-        // await Logger.clearLogs()
-        //updateLogsView();
-    });
-
     // Add new search functionality
     const searchInput = document.getElementById('searchInput');
     const messageSearch = document.getElementById('messageSearch');
@@ -1077,10 +1055,6 @@ function handleUnload(e){
         }
         
         saveState()
-        // Logger.forceSave();
-        if (isInstalledPWA) {
-            closeAllConnections();
-        }
     }
 }
 
@@ -1094,7 +1068,6 @@ console.log('in handleBeforeUnload', e)
     }
     
     saveState()
-    // Logger.saveState();
     if (handleSignOut.exit){ 
         window.removeEventListener('beforeunload', handleBeforeUnload)
         return 
@@ -1107,10 +1080,8 @@ console.log('stop back button')
 // This is for installed apps where we can't stop the back button; just save the state
 function handleVisibilityChange(e) {
     console.log('in handleVisibilityChange', document.visibilityState);
-    // Logger.log('in handleVisibilityChange', document.visibilityState);
     if (document.visibilityState === 'hidden') {
         saveState();
-        // Logger.saveState();
         if (handleSignOut.exit) {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             return;
@@ -1308,36 +1279,25 @@ function setupAddToHomeScreen(){
 async function updateChatList(force, retry = 0) {
     let gotChats = 0
     if (myAccount && myAccount.keys) {
-        if (isOnline) {
-            // Online: Get from network and cache
-            try {
-                let retryCount = 0;
-                const maxRetries = 2;
-                
-                while (retryCount <= maxRetries) {
-                    try {
-                        gotChats = await getChats(myAccount.keys, retry);
-                        break; // Success, exit the retry loop
-                    } catch (networkError) {
-                        retryCount++;
-                        if (retryCount > maxRetries) {
-                            throw networkError; // Rethrow if max retries reached
-                        }
-                        console.log(`Retry ${retryCount}/${maxRetries} for chat update...`);
-                        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Increasing backoff
+        try {
+            let retryCount = 0;
+            const maxRetries = 2;
+            
+            while (retryCount <= maxRetries) {
+                try {
+                    gotChats = await getChats(myAccount.keys, retry);
+                    break; // Success, exit the retry loop
+                } catch (networkError) {
+                    retryCount++;
+                    if (retryCount > maxRetries) {
+                        throw networkError; // Rethrow if max retries reached
                     }
+                    console.log(`Retry ${retryCount}/${maxRetries} for chat update...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Increasing backoff
                 }
-                
-                // Cache only if we got new chats or force is true
-                if (gotChats > 0 || force) {
-                    await handleChatDataCaching(true); // true = save mode
-                }
-            } catch (error) {
-                console.error('Error updating chat list:', error);
             }
-        } else {
-            // Offline: Load from cache
-            await handleChatDataCaching(false); // false = load mode
+        } catch (error) {
+            console.error('Error updating chat list:', error);
         }
     }
     console.log('force gotChats', force === undefined ? 'undefined' : JSON.stringify(force), 
@@ -1601,14 +1561,6 @@ async function switchView(view) {
 
 // Update contacts list UI
 async function updateContactsList() {
-
-    // cache system
-    await handleDataCaching({
-        store: STORES.CONTACTS,
-        dataKey: myAccount.keys.address,
-        currentData: myData.contacts,
-        dataType: 'contacts'
-    });
 
     const contactsList = document.getElementById('contactsList');
 //            const chatsData = myData
@@ -3561,14 +3513,6 @@ async function updateWalletView() {
 
     await updateWalletBalances()
 
-    // cache system
-    await handleDataCaching({
-        store: STORES.WALLET,
-        dataKey: myAccount.keys.address,
-        currentData: walletData,
-        dataType: 'wallet',
-        idField: 'assetId'
-    });
     // Update total networth
     document.getElementById('walletTotalBalance').textContent = (walletData.networth || 0).toFixed(2);
     
@@ -3782,8 +3726,8 @@ async function queryNetwork(url) {
 //console.log('query', url)
     if (!await checkOnlineStatus()) {
 //TODO show user we are not online
-        console.log("not online")
-        alert('not online')
+        console.warn("not online")
+        //alert('not online')
         return null 
     }
     const randomGateway = getGatewayForRequest();
@@ -4461,7 +4405,6 @@ function decryptChacha(key, encrypted) {
 async function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) {
         console.log('Service Worker not supported');
-        // Logger.log('Service Worker not supported');
         return;
     }
 
@@ -4472,7 +4415,6 @@ async function registerServiceWorker() {
         // If there's an existing service worker
         if (registration?.active) {
             console.log('Service Worker already registered and active');
-            // Logger.log('Service Worker already registered and active');
             
             // Set up message handling for the active worker
             setupServiceWorkerMessaging(registration.active);
@@ -4498,7 +4440,6 @@ async function registerServiceWorker() {
         });
 
         console.log('Service Worker registered successfully:', newRegistration.scope);
-        // Logger.log('Service Worker registered successfully:', newRegistration.scope);
 
         // Set up new service worker handling
         newRegistration.addEventListener('updatefound', () => {
@@ -4515,12 +4456,10 @@ async function registerServiceWorker() {
         // Wait for the service worker to be ready
         await navigator.serviceWorker.ready;
         console.log('Service Worker ready');
-        // Logger.log('Service Worker ready');
 
         return newRegistration;
     } catch (error) {
         console.error('Service Worker registration failed:', error);
-        // Logger.error('Service Worker registration failed:', error);
         return null;
     }
 }
@@ -4538,7 +4477,6 @@ function setupServiceWorkerMessaging() {
                 break;
             case 'OFFLINE_MODE':
                 console.warn('Service worker detected offline mode:', data.url);
-                // Logger.warn('Service worker detected offline mode:', data.url);
                 isOnline = false;
                 updateUIForConnectivity();
                 markConnectivityDependentElements();
@@ -4578,7 +4516,6 @@ function setupAppStateManagement() {
         if (document.hidden) {
             // App is being hidden/closed
             console.log('📱 App hidden - starting service worker polling');
-            // Logger.log('📱 App hidden - starting service worker polling');
             const timestamp = getCorrectedTimestamp().toString();
             localStorage.setItem('appPaused', timestamp);
             
@@ -4602,7 +4539,6 @@ function setupAppStateManagement() {
         } else {
             // App is becoming visible/open
             console.log('📱 App visible - stopping service worker polling');
-            // Logger.log('📱 App visible - stopping service worker polling');
             localStorage.setItem('appPaused', '0');
             
             // Stop polling in service worker
@@ -4645,71 +4581,6 @@ function requestNotificationPermission() {
             .catch(error => {
                 console.error('Error during notification permission request:', error);
             });
-    }
-}
-
-
-async function updateLogsView() {
-    const logsContainer = document.getElementById('logsContainer');
-    const logs = await Logger.getLogs();
-    
-    // Create document fragment for better performance
-    const fragment = document.createDocumentFragment();
-    
-    // Use logs directly without sorting - they'll be in insertion order
-    const dateFormatter = new Intl.DateTimeFormat();
-    const timeFormatter = new Intl.DateTimeFormat(undefined, {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    });
-    
-    logs.forEach(log => {
-        const logEntry = document.createElement('div');
-        logEntry.className = `log-entry ${log.level || 'info'}`;
-        
-        const date = new Date(log.timestamp);
-        logEntry.innerHTML = `
-            <span class="log-timestamp">${dateFormatter.format(date)} ${timeFormatter.format(date)}</span>
-            <span class="log-source">[${log.source || 'app'}]</span>
-            <span class="log-level">${log.level || 'info'}</span>
-            <pre class="log-message">${escapeHtml(formatMessage(log.message))}</pre>
-        `;
-        fragment.appendChild(logEntry);
-    });
-
-    logsContainer.innerHTML = '';
-    logsContainer.appendChild(fragment);
-    logsContainer.scrollTop = logsContainer.scrollHeight;  // This scrolls to bottom
-}
-
-
-// Helper functions moved outside for reuse
-function formatMessage(message) {
-    // If message is an array (from new format)
-    if (Array.isArray(message)) {
-        return message.map(part => {
-            try {
-                // Try to parse if it looks like JSON
-                if (typeof part === 'string' && 
-                    (part.startsWith('{') || part.startsWith('[') || 
-                     part.startsWith('"') || part === 'null' || 
-                     part === '"undefined"')) {
-                    return JSON.stringify(JSON.parse(part), null, 2);
-                }
-                return part;
-            } catch (e) {
-                return part;
-            }
-        }).join(' ');
-    }
-
-    // Legacy format (string)
-    try {
-        const parsed = JSON.parse(message);
-        return JSON.stringify(parsed, null, 2);
-    } catch (e) {
-        return message;
     }
 }
 
@@ -5088,20 +4959,6 @@ async function handleConnectivityChange(event) {
         // Verify username is still valid on the network
         await verifyUsernameOnReconnect();
         
-        // warmup db
-        if (isInstalledPWA) {
-            await getData(STORES.WALLET);
-        }
-
-        // Check database health after reconnection
-        const dbHealthy = await checkDatabaseHealth();
-        if (!dbHealthy) {
-            console.warn('Database appears to be in an unhealthy state, reloading app...');
-            showToast("Database issue detected, reloading application...", 3000, "warning");
-            setTimeout(() => window.location.reload(), 3000);
-            return;
-        }
-        
         // Force update data with reconnection handling
         if (myAccount && myAccount.keys) {
             try {
@@ -5294,31 +5151,6 @@ async function verifyUsernameOnReconnect() {
         }, 5000);
     } else {
         console.log('Username verified successfully on reconnect');
-    }
-}
-
-async function checkDatabaseHealth() {
-    if (!isInstalledPWA) {
-        return true;
-    }
-
-    try {
-        // Try to access each store to verify database is working
-        for (const store of Object.values(STORES)) {
-            try {
-                // Just try to read any data from each store
-                const testKey = await getData(store, null);
-                console.log(`Database store ${store} is accessible`);
-            } catch (error) {
-                console.error(`Database store ${store} access error:`, error);
-                // If there's an error, we might need to reinitialize
-                return false;
-            }
-        }
-        return true;
-    } catch (error) {
-        console.error('Database health check failed:', error);
-        return false;
     }
 }
 
@@ -6347,78 +6179,6 @@ class WSManager {
 }
 
 let wsManager = new WSManager()        // this is set to new WSManager() for convience
-
-async function handleDataCaching(options) {
-    const {
-        store,          // STORES.WALLET or STORES.CONTACTS
-        dataKey,        // myAccount.keys.address
-        currentData,    // data to be cached
-        dataType,       // 'wallet' or 'contacts' - for logging and data structure
-        idField = 'address'  // 'assetId' for wallet, 'address' for contacts
-    } = options;
-
-    if (!isInstalledPWA) {
-        console.log(`Not installed PWA. No ${dataType} caching available.`);
-        return;
-    }
-
-    if (isOnline) {
-        try {
-            const cacheData = addVersionToData({
-                [idField]: dataKey,
-                [dataType]: currentData
-            });
-            await saveData(store, cacheData);
-            console.log(`Successfully cached ${dataType} data:`, cacheData);
-        } catch (error) {
-            console.error(`Failed to cache ${dataType} data:`, error);
-        }
-    } else {
-        try {
-            const cachedData = await getData(store, dataKey);
-            if (cachedData) {
-                myData[dataType] = cachedData[dataType];
-                console.log(`Using cached ${dataType} data from:`, new Date(cachedData.lastUpdated));
-            }
-        } catch (error) {
-            console.error(`Failed to read cached ${dataType} data:`, error);
-        }
-    }
-}
-
-async function handleChatDataCaching(isSaveMode) {
-    if (!isInstalledPWA) {
-        console.log('Not installed PWA. No chat data caching available.');
-        return;
-    }
-    
-    if (isSaveMode) {
-        // Save mode - cache the current chat data
-        try {
-            const cacheData = addVersionToData({
-                chatId: myAccount.keys.address,
-                chats: myData.chats,
-                contacts: myData.contacts
-            });
-            await saveData(STORES.CHATS, cacheData);
-            console.log('Successfully cached chat data');
-        } catch (error) {
-            console.error('Failed to cache chat data:', error);
-        }
-    } else {
-        // Load mode - retrieve cached chat data
-        try {
-            const cachedData = await getData(STORES.CHATS, myAccount.keys.address);
-            if (cachedData) {
-                myData.chats = cachedData.chats;
-                myData.contacts = cachedData.contacts;
-                console.log('Using cached chat data from:', new Date(cachedData.lastUpdated));
-            }
-        } catch (error) {
-            console.error('Failed to read cached chat data:', error);
-        }
-    }
-}
 
 // New functions for send confirmation flow
 function handleSendFormSubmit(event) {

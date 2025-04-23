@@ -53,8 +53,6 @@
       https://github.com/davidshimjs/qrcodejs
       https://github.com/davidshimjs/qrcodejs/blob/master/qrcode.js
     -->
-    <script src="./log-utils.js"></script>
-    <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
     <link rel="stylesheet" href="./styles.css" />
     <link rel="manifest" href="./manifest.json" />
@@ -228,7 +226,6 @@
 -->
           <li class="menu-item" id="openRemoveAccount">Remove</li>
           <li class="menu-item" id="openAbout">About</li>
-          <li class="menu-item" id="openLogs">View Logs</li>
           <li class="menu-item" id="handleSignOut">Sign Out</li>
         </ul>
       </div>
@@ -968,19 +965,6 @@
               Remove
             </button>
           </div>
-        </div>
-      </div>
-
-      <!-- Logs Modal -->
-      <div class="modal" id="logsModal">
-        <div class="modal-header">
-          <button class="back-button" id="closeLogsModal"></button>
-          <div class="modal-title">Logs</div>
-          <button id="refreshLogs" class="secondary-button">Refresh</button>
-          <button id="clearLogs" class="secondary-button">Clear</button>
-        </div>
-        <div class="logs-container" id="logsContainer">
-          <!-- Logs will be populated here -->
         </div>
       </div>
 
