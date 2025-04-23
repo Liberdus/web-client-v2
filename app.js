@@ -4088,6 +4088,8 @@ async function processChats(chats, keys) {
                     insertSorted(contact.messages, transferMessage, 'timestamp');
                     // --------------------------------------------------------------
 
+                    added += 1
+
                     const walletScreenActive = document.getElementById("walletScreen")?.classList.contains("active");
                     const historyModalActive = document.getElementById("historyModal")?.classList.contains("active");
                     // Update wallet view if it's active
@@ -4145,8 +4147,8 @@ async function processChats(chats, keys) {
                 }
                 
                 // Show toast notification for new messages
-                // Only suppress notification if we're ACTIVELY viewing this chat
-                if (!inActiveChatWithSender) {
+                // Only suppress notification if we're ACTIVELY viewing this chat and if not a transfer
+                if (!inActiveChatWithSender && !hasNewTransfer) {
                     // Get name of sender
                     const senderName = contact.name || contact.username || `${from.slice(0,8)}...`
                     
