@@ -6499,7 +6499,8 @@ async function timeDifference(retryCount = 0) {
     try {
         // Add 'cache: "no-store"' to potentially help with hard-refresh issues,
         // ensuring we always go to the network.
-        const response = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC', { cache: 'no-store' });
+        // Try a different API: TimeAPI.io
+        const response = await fetch('https://timeapi.io/api/time/current/zone?timeZone=UTC', { cache: 'no-store' });
 
         if (!response.ok) {
             // Throw an error for bad HTTP status codes (e.g., 4xx, 5xx)
@@ -6508,7 +6509,8 @@ async function timeDifference(retryCount = 0) {
 
         const data = await response.json();
         const clientTimeMs = Date.now(); // Get client time as close as possible to response processing
-        const serverTimeString = data.utc_datetime;
+        // Adjust for TimeAPI.io response format
+        const serverTimeString = data.dateTime.endsWith("Z") ? data.dateTime : data.dateTime + "Z";
 
         const serverTimeMs = new Date(serverTimeString).getTime();
         if (isNaN(serverTimeMs)) {
@@ -6521,6 +6523,7 @@ async function timeDifference(retryCount = 0) {
         timeSkew = difference; // Store the calculated skew
 
         // Optional: Keep logging for verification
+        // update since we are using TimeAPI.io
         console.log(`Server time (UTC): ${serverTimeString}`);
         console.log(`Client time (local): ${new Date(clientTimeMs).toISOString()}`);
         console.log(`Time difference (Server - Client): ${difference} ms`);
