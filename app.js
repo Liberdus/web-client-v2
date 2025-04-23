@@ -723,6 +723,7 @@ function checkIsInstalledPWA() {
 document.addEventListener('DOMContentLoaded', async () => {
     await checkVersion()  // version needs to be checked before anything else happens
     await lockToPortrait()
+    await timeDifference(); // Calculate and log time difference early
     // Initialize service worker only if running as installed PWA
     isInstalledPWA = checkIsInstalledPWA(); // Set the global variable
     if (isInstalledPWA && 'serviceWorker' in navigator) {
@@ -6475,3 +6476,37 @@ function insertSorted(array, item, timestampField = 'timestamp') {
       array.splice(index, 0, item);
     }
   }
+
+async function timeDifference() {
+    try {
+        const response = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        const clientTimeMs = Date.now();
+        const serverTimeString = data.utc_datetime;
+
+        // Attempt to parse the server time string
+        const serverTimeMs = new Date(serverTimeString).getTime();
+        if (isNaN(serverTimeMs)) {
+            console.error('Error parsing server time:', serverTimeString);
+            return; // Exit if parsing failed
+        }
+
+        
+        const difference = serverTimeMs - clientTimeMs;
+
+        console.log(`Server time (UTC): ${serverTimeString}`);
+        console.log(`Client time (approx): ${new Date(clientTimeMs).toISOString()}`);
+        console.log(`Time difference (Server - Client): ${difference} ms`);
+        //log difference in minutes/seconds/milliseconds
+        const minutes = Math.floor(difference / 60000);
+        const seconds = Math.floor((difference % 60000) / 1000);
+        const milliseconds = difference % 1000;
+        console.log(`Time difference: ${minutes}m ${seconds}s ${milliseconds}ms`);
+
+    } catch (error) {
+        console.error('Failed to fetch or process time from API:', error);
+    }
+}
