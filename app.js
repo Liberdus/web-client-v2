@@ -4962,7 +4962,7 @@ async function handleConnectivityChange(event) {
         showToast("You're back online!", 3000, "online");
 
         // Verify username is still valid on the network
-        await verifyUsernameOnReconnect();
+        /* await verifyUsernameOnReconnect(); */
         // Initialize WebSocket connection regardless of view
         wsManager.initializeWebSocketManager();
         // Force update data with reconnection handling
@@ -5132,7 +5132,7 @@ async function checkConnectivity() {
 }
 
 // Verify username availability when coming back online
-async function verifyUsernameOnReconnect() {
+/* async function verifyUsernameOnReconnect() {
     // Only proceed if user is logged in
     if (!myAccount || !myAccount.username) {
         console.log('No active account to verify');
@@ -5158,7 +5158,7 @@ async function verifyUsernameOnReconnect() {
     } else {
         console.log('Username verified successfully on reconnect');
     }
-}
+} */
 
 // Gateway Management Functions
 
