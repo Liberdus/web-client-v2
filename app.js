@@ -731,11 +731,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         await registerServiceWorker();
         setupServiceWorkerMessaging(); 
         setupAppStateManagement();
-        setupConnectivityDetection();
     } else {
         // Web-only mode
         console.log('Running in web-only mode, skipping service worker initialization');
     }
+
+    setupConnectivityDetection();
 
     document.getElementById('versionDisplay').textContent = myVersion + ' '+version;
     document.getElementById('networkNameDisplay').textContent = network.name;
@@ -4990,10 +4991,10 @@ async function handleConnectivityChange(event) {
 // Setup connectivity detection
 function setupConnectivityDetection() {
     // Only setup offline detection if running as installed PWA
-    if (!checkIsInstalledPWA()) {
+    /* if (!checkIsInstalledPWA()) {
         isOnline = true; // Always consider online in web mode
         return;
-    }
+    } */
 
     // Listen for browser online/offline events
     window.addEventListener('online', handleConnectivityChange);
