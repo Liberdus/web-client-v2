@@ -4963,7 +4963,8 @@ async function handleConnectivityChange(event) {
 
         // Verify username is still valid on the network
         await verifyUsernameOnReconnect();
-        
+        // Initialize WebSocket connection regardless of view
+        wsManager.initializeWebSocketManager();
         // Force update data with reconnection handling
         if (myAccount && myAccount.keys) {
             try {
