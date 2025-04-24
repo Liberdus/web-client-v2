@@ -579,7 +579,7 @@ async function handleCreateAccount(event) {
     // Store the account data in localStorage
     localStorage.setItem(`${username}_${netid}`, stringify(myData));
 
-    requestNotificationPermission();
+    /* requestNotificationPermission(); */
 
     // enable submit button
     submitButton.disabled = false;
@@ -630,7 +630,7 @@ async function handleSignIn(event) {
     if (!myData) { console.log('Account data not found'); return }
     myAccount = myData.account;
 
-    requestNotificationPermission();
+    /* requestNotificationPermission(); */
 
     // Close modal and proceed to app
     closeSignInModal();
@@ -1756,7 +1756,7 @@ async function handleImportFile(event) {
         // Store the localStore entry for username_netid
         localStorage.setItem(`${myAccount.username}_${myAccount.netid}`, stringify(myData));
 
-        requestNotificationPermission();
+        /* requestNotificationPermission(); */
 
 /*
         // Refresh form data and chat list
@@ -4571,7 +4571,7 @@ function pqSharedKey(recipientKey, encKey){  // inputs base64 or binary, outputs
 }
 
 
-function requestNotificationPermission() {
+/* function requestNotificationPermission() {
     if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission()
             .then(permission => {
@@ -4586,7 +4586,7 @@ function requestNotificationPermission() {
                 console.error('Error during notification permission request:', error);
             });
     }
-}
+} */
 
 // Add these search-related functions
 function searchMessages(searchText) {
