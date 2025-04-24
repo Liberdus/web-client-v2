@@ -5828,15 +5828,7 @@ class WSManager {
     try {
       console.log('Creating new WebSocket instance');
       this.ws = new WebSocket(network.websocket.url);
-      
-      // Add error event handler before setupEventHandlers
-      this.ws.onerror = (error) => {
-        updateWebSocketIndicator();
-        console.error('WebSocket error occurred:', error);
-        console.log('WebSocket readyState at error:', this.ws ? this.ws.readyState : 'ws is null');
-        this.handleConnectionFailure();
-      };
-      
+      this.setupEventHandlers();
     } catch (error) {
       console.error('WebSocket connection creation error:', error);
       this.handleConnectionFailure();
@@ -5909,6 +5901,13 @@ class WSManager {
       }
     };
 
+    // Add error event handler before setupEventHandlers
+    this.ws.onerror = (error) => {
+        updateWebSocketIndicator();
+        console.error('WebSocket error occurred:', error);
+        console.log('WebSocket readyState at error:', this.ws ? this.ws.readyState : 'ws is null');
+        this.handleConnectionFailure();
+    };
   }
 
   /**
@@ -6146,10 +6145,10 @@ class WSManager {
     // Initialize WebSocket manager if not already created
     initializeWebSocketManager() {
 
-        if (wsManager.isConnected()) {
-            if(!wsManager.isSubscribed()) {
+        if (this.isConnected()) {
+            if(!this.isSubscribed()) {
                 console.log('WebSocket is already connected but not subscribed, subscribing');
-                wsManager.subscribe();
+                this.subscribe();
                 return;
             }
             console.log('WebSocket is already connected and subscribed');
@@ -6172,11 +6171,9 @@ class WSManager {
             initInfo.status = 'created';
             
             if (initInfo.account.available) {
-                wsManager.connect();
+                this.connect();
                 initInfo.status = 'connecting';
             }
-
-            this.setupEventHandlers();
             console.log('WebSocket Manager Status:', JSON.stringify(initInfo, null, 2));
             
         } catch (error) {
@@ -6184,7 +6181,6 @@ class WSManager {
                 error: error.message,
                 stack: error.stack
             }, null, 2));
-            wsManager = null;
         }
     }
 }
