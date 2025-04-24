@@ -26,9 +26,9 @@ const state = {
     notifiedChats: new Set()
 };
 
-// Install event - set up caching
-/* self.addEventListener('install', (event) => {
-  console.log('[Service Worker] Installing, version:', CACHE_VERSION);
+// Install event 
+self.addEventListener('install', (event) => {
+  /* console.log('[Service Worker] Installing, version:', CACHE_VERSION);
   
   event.waitUntil(
     (async () => {
@@ -68,17 +68,22 @@ const state = {
         // Don't throw - allow installation even if caching fails
       }
     })()
-  );
+  ); */
 
   // Activate immediately
   self.skipWaiting();
-}); */
+});
 
 // Activate event - clean up old caches
-/* self.addEventListener('activate', (event) => {
+self.addEventListener('activate', (event) => {
   console.log('[Service Worker] Activating new service worker');
-
+  // Take control of all clients immediately
   event.waitUntil(
+    (async () => {
+      await self.clients.claim();
+    })()
+  );
+/*   event.waitUntil(
     (async () => {
       try {
         // Clean up old caches
@@ -95,8 +100,7 @@ const state = {
             })
         );
 
-        // Take control of all clients immediately
-        await self.clients.claim();
+
         
         // Verify cache contents after activation
         const cache = await caches.open(STATIC_CACHE);
@@ -115,8 +119,8 @@ const state = {
         // Don't throw - allow activation even if cleanup fails
       }
     })()
-  );
-}); */
+  ); */
+});
 
 // Function to clean up old cache entries
 /* async function cleanupOldCacheEntries() {
