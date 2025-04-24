@@ -6072,7 +6072,6 @@ class WSManager {
    * Check if WebSockets are supported in the current browser
    */
   checkWebSocketSupport() {
-    updateWebSocketIndicator();
     const supportInfo = {
       webSocketAvailable: typeof WebSocket !== 'undefined',
       browser: {
