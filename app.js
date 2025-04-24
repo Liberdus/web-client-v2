@@ -5019,6 +5019,7 @@ function markConnectivityDependentElements() {
         '#handleSendMessage',
         '.message-input',
         '#newChatButton',
+        '#chatSendMoneyButton',
         
         // Wallet related
         '#openSendModal',
@@ -5034,6 +5035,7 @@ function markConnectivityDependentElements() {
         '#accountForm button[type="submit"]',
         '#createAccountForm button[type="submit"]',
         '#importForm button[type="submit"]',
+        '#contactInfoSendButton',
 
         // menu list buttons
         '.menu-item[id="openAccountForm"]',
