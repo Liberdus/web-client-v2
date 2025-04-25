@@ -3924,7 +3924,7 @@ async function processChats(chats, keys) {
             const from = normalizeAddress(sender)
             if (!myData.contacts[from]){ createNewContact(from) }
             const contact = myData.contacts[from]
-//            contact.address = from        // not needed since createNewContact does this
+            //contact.address = from        // not needed since createNewContact does this
             let added = 0
             let hasNewTransfer = false;
             
@@ -3935,18 +3935,18 @@ async function processChats(chats, keys) {
             
             for (let i in res.messages){
                 const tx = res.messages[i] // the messages are actually the whole tx
-//console.log('message tx is')
-//console.log(JSON.stringify(message, null, 4))
+                //console.log('message tx is')
+                //console.log(JSON.stringify(message, null, 4))
                 newTimestamp = tx.timestamp > newTimestamp ? tx.timestamp : newTimestamp
                 if (tx.type == 'message'){
-                    if (tx.from == longAddress(keys.address)){ continue }  // skip if the message is from us
+                    //if (tx.from == longAddress(keys.address)){ continue }  // skip if the message is from us
                     const payload = tx.xmessage  // changed to use .message
                     if (payload.encrypted){ 
                         let senderPublic = myData.contacts[from]?.public
                         if (!senderPublic){
                             const senderInfo = await queryNetwork(`/account/${longAddress(from)}`)
                             // TODO for security, make sure hash of public key is same as from address; needs to be in other similar situations
-//console.log('senderInfo.account', senderInfo.account)
+                            //console.log('senderInfo.account', senderInfo.account)
                             if (!senderInfo?.account?.publicKey){
                                 console.log(`no public key found for sender ${sender}`)
                                 continue
@@ -3958,7 +3958,7 @@ async function processChats(chats, keys) {
                         }
                         payload.public = senderPublic
                     }
-//console.log("payload", payload)
+                    //console.log("payload", payload)
                     decryptMessage(payload, keys)  // modifies the payload object
                     if (payload.senderInfo){
                         contact.senderInfo = JSON.parse(JSON.stringify(payload.senderInfo))  // make a copy
@@ -3973,9 +3973,14 @@ async function processChats(chats, keys) {
                     //    and messages[x].my is false and messages[x].message == payload.message
                     let alreadyExists = false;
                     for (const existingMessage of contact.messages) {
-                        if (existingMessage.sent_timestamp === payload.sent_timestamp && existingMessage.message === payload.message && existingMessage.my === false) {
-                            alreadyExists = true;
-                            break;
+                        // Check if timestamp and message content match
+                        if (existingMessage.sent_timestamp === payload.sent_timestamp && existingMessage.message === payload.message) {
+                            // Now check if the 'my' status matches the incoming message's sender
+                            // (Assuming isFromMe is defined earlier as tx.from == longAddress(keys.address))
+                            if (existingMessage.my === (tx.from == longAddress(keys.address))) {
+                                alreadyExists = true;
+                                break; // Found an exact duplicate (sent or received)
+                            }
                         }
                     }
                     if (alreadyExists) {
@@ -3983,19 +3988,19 @@ async function processChats(chats, keys) {
                         continue; // Skip to the next message
                     }
 
-//console.log('contact.message', contact.messages)
-                    payload.my = false
+                    //console.log('contact.message', contact.messages)
+                    payload.my = (tx.from == longAddress(keys.address))
                     payload.timestamp = payload.sent_timestamp
                     insertSorted(contact.messages, payload, 'timestamp')
-                    // if we are not in the chatModal of who sent it, playChatSound
-                    if (!inActiveChatWithSender){
+                    // if we are not in the chatModal of who sent it and it's not from user, playChatSound
+                    if (!inActiveChatWithSender && !payload.my){
                         playChatSound(true);
                     }
                     added += 1
                 } else if (tx.type == 'transfer'){
-//console.log('transfer tx is')
-//console.log(JSON.stringify(message, null, 4))
-                    if (tx.from == longAddress(keys.address)){ continue }  // skip if the message is from us
+                    //console.log('transfer tx is')
+                    //console.log(JSON.stringify(message, null, 4))
+                    //if (tx.from == longAddress(keys.address)){ continue }  // skip if the message is from us
                     const payload = tx.xmemo 
                     if (payload.encrypted){ 
                         let senderPublic = myData.contacts[from]?.public
@@ -4023,6 +4028,9 @@ async function processChats(chats, keys) {
                             contact.username = contact.senderInfo.username
                         }
                     }
+
+                    const isFromMe = (tx.from == longAddress(keys.address))
+
                     // compute the transaction id (txid)
                     delete tx.sign
                     const jstr = stringify(tx)
@@ -4047,9 +4055,9 @@ async function processChats(chats, keys) {
                     const newPayment = {
                         txid: txidHex,
                         amount: parse(stringify(tx.amount)),  // need to make a copy
-                        sign: 1,
+                        sign: isFromMe ? -1 : 1,
                         timestamp: payload.sent_timestamp,
-                        address: from,
+                        address: isFromMe ? from : keys.address, // address of the sender
                         memo: payload.message
                     };
                     insertSorted(history, newPayment, 'timestamp');
@@ -4058,21 +4066,41 @@ async function processChats(chats, keys) {
                     //history.sort((a, b) => b.timestamp - a.timestamp);
                     
                     // Mark that we have a new transfer for toast notification
-                    hasNewTransfer = true
+                    if (!isFromMe){
+                        hasNewTransfer = true
+                    }
 
                     // --- Create and Insert Transfer Message into contact.messages ---
                     const transferMessage = {
                         timestamp: payload.sent_timestamp,
                         sent_timestamp: payload.sent_timestamp,
-                        my: false, // Received transfer
+                        my: isFromMe, // true if the transfer is from the user, false if it's to the user
                         message: payload.message, // Use the memo as the message content
                         amount: parse(stringify(tx.amount)), // Ensure amount is stored as BigInt
                         symbol: 'LIB', // TODO: get the symbol from the asset
                     };
-                    // Insert the transfer message into the contact's message list, maintaining sort order
-                    insertSorted(contact.messages, transferMessage, 'timestamp');
-                    // --------------------------------------------------------------
 
+                    let alreadyInChat = false;
+                    for (const existingMessage of contact.messages){
+                            // Check for matching timestamp, memo, amount, symbol, AND direction (my)
+                        if (
+                            existingMessage.timestamp === transferMessage.timestamp && // Use timestamp for comparison
+                            existingMessage.message === transferMessage.message &&
+                            existingMessage.amount && transferMessage.amount && existingMessage.amount.eq(transferMessage.amount) && // Safely compare BigInts
+                            existingMessage.symbol === transferMessage.symbol &&
+                            existingMessage.my === transferMessage.my // Crucial: checks if it's the same type (sent/received)
+                        ) {
+                            alreadyInChat = true;
+                            break;
+                        }
+                    }
+                    // Insert the transfer message into the contact's message list, maintaining sort order
+                    if (!alreadyInChat) {
+                        insertSorted(contact.messages, transferMessage, 'timestamp');
+                    } else {
+                        console.log(`Skipping duplicate transfer message in chat for txid: ${txidHex}`);
+                    }
+                    // --------------------------------------------------------------
                     added += 1
 
                     const walletScreenActive = document.getElementById("walletScreen")?.classList.contains("active");
@@ -4086,7 +4114,9 @@ async function processChats(chats, keys) {
                         updateTransactionHistory();
                     }
                     // Always play transfer sound for new transfers
-                    playTransferSound(true);
+                    if (!isFromMe){
+                        playTransferSound(true);
+                    }
                     // is chatModal of sender address is active
                     if (inActiveChatWithSender){
                         // add the transfer tx to the chatModal
