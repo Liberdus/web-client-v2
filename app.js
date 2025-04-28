@@ -4342,6 +4342,7 @@ async function injectTx(tx, keys){
             body: stringify({tx: stringify(tx)})
         }
         const response = await fetch(`${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}/inject`, options);
+        console.log("DEBUG: injectTx response", response);
         const data = await response.json();     
         data.txid = txid           
         return data
@@ -4351,6 +4352,12 @@ async function injectTx(tx, keys){
     }
 }
 
+/**
+ * Sign a transaction object and return the transaction ID hash
+ * @param {Object} tx - The transaction object to sign
+ * @param {Object} keys - The keys object containing address and secret
+ * @returns {Promise<string>} The transaction ID hash
+ */
 async function signObj(tx, keys){
     const jstr = stringify(tx)
 //console.log('tx stringify', jstr)
@@ -6423,12 +6430,12 @@ async function handleStakeSubmit(event) {
     }
 
     // Validate address format (simple check for now) // TODO: robust validation
-    if (!nodeAddress.startsWith('0x') || nodeAddress.length !== 42) {
+/*     if (!nodeAddress.startsWith('0x') || nodeAddress.length !== 42) {
         showToast('Invalid validator node address format.', 3000, 'error');
         stakeButton.disabled = false;
         return;
     }
-
+ */
     let amount_in_wei;
     try {
         amount_in_wei = bigxnum2big(wei, amountStr);
@@ -6444,10 +6451,10 @@ async function handleStakeSubmit(event) {
 
     try {
         showToast('Submitting stake transaction...', 2000, 'loading');
-        const response = await postStake(nodeAddress, amount_in_wei);
+        const response = await postStake(nodeAddress, amount_in_wei, myAccount.keys);
         console.log("Stake Response:", response);
 
-/*         if (response && response.result && response.result.success) {
+        if (response && response.result && response.result.success) {
             showToast('Stake transaction submitted successfully!', 3000, 'success');
             nodeAddressInput.value = ''; // Clear form
             amountInput.value = '';
@@ -6455,7 +6462,7 @@ async function handleStakeSubmit(event) {
         } else {
             const reason = response?.result?.reason || 'Unknown error';
             showToast(`Stake failed: ${reason}`, 5000, 'error');
-        } */
+        }
     } catch (error) {
         console.error('Stake transaction error:', error);
         showToast('Stake transaction failed. See console for details.', 5000, 'error');
@@ -6481,11 +6488,11 @@ async function handleUnstakeSubmit(event) {
     }
 
     // Validate address format // TODO: robust validation
-    if (!nodeAddress.startsWith('0x') || nodeAddress.length !== 42) {
+/*     if (!nodeAddress.startsWith('0x') || nodeAddress.length !== 42) {
         showToast('Invalid validator node address format.', 3000, 'error');
         unstakeButton.disabled = false;
         return;
-    }
+    } */
 
     try {
         showToast('Submitting unstake transaction...', 2000, 'loading');
@@ -6508,7 +6515,7 @@ async function handleUnstakeSubmit(event) {
     }
  }
 
- async function postStake(nodeAddress, amount) {
+ async function postStake(nodeAddress, amount, keys) {
     /* {
         "isInternalTx": true,
         "internalTXType": 6,
@@ -6517,18 +6524,36 @@ async function handleUnstakeSubmit(event) {
         "nominee": "<node_public_key>",
         "stake": "<stake_amount_in_wei>" 
     } */
-    const stakeTx = {
+    /* const stakeTx = {
         isInternalTx: true,
         internalTXType: 6,
         nominator: myAccount.address,
         timestamp: getCorrectedTimestamp(),
         nominee: nodeAddress,
         stake: amount
+    }; */
+
+    /* {
+        "type": "stake",
+        "from": "<your_account_address>",
+        "stake": "1000000000000000000", // Stake amount as a string (to represent bigint)
+        "sign": {
+            "owner": "<your_account_address>", // Must match 'from'
+            "sig": "<transaction_signature>"   // Cryptographic signature
+        }
+    } */
+    const stakeTx = {
+        type: "stake",
+        from: longAddress(nodeAddress), // convert to long address currently is 64 characters hex
+        stake: amount,
     };
+    console.log("Debug: myAccount", myAccount);
+    console.log("Debug: staking with address", nodeAddress, "and amount", amount);
+    console.log("DEBUG: Staking with keys:", keys); 
+
     // TODO: uncomment when implemented on backend
-    //const response = await injectTx(stakeTx, myAccount.keys);
-    //console.log("Stake Response:", response);
-    return stakeTx;
+    const response = await injectTx(stakeTx, keys);
+    return response;
  }
 
  async function postUnstake(nodeAddress) {
@@ -6540,17 +6565,32 @@ async function handleUnstakeSubmit(event) {
         "nominee": "<node_public_key>",
         "force": false 
     } */
-    const unstakeTx = {
+    /* const unstakeTx = {
         isInternalTx: true,
         internalTXType: 7,
         nominator: myAccount.address,
         timestamp: getCorrectedTimestamp(),
         nominee: nodeAddress,
         force: false
+    }; */
+
+    /* {
+        "type": "stake",
+        "from": "<your_account_address>",
+        "stake": "1000000000000000000", // Stake amount as a string (to represent bigint)
+        "sign": {
+            "owner": "<your_account_address>", // Must match 'from'
+            "sig": "<transaction_signature>"   // Cryptographic signature
+        }
+    } */
+    const unstakeTx = {
+        type: "unstake",
+        from: myAccount?.keys?.address,
+        stake: amount,
     };
+    
     // TODO: uncomment when implemented on backend
-    // const response = await injectTx(unstakeTx, myAccount.keys);
-    // console.log("Unstake Response:", response);
-    return unstakeTx;
+    const response = await injectTx(unstakeTx, myAccount.keys);
+    return response;
  }
  
