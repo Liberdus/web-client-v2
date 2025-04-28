@@ -3794,3 +3794,104 @@ small {
 .ws-status-indicator.ws-red    { background: #d32f2f; }
 .ws-status-indicator.ws-yellow { background: #fbc02d; color: #222; }
 .ws-status-indicator.ws-green  { background: #388e3c; }
+
+/* --- Validator Modal --- */
+#validatorModal .modal-content {
+  padding: 16px;
+  padding-top: 24px; /* Add more top padding */
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Center items */
+  gap: 24px; /* Increase space between action items */
+}
+
+#validatorModal .modal-content p {
+  text-align: center; /* Center the text */
+  color: var(--secondary-text-color);
+  margin-bottom: 8px; /* Reduced space below main paragraph */
+  font-size: var(--font-size-base);
+}
+
+#validatorModal .action-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%; /* Take full width */
+  gap: 8px; /* Space between button and its description */
+}
+
+#validatorModal .action-description {
+  font-size: var(--font-size-sm); /* Smaller font */
+  color: var(--secondary-text-color);
+  text-align: center;
+  margin: 0 16px; /* Horizontal margin */
+  line-height: 1.4;
+  max-width: 360px; /* Limit width */
+}
+
+#validatorModal .button.full-width {
+  width: calc(100% - 32px); /* Match update-button width */
+  max-width: 360px; /* Max width for larger screens */
+  height: 48px;
+  border-radius: 24px; /* Rounded corners like update-button */
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  margin: 0; /* Remove margin as it's handled by action-item */
+  /* Inherit background/color from .button and .secondary-button */
+}
+
+/* Ensure primary button style */
+#validatorModal #openStakeModal {
+  background-color: var(--primary-color);
+  color: var(--background-color);
+  border: none;
+}
+#validatorModal #openStakeModal:hover {
+  background-color: var(--primary-hover);
+}
+
+/* Ensure secondary button style (now danger) */
+#validatorModal #openUnstakeModal {
+  /* Styles inherited from .button, .full-width, .secondary-button */
+  background-color: var(--danger-color);
+  color: var(--background-color);
+  border: none; /* Ensure no border from secondary */
+}
+
+#validatorModal #openUnstakeModal:hover {
+  opacity: 0.9; /* Standard hover effect */
+  /* Consider a slightly darker red on hover if needed */
+  /* background-color: #c82333; */ /* Example darker red */
+}
+
+/* Style submit buttons like primary action buttons */
+#stakeModal #submitStake,
+#unstakeModal #submitUnstake {
+  /* Apply primary button styling */
+  background-color: var(--primary-color);
+  color: var(--background-color);
+  border: none;
+  width: calc(100% - 32px); /* Match update-button */
+  max-width: 360px;
+  height: 48px;
+  border-radius: 24px;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  margin: 1rem auto; /* Center button */
+  display: block; /* Needed for margin: auto */
+  cursor: pointer;
+}
+
+#stakeModal #submitStake:hover {
+  background-color: var(--primary-hover);
+  opacity: 0.9;
+}
+
+/* submit unstake will use red button */
+#unstakeModal #submitUnstake {
+  background-color: var(--danger-color);
+}
+
+#unstakeModal #submitUnstake:hover {
+  opacity: 0.9;
+}
