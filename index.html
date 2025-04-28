@@ -235,6 +235,7 @@
           <li class="menu-item" id="openAccountForm">Account</li>
           <li class="menu-item" id="openExportForm">Backup</li>
           <li class="menu-item" id="openNetwork">Gateway</li>
+          <li class="menu-item" id="openValidator">Validator</li>
           <!--                <li class="menu-item" id="openSettings">Settings</li> -->
           <li class="menu-item" id="openExplorer">Explorer</li>
           <li class="menu-item" id="openMonitor">Network</li>
@@ -1084,6 +1085,101 @@
               <div class="contact-info-value" id="editContactX"></div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Validator Modal -->
+      <div class="modal" id="validatorModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeValidatorModal"></button>
+          <div class="modal-title">Validator Options</div>
+        </div>
+        <div class="modal-content">
+          <p>Manage your validator stake:</p>
+
+          <div class="action-item">
+            <button id="openStakeModal" class="button full-width">Stake</button>
+            <p class="action-description">
+              Delegate LIB to a validator node to earn rewards.
+            </p>
+          </div>
+
+          <div class="action-item">
+            <button
+              id="openUnstakeModal"
+              class="button full-width secondary-button"
+            >
+              Unstake
+            </button>
+            <p class="action-description">
+              Withdraw your delegated LIB from a validator node.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stake Modal -->
+      <div class="modal fixed-header" id="stakeModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeStakeModal"></button>
+          <div class="modal-title">Stake Validator</div>
+        </div>
+        <div class="form-container">
+          <form id="stakeForm">
+            <div class="form-group">
+              <label for="stakeNodeAddress">Validator Node Address</label>
+              <input
+                type="text"
+                id="stakeNodeAddress"
+                class="form-control"
+                required
+                placeholder="Enter node address"
+              />
+            </div>
+            <div class="form-group">
+              <label for="stakeAmount">Stake Amount</label>
+              <input
+                type="number"
+                id="stakeAmount"
+                class="form-control"
+                required
+                placeholder="Enter amount to stake"
+                min="0"
+                step="any"
+              />
+              <!-- Add potential balance display/validation message area if needed -->
+            </div>
+            <button type="submit" id="submitStake" class="button full-width">
+              Submit Stake
+            </button>
+            <!-- Add potential error/success message area -->
+          </form>
+        </div>
+      </div>
+
+      <!-- Unstake Modal -->
+      <div class="modal fixed-header" id="unstakeModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeUnstakeModal"></button>
+          <div class="modal-title">Unstake Validator</div>
+        </div>
+        <div class="form-container">
+          <form id="unstakeForm">
+            <div class="form-group">
+              <label for="unstakeNodeAddress">Validator Node Address</label>
+              <input
+                type="text"
+                id="unstakeNodeAddress"
+                class="form-control"
+                required
+                placeholder="Enter node address"
+              />
+            </div>
+            <button type="submit" id="submitUnstake" class="button full-width">
+              Submit Unstake
+            </button>
+            <!-- Add potential error/success message area -->
+          </form>
         </div>
       </div>
     </div>
