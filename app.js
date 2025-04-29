@@ -6371,26 +6371,28 @@ function updateWebSocketIndicator() {
 */
 class RemoveAccountModal {
     constructor(){
+        let my = this;  // Create reference to 'this' class instance
     }
 
     load(){  // called when the DOM is loaded; can setup event handlers here
-        this.modal = document.getElementById('removeAccountModal')
-        this.removeButton = document.getElementById('removeAccountButton')
-        document.getElementById('openRemoveAccount').addEventListener('click', this.open);
-        document.getElementById('closeRemoveAccountModal').addEventListener('click', this.close);
-        document.getElementById('confirmRemoveAccount').addEventListener('click', this.submit);
-        this.removeButton.addEventListener('click', this.confirmSubmit);
+        my.modal = document.getElementById('removeAccountModal')
+        my.removeButton = document.getElementById('removeAccountButton')
+        document.getElementById('openRemoveAccount').addEventListener('click', my.open);
+        document.getElementById('closeRemoveAccountModal').addEventListener('click', my.close);
+        document.getElementById('confirmRemoveAccount').addEventListener('click', my.submit);
+        my.removeButton.addEventListener('click', my.confirmSubmit);
+        console.log('#######          set this.modal')
     }
 
     signin(){ // called when user logs in
     }
 
     open(){  // called when the modal needs to be opened
-        this.modal.classList.add('active')
+        my.modal.classList.add('active')
     }
 
     close(){  // called when the modal needs to be closed
-        this.modal.classList.remove('active')
+        my.modal.classList.remove('active')
     }
 
     submit(){  // called when the form is submitted
