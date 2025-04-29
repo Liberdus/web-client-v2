@@ -6291,39 +6291,55 @@ async function openValidatorModal() {
     const loadingElement = document.getElementById('validator-loading');
     const errorElement = document.getElementById('validator-error-message');
     const detailsElement = document.getElementById('validator-details');
+    // Get elements needed for conditional logic early
+    const nomineeLabelElement = document.getElementById('validator-nominee-label');
+    const nomineeValueElement = document.getElementById('validator-nominee');
+    const userStakeLibItem = document.getElementById('validator-user-stake-lib-item');
+    const userStakeUsdItem = document.getElementById('validator-user-stake-usd-item');
 
-    // Reset UI: Show loading, hide details and error
-    if (loadingElement) loadingElement.style.display = 'block'; // Or 'flex' if it's a flex container
+    // Reset UI: Show loading, hide details and error, reset conditional elements
+    if (loadingElement) loadingElement.style.display = 'block';
     if (detailsElement) detailsElement.style.display = 'none';
     if (errorElement) {
         errorElement.style.display = 'none';
         errorElement.textContent = ''; // Clear previous errors
     }
+    // Reset conditional elements to default state (label text might change later)
+    if (nomineeLabelElement) nomineeLabelElement.textContent = 'Nominated Validator:'; // Default label
+    if (nomineeValueElement) nomineeValueElement.textContent = ''; // Clear value initially
+    // Ensure stake items are visible by default (using flex as defined in styles.css)
+    if (userStakeLibItem) userStakeLibItem.style.display = 'flex';
+    if (userStakeUsdItem) userStakeUsdItem.style.display = 'flex';
 
-    validatorModal.classList.add('active'); // Open modal immediately
+
+    if (validatorModal) validatorModal.classList.add('active'); // Open modal immediately
 
     try {
         // Fetch Data Concurrently
         const userAddress = myData?.account?.keys?.address;
         if (!userAddress) {
             console.warn("User address not found in myData. Skipping user account fetch.");
+            // Decide how to handle this - maybe show an error or a specific state?
+            // For now, we'll proceed, but nominee/user stake will be unavailable.
         }
         const [userAccountData, networkAccountData, marketPriceData] = await Promise.all([
             userAddress ? queryNetwork(`/account/${longAddress(userAddress)}`) : Promise.resolve(null), // Fetch User Data if available
             queryNetwork('/account/0000000000000000000000000000000000000000000000000000000000000000'), // Fetch Network Data
-            fetchMarketPrice() // Fetch Market Price (currently placeholder)
+            fetchMarketPrice() // Fetch Market Price
         ]);
 
         // Extract Raw Data
+        // Use optional chaining extensively in case userAccountData is null
         const nominee = userAccountData?.account?.operatorAccountInfo?.nominee;
         const userStakedBaseUnits = userAccountData?.account?.operatorAccountInfo?.stake?.value;
 
+        // Network data should generally be available, but check anyway
         const stakeRequiredUsdBaseUnits = networkAccountData?.account?.current?.stakeRequiredUsd?.value;
         const stabilityScaleMul = networkAccountData?.account?.current?.stabilityScaleMul;
         const stabilityScaleDiv = networkAccountData?.account?.current?.stabilityScaleDiv;
 
         // Extract market price (will be null if fetch failed or returned null)
-        const marketPrice = marketPriceData; 
+        const marketPrice = marketPriceData;
 
         // Calculate Derived Values
         let stabilityFactor = null;
@@ -6332,17 +6348,19 @@ async function openValidatorModal() {
         }
 
         let stakeAmountLibBaseUnits = null;
-        // Ensure all required values are present and valid before calculating
-        if (stakeRequiredUsdBaseUnits != null && typeof stakeRequiredUsdBaseUnits === 'string' && 
-            stabilityScaleMul != null && typeof stabilityScaleMul === 'number' && 
-            stabilityScaleDiv != null && typeof stabilityScaleDiv === 'number' && stabilityScaleDiv !== 0) 
+        if (stakeRequiredUsdBaseUnits != null && typeof stakeRequiredUsdBaseUnits === 'string' &&
+            stabilityScaleMul != null && typeof stabilityScaleMul === 'number' &&
+            stabilityScaleDiv != null && typeof stabilityScaleDiv === 'number' && stabilityScaleDiv !== 0)
         {
             try {
                 const requiredUsdBigInt = BigInt('0x' + stakeRequiredUsdBaseUnits);
                 const scaleMulBigInt = BigInt(stabilityScaleMul);
                 const scaleDivBigInt = BigInt(stabilityScaleDiv);
+                // Avoid division by zero if scaleMulBigInt is 0
                 if (scaleMulBigInt !== 0n) {
                     stakeAmountLibBaseUnits = (requiredUsdBigInt * scaleDivBigInt) / scaleMulBigInt;
+                } else {
+                     console.warn("Stability scale multiplier is zero, cannot calculate LIB stake amount.");
                 }
             } catch (e) {
                 console.error("Error calculating stakeAmountLibBaseUnits with BigInt:", e, {
@@ -6353,12 +6371,11 @@ async function openValidatorModal() {
             }
         }
 
-        // TODO: Precise calculation for user staked USD using stability factor instead of market price
         let userStakedUsd = null;
-        // Calculate User Staked Amount (USD) using market price
+        // TODO: Calculate User Staked Amount (USD) using market price - Use stability factor if available?
+        // For now, using market price as implemented previously.
         if (userStakedBaseUnits != null && marketPrice != null) {
             try {
-                // Convert user's staked LIB base units to a numeric value (potential precision loss)
                 const userStakedLib = Number(BigInt('0x' + userStakedBaseUnits)) / 1e18;
                 userStakedUsd = userStakedLib * marketPrice;
             } catch (e) {
@@ -6370,41 +6387,67 @@ async function openValidatorModal() {
         // Calculate Min Stake at Market (USD) using BigInt and market price
         if (stakeAmountLibBaseUnits != null && marketPrice != null) {
             try {
-                // Convert LIB base units to a numeric value (potential precision loss)
                 const stakeAmountLib = Number(stakeAmountLibBaseUnits) / 1e18;
                 const marketStakeUsd = stakeAmountLib * marketPrice;
-                // Convert the resulting USD value back to a simulated base unit BigInt (assuming 18 decimals for USD base units)
-                // NOTE: This is an approximation and may not reflect true base units if USD has different decimals
-                marketStakeUsdBaseUnits = BigInt(Math.round(marketStakeUsd * 1e18)); 
+                // Approximate back to base units (assuming 18 decimals for USD base units)
+                marketStakeUsdBaseUnits = BigInt(Math.round(marketStakeUsd * 1e18));
             } catch (e) {
                 console.error("Error calculating marketStakeUsdBaseUnits:", e);
             }
         }
 
-        // Format Display Values using big2str
-        const displayNominee = nominee || 'N/A';
-        const displayUserStakedLib = userStakedBaseUnits ? big2str(BigInt('0x' + userStakedBaseUnits), 18).slice(0, 6) : 'N/A'; 
-        // Format User Staked USD 
-        const displayUserStakedUsd = userStakedUsd != null ? '$' + userStakedUsd.toFixed(4) : 'N/A'; 
-        const displayNetworkStakeUsd = stakeRequiredUsdBaseUnits ? '$' + big2str(BigInt('0x' + stakeRequiredUsdBaseUnits), 18).slice(0, 6) : 'N/A'; 
+
+        // Format & Update UI
+        // Get references for network info elements
+        const networkStakeUsdValue = document.getElementById('validator-network-stake-usd');
+        const networkStakeLibValue = document.getElementById('validator-network-stake-lib');
+        const stabilityFactorValue = document.getElementById('validator-stability-factor');
+        const marketPriceValue = document.getElementById('validator-market-price');
+        const marketStakeUsdValue = document.getElementById('validator-market-stake-usd');
+
+        // Format Network Info unconditionally
+        const displayNetworkStakeUsd = stakeRequiredUsdBaseUnits ? '$' + big2str(BigInt('0x' + stakeRequiredUsdBaseUnits), 18).slice(0, 6) : 'N/A';
         const displayNetworkStakeLib = stakeAmountLibBaseUnits ? big2str(stakeAmountLibBaseUnits, 18).slice(0, 6) : 'N/A';
         const displayStabilityFactor = stabilityFactor ? stabilityFactor.toFixed(4) : 'N/A';
-        const displayMarketPrice = marketPrice ? '$' + marketPrice.toFixed(4) : 'N/A'; // Add $ prefix
-        // Format market stake USD (assuming 18 decimals for simulated base units)
-        const displayMarketStakeUsd = marketStakeUsdBaseUnits ? '$' + big2str(marketStakeUsdBaseUnits, 18).slice(0, 6) : 'N/A'; 
+        const displayMarketPrice = marketPrice ? '$' + marketPrice.toFixed(4) : 'N/A';
+        const displayMarketStakeUsd = marketStakeUsdBaseUnits ? '$' + big2str(marketStakeUsdBaseUnits, 18).slice(0, 6) : 'N/A';
 
-        // Update Modal UI
-        document.getElementById('validator-nominee').textContent = displayNominee;
-        document.getElementById('validator-user-stake-lib').textContent = displayUserStakedLib;
-        document.getElementById('validator-user-stake-usd').textContent = displayUserStakedUsd;
-        document.getElementById('validator-network-stake-usd').textContent = displayNetworkStakeUsd;
-        document.getElementById('validator-network-stake-lib').textContent = displayNetworkStakeLib;
-        document.getElementById('validator-stability-factor').textContent = displayStabilityFactor;
-        document.getElementById('validator-market-price').textContent = displayMarketPrice;
-        document.getElementById('validator-market-stake-usd').textContent = displayMarketStakeUsd;
+        if (networkStakeUsdValue) networkStakeUsdValue.textContent = displayNetworkStakeUsd;
+        if (networkStakeLibValue) networkStakeLibValue.textContent = displayNetworkStakeLib;
+        if (stabilityFactorValue) stabilityFactorValue.textContent = displayStabilityFactor;
+        if (marketPriceValue) marketPriceValue.textContent = displayMarketPrice;
+        if (marketStakeUsdValue) marketStakeUsdValue.textContent = displayMarketStakeUsd;
 
-        // Show the details section now that it's populated
-        if(detailsElement) detailsElement.style.display = 'block';
+        // Conditional Logic for Nominee and User Stake
+        if (!nominee) {
+            // Case: No Nominee
+            if (nomineeLabelElement) nomineeLabelElement.textContent = 'No Nominated Validator';
+            if (nomineeValueElement) nomineeValueElement.textContent = ''; // Ensure value is empty
+            if (userStakeLibItem) userStakeLibItem.style.display = 'none'; // Hide LIB stake item
+            if (userStakeUsdItem) userStakeUsdItem.style.display = 'none'; // Hide USD stake item
+        } else {
+            // Case: Nominee Exists
+            // Get references for user stake values
+             const userStakeLibValue = document.getElementById('validator-user-stake-lib');
+             const userStakeUsdValue = document.getElementById('validator-user-stake-usd');
+
+            // Format User Stake Values
+            const displayNominee = nominee; // Already checked it exists
+            const displayUserStakedLib = userStakedBaseUnits ? big2str(BigInt('0x' + userStakedBaseUnits), 18).slice(0, 6) : 'N/A';
+            const displayUserStakedUsd = userStakedUsd != null ? '$' + userStakedUsd.toFixed(4) : 'N/A';
+
+            if (nomineeLabelElement) nomineeLabelElement.textContent = 'Nominated Validator:'; // Ensure correct label
+            if (nomineeValueElement) nomineeValueElement.textContent = displayNominee;
+            if (userStakeLibValue) userStakeLibValue.textContent = displayUserStakedLib;
+            if (userStakeUsdValue) userStakeUsdValue.textContent = displayUserStakedUsd;
+            // Ensure items are visible (using flex as defined in CSS) - redundant due to reset, but safe
+            if (userStakeLibItem) userStakeLibItem.style.display = 'flex';
+            if (userStakeUsdItem) userStakeUsdItem.style.display = 'flex';
+        }
+
+        // Show the details section now that it's populated correctly
+        if (detailsElement) detailsElement.style.display = 'block'; // Or 'flex' if it's a flex container
+
     } catch (error) {
         console.error("Error fetching validator details:", error);
         // Display error in UI
@@ -6415,7 +6458,7 @@ async function openValidatorModal() {
         // Ensure details are hidden if an error occurs
         if (detailsElement) detailsElement.style.display = 'none';
     } finally {
-        // Hide loading indicator
+        // Hide loading indicator regardless of success or failure
         if (loadingElement) loadingElement.style.display = 'none';
     }
 }
@@ -6424,7 +6467,7 @@ function closeValidatorModal() {
     document.getElementById('validatorModal').classList.remove('active');
 }
 
-// fetching market price
+// fetching market price by invoking `updateAssetPricesIfNeeded` and extracting from myData.assetPrices
 async function fetchMarketPrice() {
     const LIB_CONTRACT_ADDRESS = "0x041e48a5b11c29fdbd92498eb05573c52728398c"; 
     const apiUrl = `https://api.dexscreener.com/latest/dex/search?q=${LIB_CONTRACT_ADDRESS}`;
