@@ -6327,6 +6327,7 @@ function updateWebSocketIndicator() {
 
 // Validator Modals
 function openValidatorModal() {
+    // TODO: need to query network for the correct nominator address and show results (staked amount, network confit for staking, etc.)
     document.getElementById('validatorModal').classList.add('active');
 }
 
@@ -6477,6 +6478,7 @@ async function handleUnstakeSubmit(event) {
  }
 
  async function postUnstake(nodeAddress) {
+    // TODO: need to query network for the correct nominator address
     const unstakeTx = {
         type: "withdraw_stake",
         nominator: myAccount?.keys?.address,
