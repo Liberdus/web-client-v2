@@ -811,7 +811,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('unstakeForm').addEventListener('submit', handleUnstakeSubmit); // Function to be implemented
 
     // Export Form Modal
-    backupModal.load()
+    backupAccountModal.load()
     
     // Remove Account Modal
     removeAccountModal.load()
@@ -6506,7 +6506,7 @@ async function handleUnstakeSubmit(event) {
 }
 const removeAccountModal = new RemoveAccountModal()
 
-class BackupModal {
+class BackupAccountModal {
     constructor() {
     }
 
@@ -6556,5 +6556,5 @@ class BackupModal {
         }
     }
 }
-const backupModal = new BackupModal()
+const backupAccountModal = new BackupAccountModal()
 
