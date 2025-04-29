@@ -6469,8 +6469,6 @@ function closeValidatorModal() {
 
 // fetching market price by invoking `updateAssetPricesIfNeeded` and extracting from myData.assetPrices
 async function getMarketPrice() {
-    // Contract ID for LIB (as stored in myData.wallet.assets, typically without '0x')
-    const LIB_CONTRACT_ID = "041e48a5b11c29fdbd92498eb05573c52728398c"; 
 
     try {
         // Ensure asset prices are potentially updated by the central function
@@ -6483,7 +6481,7 @@ async function getMarketPrice() {
         }
 
         // Find the LIB asset in the myData structure
-        const libAsset = myData.wallet.assets.find(asset => asset.contract === LIB_CONTRACT_ID);
+        const libAsset = myData.wallet.assets.find(asset => asset.id === 'liberdus');
 
         if (libAsset) {
             // Check if the price exists and is a valid number on the found asset
