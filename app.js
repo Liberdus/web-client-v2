@@ -286,29 +286,7 @@ function openSignInModal() {
 }
 
 async function handleRemoveAccountButton() {
-    const usernameSelect = document.getElementById('username');
-    const username = usernameSelect.value;
-    if (!username) return;
-    const confirmed = confirm(`Are you sure you want to remove account "${username}"?`);
-    if (!confirmed) return;
-
-    // Get network ID from network.js
-    const { netid } = network;
-
-    // Get existing accounts
-    const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-
-    // Remove the account from the accounts object
-    if (existingAccounts.netids[netid] && existingAccounts.netids[netid].usernames) {
-        delete existingAccounts.netids[netid].usernames[username];
-        localStorage.setItem('accounts', stringify(existingAccounts));
-    }
-
-    // Remove the account data from localStorage
-    localStorage.removeItem(`${username}_${netid}`);
-
-    // Reload the page to redirect to welcome screen
-    window.location.reload();
+    removeAccountModal.confirmSubmit()
 }
 
 async function handleUsernameOnSignInModal() {
@@ -838,9 +816,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('exportForm').addEventListener('submit', handleExport);
     
     // Remove Account Modal
-    document.getElementById('openRemoveAccount').addEventListener('click', openRemoveAccountModal);
-    document.getElementById('closeRemoveAccountModal').addEventListener('click', closeRemoveAccountModal);
-    document.getElementById('confirmRemoveAccount').addEventListener('click', handleRemoveAccount);
+    removeAccountModal.load()
 
     // Gateway Menu
     document.getElementById('openNetwork').addEventListener('click', openGatewayForm);
@@ -1850,34 +1826,6 @@ async function handleExport(event) {
         console.error('Encryption failed:', error);
         alert('Failed to encrypt data. Please try again.');
     }
-}
-
-function openRemoveAccountModal() {
-    document.getElementById('removeAccountModal').classList.add('active');
-}
-
-function closeRemoveAccountModal() {
-    document.getElementById('removeAccountModal').classList.remove('active');
-}
-
-async function handleRemoveAccount() {
-    // Get network ID from network.js
-    const { netid } = network;
-
-    // Get existing accounts
-    const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-
-    // Remove the account from the accounts object
-    if (existingAccounts.netids[netid] && existingAccounts.netids[netid].usernames) {
-        delete existingAccounts.netids[netid].usernames[myAccount.username];
-        localStorage.setItem('accounts', stringify(existingAccounts));
-    }
-    // Remove the account data from localStorage
-    localStorage.removeItem(`${myAccount.username}_${netid}`);
-
-    // Reload the page to redirect to welcome screen
-    myData = null       // need to delete this so that the reload does not save the data into localStore again
-    window.location.reload();
 }
 
 function openNewChatModal() {
@@ -6594,3 +6542,58 @@ async function handleUnstakeSubmit(event) {
     return response;
  }
  
+ class RemoveAccountModal {
+    constructor(){
+    }
+
+    load(){  // called when the DOM is loaded; can setup event handlers here
+        this.modal = document.getElementById('removeAccountModal')
+        document.getElementById('openRemoveAccount').addEventListener('click', () => this.open());
+        document.getElementById('closeRemoveAccountModal').addEventListener('click', () => this.close());
+        document.getElementById('confirmRemoveAccount').addEventListener('click', () => this.submit());
+    }
+
+    signin(){ // called when user logs in
+    }
+
+    open(){  // called when the modal needs to be opened
+        this.modal.classList.add('active')
+    }
+
+    close(){  // called when the modal needs to be closed
+        this.modal.classList.remove('active')
+    }
+
+    submit(username = myAccount.username){  // called when the form is submitted
+        // Get network ID from network.js
+        const { netid } = network;
+
+        // Get existing accounts
+        const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+
+        // Remove the account from the accounts object
+        if (existingAccounts.netids[netid] && existingAccounts.netids[netid].usernames) {
+            delete existingAccounts.netids[netid].usernames[username];
+            localStorage.setItem('accounts', stringify(existingAccounts));
+        }
+        // Remove the account data from localStorage
+        localStorage.removeItem(`${username}_${netid}`);
+
+        // Reload the page to redirect to welcome screen
+        myData = null       // need to delete this so that the reload does not save the data into localStore again
+        window.location.reload();
+    }
+
+    confirmSubmit(){
+        const usernameSelect = document.getElementById('username');
+        const username = usernameSelect.value;
+        if (!username) return;
+        const confirmed = confirm(`Are you sure you want to remove account "${username}"?`);
+        if (!confirmed) return;
+        this.submit(username)
+    }
+
+    signout(){  // called when user is logging out
+    }
+}
+const removeAccountModal = new RemoveAccountModal()
