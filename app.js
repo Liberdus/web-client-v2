@@ -6325,7 +6325,7 @@ async function openValidatorModal() {
         const [userAccountData, networkAccountData, marketPriceData] = await Promise.all([
             userAddress ? queryNetwork(`/account/${longAddress(userAddress)}`) : Promise.resolve(null), // Fetch User Data if available
             queryNetwork('/account/0000000000000000000000000000000000000000000000000000000000000000'), // Fetch Network Data
-            fetchMarketPrice() // Fetch Market Price
+            getMarketPrice() // Fetch Market Price
         ]);
 
         // Extract Raw Data
@@ -6468,7 +6468,7 @@ function closeValidatorModal() {
 }
 
 // fetching market price by invoking `updateAssetPricesIfNeeded` and extracting from myData.assetPrices
-async function fetchMarketPrice() {
+async function getMarketPrice() {
     // Contract ID for LIB (as stored in myData.wallet.assets, typically without '0x')
     const LIB_CONTRACT_ID = "041e48a5b11c29fdbd92498eb05573c52728398c"; 
 
@@ -6478,7 +6478,7 @@ async function fetchMarketPrice() {
 
         // Check if wallet data and assets exist after the update attempt
         if (!myData?.wallet?.assets) {
-            console.warn("fetchMarketPrice: Wallet assets not available in myData.");
+            console.warn("getMarketPrice: Wallet assets not available in myData.");
             return null;
         }
 
@@ -6488,20 +6488,20 @@ async function fetchMarketPrice() {
         if (libAsset) {
             // Check if the price exists and is a valid number on the found asset
             if (typeof libAsset.price === 'number' && !isNaN(libAsset.price)) {
-                // console.log(`fetchMarketPrice: Retrieved LIB price from myData: ${libAsset.price}`); // Optional: For debugging
+                // console.log(`getMarketPrice: Retrieved LIB price from myData: ${libAsset.price}`); // Optional: For debugging
                 return libAsset.price;
             } else {
                 // Price might be missing if the initial fetch failed or hasn't happened yet
-                console.warn(`fetchMarketPrice: LIB asset found in myData, but its price is missing or invalid (value: ${libAsset.price}).`);
+                console.warn(`getMarketPrice: LIB asset found in myData, but its price is missing or invalid (value: ${libAsset.price}).`);
                 return null;
             }
         } else {
-            console.warn("fetchMarketPrice: LIB asset not found in myData.wallet.assets.");
+            console.warn("getMarketPrice: LIB asset not found in myData.wallet.assets.");
             return null;
         }
 
     } catch (error) {
-        console.error("fetchMarketPrice: Error occurred while trying to get price from myData:", error);
+        console.error("getMarketPrice: Error occurred while trying to get price from myData:", error);
         return null; // Return null on any unexpected error during the process
     }
 }
