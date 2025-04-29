@@ -6468,7 +6468,7 @@ async function handleUnstakeSubmit(event) {
     const stakeTx = {
         type: "deposit_stake",
         nominator: longAddress(myAccount.keys.address),
-        nominee: nodeAddress,
+        nominee: longAddress(nodeAddress),
         stake: amount,
         timestamp: getCorrectedTimestamp(),
     };
@@ -6481,8 +6481,8 @@ async function handleUnstakeSubmit(event) {
     // TODO: need to query network for the correct nominator address
     const unstakeTx = {
         type: "withdraw_stake",
-        nominator: myAccount?.keys?.address,
-        nominee: nodeAddress,
+        nominator: longAddress(myAccount?.keys?.address),
+        nominee: longAddress(nodeAddress),
         force: false,
         timestamp: getCorrectedTimestamp(),
     };
