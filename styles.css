@@ -3803,6 +3803,7 @@ small {
   flex-direction: column;
   align-items: center; /* Center items */
   gap: 24px; /* Increase space between action items */
+  overflow-y: auto;
 }
 
 #validatorModal .modal-content p {
