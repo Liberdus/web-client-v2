@@ -6469,32 +6469,40 @@ function closeValidatorModal() {
 
 // fetching market price by invoking `updateAssetPricesIfNeeded` and extracting from myData.assetPrices
 async function fetchMarketPrice() {
-    const LIB_CONTRACT_ADDRESS = "0x041e48a5b11c29fdbd92498eb05573c52728398c"; 
-    const apiUrl = `https://api.dexscreener.com/latest/dex/search?q=${LIB_CONTRACT_ADDRESS}`;
+    // Contract ID for LIB (as stored in myData.wallet.assets, typically without '0x')
+    const LIB_CONTRACT_ID = "041e48a5b11c29fdbd92498eb05573c52728398c"; 
 
     try {
-        const response = await fetch(apiUrl);
-        if (!response.ok) {
-            // Log the error status but return null to avoid breaking the flow
-            console.error(`Dex Screener API request failed for LIB with status ${response.status}`);
-            return null; 
-        }
-        const data = await response.json();
-        
-        // Extract price using optional chaining for safety
-        const priceString = data?.pairs?.[0]?.priceUsd;
+        // Ensure asset prices are potentially updated by the central function
+        await updateAssetPricesIfNeeded();
 
-        if (priceString) {
-            const price = parseFloat(priceString);
-            return price;
+        // Check if wallet data and assets exist after the update attempt
+        if (!myData?.wallet?.assets) {
+            console.warn("fetchMarketPrice: Wallet assets not available in myData.");
+            return null;
+        }
+
+        // Find the LIB asset in the myData structure
+        const libAsset = myData.wallet.assets.find(asset => asset.contract === LIB_CONTRACT_ID);
+
+        if (libAsset) {
+            // Check if the price exists and is a valid number on the found asset
+            if (typeof libAsset.price === 'number' && !isNaN(libAsset.price)) {
+                // console.log(`fetchMarketPrice: Retrieved LIB price from myData: ${libAsset.price}`); // Optional: For debugging
+                return libAsset.price;
+            } else {
+                // Price might be missing if the initial fetch failed or hasn't happened yet
+                console.warn(`fetchMarketPrice: LIB asset found in myData, but its price is missing or invalid (value: ${libAsset.price}).`);
+                return null;
+            }
         } else {
-            console.warn("No price data found for LIB from Dex Screener API:", data);
+            console.warn("fetchMarketPrice: LIB asset not found in myData.wallet.assets.");
             return null;
         }
 
     } catch (error) {
-        console.error("Error fetching market price from Dex Screener:", error);
-        return null;
+        console.error("fetchMarketPrice: Error occurred while trying to get price from myData:", error);
+        return null; // Return null on any unexpected error during the process
     }
 }
 
