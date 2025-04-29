@@ -6470,7 +6470,7 @@ async function handleUnstakeSubmit(event) {
         nominator: longAddress(myAccount.keys.address),
         nominee: nodeAddress,
         stake: amount,
-        timestamp: Date.now(),
+        timestamp: getCorrectedTimestamp(),
     };
 
     const response = await injectTx(stakeTx, keys);
@@ -6484,7 +6484,7 @@ async function handleUnstakeSubmit(event) {
         nominator: myAccount?.keys?.address,
         nominee: nodeAddress,
         force: false,
-        timestamp: Date.now(),
+        timestamp: getCorrectedTimestamp(),
     };
     
     const response = await injectTx(unstakeTx, myAccount.keys);
