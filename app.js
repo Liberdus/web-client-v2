@@ -6285,13 +6285,174 @@ function updateWebSocketIndicator() {
 }
 
 // Validator Modals
-function openValidatorModal() {
-    // TODO: need to query network for the correct nominator address and show results (staked amount, network confit for staking, etc.)
-    document.getElementById('validatorModal').classList.add('active');
+async function openValidatorModal() {
+    // Get modal elements
+    const validatorModal = document.getElementById('validatorModal');
+    const loadingElement = document.getElementById('validator-loading');
+    const errorElement = document.getElementById('validator-error-message');
+    const detailsElement = document.getElementById('validator-details');
+
+    // Reset UI: Show loading, hide details and error
+    if (loadingElement) loadingElement.style.display = 'block'; // Or 'flex' if it's a flex container
+    if (detailsElement) detailsElement.style.display = 'none';
+    if (errorElement) {
+        errorElement.style.display = 'none';
+        errorElement.textContent = ''; // Clear previous errors
+    }
+
+    validatorModal.classList.add('active'); // Open modal immediately
+
+    try {
+        // Fetch Data Concurrently
+        const userAddress = myData?.account?.keys?.address;
+        if (!userAddress) {
+            console.warn("User address not found in myData. Skipping user account fetch.");
+        }
+        const [userAccountData, networkAccountData, marketPriceData] = await Promise.all([
+            userAddress ? queryNetwork(`/account/${longAddress(userAddress)}`) : Promise.resolve(null), // Fetch User Data if available
+            queryNetwork('/account/0000000000000000000000000000000000000000000000000000000000000000'), // Fetch Network Data
+            fetchMarketPrice() // Fetch Market Price (currently placeholder)
+        ]);
+
+        // Extract Raw Data
+        const nominee = userAccountData?.account?.operatorAccountInfo?.nominee;
+        const userStakedBaseUnits = userAccountData?.account?.operatorAccountInfo?.stake?.value;
+
+        const stakeRequiredUsdBaseUnits = networkAccountData?.account?.current?.stakeRequiredUsd?.value;
+        const stabilityScaleMul = networkAccountData?.account?.current?.stabilityScaleMul;
+        const stabilityScaleDiv = networkAccountData?.account?.current?.stabilityScaleDiv;
+
+        // Extract market price (will be null if fetch failed or returned null)
+        const marketPrice = marketPriceData; 
+
+        // Calculate Derived Values
+        let stabilityFactor = null;
+        if (stabilityScaleMul != null && stabilityScaleDiv != null && Number(stabilityScaleDiv) !== 0) {
+            stabilityFactor = Number(stabilityScaleMul) / Number(stabilityScaleDiv);
+        }
+
+        let stakeAmountLibBaseUnits = null;
+        // Ensure all required values are present and valid before calculating
+        if (stakeRequiredUsdBaseUnits != null && typeof stakeRequiredUsdBaseUnits === 'string' && 
+            stabilityScaleMul != null && typeof stabilityScaleMul === 'number' && 
+            stabilityScaleDiv != null && typeof stabilityScaleDiv === 'number' && stabilityScaleDiv !== 0) 
+        {
+            try {
+                const requiredUsdBigInt = BigInt('0x' + stakeRequiredUsdBaseUnits);
+                const scaleMulBigInt = BigInt(stabilityScaleMul);
+                const scaleDivBigInt = BigInt(stabilityScaleDiv);
+                if (scaleMulBigInt !== 0n) {
+                    stakeAmountLibBaseUnits = (requiredUsdBigInt * scaleDivBigInt) / scaleMulBigInt;
+                }
+            } catch (e) {
+                console.error("Error calculating stakeAmountLibBaseUnits with BigInt:", e, {
+                    stakeRequiredUsdBaseUnits,
+                    stabilityScaleMul,
+                    stabilityScaleDiv
+                });
+            }
+        }
+
+        // TODO: Precise calculation for user staked USD using stability factor instead of market price
+        let userStakedUsd = null;
+        // Calculate User Staked Amount (USD) using market price
+        if (userStakedBaseUnits != null && marketPrice != null) {
+            try {
+                // Convert user's staked LIB base units to a numeric value (potential precision loss)
+                const userStakedLib = Number(BigInt('0x' + userStakedBaseUnits)) / 1e18;
+                userStakedUsd = userStakedLib * marketPrice;
+            } catch (e) {
+                console.error("Error calculating userStakedUsd:", e);
+            }
+        }
+
+        let marketStakeUsdBaseUnits = null;
+        // Calculate Min Stake at Market (USD) using BigInt and market price
+        if (stakeAmountLibBaseUnits != null && marketPrice != null) {
+            try {
+                // Convert LIB base units to a numeric value (potential precision loss)
+                const stakeAmountLib = Number(stakeAmountLibBaseUnits) / 1e18;
+                const marketStakeUsd = stakeAmountLib * marketPrice;
+                // Convert the resulting USD value back to a simulated base unit BigInt (assuming 18 decimals for USD base units)
+                // NOTE: This is an approximation and may not reflect true base units if USD has different decimals
+                marketStakeUsdBaseUnits = BigInt(Math.round(marketStakeUsd * 1e18)); 
+            } catch (e) {
+                console.error("Error calculating marketStakeUsdBaseUnits:", e);
+            }
+        }
+
+        // Format Display Values using big2str
+        const displayNominee = nominee || 'N/A';
+        const displayUserStakedLib = userStakedBaseUnits ? big2str(BigInt('0x' + userStakedBaseUnits), 18).slice(0, 6) : 'N/A'; 
+        // Format User Staked USD 
+        const displayUserStakedUsd = userStakedUsd != null ? '$' + userStakedUsd.toFixed(4) : 'N/A'; 
+        const displayNetworkStakeUsd = stakeRequiredUsdBaseUnits ? '$' + big2str(BigInt('0x' + stakeRequiredUsdBaseUnits), 18).slice(0, 6) : 'N/A'; 
+        const displayNetworkStakeLib = stakeAmountLibBaseUnits ? big2str(stakeAmountLibBaseUnits, 18).slice(0, 6) : 'N/A';
+        const displayStabilityFactor = stabilityFactor ? stabilityFactor.toFixed(4) : 'N/A';
+        const displayMarketPrice = marketPrice ? '$' + marketPrice.toFixed(4) : 'N/A'; // Add $ prefix
+        // Format market stake USD (assuming 18 decimals for simulated base units)
+        const displayMarketStakeUsd = marketStakeUsdBaseUnits ? '$' + big2str(marketStakeUsdBaseUnits, 18).slice(0, 6) : 'N/A'; 
+
+        // Update Modal UI
+        document.getElementById('validator-nominee').textContent = displayNominee;
+        document.getElementById('validator-user-stake-lib').textContent = displayUserStakedLib;
+        document.getElementById('validator-user-stake-usd').textContent = displayUserStakedUsd;
+        document.getElementById('validator-network-stake-usd').textContent = displayNetworkStakeUsd;
+        document.getElementById('validator-network-stake-lib').textContent = displayNetworkStakeLib;
+        document.getElementById('validator-stability-factor').textContent = displayStabilityFactor;
+        document.getElementById('validator-market-price').textContent = displayMarketPrice;
+        document.getElementById('validator-market-stake-usd').textContent = displayMarketStakeUsd;
+
+        // Show the details section now that it's populated
+        if(detailsElement) detailsElement.style.display = 'block';
+    } catch (error) {
+        console.error("Error fetching validator details:", error);
+        // Display error in UI
+        if (errorElement) {
+            errorElement.textContent = 'Failed to load validator details. Please try again later.';
+            errorElement.style.display = 'block';
+        }
+        // Ensure details are hidden if an error occurs
+        if (detailsElement) detailsElement.style.display = 'none';
+    } finally {
+        // Hide loading indicator
+        if (loadingElement) loadingElement.style.display = 'none';
+    }
 }
 
 function closeValidatorModal() {
     document.getElementById('validatorModal').classList.remove('active');
+}
+
+// fetching market price
+async function fetchMarketPrice() {
+    const LIB_CONTRACT_ADDRESS = "0x041e48a5b11c29fdbd92498eb05573c52728398c"; 
+    const apiUrl = `https://api.dexscreener.com/latest/dex/search?q=${LIB_CONTRACT_ADDRESS}`;
+
+    try {
+        const response = await fetch(apiUrl);
+        if (!response.ok) {
+            // Log the error status but return null to avoid breaking the flow
+            console.error(`Dex Screener API request failed for LIB with status ${response.status}`);
+            return null; 
+        }
+        const data = await response.json();
+        
+        // Extract price using optional chaining for safety
+        const priceString = data?.pairs?.[0]?.priceUsd;
+
+        if (priceString) {
+            const price = parseFloat(priceString);
+            return price;
+        } else {
+            console.warn("No price data found for LIB from Dex Screener API:", data);
+            return null;
+        }
+
+    } catch (error) {
+        console.error("Error fetching market price from Dex Screener:", error);
+        return null;
+    }
 }
 
 // Stake Modal

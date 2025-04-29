@@ -1095,7 +1095,92 @@
           <div class="modal-title">Validator Options</div>
         </div>
         <div class="modal-content">
-          <p>Manage your validator stake:</p>
+          <!-- Loading State -->
+          <div
+            id="validator-loading"
+            style="text-align: center; padding: 1rem; display: none"
+          >
+            <div class="spinner"></div>
+            <!-- Add spinner styles if needed -->
+            Loading validator details...
+          </div>
+
+          <!-- Error Message Area -->
+          <div
+            id="validator-error-message"
+            class="error-message"
+            style="
+              display: none;
+              padding: 1rem;
+              color: #dc3545;
+              text-align: center;
+            "
+          >
+            <!-- Error text will be populated here -->
+          </div>
+
+          <!-- Validator Details Display Area -->
+          <div
+            id="validator-details"
+            class="validator-info-container"
+            style="display: block"
+          >
+            <div class="info-section">
+              <h4>Your Stake Info</h4>
+              <div class="info-item vertical-layout">
+                <span class="info-label">Nominated Validator:</span>
+                <span class="info-value code" id="validator-nominee"
+                  ></span
+                >
+              </div>
+              <div class="info-item">
+                <span class="info-label">Staked Amount (LIB):</span>
+                <span class="info-value" id="validator-user-stake-lib"
+                  ></span
+                >
+              </div>
+              <div class="info-item">
+                <span class="info-label">Staked Amount (USD):</span>
+                <span class="info-value" id="validator-user-stake-usd"
+                  ></span
+                >
+              </div>
+            </div>
+
+            <div class="info-section">
+              <h4>Network Staking Info</h4>
+              <div class="info-item">
+                <span class="info-label">Min Stake Required (USD):</span>
+                <span class="info-value" id="validator-network-stake-usd"
+                  ></span
+                >
+              </div>
+              <div class="info-item">
+                <span class="info-label">Min Stake Required (LIB):</span>
+                <span class="info-value" id="validator-network-stake-lib"
+                  ></span
+                >
+              </div>
+              <div class="info-item">
+                <span class="info-label">Stability Factor (USD/LIB):</span>
+                <span class="info-value" id="validator-stability-factor"
+                  ></span
+                >
+              </div>
+              <div class="info-item">
+                <span class="info-label">Market Price (USD/LIB):</span>
+                <span class="info-value" id="validator-market-price"
+                  ></span
+                >
+              </div>
+              <div class="info-item">
+                <span class="info-label">Min Stake at Market (USD):</span>
+                <span class="info-value" id="validator-market-stake-usd"
+                  ></span
+                >
+              </div>
+            </div>
+          </div>
 
           <div class="action-item">
             <button id="openStakeModal" class="button full-width">Stake</button>
