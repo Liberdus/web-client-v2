@@ -941,6 +941,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Omar added
     document.getElementById('scanQRButton').addEventListener('click', openQRScanModal);
+    document.getElementById('scanStakeQRButton').addEventListener('click', openQRScanModal);
     document.getElementById('closeQRScanModal').addEventListener('click', closeQRScanModal);
     
     // File upload handlers
@@ -2420,29 +2421,69 @@ function closeQRScanModal(){
     stopCamera()
 }
 
-function fillPaymentFromQR(data){
-    console.log('in fill', data)
+function fillPaymentFromQR(data) {
+    console.log('Attempting to fill payment form from QR:', data);
+
+    // Explicitly check for the required prefix
+    if (!data || !data.startsWith('liberdus://')) {
+        console.error("Invalid payment QR code format. Missing 'liberdus://' prefix.", data);
+        showToast("Invalid payment QR code format.", 3000, "error");
+        // Optionally clear fields or leave them as they were
+        document.getElementById('sendToAddress').value = '';
+        document.getElementById('sendAmount').value = '';
+        document.getElementById('sendMemo').value = '';
+        return; // Stop processing if the format is wrong
+    }
 
     // Clear existing fields first
     document.getElementById('sendToAddress').value = '';
     document.getElementById('sendAmount').value = '';
     document.getElementById('sendMemo').value = '';
 
-    data = data.replace('liberdus://', '')
-    const paymentData = JSON.parse(atob(data))
-    console.log("Read payment data:", JSON.stringify(paymentData, null, 2));
-    if (paymentData.u){
-        document.getElementById('sendToAddress').value = paymentData.u
+    try {
+        // Remove the prefix and process the base64 data
+        const base64Data = data.substring('liberdus://'.length);
+        const jsonData = atob(base64Data);
+        const paymentData = JSON.parse(jsonData);
+
+        console.log("Read payment data:", JSON.stringify(paymentData, null, 2));
+        
+        if (paymentData.u) {
+            document.getElementById('sendToAddress').value = paymentData.u;
+        }
+        if (paymentData.a) {
+            document.getElementById('sendAmount').value = paymentData.a;
+        }
+        if (paymentData.m) {
+            document.getElementById('sendMemo').value = paymentData.m;
+        }
+
+        // Trigger username validation and amount validation
+        document.getElementById('sendToAddress').dispatchEvent(new Event('input'));
+        document.getElementById('sendAmount').dispatchEvent(new Event('input'));
+
+    } catch (error) {
+        console.error("Error parsing payment QR data:", error, data);
+        showToast("Failed to parse payment QR data.", 3000, "error");
+        // Clear fields on error
+        document.getElementById('sendToAddress').value = '';
+        document.getElementById('sendAmount').value = '';
+        document.getElementById('sendMemo').value = '';
     }
-    if (paymentData.a){
-        document.getElementById('sendAmount').value = paymentData.a
+}
+
+function fillStakeAddressFromQR(data) {
+    console.log('Filling stake address from QR data:', data);
+
+    // Directly set the value of the stakeNodeAddress input field
+    const stakeNodeAddressInput = document.getElementById('stakeNodeAddress');
+    if (stakeNodeAddressInput) {
+        stakeNodeAddressInput.value = data;
+        stakeNodeAddressInput.dispatchEvent(new Event('input')); 
+    } else {
+        console.error('Stake node address input field not found!');
+        showToast("Could not find stake address field.", 3000, "error");
     }
-    if (paymentData.m){
-        document.getElementById('sendMemo').value = paymentData.m
-    }
-    // Trigger username validation and amount validation
-    document.getElementById('sendToAddress').dispatchEvent(new Event('input'));
-    document.getElementById('sendAmount').dispatchEvent(new Event('input'));
 }
 
 async function closeSendModal() {
@@ -5146,7 +5187,7 @@ function readQRCode(){
             }
         } catch (error) {
             // qr.decodeQR throws error if not found or on error
-            console.log('QR scanning error or not found:', error); // Optional: Log if needed
+            //console.log('QR scanning error or not found:', error); // Optional: Log if needed
         }
     }
 }
@@ -5154,7 +5195,6 @@ function readQRCode(){
 
 // Handle successful scan
 function handleSuccessfulScan(data) {
-    if (! data.match(/^liberdus:\/\//)){ return }  // should start with liberdus://
     const scanHighlight = document.getElementById('scan-highlight');
     // Stop scanning
     if (startCamera.scanInterval) {
@@ -5178,9 +5218,10 @@ function handleSuccessfulScan(data) {
     // Display the result
 //    qrResult.textContent = data;
 //    resultContainer.classList.remove('hidden');
-    console.log(data) 
+    console.log("Raw QR Data Scanned:", data) 
     if (openQRScanModal.fill){
-        openQRScanModal.fill(data)
+        // Call the assigned fill function (e.g., fillPaymentFromQR or fillStakeAddressFromQR)
+        openQRScanModal.fill(data) 
     }
 
     closeQRScanModal()
@@ -6089,7 +6130,10 @@ async function getMarketPrice() {
 // Stake Modal
 function openStakeModal() {
     document.getElementById('stakeModal').classList.add('active');
-    
+
+    // Set the correct fill function for the staking context
+    openQRScanModal.fill = fillStakeAddressFromQR; 
+
     // Display Available Balance
     const balanceDisplay = document.getElementById('stakeAvailableBalanceDisplay');
     const libAsset = myData.wallet.assets.find(asset => asset.symbol === 'LIB'); // Assuming LIB is index 0 or find by symbol
