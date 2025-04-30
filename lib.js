@@ -386,6 +386,12 @@ export function bigxnum2big_old(bigIntNum, floatNum) {
     return result;
 }
 
+/**
+ * Convert a string number to a BigInt number
+ * @param {BigInt} bigIntNum - The base BigInt number
+ * @param {string} stringNum - The string number to convert
+ * @returns {BigInt} The converted BigInt number
+ */
 export function bigxnum2big(bigIntNum, stringNum) {
     stringNum = stringNum.trim().replace(/\.0*$/, '')
     // Find decimal point position if it exists
@@ -435,6 +441,12 @@ export function bigxnum2num(bigIntNum, floatNum) {
     return result;
 }
 
+/**
+ * Convert a BigInt number to a string number with decimals
+ * @param {BigInt} amount - The amount to convert
+ * @param {number} decimals - The number of decimals
+ * @returns {string} The converted string number
+ */
 export function big2str(amount, decimals) {
     let amountString = amount.toString();
     // Pad with zeros if needed
