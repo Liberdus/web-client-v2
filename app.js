@@ -2132,31 +2132,6 @@ function closeReceiveModal() {
     modal.classList.remove('active');
 }
 
-// Show preview of QR data
-function previewQRData(paymentData) {
-    const previewElement = document.getElementById('qrDataPreview');
-    const previewContent = previewElement.querySelector('.preview-content');
-    
-    // Create minimized version (single line)
-    let minimizedPreview = `${paymentData.u} • ${paymentData.s}`;
-    if (paymentData.a) {
-        minimizedPreview += ` • ${paymentData.a} ${paymentData.s}`;
-    }
-    if (paymentData.m) {
-        const shortMemo = paymentData.m.length > 20 ? 
-            paymentData.m.substring(0, 20) + '...' : 
-            paymentData.m;
-        minimizedPreview += ` • Memo: ${shortMemo}`;
-    }
-    
-    // SET minimizedPreview directly as innerHTML
-    previewContent.innerHTML = minimizedPreview;
-    
-    // Ensure consistent height and style for the single line preview
-    previewElement.style.height = 'auto'; // Let content determine height initially
-    previewElement.classList.remove('minimized'); // Ensure minimized class is not present
-}
-
 function updateReceiveAddresses() {
     // Update display address
     updateDisplayAddress();

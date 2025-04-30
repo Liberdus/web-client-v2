@@ -1205,13 +1205,34 @@
           <form id="stakeForm">
             <div class="form-group">
               <label for="stakeNodeAddress">Validator Node Address</label>
-              <input
-                type="text"
-                id="stakeNodeAddress"
-                class="form-control"
-                required
-                placeholder="Enter long node address"
-              />
+              <div style="display: flex; align-items: center; gap: 0.5rem">
+                <input
+                  type="text"
+                  id="stakeNodeAddress"
+                  class="form-control"
+                  required
+                  placeholder="Enter long node address"
+                  style="flex: 1"
+                />
+                <button
+                  type="button"
+                  id="scanStakeQRButton"
+                  class="icon-button"
+                  title="Scan Validator Address QR"
+                  style="flex-shrink: 0"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="24"
+                    height="24"
+                    style="fill: #007bff"
+                  >
+                    <path
+                      d="M3,3 L10,3 L10,10 L3,10 Z M5,5 L5,8 L8,8 L8,5 Z M14,3 L21,3 L21,10 L14,10 Z M16,5 L16,8 L19,8 L19,5 Z M3,14 L10,14 L10,21 L3,21 Z M5,16 L5,19 L8,19 L8,16 Z M14,14 L21,14 L21,21 L14,21 Z M16,16 L16,19 L19,19 L19,16 Z M11,3 L13,3 L13,10 L11,10 Z M11,14 L13,14 L13,21 L11,21 Z M3,11 L10,11 L10,13 L3,13 Z M14,11 L21,11 L21,13 L14,13 Z"
+                    />
+                  </svg>
+                </button>
+              </div>
               <div
                 id="stakeNodeAddressWarning"
                 class="validation-warning"
