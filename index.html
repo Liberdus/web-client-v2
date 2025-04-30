@@ -1183,7 +1183,7 @@
 
           <div class="action-item">
             <button
-              id="openUnstakeModal"
+              id="submitUnstake"
               class="button full-width secondary-button"
             >
               Unstake
@@ -1233,33 +1233,6 @@
           </form>
         </div>
       </div>
-
-      <!-- Unstake Modal -->
-      <div class="modal fixed-header" id="unstakeModal">
-        <div class="modal-header">
-          <button class="back-button" id="closeUnstakeModal"></button>
-          <div class="modal-title">Unstake Validator</div>
-        </div>
-        <div class="form-container">
-          <form id="unstakeForm">
-            <div class="form-group">
-              <label for="unstakeNodeAddress">Validator Node Address</label>
-              <input
-                type="text"
-                id="unstakeNodeAddress"
-                class="form-control"
-                required
-                placeholder="Enter node address"
-              />
-            </div>
-            <button type="submit" id="submitUnstake" class="button full-width">
-              Submit Unstake
-            </button>
-            <!-- Add potential error/success message area -->
-          </form>
-        </div>
-      </div>
-    </div>
     <!-- Audio element for notification sounds -->
     <audio
       id="notificationSound"
