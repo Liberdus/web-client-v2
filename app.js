@@ -795,15 +795,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('openValidator').addEventListener('click', openValidatorModal);
     document.getElementById('closeValidatorModal').addEventListener('click', closeValidatorModal);
     document.getElementById('openStakeModal').addEventListener('click', openStakeModal);
-    document.getElementById('openUnstakeModal').addEventListener('click', openUnstakeModal);
+    document.getElementById('submitUnstake').addEventListener('click', confirmAndUnstakeCurrentUserNominee);
 
     // Stake Modal
     document.getElementById('closeStakeModal').addEventListener('click', closeStakeModal);
     document.getElementById('stakeForm').addEventListener('submit', handleStakeSubmit); // Function to be implemented
-
-    // Unstake Modal
-    document.getElementById('closeUnstakeModal').addEventListener('click', closeUnstakeModal);
-    document.getElementById('unstakeForm').addEventListener('submit', handleUnstakeSubmit); // Function to be implemented
 
     // Export Form Modal
     backupAccountModal.load()
@@ -5902,6 +5898,7 @@ async function openValidatorModal() {
     const nomineeValueElement = document.getElementById('validator-nominee');
     const userStakeLibItem = document.getElementById('validator-user-stake-lib-item');
     const userStakeUsdItem = document.getElementById('validator-user-stake-usd-item');
+    const unstakeButton = document.getElementById('submitUnstake');
 
     // Reset UI: Show loading, hide details and error, reset conditional elements
     if (loadingElement) loadingElement.style.display = 'block';
@@ -5916,9 +5913,13 @@ async function openValidatorModal() {
     // Ensure stake items are visible by default (using flex as defined in styles.css)
     if (userStakeLibItem) userStakeLibItem.style.display = 'flex';
     if (userStakeUsdItem) userStakeUsdItem.style.display = 'flex';
+    // Disable unstake button initially while loading/checking
+    if (unstakeButton) unstakeButton.disabled = true;
 
 
     if (validatorModal) validatorModal.classList.add('active'); // Open modal immediately
+
+    let nominee = null;
 
     try {
         // Fetch Data Concurrently
@@ -5936,7 +5937,7 @@ async function openValidatorModal() {
 
         // Extract Raw Data
         // Use optional chaining extensively in case userAccountData is null
-        const nominee = userAccountData?.account?.operatorAccountInfo?.nominee;
+        nominee = userAccountData?.account?.operatorAccountInfo?.nominee;
         const userStakedBaseUnits = userAccountData?.account?.operatorAccountInfo?.stake?.value;
 
         // Network data should generally be available, but check anyway
@@ -6063,9 +6064,15 @@ async function openValidatorModal() {
         }
         // Ensure details are hidden if an error occurs
         if (detailsElement) detailsElement.style.display = 'none';
+        // Ensure unstake button remains disabled on error
+        if (unstakeButton) unstakeButton.disabled = true;
     } finally {
         // Hide loading indicator regardless of success or failure
         if (loadingElement) loadingElement.style.display = 'none';
+        // Set final state of unstake button based on whether a nominee was found
+        if (unstakeButton) {
+             unstakeButton.disabled = !nominee;
+        }
     }
 }
 
@@ -6122,16 +6129,67 @@ function closeStakeModal() {
     // TODO: clear input fields
 }
 
-// Unstake Modal
-function openUnstakeModal() {
-    document.getElementById('unstakeModal').classList.add('active');
-    // TODO: input validation and focus on node address input
-    // TODO: disable submit button until input is valid
+// handle Unstake Click with transaction confirmation and submission
+async function confirmAndUnstakeCurrentUserNominee() {
+    // Attempt to read nominee from the DOM element populated by openValidatorModal
+    const nomineeElement = document.getElementById('validator-nominee');
+    const nominee = nomineeElement ? nomineeElement.textContent?.trim() : null;
+
+    // Check if we successfully retrieved a nominee address from the DOM
+    if (!nominee || nominee.length < 10) { // Add a basic sanity check for length
+        showToast('Could not find nominated validator.', 4000, 'error');
+        console.warn("confirmAndUnstakeCurrentUserNominee: Nominee not found or invalid in DOM element #validator-nominee.");
+        return;
+    }
+
+    // Confirmation dialog
+    const confirmationMessage = `Are you sure you want to unstake from validator: ${nominee}?`;
+    if (window.confirm(confirmationMessage)) {
+        //console.log(`User confirmed unstake from: ${nominee}`);
+        showToast('Submitting unstake transaction...', 2000, 'loading');
+        // Call the function to handle the actual transaction submission
+        await submitUnstakeTransaction(nominee);
+    } else {
+        //console.log("User cancelled unstake.");
+        showToast('Unstake cancelled.', 2000, 'info');
+    }
 }
 
-function closeUnstakeModal() {
-    document.getElementById('unstakeModal').classList.remove('active');
-    // TODO: clear input fields
+async function submitUnstakeTransaction(nodeAddress) {
+    try {
+        //console.log(`Attempting to unstake from node: ${nodeAddress}`);
+        const response = await postUnstake(nodeAddress);
+        //console.log("Unstake API Response:", response);
+
+        // Check the response structure for success indicator.
+        if (response && response.result && response.result.success) {
+            showToast('Unstake transaction submitted successfully!', 3000, 'success');
+
+            // TODO: Update when transaction status check is implemented
+            // Manually update UI instead of full refresh
+            const nomineeLabelElement = document.getElementById('validator-nominee-label');
+            const nomineeValueElement = document.getElementById('validator-nominee');
+            const userStakeLibItem = document.getElementById('validator-user-stake-lib-item');
+            const userStakeUsdItem = document.getElementById('validator-user-stake-usd-item');
+            const unstakeButton = document.getElementById('submitUnstake');
+
+            if (nomineeLabelElement) nomineeLabelElement.textContent = 'No Nominated Validator';
+            if (nomineeValueElement) nomineeValueElement.textContent = '';
+            if (userStakeLibItem) userStakeLibItem.style.display = 'none';
+            if (userStakeUsdItem) userStakeUsdItem.style.display = 'none';
+            if (unstakeButton) unstakeButton.disabled = true;
+            //openValidatorModal();
+        } else {
+            // Try to get a more specific reason for failure
+            const reason = response?.result?.reason || 'Unknown error from API.';
+            showToast(`Unstake failed: ${reason}`, 5000, 'error');
+            console.error('Unstake failed. API Response:', response);
+        }
+    } catch (error) {
+        console.error('Error submitting unstake transaction:', error);
+        // Provide a user-friendly error message
+        showToast('Unstake transaction failed. Network or server error. See console for details.', 5000, 'error');
+    }
 }
 
 // Stake Form
@@ -6192,50 +6250,6 @@ async function handleStakeSubmit(event) {
         showToast('Stake transaction failed. See console for details.', 5000, 'error');
     } finally {
         stakeButton.disabled = false;
-    }
- }
- 
- // Unstake Form
-async function handleUnstakeSubmit(event) {
-    event.preventDefault();
-    const unstakeButton = document.getElementById('submitUnstake');
-    unstakeButton.disabled = true;
-
-    const nodeAddressInput = document.getElementById('unstakeNodeAddress');
-    const nodeAddress = nodeAddressInput.value.trim();
-
-    // Basic Validation // TODO: robust validation
-    if (!nodeAddress) {
-        showToast('Please enter the validator node address.', 3000, 'error');
-        unstakeButton.disabled = false;
-        return;
-    }
-
-    // Validate address format // TODO: robust validation
-/*     if (!nodeAddress.startsWith('0x') || nodeAddress.length !== 42) {
-        showToast('Invalid validator node address format.', 3000, 'error');
-        unstakeButton.disabled = false;
-        return;
-    } */
-
-    try {
-        showToast('Submitting unstake transaction...', 2000, 'loading');
-        const response = await postUnstake(nodeAddress);
-        console.log("Unstake Response:", response);
-
-/*         if (response && response.result && response.result.success) {
-            showToast('Unstake transaction submitted successfully!', 3000, 'success');
-            nodeAddressInput.value = ''; // Clear form
-            closeUnstakeModal();
-        } else {
-            const reason = response?.result?.reason || 'Unknown error';
-            showToast(`Unstake failed: ${reason}`, 5000, 'error');
-        } */
-    } catch (error) {
-        console.error('Unstake transaction error:', error);
-        showToast('Unstake transaction failed. See console for details.', 5000, 'error');
-    } finally {
-        unstakeButton.disabled = false;
     }
  }
 
