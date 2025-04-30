@@ -579,7 +579,7 @@ button {
 }
 
 /* Common button hover behavior */
-button:hover {
+button:not(:disabled):hover {
   opacity: 0.9;
   transition: all 0.2s ease;
 }
@@ -641,7 +641,7 @@ button:disabled {
   opacity: 0.9;
 }
 
-.secondary-button:hover {
+.secondary-button:not(:disabled):hover {
   background-color: var(--hover-background-dark);
   opacity: 0.9;
 }
@@ -2576,22 +2576,23 @@ mark {
 
 .toast.loading {
   background: rgba(0, 0, 0, 0.7);
-  padding-left: 45px;
-  position: relative;
+  position: relative; /* Keep for potential future absolute elements if needed */
+  display: flex; /* Use flexbox */
+  align-items: center; /* Vertically center items */
+  gap: 10px; /* Add gap between spinner and text */
+  padding-left: 15px; /* Add some padding back for the left edge */
 }
 
 .toast.loading::before {
   content: "";
-  position: absolute;
-  top: 50%;
-  left: 15px;
-  transform: translateY(-50%);
   width: 20px;
   height: 20px;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-top: 2px solid white;
   border-radius: 50%;
   animation: spin 1s linear infinite;
+  flex-shrink: 0; /* Prevent spinner from shrinking */
+  /* No margin needed now as gap is used on parent */
 }
 
 @keyframes spin {
@@ -3852,22 +3853,22 @@ small {
 }
 
 /* Ensure secondary button style (now danger) */
-#validatorModal #openUnstakeModal {
+#validatorModal #submitUnstake {
   /* Styles inherited from .button, .full-width, .secondary-button */
   background-color: var(--danger-color);
   color: var(--background-color);
   border: none; /* Ensure no border from secondary */
 }
 
-#validatorModal #openUnstakeModal:hover {
+/* Hover effect specifically for the Unstake button within the Validator Modal */
+#validatorModal #submitUnstake:not(:disabled):hover {
   opacity: 0.9; /* Standard hover effect */
   /* Consider a slightly darker red on hover if needed */
-  /* background-color: #c82333; */ /* Example darker red */
 }
 
 /* Style submit buttons like primary action buttons */
 #stakeModal #submitStake,
-#unstakeModal #submitUnstake {
+#submitUnstake {
   /* Apply primary button styling */
   background-color: var(--primary-color);
   color: var(--background-color);
@@ -3885,15 +3886,6 @@ small {
 
 #stakeModal #submitStake:hover {
   background-color: var(--primary-hover);
-  opacity: 0.9;
-}
-
-/* submit unstake will use red button */
-#unstakeModal #submitUnstake {
-  background-color: var(--danger-color);
-}
-
-#unstakeModal #submitUnstake:hover {
   opacity: 0.9;
 }
 
