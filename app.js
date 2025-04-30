@@ -1002,6 +1002,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         handleOpenSendModalInput(e);
     });
 
+    // Add input listeners for stake modal validation
+    document.getElementById('stakeNodeAddress').addEventListener('input', validateStakeInputs);
+    document.getElementById('stakeAmount').addEventListener('input', validateStakeInputs);
+
     setupAddToHomeScreen()
 });
 
@@ -6106,14 +6110,36 @@ async function getMarketPrice() {
 // Stake Modal
 function openStakeModal() {
     document.getElementById('stakeModal').classList.add('active');
+    const stakeForm = document.getElementById('stakeForm'); // Get the form element
+
+    // Display Available Balance
+    const balanceDisplay = document.getElementById('stakeAvailableBalanceDisplay');
+    const libAsset = myData.wallet.assets.find(asset => asset.symbol === 'LIB'); // Assuming LIB is index 0 or find by symbol
+    if (balanceDisplay && libAsset) {
+        // Use big2str for formatting, similar to updateBalanceDisplay but simpler for this context
+        const formattedBalance = big2str(BigInt(libAsset.balance), 18).slice(0, -12); // Show 6 decimal places
+        balanceDisplay.textContent = `Available: ${formattedBalance} ${libAsset.symbol}`;
+    } else if (balanceDisplay) {
+        balanceDisplay.textContent = 'Available: 0.000000 LIB'; // Default if no asset found
+    }
+
     // fill amount with with the min stake amount
     const amountInput = document.getElementById('stakeAmount');
-    // get min stake amount from validator-network-stake-lib
+    // get min stake amount from #validator-network-stake-lib in validatorModal
     const validatorModal = document.getElementById('validatorModal');
-    const minStakeAmount = validatorModal ? validatorModal.querySelector('#validator-network-stake-lib').textContent : null;
+    const minStakeAmountElement = validatorModal.querySelector('#validator-network-stake-lib');
+    const minStakeAmount = minStakeAmountElement ? minStakeAmountElement.textContent : '0'; // Default to 0 if not found
     if (amountInput && minStakeAmount) amountInput.value = minStakeAmount;
+
+    // Store minStakeAmount on the form for validation access
+    if (stakeForm) {
+        stakeForm.dataset.minStake = minStakeAmount;
+    }
+
+    // Call initial validation
+    validateStakeInputs();
+
     // TODO: input validation and focus on node address input
-    // TODO: disable submit button until inputs are valid
 }
 
 function closeStakeModal() {
@@ -6781,3 +6807,62 @@ class AboutModal {
     }
 }
 const aboutModal = new AboutModal()
+
+function validateStakeInputs() {
+    const nodeAddressInput = document.getElementById('stakeNodeAddress');
+    const amountInput = document.getElementById('stakeAmount');
+    const stakeForm = document.getElementById('stakeForm');
+    const warningElement = document.getElementById('stakeAmountWarning');
+    const submitButton = document.getElementById('submitStake');
+
+    const nodeAddress = nodeAddressInput.value.trim();
+    const amountStr = amountInput.value.trim();
+    const minStakeAmountStr = stakeForm.dataset.minStake || '0';
+
+    // Default state: button disabled, warning hidden
+    submitButton.disabled = true;
+    warningElement.style.display = 'none';
+    warningElement.textContent = '';
+
+    // Check 1: Empty Fields
+    if ( !amountStr || !nodeAddress) {
+        // Keep button disabled, no specific warning needed for empty fields yet
+        return;
+    }
+
+    let amountWei;
+    let minStakeWei;
+    try {
+        amountWei = bigxnum2big(wei, amountStr);
+        minStakeWei = bigxnum2big(wei, minStakeAmountStr);
+        if (amountWei <= 0n) {
+             warningElement.textContent = 'Amount must be positive.';
+             warningElement.style.display = 'block';
+             return; // Keep button disabled
+        }
+    } catch (error) {
+        warningElement.textContent = 'Invalid amount format.';
+        warningElement.style.display = 'block';
+        return; // Keep button disabled
+    }
+
+    // Check 2: Minimum Stake Amount
+    if (amountWei < minStakeWei) {
+        const minStakeFormatted = big2str(minStakeWei, 18).slice(0, -16); // Example formatting
+        warningElement.textContent = `Amount must be at least ${minStakeFormatted} LIB.`;
+        warningElement.style.display = 'block';
+        return; // Keep button disabled
+    }
+
+    // Check 3: Sufficient Balance (using existing function)
+    // Assuming LIB is asset index 0 since after creation of wallet, LIB is the first asset
+    const hasInsufficientBalance = validateBalance(amountStr, 0, warningElement);
+    if (hasInsufficientBalance) {
+        // validateBalance already shows the warning
+        return; // Keep button disabled
+    }
+
+    // All checks passed: Enable button
+    submitButton.disabled = false;
+    warningElement.style.display = 'none'; // Ensure warning is hidden if balance is sufficient
+}

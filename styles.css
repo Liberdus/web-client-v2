@@ -1657,7 +1657,8 @@ input[type="file"].form-control {
   color: var(--secondary-text-color);
 }
 
-.balance-warning {
+.balance-warning,
+#stakeAmountWarning {
   font-size: 0.8em;
   color: var(--danger-color);
   display: none;
@@ -3792,9 +3793,16 @@ small {
   transition: background 0.3s;
   margin-left: 10px; /* adjust as needed */
 }
-.ws-status-indicator.ws-red    { background: #d32f2f; }
-.ws-status-indicator.ws-yellow { background: #fbc02d; color: #222; }
-.ws-status-indicator.ws-green  { background: #388e3c; }
+.ws-status-indicator.ws-red {
+  background: #d32f2f;
+}
+.ws-status-indicator.ws-yellow {
+  background: #fbc02d;
+  color: #222;
+}
+.ws-status-indicator.ws-green {
+  background: #388e3c;
+}
 
 /* --- Validator Modal --- */
 #validatorModal .modal-content {
@@ -3884,7 +3892,7 @@ small {
   cursor: pointer;
 }
 
-#stakeModal #submitStake:hover {
+#stakeModal #submitStake:hover:not(:disabled) {
   background-color: var(--primary-hover);
   opacity: 0.9;
 }
@@ -3986,4 +3994,12 @@ small {
   100% {
     transform: rotate(360deg);
   }
+}
+
+#stakeAvailableBalanceDisplay {
+  font-family: var(--font-primary);
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text-color) !important;
+  margin-bottom: 0.5rem;
+  text-align: left;
 }

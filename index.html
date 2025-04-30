@@ -970,10 +970,10 @@
         <div class="form-container">
           <div style="padding: 1rem">
             <p>
-              Before removing your account, please export your account data to ensure
-              you have a backup. This action only removes the account from this
-              device and not from the network. You can use the account again
-              after restoring it from the backup file.
+              Before removing your account, please export your account data to
+              ensure you have a backup. This action only removes the account
+              from this device and not from the network. You can use the account
+              again after restoring it from the backup file.
             </p>
             <button
               id="confirmRemoveAccount"
@@ -1210,11 +1210,15 @@
                 id="stakeNodeAddress"
                 class="form-control"
                 required
-                placeholder="Enter node address"
+                placeholder="Enter long node address"
               />
             </div>
             <div class="form-group">
               <label for="stakeAmount">Stake Amount</label>
+              <div
+                id="stakeAvailableBalanceDisplay"
+                class="available-balance-display"
+              ></div>
               <input
                 type="number"
                 id="stakeAmount"
@@ -1224,15 +1228,19 @@
                 min="0"
                 step="any"
               />
-              <!-- Add potential balance display/validation message area if needed -->
+              <div
+                id="stakeAmountWarning"
+                class="validation-warning"
+                style="display: none"
+              ></div>
             </div>
             <button type="submit" id="submitStake" class="button full-width">
               Submit Stake
             </button>
-            <!-- Add potential error/success message area -->
           </form>
         </div>
       </div>
+    </div>
     <!-- Audio element for notification sounds -->
     <audio
       id="notificationSound"
