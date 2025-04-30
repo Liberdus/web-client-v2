@@ -6120,6 +6120,12 @@ async function getMarketPrice() {
 // Stake Modal
 function openStakeModal() {
     document.getElementById('stakeModal').classList.add('active');
+    // fill amount with with the min stake amount
+    const amountInput = document.getElementById('stakeAmount');
+    // get min stake amount from validator-network-stake-lib
+    const validatorModal = document.getElementById('validatorModal');
+    const minStakeAmount = validatorModal ? validatorModal.querySelector('#validator-network-stake-lib').textContent : null;
+    if (amountInput && minStakeAmount) amountInput.value = minStakeAmount;
     // TODO: input validation and focus on node address input
     // TODO: disable submit button until inputs are valid
 }
@@ -6146,36 +6152,30 @@ async function confirmAndUnstakeCurrentUserNominee() {
     const confirmationMessage = `Are you sure you want to unstake from validator: ${nominee}?`;
     if (window.confirm(confirmationMessage)) {
         //console.log(`User confirmed unstake from: ${nominee}`);
-        showToast('Submitting unstake transaction...', 2000, 'loading');
+        showToast('Submitting unstake transaction...', 10000, 'loading');
         // Call the function to handle the actual transaction submission
         await submitUnstakeTransaction(nominee);
     }
 }
 
 async function submitUnstakeTransaction(nodeAddress) {
-    try {
-        //console.log(`Attempting to unstake from node: ${nodeAddress}`);
-        const response = await postUnstake(nodeAddress);
-        //console.log("Unstake API Response:", response);
+    // disable the unstake button, back button, and submitStake button
+    const unstakeButton = document?.getElementById('submitUnstake');
+    const backButton = document?.getElementById('backButton');
+    const submitStakeButton = document?.getElementById('submitStake');
+    if (unstakeButton) unstakeButton.disabled = true;
+    if (backButton) backButton.disabled = true;
+    if (submitStakeButton) submitStakeButton.disabled = true;
 
+
+    try {
+        const response = await postUnstake(nodeAddress);
+        await new Promise(resolve => setTimeout(resolve, 10000));
         // Check the response structure for success indicator.
         if (response && response.result && response.result.success) {
-            showToast('Unstake transaction submitted successfully!', 3000, 'success');
-
             // TODO: Update when transaction status check is implemented
-            // Manually update UI instead of full refresh
-            const nomineeLabelElement = document.getElementById('validator-nominee-label');
-            const nomineeValueElement = document.getElementById('validator-nominee');
-            const userStakeLibItem = document.getElementById('validator-user-stake-lib-item');
-            const userStakeUsdItem = document.getElementById('validator-user-stake-usd-item');
-            const unstakeButton = document.getElementById('submitUnstake');
-
-            if (nomineeLabelElement) nomineeLabelElement.textContent = 'No Nominated Validator';
-            if (nomineeValueElement) nomineeValueElement.textContent = '';
-            if (userStakeLibItem) userStakeLibItem.style.display = 'none';
-            if (userStakeUsdItem) userStakeUsdItem.style.display = 'none';
-            if (unstakeButton) unstakeButton.disabled = true;
-            //openValidatorModal();
+            closeValidatorModal();
+            openValidatorModal();
         } else {
             // Try to get a more specific reason for failure
             const reason = response?.result?.reason || 'Unknown error from API.';
@@ -6186,6 +6186,10 @@ async function submitUnstakeTransaction(nodeAddress) {
         console.error('Error submitting unstake transaction:', error);
         // Provide a user-friendly error message
         showToast('Unstake transaction failed. Network or server error.', 5000, 'error');
+    } finally {
+        if (unstakeButton) unstakeButton.disabled = false;
+        if (backButton) backButton.disabled = false;
+        if (submitStakeButton) submitStakeButton.disabled = false;
     }
 }
 
@@ -6197,6 +6201,9 @@ async function handleStakeSubmit(event) {
 
     const nodeAddressInput = document.getElementById('stakeNodeAddress');
     const amountInput = document.getElementById('stakeAmount');
+
+    const backButton = document.getElementById('backButton');
+    const submitStakeButton = document.getElementById('submitStake');
 
     const nodeAddress = nodeAddressInput.value.trim();
     const amountStr = amountInput.value.trim();
@@ -6229,15 +6236,22 @@ async function handleStakeSubmit(event) {
     }
 
     try {
-        showToast('Submitting stake transaction...', 2000, 'loading');
+        showToast('Submitting stake transaction...', 10000, 'loading');
+
+        if (backButton) backButton.disabled = true;
+        if (submitStakeButton) submitStakeButton.disabled = true;
+
         const response = await postStake(nodeAddress, amount_in_wei, myAccount.keys);
         console.log("Stake Response:", response);
+        // wait 5 seconds before checking the response
+        await new Promise(resolve => setTimeout(resolve, 10000));
 
         if (response && response.result && response.result.success) {
-            showToast('Stake transaction submitted successfully!', 3000, 'success');
+            closeValidatorModal();
             nodeAddressInput.value = ''; // Clear form
             amountInput.value = '';
             closeStakeModal();
+            openValidatorModal();
         } else {
             const reason = response?.result?.reason || 'Unknown error';
             showToast(`Stake failed: ${reason}`, 5000, 'error');
@@ -6246,7 +6260,9 @@ async function handleStakeSubmit(event) {
         console.error('Stake transaction error:', error);
         showToast('Stake transaction failed. See console for details.', 5000, 'error');
     } finally {
-        stakeButton.disabled = false;
+        if (stakeButton) stakeButton.disabled = false;
+        if (backButton) backButton.disabled = false;
+        if (submitStakeButton) submitStakeButton.disabled = false;
     }
  }
 
