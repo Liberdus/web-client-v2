@@ -6185,7 +6185,7 @@ async function submitUnstakeTransaction(nodeAddress) {
     } catch (error) {
         console.error('Error submitting unstake transaction:', error);
         // Provide a user-friendly error message
-        showToast('Unstake transaction failed. Network or server error. See console for details.', 5000, 'error');
+        showToast('Unstake transaction failed. Network or server error.', 5000, 'error');
     }
 }
 
