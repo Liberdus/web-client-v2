@@ -6149,9 +6149,6 @@ async function confirmAndUnstakeCurrentUserNominee() {
         showToast('Submitting unstake transaction...', 2000, 'loading');
         // Call the function to handle the actual transaction submission
         await submitUnstakeTransaction(nominee);
-    } else {
-        //console.log("User cancelled unstake.");
-        showToast('Unstake cancelled.', 2000, 'info');
     }
 }
 
