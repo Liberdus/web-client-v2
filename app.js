@@ -6978,20 +6978,32 @@ function validateStakeInputs() {
     let amountWei;
     let minStakeWei;
     try {
+        // Try converting the input string
         amountWei = bigxnum2big(wei, amountStr);
-        minStakeWei = bigxnum2big(wei, minStakeAmountStr);
-        if (amountWei <= 0n) {
-             amountWarningElement.textContent = 'Amount must be positive.';
-             amountWarningElement.style.display = 'block';
-             return; // Keep button disabled
+
+        // Check if the resulting amount is zero
+        if (amountWei === 0n) {
+            if (amountStr === '0') {
+                amountWarningElement.textContent = "Amount cannot be zero.";
+            } else {
+                // Input was non-zero but became 0n (e.g., "1e-19")
+                amountWarningElement.textContent = "Amount too small (min 1 wei).";
+            }
+            amountWarningElement.style.display = 'block';
+            return; // Keep button disabled
         }
+        
+        // If amount > 0n, proceed to convert min stake and compare
+        minStakeWei = bigxnum2big(wei, minStakeAmountStr);
+
     } catch (error) {
+        // This catch is for errors during bigxnum2big conversion itself (e.g., invalid characters)
         amountWarningElement.textContent = 'Invalid amount format.';
         amountWarningElement.style.display = 'block';
         return; // Keep button disabled
     }
 
-    // Check 2: Minimum Stake Amount
+    // Check 2: Minimum Stake Amount (only if amountWei > 0n)
     if (amountWei < minStakeWei) {
         const minStakeFormatted = big2str(minStakeWei, 18).slice(0, -16); // Example formatting
         amountWarningElement.textContent = `Amount must be at least ${minStakeFormatted} LIB.`;
