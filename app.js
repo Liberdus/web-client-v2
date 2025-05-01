@@ -948,7 +948,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('qrFileInput').click();
     });
 
-    document.getElementById('qrFileInput').addEventListener('change', handleQRFileSelect);
+    document.getElementById('uploadStakeQRButton').addEventListener('click', () => {
+        document.getElementById('stakeQrFileInput').click();
+    });
+
+    document.getElementById('qrFileInput').addEventListener('change', (event) => handleQRFileSelect(event, fillPaymentFromQR));
+    document.getElementById('stakeQrFileInput').addEventListener('change', (event) => handleQRFileSelect(event, fillStakeAddressFromQR));
 
     const nameInput = document.getElementById('editContactNameInput');
     const nameActionButton = nameInput.parentElement.querySelector('.field-action-button');
@@ -5204,7 +5209,7 @@ function stopCamera() {
 }
 
 // Changed to use qr.js library instead of jsQR.js 
-async function handleQRFileSelect(event) {
+async function handleQRFileSelect(event, fillFunction) { // Added fillFunction parameter
     const file = event.target.files[0];
     if (!file) {
         return; // No file selected
@@ -5237,7 +5242,14 @@ async function handleQRFileSelect(event) {
                 });
 
                 if (decodedData) {
-                    handleSuccessfulScan(decodedData);
+                    // handleSuccessfulScan(decodedData); // Original call
+                    if (typeof fillFunction === 'function') {
+                        fillFunction(decodedData); // Call the provided fill function
+                    } else {
+                        console.error('No valid fill function provided for QR file select');
+                        // Fallback or default behavior if needed, e.g., show generic error
+                        showToast('Internal error handling QR data', 3000, 'error'); 
+                    }
                 } else {
                     // qr.decodeQR might throw an error instead of returning null/undefined
                     // This else block might not be reached if errors are always thrown
