@@ -1313,7 +1313,8 @@ async function updateChatList(force, retry = 0) {
         if (typeof latestActivity.amount === 'bigint') {
             // Latest item is a payment/transfer
             const amountStr = big2str(latestActivity.amount, 18);
-            const amountDisplay = `${amountStr.slice(0, 6)} ${latestActivity.symbol || 'LIB'}`;
+            // Display the full amount string
+            const amountDisplay = `${amountStr} ${latestActivity.symbol || 'LIB'}`;
             const directionText = latestActivity.my ? '-' : '+';
             // Create payment preview text
             previewHTML = `<span class="payment-preview">${directionText} ${amountDisplay}</span>`;
@@ -1976,7 +1977,8 @@ function appendChatModal(highlightNewMessage = false) {
             // Assuming LIB (18 decimals) for now. TODO: Handle different asset decimals if needed.
             // Format amount correctly using big2str
             const amountStr = big2str(itemAmount, 18);
-            const amountDisplay = `${amountStr.slice(0, 6)} ${item.symbol || 'LIB'}`; // Use item.symbol or fallback
+            // Display the full amount string
+            const amountDisplay = `${amountStr} ${item.symbol || 'LIB'}`;
 
             // Check item.my for sent/received
 
@@ -2510,10 +2512,33 @@ function updateAvailableBalance() {
     }
     
     updateBalanceDisplay(walletData.assets[assetIndex]);
-    
-    // Validate balance and disable submit button if needed
-    document.querySelector('#sendForm button[type="submit"]').disabled = 
-        validateBalance(document.getElementById('sendAmount').value, assetIndex, balanceWarning);
+    const amountInputString = document.getElementById('sendAmount').value;
+    const submitButton = document.querySelector('#sendForm button[type="submit"]');
+
+    // Handle empty input specifically
+    if (!amountInputString.trim()) {
+        balanceWarning.style.display = 'none';
+        submitButton.disabled = true; // Cannot send with empty amount
+        return; // Stop further validation
+    }
+
+    const amountBigInt = bigxnum2big(wei, amountInputString);
+
+    // Check if the resulting amount is zero (either from explicit '0' or too small input)
+    if (amountBigInt === 0n) {
+        if (amountInputString === '0') {
+            balanceWarning.textContent = "Amount cannot be zero";
+        } else {
+            balanceWarning.textContent = "Amount too small (min 1 wei)";
+        }
+        balanceWarning.style.display = 'block';
+        submitButton.disabled = true;
+        return; // Stop further validation
+    }
+
+    // If amount > 0n, proceed with standard balance validation
+    submitButton.disabled = 
+        validateBalance(amountInputString, assetIndex, balanceWarning);
 }
 
 function updateBalanceDisplay(asset) {
@@ -2583,7 +2608,23 @@ async function handleSendAsset(event) {
     const wallet = myData.wallet;
     const assetIndex = document.getElementById('sendAsset').value;  // TODO include the asset id and symbol in the tx
     const fromAddress = myAccount.keys.address;
-    const amount = bigxnum2big(wei, document.getElementById('sendAmount').value);
+    const amountInputString = document.getElementById('sendAmount').value; // Store the original input string
+    const amount = bigxnum2big(wei, amountInputString); // Convert input string to BigInt for the transaction
+
+    // Final check: Should not get here but just in case
+    // Amount must be greater than 0 wei
+    if (amount <= 0n) { // Check if zero or negative (though negative shouldn't happen here)
+        // Determine appropriate message based on original input
+        const message = (amountInputString === '0' || amountInputString.trim() === '') 
+                        ? "Amount cannot be zero." 
+                        : "Amount is too small. Minimum send amount is 1 wei (0.000000000000000001 LIB).";
+        alert(message);
+        // Re-enable buttons since the process is stopped here
+        confirmButton.disabled = false;
+        cancelButton.disabled = false; 
+        return; // Stop the function execution
+    }
+    
     const username = normalizeUsername(document.getElementById('sendToAddress').value);
     const memoIn = document.getElementById('sendMemo').value || '';
     const memo = memoIn.trim()
@@ -2591,16 +2632,23 @@ async function handleSendAsset(event) {
     let toAddress;
 
     // Validate amount including transaction fee
-    if (!validateBalance(amount, assetIndex)) {
+    // Check if the balance is sufficient using the original input string
+    if (validateBalance(amountInputString, assetIndex)) {
+        // If validateBalance returns true, it means insufficient balance
         const txFeeInLIB = BigInt(parameters.current.transactionFee || 1) * wei;
-        const amountInWei = bigxnum2big(wei, amount.toString());
+        // Use the already calculated BigInt `amount` for display
+        const amountInWei = amount; 
         const balance = BigInt(wallet.assets[assetIndex].balance);
         
+        // Display the amount using the accurately calculated wei value
         const amountStr = big2str(amountInWei, 18).slice(0, -16);
         const feeStr = big2str(txFeeInLIB, 18).slice(0, -16);
         const balanceStr = big2str(balance, 18).slice(0, -16);
         
         alert(`Insufficient balance: ${amountStr} + ${feeStr} (fee) > ${balanceStr} LIB`);
+        // Re-enable buttons after showing the error
+        confirmButton.disabled = false;
+        cancelButton.disabled = false;        
         return;
     }
 
@@ -2782,7 +2830,11 @@ console.log('payload is', payload)
 */
     } catch (error) {
         console.error('Transaction error:', error);
-        alert('Transaction failed. Please try again.');
+        alert('Transaction failed. Try another value or check your balance.');
+        // Re-enable buttons after error
+        confirmButton.disabled = false;
+        cancelButton.disabled = false;
+        closeSendConfirmationModal();
     }
 }
 handleSendAsset.timestamp = getCorrectedTimestamp()
