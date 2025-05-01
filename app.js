@@ -1012,6 +1012,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('stakeNodeAddress').addEventListener('input', debounceValidateStakeInputs);
     document.getElementById('stakeAmount').addEventListener('input', debounceValidateStakeInputs);
 
+    // Add custom validation message for minimum amount
+    const sendAmountInput = document.getElementById('sendAmount');
+    sendAmountInput.addEventListener('invalid', (event) => {
+        if (event.target.validity.rangeUnderflow) {
+            event.target.setCustomValidity('Value must be at least 1 wei (1×10⁻¹⁸ LIB).');
+        }
+    });
+    sendAmountInput.addEventListener('input', (event) => {
+        // Clear custom validity message when user types
+        event.target.setCustomValidity('');
+    });
+
     setupAddToHomeScreen()
 });
 
@@ -6251,7 +6263,7 @@ async function handleStakeSubmit(event) {
     }
  */
     let amount_in_wei;
-    try {
+/*     try {
         amount_in_wei = bigxnum2big(wei, amountStr);
         if (amount_in_wei <= 0n) {
             throw new Error('Amount must be positive');
@@ -6261,7 +6273,7 @@ async function handleStakeSubmit(event) {
         showToast('Invalid amount entered.', 3000, 'error');
         stakeButton.disabled = false;
         return;
-    }
+    } */
 
     try {
         showToast('Submitting stake transaction...', 10000, 'loading');
@@ -6928,11 +6940,11 @@ function validateStakeInputs() {
     try {
         amountWei = bigxnum2big(wei, amountStr);
         minStakeWei = bigxnum2big(wei, minStakeAmountStr);
-        if (amountWei <= 0n) {
+        /* if (amountWei <= 0n) {
              amountWarningElement.textContent = 'Amount must be positive.';
              amountWarningElement.style.display = 'block';
              return; // Keep button disabled
-        }
+        } */
     } catch (error) {
         amountWarningElement.textContent = 'Invalid amount format.';
         amountWarningElement.style.display = 'block';
