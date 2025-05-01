@@ -2395,7 +2395,12 @@ function handleOpenSendModalInput(e){
             usernameAvailable.style.color = '#28a745';
             usernameAvailable.style.display = 'inline';
             submitButton.disabled = false;
-        } else if ((taken == 'available') || (taken == 'mine')) {
+        } else if((taken == 'mine')) {
+            usernameAvailable.textContent = 'mine';
+            usernameAvailable.style.color = '#dc3545';
+            usernameAvailable.style.display = 'inline';
+            submitButton.disabled = true;
+        } else if ((taken == 'available')) {
             usernameAvailable.textContent = 'not found';
             usernameAvailable.style.color = '#dc3545';
             usernameAvailable.style.display = 'inline';
@@ -2583,6 +2588,14 @@ async function handleSendAsset(event) {
     event.preventDefault();
     const confirmButton = document.getElementById('confirmSendButton');
     const cancelButton = document.getElementById('cancelSendButton');
+    const username = normalizeUsername(document.getElementById('sendToAddress').value);
+
+    // if it's your own username disable the send button
+    if (username == myAccount.username) {
+        confirmButton.disabled = true;
+        showToast('You cannot send assets to yourself', 3000, 'error');
+        return;
+    }
 
     if ((getCorrectedTimestamp() - handleSendAsset.timestamp) < 2000 || confirmButton.disabled) {
         return;
@@ -2594,9 +2607,7 @@ async function handleSendAsset(event) {
     handleSendAsset.timestamp = getCorrectedTimestamp()
     const wallet = myData.wallet;
     const assetIndex = document.getElementById('sendAsset').value;  // TODO include the asset id and symbol in the tx
-    const fromAddress = myAccount.keys.address;
     const amount = bigxnum2big(wei, document.getElementById('sendAmount').value);
-    const username = normalizeUsername(document.getElementById('sendToAddress').value);
     const memoIn = document.getElementById('sendMemo').value || '';
     const memo = memoIn.trim()
     const keys = myAccount.keys;
