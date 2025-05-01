@@ -6128,6 +6128,30 @@ function closeStakeModal() {
     // TODO: clear input fields
 }
 
+// Check if a validator node is active based on reward times
+async function checkValidatorActivity(validatorAddress) {
+    if (!validatorAddress) {
+        console.error("checkValidatorActivity: No validator address provided.");
+        return { isActive: false, error: "No address provided" }; // Cannot determine activity without address
+    }
+    try {
+        const data = await queryNetwork(`/account/${validatorAddress}`);
+        if (data && data.account) {
+            const account = data.account;
+            // Active if reward has started (not 0) but hasn't ended (is 0)
+            const isActive = account.rewardStartTime && account.rewardStartTime !== 0 && (!account.rewardEndTime || account.rewardEndTime === 0);
+            return { isActive: isActive, error: null };
+        } else {
+            console.warn(`checkValidatorActivity: No account data found for validator ${validatorAddress}.`);
+             return { isActive: false, error: "Could not fetch validator data" };
+        }
+    } catch (error) {
+        console.error(`checkValidatorActivity: Error fetching data for validator ${validatorAddress}:`, error);
+        // Network error or other issue fetching data.
+        return { isActive: false, error: "Network error fetching validator status" };
+    }
+}
+
 // handle Unstake Click with transaction confirmation and submission
 async function confirmAndUnstakeCurrentUserNominee() {
     // Attempt to read nominee from the DOM element populated by openValidatorModal
@@ -6138,6 +6162,17 @@ async function confirmAndUnstakeCurrentUserNominee() {
     if (!nominee || nominee.length < 10) { // Add a basic sanity check for length
         showToast('Could not find nominated validator.', 4000, 'error');
         console.warn("confirmAndUnstakeCurrentUserNominee: Nominee not found or invalid in DOM element #validator-nominee.");
+        return;
+    }
+
+    // Check if the validator is active
+    const activityCheck = await checkValidatorActivity(nominee);
+    if (activityCheck.isActive) {
+        showToast('Cannot unstake from an active validator.', 5000, 'error');
+        console.warn(`confirmAndUnstakeCurrentUserNominee: Validator ${nominee} is active.`);
+        return;
+    } else if (activityCheck.error) {
+        showToast(`Error checking validator status: ${activityCheck.error}`, 5000, 'error');
         return;
     }
 
