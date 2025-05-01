@@ -1731,7 +1731,7 @@ function handleUsernameInput(e) {
             usernameAvailable.style.color = '#28a745';
             usernameAvailable.style.display = 'inline';
             submitButton.disabled = false;
-        } else if ((taken == 'available') || (taken == 'mine')) {
+        } else if ((taken == 'mine') || (taken == 'available')) {
             usernameAvailable.textContent = 'not found';
             usernameAvailable.style.color = '#dc3545';
             usernameAvailable.style.display = 'inline';
@@ -3146,6 +3146,11 @@ async function handleSendMessage() {
         */
         const currentAddress = appendChatModal.address
         if (!currentAddress) return;
+
+        // Check if trying to message self
+        if (currentAddress === myAccount.address) {
+            return;
+        }
 
         // Get sender's keys from wallet
         const keys = myAccount.keys;
