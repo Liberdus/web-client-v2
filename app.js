@@ -768,10 +768,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     myProfileModal.load()
 
     document.getElementById('openExplorer').addEventListener('click', () => {
-        window.open(network.explorer.url, '_blank');
+        window.open('./explorer', '_blank');
     });
     document.getElementById('openMonitor').addEventListener('click', () => {
-        window.open(network.monitor.url, '_blank');
+        window.open('./network', '_blank');
     });
     
     restoreAccountModal.load()
