@@ -5819,13 +5819,13 @@ async function timeDifference(retryCount = 0) {
         const clientTimeMs = Date.now(); // Get client time as close as possible to response processing
 
         // Extract server time directly from the 'timestamp' field
-        const serverTimeMs = data.timestamp;
-
-        if (typeof serverTimeMs !== 'number' || isNaN(serverTimeMs)) {
-            console.error('Error: Invalid server timestamp received from gateway:', data.timestamp);
+        if (!data || typeof data.timestamp !== 'number' || isNaN(data.timestamp)) {
+            console.error('Error: Invalid or missing server timestamp received from gateway:', data);
             // Don't retry on parsing errors, it's likely a data issue from the gateway
             return;
         }
+
+        const serverTimeMs = data.timestamp;
 
         const difference = serverTimeMs - clientTimeMs;
         timeSkew = difference; // Store the calculated skew
