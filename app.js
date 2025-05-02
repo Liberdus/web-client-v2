@@ -5794,8 +5794,9 @@ function insertSorted(array, item, timestampField = 'timestamp') {
   }
 
 /**
- * Calculates the time difference between the client's local time and the server's time.
- * Fetches UTC time from a remote API, compares it to local time, and stores the difference in `timeSkew`.
+ * Calculates the time difference between the client's local time and the network gateway's time.
+ * Fetches the timestamp from the '/timestamp' endpoint on a network gateway using queryNetwork,
+ * compares it to local time, and stores the difference in `timeSkew`.
  * Includes a retry mechanism for transient network errors.
  *
  * @param {number} [retryCount=0] - The current retry attempt number.
@@ -5803,54 +5804,52 @@ function insertSorted(array, item, timestampField = 'timestamp') {
 async function timeDifference(retryCount = 0) {
     const maxRetries = 2; // Maximum number of retries
     const retryDelay = 1000; // Delay between retries in milliseconds (1 second)
+    const timestampEndpoint = '/timestamp'; // Endpoint to query
 
     try {
-        // Add 'cache: "no-store"' to potentially help with hard-refresh issues,
-        // ensuring we always go to the network.
-        // Try a different API: TimeAPI.io
-        const response = await fetch('https://timeapi.io/api/time/current/zone?timeZone=UTC', { cache: 'no-store' });
+        // Use queryNetwork to fetch the timestamp from a gateway
+        const data = await queryNetwork(timestampEndpoint);
 
-        if (!response.ok) {
-            // Throw an error for bad HTTP status codes (e.g., 4xx, 5xx)
-            throw new Error(`HTTP error! status: ${response.status}`);
+        // queryNetwork returns null on network errors or if offline
+        if (data === null) {
+            // Throw an error to trigger the retry logic
+            throw new Error(`queryNetwork returned null for ${timestampEndpoint}`);
         }
 
-        const data = await response.json();
         const clientTimeMs = Date.now(); // Get client time as close as possible to response processing
-        // Adjust for TimeAPI.io response format
-        const serverTimeString = data.dateTime.endsWith("Z") ? data.dateTime : data.dateTime + "Z";
 
-        const serverTimeMs = new Date(serverTimeString).getTime();
-        if (isNaN(serverTimeMs)) {
-            console.error('Error parsing server time:', serverTimeString);
-            // Don't retry on parsing errors, it's likely a data issue
+        // Extract server time directly from the 'timestamp' field
+        const serverTimeMs = data.timestamp;
+
+        if (typeof serverTimeMs !== 'number' || isNaN(serverTimeMs)) {
+            console.error('Error: Invalid server timestamp received from gateway:', data.timestamp);
+            // Don't retry on parsing errors, it's likely a data issue from the gateway
             return;
         }
 
         const difference = serverTimeMs - clientTimeMs;
         timeSkew = difference; // Store the calculated skew
 
-        // Optional: Keep logging for verification
-        // update since we are using TimeAPI.io
-        console.log(`Server time (UTC): ${serverTimeString}`);
-        console.log(`Client time (local): ${new Date(clientTimeMs).toISOString()}`);
-        console.log(`Time difference (Server - Client): ${difference} ms`);
+        // Optional: Update logging for verification
+        //console.log(`Gateway time (UTC ms): ${serverTimeMs} (${new Date(serverTimeMs).toISOString()})`);
+        //console.log(`Client time (local ms): ${clientTimeMs} (${new Date(clientTimeMs).toISOString()})`);
+        //console.log(`Time difference (Gateway - Client): ${difference} ms`);
         const minutes = Math.floor(Math.abs(difference) / 60000);
         const seconds = Math.floor((Math.abs(difference) % 60000) / 1000);
         const milliseconds = Math.abs(difference) % 1000;
         const sign = difference < 0 ? "-" : "+";
         console.log(`Time difference: ${sign}${minutes}m ${seconds}s ${milliseconds}ms`);
-        console.log(`Successfully obtained time skew (${timeSkew}ms) on attempt ${retryCount + 1}.`);
-
+        console.log(`Successfully obtained time skew (${timeSkew}ms) from gateway endpoint ${timestampEndpoint} on attempt ${retryCount + 1}.`);
 
     } catch (error) {
-        console.warn(`Attempt ${retryCount + 1} failed to fetch time:`, error);
+        // Handle errors from queryNetwork (e.g., network issues, gateway unavailable)
+        console.warn(`Attempt ${retryCount + 1} failed to fetch time via queryNetwork(${timestampEndpoint}):`, error);
 
         if (retryCount < maxRetries) {
             console.log(`Retrying time fetch in ${retryDelay}ms... (Attempt ${retryCount + 2})`);
             setTimeout(() => timeDifference(retryCount + 1), retryDelay);
         } else {
-            console.error(`Failed to fetch time from API after ${maxRetries + 1} attempts. Time skew might be inaccurate.`);
+            console.error(`Failed to fetch time from gateway endpoint ${timestampEndpoint} after ${maxRetries + 1} attempts. Time skew might be inaccurate.`);
             // Keep timeSkew at its default (0) or last known value if applicable
         }
     }
