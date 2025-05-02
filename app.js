@@ -1261,9 +1261,8 @@ function setupAddToHomeScreen(){
     }
 }
 
-// Update chat list UI
-async function updateChatList(force, retry = 0) {
-    let gotChats = 0
+async function updateChatData() {
+    let gotChats = 0;
     if (myAccount && myAccount.keys) {
         try {
             let retryCount = 0;
@@ -1271,7 +1270,7 @@ async function updateChatList(force, retry = 0) {
             
             while (retryCount <= maxRetries) {
                 try {
-                    gotChats = await getChats(myAccount.keys, retry);
+                    gotChats = await getChats(myAccount.keys);
                     break; // Success, exit the retry loop
                 } catch (networkError) {
                     retryCount++;
@@ -1286,13 +1285,13 @@ async function updateChatList(force, retry = 0) {
             console.error('Error updating chat list:', error);
         }
     }
-    console.log('force gotChats', force === undefined ? 'undefined' : JSON.stringify(force), 
-                             gotChats === undefined ? 'undefined' : JSON.stringify(gotChats))
-    // if force or gotChats is undefined or 0 or false, return. 
-    // otherwise, update the chat list
-    if (! (force || gotChats > 0)){ return }
+    return gotChats;
+}
+
+// Update chat list UI
+async function updateChatList() {
     const chatList = document.getElementById('chatList');
-//            const chatsData = myData
+    //const chatsData = myData
     const contacts = myData.contacts
     const chats = myData.chats
     if (chats.length === 0) {
@@ -1483,7 +1482,8 @@ async function switchView(view) {
         // Update lists when switching views
         if (view === 'chats') {
             chatButton.classList.remove('has-notification');
-            await updateChatList('force');
+            // TODO: maybe need to invoke updateChatData here?
+            await updateChatList();
             if (isOnline) {
                 if (wsManager && !wsManager.isSubscribed()) {
                     pollChatInterval(pollIntervalNormal);
@@ -2070,7 +2070,7 @@ appendChatModal.address = null
 function closeChatModal() {
     document.getElementById('chatModal').classList.remove('active');
     if (document.getElementById('chatsScreen').classList.contains('active')) {
-        updateChatList('force')
+        updateChatList()
         document.getElementById('newChatButton').classList.add('visible');
     }
     if (document.getElementById('contactsScreen').classList.contains('active')) {
@@ -3587,7 +3587,10 @@ async function pollChats() {
         }
 
         try {
-            await updateChatList();
+            const gotChats = await updateChatData();
+            if (gotChats > 0) {
+                await updateChatList();
+            }
 
             if (document.getElementById('walletScreen')?.classList.contains('active')) {
                 await updateWalletView();
@@ -3660,7 +3663,8 @@ function scheduleNextPoll() {
     window.chatUpdateTimer = setTimeout(pollChats, interval);
 }
 
-async function getChats(keys, retry = 0) {  // needs to return the number of chats that need to be processed
+async function getChats(keys, retry = 1) {  // needs to return the number of chats that need to be processed
+console.log(`getChats retry ${retry}`)
 //console.log('keys', keys)
     if (! keys){ console.log('no keys in getChats'); return 0 }     // TODO don't require passing in keys
     const now = getCorrectedTimestamp()
@@ -3677,7 +3681,7 @@ async function getChats(keys, retry = 0) {  // needs to return the number of cha
 
     const senders = await queryNetwork(`/account/${longAddress(keys.address)}/chats/${timestamp}`) // TODO get this working
 //    const senders = await queryNetwork(`/account/${longAddress(keys.address)}/chats/0`) // TODO stop using this
-    const chatCount = senders?.chats ? Object.keys(senders.chats).length : 0; // Handle null/undefined senders.chats
+    let chatCount = senders?.chats ? Object.keys(senders.chats).length : 0; // Handle null/undefined senders.chats
     console.log('getChats senders', 
         timestamp === undefined ? 'undefined' : JSON.stringify(timestamp),
         chatCount === undefined ? 'undefined' : JSON.stringify(chatCount),
@@ -3688,8 +3692,9 @@ async function getChats(keys, retry = 0) {  // needs to return the number of cha
         if (retry > 0) {
             const getChatsRetryLimit = 3;
             if (retry <= getChatsRetryLimit) {
-                console.log('getChats retry', retry, 'of', getChatsRetryLimit)
-                setTimeout(() => getChats(keys, retry + 1), 1000 * retry);
+                await new Promise(resolve => setTimeout(resolve, 1000*retry));
+                // call getChats recursively
+                chatCount = await getChats(keys, retry + 1);
             } else {
                 console.error('Failed to get chats after', getChatsRetryLimit, 'retries');
             }
@@ -4372,7 +4377,10 @@ function setupAppStateManagement() {
             const registration = await navigator.serviceWorker.ready;
             registration.active?.postMessage({ type: 'stop_polling' });
 
-            await updateChatList('force');
+            const gotChats = await updateChatData();
+            if (gotChats > 0) {
+                await updateChatList();
+            }
         }
     });
 }
@@ -4791,7 +4799,10 @@ async function handleConnectivityChange(event) {
         if (myAccount && myAccount.keys) {
             try {
                 // Update chats with reconnection handling
-                await updateChatList('force');
+                const gotChats = await updateChatData();
+                if (gotChats > 0) {
+                    await updateChatList();
+                }
                 
                 // Update contacts with reconnection handling
                 await updateContactsList();
@@ -5414,7 +5425,7 @@ class WSManager {
       }
     };
 
-    this.ws.onmessage = (event) => {
+    this.ws.onmessage = async (event) => {
       updateWebSocketIndicator();
       try {
         console.log('WebSocket message received:', event.data);
@@ -5431,7 +5442,12 @@ class WSManager {
             }
           } else if (data.account_id && data.timestamp) {
             console.log('Received new chat notification in ws');
-            updateChatList(true, 1);
+            const gotChats = await updateChatData();
+            console.log('gotChats inside of ws.onmessage', gotChats);
+            if (gotChats > 0) {
+                console.log('inside of ws.onmessage, gotChats > 0, updating chat list');
+                await updateChatList();
+            }
           } else {
             // Handle any other unexpected message formats
             console.warn('Received unrecognized websocket message format:', data);
