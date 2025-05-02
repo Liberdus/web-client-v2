@@ -6278,17 +6278,14 @@ async function handleStakeSubmit(event) {
     }
  */
     let amount_in_wei;
-/*     try {
+    try {
         amount_in_wei = bigxnum2big(wei, amountStr);
-        if (amount_in_wei <= 0n) {
-            throw new Error('Amount must be positive');
-        }
         // TODO: Add balance check if necessary
     } catch (error) {
         showToast('Invalid amount entered.', 3000, 'error');
         stakeButton.disabled = false;
         return;
-    } */
+    }
 
     try {
         showToast('Submitting stake transaction...', 10000, 'loading');
