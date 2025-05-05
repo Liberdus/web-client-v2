@@ -3182,6 +3182,9 @@ async function handleSendMessage() {
         // Always encrypt and send senderInfo (which will contain at least the username)
         payload.senderInfo = encryptChacha(dhkey, stringify(senderInfo));
 
+        const chatMessageObj = await createChatMessage(currentAddress, payload, 1, keys);
+        const txid = await signObj(chatMessageObj, keys)
+
         // --- Optimistic UI Update ---
         // Create new message object for local display immediately
         const newMessage = {
@@ -3189,7 +3192,7 @@ async function handleSendMessage() {
             timestamp: payload.sent_timestamp,
             sent_timestamp: payload.sent_timestamp,
             my: true,
-            //status: 'sending' // Add a temporary status
+            txid: txid
         };
         insertSorted(chatsData.contacts[currentAddress].messages, newMessage, 'timestamp');
 
@@ -3197,6 +3200,7 @@ async function handleSendMessage() {
         const chatUpdate = {
             address: currentAddress,
             timestamp: newMessage.sent_timestamp,
+            txid: txid
         };
 
         // Remove existing chat for this contact if it exists
@@ -3219,8 +3223,8 @@ async function handleSendMessage() {
         // --- End Optimistic UI Update ---
 
         //console.log('payload is', payload)
-        // Send the message transaction using postChatMessage with default toll of 1
-        const response = await postChatMessage(currentAddress, payload, 1, keys);
+        // Send the message transaction using createChatMessage with default toll of 1
+        const response = await injectTx(chatMessageObj, txid)
 
         // Find the message we just added optimistically
 /*         const optimisticallyAddedMessage = chatsData.contacts[currentAddress].messages.find(
@@ -3982,7 +3986,15 @@ The main difference between a chat message and an asset transfer is
         * However, this does not gaurantee that the recipient has not already downloaded the message and may read it later
 `
 
-async function postChatMessage(to, payload, toll, keys) {
+/**
+ * Create a chat message object
+ * @param {string} to - The address of the recipient
+ * @param {string} payload - The payload of the message
+ * @param {number} toll - The toll of the message
+ * @param {Object} keys - The keys of the sender
+ * @returns {Object} The chat message object
+ */
+async function createChatMessage(to, payload, toll, keys) {
     const toAddr = longAddress(to);
     const fromAddr = longAddress(keys.address)
     const tx = {
@@ -3997,10 +4009,7 @@ async function postChatMessage(to, payload, toll, keys) {
         network: '0000000000000000000000000000000000000000000000000000000000000000',
         fee: BigInt(parameters.current.transactionFee || 1)           // This is not used by the backend
     }
-    // compute txid
-    const txid = await signObj(tx, keys)
-    const res = await injectTx(tx, txid)
-    return res        
+    return tx        
 }
 
 async function postAssetTransfer(to, amount, memo, keys) {
@@ -4045,6 +4054,12 @@ async function postRegisterAlias(alias, keys){
     return res
 }
 
+/**
+ * Inject a transaction
+ * @param {Object} tx - The transaction object
+ * @param {string} txid - The transaction ID
+ * @returns {Promise<Object>} The response from the injectTx call
+ */
 async function injectTx(tx, txid){
     if (!isOnline) {
         return null 
