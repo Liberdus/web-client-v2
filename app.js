@@ -1326,6 +1326,7 @@ async function updateChatList() {
         const contactName = contact.name || contact.senderInfo?.name || contact.username || `${contact.address.slice(0,8)}...${contact.address.slice(-6)}`;
 
         return `
+            <li class="chat-item">
                 <div class="chat-avatar">${identicon}</div>
                 <div class="chat-content">
                     <div class="chat-header">
