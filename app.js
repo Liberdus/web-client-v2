@@ -1007,6 +1007,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         event.target.setCustomValidity('');
     });
 
+    // call checkPendingTransactions every 5 seconds
+    setInterval(checkPendingTransactions, 5000);
+
     setupAddToHomeScreen()
 });
 
@@ -6879,3 +6882,116 @@ function validateStakeInputs() {
     amountWarningElement.style.display = 'none'; // Ensure warning is hidden if balance is sufficient
     nodeAddressWarningElement.style.display = 'none'; // Ensure address warning is also hidden
 }
+
+// create function that'll periodically loop through myData.pending. We check every 5 seconds for tx that have a timestamp that is at least 5 seconds old by checking timestamp in myData.pending. We query the tx using txid by using queryNetwork using /transaction/${txid}
+
+
+/* {
+    "transaction": {
+        "additionalInfo": {
+            "maintenanceFee": {
+                "dataType": "bi",
+                "value": "0"
+            },
+            "tollFee": {
+                "dataType": "bi",
+                "value": "0"
+            }
+        },
+        "from": "c4d58317b1c529a44d3c76c2a08f2b81512f218e000000000000000000000000",
+        "success": true,
+        "timestamp": 1746478689640,
+        "to": "02083291868ec4b088ac7911596f9b0df5ac9577000000000000000000000000",
+        "transactionFee": {
+            "dataType": "bi",
+            "value": "16345785d8a0000"
+        },
+        "txId": "502c7ac9c7b9109ea4dca899e41b6235cf5954123ebb4117dfdf012574088ea5",
+        "type": "message"
+    }
+} */
+
+/**
+ * Check pending transactions that are at least 5 seconds old
+ * @returns {Promise<void>}
+ */
+async function checkPendingTransactions() {
+    if (!myData || !myAccount) {
+        console.log('DEBUG: user is not logged in');
+        return;
+    }
+    
+    console.log(`checking pending transactions (${myData.pending.length})`);
+    const now = Date.now();
+    const eightSecondsAgo = now - 8000;
+    /* const tenSecondsAgo = now - 10000; */
+    
+    // Process each transaction in reverse to safely remove items
+    for (let i = myData.pending.length - 1; i >= 0; i--) {
+        const tx = myData.pending[i];
+        const txid = tx.txid;
+        
+        // Function to remove failed transaction from all data stores
+        const removeFailedTx = () => {
+            myData.pending.splice(i, 1);
+            
+            // Remove from contacts.messages
+            for (const contact of Object.values(myData.contacts)) {
+                contact.messages = contact.messages.filter(msg => msg.txid !== txid);
+            }
+            
+            // Remove from walletData.history
+            walletData.history = walletData.history.filter(item => item.txid !== txid);
+        };
+        
+        /* if (tx.submittedts < tenSecondsAgo) {
+            console.log(`DEBUG: txid ${txid} is older than 10 seconds, removing completely`);
+            removeFailedTx();
+            refreshCurrentView();
+        } 
+        else */ if (tx.submittedts < eightSecondsAgo) {
+            console.log(`DEBUG: txid ${txid} is older than 8 seconds, checking receipt`);
+            const res = await queryNetwork(`/transaction/${txid}`);
+            
+            if (res?.transaction?.success === true) {
+                console.log(`DEBUG: txid ${txid} is successful, removing from pending only`);
+                myData.pending.splice(i, 1);
+                refreshCurrentView();
+            } 
+            else if (res?.transaction?.success === false) {
+                console.log(`DEBUG: txid ${txid} failed, removing completely`);
+                removeFailedTx();
+                refreshCurrentView();
+            }
+            else {
+                console.log(`DEBUG: tx ${txid} status unknown, waiting for receipt`);
+            }
+        }
+    }
+}
+
+/**
+ * Refresh the current view based on which screen the user is viewing
+ * Updates UI components only for the view that's currently active
+ */
+function refreshCurrentView() {
+    // Check if we're in the chat modal (detailed chat with a contact)
+    // TODO: need to check which chat is open and refresh if txid is part of that chat
+    if (document.getElementById('chat-modal').classList.contains('active')) {
+        // We're in a specific chat conversation
+        appendChatModal();
+    } 
+    // Check if we're in the chat list view
+    else if (document.getElementById('chats-screen').classList.contains('active')) {
+        // We're in the chats list
+        updateChatList();
+    }
+    // Check if we're in the transaction history view 
+    else if (document.getElementById('history-screen').classList.contains('active')) {
+        // We're in the transaction history
+        updateTransactionHistory();
+    }
+    // Additional views can be added here as needed
+}
+
+
