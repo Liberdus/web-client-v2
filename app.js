@@ -1946,6 +1946,7 @@ function appendChatModal(highlightNewMessage = false) {
 
             // Check item.my for sent/received
 
+            //console.log(`debug item: ${JSON.stringify(item, (key, value) => typeof value === 'bigint' ? big2str(value, 18) : value)}`)
             // --- Render Payment Transaction ---
             const directionText = item.my ? '-' : '+';
             const messageClass = item.my ? 'sent' : 'received';
@@ -2667,7 +2668,7 @@ async function handleSendAsset(event) {
     };
 
     try {
-console.log('payload is', payload)
+        console.log('payload is', payload)
         // Send the transaction using postAssetTransfer
         const response = await postAssetTransfer(toAddress, amount, payload, keys);
         
@@ -2715,6 +2716,7 @@ console.log('payload is', payload)
             message: memo, // Use the memo as the message content
             amount: amount, // Use the BigInt amount
             symbol: 'LIB', // TODO: Use the asset symbol
+            txid: response.txid
         };
         // Insert the transfer message into the contact's message list, maintaining sort order
         insertSorted(myData.contacts[toAddress].messages, transferMessage, 'timestamp');
@@ -2729,6 +2731,7 @@ console.log('payload is', payload)
         const chatUpdate = {
             address: toAddress,
             timestamp: currentTime,
+            txid: response.txid
         };
         // Find insertion point to maintain timestamp order (newest first)
         insertSorted(myData.chats, chatUpdate, 'timestamp');
@@ -4055,11 +4058,15 @@ async function injectTx(tx, txid){
     
     try {
         const timestamp = getCorrectedTimestamp();
+        // initialize pending array if it doesn't exist
+        if (!myData.pending) {
+            myData.pending = [];
+        }
         myData.pending.push({
             txid: txid,
             type: tx.type,
             submittedts: timestamp,
-            checkedts: null
+            checkedts: 0
         });
 
         const options = {
