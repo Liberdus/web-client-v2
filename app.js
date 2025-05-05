@@ -6883,31 +6883,6 @@ function validateStakeInputs() {
     nodeAddressWarningElement.style.display = 'none'; // Ensure address warning is also hidden
 }
 
-/* {
-    "transaction": {
-        "additionalInfo": {
-            "maintenanceFee": {
-                "dataType": "bi",
-                "value": "0"
-            },
-            "tollFee": {
-                "dataType": "bi",
-                "value": "0"
-            }
-        },
-        "from": "c4d58317b1c529a44d3c76c2a08f2b81512f218e000000000000000000000000",
-        "success": true,
-        "timestamp": 1746478689640,
-        "to": "02083291868ec4b088ac7911596f9b0df5ac9577000000000000000000000000",
-        "transactionFee": {
-            "dataType": "bi",
-            "value": "16345785d8a0000"
-        },
-        "txId": "502c7ac9c7b9109ea4dca899e41b6235cf5954123ebb4117dfdf012574088ea5",
-        "type": "message"
-    }
-} */
-
 // Standalone function to remove a failed/timed-out transaction from all relevant data stores
 function removeFailedTx(txid) {
     console.log(`DEBUG: Removing failed/timed-out txid ${txid} from all stores`);
