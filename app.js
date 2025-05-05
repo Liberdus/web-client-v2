@@ -3447,9 +3447,10 @@ async function updateTransactionHistory() {
 
     const asset = walletData.assets[assetIndex];
     const contacts = myData.contacts
-    const txidAttr = tx?.txid ? `data-txid="${tx.txid}"` : '';
 
-    transactionList.innerHTML = walletData.history.map(tx => `
+    transactionList.innerHTML = walletData.history.map(tx => {
+        const txidAttr = tx?.txid ? `data-txid="${tx.txid}"` : '';
+        return `
         <div class="transaction-item" data-address="${tx.address}" ${txidAttr}>
             <div class="transaction-info">
                 <div class="transaction-type ${tx.sign === -1 ? 'send' : 'receive'}">
@@ -3467,7 +3468,7 @@ async function updateTransactionHistory() {
             </div>
             ${tx.memo ? `<div class="transaction-memo">${linkifyUrls(tx.memo)}</div>` : ''}
         </div>
-    `).join('');
+    `}).join('');
 
     // Scroll the form container to top after rendering
     requestAnimationFrame(() => {
