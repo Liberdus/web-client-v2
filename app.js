@@ -3182,7 +3182,7 @@ async function handleSendMessage() {
         // Always encrypt and send senderInfo (which will contain at least the username)
         payload.senderInfo = encryptChacha(dhkey, stringify(senderInfo));
 
-        const chatMessageObj = await createChatMessage(currentAddress, payload, 1, keys);
+        const chatMessageObj = createChatMessage(currentAddress, payload, 1, keys);
         const txid = await signObj(chatMessageObj, keys)
 
         // --- Optimistic UI Update ---
@@ -3994,7 +3994,7 @@ The main difference between a chat message and an asset transfer is
  * @param {Object} keys - The keys of the sender
  * @returns {Object} The chat message object
  */
-async function createChatMessage(to, payload, toll, keys) {
+function createChatMessage(to, payload, toll, keys) {
     const toAddr = longAddress(to);
     const fromAddr = longAddress(keys.address)
     const tx = {
