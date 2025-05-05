@@ -6923,7 +6923,6 @@ function removeFailedTx(txid) {
     walletData.history = walletData.history.filter(item => item.txid !== txid);
 }
 
-
 /**
  * Check pending transactions that are at least 5 seconds old
  * @returns {Promise<void>}
@@ -6932,6 +6931,11 @@ async function checkPendingTransactions() {
     if (!myData || !myAccount) {
         console.log('DEBUG: user is not logged in');
         return;
+    }
+
+    // initialize the pending array if it is not already initialized
+    if (!myData.pending) {
+        myData.pending = [];
     }
 
     if (myData.pending.length === 0) return; // No pending transactions to check
