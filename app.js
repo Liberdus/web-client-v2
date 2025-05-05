@@ -4150,9 +4150,6 @@ async function injectTx(tx, keys){
                 submittedts: timestamp,
                 checkedts: null
             });
-            
-            // Save state to persist pending transactions? Handled in other parts already like unload and visibilitychange
-            //saveState();
         }
 
         const options = {
