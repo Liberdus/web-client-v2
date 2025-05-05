@@ -3443,9 +3443,10 @@ async function updateTransactionHistory() {
 
     const asset = walletData.assets[assetIndex];
     const contacts = myData.contacts
+    const txidAttr = tx?.txid ? `data-txid="${tx.txid}"` : '';
 
     transactionList.innerHTML = walletData.history.map(tx => `
-        <div class="transaction-item" data-address="${tx.address}" ${tx?.txid ? `data-txid="${tx.txid}"` : ''}>
+        <div class="transaction-item" data-address="${tx.address}" ${txidAttr}>
             <div class="transaction-info">
                 <div class="transaction-type ${tx.sign === -1 ? 'send' : 'receive'}">
                     ${tx.sign === -1 ? '↑ Sent' : '↓ Received'}
