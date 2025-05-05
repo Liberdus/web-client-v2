@@ -1301,7 +1301,7 @@ async function updateChatList() {
         let previewHTML = ''; // Default
         const latestItemTimestamp = latestActivity.timestamp;
         // Extract txid if it exists
-        const txidAttr = latestActivity.txid ? `data-txid="${latestActivity.txid}"` : '';
+        const txidAttr = latestActivity?.txid ? `data-txid="${latestActivity.txid}"` : '';
 
         // Check if the latest activity is a payment/transfer message
         if (typeof latestActivity.amount === 'bigint') {
@@ -1931,7 +1931,7 @@ function appendChatModal(highlightNewMessage = false) {
         // Use a consistent timestamp attribute for potential future use (e.g., message jumping)
         const timestampAttribute = `data-message-timestamp="${item.timestamp}"`;
         // Add txid attribute if available
-        const txidAttribute = item.txid ? `data-txid="${item.txid}"` : '';
+        const txidAttribute = item?.txid ? `data-txid="${item.txid}"` : '';
 
         // Check if it's a payment based on the presence of the amount property (BigInt)
         if (typeof item.amount === 'bigint') {
@@ -3444,7 +3444,7 @@ async function updateTransactionHistory() {
     const contacts = myData.contacts
 
     transactionList.innerHTML = walletData.history.map(tx => `
-        <div class="transaction-item" data-address="${tx.address}" ${tx.txid ? `data-txid="${tx.txid}"` : ''}>
+        <div class="transaction-item" data-address="${tx.address}" ${tx?.txid ? `data-txid="${tx.txid}"` : ''}>
             <div class="transaction-info">
                 <div class="transaction-type ${tx.sign === -1 ? 'send' : 'receive'}">
                     ${tx.sign === -1 ? '↑ Sent' : '↓ Received'}
