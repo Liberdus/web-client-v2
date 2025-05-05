@@ -1300,8 +1300,6 @@ async function updateChatList() {
 
         let previewHTML = ''; // Default
         const latestItemTimestamp = latestActivity.timestamp;
-        // Extract txid if it exists
-        const txidAttr = latestActivity?.txid ? `data-txid="${latestActivity.txid}"` : '';
 
         // Check if the latest activity is a payment/transfer message
         if (typeof latestActivity.amount === 'bigint') {
@@ -1328,7 +1326,6 @@ async function updateChatList() {
         const contactName = contact.name || contact.senderInfo?.name || contact.username || `${contact.address.slice(0,8)}...${contact.address.slice(-6)}`;
 
         return `
-            <li class="chat-item" data-address="${chat.address}" ${txidAttr}>
                 <div class="chat-avatar">${identicon}</div>
                 <div class="chat-content">
                     <div class="chat-header">
