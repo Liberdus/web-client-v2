@@ -1299,9 +1299,9 @@ async function updateChatList() {
         if (!latestActivity){ return '' }
 
         let previewHTML = ''; // Default
-
-        
         const latestItemTimestamp = latestActivity.timestamp;
+        // Extract txid if it exists
+        const txidAttr = latestActivity.txid ? `data-txid="${latestActivity.txid}"` : '';
 
         // Check if the latest activity is a payment/transfer message
         if (typeof latestActivity.amount === 'bigint') {
@@ -1328,7 +1328,7 @@ async function updateChatList() {
         const contactName = contact.name || contact.senderInfo?.name || contact.username || `${contact.address.slice(0,8)}...${contact.address.slice(-6)}`;
 
         return `
-            <li class="chat-item">
+            <li class="chat-item" data-address="${chat.address}" ${txidAttr}>
                 <div class="chat-avatar">${identicon}</div>
                 <div class="chat-content">
                     <div class="chat-header">
@@ -1930,6 +1930,8 @@ function appendChatModal(highlightNewMessage = false) {
         const timeString = formatTime(item.timestamp);
         // Use a consistent timestamp attribute for potential future use (e.g., message jumping)
         const timestampAttribute = `data-message-timestamp="${item.timestamp}"`;
+        // Add txid attribute if available
+        const txidAttribute = item.txid ? `data-txid="${item.txid}"` : '';
 
         // Check if it's a payment based on the presence of the amount property (BigInt)
         if (typeof item.amount === 'bigint') {
@@ -1948,7 +1950,7 @@ function appendChatModal(highlightNewMessage = false) {
             const directionText = item.my ? '-' : '+';
             const messageClass = item.my ? 'sent' : 'received';
             messageHTML = `
-                <div class="message ${messageClass} payment-info" ${timestampAttribute}> 
+                <div class="message ${messageClass} payment-info" ${timestampAttribute} ${txidAttribute}> 
                     <div class="payment-header">
                         <span class="payment-direction">${directionText}</span>
                         <span class="payment-amount">${amountDisplay}</span>
@@ -1961,7 +1963,7 @@ function appendChatModal(highlightNewMessage = false) {
             // --- Render Chat Message ---
             const messageClass = item.my ? 'sent' : 'received'; // Use item.my directly
             messageHTML = `
-                <div class="message ${messageClass}" ${timestampAttribute}>
+                <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute}>
                     <div class="message-content" style="white-space: pre-wrap">${linkifyUrls(item.message)}</div>
                     <div class="message-time">${timeString}</div>
                 </div>
@@ -3442,7 +3444,7 @@ async function updateTransactionHistory() {
     const contacts = myData.contacts
 
     transactionList.innerHTML = walletData.history.map(tx => `
-        <div class="transaction-item" data-address="${tx.address}">
+        <div class="transaction-item" data-address="${tx.address}" ${tx.txid ? `data-txid="${tx.txid}"` : ''}>
             <div class="transaction-info">
                 <div class="transaction-type ${tx.sign === -1 ? 'send' : 'receive'}">
                     ${tx.sign === -1 ? '↑ Sent' : '↓ Received'}
@@ -3993,7 +3995,9 @@ async function postChatMessage(to, payload, toll, keys) {
         network: '0000000000000000000000000000000000000000000000000000000000000000',
         fee: BigInt(parameters.current.transactionFee || 1)           // This is not used by the backend
     }
-    const res = await injectTx(tx, keys)
+    // compute txid
+    const txid = await signObj(tx, keys)
+    const res = await injectTx(tx, txid)
     return res        
 }
 
@@ -4013,7 +4017,9 @@ async function postAssetTransfer(to, amount, memo, keys) {
         network: '0000000000000000000000000000000000000000000000000000000000000000',
         fee: BigInt(parameters.current.transactionFee || 1)           // This is not used by the backend
     }
-    const res = await injectTx(tx, keys)
+
+    const txid = await signObj(tx, keys)
+    const res = await injectTx(tx, txid)
     return res
 }
 
@@ -4032,11 +4038,12 @@ async function postRegisterAlias(alias, keys){
         pqPublicKey: pqPublicKey,
         timestamp: getCorrectedTimestamp()
     }
-    const res = await injectTx(tx, keys)
+    const txid = await signObj(tx, keys)
+    const res = await injectTx(tx, txid)
     return res
 }
 
-async function injectTx(tx, keys){
+async function injectTx(tx, txid){
     if (!isOnline) {
         return null 
     }
@@ -4047,18 +4054,13 @@ async function injectTx(tx, keys){
     }
     
     try {
-        const txid = await signObj(tx, keys)  // add the sign obj to tx
-
-        // Add transaction to pending array if it's a tracked type (transfer or message)
-        if (tx.type === 'transfer' || tx.type === 'message') {
-            const timestamp = getCorrectedTimestamp();
-            myData.pending.push({
-                txid: txid,
-                type: tx.type,
-                submittedts: timestamp,
-                checkedts: null
-            });
-        }
+        const timestamp = getCorrectedTimestamp();
+        myData.pending.push({
+            txid: txid,
+            type: tx.type,
+            submittedts: timestamp,
+            checkedts: null
+        });
 
         const options = {
             method: 'POST',
@@ -6205,7 +6207,8 @@ async function handleStakeSubmit(event) {
         timestamp: getCorrectedTimestamp(),
     };
 
-    const response = await injectTx(stakeTx, keys);
+    const txid = await signObj(stakeTx, keys)
+    const response = await injectTx(stakeTx, txid);
     return response;
  }
 
@@ -6219,7 +6222,8 @@ async function handleStakeSubmit(event) {
         timestamp: getCorrectedTimestamp(),
     };
     
-    const response = await injectTx(unstakeTx, myAccount.keys);
+    const txid = await signObj(unstakeTx, myAccount.keys)
+    const response = await injectTx(unstakeTx, txid);
     return response;
  }
  
