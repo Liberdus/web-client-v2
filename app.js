@@ -6883,9 +6883,6 @@ function validateStakeInputs() {
     nodeAddressWarningElement.style.display = 'none'; // Ensure address warning is also hidden
 }
 
-// create function that'll periodically loop through myData.pending. We check every 5 seconds for tx that have a timestamp that is at least 5 seconds old by checking timestamp in myData.pending. We query the tx using txid by using queryNetwork using /transaction/${txid}
-
-
 /* {
     "transaction": {
         "additionalInfo": {
@@ -6911,6 +6908,22 @@ function validateStakeInputs() {
     }
 } */
 
+// Standalone function to remove a failed/timed-out transaction from all relevant data stores
+function removeFailedTx(txid) {
+    console.log(`DEBUG: Removing failed/timed-out txid ${txid} from all stores`);
+    // Remove from pending array
+    myData.pending = myData.pending.filter(tx => tx.txid !== txid);
+    
+    // Remove from contacts messages
+    for (const contact of Object.values(myData.contacts)) {
+        contact.messages = contact.messages.filter(msg => msg.txid !== txid);
+    }
+    
+    // Remove from wallet history (Corrected: walletData.history)
+    walletData.history = walletData.history.filter(item => item.txid !== txid);
+}
+
+
 /**
  * Check pending transactions that are at least 5 seconds old
  * @returns {Promise<void>}
@@ -6920,78 +6933,81 @@ async function checkPendingTransactions() {
         console.log('DEBUG: user is not logged in');
         return;
     }
+
+    if (myData.pending.length === 0) return; // No pending transactions to check
     
     console.log(`checking pending transactions (${myData.pending.length})`);
-    const now = Date.now();
+    const now = getCorrectedTimestamp();
     const eightSecondsAgo = now - 8000;
-    /* const tenSecondsAgo = now - 10000; */
     
     // Process each transaction in reverse to safely remove items
     for (let i = myData.pending.length - 1; i >= 0; i--) {
         const tx = myData.pending[i];
         const txid = tx.txid;
         
-        // Function to remove failed transaction from all data stores
-        const removeFailedTx = () => {
-            myData.pending.splice(i, 1);
-            
-            // Remove from contacts.messages
-            for (const contact of Object.values(myData.contacts)) {
-                contact.messages = contact.messages.filter(msg => msg.txid !== txid);
-            }
-            
-            // Remove from walletData.history
-            walletData.history = walletData.history.filter(item => item.txid !== txid);
-        };
-        
-        /* if (tx.submittedts < tenSecondsAgo) {
-            console.log(`DEBUG: txid ${txid} is older than 10 seconds, removing completely`);
-            removeFailedTx();
-            refreshCurrentView();
-        } 
-        else */ if (tx.submittedts < eightSecondsAgo) {
+        if (tx.submittedts < eightSecondsAgo) {
             console.log(`DEBUG: txid ${txid} is older than 8 seconds, checking receipt`);
             const res = await queryNetwork(`/transaction/${txid}`);
-            
+
             if (res?.transaction?.success === true) {
                 console.log(`DEBUG: txid ${txid} is successful, removing from pending only`);
                 myData.pending.splice(i, 1);
-                refreshCurrentView();
             } 
             else if (res?.transaction?.success === false) {
                 console.log(`DEBUG: txid ${txid} failed, removing completely`);
-                removeFailedTx();
-                refreshCurrentView();
+                removeFailedTx(txid);
+                refreshCurrentView(txid);
             }
             else {
                 console.log(`DEBUG: tx ${txid} status unknown, waiting for receipt`);
+                // Optional: Implement timeout logic here if needed
+                /* if (now - tx.submittedts > 15000) { // Example: 15 second timeout
+                    console.log(`DEBUG: txid ${txid} timed out, removing completely`);
+                    removeFailedTx(txid);
+                    refreshCurrentView(txid); 
+                } */
             }
         }
     }
 }
 
 /**
- * Refresh the current view based on which screen the user is viewing
- * Updates UI components only for the view that's currently active
+ * Refresh the current view based on which screen the user is viewing.
+ * Primarily called when a pending transaction fails to remove it from the UI.
+ * Updates UI components only for the view that's currently active.
+ * @param {string} [txid] - Optional transaction ID that failed and needs removal.
  */
-function refreshCurrentView() {
-    // Check if we're in the chat modal (detailed chat with a contact)
-    // TODO: need to check which chat is open and refresh if txid is part of that chat
-    if (document.getElementById('chat-modal').classList.contains('active')) {
-        // We're in a specific chat conversation
-        appendChatModal();
-    } 
-    // Check if we're in the chat list view
-    else if (document.getElementById('chats-screen').classList.contains('active')) {
-        // We're in the chats list
+function refreshCurrentView(txid) { // contactAddress is kept for potential future use but not needed for this txid-based logic
+    const chatModal = document.getElementById('chatModal');
+    const chatsScreen = document.getElementById('chatsScreen');
+    const historyModal = document.getElementById('historyModal');
+    const messagesList = chatModal ? chatModal.querySelector('.messages-list') : null;
+
+    // 1. Refresh Chat List if active
+    // This is checked first as it's a common background view.
+    if (chatsScreen && chatsScreen.classList.contains('active')) {
+        console.log("DEBUG: Refreshing chat list view due to transaction failure.");
         updateChatList();
     }
-    // Check if we're in the transaction history view 
-    else if (document.getElementById('history-screen').classList.contains('active')) {
-        // We're in the transaction history
+    // 2. Refresh History Modal if active
+    else if (historyModal && historyModal.classList.contains('active')) {
+        console.log("DEBUG: Refreshing transaction history modal due to transaction failure.");
         updateTransactionHistory();
     }
-    // Additional views can be added here as needed
-}
+    // 3. Refresh Chat Modal if active AND the failed txid's message is currently rendered
+    else if (chatModal && chatModal.classList.contains('active') && txid && messagesList) {
+        // Check if an element with the specific data-txid exists within the message list
+        const messageElement = messagesList.querySelector(`[data-txid="${txid}"]`);
 
+        if (messageElement) {
+            // If the element exists, the failed message is visible in the open chat. Refresh the modal.
+            console.log(`DEBUG: Refreshing active chat modal because failed txid ${txid} was found in the view.`);
+            appendChatModal(); // This will redraw the messages based on the updated data (where the failed tx is removed)
+        } else {
+            // The failed txid doesn't correspond to a visible message in the *currently open* chat modal. No UI refresh needed for the modal itself.
+            console.log(`DEBUG: Skipping chat modal refresh. Failed txid ${txid} not found in the active modal's message list.`);
+        }
+    }
+    // No other active view to refresh in this context
+}
 
