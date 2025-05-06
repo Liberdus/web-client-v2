@@ -3217,7 +3217,7 @@ async function handleSendMessage() {
         // if there a hidden txid input, get the value to be used to delete that txid from relevant data stores
         const retryTxId = document.getElementById('retryOfTxId').value;
         if (retryTxId) {
-            removeFailedTx(retryTxId);
+            removeFailedTx(retryTxId, currentAddress);
         }
 
         // --- Optimistic UI Update ---
@@ -3264,6 +3264,29 @@ async function handleSendMessage() {
         
         if (!response || !response.result || !response.result.success) {
             console.log('message failed to send', response)
+            let userMessage = 'Message failed to send. Please try again.';
+            const reason = response.result?.reason || '';
+
+            if (reason.includes('does not have sufficient funds')) {
+                userMessage = 'Message failed: Insufficient funds for toll & fees.';
+            } else if (reason) {
+                // Attempt to provide a slightly more specific message if reason is short
+                userMessage = `Message failed: ${reason.substring(0, 100)}${reason.length > 100 ? '...' : ''}`;
+            }
+            showToast(userMessage, 4000, 'error');
+
+            // Update message status to 'failed' in the UI
+            updateTransactionStatus(txid, currentAddress, 'failed', 'message');
+            appendChatModal();
+
+            // Remove from pending transactions as injectTx itself indicated failure
+            if (myData && myData.pending) {
+                myData.pending = myData.pending.filter(pTx => pTx.txid !== txid);
+            }
+        } else {
+            // Message sent successfully (or at least accepted by gateway)
+            // The optimistic UI update for 'sent' status is already handled before injectTx.
+            // No specific action needed here for success as the UI already reflects 'sent'.
         }
     } catch (error) {
         console.error('Message error:', error);
@@ -3403,7 +3426,9 @@ function handleFailedMessageDelete() {
     if (typeof originalTxid === 'string' && originalTxid) {
         // Assuming handleDeleteMessage is defined and handles UI update
         //TODO: invoke removeFailedTx
-        removeFailedTx(originalTxid)
+        const currentAddress = appendChatModal.address
+        removeFailedTx(originalTxid, currentAddress)
+        
         if (failedMessageModal) {
             failedMessageModal.classList.remove('active');
         }
@@ -7023,33 +7048,19 @@ function validateStakeInputs() {
     nodeAddressWarningElement.style.display = 'none'; // Ensure address warning is also hidden
 }
 
-// Standalone function to remove a failed/timed-out transaction from all relevant data stores
-function removeFailedTx(txid) {
+/**
+ * Remove failed transaction from the contacts messages and wallet history
+ * @param {string} txid - The transaction ID to remove
+ * @param {string} currentAddress - The address of the current contact
+ */
+function removeFailedTx(txid, currentAddress) {
     console.log(`DEBUG: Removing failed/timed-out txid ${txid} from all stores`);
-    
-    const index = myData.pending.findIndex(tx => tx.txid === txid);
-    console.log(`DEBUG: index of txid ${txid} in pending to be used in splice: ${index}`);
 
-    if (index === -1) {
-        console.log(`DEBUG: txid ${txid} not found in pending, skipping removal`);
-        return;
-    }
-
-    const type = myData.pending[index].type;
-    
-
-    // Remove from pending array
-    myData.pending.splice(index, 1);
-    
-    // Remove from contacts messages
-    for (const contact of Object.values(myData.contacts)) {
+    const contact = myData.contacts[currentAddress];
+    if (contact && contact.messages) {
         contact.messages = contact.messages.filter(msg => msg.txid !== txid);
     }
-    
-    // Remove from wallet history
-    if (type === 'transfer') {
-        myData.wallet.history = myData.wallet.history.filter(item => item.txid !== txid);
-    }
+    myData.wallet.history = myData.wallet.history.filter(item => item.txid !== txid);
 }
 
 /**
