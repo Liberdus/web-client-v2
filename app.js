@@ -3239,7 +3239,7 @@ async function handleSendMessage() {
             txid: txid
         };
 
-        // Remove existing chat for this contact if it exists
+        // Remove existing chat for this contact if it exists. Not handling in removeFailedTx anymore.
         const existingChatIndex = chatsData.chats.findIndex(chat => chat.address === currentAddress);
         if (existingChatIndex !== -1) {
             chatsData.chats.splice(existingChatIndex, 1);
@@ -3424,10 +3424,14 @@ function handleFailedMessageDelete() {
     const originalTxid = handleSendMessage.txid;
 
     if (typeof originalTxid === 'string' && originalTxid) {
-        // Assuming handleDeleteMessage is defined and handles UI update
-        //TODO: invoke removeFailedTx
         const currentAddress = appendChatModal.address
         removeFailedTx(originalTxid, currentAddress)
+
+        // remove pending tx if exists
+        const index = myData.pending.findIndex(tx => tx.txid === originalTxid);
+        if (index !== -1) {
+            myData.pending.splice(index, 1);
+        }
         
         if (failedMessageModal) {
             failedMessageModal.classList.remove('active');
@@ -7049,7 +7053,7 @@ function validateStakeInputs() {
 }
 
 /**
- * Remove failed transaction from the contacts messages and wallet history
+ * Remove failed transaction from the contacts messages and wallet history. Does not remove from pending.
  * @param {string} txid - The transaction ID to remove
  * @param {string} currentAddress - The address of the current contact
  */
