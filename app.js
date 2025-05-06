@@ -3214,6 +3214,12 @@ async function handleSendMessage() {
         const chatMessageObj = createChatMessage(currentAddress, payload, 1, keys);
         const txid = await signObj(chatMessageObj, keys)
 
+        // if there a hidden txid input, get the value to be used to delete that txid from relevant data stores
+        const retryTxId = document.getElementById('retryOfTxId').value;
+        if (retryTxId) {
+            removeFailedTx(retryTxId);
+        }
+
         // --- Optimistic UI Update ---
         // Create new message object for local display immediately
         const newMessage = {
@@ -3255,35 +3261,11 @@ async function handleSendMessage() {
         //console.log('payload is', payload)
         // Send the message transaction using createChatMessage with default toll of 1
         const response = await injectTx(chatMessageObj, txid)
-
-        // Find the message we just added optimistically
-/*         const optimisticallyAddedMessage = chatsData.contacts[currentAddress].messages.find(
-            msg => msg.sent_timestamp === newMessage.sent_timestamp && msg.my === true && msg.status === 'sending'
-        ); */
         
-        //TODO: UI update to show sent message was sent or failed
         // will have to delete message from the places we added it to
         if (!response || !response.result || !response.result.success) {
             console.log('message failed to send', response)
-/*              // Handle failure: Update message status
-            if (optimisticallyAddedMessage) {
-                optimisticallyAddedMessage.status = 'failed';
-                // Optionally add error reason: optimisticallyAddedMessage.error = response.result?.reason || 'Unknown error';
-            }
-            // Update the UI again to show the failure state
-            appendChatModal();
-            alert('Message failed to send: ' + (response.result?.reason || 'Unknown error'));
-            // Note: Button is re-enabled in finally block, which is correct.
-            return; // Stop further processing on failure */
         }
-
-        // --- Update message status on successful send ---
-/*         if (optimisticallyAddedMessage) {
-            optimisticallyAddedMessage.status = 'sent'; // Or 'delivered' if you get confirmation
-            // Update the UI to reflect the 'sent' status if needed (e.g., remove 'sending' indicator)
-             appendChatModal(); // Refresh UI to potentially change message style based on 'sent' status
-        } */
-        // --- End Status Update ---
     } catch (error) {
         console.error('Message error:', error);
         alert('Failed to send message. Please try again.');
@@ -7105,6 +7087,7 @@ async function checkPendingTransactions() {
 
             if (res?.transaction?.success === true) {
                 console.log(`DEBUG: txid ${txid} is successful, removing from pending only`);
+                // comment out to test the pending txs removal logic
                 myData.pending.splice(i, 1);
             } 
             else if (res?.transaction?.success === false) {
