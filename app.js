@@ -3262,7 +3262,6 @@ async function handleSendMessage() {
         // Send the message transaction using createChatMessage with default toll of 1
         const response = await injectTx(chatMessageObj, txid)
         
-        // will have to delete message from the places we added it to
         if (!response || !response.result || !response.result.success) {
             console.log('message failed to send', response)
         }
