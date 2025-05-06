@@ -1007,6 +1007,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         event.target.setCustomValidity('');
     });
 
+
+    // Event Listeners for FailedMessageModal (using named functions)
+    const failedMessageModal = document.getElementById('failedMessageModal');
+    const failedMessageRetryButton = failedMessageModal.querySelector('.retry-button');
+    const failedMessageDeleteButton = failedMessageModal.querySelector('.delete-button');
+    const failedMessageHeaderCloseButton = document.getElementById('closeFailedMessageModal');
+
+    if (failedMessageRetryButton) {
+        failedMessageRetryButton.addEventListener('click', handleFailedMessageRetry);
+    }
+    if (failedMessageDeleteButton) {
+        failedMessageDeleteButton.addEventListener('click', handleFailedMessageDelete);
+    }
+    if (failedMessageHeaderCloseButton) {
+        failedMessageHeaderCloseButton.addEventListener('click', closeFailedMessageModalAndClearState);
+    }
+    failedMessageModal.addEventListener('click', handleFailedMessageBackdropClick);
+    
+    
+
     // call checkPendingTransactions every 5 seconds
     setInterval(checkPendingTransactions, 5000);
 
@@ -3273,12 +3293,18 @@ async function handleClickToCopy(e) {
     const messageEl = e.target.closest('.message');
     if (!messageEl) return;
 
-    // Prevent copying if the message has failed
-    if (messageEl.classList.contains('status-failed')) {
+    // Prevent copying if the message has failed and not `payment-info`
+    if (messageEl.dataset.status === 'failed') {
         console.log('Copy prevented for failed message.');
-        // create a standalone function that'll give user option to retry sending the message or delete it (delete from all data stores)
-        // if user decides to retry we'll fill the input field with the message content and fill a hidden input with the txid
-          // then when user clicks send that invokes handleSendMessage() we'll use txid to remove the message from all data stores
+
+        // If the message is not a payment message, show the failed message modal
+        if (!messageEl.classList.contains('payment-info')) {
+            handleFailedMessageClick(messageEl)
+        }
+
+        // TODO: if message is a payment open sendModal and fill with information in the payment message?
+
+        return;
     }
 
     let textToCopy = null;
@@ -3323,6 +3349,117 @@ async function handleClickToCopy(e) {
         showToast('Memo is empty', 2000, 'info');
     }
      // No need for an else here, cases with no element are handled above
+}
+
+/**
+ * Invoked when the user clicks on a failed message
+ * Will show failed message modal with retry, delete (delete from all data stores), and close buttons
+ * It will also store the message content and txid in the handleSendMessage object containing the handleFailedMessage and txid properties
+ */
+function handleFailedMessageClick(messageEl) {
+    const modal = document.getElementById('failedMessageModal');
+
+    // Get the message content and txid from the original failed message element
+    const messageContent = messageEl.querySelector('.message-content').textContent;
+    const originalTxid = messageEl.dataset.txid;
+
+    // Store content and txid in properties of handleSendMessage
+    handleSendMessage.handleFailedMessage = messageContent;
+    handleSendMessage.txid = originalTxid;
+
+    // Show the modal
+    if (modal) {
+        modal.classList.add('active');
+    }
+}
+handleSendMessage.handleFailedMessage = '';
+handleSendMessage.txid = '';
+
+/**
+ * Invoked when the user clicks the retry button in the failed message modal
+ * It will fill the chat modal with the message content and txid of the failed message and focus the message input
+ */
+function handleFailedMessageRetry() {
+    const failedMessageModal = document.getElementById('failedMessageModal');
+    const mainChatInput = document.querySelector('#chatModal .message-input');
+    const retryTxIdInput = document.getElementById('retryOfTxId');
+
+    // Use the values stored when handleFailedMessage was called
+    const messageToRetry = handleSendMessage.handleFailedMessage;
+    const originalTxid = handleSendMessage.txid;
+
+    if (mainChatInput && retryTxIdInput && typeof messageToRetry === 'string' && typeof originalTxid === 'string') {
+        mainChatInput.value = messageToRetry;
+        retryTxIdInput.value = originalTxid;
+        
+        if (failedMessageModal) {
+            failedMessageModal.classList.remove('active');
+        }
+        mainChatInput.focus();
+        
+        // Clear the stored values after use
+        handleSendMessage.handleFailedMessage = '';
+        handleSendMessage.txid = ''; 
+    } else {
+        console.error('Error preparing message retry: Necessary elements or data missing.');
+        if (failedMessageModal) {
+            failedMessageModal.classList.remove('active'); 
+        }
+    }
+}
+
+/**
+ * Invoked when the user clicks the delete button in the failed message modal
+ * It will delete the message from all data stores
+ */
+function handleFailedMessageDelete() {
+    const failedMessageModal = document.getElementById('failedMessageModal');
+    const originalTxid = handleSendMessage.txid;
+
+    if (typeof originalTxid === 'string' && originalTxid) {
+        // Assuming handleDeleteMessage is defined and handles UI update
+        //TODO: invoke removeFailedTx
+        removeFailedTx(originalTxid)
+        if (failedMessageModal) {
+            failedMessageModal.classList.remove('active');
+        }
+        
+        // Clear the stored values
+        handleSendMessage.handleFailedMessage = '';
+        handleSendMessage.txid = ''; 
+        // refresh current chatModal
+        appendChatModal();
+    } else {
+        console.error('Error deleting message: TXID not found.');
+        if (failedMessageModal) {
+            failedMessageModal.classList.remove('active'); 
+        }
+    }
+}
+
+/**
+ * Invoked when the user clicks the close button in the failed message modal
+ * It will close the modal and clear the stored values
+ */
+function closeFailedMessageModalAndClearState() {
+    const failedMessageModal = document.getElementById('failedMessageModal');
+    if (failedMessageModal) {
+        failedMessageModal.classList.remove('active');
+    }
+    // Clear the stored values when modal is closed
+    handleSendMessage.handleFailedMessage = '';
+    handleSendMessage.txid = ''; 
+}
+
+/**
+ * Invoked when the user clicks the backdrop in the failed message modal
+ * It will close the modal and clear the stored values
+ */
+function handleFailedMessageBackdropClick(event) {
+    const failedMessageModal = document.getElementById('failedMessageModal');
+    if (event.target === failedMessageModal) {
+        closeFailedMessageModalAndClearState();
+    }
 }
 
 // Update wallet view; refresh wallet
@@ -3502,6 +3639,7 @@ function handleHistoryItemClick(event) {
     const item = event.target.closest('.transaction-item');
 
     if (item.dataset.status === 'failed') {
+        //TODO: open sendModal with the message content and txid of the failed message?
         return;
     }
 
@@ -6904,16 +7042,30 @@ function validateStakeInputs() {
 // Standalone function to remove a failed/timed-out transaction from all relevant data stores
 function removeFailedTx(txid) {
     console.log(`DEBUG: Removing failed/timed-out txid ${txid} from all stores`);
+    
+    const index = myData.pending.findIndex(tx => tx.txid === txid);
+    console.log(`DEBUG: index of txid ${txid} in pending to be used in splice: ${index}`);
+
+    if (index === -1) {
+        console.log(`DEBUG: txid ${txid} not found in pending, skipping removal`);
+        return;
+    }
+
+    const type = myData.pending[index].type;
+    
+
     // Remove from pending array
-    myData.pending = myData.pending.filter(tx => tx.txid !== txid);
+    myData.pending.splice(index, 1);
     
     // Remove from contacts messages
     for (const contact of Object.values(myData.contacts)) {
         contact.messages = contact.messages.filter(msg => msg.txid !== txid);
     }
     
-    // Remove from wallet history (Corrected: walletData.history)
-    walletData.history = walletData.history.filter(item => item.txid !== txid);
+    // Remove from wallet history
+    if (type === 'transfer') {
+        myData.wallet.history = myData.wallet.history.filter(item => item.txid !== txid);
+    }
 }
 
 /**

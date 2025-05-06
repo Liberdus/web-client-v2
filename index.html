@@ -514,6 +514,7 @@
             placeholder="Type a message..."
             maxlength="2000"
           ></textarea>
+          <input type="hidden" id="retryOfTxId" />
           <button class="send-button" id="handleSendMessage">
             <svg viewBox="0 0 24 24">
               <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
@@ -1293,6 +1294,26 @@
           <div class="scan-region-highlight"></div>
           <div class="scan-highlight" id="scan-highlight"></div>
           <canvas id="canvas"></canvas>
+        </div>
+      </div>
+
+      <!-- Failed Message Modal -->
+      <div class="modal modal-dialog" id="failedMessageModal">
+        <div class="dialog-box-content">
+          <div class="modal-header">
+            <button class="back-button" id="closeFailedMessageModal"></button>
+            <div class="modal-title">Failed Message</div>
+          </div>
+          <div class="form-container">
+            <div class="modal-actions">
+              <button type="button" class="secondary-button delete-button">
+                Delete
+              </button>
+              <button type="button" class="update-button retry-button">
+                Retry
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

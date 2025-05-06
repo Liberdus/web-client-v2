@@ -4087,3 +4087,146 @@ small {
   font-weight: bold;
   line-height: 1;
 }
+
+#stakeAvailableBalanceDisplay {
+  font-size: 0.85em;
+  color: var(--secondary-text-color);
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+/* Styles for the failed message pop-up dialog */
+.modal-dialog .modal-header {
+  /* Assuming .modal-header already has flex and alignment for title and back button */
+  /* We might want to ensure it fits the smaller dialog width */
+  padding: 12px 16px; /* Adjust padding if needed */
+}
+
+.modal-dialog .form-container {
+  background-color: var(--background-color);
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  width: auto; /* Let content dictate width up to max-width */
+  max-width: 400px; /* Max width of the dialog */
+  margin: 0 auto; /* Center the form-container if .modal-dialog is flex centering */
+  display: flex;
+  flex-direction: column;
+  gap: 16px; /* Space between form groups */
+}
+
+/* Ensure the base .modal.active for .modal-dialog still provides the backdrop */
+.modal.modal-dialog.active {
+  /* display: flex; /* This is usually on .modal.active already */
+  /* justify-content: center; /* This is usually on .modal.active already */
+  /* align-items: center; /* This is usually on .modal.active already */
+  /* The above are likely inherited. If not, uncomment them. */
+  /* The backdrop color comes from .modal's background-color */
+}
+
+.modal-dialog #failedMessageContent {
+  min-height: 60px; /* Give it some initial height */
+  resize: vertical; /* Allow vertical resize if needed */
+}
+
+.modal-dialog .modal-actions {
+  display: flex;
+  flex-direction: column; /* Stack buttons vertically */
+  align-items: center; /* Center buttons horizontally in the column */
+  gap: 10px; /* Space between buttons vertically */
+}
+
+.modal-dialog .modal-actions .update-button,
+.modal-dialog .modal-actions .secondary-button,
+.modal-dialog .modal-actions .tertiary-button {
+  padding: 8px 16px; /* Adjust button padding for a more compact look */
+  font-size: var(--font-size-sm);
+  width: 300px; /* Override general button widths */
+  height: 48px; /* Let padding and content determine height */
+  margin: 0; /* Reset margin, rely on flex gap */
+}
+
+/* Adjust tertiary button specifically if needed */
+.modal-dialog .modal-actions .tertiary-button {
+  background-color: transparent;
+  color: var(--secondary-text-color);
+  border: 1px solid var(--border-color);
+}
+
+.modal-dialog .modal-actions .tertiary-button:hover {
+  background-color: var(--hover-background);
+}
+
+.transaction-item[data-status="failed"] {
+  border-left: 4px solid var(--danger-color);
+  padding-left: 10px; /* Add some padding so content doesn't touch the border */
+}
+
+/* Styles for the failed message pop-up dialog */
+
+/* Base for the dialog overlay/backdrop */
+.modal.modal-dialog {
+  display: none; /* Hidden by default */
+  position: fixed; /* Fixed position to overlay everything */
+  top: 0;
+  left: 0; /* Start from left, no slide-in */
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent backdrop */
+  justify-content: center; /* Center direct child (dialog-box-content) horizontally */
+  align-items: center; /* Center direct child (dialog-box-content) vertically */
+  z-index: 1001; /* Ensure it's on top */
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  /* Override general .modal transition if it interferes */
+  transform: none !important; /* Prevent slide-in */
+}
+
+.modal.modal-dialog.active {
+  display: flex; /* Show and use flex for centering */
+  opacity: 1;
+  transform: none !important; /* Ensure no slide-in even when active */
+}
+
+/* The actual dialog box appearance */
+.modal-dialog .dialog-box-content {
+  background-color: var(--background-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  width: auto;
+  max-width: 400px; /* Max width of the dialog */
+  display: flex;
+  flex-direction: column; /* Stack header and form-container */
+  overflow: hidden; /* Clip children to border-radius */
+}
+
+.modal-dialog .modal-header {
+  padding: 12px 16px;
+  /* display: flex, align-items: center are inherited or default */
+  /* Ensure its width is not 100% of screen if it was before */
+  width: 100%;
+}
+
+.modal-dialog .form-container {
+  /* Remove properties now on dialog-box-content */
+  /* background-color, border-radius, box-shadow, max-width, margin: 0 auto are removed */
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%; /* Take full width of parent dialog-box-content */
+}
+
+.modal-dialog #failedMessageContent {
+  min-height: 60px; /* Give it some initial height */
+  resize: vertical; /* Allow vertical resize if needed */
+}
+
+/* Style the Delete button in the dialog to be red and pill-shaped */
+.modal-dialog .modal-actions .delete-button {
+  background-color: var(--danger-color);
+  color: var(--background-color);
+  border-radius: 24px; /* Match update-button pill shape */
+  border: none; /* Ensure no border */
+  /* Padding and font-size are inherited from the common rule for dialog action buttons */
+}
