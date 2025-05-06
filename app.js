@@ -1965,7 +1965,6 @@ function appendChatModal(highlightNewMessage = false) {
         } else {
             // --- Render Chat Message ---
             const messageClass = item.my ? 'sent' : 'received'; // Use item.my directly
-            const statusAttribute = item.status ? `data-status="${item.status}"` : '';
             messageHTML = `
                 <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
                     <div class="message-content" style="white-space: pre-wrap">${linkifyUrls(item.message)}</div>
@@ -3277,7 +3276,9 @@ async function handleClickToCopy(e) {
     // Prevent copying if the message has failed
     if (messageEl.classList.contains('status-failed')) {
         console.log('Copy prevented for failed message.');
-        return;
+        // create a standalone function that'll give user option to retry sending the message or delete it (delete from all data stores)
+        // if user decides to retry we'll fill the input field with the message content and fill a hidden input with the txid
+          // then when user clicks send that invokes handleSendMessage() we'll use txid to remove the message from all data stores
     }
 
     let textToCopy = null;
