@@ -1768,7 +1768,7 @@ input[type="file"].form-control {
   font-family: var(--font-primary);
   font-size: var(--font-size-base);
   color: var(--text-color);
-}/* Specific style for search icon to ensure consistent size */
+} /* Specific style for search icon to ensure consistent size */
 #search {
   display: flex;
   align-items: center;
@@ -2136,6 +2136,36 @@ pre.log-message {
   80% {
     background: var(--highlight-color);
   }
+}
+
+/* Style for failed sent messages */
+.message.sent[data-status="failed"] {
+  background-color: #8a8ad8; /* Slightly desaturated blue */
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  position: relative; /* Needed for absolute positioning of the icon */
+  /* Removed padding-left: 35px; */
+  margin-right: 32px; /* Add margin to push bubble left */
+}
+
+/* Change ::before to ::after and adjust positioning */
+.message.sent[data-status="failed"]::after {
+  content: "!";
+  position: absolute;
+  left: 100%; /* Position at the right edge */
+  margin-left: 8px; /* Add space to the right */
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  background-color: var(--danger-color); /* Red background */
+  color: white; /* White exclamation mark */
+  border-radius: 50%; /* Make it a circle */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 1;
 }
 
 /* Style for highlighted search matches */
@@ -4003,4 +4033,57 @@ small {
   text-align: left;
 }
 
+/* Style for failed transactions in history */
+.transaction-item[data-status="failed"] {
+  background-color: rgba(220, 53, 69, 0.08); /* Light red background */
+  border-left: 3px solid var(--danger-color); /* Red border on the left */
+  position: relative; /* Needed for absolute positioning of the icon */
+  padding-right: 32px; /* Space for the icon on the right */
+}
 
+.transaction-item[data-status="failed"]::after {
+  content: "!";
+  position: absolute;
+  right: 8px; /* Position at the right of the transaction item */
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  background-color: var(--danger-color);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+/* Style for failed payment messages in chat */
+.message.sent.payment-info[data-status="failed"] {
+  background-color: #8a8ad8; /* Slightly desaturated blue */
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  position: relative; /* Needed for absolute positioning of the icon */
+  margin-right: 32px; /* Add margin to push bubble left */
+}
+
+.message.sent.payment-info[data-status="failed"]::after {
+  content: "!";
+  position: absolute;
+  left: 100%; /* Position at the right edge */
+  margin-left: 8px; /* Add space to the right */
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  background-color: var(--danger-color); /* Red background */
+  color: white; /* White exclamation mark */
+  border-radius: 50%; /* Make it a circle */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 1;
+}

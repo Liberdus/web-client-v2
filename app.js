@@ -1933,6 +1933,7 @@ function appendChatModal(highlightNewMessage = false) {
         const timestampAttribute = `data-message-timestamp="${item.timestamp}"`;
         // Add txid attribute if available
         const txidAttribute = item?.txid ? `data-txid="${item.txid}"` : '';
+        const statusAttribute = item?.status ? `data-status="${item.status}"` : '';
 
         // Check if it's a payment based on the presence of the amount property (BigInt)
         if (typeof item.amount === 'bigint') {
@@ -1952,7 +1953,7 @@ function appendChatModal(highlightNewMessage = false) {
             const directionText = item.my ? '-' : '+';
             const messageClass = item.my ? 'sent' : 'received';
             messageHTML = `
-                <div class="message ${messageClass} payment-info" ${timestampAttribute} ${txidAttribute}> 
+                <div class="message ${messageClass} payment-info" ${timestampAttribute} ${txidAttribute} ${statusAttribute}> 
                     <div class="payment-header">
                         <span class="payment-direction">${directionText}</span>
                         <span class="payment-amount">${amountDisplay}</span>
@@ -1964,8 +1965,9 @@ function appendChatModal(highlightNewMessage = false) {
         } else {
             // --- Render Chat Message ---
             const messageClass = item.my ? 'sent' : 'received'; // Use item.my directly
+            const statusAttribute = item.status ? `data-status="${item.status}"` : '';
             messageHTML = `
-                <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute}>
+                <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
                     <div class="message-content" style="white-space: pre-wrap">${linkifyUrls(item.message)}</div>
                     <div class="message-time">${timeString}</div>
                 </div>
@@ -2694,7 +2696,8 @@ async function handleSendAsset(event) {
             sign: -1,
             timestamp: currentTime,
             address: toAddress,
-            memo: memo
+            memo: memo,
+            status: 'sent'
         };
         insertSorted(wallet.history, newPayment, 'timestamp');
 
@@ -2717,7 +2720,8 @@ async function handleSendAsset(event) {
             message: memo, // Use the memo as the message content
             amount: amount, // Use the BigInt amount
             symbol: 'LIB', // TODO: Use the asset symbol
-            txid: response.txid
+            txid: response.txid,
+            status: 'sent'
         };
         // Insert the transfer message into the contact's message list, maintaining sort order
         insertSorted(myData.contacts[toAddress].messages, transferMessage, 'timestamp');
@@ -3195,7 +3199,8 @@ async function handleSendMessage() {
             timestamp: payload.sent_timestamp,
             sent_timestamp: payload.sent_timestamp,
             my: true,
-            txid: txid
+            txid: txid,
+            status: 'sent'
         };
         insertSorted(chatsData.contacts[currentAddress].messages, newMessage, 'timestamp');
 
@@ -3268,6 +3273,12 @@ async function handleSendMessage() {
 async function handleClickToCopy(e) {
     const messageEl = e.target.closest('.message');
     if (!messageEl) return;
+
+    // Prevent copying if the message has failed
+    if (messageEl.classList.contains('status-failed')) {
+        console.log('Copy prevented for failed message.');
+        return;
+    }
 
     let textToCopy = null;
     let contentType = 'Text'; // Default content type for toast
@@ -3453,8 +3464,9 @@ async function updateTransactionHistory() {
 
     transactionList.innerHTML = walletData.history.map(tx => {
         const txidAttr = tx?.txid ? `data-txid="${tx.txid}"` : '';
+        const statusAttr = tx?.status ? `data-status="${tx.status}"` : '';
         return `
-        <div class="transaction-item" data-address="${tx.address}" ${txidAttr}>
+        <div class="transaction-item" data-address="${tx.address}" ${txidAttr} ${statusAttr}>
             <div class="transaction-info">
                 <div class="transaction-type ${tx.sign === -1 ? 'send' : 'receive'}">
                     ${tx.sign === -1 ? '↑ Sent' : '↓ Received'}
@@ -3487,6 +3499,10 @@ async function updateTransactionHistory() {
 function handleHistoryItemClick(event) {
     // Find the closest ancestor element with the class 'transaction-item'
     const item = event.target.closest('.transaction-item');
+
+    if (item.dataset.status === 'failed') {
+        return;
+    }
 
     if (item) {
         // Get the address from the data-address attribute
@@ -6922,6 +6938,7 @@ async function checkPendingTransactions() {
     // Process each transaction in reverse to safely remove items
     for (let i = myData.pending.length - 1; i >= 0; i--) {
         const tx = myData.pending[i];
+        const type = tx.type;
         const txid = tx.txid;
         
         if (tx.submittedts < eightSecondsAgo) {
@@ -6934,7 +6951,18 @@ async function checkPendingTransactions() {
             } 
             else if (res?.transaction?.success === false) {
                 console.log(`DEBUG: txid ${txid} failed, removing completely`);
-                removeFailedTx(txid);
+                // Check for failure reason in the transaction receipt
+                const failureReason = res?.transaction?.reason || 'Transaction failed';
+                console.log(`DEBUG: failure reason: ${failureReason}`);
+                
+                // Show toast notification with the failure reason
+                showToast(failureReason, 5000, "error");
+                
+                // Remove from pending array
+                myData.pending.splice(i, 1);
+                // Update the status of the transaction to 'failed'
+                updateTransactionStatus(txid, 'failed', type);
+                // Then we'll want to refresh the current view
                 refreshCurrentView(txid);
             }
             else {
@@ -6988,5 +7016,36 @@ function refreshCurrentView(txid) { // contactAddress is kept for potential futu
         }
     }
     // No other active view to refresh in this context
+}
+
+/**
+ * Update status of a transaction in all relevant data stores 
+ * @param {string} txid - The transaction ID to update
+ * @param {string} status - The new status to set ('sent', 'failed', etc.)
+ * @param {string} type - The type of transaction ('message', 'transfer', etc.)
+ */
+function updateTransactionStatus(txid, status, type) {
+    if (!txid || !myData?.contacts) return;
+
+    // Update history items (using forEach instead of map)
+    if (type === 'transfer') {
+        for (const tx of myData.wallet.history) {
+            if (tx.txid === txid) {
+                tx.status = status;
+                break; // Stops iteration immediately
+            }
+        }
+    }
+
+    // find txid in all contacts' messages and change status
+    for (const contact of Object.values(myData.contacts)) {
+        if (!contact.messages) continue;
+
+        const msgIndex = contact.messages.findIndex(msg => msg.txid === txid);
+        if (msgIndex !== -1) {
+            contact.messages[msgIndex].status = status;
+            break;
+        }
+    }
 }
 
