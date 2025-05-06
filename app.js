@@ -7024,6 +7024,7 @@ function refreshCurrentView(txid) { // contactAddress is kept for potential futu
 /**
  * Update status of a transaction in all relevant data stores 
  * @param {string} txid - The transaction ID to update
+ * @param {string} toAddress - The address of the recipient
  * @param {string} status - The new status to set ('sent', 'failed', etc.)
  * @param {string} type - The type of transaction ('message', 'transfer', etc.)
  */
