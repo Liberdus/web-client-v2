@@ -4101,7 +4101,8 @@ async function injectTx(tx, txid){
             txid: txid,
             type: tx.type,
             submittedts: timestamp,
-            checkedts: 0
+            checkedts: 0,
+            to: tx.to
         });
 
         const options = {
@@ -6941,6 +6942,7 @@ async function checkPendingTransactions() {
         const tx = myData.pending[i];
         const type = tx.type;
         const txid = tx.txid;
+        const toAddress = tx.to;
         
         if (tx.submittedts < eightSecondsAgo) {
             console.log(`DEBUG: txid ${txid} is older than 8 seconds, checking receipt`);
@@ -6962,7 +6964,7 @@ async function checkPendingTransactions() {
                 // Remove from pending array
                 myData.pending.splice(i, 1);
                 // Update the status of the transaction to 'failed'
-                updateTransactionStatus(txid, 'failed', type);
+                updateTransactionStatus(txid, toAddress, 'failed', type);
                 // Then we'll want to refresh the current view
                 refreshCurrentView(txid);
             }
@@ -7025,27 +7027,23 @@ function refreshCurrentView(txid) { // contactAddress is kept for potential futu
  * @param {string} status - The new status to set ('sent', 'failed', etc.)
  * @param {string} type - The type of transaction ('message', 'transfer', etc.)
  */
-function updateTransactionStatus(txid, status, type) {
+function updateTransactionStatus(txid, toAddress, status, type) {
     if (!txid || !myData?.contacts) return;
 
     // Update history items (using forEach instead of map)
     if (type === 'transfer') {
-        for (const tx of myData.wallet.history) {
-            if (tx.txid === txid) {
-                tx.status = status;
-                break; // Stops iteration immediately
-            }
+        const txIndex = myData.wallet.history.findIndex(tx => tx.txid === txid);
+        if (txIndex !== -1) {
+            myData.wallet.history[txIndex].status = status;
         }
     }
 
-    // find txid in all contacts' messages and change status
-    for (const contact of Object.values(myData.contacts)) {
-        if (!contact.messages) continue;
-
+    // now use toAddress to find the contact and change the status of the message
+    const contact = myData.contacts[toAddress];
+    if (contact) {
         const msgIndex = contact.messages.findIndex(msg => msg.txid === txid);
         if (msgIndex !== -1) {
             contact.messages[msgIndex].status = status;
-            break;
         }
     }
 }
