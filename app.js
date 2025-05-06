@@ -1863,6 +1863,9 @@ function openChatModal(address) {
     const contact = myData.contacts[address]
     // Set user info
     modalTitle.textContent = contact.name || contact.senderInfo?.name || contact.username || `${contact.address.slice(0,8)}...${contact.address.slice(-6)}`;
+
+    // clear hidden txid input
+    document.getElementById('retryOfTxId').value = '';
     
     // Add data attributes to store the username and address
     const sendMoneyButton = document.getElementById('chatSendMoneyButton');
