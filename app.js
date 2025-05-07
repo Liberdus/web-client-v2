@@ -3781,7 +3781,7 @@ async function updateTransactionHistory() {
             </div>
             <div class="transaction-details">
                 <div class="transaction-address">
-                    ${tx.sign === -1 ? 'To:' : 'From:'} ${contacts[tx.address]?.name || contacts[tx.address]?.senderInfo?.name || contacts[tx.address]?.username || `${contacts[tx.address]?.address.slice(0,8)}...${contacts[tx.address]?.address.slice(-6)}`}
+                    ${tx.sign === -1 ? 'To:' : 'From:'} ${tx.nominee || contacts[tx.address]?.name || contacts[tx.address]?.senderInfo?.name || contacts[tx.address]?.username || `${contacts[tx.address]?.address.slice(0,8)}...${contacts[tx.address]?.address.slice(-6)}`}
                 </div>
                 <div class="transaction-time">${formatTime(tx.timestamp)}</div>
             </div>
@@ -3817,7 +3817,7 @@ function handleHistoryItemClick(event) {
     if (item) {
         // Get the address from the data-address attribute
         const address = item.dataset.address;
-        if (address) {
+        if (address && myData.contacts[address]) {
             // close contactInfoModal if it is open
             if (document.getElementById('contactInfoModal').classList.contains('active')) {
                 document.getElementById('contactInfoModal').classList.remove('active');
@@ -6538,6 +6538,17 @@ async function handleStakeSubmit(event) {
         await new Promise(resolve => setTimeout(resolve, 10000));
 
         if (response && response.result && response.result.success) {
+
+            myData.wallet.history.unshift({
+                nominee: nodeAddress,
+                amount: {dataType: 'bi', value: amount_in_wei},
+                memo: 'stake',
+                sign: -1,
+                status: 'sent',
+                timestamp: getCorrectedTimestamp(),
+                txid: response.txid
+            });
+
             closeValidatorModal();
             nodeAddressInput.value = ''; // Clear form
             amountInput.value = '';
