@@ -7174,7 +7174,7 @@ function refreshCurrentView(txid) { // contactAddress is kept for potential futu
 }
 
 /**
- * Update status of a transaction in all relevant data stores 
+ * Update status of a transaction in wallet if it is a transfer, and always in contacts messages
  * @param {string} txid - The transaction ID to update
  * @param {string} toAddress - The address of the recipient
  * @param {string} status - The new status to set ('sent', 'failed', etc.)
