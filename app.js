@@ -1020,7 +1020,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     failedMessageHeaderCloseButton.addEventListener('click', closeFailedMessageModalAndClearState);
     failedMessageModal.addEventListener('click', handleFailedMessageBackdropClick);
 
-    
+
     // Event Listerns for FailedHistoryItemModal
     const failedHistoryItemModal = document.getElementById('failedHistoryItemModal');
     const failedHistoryItemRetryButton = failedHistoryItemModal.querySelector('.retry-button');
@@ -3423,6 +3423,7 @@ function handleFailedHistoryItemClick(txid, element) {
 handleFailedHistoryItemClick.txid = '';
 handleFailedHistoryItemClick.address = '';
 handleFailedHistoryItemClick.memo = '';
+handleFailedHistoryItemClick.assetID = '';
 
 /**
  * Invoked when the user clicks the retry button in the failed message modal
