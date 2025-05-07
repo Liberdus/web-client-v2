@@ -7290,39 +7290,6 @@ async function checkPendingTransactions() {
             console.log(`DEBUG: txid ${txid} is older than 8 seconds, checking receipt`);
             const res = await queryNetwork(`/transaction/${txid}`);
 
-/*             {
-                "transaction": {
-                    "additionalInfo": {
-                        "maintenanceFee": {
-                            "dataType": "bi",
-                            "value": "0"
-                        },
-                        "reward": {
-                            "dataType": "bi",
-                            "value": "0"
-                        },
-                        "stake": {
-                            "dataType": "bi",
-                            "value": "8ac7230489e80000"
-                        },
-                        "totalUnstakeAmount": {
-                            "dataType": "bi",
-                            "value": "8ac7230489e80000"
-                        }
-                    },
-                    "from": "aef326df72100151200a83740e0e3ba3407688fc000000000000000000000000",
-                    "success": true,
-                    "timestamp": 1746657766253,
-                    "to": "47b09fc16ec0971c2938aa8ccbf8c39400808edf4d8ed7d60facfa4799d2366b",
-                    "transactionFee": {
-                        "dataType": "bi",
-                        "value": "16345785d8a0000"
-                    },
-                    "txId": "1cf44c9a390dd1fe42b99ee26cc7b65939ceb38287cc0465a8042bff44947beb",
-                    "type": "withdraw_stake"
-                }
-            } */
-            // if res type is withdraw_stake, then we update myData.wallet.history.findIndex(tx => tx.txid === txid) then change the amount field to the totalUnstakeAmount
             if (res?.transaction?.type === 'withdraw_stake') {
                 const index = myData.wallet.history.findIndex(tx => tx.txid === txid);
                 if (index !== -1) {
