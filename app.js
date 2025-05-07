@@ -7048,7 +7048,7 @@ function validateStakeInputs() {
 }
 
 /**
- * Remove failed transaction from the contacts messages and wallet history. Does not remove from pending.
+ * Remove failed transaction from the contacts messages, pending, and wallet history
  * @param {string} txid - The transaction ID to remove
  * @param {string} currentAddress - The address of the current contact
  */
