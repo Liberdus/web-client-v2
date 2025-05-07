@@ -2693,8 +2693,8 @@ async function handleSendAsset(event) {
         encMemo = encryptChacha(dhkey, memo)
     }
 
-    // hidden input field retryOfTxId value is present delete it from myData and clear the field
-    if (document.getElementById('retryOfTxId').value) {
+    // hidden input field retryOfTxId value is not an empty string
+    if (document.getElementById('retryOfTxId').value !== '') {
         // remove from myData 
         removeFailedTx(handleFailedPaymentClick.txid, handleFailedPaymentClick.address)
 
