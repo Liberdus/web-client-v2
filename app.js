@@ -2693,8 +2693,8 @@ async function handleSendAsset(event) {
         encMemo = encryptChacha(dhkey, memo)
     }
 
-    // hidden input field retryOfTxId is present delete it from myData and clear the field
-    if (document.getElementById('retryOfTxId')) {
+    // hidden input field retryOfTxId value is present delete it from myData and clear the field
+    if (document.getElementById('retryOfTxId').value) {
         // remove from myData 
         removeFailedTx(handleFailedPaymentClick.txid, handleFailedPaymentClick.address)
 
@@ -3499,7 +3499,7 @@ function handleFailedPaymentRetry() {
     }
 
     if (sendModal && retryOfTxId) {
-        sendModal.classList.add('active');
+        openSendModal();
 
         // 1. fill in hidden retryOfTxId input
         retryOfTxId.value = handleFailedPaymentClick.txid;
