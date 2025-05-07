@@ -671,6 +671,23 @@
         </div>
       </div>
 
+      <!-- History Modal -->
+      <div class="modal fixed-header" id="historyModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeHistoryModal"></button>
+          <div class="modal-title">Transaction History</div>
+        </div>
+        <div class="form-container">
+          <div class="form-group">
+            <label for="historyAsset">Asset</label>
+            <select id="historyAsset" class="form-control"></select>
+          </div>
+          <div class="transaction-list" id="transactionList">
+            <!-- Transactions will be populated here -->
+          </div>
+        </div>
+      </div>
+
       <!-- Send Modal -->
       <div class="modal fixed-header" id="sendModal">
         <div class="modal-header">
@@ -836,23 +853,6 @@
             Confirm Send
           </button>
           <button id="cancelSendButton" class="secondary-button">Cancel</button>
-        </div>
-      </div>
-
-      <!-- History Modal -->
-      <div class="modal fixed-header" id="historyModal">
-        <div class="modal-header">
-          <button class="back-button" id="closeHistoryModal"></button>
-          <div class="modal-title">Transaction History</div>
-        </div>
-        <div class="form-container">
-          <div class="form-group">
-            <label for="historyAsset">Asset</label>
-            <select id="historyAsset" class="form-control"></select>
-          </div>
-          <div class="transaction-list" id="transactionList">
-            <!-- Transactions will be populated here -->
-          </div>
         </div>
       </div>
 
