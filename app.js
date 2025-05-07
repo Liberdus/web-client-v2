@@ -2325,7 +2325,7 @@ async function openSendModal() {
     document.getElementById('sendToAddress').value = '';
     document.getElementById('sendAmount').value = '';
     document.getElementById('sendMemo').value = '';
-    document.getElementById('retryOfTxId').value = '';
+    document.getElementById('retryOfPaymentTxId').value = '';
 
     const usernameAvailable = document.getElementById('sendToAddressError');
     const submitButton = document.querySelector('#sendForm button[type="submit"]');
@@ -2694,7 +2694,7 @@ async function handleSendAsset(event) {
     }
 
     // hidden input field retryOfTxId value is not an empty string
-    if (document.getElementById('retryOfTxId').value !== '') {
+    if (document.getElementById('retryOfPaymentTxId').value) {
         // remove from myData 
         removeFailedTx(handleFailedPaymentClick.txid, handleFailedPaymentClick.address)
 
@@ -2702,7 +2702,7 @@ async function handleSendAsset(event) {
         handleFailedPaymentClick.txid = '';
         handleFailedPaymentClick.address = '';
         handleFailedPaymentClick.memo = '';
-        document.getElementById('retryOfTxId').value = '';
+        document.getElementById('retryOfPaymentTxId').value = '';
     }
 
     // Create sender info object
@@ -3490,7 +3490,7 @@ function handleFailedMessageRetry() {
  */
 function handleFailedPaymentRetry() {
     const sendModal = document.getElementById('sendModal');
-    const retryOfTxId = document.getElementById('retryOfTxId');
+    const retryOfPaymentTxId = document.getElementById('retryOfPaymentTxId');
 
     // close the failed payment modal
     const failedPaymentModal = document.getElementById('failedPaymentModal');
@@ -3498,11 +3498,11 @@ function handleFailedPaymentRetry() {
         failedPaymentModal.classList.remove('active');
     }
 
-    if (sendModal && retryOfTxId) {
+    if (sendModal && retryOfPaymentTxId) {
         openSendModal();
 
-        // 1. fill in hidden retryOfTxId input
-        retryOfTxId.value = handleFailedPaymentClick.txid;
+        // 1. fill in hidden retryOfPaymentTxId input
+        retryOfPaymentTxId.value = handleFailedPaymentClick.txid;
 
         // 2. fill in the memo input
         sendModal.querySelector('#sendMemo').value = handleFailedPaymentClick.memo;
