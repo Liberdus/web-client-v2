@@ -2695,8 +2695,8 @@ async function handleSendAsset(event) {
 
     // hidden input field retryOfTxId value is not an empty string
     if (document.getElementById('retryOfPaymentTxId').value) {
-        // remove from myData 
-        removeFailedTx(handleFailedPaymentClick.txid, handleFailedPaymentClick.address)
+        // remove from myData use txid from hidden field retryOfPaymentTxId
+        removeFailedTx(document.getElementById('retryOfPaymentTxId').value, toAddress)
 
         // clear the field
         handleFailedPaymentClick.txid = '';
