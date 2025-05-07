@@ -3428,12 +3428,6 @@ function handleFailedMessageDelete() {
         const currentAddress = appendChatModal.address
         removeFailedTx(originalTxid, currentAddress)
 
-        // remove pending tx if exists
-        const index = myData.pending.findIndex(tx => tx.txid === originalTxid);
-        if (index !== -1) {
-            myData.pending.splice(index, 1);
-        }
-        
         if (failedMessageModal) {
             failedMessageModal.classList.remove('active');
         }
@@ -7060,6 +7054,12 @@ function validateStakeInputs() {
  */
 function removeFailedTx(txid, currentAddress) {
     console.log(`DEBUG: Removing failed/timed-out txid ${txid} from all stores`);
+
+    // remove pending tx if exists
+    const index = myData.pending.findIndex(tx => tx.txid === txid);
+    if (index > -1) {
+        myData.pending.splice(index, 1);
+    }
 
     const contact = myData.contacts[currentAddress];
     if (contact && contact.messages) {
