@@ -2325,6 +2325,7 @@ async function openSendModal() {
     document.getElementById('sendToAddress').value = '';
     document.getElementById('sendAmount').value = '';
     document.getElementById('sendMemo').value = '';
+    document.getElementById('retryOfTxId').value = '';
 
     const usernameAvailable = document.getElementById('sendToAddressError');
     const submitButton = document.querySelector('#sendForm button[type="submit"]');
@@ -2690,6 +2691,18 @@ async function handleSendAsset(event) {
     let encMemo = ''
     if (memo){
         encMemo = encryptChacha(dhkey, memo)
+    }
+
+    // hidden input field retryOfTxId is present delete it from myData and clear the field
+    if (document.getElementById('retryOfTxId')) {
+        // remove from myData 
+        removeFailedTx(handleFailedPaymentClick.txid, handleFailedPaymentClick.address)
+
+        // clear the field
+        handleFailedPaymentClick.txid = '';
+        handleFailedPaymentClick.address = '';
+        handleFailedPaymentClick.memo = '';
+        document.getElementById('retryOfTxId').value = '';
     }
 
     // Create sender info object
@@ -3417,18 +3430,18 @@ function handleFailedPaymentClick(txid, element) {
     // Get the address and memo from the original failed transfer element
     const address = element?.dataset?.address || appendChatModal?.address;
     const memo = element?.querySelector('.transaction-memo')?.textContent || element?.querySelector('.payment-memo')?.textContent;
-    const assetID = element?.dataset?.assetID || ''; // TODO: need to add assetID to `message sent payment-info` class for when we implement retry
+    //const assetID = element?.dataset?.assetID || ''; // TODO: need to add assetID to `myData.wallet.history` for when we have multiple assets
 
     // Store the address and memo in properties of handleFailedPaymentClick
     handleFailedPaymentClick.address = address;
     handleFailedPaymentClick.memo = memo;
     handleFailedPaymentClick.txid = txid;
-    handleFailedPaymentClick.assetID = assetID;
+    //handleFailedPaymentClick.assetID = assetID;
 
     console.log(`handleFailedPaymentClick.address: ${handleFailedPaymentClick.address}`)
     console.log(`handleFailedPaymentClick.memo: ${handleFailedPaymentClick.memo}`)
     console.log(`handleFailedPaymentClick.txid: ${handleFailedPaymentClick.txid}`)
-    console.log(`handleFailedPaymentClick.assetID: ${handleFailedPaymentClick.assetID}`)
+    //console.log(`handleFailedPaymentClick.assetID: ${handleFailedPaymentClick.assetID}`)
     if (modal) {
         modal.classList.add('active');
     }
@@ -3436,7 +3449,7 @@ function handleFailedPaymentClick(txid, element) {
 handleFailedPaymentClick.txid = '';
 handleFailedPaymentClick.address = '';
 handleFailedPaymentClick.memo = '';
-handleFailedPaymentClick.assetID = '';
+//handleFailedPaymentClick.assetID = '';
 
 /**
  * Invoked when the user clicks the retry button in the failed message modal
@@ -3471,8 +3484,42 @@ function handleFailedMessageRetry() {
     }
 }
 
+/**
+ * Invoked when the user clicks the retry button in the failed payment modal
+ * It will fill the sendModal with the payment content and txid of the failed payment in a hidden input field in the sendModal
+ */
 function handleFailedPaymentRetry() {
-    console.log('handleFailedPaymentRetry')
+    const sendModal = document.getElementById('sendModal');
+    const retryOfTxId = document.getElementById('retryOfTxId');
+
+    // close the failed payment modal
+    const failedPaymentModal = document.getElementById('failedPaymentModal');
+    if (failedPaymentModal) {
+        failedPaymentModal.classList.remove('active');
+    }
+
+    if (sendModal && retryOfTxId) {
+        sendModal.classList.add('active');
+
+        // 1. fill in hidden retryOfTxId input
+        retryOfTxId.value = handleFailedPaymentClick.txid;
+
+        // 2. fill in the memo input
+        sendModal.querySelector('#sendMemo').value = handleFailedPaymentClick.memo;
+
+        // 3. fill in the to address input
+        // find username in myData.contacts[handleFailedPaymentClick.address].senderInfo.username
+        // enter as an input to invoke the oninput event
+        sendModal.querySelector('#sendToAddress').value = myData.contacts[handleFailedPaymentClick.address]?.senderInfo?.username || handleFailedPaymentClick.address || '';
+        sendModal.querySelector('#sendToAddress').dispatchEvent(new Event('input', { bubbles: true }));
+
+        // 4. fill in the amount input
+        // get the amount from myData.wallet.history since we need to the bigint value
+        const amount = myData.wallet.history.find(tx => tx.txid === handleFailedPaymentClick.txid)?.amount;
+        // convert bigint to string
+        const amountStr = big2str(amount, 18);
+        sendModal.querySelector('#sendAmount').value = amountStr;
+    }
 }
 
 /**
@@ -3525,7 +3572,7 @@ function handleFailedPaymentDelete() {
         handleFailedPaymentClick.txid = '';
         handleFailedPaymentClick.address = '';
         handleFailedPaymentClick.memo = '';
-        handleFailedPaymentClick.assetID = '';
+        //handleFailedPaymentClick.assetID = '';
     } else {
         console.error('Error deleting message: TXID not found.');
         if (failedPaymentModal) {
@@ -3557,7 +3604,7 @@ function closeFailedPaymentModalAndClearState() {
     handleFailedPaymentClick.txid = '';
     handleFailedPaymentClick.address = '';
     handleFailedPaymentClick.memo = '';
-    handleFailedPaymentClick.assetID = '';
+    //handleFailedPaymentClick.assetID = '';
 }
 
 /**
