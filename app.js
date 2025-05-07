@@ -3372,16 +3372,16 @@ function handleFailedMessageClick(messageEl) {
     const originalTxid = messageEl.dataset.txid;
 
     // Store content and txid in properties of handleSendMessage
-    handleSendMessage.handleFailedMessage = messageContent;
-    handleSendMessage.txid = originalTxid;
+    handleFailedMessageClick.handleFailedMessage = messageContent;
+    handleFailedMessageClick.txid = originalTxid;
 
     // Show the modal
     if (modal) {
         modal.classList.add('active');
     }
 }
-handleSendMessage.handleFailedMessage = '';
-handleSendMessage.txid = '';
+handleFailedMessageClick.handleFailedMessage = '';
+handleFailedMessageClick.txid = '';
 
 /**
  * Invoked when the user clicks the retry button in the failed message modal
@@ -3393,8 +3393,8 @@ function handleFailedMessageRetry() {
     const retryTxIdInput = document.getElementById('retryOfTxId');
 
     // Use the values stored when handleFailedMessage was called
-    const messageToRetry = handleSendMessage.handleFailedMessage;
-    const originalTxid = handleSendMessage.txid;
+    const messageToRetry = handleFailedMessageClick.handleFailedMessage;
+    const originalTxid = handleFailedMessageClick.txid;
 
     if (mainChatInput && retryTxIdInput && typeof messageToRetry === 'string' && typeof originalTxid === 'string') {
         mainChatInput.value = messageToRetry;
@@ -3406,8 +3406,8 @@ function handleFailedMessageRetry() {
         mainChatInput.focus();
         
         // Clear the stored values after use
-        handleSendMessage.handleFailedMessage = '';
-        handleSendMessage.txid = ''; 
+        handleFailedMessageClick.handleFailedMessage = '';
+        handleFailedMessageClick.txid = ''; 
     } else {
         console.error('Error preparing message retry: Necessary elements or data missing.');
         if (failedMessageModal) {
@@ -3422,7 +3422,7 @@ function handleFailedMessageRetry() {
  */
 function handleFailedMessageDelete() {
     const failedMessageModal = document.getElementById('failedMessageModal');
-    const originalTxid = handleSendMessage.txid;
+    const originalTxid = handleFailedMessageClick.txid;
 
     if (typeof originalTxid === 'string' && originalTxid) {
         const currentAddress = appendChatModal.address
@@ -3433,8 +3433,8 @@ function handleFailedMessageDelete() {
         }
         
         // Clear the stored values
-        handleSendMessage.handleFailedMessage = '';
-        handleSendMessage.txid = ''; 
+        handleFailedMessageClick.handleFailedMessage = '';
+        handleFailedMessageClick.txid = ''; 
         // refresh current chatModal
         appendChatModal();
     } else {
@@ -3455,8 +3455,8 @@ function closeFailedMessageModalAndClearState() {
         failedMessageModal.classList.remove('active');
     }
     // Clear the stored values when modal is closed
-    handleSendMessage.handleFailedMessage = '';
-    handleSendMessage.txid = ''; 
+    handleFailedMessageClick.handleFailedMessage = '';
+    handleFailedMessageClick.txid = ''; 
 }
 
 /**
