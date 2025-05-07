@@ -3254,6 +3254,7 @@ async function handleSendMessage() {
         const retryTxId = document.getElementById('retryOfTxId').value;
         if (retryTxId) {
             removeFailedTx(retryTxId, currentAddress);
+            document.getElementById('retryOfTxId').value = '';
         }
 
         // --- Optimistic UI Update ---
