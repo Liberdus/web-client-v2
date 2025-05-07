@@ -1014,32 +1014,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const failedMessageDeleteButton = failedMessageModal.querySelector('.delete-button');
     const failedMessageHeaderCloseButton = document.getElementById('closeFailedMessageModal');
 
-    if (failedMessageRetryButton) {
-        failedMessageRetryButton.addEventListener('click', handleFailedMessageRetry);
-    }
-    if (failedMessageDeleteButton) {
-        failedMessageDeleteButton.addEventListener('click', handleFailedMessageDelete);
-    }
-    if (failedMessageHeaderCloseButton) {
-        failedMessageHeaderCloseButton.addEventListener('click', closeFailedMessageModalAndClearState);
-    }
+    
+    failedMessageRetryButton.addEventListener('click', handleFailedMessageRetry);
+    failedMessageDeleteButton.addEventListener('click', handleFailedMessageDelete);
+    failedMessageHeaderCloseButton.addEventListener('click', closeFailedMessageModalAndClearState);
     failedMessageModal.addEventListener('click', handleFailedMessageBackdropClick);
 
+    
     // Event Listerns for FailedHistoryItemModal
     const failedHistoryItemModal = document.getElementById('failedHistoryItemModal');
     const failedHistoryItemRetryButton = failedHistoryItemModal.querySelector('.retry-button');
     const failedHistoryItemDeleteButton = failedHistoryItemModal.querySelector('.delete-button');
     const failedHistoryItemHeaderCloseButton = document.getElementById('closeFailedHistoryItemModal');
 
-    if (failedHistoryItemRetryButton) {
-        failedHistoryItemRetryButton.addEventListener('click', handleFailedHistoryItemRetry);
-    }
-    if (failedHistoryItemDeleteButton) {
-        failedHistoryItemDeleteButton.addEventListener('click', handleFailedHistoryItemDelete);
-    } 
-    if (failedHistoryItemHeaderCloseButton) {
-        failedHistoryItemHeaderCloseButton.addEventListener('click', closeFailedHistoryItemModalAndClearState);
-    }
+    failedHistoryItemRetryButton.addEventListener('click', handleFailedHistoryItemRetry);
+    failedHistoryItemDeleteButton.addEventListener('click', handleFailedHistoryItemDelete);
+    failedHistoryItemHeaderCloseButton.addEventListener('click', closeFailedHistoryItemModalAndClearState);
     failedHistoryItemModal.addEventListener('click', handleFailedHistoryItemBackdropClick);
     
     
@@ -3752,7 +3742,7 @@ function handleHistoryItemClick(event) {
 
     if (item.dataset.status === 'failed') {
         console.log(`Not opening chatModal for failed transaction`)
-        
+
         if (event.target.closest('.transaction-item')){
             handleFailedHistoryItemClick(item.dataset.txid, item);
         }
