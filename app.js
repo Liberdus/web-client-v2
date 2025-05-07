@@ -7061,11 +7061,11 @@ function removeFailedTx(txid, currentAddress) {
         myData.pending.splice(index, 1);
     }
 
-    const contact = myData.contacts[currentAddress];
+    const contact = myData?.contacts?.[currentAddress];
     if (contact && contact.messages) {
         contact.messages = contact.messages.filter(msg => msg.txid !== txid);
     }
-    myData.wallet.history = myData.wallet.history.filter(item => item.txid !== txid);
+    myData.wallet.history = myData?.wallet?.history?.filter(item => item.txid !== txid);
 }
 
 /**
