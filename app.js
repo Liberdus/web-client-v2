@@ -2732,10 +2732,10 @@ async function handleSendAsset(event) {
         // Send the transaction using postAssetTransfer
         const response = await postAssetTransfer(toAddress, amount, payload, keys);
         
-        if (!response || !response.result || !response.result.success) {
+        /* if (!response || !response.result || !response.result.success) {
             alert('Transaction failed: ' + response.result.reason);
             return;
-        }
+        } */
 
         // Create contact if it doesn't exit
         if (!myData.contacts[toAddress].messages) {
@@ -3303,25 +3303,25 @@ async function handleSendMessage() {
         
         if (!response || !response.result || !response.result.success) {
             console.log('message failed to send', response)
-            let userMessage = 'Message failed to send. Please try again.';
-            const reason = response.result?.reason || '';
+            //let userMessage = 'Message failed to send. Please try again.';
+            //const reason = response.result?.reason || '';
 
-            if (reason.includes('does not have sufficient funds')) {
+            /* if (reason.includes('does not have sufficient funds')) {
                 userMessage = 'Message failed: Insufficient funds for toll & fees.';
             } else if (reason) {
                 // Attempt to provide a slightly more specific message if reason is short
                 userMessage = `Message failed: ${reason.substring(0, 100)}${reason.length > 100 ? '...' : ''}`;
-            }
-            showToast(userMessage, 4000, 'error');
+            } */
+            //showToast(userMessage, 4000, 'error');
 
             // Update message status to 'failed' in the UI
             updateTransactionStatus(txid, currentAddress, 'failed', 'message');
             appendChatModal();
 
             // Remove from pending transactions as injectTx itself indicated failure
-            if (myData && myData.pending) {
+            /* if (myData && myData.pending) {
                 myData.pending = myData.pending.filter(pTx => pTx.txid !== txid);
-            }
+            } */
         } else {
             // Message sent successfully (or at least accepted by gateway)
             // The optimistic UI update for 'sent' status is already handled before injectTx.
@@ -4406,13 +4406,6 @@ async function injectTx(tx, txid){
         if (!myData.pending) {
             myData.pending = [];
         }
-        myData.pending.push({
-            txid: txid,
-            type: tx.type,
-            submittedts: timestamp,
-            checkedts: 0,
-            to: tx.to
-        });
 
         const options = {
             method: 'POST',
@@ -4424,7 +4417,21 @@ async function injectTx(tx, txid){
         const response = await fetch(`${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}/inject`, options);
         console.log("DEBUG: injectTx response", response);
         const data = await response.json();     
-        data.txid = txid           
+        data.txid = txid
+        
+        if (data?.result?.success) {
+            myData.pending.push({
+                txid: txid,
+                type: tx.type,
+                submittedts: timestamp,
+                checkedts: 0,
+                to: tx.to
+            });
+        } else {
+            console.error('Error injecting transaction:', data?.result?.reason);
+            showToast('Error injecting transaction: ' + data?.result?.reason, 5000, 'error');
+        }
+
         return data
     } catch (error) {
         // TODO: handle object added to pending array if error during fetch and handle the optimistically added UI elements depending on tx type and what current UI is being displayed
