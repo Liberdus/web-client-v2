@@ -3114,9 +3114,10 @@ function handleSignOut() {
 }
 handleSignOut.exit = false
 
-// Handle sending a message
-// The user has a chat modal open to a recipient and has typed a message anc clicked the Send button
-// The recipient account already exists in myData.contacts; it was created when the user submitted the New Chat form
+/**
+ * Invoked when the user clicks the Send button in a recipient (appendChatModal.address) chat modal
+ * Recipient account exists in myData.contacts; was created when the user submitted the New Chat form
+ */
 async function handleSendMessage() {
     const sendButton = document.getElementById('handleSendMessage');
     sendButton.disabled = true; // Disable the button
@@ -3417,7 +3418,7 @@ function handleFailedMessageRetry() {
 
 /**
  * Invoked when the user clicks the delete button in the failed message modal
- * It will delete the message from all data stores
+ * It will delete the message from all data stores using removeFailedTx and remove pending tx if exists
  */
 function handleFailedMessageDelete() {
     const failedMessageModal = document.getElementById('failedMessageModal');
