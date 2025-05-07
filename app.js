@@ -1024,6 +1024,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         failedMessageHeaderCloseButton.addEventListener('click', closeFailedMessageModalAndClearState);
     }
     failedMessageModal.addEventListener('click', handleFailedMessageBackdropClick);
+
+    // Event Listerns for FailedHistoryItemModal
+    const failedHistoryItemModal = document.getElementById('failedHistoryItemModal');
+    const failedHistoryItemRetryButton = failedHistoryItemModal.querySelector('.retry-button');
+    const failedHistoryItemDeleteButton = failedHistoryItemModal.querySelector('.delete-button');
+    const failedHistoryItemHeaderCloseButton = document.getElementById('closeFailedHistoryItemModal');
+
+    if (failedHistoryItemRetryButton) {
+        failedHistoryItemRetryButton.addEventListener('click', handleFailedHistoryItemRetry);
+    }
+    if (failedHistoryItemDeleteButton) {
+        failedHistoryItemDeleteButton.addEventListener('click', handleFailedHistoryItemDelete);
+    } 
+    if (failedHistoryItemHeaderCloseButton) {
+        failedHistoryItemHeaderCloseButton.addEventListener('click', closeFailedHistoryItemModalAndClearState);
+    }
+    failedHistoryItemModal.addEventListener('click', handleFailedHistoryItemBackdropClick);
+    
+    
     
     
 
@@ -3310,6 +3329,11 @@ async function handleClickToCopy(e) {
             handleFailedMessageClick(messageEl)
         }
 
+        // If the message is a payment message, show the failed history item modal
+        if (messageEl.classList.contains('payment-info')) {
+            handleFailedHistoryItemClick(messageEl.dataset.txid, messageEl)
+        }
+
         // TODO: if message is a payment open sendModal and fill with information in the payment message?
 
         return;
@@ -3383,6 +3407,33 @@ function handleFailedMessageClick(messageEl) {
 handleFailedMessageClick.handleFailedMessage = '';
 handleFailedMessageClick.txid = '';
 
+function handleFailedHistoryItemClick(txid, element) {
+    console.log('handleFailedHistoryItemClick', txid)
+    const modal = document.getElementById('failedHistoryItemModal');
+
+    // Get the address and memo from the original failed transfer element
+    const address = element?.dataset?.address || appendChatModal?.address;
+    const memo = element?.querySelector('.transaction-memo')?.textContent || element?.querySelector('.payment-memo')?.textContent;
+    const assetID = element?.dataset?.assetID || ''; // TODO: need to add assetID to `message sent payment-info` class for when we implement retry
+
+    // Store the address and memo in properties of handleFailedHistoryItemClick
+    handleFailedHistoryItemClick.address = address;
+    handleFailedHistoryItemClick.memo = memo;
+    handleFailedHistoryItemClick.txid = txid;
+    handleFailedHistoryItemClick.assetID = assetID;
+
+    console.log(`handleFailedHistoryItemClick.address: ${handleFailedHistoryItemClick.address}`)
+    console.log(`handleFailedHistoryItemClick.memo: ${handleFailedHistoryItemClick.memo}`)
+    console.log(`handleFailedHistoryItemClick.txid: ${handleFailedHistoryItemClick.txid}`)
+    console.log(`handleFailedHistoryItemClick.assetID: ${handleFailedHistoryItemClick.assetID}`)
+    if (modal) {
+        modal.classList.add('active');
+    }
+}
+handleFailedHistoryItemClick.txid = '';
+handleFailedHistoryItemClick.address = '';
+handleFailedHistoryItemClick.memo = '';
+
 /**
  * Invoked when the user clicks the retry button in the failed message modal
  * It will fill the chat modal with the message content and txid of the failed message and focus the message input
@@ -3416,6 +3467,10 @@ function handleFailedMessageRetry() {
     }
 }
 
+function handleFailedHistoryItemRetry() {
+    console.log('handleFailedHistoryItemRetry')
+}
+
 /**
  * Invoked when the user clicks the delete button in the failed message modal
  * It will delete the message from all data stores using removeFailedTx and remove pending tx if exists
@@ -3445,6 +3500,36 @@ function handleFailedMessageDelete() {
     }
 }
 
+
+
+function handleFailedHistoryItemDelete() {
+    const failedHistoryItemModal = document.getElementById('failedHistoryItemModal');
+    const originalTxid = handleFailedHistoryItemClick.txid;
+
+    if (typeof originalTxid === 'string' && originalTxid) {
+        const currentAddress = handleFailedHistoryItemClick.address;
+        removeFailedTx(originalTxid, currentAddress);
+        
+        if (failedHistoryItemModal) {
+            failedHistoryItemModal.classList.remove('active');
+        }
+        
+        // Clear the stored values
+        handleFailedHistoryItemClick.txid = '';
+        handleFailedHistoryItemClick.address = '';
+        handleFailedHistoryItemClick.memo = '';
+        handleFailedHistoryItemClick.assetID = '';
+
+        // refresh current view
+        refreshCurrentView();
+    } else {
+        console.error('Error deleting message: TXID not found.');
+        if (failedHistoryItemModal) {
+            failedHistoryItemModal.classList.remove('active');
+        }
+    }
+}
+
 /**
  * Invoked when the user clicks the close button in the failed message modal
  * It will close the modal and clear the stored values
@@ -3459,6 +3544,18 @@ function closeFailedMessageModalAndClearState() {
     handleFailedMessageClick.txid = ''; 
 }
 
+function closeFailedHistoryItemModalAndClearState() {
+    const failedHistoryItemModal = document.getElementById('failedHistoryItemModal');
+    if (failedHistoryItemModal) {
+        failedHistoryItemModal.classList.remove('active');
+    }
+    // Clear the stored values when modal is closed
+    handleFailedHistoryItemClick.txid = '';
+    handleFailedHistoryItemClick.address = '';
+    handleFailedHistoryItemClick.memo = '';
+    handleFailedHistoryItemClick.assetID = '';
+}
+
 /**
  * Invoked when the user clicks the backdrop in the failed message modal
  * It will close the modal and clear the stored values
@@ -3467,6 +3564,13 @@ function handleFailedMessageBackdropClick(event) {
     const failedMessageModal = document.getElementById('failedMessageModal');
     if (event.target === failedMessageModal) {
         closeFailedMessageModalAndClearState();
+    }
+}
+
+function handleFailedHistoryItemBackdropClick(event) {
+    const failedHistoryItemModal = document.getElementById('failedHistoryItemModal');
+    if (event.target === failedHistoryItemModal) {
+        closeFailedHistoryItemModalAndClearState();
     }
 }
 
@@ -3647,7 +3751,12 @@ function handleHistoryItemClick(event) {
     const item = event.target.closest('.transaction-item');
 
     if (item.dataset.status === 'failed') {
-        //TODO: open sendModal with the message content and txid of the failed message?
+        console.log(`Not opening chatModal for failed transaction`)
+        
+        if (event.target.closest('.transaction-item')){
+            handleFailedHistoryItemClick(item.dataset.txid, item);
+        }
+        
         return;
     }
 
