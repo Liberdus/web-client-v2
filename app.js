@@ -6158,6 +6158,7 @@ async function openValidatorModal() {
     if (userStakeUsdItem) userStakeUsdItem.style.display = 'flex';
     // Disable unstake button initially while loading/checking
     if (unstakeButton) unstakeButton.disabled = true;
+    if (stakeButton) stakeButton.disabled = false;
 
 
     if (validatorModal) validatorModal.classList.add('active'); // Open modal immediately
@@ -6608,7 +6609,7 @@ async function handleStakeSubmit(event) {
             openValidatorModal();
         } else {
             const reason = response?.result?.reason || 'Unknown error';
-            showToast(`Stake failed: ${reason}`, 5000, 'error');
+            //showToast(`Stake failed: ${reason}`, 5000, 'error');
             // after toast shown, stays in stakeModal
         }
     } catch (error) {
