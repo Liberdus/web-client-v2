@@ -6210,10 +6210,13 @@ async function openValidatorModal() {
             // Decide how to handle this - maybe show an error or a specific state?
             // For now, we'll proceed, but nominee/user stake will be unavailable.
         }
-        const [userAccountData, networkAccountData, marketPriceData] = await Promise.all([
+
+        
+        
+        const [userAccountData, networkAccountData, updateWalletBalances] = await Promise.all([
             userAddress ? queryNetwork(`/account/${longAddress(userAddress)}`) : Promise.resolve(null), // Fetch User Data if available
             queryNetwork('/account/0000000000000000000000000000000000000000000000000000000000000000'), // Fetch Network Data
-            getMarketPrice() // Fetch Market Price
+            updateWalletBalances()
         ]);
 
         // Extract Raw Data
@@ -6227,7 +6230,7 @@ async function openValidatorModal() {
         const stabilityScaleDiv = networkAccountData?.account?.current?.stabilityScaleDiv;
 
         // Extract market price (will be null if fetch failed or returned null)
-        const marketPrice = marketPriceData;
+        const marketPrice = getMarketPrice();
 
         // Calculate Derived Values
         let stabilityFactor = null;
