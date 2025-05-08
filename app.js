@@ -6211,8 +6211,6 @@ async function openValidatorModal() {
             // For now, we'll proceed, but nominee/user stake will be unavailable.
         }
 
-        
-        
         const [userAccountData, networkAccountData, updateWalletBalances] = await Promise.all([
             userAddress ? queryNetwork(`/account/${longAddress(userAddress)}`) : Promise.resolve(null), // Fetch User Data if available
             queryNetwork('/account/0000000000000000000000000000000000000000000000000000000000000000'), // Fetch Network Data
