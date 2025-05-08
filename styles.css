@@ -4230,3 +4230,31 @@ small {
   border: none; /* Ensure no border */
   /* Padding and font-size are inherited from the common rule for dialog action buttons */
 }
+
+/* Validator Modal Pending Transaction Skeleton */
+#validator-pending-tx-skeleton h4 {
+  color: #333; /* Or your app's standard text color */
+  margin-bottom: 15px;
+  text-align: center; /* Or as per your design */
+  font-weight: normal; /* Adjust if you want it bolder or lighter */
+}
+
+.skeleton-item {
+  background-color: #e0e0e0; /* Light grey for skeleton */
+  border-radius: 4px; /* Optional: for rounded corners */
+  animation: pulse 1.5s infinite ease-in-out;
+  /* The inline styles in index.html (height, width, margin-bottom) will take precedence 
+     for individual skeleton items, but you can set defaults here if desired. */
+}
+
+@keyframes pulse {
+  0% {
+      background-color: #e0e0e0; /* Initial color */
+  }
+  50% {
+      background-color: #d0d0d0; /* Slightly darker or different shade for pulse effect */
+  }
+  100% {
+      background-color: #e0e0e0; /* Return to initial color */
+  }
+}

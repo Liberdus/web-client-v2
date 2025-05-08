@@ -6139,6 +6139,9 @@ async function openValidatorModal() {
     const userStakeLibItem = document.getElementById('validator-user-stake-lib-item');
     const userStakeUsdItem = document.getElementById('validator-user-stake-usd-item');
     const unstakeButton = document.getElementById('submitUnstake');
+    const stakeButton = document.getElementById('openStakeModal');
+    const pendingSkeletonBar1 = document.getElementById('pending-nominee-skeleton-1');
+    const pendingTxTextInBar = document.getElementById('pending-tx-text-in-bar');
 
     // Reset UI: Show loading, hide details and error, reset conditional elements
     if (loadingElement) loadingElement.style.display = 'block';
@@ -6158,6 +6161,44 @@ async function openValidatorModal() {
 
 
     if (validatorModal) validatorModal.classList.add('active'); // Open modal immediately
+
+    // --- START: New logic for text in skeleton bar ---
+    // Reset elements to default state before checking for pending tx
+    if (nomineeValueElement) nomineeValueElement.style.display = ''; // Show actual nominee value by default
+    if (pendingTxTextInBar) pendingTxTextInBar.style.display = 'none';
+    if (pendingSkeletonBar1) pendingSkeletonBar1.style.display = 'none';
+
+    let currentPendingTx = null;
+    if (myData && myData.pending && Array.isArray(myData.pending) && myData.pending.length > 0) {
+        currentPendingTx = myData.pending.find(
+            tx => tx.type === 'deposit_stake' || tx.type === 'withdraw_stake'
+        );
+    }
+
+    if (currentPendingTx) {
+        if (detailsElement) detailsElement.style.display = 'block'; // Ensure main section is visible
+        // if (loadingElement) loadingElement.style.display = 'none';   // Hide main loading spinner
+        // if (errorElement) errorElement.style.display = 'none';     // Hide error message area
+
+
+        if (pendingSkeletonBar1) pendingSkeletonBar1.style.display = 'flex'; // Use flex to help center text in span
+
+        if (currentPendingTx.type === 'withdraw_stake') {
+            if (pendingTxTextInBar) {
+                pendingTxTextInBar.textContent = 'Pending Unstake Transaction';
+                pendingTxTextInBar.style.display = 'block'; // Or 'inline-block' might be better
+            }
+        } else if (currentPendingTx.type === 'deposit_stake') {
+            if (pendingTxTextInBar) {
+                pendingTxTextInBar.textContent = 'Pending Stake Transaction';
+                pendingTxTextInBar.style.display = 'block'; // Or 'inline-block'
+            }
+
+            //disable the stake button
+            if (stakeButton) stakeButton.disabled = true;
+        }
+    }
+    // --- END: New logic for text in skeleton bar ---
 
     let nominee = null;
 
@@ -6315,6 +6356,10 @@ async function openValidatorModal() {
         // Set final state of unstake button based on whether a nominee was found
         if (unstakeButton) {
              unstakeButton.disabled = !nominee;
+        }
+        if (currentPendingTx) {
+            unstakeButton.disabled = true;
+            stakeButton.disabled = true;
         }
     }
 }
