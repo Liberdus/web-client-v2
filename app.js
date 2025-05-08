@@ -6228,7 +6228,7 @@ async function openValidatorModal() {
         const stabilityScaleDiv = networkAccountData?.account?.current?.stabilityScaleDiv;
 
         // Extract market price (will be null if fetch failed or returned null)
-        const marketPrice = getMarketPrice();
+        const marketPrice = await getMarketPrice();
 
         // Calculate Derived Values
         let stabilityFactor = null;
