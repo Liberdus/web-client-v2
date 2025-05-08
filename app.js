@@ -6564,12 +6564,12 @@ async function handleStakeSubmit(event) {
     }
 
     // Validate address format (simple check for now) // TODO: robust validation
-/*     if (!nodeAddress.startsWith('0x') || nodeAddress.length !== 42) {
+    /* if (!nodeAddress.startsWith('0x') || nodeAddress.length !== 42) {
         showToast('Invalid validator node address format.', 3000, 'error');
         stakeButton.disabled = false;
         return;
-    }
- */
+    } */
+
     let amount_in_wei;
     try {
         amount_in_wei = bigxnum2big(wei, amountStr);
@@ -6581,18 +6581,13 @@ async function handleStakeSubmit(event) {
     }
 
     try {
-        showToast('Submitting stake transaction...', 10000, 'loading');
-
         if (backButton) backButton.disabled = true;
         if (submitStakeButton) submitStakeButton.disabled = true;
 
         const response = await postStake(nodeAddress, amount_in_wei, myAccount.keys);
         console.log("Stake Response:", response);
-        // wait 5 seconds before checking the response
-        await new Promise(resolve => setTimeout(resolve, 10000));
 
         if (response && response.result && response.result.success) {
-
             myData.wallet.history.unshift({
                 nominee: nodeAddress,
                 amount: amount_in_wei,
@@ -6603,6 +6598,8 @@ async function handleStakeSubmit(event) {
                 txid: response.txid
             });
 
+            showToast('Submitted stake transaction...', 3000, 'loading');
+
             closeValidatorModal();
             nodeAddressInput.value = ''; // Clear form
             amountInput.value = '';
@@ -6611,6 +6608,7 @@ async function handleStakeSubmit(event) {
         } else {
             const reason = response?.result?.reason || 'Unknown error';
             showToast(`Stake failed: ${reason}`, 5000, 'error');
+            // after toast shown, stays in stakeModal
         }
     } catch (error) {
         console.error('Stake transaction error:', error);
@@ -7350,6 +7348,16 @@ async function checkPendingTransactions() {
                 console.log(`DEBUG: txid ${txid} is successful, removing from pending only`);
                 // comment out to test the pending txs removal logic
                 myData.pending.splice(i, 1);
+
+                if (type === 'deposit_stake') {
+                    // show toast notification with the success message
+                    showToast('Stake transaction successful', 5000, 'success');
+                    // refresh only if validator modal is open
+                    if (document.getElementById('validatorModal').classList.contains('active')) {
+                        closeValidatorModal();
+                        openValidatorModal();
+                    }
+                }
             } 
             else if (res?.transaction?.success === false) {
                 console.log(`DEBUG: txid ${txid} failed, removing completely`);
