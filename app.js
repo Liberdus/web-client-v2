@@ -7350,9 +7350,9 @@ async function checkPendingTransactions() {
                 // comment out to test the pending txs removal logic
                 myData.pending.splice(i, 1);
 
-                if (type === 'deposit_stake') {
+                if (type === 'deposit_stake' || type === 'withdraw_stake') {
                     // show toast notification with the success message
-                    showToast('Stake transaction successful', 5000, 'success');
+                    showToast(`${type === 'deposit_stake' ? 'Stake' : 'Unstake'} transaction successful`, 5000, 'success');
                     // refresh only if validator modal is open
                     if (document.getElementById('validatorModal').classList.contains('active')) {
                         closeValidatorModal();
