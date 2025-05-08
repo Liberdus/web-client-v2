@@ -7381,14 +7381,17 @@ async function checkPendingTransactions() {
                 updateTransactionStatus(txid, toAddress, 'failed', type);
                 // Then we'll want to refresh the current view
                 refreshCurrentView(txid);
-
+                
                 // refresh the validator modal if this is a withdraw_stake/deposit_stake and validator modal is open
-                if ((type === 'withdraw_stake' || type === 'deposit_stake') && document.getElementById('validatorModal').classList.contains('active')) {
-                    //remove from wallet history
+                if (type === 'withdraw_stake' || type === 'deposit_stake') {
+                    // remove from wallet history
                     myData.wallet.history = myData.wallet.history.filter(tx => tx.txid !== txid);
-                    // refresh the validator modal
-                    closeValidatorModal();
-                    openValidatorModal();
+
+                    if (document.getElementById('validatorModal').classList.contains('active')) {
+                        // refresh the validator modal
+                        closeValidatorModal();
+                        openValidatorModal();
+                    }
                 }
             }
             else {
