@@ -7371,7 +7371,7 @@ async function checkPendingTransactions() {
                     showToast(failureReason, 5000, "error");
                 } else if (type === 'withdraw_stake') {
                     showToast(`Unstake failed: ${failureReason}`, 5000, "error");
-                } else {
+                } else if (type === 'deposit_stake') {
                     showToast(`Stake failed: ${failureReason}`, 5000, "error");
                 }
                 
