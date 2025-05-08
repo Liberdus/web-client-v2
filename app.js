@@ -7367,7 +7367,13 @@ async function checkPendingTransactions() {
                 console.log(`DEBUG: failure reason: ${failureReason}`);
                 
                 // Show toast notification with the failure reason
-                showToast(failureReason, 5000, "error");
+                if (type !== 'deposit_stake' && type !== 'withdraw_stake') {
+                    showToast(failureReason, 5000, "error");
+                } else if (type === 'withdraw_stake') {
+                    showToast(`Unstake failed: ${failureReason}`, 5000, "error");
+                } else {
+                    showToast(`Stake failed: ${failureReason}`, 5000, "error");
+                }
                 
                 // Remove from pending array
                 myData.pending.splice(i, 1);
@@ -7375,6 +7381,15 @@ async function checkPendingTransactions() {
                 updateTransactionStatus(txid, toAddress, 'failed', type);
                 // Then we'll want to refresh the current view
                 refreshCurrentView(txid);
+
+                // refresh the validator modal if this is a withdraw_stake and validator modal is open
+                if ((type === 'withdraw_stake' || type === 'deposit_stake') && document.getElementById('validatorModal').classList.contains('active')) {
+                    //remove from wallet history
+                    myData.wallet.history = myData.wallet.history.filter(tx => tx.txid !== txid);
+                    // refresh the validator modal
+                    closeValidatorModal();
+                    openValidatorModal();
+                }
             }
             else {
                 console.log(`DEBUG: tx ${txid} status unknown, waiting for receipt`);
