@@ -7382,7 +7382,7 @@ async function checkPendingTransactions() {
                 // Then we'll want to refresh the current view
                 refreshCurrentView(txid);
 
-                // refresh the validator modal if this is a withdraw_stake and validator modal is open
+                // refresh the validator modal if this is a withdraw_stake/deposit_stake and validator modal is open
                 if ((type === 'withdraw_stake' || type === 'deposit_stake') && document.getElementById('validatorModal').classList.contains('active')) {
                     //remove from wallet history
                     myData.wallet.history = myData.wallet.history.filter(tx => tx.txid !== txid);
