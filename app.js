@@ -6493,7 +6493,7 @@ async function confirmAndUnstakeCurrentUserNominee() {
     const confirmationMessage = `Are you sure you want to unstake from validator: ${nominee}?`;
     if (window.confirm(confirmationMessage)) {
         //console.log(`User confirmed unstake from: ${nominee}`);
-        showToast('Submitting unstake transaction...', 10000, 'loading');
+        showToast('Submitting unstake transaction...', 3000, 'loading');
         // Call the function to handle the actual transaction submission
         await submitUnstakeTransaction(nominee);
     }
@@ -6511,8 +6511,6 @@ async function submitUnstakeTransaction(nodeAddress) {
 
     try {
         const response = await postUnstake(nodeAddress);
-        await new Promise(resolve => setTimeout(resolve, 10000));
-        // Check the response structure for success indicator.
         if (response && response.result && response.result.success) {
 
             myData.wallet.history.unshift({
@@ -6526,6 +6524,7 @@ async function submitUnstakeTransaction(nodeAddress) {
             });
 
             closeValidatorModal();
+            openValidatorModal();
         } else {
             // Try to get a more specific reason for failure
             const reason = response?.result?.reason || 'Unknown error from API.';
