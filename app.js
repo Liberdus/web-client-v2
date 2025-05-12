@@ -349,7 +349,7 @@ function handleCreateAccountInput(e) {
     // Reset display
     usernameAvailable.style.display = 'none';
     // username available test: change to false to test pending register tx
-    submitButton.disabled = true;
+    submitButton.disabled = false;
     
     // Check if username is too short
     if (username.length < 3) {
@@ -367,7 +367,7 @@ function handleCreateAccountInput(e) {
             usernameAvailable.style.color = '#dc3545';
             usernameAvailable.style.display = 'inline';
             // username available test: comment out to test pending register tx
-            submitButton.disabled = true;
+            //submitButton.disabled = true;
         } else if (taken == 'available') {
             usernameAvailable.textContent = 'available';
             usernameAvailable.style.color = '#28a745';
@@ -553,18 +553,13 @@ async function handleCreateAccount(event) {
             await switchView('chats');
         } catch (error) {
             if (waitingToastId) hideToast(waitingToastId);
-            console.log(`DEBUG: handleCreateAccount error`, error);
-
-            // rollback localStorage changes
-            //rollbackLocalStorageChanges(username, netid);
+            console.log(`DEBUG: handleCreateAccount error`, JSON.stringify(error, null, 2));
+            showToast(`account creation failed: ${error}`, 0, 'error');
             submitButton.disabled = false;
             // Note: `checkPendingTransactions` will also remove the item from `myData.pending` if it's rejected by the service.
             return;
         }
     } else {
-        // rollback localStorage changes
-        //rollbackLocalStorageChanges(username, netid);
-
         if (waitingToastId) hideToast(waitingToastId);
         showToast(gatewayResponse?.result?.reason || 'Failed to submit registration to gateway. Please try again.', 0, 'error');
         submitButton.disabled = false;
@@ -7597,7 +7592,7 @@ const pendingPromiseService = (() => {
         if (pendingPromises.has(txid)) {
             console.log(`DEBUG: rejecting txid ${txid} with error ${error}`);
             const promiseControls = pendingPromises.get(txid);
-            showToast(`account creation failed: ${error}`, 0, 'error');
+            //showToast(`account creation failed: ${error}`, 0, 'error');
             promiseControls.reject(error);
             pendingPromises.delete(txid);
         }
