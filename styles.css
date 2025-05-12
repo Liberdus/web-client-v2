@@ -39,6 +39,28 @@
   --primary-rgb: 61, 61, 206;
 }
 
+/* Toast close button for error toasts */
+.toast-close-btn {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-left: 8px;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  z-index: 1;
+  padding: 0;
+  line-height: 1;
+}
+
+.toast-close-btn:hover,
+.toast-close-btn:focus {
+  opacity: 1;
+  outline: none;
+}
+
 * {
   margin: 0;
   padding: 0;

@@ -4924,27 +4924,39 @@ function showToast(message, duration = 2000, type = "default") {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.textContent = message;
-    
+
     // Generate a unique ID for this toast
     const toastId = 'toast-' + getCorrectedTimestamp() + '-' + Math.floor(Math.random() * 1000);
     toast.id = toastId;
-    
+
     toastContainer.appendChild(toast);
-    
+
     // Force reflow to enable transition
     toast.offsetHeight;
-    
+
     // Show with a slight delay to ensure rendering
     setTimeout(() => {
         toast.classList.add('show');
-        // Set hide timeout
-        if (duration > 0) {
+        // For error toasts, keep it up until the user clicks somewhere to make it go away
+        if (type === "error") {
+            // Add a close button to error toasts
+            toast.style.pointerEvents = "auto";
+            const closeBtn = document.createElement('button');
+            closeBtn.className = "toast-close-btn";
+            closeBtn.setAttribute("aria-label", "Close");
+            closeBtn.innerHTML = "&times;";
+            closeBtn.onclick = (e) => {
+                e.stopPropagation();
+                hideToast(toastId);
+            };
+            toast.appendChild(closeBtn);
+        } else if (duration > 0) {
             setTimeout(() => {
                 hideToast(toastId);
             }, duration);
         }
     }, 10);
-    
+
     return toastId;
 }
 
@@ -4952,7 +4964,7 @@ function showToast(message, duration = 2000, type = "default") {
 function hideToast(toastId) {
     const toast = document.getElementById(toastId);
     if (!toast) return;
-    
+
     toast.classList.remove('show');
     setTimeout(() => {
         const toastContainer = document.getElementById('toastContainer');
