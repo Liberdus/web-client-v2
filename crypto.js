@@ -39,12 +39,12 @@ export function encryptChacha(key, data) {
     const nonce = window.crypto.getRandomValues(new Uint8Array(24))
     const cipher = xchacha20poly1305(key, nonce);
     const encrypted = cipher.encrypt(utf82bin(data));
-    
+
     // Combine nonce + encrypted data (which includes authentication tag)
     const combined = new Uint8Array(nonce.length + encrypted.length);
     combined.set(nonce);
     combined.set(encrypted, nonce.length);
-    
+
     return bin2base64(combined);
 }
 
@@ -52,11 +52,11 @@ export function decryptChacha(key, encrypted) {
     try {
         // Convert from base64
         const combined = base642bin(encrypted);
-        
+
         // Extract nonce (first 24 bytes) and encrypted data
         const nonce = combined.slice(0, 24);
         const data = combined.slice(24);
-        
+
         const cipher = xchacha20poly1305(key, nonce);
         const decrypted = cipher.decrypt(data);
         return bin2utf8(decrypted);
@@ -150,7 +150,7 @@ export function ecSharedKey(sec, pub) {
 export function pqSharedKey(recipientKey, encKey) {  // inputs base64 or binary, outputs binary
     if (typeof(recipientKey) == 'string') { recipientKey = base642bin(recipientKey) }
     if (encKey) {
-        if (typeof(encKey) == 'string') { encKey = base642bin(encKey) } 
+        if (typeof(encKey) == 'string') { encKey = base642bin(encKey) }
         return ml_kem1024.decapsulate(encKey, recipientKey);
     }
     return ml_kem1024.encapsulate(recipientKey);  // { cipherText, sharedSecret }
@@ -203,4 +203,4 @@ export function generateRandomBytes(length) {
 // Address generation
 export function generateAddress(publicKey) {
     return keccak256(publicKey.slice(1)).slice(-20);
-} 
+}

@@ -4255,9 +4255,9 @@ small {
 
 /* Validator Modal Pending Transaction Skeleton */
 #validator-pending-tx-skeleton h4 {
-  color: #333; 
+  color: #333;
   margin-bottom: 15px;
-  text-align: center; 
+  text-align: center;
   font-weight: normal; /* Adjust if you want it bolder or lighter */
 }
 

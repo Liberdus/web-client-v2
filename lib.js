@@ -12,15 +12,15 @@ export function str2ab(str) {
 export function generateIdenticonSvg(hash, size = 50) {
     const padding = 5;
     const cellSize = (size - (2 * padding)) / 5;
-    
+
     // Create 5x5 grid of cells
     let paths = [];
     let colors = [];
-    
+
     // Use first 10 bytes for colors (2 colors)
     const color1 = getColorFromHash(hash, 0);
     const color2 = getColorFromHash(hash, 3);
-    
+
     // Use remaining bytes for pattern
     for (let i = 0; i < 15; i++) {
         const byte = parseInt(hash.slice(i * 2 + 12, i * 2 + 14), 16);
@@ -31,13 +31,13 @@ export function generateIdenticonSvg(hash, size = 50) {
             const x1 = padding + (col * cellSize);
             const x2 = padding + ((4 - col) * cellSize);
             const y = padding + (row * cellSize);
-            
+
             // Add rectangles for both sides
             paths.push(`M ${x1} ${y} h ${cellSize} v ${cellSize} h -${cellSize} Z`);
             if (col < 2) { // Don't duplicate center column
                 paths.push(`M ${x2} ${y} h ${cellSize} v ${cellSize} h -${cellSize} Z`);
             }
-            
+
             // Alternate between colors
             colors.push(byte % 4 === 0 ? color1 : color2);
             if (col < 2) {
@@ -45,7 +45,7 @@ export function generateIdenticonSvg(hash, size = 50) {
             }
         }
     }
-    
+
     return `
         <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
             <rect width="${size}" height="${size}" fill="#f0f0f0"/>
@@ -60,7 +60,7 @@ export async function generateIdenticon(address, size = 50) {
     const hashBuffer = await crypto.subtle.digest('SHA-256', str2ab(address));
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hashHex = bin2hex(hashArray)  // hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    
+
     return generateIdenticonSvg(hashHex, size);
 }
 
@@ -71,25 +71,25 @@ export function formatTime(timestamp) {
     const now = new Date();
     const diff = now - date;
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
+
     if (days > 7) {
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const month = months[date.getMonth()];
         const day = date.getDate();
         const year = date.getFullYear();
         const currentYear = now.getFullYear();
-        
-        return currentYear === year ? 
-            `${month} ${day}` : 
+
+        return currentYear === year ?
+            `${month} ${day}` :
             `${month} ${day} ${year}`;
     } else if (days > 0) {
         return days === 1 ? 'Yesterday' : `${days} days ago`;
     } else {
         // Use hour12: true to get 12-hour format and remove leading zeros
-        return date.toLocaleTimeString([], { 
-            hour: 'numeric', 
+        return date.toLocaleTimeString([], {
+            hour: 'numeric',
             minute: '2-digit',
-            hour12: true 
+            hour12: true
         });
     }
 }
@@ -105,18 +105,18 @@ export function linkifyUrls(text) {
     const urlRegex = /(\b(https?):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/gi;
 
     // Allowed protocols check (still good practice, though the regex is stricter)
-    const allowedProtocols = /^https?:\/\//i; 
+    const allowedProtocols = /^https?:\/\//i;
 
     return text.replace(urlRegex, function(url) {
         // No need to prepend protocol anymore, as the regex ensures it's present.
-        const properUrl = url; 
+        const properUrl = url;
 
         const escapedUrl = url;
 
         // **Safety Check:** Validate the protocol
         // Should always pass now due to the strict regex, but kept for safety.
         if (!allowedProtocols.test(properUrl)) {
-             return escapedUrl; 
+             return escapedUrl;
         }
 
         // Create the link
@@ -134,7 +134,7 @@ export function debounce(func, waitFn) {
     let timeout;
     return function executedFunction(...args) {
         const wait = typeof waitFn === 'function' ? waitFn(args[0]) : waitFn;
-        
+
         const later = () => {
             clearTimeout(timeout);
             func(...args);
@@ -241,8 +241,8 @@ export async function deriveKey(password, salt, iterations = 100000) {
 export function isEncryptedData(data) {
     try {
         const parsed = JSON.parse(data);
-        return parsed.hasOwnProperty('salt') && 
-               parsed.hasOwnProperty('iv') && 
+        return parsed.hasOwnProperty('salt') &&
+               parsed.hasOwnProperty('iv') &&
                parsed.hasOwnProperty('content');
     } catch {
         return false;
@@ -281,9 +281,9 @@ export function longAddress(address){
 export function utf82bin(str) {
     if (typeof str !== 'string') {
         throw new TypeError(`Input must be a string instead of ${typeof str}`);
-    }            
+    }
     // Create a TextEncoder instance
-    const encoder = new TextEncoder();            
+    const encoder = new TextEncoder();
     // Encode the string to Uint8Array
     return encoder.encode(str);
 }
@@ -291,9 +291,9 @@ export function utf82bin(str) {
 export function bin2utf8(uint8Array) {
     if (!(uint8Array instanceof Uint8Array)) {
         throw new TypeError('Input must be a Uint8Array');
-    }            
+    }
     // Create a TextDecoder instance
-    const decoder = new TextDecoder('utf-8');            
+    const decoder = new TextDecoder('utf-8');
     // Decode the Uint8Array to string
     return decoder.decode(uint8Array);
 }
@@ -306,27 +306,27 @@ export function hex2big(hexString) {
 export function big2num(bigIntNum) {
     // Handle special cases
     if (bigIntNum === 0n) return 0;
-    
+
     // Get the sign
     const isNegative = bigIntNum < 0n;
     const absValue = isNegative ? -bigIntNum : bigIntNum;
-    
+
     // Convert to string and get length
     const str = absValue.toString();
     const length = str.length;
-    
+
     if (length <= 15) {
         // For smaller numbers, direct conversion is safe
         return isNegative ? -Number(str) : Number(str);
     }
-    
+
     // For larger numbers, use scientific notation approach
     const firstFifteen = str.slice(0, 15);
     const remainingDigits = length - 15;
-    
+
     // Combine with appropriate scaling
     const result = Number(firstFifteen) * Math.pow(10, remainingDigits);
-    
+
     return isNegative ? -result : result;
 }
 
@@ -334,18 +334,18 @@ export function big2num(bigIntNum) {
 export function bigxnum2big_old(bigIntNum, floatNum) {
     // Convert float to string to handle decimal places
     const floatStr = floatNum.toString();
-    
+
     // Find number of decimal places
-    const decimalPlaces = floatStr.includes('.') 
-        ? floatStr.split('.')[1].length 
+    const decimalPlaces = floatStr.includes('.')
+        ? floatStr.split('.')[1].length
         : 0;
-    
+
     // Convert float to integer by multiplying by 10^decimalPlaces
     const floatAsInt = Math.round(floatNum * Math.pow(10, decimalPlaces));
-    
+
     // Multiply and adjust for decimal places
     const result = (bigIntNum * BigInt(floatAsInt)) / BigInt(Math.pow(10, decimalPlaces));
-    
+
     return result;
 }
 
@@ -359,19 +359,19 @@ export function bigxnum2big(bigIntNum, stringNum) {
     stringNum = stringNum.trim().replace(/\.0*$/, '')
     // Find decimal point position if it exists
     const decimalPosition = stringNum.indexOf('.');
-    
+
     if (decimalPosition === -1) {
         // No decimal point - direct conversion to BigInt
         return BigInt(stringNum) * bigIntNum;
     }
-    
+
     // Count decimal places
     const decimalPlaces = stringNum.length - decimalPosition - 1;
-    
+
     // Remove decimal point and convert to BigInt
     const numberWithoutDecimal = stringNum.replace('.', '');
     const scaledResult = BigInt(numberWithoutDecimal) * bigIntNum;
-    
+
     // Adjust for decimal places
     return scaledResult / BigInt(10 ** decimalPlaces);
 }
@@ -380,27 +380,27 @@ export function bigxnum2num(bigIntNum, floatNum) {
     // Handle edge cases
     if (floatNum === 0) return 0;
     if (bigIntNum === 0n) return 0;
-    
+
     // Convert BigInt to scientific notation string to handle large numbers
     const bigIntStr = bigIntNum.toString();
     const bigIntLength = bigIntStr.length;
-    
+
     // Break the bigint into chunks to maintain precision
     const chunkSize = 15; // Safe size for float precision
     const chunks = [];
-    
+
     for (let i = bigIntStr.length; i > 0; i -= chunkSize) {
         const start = Math.max(0, i - chunkSize);
         chunks.unshift(Number(bigIntStr.slice(start, i)));
     }
-    
+
     // Multiply each chunk and combine results
     let result = 0;
     for (let i = 0; i < chunks.length; i++) {
         const multiplier = Math.pow(10, chunkSize * i);
         result += chunks[i] * floatNum * multiplier;
     }
-    
+
     return result;
 }
 
@@ -414,9 +414,9 @@ export function big2str(amount, decimals) {
     let amountString = amount.toString();
     // Pad with zeros if needed
     amountString = amountString.padStart(decimals, '0');
-    
+
     const insertPosition = amountString.length - decimals;
-    let r = insertPosition === 0 
+    let r = insertPosition === 0
         ? '0.' + amountString
         : amountString.slice(0, insertPosition) + '.' + amountString.slice(insertPosition);
 //            r.replace('0*$', '')

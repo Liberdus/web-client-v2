@@ -72,7 +72,7 @@ async function forceReload(urls) {
             }
         }
         // Fetch with cache-busting headers
-        const fetchPromises = absoluteUrls.map(url => 
+        const fetchPromises = absoluteUrls.map(url =>
             fetch(url, {
                 cache: 'reload',
                 headers: {
@@ -109,8 +109,8 @@ async function lockToPortrait() {
 import { stringify, parse } from './external/stringify-shardus.js';
 
 // Import crypto functions from crypto.js
-import { 
-    encryptChacha, encryptData, decryptData, 
+import {
+    encryptChacha, encryptData, decryptData,
     decryptMessage, ecSharedKey, pqSharedKey, ethHashMessage,
     hashBytes, deriveDhKey,
     generateRandomPrivateKey, getPublicKey, signMessage, generatePQKeys,
@@ -118,14 +118,14 @@ import {
 } from './crypto.js';
 
 // Put standalone conversion function in lib.js
-import { normalizeUsername, generateIdenticon, formatTime, 
-    isValidEthereumAddress, 
+import { normalizeUsername, generateIdenticon, formatTime,
+    isValidEthereumAddress,
     normalizeAddress, longAddress, utf82bin, bin2utf8, hex2big, bigxnum2big,
-    big2str, base642bin, bin2base64, hex2bin, bin2hex, linkifyUrls, escapeHtml, 
+    big2str, base642bin, bin2base64, hex2bin, bin2hex, linkifyUrls, escapeHtml,
     debounce, truncateMessage
 } from './lib.js';
 
-const weiDigits = 18; 
+const weiDigits = 18;
 const wei = 10n**BigInt(weiDigits)
 const pollIntervalNormal = 30000 // in millisconds
 const pollIntervalChatting = 5000  // in millseconds
@@ -165,33 +165,33 @@ async function checkUsernameAvailability(username, address) {
         const { netid } = network;
         const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
         const netidAccounts = existingAccounts.netids[netid];
-        
+
         // If we have this username locally and the address matches
-        if (netidAccounts?.usernames && 
-            netidAccounts.usernames[username] && 
+        if (netidAccounts?.usernames &&
+            netidAccounts.usernames[username] &&
             normalizeAddress(netidAccounts.usernames[username].address) === normalizeAddress(address)) {
             console.log('Username found locally and matches address');
             return 'mine';
         }
-        
+
         // If we have the username but address doesn't match
         if (netidAccounts?.usernames && netidAccounts.usernames[username]) {
             console.log('Username found locally but address does not match');
             return 'taken';
         }
-        
+
         // Username not found locally
         console.log('Username not found locally');
         return 'available';
     }
-    
+
     // Online flow - existing implementation
     const randomGateway = getGatewayForRequest();
     if (!randomGateway) {
         console.error('No gateway available for username check');
         return 'error';
     }
-    
+
     const usernameBytes = utf82bin(normalizeUsername(username))
     const usernameHash = hashBytes(usernameBytes);
     try {
@@ -251,7 +251,7 @@ function openSignInModal() {
         usernameSelect.value = usernames[0];
         usernameSelect.dispatchEvent(new Event('change'));
         return;
-    }   
+    }
 
 
     // Multiple accounts exist, show modal with select dropdown
@@ -340,17 +340,17 @@ function handleCreateAccountInput(e) {
     const username = normalizeUsername(e.target.value);
     const usernameAvailable = document.getElementById('newUsernameAvailable');
     const submitButton = document.querySelector('#createAccountForm button[type="submit"]');
-    
+
     // Clear previous timeout
     if (createAccountCheckTimeout) {
         clearTimeout(createAccountCheckTimeout);
     }
-    
+
     // Reset display
     usernameAvailable.style.display = 'none';
     // username available test: change to false to test pending register tx
     submitButton.disabled = true;
-    
+
     // Check if username is too short
     if (username.length < 3) {
         usernameAvailable.textContent = 'too short';
@@ -358,7 +358,7 @@ function handleCreateAccountInput(e) {
         usernameAvailable.style.display = 'inline';
         return;
     }
-    
+
     // Check network availability
     createAccountCheckTimeout = setTimeout(async () => {
         const taken = await checkUsernameAvailability(username);
@@ -393,13 +393,13 @@ async function handleCreateAccount(event) {
 
     event.preventDefault();
     const username = normalizeUsername(document.getElementById('newUsername').value)
-    
+
     // Get network ID from network.js
     const { netid } = network;
-    
+
     // Get existing accounts or create new structure
     const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-    
+
     // Ensure netid and usernames objects exist
     if (!existingAccounts.netids[netid]) {
         existingAccounts.netids[netid] = { usernames: {} };
@@ -409,7 +409,7 @@ async function handleCreateAccount(event) {
     const providedPrivateKey = document.getElementById('newPrivateKey').value;
     const privateKeyError = document.getElementById('newPrivateKeyError');
     let privateKey, privateKeyHex;
-    
+
     if (providedPrivateKey) {
         // Validate and normalize private key
         const validation = validatePrivateKey(providedPrivateKey);
@@ -419,7 +419,7 @@ async function handleCreateAccount(event) {
             privateKeyError.style.display = 'inline';
             return;
         }
-        
+
         privateKey = hex2bin(validation.key);
         privateKeyHex = validation.key;
         privateKeyError.style.display = 'none';
@@ -432,15 +432,15 @@ async function handleCreateAccount(event) {
     function validatePrivateKey(key) {
         // Trim whitespace
         key = key.trim();
-        
+
         // Remove 0x prefix if present
         if (key.startsWith('0x')) {
             key = key.slice(2);
         }
-        
+
         // Convert to lowercase
         key = key.toLowerCase();
-        
+
         // Validate hex characters
         const hexRegex = /^[0-9a-f]*$/;
         if (!hexRegex.test(key)) {
@@ -449,7 +449,7 @@ async function handleCreateAccount(event) {
                 message: 'Invalid characters - only 0-9 and a-f allowed'
             };
         }
-        
+
         // Validate length (64 chars for 32 bytes)
         if (key.length !== 64) {
             return {
@@ -457,18 +457,18 @@ async function handleCreateAccount(event) {
                 message: 'Invalid length - must be 64 hex characters'
             };
         }
-        
+
         return {
             valid: true,
             key: key
         };
     }
-    
+
     // Generate uncompressed public key
     const publicKey = getPublicKey(privateKey);
     const publicKeyHex = bin2hex(publicKey);
     const pqSeed = bin2hex(generateRandomBytes(64));
-    
+
     // Generate address from public key
     const address = generateAddress(publicKey);
     const addressHex = bin2hex(address);
@@ -479,10 +479,10 @@ async function handleCreateAccount(event) {
             const accountCheckAddress = longAddress(addressHex);
             console.log(`Checking network for existing account at address: ${accountCheckAddress}`);
             const accountInfo = await queryNetwork(`/account/${accountCheckAddress}`);
-            
+
             // Check if the query returned data indicating an account exists.
             // This assumes a non-null `accountInfo` with an `account` property means it exists.
-            if (accountInfo && accountInfo.account) { 
+            if (accountInfo && accountInfo.account) {
                 console.log('Account already exists for this private key:', accountInfo);
                 privateKeyError.textContent = 'An account already exists for this private key.';
                 privateKeyError.style.color = '#dc3545';
@@ -500,7 +500,7 @@ async function handleCreateAccount(event) {
             return; // Stop process on error
         }
     }
-    
+
     // Create new account entry
     myAccount = {
         netid,
@@ -519,16 +519,16 @@ async function handleCreateAccount(event) {
     myData = newDataRecord(myAccount);
     let waitingToastId = showToast('Creating account...', 0, 'loading');
     const res = await postRegisterAlias(username, myAccount.keys);
-    
+
     if (res && res.result && res.result.success && res.txid) {
         const txid = res.txid;
-
+        //console.log('no res', res)
         try {
             // Wait for the transaction confirmation
             const confirmationDetails = await pendingPromiseService.register(txid);
             if (confirmationDetails.username !== username || confirmationDetails.address !== longAddress(myAccount.keys.address)) {
                 throw new Error("Confirmation details mismatch.");
-            }
+    }
 
             if (waitingToastId) hideToast(waitingToastId);
             showToast('Account created successfully!', 3000, 'success');
@@ -536,10 +536,10 @@ async function handleCreateAccount(event) {
             closeCreateAccountModal();
             document.getElementById('welcomeScreen').style.display = 'none';
             getChats.lastCall = getCorrectedTimestamp();
-
-            // Store the account data in localStorage
-            existingAccounts.netids[netid].usernames[username] = {address: myAccount.keys.address};
-            localStorage.setItem('accounts', stringify(existingAccounts));
+    // Store updated accounts back in localStorage
+//    existingAccounts.netids[netid].usernames[username] = myAccount;
+    existingAccounts.netids[netid].usernames[username] = {address: myAccount.keys.address};
+    localStorage.setItem('accounts', stringify(existingAccounts));
             saveState();
 
             await switchView('chats');
@@ -548,14 +548,14 @@ async function handleCreateAccount(event) {
             console.log(`DEBUG: handleCreateAccount error`, JSON.stringify(error, null, 2));
             showToast(`account creation failed: ${error}`, 0, 'error');
             submitButton.disabled = false;
-            // Note: `checkPendingTransactions` will also remove the item from `myData.pending` if it's rejected by the service.
+    // Store the account data in localStorage
             return;
         }
     } else {
         if (waitingToastId) hideToast(waitingToastId);
         console.error(`DEBUG: handleCreateAccount error in else`, JSON.stringify(res, null, 2));
-        // no toast here since injectTx will show it
-        submitButton.disabled = false;
+    // enable submit button
+    submitButton.disabled = false;
         return;
     }
 }
@@ -570,10 +570,10 @@ async function handleSignIn(event) {
 
     // Get network ID from network.js
     const { netid } = network;
-    
+
     // Get existing accounts
     const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-    
+
     // Check if username exists
     if (!existingAccounts.netids[netid]?.usernames?.[username]) {
         console.error('Account not found');
@@ -663,14 +663,14 @@ function newDataRecord(myAccount){
             toll: 1
         }
     }
-    
+
     return myData
 }
 
 // Check if app is running as installed PWA
 function checkIsInstalledPWA() {
-    return window.matchMedia('(display-mode: standalone)').matches || 
-           window.navigator.standalone || 
+    return window.matchMedia('(display-mode: standalone)').matches ||
+           window.navigator.standalone ||
            document.referrer.includes('android-app://');
 }
 
@@ -686,7 +686,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     isInstalledPWA = checkIsInstalledPWA(); // Set the global variable
     if (isInstalledPWA && 'serviceWorker' in navigator) {
         await registerServiceWorker();
-        setupServiceWorkerMessaging(); 
+        setupServiceWorkerMessaging();
         setupAppStateManagement();
     } else {
         // Web-only mode
@@ -702,7 +702,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.addEventListener('unload', handleUnload)
     window.addEventListener('beforeunload', handleBeforeUnload)
     document.addEventListener('visibilitychange', handleVisibilityChange);  // Keep as document
-    
+
     // Check for existing accounts and arrange welcome buttons
     const usernames = getAvailableUsernames()
     const hasAccounts = usernames.length > 0
@@ -755,7 +755,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     document.getElementById('closeCreateAccountModal').addEventListener('click', closeCreateAccountModal);
     document.getElementById('createAccountForm').addEventListener('submit', handleCreateAccount);
-       
+
     // Account Form Modal
     myProfileModal.load()
 
@@ -765,9 +765,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('openMonitor').addEventListener('click', () => {
         window.open('./network', '_blank');
     });
-    
+
     restoreAccountModal.load()
-    
+
     // Validator Modals
     document.getElementById('openValidator').addEventListener('click', openValidatorModal);
     document.getElementById('closeValidatorModal').addEventListener('click', closeValidatorModal);
@@ -780,7 +780,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Export Form Modal
     backupAccountModal.load()
-    
+
     // Remove Account Modal
     removeAccountModal.load()
 
@@ -804,19 +804,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('availableBalance').addEventListener('click', fillAmount);
     // amount input listener for real-time balance validation
     document.getElementById('sendAmount').addEventListener('input', updateAvailableBalance);
-    
+
     // Add blur event listener for recipient validation
 //    document.getElementById('sendToAddress').addEventListener('blur', handleSendToAddressValidation);
-    
+
     document.getElementById('openReceiveModal').addEventListener('click', openReceiveModal);
     document.getElementById('closeReceiveModal').addEventListener('click', closeReceiveModal);
     document.getElementById('copyAddress').addEventListener('click', copyAddress);
-    
+
     document.getElementById('openHistoryModal').addEventListener('click', openHistoryModal);
     document.getElementById('closeHistoryModal').addEventListener('click', closeHistoryModal);
     document.getElementById('historyAsset').addEventListener('change', updateHistoryAddresses);
     document.getElementById('transactionList').addEventListener('click', handleHistoryItemClick);
-    
+
     // Receive Modal input listeners
     document.getElementById('receiveAsset').addEventListener('change', updateQRCode);
     document.getElementById('receiveAmount').addEventListener('input', debounce(updateQRCode, 300));
@@ -825,21 +825,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('switchToChats').addEventListener('click', () => switchView('chats'));
     document.getElementById('switchToContacts').addEventListener('click', () => switchView('contacts'));
     document.getElementById('switchToWallet').addEventListener('click', () => switchView('wallet'));
-    
+
     document.getElementById('handleSignOut').addEventListener('click', handleSignOut);
     document.getElementById('closeChatModal').addEventListener('click', closeChatModal);
     document.getElementById('closeContactInfoModal').addEventListener('click', () => contactInfoModal.close());
     document.getElementById('handleSendMessage').addEventListener('click', handleSendMessage);
-    
+
     // Add message click-to-copy handler
     document.querySelector('.messages-list')?.addEventListener('click', handleClickToCopy);
-    
+
     // Add refresh balance button handler
     document.getElementById('refreshBalance').addEventListener('click', async () => {
 //        await updateWalletBalances();
         updateWalletView();
     });
-    
+
     // New Chat functionality
     document.getElementById('newChatButton').addEventListener('click', openNewChatModal);
     document.getElementById('closeNewChatModal').addEventListener('click', closeNewChatModal);
@@ -882,12 +882,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('closeChatModal')?.addEventListener('click', () => {
         document.getElementById('chatModal').classList.remove('active');
     });
-    
+
     // Handle message search input
     document.getElementById('messageSearch').addEventListener('input', (e) => {
         handleMessageSearchInput(e);
     });
-    
+
     // Handle search input click
     document.getElementById('searchInput').addEventListener('click', (e) => {
         handleSearchInputClick(e);
@@ -934,7 +934,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('scanQRButton').addEventListener('click', openQRScanModal);
     document.getElementById('scanStakeQRButton').addEventListener('click', openQRScanModal);
     document.getElementById('closeQRScanModal').addEventListener('click', closeQRScanModal);
-    
+
     // File upload handlers
     document.getElementById('uploadQRButton').addEventListener('click', () => {
         document.getElementById('qrFileInput').click();
@@ -953,7 +953,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     nameInput.addEventListener('input', handleEditNameInput);
     nameInput.addEventListener('keydown', handleEditNameKeydown);
     nameActionButton.addEventListener('click', handleEditNameButton);
-    
+
     // Add send money button handler
     document.getElementById('contactInfoSendButton').addEventListener('click', () => {
         const contactUsername = document.getElementById('contactInfoUsername');
@@ -972,7 +972,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Add listener for the password visibility toggle
     const togglePasswordButton = document.getElementById('togglePrivateKeyVisibility');
     const passwordInput = document.getElementById('newPrivateKey');
-    
+
     togglePasswordButton.addEventListener('click', function () {
         // Toggle the type attribute
         const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
@@ -984,7 +984,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // add listner for username input, debounce
     document.getElementById('chatRecipient').addEventListener('input', debounce(handleUsernameInput, 300));
-    
+
     // add listener for username select change on sign in modal
     document.getElementById('username').addEventListener('change', handleUsernameOnSignInModal);
 
@@ -1023,7 +1023,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const failedMessageDeleteButton = failedMessageModal.querySelector('.delete-button');
     const failedMessageHeaderCloseButton = document.getElementById('closeFailedMessageModal');
 
-    
+
     failedMessageRetryButton.addEventListener('click', handleFailedMessageRetry);
     failedMessageDeleteButton.addEventListener('click', handleFailedMessageDelete);
     failedMessageHeaderCloseButton.addEventListener('click', closeFailedMessageModalAndClearState);
@@ -1040,10 +1040,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     failedPaymentDeleteButton.addEventListener('click', handleFailedPaymentDelete);
     failedPaymentHeaderCloseButton.addEventListener('click', closeFailedPaymentModalAndClearState);
     failedPaymentModal.addEventListener('click', handleFailedPaymentBackdropClick);
-    
-    
-    
-    
+
+
+
+
 
     // call checkPendingTransactions every 5 seconds
     setInterval(checkPendingTransactions, 5000);
@@ -1054,8 +1054,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function handleUnload(e){
     console.log('in handleUnload')
-    if (handleSignOut.exit){ 
-        return 
+    if (handleSignOut.exit){
+        return
     } // User selected to Signout; state was already saved
     else{
         // Clean up WebSocket connection
@@ -1063,7 +1063,7 @@ function handleUnload(e){
             wsManager.disconnect();
             wsManager = null;
         }
-        
+
         saveState()
     }
 }
@@ -1076,11 +1076,11 @@ console.log('in handleBeforeUnload', e)
         wsManager.disconnect();
         wsManager = null;
     }
-    
+
     saveState()
-    if (handleSignOut.exit){ 
+    if (handleSignOut.exit){
         window.removeEventListener('beforeunload', handleBeforeUnload)
-        return 
+        return
     }  // user selected to Signout; state was already saved
 console.log('stop back button')
     e.preventDefault();
@@ -1126,7 +1126,7 @@ function setupAddToHomeScreen(){
     const isSafari = /^((?!chrome|android|CriOS|FxiOS|EdgiOS).)*safari/i.test(navigator.userAgent);
     const isAndroid = /android/i.test(navigator.userAgent);
     const isDesktop = !isIOS && !isAndroid;
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
                         window.navigator.standalone || // iOS
                         document.referrer.includes('android-app://');
 
@@ -1144,9 +1144,9 @@ function setupAddToHomeScreen(){
 
         // iOS - show button for all browsers (will handle redirect to Safari)
         if (isIOS) {
-            const browser = isChromeIOS ? 'Chrome' : 
-                          isFirefoxIOS ? 'Firefox' : 
-                          isEdgeIOS ? 'Edge' : 
+            const browser = isChromeIOS ? 'Chrome' :
+                          isFirefoxIOS ? 'Firefox' :
+                          isEdgeIOS ? 'Edge' :
                           isSafari ? 'Safari' : 'other';
             console.log(`iOS ${browser} detected - showing button`);
             return true;
@@ -1220,7 +1220,7 @@ function setupAddToHomeScreen(){
                 console.log('beforeinstallprompt fired on desktop');
                 e.preventDefault();
                 deferredInstallPrompt = e;
-                
+
                 // Make sure the button is visible when we can install
                 updateButtonVisibility();
             });
@@ -1250,7 +1250,7 @@ function setupAddToHomeScreen(){
                 console.log('beforeinstallprompt fired on Android');
                 e.preventDefault();
                 deferredInstallPrompt = e;
-                
+
                 updateButtonVisibility();
             });
 
@@ -1291,7 +1291,7 @@ async function updateChatData() {
         try {
             let retryCount = 0;
             const maxRetries = 2;
-            
+
             while (retryCount <= maxRetries) {
                 try {
                     gotChats = await getChats(myAccount.keys);
@@ -1329,19 +1329,19 @@ async function updateChatList() {
     }
 
     console.log('updateChatList chats.length', JSON.stringify(chats.length))
-    
+
     // Clear existing chat items before adding new ones
-    chatList.innerHTML = ''; 
+    chatList.innerHTML = '';
 
     const chatElements = await Promise.all(chats.map(async chat => {
         const identicon = await generateIdenticon(chat.address);
         const contact = contacts[chat.address];
-        
+
         // If contact doesn't exist, skip this chat item
-        if (!contact) return null; 
-        
+        if (!contact) return null;
+
         const latestActivity = contact.messages && contact.messages.length > 0 ? contact.messages[0] : null;
-        
+
         // If there's no latest activity (no messages), skip this chat item
         if (!latestActivity) return null;
 
@@ -1375,7 +1375,7 @@ async function updateChatList() {
         // Create the list item element
         const li = document.createElement('li');
         li.classList.add('chat-item');
-        
+
         // Set its inner HTML
         li.innerHTML = `
             <div class="chat-avatar">${identicon}</div>
@@ -1390,13 +1390,13 @@ async function updateChatList() {
                 </div>
             </div>
         `;
-        
+
         // Add the onclick handler directly to the element
         li.onclick = () => openChatModal(chat.address);
-        
+
         return li; // Return the created DOM element
     }));
-    
+
     // Append the created (and non-null) list item elements to the chatList
     chatElements.forEach(element => {
         if (element) { // Only append if the element is not null
@@ -1425,16 +1425,16 @@ async function updateWalletBalances() {
     // Update balances for each asset and address
     for (const asset of myData.wallet.assets) {
         let assetTotalBalance = 0n;
-        
+
         // Get balance for each address in the asset
         for (const addr of asset.addresses) {
             try {
                 const address = longAddress(addr.address);
                 const data = await queryNetwork(`/account/${address}/balance`)
-                console.log('balance', data)                       
+                console.log('balance', data)
                 // Update address balance
                 addr.balance = hex2big(data.balance.value) || 0;
-                
+
                 // Add to asset total (convert to USD using asset price)
                 assetTotalBalance += addr.balance
             } catch (error) {
@@ -1443,7 +1443,7 @@ async function updateWalletBalances() {
         }
         asset.balance = assetTotalBalance;
         asset.networth = asset.price * Number(assetTotalBalance)/Number(wei);
-        
+
         // Add this asset's total to wallet total
         totalWalletNetworth += asset.networth;
     }
@@ -1457,26 +1457,26 @@ async function switchView(view) {
     // Store the current view for potential rollback
     const previousView = document.querySelector('.app-screen.active')?.id?.replace('Screen', '') || 'chats';
     const previousButton = document.querySelector('.nav-button.active');
-    
+
     // Initialize WebSocket connection regardless of view
     wsManager.initializeWebSocketManager();
-    
+
     try {
         // Direct references to view elements
         const chatScreen = document.getElementById('chatsScreen');
         const contactsScreen = document.getElementById('contactsScreen');
         const walletScreen = document.getElementById('walletScreen');
-        
+
         // Direct references to button elements
         const chatButton = document.getElementById('switchToChats');
         const contactsButton = document.getElementById('switchToContacts');
         const walletButton = document.getElementById('switchToWallet');
-        
+
         // Hide all screens
         chatScreen.classList.remove('active');
         contactsScreen.classList.remove('active');
         walletScreen.classList.remove('active');
-        
+
         // Show selected screen
         document.getElementById(`${view}Screen`).classList.add('active');
 
@@ -1484,7 +1484,7 @@ async function switchView(view) {
         chatButton.classList.remove('active');
         contactsButton.classList.remove('active');
         walletButton.classList.remove('active');
-        
+
         // Add active class to selected button
         if (view === 'chats') {
             chatButton.classList.add('active');
@@ -1497,14 +1497,14 @@ async function switchView(view) {
         // Show header and footer
         document.getElementById('header').classList.add('active');
         document.getElementById('footer').classList.add('active');
-        
+
         // Update header with username if signed in
         const appName = document.querySelector('.app-name');
         if (myAccount && myAccount.username) {
             appName.textContent = `${myAccount.username}`;
         } else {
             appName.textContent = '';
-        }   
+        }
 
         // Show/hide new chat button
         const newChatButton = document.getElementById('newChatButton');
@@ -1532,36 +1532,36 @@ async function switchView(view) {
         }
     } catch (error) {
         console.error(`Error switching to ${view} view:`, error);
-        
+
         // Restore previous view if there was an error
         if (previousView && previousButton) {
             console.log(`Restoring previous view: ${previousView}`);
-            
+
             // Get references to screens and buttons
             const chatScreen = document.getElementById('chatsScreen');
             const contactsScreen = document.getElementById('contactsScreen');
             const walletScreen = document.getElementById('walletScreen');
-            
+
             const chatButton = document.getElementById('switchToChats');
             const contactsButton = document.getElementById('switchToContacts');
             const walletButton = document.getElementById('switchToWallet');
-            
+
             // Hide all screens with direct references
             chatScreen.classList.remove('active');
             contactsScreen.classList.remove('active');
             walletScreen.classList.remove('active');
-            
+
             // Show previous screen
             const previousScreenElement = document.getElementById(`${previousView}Screen`);
             if (previousScreenElement) {
                 previousScreenElement.classList.add('active');
             }
-            
+
             // Remove active class from all buttons with direct references
             chatButton.classList.remove('active');
             contactsButton.classList.remove('active');
             walletButton.classList.remove('active');
-            
+
             // Add active to the correct button based on previousView
             if (previousView === 'chats') {
                 chatButton.classList.add('active');
@@ -1573,7 +1573,7 @@ async function switchView(view) {
                 // Fallback if previousButton is available
                 previousButton.classList.add('active');
             }
-            
+
             // Display error toast to user
             showToast(`Failed to switch to ${view} view`, 3000, "error");
         }
@@ -1586,7 +1586,7 @@ async function updateContactsList() {
     const contactsList = document.getElementById('contactsList');
 //            const chatsData = myData
     const contacts = myData.contacts;
-    
+
     if (Object.keys(contacts).length === 0) {
         contactsList.innerHTML = `
             <div class="empty-state">
@@ -1599,7 +1599,7 @@ async function updateContactsList() {
 
     // Convert contacts object to array and sort
     const contactsArray = Object.values(contacts);
-    
+
     // Split into friends and others in a single pass
     const { friends, others } = contactsArray.reduce((acc, contact) => {
         const key = contact.friend ? 'friends' : 'others';
@@ -1664,9 +1664,9 @@ async function updateContactsList() {
         }));
         html += otherItems.join('');
     }
-    
+
     contactsList.innerHTML = html;
-    
+
     // Add click handlers to contact items
     document.querySelectorAll('#contactsList .chat-item').forEach((item, index) => {
         const contact = [...friends, ...others][index];
@@ -1691,7 +1691,7 @@ function openNewChatModal() {
     const recipientInput = document.getElementById('chatRecipient');
     const submitButton = document.querySelector('#newChatForm button[type="submit"]');
     usernameAvailable.style.display = 'none';
-    submitButton.disabled = true;  
+    submitButton.disabled = true;
 
     // Create the handler function
     const focusHandler = () => {
@@ -1706,19 +1706,19 @@ function openNewChatModal() {
 let usernameInputCheckTimeout;
 // handler that invokes listener for username input
 function handleUsernameInput(e) {
-    
+
     const usernameAvailable = document.getElementById('chatRecipientError');
     const submitButton = document.querySelector('#newChatForm button[type="submit"]');
     usernameAvailable.style.display = 'none';
     submitButton.disabled = true;
 
     const username = normalizeUsername(e.target.value);
-    
+
     // Clear previous timeout
     if (usernameInputCheckTimeout) {
         clearTimeout(usernameInputCheckTimeout);
     }
-            
+
     // Check if username is too short
     if (username.length < 3) {
         usernameAvailable.textContent = 'too short';
@@ -1726,7 +1726,7 @@ function handleUsernameInput(e) {
         usernameAvailable.style.display = 'inline';
         return;
     }
-    
+
     // Check username availability
     usernameInputCheckTimeout = setTimeout(async () => {
         const taken = await checkUsernameAvailability(username, myAccount.keys.address);
@@ -1746,7 +1746,7 @@ function handleUsernameInput(e) {
             usernameAvailable.style.display = 'inline';
             submitButton.disabled = true;
         }
-    }, 1000);  
+    }, 1000);
 }
 
 function closeNewChatModal() {
@@ -1754,7 +1754,7 @@ function closeNewChatModal() {
     document.getElementById('newChatForm').reset();
     if (document.getElementById('chatsScreen').classList.contains('active')) {
         document.getElementById('newChatButton').classList.add('visible');
-    } 
+    }
     if (document.getElementById('contactsScreen').classList.contains('active')) {
         document.getElementById('newChatButton').classList.add('visible');
     }
@@ -1772,12 +1772,12 @@ function showRecipientError(message) {
 async function handleSendToAddressValidation(e) {
     const input = e.target.value.trim();
     const errorElement = document.getElementById('sendToAddressError');
-    
+
     // Clear previous error
     errorElement.style.display = 'none';
-    
+
     if (!input) return;
-    
+
     // Check if input is an Ethereum address
     if (input.startsWith('0x')) {
         if (!isValidEthereumAddress(input)) {
@@ -1787,7 +1787,7 @@ async function handleSendToAddressValidation(e) {
         }
         return;
     }
-    
+
     // If not an address, treat as username
     if (input.length < 3) {
         errorElement.textContent = 'Username too short';
@@ -1795,7 +1795,7 @@ async function handleSendToAddressValidation(e) {
         errorElement.style.display = 'inline';
         return;
     }
-    
+
     // Check username availability on network
     const taken = await checkUsernameAvailability(input);
     if (taken === 'taken') {
@@ -1824,9 +1824,9 @@ async function handleNewChat(event) {
     const input = document.getElementById('chatRecipient').value.trim();
     let recipientAddress;
     let username;
-    
+
     hideRecipientError();
-    
+
     // Check if input is an Ethereum address
     if (input.startsWith('0x')) {
         if (!isValidEthereumAddress(input)) {
@@ -1858,10 +1858,10 @@ async function handleNewChat(event) {
             return;
         }
     }
-    
+
     // Get or create chat data
     const chatsData = myData
-    
+
     // Check if contact exists
     if (!chatsData.contacts[recipientAddress]) { createNewContact(recipientAddress) }
     chatsData.contacts[recipientAddress].username = username
@@ -1897,7 +1897,7 @@ function openChatModal(address) {
 
     // clear hidden txid input
     document.getElementById('retryOfTxId').value = '';
-    
+
     // Add data attributes to store the username and address
     const sendMoneyButton = document.getElementById('chatSendMoneyButton');
     sendMoneyButton.dataset.username = contact.username || address;
@@ -1939,7 +1939,7 @@ function openChatModal(address) {
         myData.state.unread = Math.max(0, (myData.state.unread || 0) - contact.unread);
         contact.unread = 0;
         updateChatList();
-    } 
+    }
 
     // Setup state for appendChatModal and perform initial render
     appendChatModal.address = address
@@ -2007,7 +2007,7 @@ function appendChatModal(highlightNewMessage = false) {
             const directionText = item.my ? '-' : '+';
             const messageClass = item.my ? 'sent' : 'received';
             messageHTML = `
-                <div class="message ${messageClass} payment-info" ${timestampAttribute} ${txidAttribute} ${statusAttribute}> 
+                <div class="message ${messageClass} payment-info" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
                     <div class="payment-header">
                         <span class="payment-direction">${directionText}</span>
                         <span class="payment-amount">${amountDisplay}</span>
@@ -2038,7 +2038,7 @@ function appendChatModal(highlightNewMessage = false) {
 
     // 6. Delayed Scrolling & Highlighting Logic (after loop)
     setTimeout(() => {
-        const messageContainer = messagesList.parentElement; 
+        const messageContainer = messagesList.parentElement;
 
         // Find the DOM element for the actual newest received item using its timestamp
         // Only proceed if newestReceivedItem was found and highlightNewMessage is true
@@ -2049,16 +2049,16 @@ function appendChatModal(highlightNewMessage = false) {
                 // Found the element, scroll to and highlight it
                 newestReceivedElementDOM.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-                // Apply highlight immediately 
+                // Apply highlight immediately
                 newestReceivedElementDOM.classList.add('highlighted');
-                
+
                 // Set timeout to remove the highlight after a duration
                 setTimeout(() => {
                      // Check if element still exists before removing class
                      if (newestReceivedElementDOM && newestReceivedElementDOM.parentNode) {
-                        newestReceivedElementDOM.classList.remove('highlighted'); 
+                        newestReceivedElementDOM.classList.remove('highlighted');
                      }
-                }, 3000); 
+                }, 3000);
             } else {
                  console.warn('appendChatModal: Could not find DOM element for newestReceivedItem with timestamp:', newestReceivedItem.timestamp);
                  // If element not found, just scroll to bottom
@@ -2099,7 +2099,7 @@ function closeChatModal() {
 function openReceiveModal() {
     const modal = document.getElementById('receiveModal');
     modal.classList.add('active');
-    
+
     // Get wallet data
     const walletData = myData.wallet;
 
@@ -2107,11 +2107,11 @@ function openReceiveModal() {
     const assetSelect = document.getElementById('receiveAsset');
     const amountInput = document.getElementById('receiveAmount');
     const memoInput = document.getElementById('receiveMemo');
-    
+
     // Populate assets dropdown
     // Clear existing options
     assetSelect.innerHTML = '';
-    
+
     // Check if wallet assets exist
     if (walletData && walletData.assets && walletData.assets.length > 0) {
         // Add options for each asset
@@ -2153,20 +2153,20 @@ function updateReceiveAddresses() {
 function updateDisplayAddress() {
     const displayAddress = document.getElementById('displayAddress');
     const qrcodeContainer = document.getElementById('qrcode');
-    
+
     // Clear previous QR code
     qrcodeContainer.innerHTML = '';
 
     const address = myAccount.keys.address;
     displayAddress.textContent = '0x' + address;
-    
+
     // Generate QR code with payment data
     try {
         updateQRCode();
         console.log("QR code updated with payment data");
     } catch (error) {
         console.error("Error updating QR code:", error);
-        
+
         // Fallback to basic address QR code if there's an error
         new QRCode(qrcodeContainer, {
             text: '0x' + address,
@@ -2182,11 +2182,11 @@ function createQRPaymentData() {
     // Get selected asset
     const assetSelect = document.getElementById('receiveAsset');
     const assetIndex = parseInt(assetSelect.value, 10) || 0;
-    
+
     // Default asset info in case we can't find the selected asset
     let assetId = "liberdus";
     let symbol = "LIB";
-    
+
     // Try to get the selected asset
     try {
         if (myData && myData.wallet && myData.wallet.assets && myData.wallet.assets.length > 0) {
@@ -2204,25 +2204,25 @@ function createQRPaymentData() {
     } catch (error) {
         console.error("Error accessing asset data:", error);
     }
-    
+
     // Build payment data object
     const paymentData = {
         u: myAccount.username, // username
         i: assetId, // assetId
         s: symbol // symbol
     };
-    
+
     // Add optional fields if they have values
     const amount = document.getElementById('receiveAmount').value.trim();
     if (amount) {
         paymentData.a = amount;
     }
-    
-    const memo = document.getElementById('receiveMemo').value.trim(); 
+
+    const memo = document.getElementById('receiveMemo').value.trim();
     if (memo) {
         paymentData.m = memo;
     }
-    
+
     return paymentData;
 }
 
@@ -2233,16 +2233,16 @@ function updateQRCode() {
     qrcodeContainer.innerHTML = '';
     previewElement.style.display = 'none'; // Hide preview/error area initially
     previewElement.innerHTML = ''; // Clear any previous error message
-    
+
     try {
         // Get payment data
         const paymentData = createQRPaymentData();
         console.log("Created payment data:", JSON.stringify(paymentData, null, 2));
-        
+
         // Convert to JSON and encode as base64
         const jsonData = JSON.stringify(paymentData);
         const base64Data = btoa(jsonData);
-        
+
         // Create URI with liberdus:// prefix
         const qrText = `liberdus://${base64Data}`;
         console.log("QR code text length:", qrText.length);
@@ -2261,17 +2261,17 @@ function updateQRCode() {
         // Add the image to the container
         qrcodeContainer.appendChild(img);
 
-        
+
         return qrText;
     } catch (error) {
         console.error("Error in updateQRCode:", error);
-        
+
         qrcodeContainer.innerHTML = ''; // Clear the container before adding fallback QR
 
         // Fallback to basic username QR code in liberdus:// format
         try {
             // Use short key 'u' for username
-            const fallbackData = { u: myAccount.username }; 
+            const fallbackData = { u: myAccount.username };
             const fallbackJsonData = JSON.stringify(fallbackData);
             const fallbackBase64Data = btoa(fallbackJsonData);
             const fallbackQrText = `liberdus://${fallbackBase64Data}`;
@@ -2297,7 +2297,7 @@ function updateQRCode() {
                 previewElement.innerHTML = `<span style="color: red;">Error generating full QR</span><br> Generating QR with only username. <br> Username: ${myAccount.username}`;
                 previewElement.style.display = 'block'; // Make the error visible
             }
-            
+
             return fallbackQrText; // Return the generated fallback URI
         } catch (fallbackError) {
             // If even the fallback fails (e.g., username missing), show a simple error
@@ -2341,7 +2341,7 @@ async function openSendModal() {
     usernameAvailable.style.display = 'none';
     submitButton.disabled = true;
     openQRScanModal.fill = fillPaymentFromQR  // set function to handle filling the payment form from QR data
-    
+
     /* This is now done in the DOMContentLoaded funtion
         // Add QR code scan button handler
         const scanButton = document.getElementById('scanQRButton');
@@ -2360,14 +2360,14 @@ async function openSendModal() {
         }, 500);
         openSendModal.username = null
     }
-    
+
 
     await updateWalletBalances(); // Refresh wallet balances first
     // Get wallet data
     const wallet = myData.wallet
     // Populate assets dropdown
     const assetSelect = document.getElementById('sendAsset');
-    assetSelect.innerHTML = wallet.assets.map((asset, index) => 
+    assetSelect.innerHTML = wallet.assets.map((asset, index) =>
         `<option value="${index}">${asset.name} (${asset.symbol})</option>`
     ).join('');
 
@@ -2384,13 +2384,13 @@ function handleOpenSendModalInput(e){
     const username = normalizeUsername(e.target.value);
     const usernameAvailable = document.getElementById('sendToAddressError');
     const submitButton = document.querySelector('#sendForm button[type="submit"]');
-    
-    
+
+
     // Clear previous timeout
     if (sendModalCheckTimeout) {
         clearTimeout(sendModalCheckTimeout);
     }
-            
+
     // Check if username is too short
     if (username.length < 3) {
         usernameAvailable.textContent = 'too short';
@@ -2398,7 +2398,7 @@ function handleOpenSendModalInput(e){
         usernameAvailable.style.display = 'inline';
         return;
     }
-    
+
     // Check network availability
     sendModalCheckTimeout = setTimeout(async () => {
         const taken = await checkUsernameAvailability(username, myAccount.keys.address);
@@ -2465,7 +2465,7 @@ function fillPaymentFromQR(data) {
         const paymentData = JSON.parse(jsonData);
 
         console.log("Read payment data:", JSON.stringify(paymentData, null, 2));
-        
+
         if (paymentData.u) {
             document.getElementById('sendToAddress').value = paymentData.u;
         }
@@ -2497,7 +2497,7 @@ function fillStakeAddressFromQR(data) {
     const stakeNodeAddressInput = document.getElementById('stakeNodeAddress');
     if (stakeNodeAddressInput) {
         stakeNodeAddressInput.value = data;
-        stakeNodeAddressInput.dispatchEvent(new Event('input')); 
+        stakeNodeAddressInput.dispatchEvent(new Event('input'));
     } else {
         console.error('Stake node address input field not found!');
         showToast("Could not find stake address field.", 3000, "error");
@@ -2531,17 +2531,17 @@ function updateAvailableBalance() {
     const walletData = myData.wallet;
     const assetIndex = document.getElementById('sendAsset').value;
     const balanceWarning = document.getElementById('balanceWarning');
-    
+
     // Check if we have any assets
     if (!walletData.assets || walletData.assets.length === 0) {
         updateBalanceDisplay(null);
         return;
     }
-    
+
     updateBalanceDisplay(walletData.assets[assetIndex]);
-    
+
     // Validate balance and disable submit button if needed
-    document.querySelector('#sendForm button[type="submit"]').disabled = 
+    document.querySelector('#sendForm button[type="submit"]').disabled =
         validateBalance(document.getElementById('sendAmount').value, assetIndex, balanceWarning);
 }
 
@@ -2554,7 +2554,7 @@ function updateBalanceDisplay(asset) {
     }
 
     const txFeeInLIB = BigInt(parameters.current.transactionFee || 1) * wei;
-    
+
     document.getElementById('balanceAmount').textContent = big2str(BigInt(asset.balance), 18).slice(0, -12);
     document.getElementById('balanceSymbol').textContent = asset.symbol;
     document.getElementById('transactionFee').textContent = big2str(txFeeInLIB, 18).slice(0, -16);
@@ -2589,7 +2589,7 @@ function fillAmount() {
     const asset = myData.wallet.assets[document.getElementById('sendAsset').value];
     const feeInWei = BigInt(parameters.current.transactionFee || 1) * wei;
     const maxAmount = BigInt(asset.balance) - feeInWei;
-    
+
     document.getElementById('sendAmount').value = big2str(maxAmount > 0n ? maxAmount : 0n, 18).slice(0, -16);
     document.getElementById('sendAmount').dispatchEvent(new Event('input'));
 }
@@ -2630,11 +2630,11 @@ async function handleSendAsset(event) {
         const txFeeInLIB = BigInt(parameters.current.transactionFee || 1) * wei;
         const amountInWei = bigxnum2big(wei, amount.toString());
         const balance = BigInt(wallet.assets[assetIndex].balance);
-        
+
         const amountStr = big2str(amountInWei, 18).slice(0, -16);
         const feeStr = big2str(txFeeInLIB, 18).slice(0, -16);
         const balanceStr = big2str(balance, 18).slice(0, -16);
-        
+
         alert(`Insufficient balance: ${amountStr} + ${feeStr} (fee) > ${balanceStr} LIB`);
         return;
     }
@@ -2657,7 +2657,7 @@ async function handleSendAsset(event) {
         const response = await fetch(`${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}/address/${usernameHash}`);
         const data = await response.json();
 */
-        const data = await queryNetwork(`/address/${usernameHash}`)        
+        const data = await queryNetwork(`/address/${usernameHash}`)
         if (!data || !data.address) {
             alert('Username not found');
             return;
@@ -2740,7 +2740,7 @@ async function handleSendAsset(event) {
         console.log('payload is', payload)
         // Send the transaction using postAssetTransfer
         const response = await postAssetTransfer(toAddress, amount, payload, keys);
-        
+
         /* if (!response || !response.result || !response.result.success) {
             alert('Transaction failed: ' + response.result.reason);
             return;
@@ -2857,7 +2857,7 @@ class ContactInfoModalManager {
         // Add friend button
         document.getElementById('addFriendButton').addEventListener('click', () => {
             if (!this.currentContactAddress) return;
-            
+
             const contact = myData.contacts[this.currentContactAddress];
             if (!contact) return;
 
@@ -2911,10 +2911,10 @@ class ContactInfoModalManager {
         const avatarDiv = avatarSection.querySelector('.avatar');
         const nameDiv = avatarSection.querySelector('.name');
         const subtitleDiv = avatarSection.querySelector('.subtitle');
-        
+
         // Generate identicon for the contact
         const identicon = await generateIdenticon(displayInfo.address, 96);
-        
+
         // Update the avatar section
         avatarDiv.innerHTML = identicon;
         nameDiv.textContent = displayInfo.name !== 'Not provided' ? displayInfo.name : displayInfo.username;
@@ -2978,14 +2978,14 @@ class ContactInfoModalManager {
 
 async function openEditContactModal() {
     const editContactModal = document.getElementById('editContactModal');
-    
+
     // Get the avatar section elements
     const avatarSection = document.querySelector('#editContactModal .contact-avatar-section');
     const avatarDiv = avatarSection.querySelector('.avatar');
     const nameDiv = avatarSection.querySelector('.name');
     const subtitleDiv = avatarSection.querySelector('.subtitle');
     const identicon = document.getElementById('contactInfoAvatar').innerHTML;
-    
+
     // Update the avatar section
     avatarDiv.innerHTML = identicon;
     nameDiv.textContent = document.getElementById('contactInfoName').textContent;
@@ -3010,7 +3010,7 @@ async function openEditContactModal() {
 
     // Show the edit contact modal
     editContactModal.classList.add('active');
-    
+
     // Get the current contact info from the contact info modal
     const currentContactAddress = contactInfoModal.currentContactAddress;
     if (!currentContactAddress || !myData.contacts[currentContactAddress]) {
@@ -3041,7 +3041,7 @@ function handleEditNameInput() {
 
     const currentValue = nameInput.value.trim();
     const valueChanged = currentValue !== originalNameValue;
-    
+
     if (valueChanged) {
         nameActionButton.className = 'field-action-button add';
         nameActionButton.setAttribute('aria-label', 'Save');
@@ -3055,7 +3055,7 @@ function handleEditNameInput() {
 function handleEditNameButton() {
     const nameInput = document.getElementById('editContactNameInput');
     const nameActionButton = nameInput.parentElement.querySelector('.field-action-button');
-    
+
     if (nameActionButton.classList.contains('clear')) {
         nameInput.value = '';
         // Always show save button after clearing
@@ -3079,7 +3079,7 @@ function handleEditNameKeydown(e) {
 function handleSaveEditContact() {
     const nameInput = document.getElementById('editContactNameInput');
     const currentContactAddress = contactInfoModal.currentContactAddress;
-    
+
     // Save changes - if input is empty/spaces, it will become undefined
     const newName = nameInput.value.trim() || null;
     const contact = myData.contacts[currentContactAddress];
@@ -3087,13 +3087,13 @@ function handleSaveEditContact() {
         contact.name = newName;
         contactInfoModal.needsContactListUpdate = true;
     }
-    
+
     // Safely close the edit modal
     const editModal = document.getElementById('editContactModal');
     if (editModal) {
         editModal.classList.remove('active');
     }
-    
+
     // Safely update the contact info modal if it exists and is open
     if (contactInfoModal.currentContactAddress) {
         const contactInfoModalElement = document.getElementById('contactInfoModal');
@@ -3127,7 +3127,7 @@ function handleSignOut() {
     // Close all modals
     document.getElementById('menuModal').classList.remove('active');
     document.getElementById('accountModal').classList.remove('active');
-    
+
     // Hide header and footer
     document.getElementById('header').classList.remove('active');
     document.getElementById('footer').classList.remove('active');
@@ -3135,15 +3135,15 @@ function handleSignOut() {
 
     // Reset header text
     document.querySelector('.app-name').textContent = 'Liberdus';
-    
+
     // Hide all app screens
     document.querySelectorAll('.app-screen').forEach(screen => {
         screen.classList.remove('active');
     });
-    
+
     // Show welcome screen
     document.getElementById('welcomeScreen').style.display = 'flex';
-    
+
     handleSignOut.exit = true
 
     // Add offline fallback
@@ -3169,7 +3169,7 @@ async function handleSendMessage() {
     try {
         const messageInput = document.querySelector('.message-input');
         messageInput.focus(); // Add focus back to keep keyboard open
-        
+
         const message = messageInput.value.trim();
         if (!message) return;
 
@@ -3242,7 +3242,7 @@ async function handleSendMessage() {
         const senderInfo = {
             username: myAccount.username
         };
-        
+
         // Add additional info only if recipient is a friend
         if (contact && contact.friend) {
             // Add more personal details for friends
@@ -3252,7 +3252,7 @@ async function handleSendMessage() {
             senderInfo.linkedin = myData.account.linkedin;
             senderInfo.x = myData.account.x;
         }
-        
+
         // Always encrypt and send senderInfo (which will contain at least the username)
         payload.senderInfo = encryptChacha(dhkey, stringify(senderInfo));
 
@@ -3292,7 +3292,7 @@ async function handleSendMessage() {
         if (existingChatIndex !== -1) {
             chatsData.chats.splice(existingChatIndex, 1);
         }
-        
+
         insertSorted(chatsData.chats, chatUpdate, 'timestamp');
 
         // Clear input and reset height
@@ -3309,7 +3309,7 @@ async function handleSendMessage() {
         //console.log('payload is', payload)
         // Send the message transaction using createChatMessage with default toll of 1
         const response = await injectTx(chatMessageObj, txid)
-        
+
         if (!response || !response.result || !response.result.success) {
             console.log('message failed to send', response)
             //let userMessage = 'Message failed to send. Please try again.';
@@ -3479,19 +3479,19 @@ function handleFailedMessageRetry() {
     if (mainChatInput && retryTxIdInput && typeof messageToRetry === 'string' && typeof originalTxid === 'string') {
         mainChatInput.value = messageToRetry;
         retryTxIdInput.value = originalTxid;
-        
+
         if (failedMessageModal) {
             failedMessageModal.classList.remove('active');
         }
         mainChatInput.focus();
-        
+
         // Clear the stored values after use
         handleFailedMessageClick.handleFailedMessage = '';
-        handleFailedMessageClick.txid = ''; 
+        handleFailedMessageClick.txid = '';
     } else {
         console.error('Error preparing message retry: Necessary elements or data missing.');
         if (failedMessageModal) {
-            failedMessageModal.classList.remove('active'); 
+            failedMessageModal.classList.remove('active');
         }
     }
 }
@@ -3549,16 +3549,16 @@ function handleFailedMessageDelete() {
         if (failedMessageModal) {
             failedMessageModal.classList.remove('active');
         }
-        
+
         // Clear the stored values
         handleFailedMessageClick.handleFailedMessage = '';
-        handleFailedMessageClick.txid = ''; 
+        handleFailedMessageClick.txid = '';
         // refresh current chatModal
         appendChatModal();
     } else {
         console.error('Error deleting message: TXID not found.');
         if (failedMessageModal) {
-            failedMessageModal.classList.remove('active'); 
+            failedMessageModal.classList.remove('active');
         }
     }
 }
@@ -3572,14 +3572,14 @@ function handleFailedPaymentDelete() {
     if (typeof originalTxid === 'string' && originalTxid) {
         const currentAddress = handleFailedPaymentClick.address;
         removeFailedTx(originalTxid, currentAddress);
-        
+
         if (failedPaymentModal) {
             failedPaymentModal.classList.remove('active');
         }
 
         // refresh current view
         refreshCurrentView(handleFailedPaymentClick.txid);
-        
+
         // Clear the stored values
         handleFailedPaymentClick.txid = '';
         handleFailedPaymentClick.address = '';
@@ -3604,7 +3604,7 @@ function closeFailedMessageModalAndClearState() {
     }
     // Clear the stored values when modal is closed
     handleFailedMessageClick.handleFailedMessage = '';
-    handleFailedMessageClick.txid = ''; 
+    handleFailedMessageClick.txid = '';
 }
 
 function closeFailedPaymentModalAndClearState() {
@@ -3640,17 +3640,17 @@ function handleFailedPaymentBackdropClick(event) {
 // Update wallet view; refresh wallet
 async function updateWalletView() {
     const walletData = myData.wallet
-    
+
 
 
     await updateWalletBalances()
 
     // Update total networth
     document.getElementById('walletTotalBalance').textContent = (walletData.networth || 0).toFixed(2);
-    
+
     // Update assets list
     const assetsList = document.getElementById('assetsList');
-    
+
     if (!Array.isArray(walletData.assets) || walletData.assets.length === 0) {
         assetsList.innerHTML = `
             <div class="empty-state">
@@ -3660,7 +3660,7 @@ async function updateWalletView() {
             </div>`;
         return;
     }
-    
+
     assetsList.innerHTML = walletData.assets.map(asset => {
 console.log('asset balance', asset, asset.balance)
         return `
@@ -3722,12 +3722,12 @@ function openHistoryModal() {
 
     const modal = document.getElementById('historyModal');
     modal.classList.add('active');
-    
+
     // Get wallet data
     const walletData = myData.wallet
 
     const assetSelect = document.getElementById('historyAsset');
-    
+
     // Check if we have any assets
     if (!walletData.assets || walletData.assets.length === 0) {
         assetSelect.innerHTML = '<option value="">No assets available</option>';
@@ -3748,12 +3748,12 @@ function closeHistoryModal() {
     document.getElementById('switchToWallet').classList.remove('has-notification');
 }
 
-function updateHistoryAddresses() {         // TODO get rid of this function after changing all refrences 
+function updateHistoryAddresses() {         // TODO get rid of this function after changing all refrences
     // Update transaction history
     updateTransactionHistory();
 }
 
-async function updateTransactionHistory() { 
+async function updateTransactionHistory() {
     await updateChatList();
 
     const walletData = myData.wallet
@@ -3826,7 +3826,7 @@ function handleHistoryItemClick(event) {
         if (event.target.closest('.transaction-item')){
             handleFailedPaymentClick(item.dataset.txid, item);
         }
-        
+
         return;
     }
 
@@ -3854,19 +3854,19 @@ function handleHistoryItemClick(event) {
 }
 
 async function queryNetwork(url) {
-    //console.log('queryNetwork', url)
+//console.log('query', url)
     if (!await checkOnlineStatus()) {
-        //TODO show user we are not online
+//TODO show user we are not online
         console.warn("not online")
         //alert('not online')
-        return null 
+        return null
     }
     const randomGateway = getGatewayForRequest();
     if (!randomGateway) {
         console.error('No gateway available for network query');
         return null;
     }
-    
+
     try {
         const response = await fetch(`${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}${url}`);
         console.log('query', `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}${url}`)
@@ -3886,10 +3886,10 @@ async function pollChatInterval(milliseconds) {
 
 // Called every 30 seconds if we are online and not subscribed to WebSocket
 async function pollChats() {
-    
+
     // Step 2: variable to check if we are subscribed to WebSocket
     const isSubscribed = wsManager && wsManager.subscribed && wsManager.isSubscribed();
-    
+
     // Step 3: Poll if we are not subscribed to WebSocket
     if (!isSubscribed) {
         // Skip if no valid account
@@ -3918,7 +3918,7 @@ async function pollChats() {
         window.chatUpdateTimer = null;
         console.log('Poll status: Stopped - WebSocket subscribed');
     }
-    
+
     const wsStatus = await checkWebSocketStatus();
     // Step 4: Log final status
     const pollStatus = {
@@ -3933,9 +3933,9 @@ async function pollChats() {
 // Helper function to check WebSocket status and log diagnostics if needed
 async function checkWebSocketStatus() {
     if (!wsManager) return "not initialized";
-    
+
     const status = wsManager.isConnected() ? "connected" : "disconnected";
-    
+
     // Log diagnostic info if disconnected
     if (status === "disconnected" && wsManager.connectionState === 'disconnected') {
         const diagnosticInfo = {
@@ -3946,15 +3946,15 @@ async function checkWebSocketStatus() {
                 webSocketSupport: typeof WebSocket !== 'undefined'
             },
             websocketConfig: {
-                urlValid: network?.websocket?.url ? 
-                    (network.websocket.url.startsWith('ws://') || network.websocket.url.startsWith('wss://')) : 
+                urlValid: network?.websocket?.url ?
+                    (network.websocket.url.startsWith('ws://') || network.websocket.url.startsWith('wss://')) :
                     false,
                 url: network?.websocket?.url || 'Not configured'
             }
         };
         console.log('WebSocket Diagnostic Information:', diagnosticInfo);
     }
-    
+
     return status;
 }
 
@@ -3963,7 +3963,7 @@ function scheduleNextPoll() {
     if (window.chatUpdateTimer) {
         clearTimeout(window.chatUpdateTimer);
     }
-    
+
     const interval = pollChats.nextPoll || pollIntervalNormal;
     const now = getCorrectedTimestamp();
     console.log('Poll schedule:', JSON.stringify({
@@ -3971,7 +3971,7 @@ function scheduleNextPoll() {
         nextPollIn: `${interval}ms`,
         reason: 'WebSocket not subscribed'
     }, null, 2));
-    
+
     window.chatUpdateTimer = setTimeout(pollChats, interval);
 }
 
@@ -3994,7 +3994,7 @@ console.log(`getChats retry ${retry}`)
     const senders = await queryNetwork(`/account/${longAddress(keys.address)}/chats/${timestamp}`) // TODO get this working
 //    const senders = await queryNetwork(`/account/${longAddress(keys.address)}/chats/0`) // TODO stop using this
     let chatCount = senders?.chats ? Object.keys(senders.chats).length : 0; // Handle null/undefined senders.chats
-    console.log('getChats senders', 
+    console.log('getChats senders',
         timestamp === undefined ? 'undefined' : JSON.stringify(timestamp),
         chatCount === undefined ? 'undefined' : JSON.stringify(chatCount),
         senders === undefined ? 'undefined' : JSON.stringify(senders))
@@ -4013,7 +4013,7 @@ console.log(`getChats retry ${retry}`)
         }
     }
     if (appendChatModal.address){   // clear the unread count of address for open chat modal
-        myData.contacts[appendChatModal.address].unread = 0 
+        myData.contacts[appendChatModal.address].unread = 0
     }
     return chatCount
 }
@@ -4052,19 +4052,19 @@ async function processChats(chats, keys) {
         // Fetch messages using the adjusted timestamp
         const res = await queryNetwork(`/messages/${chats[sender]}/${messageQueryTimestamp}`)
         console.log("processChats sender", sender, "fetching since", messageQueryTimestamp)
-        if (res && res.messages){  
+        if (res && res.messages){
             const from = normalizeAddress(sender)
             if (!myData.contacts[from]){ createNewContact(from) }
             const contact = myData.contacts[from]
 //            contact.address = from        // not needed since createNewContact does this
             let added = 0
             let hasNewTransfer = false;
-            
+
             // This check determines if we're currently chatting with the sender
             // We ONLY want to avoid notifications if we're actively viewing this exact chat
-            const inActiveChatWithSender = appendChatModal.address === from && 
+            const inActiveChatWithSender = appendChatModal.address === from &&
                 document.getElementById('chatModal')?.classList.contains('active'); // Added null check for safety
-            
+
             for (let i in res.messages){
                 const tx = res.messages[i] // the messages are actually the whole tx
 //console.log('message tx is')
@@ -4073,7 +4073,7 @@ async function processChats(chats, keys) {
                 if (tx.type == 'message'){
                     if (tx.from == longAddress(keys.address)){ continue }  // skip if the message is from us
                     const payload = tx.xmessage  // changed to use .message
-                    if (payload.encrypted){ 
+                    if (payload.encrypted){
                         let senderPublic = myData.contacts[from]?.public
                         if (!senderPublic){
                             const senderInfo = await queryNetwork(`/account/${longAddress(from)}`)
@@ -4101,7 +4101,7 @@ async function processChats(chats, keys) {
                         }
                     }
                     //  skip if this tx was processed before and is already in contact.messages;
-                    //    messages are the same if the messages[x].sent_timestamp is the same as the tx.timestamp, 
+                    //    messages are the same if the messages[x].sent_timestamp is the same as the tx.timestamp,
                     //    and messages[x].my is false and messages[x].message == payload.message
                     let alreadyExists = false;
                     for (const existingMessage of contact.messages) {
@@ -4128,8 +4128,8 @@ async function processChats(chats, keys) {
 //console.log('transfer tx is')
 //console.log(JSON.stringify(message, null, 4))
                     if (tx.from == longAddress(keys.address)){ continue }  // skip if the message is from us
-                    const payload = tx.xmemo 
-                    if (payload.encrypted){ 
+                    const payload = tx.xmemo
+                    if (payload.encrypted){
                         let senderPublic = myData.contacts[from]?.public
                         if (!senderPublic){
                             const senderInfo = await queryNetwork(`/account/${longAddress(from)}`)
@@ -4188,7 +4188,7 @@ async function processChats(chats, keys) {
                     // TODO: redundant but keep for now
                     //  sort history array based on timestamp field in descending order
                     //history.sort((a, b) => b.timestamp - a.timestamp);
-                    
+
                     // Mark that we have a new transfer for toast notification
                     hasNewTransfer = true
 
@@ -4212,7 +4212,7 @@ async function processChats(chats, keys) {
                     // Update wallet view if it's active
                     if (walletScreenActive) {
                         updateWalletView();
-                    } 
+                    }
                     // update history modal if it's active
                     if (historyModalActive) {
                         updateTransactionHistory();
@@ -4230,7 +4230,7 @@ async function processChats(chats, keys) {
             if (added > 0) {
                 // Get the most recent message (index 0 because it's sorted descending)
                 const latestMessage = contact.messages[0];
-                
+
                 // Create chat object with only guaranteed fields
                 const chatUpdate = {
                     address: from,
@@ -4254,7 +4254,7 @@ async function processChats(chats, keys) {
 
                 // Find insertion point to maintain timestamp order (newest first)
                 const insertIndex = myData.chats.findIndex(chat => chat.timestamp < chatUpdate.timestamp);
-                
+
                 if (insertIndex === -1) {
                     // If no earlier timestamp found, append to end
                     myData.chats.push(chatUpdate);
@@ -4262,22 +4262,22 @@ async function processChats(chats, keys) {
                     // Insert at correct position to maintain order
                     myData.chats.splice(insertIndex, 0, chatUpdate);
                 }
-                
+
                 // Show toast notification for new messages
                 // Only suppress notification if we're ACTIVELY viewing this chat and if not a transfer
                 if (!inActiveChatWithSender && !hasNewTransfer) {
                     // Get name of sender
                     const senderName = contact.name || contact.username || `${from.slice(0,8)}...`
-                    
+
                     // Add notification indicator to Chats tab if we're not on it
                     const chatsButton = document.getElementById('switchToChats');
                     if (!document.getElementById('chatsScreen').classList.contains('active')) {
                         chatsButton.classList.add('has-notification');
                     }
-                    
+
                 }
             }
-            
+
             // Show transfer notification even if no messages were added
             if (hasNewTransfer) {
                 // Add notification indicator to Wallet tab if we're not on it
@@ -4312,12 +4312,12 @@ The main difference between a chat message and an asset transfer is
             toll.required.initialFromAddress = 1
             toll.required.initialToAddress = 0
         * This means that the sender who established the chatId will have to keep paying a toll and
-          the receipient can reply or send messages to the sender without paying a toll. 
+          the receipient can reply or send messages to the sender without paying a toll.
         * Either user can submit a tx to not require the other to pay a toll; setting required.otherUser to 0.
         * Either user can submit a tx to require the other to pay a toll; the client should show the sender the required toll
         * Either user can block message from the other; this sets the toll field of the blocked user to 2.
         * Either user can unblock the other user if blocked; this sets the toll field of the unblocked user to 0
-        * If a payment is being sent and it includes a memo and the sender is required to pay a toll than the 
+        * If a payment is being sent and it includes a memo and the sender is required to pay a toll than the
           amount being sent must be at least the toll amount required by the recipient
     The actual toll paid by a sender is first stored in the chatId account.
         * 50% is paid to the recipient for reading the message and 50% is paid when they reply.
@@ -4361,7 +4361,7 @@ function createChatMessage(to, payload, toll, keys) {
         network: '0000000000000000000000000000000000000000000000000000000000000000',
         fee: BigInt(parameters.current.transactionFee || 1)           // This is not used by the backend
     }
-    return tx        
+    return tx
 }
 
 async function postAssetTransfer(to, amount, memo, keys) {
@@ -4386,7 +4386,7 @@ async function postAssetTransfer(to, amount, memo, keys) {
     return res
 }
 
-// TODO - backend - when account is being registered, ensure that loserCase(alias)=alias and hash(alias)==aliasHash 
+// TODO - backend - when account is being registered, ensure that loserCase(alias)=alias and hash(alias)==aliasHash
 async function postRegisterAlias(alias, keys){
     const aliasBytes = utf82bin(alias)
     const aliasHash = hashBytes(aliasBytes);
@@ -4414,14 +4414,14 @@ async function postRegisterAlias(alias, keys){
  */
 async function injectTx(tx, txid){
     if (!isOnline) {
-        return null 
+        return null
     }
     const randomGateway = getGatewayForRequest();
     if (!randomGateway) {
         console.error('No gateway available for transaction injection');
         return null;
     }
-    
+
     try {
         const timestamp = getCorrectedTimestamp();
         // initialize pending array if it doesn't exist
@@ -4438,9 +4438,9 @@ async function injectTx(tx, txid){
         }
         const response = await fetch(`${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}/inject`, options);
         console.log("DEBUG: injectTx response", response);
-        const data = await response.json();     
+        const data = await response.json();
         data.txid = txid
-        
+
         if (data?.result?.success) {
             const pendingTxData = {
                 txid: txid,
@@ -4449,10 +4449,10 @@ async function injectTx(tx, txid){
                 checkedts: 0,
             };
             if (tx.type === 'register') {
-                pendingTxData.username = tx.alias; 
+                pendingTxData.username = tx.alias;
                 pendingTxData.address = tx.from; // User's address (longAddress form)
             } else if (tx.type === 'message' || tx.type === 'transfer' || tx.type === 'deposit_stake' || tx.type === 'withdraw_stake') {
-                pendingTxData.to = tx.to; 
+                pendingTxData.to = tx.to;
             }
             myData.pending.push(pendingTxData);
         } else {
@@ -4479,7 +4479,7 @@ async function signObj(tx, keys){
 //console.log('tx stringify', jstr)
     const jstrBytes = utf82bin(jstr)
     const txidHex = hashBytes(jstrBytes)
-    const txidHashHex = ethHashMessage(txidHex)     // Asked Thant why we are doing this; 
+    const txidHashHex = ethHashMessage(txidHex)     // Asked Thant why we are doing this;
                                                     //  why hash txid with ethHashMessage again before signing
                                                     //  why not just sign the original txid
                                                     // https://discord.com/channels/746426387606274199/1303158886089359431/1329097165137772574
@@ -4509,20 +4509,20 @@ async function registerServiceWorker() {
     try {
         // Get the current service worker registration
         const registration = await navigator.serviceWorker.getRegistration();
-        
+
         // If there's an existing service worker
         if (registration?.active) {
             console.log('Service Worker already registered and active');
-            
+
             // Set up message handling for the active worker
             setupServiceWorkerMessaging(registration.active);
-            
+
             // Check if there's a new version waiting
             if (registration.waiting) {
                 // Notify user about new version
                 showUpdateNotification(registration);
             }
-            
+
             return registration;
         }
 
@@ -4542,7 +4542,7 @@ async function registerServiceWorker() {
         // Set up new service worker handling
         newRegistration.addEventListener('updatefound', () => {
             const newWorker = newRegistration.installing;
-            
+
             newWorker.addEventListener('statechange', () => {
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                     // New service worker available
@@ -4567,7 +4567,7 @@ function setupServiceWorkerMessaging() {
     // Listen for messages from service worker
     navigator.serviceWorker.addEventListener('message', (event) => {
         const data = event.data;
-        
+
         // Handle different message types
         switch (data.type) {
             case 'error':
@@ -4599,7 +4599,7 @@ function setupServiceWorkerMessaging() {
 function setupAppStateManagement() {
     // Initialize app state
     localStorage.setItem('appPaused', '0');
-    
+
     // Stop polling if service worker was already polling
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready.then(registration => {
@@ -4610,13 +4610,13 @@ function setupAppStateManagement() {
     // Handle visibility changes
     document.addEventListener('visibilitychange', async () => {
         if (!myData || !myAccount) return; // Only manage state if logged in
-        
+
         if (document.hidden) {
             // App is being hidden/closed
             console.log('📱 App hidden - starting service worker polling');
             const timestamp = getCorrectedTimestamp().toString();
             localStorage.setItem('appPaused', timestamp);
-            
+
             // Prepare account data for service worker
             const accountData = {
                 address: myAccount.keys.address,
@@ -4625,20 +4625,20 @@ function setupAppStateManagement() {
                     defaultGatewayIndex: myData.network.defaultGatewayIndex
                 }
             };
-            
-            
+
+
             // Start polling in service worker with timestamp and account data
             const registration = await navigator.serviceWorker.ready;
-            registration.active?.postMessage({ 
+            registration.active?.postMessage({
                 type: 'start_polling',
                 timestamp,
-                account: accountData  
+                account: accountData
             });
         } else {
             // App is becoming visible/open
             console.log('📱 App visible - stopping service worker polling');
             localStorage.setItem('appPaused', '0');
-            
+
             // Stop polling in service worker
             const registration = await navigator.serviceWorker.ready;
             registration.active?.postMessage({ type: 'stop_polling' });
@@ -4673,14 +4673,14 @@ function setupAppStateManagement() {
 // Add these search-related functions
 function searchMessages(searchText) {
     if (!searchText || !myData?.contacts) return [];
-    
+
     const results = [];
     const searchLower = searchText.toLowerCase();
-    
+
     // Search through all contacts and their messages
     Object.entries(myData.contacts).forEach(([address, contact]) => {
         if (!contact.messages) return;
-        
+
         contact.messages.forEach((message, index) => {
             if (message.message.toLowerCase().includes(searchLower)) {
                 // Highlight matching text
@@ -4701,7 +4701,7 @@ function searchMessages(searchText) {
             }
         });
     });
-    
+
     return results.sort((a, b) => b.timestamp - a.timestamp);
 }
 
@@ -4710,18 +4710,18 @@ function displaySearchResults(results) {
     // Create a ul element to properly contain the list items
     const resultsList = document.createElement('ul');
     resultsList.className = 'chat-list';
-    
+
     results.forEach(async result => {
         const resultElement = document.createElement('li');
         resultElement.className = 'chat-item search-result-item';
-        
+
         // Generate identicon for the contact
         const identicon = await generateIdenticon(result.contactAddress);
-        
+
         // Format message preview with "You:" prefix if it's a sent message
         // make this textContent?
         const messagePreview = result.my ? `You: ${result.preview}` : `${result.preview}`;
-        
+
         resultElement.innerHTML = `
             <div class="chat-avatar">
                 ${identicon}
@@ -4737,7 +4737,7 @@ function displaySearchResults(results) {
             </div>
         `;
 
-        resultElement.addEventListener('click', (event) => { 
+        resultElement.addEventListener('click', (event) => {
             event.stopImmediatePropagation(); // Stop all other listeners and bubbling immediately
             // clear search input and clear results
             document.getElementById('messageSearch').value = '';
@@ -4766,13 +4766,13 @@ function handleSearchResultClick(result) {
     try {
         // Close search modal
         document.getElementById('searchModal').classList.remove('active');
-        
+
         // Switch to chats view if not already there
         switchView('chats');
-        
+
         // Open the chat with this contact
         openChatModal(result.contactAddress);
-        
+
         // Scroll to and highlight the message
         setTimeout(() => {
             const messageSelector = `[data-message-id="${result.messageId}"]`;
@@ -4795,7 +4795,7 @@ function handleSearchResultClick(result) {
 function handleSearchInputClick(e) {
     const messageSearch = document.getElementById('messageSearch');
     const searchModal = document.getElementById('searchModal');
-    
+
     searchModal.classList.add('active');
     messageSearch.focus();
 }
@@ -4806,7 +4806,7 @@ function handleMessageSearchInput(e) {
     // debounced search
     const debouncedSearch = debounce((searchText) => {
         const trimmedText = searchText.trim();
-        
+
         if (!trimmedText) {
             searchResults.innerHTML = '';
             return;
@@ -4820,9 +4820,9 @@ function handleMessageSearchInput(e) {
         }
     }, (searchText) => searchText.length === 1 ? 600 : 300);
 
-    
+
         debouncedSearch(e.target.value);
-    
+
 }
 
 // Contact search functions
@@ -4882,10 +4882,10 @@ function displayContactResults(results, searchText) {
     results.forEach(async (contact) => {
         const contactElement = document.createElement("div");
         contactElement.className = "chat-item contact-item";
-        
+
         // Generate identicon for the contact
         const identicon = await generateIdenticon(contact.address);
-        
+
         // Determine which field matched for display
         const matchedField = [
             { field: 'username', value: contact.username },
@@ -4897,13 +4897,13 @@ function displayContactResults(results, searchText) {
         ].find(f => f.value && f.value.toLowerCase().includes(searchText.toLowerCase()));
 
         // Create match preview with label and highlighted matched value
-        const matchPreview = matchedField 
+        const matchPreview = matchedField
             ? `${matchedField.field}: ${matchedField.value.replace(
                 new RegExp(searchText, 'gi'),
                 match => `<mark>${match}</mark>`
               )}`
             : '';
-        
+
         contactElement.innerHTML = `
             <div class="chat-avatar">
                 ${identicon}
@@ -4965,7 +4965,7 @@ function showToast(message, duration = 2000, type = "default") {
     // Show with a slight delay to ensure rendering
     setTimeout(() => {
         toast.classList.add('show');
-        // For error toasts, keep it up until the user clicks somewhere to make it go away
+        // Set hide timeout
         if (type === "error") {
             // Add a close button to error toasts
             toast.style.pointerEvents = "auto";
@@ -5015,12 +5015,12 @@ function showUpdateNotification(registration) {
             </button>
         </div>
     `;
-    
+
     // Add click handler directly to the button
     updateNotification.querySelector('.update-button').addEventListener('click', () => {
         updateServiceWorker();
     });
-    
+
     document.body.appendChild(updateNotification);
 }
 
@@ -5033,7 +5033,7 @@ async function updateServiceWorker() {
     if (registration.waiting) {
         // Send message to service worker to skip waiting
         registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-        
+
         // Reload once the new service worker takes over
         navigator.serviceWorker.addEventListener('controllerchange', () => {
             console.log('New service worker activated, reloading...');
@@ -5046,9 +5046,9 @@ async function updateServiceWorker() {
 async function handleConnectivityChange(event) {
     const wasOffline = !isOnline;
     isOnline = navigator.onLine;
-    
+
     console.log(`Connectivity changed. Online: ${isOnline}`);
-    
+
     if (isOnline && wasOffline) {
         // We just came back online
         updateUIForConnectivity();
@@ -5066,10 +5066,10 @@ async function handleConnectivityChange(event) {
                 if (gotChats > 0) {
                     await updateChatList();
                 }
-                
+
                 // Update contacts with reconnection handling
                 await updateContactsList();
-                
+
                 // Update wallet with reconnection handling
                 await updateWalletView();
 
@@ -5116,17 +5116,17 @@ function markConnectivityDependentElements() {
         '.message-input',
         '#newChatButton',
         '#chatSendMoneyButton',
-        
+
         // Wallet related
         '#openSendModal',
         '#refreshBalance',
         '#sendForm button[type="submit"]',
-        
+
         // Contact related
         '#chatRecipient',
         '#chatAddFriendButton',
         '#addFriendButton',
-        
+
         // Profile related
         '#accountForm button[type="submit"]',
         '#createAccountForm button[type="submit"]',
@@ -5140,7 +5140,7 @@ function markConnectivityDependentElements() {
         '.menu-item[id="openMonitor"]',
         '.menu-item[id="openAbout"]',
         '.menu-item[id="openRemoveAccount"]',
-        
+
     ];
 
     // Add data attribute to all network-dependent elements
@@ -5148,10 +5148,10 @@ function markConnectivityDependentElements() {
         const elements = document.querySelectorAll(selector);
         elements.forEach(element => {
             element.setAttribute('data-requires-connection', 'true');
-            
+
             // Add tooltip for disabled state
             element.title = 'This feature requires an internet connection';
-            
+
             // Add aria label for accessibility
             element.setAttribute('aria-disabled', !isOnline);
         });
@@ -5162,7 +5162,7 @@ function markConnectivityDependentElements() {
 function updateUIForConnectivity() {
     const networkDependentElements = document.querySelectorAll('[data-requires-connection]');
     const offlineIndicator = document.getElementById('offlineIndicator');
-    
+
     // Update offline indicator in header
     if (offlineIndicator) {
         if (!isOnline) {
@@ -5179,13 +5179,13 @@ function updateUIForConnectivity() {
             offlineIndicator.style.overflow = 'hidden';
         }
     }
-    
+
     networkDependentElements.forEach(element => {
         if (!isOnline) {
             // Disable element
             element.disabled = true;
             element.classList.add('offline-disabled');
-            
+
             // If it's a form, prevent submission
             if (element.form) {
                 element.form.addEventListener('submit', preventOfflineSubmit);
@@ -5194,13 +5194,13 @@ function updateUIForConnectivity() {
             // Enable element
             element.disabled = false;
             element.classList.remove('offline-disabled');
-            
+
             // Remove form submit prevention
             if (element.form) {
                 element.form.removeEventListener('submit', preventOfflineSubmit);
             }
         }
-        
+
         // Update aria-disabled state
         element.setAttribute('aria-disabled', !isOnline);
     });
@@ -5222,7 +5222,7 @@ let isOnline = true; // Will be updated by connectivity checks
 async function checkConnectivity() {
     const wasOffline = !isOnline;
     isOnline = await checkOnlineStatus();
-    
+
     if (isOnline !== wasOffline) {
         // Only trigger change handler if state actually changed
         await handleConnectivityChange({ type: isOnline ? 'online' : 'offline' });
@@ -5236,18 +5236,18 @@ async function checkConnectivity() {
         console.log('No active account to verify');
         return;
     }
-    
+
     console.log('Verifying username on reconnect:', myAccount.username);
-    
+
     // Check if the username is still valid on the network
     const availability = await checkUsernameAvailability(myAccount.username, myAccount.keys.address);
-    
+
     if (availability !== 'mine') {
         console.log('Username verification failed on reconnect:', availability);
-        
+
         // Show a notification to the user
         showToast('Your account is no longer valid on the network. You will be signed out.', 5000, 'error');
-        
+
         // Wait a moment for the user to see the toast
         setTimeout(() => {
             // Sign out the user
@@ -5345,15 +5345,15 @@ async function startCamera() {
         if (startCamera.stream) {
             stopCamera();
         }
-        
+
         // Hide previous results
 //        resultContainer.classList.add('hidden');
-        
+
 //        statusMessage.textContent = 'Accessing camera...';
         // Request camera access with specific error handling
         try {
             startCamera.stream = await navigator.mediaDevices.getUserMedia({
-                video: { 
+                video: {
                     facingMode: 'environment', // Use back camera
                     width: { ideal: 1280 },
                     height: { ideal: 720 }
@@ -5377,23 +5377,23 @@ async function startCamera() {
                     throw new Error(`Camera error: ${mediaError.message}`);
             }
         }
-        
+
         // Connect the camera stream to the video element
         video.srcObject = startCamera.stream;
         video.setAttribute('playsinline', true); // required for iOS Safari
-        
+
         // When video is ready to play
         video.onloadedmetadata = function() {
             video.play();
-            
+
             // Enable scanning and update button
             startCamera.scanning = true;
 //            toggleButton.textContent = 'Stop Camera';
-            
+
             // Start scanning for QR codes
             // Use interval instead of requestAnimationFrame for better control over scan frequency
             startCamera.scanInterval = setInterval(readQRCode, 100); // scan every 100ms (10 times per second)
-            
+
 //            statusMessage.textContent = 'Camera active. Point at a QR code.';
         };
 
@@ -5407,16 +5407,16 @@ async function startCamera() {
     } catch (error) {
         console.error('Error accessing camera:', error);
         stopCamera(); // Ensure we clean up any partial setup
-        
+
         // Show user-friendly error message
         showToast(error.message || 'Failed to access camera. Please check your permissions and try again.', 5000, 'error');
-        
+
         // Re-throw the error if you need to handle it further up
         throw error;
     }
 }
 
-// changed to use qr.js library instead of jsQR.js 
+// changed to use qr.js library instead of jsQR.js
 function readQRCode(){
     const video = document.getElementById('video');
     const canvasElement = document.getElementById('canvas');
@@ -5463,12 +5463,12 @@ function handleSuccessfulScan(data) {
         clearInterval(startCamera.scanInterval);
         startCamera.scanInterval = null;
     }
-    
+
     startCamera.scanning = false;
-    
+
     // Stop the camera
     stopCamera();
-    
+
 /*
     // Show highlight effect
     scanHighlight.classList.add('active');
@@ -5480,10 +5480,10 @@ function handleSuccessfulScan(data) {
     // Display the result
 //    qrResult.textContent = data;
 //    resultContainer.classList.remove('hidden');
-    console.log("Raw QR Data Scanned:", data) 
+    console.log("Raw QR Data Scanned:", data)
     if (openQRScanModal.fill){
         // Call the assigned fill function (e.g., fillPaymentFromQR or fillStakeAddressFromQR)
-        openQRScanModal.fill(data) 
+        openQRScanModal.fill(data)
     }
 
     closeQRScanModal()
@@ -5499,7 +5499,7 @@ function stopCamera() {
         clearInterval(startCamera.scanInterval);
         startCamera.scanInterval = null;
     }
-    
+
     if (startCamera.stream) {
         startCamera.stream.getTracks().forEach(track => track.stop());
         startCamera.stream = null;
@@ -5510,7 +5510,7 @@ function stopCamera() {
     }
 }
 
-// Changed to use qr.js library instead of jsQR.js 
+// Changed to use qr.js library instead of jsQR.js
 async function handleQRFileSelect(event, fillFunction) { // Added fillFunction parameter
     const file = event.target.files[0];
     if (!file) {
@@ -5550,7 +5550,7 @@ async function handleQRFileSelect(event, fillFunction) { // Added fillFunction p
                     } else {
                         console.error('No valid fill function provided for QR file select');
                         // Fallback or default behavior if needed, e.g., show generic error
-                        showToast('Internal error handling QR data', 3000, 'error'); 
+                        showToast('Internal error handling QR data', 3000, 'error');
                     }
                 } else {
                     // qr.decodeQR might throw an error instead of returning null/undefined
@@ -5638,7 +5638,7 @@ class WSManager {
         protocol: window.location.protocol,
         userAgent: navigator.userAgent
     }, null, 2));
-    
+
     try {
       console.log('Creating new WebSocket instance');
       this.ws = new WebSocket(network.websocket.url);
@@ -5665,7 +5665,7 @@ class WSManager {
       console.log('WebSocket connection established');
       this.connectionState = 'connected';
       this.reconnectAttempts = 0;
-      
+
       // Auto-subscribe if account is available
       if (myAccount && myAccount.keys && myAccount.keys.address) {
         console.log('Auto-subscribing to WebSocket events');
@@ -5680,7 +5680,7 @@ class WSManager {
       console.log('WebSocket connection closed', event.code, event.reason);
       this.connectionState = 'disconnected';
       this.subscribed = false;
-      
+
       if (event.code !== 1000) {
         // Not a normal closure, try to reconnect
         console.log('Abnormal closure, attempting to reconnect');
@@ -5693,7 +5693,7 @@ class WSManager {
       try {
         console.log('WebSocket message received:', event.data);
         const data = JSON.parse(event.data);
-        
+
         // Check if this is a subscription response
         if (data.result !== undefined) {
             if (data.result === true) {
@@ -5738,21 +5738,21 @@ class WSManager {
       console.error('Cannot subscribe: WebSocket not connected');
       return false;
     }
-    
+
     if (!myAccount || !myAccount.keys || !myAccount.keys.address) {
       console.error('Cannot subscribe: No account information');
       return false;
     }
-    
+
     try {
       console.log('Subscribing to chat events for address:', myAccount.keys.address);
-      
+
       // Create subscription message directly with the required format
       const subscribeMessage = {
         method: "ChatEvent",
         params: ["subscribe", longAddress(myAccount.keys.address)]
       };
-      
+
       console.log('Sending subscription message:', JSON.stringify(subscribeMessage));
       this.ws.send(JSON.stringify(subscribeMessage));
       console.log('Subscription message sent');
@@ -5773,20 +5773,20 @@ class WSManager {
       console.warn('Cannot unsubscribe: WebSocket not connected');
       return;
     }
-    
+
     if (!this.subscribed) {
       console.log('Not subscribed, no need to unsubscribe');
       return;
     }
-    
+
     try {
       console.log('Unsubscribing from chat events');
-      
+
       const unsubscribeMessage = {
         method: "ChatEvent",
         params: ["unsubscribe", longAddress(myAccount.keys.address)]
       };
-      
+
       this.ws.send(JSON.stringify(unsubscribeMessage));
       this.subscribed = false;
       console.log('Attempted to unsubscribe');
@@ -5804,7 +5804,7 @@ class WSManager {
     if (this.subscribed) {
       this.unsubscribe();
     }
-    
+
     if (this.ws) {
       try {
         if (this.ws.readyState === WebSocket.OPEN) {
@@ -5835,7 +5835,7 @@ class WSManager {
         maxAttempts: this.maxReconnectAttempts
       }
     };
-    
+
     // Add Firefox-specific diagnostics
     if (navigator.userAgent.includes('Firefox')) {
       diagnosticInfo.firefox = {
@@ -5845,28 +5845,28 @@ class WSManager {
         pageProtocol: window.location.protocol
       };
     }
-    
+
     console.error('WebSocket Connection Failure:', JSON.stringify(diagnosticInfo, null, 2));
-    
+
     this.connectionState = 'disconnected';
-    
+
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.log('Reconnection Status: Maximum attempts reached, falling back to polling');
       return;
     }
 
     this.reconnectAttempts++;
-    
+
     // Exponential backoff
     const delay = Math.min(30000, Math.pow(2, this.reconnectAttempts) * 1000 + Math.random() * 1000);
-    
+
     const reconnectInfo = {
       attempt: this.reconnectAttempts,
       maxAttempts: this.maxReconnectAttempts,
       delaySeconds: Math.round(delay / 1000)
     };
     console.log('Reconnection Schedule:', JSON.stringify(reconnectInfo, null, 2));
-    
+
     setTimeout(() => {
       console.log('Reconnecting to WebSocket');
       this.connect();
@@ -5905,7 +5905,7 @@ class WSManager {
     };
 
     // Add iOS standalone info
-    const isIOSStandalone = (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) && 
+    const isIOSStandalone = (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) &&
                             window.navigator.standalone === true;
     if (isIOSStandalone) {
       supportInfo.ios = {
@@ -5917,7 +5917,7 @@ class WSManager {
     // Add Firefox-specific info
     if (navigator.userAgent.includes('Firefox')) {
       supportInfo.firefox = {
-        mixedContentBlocked: window.location.protocol === 'https:' && 
+        mixedContentBlocked: window.location.protocol === 'https:' &&
                              network.websocket.url.startsWith('ws://'),
         usingSecureWebSocket: network.websocket.url.startsWith('wss://'),
         port: network.websocket.url.split(':')[2]?.split('/')[0] || 'default'
@@ -5931,7 +5931,7 @@ class WSManager {
       hostname: wsUrl.hostname,
       port: wsUrl.port || (wsUrl.protocol === 'wss:' ? '443' : '80'),
       pathname: wsUrl.pathname,
-      requiresSecureContext: wsUrl.protocol === 'wss:' && 
+      requiresSecureContext: wsUrl.protocol === 'wss:' &&
                             !supportInfo.environment.isLocalhost
     };
 
@@ -5949,7 +5949,7 @@ class WSManager {
     }
 
     // Allow WSS connections on localhost even with HTTP protocol
-    if (supportInfo.websocket.requiresSecureContext && 
+    if (supportInfo.websocket.requiresSecureContext &&
         supportInfo.environment.protocol !== 'https:' &&
         !supportInfo.environment.isLocalhost) {
       console.error('WebSocket Support: Secure context required for WSS');
@@ -5983,17 +5983,17 @@ class WSManager {
                     available: !!(myAccount?.keys?.address)
                 }
             };
-            
+
             console.log('WebSocket Manager Initialization:', JSON.stringify(initInfo, null, 2));
-            
+
             initInfo.status = 'created';
-            
+
             if (initInfo.account.available) {
                 this.connect();
                 initInfo.status = 'connecting';
             }
             console.log('WebSocket Manager Status:', JSON.stringify(initInfo, null, 2));
-            
+
         } catch (error) {
             console.error('WebSocket Manager Initialization Error:', JSON.stringify({
                 error: error.message,
@@ -6008,7 +6008,7 @@ let wsManager = new WSManager()        // this is set to new WSManager() for con
 // New functions for send confirmation flow
 function handleSendFormSubmit(event) {
     event.preventDefault();
-    
+
     // Get form values
     const assetSelect = document.getElementById('sendAsset');
     const assetSymbol = assetSelect.options[assetSelect.selectedIndex].text;
@@ -6023,7 +6023,7 @@ function handleSendFormSubmit(event) {
     document.getElementById('confirmRecipient').textContent = recipient;
     document.getElementById('confirmAmount').textContent = `${amount}`;
     document.getElementById('confirmAsset').textContent = assetSymbol;
-    
+
     // Show/hide memo if present
     const memoGroup = document.getElementById('confirmMemoGroup');
     if (memo) {
@@ -6061,7 +6061,7 @@ function insertSorted(array, item, timestampField = 'timestamp') {
     const index = array.findIndex(
       (existingItem) => existingItem[timestampField] < item[timestampField]
     );
-  
+
     if (index === -1) {
       // If no such element is found, the new item is the oldest (or the array is empty),
       // so add it to the end.
@@ -6142,12 +6142,12 @@ async function timeDifference(retryCount = 0) {
 function getCorrectedTimestamp() {
     // Get the current client time
     const clientNow = Date.now();
-    
+
     // Add the stored skew (difference between server and client time)
     // If server was ahead, timeSkew is positive, making the corrected time larger.
     // If server was behind, timeSkew is negative, making the corrected time smaller.
-    const correctedTime = clientNow + timeSkew; 
-    
+    const correctedTime = clientNow + timeSkew;
+
     return correctedTime;
 }
 
@@ -6335,7 +6335,7 @@ async function openValidatorModal() {
         const marketPriceValue = document.getElementById('validator-market-price');
         const marketStakeUsdValue = document.getElementById('validator-market-stake-usd');
 
-        // set stakeForm dataset.minStake to big2str(stakeAmountLibBaseUnits, 18) for 
+        // set stakeForm dataset.minStake to big2str(stakeAmountLibBaseUnits, 18) for
         document.getElementById('stakeForm').dataset.minStake = big2str(stakeAmountLibBaseUnits, 18);
 
         // Format Network Info unconditionally
@@ -6452,7 +6452,7 @@ function openStakeModal() {
     document.getElementById('stakeModal').classList.add('active');
 
     // Set the correct fill function for the staking context
-    openQRScanModal.fill = fillStakeAddressFromQR; 
+    openQRScanModal.fill = fillStakeAddressFromQR;
 
     // Display Available Balance
     const balanceDisplay = document.getElementById('stakeAvailableBalanceDisplay');
@@ -6684,12 +6684,12 @@ async function handleStakeSubmit(event) {
         force: false,
         timestamp: getCorrectedTimestamp(),
     };
-    
+
     const txid = await signObj(unstakeTx, myAccount.keys)
     const response = await injectTx(unstakeTx, txid);
     return response;
  }
- 
+
  class RemoveAccountModal {
     constructor(){
     }
@@ -6770,13 +6770,13 @@ class BackupAccountModal {
 
         const password = document.getElementById('exportPassword').value;
         const jsonData = stringify(myData, null, 2);
-        
+
         try {
             // Encrypt data if password is provided
-            const finalData = password ? 
-                await encryptData(jsonData, password) : 
+            const finalData = password ?
+                await encryptData(jsonData, password) :
                 jsonData;
-            
+
             // Create and trigger download
             const blob = new Blob([finalData], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -6787,7 +6787,7 @@ class BackupAccountModal {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            
+
             // Close export modal
             this.close();
         } catch (error) {
@@ -6821,13 +6821,13 @@ class RestoreAccountModal {
         event.preventDefault();
         const fileInput = document.getElementById('importFile');
         const passwordInput = document.getElementById('importPassword');
-    
+
         try {
             // Read the file
             const file = fileInput.files[0];
             let fileContent = await file.text();
             const isNotEncryptedData = fileContent.match('{')
-    
+
             // Check if data is encrypted and decrypt if necessary
             if (!isNotEncryptedData) {
                 if (!passwordInput.value.trim()) {
@@ -6837,7 +6837,7 @@ class RestoreAccountModal {
                 fileContent = await decryptData(fileContent, passwordInput.value.trim());
                 if (fileContent == null){ throw "" }
             }
-    
+
             // We first parse to jsonData so that if the parse does not work we don't destroy myData
             myData = parse(fileContent)
             // also need to set myAccount
@@ -6861,13 +6861,13 @@ class RestoreAccountModal {
             // Store updated accounts back in localStorage
             existingAccounts.netids[myAccount.netid].usernames[myAccount.username] = {address: myAccount.keys.address};
             localStorage.setItem('accounts', stringify(existingAccounts));
-    
+
             // Store the localStore entry for username_netid
             localStorage.setItem(`${myAccount.username}_${myAccount.netid}`, stringify(myData));
-    
+
             // Show success message using toast
             showToast('Account restored successfully!', 2000, 'success');
-    
+
             // Reset form and close modal after delay
             setTimeout(() => {
                 this.close();
@@ -6875,7 +6875,7 @@ class RestoreAccountModal {
                 fileInput.value = '';
                 passwordInput.value = '';
             }, 2000);
-    
+
         } catch (error) {
             showToast(error.message || 'Import failed. Please check file and password.', 3000, 'error');
         }
@@ -7149,8 +7149,8 @@ class GatewayModal {
         this.updateList();
 
         // Show success message
-        const message = index === -1 
-            ? 'Using random gateway selection for better reliability' 
+        const message = index === -1
+            ? 'Using random gateway selection for better reliability'
             : 'Default gateway set';
         showToast(message);
     }
@@ -7166,7 +7166,7 @@ class AboutModal {
         // Set up event listeners
         document.getElementById('openAbout').addEventListener('click', () => this.open());
         document.getElementById('closeAboutModal').addEventListener('click', () => this.close());
-        
+
         // Set version and network information once during initialization
         document.getElementById('versionDisplayAbout').textContent = myVersion + ' ' + version;
         document.getElementById('networkNameAbout').textContent = network.name;
@@ -7243,7 +7243,7 @@ class MyProfileModal {
 }
 const myProfileModal = new MyProfileModal()
 
-/* async  */function validateStakeInputs() {
+function validateStakeInputs() {
     const nodeAddressInput = document.getElementById('stakeNodeAddress');
     const amountInput = document.getElementById('stakeAmount');
     const stakeForm = document.getElementById('stakeForm');
@@ -7282,7 +7282,7 @@ const myProfileModal = new MyProfileModal()
         nodeAddressWarningElement.textContent = '';
     }
 
-    // --- Amount Checks --- 
+    // --- Amount Checks ---
     let amountWei;
     let minStakeWei;
     try {
@@ -7299,7 +7299,7 @@ const myProfileModal = new MyProfileModal()
         // actually if user is staked we need to get the amount they have staked and use that to calculate the min stake amount so the user doesn't need to calculate how much they need to stake to have the node running. If they have staked enough we can just return early and enable the button and let the user stake more if they want to.
         /* const res = await queryNetwork(`/account/${myData.account.address}`);
         const staked = res?.account?.operatorAccountInfo?.nominee;
-        
+
         minStakeWei = bigxnum2big(wei, minStakeAmountStr);
 
         if (staked) {
@@ -7379,11 +7379,11 @@ async function checkPendingTransactions() {
     }
 
     if (myData.pending.length === 0) return; // No pending transactions to check
-    
+
     console.log(`checking pending transactions (${myData.pending.length})`);
     const now = getCorrectedTimestamp();
     const eightSecondsAgo = now - 8000;
-    
+
     // Process each transaction in reverse to safely remove items
     for (let i = myData.pending.length - 1; i >= 0; i--) {
         const pendingTxInfo = myData.pending[i];
@@ -7396,32 +7396,32 @@ async function checkPendingTransactions() {
             // if (now - submittedts > 15000) {
             //     const res = await queryNetwork(`/old_receipt/${txid}`);
             // } else {
-                const res = await queryNetwork(`/transaction/${txid}`);
-            // }
+            const res = await queryNetwork(`/transaction/${txid}`);
+
 
             if (res?.transaction?.success === true) {
                 // comment out to test the pending txs removal logic
                 myData.pending.splice(i, 1);
 
                 if (type === 'register') {
-                    pendingPromiseService.resolve(txid, { 
-                        username: pendingTxInfo.username, 
-                        address: pendingTxInfo.address 
+                    pendingPromiseService.resolve(txid, {
+                        username: pendingTxInfo.username,
+                        address: pendingTxInfo.address
                     });
 
                     // update wallet balances
                     await updateWalletBalances();
                 }
 
-                if (res?.transaction?.type === 'withdraw_stake') {
-                    const index = myData.wallet.history.findIndex(tx => tx.txid === txid);
-                    if (index !== -1) {
-                        // covert amount to wei
-                        myData.wallet.history[index].amount = parse(stringify(res.transaction.additionalInfo.totalUnstakeAmount));
-                    } else {
-                        console.log(`DEBUG: txid ${txid} not found in wallet history`);
-                    }
+            if (res?.transaction?.type === 'withdraw_stake') {
+                const index = myData.wallet.history.findIndex(tx => tx.txid === txid);
+                if (index !== -1) {
+                    // covert amount to wei
+                    myData.wallet.history[index].amount = parse(stringify(res.transaction.additionalInfo.totalUnstakeAmount));
+                } else {
+                    console.log(`DEBUG: txid ${txid} not found in wallet history`);
                 }
+            }
 
                 if (type === 'deposit_stake' || type === 'withdraw_stake') {
                     // show toast notification with the success message
@@ -7435,7 +7435,7 @@ async function checkPendingTransactions() {
 
                 // remove the pending tx from the pending array
                 myData.pending.splice(i, 1);
-            } 
+            }
             else if (res?.transaction?.success === false) {
                 console.log(`DEBUG: txid ${txid} failed, removing completely`);
                 // Check for failure reason in the transaction receipt
@@ -7445,10 +7445,10 @@ async function checkPendingTransactions() {
                 if (type === 'register') {
                     pendingPromiseService.reject(txid, new Error(failureReason));
                 } else {
-                    // Show toast notification with the failure reason
+                // Show toast notification with the failure reason
                     if (type === 'withdraw_stake') {
                         showToast(`Unstake failed: ${failureReason}`, 0, "error");
-                    } else if (type === 'deposit_stake') {
+                } else if (type === 'deposit_stake') {
                         showToast(`Stake failed: ${failureReason}`, 0, "error");
                     } else { // for messages, transfer etc.
                         showToast(failureReason, 0, "error");
@@ -7458,10 +7458,10 @@ async function checkPendingTransactions() {
                     updateTransactionStatus(txid, toAddress, 'failed', type);
                     refreshCurrentView(txid);
                 }
-                
+
                 // Remove from pending array
                 myData.pending.splice(i, 1);
-                
+                // Update the status of the transaction to 'failed'
                 // refresh the validator modal if this is a withdraw_stake/deposit_stake and validator modal is open
                 if (type === 'withdraw_stake' || type === 'deposit_stake') {
                     // remove from wallet history
@@ -7475,12 +7475,12 @@ async function checkPendingTransactions() {
                 }
             } else {
                 console.log(`DEBUG: tx ${txid} status unknown, waiting for receipt`);
-                // TODO: implement timeout logic here if needed or in another else if for when queryNetwork returns null so we need to use the old_receipt endpoint
+                // Optional: Implement timeout logic here if needed
                 // Optional: Implement timeout logic here if needed
                 /* if (now - tx.submittedts > 15000) { // Example: 15 second timeout
                     console.log(`DEBUG: txid ${txid} timed out, removing completely`);
                     removeFailedTx(txid);
-                    refreshCurrentView(txid); 
+                    refreshCurrentView(txid);
                 } */
             }
         }
@@ -7517,7 +7517,7 @@ function refreshCurrentView(txid) { // contactAddress is kept for potential futu
             // The failed txid doesn't correspond to a visible message in the *currently open* chat modal. No UI refresh needed for the modal itself.
             console.log(`DEBUG: Skipping chat modal refresh. Failed txid ${txid} not found in the active modal's message list.`);
         }
-    } 
+    }
     // 3. Refresh Chat List if active
     if (chatsScreen && chatsScreen.classList.contains('active')) {
         console.log("DEBUG: Refreshing chat list view due to transaction failure.");
@@ -7553,16 +7553,15 @@ function updateTransactionStatus(txid, toAddress, status, type) {
         }
     }
 }
-
 const pendingPromiseService = (() => {
     const pendingPromises = new Map(); // txid -> { resolve, reject }
-  
+
     function register(txid) {
         return new Promise((resolve, reject) => {
             pendingPromises.set(txid, { resolve, reject });
         });
     }
-  
+
     function resolve(txid, data) {
         if (pendingPromises.has(txid)) {
             console.log(`DEBUG: resolving txid ${txid} with data ${data}`);
@@ -7571,7 +7570,7 @@ const pendingPromiseService = (() => {
             pendingPromises.delete(txid);
         }
     }
-  
+
     function reject(txid, error) {
         if (pendingPromises.has(txid)) {
             console.log(`DEBUG: rejecting txid ${txid} with error ${error}`);
@@ -7580,6 +7579,6 @@ const pendingPromiseService = (() => {
             pendingPromises.delete(txid);
         }
     }
-  
+
     return { register, resolve, reject };
   })();

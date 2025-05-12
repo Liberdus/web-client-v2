@@ -26,10 +26,10 @@ const state = {
     notifiedChats: new Set()
 };
 
-// Install event 
+// Install event
 self.addEventListener('install', (event) => {
   /* console.log('[Service Worker] Installing, version:', CACHE_VERSION);
-  
+
   event.waitUntil(
     (async () => {
       try {
@@ -43,7 +43,7 @@ self.addEventListener('install', (event) => {
           console.log('[Service Worker] Precaching complete');
         } catch (precacheError) {
           console.warn('[Service Worker] Precaching failed, will try individual resources:', precacheError);
-          
+
           // If bulk precaching fails, try individual resources
           const precachePromises = PRECACHE_URLS.map(async (url) => {
             try {
@@ -101,16 +101,16 @@ self.addEventListener('activate', (event) => {
         );
 
 
-        
+
         // Verify cache contents after activation
         const cache = await caches.open(STATIC_CACHE);
         const cachedKeys = await cache.keys();
-        console.log('[Service Worker] Available cached resources:', 
+        console.log('[Service Worker] Available cached resources:',
           cachedKeys.map(req => req.url));
-          
+
         // Clean up old dynamic cache entries
         await cleanupOldCacheEntries();
-        
+
         // Set up periodic cache cleanup
         setupPeriodicCacheCleanup();
 
@@ -127,27 +127,27 @@ self.addEventListener('activate', (event) => {
   try {
     const MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
     const now = Date.now();
-    
+
     // Clean up dynamic cache
     const dynamicCache = await caches.open(DYNAMIC_CACHE);
     const dynamicRequests = await dynamicCache.keys();
-    
+
     const oldEntries = await Promise.all(
       dynamicRequests.map(async (request) => {
         const response = await dynamicCache.match(request);
         const responseDate = response.headers.get('date');
-        
+
         if (responseDate) {
           const date = new Date(responseDate).getTime();
           if (now - date > MAX_AGE) {
             return request;
           }
         }
-        
+
         return null;
       })
     );
-    
+
     // Filter out null entries and delete old ones
     const entriesToDelete = oldEntries.filter(entry => entry !== null);
     await Promise.all(
@@ -156,7 +156,7 @@ self.addEventListener('activate', (event) => {
         return dynamicCache.delete(request);
       })
     );
-    
+
     console.log(`[Service Worker] Cleaned up ${entriesToDelete.length} old cache entries`);
   } catch (error) {
     console.error('[Service Worker] Cache cleanup failed:', error);
@@ -166,7 +166,7 @@ self.addEventListener('activate', (event) => {
 // Helper function to determine caching strategy based on request
 /* function getCacheStrategy(request) {
   const url = new URL(request.url);
-  
+
   // Static assets - Cache First
   if (
     request.destination === 'style' ||
@@ -177,22 +177,22 @@ self.addEventListener('activate', (event) => {
   ) {
     return 'cache-first';
   }
-  
+
   // API endpoints that should not be cached - Network Only
   if (shouldNotCache(request)) {
     return 'network-only';
   }
-  
+
   // API endpoints - Network First
   if (url.pathname.startsWith('/api/')) {
     return 'network-first';
   }
-  
+
   // HTML navigation - Cache First for offline support
   if (request.mode === 'navigate') {
     return 'cache-first';
   }
-  
+
   // Default to network first
   return 'network-first';
 } */
@@ -200,7 +200,7 @@ self.addEventListener('activate', (event) => {
 // Fetch event - handle caching strategies
 /* self.addEventListener('fetch', (event) => {
   const strategy = getCacheStrategy(event.request);
-  
+
   switch (strategy) {
     case 'cache-first':
       event.respondWith(cacheFirst(event.request));
@@ -221,12 +221,12 @@ self.addEventListener('activate', (event) => {
   try {
     const cache = await caches.open(STATIC_CACHE);
     const cached = await cache.match(request);
-    
+
     if (cached) {
       console.log('[Service Worker] Serving from cache:', request.url);
       return cached;
     }
-    
+
     // If not in cache, try network
     try {
       const response = await fetch(request);
@@ -254,7 +254,7 @@ self.addEventListener('activate', (event) => {
 /* async function networkFirst(request) {
   try {
     const response = await fetch(request);
-    
+
     // Only cache GET requests that should be cached
     if (request.method === 'GET' && !shouldNotCache(request)) {
       try {
@@ -265,16 +265,16 @@ self.addEventListener('activate', (event) => {
         // Continue even if caching fails
       }
     }
-    
+
     return response;
   } catch (error) {
     console.warn('[Service Worker] Network request failed:', error);
-    
+
     const cached = await caches.match(request);
     if (cached) {
       return cached;
     }
-    
+
     // If offline and no cache, return offline fallback for navigation
     if (request.mode === 'navigate') {
       const offlineFallback = await caches.match('./offline.html');
@@ -282,7 +282,7 @@ self.addEventListener('activate', (event) => {
         return offlineFallback;
       }
     }
-    
+
     throw error;
   }
 } */
@@ -293,7 +293,7 @@ self.addEventListener('activate', (event) => {
     return await fetch(request);
   } catch (error) {
     console.warn('[Service Worker] Network request failed:', error);
-    
+
     // If offline and navigation request, return offline fallback
     if (request.mode === 'navigate') {
       const cache = await caches.open(STATIC_CACHE);
@@ -302,7 +302,7 @@ self.addEventListener('activate', (event) => {
         return offlineFallback;
       }
     }
-    
+
     throw error;
   }
 } */
@@ -310,30 +310,30 @@ self.addEventListener('activate', (event) => {
 // Helper function to determine if a request should not be cached
 /* function shouldNotCache(request) {
   const url = new URL(request.url);
-  
+
   // Don't cache API endpoints that contain sensitive/frequently changing data
-  
+
   // Don't cache authentication endpoints
   if (url.pathname.includes('/address/') || url.pathname.includes('/account/')) {
     return true;
   }
-  
+
   // Don't cache message data
   if (url.pathname.includes('/messages/') || url.pathname.includes('/chats/')) {
     return true;
   }
-  
+
   // Don't cache transaction data
   if (url.pathname.includes('/inject') || url.pathname.includes('/balance')) {
     return true;
   }
-  
+
   // Don't cache large responses
   const contentLength = request.headers?.get('content-length');
   if (contentLength && parseInt(contentLength) > 1024 * 1024) { // > 1MB
     return true;
   }
-  
+
   return false;
 } */
 
@@ -349,7 +349,7 @@ self.addEventListener('activate', (event) => {
 // Handle messages from the client
 self.addEventListener('message', (event) => {
   const { type, timestamp, account } = event.data;
-  
+
   switch (type) {
 /*     case 'start_polling':
       state.timestamp = timestamp;
@@ -373,10 +373,10 @@ self.addEventListener('error', (event) => {
 self.addEventListener('unhandledrejection', (event) => {
   console.error('[Service Worker] Unhandled rejection:', event.reason);
 });
-/* 
+/*
 function startPolling() {
     if (state.pollInterval) return;
-    
+
     console.log('Starting message polling');
     state.pollInterval = setInterval(checkForNewMessages, 60000);
     checkForNewMessages();
@@ -409,16 +409,16 @@ function stopPolling() {
     console.error('No gateways available');
     return null;
   }
-  
+
   const { network } = state.account;
-  
+
   // If a default gateway is set and valid, use it
-  if (network.defaultGatewayIndex !== undefined && 
-      network.defaultGatewayIndex >= 0 && 
+  if (network.defaultGatewayIndex !== undefined &&
+      network.defaultGatewayIndex >= 0 &&
       network.defaultGatewayIndex < network.gateways.length) {
     return network.gateways[network.defaultGatewayIndex];
   }
-  
+
   // Otherwise use random selection
   return network.gateways[Math.floor(Math.random() * network.gateways.length)];
 } */
@@ -443,10 +443,10 @@ function stopPolling() {
             return;
         }
         const paddedAddress = address.padEnd(64, '0');
-        
+
         // Query for new messages
         const url = `${gateway.protocol}://${gateway.host}:${gateway.port}/account/${paddedAddress}/chats/${state.lastPollTime || state.timestamp}`;
-        
+
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Network response failed: ${response.status}`);
 
@@ -475,7 +475,7 @@ function stopPolling() {
     }
 
     try {
-        const notificationText = chatCount === 1 
+        const notificationText = chatCount === 1
             ? 'You have new messages in a conversation'
             : `You have new messages in ${chatCount} conversations`;
 
@@ -498,7 +498,7 @@ function stopPolling() {
 
     // Get the scope of the service worker
     const swScope = self.registration.scope;
-    
+
     // Focus existing window or open new one
     event.waitUntil(
         clients.matchAll({ type: 'window' }).then(clientList => {
@@ -523,7 +523,7 @@ self.addEventListener('terminate', event => {
 /* function setupPeriodicCacheCleanup() {
   // Clean up cache every 24 hours
   const CLEANUP_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-  
+
   // Use setInterval for periodic cleanup
   setInterval(() => {
     console.log('[Service Worker] Running periodic cache cleanup');
@@ -531,6 +531,6 @@ self.addEventListener('terminate', event => {
       .then(() => console.log('[Service Worker] Periodic cleanup complete'))
       .catch(error => console.error('[Service Worker] Periodic cleanup failed:', error));
   }, CLEANUP_INTERVAL);
-  
+
   console.log('[Service Worker] Periodic cache cleanup scheduled');
 } */
