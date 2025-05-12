@@ -541,6 +541,11 @@ async function handleCreateAccount(event) {
         return;
     }
 
+    // --- Show Waiting Toast ---
+    // Show a persistent toast indicating we're waiting for network confirmation
+    const waitingToastId = showToast('Waiting for transaction confirmation...', 60000, 'info');
+    let successful = false; // Flag to track outcome
+
     // postRegisterAlias injects the tx to the network and also the res has txid
     // Instead of closing modal now we'll wait for the receipt of the account creation when invoking checkPendingTransactions (will remove from pending array) then allowing user to enter the app
     // had to move local storage save to here since it needs to be done before waiting for the tx to be removed from pending array
@@ -549,32 +554,47 @@ async function handleCreateAccount(event) {
     
     // don't go past interval until the txid is no longer in the pending array
     try {
+        // Wait for the transaction confirmation
         await waitForTxNotInPending(res.txid);
+        successful = true; // Set the flag to true if the transaction is successful
     } catch (error) {
-        console.error('Error waiting for transaction to be removed from pending array:', error);
+        // Failure/Timeout: Handle the error
+        console.error('Error waiting for transaction confirmation:', error);
         alert(`${error.message}. Please try again.`);
-        // remove the account from localStorage
-        const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-        delete existingAccounts.netids[netid].usernames[username];
-        localStorage.setItem('accounts', stringify(existingAccounts));
         
-        return;
+        // Rollback localStorage
+        const currentAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}'); // Re-fetch in case of async issues
+        if (currentAccounts.netids?.[netid]?.usernames?.[username]) {
+             delete currentAccounts.netids[netid].usernames[username];
+             localStorage.setItem('accounts', stringify(currentAccounts));
+        }
+        localStorage.removeItem(`${username}_${netid}`);
+    } finally {
+        // --- Hide Waiting Toast (Always Run) ---
+        hideToast(waitingToastId);
     }
 
-    /* requestNotificationPermission(); */
+    if (successful) {
+        // --- Show Success Toast ---
+        showToast('Account created successfully!', 3000, 'success');
+        
+        /* requestNotificationPermission(); */
 
-    // enable submit button
-    submitButton.disabled = false;
+        // enable submit button
+        submitButton.disabled = false;
 
-    // Close modal and proceed to app
-    closeCreateAccountModal();
-    document.getElementById('welcomeScreen').style.display = 'none';
-    getChats.lastCall = getCorrectedTimestamp() // since we just created the account don't check for chat messages
+        // Close modal and proceed to app
+        closeCreateAccountModal();
+        document.getElementById('welcomeScreen').style.display = 'none';
+        getChats.lastCall = getCorrectedTimestamp() // since we just created the account don't check for chat messages
 
-    // TODO: now that we know receipt is succesful we can updateWalletBalances() here now that the account is stored in localStorage
-    // updateWalletBalances();
+        // TODO: now that we know receipt is succesful we can updateWalletBalances() here now that the account is stored in localStorage
+        // updateWalletBalances();
 
-    switchView('chats'); // Default view
+        switchView('chats'); // Default view
+    } else {
+        return;
+    }
 }
 
 /**
