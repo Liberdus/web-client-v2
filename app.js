@@ -525,11 +525,11 @@ async function handleCreateAccount(event) {
 
     // moved this earlier since needed for when injectTx invoked which needs the account in localStorage to put into pending array if succesfully submitted to the server
     // Store updated accounts back in localStorage
-    existingAccounts.netids[netid].usernames[username] = {address: myAccount.keys.address};
-    localStorage.setItem('accounts', stringify(existingAccounts));
+    // existingAccounts.netids[netid].usernames[username] = {address: myAccount.keys.address};
+    // localStorage.setItem('accounts', stringify(existingAccounts));
 
-    // Store the account data in localStorage
-    localStorage.setItem(`${username}_${netid}`, stringify(myData));
+    // // Store the account data in localStorage
+    // localStorage.setItem(`${username}_${netid}`, stringify(myData));
 
     if (initialToastId) hideToast(initialToastId);
     
@@ -550,37 +550,32 @@ async function handleCreateAccount(event) {
             closeCreateAccountModal();
             document.getElementById('welcomeScreen').style.display = 'none';
             getChats.lastCall = getCorrectedTimestamp();
+
+            // Store the account data in localStorage
+            existingAccounts.netids[netid].usernames[username] = {address: myAccount.keys.address};
+            localStorage.setItem('accounts', stringify(existingAccounts));
+            saveState();
+
             await switchView('chats');
         } catch (error) {
             if (waitingToastId) hideToast(waitingToastId);
             console.log(`DEBUG: handleCreateAccount error`, error);
 
             // rollback localStorage changes
-            rollbackLocalStorageChanges(username, netid);
+            //rollbackLocalStorageChanges(username, netid);
             submitButton.disabled = false;
             // Note: `checkPendingTransactions` will also remove the item from `myData.pending` if it's rejected by the service.
             return;
         }
     } else {
         // rollback localStorage changes
-        rollbackLocalStorageChanges(username, netid);
+        //rollbackLocalStorageChanges(username, netid);
 
         if (waitingToastId) hideToast(waitingToastId);
         showToast(gatewayResponse?.result?.reason || 'Failed to submit registration to gateway. Please try again.', 0, 'error');
         submitButton.disabled = false;
         return;
     }
-}
-
-// rollback localStorage changes
-function rollbackLocalStorageChanges(username, netid) {
-    console.log('DEBUG: rollbackLocalStorageChanges', username, netid);
-    const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-    if (existingAccounts.netids?.[netid]?.usernames?.[username]) {
-        delete existingAccounts.netids[netid].usernames[username];
-        localStorage.setItem('accounts', stringify(existingAccounts));
-    }
-    localStorage.removeItem(`${username}_${netid}`);
 }
 
 // This is for the sign in button after selecting an account
