@@ -387,7 +387,7 @@ function closeCreateAccountModal() {
 }
 
 async function handleCreateAccount(event) {
-    const initialToastId = showToast('Waiting for transaction confirmation...', 0, 'loading');
+    const initialToastId = showToast('Creating account...', 0, 'loading');
     // disable submit button
     const submitButton = document.querySelector('#createAccountForm button[type="submit"]');
     submitButton.disabled = true;
