@@ -385,7 +385,7 @@ function closeCreateAccountModal() {
 }
 
 async function handleCreateAccount(event) {
-    showToast('Creating account...', 3000);
+    //showToast('Creating account...', 3000);
 
     // disable submit button
     const submitButton = document.querySelector('#createAccountForm button[type="submit"]');
@@ -543,7 +543,7 @@ async function handleCreateAccount(event) {
 
     // --- Show Waiting Toast ---
     // Show a persistent toast indicating we're waiting for network confirmation
-    const waitingToastId = showToast('Waiting for transaction confirmation...', 60000, 'info');
+    const waitingToastId = showToast('Waiting for transaction confirmation...', 60000, 'loading');
     let successful = false; // Flag to track outcome
 
     // postRegisterAlias injects the tx to the network and also the res has txid
