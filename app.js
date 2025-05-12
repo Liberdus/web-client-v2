@@ -387,7 +387,6 @@ function closeCreateAccountModal() {
 }
 
 async function handleCreateAccount(event) {
-    const initialToastId = showToast('Creating account...', 0, 'loading');
     // disable submit button
     const submitButton = document.querySelector('#createAccountForm button[type="submit"]');
     submitButton.disabled = true;
@@ -415,7 +414,6 @@ async function handleCreateAccount(event) {
         // Validate and normalize private key
         const validation = validatePrivateKey(providedPrivateKey);
         if (!validation.valid) {
-            if (initialToastId) hideToast(initialToastId);
             privateKeyError.textContent = validation.message;
             privateKeyError.style.color = '#dc3545';
             privateKeyError.style.display = 'inline';
@@ -485,7 +483,6 @@ async function handleCreateAccount(event) {
             // Check if the query returned data indicating an account exists.
             // This assumes a non-null `accountInfo` with an `account` property means it exists.
             if (accountInfo && accountInfo.account) { 
-                if (initialToastId) hideToast(initialToastId);
                 console.log('Account already exists for this private key:', accountInfo);
                 privateKeyError.textContent = 'An account already exists for this private key.';
                 privateKeyError.style.color = '#dc3545';
@@ -496,7 +493,6 @@ async function handleCreateAccount(event) {
                  privateKeyError.style.display = 'none';
             }
         } catch (error) {
-            if (initialToastId) hideToast(initialToastId);
             console.error('Error checking for existing account:', error);
             privateKeyError.textContent = 'Network error checking key. Please try again.';
             privateKeyError.style.color = '#dc3545';
@@ -521,6 +517,7 @@ async function handleCreateAccount(event) {
 
     // Create new data entry
     myData = newDataRecord(myAccount);
+    let waitingToastId = showToast('Creating account...', 0, 'loading');
     const res = await postRegisterAlias(username, myAccount.keys);
 
     // moved this earlier since needed for when injectTx invoked which needs the account in localStorage to put into pending array if succesfully submitted to the server
@@ -530,12 +527,9 @@ async function handleCreateAccount(event) {
 
     // // Store the account data in localStorage
     // localStorage.setItem(`${username}_${netid}`, stringify(myData));
-
-    if (initialToastId) hideToast(initialToastId);
     
     if (res && res.result && res.result.success && res.txid) {
         const txid = res.txid;
-        let waitingToastId = showToast('Creating account...', 0, 'loading');
 
         try {
             // Wait for the transaction confirmation
