@@ -519,7 +519,21 @@ async function handleCreateAccount(event) {
     myData = newDataRecord(myAccount);
     const res = await postRegisterAlias(username, myAccount.keys);
 
+    // moved this earlier since needed for when injectTx invoked which needs the account in localStorage to put into pending array if succesfully submitted to the server
+    // Store updated accounts back in localStorage
+    existingAccounts.netids[netid].usernames[username] = {address: myAccount.keys.address};
+    localStorage.setItem('accounts', stringify(existingAccounts));
+
+    // Store the account data in localStorage
+    localStorage.setItem(`${username}_${netid}`, stringify(myData));
+
+    // this is handling the case where the account creation failed
     if (res && (res.error || !res.result.success)) {
+        // remove the account from localStorage
+        const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+        delete existingAccounts.netids[netid].usernames[username];
+        localStorage.setItem('accounts', stringify(existingAccounts));
+
         //console.log('no res', res)
         if (res?.result?.reason){
             alert(res.result.reason)
@@ -527,17 +541,25 @@ async function handleCreateAccount(event) {
         return;
     }
 
-    // TODO: check if account has been created successfully
-    // sleep/timeout for 3 seconds
-    await new Promise(resolve => setTimeout(resolve, 3000));
-
-    // Store updated accounts back in localStorage
-//    existingAccounts.netids[netid].usernames[username] = myAccount;
-    existingAccounts.netids[netid].usernames[username] = {address: myAccount.keys.address};
-    localStorage.setItem('accounts', stringify(existingAccounts));
+    // postRegisterAlias injects the tx to the network and also the res has txid
+    // Instead of closing modal now we'll wait for the receipt of the account creation when invoking checkPendingTransactions (will remove from pending array) then allowing user to enter the app
+    // had to move local storage save to here since it needs to be done before waiting for the tx to be removed from pending array
+       // in this case we know the txid and we can query for it here without changing checkPendingTransaction
+       // if fail we just delete the account from localStorage and return and show a toast/alert
     
-    // Store the account data in localStorage
-    localStorage.setItem(`${username}_${netid}`, stringify(myData));
+    // don't go past interval until the txid is no longer in the pending array
+    try {
+        await waitForTxNotInPending(res.txid);
+    } catch (error) {
+        console.error('Error waiting for transaction to be removed from pending array:', error);
+        alert(`${error.message}. Please try again.`);
+        // remove the account from localStorage
+        const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+        delete existingAccounts.netids[netid].usernames[username];
+        localStorage.setItem('accounts', stringify(existingAccounts));
+        
+        return;
+    }
 
     /* requestNotificationPermission(); */
 
@@ -548,7 +570,66 @@ async function handleCreateAccount(event) {
     closeCreateAccountModal();
     document.getElementById('welcomeScreen').style.display = 'none';
     getChats.lastCall = getCorrectedTimestamp() // since we just created the account don't check for chat messages
+
+    // TODO: now that we know receipt is succesful we can updateWalletBalances() here now that the account is stored in localStorage
+    // updateWalletBalances();
+
     switchView('chats'); // Default view
+}
+
+/**
+ * Uses promise to wait for a transaction to be removed from the pending array
+ * @param {string} txidToWatch - The transaction ID to watch
+ * @returns {Promise} - Resolves when the transaction is no longer in the pending array
+ */
+function waitForTxNotInPending(txidToWatch) {
+    return new Promise(async (resolve, reject) => {
+        checkStatus(resolve, reject, txidToWatch); // Start the first check
+    });
+}
+
+/**
+ * Check if the transaction is in the pending array
+ * if not, query the network for the transaction status
+ * if it is in the pending array, check if it has timed out or not
+ * @param {string} txidToWatch - The transaction ID to watch
+ * @returns {Promise} - Resolves when the transaction is no longer in the pending array
+ */
+async function checkStatus(resolve, reject, txidToWatch) {
+    try { // Add try block for overall error handling in this check cycle
+        const now = getCorrectedTimestamp();
+        const txInPending = myData.pending.find(tx => tx.txid === txidToWatch);
+
+        if (txInPending) {
+            // Still in pending array
+            if (now - txInPending.submittedts > 15000) {
+                console.log(`Transaction ${txidToWatch} timed out. Still in pending array after 15 seconds.`);
+                // Reject because of the timeout
+                reject(new Error(`Timeout: Transaction ${txidToWatch} was still pending after 15 seconds.`));
+                return; // Stop further checks
+            }
+            console.log(`Transaction ${txidToWatch} found in pending array. Checking again in 10 seconds...`);
+            setTimeout(() => checkStatus(resolve, reject, txidToWatch), 10000);
+        } else {
+            // No longer in the pending array.
+            // Now, we need to query using txid to see if failed or successful
+            const res = await queryNetwork(`/transaction/${txidToWatch}`);
+            // maybe need to check for old receipt `/old_receipt/${txidToWatch}` using if not able to get from `/transaction/${txidToWatch}` endpoint
+            if (res?.transaction?.success === false) {
+                reject(new Error(`Transaction ${txidToWatch} failed`));
+            } else if (res?.transaction?.success === true) {
+                resolve();
+            } else {
+                // Unknown status, retry after a delay
+                console.log(`Transaction ${txidToWatch} status unknown. Retrying in 10 seconds...`);
+                // TODO: retry or just reject?
+                setTimeout(() => checkStatus(resolve, reject, txidToWatch), 10000);
+            }
+        }
+    } catch (error) {
+        console.error('Error in checkStatus:', error);
+        reject(error);
+    }
 }
 
 // This is for the sign in button after selecting an account
@@ -3807,12 +3888,25 @@ function handleHistoryItemClick(event) {
     if (item.dataset.status === 'failed') {
         console.log(`Not opening chatModal for failed transaction`)
 
+        // if not data-address then we can assume it's a stake or unstake transaction so when clicking on it it should lead to the validator modal
+        // TODO: remove this maybe since it should be removed from history receipt when we know it has failed when checking receipt right?
+        /* if (!item.dataset.address) {
+            openValidatorModal();
+            return;
+        } */
+
         if (event.target.closest('.transaction-item')){
             handleFailedPaymentClick(item.dataset.txid, item);
         }
         
         return;
     }
+
+    // if not data-address then we can assume it's a stake or unstake transaction so when clicking on it it should lead to the validator modal
+    /* if (!item.dataset.address) {
+        openValidatorModal();
+        return;
+    } */
 
     if (item) {
         // Get the address from the data-address attribute
@@ -7215,7 +7309,7 @@ class MyProfileModal {
 }
 const myProfileModal = new MyProfileModal()
 
-function validateStakeInputs() {
+/* async  */function validateStakeInputs() {
     const nodeAddressInput = document.getElementById('stakeNodeAddress');
     const amountInput = document.getElementById('stakeAmount');
     const stakeForm = document.getElementById('stakeForm');
@@ -7259,7 +7353,86 @@ function validateStakeInputs() {
     let minStakeWei;
     try {
         amountWei = bigxnum2big(wei, amountStr);
+
+    /* {
+        "account": {
+            "alias": "tester3",
+            "claimedSnapshot": false,
+            "data": {
+            "balance": {
+                "dataType": "bi",
+                "value": "2b05699353b600000"
+            },
+            "chatTimestamp": 0,
+            "chats": {},
+            "friends": {},
+            "payments": [],
+            "remove_stake_request": null,
+            "stake": {
+                "dataType": "bi",
+                "value": 0
+            },
+            "toll": null
+            },
+            "emailHash": null,
+            "hash": "a1c1999b377f7e14b88b6596a6f92cf55e4c14d48eb8fb09169106b5048cb4b8",
+            "id": "a8b37fdbabc8da076ddaf3a163414fad186e5873000000000000000000000000",
+            "lastMaintenance": 1746738289782,
+            "operatorAccountInfo": {
+            "certExp": 0,
+            "nominee": "",
+            "operatorStats": {
+                "history": [],
+                "lastStakedNodeKey": "07b09fc16ec0971c2938aa8ccbf8c39400808edf4d8ed7d60facfa4799d2366b",
+                "totalNodePenalty": {
+                "dataType": "bi",
+                "value": 0
+                },
+                "totalNodeReward": {
+                "dataType": "bi",
+                "value": 0
+                },
+                "totalNodeTime": 0,
+                "totalUnstakeReward": {
+                "dataType": "bi",
+                "value": 0
+                },
+                "unstakeCount": 2
+            },
+            "stake": {
+                "dataType": "bi",
+                "value": 0
+            }
+            },
+            "pqPublicKey": "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",
+            "publicKey": "045a166789e43330f414565b737d8badf55e124d65402670fd8ee7bb009c8bcf8188c6ae2214678e3781c27ce119ab81d43081b4e006d3382ae096a668d875cbbf",
+            "timestamp": 1746741587058,
+            "type": "UserAccount",
+            "verified": false
+        }
+    } */
+
+        // if the user has already staked there is no need to check the min stake amount so we can make this faster by returning early and enabling the button
+        // check if staked by querying the network using user's account address or we can check the validator modal but this can't be done if opened from validator modal
+        // we may need to use the res.account.operatorAccountInfo.stake.value to check how much the user has staked though and use that to calculate the min stake amount so the user doesn't need to calculate how much they need to stake to have the node running. If they have staked enough we can just return early and enable the button and let the user stake more if they want to.
+
+        // check if the user has staked. If they have, we can return early and enable the stake button to allow them to stake more
+        // without having to check the min stake amount
+        // TODO: even if staked though might still need to check the min stake amount since the user might have been penalized and need to stake some more to meet the network stake minimum
+
+        // actually if user is staked we need to get the amount they have staked and use that to calculate the min stake amount so the user doesn't need to calculate how much they need to stake to have the node running. If they have staked enough we can just return early and enable the button and let the user stake more if they want to.
+        /* const res = await queryNetwork(`/account/${myData.account.address}`);
+        const staked = res?.account?.operatorAccountInfo?.nominee;
+        
         minStakeWei = bigxnum2big(wei, minStakeAmountStr);
+
+        if (staked) {
+            // get the amount they have staked
+            const stakedAmount = res?.account?.operatorAccountInfo?.stake?.value;
+            // subtract the staked amount from the min stake amount and this will be the new min stake amount
+            minStakeWei = minStakeWei - stakedAmount;
+        } */
+
         /* if (amountWei <= 0n) {
              amountWarningElement.textContent = 'Amount must be positive.';
              amountWarningElement.style.display = 'block';
@@ -7344,7 +7517,13 @@ async function checkPendingTransactions() {
         
         if (tx.submittedts < eightSecondsAgo) {
             console.log(`DEBUG: txid ${txid} is older than 8 seconds, checking receipt`);
-            const res = await queryNetwork(`/transaction/${txid}`);
+
+            // is tx.submittedts > 15000 use new endpoint (/old_receipt/<tx_hash_without_0x_prefix>) to check for older receipts since other endpoint may not contain the receipt anymore
+            // if (now - tx.submittedts > 15000) {
+            //     const res = await queryNetwork(`/old_receipt/${txid}`);
+            // } else {
+                const res = await queryNetwork(`/transaction/${txid}`);
+            // }
 
             if (res?.transaction?.type === 'withdraw_stake') {
                 const index = myData.wallet.history.findIndex(tx => tx.txid === txid);
@@ -7379,12 +7558,17 @@ async function checkPendingTransactions() {
                 console.log(`DEBUG: failure reason: ${failureReason}`);
                 
                 // Show toast notification with the failure reason
-                if (type !== 'deposit_stake' && type !== 'withdraw_stake') {
+                if (type !== 'deposit_stake' && type !== 'withdraw_stake' && type !== 'register') {
                     showToast(failureReason, 5000, "error");
                 } else if (type === 'withdraw_stake') {
                     showToast(`Unstake failed: ${failureReason}`, 5000, "error");
                 } else if (type === 'deposit_stake') {
                     showToast(`Stake failed: ${failureReason}`, 5000, "error");
+                } else if (type === 'register') {
+                    // Remove from pending array and will indicate to checkStatus() that the txid has received a receipt
+                    myData.pending.splice(i, 1);
+                    // return and handle register in checkStatus() < waitForTxNotInPending() < handleCreateAccount()
+                    return;
                 }
                 
                 // Remove from pending array
