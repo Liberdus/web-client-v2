@@ -535,11 +535,11 @@ async function handleCreateAccount(event) {
         localStorage.setItem('accounts', stringify(existingAccounts));
         localStorage.removeItem(`${username}_${netid}`);
 
+        // reenable submit button
+        submitButton.disabled = false;
 
         //console.log('no res', res)
-        if (res?.result?.reason){
-            alert(res.result.reason)
-        }
+
         return;
     }
 
