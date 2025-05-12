@@ -533,6 +533,8 @@ async function handleCreateAccount(event) {
         const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
         delete existingAccounts.netids[netid].usernames[username];
         localStorage.setItem('accounts', stringify(existingAccounts));
+        localStorage.removeItem(`${username}_${netid}`);
+
 
         //console.log('no res', res)
         if (res?.result?.reason){
@@ -622,14 +624,14 @@ async function checkStatus(resolve, reject, txidToWatch) {
 
         if (txInPending) {
             // Still in pending array
-            if (now - txInPending.submittedts > 15000) {
+            if (now - txInPending.submittedts > 20000) {
                 console.log(`Transaction ${txidToWatch} timed out. Still in pending array after 15 seconds.`);
                 // Reject because of the timeout
                 reject(new Error(`Timeout: Transaction ${txidToWatch} was still pending after 15 seconds.`));
                 return; // Stop further checks
             }
             console.log(`Transaction ${txidToWatch} found in pending array. Checking again in 10 seconds...`);
-            setTimeout(() => checkStatus(resolve, reject, txidToWatch), 10000);
+            setTimeout(() => checkStatus(resolve, reject, txidToWatch), 5000);
         } else {
             // No longer in the pending array.
             // Now, we need to query using txid to see if failed or successful
@@ -643,7 +645,7 @@ async function checkStatus(resolve, reject, txidToWatch) {
                 // Unknown status, retry after a delay
                 console.log(`Transaction ${txidToWatch} status unknown. Retrying in 10 seconds...`);
                 // TODO: retry or just reject?
-                setTimeout(() => checkStatus(resolve, reject, txidToWatch), 10000);
+                setTimeout(() => checkStatus(resolve, reject, txidToWatch), 5000);
             }
         }
     } catch (error) {
