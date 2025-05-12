@@ -561,8 +561,12 @@ async function handleCreateAccount(event) {
         successful = true; // Set the flag to true if the transaction is successful
     } catch (error) {
         // Failure/Timeout: Handle the error
-        console.error('Error waiting for transaction confirmation:', error);
-        alert(`${error.message}. Please try again.`);
+        console.error('Error waiting for transaction confirmation:', JSON.stringify(error, null, 2));
+        if (error.transaction?.reason) {
+            showToast(`${error.transaction?.reason}. Please try again.`, 5000, 'error');
+        } else {
+            showToast(`Transaction failed. Please try again.`, 5000, 'error');
+        }
         
         // Rollback localStorage
         const currentAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}'); // Re-fetch in case of async issues
@@ -595,6 +599,8 @@ async function handleCreateAccount(event) {
 
         switchView('chats'); // Default view
     } else {
+        // reenable submit button
+        submitButton.disabled = false;
         return;
     }
 }
@@ -638,7 +644,8 @@ async function checkStatus(resolve, reject, txidToWatch) {
             const res = await queryNetwork(`/transaction/${txidToWatch}`);
             // maybe need to check for old receipt `/old_receipt/${txidToWatch}` using if not able to get from `/transaction/${txidToWatch}` endpoint
             if (res?.transaction?.success === false) {
-                reject(new Error(`Transaction ${txidToWatch} failed`));
+                // should return the res to be used by waitForTxNotInPending that's used in createAccount
+                reject(res);
             } else if (res?.transaction?.success === true) {
                 resolve();
             } else {
