@@ -519,14 +519,6 @@ async function handleCreateAccount(event) {
     myData = newDataRecord(myAccount);
     let waitingToastId = showToast('Creating account...', 0, 'loading');
     const res = await postRegisterAlias(username, myAccount.keys);
-
-    // moved this earlier since needed for when injectTx invoked which needs the account in localStorage to put into pending array if succesfully submitted to the server
-    // Store updated accounts back in localStorage
-    // existingAccounts.netids[netid].usernames[username] = {address: myAccount.keys.address};
-    // localStorage.setItem('accounts', stringify(existingAccounts));
-
-    // // Store the account data in localStorage
-    // localStorage.setItem(`${username}_${netid}`, stringify(myData));
     
     if (res && res.result && res.result.success && res.txid) {
         const txid = res.txid;
@@ -561,7 +553,8 @@ async function handleCreateAccount(event) {
         }
     } else {
         if (waitingToastId) hideToast(waitingToastId);
-        showToast(gatewayResponse?.result?.reason || 'Failed to submit registration to gateway. Please try again.', 0, 'error');
+        console.error(`DEBUG: handleCreateAccount error in else`, JSON.stringify(res, null, 2));
+        // no toast here since injectTx will show it
         submitButton.disabled = false;
         return;
     }
@@ -7592,7 +7585,6 @@ const pendingPromiseService = (() => {
         if (pendingPromises.has(txid)) {
             console.log(`DEBUG: rejecting txid ${txid} with error ${error}`);
             const promiseControls = pendingPromises.get(txid);
-            //showToast(`account creation failed: ${error}`, 0, 'error');
             promiseControls.reject(error);
             pendingPromises.delete(txid);
         }
