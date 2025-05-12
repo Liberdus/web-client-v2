@@ -349,7 +349,7 @@ function handleCreateAccountInput(e) {
     // Reset display
     usernameAvailable.style.display = 'none';
     // username available test: change to false to test pending register tx
-    submitButton.disabled = false;
+    submitButton.disabled = true;
     
     // Check if username is too short
     if (username.length < 3) {
@@ -367,7 +367,7 @@ function handleCreateAccountInput(e) {
             usernameAvailable.style.color = '#dc3545';
             usernameAvailable.style.display = 'inline';
             // username available test: comment out to test pending register tx
-            //submitButton.disabled = true;
+            submitButton.disabled = true;
         } else if (taken == 'available') {
             usernameAvailable.textContent = 'available';
             usernameAvailable.style.color = '#28a745';
