@@ -7305,64 +7305,6 @@ const myProfileModal = new MyProfileModal()
     try {
         amountWei = bigxnum2big(wei, amountStr);
 
-    /* {
-        "account": {
-            "alias": "tester3",
-            "claimedSnapshot": false,
-            "data": {
-            "balance": {
-                "dataType": "bi",
-                "value": "2b05699353b600000"
-            },
-            "chatTimestamp": 0,
-            "chats": {},
-            "friends": {},
-            "payments": [],
-            "remove_stake_request": null,
-            "stake": {
-                "dataType": "bi",
-                "value": 0
-            },
-            "toll": null
-            },
-            "emailHash": null,
-            "hash": "a1c1999b377f7e14b88b6596a6f92cf55e4c14d48eb8fb09169106b5048cb4b8",
-            "id": "a8b37fdbabc8da076ddaf3a163414fad186e5873000000000000000000000000",
-            "lastMaintenance": 1746738289782,
-            "operatorAccountInfo": {
-            "certExp": 0,
-            "nominee": "",
-            "operatorStats": {
-                "history": [],
-                "lastStakedNodeKey": "07b09fc16ec0971c2938aa8ccbf8c39400808edf4d8ed7d60facfa4799d2366b",
-                "totalNodePenalty": {
-                "dataType": "bi",
-                "value": 0
-                },
-                "totalNodeReward": {
-                "dataType": "bi",
-                "value": 0
-                },
-                "totalNodeTime": 0,
-                "totalUnstakeReward": {
-                "dataType": "bi",
-                "value": 0
-                },
-                "unstakeCount": 2
-            },
-            "stake": {
-                "dataType": "bi",
-                "value": 0
-            }
-            },
-            "pqPublicKey": "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",
-            "publicKey": "045a166789e43330f414565b737d8badf55e124d65402670fd8ee7bb009c8bcf8188c6ae2214678e3781c27ce119ab81d43081b4e006d3382ae096a668d875cbbf",
-            "timestamp": 1746741587058,
-            "type": "UserAccount",
-            "verified": false
-        }
-    } */
-
         // if the user has already staked there is no need to check the min stake amount so we can make this faster by returning early and enabling the button
         // check if staked by querying the network using user's account address or we can check the validator modal but this can't be done if opened from validator modal
         // we may need to use the res.account.operatorAccountInfo.stake.value to check how much the user has staked though and use that to calculate the min stake amount so the user doesn't need to calculate how much they need to stake to have the node running. If they have staked enough we can just return early and enable the button and let the user stake more if they want to.
