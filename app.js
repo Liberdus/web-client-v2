@@ -528,7 +528,7 @@ async function handleCreateAccount(event) {
             const confirmationDetails = await pendingPromiseService.register(txid);
             if (confirmationDetails.username !== username || confirmationDetails.address !== longAddress(myAccount.keys.address)) {
                 throw new Error("Confirmation details mismatch.");
-    }
+            }
 
             if (waitingToastId) hideToast(waitingToastId);
             showToast('Account created successfully!', 3000, 'success');
@@ -536,10 +536,9 @@ async function handleCreateAccount(event) {
             closeCreateAccountModal();
             document.getElementById('welcomeScreen').style.display = 'none';
             getChats.lastCall = getCorrectedTimestamp();
-    // Store updated accounts back in localStorage
-//    existingAccounts.netids[netid].usernames[username] = myAccount;
-    existingAccounts.netids[netid].usernames[username] = {address: myAccount.keys.address};
-    localStorage.setItem('accounts', stringify(existingAccounts));
+            // Store updated accounts back in localStorage
+            existingAccounts.netids[netid].usernames[username] = {address: myAccount.keys.address};
+            localStorage.setItem('accounts', stringify(existingAccounts));
             saveState();
 
             await switchView('chats');
@@ -548,14 +547,14 @@ async function handleCreateAccount(event) {
             console.log(`DEBUG: handleCreateAccount error`, JSON.stringify(error, null, 2));
             showToast(`account creation failed: ${error}`, 0, 'error');
             submitButton.disabled = false;
-    // Store the account data in localStorage
+            // Note: `checkPendingTransactions` will also remove the item from `myData.pending` if it's rejected by the service.
             return;
         }
     } else {
         if (waitingToastId) hideToast(waitingToastId);
         console.error(`DEBUG: handleCreateAccount error in else`, JSON.stringify(res, null, 2));
-    // enable submit button
-    submitButton.disabled = false;
+        // no toast here since injectTx will show it
+        submitButton.disabled = false;
         return;
     }
 }
@@ -3854,9 +3853,9 @@ function handleHistoryItemClick(event) {
 }
 
 async function queryNetwork(url) {
-//console.log('query', url)
+    //console.log('queryNetwork', url)
     if (!await checkOnlineStatus()) {
-//TODO show user we are not online
+        //TODO: show user we are not online
         console.warn("not online")
         //alert('not online')
         return null
@@ -4966,6 +4965,7 @@ function showToast(message, duration = 2000, type = "default") {
     setTimeout(() => {
         toast.classList.add('show');
         // Set hide timeout
+        //TODO: For error toasts, keep it up until the user clicks somewhere to make it go away (set to 0 seconds when show toast invoked)
         if (type === "error") {
             // Add a close button to error toasts
             toast.style.pointerEvents = "auto";
@@ -5347,9 +5347,9 @@ async function startCamera() {
         }
 
         // Hide previous results
-//        resultContainer.classList.add('hidden');
+        // resultContainer.classList.add('hidden');
 
-//        statusMessage.textContent = 'Accessing camera...';
+        // statusMessage.textContent = 'Accessing camera...';
         // Request camera access with specific error handling
         try {
             startCamera.stream = await navigator.mediaDevices.getUserMedia({
@@ -5388,13 +5388,13 @@ async function startCamera() {
 
             // Enable scanning and update button
             startCamera.scanning = true;
-//            toggleButton.textContent = 'Stop Camera';
+            // toggleButton.textContent = 'Stop Camera';
 
             // Start scanning for QR codes
             // Use interval instead of requestAnimationFrame for better control over scan frequency
             startCamera.scanInterval = setInterval(readQRCode, 100); // scan every 100ms (10 times per second)
 
-//            statusMessage.textContent = 'Camera active. Point at a QR code.';
+            // statusMessage.textContent = 'Camera active. Point at a QR code.';
         };
 
         // Add error handler for video element
@@ -7397,7 +7397,7 @@ async function checkPendingTransactions() {
             //     const res = await queryNetwork(`/old_receipt/${txid}`);
             // } else {
             const res = await queryNetwork(`/transaction/${txid}`);
-
+            // }
 
             if (res?.transaction?.success === true) {
                 // comment out to test the pending txs removal logic
@@ -7413,15 +7413,15 @@ async function checkPendingTransactions() {
                     await updateWalletBalances();
                 }
 
-            if (res?.transaction?.type === 'withdraw_stake') {
-                const index = myData.wallet.history.findIndex(tx => tx.txid === txid);
-                if (index !== -1) {
-                    // covert amount to wei
-                    myData.wallet.history[index].amount = parse(stringify(res.transaction.additionalInfo.totalUnstakeAmount));
-                } else {
-                    console.log(`DEBUG: txid ${txid} not found in wallet history`);
+                if (res?.transaction?.type === 'withdraw_stake') {
+                    const index = myData.wallet.history.findIndex(tx => tx.txid === txid);
+                    if (index !== -1) {
+                        // covert amount to wei
+                        myData.wallet.history[index].amount = parse(stringify(res.transaction.additionalInfo.totalUnstakeAmount));
+                    } else {
+                        console.log(`DEBUG: txid ${txid} not found in wallet history`);
+                    }
                 }
-            }
 
                 if (type === 'deposit_stake' || type === 'withdraw_stake') {
                     // show toast notification with the success message
@@ -7445,7 +7445,7 @@ async function checkPendingTransactions() {
                 if (type === 'register') {
                     pendingPromiseService.reject(txid, new Error(failureReason));
                 } else {
-                // Show toast notification with the failure reason
+                    // Show toast notification with the failure reason
                     if (type === 'withdraw_stake') {
                         showToast(`Unstake failed: ${failureReason}`, 0, "error");
                 } else if (type === 'deposit_stake') {
@@ -7461,7 +7461,7 @@ async function checkPendingTransactions() {
 
                 // Remove from pending array
                 myData.pending.splice(i, 1);
-                // Update the status of the transaction to 'failed'
+
                 // refresh the validator modal if this is a withdraw_stake/deposit_stake and validator modal is open
                 if (type === 'withdraw_stake' || type === 'deposit_stake') {
                     // remove from wallet history
@@ -7475,8 +7475,7 @@ async function checkPendingTransactions() {
                 }
             } else {
                 console.log(`DEBUG: tx ${txid} status unknown, waiting for receipt`);
-                // Optional: Implement timeout logic here if needed
-                // Optional: Implement timeout logic here if needed
+                // TODO: implement timeout logic here if needed or in another else if for when queryNetwork returns null so we need to use the old_receipt endpoint
                 /* if (now - tx.submittedts > 15000) { // Example: 15 second timeout
                     console.log(`DEBUG: txid ${txid} timed out, removing completely`);
                     removeFailedTx(txid);
