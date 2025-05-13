@@ -7242,7 +7242,7 @@ class MyProfileModal {
 }
 const myProfileModal = new MyProfileModal()
 
-function validateStakeInputs() {
+async function validateStakeInputs() {
     const nodeAddressInput = document.getElementById('stakeNodeAddress');
     const amountInput = document.getElementById('stakeAmount');
     const stakeForm = document.getElementById('stakeForm');
@@ -7287,33 +7287,21 @@ function validateStakeInputs() {
     try {
         amountWei = bigxnum2big(wei, amountStr);
 
-        // if the user has already staked there is no need to check the min stake amount so we can make this faster by returning early and enabling the button
-        // check if staked by querying the network using user's account address or we can check the validator modal but this can't be done if opened from validator modal
-        // we may need to use the res.account.operatorAccountInfo.stake.value to check how much the user has staked though and use that to calculate the min stake amount so the user doesn't need to calculate how much they need to stake to have the node running. If they have staked enough we can just return early and enable the button and let the user stake more if they want to.
-
-        // check if the user has staked. If they have, we can return early and enable the stake button to allow them to stake more
-        // without having to check the min stake amount
-        // TODO: even if staked though might still need to check the min stake amount since the user might have been penalized and need to stake some more to meet the network stake minimum
-
-        // actually if user is staked we need to get the amount they have staked and use that to calculate the min stake amount so the user doesn't need to calculate how much they need to stake to have the node running. If they have staked enough we can just return early and enable the button and let the user stake more if they want to.
-        /* const res = await queryNetwork(`/account/${myData.account.address}`);
+        // get the account info for the address
+        const address = longAddress(myData?.account?.keys?.address);
+        const res = await queryNetwork(`/account/${address}`);
         const staked = res?.account?.operatorAccountInfo?.nominee;
 
         minStakeWei = bigxnum2big(wei, minStakeAmountStr);
 
         if (staked) {
-            // get the amount they have staked
-            const stakedAmount = res?.account?.operatorAccountInfo?.stake?.value;
+            // get the amount they have staked from the account info
+            const stakedAmount = hex2big(res?.account?.operatorAccountInfo?.stake?.value);
             // subtract the staked amount from the min stake amount and this will be the new min stake amount
             minStakeWei = minStakeWei - stakedAmount;
-        } */
-
-        /* if (amountWei <= 0n) {
-             amountWarningElement.textContent = 'Amount must be positive.';
-             amountWarningElement.style.display = 'block';
-             return; // Keep button disabled
-        } */
+        }
     } catch (error) {
+        console.error(`error validating stake inputs: ${error}`);
         amountWarningElement.textContent = 'Invalid amount format.';
         amountWarningElement.style.display = 'block';
         return; // Keep button disabled
@@ -7322,7 +7310,11 @@ function validateStakeInputs() {
     // Check 2: Minimum Stake Amount
     if (amountWei < minStakeWei) {
         const minStakeFormatted = big2str(minStakeWei, 18).slice(0, -16); // Example formatting
-        amountWarningElement.textContent = `Amount must be at least ${minStakeFormatted} LIB.`;
+        if (minStakeWei <= 0n) {
+            amountWarningElement.textContent = `Amount must be greater than ${minStakeFormatted} LIB.`;
+        } else {
+            amountWarningElement.textContent = `Amount must be at least ${minStakeFormatted} LIB.`;
+        }
         amountWarningElement.style.display = 'block';
         return; // Keep button disabled
     }
