@@ -7267,11 +7267,6 @@ async function validateStakeInputs() {
         return;
     }
 
-    // if amount is less than or equal to 0, than return
-    if(amountWei <= 0n) {
-        return;
-    }
-
     // Check 1.5: Node Address Format (64 hex chars)
     const addressRegex = /^[0-9a-fA-F]{64}$/;
     if (!addressRegex.test(nodeAddress)) {
@@ -7291,6 +7286,11 @@ async function validateStakeInputs() {
     let minStakeWei;
     try {
         amountWei = bigxnum2big(wei, amountStr);
+
+        // if amount is 0 or less, than return
+        if(amountWei <= 0n) {
+            return;
+        }
 
         // get the account info for the address
         const address = longAddress(myData?.account?.keys?.address);
