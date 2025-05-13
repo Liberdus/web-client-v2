@@ -522,7 +522,7 @@ async function handleCreateAccount(event) {
 
     if (res && res.result && res.result.success && res.txid) {
         const txid = res.txid;
-        //console.log('no res', res)
+
         try {
             // Wait for the transaction confirmation
             const confirmationDetails = await pendingPromiseService.register(txid);
