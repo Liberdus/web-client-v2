@@ -4456,7 +4456,7 @@ async function injectTx(tx, txid){
             }
             myData.pending.push(pendingTxData);
         } else {
-            showToast('Error injecting transaction: ' + data?.result?.reason, 5000, 'error');
+            showToast('Error injecting transaction: ' + data?.result?.reason, 0, 'error');
             console.error('Error injecting transaction:', data?.result?.reason);
         }
 
