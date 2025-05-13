@@ -7289,14 +7289,24 @@ async function validateStakeInputs() {
 
         // get the account info for the address
         const address = longAddress(myData?.account?.keys?.address);
-        const res = await queryNetwork(`/account/${address}`);
-        const staked = res?.account?.operatorAccountInfo?.nominee;
+        
+        // if the time stamps are more than 30 seconds ago, reset the staked amount and time stamps
+        if(getCorrectedTimestamp() - validateStakeInputs.timeStamps > 30000) {
+            const res = await queryNetwork(`/account/${address}`);
+            validateStakeInputs.stakedAmount = hex2big(res?.account?.operatorAccountInfo?.stake?.value);
+            validateStakeInputs.timeStamps = getCorrectedTimestamp();
+            validateStakeInputs.nominee = res?.account?.operatorAccountInfo?.nominee;
+        }
+        
+        
+        const staked = validateStakeInputs.nominee;
 
         minStakeWei = bigxnum2big(wei, minStakeAmountStr);
 
         if (staked) {
             // get the amount they have staked from the account info
-            const stakedAmount = hex2big(res?.account?.operatorAccountInfo?.stake?.value);
+            const stakedAmount = validateStakeInputs.stakedAmount;
+
             // subtract the staked amount from the min stake amount and this will be the new min stake amount
             minStakeWei = minStakeWei - stakedAmount;
         }
@@ -7333,7 +7343,9 @@ async function validateStakeInputs() {
     amountWarningElement.style.display = 'none'; // Ensure warning is hidden if balance is sufficient
     nodeAddressWarningElement.style.display = 'none'; // Ensure address warning is also hidden
 }
-
+validateStakeInputs.stakedAmount = 0n
+validateStakeInputs.timeStamps = 0
+validateStakeInputs.nominee = false
 /**
  * Remove failed transaction from the contacts messages, pending, and wallet history
  * @param {string} txid - The transaction ID to remove
