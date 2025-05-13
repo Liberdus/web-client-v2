@@ -7388,7 +7388,7 @@ async function checkPendingTransactions() {
     for (let i = myData.pending.length - 1; i >= 0; i--) {
         const pendingTxInfo = myData.pending[i];
         const { txid, type, submittedts } = pendingTxInfo;
-        
+
         if (submittedts < eightSecondsAgo) {
             console.log(`DEBUG: txid ${txid} is older than 8 seconds, checking receipt`);
 
@@ -7475,18 +7475,13 @@ async function checkPendingTransactions() {
                 }
             } else {
                 console.log(`DEBUG: tx ${txid} status unknown, waiting for receipt`);
+                // TODO: implement timeout logic here if needed or in another else if for when queryNetwork returns null so we need to use the old_receipt endpoint
                 // Optional: Implement timeout logic here if needed
-                if (now - tx.submittedts > 20000) { // Example: 20 second timeout
-                    if (type === 'register') {
-                        pendingPromiseService.reject(txid, new Error('Transaction timed out'));
-                    } else {
-                        // Show toast notification with the failure reason
-                        showToast('Transaction timed out', 0, "error");
-                        console.log(`DEBUG: txid ${txid} timed out, removing completely`);
-                        removeFailedTx(txid);
-                        refreshCurrentView(txid);
-                    }
-                }
+                /* if (now - tx.submittedts > 15000) { // Example: 15 second timeout
+                    console.log(`DEBUG: txid ${txid} timed out, removing completely`);
+                    removeFailedTx(txid);
+                    refreshCurrentView(txid); 
+                } */
             }
         }
     }
