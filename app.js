@@ -7294,7 +7294,7 @@ async function validateStakeInputs() {
 
         // get the account info for the address
         const address = longAddress(myData?.account?.keys?.address);
-        
+
         // if the time stamps are more than 30 seconds ago, reset the staked amount and time stamps
         if(getCorrectedTimestamp() - validateStakeInputs.timeStamps > 30000) {
             const res = await queryNetwork(`/account/${address}`);
@@ -7302,8 +7302,8 @@ async function validateStakeInputs() {
             validateStakeInputs.timeStamps = getCorrectedTimestamp();
             validateStakeInputs.nominee = res?.account?.operatorAccountInfo?.nominee;
         }
-        
-        
+
+
         const staked = validateStakeInputs.nominee;
 
         minStakeWei = bigxnum2big(wei, minStakeAmountStr);
