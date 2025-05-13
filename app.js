@@ -7394,6 +7394,7 @@ async function checkPendingTransactions() {
     const now = getCorrectedTimestamp();
     const eightSecondsAgo = now - 8000;
     const twentySecondsAgo = now - 20000;
+    const thirtySecondsAgo = now - 30000;
     // Process each transaction in reverse to safely remove items
     for (let i = myData.pending.length - 1; i >= 0; i--) {
         const pendingTxInfo = myData.pending[i];
@@ -7402,13 +7403,19 @@ async function checkPendingTransactions() {
         if (submittedts < eightSecondsAgo) {
             console.log(`DEBUG: txid ${txid} is older than 8 seconds, checking receipt`);
 
-            let endpointPath;
-        if (submittedts < twentySecondsAgo) {
-            endpointPath = `/old_receipt/${txid}`;
-        } else {
-            endpointPath = `/transaction/${txid}`;
-        }
-        const res = await queryNetwork(endpointPath);
+            let endpointPath = `/transaction/${txid}`;
+            if (submittedts < twentySecondsAgo || submittedts < thirtySecondsAgo) {
+                endpointPath = `/old_receipt/${txid}`;
+            }
+
+            const res = await queryNetwork(endpointPath);
+
+            if (submittedts < thirtySecondsAgo && res.transaction === null) {
+                console.error(`DEBUG: txid ${txid} timed out, removing completely`);
+                // remove the pending tx from the pending array
+                myData.pending.splice(i, 1);
+                continue;
+            }
 
             if (res?.transaction?.success === true) {
                 // comment out to test the pending txs removal logic
@@ -7486,12 +7493,6 @@ async function checkPendingTransactions() {
                 }
             } else {
                 console.log(`DEBUG: tx ${txid} status unknown, waiting for receipt`);
-                // TODO: implement timeout logic here if needed or in another else if for when queryNetwork returns null so we need to use the old_receipt endpoint
-                /* if (now - tx.submittedts > 15000) { // Example: 15 second timeout
-                    console.log(`DEBUG: txid ${txid} timed out, removing completely`);
-                    removeFailedTx(txid);
-                    refreshCurrentView(txid);
-                } */
             }
         }
     }
