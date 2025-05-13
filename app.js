@@ -7388,7 +7388,6 @@ async function checkPendingTransactions() {
     for (let i = myData.pending.length - 1; i >= 0; i--) {
         const pendingTxInfo = myData.pending[i];
         const { txid, type, submittedts } = pendingTxInfo;
-        const toAddress = pendingTxInfo.to;
         
         if (submittedts < eightSecondsAgo) {
             console.log(`DEBUG: txid ${txid} is older than 8 seconds, checking receipt`);
@@ -7455,6 +7454,7 @@ async function checkPendingTransactions() {
                         showToast(failureReason, 0, "error");
                     }
 
+                    const toAddress = pendingTxInfo.to;
                     updateTransactionStatus(txid, toAddress, 'failed', type);
                     refreshCurrentView(txid);
                 }
