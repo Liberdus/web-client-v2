@@ -7555,12 +7555,9 @@ function updateTransactionStatus(txid, toAddress, status, type) {
 }
 
 const pendingPromiseService = (() => {
-    const pendingPromises = new Map(); // txid -> { resolve, reject, timeoutId }
+    const pendingPromises = new Map(); // txid -> { resolve, reject }
   
-    // Default timeout for waiting for confirmation (e.g., 60 seconds)
-    const DEFAULT_TIMEOUT = 60000; 
-  
-    function register(txid/* , timeout = DEFAULT_TIMEOUT */) {
+    function register(txid) {
         return new Promise((resolve, reject) => {
             pendingPromises.set(txid, { resolve, reject });
         });
