@@ -4462,6 +4462,7 @@ async function injectTx(tx, txid){
 
         return data
     } catch (error) {
+        showToast('Error injecting transaction: ' + error, 0, 'error');
         console.error('Error injecting transaction:', error);
         return null
     }
@@ -7444,8 +7445,6 @@ async function checkPendingTransactions() {
 
                 if (type === 'register') {
                     pendingPromiseService.reject(txid, new Error(failureReason));
-                    // remove from pending array
-                    myData.pending.splice(i, 1);
                 } else {
                     // Show toast notification with the failure reason
                     if (type === 'withdraw_stake') {
