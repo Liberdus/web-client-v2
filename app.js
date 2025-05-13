@@ -7327,17 +7327,11 @@ async function validateStakeInputs() {
         //amountWarningElement.style.display = 'block';
         return; // Keep button disabled
     }
-    console.log(`amountWei: ${amountWei}, minStakeWei: ${minStakeWei}`);
+
     // Check 2: Minimum Stake Amount
     if (amountWei < minStakeWei) {
-        console.log(`entering here`);
         const minStakeFormatted = big2str(minStakeWei, 18).slice(0, -16); // Example formatting
-        
-        if (minStakeWei <= 0n) {
-            amountWarningElement.textContent = `Amount must be greater than ${minStakeFormatted} LIB.`;
-        } else {
-            amountWarningElement.textContent = `Amount must be at least ${minStakeFormatted} LIB.`;
-        }
+        amountWarningElement.textContent = `Amount must be at least ${minStakeFormatted} LIB.`;
         amountWarningElement.style.display = 'block';
         return; // Keep button disabled
     }
