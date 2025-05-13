@@ -4964,8 +4964,7 @@ function showToast(message, duration = 2000, type = "default") {
     // Show with a slight delay to ensure rendering
     setTimeout(() => {
         toast.classList.add('show');
-        // Set hide timeout
-        //TODO: For error toasts, keep it up until the user clicks somewhere to make it go away (set to 0 seconds when show toast invoked)
+        // For error toasts, keep it up until the user clicks somewhere to make it go away
         if (type === "error") {
             // Add a close button to error toasts
             toast.style.pointerEvents = "auto";
