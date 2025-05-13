@@ -7301,9 +7301,10 @@ async function validateStakeInputs() {
             minStakeWei = minStakeWei - stakedAmount;
         }
     } catch (error) {
+        showToast(`Error validating stake inputs: ${error}`, 0, "error");
         console.error(`error validating stake inputs: ${error}`);
-        amountWarningElement.textContent = 'Invalid amount format.';
-        amountWarningElement.style.display = 'block';
+        //amountWarningElement.textContent = 'Invalid amount format.';
+        //amountWarningElement.style.display = 'block';
         return; // Keep button disabled
     }
 
