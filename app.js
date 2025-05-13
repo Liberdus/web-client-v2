@@ -7309,6 +7309,11 @@ async function validateStakeInputs() {
 
             // subtract the staked amount from the min stake amount and this will be the new min stake amount
             minStakeWei = minStakeWei - stakedAmount;
+            // if minStake is less than 0, then set the min stake to 0
+            if(minStakeWei < 0n) {
+                minStakeWei = 0n;
+            }
+
         }
     } catch (error) {
         showToast(`Error validating stake inputs: ${error}`, 0, "error");
@@ -7317,10 +7322,13 @@ async function validateStakeInputs() {
         //amountWarningElement.style.display = 'block';
         return; // Keep button disabled
     }
-
+    console.log(`amountWei: ${amountWei}, minStakeWei: ${minStakeWei}`);
     // Check 2: Minimum Stake Amount
-    if (amountWei < minStakeWei) {
+    // if minStakeWei negative and amountWei is 0 we need to go into this if statement or if amountwei is less than minStakeWei
+    if (minStakeWei < 0n && amountWei === 0n || amountWei < minStakeWei) {
+        console.log(`entering here`);
         const minStakeFormatted = big2str(minStakeWei, 18).slice(0, -16); // Example formatting
+        
         if (minStakeWei <= 0n) {
             amountWarningElement.textContent = `Amount must be greater than ${minStakeFormatted} LIB.`;
         } else {
