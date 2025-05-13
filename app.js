@@ -7393,7 +7393,7 @@ async function checkPendingTransactions() {
     console.log(`checking pending transactions (${myData.pending.length})`);
     const now = getCorrectedTimestamp();
     const eightSecondsAgo = now - 8000;
-
+    const twentySecondsAgo = now - 20000;
     // Process each transaction in reverse to safely remove items
     for (let i = myData.pending.length - 1; i >= 0; i--) {
         const pendingTxInfo = myData.pending[i];
@@ -7402,12 +7402,13 @@ async function checkPendingTransactions() {
         if (submittedts < eightSecondsAgo) {
             console.log(`DEBUG: txid ${txid} is older than 8 seconds, checking receipt`);
 
-            // is submittedts> 15000 use new endpoint (/old_receipt/<tx_hash_without_0x_prefix>) to check for older receipts since other endpoint may not contain the receipt anymore
-            // if (now - submittedts > 15000) {
-            //     const res = await queryNetwork(`/old_receipt/${txid}`);
-            // } else {
-            const res = await queryNetwork(`/transaction/${txid}`);
-            // }
+            let endpointPath;
+        if (submittedts < twentySecondsAgo) {
+            endpointPath = `/old_receipt/${txid}`;
+        } else {
+            endpointPath = `/transaction/${txid}`;
+        }
+        const res = await queryNetwork(endpointPath);
 
             if (res?.transaction?.success === true) {
                 // comment out to test the pending txs removal logic
