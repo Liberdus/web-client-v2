@@ -7267,6 +7267,11 @@ async function validateStakeInputs() {
         return;
     }
 
+    // if amount is less than or equal to 0, than return
+    if(amountWei <= 0n) {
+        return;
+    }
+
     // Check 1.5: Node Address Format (64 hex chars)
     const addressRegex = /^[0-9a-fA-F]{64}$/;
     if (!addressRegex.test(nodeAddress)) {
@@ -7324,8 +7329,7 @@ async function validateStakeInputs() {
     }
     console.log(`amountWei: ${amountWei}, minStakeWei: ${minStakeWei}`);
     // Check 2: Minimum Stake Amount
-    // if minStakeWei negative and amountWei is 0 we need to go into this if statement or if amountwei is less than minStakeWei
-    if (minStakeWei === 0n && amountWei === 0n || amountWei < minStakeWei) {
+    if (amountWei < minStakeWei) {
         console.log(`entering here`);
         const minStakeFormatted = big2str(minStakeWei, 18).slice(0, -16); // Example formatting
         
