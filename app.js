@@ -7298,7 +7298,7 @@ async function validateStakeInputs() {
         // if the time stamps are more than 30 seconds ago, reset the staked amount and time stamps
         if(getCorrectedTimestamp() - validateStakeInputs.timeStamps > 30000) {
             const res = await queryNetwork(`/account/${address}`);
-            validateStakeInputs.stakedAmount = hex2big(res?.account?.operatorAccountInfo?.stake?.value);
+            validateStakeInputs.stakedAmount = hex2big(res?.account?.operatorAccountInfo?.stake?.value || '0');
             validateStakeInputs.timeStamps = getCorrectedTimestamp();
             validateStakeInputs.nominee = res?.account?.operatorAccountInfo?.nominee;
         }
@@ -7352,6 +7352,7 @@ async function validateStakeInputs() {
 validateStakeInputs.stakedAmount = 0n
 validateStakeInputs.timeStamps = 0
 validateStakeInputs.nominee = false
+
 /**
  * Remove failed transaction from the contacts messages, pending, and wallet history
  * @param {string} txid - The transaction ID to remove
