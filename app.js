@@ -7405,19 +7405,19 @@ async function checkPendingTransactions() {
             console.log(`DEBUG: txid ${txid} is older than 8 seconds, checking receipt`);
 
             let endpointPath = `/transaction/${txid}`;
-            /* if (submittedts < twentySecondsAgo || submittedts < thirtySecondsAgo) {
+            if (submittedts < twentySecondsAgo || submittedts < thirtySecondsAgo) {
                 endpointPath = `/old_receipt/${txid}`;
-            } */
+            }
             //console.log(`DEBUG: txid ${txid} endpointPath: ${endpointPath}`);
             const res = await queryNetwork(endpointPath);
             //console.log(`DEBUG: txid ${txid} res: ${JSON.stringify(res)}`);
 
-            /* if (submittedts < thirtySecondsAgo && res.transaction === null) {
+            if (submittedts < thirtySecondsAgo && res.transaction === null) {
                 console.error(`DEBUG: txid ${txid} timed out, removing completely`);
                 // remove the pending tx from the pending array
                 myData.pending.splice(i, 1);
                 continue;
-            } */
+            }
 
             if (res?.transaction?.success === true) {
                 // comment out to test the pending txs removal logic
