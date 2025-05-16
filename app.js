@@ -138,6 +138,10 @@ let myAccount = null        // this is set to myData.account for convience
 let isInstalledPWA = false
 let timeSkew = 0
 
+let updateWebSocketIndicatorIntervalId = null;
+let checkPendingTransactionsIntervalId = null;
+//let checkConnectivityIntervalId = null;
+
 // TODO - get the parameters from the network
 // mock network parameters
 let parameters = {
@@ -600,6 +604,14 @@ async function handleSignIn(event) {
 
     /* requestNotificationPermission(); */
 
+    // Start intervals now that user is signed in
+    if (!updateWebSocketIndicatorIntervalId) {
+        updateWebSocketIndicatorIntervalId = setInterval(updateWebSocketIndicator, 5000);
+    }
+    if (!checkPendingTransactionsIntervalId) {
+        checkPendingTransactionsIntervalId = setInterval(checkPendingTransactions, 5000);
+    }
+
     // Close modal and proceed to app
     closeSignInModal();
     document.getElementById('welcomeScreen').style.display = 'none';
@@ -675,7 +687,7 @@ function checkIsInstalledPWA() {
 
 // Load saved account data and update chat list on page load
 document.addEventListener('DOMContentLoaded', async () => {
-    setInterval(updateWebSocketIndicator, 5000);
+//     setInterval(updateWebSocketIndicator, 5000);
     await checkVersion()  // version needs to be checked before anything else happens
     await lockToPortrait()
     timeDifference(); // Calculate and log time difference early
@@ -1039,13 +1051,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     failedPaymentDeleteButton.addEventListener('click', handleFailedPaymentDelete);
     failedPaymentHeaderCloseButton.addEventListener('click', closeFailedPaymentModalAndClearState);
     failedPaymentModal.addEventListener('click', handleFailedPaymentBackdropClick);
-
-
-
-
-
-    // call checkPendingTransactions every 5 seconds
-    setInterval(checkPendingTransactions, 5000);
 
     setupAddToHomeScreen()
 });
@@ -3106,7 +3111,21 @@ function handleSaveEditContact() {
 const contactInfoModal = new ContactInfoModalManager();
 
 function handleSignOut() {
-//    const shouldLeave = confirm('Do you want to leave this page?');
+    // Clear intervals
+    if (updateWebSocketIndicatorIntervalId) {
+        clearInterval(updateWebSocketIndicatorIntervalId);
+        updateWebSocketIndicatorIntervalId = null;
+    }
+    if (checkPendingTransactionsIntervalId) {
+        clearInterval(checkPendingTransactionsIntervalId);
+        checkPendingTransactionsIntervalId = null;
+    }
+    // Stop camera if it's running
+    if (typeof startCamera !== 'undefined' && startCamera.scanInterval) {
+        stopCamera();
+    }
+
+    //    const shouldLeave = confirm('Do you want to leave this page?');
 //    if (shouldLeave == false) { return }
 
     // Clean up WebSocket connection
