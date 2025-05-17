@@ -3855,6 +3855,13 @@ function handleHistoryItemClick(event) {
     } */
 
     if (item) {
+        // Check if this is a stake/unstake transaction by looking at the memo
+        const memo = item.querySelector('.transaction-memo')?.textContent;
+        if (memo === 'stake' || memo === 'unstake') {
+            openValidatorModal();
+            return;
+        }
+
         // Get the address from the data-address attribute
         const address = item.dataset.address;
         if (address && myData.contacts[address]) {
