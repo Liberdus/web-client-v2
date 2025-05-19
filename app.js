@@ -797,6 +797,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('closeCreateAccountModal').addEventListener('click', closeCreateAccountModal);
     document.getElementById('createAccountForm').addEventListener('submit', handleCreateAccount);
 
+    // Event listener for the private key toggle checkbox
+    const togglePrivateKeyInput = document.getElementById('togglePrivateKeyInput');
+    togglePrivateKeyInput.addEventListener('change', handleTogglePrivateKeyInput);
+
     // Account Form Modal
     myProfileModal.load()
 
@@ -7662,3 +7666,17 @@ const pendingPromiseService = (() => {
 
     return { register, resolve, reject };
   })();
+
+function handleTogglePrivateKeyInput() {
+    const privateKeySection = document.getElementById('privateKeySection');
+    const newPrivateKeyInput = document.getElementById('newPrivateKey');
+
+    // clear the newPrivateKeyInput
+    newPrivateKeyInput.value = '';
+
+    if (togglePrivateKeyInput.checked) {
+        privateKeySection.style.display = 'block';
+    } else {
+        privateKeySection.style.display = 'none';
+    }
+}
