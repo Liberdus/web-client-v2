@@ -6519,6 +6519,20 @@ function openStakeModal() {
         balanceDisplay.textContent = 'Available: 0.000000 LIB'; // Default if no asset found
     }
 
+    // if validator-nominee address from validatorModal is not null, fill the stakeNodeAddress input field with the validator-nominee address
+    const stakeNodeAddressInput = document.getElementById('stakeNodeAddress');
+    const qrScanButton = document.getElementById('uploadStakeQRButton');
+    const uploadButton = document.getElementById('scanStakeQRButton');
+    const nominee = document.getElementById('validator-nominee')?.textContent?.trim();
+    // disable the stakeNodeAddress input field and the qrScan and upload button if there is a nominee
+    const isNominee = !!nominee;
+    if (stakeNodeAddressInput) {
+        stakeNodeAddressInput.value = isNominee ? nominee : '';
+        stakeNodeAddressInput.disabled = isNominee;
+    }
+    if (qrScanButton) qrScanButton.disabled = isNominee;
+    if (uploadButton) uploadButton.disabled = isNominee;
+
     // fill amount with with the min stake amount
     const amountInput = document.getElementById('stakeAmount');
     // get min stake amount from document.getElementById('stakeForm').dataset
