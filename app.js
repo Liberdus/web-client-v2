@@ -6523,12 +6523,11 @@ function openStakeModal() {
     const stakeNodeAddressInput = document.getElementById('stakeNodeAddress');
     const nominee = document.getElementById('validator-nominee')?.textContent?.trim();
     const stakeNodeAddressGroup = document.getElementById('stakeNodeAddressGroup');
-
-    // disable the stakeNodeAddress input field and the qrScan and upload button if there is a nominee
     const isNominee = !!nominee;
     
+    // if nominee is not null, fill the stakeNodeAddress input field with the nominee address
     stakeNodeAddressInput.value = isNominee ? nominee : '';
-    // hide stakeNodeAddressGroup
+    // hide the stakeNodeAddressGroup since pre-filled if there is a nominee
     stakeNodeAddressGroup.style.display = isNominee ? 'none' : 'block';
 
 
