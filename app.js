@@ -6836,7 +6836,7 @@ class BackupAccountModal {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${myAccount.username}-export-${new Date().toISOString().split('T')[0]}.json`;
+            a.download = `${myAccount.username}-liberdus-${new Date().toISOString().split('T')[0]}.json`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
