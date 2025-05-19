@@ -6620,8 +6620,6 @@ async function submitUnstakeTransaction(nodeAddress) {
             closeValidatorModal();
             openValidatorModal();
         } else {
-            // Try to get a more specific reason for failure
-            const reason = response?.result?.reason || 'Unknown error from API.';
             // not showing toast since shown in injectTx
             console.error('Unstake failed. API Response:', response);
         }
