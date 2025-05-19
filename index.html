@@ -381,31 +381,41 @@
               </div>
             </div>
             <div class="form-group">
-              <label for="newPrivateKey"
-                >Private Key
-                <span
-                  id="newPrivateKeyError"
-                  style="color: #dc3545; display: none"
-                ></span
-              ></label>
-              <div style="position: relative">
-                <input
-                  type="password"
-                  id="newPrivateKey"
-                  class="form-control"
-                  placeholder="Optional private key in hex format"
-                />
-                <button
-                  type="button"
-                  id="togglePrivateKeyVisibility"
-                  class="password-toggle-btn"
-                ></button>
+              <input type="checkbox" id="togglePrivateKeyInput" />
+              <label
+                for="togglePrivateKeyInput"
+                style="display: inline; margin-left: 5px"
+                >Use my own private key (Advanced)</label
+              >
+            </div>
+            <div id="privateKeySection" style="display: none">
+              <div class="form-group">
+                <label for="newPrivateKey"
+                  >Private Key
+                  <span
+                    id="newPrivateKeyError"
+                    style="color: #dc3545; display: none"
+                  ></span
+                ></label>
+                <div style="position: relative">
+                  <input
+                    type="password"
+                    id="newPrivateKey"
+                    class="form-control"
+                    placeholder="Optional private key in hex format"
+                  />
+                  <button
+                    type="button"
+                    id="togglePrivateKeyVisibility"
+                    class="password-toggle-btn"
+                  ></button>
+                </div>
+                <small>
+                  If you want to use an existing private key enter it here.
+                  Otherwise you can leave this empty to have a private key
+                  automatically generated.
+                </small>
               </div>
-              <small>
-                If you want to use an existing private key enter it here.
-                Otherwise you can leave this empty to have a private key
-                automatically generated.
-              </small>
             </div>
             <button type="submit" class="update-button" disabled>
               Create Account
@@ -1111,33 +1121,33 @@
           >
             <div class="info-section">
               <h4>Your Stake Info</h4>
-                              <!-- New Skeleton Bars for Pending Nominee Info -->
-                              <div
-                              class="skeleton-item"
-                              id="pending-nominee-skeleton-1"
-                              style="
-                                display: none;
-                                height: 22px;
-                                width: 100%;
-                                margin-top: 4px;
-                                margin-bottom: 8px;
-                                background-color: #e0e0e0;
-                                padding: 0 5px;
-                                box-sizing: border-box;
-                              "
-                            >
-                              <span
-                                id="pending-tx-text-in-bar"
-                                style="
-                                  display: none;
-                                  font-size: 0.75em;
-                                  color: #333;
-                                  line-height: 22px;
-                                  width: 100%;
-                                  text-align: center;
-                                "
-                              ></span>
-                            </div>
+              <!-- New Skeleton Bars for Pending Nominee Info -->
+              <div
+                class="skeleton-item"
+                id="pending-nominee-skeleton-1"
+                style="
+                  display: none;
+                  height: 22px;
+                  width: 100%;
+                  margin-top: 4px;
+                  margin-bottom: 8px;
+                  background-color: #e0e0e0;
+                  padding: 0 5px;
+                  box-sizing: border-box;
+                "
+              >
+                <span
+                  id="pending-tx-text-in-bar"
+                  style="
+                    display: none;
+                    font-size: 0.75em;
+                    color: #333;
+                    line-height: 22px;
+                    width: 100%;
+                    text-align: center;
+                  "
+                ></span>
+              </div>
               <div class="info-item vertical-layout">
                 <span class="info-label" id="validator-nominee-label"
                   >Nominated Validator:</span
@@ -1349,10 +1359,7 @@
       <div class="modal modal-dialog" id="failedPaymentModal">
         <div class="dialog-box-content">
           <div class="modal-header">
-            <button
-              class="back-button"
-              id="closeFailedPaymentModal"
-            ></button>
+            <button class="back-button" id="closeFailedPaymentModal"></button>
             <div class="modal-title">Failed Transaction</div>
           </div>
           <div class="form-container">
