@@ -6622,7 +6622,7 @@ async function submitUnstakeTransaction(nodeAddress) {
         } else {
             // Try to get a more specific reason for failure
             const reason = response?.result?.reason || 'Unknown error from API.';
-            showToast(`Unstake failed: ${reason}`, 5000, 'error');
+            // not showing toast since shown in injectTx
             console.error('Unstake failed. API Response:', response);
         }
     } catch (error) {
