@@ -6529,6 +6529,9 @@ function openStakeModal() {
     stakeNodeAddressInput.value = isNominee ? nominee : '';
     // hide the stakeNodeAddressGroup since pre-filled if there is a nominee
     stakeNodeAddressGroup.style.display = isNominee ? 'none' : 'block';
+    // button submitStake should say "Add Stake" if there is a nominee, otherwise say "Submit Stake"
+    const submitStakeButton = document.getElementById('submitStake');
+    submitStakeButton.textContent = isNominee ? 'Add Stake' : 'Submit Stake';
 
 
     // fill amount with with the min stake amount
