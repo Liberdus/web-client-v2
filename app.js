@@ -6522,20 +6522,15 @@ function openStakeModal() {
     // if validator-nominee address from validatorModal is not null, fill the stakeNodeAddress input field with the validator-nominee address
     const stakeNodeAddressInput = document.getElementById('stakeNodeAddress');
     const nominee = document.getElementById('validator-nominee')?.textContent?.trim();
-    const stakeNodeAddressLabel = document.querySelector('label[for="stakeNodeAddress"]');
-    const uploadStakeQRButton = document.getElementById('uploadStakeQRButton');
-    const scanStakeQRButton = document.getElementById('scanStakeQRButton');
+    const stakeNodeAddressGroup = document.getElementById('stakeNodeAddressGroup');
+
     // disable the stakeNodeAddress input field and the qrScan and upload button if there is a nominee
     const isNominee = !!nominee;
-    if (stakeNodeAddressInput) {
-        stakeNodeAddressInput.value = isNominee ? nominee : '';
-        stakeNodeAddressInput.disabled = isNominee;
-    }
-    // hide stakeNodeAddressInput, label for stakeNodeAddressLabel, uploadStakeQRButton, scanStakeQRButton
-    if (stakeNodeAddressInput) stakeNodeAddressInput.style.display = isNominee ? 'none' : 'block';
-    if (stakeNodeAddressLabel) stakeNodeAddressLabel.style.display = isNominee ? 'none' : 'block';
-    if (uploadStakeQRButton) uploadStakeQRButton.style.display = isNominee ? 'none' : 'block';
-    if (scanStakeQRButton) scanStakeQRButton.style.display = isNominee ? 'none' : 'block';
+    
+    stakeNodeAddressInput.value = isNominee ? nominee : '';
+    // hide stakeNodeAddressGroup
+    stakeNodeAddressGroup.style.display = isNominee ? 'none' : 'block';
+
 
     // fill amount with with the min stake amount
     const amountInput = document.getElementById('stakeAmount');
