@@ -528,6 +528,14 @@ async function handleCreateAccount(event) {
         const txid = res.txid;
 
         try {
+            // Start intervals since trying to create account and tx should be in pending
+            if (!updateWebSocketIndicatorIntervalId) {
+                updateWebSocketIndicatorIntervalId = setInterval(updateWebSocketIndicator, 5000);
+            }
+            if (!checkPendingTransactionsIntervalId) {
+                checkPendingTransactionsIntervalId = setInterval(checkPendingTransactions, 5000);
+            }
+
             // Wait for the transaction confirmation
             const confirmationDetails = await pendingPromiseService.register(txid);
             if (confirmationDetails.username !== username || confirmationDetails.address !== longAddress(myAccount.keys.address)) {
@@ -551,12 +559,34 @@ async function handleCreateAccount(event) {
             console.log(`DEBUG: handleCreateAccount error`, JSON.stringify(error, null, 2));
             showToast(`account creation failed: ${error}`, 0, 'error');
             submitButton.disabled = false;
+
+            // Clear intervals
+            if (updateWebSocketIndicatorIntervalId) {
+                clearInterval(updateWebSocketIndicatorIntervalId);
+                updateWebSocketIndicatorIntervalId = null;
+            }
+            if (checkPendingTransactionsIntervalId) {
+                clearInterval(checkPendingTransactionsIntervalId);
+                checkPendingTransactionsIntervalId = null;
+            }
+
             // Note: `checkPendingTransactions` will also remove the item from `myData.pending` if it's rejected by the service.
             return;
         }
     } else {
         if (waitingToastId) hideToast(waitingToastId);
         console.error(`DEBUG: handleCreateAccount error in else`, JSON.stringify(res, null, 2));
+
+        // Clear intervals
+        if (updateWebSocketIndicatorIntervalId) {
+            clearInterval(updateWebSocketIndicatorIntervalId);
+            updateWebSocketIndicatorIntervalId = null;
+        }
+        if (checkPendingTransactionsIntervalId) {
+            clearInterval(checkPendingTransactionsIntervalId);
+            checkPendingTransactionsIntervalId = null;
+        }
+
         // no toast here since injectTx will show it
         submitButton.disabled = false;
         return;
