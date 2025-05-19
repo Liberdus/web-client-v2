@@ -5065,9 +5065,8 @@ async function handleConnectivityChange(event) {
     const wasOffline = !isOnline;
     isOnline = navigator.onLine;
 
-    console.log(`Connectivity changed. Online: ${isOnline}`);
-
     if (isOnline && wasOffline) {
+        console.log('Just came back online.')
         // We just came back online
         updateUIForConnectivity();
         showToast("You're back online!", 3000, "online");
