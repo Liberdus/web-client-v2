@@ -5791,7 +5791,8 @@ class WSManager {
    * Subscribe to chat events for the current account
    */
   subscribe() {
-    updateWebSocketIndicator();
+    // don't call updateWebSocketIndicator here since that function calls this function
+  //  updateWebSocketIndicator();
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       console.error('Cannot subscribe: WebSocket not connected');
       return false;
@@ -6210,6 +6211,11 @@ function getCorrectedTimestamp() {
 }
 
 function updateWebSocketIndicator() {
+    // added this so that we don't miss messages on phones, since phones drop the ws if not used periodically
+    if (getCorrectedTimestamp() - updateWebSocketIndicator.lastSubscribed > 31000){
+        wsManager.subscribe()
+        updateWebSocketIndicator.lastSubscribed = getCorrectedTimestamp()
+    }
     const indicator = document.getElementById('wsStatusIndicator');
     if (!indicator) return;
     if (!wsManager || !wsManager.isConnected()) {
@@ -6223,6 +6229,7 @@ function updateWebSocketIndicator() {
         indicator.className = 'ws-status-indicator ws-green';
     }
 }
+updateWebSocketIndicator.lastSubscribed = 0
 
 // Validator Modals
 async function openValidatorModal() {
