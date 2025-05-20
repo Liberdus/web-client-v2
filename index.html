@@ -781,6 +781,21 @@
             </div>
             <div class="form-group">
               <label for="sendAmount">Amount</label>
+              <div class="amount-container">
+                <input
+                  type="number"
+                  id="sendAmount"
+                  class="form-control"
+                  step="any"
+                  min="0.000000000000000001"
+                  required
+                />
+                <!-- add button to toggle between LIB and USD -->
+                <button id="toggleBalance" class="toggle-balance">
+                  <span id="balanceSymbol">LIB</span>
+                </button>
+              </div>
+              <div id="balanceWarning" class="balance-warning"></div>
               <div id="availableBalance" class="available-balance">
                 <div class="balance-info">
                   <span
@@ -792,15 +807,6 @@
                   >
                 </div>
               </div>
-              <input
-                type="number"
-                id="sendAmount"
-                class="form-control"
-                step="any"
-                min="0.000000000000000001"
-                required
-              />
-              <div id="balanceWarning" class="balance-warning"></div>
             </div>
             <div class="form-group">
               <label for="sendMemo">Memo (Optional)</label>

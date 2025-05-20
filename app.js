@@ -1086,6 +1086,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     failedPaymentHeaderCloseButton.addEventListener('click', closeFailedPaymentModalAndClearState);
     failedPaymentModal.addEventListener('click', handleFailedPaymentBackdropClick);
 
+    // add event listener for toggle LIB/USD button
+    document.getElementById('toggleBalance').addEventListener('click', handleToggleBalance);
+
     setupAddToHomeScreen()
 });
 
@@ -2415,6 +2418,36 @@ async function openSendModal() {
 }
 
 openSendModal.username = null
+
+/*
+* This function is called when the user clicks the toggle LIB/USD button.
+* Updates the balance symbol and the send amount to the equivalent value in USD/LIB
+*/
+async function handleToggleBalance(e) {
+    e.preventDefault();
+    const balanceSymbol = document.getElementById('balanceSymbol');
+    balanceSymbol.textContent = balanceSymbol.textContent === 'LIB' ? 'USD' : 'LIB';
+    const sendAmount = document.getElementById('sendAmount');
+    const balanceAmount = document.getElementById('balanceAmount');
+    const transactionFee = document.getElementById('transactionFee');
+
+    // check the context value of the button to determine if it's LIB or USD
+    const isLib = balanceSymbol.textContent === 'LIB';
+
+    // get the current price of LIB in USD
+    const marketPrice = await getMarketPrice();
+
+    // if isLib is false, convert the sendAmount to USD
+    if (!isLib) {
+        sendAmount.value = (sendAmount.value * marketPrice);
+        balanceAmount.textContent = (balanceAmount.textContent * marketPrice);
+        transactionFee.textContent = (transactionFee.textContent * marketPrice);
+    } else {
+        sendAmount.value = (sendAmount.value / marketPrice);
+        balanceAmount.textContent = (balanceAmount.textContent / marketPrice);
+        transactionFee.textContent = (transactionFee.textContent / marketPrice);
+    }
+}
 
 let sendModalCheckTimeout;
 function handleOpenSendModalInput(e){
@@ -6065,18 +6098,26 @@ class WSManager {
 let wsManager = new WSManager()        // this is set to new WSManager() for convience
 
 // New functions for send confirmation flow
-function handleSendFormSubmit(event) {
+async function handleSendFormSubmit(event) {
     event.preventDefault();
 
     // Get form values
     const assetSelect = document.getElementById('sendAsset');
     const assetSymbol = assetSelect.options[assetSelect.selectedIndex].text;
     const recipient = document.getElementById('sendToAddress').value;
-    const amount = document.getElementById('sendAmount').value;
+    const balanceSymbol = document.getElementById('balanceSymbol');
+    let amount = document.getElementById('sendAmount').value;
     const memo = document.getElementById('sendMemo').value;
-
     const confirmButton = document.getElementById('confirmSendButton');
     const cancelButton = document.getElementById('cancelSendButton');
+    
+    const marketPrice = await getMarketPrice();
+
+    // need to convert to LIB if USD is selected
+    const isLib = balanceSymbol.textContent === 'LIB';
+    if (!isLib) {
+        amount = (amount / marketPrice);
+    }
 
     // Update confirmation modal with values
     document.getElementById('confirmRecipient').textContent = recipient;

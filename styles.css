@@ -4269,12 +4269,60 @@ small {
 
 @keyframes pulse {
   0% {
-      background-color: #e0e0e0; /* Initial color */
+    background-color: #e0e0e0; /* Initial color */
   }
   50% {
-      background-color: #d0d0d0; /* Slightly darker or different shade for pulse effect */
+    background-color: #d0d0d0; /* Slightly darker or different shade for pulse effect */
   }
   100% {
-      background-color: #e0e0e0; /* Return to initial color */
+    background-color: #e0e0e0; /* Return to initial color */
   }
+}
+
+.amount-container {
+  display: flex;
+  align-items: center;
+}
+
+/* Added to make the input field flexible and adjust its right-side appearance */
+.amount-container .form-control {
+  flex: 1; /* Allows the input to take available space */
+  min-width: 0; /* Important for flex item shrinkage */
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: none; /* Remove the input's right border to join with the button */
+  /* width: auto; /* Overrides the default form-control width: 100% */
+}
+
+/* Styles for the toggle button */
+.toggle-balance {
+  height: 56px; /* Match the form-control height */
+  padding: 0 16px; /* Horizontal padding */
+  background-color: var(--button-background);
+  color: var(--button-text);
+  border: 1px solid var(--border-color);
+  border-left: none; /* Remove left border to seamlessly join with the input */
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-top-right-radius: 12px; /* Match form-control's border radius */
+  border-bottom-right-radius: 12px; /* Match form-control's border radius */
+  font-family: var(--font-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  white-space: nowrap; /* Prevent text like "USD" from wrapping */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#sendAmount {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  text-align: right;
+}
+
+.toggle-balance:hover {
+  background-color: var(--button-hover-background);
 }
