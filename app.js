@@ -875,6 +875,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('closeChatModal').addEventListener('click', closeChatModal);
     document.getElementById('closeContactInfoModal').addEventListener('click', () => contactInfoModal.close());
     document.getElementById('handleSendMessage').addEventListener('click', handleSendMessage);
+    // add event listener for tab key
+    document.getElementById('handleSendMessage').addEventListener('keydown', ignoreTabKey);
+
+    // for back-button presses don't allow shift+tab to work for all back-button classes use ignoreShiftTabKey
+    document.querySelectorAll('.back-button').forEach(button => {
+        button.addEventListener('keydown', ignoreShiftTabKey);
+    });
 
     // Add message click-to-copy handler
     document.querySelector('.messages-list')?.addEventListener('click', handleClickToCopy);
@@ -6110,7 +6117,7 @@ async function handleSendFormSubmit(event) {
     const memo = document.getElementById('sendMemo').value;
     const confirmButton = document.getElementById('confirmSendButton');
     const cancelButton = document.getElementById('cancelSendButton');
-    
+
     const marketPrice = await getMarketPrice();
 
     // need to convert to LIB if USD is selected
@@ -7728,3 +7735,20 @@ function handleTogglePrivateKeyInput() {
         privateKeySection.style.display = 'none';
     }
 }
+
+// use this so buttons don't get focused when tabbing through the page
+function ignoreTabKey(e) {
+    // allow shift+tab to work
+    if (e.key === 'Tab' && !e.shiftKey) {
+        e.preventDefault();
+    }
+}
+
+// use this so buttons don't get focused when shift+tabbing through the page
+function ignoreShiftTabKey(e) {
+    // if key is tab and key.shiftKey is true, prevent default
+    if (e.key === 'Tab' && e.shiftKey) {
+        e.preventDefault();
+    }
+}
+
