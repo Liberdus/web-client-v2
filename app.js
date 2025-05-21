@@ -883,6 +883,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         button.addEventListener('keydown', ignoreShiftTabKey);
     });
 
+    // add event listener for unused button
+    document.querySelectorAll('.last-item').forEach(item => {
+        item.addEventListener('keydown', ignoreTabKey);
+    });
+
     // Add message click-to-copy handler
     document.querySelector('.messages-list')?.addEventListener('click', handleClickToCopy);
 
@@ -1571,6 +1576,13 @@ async function switchView(view) {
                 if (wsManager && !wsManager.isSubscribed()) {
                     pollChatInterval(pollIntervalNormal);
                 }
+            }
+
+            // focus onto last-item in the footer
+            const footer = document.getElementById('footer');
+            const lastItem = footer.querySelector('.last-item');
+            if (lastItem) {
+                lastItem.focus();
             }
         } else if (view === 'contacts') {
             await updateContactsList();
@@ -7736,16 +7748,24 @@ function handleTogglePrivateKeyInput() {
     }
 }
 
-// use this so buttons don't get focused when tabbing through the page
+/*
+* Used to prevent tab from working.
+* @param {Event} e - The event object.
+*/
 function ignoreTabKey(e) {
+    //console.log('DEBUG: ignoring tab key');
     // allow shift+tab to work
     if (e.key === 'Tab' && !e.shiftKey) {
         e.preventDefault();
     }
 }
 
-// use this so buttons don't get focused when shift+tabbing through the page
+/*
+* Used to prevent shift+tab from working.
+* @param {Event} e - The event object.
+*/
 function ignoreShiftTabKey(e) {
+    //console.log('DEBUG: ignoring shift+tab key');
     // if key is tab and key.shiftKey is true, prevent default
     if (e.key === 'Tab' && e.shiftKey) {
         e.preventDefault();
