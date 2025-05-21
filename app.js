@@ -4154,7 +4154,6 @@ function playChatSound(shouldPlay) {
             notificationAudio.play().catch(error => {
                 console.warn("Notification sound playback failed:", error);
             });
-            navigator.vibrate(100);
         }
     }
 }
@@ -4166,7 +4165,6 @@ function playTransferSound(shouldPlay) {
             notificationAudio.play().catch(error => {
                 console.warn("Notification sound playback failed:", error);
             });
-            navigator.vibrate(100);
         }
     }
 }
