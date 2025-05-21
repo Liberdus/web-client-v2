@@ -893,11 +893,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         item.addEventListener('keydown', ignoreTabKey);
     });
     // add event listener for first-item to prevent shift+tab
-    document.querySelectorAll('.first-item').forEach(item => {
+    document.querySelectorAll('.logo-link').forEach(item => {
         item.addEventListener('keydown', ignoreShiftTabKey);
     });
-    // add event listener for logo link to prevent tab
-    document.getElementById('welcomeScreenLogoLink').addEventListener('keydown', ignoreShiftTabKey);
 
     // Add message click-to-copy handler
     document.querySelector('.messages-list')?.addEventListener('click', handleClickToCopy);
@@ -6287,7 +6285,7 @@ function getCorrectedTimestamp() {
 function updateWebSocketIndicator() {
     // added this so that we don't miss messages on phones, since phones drop the ws if not used periodically
     if (getCorrectedTimestamp() - updateWebSocketIndicator.lastSubscribed > 31000){
-        wsManager.subscribe()
+        /* wsManager.subscribe() */
         updateWebSocketIndicator.lastSubscribed = getCorrectedTimestamp()
     }
     const indicator = document.getElementById('wsStatusIndicator');
