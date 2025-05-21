@@ -1153,7 +1153,7 @@ console.log('stop back button')
 }
 
 // This is for installed apps where we can't stop the back button; just save the state
-function handleVisibilityChange(e) {
+async function handleVisibilityChange(e) {
     console.log('in handleVisibilityChange', document.visibilityState);
     if (document.visibilityState === 'hidden') {
         saveState();
@@ -1166,6 +1166,10 @@ function handleVisibilityChange(e) {
         if (wsManager && !wsManager.isConnected() && myAccount) {
             wsManager.connect();
         }
+        setTimeout(async () => {
+            await updateChatData();
+            await updateChatList();
+        }, 1000);
     }
 }
 
@@ -4150,6 +4154,7 @@ function playChatSound(shouldPlay) {
             notificationAudio.play().catch(error => {
                 console.warn("Notification sound playback failed:", error);
             });
+            navigator.vibrate(100);
         }
     }
 }
@@ -4161,6 +4166,7 @@ function playTransferSound(shouldPlay) {
             notificationAudio.play().catch(error => {
                 console.warn("Notification sound playback failed:", error);
             });
+            navigator.vibrate(100);
         }
     }
 }
@@ -5743,6 +5749,7 @@ class WSManager {
     updateWebSocketIndicator();
     // Check if ws is not null and readyState is either CONNECTING or OPEN
     if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) {
+      showToast('WebSocket connection already established inside of WSManager.connect', 0, 'error');
       console.log('WebSocket connection already established');
       return;
     }
