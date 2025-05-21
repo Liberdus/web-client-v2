@@ -6285,7 +6285,7 @@ function getCorrectedTimestamp() {
 function updateWebSocketIndicator() {
     // added this so that we don't miss messages on phones, since phones drop the ws if not used periodically
     if (getCorrectedTimestamp() - updateWebSocketIndicator.lastSubscribed > 31000){
-        wsManager.subscribe()
+        /* wsManager.subscribe() */
         updateWebSocketIndicator.lastSubscribed = getCorrectedTimestamp()
     }
     const indicator = document.getElementById('wsStatusIndicator');
