@@ -896,6 +896,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('.first-item').forEach(item => {
         item.addEventListener('keydown', ignoreShiftTabKey);
     });
+    // add event listener for logo link to prevent tab
+    document.getElementById('welcomeScreenLogoLink').addEventListener('keydown', ignoreShiftTabKey);
 
     // Add message click-to-copy handler
     document.querySelector('.messages-list')?.addEventListener('click', handleClickToCopy);
