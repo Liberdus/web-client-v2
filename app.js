@@ -5749,7 +5749,6 @@ class WSManager {
     updateWebSocketIndicator();
     // Check if ws is not null and readyState is either CONNECTING or OPEN
     if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) {
-      showToast('WebSocket connection already established inside of WSManager.connect', 0, 'error');
       console.log('WebSocket connection already established');
       return;
     }
