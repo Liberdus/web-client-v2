@@ -269,6 +269,12 @@ function openSignInModal() {
     removeButton.style.display = 'none';
     notFoundMessage.style.display = 'none';
 
+    const signInModalLastItem = document.getElementById('signInModalLastItem');
+    // set timeout to focus on the last item so shift+tab and tab prevention works
+    setTimeout(() => {
+        signInModalLastItem.focus();
+    }, 100);
+
 }
 
 async function handleRemoveAccountButton() {
@@ -875,17 +881,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('closeChatModal').addEventListener('click', closeChatModal);
     document.getElementById('closeContactInfoModal').addEventListener('click', () => contactInfoModal.close());
     document.getElementById('handleSendMessage').addEventListener('click', handleSendMessage);
+
     // add event listener for tab key
     document.getElementById('handleSendMessage').addEventListener('keydown', ignoreTabKey);
-
-    // for back-button presses don't allow shift+tab to work for all back-button classes use ignoreShiftTabKey
+    // add event listener for back-button presses to prevent shift+tab
     document.querySelectorAll('.back-button').forEach(button => {
         button.addEventListener('keydown', ignoreShiftTabKey);
     });
-
-    // add event listener for unused button
+    // add event listener for last-item to prevent tab
     document.querySelectorAll('.last-item').forEach(item => {
         item.addEventListener('keydown', ignoreTabKey);
+    });
+    // add event listener for first-item to prevent shift+tab
+    document.querySelectorAll('.first-item').forEach(item => {
+        item.addEventListener('keydown', ignoreShiftTabKey);
     });
 
     // Add message click-to-copy handler
@@ -1101,8 +1110,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // add event listener for toggle LIB/USD button
     document.getElementById('toggleBalance').addEventListener('click', handleToggleBalance);
 
-    const lastItem = document.getElementById('welcomeScreenLastItem');
-    lastItem.focus();
+    const welcomeScreenLastItem = document.getElementById('welcomeScreenLastItem');
+    welcomeScreenLastItem.focus();
           
     setupAddToHomeScreen()
 });
@@ -7768,7 +7777,7 @@ function ignoreTabKey(e) {
 * @param {Event} e - The event object.
 */
 function ignoreShiftTabKey(e) {
-    //console.log('DEBUG: ignoring shift+tab key');
+    console.log('DEBUG: ignoring shift+tab key');
     // if key is tab and key.shiftKey is true, prevent default
     if (e.key === 'Tab' && e.shiftKey) {
         e.preventDefault();
