@@ -5824,7 +5824,7 @@ class WSManager {
         const data = JSON.parse(event.data);
 
         // Check if this is a subscription response
-        if (data.result !== undefined) {
+        if (data.id !== null && data.result !== undefined) {
             if (data.result.subscription_status === true) {
               console.log('Server confirmed subscription successful');
               this.subscribed = true;
@@ -5832,7 +5832,7 @@ class WSManager {
               console.error('Server rejected subscription:', data.error);
               this.subscribed = false;
             }
-          } else if (data.result.account_id && data.result.timestamp) {
+          } else if (!data.id  && data.result.account_id && data.result.timestamp) {
             console.log('Received new chat notification in ws');
             const gotChats = await updateChatData();
             console.log('gotChats inside of ws.onmessage', gotChats);
