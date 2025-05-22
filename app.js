@@ -5832,7 +5832,7 @@ class WSManager {
               console.error('Server rejected subscription:', data.error);
               this.subscribed = false;
             }
-          } else if (data.resut.account_id && data.result.timestamp) {
+          } else if (data.result.account_id && data.result.timestamp) {
             console.log('Received new chat notification in ws');
             const gotChats = await updateChatData();
             console.log('gotChats inside of ws.onmessage', gotChats);
