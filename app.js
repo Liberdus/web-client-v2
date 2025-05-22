@@ -6809,10 +6809,6 @@ async function handleStakeSubmit(event) {
             amountInput.value = '';
             closeStakeModal();
             openValidatorModal();
-        } else {
-            //const reason = response?.result?.reason || 'Unknown error';
-            //showToast(`Stake failed: ${reason}`, 5000, 'error');
-            // after toast shown, stays in stakeModal
         }
     } catch (error) {
         console.error('Stake transaction error:', error);
