@@ -7334,7 +7334,8 @@ class TollModal {
         this.modal.classList.add('active');
         // set currentTollValue to the toll value in wei
         const toll = big2str(myData.settings.toll, 18)
-        document.getElementById('currentTollValue').textContent = toll == 0 ? '0' : toll
+        const tollValue = toll == 0 ? '0' : toll
+        document.getElementById('currentTollValue').textContent = tollValue + ' LIB'
         this.currentCurrency = 'LIB'; // Reset currency state
         document.getElementById('tollCurrencySymbol').textContent = this.currentCurrency;
         document.getElementById('newTollAmountInput').value = ''; // Clear input field
@@ -7358,6 +7359,11 @@ class TollModal {
             const convertedValue = this.currentCurrency === 'USD' ? currentValue * marketPrice : currentValue / marketPrice;
             newTollAmountInput.value = convertedValue.toFixed(6);
         }
+
+        // convert `currentTollValue`
+        const currentTollValue = big2str(myData.settings.toll, 18);
+        const convertedValue = this.currentCurrency === 'USD' ? currentTollValue * marketPrice : currentTollValue;
+        document.getElementById('currentTollValue').textContent = this.currentCurrency === 'USD' ? `$${convertedValue}` : `${convertedValue} LIB`;
     }
 
     async saveAndPostNewToll(event) {
