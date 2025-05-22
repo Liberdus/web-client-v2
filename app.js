@@ -6810,7 +6810,7 @@ async function handleStakeSubmit(event) {
             closeStakeModal();
             openValidatorModal();
         } else {
-            const reason = response?.result?.reason || 'Unknown error';
+            //const reason = response?.result?.reason || 'Unknown error';
             //showToast(`Stake failed: ${reason}`, 5000, 'error');
             // after toast shown, stays in stakeModal
         }
@@ -7324,13 +7324,14 @@ class TollModal {
     constructor() {
         this.modal = document.getElementById('tollModal');
         this.currentCurrency = 'LIB'; // Initialize currency state
+        this.oldToll = null;
     }
 
     load() {
         document.getElementById('openToll').addEventListener('click', () => this.open());
         document.getElementById('closeTollModal').addEventListener('click', () => this.close());
         document.getElementById('toggleTollCurrency').addEventListener('click', (event) => this.handleToggleTollCurrency(event));
-        document.getElementById('tollForm').addEventListener('submit', (event) => this.saveNewToll(event));
+        document.getElementById('tollForm').addEventListener('submit', (event) => this.saveAndPostNewToll(event));
     }
 
     open() {
@@ -7363,7 +7364,7 @@ class TollModal {
         }
     }
 
-    async saveNewToll(event) {
+    async saveAndPostNewToll(event) {
         event.preventDefault();
         const newTollAmountInput = document.getElementById('newTollAmountInput');
         let newTollValue = parseFloat(newTollAmountInput.value);
@@ -7387,21 +7388,39 @@ class TollModal {
         }
 
         // Assuming newTollValue is now in LIB, convert to wei (smallest unit, 10^18)
-        //const newTollInWei = newTollValue * 10 ** 18;
+        const newBigIntInWei = bigxnum2big(wei, newTollValue.toString());
 
-        // Here you would typically call a function to save the newTollInWei to your settings
-        // For example: await saveTollSetting(newTollInWei);
-        //myData.settings.toll = newTollInWei;
-        // console.log('New toll saved (in LIB):', newTollValue);
-        // console.log('New toll saved (in wei):', newTollInWei.toString());
-        //showToast('Toll settings updated successfully!');
+        // Post the new toll to the network
+        const response = await this.postToll(newBigIntInWei/wei);
 
-        showToast('DEBUG: Toll settings updated successfully!');
+        if (response && response.result && response.result.success) {
+            this.editMyDataToll(newBigIntInWei);
+        }
+        else {
+            console.error(`Toll submission failed for txid: ${response.txid}`);
+            return;
+        }
         
         // Update the display for currentTollValue
         document.getElementById('currentTollValue').textContent = newTollValue == 0 ? '0' : newTollValue.toFixed(6) // Display with 6 decimals for consistency
+    }
 
-        //this.close(); // Close modal after saving (not going to do TODO: remove this)
+    editMyDataToll(toll) {
+        this.oldToll = myData.settings.toll;
+        myData.settings.toll = toll;
+    }
+
+    async postToll(toll) {
+        const tollTx = {
+            from: longAddress(myAccount.keys.address),
+            toll: toll,
+            type: "toll",
+            timestamp: getCorrectedTimestamp(),
+        };
+    
+        const txid = await signObj(tollTx, myAccount.keys)
+        const response = await injectTx(tollTx, txid);
+        return response;
     }
 }
 
@@ -7703,6 +7722,10 @@ async function checkPendingTransactions() {
                         openValidatorModal();
                     }
                 }
+
+                if (type === 'toll') {
+                    console.log(`Toll transaction successfully processed!`);
+                }
             }
             else if (res?.transaction?.success === false) {
                 console.log(`DEBUG: txid ${txid} failed, removing completely`);
@@ -7718,7 +7741,13 @@ async function checkPendingTransactions() {
                         showToast(`Unstake failed: ${failureReason}`, 0, "error");
                 } else if (type === 'deposit_stake') {
                         showToast(`Stake failed: ${failureReason}`, 0, "error");
-                    } else { // for messages, transfer etc.
+                    } 
+                    else if (type === 'toll') {
+                        showToast(`Toll submission failed! Reverting to old toll: ${tollModal.oldToll}. Failure reason: ${failureReason}. `, 0, "error");
+                        // revert the local myData.settings.toll to the old value
+                        tollModal.editMyDataToll(tollModal.oldToll);
+                    }
+                    else { // for messages, transfer etc.
                         showToast(failureReason, 0, "error");
                     }
 
@@ -7726,7 +7755,6 @@ async function checkPendingTransactions() {
                     updateTransactionStatus(txid, toAddress, 'failed', type);
                     refreshCurrentView(txid);
                 }
-
                 // Remove from pending array
                 myData.pending.splice(i, 1);
 
