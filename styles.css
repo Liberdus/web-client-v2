@@ -975,6 +975,13 @@ button:disabled {
   background-color: #fff;
 }
 
+/* Common focus style for form controls */
+.form-control:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(61, 61, 206, 0.1);
+}
+
 /* Common select styles */
 select.form-control {
   appearance: none;
@@ -1625,7 +1632,6 @@ input[type="file"].form-control {
   padding: 15px;
   font-size: 16px;
   font-family: var(--font-primary);
-  border: 1px solid #d6d6de;
   border-radius: 12px;
   background-color: #fff;
 }
