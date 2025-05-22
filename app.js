@@ -707,7 +707,7 @@ function newDataRecord(myAccount){
         },
         settings: {
             encrypt: true,
-            toll: 1
+            toll: 0n
         }
     }
 
@@ -7323,21 +7323,86 @@ const gatewayModal = new GatewayModal()
 class TollModal {
     constructor() {
         this.modal = document.getElementById('tollModal');
+        this.currentCurrency = 'LIB'; // Initialize currency state
     }
 
     load() {
         document.getElementById('openToll').addEventListener('click', () => this.open());
         document.getElementById('closeTollModal').addEventListener('click', () => this.close());
+        document.getElementById('toggleTollCurrency').addEventListener('click', (event) => this.handleToggleTollCurrency(event));
+        document.getElementById('tollForm').addEventListener('submit', (event) => this.saveNewToll(event));
     }
 
     open() {
         this.modal.classList.add('active');
+        // set currentTollValue to the toll value in wei
+        const toll = big2str(myData.settings.toll, 18)
+        document.getElementById('currentTollValue').textContent = toll == 0 ? '0' : toll
+        this.currentCurrency = 'LIB'; // Reset currency state
+        document.getElementById('tollCurrencySymbol').textContent = this.currentCurrency;
+        document.getElementById('newTollAmountInput').value = ''; // Clear input field
     }
     
     close() {
         this.modal.classList.remove('active');
+    }    
+
+    async handleToggleTollCurrency(event) {
+        event.preventDefault();
+        const newTollAmountInput = document.getElementById('newTollAmountInput');
+        const tollCurrencySymbol = document.getElementById('tollCurrencySymbol');
+
+        this.currentCurrency = this.currentCurrency === 'LIB' ? 'USD' : 'LIB';
+        tollCurrencySymbol.textContent = this.currentCurrency;
+
+        const marketPrice = await getMarketPrice();
+        if (newTollAmountInput.value !== '') {
+            const currentValue = parseFloat(newTollAmountInput.value);
+            const convertedValue = this.currentCurrency === 'USD' ? currentValue * marketPrice : currentValue / marketPrice;
+            newTollAmountInput.value = convertedValue.toFixed(6);
+        }
     }
-    
+
+    async saveNewToll(event) {
+        event.preventDefault();
+        const newTollAmountInput = document.getElementById('newTollAmountInput');
+        let newTollValue = parseFloat(newTollAmountInput.value);
+
+        if (isNaN(newTollValue) || newTollValue < 0) {
+            // console.error("Invalid toll amount");
+            showToast('Invalid toll amount entered.', 'error');
+            return;
+        }
+
+        if (this.currentCurrency === 'USD') {
+            const marketPrice = await getMarketPrice();
+            if (marketPrice && marketPrice > 0) {
+                newTollValue = newTollValue / marketPrice;
+            }
+            else {
+                // console.error("Could not fetch market price to save toll in LIB.");
+                showToast('Error fetching market price. Cannot save toll.', 'error');
+                return;
+            }
+        }
+
+        // Assuming newTollValue is now in LIB, convert to wei (smallest unit, 10^18)
+        //const newTollInWei = newTollValue * 10 ** 18;
+
+        // Here you would typically call a function to save the newTollInWei to your settings
+        // For example: await saveTollSetting(newTollInWei);
+        //myData.settings.toll = newTollInWei;
+        // console.log('New toll saved (in LIB):', newTollValue);
+        // console.log('New toll saved (in wei):', newTollInWei.toString());
+        //showToast('Toll settings updated successfully!');
+
+        showToast('DEBUG: Toll settings updated successfully!');
+        
+        // Update the display for currentTollValue
+        document.getElementById('currentTollValue').textContent = newTollValue == 0 ? '0' : newTollValue.toFixed(6) // Display with 6 decimals for consistency
+
+        //this.close(); // Close modal after saving (not going to do TODO: remove this)
+    }
 }
 
 const tollModal = new TollModal()

@@ -4317,7 +4317,8 @@ small {
   justify-content: center;
 }
 
-#sendAmount {
+#sendAmount,
+#newTollAmountInput {
   border-top-right-radius: 0 !important;
   border-bottom-right-radius: 0 !important;
   text-align: right;
