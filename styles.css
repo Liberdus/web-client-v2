@@ -4361,7 +4361,7 @@ small {
 }
 
 .current-toll-value-box {
-  background-color: var(--background-color); /* Light, distinct background */
+  background-color: #ccd3e0; /* Light, distinct background */
   border: 1px solid var(--border-color); /* Subtle border */
   border-radius: 0.25rem;
   padding: 0.5rem 0.75rem;
