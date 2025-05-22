@@ -4326,3 +4326,94 @@ small {
 .toggle-balance:hover {
   background-color: var(--button-hover-background);
 }
+
+/* Toll Modal Specific Styles */
+#tollModal .modal-header {
+  padding: 0.75rem 1rem;
+}
+
+#tollModal .form-container {
+  padding: 16px 0; /* Vertical padding for container, horizontal handled by children */
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+#tollModal .toll-display-area,
+#tollModal #tollForm {
+  width: 100%;
+  max-width: 390px; /* Match signInForm max-width */
+  padding: 0 16px; /* Match signInForm horizontal padding */
+  margin-left: auto; /* Center content block */
+  margin-right: auto; /* Center content block */
+  box-sizing: border-box; /* Ensure padding is included in width calculations */
+}
+
+.toll-display-area {
+  margin-bottom: 1.5rem; /* Space below the display area, retained */
+}
+
+.toll-display-area label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 0.25rem;
+  color: var(--primary-text-color);
+  text-align: left;
+}
+
+.current-toll-value-box {
+  background-color: var(--background-color); /* Light, distinct background */
+  border: 1px solid var(--border-color); /* Subtle border */
+  border-radius: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  color: var(--primary-text-color); /* Darker text for the value */
+  text-align: center; /* Center the N/A or value */
+  width: 100%; /* Take full width */
+  box-sizing: border-box;
+}
+
+.current-toll-value-box #tollAmount {
+  font-weight: bold;
+}
+
+/* Ensure labels in tollModal form have consistent styling */
+#tollModal #tollForm .form-group label {
+  margin-bottom: 0.25rem;
+  display: block;
+  font-weight: bold;
+}
+
+/* Spacing for form groups within the tollModal form */
+#tollModal #tollForm .form-group {
+  margin-bottom: 1rem;
+}
+
+/* Add a bit more space before the submit button */
+#tollModal #tollForm .form-group:last-of-type {
+  margin-bottom: 1.5rem;
+}
+
+/* Ensure the update button in the toll modal applies full-width correctly and has some top margin */
+#tollModal .update-button.full-width {
+  margin-top: 0.5rem; /* Space above the button */
+  padding: 0.75rem 1rem; /* Consistent padding, adjust if needed */
+  box-sizing: border-box;
+  border-radius: 25px; /* Rounded button to match image */
+}
+
+/* Help text or subtext for form elements */
+.help-text {
+  font-size: 0.8rem; /* Smaller than the main label */
+  color: var(
+    --secondary-text-color
+  ); /* Muted text color (similar to bootstrap's text-muted) */
+  display: block; /* Ensures it takes its own line */
+  margin-bottom: 0.5rem; /* Space before the element below it (the value box) */
+  text-align: left; /* Align text to the left, assuming labels are left-aligned */
+}
+
+/* Specific adjustment for help text under the toll display label */
+.toll-display-area .help-text {
+  margin-top: 0.1rem; /* Fine-tune spacing if needed */
+  margin-bottom: 0.35rem; /* Space before the current-toll-value-box */
+}

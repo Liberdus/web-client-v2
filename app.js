@@ -825,6 +825,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('openStakeModal').addEventListener('click', openStakeModal);
     document.getElementById('submitUnstake').addEventListener('click', confirmAndUnstakeCurrentUserNominee);
 
+    // Toll Modal
+    tollModal.load()
+
     // Stake Modal
     document.getElementById('closeStakeModal').addEventListener('click', closeStakeModal);
     document.getElementById('stakeForm').addEventListener('submit', handleStakeSubmit); // Function to be implemented
@@ -7312,6 +7315,28 @@ class GatewayModal {
     }
 }
 const gatewayModal = new GatewayModal()
+
+class TollModal {
+    constructor() {
+        this.modal = document.getElementById('tollModal');
+    }
+
+    load() {
+        document.getElementById('openToll').addEventListener('click', () => this.open());
+        document.getElementById('closeTollModal').addEventListener('click', () => this.close());
+    }
+
+    open() {
+        this.modal.classList.add('active');
+    }
+    
+    close() {
+        this.modal.classList.remove('active');
+    }
+    
+}
+
+const tollModal = new TollModal()
 
 class AboutModal {
     constructor() {

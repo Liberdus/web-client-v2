@@ -238,6 +238,7 @@
         </div>
         <ul class="menu-list">
           <li class="menu-item" id="openAccountForm">Profile</li>
+          <li class="menu-item" id="openToll">Toll</li>
           <li class="menu-item" id="openExportForm">Backup</li>
           <li class="menu-item" id="openNetwork">Gateway</li>
           <li class="menu-item" id="openValidator">Validator</li>
@@ -1241,6 +1242,48 @@
               Withdraw your delegated LIB from a validator node.
             </p>
           </div>
+        </div>
+        <a class="last-item" href="#" style="display: block; width: 0; height: 0; border: none; background: none;"> </a>
+      </div>
+
+      <!-- Toll Modal -->
+      <div class="modal" id="tollModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeTollModal"></button>
+          <div class="modal-title">Toll Settings</div>
+        </div>
+        <div class="form-container">
+          <!-- Current Toll Amount Display Area - Moved outside the form -->
+          <div class="toll-display-area">
+            <label for="currentTollValue">Current Toll Amount</label>
+            <div class="form-text help-text">
+              This is the toll amount a sender must pay to send a message or
+              payment to you.
+            </div>
+            <div id="currentTollValue" class="current-toll-value-box">
+              <span id="tollAmount">N/A</span>
+            </div>
+          </div>
+
+          <form id="tollForm">
+            <div class="form-group">
+              <label for="newTollAmountInput">Set New Toll Amount</label>
+              <div class="form-text help-text">
+                Sets a new toll amount a sender must pay to send a message or
+                payment to you.
+              </div>
+              <input
+                type="number"
+                id="newTollAmountInput"
+                class="form-control"
+                placeholder="Enter new amount"
+                required
+              />
+            </div>
+            <button type="submit" id="saveNewTollButton" class="update-button">
+              Save Changes
+            </button>
+          </form>
         </div>
         <a class="last-item" href="#" style="display: block; width: 0; height: 0; border: none; background: none;"> </a>
       </div>
