@@ -3394,7 +3394,7 @@ async function handleSendMessage() {
         // TODO: decided to query everytime we do openChatModal and save as global variable. We don't need to clear it but we can clear it when closing the modal but should get reset when opening the modal again anyway
         const toll = 1n * wei;
 
-        const chatMessageObj = createChatMessage(currentAddress, payload, toll, keys);
+        const chatMessageObj = await createChatMessage(currentAddress, payload, toll, keys);
         const txid = await signObj(chatMessageObj, keys)
 
         // if there a hidden txid input, get the value to be used to delete that txid from relevant data stores
