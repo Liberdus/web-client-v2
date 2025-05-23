@@ -142,7 +142,7 @@ let updateWebSocketIndicatorIntervalId = null;
 let checkPendingTransactionsIntervalId = null;
 //let checkConnectivityIntervalId = null;
 
-// Used in networkAccountData function
+// Used in getNetworkParams function
 const NETWORK_ACCOUNT_UPDATE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
 const NETWORK_ACCOUNT_ID = '0000000000000000000000000000000000000000000000000000000000000000';
 
