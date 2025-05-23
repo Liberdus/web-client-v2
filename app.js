@@ -120,7 +120,7 @@ import {
 // Put standalone conversion function in lib.js
 import { normalizeUsername, generateIdenticon, formatTime,
     isValidEthereumAddress,
-    normalizeAddress, longAddress, utf82bin, bin2utf8, hex2big, bigxnum2big,
+    normalizeAddress, longAddress, utf82bin, bin2utf8, bigxnum2big,
     big2str, base642bin, bin2base64, hex2bin, bin2hex, linkifyUrls, escapeHtml,
     debounce, truncateMessage
 } from './lib.js';
@@ -142,11 +142,15 @@ let updateWebSocketIndicatorIntervalId = null;
 let checkPendingTransactionsIntervalId = null;
 //let checkConnectivityIntervalId = null;
 
+// Used in networkAccountData function
+const NETWORK_ACCOUNT_UPDATE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
+const NETWORK_ACCOUNT_ID = '0000000000000000000000000000000000000000000000000000000000000000';
+
 // TODO - get the parameters from the network
 // mock network parameters
 let parameters = {
     current: {
-        transactionFee: 1
+        transactionFee: 1n * wei
     }
 }
 
@@ -723,11 +727,9 @@ function checkIsInstalledPWA() {
 
 // Load saved account data and update chat list on page load
 document.addEventListener('DOMContentLoaded', async () => {
-//     setInterval(updateWebSocketIndicator, 5000);
     await checkVersion()  // version needs to be checked before anything else happens
     await lockToPortrait()
     timeDifference(); // Calculate and log time difference early
- //   setTimeout(timeDifference, 200);
 
     // Initialize service worker only if running as installed PWA
     isInstalledPWA = checkIsInstalledPWA(); // Set the global variable
@@ -852,7 +854,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('cancelSendButton').addEventListener('click', closeSendConfirmationModal);
 
     document.getElementById('sendAsset').addEventListener('change', () => {
-//        updateSendAddresses();
+        // updateSendAddresses();
         updateAvailableBalance();
     });
     document.getElementById('availableBalance').addEventListener('click', fillAmount);
@@ -860,7 +862,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('sendAmount').addEventListener('input', updateAvailableBalance);
 
     // Add blur event listener for recipient validation
-//    document.getElementById('sendToAddress').addEventListener('blur', handleSendToAddressValidation);
+    // document.getElementById('sendToAddress').addEventListener('blur', handleSendToAddressValidation);
 
     document.getElementById('openReceiveModal').addEventListener('click', openReceiveModal);
     document.getElementById('closeReceiveModal').addEventListener('click', closeReceiveModal);
@@ -905,7 +907,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Add refresh balance button handler
     document.getElementById('refreshBalance').addEventListener('click', async () => {
-//        await updateWalletBalances();
+        // await updateWalletBalances();
         updateWalletView();
     });
 
@@ -1112,6 +1114,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // add event listener for toggle LIB/USD button
     document.getElementById('toggleBalance').addEventListener('click', handleToggleBalance);
+
+    await getNetworkParams();
 
     const welcomeScreenLastItem = document.getElementById('welcomeScreenLastItem');
     welcomeScreenLastItem.focus();
@@ -1505,7 +1509,7 @@ async function updateWalletBalances() {
                 const data = await queryNetwork(`/account/${address}/balance`)
                 console.log('balance', data)
                 // Update address balance
-                addr.balance = hex2big(data.balance.value) || 0;
+                addr.balance = data.balance || 0n;
 
                 // Add to asset total (convert to USD using asset price)
                 assetTotalBalance += addr.balance
@@ -2654,7 +2658,7 @@ function updateAvailableBalance() {
         validateBalance(document.getElementById('sendAmount').value, assetIndex, balanceWarning);
 }
 
-function updateBalanceDisplay(asset) {
+async function updateBalanceDisplay(asset) {
     if (!asset) {
         document.getElementById('balanceAmount').textContent = '0.0000';
         document.getElementById('balanceSymbol').textContent = '';
@@ -2662,7 +2666,8 @@ function updateBalanceDisplay(asset) {
         return;
     }
 
-    const txFeeInLIB = BigInt(parameters.current.transactionFee || 1) * wei;
+    await getNetworkParams();
+    const txFeeInLIB = ((parameters.current.transactionFee) || 1n * wei);
 
     document.getElementById('balanceAmount').textContent = big2str(BigInt(asset.balance), 18).slice(0, -12);
     document.getElementById('balanceSymbol').textContent = asset.symbol;
@@ -2670,14 +2675,16 @@ function updateBalanceDisplay(asset) {
 }
 
 
-function validateBalance(amount, assetIndex, balanceWarning = null) {
+async function validateBalance(amount, assetIndex, balanceWarning = null) {
     if (!amount) {
         if (balanceWarning) balanceWarning.style.display = 'none';
         return false;
     }
 
+
+    await getNetworkParams();
     const asset = myData.wallet.assets[assetIndex];
-    const feeInWei = BigInt(parameters.current.transactionFee || 1) * wei;
+    const feeInWei = (parameters.current.transactionFee || 1n);
     const totalRequired = bigxnum2big(wei, amount.toString()) + feeInWei;
     const hasInsufficientBalance = BigInt(asset.balance) < totalRequired;
 
@@ -2694,9 +2701,10 @@ function validateBalance(amount, assetIndex, balanceWarning = null) {
 }
 
 
-function fillAmount() {
+async function fillAmount() {
+    await getNetworkParams();
     const asset = myData.wallet.assets[document.getElementById('sendAsset').value];
-    const feeInWei = BigInt(parameters.current.transactionFee || 1) * wei;
+    const feeInWei = (parameters.current.transactionFee || 1n);
     const maxAmount = BigInt(asset.balance) - feeInWei;
 
     document.getElementById('sendAmount').value = big2str(maxAmount > 0n ? maxAmount : 0n, 18).slice(0, -16);
@@ -2736,7 +2744,8 @@ async function handleSendAsset(event) {
 
     // Validate amount including transaction fee
     if (!validateBalance(amount, assetIndex)) {
-        const txFeeInLIB = BigInt(parameters.current.transactionFee || 1) * wei;
+        await getNetworkParams();
+        const txFeeInLIB = (parameters.current.transactionFee || 1n);
         const amountInWei = bigxnum2big(wei, amount.toString());
         const balance = BigInt(wallet.assets[assetIndex].balance);
 
@@ -3379,7 +3388,13 @@ async function handleSendMessage() {
         // Always encrypt and send senderInfo (which will contain at least the username)
         payload.senderInfo = encryptChacha(dhkey, stringify(senderInfo));
 
-        const chatMessageObj = createChatMessage(currentAddress, payload, 1, keys);
+
+        // can create a function to query the account and get the receivers toll they've set
+        // TODO: will need to query network and receiver account where we validate
+        // TODO: decided to query everytime we do openChatModal and save as global variable. We don't need to clear it but we can clear it when closing the modal but should get reset when opening the modal again anyway
+        const toll = networkAccountData('current.transactionFee');
+
+        const chatMessageObj = createChatMessage(currentAddress, payload, toll, keys);
         const txid = await signObj(chatMessageObj, keys)
 
         // if there a hidden txid input, get the value to be used to delete that txid from relevant data stores
@@ -3823,11 +3838,11 @@ async function updateAssetPricesIfNeeded() {
             const data = await response.json();
             if (data.pairs && data.pairs.length > 0 && data.pairs[0].priceUsd) {
                 asset.price = parseFloat(data.pairs[0].priceUsd);
-//                asset.lastPriceUpdate = now;
-//                myData.wallet.assets[i] = asset; // Update the asset in the array
+                // asset.lastPriceUpdate = now;
+                // myData.wallet.assets[i] = asset; // Update the asset in the array
                 myData.wallet.priceTimestamp = now
                 console.log(`Updated price of ${asset.symbol} to ${asset.price}`);
-console.log(JSON.stringify(data,null,4))
+                console.log(JSON.stringify(data,null,4))
             } else {
                 console.warn(`No price data found for ${asset.symbol} from API`);
             }
@@ -4000,11 +4015,11 @@ async function queryNetwork(url) {
     try {
         const response = await fetch(`${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}${url}`);
         console.log('query', `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}${url}`)
-        const data = await response.json();
+        const data = parse(await response.text());
         console.log('response', data)
         return data
     } catch (error) {
-        console.error(`Error fetching balance for address ${addr.address}:`, error);
+        console.error(`queryNetwork ERROR: ${error}`);
         return null
     }
 }
@@ -4476,9 +4491,10 @@ The main difference between a chat message and an asset transfer is
  * @param {Object} keys - The keys of the sender
  * @returns {Object} The chat message object
  */
-function createChatMessage(to, payload, toll, keys) {
+async function createChatMessage(to, payload, toll, keys) {
     const toAddr = longAddress(to);
     const fromAddr = longAddress(keys.address)
+    await getNetworkParams();
     const tx = {
         type: 'message',
         from: fromAddr,
@@ -4488,8 +4504,8 @@ function createChatMessage(to, payload, toll, keys) {
         message: 'x',
         xmessage: payload,
         timestamp: getCorrectedTimestamp(),
-        network: '0000000000000000000000000000000000000000000000000000000000000000',
-        fee: BigInt(parameters.current.transactionFee || 1)           // This is not used by the backend
+        network: NETWORK_ACCOUNT_ID,
+        fee: (parameters.current.transactionFee || 1n)           // This is not used by the backend
     }
     return tx
 }
@@ -4497,18 +4513,20 @@ function createChatMessage(to, payload, toll, keys) {
 async function postAssetTransfer(to, amount, memo, keys) {
     const toAddr = longAddress(to)
     const fromAddr = longAddress(keys.address)
+    await getNetworkParams();
+
     const tx = {
         type: 'transfer',
         from: fromAddr,
         to: toAddr,
         amount: BigInt(amount),
         chatId: hashBytes([fromAddr, toAddr].sort().join``),
-// TODO backend is not allowing memo > 140 characters; by pass using xmemo; we might have to check the total tx size instead
-//        memo: stringify(memo),
+        // TODO backend is not allowing memo > 140 characters; by pass using xmemo; we might have to check the total tx size instead
+        // memo: stringify(memo),
         xmemo: memo,
         timestamp: getCorrectedTimestamp(),
-        network: '0000000000000000000000000000000000000000000000000000000000000000',
-        fee: BigInt(parameters.current.transactionFee || 1)           // This is not used by the backend
+        network: NETWORK_ACCOUNT_ID,
+        fee: (parameters.current.transactionFee || 1n)           // This is not used by the backend
     }
 
     const txid = await signObj(tx, keys)
@@ -7570,7 +7588,7 @@ async function validateStakeInputs() {
         // if the time stamps are more than 30 seconds ago, reset the staked amount and time stamps
         if(getCorrectedTimestamp() - validateStakeInputs.timeStamps > 30000) {
             const res = await queryNetwork(`/account/${address}`);
-            validateStakeInputs.stakedAmount = hex2big(res?.account?.operatorAccountInfo?.stake?.value || '0');
+            validateStakeInputs.stakedAmount = res?.account?.operatorAccountInfo?.stake || 0n;
             validateStakeInputs.timeStamps = getCorrectedTimestamp();
             validateStakeInputs.nominee = res?.account?.operatorAccountInfo?.nominee;
         }
@@ -7911,4 +7929,35 @@ function ignoreShiftTabKey(e) {
         e.preventDefault();
     }
 }
+
+
+/**
+ * Fetches and caches network account data if it's stale or not yet fetched.
+ * @returns {Promise<void>} - Resolves when the network account data is updated or not needed
+ */
+async function getNetworkParams() {
+    const now = getCorrectedTimestamp();
+
+    // Check if data is fresh; (this.networkAccountTimeStamp || 0) handles initial undefined state
+    if (now - (getNetworkParams.timestamp || 0) < NETWORK_ACCOUNT_UPDATE_INTERVAL_MS) {
+        return;
+    }
+
+    console.log(`getNetworkParams: Data for account ${NETWORK_ACCOUNT_ID} is stale or missing. Attempting to fetch...`);
+    try {
+        const fetchedData = await queryNetwork(`/account/${NETWORK_ACCOUNT_ID}`);
+
+        if (fetchedData !== undefined && fetchedData !== null) {
+            parameters = fetchedData.account;
+            getNetworkParams.timestamp = now;
+            return;
+        } else {
+            console.warn(`getNetworkParams: Received null or undefined data from queryNetwork for account ${NETWORK_ACCOUNT_ID}. Cached data (if any) will remain unchanged.`);
+        }
+    } catch (error) {
+        console.error(`getNetworkParams: Error fetching network account data for ${NETWORK_ACCOUNT_ID}: Cached data (if any) will remain unchanged.`, error);
+        // Optional: Clear data or reset timestamp to force retry on next call
+    }
+}
+getNetworkParams.timestamp = 0;
 
