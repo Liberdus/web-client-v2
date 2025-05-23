@@ -1115,7 +1115,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // add event listener for toggle LIB/USD button
     document.getElementById('toggleBalance').addEventListener('click', handleToggleBalance);
 
-    await getNetworkParams();
+    getNetworkParams();
 
     const welcomeScreenLastItem = document.getElementById('welcomeScreenLastItem');
     welcomeScreenLastItem.focus();
