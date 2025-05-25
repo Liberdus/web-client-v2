@@ -1,0 +1,17 @@
+# Ignore lockfiles
+package-lock.json
+#yarn.lock
+#pnpm-lock.yaml
+
+# Ignore build output
+#/build
+#/dist
+#/out
+
+# Ignore minified files
+#*.min.js
+#*.min.css
+
+# Ignore vendored libraries
+#/vendor
+#/node_modules 
