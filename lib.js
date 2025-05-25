@@ -14,8 +14,8 @@ export function generateIdenticonSvg(hash, size = 50) {
     const cellSize = (size - (2 * padding)) / 5;
 
     // Create 5x5 grid of cells
-    let paths = [];
-    let colors = [];
+    const paths = [];
+    const colors = [];
 
     // Use first 10 bytes for colors (2 colors)
     const color1 = getColorFromHash(hash, 0);
@@ -166,7 +166,7 @@ export function truncateMessage(message, maxLength = 100) {
     let startIndex = Math.max(0, firstMarkStart - charsToShowBefore);
 
     // Calculate the ending point based on start + maxLength
-    let endIndex = Math.min(message.length, startIndex + maxLength);
+    const endIndex = Math.min(message.length, startIndex + maxLength);
 
     // --- Adjustment for hitting the end ---
     // If the calculated window ends exactly at the message end,
@@ -418,7 +418,7 @@ export function big2str(amount, decimals) {
     amountString = amountString.padStart(decimals, '0');
 
     const insertPosition = amountString.length - decimals;
-    let r = insertPosition === 0
+    const r = insertPosition === 0
         ? '0.' + amountString
         : amountString.slice(0, insertPosition) + '.' + amountString.slice(insertPosition);
 //            r.replace('0*$', '')
