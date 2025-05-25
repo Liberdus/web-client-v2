@@ -21,7 +21,7 @@ async function checkVersion(){
         }
         newVersion = myVersion  // Allow continuing with the old version
     }
-//console.log('myVersion < newVersion then reload', myVersion, newVersion)
+// console.log('myVersion < newVersion then reload', myVersion, newVersion)
 console.log(parseInt(myVersion.replace(/\D/g, '')), parseInt(newVersion.replace(/\D/g, '')))
     if (parseInt(myVersion.replace(/\D/g, '')) != parseInt(newVersion.replace(/\D/g, ''))) {
         if (parseInt(myVersion.replace(/\D/g, '')) > 0){
@@ -30,7 +30,7 @@ console.log(parseInt(myVersion.replace(/\D/g, '')), parseInt(newVersion.replace(
         localStorage.setItem('version', newVersion); // Save new version
         forceReload(['./', 'index.html','styles.css','app.js','lib.js', 'network.js', 'service-worker.js', 'offline.html'])
         const newUrl = window.location.href
-//console.log('reloading', newUrl)
+// console.log('reloading', newUrl)
         window.location.replace(newUrl);
     }
 }
@@ -129,8 +129,8 @@ const weiDigits = 18;
 const wei = 10n**BigInt(weiDigits)
 const pollIntervalNormal = 30000 // in millisconds
 const pollIntervalChatting = 5000  // in millseconds
-//network.monitor.url = "http://test.liberdus.com:3000"    // URL of the monitor server
-//network.explorer.url = "http://test.liberdus.com:6001"   // URL of the chain explorer
+// network.monitor.url = "http://test.liberdus.com:3000"    // URL of the monitor server
+// network.explorer.url = "http://test.liberdus.com:6001"   // URL of the chain explorer
 
 
 let myData = null
@@ -140,7 +140,7 @@ let timeSkew = 0
 
 let updateWebSocketIndicatorIntervalId = null;
 let checkPendingTransactionsIntervalId = null;
-//let checkConnectivityIntervalId = null;
+// let checkConnectivityIntervalId = null;
 
 // Used in getNetworkParams function
 const NETWORK_ACCOUNT_UPDATE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
@@ -306,8 +306,8 @@ async function handleUsernameOnSignInModal() {
 //        const address = netidAccounts.usernames[username].keys.address;
     const address = netidAccounts.usernames[username].address;
     const availability = await checkUsernameAvailability(username, address);
-//console.log('usernames.length', usernames.length);
-//console.log('availability', availability);
+// console.log('usernames.length', usernames.length);
+// console.log('availability', availability);
     const removeButton = document.getElementById('removeAccountButton');
     if (usernames.length === 1 && availability === 'mine') {
         handleSignIn();
@@ -422,7 +422,8 @@ async function handleCreateAccount(event) {
     // Get private key from input or generate new one
     const providedPrivateKey = document.getElementById('newPrivateKey').value;
     const privateKeyError = document.getElementById('newPrivateKeyError');
-    let privateKey, privateKeyHex;
+    let privateKey; 
+    let privateKeyHex;
 
     if (providedPrivateKey) {
         // Validate and normalize private key
@@ -531,7 +532,7 @@ async function handleCreateAccount(event) {
 
     // Create new data entry
     myData = newDataRecord(myAccount);
-    let waitingToastId = showToast('Creating account...', 0, 'loading');
+    const waitingToastId = showToast('Creating account...', 0, 'loading');
     const res = await postRegisterAlias(username, myAccount.keys);
 
     if (res && res.result && res.result.success && res.txid) {
@@ -1391,7 +1392,7 @@ async function updateChatData() {
 // Update chat list UI
 async function updateChatList() {
     const chatList = document.getElementById('chatList');
-    //const chatsData = myData
+    // const chatsData = myData
     const contacts = myData.contacts
     const chats = myData.chats
     if (chats.length === 0) {
@@ -2085,7 +2086,7 @@ function appendChatModal(highlightNewMessage = false) {
 
             // Check item.my for sent/received
 
-            //console.log(`debug item: ${JSON.stringify(item, (key, value) => typeof value === 'bigint' ? big2str(value, 18) : value)}`)
+            // console.log(`debug item: ${JSON.stringify(item, (key, value) => typeof value === 'bigint' ? big2str(value, 18) : value)}`)
             // --- Render Payment Transaction ---
             const directionText = item.my ? '-' : '+';
             const messageClass = item.my ? 'sent' : 'received';
@@ -3306,7 +3307,7 @@ async function handleSendMessage() {
         if (!message) return;
 
         const modal = document.getElementById('chatModal');
-        //const modalTitle = modal.querySelector('.modal-title');
+        // const modalTitle = modal.querySelector('.modal-title');
         const messagesList = modal.querySelector('.messages-list');
 
         // Get current chat data
@@ -3331,7 +3332,7 @@ async function handleSendMessage() {
             return;
         }
 
-        ///yyy
+        // /yyy
         // Get recipient's public key from contacts
         let recipientPubKey = myData.contacts[currentAddress]?.public;
         let pqRecPubKey = myData.contacts[currentAddress]?.pqPublic;
@@ -3444,14 +3445,14 @@ async function handleSendMessage() {
         messagesList.parentElement.scrollTop = messagesList.parentElement.scrollHeight;
         // --- End Optimistic UI Update ---
 
-        //console.log('payload is', payload)
+        // console.log('payload is', payload)
         // Send the message transaction using createChatMessage with default toll of 1
         const response = await injectTx(chatMessageObj, txid)
 
         if (!response || !response.result || !response.result.success) {
             console.log('message failed to send', response)
-            //let userMessage = 'Message failed to send. Please try again.';
-            //const reason = response.result?.reason || '';
+            // let userMessage = 'Message failed to send. Please try again.';
+            // const reason = response.result?.reason || '';
 
             /* if (reason.includes('does not have sufficient funds')) {
                 userMessage = 'Message failed: Insufficient funds for toll & fees.';
@@ -3459,7 +3460,7 @@ async function handleSendMessage() {
                 // Attempt to provide a slightly more specific message if reason is short
                 userMessage = `Message failed: ${reason.substring(0, 100)}${reason.length > 100 ? '...' : ''}`;
             } */
-            //showToast(userMessage, 4000, 'error');
+            // showToast(userMessage, 4000, 'error');
 
             // Update message status to 'failed' in the UI
             updateTransactionStatus(txid, currentAddress, 'failed', 'message');
@@ -3553,6 +3554,7 @@ async function handleClickToCopy(e) {
  * Invoked when the user clicks on a failed message
  * Will show failed message modal with retry, delete (delete from all data stores), and close buttons
  * It will also store the message content and txid in the handleSendMessage object containing the handleFailedMessage and txid properties
+ * @param messageEl
  */
 function handleFailedMessageClick(messageEl) {
     const modal = document.getElementById('failedMessageModal');
@@ -3580,18 +3582,18 @@ function handleFailedPaymentClick(txid, element) {
     // Get the address and memo from the original failed transfer element
     const address = element?.dataset?.address || appendChatModal?.address;
     const memo = element?.querySelector('.transaction-memo')?.textContent || element?.querySelector('.payment-memo')?.textContent;
-    //const assetID = element?.dataset?.assetID || ''; // TODO: need to add assetID to `myData.wallet.history` for when we have multiple assets
+    // const assetID = element?.dataset?.assetID || ''; // TODO: need to add assetID to `myData.wallet.history` for when we have multiple assets
 
     // Store the address and memo in properties of handleFailedPaymentClick
     handleFailedPaymentClick.address = address;
     handleFailedPaymentClick.memo = memo;
     handleFailedPaymentClick.txid = txid;
-    //handleFailedPaymentClick.assetID = assetID;
+    // handleFailedPaymentClick.assetID = assetID;
 
     console.log(`handleFailedPaymentClick.address: ${handleFailedPaymentClick.address}`)
     console.log(`handleFailedPaymentClick.memo: ${handleFailedPaymentClick.memo}`)
     console.log(`handleFailedPaymentClick.txid: ${handleFailedPaymentClick.txid}`)
-    //console.log(`handleFailedPaymentClick.assetID: ${handleFailedPaymentClick.assetID}`)
+    // console.log(`handleFailedPaymentClick.assetID: ${handleFailedPaymentClick.assetID}`)
     if (modal) {
         modal.classList.add('active');
     }
@@ -3599,7 +3601,7 @@ function handleFailedPaymentClick(txid, element) {
 handleFailedPaymentClick.txid = '';
 handleFailedPaymentClick.address = '';
 handleFailedPaymentClick.memo = '';
-//handleFailedPaymentClick.assetID = '';
+// handleFailedPaymentClick.assetID = '';
 
 /**
  * Invoked when the user clicks the retry button in the failed message modal
@@ -3722,7 +3724,7 @@ function handleFailedPaymentDelete() {
         handleFailedPaymentClick.txid = '';
         handleFailedPaymentClick.address = '';
         handleFailedPaymentClick.memo = '';
-        //handleFailedPaymentClick.assetID = '';
+        // handleFailedPaymentClick.assetID = '';
     } else {
         console.error('Error deleting message: TXID not found.');
         if (failedPaymentModal) {
@@ -3754,12 +3756,13 @@ function closeFailedPaymentModalAndClearState() {
     handleFailedPaymentClick.txid = '';
     handleFailedPaymentClick.address = '';
     handleFailedPaymentClick.memo = '';
-    //handleFailedPaymentClick.assetID = '';
+    // handleFailedPaymentClick.assetID = '';
 }
 
 /**
  * Invoked when the user clicks the backdrop in the failed message modal
  * It will close the modal and clear the stored values
+ * @param event
  */
 function handleFailedMessageBackdropClick(event) {
     const failedMessageModal = document.getElementById('failedMessageModal');
@@ -3999,11 +4002,11 @@ function handleHistoryItemClick(event) {
 }
 
 async function queryNetwork(url) {
-    //console.log('queryNetwork', url)
+    // console.log('queryNetwork', url)
     if (!await checkOnlineStatus()) {
-        //TODO: show user we are not online
+        // TODO: show user we are not online
         console.warn("not online")
-        //alert('not online')
+        // alert('not online')
         return null
     }
     const randomGateway = getGatewayForRequest();
@@ -4122,17 +4125,17 @@ function scheduleNextPoll() {
 
 async function getChats(keys, retry = 1) {  // needs to return the number of chats that need to be processed
 console.log(`getChats retry ${retry}`)
-//console.log('keys', keys)
+// console.log('keys', keys)
     if (! keys){ console.log('no keys in getChats'); return 0 }     // TODO don't require passing in keys
     const now = getCorrectedTimestamp()
     if (now - getChats.lastCall < 1000){ return 0 }
     getChats.lastCall = now
-//console.log('address', keys)
-//console.log('mydata', myData)
-//console.log('contacts', myData.contacts[keys.address])
-//console.log('messages', myData.contacts[keys.address].messages)
-//console.log('last messages', myData.contacts[keys.address].messages.at(-1))
-//console.log('timestamp', myData.contacts[keys.address].messages.at(-1).timestamp)
+// console.log('address', keys)
+// console.log('mydata', myData)
+// console.log('contacts', myData.contacts[keys.address])
+// console.log('messages', myData.contacts[keys.address].messages)
+// console.log('last messages', myData.contacts[keys.address].messages.at(-1))
+// console.log('timestamp', myData.contacts[keys.address].messages.at(-1).timestamp)
     const timestamp = myAccount.chatTimestamp || 0
 //    const timestamp = myData.contacts[keys.address]?.messages?.at(-1).timestamp || 0
 
@@ -4193,7 +4196,7 @@ async function processChats(chats, keys) {
     const timestamp = myAccount.chatTimestamp || 0
     const messageQueryTimestamp = Math.max(0, timestamp);
 
-    for (let sender in chats) {
+    for (const sender in chats) {
         // Fetch messages using the adjusted timestamp
         const res = await queryNetwork(`/messages/${chats[sender]}/${messageQueryTimestamp}`)
         console.log("processChats sender", sender, "fetching since", messageQueryTimestamp)
@@ -4210,10 +4213,10 @@ async function processChats(chats, keys) {
             const inActiveChatWithSender = appendChatModal.address === from &&
                 document.getElementById('chatModal')?.classList.contains('active'); // Added null check for safety
 
-            for (let i in res.messages){
+            for (const i in res.messages){
                 const tx = res.messages[i] // the messages are actually the whole tx
-//console.log('message tx is')
-//console.log(JSON.stringify(message, null, 4))
+// console.log('message tx is')
+// console.log(JSON.stringify(message, null, 4))
                 newTimestamp = tx.timestamp > newTimestamp ? tx.timestamp : newTimestamp
                 if (tx.type == 'message'){
                     if (tx.from == longAddress(keys.address)){ continue }  // skip if the message is from us
@@ -4223,7 +4226,7 @@ async function processChats(chats, keys) {
                         if (!senderPublic){
                             const senderInfo = await queryNetwork(`/account/${longAddress(from)}`)
                             // TODO for security, make sure hash of public key is same as from address; needs to be in other similar situations
-//console.log('senderInfo.account', senderInfo.account)
+// console.log('senderInfo.account', senderInfo.account)
                             if (!senderInfo?.account?.publicKey){
                                 console.log(`no public key found for sender ${sender}`)
                                 continue
@@ -4235,7 +4238,7 @@ async function processChats(chats, keys) {
                         }
                         payload.public = senderPublic
                     }
-//console.log("payload", payload)
+// console.log("payload", payload)
                     decryptMessage(payload, keys)  // modifies the payload object
                     if (payload.senderInfo){
                         contact.senderInfo = JSON.parse(JSON.stringify(payload.senderInfo))  // make a copy
@@ -4256,11 +4259,11 @@ async function processChats(chats, keys) {
                         }
                     }
                     if (alreadyExists) {
-                        //console.log(`Skipping already existing message: ${payload.sent_timestamp}`);
+                        // console.log(`Skipping already existing message: ${payload.sent_timestamp}`);
                         continue; // Skip to the next message
                     }
 
-//console.log('contact.message', contact.messages)
+// console.log('contact.message', contact.messages)
                     payload.my = false
                     payload.timestamp = payload.sent_timestamp
                     insertSorted(contact.messages, payload, 'timestamp')
@@ -4270,15 +4273,15 @@ async function processChats(chats, keys) {
                     }
                     added += 1
                 } else if (tx.type == 'transfer'){
-//console.log('transfer tx is')
-//console.log(JSON.stringify(message, null, 4))
+// console.log('transfer tx is')
+// console.log(JSON.stringify(message, null, 4))
                     if (tx.from == longAddress(keys.address)){ continue }  // skip if the message is from us
                     const payload = tx.xmemo
                     if (payload.encrypted){
                         let senderPublic = myData.contacts[from]?.public
                         if (!senderPublic){
                             const senderInfo = await queryNetwork(`/account/${longAddress(from)}`)
-                    //console.log('senderInfo.account', senderInfo.account)
+                    // console.log('senderInfo.account', senderInfo.account)
                             if (!senderInfo?.account?.publicKey){
                                 console.log(`no public key found for sender ${sender}`)
                                 continue
@@ -4290,7 +4293,7 @@ async function processChats(chats, keys) {
                         }
                         payload.public = senderPublic
                     }
-                    //console.log("payload", payload)
+                    // console.log("payload", payload)
                     decryptMessage(payload, keys)  // modifies the payload object
                     if (payload.senderInfo){
                         contact.senderInfo = JSON.parse(JSON.stringify(payload.senderInfo))  // make a copy
@@ -4317,7 +4320,7 @@ async function processChats(chats, keys) {
                         }
                     }
                     if (alreadyInHistory) {
-                        //console.log(`Skipping already existing transfer: ${txidHex}`);
+                        // console.log(`Skipping already existing transfer: ${txidHex}`);
                         continue; // Skip to the next message
                     }
                     // add the transfer tx to the wallet history
@@ -4332,7 +4335,7 @@ async function processChats(chats, keys) {
                     insertSorted(history, newPayment, 'timestamp');
                     // TODO: redundant but keep for now
                     //  sort history array based on timestamp field in descending order
-                    //history.sort((a, b) => b.timestamp - a.timestamp);
+                    // history.sort((a, b) => b.timestamp - a.timestamp);
 
                     // Mark that we have a new transfer for toast notification
                     hasNewTransfer = true
@@ -4624,7 +4627,7 @@ async function injectTx(tx, txid){
  */
 async function signObj(tx, keys){
     const jstr = stringify(tx)
-//console.log('tx stringify', jstr)
+// console.log('tx stringify', jstr)
     const jstrBytes = utf82bin(jstr)
     const txidHex = hashBytes(jstrBytes)
     const txidHashHex = ethHashMessage(txidHex)     // Asked Thant why we are doing this;
@@ -5451,7 +5454,7 @@ function initializeGatewayConfig() {
 
 // Function to get the gateway to use for a request
 function getGatewayForRequest() {
-    //TODO: ask Omar if we should just let use edit network.js or keep current logic where when we sign in it uses network.js and when signed in we use myData.network.gateways
+    // TODO: ask Omar if we should just let use edit network.js or keep current logic where when we sign in it uses network.js and when signed in we use myData.network.gateways
     // Check if myData exists
     if (!myData) {
         // Fall back to global network if available
@@ -5596,7 +5599,7 @@ function readQRCode(){
             }
         } catch (error) {
             // qr.decodeQR throws error if not found or on error
-            //console.log('QR scanning error or not found:', error); // Optional: Log if needed
+            // console.log('QR scanning error or not found:', error); // Optional: Log if needed
         }
     }
 }
@@ -6209,10 +6212,9 @@ function closeSendConfirmationModal() {
 /**
  * Inserts an item into an array while maintaining descending order based on a timestamp field.
  * Assumes the array is already sorted in descending order.
- *
  * @param {Array<Object>} array - The array to insert into (e.g., myData.chats, contact.messages, myData.wallet.history).
  * @param {Object} item - The item to insert (e.g., chatUpdate, newMessage, newPayment).
- * @param {string} [timestampField='timestamp'] - The name of the field containing the timestamp to sort by.
+ * @param {string} [timestampField] - The name of the field containing the timestamp to sort by.
  */
 function insertSorted(array, item, timestampField = 'timestamp') {
     // Find the index where the new item should be inserted.
@@ -6237,8 +6239,7 @@ function insertSorted(array, item, timestampField = 'timestamp') {
  * Fetches the timestamp from the '/timestamp' endpoint on a network gateway using queryNetwork,
  * compares it to local time, and stores the difference in `timeSkew`.
  * Includes a retry mechanism for transient network errors.
- *
- * @param {number} [retryCount=0] - The current retry attempt number.
+ * @param {number} [retryCount] - The current retry attempt number.
  */
 async function timeDifference(retryCount = 0) {
     const maxRetries = 2; // Maximum number of retries
@@ -6270,9 +6271,9 @@ async function timeDifference(retryCount = 0) {
         timeSkew = difference; // Store the calculated skew
 
         // Optional: Update logging for verification
-        //console.log(`Gateway time (UTC ms): ${serverTimeMs} (${new Date(serverTimeMs).toISOString()})`);
-        //console.log(`Client time (local ms): ${clientTimeMs} (${new Date(clientTimeMs).toISOString()})`);
-        //console.log(`Time difference (Gateway - Client): ${difference} ms`);
+        // console.log(`Gateway time (UTC ms): ${serverTimeMs} (${new Date(serverTimeMs).toISOString()})`);
+        // console.log(`Client time (local ms): ${clientTimeMs} (${new Date(clientTimeMs).toISOString()})`);
+        // console.log(`Time difference (Gateway - Client): ${difference} ms`);
         const minutes = Math.floor(Math.abs(difference) / 60000);
         const seconds = Math.floor((Math.abs(difference) % 60000) / 1000);
         const milliseconds = Math.abs(difference) % 1000;
@@ -6401,7 +6402,7 @@ async function openValidatorModal() {
                 pendingTxTextInBar.style.display = 'block'; // Or 'inline-block'
             }
 
-            //disable the stake button
+            // disable the stake button
             if (stakeButton) stakeButton.disabled = true;
         }
     }
@@ -6713,7 +6714,7 @@ async function confirmAndUnstakeCurrentUserNominee() {
     // Confirmation dialog
     const confirmationMessage = `Are you sure you want to unstake from validator: ${nominee}?`;
     if (window.confirm(confirmationMessage)) {
-        //console.log(`User confirmed unstake from: ${nominee}`);
+        // console.log(`User confirmed unstake from: ${nominee}`);
         showToast('Submitting unstake transaction...', 3000, 'loading');
         // Call the function to handle the actual transaction submission
         await submitUnstakeTransaction(nominee);
@@ -7613,8 +7614,8 @@ async function validateStakeInputs() {
     } catch (error) {
         showToast(`Error validating stake inputs: ${error}`, 0, "error");
         console.error(`error validating stake inputs: ${error}`);
-        //amountWarningElement.textContent = 'Invalid amount format.';
-        //amountWarningElement.style.display = 'block';
+        // amountWarningElement.textContent = 'Invalid amount format.';
+        // amountWarningElement.style.display = 'block';
         return; // Keep button disabled
     }
 
@@ -7698,9 +7699,9 @@ async function checkPendingTransactions() {
             if (submittedts < twentySecondsAgo || submittedts < thirtySecondsAgo) {
                 endpointPath = `/old_receipt/${txid}`;
             }
-            //console.log(`DEBUG: txid ${txid} endpointPath: ${endpointPath}`);
+            // console.log(`DEBUG: txid ${txid} endpointPath: ${endpointPath}`);
             const res = await queryNetwork(endpointPath);
-            //console.log(`DEBUG: txid ${txid} res: ${JSON.stringify(res)}`);
+            // console.log(`DEBUG: txid ${txid} res: ${JSON.stringify(res)}`);
 
             if (submittedts < thirtySecondsAgo && res.transaction === null) {
                 console.error(`DEBUG: txid ${txid} timed out, removing completely`);
@@ -7911,7 +7912,7 @@ function handleTogglePrivateKeyInput() {
 * @param {Event} e - The event object.
 */
 function ignoreTabKey(e) {
-    //console.log('DEBUG: ignoring tab key');
+    // console.log('DEBUG: ignoring tab key');
     // allow shift+tab to work
     if (e.key === 'Tab' && !e.shiftKey) {
         e.preventDefault();
