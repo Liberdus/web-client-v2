@@ -2,6 +2,8 @@
 
 // https://github.com/paulmillr/noble-post-quantum
 // https://github.com/paulmillr/noble-post-quantum/releases
+
+// eslint-disable-next-line camelcase
 import { ml_kem1024, randomBytes } from './external/noble-post-quantum.js';
 
 // https://github.com/paulmillr/noble-secp256k1
@@ -102,7 +104,8 @@ export async function decryptMessage(payload, keys) {
     if (payload.encrypted) {
         // Generate shared secret using ECDH
         let dhkey = ecSharedKey(keys.secret, payload.public)
-        const { publicKey, secretKey } = ml_kem1024.keygen(hex2bin(keys.pqSeed))
+        // eslint-disable-next-line camelcase
+        const { /* publicKey, */ secretKey } = ml_kem1024.keygen(hex2bin(keys.pqSeed))
         const sharedSecret = pqSharedKey(secretKey, payload.pqEncSharedKey)
         const combined = new Uint8Array(dhkey.length + sharedSecret.length)
         combined.set(dhkey)
@@ -151,8 +154,10 @@ export function pqSharedKey(recipientKey, encKey) {  // inputs base64 or binary,
     if (typeof(recipientKey) == 'string') { recipientKey = base642bin(recipientKey) }
     if (encKey) {
         if (typeof(encKey) == 'string') { encKey = base642bin(encKey) }
+        // eslint-disable-next-line camelcase
         return ml_kem1024.decapsulate(encKey, recipientKey);
     }
+    // eslint-disable-next-line camelcase
     return ml_kem1024.encapsulate(recipientKey);  // { cipherText, sharedSecret }
 }
 
@@ -192,6 +197,7 @@ export async function signMessage(message, privateKey) {
 }
 
 export function generatePQKeys(pqSeed) {
+    // eslint-disable-next-line camelcase
     return ml_kem1024.keygen(hex2bin(pqSeed));
 }
 

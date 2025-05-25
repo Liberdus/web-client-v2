@@ -333,6 +333,7 @@ export function big2num(bigIntNum) {
 }
 
 // This was losing precision because the number was getting converted to float by the caller
+// eslint-disable-next-line camelcase
 export function bigxnum2big_old(bigIntNum, floatNum) {
     // Convert float to string to handle decimal places
     const floatStr = floatNum.toString();
@@ -385,7 +386,7 @@ export function bigxnum2num(bigIntNum, floatNum) {
 
     // Convert BigInt to scientific notation string to handle large numbers
     const bigIntStr = bigIntNum.toString();
-    const bigIntLength = bigIntStr.length;
+    // const bigIntLength = bigIntStr.length;
 
     // Break the bigint into chunks to maintain precision
     const chunkSize = 15; // Safe size for float precision
