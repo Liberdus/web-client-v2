@@ -25,40 +25,87 @@ Try out the application at [liberdus.com/test](https://liberdus.com/test)
 ### Prerequisites
 
 - Git
+- Node.js and npm (for linting, formatting, and managing dependencies)
 - A local HTTP server (such as Python's `http.server`, Node.js `http-server`, or any other of your choice)
 
 ### Installation
 
 1. Clone this repository:
-   ```
+
+   ```bash
    git clone https://github.com/Liberdus/liberdus
    cd liberdus
    ```
 
-2. Start a local HTTP server in the cloned repository folder:
-   
-   Using Python:
+2. Install project dependencies (including those for linting and formatting):
+
+   ```bash
+   npm install
    ```
+
+3. Start a local HTTP server in the cloned repository folder (this is the web client):
+
+   Using Python:
+
+   ```bash
    python -m http.server
    ```
-   
+
    Or using Node.js http-server:
-   ```
+
+   ```bash
    npx http-server
    ```
 
-3. Clone the proxy server repository:
-   ```
+4. Clone the proxy server repository (if you plan to run the full stack locally):
+
+   ```bash
    git clone https://github.com/Liberdus/liberdus-proxy
    ```
 
-4. Run the proxy server:
-   ```
+5. Run the proxy server:
+
+   ```bash
    cd liberdus-proxy
    # Follow the setup instructions in the proxy server README
    ```
 
-5. Access the application in your browser at `http://localhost:8000` (or whichever port your HTTP server is using)
+6. Access the application in your browser at `http://localhost:8000` (or whichever port your HTTP server for the web client is using).
+
+### Code Style and Quality
+
+This project uses [ESLint](https://eslint.org/) for identifying and reporting on patterns in JavaScript and [Prettier](https://prettier.io/) for code formatting. These tools help maintain code quality and consistency.
+
+**To use these tools:**
+
+- First, ensure you have installed the development dependencies by running `npm install` in the `liberdus` (web-client) directory as described in the Installation section.
+
+- **Linting:**
+
+  - Check for linting errors:
+    ```bash
+    npm run lint
+    ```
+  - Attempt to automatically fix linting errors:
+    ```bash
+    npm run lint:fix
+    ```
+
+- **Formatting:**
+  - Check for formatting issues:
+    ```bash
+    npm run format:check
+    ```
+  - Automatically format the code:
+    ```bash
+    npm run format
+    ```
+
+**Editor Integration:**
+The project includes settings for VS Code (`.vscode/settings.json`) to automatically format code on save using Prettier and enable ESLint integration. For this to work, ensure you have the following VS Code extensions installed:
+
+- [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) (by Microsoft)
+- [Prettier - Code formatter](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) (by Prettier)
 
 ## Architecture
 
