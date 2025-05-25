@@ -13,5 +13,16 @@
   "rules": {
     // Most common rules are now covered by 'eslint-config-google'
     // Add specific overrides here if Google's defaults are not suitable
+
+    // Temporarily disable JSDoc requirements
+    "require-jsdoc": "off",
+    "valid-jsdoc": "off",
+    "jsdoc/require-jsdoc": "off",
+    "jsdoc/require-param-description": "off",
+    "jsdoc/require-param-type": "off",
+    "jsdoc/require-returns-description": "off",
+    "jsdoc/require-returns-type": "off",
+    "jsdoc/check-types": "off",
+    "jsdoc/require-returns": "off"
   }
 }

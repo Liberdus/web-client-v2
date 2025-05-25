@@ -1,0 +1,7 @@
+node_modules/
+external/
+media/
+data_structures_flow/
+
+# Optionally, you can also ignore specific file patterns if needed
+# e.g., *.min.js 
