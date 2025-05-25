@@ -120,8 +120,8 @@ import {
 // Put standalone conversion function in lib.js
 import { normalizeUsername, generateIdenticon, formatTime,
     isValidEthereumAddress,
-    normalizeAddress, longAddress, utf82bin, bin2utf8, bigxnum2big,
-    big2str, base642bin, bin2base64, hex2bin, bin2hex, linkifyUrls, escapeHtml,
+    normalizeAddress, longAddress, utf82bin, bigxnum2big,
+    big2str, bin2base64, hex2bin, bin2hex, linkifyUrls, escapeHtml,
     debounce, truncateMessage
 } from './lib.js';
 
@@ -297,7 +297,7 @@ async function handleUsernameOnSignInModal() {
     // Enable submit button when an account is selected
     const username = usernameSelect.value;
     const notFoundMessage = document.getElementById('usernameNotFound');
-    const options = usernameSelect.options;
+    // const options = usernameSelect.options;
     if (!username) {
         submitButton.disabled = true;
         notFoundMessage.style.display = 'none';
@@ -918,13 +918,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('newChatForm').addEventListener('submit', handleNewChat);
 
     // Add input event listener for message textarea auto-resize
-    document.querySelector('.message-input')?.addEventListener('input', function() {
-        this.style.height = '44px';
-        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    document.querySelector('.message-input')?.addEventListener('input', function(event) {
+        event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 120)}px`;
     });
 
     // Add new search functionality
-    const searchInput = document.getElementById('searchInput');
     const messageSearch = document.getElementById('messageSearch');
     const searchModal = document.getElementById('searchModal');
 
@@ -1045,13 +1043,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const togglePasswordButton = document.getElementById('togglePrivateKeyVisibility');
     const passwordInput = document.getElementById('newPrivateKey');
 
-    togglePasswordButton.addEventListener('click', function () {
+    togglePasswordButton.addEventListener('click', function (event) {
         // Toggle the type attribute
         const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
         passwordInput.setAttribute('type', type);
 
         // Toggle the visual state class on the button
-        this.classList.toggle('toggled-visible');
+        event.currentTarget.classList.toggle('toggled-visible');
     });
 
     // add listner for username input, debounce
@@ -1853,7 +1851,7 @@ function showRecipientError(message) {
 }
 
 // Validate recipient in send modal
-async function handleSendToAddressValidation(e) {
+/* async function handleSendToAddressValidation(e) {
     const input = e.target.value.trim();
     const errorElement = document.getElementById('sendToAddressError');
 
@@ -1895,7 +1893,7 @@ async function handleSendToAddressValidation(e) {
         errorElement.style.color = '#dc3545';
         errorElement.style.display = 'inline';
     }
-}
+} */
 
 // Hide error message in the new chat form
 function hideRecipientError() {
@@ -2627,8 +2625,8 @@ async function closeSendModal() {
 
 function updateSendAddresses() {
     const walletData = myData.wallet
-    const assetIndex = document.getElementById('sendAsset').value;
-//    const addressSelect = document.getElementById('sendFromAddress');
+    // const assetIndex = document.getElementById('sendAsset').value;
+    // const addressSelect = document.getElementById('sendFromAddress');
 
     // Check if we have any assets
     if (!walletData.assets || walletData.assets.length === 0) {
@@ -3138,7 +3136,7 @@ async function openEditContactModal() {
     }
 
     // Create display info object using the same format as contactInfoModal
-    const displayInfo = createDisplayInfo(myData.contacts[currentContactAddress]);
+    // const displayInfo = createDisplayInfo(myData.contacts[currentContactAddress]);
 
     // Create a handler function to focus the input after the modal transition
     const editContactFocusHandler = () => {
@@ -4197,6 +4195,7 @@ async function processChats(chats, keys) {
     const messageQueryTimestamp = Math.max(0, timestamp);
 
     for (const sender in chats) {
+        if (!chats.hasOwnProperty(sender)) { continue }
         // Fetch messages using the adjusted timestamp
         const res = await queryNetwork(`/messages/${chats[sender]}/${messageQueryTimestamp}`)
         console.log("processChats sender", sender, "fetching since", messageQueryTimestamp)
@@ -4214,6 +4213,7 @@ async function processChats(chats, keys) {
                 document.getElementById('chatModal')?.classList.contains('active'); // Added null check for safety
 
             for (const i in res.messages){
+                if (!res.messages.hasOwnProperty(i)) { continue }
                 const tx = res.messages[i] // the messages are actually the whole tx
 // console.log('message tx is')
 // console.log(JSON.stringify(message, null, 4))
@@ -4415,7 +4415,7 @@ async function processChats(chats, keys) {
                 // Only suppress notification if we're ACTIVELY viewing this chat and if not a transfer
                 if (!inActiveChatWithSender && !hasNewTransfer) {
                     // Get name of sender
-                    const senderName = contact.name || contact.username || `${from.slice(0,8)}...`
+                    // const senderName = contact.name || contact.username || `${from.slice(0,8)}...`
 
                     // Add notification indicator to Chats tab if we're not on it
                     const chatsButton = document.getElementById('switchToChats');
@@ -4541,7 +4541,7 @@ async function postAssetTransfer(to, amount, memo, keys) {
 async function postRegisterAlias(alias, keys){
     const aliasBytes = utf82bin(alias)
     const aliasHash = hashBytes(aliasBytes);
-    const { publicKey, secretKey } = generatePQKeys(keys.pqSeed)
+    const { publicKey/* , secretKey  */} = generatePQKeys(keys.pqSeed)
     const pqPublicKey = bin2base64(publicKey)
     const tx = {
         type: 'register',
@@ -5484,7 +5484,7 @@ function getGatewayForRequest() {
 
 async function startCamera() {
     const video = document.getElementById('video');
-    const canvasElement = document.getElementById('canvas');
+    // const canvasElement = document.getElementById('canvas');
     try {
         // First check if camera API is supported
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -5607,7 +5607,7 @@ function readQRCode(){
 
 // Handle successful scan
 function handleSuccessfulScan(data) {
-    const scanHighlight = document.getElementById('scan-highlight');
+    // const scanHighlight = document.getElementById('scan-highlight');
     // Stop scanning
     if (startCamera.scanInterval) {
         clearInterval(startCamera.scanInterval);
@@ -6419,11 +6419,11 @@ async function openValidatorModal() {
             // For now, we'll proceed, but nominee/user stake will be unavailable.
         }
 
-        const [userAccountData, networkAccountData, updatePrices] = await Promise.all([
+        const [userAccountData, networkAccountData] = await Promise.all([
             userAddress ? queryNetwork(`/account/${longAddress(userAddress)}`) : Promise.resolve(null), // Fetch User Data if available
             queryNetwork('/account/0000000000000000000000000000000000000000000000000000000000000000'), // Fetch Network Data
-            updateWalletBalances()
         ]);
+        await updateWalletBalances()
 
         // Extract Raw Data
         // Use optional chaining extensively in case userAccountData is null
@@ -6749,7 +6749,7 @@ async function submitUnstakeTransaction(nodeAddress) {
             openValidatorModal();
         } else {
             // Try to get a more specific reason for failure
-            const reason = response?.result?.reason || 'Unknown error from API.';
+            // const reason = response?.result?.reason || 'Unknown error from API.';
             // not showing toast since shown in injectTx
             console.error('Unstake failed. API Response:', response);
         }
@@ -6793,9 +6793,9 @@ async function handleStakeSubmit(event) {
         return;
     } */
 
-    let amount_in_wei;
+    let amountInWei;
     try {
-        amount_in_wei = bigxnum2big(wei, amountStr);
+        amountInWei = bigxnum2big(wei, amountStr);
         // TODO: Add balance check if necessary
     } catch (error) {
         showToast('Invalid amount entered.', 3000, 'error');
@@ -6807,13 +6807,13 @@ async function handleStakeSubmit(event) {
         if (backButton) backButton.disabled = true;
         if (submitStakeButton) submitStakeButton.disabled = true;
 
-        const response = await postStake(nodeAddress, amount_in_wei, myAccount.keys);
+        const response = await postStake(nodeAddress, amountInWei, myAccount.keys);
         console.log("Stake Response:", response);
 
         if (response && response.result && response.result.success) {
             myData.wallet.history.unshift({
                 nominee: nodeAddress,
-                amount: amount_in_wei,
+                amount: amountInWei,
                 memo: 'stake',
                 sign: -1,
                 status: 'sent',
@@ -7013,7 +7013,7 @@ class RestoreAccountModal {
                     return
                 }
                 fileContent = await decryptData(fileContent, passwordInput.value.trim());
-                if (fileContent == null){ throw "" }
+                if (fileContent == null){ throw new Error('Decryption failed.'); };
             }
 
             // We first parse to jsonData so that if the parse does not work we don't destroy myData
