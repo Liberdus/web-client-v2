@@ -4,12 +4,12 @@
     "es2022": true,
     "node": true
   },
-  "extends": ["google", "plugin:jsdoc/recommended", "plugin:security/recommended", "prettier"],
+  "extends": ["google", "plugin:jsdoc/recommended", "prettier"],
   "parserOptions": {
     "ecmaVersion": "latest",
     "sourceType": "module"
   },
-  "plugins": ["html", "security", "jsdoc"],
+  "plugins": ["html", "jsdoc"],
   "rules": {
     // Most common rules are now covered by 'eslint-config-google'
     // Add specific overrides here if Google's defaults are not suitable
