@@ -7729,7 +7729,7 @@ async function checkPendingTransactions() {
 
             let endpointPath = `/transaction/${txid}`;
             if (submittedts < twentySecondsAgo || submittedts < thirtySecondsAgo) {
-                endpointPath = `/old_receipt/${txid}`;
+                endpointPath = `collector/api/transaction?appReceiptId=${txid}`;
             }
             //console.log(`DEBUG: txid ${txid} endpointPath: ${endpointPath}`);
             const res = await queryNetwork(endpointPath);
