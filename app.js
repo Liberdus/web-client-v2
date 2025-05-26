@@ -6514,16 +6514,16 @@ async function openValidatorModal() {
         const stakeForm = document.getElementById('stakeForm');
 
         // stakeAmountLibBaseUnits is a BigInt object or null. Pass its string representation to big2str.
-        if (stakeForm) stakeForm.dataset.minStake = stakeAmountLibBaseUnits === null ? '0' : big2str(stakeAmountLibBaseUnits.toString(), 18);
+        if (stakeForm) stakeForm.dataset.minStake = stakeAmountLibBaseUnits === null ? '0' : big2str(stakeAmountLibBaseUnits, 18);
 
         // stakeRequiredUsd is a BigInt object or null/undefined. Pass its string representation.
-        const displayNetworkStakeUsd = stakeRequiredUsd != null ? '$' + big2str(stakeRequiredUsd.toString(), 18).slice(0, 6) : 'N/A';
+        const displayNetworkStakeUsd = stakeRequiredUsd != null ? '$' + big2str(stakeRequiredUsd, 18).slice(0, 6) : 'N/A';
         // stakeAmountLibBaseUnits is a BigInt object or null. Pass its string representation.
-        const displayNetworkStakeLib = stakeAmountLibBaseUnits !== null ? big2str(stakeAmountLibBaseUnits.toString(), 18).slice(0, 7) : 'N/A';
+        const displayNetworkStakeLib = stakeAmountLibBaseUnits !== null ? big2str(stakeAmountLibBaseUnits, 18).slice(0, 7) : 'N/A';
         const displayStabilityFactor = stabilityFactor ? stabilityFactor.toFixed(4) : 'N/A';
         const displayMarketPrice = marketPrice ? '$' + marketPrice.toFixed(4) : 'N/A';
         // marketStakeUsdBaseUnits is a BigInt object or null. Pass its string representation.
-        const displayMarketStakeUsd = marketStakeUsdBaseUnits !== null ? '$' + big2str(marketStakeUsdBaseUnits.toString(), 18).slice(0, 6) : 'N/A';
+        const displayMarketStakeUsd = marketStakeUsdBaseUnits !== null ? '$' + big2str(marketStakeUsdBaseUnits, 18).slice(0, 6) : 'N/A';
 
         if (networkStakeUsdValue) networkStakeUsdValue.textContent = displayNetworkStakeUsd;
         if (networkStakeLibValue) networkStakeLibValue.textContent = displayNetworkStakeLib;
