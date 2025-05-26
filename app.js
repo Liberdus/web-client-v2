@@ -2492,11 +2492,36 @@ async function handleToggleBalance(e) {
 }
 
 let sendModalCheckTimeout;
-function handleOpenSendModalInput(e){
+
+// New function to refresh the disabled state of the send button
+async function refreshSendButtonDisabledState() {
+    const sendToAddressError = document.getElementById('sendToAddressError');
+    // Address is valid if its error/status message is visible and set to 'found'.
+    const isAddressConsideredValid = sendToAddressError.style.display === 'inline' && sendToAddressError.textContent === 'found';
+    console.log(`isAddressConsideredValid ${isAddressConsideredValid}`);
+
+    const amountInput = document.getElementById('sendAmount');
+    const amount = amountInput.value;
+    const assetIndex = document.getElementById('sendAsset').value;
+    const balanceWarning = document.getElementById('balanceWarning');
+
+    // validateBalance returns false if the amount/balance is invalid.
+    const isAmountAndBalanceValid = await validateBalance(amount, assetIndex, balanceWarning);
+
+    const submitButton = document.querySelector('#sendForm button[type="submit"]');
+
+    // Enable button only if both conditions are met.
+    if (isAddressConsideredValid && isAmountAndBalanceValid) {
+        submitButton.disabled = false;
+    } else {
+        submitButton.disabled = true;
+    }
+}
+
+async function handleOpenSendModalInput(e){
     // Check availability on input changes
     const username = normalizeUsername(e.target.value);
     const usernameAvailable = document.getElementById('sendToAddressError');
-    const submitButton = document.querySelector('#sendForm button[type="submit"]');
 
 
     // Clear previous timeout
@@ -2509,6 +2534,7 @@ function handleOpenSendModalInput(e){
         usernameAvailable.textContent = 'too short';
         usernameAvailable.style.color = '#dc3545';
         usernameAvailable.style.display = 'inline';
+        await refreshSendButtonDisabledState();
         return;
     }
 
@@ -2519,23 +2545,20 @@ function handleOpenSendModalInput(e){
             usernameAvailable.textContent = 'found';
             usernameAvailable.style.color = '#28a745';
             usernameAvailable.style.display = 'inline';
-            submitButton.disabled = false;
         } else if((taken == 'mine')) {
             usernameAvailable.textContent = 'mine';
             usernameAvailable.style.color = '#dc3545';
             usernameAvailable.style.display = 'inline';
-            submitButton.disabled = true;
         } else if ((taken == 'available')) {
             usernameAvailable.textContent = 'not found';
             usernameAvailable.style.color = '#dc3545';
             usernameAvailable.style.display = 'inline';
-            submitButton.disabled = true;
         } else {
             usernameAvailable.textContent = 'network error';
             usernameAvailable.style.color = '#dc3545';
             usernameAvailable.style.display = 'inline';
-            submitButton.disabled = true;
         }
+        await refreshSendButtonDisabledState(); // Update button state based on new address status and current amount status
     }, 1000);
 }
 
@@ -2640,7 +2663,7 @@ function updateSendAddresses() {
     updateAvailableBalance();
 }
 
-function updateAvailableBalance() {
+async function updateAvailableBalance() {
     const walletData = myData.wallet;
     const assetIndex = document.getElementById('sendAsset').value;
     const balanceWarning = document.getElementById('balanceWarning');
@@ -2648,14 +2671,14 @@ function updateAvailableBalance() {
     // Check if we have any assets
     if (!walletData.assets || walletData.assets.length === 0) {
         updateBalanceDisplay(null);
+        // If no assets, amount validation will likely fail or be irrelevant.
+        // Button state should reflect this.
+        await refreshSendButtonDisabledState();
         return;
     }
 
     updateBalanceDisplay(walletData.assets[assetIndex]);
-
-    // Validate balance and disable submit button if needed
-    document.querySelector('#sendForm button[type="submit"]').disabled =
-        validateBalance(document.getElementById('sendAmount').value, assetIndex, balanceWarning);
+    await refreshSendButtonDisabledState();
 }
 
 async function updateBalanceDisplay(asset) {
@@ -2679,7 +2702,11 @@ async function validateBalance(amount, assetIndex, balanceWarning = null) {
     if (!amount) {
         if (balanceWarning) balanceWarning.style.display = 'none';
         return false;
-    }
+    } else if (amount < 0) {
+        if (balanceWarning) balanceWarning.style.display = 'inline';
+        balanceWarning.textContent = 'Amount cannot be negative';
+        return false;
+    } 
 
 
     await getNetworkParams();
@@ -2697,7 +2724,8 @@ async function validateBalance(amount, assetIndex, balanceWarning = null) {
         }
     }
 
-    return hasInsufficientBalance;
+    // use ! to return true if the balance is sufficient, false otherwise
+    return !hasInsufficientBalance;
 }
 
 
@@ -2743,7 +2771,7 @@ async function handleSendAsset(event) {
     let toAddress;
 
     // Validate amount including transaction fee
-    if (!validateBalance(amount, assetIndex)) {
+    if (validateBalance(amount, assetIndex)) {
         await getNetworkParams();
         const txFeeInLIB = (parameters.current.transactionFee || 1n);
         const amountInWei = bigxnum2big(wei, amount.toString());
@@ -6417,7 +6445,7 @@ async function openValidatorModal() {
             // Decide how to handle this - maybe show an error or a specific state?
             // For now, we'll proceed, but nominee/user stake will be unavailable.
         }
-
+        // TODO: queryNetwork is parsing differently now so we need to account for not using BigInt function since should be bigInt object now
         const [userAccountData, networkAccountData, updatePrices] = await Promise.all([
             userAddress ? queryNetwork(`/account/${longAddress(userAddress)}`) : Promise.resolve(null), // Fetch User Data if available
             queryNetwork('/account/0000000000000000000000000000000000000000000000000000000000000000'), // Fetch Network Data
@@ -7628,8 +7656,8 @@ async function validateStakeInputs() {
 
     // Check 3: Sufficient Balance (using existing function)
     // Assuming LIB is asset index 0 since after creation of wallet, LIB is the first asset
-    const hasInsufficientBalance = validateBalance(amountStr, 0, amountWarningElement);
-    if (hasInsufficientBalance) {
+    const hasSufficientBalance = await validateBalance(amountStr, 0, amountWarningElement);
+    if (!hasSufficientBalance) {
         // validateBalance already shows the warning in amountWarningElement
         return; // Keep button disabled
     }
