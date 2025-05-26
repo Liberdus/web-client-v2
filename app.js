@@ -1967,8 +1967,7 @@ function createNewContact(addr, username){
     c.unread = 0
 }
 
-
-function openChatModal(address) {
+async function openChatModal(address) {
     const modal = document.getElementById('chatModal');
     const modalAvatar = modal.querySelector('.modal-avatar');
     const modalTitle = modal.querySelector('.modal-title');
@@ -2015,6 +2014,11 @@ function openChatModal(address) {
         }
     };
 
+    // query for the contact account data to retrieve the contact's fee
+    const contactAccountData = await queryNetwork(`/account/${longAddress(address)}`);
+    openChatModal.toll = contactAccountData?.account?.data?.toll; // type bigint
+    //console.log(`DEBUG: openChatModal.fee: ${JSON.stringify(big2str(openChatModal.fee * wei, 18), null, 2)}`);
+
     // Show modal
     modal.classList.add('active');
 
@@ -2035,6 +2039,7 @@ function openChatModal(address) {
         }
     }
 }
+openChatModal.toll = null;
 
 function appendChatModal(highlightNewMessage = false) {
     const currentAddress = appendChatModal.address; // Use a local constant
