@@ -6543,7 +6543,7 @@ async function openValidatorModal() {
              const userStakeUsdValue = document.getElementById('validator-user-stake-usd');
 
             // userStakedBaseUnits is a BigInt object or null/undefined. Pass its string representation.
-            const displayUserStakedLib = userStakedBaseUnits != null ? big2str(userStakedBaseUnits.toString(), 18).slice(0, 6) : 'N/A';
+            const displayUserStakedLib = userStakedBaseUnits != null ? big2str(userStakedBaseUnits, 18).slice(0, 6) : 'N/A';
             const displayUserStakedUsd = userStakedUsd != null ? '$' + userStakedUsd.toFixed(4) : 'N/A';
 
             if (nomineeLabelElement) nomineeLabelElement.textContent = 'Nominated Validator:';
