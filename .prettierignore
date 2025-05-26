@@ -15,3 +15,10 @@ package-lock.json
 # Ignore vendored libraries
 #/vendor
 #/node_modules 
+
+# Ignore external libraries
+/external
+/network
+/crypto.js
+/service-worker_old.js
+/lib.js
