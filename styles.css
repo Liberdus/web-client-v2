@@ -1247,7 +1247,7 @@ input[type="file"].form-control::file-selector-button {
   margin-top: 1px; /* Keeping your existing margin */
   font-size: 0.8rem; /* Keeping your existing font size */
   line-height: 1.3; /* Keeping your existing line height */
-  color: #495057; /* Keeping your existing color */
+  color: var(--secondary-text-color); /* Keeping your existing color */
   font-weight: 500; /* Keeping your existing font weight */
   white-space: nowrap; /* Essential to keep it on one line and allow overflow to the left */
   text-align: left; /* Aligns the text content itself to the right within the container */
@@ -1270,7 +1270,7 @@ input[type="file"].form-control::file-selector-button {
   /* font-weight: bold;  */ /* or  */
   font-weight: 500;
   /* Or a different color to make it stand out: */
-  color: #000;
+  color: var(--secondary-text-color);
 }
 /* Wallet Styles */
 .wallet-balance {
