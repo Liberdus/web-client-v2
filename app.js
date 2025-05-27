@@ -2064,8 +2064,7 @@ openChatModal.toll = null;
 function updateTollAmountUI(address) {
     const tollValue = document.getElementById('tollValue');
     const contact = myData.contacts[address]
-    const tollValueNumber = bigxnum2num(contact.toll || 0n, 18)
-    const tollValueString = tollValueNumber.toFixed(6)
+    const tollValueString = big2str(contact.toll || 0n, 6)
 
     if (contact.tollRequiredToSend == 1) {
         tollValue.textContent = tollValueString + ' LIB';
