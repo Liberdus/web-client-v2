@@ -1979,7 +1979,6 @@ async function openChatModal(address) {
     const modalTitle = modal.querySelector('.modal-title');
     const messagesList = modal.querySelector('.messages-list');
     const editButton = document.getElementById('chatEditButton');
-    const tollValue = document.getElementById('tollValue');
     document.getElementById('newChatButton').classList.remove('visible');
     const contact = myData.contacts[address]
     // Set user info
@@ -1992,15 +1991,12 @@ async function openChatModal(address) {
     updateTollValue(address);
 
     // update local contact object with the toll required to send and receive
-    updateContactToll(address);
+    updateTollRequired(address);
 
     // clear hidden txid input
     document.getElementById('retryOfTxId').value = '';
 
-    const tollValueString = big2str(contact.toll || 0n, 18)
-
-    // prefill the toll value
-    tollValue.textContent = tollValueString + ' LIB';
+    updateTollAmountUI(address);
 
     // Add data attributes to store the username and address
     const sendMoneyButton = document.getElementById('chatSendMoneyButton');
@@ -2063,11 +2059,23 @@ async function openChatModal(address) {
 openChatModal.toll = null;
 
 /**
- * updateContactToll queries contact object and updates the tollRequiredByMe and tollRequiredByOther fields
+ * updateTollAmountUI 
+ */
+function updateTollAmountUI(address) {
+    const tollValue = document.getElementById('tollValue');
+    const contact = myData.contacts[address]
+    const tollValueString = big2str(contact.toll || 0n, 18)
+
+    // update the toll value in the chatModal UI
+    tollValue.textContent = tollValueString + ' LIB';
+}
+
+/**
+ * updateTollRequired queries contact object and updates the tollRequiredByMe and tollRequiredByOther fields
  * @param {string} address - the address of the contact
  * @returns {void}
  */
-async function updateContactToll(address) {
+async function updateTollRequired(address) {
     const myAddr = longAddress(myAccount.keys.address);
     const contactAddr = longAddress(address);
     // use `hashBytes([fromAddr, toAddr].sort().join``)` to get the hash of the sorted addresses and have variable to keep track fromAddr which will be the current users order in the array
@@ -2091,6 +2099,10 @@ async function updateContactToll(address) {
         if(contactAccountData.account.type == 'ChatAccount') {
             localContact.tollRequiredToSend = contactAccountData.account.toll.required[myIndex]
             localContact.tollRequiredToReceive = contactAccountData.account.toll.required[toIndex]
+        }
+
+        if (document.getElementById('chatModal').classList.contains('active') && document.getElementById('chatModal').dataset.address === address) {
+            updateTollAmountUI(address);
         }
 
         // console.log(`localContact.tollRequiredToSend: ${localContact.tollRequiredToSend}`);
@@ -2122,7 +2134,7 @@ async function updateTollValue(address) {
         // console.log(`tollValueString: ${tollValueString}`);
         // if correct modal is open for this address, update the toll value
         if (document.getElementById('chatModal').classList.contains('active') && document.getElementById('chatModal').dataset.address === address) {
-            tollValue.textContent = tollValueString + ' LIB';
+            updateTollAmountUI(address);
         }
     } else {
         console.log(`Returning early since queried toll value is the same as the toll field in localStorage`);
