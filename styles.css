@@ -1123,6 +1123,7 @@ input[type="file"].form-control::file-selector-button {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   align-items: center;
+  scrollbar-width: none; /* Hide scrollbar for Firefox */
 }
 
 .message-input::-webkit-scrollbar {
@@ -1234,15 +1235,15 @@ input[type="file"].form-control::file-selector-button {
 
 /* Wrapper for the send button and the toll information */
 .message-input-wrapper {
-  position: relative; /* Establishes a positioning context for .toll-container */
-  flex: 1; /* Allow this wrapper to grow and push the send button to the right */
-  /* This wrapper will be a flex item in .message-input-container and align with other items.
-      Its size in the flex layout will be determined by the .send-button. */
+  position: relative; /* For absolute positioning of .toll-container */
+  flex: 1;          /* Allows wrapper to grow */
+  display: flex;      /* Make wrapper a flex container */
+  align-items: center;/* Vertically center its children (the textarea) */
 }
 
 .toll-container {
   position: absolute;
-  top: 97%;
+  top: 100%;
   left: 17px; /* This aligns the container's right edge with the parent's right edge */
   margin-top: 1px; /* Keeping your existing margin */
   font-size: 0.8rem; /* Keeping your existing font size */
