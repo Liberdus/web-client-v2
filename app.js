@@ -2076,23 +2076,32 @@ async function updateContactToll(address) {
     const myIndex = sortedAddresses.indexOf(myAddr);
     const toIndex = 1 - myIndex;
 
-    //console.log(`hash: ${hash}`);
+    console.log(`hash: ${hash}`);
 
-    // query the contact's toll field from the network
-    const contactAccountData = await queryNetwork(`/account/${hash}`);
+    try {
+        // query the contact's toll field from the network
+        const contactAccountData = await queryNetwork(`/account/${hash}`);
 
-    const localContact = myData.contacts[address]
-    if(contactAccountData.account.type == 'ChatAccount') {
-        if (contactAccountData.account.toll.required[myIndex] != localContact.tollRequiredToSend) {
-            localContact.tollRequiredToSend = contactAccountData.account.toll.required[myIndex]
+        if (contactAccountData.account == null) {
+            console.warn(`Contact account data is null for address: ${address}`);
+            return;
         }
-        if (contactAccountData.account.toll.required[toIndex] != localContact.tollRequiredToReceive) {
-            localContact.tollRequiredToReceive = contactAccountData.account.toll.required[toIndex]
+
+        const localContact = myData.contacts[address]
+        if(contactAccountData.account.type == 'ChatAccount') {
+            if (contactAccountData.account.toll.required[myIndex] != localContact.tollRequiredToSend) {
+                localContact.tollRequiredToSend = contactAccountData.account.toll.required[myIndex]
+            }
+            if (contactAccountData.account.toll.required[toIndex] != localContact.tollRequiredToReceive) {
+                localContact.tollRequiredToReceive = contactAccountData.account.toll.required[toIndex]
+            }
         }
+
+        console.log(`localContact.tollRequiredToSend: ${localContact.tollRequiredToSend}`);
+        console.log(`localContact.tollRequiredToReceive: ${localContact.tollRequiredToReceive}`); 
+    } catch (error) {
+        console.warn(`Error updating contact toll required to send and receive: ${error}`);
     }
-
-    //console.log(`localContact.tollRequiredToSend: ${localContact.tollRequiredToSend}`);
-    //console.log(`localContact.tollRequiredToReceive: ${localContact.tollRequiredToReceive}`); 
 }
 
 /**
