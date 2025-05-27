@@ -1965,6 +1965,7 @@ function createNewContact(addr, username){
     c.messages = []
     c.timestamp = getCorrectedTimestamp()
     c.unread = 0
+    c.toll = 0n
 }
 
 async function openChatModal(address) {
