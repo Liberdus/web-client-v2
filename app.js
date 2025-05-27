@@ -1991,7 +1991,7 @@ async function openChatModal(address) {
     // update the toll value. Will not await this and it'll update the toll value while the modal is open.
     updateTollValue(address);
 
-    // TODO: have a new function that queries contact object /account/${contact address} and updates the contact object with the toll field
+    // update local contact object with the toll required to send and receive
     updateContactToll(address);
 
     // clear hidden txid input
