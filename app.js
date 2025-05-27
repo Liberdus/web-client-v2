@@ -1968,8 +1968,11 @@ function createNewContact(addr, username){
     c.toll = 0n
 }
 
-// TODO: below input field `message-input` displays `toll:` and prefill with the toll field value of the contact in localStorage
-// TODO: have a function that we run but not async that will query the contact's toll field from the network and set it to the contact's toll field in localStorage and updates the UI element that displays the toll field value
+/**
+ * Opens the chat modal for the given address.
+ * @param {string} address - The address of the contact to open the chat modal for.
+ * @returns {void}
+ */
 async function openChatModal(address) {
     const modal = document.getElementById('chatModal');
     const modalAvatar = modal.querySelector('.modal-avatar');
@@ -1981,6 +1984,12 @@ async function openChatModal(address) {
     const contact = myData.contacts[address]
     // Set user info
     modalTitle.textContent = contact.name || contact.senderInfo?.name || contact.username || `${contact.address.slice(0,8)}...${contact.address.slice(-6)}`;
+
+    // set the address data attribute
+    modal.dataset.address = address;
+    
+    // update the toll value. Will not await this and it'll update the toll value while the modal is open.
+    updateTollValue(address);
 
     // clear hidden txid input
     document.getElementById('retryOfTxId').value = '';
@@ -2049,6 +2058,37 @@ async function openChatModal(address) {
     }
 }
 openChatModal.toll = null;
+
+/**
+ * Invoked when opening chatModal. In the background, it will query the contact's toll field from the network. 
+ * If the queried toll value is different from the toll field in localStorage, it will update the toll field in localStorage and update the UI element that displays the toll field value.
+ * @param {string} address - the address of the contact
+ * @returns {void} 
+ */
+async function updateTollValue(address) {
+    // query the contact's toll field from the network
+    const contactAccountData = await queryNetwork(`/account/${longAddress(address)}`);
+
+    const queriedToll = contactAccountData?.account?.data?.toll; // type bigint
+    // console.log(`type of queriedToll: ${typeof queriedToll}`);
+    // console.log(`queriedToll: ${JSON.stringify(big2str(queriedToll, 18), null, 2)}`);
+    
+
+    // update the toll value in the UI if the queried toll value is different from the toll field in localStorage
+    if (myData.contacts[address].toll != queriedToll) {
+        myData.contacts[address].toll = queriedToll;
+        const tollValueString = big2str(queriedToll*wei, 18)
+        // console.log(`tollValueString: ${tollValueString}`);
+        // if correct modal is open for this address, update the toll value
+        if (document.getElementById('chatModal').classList.contains('active') && document.getElementById('chatModal').dataset.address === address) {
+            tollValue.textContent = tollValueString + ' LIB';
+        }
+    } else {
+        console.log(`Returning early since queried toll value is the same as the toll field in localStorage`);
+        // return early
+        return;
+    }
+}
 
 function appendChatModal(highlightNewMessage = false) {
     const currentAddress = appendChatModal.address; // Use a local constant
