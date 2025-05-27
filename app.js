@@ -1968,12 +1968,15 @@ function createNewContact(addr, username){
     c.toll = 0n
 }
 
+// TODO: below input field `message-input` displays `toll:` and prefill with the toll field value of the contact in localStorage
+// TODO: have a function that we run but not async that will query the contact's toll field from the network and set it to the contact's toll field in localStorage and updates the UI element that displays the toll field value
 async function openChatModal(address) {
     const modal = document.getElementById('chatModal');
     const modalAvatar = modal.querySelector('.modal-avatar');
     const modalTitle = modal.querySelector('.modal-title');
     const messagesList = modal.querySelector('.messages-list');
     const editButton = document.getElementById('chatEditButton');
+    const tollValue = document.getElementById('tollValue');
     document.getElementById('newChatButton').classList.remove('visible');
     const contact = myData.contacts[address]
     // Set user info
@@ -1981,6 +1984,9 @@ async function openChatModal(address) {
 
     // clear hidden txid input
     document.getElementById('retryOfTxId').value = '';
+
+    // prefill the toll value
+    tollValue.textContent = contact.toll /* will need to convert bigInt to string and localStorage should have the value in wei */  || 0n + ' LIB';
 
     // Add data attributes to store the username and address
     const sendMoneyButton = document.getElementById('chatSendMoneyButton');

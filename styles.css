@@ -1232,6 +1232,47 @@ input[type="file"].form-control::file-selector-button {
   opacity: 0.8;
 }
 
+/* Wrapper for the send button and the toll information */
+.send-action-wrapper {
+  position: relative; /* Establishes a positioning context for .toll-container */
+  /* This wrapper will be a flex item in .message-input-container and align with other items.
+      Its size in the flex layout will be determined by the .send-button. */
+}
+
+.toll-container {
+  position: absolute;
+  top: 100%;
+  right: -2px; /* This aligns the container's right edge with the parent's right edge */
+  /* left: 50%; (removed) */
+  /* transform: translateX(-50%); (removed) */
+  margin-top: 1px; /* Keeping your existing margin */
+  font-size: 0.8rem; /* Keeping your existing font size */
+  line-height: 1.3; /* Keeping your existing line height */
+  color: #495057; /* Keeping your existing color */
+  font-weight: 500; /* Keeping your existing font weight */
+  white-space: nowrap; /* Essential to keep it on one line and allow overflow to the left */
+  text-align: right; /* Aligns the text content itself to the right within the container */
+  text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.1); /* Keeping your existing text shadow */
+}
+
+/* .toll-label {
+  Specific styles for the "Toll:" part if you want it to differ from the value.
+     For example, if you wanted the label to be normal weight:
+     font-weight: normal;
+     Or a slightly different color:
+     color: #555;
+}
+ */
+
+.toll-value {
+  /* Specific styles for the value part (e.g., "0 LIB").
+     It will inherit from .toll-container.
+     If you want the value to be even bolder than the label (which is now 500 weight): */
+     /* font-weight: bold;  *//* or  */
+     font-weight: 700;
+     /* Or a different color to make it stand out: */
+     color: #000;
+}
 /* Wallet Styles */
 .wallet-balance {
   padding: 2rem;

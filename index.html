@@ -665,11 +665,17 @@
             maxlength="2000"
           ></textarea>
           <input type="hidden" id="retryOfTxId" />
-          <button class="send-button" id="handleSendMessage">
-            <svg viewBox="0 0 24 24">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-            </svg>
-          </button>
+          <div class="send-action-wrapper"> <!-- New wrapper -->
+            <button class="send-button" id="handleSendMessage">
+              <svg viewBox="0 0 24 24">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+              </svg>
+            </button>
+            <div class="toll-container">
+              <span class="toll-label">Toll:</span>
+              <span class="toll-value" id="tollValue"></span> <!-- Populate this with actual value -->
+            </div>
+          </div>
         </div>
         <a
           class="last-item"
