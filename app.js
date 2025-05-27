@@ -1985,8 +1985,10 @@ async function openChatModal(address) {
     // clear hidden txid input
     document.getElementById('retryOfTxId').value = '';
 
+    const tollValueString = big2str(contact.toll || 0n, 18)
+
     // prefill the toll value
-    tollValue.textContent = contact.toll /* will need to convert bigInt to string and localStorage should have the value in wei */  || 0n + ' LIB';
+    tollValue.textContent = tollValueString + ' LIB';
 
     // Add data attributes to store the username and address
     const sendMoneyButton = document.getElementById('chatSendMoneyButton');
