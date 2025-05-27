@@ -919,7 +919,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Add input event listener for message textarea auto-resize
     document.querySelector('.message-input')?.addEventListener('input', function() {
-        this.style.height = '44px';
+        this.style.height = '48px';
         this.style.height = Math.min(this.scrollHeight, 120) + 'px';
     });
 
@@ -3473,7 +3473,7 @@ async function handleSendMessage() {
 
         // Clear input and reset height
         messageInput.value = '';
-        messageInput.style.height = '44px'; // original height
+        messageInput.style.height = '48px'; // original height
 
         // Update the chat modal UI immediately
         appendChatModal() // This should now display the 'sending' message
