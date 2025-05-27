@@ -1102,15 +1102,14 @@ input[type="file"].form-control::file-selector-button {
   min-height: 80px;
   padding: 16px;
   background: white;
-  border-top: 1px solid #dee2e6;
   display: flex;
   gap: 12px;
-  align-items: center; /* Changed from flex-end for vertical centering */
+  align-items: center; /* Ensures vertical centering of direct children */
   width: 100%;
 }
 
 .message-input {
-  width: 100%; /* Added to make textarea fill its wrapper */
+  width: 100%;
   padding: 12px 16px;
   border: 1px solid #d6d6de;
   border-radius: 24px;
@@ -1122,11 +1121,11 @@ input[type="file"].form-control::file-selector-button {
   line-height: 24px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none; /* Hide scrollbar for Firefox */
+  scrollbar-width: none;
 }
 
 .message-input::-webkit-scrollbar {
-  display: none; /* Hide scrollbar for WebKit browsers */
+  display: none;
 }
 
 .message-input:focus {
@@ -1139,8 +1138,8 @@ input[type="file"].form-control::file-selector-button {
   background: var(--primary-color);
   color: var(--background-color);
   border: none;
-  width: 45px;
-  height: 45px;
+  width: 48px;  /* Changed from 45px to match message-input height */
+  height: 48px; /* Changed from 45px to match message-input height */
   border-radius: 50%;
   display: flex;
   align-items: center;
