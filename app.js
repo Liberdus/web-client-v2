@@ -2083,16 +2083,16 @@ async function updateContactToll(address) {
 
     const localContact = myData.contacts[address]
     if(contactAccountData.account.type == 'ChatAccount') {
-        if (contactAccountData.account.toll.required[myIndex] != localContact.tollRequiredByMe) {
-            localContact.tollRequiredByMe = contactAccountData.account.toll.required[myIndex]
+        if (contactAccountData.account.toll.required[myIndex] != localContact.tollRequiredToSend) {
+            localContact.tollRequiredToSend = contactAccountData.account.toll.required[myIndex]
         }
-        if (contactAccountData.account.toll.required[toIndex] != localContact.tollRequiredByOther) {
-            localContact.tollRequiredByOther = contactAccountData.account.toll.required[toIndex]
+        if (contactAccountData.account.toll.required[toIndex] != localContact.tollRequiredToReceive) {
+            localContact.tollRequiredToReceive = contactAccountData.account.toll.required[toIndex]
         }
     }
 
-    //console.log(`localContact.tollRequiredByMe: ${localContact.tollRequiredByMe}`);
-    //console.log(`localContact.tollRequiredByOther: ${localContact.tollRequiredByOther}`); 
+    //console.log(`localContact.tollRequiredToSend: ${localContact.tollRequiredToSend}`);
+    //console.log(`localContact.tollRequiredToReceive: ${localContact.tollRequiredToReceive}`); 
 }
 
 /**
