@@ -378,6 +378,12 @@ export function bigxnum2big(bigIntNum, stringNum) {
     return scaledResult / BigInt(10 ** decimalPlaces);
 }
 
+/**
+ * Convert a BigInt number to a number with decimals
+ * @param {BigInt} bigIntNum - The base BigInt number
+ * @param {number} floatNum - The number of decimals
+ * @returns {number} The converted number
+ */
 export function bigxnum2num(bigIntNum, floatNum) {
     // Handle edge cases
     if (floatNum === 0) return 0;

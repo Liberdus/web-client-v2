@@ -120,9 +120,9 @@ import {
 // Put standalone conversion function in lib.js
 import { normalizeUsername, generateIdenticon, formatTime,
     isValidEthereumAddress,
-    normalizeAddress, longAddress, utf82bin, bin2utf8, bigxnum2big,
-    big2str, base642bin, bin2base64, hex2bin, bin2hex, linkifyUrls, escapeHtml,
-    debounce, truncateMessage
+    normalizeAddress, longAddress, utf82bin, bigxnum2big,
+    big2str, bin2base64, hex2bin, bin2hex, linkifyUrls, escapeHtml,
+    debounce, truncateMessage, bigxnum2num
 } from './lib.js';
 
 const weiDigits = 18;
@@ -2064,10 +2064,14 @@ openChatModal.toll = null;
 function updateTollAmountUI(address) {
     const tollValue = document.getElementById('tollValue');
     const contact = myData.contacts[address]
-    const tollValueString = big2str(contact.toll || 0n, 18)
+    const tollValueNumber = bigxnum2num(contact.toll || 0n, 18)
+    const tollValueString = tollValueNumber.toFixed(6)
 
-    // update the toll value in the chatModal UI
-    tollValue.textContent = tollValueString + ' LIB';
+    if (contact.tollRequiredToSend == 1) {
+        tollValue.textContent = tollValueString + ' LIB';
+    } else {
+        tollValue.textContent = `free (${tollValueString} LIB)`;
+    }
 }
 
 /**
