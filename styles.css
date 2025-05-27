@@ -1061,9 +1061,7 @@ input[type="file"].form-control::file-selector-button {
   display: none;
   align-items: center;
   justify-content: center;
-  transition:
-    transform 0.2s,
-    background-color 0.2s;
+  transition: transform 0.2s, background-color 0.2s;
   /* z-index: 1000; */
   opacity: 0.68;
 }
@@ -2739,10 +2737,7 @@ mark {
   border-radius: 12px;
   opacity: 0;
   visibility: hidden;
-  transition:
-    opacity 0.3s ease,
-    width 0.3s ease,
-    padding 0.3s ease;
+  transition: opacity 0.3s ease, width 0.3s ease, padding 0.3s ease;
   animation: pulse 2s infinite;
   /* Keep in the normal flow but with zero width when hidden */
   display: flex;
@@ -4365,9 +4360,7 @@ small {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
   white-space: nowrap; /* Prevent text like "USD" from wrapping */
   display: flex;
   align-items: center;
