@@ -122,7 +122,7 @@ import { normalizeUsername, generateIdenticon, formatTime,
     isValidEthereumAddress,
     normalizeAddress, longAddress, utf82bin, bigxnum2big,
     big2str, bin2base64, hex2bin, bin2hex, linkifyUrls, escapeHtml,
-    debounce, truncateMessage, bigxnum2num
+    debounce, truncateMessage
 } from './lib.js';
 
 const weiDigits = 18;
