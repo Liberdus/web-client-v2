@@ -1061,7 +1061,9 @@ input[type="file"].form-control::file-selector-button {
   display: none;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s, background-color 0.2s;
+  transition:
+    transform 0.2s,
+    background-color 0.2s;
   /* z-index: 1000; */
   opacity: 0.68;
 }
@@ -1106,6 +1108,7 @@ input[type="file"].form-control::file-selector-button {
   gap: 12px;
   align-items: center; /* Ensures vertical centering of direct children */
   width: 100%;
+  pointer-events: none; /* Make the container itself non-interactive */
 }
 
 .message-input {
@@ -1140,7 +1143,7 @@ input[type="file"].form-control::file-selector-button {
   background: var(--primary-color);
   color: var(--background-color);
   border: none;
-  width: 48px;  /* Changed from 45px to match message-input height */
+  width: 48px; /* Changed from 45px to match message-input height */
   height: 48px; /* Changed from 45px to match message-input height */
   border-radius: 50%;
   display: flex;
@@ -1149,6 +1152,7 @@ input[type="file"].form-control::file-selector-button {
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
+  pointer-events: auto; /* Ensure the button is interactive */
 }
 
 .send-button:hover {
@@ -1236,9 +1240,10 @@ input[type="file"].form-control::file-selector-button {
 /* Wrapper for the send button and the toll information */
 .message-input-wrapper {
   position: relative; /* For absolute positioning of .toll-container */
-  flex: 1;          /* Allows wrapper to grow */
-  display: flex;      /* Make wrapper a flex container */
-  align-items: center;/* Vertically center its children (the textarea) */
+  flex: 1; /* Allows wrapper to grow */
+  display: flex; /* Make wrapper a flex container */
+  align-items: center; /* Vertically center its children (the textarea) */
+  pointer-events: auto; /* Make this wrapper (and its children by default) interactive */
 }
 
 .toll-container {
