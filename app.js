@@ -1987,9 +1987,12 @@ async function openChatModal(address) {
 
     // set the address data attribute
     modal.dataset.address = address;
-    
+
     // update the toll value. Will not await this and it'll update the toll value while the modal is open.
     updateTollValue(address);
+
+    // TODO: have a new function that queries contact object /account/${contact address} and updates the contact object with the toll field
+    updateContactToll(address);
 
     // clear hidden txid input
     document.getElementById('retryOfTxId').value = '';
@@ -2058,6 +2061,39 @@ async function openChatModal(address) {
     }
 }
 openChatModal.toll = null;
+
+/**
+ * updateContactToll queries contact object and updates the tollRequiredByMe and tollRequiredByOther fields
+ * @param {string} address - the address of the contact
+ * @returns {void}
+ */
+async function updateContactToll(address) {
+    const myAddr = longAddress(myAccount.keys.address);
+    const contactAddr = longAddress(address);
+    // use `hashBytes([fromAddr, toAddr].sort().join``)` to get the hash of the sorted addresses and have variable to keep track fromAddr which will be the current users order in the array
+    const sortedAddresses = [myAddr, contactAddr].sort();
+    const hash = hashBytes(sortedAddresses.join(''));
+    const myIndex = sortedAddresses.indexOf(myAddr);
+    const toIndex = 1 - myIndex;
+
+    //console.log(`hash: ${hash}`);
+
+    // query the contact's toll field from the network
+    const contactAccountData = await queryNetwork(`/account/${hash}`);
+
+    const localContact = myData.contacts[address]
+    if(contactAccountData.account.type == 'ChatAccount') {
+        if (contactAccountData.account.toll.required[myIndex] != localContact.tollRequiredByMe) {
+            localContact.tollRequiredByMe = contactAccountData.account.toll.required[myIndex]
+        }
+        if (contactAccountData.account.toll.required[toIndex] != localContact.tollRequiredByOther) {
+            localContact.tollRequiredByOther = contactAccountData.account.toll.required[toIndex]
+        }
+    }
+
+    //console.log(`localContact.tollRequiredByMe: ${localContact.tollRequiredByMe}`);
+    //console.log(`localContact.tollRequiredByOther: ${localContact.tollRequiredByOther}`); 
+}
 
 /**
  * Invoked when opening chatModal. In the background, it will query the contact's toll field from the network. 
