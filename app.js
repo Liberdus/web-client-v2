@@ -7484,7 +7484,7 @@ class TollModal {
         document.getElementById('tollForm').addEventListener('submit', (event) => this.saveAndPostNewToll(event));
     }
 
-    async open() {
+    open() {
         this.modal.classList.add('active');
         // set currentTollValue to the toll value in wei
         const toll = myData.settings.toll || 0n
