@@ -2143,7 +2143,8 @@ async function updateTollValue(address) {
     // query the contact's toll field from the network
     const contactAccountData = await queryNetwork(`/account/${longAddress(address)}`);
 
-    const queriedToll = contactAccountData?.account?.data?.toll; // type bigint
+    const queriedToll = contactAccountData?.account?.data?.toll/* ?.value; // type bigint
+    const queriedTollUnit = contactAccountData?.account?.data?.toll?.unit; // type string */
     // console.log(`type of queriedToll: ${typeof queriedToll}`);
     // console.log(`queriedToll: ${JSON.stringify(big2str(queriedToll, 18), null, 2)}`);
     
@@ -7546,7 +7547,7 @@ class TollModal {
         const newBigIntInWei = bigxnum2big(wei, newTollValue.toString());
 
         // Post the new toll to the network
-        const response = await this.postToll(newBigIntInWei/wei);
+        const response = await this.postToll(newBigIntInWei, this.currentCurrency);
 
         if (response && response.result && response.result.success) {
             this.editMyDataToll(newBigIntInWei);
@@ -7565,12 +7566,13 @@ class TollModal {
         myData.settings.toll = toll;
     }
 
-    async postToll(toll) {
+    async postToll(toll, tollUnit) {
         const tollTx = {
             from: longAddress(myAccount.keys.address),
             toll: toll,
             type: "toll",
             timestamp: getCorrectedTimestamp(),
+            tollUnit: tollUnit,
         };
     
         const txid = await signObj(tollTx, myAccount.keys)
