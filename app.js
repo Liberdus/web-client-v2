@@ -2085,14 +2085,33 @@ openChatModal.toll = null;
  */
 function updateTollAmountUI(address) {
     const tollValue = document.getElementById('tollValue');
-    const contact = myData.contacts[address]
-    const tollValueString = big2str(contact.toll || 0n, 6)
-
-    if (contact.tollRequiredToSend == 1) {
-        tollValue.textContent = tollValueString + ' LIB';
+    const contact = myData.contacts[address];
+    const toll = contact.toll || 0n;
+    const tollUnit = contact.tollUnit || 'LIB';
+    const decimals = 18;
+    const mainIsUSD = tollUnit === 'USD';
+    const mainValue = parseFloat(big2str(toll, decimals));
+    // Conversion factor (USD/LIB)
+    const scaleMul = parameters.current.stabilityScaleMul || 1;
+    const scaleDiv = parameters.current.stabilityScaleDiv || 1;
+    const factor = scaleDiv !== 0 ? scaleMul / scaleDiv : 1;
+    let mainString, otherString;
+    if (mainIsUSD) {
+        mainString = mainValue.toFixed(4) + ' USD';
+        const libValue = mainValue / factor;
+        otherString = libValue.toFixed(6) + ' LIB';
     } else {
-        tollValue.textContent = `free (${tollValueString} LIB)`;
+        mainString = mainValue.toFixed(6) + ' LIB';
+        const usdValue = mainValue * factor;
+        otherString = usdValue.toFixed(4) + ' USD';
     }
+    let display;
+    if (contact.tollRequiredToSend == 1) {
+        display = `${mainString} (${otherString})`;
+    } else {
+        display = `free (${mainString} (${otherString}))`;
+    }
+    tollValue.textContent = display;
 }
 
 /**
@@ -2146,18 +2165,14 @@ async function updateTollRequired(address) {
 async function updateTollValue(address) {
     // query the contact's toll field from the network
     const contactAccountData = await queryNetwork(`/account/${longAddress(address)}`);
+    const queriedToll = contactAccountData?.account?.data?.toll; // type bigint
+    const queriedTollUnit = contactAccountData?.account?.data?.tollUnit; // type string */
 
-    const queriedToll = contactAccountData?.account?.data?.toll/* ?.value; // type bigint
-    const queriedTollUnit = contactAccountData?.account?.data?.toll?.unit; // type string */
-    // console.log(`type of queriedToll: ${typeof queriedToll}`);
-    // console.log(`queriedToll: ${JSON.stringify(big2str(queriedToll, 18), null, 2)}`);
-    
 
     // update the toll value in the UI if the queried toll value is different from the toll field in localStorage
-    if (myData.contacts[address].toll != queriedToll) {
+    if (myData.contacts[address].toll != queriedToll && myData.contacts[address].tollUnit != queriedTollUnit) {
         myData.contacts[address].toll = queriedToll;
-        const tollValueString = big2str(queriedToll*wei, 18)
-        // console.log(`tollValueString: ${tollValueString}`);
+        myData.contacts[address].tollUnit = queriedTollUnit;
         // if correct modal is open for this address, update the toll value
         if (document.getElementById('chatModal').classList.contains('active') && document.getElementById('chatModal').dataset.address === address) {
             updateTollAmountUI(address);
