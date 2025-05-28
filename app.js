@@ -7501,6 +7501,11 @@ class TollModal {
         this.modal.classList.remove('active');
     }    
 
+    /**
+     * Handle the toggle of the toll currency
+     * @param {Event} event - The event object
+     * @returns {void}
+     */
     async handleToggleTollCurrency(event) {
         event.preventDefault();
         const newTollAmountInput = document.getElementById('newTollAmountInput');
@@ -7522,6 +7527,11 @@ class TollModal {
         //document.getElementById('currentTollValue').textContent = this.currentCurrency === 'USD' ? `$${convertedValue}` : `${convertedValue} LIB`;
     }
 
+    /**
+     * Save and post the new toll to the network
+     * @param {Event} event - The event object
+     * @returns {Promise<void>}
+     */
     async saveAndPostNewToll(event) {
         event.preventDefault();
         const newTollAmountInput = document.getElementById('newTollAmountInput');
@@ -7549,6 +7559,12 @@ class TollModal {
         this.updateTollDisplay(newToll, this.currentCurrency);
     }
 
+    /**
+     * Update the toll display in the UI
+     * @param {BigInt} toll - The toll value in wei
+     * @param {string} tollUnit - The unit of the toll
+     * @returns {void}
+     */
     updateTollDisplay(toll, tollUnit) {
         const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
         let tollValueLib = ''
@@ -7569,12 +7585,24 @@ class TollModal {
         document.getElementById('tollAmountUSD').textContent = tollValueUSD + ' USD'
     }
 
+    /**
+     * Edit the toll in myData.settings
+     * @param {BigInt} toll - The toll value in wei
+     * @param {string} tollUnit - The unit of the toll
+     * @returns {void}
+     */
     editMyDataToll(toll, tollUnit) {
         this.oldToll = myData.settings.toll;
         myData.settings.toll = toll;
         myData.settings.tollUnit = tollUnit;
     }
 
+    /**
+     * Post the toll to the network
+     * @param {BigInt} toll - The toll value in wei
+     * @param {string} tollUnit - The unit of the toll
+     * @returns {Promise<Object>} - The response from the network
+     */
     async postToll(toll, tollUnit) {
         const tollTx = {
             from: longAddress(myAccount.keys.address),
