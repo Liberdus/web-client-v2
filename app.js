@@ -7509,10 +7509,10 @@ class TollModal {
         this.currentCurrency = this.currentCurrency === 'LIB' ? 'USD' : 'LIB';
         tollCurrencySymbol.textContent = this.currentCurrency;
 
-        const marketPrice = await getMarketPrice();
+        const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
         if (newTollAmountInput.value !== '') {
             const currentValue = parseFloat(newTollAmountInput.value);
-            const convertedValue = this.currentCurrency === 'USD' ? currentValue * marketPrice : currentValue / marketPrice;
+            const convertedValue = this.currentCurrency === 'USD' ? currentValue * scalabilityFactor : currentValue / scalabilityFactor;
             newTollAmountInput.value = convertedValue.toString();
         }
 
@@ -7551,19 +7551,22 @@ class TollModal {
 
     updateTollDisplay(toll, tollUnit) {
         const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
-        let tollValueLib = 0n
-        let tollValueUSD = 0n
+        let tollValueLib = ''
+        let tollValueUSD = ''
 
         if (tollUnit == 'LIB') {
-            tollValueLib = bigxnum2num(toll / wei, 1.0)
-            tollValueUSD = bigxnum2num(toll/wei, scalabilityFactor)
+            tollValueLib = big2str(toll, 18)
+            tollValueUSD = (parseFloat(big2str(toll, 18)) * scalabilityFactor).toString()
         } else {
-            tollValueUSD = bigxnum2num(toll / wei, 1.0)                                                  
-            tollValueLib = bigxnum2num(toll / wei, 1.0 / scalabilityFactor)
+            tollValueUSD = big2str(toll, 18)
+            tollValueLib = (parseFloat(big2str(toll, 18)) / scalabilityFactor).toString()
         }
 
-        document.getElementById('tollAmountLIB').textContent = tollValueLib.toString() + ' LIB'
-        document.getElementById('tollAmountUSD').textContent = tollValueUSD.toString() + ' USD'
+        tollValueLib = parseFloat(tollValueLib).toString()
+        tollValueUSD = parseFloat(tollValueUSD).toString()
+
+        document.getElementById('tollAmountLIB').textContent = tollValueLib + ' LIB'
+        document.getElementById('tollAmountUSD').textContent = tollValueUSD + ' USD'
     }
 
     editMyDataToll(toll, tollUnit) {
