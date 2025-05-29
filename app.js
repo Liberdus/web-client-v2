@@ -2053,11 +2053,6 @@ async function openChatModal(address) {
         }
     };
 
-    // query for the contact account data to retrieve the contact's fee
-    const contactAccountData = await queryNetwork(`/account/${longAddress(address)}`);
-    openChatModal.toll = contactAccountData?.account?.data?.toll; // type bigint
-    //console.log(`DEBUG: openChatModal.fee: ${JSON.stringify(big2str(openChatModal.fee * wei, 18), null, 2)}`);
-
     // Show modal
     modal.classList.add('active');
 
@@ -2079,6 +2074,7 @@ async function openChatModal(address) {
     }
 }
 openChatModal.toll = null;
+openChatModal.tollUnit = null;
 
 /**
  * updateTollAmountUI 
@@ -2086,7 +2082,7 @@ openChatModal.toll = null;
 function updateTollAmountUI(address) {
     const tollValue = document.getElementById('tollValue');
     const contact = myData.contacts[address];
-    const toll = contact.toll || 0n;
+    let toll = contact.toll || 0n;
     const tollUnit = contact.tollUnit || 'LIB';
     const decimals = 18;
     const mainIsUSD = tollUnit === 'USD';
@@ -2097,6 +2093,7 @@ function updateTollAmountUI(address) {
     const factor = scaleDiv !== 0 ? scaleMul / scaleDiv : 1;
     let mainString, otherString;
     if (mainIsUSD) {
+        toll = bigxnum2big(toll, (1.0/factor).toString())
         mainString = mainValue.toFixed(4) + ' USD';
         const libValue = mainValue / factor;
         otherString = libValue.toFixed(6) + ' LIB';
@@ -2112,6 +2109,9 @@ function updateTollAmountUI(address) {
         display = `free (${mainString} (${otherString}))`;
     }
     tollValue.textContent = display;
+
+    openChatModal.toll = toll
+    openChatModal.tollUnit = tollUnit
 }
 
 /**
@@ -2847,11 +2847,13 @@ async function updateBalanceDisplay(asset) {
 }
 
 
-async function validateBalance(amount, assetIndex, balanceWarning = null) {
+async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
     if (!amount) {
         if (balanceWarning) balanceWarning.style.display = 'none';
+        console.warn('[validateBalance] amount is 0')
         return false;
     } else if (amount < 0) {
+        console.warn('[validateBalance] amount is negative')
         if (balanceWarning) balanceWarning.style.display = 'inline';
         balanceWarning.textContent = 'Amount cannot be negative';
         return false;
@@ -2861,8 +2863,14 @@ async function validateBalance(amount, assetIndex, balanceWarning = null) {
     await getNetworkParams();
     const asset = myData.wallet.assets[assetIndex];
     const feeInWei = (parameters.current.transactionFee || 1n);
-    const totalRequired = bigxnum2big(wei, amount.toString()) + feeInWei;
+    const totalRequired = bigxnum2big(1n, amount.toString()) + feeInWei;
     const hasInsufficientBalance = BigInt(asset.balance) < totalRequired;
+    console.log('[validateBalance] hasInsufficientBalance', hasInsufficientBalance)
+    console.log('[validateBalance] totalRequired', totalRequired)
+    console.log('[validateBalance] asset.balance', asset.balance)
+    console.log('[validateBalance] amount', amount)
+    console.log('[validateBalance] feeInWei', feeInWei)
+    console.log('[validateBalance] asset.balance < totalRequired', BigInt(asset.balance) < totalRequired)
 
     if (balanceWarning) {
         if (hasInsufficientBalance) {
@@ -2919,8 +2927,10 @@ async function handleSendAsset(event) {
     const keys = myAccount.keys;
     let toAddress;
 
+
+
     // Validate amount including transaction fee
-    if (await validateBalance(amount, assetIndex)) {
+    if (!await validateBalance(amount, assetIndex)) {
         await getNetworkParams();
         const txFeeInLIB = (parameters.current.transactionFee || 1n);
         const balance = BigInt(wallet.assets[assetIndex].balance);
@@ -3478,6 +3488,13 @@ async function handleSendMessage() {
 
         const message = messageInput.value.trim();
         if (!message) return;
+
+        const sufficientBalance = await validateBalance(openChatModal.toll)
+        if (!sufficientBalance) {
+            showToast('Insufficient balance for toll and fee', 0, 'error');
+            sendButton.disabled = false;
+            return;
+        }
 
         const modal = document.getElementById('chatModal');
         //const modalTitle = modal.querySelector('.modal-title');
@@ -7928,7 +7945,7 @@ async function validateStakeInputs() {
 
     // Check 3: Sufficient Balance (using existing function)
     // Assuming LIB is asset index 0 since after creation of wallet, LIB is the first asset
-    const hasSufficientBalance = await validateBalance(amountStr, 0, amountWarningElement);
+    const hasSufficientBalance = await validateBalance(amountWei, 0, amountWarningElement);
     if (!hasSufficientBalance) {
         // validateBalance already shows the warning in amountWarningElement
         return; // Keep button disabled
