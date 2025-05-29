@@ -3575,7 +3575,7 @@ async function handleSendMessage() {
         // can create a function to query the account and get the receivers toll they've set
         // TODO: will need to query network and receiver account where we validate
         // TODO: decided to query everytime we do openChatModal and save as global variable. We don't need to clear it but we can clear it when closing the modal but should get reset when opening the modal again anyway
-        const toll = 1n * wei;
+        const toll = openChatModal.toll;
 
         const chatMessageObj = await createChatMessage(currentAddress, payload, toll, keys);
         const txid = await signObj(chatMessageObj, keys)
@@ -4682,7 +4682,7 @@ async function createChatMessage(to, payload, toll, keys) {
         type: 'message',
         from: fromAddr,
         to: toAddr,
-        amount: BigInt(toll),       // not sure if this is used by the backend
+        amount: toll,       // not sure if this is used by the backend
         chatId: hashBytes([fromAddr, toAddr].sort().join``),
         message: 'x',
         xmessage: payload,
