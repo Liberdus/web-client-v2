@@ -2047,6 +2047,7 @@ async function openChatModal(address) {
     };
 
     // Add click handler for edit button
+    // TODO: create event listener instead of onclick here
     editButton.onclick = () => {
         const contact = myData.contacts[address];
         if (contact) {
@@ -3292,6 +3293,28 @@ class FriendModal {
         this.modal.classList.remove('active');
     }
 
+    async postUpdateChatToll(address, friend) {
+        // 0 = blocked, 1 = Other, 2 = Acquaintance, 3 = Friend
+        // required = 1 if toll required, 0 if not and 2 to block other party
+        const requiredNum = friend === 3 || friend === 2 ? 0 : friend === 1 ? 1 : friend === 0 ? 2 : 1;
+        const fromAddr = longAddress(myAccount.keys.address)
+        const toAddr = longAddress(address)
+        const chatId_ = hashBytes([fromAddr, toAddr].sort().join``)
+        //console.log('DEBUG 1:chatId_', chatId_)
+        
+        const tx = {
+            from: fromAddr,
+            to: toAddr,
+            chatId: chatId_,
+            required: requiredNum,
+            type: 'update_chat_toll',
+            timestamp: getCorrectedTimestamp()
+        }
+        const txid = await signObj(tx, myAccount.keys)
+        const res = await injectTx(tx, txid)
+        return res
+    }
+
     /**
      * Handle friend form submission
      * 0 = blocked, 1 = Other, 2 = Acquaintance, 3 = Friend
@@ -3320,6 +3343,13 @@ class FriendModal {
             contact.friend === 3 ? 'Added as Friend' :
             'Error updating friend status'
         );
+         
+        // send transaction to update chat toll
+        const res = await this.postUpdateChatToll(this.currentContactAddress, contact.friend)
+        if (res?.transaction?.success === false) {
+            console.log(`[handleFriendSubmit] update_chat_toll transaction failed: ${res?.transaction?.reason}`);
+            return;
+        }
 
         // Update button appearance
         //this.updateFriendButton(contact.friend);
@@ -8122,6 +8152,10 @@ async function checkPendingTransactions() {
                 if (type === 'toll') {
                     console.log(`Toll transaction successfully processed!`);
                 }
+
+                if (type === 'update_chat_toll') {
+                    console.log(`DEBUG: update_chat_toll transaction successfully processed!`);
+                }
             }
             else if (res?.transaction?.success === false) {
                 console.log(`DEBUG: txid ${txid} failed, removing completely`);
@@ -8142,6 +8176,9 @@ async function checkPendingTransactions() {
                         showToast(`Toll submission failed! Reverting to old toll: ${tollModal.oldToll}. Failure reason: ${failureReason}. `, 0, "error");
                         // revert the local myData.settings.toll to the old value
                         tollModal.editMyDataToll(tollModal.oldToll);
+                    } 
+                    else if (type === 'update_chat_toll') {
+                        showToast(`Update chat toll failed: ${failureReason}`, 0, "error");
                     }
                     else { // for messages, transfer etc.
                         showToast(failureReason, 0, "error");
