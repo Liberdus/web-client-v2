@@ -3261,6 +3261,7 @@ class FriendModal {
         // Add friend button
         document.getElementById('addFriendButton').addEventListener('click', () => {
             console.log('DEBUG:addFriendButton clicked')
+            // TODO: will need to update this when we can open from other places
             this.currentContactAddress = contactInfoModal.currentContactAddress;
             if (!this.currentContactAddress) return;
             this.openFriendModal();
@@ -3321,7 +3322,7 @@ class FriendModal {
         );
 
         // Update button appearance
-        this.updateFriendButton(contact.friend);
+        //this.updateFriendButton(contact.friend);
 
         // Mark that we need to update the contact list
         this.needsContactListUpdate = true;
