@@ -3255,6 +3255,7 @@ class FriendModal {
         this.friendForm = document.getElementById('friendForm');
         this.currentContactAddress = null;
         this.needsContactListUpdate = false;  // track if we need to update the contact list
+        this.oldFriend = null;
         this.setupEventListeners();
     }
 
@@ -3332,6 +3333,13 @@ class FriendModal {
         const selectedStatus = this.friendForm.querySelector('input[name="friendStatus"]:checked')?.value;
         if (!selectedStatus) return;
 
+        // send transaction to update chat toll
+        const res = await this.postUpdateTollRequired(this.currentContactAddress, contact.friend)
+        if (res?.transaction?.success === false) {
+            console.log(`[handleFriendSubmit] update_chat_toll transaction failed: ${res?.transaction?.reason}. Did not update contact status.`);
+            return;
+        }
+        this.oldFriend = contact.friend
         // Update friend status based on selected value
         contact.friend = Number(selectedStatus);
 
@@ -3343,13 +3351,6 @@ class FriendModal {
             contact.friend === 3 ? 'Added as Friend' :
             'Error updating friend status'
         );
-         
-        // send transaction to update chat toll
-        const res = await this.postUpdateTollRequired(this.currentContactAddress, contact.friend)
-        if (res?.transaction?.success === false) {
-            console.log(`[handleFriendSubmit] update_chat_toll transaction failed: ${res?.transaction?.reason}`);
-            return;
-        }
 
         // Update button appearance
         //this.updateFriendButton(contact.friend);
@@ -8178,7 +8179,9 @@ async function checkPendingTransactions() {
                         tollModal.editMyDataToll(tollModal.oldToll);
                     } 
                     else if (type === 'update_chat_toll') {
-                        showToast(`Update chat toll failed: ${failureReason}`, 0, "error");
+                        showToast(`Update contact status failed: ${failureReason}. Reverting contact to old status.`, 0, "error");
+                        // revert the local myData.contacts[toAddress].friend to the old value
+                        myData.contacts[pendingTxInfo.to].friend = friendModal.oldFriend;
                     }
                     else { // for messages, transfer etc.
                         showToast(failureReason, 0, "error");
