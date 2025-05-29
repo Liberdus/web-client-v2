@@ -3293,14 +3293,14 @@ class FriendModal {
         this.modal.classList.remove('active');
     }
 
-    async postUpdateChatToll(address, friend) {
+    async postUpdateTollRequired(address, friend) {
         // 0 = blocked, 1 = Other, 2 = Acquaintance, 3 = Friend
         // required = 1 if toll required, 0 if not and 2 to block other party
         const requiredNum = friend === 3 || friend === 2 ? 0 : friend === 1 ? 1 : friend === 0 ? 2 : 1;
         const fromAddr = longAddress(myAccount.keys.address)
         const toAddr = longAddress(address)
         const chatId_ = hashBytes([fromAddr, toAddr].sort().join``)
-        //console.log('DEBUG 1:chatId_', chatId_)
+        console.log('DEBUG 1:chatId_', chatId_)
         
         const tx = {
             from: fromAddr,
@@ -3345,7 +3345,7 @@ class FriendModal {
         );
          
         // send transaction to update chat toll
-        const res = await this.postUpdateChatToll(this.currentContactAddress, contact.friend)
+        const res = await this.postUpdateTollRequired(this.currentContactAddress, contact.friend)
         if (res?.transaction?.success === false) {
             console.log(`[handleFriendSubmit] update_chat_toll transaction failed: ${res?.transaction?.reason}`);
             return;
