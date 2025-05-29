@@ -2703,6 +2703,10 @@ openQRScanModal.fill = null
 function closeQRScanModal(){
     document.getElementById('qrScanModal').classList.remove('active');
     stopCamera()
+    if (startCamera.toastId) {
+        hideToast(startCamera.toastId);
+        startCamera.toastId = null;
+    }
 }
 
 function fillPaymentFromQR(data) {
@@ -5711,7 +5715,7 @@ async function startCamera() {
         stopCamera(); // Ensure we clean up any partial setup
 
         // Show user-friendly error message
-        showToast(error.message || 'Failed to access camera. Please check your permissions and try again.', 5000, 'error');
+        startCamera.toastId = showToast(error.message || 'Failed to access camera. Please check your permissions and try again.', 5000, 'error');
 
         // Re-throw the error if you need to handle it further up
         throw error;
