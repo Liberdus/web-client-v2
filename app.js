@@ -1988,6 +1988,7 @@ function createNewContact(addr, username){
     c.timestamp = getCorrectedTimestamp()
     c.unread = 0
     c.toll = 0n
+    c.friend = 1
 }
 
 /**
@@ -3290,12 +3291,12 @@ class FriendModal {
         this.modal.classList.remove('active');
     }
 
-    // Handle friend form submission
-    // TODO: need to change contact.friend from boolean to 0,1,2,4
-    // 0 = not a friend
-    // 1 = friend
-    // 2 = acquaintance
-    // 4 = blocked
+    /**
+     * Handle friend form submission
+     * 0 = blocked, 1 = Other, 2 = Acquaintance, 3 = Friend
+     * @param {Event} event 
+     * @returns {Promise<void>}
+     */
     async handleFriendSubmit(event) {
         event.preventDefault();
         
@@ -3308,10 +3309,16 @@ class FriendModal {
         if (!selectedStatus) return;
 
         // Update friend status based on selected value
-        contact.friend = selectedStatus === 'friend' || selectedStatus === 'acquaintance';
+        contact.friend = Number(selectedStatus);
 
-        // Show appropriate toast message
-        showToast(contact.friend ? 'Added to friends' : 'Removed from friends');
+        // Show appropriate toast message depending value 0,1,2,3
+        showToast(
+            contact.friend === 0 ? 'Blocked' :
+            contact.friend === 1 ? 'Added as Other' :
+            contact.friend === 2 ? 'Added as Acquaintance' :
+            contact.friend === 3 ? 'Added as Friend' :
+            'Error updating friend status'
+        );
 
         // Update button appearance
         this.updateFriendButton(contact.friend);
