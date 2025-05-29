@@ -1997,6 +1997,7 @@ function createNewContact(addr, username){
  * @returns {void}
  */
 async function openChatModal(address) {
+    friendModal.setAddress(address);
     const modal = document.getElementById('chatModal');
     const modalAvatar = modal.querySelector('.modal-avatar');
     const modalTitle = modal.querySelector('.modal-title');
@@ -3168,14 +3169,14 @@ class ContactInfoModalManager {
     }
 
     // Update friend button text based on current status
-    updateFriendButton(isFriend) {
+    /* updateFriendButton(isFriend) {
         const button = document.getElementById('addFriendButton');
         if (isFriend) {
             button.classList.add('removing');
         } else {
             button.classList.remove('removing');
         }
-    }
+    } */
 
     // Update contact info values
     async updateContactInfo(displayInfo) {
@@ -3223,6 +3224,7 @@ class ContactInfoModalManager {
 
     // Open the modal
     async open(displayInfo) {
+        friendModal.setAddress(displayInfo.address);
         this.currentContactAddress = displayInfo.address;
         await this.updateContactInfo(displayInfo);
         this.setupChatButton(displayInfo);
@@ -3230,7 +3232,7 @@ class ContactInfoModalManager {
         // Update friend button status
         const contact = myData.contacts[displayInfo.address];
         if (contact) {
-            this.updateFriendButton(contact.friend || false);
+            //this.updateFriendButton(contact.friend || false);
         }
 
         this.modal.classList.add('active');
@@ -3260,10 +3262,12 @@ class FriendModal {
 
     setupEventListeners() {
         // Add friend button
-        document.getElementById('addFriendButton').addEventListener('click', () => {
-            console.log('DEBUG:addFriendButton clicked')
-            // TODO: will need to update this when we can open from other places
-            this.currentContactAddress = contactInfoModal.currentContactAddress;
+        document.getElementById('addFriendButtonContactInfo').addEventListener('click', () => {
+            if (!this.currentContactAddress) return;
+            this.openFriendModal();
+        });
+
+        document.getElementById('addFriendButtonChat').addEventListener('click', () => {
             if (!this.currentContactAddress) return;
             this.openFriendModal();
         });
@@ -3363,6 +3367,11 @@ class FriendModal {
 
         // Close the friend modal
         this.closeFriendModal();
+    }
+
+    // setAddress fuction that sets a global variable that can be used to set the currentContactAddress
+    setAddress(address) {
+        this.currentContactAddress = address;
     }
 }
 
@@ -4858,13 +4867,6 @@ async function injectTx(tx, txid){
             myData.pending = [];
         }
 
-        let friend = null;
-        if (tx.type === 'update_chat_toll') {
-            // remove and store friend value from tx
-            friend = tx.friend;
-            delete tx.friend;
-        }
-
         const options = {
             method: 'POST',
             headers: {
@@ -4888,7 +4890,7 @@ async function injectTx(tx, txid){
                 pendingTxData.username = tx.alias;
                 pendingTxData.address = tx.from; // User's address (longAddress form)
             } else if (tx.type === 'update_chat_toll') {
-                pendingTxData.friend = friend;
+                pendingTxData.friend = tx.friend;
             } else if (tx.type === 'message' || tx.type === 'transfer' || tx.type === 'deposit_stake' || tx.type === 'withdraw_stake') {
                 pendingTxData.to = tx.to;
             }
