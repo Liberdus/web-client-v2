@@ -2865,12 +2865,6 @@ async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
     const feeInWei = (parameters.current.transactionFee || 1n);
     const totalRequired = bigxnum2big(1n, amount.toString()) + feeInWei;
     const hasInsufficientBalance = BigInt(asset.balance) < totalRequired;
-    console.log('[validateBalance] hasInsufficientBalance', hasInsufficientBalance)
-    console.log('[validateBalance] totalRequired', totalRequired)
-    console.log('[validateBalance] asset.balance', asset.balance)
-    console.log('[validateBalance] amount', amount)
-    console.log('[validateBalance] feeInWei', feeInWei)
-    console.log('[validateBalance] asset.balance < totalRequired', BigInt(asset.balance) < totalRequired)
 
     if (balanceWarning) {
         if (hasInsufficientBalance) {
@@ -2926,8 +2920,6 @@ async function handleSendAsset(event) {
     const memo = memoIn.trim()
     const keys = myAccount.keys;
     let toAddress;
-
-
 
     // Validate amount including transaction fee
     if (!await validateBalance(amount, assetIndex)) {
