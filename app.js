@@ -2136,7 +2136,7 @@ async function updateTollRequired(address) {
 
     try {
         // query the contact's toll field from the network
-        const contactAccountData = await queryNetwork(`/account/${hash}`);
+        const contactAccountData = await queryNetwork(`/messages/${hash}/toll`);
 
         if (contactAccountData.account == null) {
             console.warn(`Contact account data is null for address: ${address}`);
@@ -2145,8 +2145,8 @@ async function updateTollRequired(address) {
 
         const localContact = myData.contacts[address]
         if(contactAccountData.account.type == 'ChatAccount') {
-            localContact.tollRequiredToSend = contactAccountData.account.toll.required[myIndex]
-            localContact.tollRequiredToReceive = contactAccountData.account.toll.required[toIndex]
+            localContact.tollRequiredToSend = contactAccountData.toll.required[myIndex]
+            localContact.tollRequiredToReceive = contactAccountData.toll.required[toIndex]
         }
 
         if (document.getElementById('chatModal').classList.contains('active') && document.getElementById('chatModal').dataset.address === address) {
