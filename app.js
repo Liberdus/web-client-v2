@@ -3358,6 +3358,10 @@ class FriendModal {
         // Save state
         saveState();
 
+        // Update the friend button
+        this.updateFriendButton(contact, 'addFriendButtonContactInfo');
+        this.updateFriendButton(contact, 'addFriendButtonChat');
+
         // Close the friend modal
         this.closeFriendModal();
     }
