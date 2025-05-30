@@ -2005,6 +2005,7 @@ async function openChatModal(address) {
     const editButton = document.getElementById('chatEditButton');
     document.getElementById('newChatButton').classList.remove('visible');
     const contact = myData.contacts[address]
+    friendModal.updateFriendButton(contact, 'addFriendButtonChat');
     // Set user info
     modalTitle.textContent = contact.name || contact.senderInfo?.name || contact.username || `${contact.address.slice(0,8)}...${contact.address.slice(-6)}`;
 
@@ -3173,16 +3174,6 @@ class ContactInfoModalManager {
         });
     }
 
-    // Update friend button text based on current status
-    /* updateFriendButton(isFriend) {
-        const button = document.getElementById('addFriendButton');
-        if (isFriend) {
-            button.classList.add('removing');
-        } else {
-            button.classList.remove('removing');
-        }
-    } */
-
     // Update contact info values
     async updateContactInfo(displayInfo) {
         // Update avatar section
@@ -3237,7 +3228,7 @@ class ContactInfoModalManager {
         // Update friend button status
         const contact = myData.contacts[displayInfo.address];
         if (contact) {
-            //this.updateFriendButton(contact.friend || false);
+            friendModal.updateFriendButton(contact, 'addFriendButtonContactInfo');
         }
 
         this.modal.classList.add('active');
@@ -3361,9 +3352,6 @@ class FriendModal {
             'Error updating friend status'
         );
 
-        // Update button appearance
-        //this.updateFriendButton(contact.friend);
-
         // Mark that we need to update the contact list
         this.needsContactListUpdate = true;
 
@@ -3377,6 +3365,20 @@ class FriendModal {
     // setAddress fuction that sets a global variable that can be used to set the currentContactAddress
     setAddress(address) {
         this.currentContactAddress = address;
+    }
+
+    /**
+     * Update the friend button based on the contact's friend status
+     * @param {Object} contact - The contact object
+     * @param {string} buttonId - The ID of the button to update
+     * @returns {void}
+     */
+    updateFriendButton(contact, buttonId) {
+        const button = document.getElementById(buttonId);
+        // Remove all status classes
+        button.classList.remove('status-0', 'status-1', 'status-2', 'status-3');
+        // Add the current status class
+        button.classList.add(`status-${contact.friend}`);
     }
 }
 
