@@ -1688,9 +1688,7 @@ async function switchView(view) {
 
 // Update contacts list UI
 async function updateContactsList() {
-
     const contactsList = document.getElementById('contactsList');
-//            const chatsData = myData
     const contacts = myData.contacts;
 
     if (Object.keys(contacts).length === 0) {
@@ -1706,76 +1704,77 @@ async function updateContactsList() {
     // Convert contacts object to array and sort
     const contactsArray = Object.values(contacts);
 
-    // Split into friends and others in a single pass
-    const { friends, others } = contactsArray.reduce((acc, contact) => {
-        const key = contact.friend ? 'friends' : 'others';
-        acc[key].push(contact);
+    // Split into status groups in a single pass
+    const statusGroups = contactsArray.reduce((acc, contact) => {
+        // 0 = blocked, 1 = Other, 2 = Acquaintance, 3 = Friend
+        switch (contact.friend) {
+            case 0:
+                acc.blocked.push(contact);
+                break;
+            case 2:
+                acc.acquaintances.push(contact);
+                break;
+            case 3:
+                acc.friends.push(contact);
+                break;
+            default:
+                acc.others.push(contact);
+        }
         return acc;
-    }, { friends: [], others: [] });
+    }, { others: [], acquaintances: [], friends: [], blocked: []});
 
-    // Sort friends and others by name first, then by username if name is not available
+    // Sort each group by name first, then by username if name is not available
     const sortByName = (a, b) => {
         const nameA = a.name || a.username || '';
         const nameB = b.name || b.username || '';
         return nameA.localeCompare(nameB);
     };
+    Object.values(statusGroups).forEach(group => group.sort(sortByName));
 
-    // sort friends and others
-    friends.sort(sortByName);
-    others.sort(sortByName);
+    // Group metadata for rendering
+    const groupMeta = [
+        { key: 'friends', label: 'Friends', itemClass: 'chat-item' },
+        { key: 'acquaintances', label: 'Acquaintances', itemClass: 'chat-item' },
+        { key: 'others', label: 'Others', itemClass: 'chat-item' },
+        { key: 'blocked', label: 'Blocked', itemClass: 'chat-item blocked' }
+    ];
 
-    // Build HTML for both sections
+    // Helper to render a contact item
+    const renderContactItem = async (contact, itemClass) => {
+        const identicon = await generateIdenticon(contact.address);
+        return `
+            <li class="${itemClass}">
+                <div class="chat-avatar">${identicon}</div>
+                <div class="chat-content">
+                    <div class="chat-header">
+                        <div class="chat-name">${contact.name || contact.senderInfo?.name || contact.username || `${contact.address.slice(0,8)}...${contact.address.slice(-6)}`}</div>
+                    </div>
+                    <div class="contact-list-info">
+                        ${contact.email || contact.x || contact.phone || `${contact.address.slice(0,8)}…${contact.address.slice(-6)}`}
+                    </div>
+                </div>
+            </li>
+        `;
+    };
+
+    // Build HTML for all sections
     let html = '';
-
-    // Add friends section if there are friends
-    if (friends.length > 0) {
-        html += `<div class="contact-section-header">Friends</div>`;
-        const friendItems = await Promise.all(friends.map(async contact => {
-            const identicon = await generateIdenticon(contact.address);
-            return `
-                <li class="chat-item">
-                    <div class="chat-avatar">${identicon}</div>
-                    <div class="chat-content">
-                        <div class="chat-header">
-                            <div class="chat-name">${contact.name || contact.senderInfo?.name || contact.username || `${contact.address.slice(0,8)}...${contact.address.slice(-6)}`}</div>
-                        </div>
-                        <div class="contact-list-info">
-                            ${contact.email || contact.x || contact.phone || `${contact.address.slice(0,8)}…${contact.address.slice(-6)}`}
-                        </div>
-                    </div>
-                </li>
-            `;
-        }));
-        html += friendItems.join('');
-    }
-
-    // Add others section if there are other contacts
-    if (others.length > 0) {
-        html += `<div class="contact-section-header">Others</div>`;
-        const otherItems = await Promise.all(others.map(async contact => {
-            const identicon = await generateIdenticon(contact.address);
-            return `
-                <li class="chat-item">
-                    <div class="chat-avatar">${identicon}</div>
-                    <div class="chat-content">
-                        <div class="chat-header">
-                            <div class="chat-name">${contact.name || contact.senderInfo?.name || contact.username || `${contact.address.slice(0,8)}...${contact.address.slice(-6)}`}</div>
-                        </div>
-                        <div class="contact-list-info">
-                            ${contact.email || contact.x || contact.phone || `${contact.address.slice(0,8)}…${contact.address.slice(-6)}`}
-                        </div>
-                    </div>
-                </li>
-            `;
-        }));
-        html += otherItems.join('');
+    let allContacts = [];
+    for (const { key, label, itemClass } of groupMeta) {
+        const group = statusGroups[key];
+        if (group.length > 0) {
+            html += `<div class="contact-section-header">${label}</div>`;
+            const items = await Promise.all(group.map(contact => renderContactItem(contact, itemClass)));
+            html += items.join('');
+            allContacts = allContacts.concat(group);
+        }
     }
 
     contactsList.innerHTML = html;
 
     // Add click handlers to contact items
     document.querySelectorAll('#contactsList .chat-item').forEach((item, index) => {
-        const contact = [...friends, ...others][index];
+        const contact = allContacts[index];
         item.onclick = () => {
             contactInfoModal.open(createDisplayInfo(contact));
         };
