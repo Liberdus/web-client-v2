@@ -2968,34 +2968,36 @@ async function handleSendAsset(event) {
 
     if (!myData.contacts[toAddress]) { createNewContact(toAddress, username) }
 
-    // Get recipient's public key from contacts
-    let recipientPubKey = myData.contacts[toAddress]?.public;
-    let pqRecPubKey = myData.contacts[toAddress]?.pqPublic
-    if (!recipientPubKey || !pqRecPubKey) {
-        const recipientInfo = await queryNetwork(`/account/${longAddress(toAddress)}`)
-        if (!recipientInfo?.account?.publicKey){
-            console.log(`no public key found for recipient ${toAddress}`)
-            return
+    let encMemo = ''
+    let pqEncSharedKey = ''
+    if (memo && myData.contacts[toAddress]?.pqPublic) {
+
+        // Get recipient's public key from contacts
+        let recipientPubKey = myData.contacts[toAddress]?.public;
+        let pqRecPubKey = myData.contacts[toAddress]?.pqPublic
+        if (!recipientPubKey || !pqRecPubKey) {
+            const recipientInfo = await queryNetwork(`/account/${longAddress(toAddress)}`)
+            if (!recipientInfo?.account?.publicKey){
+                console.log(`no public key found for recipient ${toAddress}`)
+                return
+            }
+            recipientPubKey = recipientInfo.account.publicKey
+            myData.contacts[toAddress].public = recipientPubKey
+            pqRecPubKey = recipientInfo.account.pqPublicKey
+            myData.contacts[toAddress].pqPublic = pqRecPubKey
         }
-        recipientPubKey = recipientInfo.account.publicKey
-        myData.contacts[toAddress].public = recipientPubKey
-        pqRecPubKey = recipientInfo.account.pqPublicKey
-        myData.contacts[toAddress].pqPublic = pqRecPubKey
-    }
 
-    // Generate shared secret using ECDH and take first 32 bytes
-    let dhkey = ecSharedKey(keys.secret, recipientPubKey)
-    const  { cipherText, sharedSecret } = pqSharedKey(pqRecPubKey)
-    const combined = new Uint8Array(dhkey.length + sharedSecret.length)
-    combined.set(dhkey)
-    combined.set(sharedSecret, dhkey.length)
-    dhkey = deriveDhKey(combined);
-
+        // Generate shared secret using ECDH and take first 32 bytes
+        let dhkey = ecSharedKey(keys.secret, recipientPubKey)
+        const  { cipherText, sharedSecret } = pqSharedKey(pqRecPubKey)
+        const combined = new Uint8Array(dhkey.length + sharedSecret.length)
+        combined.set(dhkey)
+        combined.set(sharedSecret, dhkey.length)
+        dhkey = deriveDhKey(combined);
+        pqEncSharedKey = bin2base64(cipherText)
 
     // We purposely do not encrypt/decrypt using browser native crypto functions; all crypto functions must be readable
     // Encrypt message using shared secret
-    let encMemo = ''
-    if (memo){
         encMemo = encryptChacha(dhkey, memo)
     }
 
@@ -3011,25 +3013,28 @@ async function handleSendAsset(event) {
         document.getElementById('retryOfPaymentTxId').value = '';
     }
 
-    // Create sender info object
-    const senderInfo = {
-        username: myAccount.username,
-        name: myData.account.name,
-        email: myData.account.email,
-        phone: myData.account.phone,
-        linkedin: myData.account.linkedin,
-        x: myData.account.x
-    };
-    // Encrypt sender info
-    const encSenderInfo = encryptChacha(dhkey, stringify(senderInfo));
-
+    // only include the sender info if the recipient is is a friend and has a pqKey
+    let encSenderInfo = ''
+    if (myData.contacts[toAddress]?.pqPublic && myData.contacts[toAddress]?.friend === 3) {
+        // Create sender info object
+        const senderInfo = {
+            username: myAccount.username,
+            name: myData.account.name,
+            email: myData.account.email,
+            phone: myData.account.phone,
+            linkedin: myData.account.linkedin,
+            x: myData.account.x
+        };
+        // Encrypt sender info
+        encSenderInfo = encryptChacha(dhkey, stringify(senderInfo));
+    }
     // Create message payload
     const payload = {
         message: encMemo,  // we need to call this field message, so we can use decryptMessage()
         senderInfo: encSenderInfo,
         encrypted: true,
         encryptionMethod: 'xchacha20poly1305',
-        pqEncSharedKey: bin2base64(cipherText),
+        pqEncSharedKey: pqEncSharedKey,
         sent_timestamp: getCorrectedTimestamp()
     };
 
