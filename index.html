@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <!-- These did not seem to help with avoiding stale pages
@@ -309,7 +309,11 @@
         <div class="form-container">
           <div style="padding: 1rem">
             <p>Please contact our team to report bugs or make suggestions.</p>
-            <button id="submitFeedback" class="update-button" style="margin-top: 1rem">
+            <button
+              id="submitFeedback"
+              class="update-button"
+              style="margin-top: 1rem"
+            >
               Submit Feedback
             </button>
           </div>
@@ -792,29 +796,31 @@
         <div class="modal-content">
           <form id="friendForm">
             <div class="radio-group">
-              <label class="radio-option">
-                <input type="radio" name="friendStatus" value="3" checked>
+              <label class="radio-option status-3">
+                <input type="radio" name="friendStatus" value="3" checked />
                 <div class="radio-content">
                   <span class="radio-label">Friend</span>
-                  <span class="radio-description">Share my profile info and no toll required</span>
+                  <span class="radio-description"
+                    >Share my profile info and no toll required</span
+                  >
                 </div>
               </label>
-              <label class="radio-option">
-                <input type="radio" name="friendStatus" value="2">
+              <label class="radio-option status-2">
+                <input type="radio" name="friendStatus" value="2" />
                 <div class="radio-content">
                   <span class="radio-label">Acquaintance</span>
                   <span class="radio-description">No toll required</span>
                 </div>
               </label>
-              <label class="radio-option">
-                <input type="radio" name="friendStatus" value="1">
+              <label class="radio-option status-1">
+                <input type="radio" name="friendStatus" value="1" />
                 <div class="radio-content">
                   <span class="radio-label">Other</span>
                   <span class="radio-description">Toll required</span>
                 </div>
               </label>
-              <label class="radio-option">
-                <input type="radio" name="friendStatus" value="0">
+              <label class="radio-option status-0">
+                <input type="radio" name="friendStatus" value="0" />
                 <div class="radio-content">
                   <span class="radio-label">Blocked</span>
                   <span class="radio-description">Cannot send me messages</span>
@@ -823,7 +829,17 @@
             </div>
             <button type="submit" class="update-button">Update</button>
           </form>
-          <a class="last-item" href="#" style="display: block; width: 0; height: 0; border: none; background: none;"></a>
+          <a
+            class="last-item"
+            href="#"
+            style="
+              display: block;
+              width: 0;
+              height: 0;
+              border: none;
+              background: none;
+            "
+          ></a>
         </div>
       </div>
 
@@ -1862,15 +1878,35 @@
           <form id="inviteForm">
             <div class="form-group">
               <label for="inviteEmail">Email</label>
-              <input type="email" id="inviteEmail" class="form-control" placeholder="Enter email address" />
+              <input
+                type="email"
+                id="inviteEmail"
+                class="form-control"
+                placeholder="Enter email address"
+              />
             </div>
             <div class="form-group">
               <label for="invitePhone">Phone Number</label>
-              <input type="tel" id="invitePhone" class="form-control" placeholder="Enter phone number" />
+              <input
+                type="tel"
+                id="invitePhone"
+                class="form-control"
+                placeholder="Enter phone number"
+              />
             </div>
             <button type="submit" class="update-button">Send Invitation</button>
           </form>
-          <a class="last-item" href="#" style="display: block; width: 0; height: 0; border: none; background: none;"></a>
+          <a
+            class="last-item"
+            href="#"
+            style="
+              display: block;
+              width: 0;
+              height: 0;
+              border: none;
+              background: none;
+            "
+          ></a>
         </div>
       </div>
 
