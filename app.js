@@ -3281,7 +3281,7 @@ class FriendModal {
         if (!contact) return;
         
         // Set the current friend status
-        const status = contact?.friend === 0 ? '0' : contact?.friend === 1 ? '1' : contact?.friend === 2 ? '2' : '3';
+        const status = contact?.friend.toString();
         const radio = this.friendForm.querySelector(`input[value="${status}"]`);
         if (radio) radio.checked = true;
         
