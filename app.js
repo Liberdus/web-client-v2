@@ -8286,10 +8286,8 @@ async function checkPendingTransactions() {
                 } else {
                     // Show toast notification with the failure reason
                     if (type === 'withdraw_stake') {
-                        console.log(`DEBUG: showing toast for failure reason: ${failureReason}`);
                         showToast(`Unstake failed: ${failureReason}`, 0, "error");
                     } else if (type === 'deposit_stake') {
-                        console.log(`DEBUG: showing toast for failure reason: ${failureReason}`);
                         showToast(`Stake failed: ${failureReason}`, 0, "error");
                     } 
                     else if (type === 'toll') {
@@ -8303,7 +8301,6 @@ async function checkPendingTransactions() {
                         myData.contacts[pendingTxInfo.to].friend = pendingTxInfo.friend;
                     }
                     else { // for messages, transfer etc.
-                        console.log(`DEBUG: showing toast for failure reason: ${failureReason}`);
                         showToast(failureReason, 0, "error");
                     }
 
@@ -8311,7 +8308,6 @@ async function checkPendingTransactions() {
                     updateTransactionStatus(txid, toAddress, 'failed', type);
                     chatModal.refreshCurrentView(txid);
                 }
-                console.log(`DEBUG: removing txid ${txid} from pending array. i = ${i}`);
                 // Remove from pending array
                 myData.pending.splice(i, 1);
 
