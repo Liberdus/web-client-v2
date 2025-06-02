@@ -8242,9 +8242,6 @@ async function checkPendingTransactions() {
                         username: pendingTxInfo.username,
                         address: pendingTxInfo.address
                     });
-
-                    // update wallet balances
-                    await updateWalletBalances();
                 }
 
                 if (res?.transaction?.type === 'withdraw_stake') {
@@ -8274,6 +8271,9 @@ async function checkPendingTransactions() {
                 if (type === 'update_chat_toll') {
                     console.log(`DEBUG: update_chat_toll transaction successfully processed!`);
                 }
+
+                // update wallet balances
+                await updateWalletBalances();
             }
             else if (res?.transaction?.success === false) {
                 console.log(`DEBUG: txid ${txid} failed, removing completely`);
