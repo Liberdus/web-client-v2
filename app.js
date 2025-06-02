@@ -404,6 +404,16 @@ async function handleCreateAccount(event) {
     // disable submit button
     const submitButton = document.querySelector('#createAccountForm button[type="submit"]');
     submitButton.disabled = true;
+    // disable input fields, back button, and toggle button
+    const toggleButton = document.getElementById('togglePrivateKeyInput');
+    const usernameInput = document.getElementById('newUsername');
+    const privateKeyInput = document.getElementById('newPrivateKey');
+    const backButton = document.getElementById('closeCreateAccountModal');
+    
+    toggleButton.disabled = true;
+    usernameInput.disabled = true;
+    privateKeyInput.disabled = true;
+    backButton.disabled = true;
 
     event.preventDefault();
     const username = normalizeUsername(document.getElementById('newUsername').value)
@@ -431,6 +441,12 @@ async function handleCreateAccount(event) {
             privateKeyError.textContent = validation.message;
             privateKeyError.style.color = '#dc3545';
             privateKeyError.style.display = 'inline';
+            // Re-enable controls on validation failure
+            submitButton.disabled = false;
+            toggleButton.disabled = false;
+            usernameInput.disabled = false;
+            privateKeyInput.disabled = false;
+            backButton.disabled = false;
             return;
         }
 
@@ -501,6 +517,12 @@ async function handleCreateAccount(event) {
                 privateKeyError.textContent = 'An account already exists for this private key.';
                 privateKeyError.style.color = '#dc3545';
                 privateKeyError.style.display = 'inline';
+                // Re-enable controls when account already exists
+                submitButton.disabled = false;
+                toggleButton.disabled = false;
+                usernameInput.disabled = false;
+                privateKeyInput.disabled = false;
+                backButton.disabled = false;
                 return; // Stop the account creation process
             } else {
                  console.log('No existing account found for this private key.');
@@ -511,6 +533,12 @@ async function handleCreateAccount(event) {
             privateKeyError.textContent = 'Network error checking key. Please try again.';
             privateKeyError.style.color = '#dc3545';
             privateKeyError.style.display = 'inline';
+            // Re-enable controls on network error
+            submitButton.disabled = false;
+            toggleButton.disabled = false;
+            usernameInput.disabled = false;
+            privateKeyInput.disabled = false;
+            backButton.disabled = false;
             return; // Stop process on error
         }
     }
@@ -555,6 +583,10 @@ async function handleCreateAccount(event) {
             if (waitingToastId) hideToast(waitingToastId);
             showToast('Account created successfully!', 3000, 'success');
             submitButton.disabled = false;
+            toggleButton.disabled = false;
+            usernameInput.disabled = false;
+            privateKeyInput.disabled = false;
+            backButton.disabled = false;
             closeCreateAccountModal();
             document.getElementById('welcomeScreen').style.display = 'none';
             getChats.lastCall = getCorrectedTimestamp();
@@ -569,6 +601,10 @@ async function handleCreateAccount(event) {
             console.log(`DEBUG: handleCreateAccount error`, JSON.stringify(error, null, 2));
             showToast(`account creation failed: ${error}`, 0, 'error');
             submitButton.disabled = false;
+            toggleButton.disabled = false;
+            usernameInput.disabled = false;
+            privateKeyInput.disabled = false;
+            backButton.disabled = false;
 
             // Clear intervals
             if (updateWebSocketIndicatorIntervalId) {
@@ -599,6 +635,10 @@ async function handleCreateAccount(event) {
 
         // no toast here since injectTx will show it
         submitButton.disabled = false;
+        toggleButton.disabled = false;
+        usernameInput.disabled = false;
+        privateKeyInput.disabled = false;
+        backButton.disabled = false;
         return;
     }
 }
