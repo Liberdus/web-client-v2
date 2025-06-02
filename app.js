@@ -711,7 +711,8 @@ function newDataRecord(myAccount){
         },
         settings: {
             encrypt: true,
-            toll: parameters.current.defaultToll,
+            toll: parameters.current.defaultToll || 1n * wei,
+            tollUnit: parameters.current.defaultTollUnit || "LIB",
         }
     }
 
@@ -2148,7 +2149,7 @@ async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
 
     await getNetworkParams();
     const asset = myData.wallet.assets[assetIndex];
-    const feeInWei = (parameters.current.transactionFee || 1n);
+    const feeInWei = (parameters.current.transactionFee || 1n * wei);
     const totalRequired = bigxnum2big(1n, amount.toString()) + feeInWei;
     const hasInsufficientBalance = BigInt(asset.balance) < totalRequired;
 
@@ -2199,7 +2200,7 @@ async function handleSendAsset(event) {
     // Validate amount including transaction fee
     if (!await validateBalance(amount, assetIndex)) {
         await getNetworkParams();
-        const txFeeInLIB = (parameters.current.transactionFee || 1n);
+        const txFeeInLIB = (parameters.current.transactionFee || 1n * wei);
         const balance = BigInt(wallet.assets[assetIndex].balance);
         const amountStr = big2str(amount, 18).slice(0, -16);
         const feeStr = big2str(txFeeInLIB, 18).slice(0, -16);
@@ -3690,7 +3691,7 @@ async function postAssetTransfer(to, amount, memo, keys) {
         xmemo: memo,
         timestamp: getCorrectedTimestamp(),
         network: NETWORK_ACCOUNT_ID,
-        fee: (parameters.current.transactionFee || 1n)           // This is not used by the backend
+        fee: (parameters.current.transactionFee || 1n * wei)           // This is not used by the backend
     }
 
     const txid = await signObj(tx, keys)
@@ -7253,7 +7254,7 @@ class ChatModal {
             xmessage: payload,
             timestamp: getCorrectedTimestamp(),
             network: NETWORK_ACCOUNT_ID,
-            fee: (parameters.current.transactionFee || 1n)           // This is not used by the backend
+            fee: (parameters.current.transactionFee || 1n * wei)           // This is not used by the backend
         }
         return tx
     }
@@ -8032,7 +8033,7 @@ class SendModal {
     async fillAmount() {
         await getNetworkParams();
         const asset = myData.wallet.assets[this.assetSelectDropdown.value];
-        const feeInWei = (parameters.current.transactionFee || 1n);
+        const feeInWei = (parameters.current.transactionFee || 1n * wei);
         const maxAmount = BigInt(asset.balance) - feeInWei;
     
         this.amountInput.value = big2str(maxAmount > 0n ? maxAmount : 0n, 18).slice(0, -16);
