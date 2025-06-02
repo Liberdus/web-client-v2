@@ -2932,7 +2932,7 @@ function handleFailedPaymentDelete() {
         }
 
         // refresh current view
-        refreshCurrentView(handleFailedPaymentClick.txid);
+        chatModal.refreshCurrentView(handleFailedPaymentClick.txid);
 
         // Clear the stored values
         handleFailedPaymentClick.txid = '';
@@ -7458,6 +7458,44 @@ class ChatModal {
         }
         // No need for an else here, cases with no element are handled above
     }
+
+    /**
+     * Refresh the current view based on which screen the user is viewing.
+     * Primarily called when a pending transaction fails to remove it from the UI.
+     * Updates UI components only for the view that's currently active.
+     * @param {string} [txid] - Optional transaction ID that failed and needs removal.
+     */
+    refreshCurrentView(txid) { // contactAddress is kept for potential future use but not needed for this txid-based logic
+        const chatsScreen = document.getElementById('chatsScreen');
+        const historyModal = document.getElementById('historyModal');
+        const messagesList = this.modal ? this.messagesList : null;
+
+        // 1. Refresh History Modal if active
+        if (historyModal && historyModal.classList.contains('active')) {
+            console.log("DEBUG: Refreshing transaction history modal due to transaction failure.");
+            updateTransactionHistory();
+        }
+        // 2. Refresh Chat Modal if active AND the failed txid's message is currently rendered
+        if (this.modal && this.modal.classList.contains('active') && txid && messagesList) {
+            // Check if an element with the specific data-txid exists within the message list
+            const messageElement = messagesList.querySelector(`[data-txid="${txid}"]`);
+
+            if (messageElement) {
+                // If the element exists, the failed message is visible in the open chat. Refresh the modal.
+                console.log(`DEBUG: Refreshing active chat modal because failed txid ${txid} was found in the view.`);
+                this.modal.appendChatModal(); // This will redraw the messages based on the updated data (where the failed tx is removed)
+            } else {
+                // The failed txid doesn't correspond to a visible message in the *currently open* chat modal. No UI refresh needed for the modal itself.
+                console.log(`DEBUG: Skipping chat modal refresh. Failed txid ${txid} not found in the active modal's message list.`);
+            }
+        }
+        // 3. Refresh Chat List if active
+        if (chatsScreen && chatsScreen.classList.contains('active')) {
+            console.log("DEBUG: Refreshing chat list view due to transaction failure.");
+            updateChatList();
+        }
+        // No other active view to refresh in this context
+    }
 }
 
 const chatModal = new ChatModal()
@@ -8248,8 +8286,10 @@ async function checkPendingTransactions() {
                 } else {
                     // Show toast notification with the failure reason
                     if (type === 'withdraw_stake') {
+                        console.log(`DEBUG: showing toast for failure reason: ${failureReason}`);
                         showToast(`Unstake failed: ${failureReason}`, 0, "error");
-                } else if (type === 'deposit_stake') {
+                    } else if (type === 'deposit_stake') {
+                        console.log(`DEBUG: showing toast for failure reason: ${failureReason}`);
                         showToast(`Stake failed: ${failureReason}`, 0, "error");
                     } 
                     else if (type === 'toll') {
@@ -8263,13 +8303,15 @@ async function checkPendingTransactions() {
                         myData.contacts[pendingTxInfo.to].friend = pendingTxInfo.friend;
                     }
                     else { // for messages, transfer etc.
+                        console.log(`DEBUG: showing toast for failure reason: ${failureReason}`);
                         showToast(failureReason, 0, "error");
                     }
 
                     const toAddress = pendingTxInfo.to;
                     updateTransactionStatus(txid, toAddress, 'failed', type);
-                    refreshCurrentView(txid);
+                    chatModal.refreshCurrentView(txid);
                 }
+                console.log(`DEBUG: removing txid ${txid} from pending array. i = ${i}`);
                 // Remove from pending array
                 myData.pending.splice(i, 1);
 
@@ -8289,45 +8331,6 @@ async function checkPendingTransactions() {
             }
         }
     }
-}
-
-/**
- * Refresh the current view based on which screen the user is viewing.
- * Primarily called when a pending transaction fails to remove it from the UI.
- * Updates UI components only for the view that's currently active.
- * @param {string} [txid] - Optional transaction ID that failed and needs removal.
- */
-function refreshCurrentView(txid) { // contactAddress is kept for potential future use but not needed for this txid-based logic
-    const chatModal = chatModal.modal;
-    const chatsScreen = document.getElementById('chatsScreen');
-    const historyModal = document.getElementById('historyModal');
-    const messagesList = chatModal ? chatModal.messagesList : null;
-
-    // 1. Refresh History Modal if active
-    if (historyModal && historyModal.classList.contains('active')) {
-        console.log("DEBUG: Refreshing transaction history modal due to transaction failure.");
-        updateTransactionHistory();
-    }
-    // 2. Refresh Chat Modal if active AND the failed txid's message is currently rendered
-    if (chatModal && chatModal.classList.contains('active') && txid && messagesList) {
-        // Check if an element with the specific data-txid exists within the message list
-        const messageElement = messagesList.querySelector(`[data-txid="${txid}"]`);
-
-        if (messageElement) {
-            // If the element exists, the failed message is visible in the open chat. Refresh the modal.
-            console.log(`DEBUG: Refreshing active chat modal because failed txid ${txid} was found in the view.`);
-            chatModal.appendChatModal(); // This will redraw the messages based on the updated data (where the failed tx is removed)
-        } else {
-            // The failed txid doesn't correspond to a visible message in the *currently open* chat modal. No UI refresh needed for the modal itself.
-            console.log(`DEBUG: Skipping chat modal refresh. Failed txid ${txid} not found in the active modal's message list.`);
-        }
-    }
-    // 3. Refresh Chat List if active
-    if (chatsScreen && chatsScreen.classList.contains('active')) {
-        console.log("DEBUG: Refreshing chat list view due to transaction failure.");
-        updateChatList();
-    }
-    // No other active view to refresh in this context
 }
 
 /**
