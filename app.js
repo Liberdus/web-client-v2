@@ -854,23 +854,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // New Chat Modal
     newChatModal.load()
 
-    // TODO add comment about which send form this is for chat or assets
-    document.getElementById('openSendModal').addEventListener('click', openSendModal);
-    document.getElementById('closeSendModal').addEventListener('click', closeSendModal);
-    document.getElementById('sendForm').addEventListener('submit', handleSendFormSubmit);
+    // Send Modal
+    sendModal.load()
 
     // Add event listeners for send confirmation modal
     document.getElementById('closeSendConfirmationModal').addEventListener('click', closeSendConfirmationModal);
     document.getElementById('confirmSendButton').addEventListener('click', handleSendAsset);
     document.getElementById('cancelSendButton').addEventListener('click', closeSendConfirmationModal);
-
-    document.getElementById('sendAsset').addEventListener('change', () => {
-        // updateSendAddresses();
-        updateAvailableBalance();
-    });
-    document.getElementById('availableBalance').addEventListener('click', fillAmount);
-    // amount input listener for real-time balance validation
-    document.getElementById('sendAmount').addEventListener('input', updateAvailableBalance);
 
     document.getElementById('openReceiveModal').addEventListener('click', openReceiveModal);
     document.getElementById('closeReceiveModal').addEventListener('click', closeReceiveModal);
@@ -1015,15 +1005,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('contactInfoSendButton').addEventListener('click', () => {
         const contactUsername = document.getElementById('contactInfoUsername');
         if (contactUsername) {
-            openSendModal.username = contactUsername.textContent;
+            sendModal.username = contactUsername.textContent;
         }
-        openSendModal();
+        sendModal.open();
     });
 
     document.getElementById('chatSendMoneyButton').addEventListener('click', (event) => {
         const button = event.currentTarget;
-        openSendModal.username = button.dataset.username;
-        openSendModal();
+        sendModal.username = button.dataset.username;
+        sendModal.open();
     });
 
     // Add listener for the password visibility toggle
@@ -1048,23 +1038,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // create account button listener to clear message input on create account
     document.getElementById('newUsername').addEventListener('input', handleCreateAccountInput);
 
-    // handle openSendModal sendToAddress username input change
-    document.getElementById('sendToAddress').addEventListener('input', (e) => {
-        handleOpenSendModalInput(e);
-    });
-
-    // Add custom validation message for minimum amount
-    const sendAmountInput = document.getElementById('sendAmount');
-    sendAmountInput.addEventListener('invalid', (event) => {
-        if (event.target.validity.rangeUnderflow) {
-            event.target.setCustomValidity('Value must be at least 1 wei (1×10⁻¹⁸ LIB).');
-        }
-    });
-    sendAmountInput.addEventListener('input', (event) => {
-        // Clear custom validity message when user types
-        event.target.setCustomValidity('');
-    });
-
     // Event Listerns for FailedPaymentModal
     const failedPaymentModal = document.getElementById('failedPaymentModal');
     const failedPaymentRetryButton = failedPaymentModal.querySelector('.retry-button');
@@ -1075,9 +1048,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     failedPaymentDeleteButton.addEventListener('click', handleFailedPaymentDelete);
     failedPaymentHeaderCloseButton.addEventListener('click', closeFailedPaymentModalAndClearState);
     failedPaymentModal.addEventListener('click', handleFailedPaymentBackdropClick);
-
-    // add event listener for toggle LIB/USD button
-    document.getElementById('toggleBalance').addEventListener('click', handleToggleBalance);
 
     getNetworkParams();
 
@@ -2082,159 +2052,6 @@ async function copyAddress() {
     }
 }
 
-async function openSendModal() {
-    const modal = document.getElementById('sendModal');
-    modal.classList.add('active');
-
-    // Clear fields when opening the modal
-    document.getElementById('sendToAddress').value = '';
-    document.getElementById('sendAmount').value = '';
-    document.getElementById('sendMemo').value = '';
-    document.getElementById('retryOfPaymentTxId').value = '';
-
-    const usernameAvailable = document.getElementById('sendToAddressError');
-    const submitButton = document.querySelector('#sendForm button[type="submit"]');
-    usernameAvailable.style.display = 'none';
-    submitButton.disabled = true;
-    openQRScanModal.fill = fillPaymentFromQR  // set function to handle filling the payment form from QR data
-
-    /* This is now done in the DOMContentLoaded funtion
-        // Add QR code scan button handler
-        const scanButton = document.getElementById('scanQRButton');
-        // Remove any existing event listeners first
-        const newScanButton = scanButton.cloneNode(true);
-        scanButton.parentNode.replaceChild(newScanButton, scanButton);
-        newScanButton.addEventListener('click', scanQRCode);
-        console.log("Added click event listener to scan QR button");
-    */
-
-    if (openSendModal.username) {
-        const usernameInput = document.getElementById('sendToAddress');
-        usernameInput.value = openSendModal.username;
-        setTimeout(() => {
-            usernameInput.dispatchEvent(new Event('input'));
-        }, 500);
-        openSendModal.username = null
-    }
-
-
-    await updateWalletBalances(); // Refresh wallet balances first
-    // Get wallet data
-    const wallet = myData.wallet
-    // Populate assets dropdown
-    const assetSelect = document.getElementById('sendAsset');
-    assetSelect.innerHTML = wallet.assets.map((asset, index) =>
-        `<option value="${index}">${asset.name} (${asset.symbol})</option>`
-    ).join('');
-
-
-    // Update addresses for first asset
-    updateSendAddresses();
-}
-
-openSendModal.username = null
-
-/*
-* This function is called when the user clicks the toggle LIB/USD button.
-* Updates the balance symbol and the send amount to the equivalent value in USD/LIB
-*/
-async function handleToggleBalance(e) {
-    e.preventDefault();
-    const balanceSymbol = document.getElementById('balanceSymbol');
-    balanceSymbol.textContent = balanceSymbol.textContent === 'LIB' ? 'USD' : 'LIB';
-    const sendAmount = document.getElementById('sendAmount');
-    const balanceAmount = document.getElementById('balanceAmount');
-    const transactionFee = document.getElementById('transactionFee');
-
-    // check the context value of the button to determine if it's LIB or USD
-    const isLib = balanceSymbol.textContent === 'LIB';
-
-    // get the current price of LIB in USD
-    const marketPrice = await getMarketPrice();
-
-    // if isLib is false, convert the sendAmount to USD
-    if (!isLib) {
-        sendAmount.value = (sendAmount.value * marketPrice);
-        balanceAmount.textContent = (balanceAmount.textContent * marketPrice);
-        transactionFee.textContent = (transactionFee.textContent * marketPrice);
-    } else {
-        sendAmount.value = (sendAmount.value / marketPrice);
-        balanceAmount.textContent = (balanceAmount.textContent / marketPrice);
-        transactionFee.textContent = (transactionFee.textContent / marketPrice);
-    }
-}
-
-let sendModalCheckTimeout;
-
-// New function to refresh the disabled state of the send button
-async function refreshSendButtonDisabledState() {
-    const sendToAddressError = document.getElementById('sendToAddressError');
-    // Address is valid if its error/status message is visible and set to 'found'.
-    const isAddressConsideredValid = sendToAddressError.style.display === 'inline' && sendToAddressError.textContent === 'found';
-    console.log(`isAddressConsideredValid ${isAddressConsideredValid}`);
-
-    const amountInput = document.getElementById('sendAmount');
-    const amount = amountInput.value;
-    const assetIndex = document.getElementById('sendAsset').value;
-    const balanceWarning = document.getElementById('balanceWarning');
-
-    // validateBalance returns false if the amount/balance is invalid.
-    const isAmountAndBalanceValid = await validateBalance(amount, assetIndex, balanceWarning);
-
-    const submitButton = document.querySelector('#sendForm button[type="submit"]');
-
-    // Enable button only if both conditions are met.
-    if (isAddressConsideredValid && isAmountAndBalanceValid) {
-        submitButton.disabled = false;
-    } else {
-        submitButton.disabled = true;
-    }
-}
-
-async function handleOpenSendModalInput(e){
-    // Check availability on input changes
-    const username = normalizeUsername(e.target.value);
-    const usernameAvailable = document.getElementById('sendToAddressError');
-
-
-    // Clear previous timeout
-    if (sendModalCheckTimeout) {
-        clearTimeout(sendModalCheckTimeout);
-    }
-
-    // Check if username is too short
-    if (username.length < 3) {
-        usernameAvailable.textContent = 'too short';
-        usernameAvailable.style.color = '#dc3545';
-        usernameAvailable.style.display = 'inline';
-        await refreshSendButtonDisabledState();
-        return;
-    }
-
-    // Check network availability
-    sendModalCheckTimeout = setTimeout(async () => {
-        const taken = await checkUsernameAvailability(username, myAccount.keys.address);
-        if (taken == 'taken') {
-            usernameAvailable.textContent = 'found';
-            usernameAvailable.style.color = '#28a745';
-            usernameAvailable.style.display = 'inline';
-        } else if((taken == 'mine')) {
-            usernameAvailable.textContent = 'mine';
-            usernameAvailable.style.color = '#dc3545';
-            usernameAvailable.style.display = 'inline';
-        } else if ((taken == 'available')) {
-            usernameAvailable.textContent = 'not found';
-            usernameAvailable.style.color = '#dc3545';
-            usernameAvailable.style.display = 'inline';
-        } else {
-            usernameAvailable.textContent = 'network error';
-            usernameAvailable.style.color = '#dc3545';
-            usernameAvailable.style.display = 'inline';
-        }
-        await refreshSendButtonDisabledState(); // Update button state based on new address status and current amount status
-    }, 1000);
-}
-
 // Function to handle QR code scanning Omar
 function openQRScanModal() {
     const modal = document.getElementById('qrScanModal');
@@ -2313,64 +2130,6 @@ function fillStakeAddressFromQR(data) {
     }
 }
 
-async function closeSendModal() {
-    await updateChatList()
-    document.getElementById('sendModal').classList.remove('active');
-    document.getElementById('sendForm').reset();
-    openSendModal.username = null
-}
-
-function updateSendAddresses() {
-    const walletData = myData.wallet
-    const assetIndex = document.getElementById('sendAsset').value;
-//    const addressSelect = document.getElementById('sendFromAddress');
-
-    // Check if we have any assets
-    if (!walletData.assets || walletData.assets.length === 0) {
-        addressSelect.innerHTML = '<option value="">No addresses available</option>';
-        updateAvailableBalance();
-        return;
-    }
-
-    // Update available balance display
-    updateAvailableBalance();
-}
-
-async function updateAvailableBalance() {
-    const walletData = myData.wallet;
-    const assetIndex = document.getElementById('sendAsset').value;
-    const balanceWarning = document.getElementById('balanceWarning');
-
-    // Check if we have any assets
-    if (!walletData.assets || walletData.assets.length === 0) {
-        updateBalanceDisplay(null);
-        // If no assets, amount validation will likely fail or be irrelevant.
-        // Button state should reflect this.
-        await refreshSendButtonDisabledState();
-        return;
-    }
-
-    updateBalanceDisplay(walletData.assets[assetIndex]);
-    await refreshSendButtonDisabledState();
-}
-
-async function updateBalanceDisplay(asset) {
-    if (!asset) {
-        document.getElementById('balanceAmount').textContent = '0.0000';
-        document.getElementById('balanceSymbol').textContent = '';
-        document.getElementById('transactionFee').textContent = '0.00';
-        return;
-    }
-
-    await getNetworkParams();
-    const txFeeInLIB = ((parameters.current.transactionFee) || 1n * wei);
-
-    document.getElementById('balanceAmount').textContent = big2str(BigInt(asset.balance), 18).slice(0, -12);
-    document.getElementById('balanceSymbol').textContent = asset.symbol;
-    document.getElementById('transactionFee').textContent = big2str(txFeeInLIB, 18).slice(0, -16);
-}
-
-
 async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
     if (!amount) {
         if (balanceWarning) balanceWarning.style.display = 'none';
@@ -2401,17 +2160,6 @@ async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
 
     // use ! to return true if the balance is sufficient, false otherwise
     return !hasInsufficientBalance;
-}
-
-
-async function fillAmount() {
-    await getNetworkParams();
-    const asset = myData.wallet.assets[document.getElementById('sendAsset').value];
-    const feeInWei = (parameters.current.transactionFee || 1n);
-    const maxAmount = BigInt(asset.balance) - feeInWei;
-
-    document.getElementById('sendAmount').value = big2str(maxAmount > 0n ? maxAmount : 0n, 18).slice(0, -16);
-    document.getElementById('sendAmount').dispatchEvent(new Event('input'));
 }
 
 // The user has filled out the form to send assets to a recipient and clicked the Send button
@@ -2639,7 +2387,7 @@ async function handleSendAsset(event) {
             chatModal.appendChatModal(); // Re-render the chat modal and highlight the new item
         }
 
-        closeSendModal();
+        sendModal.close();
         closeSendConfirmationModal();
         document.getElementById('sendToAddress').value = '';
         document.getElementById('sendAmount').value = '';
@@ -3136,8 +2884,7 @@ handleFailedPaymentClick.memo = '';
  * It will fill the sendModal with the payment content and txid of the failed payment in a hidden input field in the sendModal
  */
 function handleFailedPaymentRetry() {
-    const sendModal = document.getElementById('sendModal');
-    const retryOfPaymentTxId = document.getElementById('retryOfPaymentTxId');
+    const retryOfPaymentTxId = sendModal.retryTxIdInput;
 
     // close the failed payment modal
     const failedPaymentModal = document.getElementById('failedPaymentModal');
@@ -3145,8 +2892,8 @@ function handleFailedPaymentRetry() {
         failedPaymentModal.classList.remove('active');
     }
 
-    if (sendModal && retryOfPaymentTxId) {
-        openSendModal();
+    if (sendModal.modal && retryOfPaymentTxId) {
+        sendModal.open();
 
         // 1. fill in hidden retryOfPaymentTxId input
         retryOfPaymentTxId.value = handleFailedPaymentClick.txid;
@@ -3157,15 +2904,15 @@ function handleFailedPaymentRetry() {
         // 3. fill in the to address input
         // find username in myData.contacts[handleFailedPaymentClick.address].senderInfo.username
         // enter as an input to invoke the oninput event
-        sendModal.querySelector('#sendToAddress').value = myData.contacts[handleFailedPaymentClick.address]?.senderInfo?.username || handleFailedPaymentClick.address || '';
-        sendModal.querySelector('#sendToAddress').dispatchEvent(new Event('input', { bubbles: true }));
+        sendModal.usernameInput.value = myData.contacts[handleFailedPaymentClick.address]?.senderInfo?.username || handleFailedPaymentClick.address || '';
+        sendModal.usernameInput.dispatchEvent(new Event('input', { bubbles: true }));
 
         // 4. fill in the amount input
         // get the amount from myData.wallet.history since we need to the bigint value
         const amount = myData.wallet.history.find(tx => tx.txid === handleFailedPaymentClick.txid)?.amount;
         // convert bigint to string
         const amountStr = big2str(amount, 18);
-        sendModal.querySelector('#sendAmount').value = amountStr;
+        sendModal.amountInput.value = amountStr;
     }
 }
 
@@ -5572,50 +5319,6 @@ class WSManager {
 }
 
 let wsManager = new WSManager()        // this is set to new WSManager() for convience
-
-// New functions for send confirmation flow
-async function handleSendFormSubmit(event) {
-    event.preventDefault();
-
-    // Get form values
-    const assetSelect = document.getElementById('sendAsset');
-    const assetSymbol = assetSelect.options[assetSelect.selectedIndex].text;
-    const recipient = document.getElementById('sendToAddress').value;
-    const balanceSymbol = document.getElementById('balanceSymbol');
-    let amount = document.getElementById('sendAmount').value;
-    const memo = document.getElementById('sendMemo').value;
-    const confirmButton = document.getElementById('confirmSendButton');
-    const cancelButton = document.getElementById('cancelSendButton');
-
-    const marketPrice = await getMarketPrice();
-
-    // need to convert to LIB if USD is selected
-    const isLib = balanceSymbol.textContent === 'LIB';
-    if (!isLib) {
-        amount = (amount / marketPrice);
-    }
-
-    // Update confirmation modal with values
-    document.getElementById('confirmRecipient').textContent = recipient;
-    document.getElementById('confirmAmount').textContent = `${amount}`;
-    document.getElementById('confirmAsset').textContent = assetSymbol;
-
-    // Show/hide memo if present
-    const memoGroup = document.getElementById('confirmMemoGroup');
-    if (memo) {
-        document.getElementById('confirmMemo').textContent = memo;
-        memoGroup.style.display = 'block';
-    } else {
-        memoGroup.style.display = 'none';
-    }
-
-    // Hide send modal and show confirmation modal
-    document.getElementById('sendModal').classList.remove('active');
-
-    confirmButton.disabled = false;
-    cancelButton.disabled = false;
-    document.getElementById('sendConfirmationModal').classList.add('active');
-}
 
 function closeSendConfirmationModal() {
     document.getElementById('sendConfirmationModal').classList.remove('active');
@@ -8078,6 +7781,350 @@ class NewChatModal {
 }
 
 const newChatModal = new NewChatModal();
+
+// Send Modal
+class SendModal {
+    constructor() {
+        this.modal = document.getElementById('sendModal');
+        this.openSendModalButton = document.getElementById('openSendModal');
+        this.closeSendModalButton = document.getElementById('closeSendModal');
+        this.sendForm = document.getElementById('sendForm');
+        this.username = null;
+        this.usernameInput = document.getElementById('sendToAddress');
+        this.amountInput = document.getElementById('sendAmount');
+        this.memoInput = document.getElementById('sendMemo');
+        this.retryTxIdInput = document.getElementById('retryOfPaymentTxId');
+        this.usernameAvailable = document.getElementById('sendToAddressError');
+        this.submitButton = document.querySelector('#sendForm button[type="submit"]');
+        this.assetSelectDropdown = document.getElementById('sendAsset');
+        this.sendModalCheckTimeout = null;
+        this.balanceSymbol = document.getElementById('balanceSymbol');
+        this.availableBalance = document.getElementById('availableBalance');
+        this.toggleBalanceButton = document.getElementById('toggleBalance');
+    }
+
+    /**
+     * Loads the send modal event listeners
+     * @returns {void}
+     */
+    load() {
+        // TODO add comment about which send form this is for chat or assets
+        this.openSendModalButton.addEventListener('click', this.open.bind(this));
+        this.closeSendModalButton.addEventListener('click', this.close.bind(this));
+        this.sendForm.addEventListener('submit', this.handleSendFormSubmit.bind(this));
+        // TODO: need to add check that it's not a back/delete key
+        this.usernameInput.addEventListener('input',  async (e) => {
+            this.handleSendToAddressInput(e);
+        });
+
+        this.availableBalance.addEventListener('click', this.fillAmount.bind(this));
+        this.assetSelectDropdown.addEventListener('change', () => {
+            // updateSendAddresses();
+            this.updateAvailableBalance();
+        });
+        // amount input listener for real-time balance validation
+        this.amountInput.addEventListener('input', this.updateAvailableBalance.bind(this));
+        // Add custom validation message for minimum amount
+        this.amountInput.addEventListener('invalid', (event) => {
+            if (event.target.validity.rangeUnderflow) {
+                event.target.setCustomValidity('Value must be at least 1 wei (1×10⁻¹⁸ LIB).');
+            }
+        });
+        this.amountInput.addEventListener('input', (event) => {
+            // Clear custom validity message when user types
+            event.target.setCustomValidity('');
+        });
+        // event listener for toggle LIB/USD button
+        this.toggleBalanceButton.addEventListener('click', this.handleToggleBalance.bind(this));
+    }
+
+    /**
+     * Opens the send modal
+     * @returns {void}
+     */
+    async open() {
+        this.modal.classList.add('active');
+    
+        // Clear fields when opening the modal
+        this.usernameInput.value = '';
+        this.amountInput.value = '';
+        this.memoInput.value = '';
+        this.retryTxIdInput.value = '';
+    
+        this.usernameAvailable.style.display = 'none';
+        this.submitButton.disabled = true;
+        openQRScanModal.fill = fillPaymentFromQR  // set function to handle filling the payment form from QR data
+    
+        if (this.username) {
+            this.usernameInput.value = this.username;
+            setTimeout(() => {
+                this.usernameInput.dispatchEvent(new Event('input'));
+            }, 500);
+            this.username = null
+        }
+    
+    
+        await updateWalletBalances(); // Refresh wallet balances first
+        // Get wallet data
+        const wallet = myData.wallet
+        // Populate assets dropdown
+        this.assetSelectDropdown.innerHTML = wallet.assets.map((asset, index) =>
+            `<option value="${index}">${asset.name} (${asset.symbol})</option>`
+        ).join('');
+    
+    
+        // Update addresses for first asset
+        this.updateSendAddresses();
+    }
+
+    /**
+     * Closes the send modal
+     * @returns {void}
+     */
+    async close() {
+        await updateChatList()
+        this.modal.classList.remove('active');
+        this.sendForm.reset();
+        this.username = null
+    }
+    
+
+    /**
+     * Invoked when the user types in the username input
+     * It will check if the username is too short, available, or not available
+     * @param {Event} e - The event object
+     * @returns {void}
+     */
+    async handleSendToAddressInput(e){
+        // Check availability on input changes
+        const username = normalizeUsername(e.target.value);
+        const usernameAvailable = this.usernameAvailable;
+    
+    
+        // Clear previous timeout
+        if (this.sendModalCheckTimeout) {
+            clearTimeout(this.sendModalCheckTimeout);
+        }
+    
+        // Check if username is too short
+        if (username.length < 3) {
+            usernameAvailable.textContent = 'too short';
+            usernameAvailable.style.color = '#dc3545';
+            usernameAvailable.style.display = 'inline';
+            await this.refreshSendButtonDisabledState();
+            return;
+        }
+    
+        // Check network availability
+        this.sendModalCheckTimeout = setTimeout(async () => {
+            const taken = await checkUsernameAvailability(username, myAccount.keys.address);
+            if (taken == 'taken') {
+                usernameAvailable.textContent = 'found';
+                usernameAvailable.style.color = '#28a745';
+                usernameAvailable.style.display = 'inline';
+            } else if((taken == 'mine')) {
+                usernameAvailable.textContent = 'mine';
+                usernameAvailable.style.color = '#dc3545';
+                usernameAvailable.style.display = 'inline';
+            } else if ((taken == 'available')) {
+                usernameAvailable.textContent = 'not found';
+                usernameAvailable.style.color = '#dc3545';
+                usernameAvailable.style.display = 'inline';
+            } else {
+                usernameAvailable.textContent = 'network error';
+                usernameAvailable.style.color = '#dc3545';
+                usernameAvailable.style.display = 'inline';
+            }
+            await this.refreshSendButtonDisabledState(); // Update button state based on new address status and current amount status
+        }, 1000);
+    }
+
+    /**
+     * Handles the send form submit
+     * @param {Event} event - The event object
+     * @returns {void}
+     */
+    async handleSendFormSubmit(event) {
+        event.preventDefault();
+
+        // Get form values
+        const assetSymbol = this.assetSelectDropdown.options[this.assetSelectDropdown.selectedIndex].text;
+        let amount = this.amountInput.value;
+        const memo = this.memoInput.value;
+        const confirmButton = document.getElementById('confirmSendButton');
+        const cancelButton = document.getElementById('cancelSendButton');
+
+        const marketPrice = await getMarketPrice();
+
+        // need to convert to LIB if USD is selected
+        const isLib = this.balanceSymbol.textContent === 'LIB';
+        if (!isLib) {
+            amount = (amount / marketPrice);
+        }
+
+        // Update confirmation modal with values
+        document.getElementById('confirmRecipient').textContent = this.usernameInput.value;
+        document.getElementById('confirmAmount').textContent = `${amount}`;
+        document.getElementById('confirmAsset').textContent = assetSymbol;
+
+        // Show/hide memo if present
+        const memoGroup = document.getElementById('confirmMemoGroup');
+        if (memo) {
+            document.getElementById('confirmMemo').textContent = memo;
+            memoGroup.style.display = 'block';
+        } else {
+            memoGroup.style.display = 'none';
+        }
+
+        // Hide send modal and show confirmation modal
+        this.modal.classList.remove('active');
+
+        confirmButton.disabled = false;
+        cancelButton.disabled = false;
+        document.getElementById('sendConfirmationModal').classList.add('active');
+    }
+
+    /**
+     * Fills the amount input with the available balance
+     * @returns {void}
+     */
+    async fillAmount() {
+        await getNetworkParams();
+        const asset = myData.wallet.assets[this.assetSelectDropdown.value];
+        const feeInWei = (parameters.current.transactionFee || 1n);
+        const maxAmount = BigInt(asset.balance) - feeInWei;
+    
+        this.amountInput.value = big2str(maxAmount > 0n ? maxAmount : 0n, 18).slice(0, -16);
+        this.amountInput.dispatchEvent(new Event('input'));
+    }
+
+    /**
+     * Updates the available balance in the send modal based on the asset
+     * @returns {void}
+     */
+    async updateAvailableBalance() {
+        const walletData = myData.wallet;
+        const assetIndex = this.assetSelectDropdown.value;
+        const balanceWarning = this.balanceWarning;
+    
+        // Check if we have any assets
+        if (!walletData.assets || walletData.assets.length === 0) {
+            this.updateBalanceDisplay(null);
+            // If no assets, amount validation will likely fail or be irrelevant.
+            // Button state should reflect this.
+            await this.refreshSendButtonDisabledState();
+            return;
+        }
+    
+        this.updateBalanceDisplay(walletData.assets[assetIndex]);
+        await this.refreshSendButtonDisabledState();
+    }
+    
+    /**
+     * Updates the balance display in the send modal based on the asset
+     * @param {object} asset - The asset to update the balance display for
+     * @returns {void}
+     */
+    async updateBalanceDisplay(asset) {
+        if (!asset) {
+            document.getElementById('balanceAmount').textContent = '0.0000';
+            document.getElementById('balanceSymbol').textContent = '';
+            document.getElementById('transactionFee').textContent = '0.00';
+            return;
+        }
+    
+        await getNetworkParams();
+        const txFeeInLIB = ((parameters.current.transactionFee) || 1n * wei);
+    
+        document.getElementById('balanceAmount').textContent = big2str(BigInt(asset.balance), 18).slice(0, -12);
+        document.getElementById('balanceSymbol').textContent = asset.symbol;
+        document.getElementById('transactionFee').textContent = big2str(txFeeInLIB, 18).slice(0, -16);
+    }
+    
+    /**
+     * Updates the send addresses for the first asset
+     * @returns {void}
+     */
+    updateSendAddresses() {
+        const walletData = myData.wallet
+        const assetIndex = document.getElementById('sendAsset').value;
+        // TODO: why is this commented out? are we not using it in the if block?
+    //    const addressSelect = document.getElementById('sendFromAddress');
+    
+        // Check if we have any assets
+        if (!walletData.assets || walletData.assets.length === 0) {
+            addressSelect.innerHTML = '<option value="">No addresses available</option>';
+            this.updateAvailableBalance();
+            return;
+        }
+    
+        // Update available balance display
+        this.updateAvailableBalance();
+    }
+
+    /**
+     * Refreshes the disabled state of the send button based on the username and amount
+     * @returns {void}
+     */
+    async refreshSendButtonDisabledState() {
+        const sendToAddressError = document.getElementById('sendToAddressError');
+        // Address is valid if its error/status message is visible and set to 'found'.
+        const isAddressConsideredValid = sendToAddressError.style.display === 'inline' && sendToAddressError.textContent === 'found';
+        console.log(`isAddressConsideredValid ${isAddressConsideredValid}`);
+
+        const amountInput = document.getElementById('sendAmount');
+        const amount = amountInput.value;
+        const assetIndex = document.getElementById('sendAsset').value;
+        const balanceWarning = document.getElementById('balanceWarning');
+
+        // validateBalance returns false if the amount/balance is invalid.
+        const isAmountAndBalanceValid = await validateBalance(amount, assetIndex, balanceWarning);
+
+        const submitButton = document.querySelector('#sendForm button[type="submit"]');
+
+        // Enable button only if both conditions are met.
+        if (isAddressConsideredValid && isAmountAndBalanceValid) {
+            submitButton.disabled = false;
+        } else {
+            submitButton.disabled = true;
+        }
+    }
+
+    /**
+     * This function is called when the user clicks the toggle LIB/USD button.
+     * Updates the balance symbol and the send amount to the equivalent value in USD/LIB
+     * @param {Event} e - The event object
+     * @returns {void}
+     */
+    async handleToggleBalance(e) {
+        e.preventDefault();
+        const balanceSymbol = document.getElementById('balanceSymbol');
+        balanceSymbol.textContent = balanceSymbol.textContent === 'LIB' ? 'USD' : 'LIB';
+        const sendAmount = document.getElementById('sendAmount');
+        const balanceAmount = document.getElementById('balanceAmount');
+        const transactionFee = document.getElementById('transactionFee');
+
+        // check the context value of the button to determine if it's LIB or USD
+        const isLib = balanceSymbol.textContent === 'LIB';
+
+        // get the current price of LIB in USD
+        const marketPrice = await getMarketPrice();
+
+        // if isLib is false, convert the sendAmount to USD
+        if (!isLib) {
+            sendAmount.value = (sendAmount.value * marketPrice);
+            balanceAmount.textContent = (balanceAmount.textContent * marketPrice);
+            transactionFee.textContent = (transactionFee.textContent * marketPrice);
+        } else {
+            sendAmount.value = (sendAmount.value / marketPrice);
+            balanceAmount.textContent = (balanceAmount.textContent / marketPrice);
+            transactionFee.textContent = (transactionFee.textContent / marketPrice);
+        }
+    }
+}
+
+const sendModal = new SendModal();
+
 
 /**
  * Remove failed transaction from the contacts messages, pending, and wallet history
