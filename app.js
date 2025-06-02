@@ -8325,7 +8325,7 @@ async function checkPendingTransactions() {
         }
     }
     // update wallet balances
-    await updateWalletBalances();
+    updateWalletBalances();
 }
 
 /**
