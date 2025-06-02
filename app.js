@@ -8271,9 +8271,6 @@ async function checkPendingTransactions() {
                 if (type === 'update_chat_toll') {
                     console.log(`DEBUG: update_chat_toll transaction successfully processed!`);
                 }
-
-                // update wallet balances
-                await updateWalletBalances();
             }
             else if (res?.transaction?.success === false) {
                 console.log(`DEBUG: txid ${txid} failed, removing completely`);
@@ -8327,6 +8324,8 @@ async function checkPendingTransactions() {
             }
         }
     }
+    // update wallet balances
+    await updateWalletBalances();
 }
 
 /**
