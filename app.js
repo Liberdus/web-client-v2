@@ -2657,7 +2657,7 @@ class FriendModal {
         if (!selectedStatus) return;
 
         // send transaction to update chat toll
-        const res = await this.postUpdateTollRequired(this.currentContactAddress, contact.friend)
+        const res = await this.postUpdateTollRequired(this.currentContactAddress, Number(selectedStatus))
         if (res?.transaction?.success === false) {
             console.log(`[handleFriendSubmit] update_chat_toll transaction failed: ${res?.transaction?.reason}. Did not update contact status.`);
             return;
@@ -7115,9 +7115,9 @@ class ChatModal {
     async createReadTransaction(contactAddress) {
         const readTransaction = {
             type: 'read',
-            from: longAddress(myAccount.address),
+            from: longAddress(myData.account.keys.address),
             to: longAddress(contactAddress),
-            chatId: hashBytes([longAddress(myAccount.address), longAddress(contactAddress)].sort().join``),
+            chatId: hashBytes([longAddress(myData.account.keys.address), longAddress(contactAddress)].sort().join``),
             timestamp: getCorrectedTimestamp(),
         }
         return readTransaction;
