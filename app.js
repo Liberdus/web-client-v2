@@ -711,7 +711,7 @@ function newDataRecord(myAccount){
         },
         settings: {
             encrypt: true,
-            toll: 0n
+            toll: parameters.current.defaultToll,
         }
     }
 
