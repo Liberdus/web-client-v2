@@ -7069,7 +7069,9 @@ class ChatModal {
      * @returns {void}
      */
     close() {
-        this.sendReadTransaction(this.address);
+        if (this.newestReceivedMessage) {
+            this.sendReadTransaction(this.address);
+        }
         this.modal.classList.remove('active');
         if (document.getElementById('chatsScreen').classList.contains('active')) {
             updateChatList()
