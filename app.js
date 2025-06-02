@@ -851,6 +851,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Failed Message Modal
     failedMessageModal.load()
 
+    // New Chat Modal
+    newChatModal.load()
+
     // TODO add comment about which send form this is for chat or assets
     document.getElementById('openSendModal').addEventListener('click', openSendModal);
     document.getElementById('closeSendModal').addEventListener('click', closeSendModal);
@@ -868,9 +871,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('availableBalance').addEventListener('click', fillAmount);
     // amount input listener for real-time balance validation
     document.getElementById('sendAmount').addEventListener('input', updateAvailableBalance);
-
-    // Add blur event listener for recipient validation
-    // document.getElementById('sendToAddress').addEventListener('blur', handleSendToAddressValidation);
 
     document.getElementById('openReceiveModal').addEventListener('click', openReceiveModal);
     document.getElementById('closeReceiveModal').addEventListener('click', closeReceiveModal);
@@ -911,11 +911,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         // await updateWalletBalances();
         updateWalletView();
     });
-
-    // New Chat functionality
-    document.getElementById('newChatButton').addEventListener('click', openNewChatModal);
-    document.getElementById('closeNewChatModal').addEventListener('click', closeNewChatModal);
-    document.getElementById('newChatForm').addEventListener('submit', handleNewChat);
 
     // Add new search functionality
     const searchInput = document.getElementById('searchInput');
@@ -1043,9 +1038,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Toggle the visual state class on the button
         this.classList.toggle('toggled-visible');
     });
-
-    // add listner for username input, debounce
-    document.getElementById('chatRecipient').addEventListener('input', debounce(handleUsernameInput, 300));
 
     // add listener for username select change on sign in modal
     document.getElementById('username').addEventListener('change', handleUsernameOnSignInModal);
@@ -1737,196 +1729,6 @@ async function updateContactsList() {
 function toggleMenu() {
     document.getElementById('menuModal').classList.toggle('active');
 //    document.getElementById('accountModal').classList.remove('active');
-}
-
-
-function openNewChatModal() {
-    const newChatModal = document.getElementById('newChatModal');
-    newChatModal.classList.add('active');
-    document.getElementById('newChatButton').classList.remove('visible');
-
-    const usernameAvailable = document.getElementById('chatRecipientError');
-    const recipientInput = document.getElementById('chatRecipient');
-    const submitButton = document.querySelector('#newChatForm button[type="submit"]');
-    usernameAvailable.style.display = 'none';
-    submitButton.disabled = true;
-
-    // Create the handler function
-    const focusHandler = () => {
-        recipientInput.focus();
-        newChatModal.removeEventListener('transitionend', focusHandler);
-    };
-
-    // Add the event listener
-    newChatModal.addEventListener('transitionend', focusHandler);
-}
-
-let usernameInputCheckTimeout;
-// handler that invokes listener for username input
-function handleUsernameInput(e) {
-
-    const usernameAvailable = document.getElementById('chatRecipientError');
-    const submitButton = document.querySelector('#newChatForm button[type="submit"]');
-    usernameAvailable.style.display = 'none';
-    submitButton.disabled = true;
-
-    const username = normalizeUsername(e.target.value);
-
-    // Clear previous timeout
-    if (usernameInputCheckTimeout) {
-        clearTimeout(usernameInputCheckTimeout);
-    }
-
-    // Check if username is too short
-    if (username.length < 3) {
-        usernameAvailable.textContent = 'too short';
-        usernameAvailable.style.color = '#dc3545';
-        usernameAvailable.style.display = 'inline';
-        return;
-    }
-
-    // Check username availability
-    usernameInputCheckTimeout = setTimeout(async () => {
-        const taken = await checkUsernameAvailability(username, myAccount.keys.address);
-        if (taken == 'taken') {
-            usernameAvailable.textContent = 'found';
-            usernameAvailable.style.color = '#28a745';
-            usernameAvailable.style.display = 'inline';
-            submitButton.disabled = false;
-        } else if ((taken == 'mine') || (taken == 'available')) {
-            usernameAvailable.textContent = 'not found';
-            usernameAvailable.style.color = '#dc3545';
-            usernameAvailable.style.display = 'inline';
-            submitButton.disabled = true;
-        } else {
-            usernameAvailable.textContent = 'network error';
-            usernameAvailable.style.color = '#dc3545';
-            usernameAvailable.style.display = 'inline';
-            submitButton.disabled = true;
-        }
-    }, 1000);
-}
-
-function closeNewChatModal() {
-    document.getElementById('newChatModal').classList.remove('active');
-    document.getElementById('newChatForm').reset();
-    if (document.getElementById('chatsScreen').classList.contains('active')) {
-        document.getElementById('newChatButton').classList.add('visible');
-    }
-    if (document.getElementById('contactsScreen').classList.contains('active')) {
-        document.getElementById('newChatButton').classList.add('visible');
-    }
-}
-
-// Show error message in the new chat form
-function showRecipientError(message) {
-    const errorElement = document.getElementById('chatRecipientError');
-    errorElement.textContent = message;
-    errorElement.style.color = '#dc3545';  // Always red for errors
-    errorElement.style.display = 'inline';
-}
-
-// Validate recipient in send modal
-async function handleSendToAddressValidation(e) {
-    const input = e.target.value.trim();
-    const errorElement = document.getElementById('sendToAddressError');
-
-    // Clear previous error
-    errorElement.style.display = 'none';
-
-    if (!input) return;
-
-    // Check if input is an Ethereum address
-    if (input.startsWith('0x')) {
-        if (!isValidEthereumAddress(input)) {
-            errorElement.textContent = 'Invalid address format';
-            errorElement.style.color = '#dc3545';
-            errorElement.style.display = 'inline';
-        }
-        return;
-    }
-
-    // If not an address, treat as username
-    if (input.length < 3) {
-        errorElement.textContent = 'Username too short';
-        errorElement.style.color = '#dc3545';
-        errorElement.style.display = 'inline';
-        return;
-    }
-
-    // Check username availability on network
-    const taken = await checkUsernameAvailability(input);
-    if (taken === 'taken') {
-        errorElement.textContent = 'found';
-        errorElement.style.color = '#28a745';
-        errorElement.style.display = 'inline';
-    } else if (taken === 'available') {
-        errorElement.textContent = 'not found';
-        errorElement.style.color = '#dc3545';
-        errorElement.style.display = 'inline';
-    } else {
-        errorElement.textContent = 'network error';
-        errorElement.style.color = '#dc3545';
-        errorElement.style.display = 'inline';
-    }
-}
-
-// Hide error message in the new chat form
-function hideRecipientError() {
-    const errorElement = document.getElementById('chatRecipientError');
-    errorElement.style.display = 'none';
-}
-
-async function handleNewChat(event) {
-    event.preventDefault();
-    const input = document.getElementById('chatRecipient').value.trim();
-    let recipientAddress;
-    let username;
-
-    hideRecipientError();
-
-    // Check if input is an Ethereum address
-    if (input.startsWith('0x')) {
-        if (!isValidEthereumAddress(input)) {
-            showRecipientError('Invalid Ethereum address format');
-            return;
-        }
-        // Input is valid Ethereum address, normalize it
-        recipientAddress = normalizeAddress(input);
-    } else {
-        if (input.length < 3) {
-            showRecipientError('Username too short');
-            return;
-        }
-        username = normalizeUsername(input)
-        // Treat as username and lookup address
-        const usernameBytes = utf82bin(username);
-        const usernameHash = hashBytes(usernameBytes);
-        try {
-            const data = await queryNetwork(`/address/${usernameHash}`)
-            if (!data || !data.address) {
-                showRecipientError('Username not found');
-                return;
-            }
-            // Normalize address from API if it has 0x prefix or trailing zeros
-            recipientAddress = normalizeAddress(data.address);
-        } catch (error) {
-            console.log('Error looking up username:', error);
-            showRecipientError('Error looking up username');
-            return;
-        }
-    }
-
-    // Get or create chat data
-    const chatsData = myData
-
-    // Check if contact exists
-    if (!chatsData.contacts[recipientAddress]) { createNewContact(recipientAddress) }
-    chatsData.contacts[recipientAddress].username = username
-
-    // Close new chat modal and open chat modal
-    closeNewChatModal();
-    chatModal.open(recipientAddress);
 }
 
 // create new contact
@@ -7390,6 +7192,10 @@ class ChatModal {
         this.address = null
     }
 
+    /**
+     * Loads the chat modal event listeners
+     * @returns {void}
+     */
     load() {
         // Add message click-to-copy handler
         this.messagesList.addEventListener('click', this.handleClickToCopy.bind(this));
@@ -7497,7 +7303,11 @@ class ChatModal {
             }
         }
     }
-    
+
+    /**
+     * Closes the chat modal
+     * @returns {void}
+     */
     close() {
         this.modal.classList.remove('active');
         if (document.getElementById('chatsScreen').classList.contains('active')) {
@@ -7519,6 +7329,7 @@ class ChatModal {
     /**
      * Invoked when the user clicks the Send button in a recipient (appendChatModal.address) chat modal
      * Recipient account exists in myData.contacts; was created when the user submitted the New Chat form
+     * @returns {void}
      */
     async handleSendMessage() {
         this.sendButton.disabled = true; // Disable the button
@@ -7741,6 +7552,11 @@ class ChatModal {
         return tx
     }
 
+    /**
+     * Appends the chat modal to the DOM
+     * @param {boolean} highlightNewMessage - Whether to highlight the newest message
+     * @returns {void}
+     */
     appendChatModal(highlightNewMessage = false) {
         const currentAddress = this.address; // Use a local constant
         console.log('appendChatModal running for address:', currentAddress, 'Highlight:', highlightNewMessage);
@@ -7864,6 +7680,12 @@ class ChatModal {
         }, 300); // <<< Delay of 300 milliseconds for rendering
     }
 
+    /**
+     * Invoked when the user clicks on a message to copy the content
+     * It will copy the content to the clipboard
+     * @param {Event} e - The event object
+     * @returns {void}
+     */
     async handleClickToCopy(e) {
         const messageEl = e.target.closest('.message');
         if (!messageEl) return;
@@ -7948,6 +7770,10 @@ class FailedMessageModal {
         
     }
 
+    /**
+     * Loads the failed message modal event listeners
+     * @returns {void}
+     */
     load() {
         this.retryButton.addEventListener('click', this.handleFailedMessageRetry.bind(this));
         this.deleteButton.addEventListener('click', this.handleFailedMessageDelete.bind(this));
@@ -8063,6 +7889,195 @@ class FailedMessageModal {
 }
 
 const failedMessageModal = new FailedMessageModal();
+
+// new chat modal
+class NewChatModal {
+    constructor() {
+        this.modal = document.getElementById('newChatModal');
+        this.newChatButton = document.getElementById('newChatButton');
+        this.closeNewChatModalButton = document.getElementById('closeNewChatModal');
+        this.newChatForm = document.getElementById('newChatForm');
+        this.usernameAvailable = document.getElementById('chatRecipientError');
+        this.recipientInput = document.getElementById('chatRecipient');
+        this.submitButton = document.querySelector('#newChatForm button[type="submit"]');
+        this.usernameInputCheckTimeout = null;
+    }
+
+    /**
+     * Loads the new chat modal event listeners
+     * @returns {void}
+     */
+    load() {
+        this.newChatButton.addEventListener('click', this.openNewChatModal.bind(this));
+        this.closeNewChatModalButton.addEventListener('click', this.closeNewChatModal.bind(this));
+        this.newChatForm.addEventListener('submit', this.handleNewChat.bind(this));
+        this.recipientInput.addEventListener('input', debounce(this.handleUsernameInput.bind(this), 300));
+    }
+
+    /**
+     * Invoked when the user clicks the new chat button
+     * It will open the new chat modal
+     * @returns {void}
+     */
+    openNewChatModal() {
+        this.modal.classList.add('active');
+        this.newChatButton.classList.remove('visible');
+        this.usernameAvailable.style.display = 'none';
+        this.submitButton.disabled = true;
+    
+        // Create the handler function
+        const focusHandler = () => {
+            this.recipientInput.focus();
+            this.modal.removeEventListener('transitionend', focusHandler);
+        };
+    
+        // Add the event listener
+        // TODO: move focusHandler out and move event listener to load()
+        this.modal.addEventListener('transitionend', focusHandler);
+    }
+
+    /**
+     * Invoked when the user clicks the close button in the new chat modal
+     * It will close the modal and reset the form
+     * @returns {void}
+     */
+    closeNewChatModal() {
+        this.modal.classList.remove('active');
+        this.newChatForm.reset();
+        if (document.getElementById('chatsScreen').classList.contains('active')) {
+            this.newChatButton.classList.add('visible');
+        }
+        if (document.getElementById('contactsScreen').classList.contains('active')) {
+            this.newChatButton.classList.add('visible');
+        }
+    }
+
+    /**
+     * Invoked when the user submits the new chat form
+     * It will check if the username is valid, available, or not available
+     * @param {Event} event - The event object
+     * @returns {void}
+     */
+    async handleNewChat(event) {
+        event.preventDefault();
+        const input = this.recipientInput.value.trim();
+        let recipientAddress;
+        let username;
+    
+        this.hideRecipientError();
+    
+        // Check if input is an Ethereum address
+        if (input.startsWith('0x')) {
+            if (!isValidEthereumAddress(input)) {
+                this.showRecipientError('Invalid Ethereum address format');
+                return;
+            }
+            // Input is valid Ethereum address, normalize it
+            recipientAddress = normalizeAddress(input);
+        } else {
+            if (input.length < 3) {
+                this.showRecipientError('Username too short');
+                return;
+            }
+            username = normalizeUsername(input)
+            // Treat as username and lookup address
+            const usernameBytes = utf82bin(username);
+            const usernameHash = hashBytes(usernameBytes);
+            try {
+                const data = await queryNetwork(`/address/${usernameHash}`)
+                if (!data || !data.address) {
+                    this.showRecipientError('Username not found');
+                    return;
+                }
+                // Normalize address from API if it has 0x prefix or trailing zeros
+                recipientAddress = normalizeAddress(data.address);
+            } catch (error) {
+                console.log('Error looking up username:', error);
+                this.showRecipientError('Error looking up username');
+                return;
+            }
+        }
+    
+        // Get or create chat data
+        const chatsData = myData
+    
+        // Check if contact exists
+        if (!chatsData.contacts[recipientAddress]) { createNewContact(recipientAddress) }
+        chatsData.contacts[recipientAddress].username = username
+    
+        // Close new chat modal and open chat modal
+        this.closeNewChatModal();
+        chatModal.open(recipientAddress);
+    }
+
+    /**
+     * Hide error message in the new chat form
+     * @returns {void}
+     */
+    hideRecipientError() {
+        this.usernameAvailable.style.display = 'none';
+    }
+
+    /**
+     * Show error message in the new chat form
+     * @param {string} message - The error message to show
+     * @returns {void}
+     */
+    showRecipientError(message) {
+        this.usernameAvailable.textContent = message;
+        this.usernameAvailable.style.color = '#dc3545';  // Always red for errors
+        this.usernameAvailable.style.display = 'inline';
+    }
+
+    /**
+     * Invoked when the user types in the username input
+     * It will check if the username is too short, available, or not available
+     * @param {Event} e - The event object
+     * @returns {void}
+     */
+    handleUsernameInput(e) {
+        this.usernameAvailable.style.display = 'none';
+        this.submitButton.disabled = true;
+
+        const username = normalizeUsername(e.target.value);
+
+        // Clear previous timeout
+        if (this.usernameInputCheckTimeout) {
+            clearTimeout(this.usernameInputCheckTimeout);
+        }
+
+        // Check if username is too short
+        if (username.length < 3) {
+            this.usernameAvailable.textContent = 'too short';
+            this.usernameAvailable.style.color = '#dc3545';
+            this.usernameAvailable.style.display = 'inline';
+            return;
+        }
+
+        // Check username availability
+        this.usernameInputCheckTimeout = setTimeout(async () => {
+            const taken = await checkUsernameAvailability(username, myAccount.keys.address);
+            if (taken == 'taken') {
+                this.usernameAvailable.textContent = 'found';
+                this.usernameAvailable.style.color = '#28a745';
+                this.usernameAvailable.style.display = 'inline';
+                this.submitButton.disabled = false;
+            } else if ((taken == 'mine') || (taken == 'available')) {
+                this.usernameAvailable.textContent = 'not found';
+                this.usernameAvailable.style.color = '#dc3545';
+                this.usernameAvailable.style.display = 'inline';
+                this.submitButton.disabled = true;
+            } else {
+                this.usernameAvailable.textContent = 'network error';
+                this.usernameAvailable.style.color = '#dc3545';
+                this.usernameAvailable.style.display = 'inline';
+                this.submitButton.disabled = true;
+            }
+        }, 1000);
+    }
+}
+
+const newChatModal = new NewChatModal();
 
 /**
  * Remove failed transaction from the contacts messages, pending, and wallet history
