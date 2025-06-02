@@ -3818,6 +3818,8 @@ async function injectTx(tx, txid){
                 pendingTxData.address = tx.from; // User's address (longAddress form)
             } else if (tx.type === 'update_chat_toll') {
                 pendingTxData.friend = tx.friend;
+            } else if (tx.type === 'read') {
+                pendingTxData.oldContactTimestamp = tx.oldContactTimestamp;
             } else if (tx.type === 'message' || tx.type === 'transfer' || tx.type === 'deposit_stake' || tx.type === 'withdraw_stake') {
                 pendingTxData.to = tx.to;
             }
@@ -7121,6 +7123,7 @@ class ChatModal {
             to: longAddress(contactAddress),
             chatId: hashBytes([longAddress(myData.account.keys.address), longAddress(contactAddress)].sort().join``),
             timestamp: getCorrectedTimestamp(),
+            oldContactTimestamp: myData.contacts[contactAddress].timestamp,
         }
         return readTransaction;
     }
@@ -8435,6 +8438,10 @@ async function checkPendingTransactions() {
                         showToast(`Update contact status failed: ${failureReason}. Reverting contact to old status.`, 0, "error");
                         // revert the local myData.contacts[toAddress].friend to the old value
                         myData.contacts[pendingTxInfo.to].friend = pendingTxInfo.friend;
+                    } else if (type === 'read') {
+                        showToast(`Read transaction failed: ${failureReason}`, 0, "error");
+                        // revert the local myData.contacts[toAddress].timestamp to the old value
+                        myData.contacts[pendingTxInfo.to].timestamp = pendingTxInfo.oldContactTimestamp;
                     }
                     else { // for messages, transfer etc.
                         showToast(failureReason, 0, "error");
