@@ -2174,6 +2174,13 @@ function fillStakeAddressFromQR(data) {
     }
 }
 
+/**
+ * Validate the balance of the user
+ * @param {BigInt} amount - The amount to validate
+ * @param {number} assetIndex - The index of the asset to validate
+ * @param {HTMLElement} balanceWarning - The element to display the balance warning
+ * @returns {Promise<boolean>} - A promise that resolves to true if the balance is sufficient, false otherwise
+ */
 async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
     if (!amount) {
         if (balanceWarning) balanceWarning.style.display = 'none';
@@ -2208,6 +2215,11 @@ async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
 
 // The user has filled out the form to send assets to a recipient and clicked the Send button
 // The recipient account may not exist in myData.contacts and might have to be created
+/**
+ * Handle the send asset event
+ * @param {Event} event - The event object
+ * @returns {Promise<void>}- A promise that resolves when the send asset event is handled
+ */
 async function handleSendAsset(event) {
     event.preventDefault();
     const confirmButton = document.getElementById('confirmSendButton');
@@ -8036,12 +8048,13 @@ class SendModal {
         const confirmButton = document.getElementById('confirmSendButton');
         const cancelButton = document.getElementById('cancelSendButton');
 
-        const marketPrice = await getMarketPrice();
+        await getNetworkParams();
+        const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
 
         // need to convert to LIB if USD is selected
         const isLib = this.balanceSymbol.textContent === 'LIB';
         if (!isLib) {
-            amount = (amount / marketPrice);
+            amount = (amount / scalabilityFactor);
         }
 
         // Update confirmation modal with values
@@ -8117,10 +8130,33 @@ class SendModal {
     
         await getNetworkParams();
         const txFeeInLIB = ((parameters.current.transactionFee) || 1n * wei);
-    
-        document.getElementById('balanceAmount').textContent = big2str(BigInt(asset.balance), 18).slice(0, -12);
-        document.getElementById('balanceSymbol').textContent = asset.symbol;
-        document.getElementById('transactionFee').textContent = big2str(txFeeInLIB, 18).slice(0, -16);
+        const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+        
+        // Preserve the current toggle state (LIB/USD) instead of overwriting it
+        const balanceSymbolElement = document.getElementById('balanceSymbol');
+        const currentSymbol = balanceSymbolElement.textContent;
+        const isCurrentlyUSD = currentSymbol === 'USD';
+        
+        // Only set to asset symbol if it's empty (initial state)
+        if (!currentSymbol) {
+            balanceSymbolElement.textContent = asset.symbol;
+        }
+
+        const balanceInLIB = big2str(BigInt(asset.balance), 18).slice(0, -12);
+        const feeInLIB = big2str(txFeeInLIB, 18).slice(0, -16);
+
+        // Set the base LIB values first
+        document.getElementById('balanceAmount').textContent = balanceInLIB;
+        document.getElementById('transactionFee').textContent = feeInLIB;
+        
+        // If currently showing USD, convert the displayed values
+        if (isCurrentlyUSD) {
+            const balanceAmount = document.getElementById('balanceAmount');
+            const transactionFee = document.getElementById('transactionFee');
+            
+            balanceAmount.textContent = (parseFloat(balanceInLIB) * scalabilityFactor).toString();
+            transactionFee.textContent = (parseFloat(feeInLIB) * scalabilityFactor).toString();
+        }
     }
     
     /**
@@ -8146,21 +8182,36 @@ class SendModal {
 
     /**
      * Refreshes the disabled state of the send button based on the username and amount
-     * @returns {void}
+     * @returns {Promise<void>}
      */
     async refreshSendButtonDisabledState() {
         const sendToAddressError = document.getElementById('sendToAddressError');
         // Address is valid if its error/status message is visible and set to 'found'.
         const isAddressConsideredValid = sendToAddressError.style.display === 'inline' && sendToAddressError.textContent === 'found';
-        console.log(`isAddressConsideredValid ${isAddressConsideredValid}`);
+        //console.log(`isAddressConsideredValid ${isAddressConsideredValid}`);
 
         const amountInput = document.getElementById('sendAmount');
         const amount = amountInput.value;
         const assetIndex = document.getElementById('sendAsset').value;
         const balanceWarning = document.getElementById('balanceWarning');
 
+        // Check if amount is in USD and convert to LIB for validation
+        const balanceSymbol = document.getElementById('balanceSymbol');
+        const isUSD = balanceSymbol.textContent === 'USD';
+        let amountForValidation = amount;
+        
+        if (isUSD && amount) {
+            await getNetworkParams();
+            const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+            amountForValidation = parseFloat(amount) / scalabilityFactor;
+        }
+
+        // convert amount to bigint
+        const amountBigInt = bigxnum2big(wei, amountForValidation.toString());
+
         // validateBalance returns false if the amount/balance is invalid.
-        const isAmountAndBalanceValid = await validateBalance(amount, assetIndex, balanceWarning);
+        const isAmountAndBalanceValid = await validateBalance(amountBigInt, assetIndex, balanceWarning);
+        console.log(`isAmountAndBalanceValid ${isAmountAndBalanceValid}`);
 
         const submitButton = document.querySelector('#sendForm button[type="submit"]');
 
@@ -8189,18 +8240,25 @@ class SendModal {
         // check the context value of the button to determine if it's LIB or USD
         const isLib = balanceSymbol.textContent === 'LIB';
 
-        // get the current price of LIB in USD
-        const marketPrice = await getMarketPrice();
+        // get the scalability factor for LIB/USD conversion
+        await getNetworkParams();
+        const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+
+        // Get the raw values in LIB format
+        const asset = myData.wallet.assets[this.assetSelectDropdown.value];
+        const txFeeInWei = (parameters.current.transactionFee || 1n * wei);
+        const balanceInLIB = big2str(BigInt(asset.balance), 18).slice(0, -12);
+        const feeInLIB = big2str(txFeeInWei, 18).slice(0, -16);
 
         // if isLib is false, convert the sendAmount to USD
         if (!isLib) {
-            sendAmount.value = (sendAmount.value * marketPrice);
-            balanceAmount.textContent = (balanceAmount.textContent * marketPrice);
-            transactionFee.textContent = (transactionFee.textContent * marketPrice);
+            sendAmount.value = (sendAmount.value * scalabilityFactor);
+            balanceAmount.textContent = '$' + (parseFloat(balanceInLIB) * scalabilityFactor).toString();
+            transactionFee.textContent = '$' + (parseFloat(feeInLIB) * scalabilityFactor).toString();
         } else {
-            sendAmount.value = (sendAmount.value / marketPrice);
-            balanceAmount.textContent = (balanceAmount.textContent / marketPrice);
-            transactionFee.textContent = (transactionFee.textContent / marketPrice);
+            sendAmount.value = (sendAmount.value / scalabilityFactor);
+            balanceAmount.textContent = balanceInLIB;
+            transactionFee.textContent = feeInLIB;
         }
     }
 }
