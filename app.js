@@ -845,6 +845,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Invite Modal
     inviteModal.load()
 
+    // Chat Modal
+    chatModal.load()
+
+    // Failed Message Modal
+    failedMessageModal.load()
+
     // TODO add comment about which send form this is for chat or assets
     document.getElementById('openSendModal').addEventListener('click', openSendModal);
     document.getElementById('closeSendModal').addEventListener('click', closeSendModal);
@@ -885,12 +891,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('switchToWallet').addEventListener('click', () => switchView('wallet'));
 
     document.getElementById('handleSignOut').addEventListener('click', handleSignOut);
-    document.getElementById('closeChatModal').addEventListener('click', closeChatModal);
     document.getElementById('closeContactInfoModal').addEventListener('click', () => contactInfoModal.close());
-    document.getElementById('handleSendMessage').addEventListener('click', handleSendMessage);
 
-    // add event listener for tab key
-    document.getElementById('handleSendMessage').addEventListener('keydown', ignoreTabKey);
     // add event listener for back-button presses to prevent shift+tab
     document.querySelectorAll('.back-button').forEach(button => {
         button.addEventListener('keydown', ignoreShiftTabKey);
@@ -904,9 +906,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         item.addEventListener('keydown', ignoreShiftTabKey);
     });
 
-    // Add message click-to-copy handler
-    document.querySelector('.messages-list')?.addEventListener('click', handleClickToCopy);
-
     // Add refresh balance button handler
     document.getElementById('refreshBalance').addEventListener('click', async () => {
         // await updateWalletBalances();
@@ -917,27 +916,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('newChatButton').addEventListener('click', openNewChatModal);
     document.getElementById('closeNewChatModal').addEventListener('click', closeNewChatModal);
     document.getElementById('newChatForm').addEventListener('submit', handleNewChat);
-
-    // Add input event listener for message textarea auto-resize
-    document.querySelector('.message-input')?.addEventListener('input', function() {
-        this.style.height = '48px';
-        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-    });
-
-    // Add focus event listener for message input to handle scrolling
-    document.querySelector('.message-input')?.addEventListener('focus', function() {
-        const messagesContainer = document.querySelector('.messages-container');
-        if (messagesContainer) {
-            // Check if we're already at the bottom (within 50px threshold)
-            const isAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight <= 50;
-            if (isAtBottom) {
-                // Wait for keyboard to appear and viewport to adjust
-                setTimeout(() => {
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                }, 300); // Increased delay to ensure keyboard is fully shown
-            }
-        }
-    });
 
     // Add new search functionality
     const searchInput = document.getElementById('searchInput');
@@ -966,10 +944,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             displaySearchResults(results);
         }
     }, 300));
-
-    document.getElementById('closeChatModal')?.addEventListener('click', () => {
-        document.getElementById('chatModal').classList.remove('active');
-    });
 
     // Handle message search input
     document.getElementById('messageSearch').addEventListener('input', (e) => {
@@ -1098,20 +1072,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Clear custom validity message when user types
         event.target.setCustomValidity('');
     });
-
-
-    // Event Listeners for FailedMessageModal (using named functions)
-    const failedMessageModal = document.getElementById('failedMessageModal');
-    const failedMessageRetryButton = failedMessageModal.querySelector('.retry-button');
-    const failedMessageDeleteButton = failedMessageModal.querySelector('.delete-button');
-    const failedMessageHeaderCloseButton = document.getElementById('closeFailedMessageModal');
-
-
-    failedMessageRetryButton.addEventListener('click', handleFailedMessageRetry);
-    failedMessageDeleteButton.addEventListener('click', handleFailedMessageDelete);
-    failedMessageHeaderCloseButton.addEventListener('click', closeFailedMessageModalAndClearState);
-    failedMessageModal.addEventListener('click', handleFailedMessageBackdropClick);
-
 
     // Event Listerns for FailedPaymentModal
     const failedPaymentModal = document.getElementById('failedPaymentModal');
@@ -1484,7 +1444,7 @@ async function updateChatList() {
         `;
 
         // Add the onclick handler directly to the element
-        li.onclick = () => openChatModal(chat.address);
+        li.onclick = () => chatModal.open(chat.address);
 
         return li; // Return the created DOM element
     }));
@@ -1966,7 +1926,7 @@ async function handleNewChat(event) {
 
     // Close new chat modal and open chat modal
     closeNewChatModal();
-    openChatModal(recipientAddress);
+    chatModal.open(recipientAddress);
 }
 
 // create new contact
@@ -1982,95 +1942,6 @@ function createNewContact(addr, username){
     c.toll = 0n
     c.friend = 1
 }
-
-/**
- * Opens the chat modal for the given address.
- * @param {string} address - The address of the contact to open the chat modal for.
- * @returns {void}
- */
-async function openChatModal(address) {
-    friendModal.setAddress(address);
-    const modal = document.getElementById('chatModal');
-    const modalAvatar = modal.querySelector('.modal-avatar');
-    const modalTitle = modal.querySelector('.modal-title');
-    const messagesList = modal.querySelector('.messages-list');
-    const editButton = document.getElementById('chatEditButton');
-    document.getElementById('newChatButton').classList.remove('visible');
-    const contact = myData.contacts[address]
-    friendModal.updateFriendButton(contact, 'addFriendButtonChat');
-    // Set user info
-    modalTitle.textContent = contact.name || contact.senderInfo?.name || contact.username || `${contact.address.slice(0,8)}...${contact.address.slice(-6)}`;
-
-    // set the address data attribute
-    modal.dataset.address = address;
-
-    // update the toll value. Will not await this and it'll update the toll value while the modal is open.
-    updateTollValue(address);
-
-    // update local contact object with the toll required to send and receive
-    updateTollRequired(address);
-
-    // clear hidden txid input
-    document.getElementById('retryOfTxId').value = '';
-
-    updateTollAmountUI(address);
-
-    // Add data attributes to store the username and address
-    const sendMoneyButton = document.getElementById('chatSendMoneyButton');
-    sendMoneyButton.dataset.username = contact.username || address;
-
-    generateIdenticon(contact.address, 40).then(identicon => {
-        modalAvatar.innerHTML = identicon;
-    });
-
-    // Clear previous messages from the UI
-    messagesList.innerHTML = '';
-
-    // Scroll to bottom (initial scroll for empty list, appendChatModal will scroll later)
-    setTimeout(() => {
-        messagesList.parentElement.scrollTop = messagesList.parentElement.scrollHeight;
-    }, 100);
-
-    // Add click handler for username to show contact info
-    const userInfo = modal.querySelector('.chat-user-info');
-    userInfo.onclick = () => {
-        const contact = myData.contacts[address];
-        if (contact) {
-            contactInfoModal.open(createDisplayInfo(contact));
-        }
-    };
-
-    // Add click handler for edit button
-    // TODO: create event listener instead of onclick here
-    editButton.onclick = () => {
-        const contact = myData.contacts[address];
-        if (contact) {
-            contactInfoModal.open(createDisplayInfo(contact));
-        }
-    };
-
-    // Show modal
-    modal.classList.add('active');
-
-    // Clear unread count
-    if (contact.unread > 0) {
-        myData.state.unread = Math.max(0, (myData.state.unread || 0) - contact.unread);
-        contact.unread = 0;
-        updateChatList();
-    }
-
-    // Setup state for appendChatModal and perform initial render
-    appendChatModal.address = address
-    appendChatModal(false); // Call appendChatModal to render messages, ensure highlight=false
-
-    if (isOnline) {
-        if (wsManager && !wsManager.isSubscribed()) {
-            pollChatInterval(pollIntervalChatting) // poll for messages at a faster rate
-        }
-    }
-}
-openChatModal.toll = null;
-openChatModal.tollUnit = null;
 
 /**
  * updateTollAmountUI 
@@ -2106,8 +1977,8 @@ function updateTollAmountUI(address) {
     }
     tollValue.textContent = display;
 
-    openChatModal.toll = toll
-    openChatModal.tollUnit = tollUnit
+    chatModal.toll = toll
+    chatModal.tollUnit = tollUnit
 }
 
 /**
@@ -2130,18 +2001,17 @@ async function updateTollRequired(address) {
         // query the contact's toll field from the network
         const contactAccountData = await queryNetwork(`/messages/${hash}/toll`);
 
-        if (contactAccountData.account == null) {
+        if (contactAccountData.toll.required == null) {
             console.warn(`Contact account data is null for address: ${address}`);
             return;
         }
 
         const localContact = myData.contacts[address]
-        if(contactAccountData.account.type == 'ChatAccount') {
-            localContact.tollRequiredToSend = contactAccountData.toll.required[myIndex]
-            localContact.tollRequiredToReceive = contactAccountData.toll.required[toIndex]
-        }
+        localContact.tollRequiredToSend = contactAccountData.toll.required[myIndex]
+        localContact.tollRequiredToReceive = contactAccountData.toll.required[toIndex]
+        
 
-        if (document.getElementById('chatModal').classList.contains('active') && document.getElementById('chatModal').dataset.address === address) {
+        if (chatModal.modal.classList.contains('active') && chatModal.address === address) {
             updateTollAmountUI(address);
         }
 
@@ -2170,157 +2040,13 @@ async function updateTollValue(address) {
         myData.contacts[address].toll = queriedToll;
         myData.contacts[address].tollUnit = queriedTollUnit;
         // if correct modal is open for this address, update the toll value
-        if (document.getElementById('chatModal').classList.contains('active') && document.getElementById('chatModal').dataset.address === address) {
+        if (chatModal.modal.classList.contains('active') && chatModal.address === address) {
             updateTollAmountUI(address);
         }
     } else {
         console.log(`Returning early since queried toll value is the same as the toll field in localStorage`);
         // return early
         return;
-    }
-}
-
-function appendChatModal(highlightNewMessage = false) {
-    const currentAddress = appendChatModal.address; // Use a local constant
-    console.log('appendChatModal running for address:', currentAddress, 'Highlight:', highlightNewMessage);
-    if (!currentAddress) { return; }
-
-    const contact = myData.contacts[currentAddress];
-    if (!contact || !contact.messages) {
-            console.log('No contact or messages found for address:', appendChatModal.address);
-            return;
-    }
-    const messages = contact.messages; // Already sorted descending
-
-    const modal = document.getElementById('chatModal');
-    if (!modal) return;
-    const messagesList = modal.querySelector('.messages-list');
-    if (!messagesList) return;
-
-    // --- 1. Identify the actual newest received message data item ---
-    // Since messages are sorted descending (newest first), the first item with my: false is the newest received.
-    const newestReceivedItem = messages.find(item => !item.my);
-    console.log('appendChatModal: Identified newestReceivedItem data:', newestReceivedItem);
-
-    // 2. Clear the entire list
-    messagesList.innerHTML = '';
-
-    // 3. Iterate backwards through messages (oldest to newest for rendering order)
-    // messages are already sorted descending (newest first) in myData
-    for (let i = messages.length - 1; i >= 0; i--) {
-        const item = messages[i];
-        let messageHTML = '';
-        const timeString = formatTime(item.timestamp);
-        // Use a consistent timestamp attribute for potential future use (e.g., message jumping)
-        const timestampAttribute = `data-message-timestamp="${item.timestamp}"`;
-        // Add txid attribute if available
-        const txidAttribute = item?.txid ? `data-txid="${item.txid}"` : '';
-        const statusAttribute = item?.status ? `data-status="${item.status}"` : '';
-
-        // Check if it's a payment based on the presence of the amount property (BigInt)
-        if (typeof item.amount === 'bigint') {
-            // Define common payment variables
-            const itemAmount = item.amount;
-            const itemMemo = item.message; // Memo is stored in the 'message' field for transfers
-
-            // Assuming LIB (18 decimals) for now. TODO: Handle different asset decimals if needed.
-            // Format amount correctly using big2str
-            const amountStr = big2str(itemAmount, 18);
-            const amountDisplay = `${amountStr.slice(0, 6)} ${item.symbol || 'LIB'}`; // Use item.symbol or fallback
-
-            // Check item.my for sent/received
-
-            //console.log(`debug item: ${JSON.stringify(item, (key, value) => typeof value === 'bigint' ? big2str(value, 18) : value)}`)
-            // --- Render Payment Transaction ---
-            const directionText = item.my ? '-' : '+';
-            const messageClass = item.my ? 'sent' : 'received';
-            messageHTML = `
-                <div class="message ${messageClass} payment-info" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
-                    <div class="payment-header">
-                        <span class="payment-direction">${directionText}</span>
-                        <span class="payment-amount">${amountDisplay}</span>
-                    </div>
-                    ${itemMemo ? `<div class="payment-memo">${linkifyUrls(itemMemo)}</div>` : ''}
-                    <div class="message-time">${timeString}</div>
-                </div>
-            `;
-        } else {
-            // --- Render Chat Message ---
-            const messageClass = item.my ? 'sent' : 'received'; // Use item.my directly
-            messageHTML = `
-                <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
-                    <div class="message-content" style="white-space: pre-wrap">${linkifyUrls(item.message)}</div>
-                    <div class="message-time">${timeString}</div>
-                </div>
-            `;
-        }
-
-        // 4. Append the constructed HTML
-        // Insert at the end of the list to maintain correct chronological order
-        messagesList.insertAdjacentHTML('beforeend', messageHTML);
-        // The newest received element will be found after the loop completes
-    }
-
-    // --- 5. Find the corresponding DOM element after rendering ---
-    // This happens inside the setTimeout to ensure elements are in the DOM
-
-    // 6. Delayed Scrolling & Highlighting Logic (after loop)
-    setTimeout(() => {
-        const messageContainer = messagesList.parentElement;
-
-        // Find the DOM element for the actual newest received item using its timestamp
-        // Only proceed if newestReceivedItem was found and highlightNewMessage is true
-        if (newestReceivedItem && highlightNewMessage) {
-            const newestReceivedElementDOM = messagesList.querySelector(`[data-message-timestamp="${newestReceivedItem.timestamp}"]`);
-
-            if (newestReceivedElementDOM) {
-                // Found the element, scroll to and highlight it
-                newestReceivedElementDOM.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-                // Apply highlight immediately
-                newestReceivedElementDOM.classList.add('highlighted');
-
-                // Set timeout to remove the highlight after a duration
-                setTimeout(() => {
-                     // Check if element still exists before removing class
-                     if (newestReceivedElementDOM && newestReceivedElementDOM.parentNode) {
-                        newestReceivedElementDOM.classList.remove('highlighted');
-                     }
-                }, 3000);
-            } else {
-                 console.warn('appendChatModal: Could not find DOM element for newestReceivedItem with timestamp:', newestReceivedItem.timestamp);
-                 // If element not found, just scroll to bottom
-                 if (messageContainer) {
-                    messageContainer.scrollTop = messageContainer.scrollHeight;
-                 }
-            }
-
-        } else {
-            // No received messages found, not highlighting, or highlightNewMessage is false,
-            // just scroll to the bottom if the container exists.
-            if (messageContainer) {
-                messageContainer.scrollTop = messageContainer.scrollHeight;
-            }
-        }
-    }, 300); // <<< Delay of 300 milliseconds for rendering
-}
-appendChatModal.address = null
-
-function closeChatModal() {
-    document.getElementById('chatModal').classList.remove('active');
-    if (document.getElementById('chatsScreen').classList.contains('active')) {
-        updateChatList()
-        document.getElementById('newChatButton').classList.add('visible');
-    }
-    if (document.getElementById('contactsScreen').classList.contains('active')) {
-        updateContactsList()
-        document.getElementById('newChatButton').classList.add('visible');
-    }
-    appendChatModal.address = null
-    if (isOnline) {
-        if (wsManager && !wsManager.isSubscribed()) {
-            pollChatInterval(pollIntervalNormal) // back to polling at slower rate
-        }
     }
 }
 
@@ -3105,11 +2831,10 @@ async function handleSendAsset(event) {
 
         // Update the chat modal to show the newly sent transfer message
         // Check if the chat modal for this recipient is currently active
-        const chatModalActive = document.getElementById('chatModal')?.classList.contains('active');
-        const inActiveChatWithRecipient = appendChatModal.address === toAddress && chatModalActive;
+        const inActiveChatWithRecipient = chatModal.address === toAddress && chatModal.modal.classList.contains('active');
 
         if (inActiveChatWithRecipient) {
-            appendChatModal(); // Re-render the chat modal and highlight the new item
+            chatModal.appendChatModal(); // Re-render the chat modal and highlight the new item
         }
 
         closeSendModal();
@@ -3161,7 +2886,7 @@ class ContactInfoModalManager {
             const addressToOpen = this.currentContactAddress;
             if (addressToOpen) { // Ensure we have an address before proceeding
                 this.close();
-                openChatModal(addressToOpen);
+                chatModal.open(addressToOpen);
             }
         });
     }
@@ -3576,302 +3301,12 @@ function handleSignOut() {
 }
 handleSignOut.exit = false
 
-/**
- * Invoked when the user clicks the Send button in a recipient (appendChatModal.address) chat modal
- * Recipient account exists in myData.contacts; was created when the user submitted the New Chat form
- */
-async function handleSendMessage() {
-    const sendButton = document.getElementById('handleSendMessage');
-    sendButton.disabled = true; // Disable the button
-
-    try {
-        const messageInput = document.querySelector('.message-input');
-        messageInput.focus(); // Add focus back to keep keyboard open
-
-        const message = messageInput.value.trim();
-        if (!message) return;
-
-        const sufficientBalance = await validateBalance(openChatModal.toll)
-        if (!sufficientBalance) {
-            showToast('Insufficient balance for toll and fee', 0, 'error');
-            sendButton.disabled = false;
-            return;
-        }
-
-        const modal = document.getElementById('chatModal');
-        //const modalTitle = modal.querySelector('.modal-title');
-        const messagesList = modal.querySelector('.messages-list');
-
-        // Get current chat data
-        const chatsData = myData
-        /*
-        const currentAddress = Object.values(chatsData.contacts).find(contact =>
-            modalTitle.textContent === (contact.name || contact.username || `${contact.address.slice(0,8)}...${contact.address.slice(-6)}`)
-        )?.address;
-        */
-        const currentAddress = appendChatModal.address
-        if (!currentAddress) return;
-
-        // Check if trying to message self
-        if (currentAddress === myAccount.address) {
-            return;
-        }
-
-        // Get sender's keys from wallet
-        const keys = myAccount.keys;
-        if (!keys) {
-            alert('Keys not found for sender address');
-            return;
-        }
-
-        ///yyy
-        // Get recipient's public key from contacts
-        let recipientPubKey = myData.contacts[currentAddress]?.public;
-        let pqRecPubKey = myData.contacts[currentAddress]?.pqPublic;
-        if (!recipientPubKey || !pqRecPubKey) {
-            const recipientInfo = await queryNetwork(`/account/${longAddress(currentAddress)}`)
-            if (!recipientInfo?.account?.publicKey){
-                console.log(`no public key found for recipient ${currentAddress}`)
-                return
-            }
-            recipientPubKey = recipientInfo.account.publicKey
-            myData.contacts[currentAddress].public = recipientPubKey
-            pqRecPubKey = recipientInfo.account.pqPublicKey
-            myData.contacts[currentAddress].pqPublic = pqRecPubKey
-        }
-
-        // Generate shared secret using ECDH and take first 32 bytes
-        let dhkey = ecSharedKey(keys.secret, recipientPubKey)
-        const { cipherText, sharedSecret } = pqSharedKey(pqRecPubKey)
-        const combined = new Uint8Array(dhkey.length + sharedSecret.length)
-        combined.set(dhkey)
-        combined.set(sharedSecret, dhkey.length)
-        dhkey = deriveDhKey(combined);
-
-        // We purposely do not encrypt/decrypt using browser native crypto functions; all crypto functions must be readable
-        // Encrypt message using shared secret
-        const encMessage = encryptChacha(dhkey, message)
-
-        // Create message payload
-        const payload = {
-            message: encMessage,
-            encrypted: true,
-            encryptionMethod: 'xchacha20poly1305',
-            pqEncSharedKey: bin2base64(cipherText),
-            sent_timestamp: getCorrectedTimestamp()
-        };
-
-        // Always include username, but only include other info if recipient is a friend
-        const contact = myData.contacts[currentAddress];
-        // Create basic sender info with just username
-        const senderInfo = {
-            username: myAccount.username
-        };
-
-        // Add additional info only if recipient is a friend
-        if (contact && contact.friend) {
-            // Add more personal details for friends
-            senderInfo.name = myData.account.name;
-            senderInfo.email = myData.account.email;
-            senderInfo.phone = myData.account.phone;
-            senderInfo.linkedin = myData.account.linkedin;
-            senderInfo.x = myData.account.x;
-        }
-
-        // Always encrypt and send senderInfo (which will contain at least the username)
-        payload.senderInfo = encryptChacha(dhkey, stringify(senderInfo));
-
-
-        // can create a function to query the account and get the receivers toll they've set
-        // TODO: will need to query network and receiver account where we validate
-        // TODO: decided to query everytime we do openChatModal and save as global variable. We don't need to clear it but we can clear it when closing the modal but should get reset when opening the modal again anyway
-        const toll = openChatModal.toll;
-
-        const chatMessageObj = await createChatMessage(currentAddress, payload, toll, keys);
-        const txid = await signObj(chatMessageObj, keys)
-
-        // if there a hidden txid input, get the value to be used to delete that txid from relevant data stores
-        const retryTxId = document.getElementById('retryOfTxId').value;
-        if (retryTxId) {
-            removeFailedTx(retryTxId, currentAddress);
-            document.getElementById('retryOfTxId').value = '';
-            handleFailedMessageClick.txid = '';
-            handleFailedMessageClick.handleFailedMessage = '';
-        }
-
-        // --- Optimistic UI Update ---
-        // Create new message object for local display immediately
-        const newMessage = {
-            message,
-            timestamp: payload.sent_timestamp,
-            sent_timestamp: payload.sent_timestamp,
-            my: true,
-            txid: txid,
-            status: 'sent'
-        };
-        insertSorted(chatsData.contacts[currentAddress].messages, newMessage, 'timestamp');
-
-        // Update or add to chats list, maintaining chronological order
-        const chatUpdate = {
-            address: currentAddress,
-            timestamp: newMessage.sent_timestamp,
-            txid: txid
-        };
-
-        // Remove existing chat for this contact if it exists. Not handling in removeFailedTx anymore.
-        const existingChatIndex = chatsData.chats.findIndex(chat => chat.address === currentAddress);
-        if (existingChatIndex !== -1) {
-            chatsData.chats.splice(existingChatIndex, 1);
-        }
-
-        insertSorted(chatsData.chats, chatUpdate, 'timestamp');
-
-        // Clear input and reset height
-        messageInput.value = '';
-        messageInput.style.height = '48px'; // original height
-
-        // Update the chat modal UI immediately
-        appendChatModal() // This should now display the 'sending' message
-
-        // Scroll to bottom of chat modal
-        messagesList.parentElement.scrollTop = messagesList.parentElement.scrollHeight;
-        // --- End Optimistic UI Update ---
-
-        //console.log('payload is', payload)
-        // Send the message transaction using createChatMessage with default toll of 1
-        const response = await injectTx(chatMessageObj, txid)
-
-        if (!response || !response.result || !response.result.success) {
-            console.log('message failed to send', response)
-            //let userMessage = 'Message failed to send. Please try again.';
-            //const reason = response.result?.reason || '';
-
-            /* if (reason.includes('does not have sufficient funds')) {
-                userMessage = 'Message failed: Insufficient funds for toll & fees.';
-            } else if (reason) {
-                // Attempt to provide a slightly more specific message if reason is short
-                userMessage = `Message failed: ${reason.substring(0, 100)}${reason.length > 100 ? '...' : ''}`;
-            } */
-            //showToast(userMessage, 4000, 'error');
-
-            // Update message status to 'failed' in the UI
-            updateTransactionStatus(txid, currentAddress, 'failed', 'message');
-            appendChatModal();
-
-            // Remove from pending transactions as injectTx itself indicated failure
-            /* if (myData && myData.pending) {
-                myData.pending = myData.pending.filter(pTx => pTx.txid !== txid);
-            } */
-        } else {
-            // Message sent successfully (or at least accepted by gateway)
-            // The optimistic UI update for 'sent' status is already handled before injectTx.
-            // No specific action needed here for success as the UI already reflects 'sent'.
-        }
-    } catch (error) {
-        console.error('Message error:', error);
-        alert('Failed to send message. Please try again.');
-    } finally {
-        sendButton.disabled = false; // Re-enable the button
-    }
-}
-
-async function handleClickToCopy(e) {
-    const messageEl = e.target.closest('.message');
-    if (!messageEl) return;
-
-    // Prevent copying if the message has failed and not `payment-info`
-    if (messageEl.dataset.status === 'failed') {
-        console.log('Copy prevented for failed message.');
-
-        // If the message is not a payment message, show the failed message modal
-        if (!messageEl.classList.contains('payment-info')) {
-            handleFailedMessageClick(messageEl)
-        }
-
-        // If the message is a payment message, show the failed history item modal
-        if (messageEl.classList.contains('payment-info')) {
-            handleFailedPaymentClick(messageEl.dataset.txid, messageEl)
-        }
-
-        // TODO: if message is a payment open sendModal and fill with information in the payment message?
-
-        return;
-    }
-
-    let textToCopy = null;
-    let contentType = 'Text'; // Default content type for toast
-
-    // Check if it's a payment message
-    if (messageEl.classList.contains('payment-info')) {
-        const paymentMemoEl = messageEl.querySelector('.payment-memo');
-        if (paymentMemoEl) {
-            textToCopy = paymentMemoEl.textContent;
-            contentType = 'Memo'; // Update type for toast
-        } else {
-             // No memo element found in this payment block
-             showToast('No memo to copy', 2000, 'info');
-             return;
-        }
-    } else {
-        // It's a regular chat message
-        const messageContentEl = messageEl.querySelector('.message-content');
-        if (messageContentEl) {
-            textToCopy = messageContentEl.textContent;
-            contentType = 'Message'; // Update type for toast
-        }
-         else {
-             // Should not happen for regular messages, but handle gracefully
-             showToast('No content to copy', 2000, 'info');
-             return;
-         }
-    }
-
-    // Proceed with copying if text was found
-    if (textToCopy && textToCopy.trim()) {
-        try {
-            await navigator.clipboard.writeText(textToCopy.trim());
-            showToast(`${contentType} copied to clipboard`, 2000, 'success');
-        } catch (err) {
-            console.error('Failed to copy:', err);
-            showToast(`Failed to copy ${contentType.toLowerCase()}`, 2000, 'error');
-        }
-    } else if (contentType === 'Memo'){
-        // Explicitly handle the case where memo exists but is empty/whitespace
-        showToast('Memo is empty', 2000, 'info');
-    }
-     // No need for an else here, cases with no element are handled above
-}
-
-/**
- * Invoked when the user clicks on a failed message
- * Will show failed message modal with retry, delete (delete from all data stores), and close buttons
- * It will also store the message content and txid in the handleSendMessage object containing the handleFailedMessage and txid properties
- */
-function handleFailedMessageClick(messageEl) {
-    const modal = document.getElementById('failedMessageModal');
-
-    // Get the message content and txid from the original failed message element
-    const messageContent = messageEl.querySelector('.message-content').textContent;
-    const originalTxid = messageEl.dataset.txid;
-
-    // Store content and txid in properties of handleSendMessage
-    handleFailedMessageClick.handleFailedMessage = messageContent;
-    handleFailedMessageClick.txid = originalTxid;
-
-    // Show the modal
-    if (modal) {
-        modal.classList.add('active');
-    }
-}
-handleFailedMessageClick.handleFailedMessage = '';
-handleFailedMessageClick.txid = '';
-
 function handleFailedPaymentClick(txid, element) {
     console.log('handleFailedPaymentClick', txid)
     const modal = document.getElementById('failedPaymentModal');
 
     // Get the address and memo from the original failed transfer element
-    const address = element?.dataset?.address || appendChatModal?.address;
+    const address = element?.dataset?.address || chatModal.address;
     const memo = element?.querySelector('.transaction-memo')?.textContent || element?.querySelector('.payment-memo')?.textContent;
     //const assetID = element?.dataset?.assetID || ''; // TODO: need to add assetID to `myData.wallet.history` for when we have multiple assets
 
@@ -3893,39 +3328,6 @@ handleFailedPaymentClick.txid = '';
 handleFailedPaymentClick.address = '';
 handleFailedPaymentClick.memo = '';
 //handleFailedPaymentClick.assetID = '';
-
-/**
- * Invoked when the user clicks the retry button in the failed message modal
- * It will fill the chat modal with the message content and txid of the failed message and focus the message input
- */
-function handleFailedMessageRetry() {
-    const failedMessageModal = document.getElementById('failedMessageModal');
-    const mainChatInput = document.querySelector('#chatModal .message-input');
-    const retryTxIdInput = document.getElementById('retryOfTxId');
-
-    // Use the values stored when handleFailedMessage was called
-    const messageToRetry = handleFailedMessageClick.handleFailedMessage;
-    const originalTxid = handleFailedMessageClick.txid;
-
-    if (mainChatInput && retryTxIdInput && typeof messageToRetry === 'string' && typeof originalTxid === 'string') {
-        mainChatInput.value = messageToRetry;
-        retryTxIdInput.value = originalTxid;
-
-        if (failedMessageModal) {
-            failedMessageModal.classList.remove('active');
-        }
-        mainChatInput.focus();
-
-        // Clear the stored values after use
-        handleFailedMessageClick.handleFailedMessage = '';
-        handleFailedMessageClick.txid = '';
-    } else {
-        console.error('Error preparing message retry: Necessary elements or data missing.');
-        if (failedMessageModal) {
-            failedMessageModal.classList.remove('active');
-        }
-    }
-}
 
 /**
  * Invoked when the user clicks the retry button in the failed payment modal
@@ -3965,37 +3367,6 @@ function handleFailedPaymentRetry() {
     }
 }
 
-/**
- * Invoked when the user clicks the delete button in the failed message modal
- * It will delete the message from all data stores using removeFailedTx and remove pending tx if exists
- */
-function handleFailedMessageDelete() {
-    const failedMessageModal = document.getElementById('failedMessageModal');
-    const originalTxid = handleFailedMessageClick.txid;
-
-    if (typeof originalTxid === 'string' && originalTxid) {
-        const currentAddress = appendChatModal.address
-        removeFailedTx(originalTxid, currentAddress)
-
-        if (failedMessageModal) {
-            failedMessageModal.classList.remove('active');
-        }
-
-        // Clear the stored values
-        handleFailedMessageClick.handleFailedMessage = '';
-        handleFailedMessageClick.txid = '';
-        // refresh current chatModal
-        appendChatModal();
-    } else {
-        console.error('Error deleting message: TXID not found.');
-        if (failedMessageModal) {
-            failedMessageModal.classList.remove('active');
-        }
-    }
-}
-
-
-
 function handleFailedPaymentDelete() {
     const failedPaymentModal = document.getElementById('failedPaymentModal');
     const originalTxid = handleFailedPaymentClick.txid;
@@ -4024,20 +3395,6 @@ function handleFailedPaymentDelete() {
     }
 }
 
-/**
- * Invoked when the user clicks the close button in the failed message modal
- * It will close the modal and clear the stored values
- */
-function closeFailedMessageModalAndClearState() {
-    const failedMessageModal = document.getElementById('failedMessageModal');
-    if (failedMessageModal) {
-        failedMessageModal.classList.remove('active');
-    }
-    // Clear the stored values when modal is closed
-    handleFailedMessageClick.handleFailedMessage = '';
-    handleFailedMessageClick.txid = '';
-}
-
 function closeFailedPaymentModalAndClearState() {
     const failedPaymentModal = document.getElementById('failedPaymentModal');
     if (failedPaymentModal) {
@@ -4048,17 +3405,6 @@ function closeFailedPaymentModalAndClearState() {
     handleFailedPaymentClick.address = '';
     handleFailedPaymentClick.memo = '';
     //handleFailedPaymentClick.assetID = '';
-}
-
-/**
- * Invoked when the user clicks the backdrop in the failed message modal
- * It will close the modal and clear the stored values
- */
-function handleFailedMessageBackdropClick(event) {
-    const failedMessageModal = document.getElementById('failedMessageModal');
-    if (event.target === failedMessageModal) {
-        closeFailedMessageModalAndClearState();
-    }
 }
 
 function handleFailedPaymentBackdropClick(event) {
@@ -4286,7 +3632,7 @@ function handleHistoryItemClick(event) {
             // Close the history modal
             closeHistoryModal();
             // Open the chat modal for the corresponding address
-            openChatModal(address);
+            chatModal.open(address);
         }
     }
 }
@@ -4450,8 +3796,8 @@ console.log(`getChats retry ${retry}`)
             }
         }
     }
-    if (appendChatModal.address){   // clear the unread count of address for open chat modal
-        myData.contacts[appendChatModal.address].unread = 0
+    if (chatModal.address){   // clear the unread count of address for open chat modal
+        myData.contacts[chatModal.address].unread = 0
     }
     return chatCount
 }
@@ -4500,7 +3846,7 @@ async function processChats(chats, keys) {
 
             // This check determines if we're currently chatting with the sender
             // We ONLY want to avoid notifications if we're actively viewing this exact chat
-            const inActiveChatWithSender = appendChatModal.address === from &&
+            const inActiveChatWithSender = chatModal.address === from &&
                 document.getElementById('chatModal')?.classList.contains('active'); // Added null check for safety
 
             for (let i in res.messages){
@@ -4660,7 +4006,7 @@ async function processChats(chats, keys) {
                     // is chatModal of sender address is active
                     if (inActiveChatWithSender){
                         // add the transfer tx to the chatModal
-                        appendChatModal(true);
+                        chatModal.appendChatModal(true);
                     }
                 }
             }
@@ -4681,7 +4027,7 @@ async function processChats(chats, keys) {
                 } else {
                     // If chat modal is active, explicitly call appendChatModal to update it
                     // and trigger highlight/scroll for the new message.
-                    appendChatModal(true); // Pass true for highlightNewMessage flag
+                    chatModal.appendChatModal(true); // Pass true for highlightNewMessage flag
                 }
 
                 // Remove existing chat for this contact if it exists
@@ -4775,33 +4121,6 @@ The main difference between a chat message and an asset transfer is
     A sender can retract a message if it has not been read yet and it has been less than one minute since the message was sent
         * However, this does not gaurantee that the recipient has not already downloaded the message and may read it later
 `
-
-/**
- * Create a chat message object
- * @param {string} to - The address of the recipient
- * @param {string} payload - The payload of the message
- * @param {number} toll - The toll of the message
- * @param {Object} keys - The keys of the sender
- * @returns {Object} The chat message object
- */
-async function createChatMessage(to, payload, toll, keys) {
-    const toAddr = longAddress(to);
-    const fromAddr = longAddress(keys.address)
-    await getNetworkParams();
-    const tx = {
-        type: 'message',
-        from: fromAddr,
-        to: toAddr,
-        amount: toll,       // not sure if this is used by the backend
-        chatId: hashBytes([fromAddr, toAddr].sort().join``),
-        message: 'x',
-        xmessage: payload,
-        timestamp: getCorrectedTimestamp(),
-        network: NETWORK_ACCOUNT_ID,
-        fee: (parameters.current.transactionFee || 1n)           // This is not used by the backend
-    }
-    return tx
-}
 
 async function postAssetTransfer(to, amount, memo, keys) {
     const toAddr = longAddress(to)
@@ -5214,7 +4533,7 @@ function handleSearchResultClick(result) {
         switchView('chats');
 
         // Open the chat with this contact
-        openChatModal(result.contactAddress);
+        chatModal.open(result.contactAddress);
 
         // Scroll to and highlight the message
         setTimeout(() => {
@@ -8051,6 +7370,700 @@ class StakeValidatorModal {
 }
 const stakeValidatorModal = new StakeValidatorModal()
 
+class ChatModal {
+    constructor() {
+        this.modal = document.getElementById('chatModal');
+        this.closeButton = document.getElementById('closeChatModal');
+        this.messagesList = document.querySelector('.messages-list');
+        this.sendButton = document.getElementById('handleSendMessage');
+        this.modalAvatar = this.modal.querySelector('.modal-avatar');
+        this.modalTitle = this.modal.querySelector('.modal-title');
+        this.editButton = document.getElementById('chatEditButton');
+        this.sendMoneyButton = document.getElementById('chatSendMoneyButton');
+        this.retryOfTxId = document.getElementById('retryOfTxId');
+        this.messageInput = document.querySelector('.message-input');
+        
+        
+        // used by updateTollValue and updateTollRequired
+        this.toll = null;
+        this.tollUnit = null;
+        this.address = null
+    }
+
+    load() {
+        // Add message click-to-copy handler
+        this.messagesList.addEventListener('click', this.handleClickToCopy.bind(this));
+        this.sendButton.addEventListener('click', this.handleSendMessage.bind(this));
+        this.closeButton.addEventListener('click', this.close.bind(this));
+        this.sendButton.addEventListener('keydown', ignoreTabKey);
+
+        // Add input event listener for message textarea auto-resize
+        this.messageInput.addEventListener('input', function() {
+            this.style.height = '48px';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
+
+        // Add focus event listener for message input to handle scrolling
+        this.messageInput.addEventListener('focus', function() {
+            const messagesContainer = document.querySelector('.messages-container');
+            if (messagesContainer) {
+                // Check if we're already at the bottom (within 50px threshold)
+                const isAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight <= 50;
+                if (isAtBottom) {
+                    // Wait for keyboard to appear and viewport to adjust
+                    setTimeout(() => {
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }, 300); // Increased delay to ensure keyboard is fully shown
+                }
+            }
+        });
+    }
+
+    /**
+     * Opens the chat modal for the given address.
+     * @param {string} address - The address of the contact to open the chat modal for.
+     * @returns {void}
+     */
+    async open(address) {
+        friendModal.setAddress(address);
+        document.getElementById('newChatButton').classList.remove('visible');
+        const contact = myData.contacts[address]
+        friendModal.updateFriendButton(contact, 'addFriendButtonChat');
+        // Set user info
+        this.modalTitle.textContent = contact.name || contact.senderInfo?.name || contact.username || `${contact.address.slice(0,8)}...${contact.address.slice(-6)}`;
+
+        // update the toll value. Will not await this and it'll update the toll value while the modal is open.
+        updateTollValue(address);
+
+        // update local contact object with the toll required to send and receive
+        updateTollRequired(address);
+
+        // clear hidden txid input
+        this.retryOfTxId.value = '';
+
+        updateTollAmountUI(address);
+
+        // Add data attributes to store the username and address
+        this.sendMoneyButton.dataset.username = contact.username || address;
+
+        generateIdenticon(contact.address, 40).then(identicon => {
+            this.modalAvatar.innerHTML = identicon;
+        });
+
+        // Clear previous messages from the UI
+        this.messagesList.innerHTML = '';
+
+        // Scroll to bottom (initial scroll for empty list, appendChatModal will scroll later)
+        setTimeout(() => {
+            this.messagesList.parentElement.scrollTop = this.messagesList.parentElement.scrollHeight;
+        }, 100);
+
+        // Add click handler for username to show contact info
+        // TODO: create event listener instead of onclick here
+        const userInfo = this.modal.querySelector('.chat-user-info');
+        userInfo.onclick = () => {
+            const contact = myData.contacts[address];
+            if (contact) {
+                contactInfoModal.open(createDisplayInfo(contact));
+            }
+        };
+
+        // Add click handler for edit button
+        // TODO: create event listener instead of onclick here
+        this.editButton.onclick = () => {
+            const contact = myData.contacts[address];
+            if (contact) {
+                contactInfoModal.open(createDisplayInfo(contact));
+            }
+        };
+
+        // Show modal
+        this.modal.classList.add('active');
+
+        // Clear unread count
+        if (contact.unread > 0) {
+            myData.state.unread = Math.max(0, (myData.state.unread || 0) - contact.unread);
+            contact.unread = 0;
+            updateChatList();
+        }
+
+        // Setup state for appendChatModal and perform initial render
+        this.address = address
+        this.appendChatModal(false); // Call appendChatModal to render messages, ensure highlight=false
+
+        if (isOnline) {
+            if (wsManager && !wsManager.isSubscribed()) {
+                pollChatInterval(pollIntervalChatting) // poll for messages at a faster rate
+            }
+        }
+    }
+    
+    close() {
+        this.modal.classList.remove('active');
+        if (document.getElementById('chatsScreen').classList.contains('active')) {
+            updateChatList()
+            document.getElementById('newChatButton').classList.add('visible');
+        }
+        if (document.getElementById('contactsScreen').classList.contains('active')) {
+            updateContactsList()
+            document.getElementById('newChatButton').classList.add('visible');
+        }
+        this.address = null
+        if (isOnline) {
+            if (wsManager && !wsManager.isSubscribed()) {
+                pollChatInterval(pollIntervalNormal) // back to polling at slower rate
+            }
+        }
+    }
+
+    /**
+     * Invoked when the user clicks the Send button in a recipient (appendChatModal.address) chat modal
+     * Recipient account exists in myData.contacts; was created when the user submitted the New Chat form
+     */
+    async handleSendMessage() {
+        this.sendButton.disabled = true; // Disable the button
+
+        try {
+            this.messageInput.focus(); // Add focus back to keep keyboard open
+
+            const message = this.messageInput.value.trim();
+            if (!message) {
+                this.sendButton.disabled = false;
+                return;
+            }
+
+            const sufficientBalance = await validateBalance(this.toll)
+            if (!sufficientBalance) {
+                showToast('Insufficient balance for toll and fee', 0, 'error');
+                this.sendButton.disabled = false;
+                return;
+            }
+
+            //const messagesList = this.messagesList;
+
+            // Get current chat data
+            const chatsData = myData
+            /*
+            const currentAddress = Object.values(chatsData.contacts).find(contact =>
+                modalTitle.textContent === (contact.name || contact.username || `${contact.address.slice(0,8)}...${contact.address.slice(-6)}`)
+            )?.address;
+            */
+            const currentAddress = this.address
+            if (!currentAddress) return;
+
+            // Check if trying to message self
+            if (currentAddress === myAccount.address) {
+                return;
+            }
+
+            // Get sender's keys from wallet
+            const keys = myAccount.keys;
+            if (!keys) {
+                alert('Keys not found for sender address');
+                return;
+            }
+
+            ///yyy
+            // Get recipient's public key from contacts
+            let recipientPubKey = myData.contacts[currentAddress]?.public;
+            let pqRecPubKey = myData.contacts[currentAddress]?.pqPublic;
+            if (!recipientPubKey || !pqRecPubKey) {
+                const recipientInfo = await queryNetwork(`/account/${longAddress(currentAddress)}`)
+                if (!recipientInfo?.account?.publicKey){
+                    console.log(`no public key found for recipient ${currentAddress}`)
+                    return
+                }
+                recipientPubKey = recipientInfo.account.publicKey
+                myData.contacts[currentAddress].public = recipientPubKey
+                pqRecPubKey = recipientInfo.account.pqPublicKey
+                myData.contacts[currentAddress].pqPublic = pqRecPubKey
+            }
+
+            // Generate shared secret using ECDH and take first 32 bytes
+            let dhkey = ecSharedKey(keys.secret, recipientPubKey)
+            const { cipherText, sharedSecret } = pqSharedKey(pqRecPubKey)
+            const combined = new Uint8Array(dhkey.length + sharedSecret.length)
+            combined.set(dhkey)
+            combined.set(sharedSecret, dhkey.length)
+            dhkey = deriveDhKey(combined);
+
+            // We purposely do not encrypt/decrypt using browser native crypto functions; all crypto functions must be readable
+            // Encrypt message using shared secret
+            const encMessage = encryptChacha(dhkey, message)
+
+            // Create message payload
+            const payload = {
+                message: encMessage,
+                encrypted: true,
+                encryptionMethod: 'xchacha20poly1305',
+                pqEncSharedKey: bin2base64(cipherText),
+                sent_timestamp: getCorrectedTimestamp()
+            };
+
+            // Always include username, but only include other info if recipient is a friend
+            const contact = myData.contacts[currentAddress];
+            // Create basic sender info with just username
+            const senderInfo = {
+                username: myAccount.username
+            };
+
+            // Add additional info only if recipient is a friend
+            if (contact && contact.friend) {
+                // Add more personal details for friends
+                senderInfo.name = myData.account.name;
+                senderInfo.email = myData.account.email;
+                senderInfo.phone = myData.account.phone;
+                senderInfo.linkedin = myData.account.linkedin;
+                senderInfo.x = myData.account.x;
+            }
+
+            // Always encrypt and send senderInfo (which will contain at least the username)
+            payload.senderInfo = encryptChacha(dhkey, stringify(senderInfo));
+
+
+            // can create a function to query the account and get the receivers toll they've set
+            // TODO: will need to query network and receiver account where we validate
+            // TODO: decided to query everytime we do chatModal.open and save as global variable. We don't need to clear it but we can clear it when closing the modal but should get reset when opening the modal again anyway
+            const toll = this.toll;
+
+            const chatMessageObj = await this.createChatMessage(currentAddress, payload, toll, keys);
+            const txid = await signObj(chatMessageObj, keys)
+
+            // if there a hidden txid input, get the value to be used to delete that txid from relevant data stores
+            const retryTxId = this.retryOfTxId.value;
+            if (retryTxId) {
+                removeFailedTx(retryTxId, currentAddress);
+                this.retryOfTxId.value = '';
+                failedMessageModal.handleFailedMessageClick.txid = '';
+                failedMessageModal.handleFailedMessageClick.handleFailedMessage = '';
+            }
+
+            // --- Optimistic UI Update ---
+            // Create new message object for local display immediately
+            const newMessage = {
+                message,
+                timestamp: payload.sent_timestamp,
+                sent_timestamp: payload.sent_timestamp,
+                my: true,
+                txid: txid,
+                status: 'sent'
+            };
+            insertSorted(chatsData.contacts[currentAddress].messages, newMessage, 'timestamp');
+
+            // Update or add to chats list, maintaining chronological order
+            const chatUpdate = {
+                address: currentAddress,
+                timestamp: newMessage.sent_timestamp,
+                txid: txid
+            };
+
+            // Remove existing chat for this contact if it exists. Not handling in removeFailedTx anymore.
+            const existingChatIndex = chatsData.chats.findIndex(chat => chat.address === currentAddress);
+            if (existingChatIndex !== -1) {
+                chatsData.chats.splice(existingChatIndex, 1);
+            }
+
+            insertSorted(chatsData.chats, chatUpdate, 'timestamp');
+
+            // Clear input and reset height
+            this.messageInput.value = '';
+            this.messageInput.style.height = '48px'; // original height
+
+            // Update the chat modal UI immediately
+            this.appendChatModal() // This should now display the 'sending' message
+
+            // Scroll to bottom of chat modal
+            this.messagesList.parentElement.scrollTop = this.messagesList.parentElement.scrollHeight;
+            // --- End Optimistic UI Update ---
+
+            //console.log('payload is', payload)
+            // Send the message transaction using createChatMessage with default toll of 1
+            const response = await injectTx(chatMessageObj, txid)
+
+            if (!response || !response.result || !response.result.success) {
+                console.log('message failed to send', response)
+                //let userMessage = 'Message failed to send. Please try again.';
+                //const reason = response.result?.reason || '';
+
+                /* if (reason.includes('does not have sufficient funds')) {
+                    userMessage = 'Message failed: Insufficient funds for toll & fees.';
+                } else if (reason) {
+                    // Attempt to provide a slightly more specific message if reason is short
+                    userMessage = `Message failed: ${reason.substring(0, 100)}${reason.length > 100 ? '...' : ''}`;
+                } */
+                //showToast(userMessage, 4000, 'error');
+
+                // Update message status to 'failed' in the UI
+                updateTransactionStatus(txid, currentAddress, 'failed', 'message');
+                this.appendChatModal();
+
+                // Remove from pending transactions as injectTx itself indicated failure
+                /* if (myData && myData.pending) {
+                    myData.pending = myData.pending.filter(pTx => pTx.txid !== txid);
+                } */
+            } else {
+                // Message sent successfully (or at least accepted by gateway)
+                // The optimistic UI update for 'sent' status is already handled before injectTx.
+                // No specific action needed here for success as the UI already reflects 'sent'.
+            }
+        } catch (error) {
+            console.error('Message error:', error);
+            alert('Failed to send message. Please try again.');
+        } finally {
+            this.sendButton.disabled = false; // Re-enable the button
+        }
+    }
+
+    /**
+     * Create a chat message object
+     * @param {string} to - The address of the recipient
+     * @param {string} payload - The payload of the message
+     * @param {number} toll - The toll of the message
+     * @param {Object} keys - The keys of the sender
+     * @returns {Object} The chat message object
+     */
+    async createChatMessage(to, payload, toll, keys) {
+        const toAddr = longAddress(to);
+        const fromAddr = longAddress(keys.address)
+        await getNetworkParams();
+        const tx = {
+            type: 'message',
+            from: fromAddr,
+            to: toAddr,
+            amount: toll,       // not sure if this is used by the backend
+            chatId: hashBytes([fromAddr, toAddr].sort().join``),
+            message: 'x',
+            xmessage: payload,
+            timestamp: getCorrectedTimestamp(),
+            network: NETWORK_ACCOUNT_ID,
+            fee: (parameters.current.transactionFee || 1n)           // This is not used by the backend
+        }
+        return tx
+    }
+
+    appendChatModal(highlightNewMessage = false) {
+        const currentAddress = this.address; // Use a local constant
+        console.log('appendChatModal running for address:', currentAddress, 'Highlight:', highlightNewMessage);
+        if (!currentAddress) { return; }
+    
+        const contact = myData.contacts[currentAddress];
+        if (!contact || !contact.messages) {
+                console.log('No contact or messages found for address:', this.address);
+                return;
+        }
+        const messages = contact.messages; // Already sorted descending
+    
+        if (!this.modal) return;
+        if (!this.messagesList) return;
+    
+        // --- 1. Identify the actual newest received message data item ---
+        // Since messages are sorted descending (newest first), the first item with my: false is the newest received.
+        const newestReceivedItem = messages.find(item => !item.my);
+        console.log('appendChatModal: Identified newestReceivedItem data:', newestReceivedItem);
+    
+        // 2. Clear the entire list
+        this.messagesList.innerHTML = '';
+    
+        // 3. Iterate backwards through messages (oldest to newest for rendering order)
+        // messages are already sorted descending (newest first) in myData
+        for (let i = messages.length - 1; i >= 0; i--) {
+            const item = messages[i];
+            let messageHTML = '';
+            const timeString = formatTime(item.timestamp);
+            // Use a consistent timestamp attribute for potential future use (e.g., message jumping)
+            const timestampAttribute = `data-message-timestamp="${item.timestamp}"`;
+            // Add txid attribute if available
+            const txidAttribute = item?.txid ? `data-txid="${item.txid}"` : '';
+            const statusAttribute = item?.status ? `data-status="${item.status}"` : '';
+    
+            // Check if it's a payment based on the presence of the amount property (BigInt)
+            if (typeof item.amount === 'bigint') {
+                // Define common payment variables
+                const itemAmount = item.amount;
+                const itemMemo = item.message; // Memo is stored in the 'message' field for transfers
+    
+                // Assuming LIB (18 decimals) for now. TODO: Handle different asset decimals if needed.
+                // Format amount correctly using big2str
+                const amountStr = big2str(itemAmount, 18);
+                const amountDisplay = `${amountStr.slice(0, 6)} ${item.symbol || 'LIB'}`; // Use item.symbol or fallback
+    
+                // Check item.my for sent/received
+    
+                //console.log(`debug item: ${JSON.stringify(item, (key, value) => typeof value === 'bigint' ? big2str(value, 18) : value)}`)
+                // --- Render Payment Transaction ---
+                const directionText = item.my ? '-' : '+';
+                const messageClass = item.my ? 'sent' : 'received';
+                messageHTML = `
+                    <div class="message ${messageClass} payment-info" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
+                        <div class="payment-header">
+                            <span class="payment-direction">${directionText}</span>
+                            <span class="payment-amount">${amountDisplay}</span>
+                        </div>
+                        ${itemMemo ? `<div class="payment-memo">${linkifyUrls(itemMemo)}</div>` : ''}
+                        <div class="message-time">${timeString}</div>
+                    </div>
+                `;
+            } else {
+                // --- Render Chat Message ---
+                const messageClass = item.my ? 'sent' : 'received'; // Use item.my directly
+                messageHTML = `
+                    <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
+                        <div class="message-content" style="white-space: pre-wrap">${linkifyUrls(item.message)}</div>
+                        <div class="message-time">${timeString}</div>
+                    </div>
+                `;
+            }
+    
+            // 4. Append the constructed HTML
+            // Insert at the end of the list to maintain correct chronological order
+            this.messagesList.insertAdjacentHTML('beforeend', messageHTML);
+            // The newest received element will be found after the loop completes
+        }
+    
+        // --- 5. Find the corresponding DOM element after rendering ---
+        // This happens inside the setTimeout to ensure elements are in the DOM
+    
+        // 6. Delayed Scrolling & Highlighting Logic (after loop)
+        setTimeout(() => {
+            const messageContainer = this.messagesList.parentElement;
+    
+            // Find the DOM element for the actual newest received item using its timestamp
+            // Only proceed if newestReceivedItem was found and highlightNewMessage is true
+            if (newestReceivedItem && highlightNewMessage) {
+                const newestReceivedElementDOM = this.messagesList.querySelector(`[data-message-timestamp="${newestReceivedItem.timestamp}"]`);
+    
+                if (newestReceivedElementDOM) {
+                    // Found the element, scroll to and highlight it
+                    newestReceivedElementDOM.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    
+                    // Apply highlight immediately
+                    newestReceivedElementDOM.classList.add('highlighted');
+    
+                    // Set timeout to remove the highlight after a duration
+                    setTimeout(() => {
+                         // Check if element still exists before removing class
+                         if (newestReceivedElementDOM && newestReceivedElementDOM.parentNode) {
+                            newestReceivedElementDOM.classList.remove('highlighted');
+                         }
+                    }, 3000);
+                } else {
+                     console.warn('appendChatModal: Could not find DOM element for newestReceivedItem with timestamp:', newestReceivedItem.timestamp);
+                     // If element not found, just scroll to bottom
+                     if (messageContainer) {
+                        messageContainer.scrollTop = messageContainer.scrollHeight;
+                     }
+                }
+    
+            } else {
+                // No received messages found, not highlighting, or highlightNewMessage is false,
+                // just scroll to the bottom if the container exists.
+                if (messageContainer) {
+                    messageContainer.scrollTop = messageContainer.scrollHeight;
+                }
+            }
+        }, 300); // <<< Delay of 300 milliseconds for rendering
+    }
+
+    async handleClickToCopy(e) {
+        const messageEl = e.target.closest('.message');
+        if (!messageEl) return;
+
+        // Prevent copying if the message has failed and not `payment-info`
+        if (messageEl.dataset.status === 'failed') {
+            console.log('Copy prevented for failed message.');
+
+            // If the message is not a payment message, show the failed message modal
+            if (!messageEl.classList.contains('payment-info')) {
+                failedMessageModal.handleFailedMessageClick(messageEl)
+            }
+
+            // If the message is a payment message, show the failed history item modal
+            if (messageEl.classList.contains('payment-info')) {
+                failedMessageModal.handleFailedPaymentClick(messageEl.dataset.txid, messageEl)
+            }
+
+            // TODO: if message is a payment open sendModal and fill with information in the payment message?
+
+            return;
+        }
+
+        let textToCopy = null;
+        let contentType = 'Text'; // Default content type for toast
+
+        // Check if it's a payment message
+        if (messageEl.classList.contains('payment-info')) {
+            const paymentMemoEl = messageEl.querySelector('.payment-memo');
+            if (paymentMemoEl) {
+                textToCopy = paymentMemoEl.textContent;
+                contentType = 'Memo'; // Update type for toast
+            } else {
+                // No memo element found in this payment block
+                showToast('No memo to copy', 2000, 'info');
+                return;
+            }
+        } else {
+            // It's a regular chat message
+            const messageContentEl = messageEl.querySelector('.message-content');
+            if (messageContentEl) {
+                textToCopy = messageContentEl.textContent;
+                contentType = 'Message'; // Update type for toast
+            }
+            else {
+                // Should not happen for regular messages, but handle gracefully
+                showToast('No content to copy', 2000, 'info');
+                return;
+            }
+        }
+
+        // Proceed with copying if text was found
+        if (textToCopy && textToCopy.trim()) {
+            try {
+                await navigator.clipboard.writeText(textToCopy.trim());
+                showToast(`${contentType} copied to clipboard`, 2000, 'success');
+            } catch (err) {
+                console.error('Failed to copy:', err);
+                showToast(`Failed to copy ${contentType.toLowerCase()}`, 2000, 'error');
+            }
+        } else if (contentType === 'Memo'){
+            // Explicitly handle the case where memo exists but is empty/whitespace
+            showToast('Memo is empty', 2000, 'info');
+        }
+        // No need for an else here, cases with no element are handled above
+    }
+}
+
+const chatModal = new ChatModal()
+
+class FailedMessageModal {
+    constructor() {
+        this.modal = document.getElementById('failedMessageModal');
+        this.retryButton = this.modal.querySelector('.retry-button');
+        this.deleteButton = this.modal.querySelector('.delete-button');
+        this.closeButton = document.getElementById('closeFailedMessageModal');
+        // used by handleFailedMessageClick
+        this.handleFailedMessageClick = {
+            handleFailedMessage: '',
+            txid: ''
+        }
+        
+    }
+
+    load() {
+        this.retryButton.addEventListener('click', this.handleFailedMessageRetry.bind(this));
+        this.deleteButton.addEventListener('click', this.handleFailedMessageDelete.bind(this));
+        this.closeButton.addEventListener('click', this.closeFailedMessageModalAndClearState.bind(this));
+        this.modal.addEventListener('click', this.handleFailedMessageBackdropClick.bind(this));
+    }
+
+    /**
+     * When user clicks on a failed message this will show the failed message modal with retry, delete (delete from all data stores), and close buttons
+     * It will also store the message content and txid in the handleSendMessage object containing the handleFailedMessage and txid properties
+     * @param {Element} messageEl - The message element that failed
+     * @returns {void}
+     */
+    handleFailedMessageClick(messageEl) {
+        // Get the message content and txid from the original failed message element
+        const messageContent = messageEl.querySelector('.message-content').textContent;
+        const originalTxid = messageEl.dataset.txid;
+
+        // Store content and txid in properties of handleSendMessage
+        this.handleFailedMessageClick.handleFailedMessage = messageContent;
+        this.handleFailedMessageClick.txid = originalTxid;
+
+        // Show the modal
+        if (this.modal) {
+            this.modal.classList.add('active');
+        }
+    }
+
+    /**
+     * When the user clicks the retry button in the failed message modal
+     * It will fill the chat modal with the message content and txid of the failed message and focus the message input
+     * @returns {void}
+     */
+    handleFailedMessageRetry() {
+        // Use the values stored when handleFailedMessage was called
+        const messageToRetry = this.handleFailedMessageClick.handleFailedMessage;
+        const originalTxid = this.handleFailedMessageClick.txid;
+
+        if (this.messageInput && this.retryTxIdInput && typeof messageToRetry === 'string' && typeof originalTxid === 'string') {
+            this.messageInput.value = messageToRetry;
+            this.retryTxIdInput.value = originalTxid;
+
+            if (this.modal) {
+                this.modal.classList.remove('active');
+            }
+            this.messageInput.focus();
+
+            // Clear the stored values after use
+            this.handleFailedMessageClick.handleFailedMessage = '';
+            this.handleFailedMessageClick.txid = '';
+        } else {
+            console.error('Error preparing message retry: Necessary elements or data missing.');
+            if (this.modal) {
+                this.modal.classList.remove('active');
+            }
+        }
+    }
+
+    /**
+     * When the user clicks the delete button in the failed message modal
+     * It will delete the message from all data stores using removeFailedTx and remove pending tx if exists
+     * @returns {void}
+     */
+    handleFailedMessageDelete() {
+        const originalTxid = this.handleFailedMessageClick.txid;
+
+        if (typeof originalTxid === 'string' && originalTxid) {
+            const currentAddress = this.address
+            removeFailedTx(originalTxid, currentAddress)
+
+            if (this.modal) {
+                this.modal.classList.remove('active');
+            }
+
+            // Clear the stored values
+            this.handleFailedMessageClick.handleFailedMessage = '';
+            this.handleFailedMessageClick.txid = '';
+            // refresh current chatModal
+            this.appendChatModal();
+        } else {
+            console.error('Error deleting message: TXID not found.');
+            if (this.modal) {
+                this.modal.classList.remove('active');
+            }
+        }
+    }
+
+    /**
+     * Invoked when the user clicks the close button in the failed message modal
+     * It will close the modal and clear the stored values
+     * @returns {void}
+     */
+    closeFailedMessageModalAndClearState() {
+        if (this.modal) {
+            this.modal.classList.remove('active');
+        }
+        // Clear the stored values when modal is closed
+        this.handleFailedMessageClick.handleFailedMessage = '';
+        this.handleFailedMessageClick.txid = '';
+    }
+
+    /**
+     * Invoked when the user clicks the backdrop in the failed message modal
+     * It will close the modal and clear the stored values
+     * @param {Event} event - The event object
+     * @returns {void}
+     */
+    handleFailedMessageBackdropClick(event) {
+        if (event.target === this.modal) {
+            this.closeFailedMessageModalAndClearState();
+        }
+    }
+}
+
+const failedMessageModal = new FailedMessageModal();
+
 /**
  * Remove failed transaction from the contacts messages, pending, and wallet history
  * @param {string} txid - The transaction ID to remove
@@ -8220,10 +8233,10 @@ async function checkPendingTransactions() {
  * @param {string} [txid] - Optional transaction ID that failed and needs removal.
  */
 function refreshCurrentView(txid) { // contactAddress is kept for potential future use but not needed for this txid-based logic
-    const chatModal = document.getElementById('chatModal');
+    const chatModal = chatModal.modal;
     const chatsScreen = document.getElementById('chatsScreen');
     const historyModal = document.getElementById('historyModal');
-    const messagesList = chatModal ? chatModal.querySelector('.messages-list') : null;
+    const messagesList = chatModal ? chatModal.messagesList : null;
 
     // 1. Refresh History Modal if active
     if (historyModal && historyModal.classList.contains('active')) {
@@ -8238,7 +8251,7 @@ function refreshCurrentView(txid) { // contactAddress is kept for potential futu
         if (messageElement) {
             // If the element exists, the failed message is visible in the open chat. Refresh the modal.
             console.log(`DEBUG: Refreshing active chat modal because failed txid ${txid} was found in the view.`);
-            appendChatModal(); // This will redraw the messages based on the updated data (where the failed tx is removed)
+            chatModal.appendChatModal(); // This will redraw the messages based on the updated data (where the failed tx is removed)
         } else {
             // The failed txid doesn't correspond to a visible message in the *currently open* chat modal. No UI refresh needed for the modal itself.
             console.log(`DEBUG: Skipping chat modal refresh. Failed txid ${txid} not found in the active modal's message list.`);
