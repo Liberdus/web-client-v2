@@ -7189,6 +7189,7 @@ class ChatModal {
             console.log(`[sendReadTransaction] injecting read transaction`)
             const readTransaction = await this.createReadTransaction(contactAddress);
             const txid = await signObj(readTransaction, myAccount.keys)
+            showToast(`Sending read transaction`, 3000, 'info');
             const response = await injectTx(readTransaction, txid)
             if (!response || !response.result || !response.result.success) {
                 console.warn('read transaction failed to send', response)
@@ -8509,6 +8510,14 @@ async function checkPendingTransactions() {
                 if (type === 'update_toll_required') {
                     console.log(`DEBUG: update_toll_required transaction successfully processed!`);
                 }
+
+                if (type === 'read') {
+                    console.log(`DEBUG: read transaction successfully processed!`);
+                }
+
+                if (type === 'reclaim_toll') {
+                    console.log(`DEBUG: reclaim_toll transaction successfully processed!`);
+                }
             }
             else if (res?.transaction?.success === false) {
                 console.log(`DEBUG: txid ${txid} failed, removing completely`);
@@ -8538,6 +8547,9 @@ async function checkPendingTransactions() {
                         showToast(`Read transaction failed: ${failureReason}`, 0, "error");
                         // revert the local myData.contacts[toAddress].timestamp to the old value
                         myData.contacts[pendingTxInfo.to].timestamp = pendingTxInfo.oldContactTimestamp;
+                    }
+                    else if (type === 'reclaim_toll') {
+                        showToast(`Reclaim toll failed: ${failureReason}`, 0, "error");
                     }
                     else { // for messages, transfer etc.
                         showToast(failureReason, 0, "error");
