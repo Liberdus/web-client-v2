@@ -2297,9 +2297,26 @@ async function handleSendAsset(event) {
 
     if (!myData.contacts[toAddress]) { createNewContact(toAddress, username) }
 
+    // Get recipient's public key from contacts
+    let recipientPubKey = myData.contacts[toAddress]?.public;
+    let pqRecPubKey = myData.contacts[toAddress]?.pqPublic
+    if (!recipientPubKey || !pqRecPubKey) {
+        const recipientInfo = await queryNetwork(`/account/${longAddress(toAddress)}`)
+        if (!recipientInfo?.account?.publicKey){
+            console.log(`no public key found for recipient ${toAddress}`)
+            return
+        }
+        recipientPubKey = recipientInfo.account.publicKey
+        myData.contacts[toAddress].public = recipientPubKey
+        if (recipientInfo.account.pqPublicKey) {
+            pqRecPubKey = recipientInfo.account.pqPublicKey
+            myData.contacts[toAddress].pqPublic = pqRecPubKey
+        }
+    }
+
     let encMemo = ''
     let pqEncSharedKey = ''
-    if (memo && myData.contacts[toAddress]?.pqPublic) {
+    if (memo && recipientPubKey && pqRecPubKey) {
 
         // Get recipient's public key from contacts
         let recipientPubKey = myData.contacts[toAddress]?.public;
