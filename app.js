@@ -1761,6 +1761,7 @@ function createNewContact(addr, username){
  */
 function updateTollAmountUI(address) {
     const tollValue = document.getElementById('tollValue');
+    tollValue.style.color = 'black';
     const contact = myData.contacts[address];
     let toll = contact.toll || 0n;
     const tollUnit = contact.tollUnit || 'LIB';
@@ -1785,7 +1786,12 @@ function updateTollAmountUI(address) {
     let display;
     if (contact.tollRequiredToSend == 1) {
         display = `${mainString} (${otherString})`;
+    } else if (contact.tollRequiredToSend == 2) {
+        tollValue.style.color = 'red';
+        display = `blocked`;
     } else {
+        // light green used to show success
+        tollValue.style.color = '#28a745';
         display = `free (${mainString} (${otherString}))`;
     }
     tollValue.textContent = display;
@@ -7152,6 +7158,13 @@ class ChatModal {
      */
     async handleSendMessage() {
         this.sendButton.disabled = true; // Disable the button
+
+        // if user is blocked, don't send message, show toast
+        if (myData.contacts[this.address].tollRequiredToSend == 2) {
+            showToast('You are blocked by this user', 0, 'error');
+            this.sendButton.disabled = false;
+            return;
+        }
 
         try {
             this.messageInput.focus(); // Add focus back to keep keyboard open
