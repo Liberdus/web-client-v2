@@ -2630,7 +2630,7 @@ class FriendModal {
             to: toAddr,
             chatId: chatId_,
             required: requiredNum,
-            type: 'update_chat_toll',
+            type: 'update_toll_required',
             timestamp: getCorrectedTimestamp(),
             friend: friend
         }
@@ -2659,7 +2659,7 @@ class FriendModal {
         // send transaction to update chat toll
         const res = await this.postUpdateTollRequired(this.currentContactAddress, Number(selectedStatus))
         if (res?.transaction?.success === false) {
-            console.log(`[handleFriendSubmit] update_chat_toll transaction failed: ${res?.transaction?.reason}. Did not update contact status.`);
+            console.log(`[handleFriendSubmit] update_toll_required transaction failed: ${res?.transaction?.reason}. Did not update contact status.`);
             return;
         }
 
@@ -3816,7 +3816,7 @@ async function injectTx(tx, txid){
             if (tx.type === 'register') {
                 pendingTxData.username = tx.alias;
                 pendingTxData.address = tx.from; // User's address (longAddress form)
-            } else if (tx.type === 'update_chat_toll') {
+            } else if (tx.type === 'update_toll_required') {
                 pendingTxData.friend = tx.friend;
             } else if (tx.type === 'read') {
                 pendingTxData.oldContactTimestamp = tx.oldContactTimestamp;
@@ -8410,8 +8410,8 @@ async function checkPendingTransactions() {
                     console.log(`Toll transaction successfully processed!`);
                 }
 
-                if (type === 'update_chat_toll') {
-                    console.log(`DEBUG: update_chat_toll transaction successfully processed!`);
+                if (type === 'update_toll_required') {
+                    console.log(`DEBUG: update_toll_required transaction successfully processed!`);
                 }
             }
             else if (res?.transaction?.success === false) {
@@ -8434,7 +8434,7 @@ async function checkPendingTransactions() {
                         // revert the local myData.settings.toll to the old value
                         tollModal.editMyDataToll(tollModal.oldToll);
                     } 
-                    else if (type === 'update_chat_toll') {
+                    else if (type === 'update_toll_required') {
                         showToast(`Update contact status failed: ${failureReason}. Reverting contact to old status.`, 0, "error");
                         // revert the local myData.contacts[toAddress].friend to the old value
                         myData.contacts[pendingTxInfo.to].friend = pendingTxInfo.friend;
