@@ -2361,9 +2361,10 @@ async function handleSendAsset(event) {
 
     // only include the sender info if the recipient is is a friend and has a pqKey
     let encSenderInfo = ''
+    let senderInfo = ''
     if (myData.contacts[toAddress]?.pqPublic && myData.contacts[toAddress]?.friend === 3) {
         // Create sender info object
-        const senderInfo = {
+        senderInfo = {
             username: myAccount.username,
             name: myData.account.name,
             email: myData.account.email,
@@ -2371,9 +2372,13 @@ async function handleSendAsset(event) {
             linkedin: myData.account.linkedin,
             x: myData.account.x
         };
-        // Encrypt sender info
-        encSenderInfo = encryptChacha(dhkey, stringify(senderInfo));
     }
+    else {
+        senderInfo = {
+            username: myAccount.username
+        }
+    }
+    encSenderInfo = encryptChacha(dhkey, stringify(senderInfo));
     // Create message payload
     const payload = {
         message: encMemo,  // we need to call this field message, so we can use decryptMessage()
