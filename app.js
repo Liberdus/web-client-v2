@@ -2300,48 +2300,41 @@ async function handleSendAsset(event) {
     // Get recipient's public key from contacts
     let recipientPubKey = myData.contacts[toAddress]?.public;
     let pqRecPubKey = myData.contacts[toAddress]?.pqPublic
+    let pqEncSharedKey = ''
     if (!recipientPubKey || !pqRecPubKey) {
         const recipientInfo = await queryNetwork(`/account/${longAddress(toAddress)}`)
         if (!recipientInfo?.account?.publicKey){
             console.log(`no public key found for recipient ${toAddress}`)
             return
         }
-        recipientPubKey = recipientInfo.account.publicKey
-        myData.contacts[toAddress].public = recipientPubKey
+        if (recipientInfo.account.publicKey) {  
+            recipientPubKey = recipientInfo.account.publicKey
+            myData.contacts[toAddress].public = recipientPubKey
+        }
         if (recipientInfo.account.pqPublicKey) {
             pqRecPubKey = recipientInfo.account.pqPublicKey
             myData.contacts[toAddress].pqPublic = pqRecPubKey
         }
     }
+    let dhkey = ''
+    let sharedKeyMethod = 'none'
+    if (recipientPubKey){
+        dhkey = ecSharedKey(keys.secret, recipientPubKey)
+        sharedKeyMethod = 'ec'
+        if (pqRecPubKey) {
+            // Generate shared secret using ECDH and take first 32 bytes
+            const  { cipherText, sharedSecret } = pqSharedKey(pqRecPubKey)
+            const combined = new Uint8Array(dhkey.length + sharedSecret.length)
+            combined.set(dhkey)
+            combined.set(sharedSecret, dhkey.length)
+            dhkey = deriveDhKey(combined);
+            pqEncSharedKey = bin2base64(cipherText)
+            sharedKeyMethod = 'pq'
+        }
+    }
 
     let encMemo = ''
-    let pqEncSharedKey = ''
-    if (memo && recipientPubKey && pqRecPubKey) {
-
-        // Get recipient's public key from contacts
-        let recipientPubKey = myData.contacts[toAddress]?.public;
-        let pqRecPubKey = myData.contacts[toAddress]?.pqPublic
-        if (!recipientPubKey || !pqRecPubKey) {
-            const recipientInfo = await queryNetwork(`/account/${longAddress(toAddress)}`)
-            if (!recipientInfo?.account?.publicKey){
-                console.log(`no public key found for recipient ${toAddress}`)
-                return
-            }
-            recipientPubKey = recipientInfo.account.publicKey
-            myData.contacts[toAddress].public = recipientPubKey
-            pqRecPubKey = recipientInfo.account.pqPublicKey
-            myData.contacts[toAddress].pqPublic = pqRecPubKey
-        }
-
-        // Generate shared secret using ECDH and take first 32 bytes
-        let dhkey = ecSharedKey(keys.secret, recipientPubKey)
-        const  { cipherText, sharedSecret } = pqSharedKey(pqRecPubKey)
-        const combined = new Uint8Array(dhkey.length + sharedSecret.length)
-        combined.set(dhkey)
-        combined.set(sharedSecret, dhkey.length)
-        dhkey = deriveDhKey(combined);
-        pqEncSharedKey = bin2base64(cipherText)
-
+    if (memo && sharedKeyMethod !== 'none') {
     // We purposely do not encrypt/decrypt using browser native crypto functions; all crypto functions must be readable
     // Encrypt message using shared secret
         encMemo = encryptChacha(dhkey, memo)
@@ -2362,7 +2355,7 @@ async function handleSendAsset(event) {
     // only include the sender info if the recipient is is a friend and has a pqKey
     let encSenderInfo = ''
     let senderInfo = ''
-    if (myData.contacts[toAddress]?.pqPublic && myData.contacts[toAddress]?.friend === 3) {
+    if (pqRecPubKey && myData.contacts[toAddress]?.friend === 3) {
         // Create sender info object
         senderInfo = {
             username: myAccount.username,
@@ -2373,12 +2366,20 @@ async function handleSendAsset(event) {
             x: myData.account.x
         };
     }
-    else {
+    else if (recipientPubKey) {
         senderInfo = {
             username: myAccount.username
         }
     }
-    encSenderInfo = encryptChacha(dhkey, stringify(senderInfo));
+    else {
+        senderInfo = { username: myAccount.address }
+    }
+    if (sharedKeyMethod !== 'none') {
+        encSenderInfo = encryptChacha(dhkey, stringify(senderInfo));
+    }
+    else {
+        encSenderInfo = stringify(senderInfo);
+    }
     // Create message payload
     const payload = {
         message: encMemo,  // we need to call this field message, so we can use decryptMessage()
@@ -2386,6 +2387,7 @@ async function handleSendAsset(event) {
         encrypted: true,
         encryptionMethod: 'xchacha20poly1305',
         pqEncSharedKey: pqEncSharedKey,
+        sharedKeyMethod: sharedKeyMethod,
         sent_timestamp: getCorrectedTimestamp()
     };
 
