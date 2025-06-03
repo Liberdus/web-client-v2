@@ -1750,7 +1750,7 @@ function createNewContact(addr, username){
     c.address = address
     if (username){ c.username = normalizeUsername(username) }
     c.messages = []
-    c.timestamp = getCorrectedTimestamp()
+    c.timestamp = 0
     c.unread = 0
     c.toll = 0n
     c.tollRequiredToReceive = 1
@@ -1824,8 +1824,8 @@ async function updateTollRequired(address) {
         }
 
         const localContact = myData.contacts[address]
-        localContact.tollRequiredToSend = contactAccountData.toll.required[myIndex]
-        localContact.tollRequiredToReceive = contactAccountData.toll.required[toIndex]
+        localContact.tollRequiredToSend = contactAccountData.toll.required[toIndex]
+        localContact.tollRequiredToReceive = contactAccountData.toll.required[myIndex]
 
         if (chatModal.modal.classList.contains('active') && chatModal.address === address) {
             updateTollAmountUI(address);
@@ -7072,6 +7072,7 @@ class ChatModal {
      */
     close() {
         if (this.newestReceivedMessage) {
+            console.log(`[close] invoking sendReadTransaction`)
             this.sendReadTransaction(this.address);
         }
         this.modal.classList.remove('active');
@@ -7099,7 +7100,15 @@ class ChatModal {
     async sendReadTransaction(contactAddress) {
         const contact = myData.contacts[contactAddress];
         const latestMessage = this.newestReceivedMessage;
+        // if the other party is not required to pay toll, then don't send a read transaction.
+        if (contact.tollRequiredToReceive === 0) {
+            console.log(`[sendReadTransaction] contact does not need to pay toll, skipping read transaction`)
+            return;
+        }
+        console.log(`[sendReadTransaction] contact.timestamp: ${contact.timestamp}, latestMessage.timestamp: ${latestMessage.timestamp}`)
+        console.log(`[sendReadTransaction] contact.timestamp < latestMessage.timestamp: ${contact.timestamp < latestMessage.timestamp}`)
         if (contact.timestamp < latestMessage.timestamp) {
+            console.log(`[sendReadTransaction] injecting read transaction`)
             const readTransaction = await this.createReadTransaction(contactAddress);
             const txid = await signObj(readTransaction, myAccount.keys)
             const response = await injectTx(readTransaction, txid)
