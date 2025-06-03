@@ -6960,6 +6960,7 @@ class ChatModal {
         this.retryOfTxId = document.getElementById('retryOfTxId');
         this.messageInput = document.querySelector('.message-input');
         this.newestReceivedMessage = null;
+        this.newestSentMessage = null;
         
         
         // used by updateTollValue and updateTollRequired
@@ -7089,6 +7090,9 @@ class ChatModal {
             console.log(`[close] invoking sendReadTransaction`)
             this.sendReadTransaction(this.address);
         }
+
+        this.sendReclaimTollTransaction(this.address);
+
         this.modal.classList.remove('active');
         if (document.getElementById('chatsScreen').classList.contains('active')) {
             updateChatList()
@@ -7104,6 +7108,71 @@ class ChatModal {
                 pollChatInterval(pollIntervalNormal) // back to polling at slower rate
             }
         }
+    }
+
+    /**
+     * Send a reclaim toll if the newest sent message is older than 7 days and the contact has a value not 0 in payOnReplay or payOnRead
+     * @param {string} contactAddress - The address of the contact
+     * @returns {Promise<void>}
+     */
+    async sendReclaimTollTransaction(contactAddress) {
+        console.log(`[sendReclaimTollTransaction] entering function`)
+        const sevenDaysAgo = getCorrectedTimestamp() -  (7 * 24 * 60 * 60 * 1000);
+        console.log(`this.newestSentMessage: ${!!this.newestSentMessage}`)
+        console.log(`this.newestSentMessage?.timestamp: ${this.newestSentMessage?.timestamp}`)
+        console.log(`sevenDaysAgo: ${sevenDaysAgo}`)
+        console.log(`this.newestSentMessage?.timestamp > sevenDaysAgo: ${this.newestSentMessage?.timestamp < sevenDaysAgo}`)
+        if (!this.newestSentMessage || this.newestSentMessage?.timestamp > sevenDaysAgo) {
+            console.log(`[sendReclaimTollTransaction] newestSentMessage is null or timestamp is less than 7 days ago, skipping reclaim toll transaction`)
+            return;
+        }
+        const canReclaimToll = await this.canSenderReclaimToll(contactAddress)
+        if (!canReclaimToll) {
+            console.log(`[sendReclaimTollTransaction] does not have a value not 0 in payOnReplay or payOnRead, skipping reclaim toll transaction`)
+            return;
+        }
+
+        const tx = {
+            type: 'reclaim_toll',
+            from: longAddress(myData.account.keys.address),
+            to: longAddress(contactAddress),
+            chatId: hashBytes([longAddress(myData.account.keys.address), longAddress(contactAddress)].sort().join``),
+            timestamp: getCorrectedTimestamp(),
+        }
+        const txid = await signObj(tx, myAccount.keys)
+        const response = await injectTx(tx, txid)
+        if (!response || !response.result || !response.result.success) {
+            console.warn('reclaim toll transaction failed to send', response)
+        } else {
+            console.log('reclaim toll transaction sent successfully')
+        }
+    }
+
+    /**
+     * return true if when we query chatID account , then check payOnReplay and payOnRead for index of the receiver has a value not 0
+     * @param {string} contactAddress - The address of the contact
+     * @returns {Promise<boolean>} - True if the contact has a value not 0 in payOnReplay or payOnRead, false otherwise
+     */
+    async canSenderReclaimToll(contactAddress) {
+        const contact = myData.contacts[contactAddress];
+        // keep track receiver index during the sort
+        const sortedAddresses = [longAddress(myData.account.keys.address), longAddress(contactAddress)].sort()
+        const receiverIndex = sortedAddresses.indexOf(longAddress(contactAddress))
+        const chatId = hashBytes(sortedAddresses.join``);
+        const chatIdAccount = await queryNetwork(`/messages/${chatId}/toll`)
+        if (!chatIdAccount || !chatIdAccount.toll) {
+            console.warn('chatIdAccount not found', chatIdAccount)
+            return false
+        }
+        const payOnReply = chatIdAccount.toll.payOnReply[receiverIndex] // bigint
+        const payOnRead = chatIdAccount.toll.payOnRead[receiverIndex] // bigint
+        if (payOnReply !== 0n) {
+            return true
+        }
+        if (payOnRead !== 0n) {
+            return true
+        }
+        return false
     }
 
     /**
@@ -7409,6 +7478,7 @@ class ChatModal {
         const newestReceivedItem = messages.find(item => !item.my);
         console.log('appendChatModal: Identified newestReceivedItem data:', newestReceivedItem);
         this.newestReceivedMessage = newestReceivedItem;
+        this.newestSentMessage = messages.find(item => item.my);
     
         // 2. Clear the entire list
         this.messagesList.innerHTML = '';
@@ -8397,8 +8467,9 @@ async function checkPendingTransactions() {
             //console.log(`DEBUG: txid ${txid} endpointPath: ${endpointPath}`);
             const res = await queryNetwork(endpointPath);
             //console.log(`DEBUG: txid ${txid} res: ${JSON.stringify(res)}`);
-
-            if (submittedts < thirtySecondsAgo && res.transaction === null) {
+            if (submittedts < thirtySecondsAgo && 
+                (res.transaction === null || Object.keys(res.transaction).length === 0)
+            ) {
                 console.error(`DEBUG: txid ${txid} timed out, removing completely`);
                 // remove the pending tx from the pending array
                 myData.pending.splice(i, 1);
