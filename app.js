@@ -7154,12 +7154,16 @@ class ChatModal {
      * @returns {Promise<boolean>} - True if the last message is from us and not a payment message, false otherwise
      */
     async hasUserResponded() {
-        // using from messagelist because new messages won't be added to myData until we do saveState()
-        const lastMessage = this.messagesList.lastElementChild;
+        // actually can grab from myData and newest message is first in array
+        const contact = myData.contacts[this.address];
+        if (!contact) {
+            return false;
+        }
+        const lastMessage = contact.messages[0];
         if (!lastMessage) {
             return false;
         }
-        return lastMessage.classList.contains('sent') && !lastMessage.classList.contains('payment-into');
+        return lastMessage?.my && !lastMessage.amount;
     }
 
     /**
