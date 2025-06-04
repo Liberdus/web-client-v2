@@ -6995,6 +6995,7 @@ class ChatModal {
         this.messageInput = document.querySelector('.message-input');
         this.newestReceivedMessage = null;
         this.newestSentMessage = null;
+        this.userResponded = false;
         
         
         // used by updateTollValue and updateTollRequired
@@ -7042,6 +7043,7 @@ class ChatModal {
      * @returns {void}
      */
     async open(address) {
+        this.userResponded = false;
         friendModal.setAddress(address);
         document.getElementById('newChatButton').classList.remove('visible');
         const contact = myData.contacts[address]
@@ -7120,8 +7122,11 @@ class ChatModal {
      * @returns {void}
      */
     close() {
-        // if newestRecevied message does not have an amount property, then send a read transaction
-        if (this.newestReceivedMessage && !this?.newestReceivedMessage?.amount) {
+        this.userResponded = this.hasUserResponded();
+
+        // if newestRecevied message does not have an amount property and user has not responded, then send a read transaction
+        if (this?.newestReceivedMessage && !this?.newestReceivedMessage?.amount && !this?.userResponded) {
+            this.hasResponded = false;
             this.sendReadTransaction(this.address);
         }
 
@@ -7142,6 +7147,19 @@ class ChatModal {
                 pollChatInterval(pollIntervalNormal) // back to polling at slower rate
             }
         }
+    }
+
+    /**
+     * Checks if the last message is from us and not a payment message
+     * @returns {Promise<boolean>} - True if the last message is from us and not a payment message, false otherwise
+     */
+    async hasUserResponded() {
+        // using from messagelist because new messages won't be added to myData until we do saveState()
+        const lastMessage = this.messagesList.lastElementChild;
+        if (!lastMessage) {
+            return false;
+        }
+        return lastMessage.classList.contains('sent') && !lastMessage.classList.contains('payment-into');
     }
 
     /**
