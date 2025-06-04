@@ -7156,11 +7156,11 @@ class ChatModal {
         if (!contact) {
             return false;
         }
-        const lastMessage = contact.messages[0];
+        const lastMessage = contact?.messages?.[0];
         if (!lastMessage) {
             return false;
         }
-        return lastMessage?.my && !lastMessage.amount;
+        return lastMessage?.my && !lastMessage?.amount;
     }
 
     /**
