@@ -7148,7 +7148,7 @@ class ChatModal {
 
     /**
      * Check if the user needs to send a read transaction since we don't need to send if we have replied to the message and if the last message is from the other party and the contact's timestamp is less than the latest message's timestamp
-     * @returns {Promise<boolean>} - True if the user needs to send a read transaction, false otherwise
+     * @returns {boolean} - True if the user needs to send a read transaction, false otherwise
      */
     needsToSend() {
         const contact = myData.contacts[this.address];
