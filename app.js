@@ -558,6 +558,11 @@ async function handleCreateAccount(event) {
     };
 
     // Create new data entry
+    try {
+        await getNetworkParams();
+    } catch (error) {
+        console.warn('Failed to fetch network parameters, using defaults:', error);
+    }
     myData = newDataRecord(myAccount);
     let waitingToastId = showToast('Creating account...', 0, 'loading');
     const res = await postRegisterAlias(username, myAccount.keys);
@@ -751,8 +756,8 @@ function newDataRecord(myAccount){
         },
         settings: {
             encrypt: true,
-            toll: parameters.current.defaultToll || 1n * wei,
-            tollUnit: parameters.current.defaultTollUnit || "LIB",
+            toll: parameters?.current?.defaultToll || 1n * wei,
+            tollUnit: parameters?.current?.defaultTollUnit || "LIB",
         }
     }
 
