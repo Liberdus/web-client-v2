@@ -7120,7 +7120,7 @@ class ChatModal {
      * @returns {void}
      */
     close() {
-        const userResponded = this.hasUserResponded();
+        const userResponded = this.needsToSend();
         console.log(`[close] userResponded: ${userResponded}`)
         // if newestRecevied message does not have an amount property and user has not responded, then send a read transaction
         if (this?.newestReceivedMessage && !this?.newestReceivedMessage?.amount && !userResponded) {
@@ -7147,21 +7147,45 @@ class ChatModal {
     }
 
     /**
-     * Checks if the last message is from us and not a payment message
-     * @returns {Promise<boolean>} - True if the last message is from us and not a payment message, false otherwise
+     * Check if the user needs to send a read transaction since we don't need to send if we have replied to the message and if the last message is from the other party and the contact's timestamp is less than the latest message's timestamp
+     * @returns {Promise<boolean>} - True if the user needs to send a read transaction, false otherwise
      */
-    hasUserResponded() {
-        // get newest message from first message in myData.contacts[this.address] 
+    needsToSend() {
         const contact = myData.contacts[this.address];
-        if (!contact) {
+        if (!contact?.messages?.length) {
             return false;
         }
-        const lastMessage = contact?.messages?.[0];
-        if (!lastMessage) {
+
+        // if the other party is not required to pay toll, then don't send a read transaction.
+        if (contact.tollRequiredToReceive === 0 || contact.friend === 2 || contact.friend === 3) {
             return false;
         }
-        return lastMessage?.my && !lastMessage?.amount;
+    
+        // Find the last relevant message
+        const lastChatMessage = contact.messages.find(message => {
+            // Skip payment-only messages 
+            if (message.amount) {
+                return false;
+            }
+            
+            // Include chat messages that are not payment messages
+            return true;
+        });
+    
+        if (!lastChatMessage) {
+            return false;
+        }
+        if (lastChatMessage.my) {
+            return false;
+        } else { 
+            // if the last message is from the other party, then we need to send a read transaction if the contact's timestamp is less than the latest message's timestamp
+            if (contact.timestamp < lastChatMessage.timestamp) {
+                return true;
+            }
+            return false;
+        }
     }
+
 
     /**
      * Send a reclaim toll if the newest sent message is older than 7 days and the contact has a value not 0 in payOnReplay or payOnRead
@@ -7236,25 +7260,17 @@ class ChatModal {
     async sendReadTransaction(contactAddress) {
         console.log(`[sendReadTransaction] entering function`)
         const contact = myData.contacts[contactAddress];
-        const latestMessage = this.newestReceivedMessage;
-        // if the other party is not required to pay toll, then don't send a read transaction.
-        if (contact.tollRequiredToReceive === 0) {
-            console.log(`[sendReadTransaction] contact does not need to pay toll, skipping read transaction`)
-            return;
-        }
-        console.log(`[sendReadTransaction] contact.timestamp: ${contact.timestamp}, latestMessage.timestamp: ${latestMessage.timestamp}`)
-        console.log(`[sendReadTransaction] contact.timestamp < latestMessage.timestamp: ${contact.timestamp < latestMessage.timestamp}`)
-        if (contact.timestamp < latestMessage.timestamp) {
-            console.log(`[sendReadTransaction] injecting read transaction`)
-            const readTransaction = await this.createReadTransaction(contactAddress);
-            const txid = await signObj(readTransaction, myAccount.keys)
-            showToast(`Sending read transaction`, 3000, 'info');
-            const response = await injectTx(readTransaction, txid)
-            if (!response || !response.result || !response.result.success) {
-                console.warn('read transaction failed to send', response)
-            } else {
-                contact.timestamp = readTransaction.timestamp;
-            }
+
+        console.log(`[sendReadTransaction] injecting read transaction`)
+        const readTransaction = await this.createReadTransaction(contactAddress);
+        const txid = await signObj(readTransaction, myAccount.keys)
+        showToast(`Sending read transaction`, 3000, 'info');
+
+        const response = await injectTx(readTransaction, txid)
+        if (!response || !response.result || !response.result.success) {
+            console.warn('read transaction failed to send', response)
+        } else {
+            contact.timestamp = readTransaction.timestamp;
         }
     }
 
