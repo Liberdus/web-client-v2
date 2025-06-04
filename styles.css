@@ -1100,7 +1100,7 @@ input[type="file"].form-control::file-selector-button {
 .message-input-container {
   min-height: 80px;
   padding: 16px;
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
   background: white;
   display: flex;
   gap: 12px;
