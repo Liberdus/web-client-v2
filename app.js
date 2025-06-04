@@ -7120,10 +7120,10 @@ class ChatModal {
      * @returns {void}
      */
     close() {
-        const userResponded = this.needsToSend();
-        console.log(`[close] userResponded: ${userResponded}`)
+        const needsToSendReadTx = this.needsToSend();
+        console.log(`[close] needsToSendReadTx: ${needsToSendReadTx}`)
         // if newestRecevied message does not have an amount property and user has not responded, then send a read transaction
-        if (this?.newestReceivedMessage && !this?.newestReceivedMessage?.amount && !userResponded) {
+        if (needsToSendReadTx) {
             this.sendReadTransaction(this.address);
         }
 
