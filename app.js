@@ -7123,7 +7123,7 @@ class ChatModal {
         const userResponded = this.hasUserResponded();
 
         // if newestRecevied message does not have an amount property and user has not responded, then send a read transaction
-        if (this?.newestReceivedMessage && !this?.newestReceivedMessage?.amount && userResponded) {
+        if (this?.newestReceivedMessage && !this?.newestReceivedMessage?.amount && !userResponded) {
             this.sendReadTransaction(this.address);
         }
 
