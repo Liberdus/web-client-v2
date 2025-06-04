@@ -7120,8 +7120,8 @@ class ChatModal {
      * @returns {void}
      */
     close() {
-        if (this.newestReceivedMessage) {
-            console.log(`[close] invoking sendReadTransaction`)
+        // if newestRecevied message does not have an amount property, then send a read transaction
+        if (this.newestReceivedMessage && !this?.newestReceivedMessage?.amount) {
             this.sendReadTransaction(this.address);
         }
 
