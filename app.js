@@ -7154,7 +7154,7 @@ class ChatModal {
      * @returns {Promise<boolean>} - True if the last message is from us and not a payment message, false otherwise
      */
     async hasUserResponded() {
-        // actually can grab from myData and newest message is first in array
+        // get newest message from first message in myData.contacts[this.address] 
         const contact = myData.contacts[this.address];
         if (!contact) {
             return false;
