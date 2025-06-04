@@ -6995,7 +6995,6 @@ class ChatModal {
         this.messageInput = document.querySelector('.message-input');
         this.newestReceivedMessage = null;
         this.newestSentMessage = null;
-        this.userResponded = false;
         
         
         // used by updateTollValue and updateTollRequired
@@ -7043,7 +7042,6 @@ class ChatModal {
      * @returns {void}
      */
     async open(address) {
-        this.userResponded = false;
         friendModal.setAddress(address);
         document.getElementById('newChatButton').classList.remove('visible');
         const contact = myData.contacts[address]
@@ -7122,11 +7120,10 @@ class ChatModal {
      * @returns {void}
      */
     close() {
-        this.userResponded = this.hasUserResponded();
+        const userResponded = this.hasUserResponded();
 
         // if newestRecevied message does not have an amount property and user has not responded, then send a read transaction
-        if (this?.newestReceivedMessage && !this?.newestReceivedMessage?.amount && !this?.userResponded) {
-            this.hasResponded = false;
+        if (this?.newestReceivedMessage && !this?.newestReceivedMessage?.amount && userResponded) {
             this.sendReadTransaction(this.address);
         }
 
