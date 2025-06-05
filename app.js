@@ -9138,7 +9138,6 @@ async function getNetworkParams() {
 getNetworkParams.timestamp = 0;
 
 function filterUsernameInput(e) {
-  console.log('DEBUG: filterUsernameInput');
   const input = e.target;
   const filteredValue = input.value.replace(/[^a-zA-Z0-9]/g, '');
   if (input.value !== filteredValue) {
@@ -9147,7 +9146,6 @@ function filterUsernameInput(e) {
 }
 
 function handlePaste(e) {
-  console.log('DEBUG: handlePaste');
   e.preventDefault(); // Prevent the default paste
   const pastedText = (e.clipboardData || window.clipboardData).getData('text');
   const filteredText = pastedText.replace(/[^a-zA-Z0-9]/g, '');
