@@ -3,5 +3,4 @@
 # Or configure globally: git config blame.ignoreRevsFile .git-blame-ignore-revs
 
 # ESLint and Prettier setup commit - contains only configuration changes
-bb461daea5c6af81110a52175d4eabe5ba8b99e2
-9b93d89813f9ea7150b1df86bcc5b1f86e64dc05
+3f0a3a2900c5b6e0783795e4b572825de0f18080
