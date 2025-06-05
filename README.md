@@ -25,40 +25,53 @@ Try out the application at [liberdus.com/test](https://liberdus.com/test)
 ### Prerequisites
 
 - Git
+- Node.js and npm (for development tools)
 - A local HTTP server (such as Python's `http.server`, Node.js `http-server`, or any other of your choice)
 
 ### Installation
 
 1. Clone this repository:
+
    ```
    git clone https://github.com/Liberdus/liberdus
    cd liberdus
    ```
 
-2. Start a local HTTP server in the cloned repository folder:
-   
+2. Install development dependencies (for linting and formatting):
+
+   ```
+   npm install
+   ```
+
+3. Start a local HTTP server in the cloned repository folder:
+
    Using Python:
+
    ```
    python -m http.server
    ```
-   
+
    Or using Node.js http-server:
+
    ```
    npx http-server
    ```
 
-3. Clone the proxy server repository:
+4. Clone the proxy server repository:
+
    ```
    git clone https://github.com/Liberdus/liberdus-proxy
    ```
 
-4. Run the proxy server:
+5. Run the proxy server:
    ```
    cd liberdus-proxy
    # Follow the setup instructions in the proxy server README
    ```
 
-5. Access the application in your browser at `http://localhost:8000` (or whichever port your HTTP server is using)
+TODO: add instructions to run collector
+
+6. Access the application in your browser at `http://localhost:8000` (or whichever port your HTTP server is using)
 
 ## Architecture
 
@@ -78,6 +91,31 @@ We welcome contributions from the community! To contribute:
 5. Commit your changes: `git commit -am 'Add some feature'`
 6. Push to the branch: `git push origin feature/my-new-feature`
 7. Submit a pull request
+
+### Code Style
+
+This project uses ESLint and Prettier to maintain consistent code formatting. The linting and formatting rules are automatically applied when you save files in VS Code.
+
+**VS Code Setup:**
+
+- Install the ESLint and Prettier extensions
+- The project includes VS Code settings that will automatically format your code on save
+
+**Manual Commands:**
+
+```bash
+# Check for linting errors
+npm run lint
+
+# Auto-fix linting errors
+npm run lint:fix
+
+# Format code with Prettier
+npm run format
+
+# Check if code is properly formatted
+npm run format:check
+```
 
 ## Security
 
