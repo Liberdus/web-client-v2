@@ -950,10 +950,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   // New Chat Modal
   newChatModal.load();
 
-  // Send Modal
+  // Send Asset Modal
   sendAssetFormModal.load();
 
-  // Add event listeners for send confirmation modal
+  // Add event listeners for send asset confirmation modal
   document
     .getElementById('closeSendAssetConfirmModal')
     .addEventListener('click', closeSendAssetConfirmModal);
@@ -8466,7 +8466,7 @@ class NewChatModal {
 
 const newChatModal = new NewChatModal();
 
-// Send Modal
+// Send Asset Form Modal
 class SendAssetFormModal {
   constructor() {
     this.modal = document.getElementById('sendAssetFormModal');
@@ -8488,7 +8488,7 @@ class SendAssetFormModal {
   }
 
   /**
-   * Loads the send modal event listeners
+   * Loads the send asset form modal event listeners
    * @returns {void}
    */
   load() {
@@ -8525,7 +8525,7 @@ class SendAssetFormModal {
   }
 
   /**
-   * Opens the send modal
+   * Opens the send asset modal
    * @returns {void}
    */
   async open() {
@@ -8562,7 +8562,7 @@ class SendAssetFormModal {
   }
 
   /**
-   * Closes the send modal
+   * Closes the send asset modal
    * @returns {void}
    */
   async close() {
@@ -8661,7 +8661,7 @@ class SendAssetFormModal {
       memoGroup.style.display = 'none';
     }
 
-    // Hide send modal and show confirmation modal
+    // Hide send asset modal and show confirmation modal
     this.modal.classList.remove('active');
 
     confirmButton.disabled = false;
@@ -8684,7 +8684,7 @@ class SendAssetFormModal {
   }
 
   /**
-   * Updates the available balance in the send modal based on the asset
+   * Updates the available balance in the send asset modal based on the asset
    * @returns {void}
    */
   async updateAvailableBalance() {
@@ -8706,7 +8706,7 @@ class SendAssetFormModal {
   }
 
   /**
-   * Updates the balance display in the send modal based on the asset
+   * Updates the balance display in the send asset modal based on the asset
    * @param {object} asset - The asset to update the balance display for
    * @returns {void}
    */
