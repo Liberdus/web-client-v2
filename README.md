@@ -117,6 +117,18 @@ npm run format
 npm run format:check
 ```
 
+**Git Blame and Linting:**
+
+To preserve meaningful git blame history, this project uses `.git-blame-ignore-revs` to ignore linting/formatting setup commits. Git is configured to automatically ignore these commits:
+
+```bash
+# View blame ignoring linting setup commits (automatic)
+git blame <filename>
+
+# Manual usage if needed
+git blame --ignore-revs-file .git-blame-ignore-revs <filename>
+```
+
 ## Security
 
 Security is our top priority. If you discover any security vulnerabilities, please report them responsibly by emailing security@liberdus.com instead of creating a public issue.
