@@ -174,7 +174,7 @@ function markConnectivityDependentElements() {
     "#newChatButton",
 
     // Wallet related
-    "#openSendModal",
+    "#openSendAssetFormModal",
     "#refreshBalance",
     '#sendForm button[type="submit"]',
 

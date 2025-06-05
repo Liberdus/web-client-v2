@@ -42,7 +42,7 @@ sequenceDiagram
 
     %% QR Code Scanning Flow
     User->>SendScreen: Opens Send screen
-    Note over SendScreen: openSendModal()
+    Note over SendScreen: openSendAssetFormModal()
 
     alt Camera Scanning
         User->>QRScanner: Initiates QR scan

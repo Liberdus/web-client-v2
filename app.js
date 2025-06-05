@@ -951,7 +951,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   newChatModal.load();
 
   // Send Modal
-  sendModal.load();
+  sendAssetFormModal.load();
 
   // Add event listeners for send confirmation modal
   document
@@ -1119,15 +1119,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('contactInfoSendButton').addEventListener('click', () => {
     const contactUsername = document.getElementById('contactInfoUsername');
     if (contactUsername) {
-      sendModal.username = contactUsername.textContent;
+      sendAssetFormModal.username = contactUsername.textContent;
     }
-    sendModal.open();
+    sendAssetFormModal.open();
   });
 
   document.getElementById('chatSendMoneyButton').addEventListener('click', (event) => {
     const button = event.currentTarget;
-    sendModal.username = button.dataset.username;
-    sendModal.open();
+    sendAssetFormModal.username = button.dataset.username;
+    sendAssetFormModal.open();
   });
 
   // Add listener for the password visibility toggle
@@ -2592,7 +2592,7 @@ async function handleSendAsset(event) {
       chatModal.appendChatModal(); // Re-render the chat modal and highlight the new item
     }
 
-    sendModal.close();
+    sendAssetFormModal.close();
     closeSendConfirmationModal();
     document.getElementById('sendToAddress').value = '';
     document.getElementById('sendAmount').value = '';
@@ -3104,10 +3104,10 @@ handleFailedPaymentClick.memo = '';
 
 /**
  * Invoked when the user clicks the retry button in the failed payment modal
- * It will fill the sendModal with the payment content and txid of the failed payment in a hidden input field in the sendModal
+ * It will fill the sendAssetFormModal with the payment content and txid of the failed payment in a hidden input field in the sendAssetFormModal
  */
 function handleFailedPaymentRetry() {
-  const retryOfPaymentTxId = sendModal.retryTxIdInput;
+  const retryOfPaymentTxId = sendAssetFormModal.retryTxIdInput;
 
   // close the failed payment modal
   const failedPaymentModal = document.getElementById('failedPaymentModal');
@@ -3115,23 +3115,23 @@ function handleFailedPaymentRetry() {
     failedPaymentModal.classList.remove('active');
   }
 
-  if (sendModal.modal && retryOfPaymentTxId) {
-    sendModal.open();
+  if (sendAssetFormModal.modal && retryOfPaymentTxId) {
+    sendAssetFormModal.open();
 
     // 1. fill in hidden retryOfPaymentTxId input
     retryOfPaymentTxId.value = handleFailedPaymentClick.txid;
 
     // 2. fill in the memo input
-    sendModal.querySelector('#sendMemo').value = handleFailedPaymentClick.memo;
+    sendAssetFormModal.querySelector('#sendMemo').value = handleFailedPaymentClick.memo;
 
     // 3. fill in the to address input
     // find username in myData.contacts[handleFailedPaymentClick.address].senderInfo.username
     // enter as an input to invoke the oninput event
-    sendModal.usernameInput.value =
+    sendAssetFormModal.usernameInput.value =
       myData.contacts[handleFailedPaymentClick.address]?.senderInfo?.username ||
       handleFailedPaymentClick.address ||
       '';
-    sendModal.usernameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    sendAssetFormModal.usernameInput.dispatchEvent(new Event('input', { bubbles: true }));
 
     // 4. fill in the amount input
     // get the amount from myData.wallet.history since we need to the bigint value
@@ -3140,7 +3140,7 @@ function handleFailedPaymentRetry() {
     )?.amount;
     // convert bigint to string
     const amountStr = big2str(amount, 18);
-    sendModal.amountInput.value = amountStr;
+    sendAssetFormModal.amountInput.value = amountStr;
   }
 }
 
@@ -4703,7 +4703,7 @@ function markConnectivityDependentElements() {
     '#chatSendMoneyButton',
 
     // Wallet related
-    '#openSendModal',
+    '#openSendAssetFormModal',
     '#refreshBalance',
     '#sendForm button[type="submit"]',
 
@@ -5620,7 +5620,7 @@ let wsManager = new WSManager(); // this is set to new WSManager() for convience
 
 function closeSendConfirmationModal() {
   document.getElementById('sendConfirmationModal').classList.remove('active');
-  document.getElementById('sendModal').classList.add('active');
+  document.getElementById('sendAssetFormModal').classList.add('active');
 }
 
 /**
@@ -8006,7 +8006,7 @@ class ChatModal {
         failedMessageModal.handleFailedPaymentClick(messageEl.dataset.txid, messageEl);
       }
 
-      // TODO: if message is a payment open sendModal and fill with information in the payment message?
+      // TODO: if message is a payment open sendAssetFormModal and fill with information in the payment message?
 
       return;
     }
@@ -8467,11 +8467,11 @@ class NewChatModal {
 const newChatModal = new NewChatModal();
 
 // Send Modal
-class SendModal {
+class SendAssetFormModal {
   constructor() {
-    this.modal = document.getElementById('sendModal');
-    this.openSendModalButton = document.getElementById('openSendModal');
-    this.closeSendModalButton = document.getElementById('closeSendModal');
+    this.modal = document.getElementById('sendAssetFormModal');
+    this.openSendAssetFormModalButton = document.getElementById('openSendAssetFormModal');
+    this.closeSendAssetFormModalButton = document.getElementById('closeSendAssetFormModal');
     this.sendForm = document.getElementById('sendForm');
     this.username = null;
     this.usernameInput = document.getElementById('sendToAddress');
@@ -8481,7 +8481,7 @@ class SendModal {
     this.usernameAvailable = document.getElementById('sendToAddressError');
     this.submitButton = document.querySelector('#sendForm button[type="submit"]');
     this.assetSelectDropdown = document.getElementById('sendAsset');
-    this.sendModalCheckTimeout = null;
+    this.sendAssetFormModalCheckTimeout = null;
     this.balanceSymbol = document.getElementById('balanceSymbol');
     this.availableBalance = document.getElementById('availableBalance');
     this.toggleBalanceButton = document.getElementById('toggleBalance');
@@ -8493,8 +8493,8 @@ class SendModal {
    */
   load() {
     // TODO add comment about which send form this is for chat or assets
-    this.openSendModalButton.addEventListener('click', this.open.bind(this));
-    this.closeSendModalButton.addEventListener('click', this.close.bind(this));
+    this.openSendAssetFormModalButton.addEventListener('click', this.open.bind(this));
+    this.closeSendAssetFormModalButton.addEventListener('click', this.close.bind(this));
     this.sendForm.addEventListener('submit', this.handleSendFormSubmit.bind(this));
     // TODO: need to add check that it's not a back/delete key
     this.usernameInput.addEventListener('input', async (e) => {
@@ -8584,8 +8584,8 @@ class SendModal {
     const usernameAvailable = this.usernameAvailable;
 
     // Clear previous timeout
-    if (this.sendModalCheckTimeout) {
-      clearTimeout(this.sendModalCheckTimeout);
+    if (this.sendAssetFormModalCheckTimeout) {
+      clearTimeout(this.sendAssetFormModalCheckTimeout);
     }
 
     // Check if username is too short
@@ -8598,7 +8598,7 @@ class SendModal {
     }
 
     // Check network availability
-    this.sendModalCheckTimeout = setTimeout(async () => {
+    this.sendAssetFormModalCheckTimeout = setTimeout(async () => {
       const taken = await checkUsernameAvailability(username, myAccount.keys.address);
       if (taken == 'taken') {
         usernameAvailable.textContent = 'found';
@@ -8857,7 +8857,7 @@ class SendModal {
   }
 }
 
-const sendModal = new SendModal();
+const sendAssetFormModal = new SendAssetFormModal();
 
 /**
  * Remove failed transaction from the contacts messages, pending, and wallet history
