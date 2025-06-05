@@ -1852,7 +1852,14 @@ function toggleMenu() {
 }
 
 // create new contact
-function createNewContact(addr, username) {
+/**
+ * createNewContact
+ * @param {string} addr - the address of the contact
+ * @param {string} username - the username of the contact
+ * @param {number = 1} friendStatus - the friend status of the contact, default is 1
+ * @returns {void}
+ */
+function createNewContact(addr, username, friendStatus = 1) {
   const address = normalizeAddress(addr);
   if (myData.contacts[address]) {
     return;
@@ -1868,7 +1875,7 @@ function createNewContact(addr, username) {
   c.toll = 0n;
   c.tollRequiredToReceive = 1;
   c.tollRequiredToSend = 1;
-  c.friend = 1;
+  c.friend = friendStatus;
 }
 
 /**
@@ -2417,7 +2424,7 @@ async function handleSendAsset(event) {
   }
 
   if (!myData.contacts[toAddress]) {
-    createNewContact(toAddress, username);
+    createNewContact(toAddress, username, 2);
   }
 
   // Get recipient's public key from contacts
@@ -2522,11 +2529,12 @@ async function handleSendAsset(event) {
         } */
 
     // Create contact if it doesn't exit
-    if (!myData.contacts[toAddress].messages) {
-      createNewContact(toAddress);
+    /* if (!myData.contacts[toAddress].messages) {
+      const username = document.getElementById('sendToAddress').value;
+      createNewContact(toAddress, username, 2);
       // TODO can pass the username to createNewConact and get rid of the following line
-      myData.contacts[toAddress].username = normalizeUsername(recipientInput);
-    }
+      // myData.contacts[toAddress].username = normalizeUsername(recipientInput);
+    } */
 
     // Add transaction to history
     const currentTime = getCorrectedTimestamp();
@@ -8388,7 +8396,7 @@ class NewChatModal {
 
     // Check if contact exists
     if (!chatsData.contacts[recipientAddress]) {
-      createNewContact(recipientAddress);
+      createNewContact(recipientAddress, username, 2);
     }
     chatsData.contacts[recipientAddress].username = username;
 
