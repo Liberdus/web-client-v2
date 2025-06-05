@@ -3,6 +3,11 @@
     "browser": true,
     "es2021": true
   },
+  "globals": {
+    "network": "readonly",
+    "QRCode": "readonly",
+    "qr": "readonly"
+  },
   "extends": ["eslint:recommended", "plugin:prettier/recommended"],
   "parserOptions": {
     "ecmaVersion": "latest",
@@ -10,7 +15,7 @@
   },
   "rules": {
     "no-unused-vars": "warn",
-    "no-console": "warn",
+    "no-console": "off",
     "prettier/prettier": "error"
   }
 }
