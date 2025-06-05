@@ -955,10 +955,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Add event listeners for send confirmation modal
   document
-    .getElementById('closeSendConfirmationModal')
-    .addEventListener('click', closeSendConfirmationModal);
+    .getElementById('closeSendAssetConfirmModal')
+    .addEventListener('click', closeSendAssetConfirmModal);
   document.getElementById('confirmSendButton').addEventListener('click', handleSendAsset);
-  document.getElementById('cancelSendButton').addEventListener('click', closeSendConfirmationModal);
+  document.getElementById('cancelSendButton').addEventListener('click', closeSendAssetConfirmModal);
 
   document.getElementById('openReceiveModal').addEventListener('click', openReceiveModal);
   document.getElementById('closeReceiveModal').addEventListener('click', closeReceiveModal);
@@ -2593,7 +2593,7 @@ async function handleSendAsset(event) {
     }
 
     sendAssetFormModal.close();
-    closeSendConfirmationModal();
+    closeSendAssetConfirmModal();
     document.getElementById('sendToAddress').value = '';
     document.getElementById('sendAmount').value = '';
     document.getElementById('sendMemo').value = '';
@@ -5618,7 +5618,7 @@ class WSManager {
 
 let wsManager = new WSManager(); // this is set to new WSManager() for convience
 
-function closeSendConfirmationModal() {
+function closeSendAssetConfirmModal() {
   document.getElementById('sendAssetConfirmModal').classList.remove('active');
   document.getElementById('sendAssetFormModal').classList.add('active');
 }
