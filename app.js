@@ -1153,6 +1153,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // create account button listener to clear message input on create account
   document.getElementById('newUsername').addEventListener('input', handleCreateAccountInput);
+  document.getElementById('newUsername').addEventListener('paste', handlePaste);
+  document.getElementById('newUsername').addEventListener('input', filterUsernameInput);
 
   // Event Listerns for FailedPaymentModal
   const failedPaymentModal = document.getElementById('failedPaymentModal');
@@ -8251,6 +8253,8 @@ class NewChatModal {
       'input',
       debounce(this.handleUsernameInput.bind(this), 300)
     );
+    this.recipientInput.addEventListener('paste', handlePaste);
+    this.recipientInput.addEventListener('input', filterUsernameInput);
   }
 
   /**
@@ -8474,6 +8478,8 @@ class SendModal {
     });
     // event listener for toggle LIB/USD button
     this.toggleBalanceButton.addEventListener('click', this.handleToggleBalance.bind(this));
+    this.usernameInput.addEventListener('paste', handlePaste);
+    this.usernameInput.addEventListener('input', filterUsernameInput);
   }
 
   /**
@@ -9130,3 +9136,30 @@ async function getNetworkParams() {
   }
 }
 getNetworkParams.timestamp = 0;
+
+function filterUsernameInput(e) {
+  console.log('DEBUG: filterUsernameInput');
+  const input = e.target;
+  const filteredValue = input.value.replace(/[^a-zA-Z0-9]/g, '');
+  if (input.value !== filteredValue) {
+    input.value = filteredValue;
+  }
+}
+
+function handlePaste(e) {
+  console.log('DEBUG: handlePaste');
+  e.preventDefault(); // Prevent the default paste
+  const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+  const filteredText = pastedText.replace(/[^a-zA-Z0-9]/g, '');
+  const input = e.target;
+
+  // Get the current cursor position
+  const start = input.selectionStart;
+  const end = input.selectionEnd;
+
+  // Insert the filtered text at cursor position
+  input.value = input.value.substring(0, start) + filteredText + input.value.substring(end);
+
+  // Set cursor position after the pasted text
+  input.setSelectionRange(start + filteredText.length, start + filteredText.length);
+}

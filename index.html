@@ -215,7 +215,15 @@
                 >Recipient
                 <span id="chatRecipientError" style="color: #dc3545; display: none"></span
               ></label>
-              <input type="text" id="chatRecipient" class="form-control" required />
+              <input
+                type="text"
+                id="chatRecipient"
+                class="form-control"
+                placeholder="Enter username"
+                required
+                pattern="[a-zA-Z0-9]*"
+                inputmode="text"
+              />
             </div>
             <button type="submit" class="update-button">Continue</button>
           </form>
@@ -402,6 +410,8 @@
                   class="form-control"
                   placeholder="Select a username"
                   required
+                  pattern="[a-zA-Z0-9]*"
+                  inputmode="text"
                 />
               </div>
             </div>
@@ -831,6 +841,8 @@
                   class="form-control"
                   placeholder="Enter username or address"
                   required
+                  pattern="[a-zA-Z0-9]*"
+                  inputmode="text"
                   style="flex: 1"
                 />
                 <button
