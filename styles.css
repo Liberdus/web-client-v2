@@ -22,7 +22,7 @@
   --button-hover-background: #e4e6e9;
   --highlight-background: #f0f2f5;
 
-  --font-primary: "Inter", sans-serif;
+  --font-primary: 'Inter', sans-serif;
   --font-monospace: monospace;
   --font-size-xs: 12px;
   --font-size-sm: 14px;
@@ -142,12 +142,7 @@ body::-webkit-scrollbar-thumb {
 #chatList::-webkit-scrollbar-thumb:hover,
 .container::-webkit-scrollbar-thumb:hover,
 body::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(
-    61,
-    61,
-    206,
-    0.4
-  ); /* Brand color on hover with transparency */
+  background-color: rgba(61, 61, 206, 0.4); /* Brand color on hover with transparency */
 }
 
 /* For Firefox */
@@ -384,7 +379,7 @@ body {
 }
 
 .icon-button#search::before {
-  content: "";
+  content: '';
   width: 20px;
   height: 20px;
   display: block;
@@ -399,7 +394,7 @@ body {
 }
 
 .icon-button#toggleMenu::before {
-  content: "";
+  content: '';
   width: 20px;
   height: 20px;
   display: block;
@@ -547,7 +542,7 @@ body {
 }
 
 .empty-state::before {
-  content: "";
+  content: '';
   display: block;
   width: 48px;
   height: 48px;
@@ -744,7 +739,7 @@ button:disabled {
 
 /* Notification indicator */
 .nav-button::after {
-  content: "";
+  content: '';
   position: absolute;
   top: 4px;
   right: 25%;
@@ -762,7 +757,7 @@ button:disabled {
 }
 
 .nav-button::before {
-  content: "";
+  content: '';
   width: 24px;
   height: 24px;
   background-position: center;
@@ -878,7 +873,7 @@ button:disabled {
 }
 
 .back-button::before {
-  content: "";
+  content: '';
   width: 24px;
   height: 24px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='15 18 9 12 15 6'%3E%3C/polyline%3E%3C/svg%3E");
@@ -1023,12 +1018,12 @@ textarea.form-control {
 }
 
 /* File input specific styles */
-input[type="file"].form-control {
+input[type='file'].form-control {
   padding: 0;
   height: auto;
 }
 
-input[type="file"].form-control::file-selector-button {
+input[type='file'].form-control::file-selector-button {
   height: 56px;
   padding: 0 20px;
   margin-right: 15px;
@@ -1060,7 +1055,9 @@ input[type="file"].form-control::file-selector-button {
   display: none;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s, background-color 0.2s;
+  transition:
+    transform 0.2s,
+    background-color 0.2s;
   /* z-index: 1000; */
   opacity: 0.68;
 }
@@ -1307,7 +1304,7 @@ input[type="file"].form-control::file-selector-button {
 }
 
 .balance-amount::before {
-  content: "";
+  content: '';
   width: 32px;
   height: 32px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%233d3dce' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='1' x2='12' y2='23'%3E%3C/line%3E%3Cpath d='M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'%3E%3C/path%3E%3C/svg%3E");
@@ -1329,7 +1326,7 @@ input[type="file"].form-control::file-selector-button {
 }
 
 .refresh-button::before {
-  content: "";
+  content: '';
   width: 24px;
   height: 24px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3'/%3E%3C/svg%3E");
@@ -1370,7 +1367,7 @@ input[type="file"].form-control::file-selector-button {
 
 /* Notification indicator for wallet action buttons */
 .wallet-action-button::after {
-  content: "";
+  content: '';
   position: absolute;
   top: 4px; /* Adjust vertical position if needed */
   right: 10px; /* Adjust horizontal position if needed */
@@ -1554,7 +1551,7 @@ input[type="file"].form-control::file-selector-button {
 }
 
 /* Style the text that shows the selected file */
-input[type="file"].form-control {
+input[type='file'].form-control {
   color: #9ca3af;
   padding-right: 15px;
   display: flex;
@@ -1566,7 +1563,7 @@ input[type="file"].form-control {
   margin-bottom: 0.1rem;
 }
 
-#receiveModal .form-group div[style*="display: flex"]:has(#displayAddress) {
+#receiveModal .form-group div[style*='display: flex']:has(#displayAddress) {
   display: flex !important;
   align-items: flex-start !important;
   gap: 8px !important;
@@ -1609,7 +1606,7 @@ input[type="file"].form-control {
 }
 
 #copyAddress::before {
-  content: "";
+  content: '';
   width: 20px;
   height: 20px;
   background-position: center;
@@ -1744,13 +1741,13 @@ input[type="file"].form-control {
 }
 
 /* Number input specific styles */
-#sendModal input[type="number"] {
+#sendModal input[type='number'] {
   appearance: textfield;
   -moz-appearance: textfield;
 }
 
-#sendModal input[type="number"]::-webkit-outer-spin-button,
-#sendModal input[type="number"]::-webkit-inner-spin-button {
+#sendModal input[type='number']::-webkit-outer-spin-button,
+#sendModal input[type='number']::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
@@ -1911,7 +1908,7 @@ input[type="file"].form-control {
 }
 
 #aboutModal .back-button::before {
-  content: "";
+  content: '';
   width: 24px;
   height: 24px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='15 18 9 12 15 6'%3E%3C/polyline%3E%3C/svg%3E");
@@ -2211,7 +2208,7 @@ pre.log-message {
 }
 
 /* Style for failed sent messages */
-.message.sent[data-status="failed"] {
+.message.sent[data-status='failed'] {
   background-color: #8a8ad8; /* Slightly desaturated blue */
   border: 1px solid rgba(255, 255, 255, 0.3);
   position: relative; /* Needed for absolute positioning of the icon */
@@ -2220,8 +2217,8 @@ pre.log-message {
 }
 
 /* Change ::before to ::after and adjust positioning */
-.message.sent[data-status="failed"]::after {
-  content: "!";
+.message.sent[data-status='failed']::after {
+  content: '!';
   position: absolute;
   left: 100%; /* Position at the right edge */
   margin-left: 8px; /* Add space to the right */
@@ -2479,7 +2476,7 @@ mark {
 }
 
 .dropdown-menu-button::before {
-  content: "";
+  content: '';
   width: 20px;
   height: 20px;
   display: block;
@@ -2530,7 +2527,7 @@ mark {
 }
 
 .field-action-button::before {
-  content: "";
+  content: '';
   width: 20px;
   height: 20px;
   background-position: center;
@@ -2583,7 +2580,7 @@ mark {
 
 .icon-button.cancel-button::before,
 .icon-button.save-button::before {
-  content: ""; /* Ensure content is set */
+  content: ''; /* Ensure content is set */
   width: 24px; /* Adjust width */
   height: 24px; /* Adjust height */
   background-position: center; /* Center the background */
@@ -2686,7 +2683,7 @@ mark {
 }
 
 .toast.loading::before {
-  content: "";
+  content: '';
   width: 20px;
   height: 20px;
   border: 2px solid rgba(255, 255, 255, 0.3);
@@ -2737,7 +2734,10 @@ mark {
   border-radius: 12px;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.3s ease, width 0.3s ease, padding 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    width 0.3s ease,
+    padding 0.3s ease;
   animation: pulse 2s infinite;
   /* Keep in the normal flow but with zero width when hidden */
   display: flex;
@@ -2751,7 +2751,7 @@ mark {
 }
 
 /* When visible, restore width and padding */
-.offline-indicator[style*="opacity: 1"] {
+.offline-indicator[style*='opacity: 1'] {
   width: auto;
   padding: 4px 8px;
   overflow: visible;
@@ -2781,7 +2781,7 @@ mark {
 }
 
 .offline-disabled::before {
-  content: "";
+  content: '';
   position: absolute;
   top: 0;
   left: 0;
@@ -2799,7 +2799,7 @@ mark {
 }
 
 .offline-disabled:hover::after {
-  content: "Requires internet connection";
+  content: 'Requires internet connection';
   position: absolute;
   bottom: 100%;
   left: 50%;
@@ -2981,7 +2981,7 @@ mark {
   white-space: nowrap;
 }
 
-.default-toggle input[type="radio"] {
+.default-toggle input[type='radio'] {
   margin: 0;
   accent-color: var(--primary-color);
 }
@@ -3038,7 +3038,7 @@ mark {
 }
 
 .random-option::before {
-  content: "Recommended";
+  content: 'Recommended';
   position: absolute;
   top: -10px;
   right: 10px;
@@ -3155,7 +3155,7 @@ mark {
     line-height: 1.25 !important;
   }
 
-  #receiveModal .form-group div[style*="display: flex"]:has(#displayAddress) {
+  #receiveModal .form-group div[style*='display: flex']:has(#displayAddress) {
     gap: 6px !important;
   }
 
@@ -3250,13 +3250,13 @@ mark {
 }
 
 .qr-data-toggle::before {
-  content: "−";
+  content: '−';
   font-size: 16px;
   line-height: 1;
 }
 
 .qr-data-preview.minimized .qr-data-toggle::before {
-  content: "+";
+  content: '+';
 }
 
 #receiveModal .form-group .form-group {
@@ -3270,13 +3270,13 @@ mark {
   max-height: 120px;
 }
 
-#receiveModal input[type="number"] {
+#receiveModal input[type='number'] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
 
-#receiveModal input[type="number"]::-webkit-outer-spin-button,
-#receiveModal input[type="number"]::-webkit-inner-spin-button {
+#receiveModal input[type='number']::-webkit-outer-spin-button,
+#receiveModal input[type='number']::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
@@ -3394,7 +3394,7 @@ mark {
 }
 
 .scanner-guide::before {
-  content: "";
+  content: '';
   position: absolute;
   top: 0;
   left: 0;
@@ -3469,14 +3469,14 @@ mark {
 }
 
 /* Remove spinner buttons from number inputs */
-input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button {
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
 /* For Firefox */
-input[type="number"] {
+input[type='number'] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
@@ -4118,15 +4118,15 @@ small {
 }
 
 /* Style for failed transactions in history */
-.transaction-item[data-status="failed"] {
+.transaction-item[data-status='failed'] {
   background-color: rgba(220, 53, 69, 0.08); /* Light red background */
   border-left: 3px solid var(--danger-color); /* Red border on the left */
   position: relative; /* Needed for absolute positioning of the icon */
   padding-right: 32px; /* Space for the icon on the right */
 }
 
-.transaction-item[data-status="failed"]::after {
-  content: "!";
+.transaction-item[data-status='failed']::after {
+  content: '!';
   position: absolute;
   right: 8px; /* Position at the right of the transaction item */
   top: 50%;
@@ -4145,15 +4145,15 @@ small {
 }
 
 /* Style for failed payment messages in chat */
-.message.sent.payment-info[data-status="failed"] {
+.message.sent.payment-info[data-status='failed'] {
   background-color: #8a8ad8; /* Slightly desaturated blue */
   border: 1px solid rgba(255, 255, 255, 0.3);
   position: relative; /* Needed for absolute positioning of the icon */
   margin-right: 32px; /* Add margin to push bubble left */
 }
 
-.message.sent.payment-info[data-status="failed"]::after {
-  content: "!";
+.message.sent.payment-info[data-status='failed']::after {
+  content: '!';
   position: absolute;
   left: 100%; /* Position at the right edge */
   margin-left: 8px; /* Add space to the right */
@@ -4241,7 +4241,7 @@ small {
   background-color: var(--hover-background);
 }
 
-.transaction-item[data-status="failed"] {
+.transaction-item[data-status='failed'] {
   border-left: 4px solid var(--danger-color);
   padding-left: 10px; /* Add some padding so content doesn't touch the border */
 }
@@ -4372,7 +4372,9 @@ small {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
   white-space: nowrap; /* Prevent text like "USD" from wrapping */
   display: flex;
   align-items: center;
@@ -4467,9 +4469,7 @@ small {
 /* Help text or subtext for form elements */
 .help-text {
   font-size: 0.8rem; /* Smaller than the main label */
-  color: var(
-    --secondary-text-color
-  ); /* Muted text color (similar to bootstrap's text-muted) */
+  color: var(--secondary-text-color); /* Muted text color (similar to bootstrap's text-muted) */
   display: block; /* Ensures it takes its own line */
   margin-bottom: 0.5rem; /* Space before the element below it (the value box) */
   text-align: left; /* Align text to the left, assuming labels are left-aligned */
@@ -4519,7 +4519,7 @@ small {
   background-color: var(--hover-color);
 }
 
-.radio-option input[type="radio"] {
+.radio-option input[type='radio'] {
   margin: 0;
   margin-right: 12px;
   margin-top: 2px;
@@ -4544,11 +4544,11 @@ small {
   padding-left: 8px;
 }
 
-.radio-option input[type="radio"]:checked {
+.radio-option input[type='radio']:checked {
   accent-color: var(--primary-color);
 }
 
-.radio-option input[type="radio"]:checked + .radio-content .radio-label {
+.radio-option input[type='radio']:checked + .radio-content .radio-label {
   color: var(--primary-color);
 }
 

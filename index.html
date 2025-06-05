@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <!-- These did not seem to help with avoiding stale pages
@@ -74,9 +74,7 @@
         <div class="app-name">Liberdus</div>
         <div class="header-icons">
           <div class="offline-indicator" id="offlineIndicator">Offline</div>
-          <div id="wsStatusIndicator" class="ws-status-indicator">
-            WebSocket
-          </div>
+          <div id="wsStatusIndicator" class="ws-status-indicator">WebSocket</div>
           <button class="icon-button" id="toggleMenu"></button>
         </div>
       </header>
@@ -102,18 +100,10 @@
           ></div>
         </h1>
         <div class="welcome-buttons">
-          <button id="signInButton" class="secondary-button hidden">
-            Sign In
-          </button>
-          <button id="createAccountButton" class="secondary-button hidden">
-            Create Account
-          </button>
-          <button id="importAccountButton" class="secondary-button hidden">
-            Restore Account
-          </button>
-          <button id="addToHomeScreenButton" class="secondary-button hidden">
-            Install
-          </button>
+          <button id="signInButton" class="secondary-button hidden">Sign In</button>
+          <button id="createAccountButton" class="secondary-button hidden">Create Account</button>
+          <button id="importAccountButton" class="secondary-button hidden">Restore Account</button>
+          <button id="addToHomeScreenButton" class="secondary-button hidden">Install</button>
         </div>
         <div style="font-size: 0.8rem; margin-top: 10px; text-align: center">
           Version <span id="versionDisplay"></span>
@@ -122,13 +112,7 @@
         <a
           class="last-item"
           href="#"
-          style="
-            display: block;
-            width: 0;
-            height: 0;
-            border: none;
-            background: none;
-          "
+          style="display: block; width: 0; height: 0; border: none; background: none"
           id="welcomeScreenLastItem"
         >
         </a>
@@ -213,13 +197,7 @@
         <a
           class="last-item"
           href="#"
-          style="
-            display: block;
-            width: 0;
-            height: 0;
-            border: none;
-            background: none;
-          "
+          style="display: block; width: 0; height: 0; border: none; background: none"
         >
         </a>
       </footer>
@@ -235,30 +213,16 @@
             <div class="form-group">
               <label for="recipient"
                 >Recipient
-                <span
-                  id="chatRecipientError"
-                  style="color: #dc3545; display: none"
-                ></span
+                <span id="chatRecipientError" style="color: #dc3545; display: none"></span
               ></label>
-              <input
-                type="text"
-                id="chatRecipient"
-                class="form-control"
-                required
-              />
+              <input type="text" id="chatRecipient" class="form-control" required />
             </div>
             <button type="submit" class="update-button">Continue</button>
           </form>
           <a
             class="last-item"
             href="#"
-            style="
-              display: block;
-              width: 0;
-              height: 0;
-              border: none;
-              background: none;
-            "
+            style="display: block; width: 0; height: 0; border: none; background: none"
           >
           </a>
         </div>
@@ -289,13 +253,7 @@
         <a
           class="last-item"
           href="#"
-          style="
-            display: block;
-            width: 0;
-            height: 0;
-            border: none;
-            background: none;
-          "
+          style="display: block; width: 0; height: 0; border: none; background: none"
         >
         </a>
       </div>
@@ -316,13 +274,7 @@
           <a
             class="last-item"
             href="#"
-            style="
-              display: block;
-              width: 0;
-              height: 0;
-              border: none;
-              background: none;
-            "
+            style="display: block; width: 0; height: 0; border: none; background: none"
           >
           </a>
         </div>
@@ -343,19 +295,13 @@
             />
             <p>Liberdus is a decentralized messaging and wallet application.</p>
             <br /><br />
-            <div
-              style="font-size: 0.8rem; margin-top: 10px; text-align: center"
-            >
+            <div style="font-size: 0.8rem; margin-top: 10px; text-align: center">
               Version <span id="versionDisplayAbout"></span>
             </div>
-            <div
-              style="font-size: 0.8rem; margin-top: 10px; text-align: center"
-            >
+            <div style="font-size: 0.8rem; margin-top: 10px; text-align: center">
               Network Name: <span id="networkNameAbout"></span>
             </div>
-            <div
-              style="font-size: 0.8rem; margin-top: 10px; text-align: center"
-            >
+            <div style="font-size: 0.8rem; margin-top: 10px; text-align: center">
               Net ID:<br />
               <span style="font-size: 0.7rem" id="netIdAbout"></span>
             </div>
@@ -364,9 +310,7 @@
               <a href="https://liberdus.com" target="_blank">Liberdus.com</a>
             </div>
             <p>
-              <a href="https://github.com/liberdus" target="_blank"
-                >Source Code</a
-              >
+              <a href="https://github.com/liberdus" target="_blank">Source Code</a>
             </p>
             <br />
             <p>
@@ -380,20 +324,12 @@
             <a href="service-worker.js" target="_blank">service-worker.js</a>
             <br />
             <p>
-              <a href="./external/noble-post-quantum.js" target="_blank"
-                >noble-post-quantum.js</a
-              >
-              <a href="./external/noble-secp256k1.js" target="_blank"
-                >noble-secp256k1.js</a
-              >
-              <a href="./external/noble-ciphers.js" target="_blank"
-                >noble-ciphers.js</a
-              >
+              <a href="./external/noble-post-quantum.js" target="_blank">noble-post-quantum.js</a>
+              <a href="./external/noble-secp256k1.js" target="_blank">noble-secp256k1.js</a>
+              <a href="./external/noble-ciphers.js" target="_blank">noble-ciphers.js</a>
               <a href="./external/blake2b.js" target="_blank">blake2b.js</a>
               <a href="./external/keccak256.js" target="_blank">keccak256.js</a>
-              <a href="./external/stringify-shardus.js" target="_blank"
-                >stringify-shardus.js</a
-              >
+              <a href="./external/stringify-shardus.js" target="_blank">stringify-shardus.js</a>
               <a href="./external/qrcode.js" target="_blank">qrcode.js</a>
             </p>
           </div>
@@ -401,13 +337,7 @@
         <a
           class="last-item"
           href="#"
-          style="
-            display: block;
-            width: 0;
-            height: 0;
-            border: none;
-            background: none;
-          "
+          style="display: block; width: 0; height: 0; border: none; background: none"
         >
         </a>
       </div>
@@ -430,9 +360,7 @@
               ></label>
               <select id="username" class="form-control" required></select>
             </div>
-            <button type="submit" class="update-button" disabled>
-              Sign In
-            </button>
+            <button type="submit" class="update-button" disabled>Sign In</button>
             <button
               type="button"
               id="removeAccountButton"
@@ -445,13 +373,7 @@
           <a
             class="last-item"
             href="#"
-            style="
-              display: block;
-              width: 0;
-              height: 0;
-              border: none;
-              background: none;
-            "
+            style="display: block; width: 0; height: 0; border: none; background: none"
             id="signInModalLastItem"
           >
           </a>
@@ -469,9 +391,7 @@
             <div class="form-group">
               <label for="newUsername"
                 >Username
-                <span
-                  id="newUsernameAvailable"
-                  style="color: #28a745; display: none"
+                <span id="newUsernameAvailable" style="color: #28a745; display: none"
                   >available</span
                 ></label
               >
@@ -487,9 +407,7 @@
             </div>
             <div class="form-group">
               <input type="checkbox" id="togglePrivateKeyInput" />
-              <label
-                for="togglePrivateKeyInput"
-                style="display: inline; margin-left: 5px"
+              <label for="togglePrivateKeyInput" style="display: inline; margin-left: 5px"
                 >Use my own private key (Advanced)</label
               >
             </div>
@@ -497,10 +415,7 @@
               <div class="form-group">
                 <label for="newPrivateKey"
                   >Private Key
-                  <span
-                    id="newPrivateKeyError"
-                    style="color: #dc3545; display: none"
-                  ></span
+                  <span id="newPrivateKeyError" style="color: #dc3545; display: none"></span
                 ></label>
                 <div style="position: relative">
                   <input
@@ -516,26 +431,17 @@
                   ></button>
                 </div>
                 <small>
-                  If you want to use an existing private key enter it here.
-                  Otherwise you can leave this empty to have a private key
-                  automatically generated.
+                  If you want to use an existing private key enter it here. Otherwise you can leave
+                  this empty to have a private key automatically generated.
                 </small>
               </div>
             </div>
-            <button type="submit" class="update-button" disabled>
-              Create Account
-            </button>
+            <button type="submit" class="update-button" disabled>Create Account</button>
           </form>
           <a
             class="last-item"
             href="#"
-            style="
-              display: block;
-              width: 0;
-              height: 0;
-              border: none;
-              background: none;
-            "
+            style="display: block; width: 0; height: 0; border: none; background: none"
           >
           </a>
         </div>
@@ -548,9 +454,7 @@
           <div class="modal-title">My Profile</div>
         </div>
         <div class="form-container">
-          <div class="profile-sharing-note">
-            This information is shared with your friends
-          </div>
+          <div class="profile-sharing-note">This information is shared with your friends</div>
           <form id="accountForm">
             <div class="form-group">
               <label for="name">Name</label>
@@ -577,13 +481,7 @@
           <a
             class="last-item"
             href="#"
-            style="
-              display: block;
-              width: 0;
-              height: 0;
-              border: none;
-              background: none;
-            "
+            style="display: block; width: 0; height: 0; border: none; background: none"
           >
           </a>
         </div>
@@ -621,13 +519,7 @@
           <a
             class="last-item"
             href="#"
-            style="
-              display: block;
-              width: 0;
-              height: 0;
-              border: none;
-              background: none;
-            "
+            style="display: block; width: 0; height: 0; border: none; background: none"
           >
           </a>
         </div>
@@ -686,13 +578,7 @@
         <a
           class="last-item"
           href="#"
-          style="
-            display: block;
-            width: 0;
-            height: 0;
-            border: none;
-            background: none;
-          "
+          style="display: block; width: 0; height: 0; border: none; background: none"
         >
         </a>
       </div>
@@ -772,13 +658,7 @@
         <a
           class="last-item"
           href="#"
-          style="
-            display: block;
-            width: 0;
-            height: 0;
-            border: none;
-            background: none;
-          "
+          style="display: block; width: 0; height: 0; border: none; background: none"
         >
         </a>
       </div>
@@ -796,9 +676,7 @@
                 <input type="radio" name="friendStatus" value="3" checked />
                 <div class="radio-content">
                   <span class="radio-label">Friend</span>
-                  <span class="radio-description"
-                    >Share my profile info and no toll required</span
-                  >
+                  <span class="radio-description">Share my profile info and no toll required</span>
                 </div>
               </label>
               <label class="radio-option status-2">
@@ -825,7 +703,11 @@
             </div>
             <button type="submit" class="update-button">Update</button>
           </form>
-          <a class="last-item" href="#" style="display: block; width: 0; height: 0; border: none; background: none;"></a>
+          <a
+            class="last-item"
+            href="#"
+            style="display: block; width: 0; height: 0; border: none; background: none"
+          ></a>
         </div>
       </div>
 
@@ -858,17 +740,10 @@
                 style="color: #007bff; margin-top: 4px; flex-shrink: 0"
               ></button>
             </div>
-            <div
-              id="qrcode"
-              style="margin-top: 1rem; display: flex; justify-content: center"
-            ></div>
+            <div id="qrcode" style="margin-top: 1rem; display: flex; justify-content: center"></div>
 
             <!-- QR Code Preview (Moved here) -->
-            <div
-              id="qrDataPreview"
-              class="form-control qr-data-preview"
-              style="display: none"
-            >
+            <div id="qrDataPreview" class="form-control qr-data-preview" style="display: none">
               <!-- Error messages will be placed here directly by JS -->
             </div>
           </div>
@@ -904,13 +779,7 @@
         <a
           class="last-item"
           href="#"
-          style="
-            display: block;
-            width: 0;
-            height: 0;
-            border: none;
-            background: none;
-          "
+          style="display: block; width: 0; height: 0; border: none; background: none"
         >
         </a>
       </div>
@@ -933,13 +802,7 @@
         <a
           class="last-item"
           href="#"
-          style="
-            display: block;
-            width: 0;
-            height: 0;
-            border: none;
-            background: none;
-          "
+          style="display: block; width: 0; height: 0; border: none; background: none"
         >
         </a>
       </div>
@@ -959,10 +822,7 @@
             <div class="form-group">
               <label for="sendToAddress"
                 >Recipient
-                <span
-                  id="sendToAddressError"
-                  style="color: #dc3545; display: none"
-                ></span
+                <span id="sendToAddressError" style="color: #dc3545; display: none"></span
               ></label>
               <div style="display: flex; align-items: center; gap: 0.5rem">
                 <input
@@ -980,12 +840,7 @@
                   title="Upload QR Code"
                   style="flex-shrink: 0"
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="24"
-                    height="24"
-                    style="fill: #007bff"
-                  >
+                  <svg viewBox="0 0 24 24" width="24" height="24" style="fill: #007bff">
                     <path
                       d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"
                     />
@@ -998,12 +853,7 @@
                   title="Scan QR Code"
                   style="flex-shrink: 0"
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="24"
-                    height="24"
-                    style="fill: #007bff"
-                  >
+                  <svg viewBox="0 0 24 24" width="24" height="24" style="fill: #007bff">
                     <path
                       d="M3,3 L10,3 L10,10 L3,10 Z M5,5 L5,8 L8,8 L8,5 Z M14,3 L21,3 L21,10 L14,10 Z M16,5 L16,8 L19,8 L19,5 Z M3,14 L10,14 L10,21 L3,21 Z M5,16 L5,19 L8,19 L8,16 Z M14,14 L21,14 L21,21 L14,21 Z M16,16 L16,19 L19,19 L19,16 Z M11,3 L13,3 L13,10 L11,10 Z M11,14 L13,14 L13,21 L11,21 Z M3,11 L10,11 L10,13 L3,13 Z M14,11 L21,11 L21,13 L14,13 Z"
                     />
@@ -1045,55 +895,36 @@
               <div id="availableBalance" class="available-balance">
                 <div class="balance-info">
                   <span
-                    >Available: <span id="balanceAmount">0.00</span>
-                    <span id="balanceSymbol"></span
+                    >Available: <span id="balanceAmount">0.00</span> <span id="balanceSymbol"></span
                   ></span>
-                  <span class="fee-info"
-                    >Fee: <span id="transactionFee">0.00</span> LIB</span
-                  >
+                  <span class="fee-info">Fee: <span id="transactionFee">0.00</span> LIB</span>
                 </div>
               </div>
             </div>
             <div class="form-group">
               <label for="sendMemo">Memo (Optional)</label>
-              <textarea
-                id="sendMemo"
-                class="form-control"
-                maxlength="2000"
-              ></textarea>
+              <textarea id="sendMemo" class="form-control" maxlength="2000"></textarea>
             </div>
             <input type="hidden" id="retryOfPaymentTxId" />
             <button type="submit" class="update-button">Send</button>
           </form>
 
           <!-- QR Scan Container -->
-          <div
-            id="qrScannerContainer"
-            class="qr-scanner-container"
-            style="display: none"
-          >
+          <div id="qrScannerContainer" class="qr-scanner-container" style="display: none">
             <video id="qrVideo" playsinline autoplay></video>
             <div class="scanner-overlay">
               <div class="scanner-guide"></div>
             </div>
             <div class="scanner-controls">
               <button id="closeScanner" class="scanner-button">Cancel</button>
-              <button id="switchCamera" class="scanner-button">
-                Switch Camera
-              </button>
+              <button id="switchCamera" class="scanner-button">Switch Camera</button>
             </div>
           </div>
         </div>
         <a
           class="last-item"
           href="#"
-          style="
-            display: block;
-            width: 0;
-            height: 0;
-            border: none;
-            background: none;
-          "
+          style="display: block; width: 0; height: 0; border: none; background: none"
         >
         </a>
       </div>
@@ -1123,21 +954,13 @@
               <div id="confirmMemo" class="confirm-value"></div>
             </div>
           </div>
-          <button id="confirmSendButton" class="update-button">
-            Confirm Send
-          </button>
+          <button id="confirmSendButton" class="update-button">Confirm Send</button>
           <button id="cancelSendButton" class="secondary-button">Cancel</button>
         </div>
         <a
           class="last-item"
           href="#"
-          style="
-            display: block;
-            width: 0;
-            height: 0;
-            border: none;
-            background: none;
-          "
+          style="display: block; width: 0; height: 0; border: none; background: none"
         >
         </a>
       </div>
@@ -1164,13 +987,7 @@
           <a
             class="last-item"
             href="#"
-            style="
-              display: block;
-              width: 0;
-              height: 0;
-              border: none;
-              background: none;
-            "
+            style="display: block; width: 0; height: 0; border: none; background: none"
           >
           </a>
         </div>
@@ -1186,19 +1003,11 @@
           <div id="gatewayList" class="gateway-list">
             <!-- Gateway items will be populated here -->
           </div>
-          <button id="addGatewayButton" class="update-button">
-            Add Gateway
-          </button>
+          <button id="addGatewayButton" class="update-button">Add Gateway</button>
           <a
             class="last-item"
             href="#"
-            style="
-              display: block;
-              width: 0;
-              height: 0;
-              border: none;
-              background: none;
-            "
+            style="display: block; width: 0; height: 0; border: none; background: none"
           >
           </a>
         </div>
@@ -1255,13 +1064,7 @@
           <a
             class="last-item"
             href="#"
-            style="
-              display: block;
-              width: 0;
-              height: 0;
-              border: none;
-              background: none;
-            "
+            style="display: block; width: 0; height: 0; border: none; background: none"
           >
           </a>
         </div>
@@ -1276,29 +1079,18 @@
         <div class="form-container">
           <div style="padding: 1rem">
             <p>
-              Before removing your account, please export your account data to
-              ensure you have a backup. This action only removes the account
-              from this device and not from the network. You can use the account
-              again after restoring it from the backup file.
+              Before removing your account, please export your account data to ensure you have a
+              backup. This action only removes the account from this device and not from the
+              network. You can use the account again after restoring it from the backup file.
             </p>
-            <button
-              id="confirmRemoveAccount"
-              class="update-button"
-              style="margin-top: 1rem"
-            >
+            <button id="confirmRemoveAccount" class="update-button" style="margin-top: 1rem">
               Remove
             </button>
           </div>
           <a
             class="last-item"
             href="#"
-            style="
-              display: block;
-              width: 0;
-              height: 0;
-              border: none;
-              background: none;
-            "
+            style="display: block; width: 0; height: 0; border: none; background: none"
           >
           </a>
         </div>
@@ -1328,13 +1120,7 @@
           <a
             class="last-item"
             href="#"
-            style="
-              display: block;
-              width: 0;
-              height: 0;
-              border: none;
-              background: none;
-            "
+            style="display: block; width: 0; height: 0; border: none; background: none"
           >
           </a>
         </div>
@@ -1364,13 +1150,7 @@
           <a
             class="last-item"
             href="#"
-            style="
-              display: block;
-              width: 0;
-              height: 0;
-              border: none;
-              background: none;
-            "
+            style="display: block; width: 0; height: 0; border: none; background: none"
           >
           </a>
         </div>
@@ -1403,10 +1183,7 @@
                     id="editContactNameInput"
                     placeholder="Enter contact name"
                   />
-                  <button
-                    class="field-action-button clear"
-                    aria-label="Add"
-                  ></button>
+                  <button class="field-action-button clear" aria-label="Add"></button>
                 </div>
               </div>
             </div>
@@ -1430,13 +1207,7 @@
           <a
             class="last-item"
             href="#"
-            style="
-              display: block;
-              width: 0;
-              height: 0;
-              border: none;
-              background: none;
-            "
+            style="display: block; width: 0; height: 0; border: none; background: none"
           >
           </a>
         </div>
@@ -1450,10 +1221,7 @@
         </div>
         <div class="modal-content">
           <!-- Loading State -->
-          <div
-            id="validator-loading"
-            style="text-align: center; padding: 1rem; display: none"
-          >
+          <div id="validator-loading" style="text-align: center; padding: 1rem; display: none">
             <div class="spinner"></div>
             <!-- Add spinner styles if needed -->
             Loading validator details...
@@ -1463,22 +1231,13 @@
           <div
             id="validator-error-message"
             class="error-message"
-            style="
-              display: none;
-              padding: 1rem;
-              color: #dc3545;
-              text-align: center;
-            "
+            style="display: none; padding: 1rem; color: #dc3545; text-align: center"
           >
             <!-- Error text will be populated here -->
           </div>
 
           <!-- Validator Details Display Area -->
-          <div
-            id="validator-details"
-            class="validator-info-container"
-            style="display: block"
-          >
+          <div id="validator-details" class="validator-info-container" style="display: block">
             <div class="info-section">
               <h4>Your Stake Info</h4>
               <!-- New Skeleton Bars for Pending Nominee Info -->
@@ -1509,9 +1268,7 @@
                 ></span>
               </div>
               <div class="info-item vertical-layout">
-                <span class="info-label" id="validator-nominee-label"
-                  >Nominated Validator:</span
-                >
+                <span class="info-label" id="validator-nominee-label">Nominated Validator:</span>
                 <span class="info-value code" id="validator-nominee"></span>
               </div>
               <div class="info-item" id="validator-user-stake-lib-item">
@@ -1528,17 +1285,11 @@
               <h4>Network Staking Info</h4>
               <div class="info-item">
                 <span class="info-label">Min Stake Required (USD):</span>
-                <span
-                  class="info-value"
-                  id="validator-network-stake-usd"
-                ></span>
+                <span class="info-value" id="validator-network-stake-usd"></span>
               </div>
               <div class="info-item">
                 <span class="info-label">Min Stake Required (LIB):</span>
-                <span
-                  class="info-value"
-                  id="validator-network-stake-lib"
-                ></span>
+                <span class="info-value" id="validator-network-stake-lib"></span>
               </div>
               <div class="info-item">
                 <span class="info-label">Stability Factor (USD/LIB):</span>
@@ -1557,33 +1308,18 @@
 
           <div class="action-item">
             <button id="openStakeModal" class="button full-width">Stake</button>
-            <p class="action-description">
-              Delegate LIB to a validator node to earn rewards.
-            </p>
+            <p class="action-description">Delegate LIB to a validator node to earn rewards.</p>
           </div>
 
           <div class="action-item">
-            <button
-              id="submitUnstake"
-              class="button full-width secondary-button"
-            >
-              Unstake
-            </button>
-            <p class="action-description">
-              Withdraw your delegated LIB from a validator node.
-            </p>
+            <button id="submitUnstake" class="button full-width secondary-button">Unstake</button>
+            <p class="action-description">Withdraw your delegated LIB from a validator node.</p>
           </div>
         </div>
         <a
           class="last-item"
           href="#"
-          style="
-            display: block;
-            width: 0;
-            height: 0;
-            border: none;
-            background: none;
-          "
+          style="display: block; width: 0; height: 0; border: none; background: none"
         >
         </a>
       </div>
@@ -1599,8 +1335,7 @@
           <div class="toll-display-area">
             <label for="currentTollValue">Current Toll Amount</label>
             <div class="form-text help-text">
-              This is the toll amount a sender must pay to send a message or
-              payment to you.
+              This is the toll amount a sender must pay to send a message or payment to you.
             </div>
             <div id="tollAmountLIB" class="current-toll-value-box">
               <span id="tollAmountLIB">N/A LIB</span>
@@ -1614,8 +1349,9 @@
             <div class="form-group">
               <label for="newTollAmountInput">Set New Toll Amount</label>
               <div class="form-text help-text">
-                Sets a new toll amount a sender must pay to send a message or
-                payment to you. All tolls are received in LIB. If you enter a USD amount, you will receive the equivalent LIB value at market price.
+                Sets a new toll amount a sender must pay to send a message or payment to you. All
+                tolls are received in LIB. If you enter a USD amount, you will receive the
+                equivalent LIB value at market price.
               </div>
               <div class="amount-container">
                 <input
@@ -1627,30 +1363,18 @@
                   min="0"
                   required
                 />
-                <button
-                  type="button"
-                  id="toggleTollCurrency"
-                  class="toggle-balance"
-                >
+                <button type="button" id="toggleTollCurrency" class="toggle-balance">
                   <span id="tollCurrencySymbol">LIB</span>
                 </button>
               </div>
             </div>
-            <button type="submit" id="saveNewTollButton" class="update-button">
-              Save Changes
-            </button>
+            <button type="submit" id="saveNewTollButton" class="update-button">Save Changes</button>
           </form>
         </div>
         <a
           class="last-item"
           href="#"
-          style="
-            display: block;
-            width: 0;
-            height: 0;
-            border: none;
-            background: none;
-          "
+          style="display: block; width: 0; height: 0; border: none; background: none"
         >
         </a>
       </div>
@@ -1681,12 +1405,7 @@
                   title="Upload Stake Address QR"
                   style="flex-shrink: 0"
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="24"
-                    height="24"
-                    style="fill: #007bff"
-                  >
+                  <svg viewBox="0 0 24 24" width="24" height="24" style="fill: #007bff">
                     <path
                       d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"
                     />
@@ -1699,12 +1418,7 @@
                   title="Scan Stake Address QR"
                   style="flex-shrink: 0"
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="24"
-                    height="24"
-                    style="fill: #007bff"
-                  >
+                  <svg viewBox="0 0 24 24" width="24" height="24" style="fill: #007bff">
                     <path
                       d="M3,3 L10,3 L10,10 L3,10 Z M5,5 L5,8 L8,8 L8,5 Z M14,3 L21,3 L21,10 L14,10 Z M16,5 L16,8 L19,8 L19,5 Z M3,14 L10,14 L10,21 L3,21 Z M5,16 L5,19 L8,19 L8,16 Z M14,14 L21,14 L21,21 L14,21 Z M16,16 L16,19 L19,19 L19,16 Z M11,3 L13,3 L13,10 L11,10 Z M11,14 L13,14 L13,21 L11,21 Z M3,11 L10,11 L10,13 L3,13 Z M14,11 L21,11 L21,13 L14,13 Z"
                     />
@@ -1733,10 +1447,7 @@
             </div>
             <div class="form-group">
               <label for="stakeAmount">Stake Amount</label>
-              <div
-                id="stakeAvailableBalanceDisplay"
-                class="available-balance-display"
-              ></div>
+              <div id="stakeAvailableBalanceDisplay" class="available-balance-display"></div>
               <input
                 type="number"
                 id="stakeAmount"
@@ -1746,26 +1457,14 @@
                 min="0.000000000000000001"
                 step="any"
               />
-              <div
-                id="stakeAmountWarning"
-                class="validation-warning"
-                style="display: none"
-              ></div>
+              <div id="stakeAmountWarning" class="validation-warning" style="display: none"></div>
             </div>
-            <button type="submit" id="submitStake" class="button full-width">
-              Submit Stake
-            </button>
+            <button type="submit" id="submitStake" class="button full-width">Submit Stake</button>
           </form>
           <a
             class="last-item"
             href="#"
-            style="
-              display: block;
-              width: 0;
-              height: 0;
-              border: none;
-              background: none;
-            "
+            style="display: block; width: 0; height: 0; border: none; background: none"
           >
           </a>
         </div>
@@ -1787,13 +1486,7 @@
         <a
           class="last-item"
           href="#"
-          style="
-            display: block;
-            width: 0;
-            height: 0;
-            border: none;
-            background: none;
-          "
+          style="display: block; width: 0; height: 0; border: none; background: none"
         >
         </a>
       </div>
@@ -1807,25 +1500,15 @@
           </div>
           <div class="form-container">
             <div class="modal-actions">
-              <button type="button" class="secondary-button delete-button">
-                Delete
-              </button>
-              <button type="button" class="update-button retry-button">
-                Edit & Resend
-              </button>
+              <button type="button" class="secondary-button delete-button">Delete</button>
+              <button type="button" class="update-button retry-button">Edit & Resend</button>
             </div>
           </div>
         </div>
         <a
           class="last-item"
           href="#"
-          style="
-            display: block;
-            width: 0;
-            height: 0;
-            border: none;
-            background: none;
-          "
+          style="display: block; width: 0; height: 0; border: none; background: none"
         >
         </a>
       </div>
@@ -1839,12 +1522,8 @@
           </div>
           <div class="form-container">
             <div class="modal-actions">
-              <button type="button" class="secondary-button delete-button">
-                Delete
-              </button>
-              <button type="button" class="update-button retry-button">
-                Edit & Resend
-              </button>
+              <button type="button" class="secondary-button delete-button">Delete</button>
+              <button type="button" class="update-button retry-button">Edit & Resend</button>
             </div>
           </div>
         </div>
@@ -1858,48 +1537,48 @@
         </div>
         <div class="form-container">
           <p class="modal-summary">
-            Enter an email, phone number, or both. If both are provided, an
-            invitation will be sent to each.
+            Enter an email, phone number, or both. If both are provided, an invitation will be sent
+            to each.
           </p>
           <form id="inviteForm">
             <div class="form-group">
               <label for="inviteEmail">Email</label>
-              <input type="email" id="inviteEmail" class="form-control" placeholder="Enter email address" />
+              <input
+                type="email"
+                id="inviteEmail"
+                class="form-control"
+                placeholder="Enter email address"
+              />
             </div>
             <div class="form-group">
               <label for="invitePhone">Phone Number</label>
-              <input type="tel" id="invitePhone" class="form-control" placeholder="Enter phone number" />
+              <input
+                type="tel"
+                id="invitePhone"
+                class="form-control"
+                placeholder="Enter phone number"
+              />
             </div>
             <button type="submit" class="update-button">Send Invitation</button>
           </form>
-          <a class="last-item" href="#" style="display: block; width: 0; height: 0; border: none; background: none;"></a>
+          <a
+            class="last-item"
+            href="#"
+            style="display: block; width: 0; height: 0; border: none; background: none"
+          ></a>
         </div>
       </div>
 
       <a
         class="last-item"
         href="#"
-        style="
-          display: block;
-          width: 0;
-          height: 0;
-          border: none;
-          background: none;
-        "
+        style="display: block; width: 0; height: 0; border: none; background: none"
       >
       </a>
     </div>
     <!-- Audio element for notification sounds -->
-    <audio
-      id="notificationSound"
-      src="media/chatSound.mp3"
-      preload="auto"
-    ></audio>
-    <audio
-      id="transferSound"
-      src="media/paymentSound.mp3"
-      preload="auto"
-    ></audio>
+    <audio id="notificationSound" src="media/chatSound.mp3" preload="auto"></audio>
+    <audio id="transferSound" src="media/paymentSound.mp3" preload="auto"></audio>
     <!-- Toast container -->
     <div class="toast-container" id="toastContainer"></div>
   </body>
