@@ -5619,7 +5619,7 @@ class WSManager {
 let wsManager = new WSManager(); // this is set to new WSManager() for convience
 
 function closeSendConfirmationModal() {
-  document.getElementById('sendConfirmationModal').classList.remove('active');
+  document.getElementById('sendAssetConfirmModal').classList.remove('active');
   document.getElementById('sendAssetFormModal').classList.add('active');
 }
 
@@ -8666,7 +8666,7 @@ class SendAssetFormModal {
 
     confirmButton.disabled = false;
     cancelButton.disabled = false;
-    document.getElementById('sendConfirmationModal').classList.add('active');
+    document.getElementById('sendAssetConfirmModal').classList.add('active');
   }
 
   /**

@@ -3551,29 +3551,29 @@ small {
 }
 
 /* Send Confirmation Modal Styles */
-#sendConfirmationModal .form-container {
+#sendAssetConfirmModal .form-container {
   padding: 16px;
   width: 100%;
   max-width: 390px;
   margin: 0 auto;
 }
 
-#sendConfirmationModal .confirmation-details {
+#sendAssetConfirmModal .confirmation-details {
   margin-bottom: 24px;
   background-color: rgba(61, 61, 206, 0.08);
   border-radius: 12px;
   padding: 16px;
 }
 
-#sendConfirmationModal .form-group {
+#sendAssetConfirmModal .form-group {
   margin-bottom: 16px;
 }
 
-#sendConfirmationModal .form-group:last-child {
+#sendAssetConfirmModal .form-group:last-child {
   margin-bottom: 0;
 }
 
-#sendConfirmationModal label {
+#sendAssetConfirmModal label {
   display: block;
   font-size: var(--font-size-sm);
   color: var(--secondary-text-color);
@@ -3581,7 +3581,7 @@ small {
   font-weight: var(--font-weight-medium);
 }
 
-#sendConfirmationModal .confirm-value {
+#sendAssetConfirmModal .confirm-value {
   font-size: var(--font-size-base);
   color: var(--text-color);
   padding: 12px 16px;
@@ -3592,8 +3592,8 @@ small {
   border: 1px solid var(--border-color);
 }
 
-#sendConfirmationModal .update-button,
-#sendConfirmationModal .secondary-button {
+#sendAssetConfirmModal .update-button,
+#sendAssetConfirmModal .secondary-button {
   width: calc(100% - 32px);
   height: 48px;
   border-radius: 24px;
@@ -3604,39 +3604,39 @@ small {
   transition: all 0.2s ease;
 }
 
-#sendConfirmationModal .update-button {
+#sendAssetConfirmModal .update-button {
   background-color: var(--primary-color);
   color: var(--background-color);
   border: none;
 }
 
-#sendConfirmationModal .update-button:hover {
+#sendAssetConfirmModal .update-button:hover {
   background-color: var(--primary-hover);
   opacity: 0.9;
 }
 
-#sendConfirmationModal .secondary-button {
+#sendAssetConfirmModal .secondary-button {
   background-color: var(--danger-color);
   color: var(--background-color);
   border: none;
 }
 
-#sendConfirmationModal .secondary-button:hover {
+#sendAssetConfirmModal .secondary-button:hover {
   background-color: var(--hover-background-dark);
   opacity: 0.9;
 }
 
-#sendConfirmationModal #confirmAmount {
+#sendAssetConfirmModal #confirmAmount {
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
   color: var(--text-color);
 }
 
-#sendConfirmationModal #confirmMemoGroup {
+#sendAssetConfirmModal #confirmMemoGroup {
   opacity: 0.8;
 }
 
-#sendConfirmationModal #confirmMemo {
+#sendAssetConfirmModal #confirmMemo {
   font-style: italic;
   background-color: rgba(61, 61, 206, 0.04);
 }
