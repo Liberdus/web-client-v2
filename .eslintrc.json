@@ -8,14 +8,16 @@
     "QRCode": "readonly",
     "qr": "readonly"
   },
-  "extends": ["eslint:recommended", "plugin:prettier/recommended"],
+  "extends": [
+    "eslint:recommended",
+    "prettier"
+  ],
   "parserOptions": {
     "ecmaVersion": "latest",
     "sourceType": "module"
   },
   "rules": {
     "no-unused-vars": "warn",
-    "no-console": "off",
-    "prettier/prettier": "error"
+    "no-console": "off"
   }
 }
