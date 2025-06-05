@@ -7336,6 +7336,8 @@ class ChatModal {
       contact.username ||
       `${contact.address.slice(0, 8)}...${contact.address.slice(-6)}`;
 
+    updateWalletBalances();
+
     // update the toll value. Will not await this and it'll update the toll value while the modal is open.
     updateTollValue(address);
 
