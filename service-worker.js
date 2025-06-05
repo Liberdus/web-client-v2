@@ -16,8 +16,6 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-
-
 // Handle messages from the client
 self.addEventListener('message', (event) => {
   const { type } = event.data;
