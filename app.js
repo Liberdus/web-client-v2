@@ -1498,8 +1498,8 @@ async function updateChatList() {
       // Check if the latest activity is a payment/transfer message
       if (typeof latestActivity.amount === 'bigint') {
         // Latest item is a payment/transfer
-        const amountStr = big2str(latestActivity.amount, 18);
-        const amountDisplay = `${amountStr.slice(0, 6)} ${latestActivity.symbol || 'LIB'}`;
+        const amountStr = parseFloat(big2str(latestActivity.amount, 18)).toFixed(6);
+        const amountDisplay = `${amountStr} ${latestActivity.symbol || 'LIB'}`;
         const directionText = latestActivity.my ? '-' : '+';
         // Create payment preview text
         previewHTML = `<span class="payment-preview">${directionText} ${amountDisplay}</span>`;
@@ -1897,13 +1897,13 @@ function updateTollAmountUI(address) {
   let mainString, otherString;
   if (mainIsUSD) {
     toll = bigxnum2big(toll, (1.0 / factor).toString());
-    mainString = mainValue.toFixed(4) + ' USD';
+    mainString = mainValue.toFixed(6) + ' USD';
     const libValue = mainValue / factor;
     otherString = libValue.toFixed(6) + ' LIB';
   } else {
     mainString = mainValue.toFixed(6) + ' LIB';
     const usdValue = mainValue * factor;
-    otherString = usdValue.toFixed(4) + ' USD';
+    otherString = usdValue.toFixed(6) + ' USD';
   }
   let display;
   if (contact.tollRequiredToSend == 1) {
@@ -3231,7 +3231,7 @@ async function updateWalletView() {
                     <div class="asset-name">${asset.name}</div>
                     <div class="asset-symbol">$${asset.price} / ${asset.symbol}</div>
                 </div>
-                <div class="asset-balance">${(Number(asset.balance) / Number(wei)).toPrecision(4)}<br><span class="asset-symbol">$${asset.networth}</span></div>
+                <div class="asset-balance">${(Number(asset.balance) / Number(wei)).toFixed(6)}<br><span class="asset-symbol">$${asset.networth.toFixed(6)}</span></div>
             </div>
         `;
     })
@@ -3346,7 +3346,7 @@ async function updateTransactionHistory() {
                     ${tx.sign === -1 ? '↑ Sent' : '↓ Received'}
                 </div>
                 <div class="transaction-amount">
-                    ${tx.sign === -1 ? '-' : '+'} ${(Number(tx.amount) / Number(wei)).toPrecision(4)} ${asset.symbol}
+                    ${tx.sign === -1 ? '-' : '+'} ${(Number(tx.amount) / Number(wei)).toFixed(6)} ${asset.symbol}
                 </div>
             </div>
             <div class="transaction-details">
@@ -6853,8 +6853,8 @@ class ValidatorStakingModal {
       // stakeAmountLibBaseUnits is a BigInt object or null. Pass its string representation.
       const displayNetworkStakeLib =
         stakeAmountLibBaseUnits !== null ? big2str(stakeAmountLibBaseUnits, 18).slice(0, 7) : 'N/A';
-      const displayStabilityFactor = stabilityFactor ? stabilityFactor.toFixed(4) : 'N/A';
-      const displayMarketPrice = marketPrice ? '$' + marketPrice.toFixed(4) : 'N/A';
+      const displayStabilityFactor = stabilityFactor ? stabilityFactor.toFixed(6) : 'N/A';
+      const displayMarketPrice = marketPrice ? '$' + marketPrice.toFixed(6) : 'N/A';
       // marketStakeUsdBaseUnits is a BigInt object or null. Pass its string representation.
       const displayMarketStakeUsd =
         marketStakeUsdBaseUnits !== null
@@ -6878,7 +6878,7 @@ class ValidatorStakingModal {
         // userStakedBaseUnits is a BigInt object or null/undefined. Pass its string representation.
         const displayUserStakedLib =
           userStakedBaseUnits != null ? big2str(userStakedBaseUnits, 18).slice(0, 6) : 'N/A';
-        const displayUserStakedUsd = userStakedUsd != null ? '$' + userStakedUsd.toFixed(4) : 'N/A';
+        const displayUserStakedUsd = userStakedUsd != null ? '$' + userStakedUsd.toFixed(6) : 'N/A';
 
         this.nomineeLabelElement.textContent = 'Nominated Validator:';
         this.nomineeValueElement.textContent = nominee;
@@ -7907,7 +7907,8 @@ class ChatModal {
         // Assuming LIB (18 decimals) for now. TODO: Handle different asset decimals if needed.
         // Format amount correctly using big2str
         const amountStr = big2str(itemAmount, 18);
-        const amountDisplay = `${amountStr.slice(0, 6)} ${item.symbol || 'LIB'}`; // Use item.symbol or fallback
+        const amountNum = parseFloat(amountStr);
+        const amountDisplay = `${amountNum.toFixed(6)} ${item.symbol || 'LIB'}`;
 
         // Check item.my for sent/received
 
@@ -9009,6 +9010,9 @@ async function checkPendingTransactions() {
             );
             // revert the local myData.settings.toll to the old value
             tollModal.editMyDataToll(tollModal.oldToll);
+            // need to refresh the toll modal
+            tollModal.close();
+            tollModal.open();
           } else if (type === 'update_toll_required') {
             showToast(
               `Update contact status failed: ${failureReason}. Reverting contact to old status.`,
