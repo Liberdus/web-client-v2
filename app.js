@@ -9010,9 +9010,6 @@ async function checkPendingTransactions() {
             );
             // revert the local myData.settings.toll to the old value
             tollModal.editMyDataToll(tollModal.oldToll);
-            // refresh to show fallback old toll
-            tollModal.close();
-            tollModal.open();
           } else if (type === 'update_toll_required') {
             showToast(
               `Update contact status failed: ${failureReason}. Reverting contact to old status.`,
