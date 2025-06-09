@@ -397,12 +397,12 @@
         <div class="form-container">
           <form id="createAccountForm">
             <div class="form-group">
-              <label for="newUsername"
-                >Username
-                <span id="newUsernameAvailable" style="color: #28a745; display: none"
-                  >available</span
-                ></label
-              >
+              <label for="newUsername">
+                Username
+                <span id="newUsernameAvailable" style="color: #28a745; display: none">
+                  available
+                </span>
+              </label>
               <div style="position: relative">
                 <input
                   type="text"
@@ -412,6 +412,7 @@
                   required
                   pattern="[a-zA-Z0-9]*"
                   inputmode="text"
+                  maxlength="20"
                 />
               </div>
             </div>
