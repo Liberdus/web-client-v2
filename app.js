@@ -8525,6 +8525,8 @@ class SendAssetFormModal {
     this.availableBalance = document.getElementById('availableBalance');
     this.toggleBalanceButton = document.getElementById('toggleBalance');
     this.sendTollValue = document.getElementById('sendTollValue');
+    this.toll = 0n;
+    this.tollUnit = 'LIB';
   }
 
   /**
