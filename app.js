@@ -1923,7 +1923,7 @@ function updateTollAmountUI(address) {
 /**
  * updateTollRequired queries contact object and updates the tollRequiredByMe and tollRequiredByOther fields
  * @param {string} address - the address of the contact
- * @returns {void}
+ * @returns {Promise<void>}
  */
 async function updateTollRequired(address) {
   const myAddr = longAddress(myAccount.keys.address);
@@ -1969,7 +1969,7 @@ async function updateTollRequired(address) {
  * Invoked when opening chatModal. In the background, it will query the contact's toll field from the network.
  * If the queried toll value is different from the toll field in localStorage, it will update the toll field in localStorage and update the UI element that displays the toll field value.
  * @param {string} address - the address of the contact
- * @returns {void}
+ * @returns {Promise<void>}
  */
 async function updateTollValue(address) {
   // query the contact's toll field from the network
@@ -8524,6 +8524,7 @@ class SendAssetFormModal {
     this.balanceSymbol = document.getElementById('balanceSymbol');
     this.availableBalance = document.getElementById('availableBalance');
     this.toggleBalanceButton = document.getElementById('toggleBalance');
+    this.sendTollValue = document.getElementById('sendTollValue');
   }
 
   /**
@@ -8536,8 +8537,10 @@ class SendAssetFormModal {
     this.closeSendAssetFormModalButton.addEventListener('click', this.close.bind(this));
     this.sendForm.addEventListener('submit', this.handleSendFormSubmit.bind(this));
     // TODO: need to add check that it's not a back/delete key
+    // have submit disabled until function is done running
     this.usernameInput.addEventListener('input', async (e) => {
-      this.handleSendToAddressInput(e);
+      this.submitButton.disabled = true;
+      debounce(await this.handleSendToAddressInput(e), 300);
     });
 
     this.availableBalance.addEventListener('click', this.fillAmount.bind(this));
@@ -8575,6 +8578,7 @@ class SendAssetFormModal {
     this.amountInput.value = '';
     this.memoInput.value = '';
     this.retryTxIdInput.value = '';
+    this.sendTollValue.textContent = '';
 
     this.usernameAvailable.style.display = 'none';
     this.submitButton.disabled = true;
@@ -8612,10 +8616,12 @@ class SendAssetFormModal {
   }
 
   /**
-   * Invoked when the user types in the username input
-   * It will check if the username is too short, available, or not available
+   * When the user types in the username input, this function is called to check if the username is too short, available, or not available
+   * It will also update the toll display for the username
+   * It will also update the send button state based on the username and amount
+   * It will also update the available balance based on the asset selected
    * @param {Event} e - The event object
-   * @returns {void}
+   * @returns {Promise<void>}
    */
   async handleSendToAddressInput(e) {
     // Check availability on input changes
@@ -8632,6 +8638,8 @@ class SendAssetFormModal {
       usernameAvailable.textContent = 'too short';
       usernameAvailable.style.color = '#dc3545';
       usernameAvailable.style.display = 'inline';
+      // Clear toll display for invalid input
+      this.sendTollValue.textContent = '';
       await this.refreshSendButtonDisabledState();
       return;
     }
@@ -8643,18 +8651,53 @@ class SendAssetFormModal {
         usernameAvailable.textContent = 'found';
         usernameAvailable.style.color = '#28a745';
         usernameAvailable.style.display = 'inline';
+
+        // Update toll display for found username
+        // Get the address for this username
+        const usernameBytes = utf82bin(normalizeUsername(username));
+        const usernameHash = hashBytes(usernameBytes);
+        try {
+          const randomGateway = getGatewayForRequest();
+          if (randomGateway) {
+            const response = await fetch(
+              `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}/address/${usernameHash}`
+            );
+            const addressData = await response.json();
+            if (addressData && addressData.address) {
+              // Only call updateSendModalTollAmountUI since it queries account data directly
+              await this.updateSendModalTollAmountUI(addressData.address);
+            }
+          }
+        } catch (error) {
+          console.log('Error fetching address for toll display:', error);
+        }
       } else if (taken == 'mine') {
         usernameAvailable.textContent = 'mine';
         usernameAvailable.style.color = '#dc3545';
         usernameAvailable.style.display = 'inline';
+        // Clear toll display for own username
+        const sendTollValue = document.getElementById('sendTollValue');
+        if (sendTollValue) {
+          sendTollValue.textContent = '';
+        }
       } else if (taken == 'available') {
         usernameAvailable.textContent = 'not found';
         usernameAvailable.style.color = '#dc3545';
         usernameAvailable.style.display = 'inline';
+        // Clear toll display for not found username
+        const sendTollValue = document.getElementById('sendTollValue');
+        if (sendTollValue) {
+          sendTollValue.textContent = '';
+        }
       } else {
         usernameAvailable.textContent = 'network error';
         usernameAvailable.style.color = '#dc3545';
         usernameAvailable.style.display = 'inline';
+        // Clear toll display for network error
+        const sendTollValue = document.getElementById('sendTollValue');
+        if (sendTollValue) {
+          sendTollValue.textContent = '';
+        }
       }
       await this.refreshSendButtonDisabledState(); // Update button state based on new address status and current amount status
     }, 1000);
@@ -8906,6 +8949,82 @@ class SendAssetFormModal {
       document.getElementById('availableBalanceSymbol').textContent = 'LIB';
       transactionFee.textContent = feeInLIB + ' LIB';
     }
+  }
+
+  /**
+   * updateSendModalTollAmountUI - Updates toll display in the send asset modal
+   * @param {string} address - The address of the contact
+   * @returns {Promise<void>}
+   */
+  async updateSendModalTollAmountUI(address) {
+    const tollValue = document.getElementById('sendTollValue');
+    if (!tollValue) return;
+    await getNetworkParams();
+    tollValue.style.color = 'black';
+
+    // Query the account data directly from the network
+    const contactAccountData = await queryNetwork(`/account/${longAddress(address)}`);
+    if (!contactAccountData?.account?.data) {
+      tollValue.textContent = 'Account not found';
+      return;
+    }
+
+    let toll = contactAccountData.account.data.toll || 0n;
+    const tollUnit = contactAccountData.account.data.tollUnit || 'LIB';
+    const mainIsUSD = tollUnit === 'USD';
+    const mainValue = parseFloat(big2str(toll, weiDigits));
+    // Conversion factor (USD/LIB)
+    const scaleMul = parameters.current.stabilityScaleMul || 1;
+    const scaleDiv = parameters.current.stabilityScaleDiv || 1;
+    const factor = scaleDiv !== 0 ? scaleMul / scaleDiv : 1;
+    let mainString, otherString;
+    if (mainIsUSD) {
+      toll = bigxnum2big(toll, (1.0 / factor).toString());
+      mainString = mainValue + ' USD';
+      const libValue = mainValue / factor;
+      otherString = libValue + ' LIB';
+    } else {
+      mainString = mainValue + ' LIB';
+      const usdValue = mainValue * factor;
+      otherString = usdValue + ' USD';
+    }
+    // Check if toll is required by querying the chatId toll endpoint
+    const myAddr = longAddress(myAccount.keys.address);
+    const contactAddr = longAddress(address);
+    const sortedAddresses = [myAddr, contactAddr].sort();
+    const hash = hashBytes(sortedAddresses.join(''));
+    const myIndex = sortedAddresses.indexOf(myAddr);
+    const toIndex = 1 - myIndex;
+
+    let tollRequiredToSend = toll > 0n ? 1 : 0; // Default to requiring toll if toll > 0
+
+    // check if the contact is a friend
+    try {
+      const chatTollData = await queryNetwork(`/messages/${hash}/toll`);
+      if (chatTollData && chatTollData.toll && chatTollData.toll.required) {
+        tollRequiredToSend = chatTollData.toll.required[toIndex];
+      }
+    } catch (error) {
+      console.log('Error querying chat toll data:', error);
+      // Use default value
+    }
+
+    let display;
+    if (tollRequiredToSend == 1) {
+      display = `${mainString} (${otherString})`;
+    } else if (tollRequiredToSend == 2) {
+      tollValue.style.color = 'red';
+      display = `blocked`;
+    } else {
+      // light green used to show success
+      tollValue.style.color = '#28a745';
+      display = `free (${mainString} (${otherString}))`;
+    }
+    tollValue.textContent = display;
+
+    // Store toll information in the send modal
+    sendAssetFormModal.toll = toll;
+    sendAssetFormModal.tollUnit = tollUnit;
   }
 }
 
