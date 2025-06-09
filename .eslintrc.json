@@ -19,5 +19,11 @@
   "rules": {
     "no-unused-vars": "warn",
     "no-console": "off"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["*.html"],
+      "parser": "@html-eslint/parser"
+    }
+  ]
 }
