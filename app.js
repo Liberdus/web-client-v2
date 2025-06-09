@@ -329,7 +329,6 @@ async function handleUsernameOnSignInModal() {
   // Enable submit button when an account is selected
   const username = usernameSelect.value;
   const notFoundMessage = document.getElementById('usernameNotFound');
-  const options = usernameSelect.options;
   if (!username) {
     submitButton.disabled = true;
     notFoundMessage.style.display = 'none';
@@ -1005,7 +1004,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Add new search functionality
-  const searchInput = document.getElementById('searchInput');
   const messageSearch = document.getElementById('messageSearch');
   const searchModal = document.getElementById('searchModal');
 
@@ -1175,7 +1173,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupAddToHomeScreen();
 });
 
-function handleUnload(e) {
+function handleUnload() {
   console.log('in handleUnload');
   if (handleSignOut.exit) {
     return;
@@ -1211,7 +1209,7 @@ function handleBeforeUnload(e) {
 }
 
 // This is for installed apps where we can't stop the back button; just save the state
-async function handleVisibilityChange(e) {
+async function handleVisibilityChange() {
   console.log('in handleVisibilityChange', document.visibilityState);
   if (!myAccount) {
     return;
@@ -1424,7 +1422,7 @@ function setupAddToHomeScreen() {
     updateButtonVisibility();
 
     // Listen for display mode changes
-    window.matchMedia('(display-mode: standalone)').addEventListener('change', (evt) => {
+    window.matchMedia('(display-mode: standalone)').addEventListener('change', () => {
       updateButtonVisibility();
     });
   }
@@ -2926,9 +2924,6 @@ async function openEditContactModal() {
     return;
   }
 
-  // Create display info object using the same format as contactInfoModal
-  const displayInfo = createDisplayInfo(myData.contacts[currentContactAddress]);
-
   // Create a handler function to focus the input after the modal transition
   const editContactFocusHandler = () => {
     nameInput.focus();
@@ -3870,12 +3865,8 @@ async function processChats(chats, keys) {
           myData.chats.splice(insertIndex, 0, chatUpdate);
         }
 
-        // Show toast notification for new messages
         // Only suppress notification if we're ACTIVELY viewing this chat and if not a transfer
         if (!inActiveChatWithSender && !hasNewTransfer) {
-          // Get name of sender
-          const senderName = contact.name || contact.username || `${from.slice(0, 8)}...`;
-
           // Add notification indicator to Chats tab if we're not on it
           const chatsButton = document.getElementById('switchToChats');
           if (!document.getElementById('chatsScreen').classList.contains('active')) {
@@ -3972,7 +3963,7 @@ async function postAssetTransfer(to, amount, memo, keys) {
 async function postRegisterAlias(alias, keys) {
   const aliasBytes = utf82bin(alias);
   const aliasHash = hashBytes(aliasBytes);
-  const { publicKey, secretKey } = generatePQKeys(keys.pqSeed);
+  const { publicKey } = generatePQKeys(keys.pqSeed);
   const pqPublicKey = bin2base64(publicKey);
   const tx = {
     type: 'register',
@@ -4382,7 +4373,7 @@ function handleSearchResultClick(result) {
   }
 }
 
-function handleSearchInputClick(e) {
+function handleSearchInputClick() {
   const messageSearch = document.getElementById('messageSearch');
   const searchModal = document.getElementById('searchModal');
 
@@ -4594,7 +4585,7 @@ function hideToast(toastId) {
 }
 
 // Show update notification to user
-function showUpdateNotification(registration) {
+function showUpdateNotification() {
   // Create update notification
   const updateNotification = document.createElement('div');
   updateNotification.className = 'update-notification';
@@ -4634,7 +4625,7 @@ async function updateServiceWorker() {
 }
 
 // Handle online/offline events
-async function handleConnectivityChange(event) {
+async function handleConnectivityChange() {
   const wasOffline = !isOnline;
   isOnline = navigator.onLine;
 
@@ -4923,7 +4914,6 @@ function getGatewayForRequest() {
 
 async function startCamera() {
   const video = document.getElementById('video');
-  const canvasElement = document.getElementById('canvas');
   try {
     // First check if camera API is supported
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -5052,7 +5042,7 @@ function readQRCode() {
 
 // Handle successful scan
 function handleSuccessfulScan(data) {
-  const scanHighlight = document.getElementById('scan-highlight');
+  // const scanHighlight = document.getElementById('scan-highlight');
   // Stop scanning
   if (startCamera.scanInterval) {
     clearInterval(startCamera.scanInterval);
@@ -6749,7 +6739,7 @@ class ValidatorStakingModal {
         // For now, we'll proceed, but nominee/user stake will be unavailable.
       }
 
-      const [userAccountData, networkAccountData, updatePrices] = await Promise.all([
+      const [userAccountData, networkAccountData] = await Promise.all([
         userAddress ? queryNetwork(`/account/${longAddress(userAddress)}`) : Promise.resolve(null), // Fetch User Data if available
         queryNetwork('/account/0000000000000000000000000000000000000000000000000000000000000000'), // Fetch Network Data
         updateWalletBalances(),
@@ -6796,7 +6786,6 @@ class ValidatorStakingModal {
           }
         } catch (e) {
           console.error('Error calculating stakeAmountLibBaseUnits with BigInt:', e, {
-            stakeRequiredUsdBaseUnits,
             stabilityScaleMul,
             stabilityScaleDiv,
           });
@@ -7549,7 +7538,6 @@ class ChatModal {
    * @returns {Promise<boolean>} - True if the contact has a value not 0 in payOnReplay or payOnRead, false otherwise
    */
   async canSenderReclaimToll(contactAddress) {
-    const contact = myData.contacts[contactAddress];
     // keep track receiver index during the sort
     const sortedAddresses = [
       longAddress(myData.account.keys.address),
@@ -8699,7 +8687,6 @@ class SendAssetFormModal {
   async updateAvailableBalance() {
     const walletData = myData.wallet;
     const assetIndex = this.assetSelectDropdown.value;
-    const balanceWarning = this.balanceWarning;
 
     // Check if we have any assets
     if (!walletData.assets || walletData.assets.length === 0) {
@@ -8765,14 +8752,11 @@ class SendAssetFormModal {
    */
   updateSendAddresses() {
     const walletData = myData.wallet;
-    const assetIndex = document.getElementById('sendAsset').value;
-    // TODO: why is this commented out? are we not using it in the if block?
-    //    const addressSelect = document.getElementById('sendFromAddress');
+    // const assetIndex = document.getElementById('sendAsset').value;
 
     // Check if we have any assets
     if (!walletData.assets || walletData.assets.length === 0) {
-      addressSelect.innerHTML = '<option value="">No addresses available</option>';
-      this.updateAvailableBalance();
+      showToast('No addresses available', 0, 'error');
       return;
     }
 
@@ -9122,6 +9106,7 @@ const pendingPromiseService = (() => {
 function handleTogglePrivateKeyInput() {
   const privateKeySection = document.getElementById('privateKeySection');
   const newPrivateKeyInput = document.getElementById('newPrivateKey');
+  const togglePrivateKeyInput = document.getElementById('togglePrivateKeyInput');
 
   // clear the newPrivateKeyInput
   newPrivateKeyInput.value = '';

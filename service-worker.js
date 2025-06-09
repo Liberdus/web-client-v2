@@ -1,7 +1,5 @@
-const SW_VERSION = '2025.04.24.10.41';
-
 // Install event
-self.addEventListener('install', (event) => {
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
