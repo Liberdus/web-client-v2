@@ -239,6 +239,7 @@ async function checkUsernameAvailability(username, address) {
       `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}/address/${usernameHash}`
     );
     const data = await response.json();
+    sendAssetFormModal.usernameAddress = data.address; // set the username address for the send modal
     if (data && data.address) {
       if (address && normalizeAddress(data.address) === normalizeAddress(address)) {
         return 'mine';
@@ -1894,7 +1895,7 @@ function updateTollAmountUI(address) {
   const factor = scaleDiv !== 0 ? scaleMul / scaleDiv : 1;
   let mainString, otherString;
   if (mainIsUSD) {
-    toll = bigxnum2big(toll, (1.0 / factor).toString());
+    toll = bigxnum2big(toll, (1.0 / factor).toString()); // this is in LIB (wei) as a bigint to be used for validation
     mainString = mainValue.toFixed(6) + ' USD';
     const libValue = mainValue / factor;
     otherString = libValue.toFixed(6) + ' LIB';
@@ -1916,8 +1917,8 @@ function updateTollAmountUI(address) {
   }
   tollValue.textContent = display;
 
-  chatModal.toll = toll;
-  chatModal.tollUnit = tollUnit;
+  chatModal.toll = toll; // Always in LIB (wei) as a bigint to be used for validation
+  chatModal.tollUnit = tollUnit; // Always in LIB (wei) as a string to be used for validation
 }
 
 /**
@@ -2310,38 +2311,154 @@ function fillStakeAddressFromQR(data) {
  * @param {BigInt} amount - The amount to validate
  * @param {number} assetIndex - The index of the asset to validate
  * @param {HTMLElement} balanceWarning - The element to display the balance warning
+ * @param {BigInt} tollAmount - The amount of toll to validate
+ * @param {boolean} hasMemo - Whether the memo is present
  * @returns {Promise<boolean>} - A promise that resolves to true if the balance is sufficient, false otherwise
  */
-async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
+async function validateBalance(
+  amount,
+  assetIndex = 0,
+  balanceWarning = null,
+  tollAmount = 0n,
+  hasMemo = false
+) {
   if (!amount) {
-    if (balanceWarning) balanceWarning.style.display = 'none';
-    console.warn('[validateBalance] amount is 0');
-    return false;
-  } else if (amount < 0) {
-    console.warn('[validateBalance] amount is negative');
+    if (balanceWarning) {
+      balanceWarning.style.display = 'none';
+      console.warn('[validateBalance] Amount is empty');
+      return false;
+    }
+  } else if (amount <= 0) {
+    console.warn('[validateBalance] amount is negative or zero');
     if (balanceWarning) balanceWarning.style.display = 'inline';
-    balanceWarning.textContent = 'Amount cannot be negative';
+    balanceWarning.textContent = 'Amount cannot be negative or zero';
     return false;
   }
 
   await getNetworkParams();
-  const asset = myData.wallet.assets[assetIndex];
-  const feeInWei = parameters.current.transactionFee || 1n * wei;
-  const totalRequired = bigxnum2big(1n, amount.toString()) + feeInWei;
-  const hasInsufficientBalance = BigInt(asset.balance) < totalRequired;
+  const txFeeInWei = parameters.current.transactionFee || 1n * wei;
 
-  if (balanceWarning) {
-    if (hasInsufficientBalance) {
-      balanceWarning.textContent = `Insufficient balance (including ${big2str(feeInWei, 18).slice(0, -16)} LIB fee)`;
+  if (!myData.wallet.assets || myData.wallet.assets.length === 0) {
+    if (balanceWarning) {
+      balanceWarning.textContent = 'No wallet assets available';
       balanceWarning.style.display = 'block';
-    } else {
-      balanceWarning.style.display = 'none';
     }
+    return false;
   }
 
-  // use ! to return true if the balance is sufficient, false otherwise
-  return !hasInsufficientBalance;
+  const asset = myData.wallet.assets[assetIndex];
+  if (!asset) {
+    if (balanceWarning) {
+      balanceWarning.textContent = 'Invalid asset selected';
+      balanceWarning.style.display = 'block';
+    }
+    return false;
+  }
+
+  const balance = BigInt(asset.balance);
+
+  // Calculate total required amount
+  let totalRequired = amount + txFeeInWei;
+
+  // Add toll if memo is provided
+  if (hasMemo && tollAmount > 0n) {
+    totalRequired += tollAmount;
+  }
+
+  console.log(
+    `[validateBalance] amount: ${amount}, fee: ${txFeeInWei}, toll: ${tollAmount}, hasMemo: ${hasMemo}, total: ${totalRequired}, balance: ${balance}`
+  );
+
+  if (totalRequired >= balance) {
+    if (balanceWarning) {
+      // Check if we should display in USD
+      const balanceSymbol = document.getElementById('balanceSymbol');
+      const isUSD = balanceSymbol && balanceSymbol.textContent === 'USD';
+
+      let amountDisplay, feeDisplay, tollDisplay, balanceDisplay, totalDisplay, currency;
+
+      if (isUSD) {
+        // Convert all values to USD for display
+        const scalabilityFactor =
+          parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+
+        amountDisplay = (parseFloat(big2str(amount, weiDigits)) * scalabilityFactor).toFixed(6);
+        feeDisplay = (parseFloat(big2str(txFeeInWei, weiDigits)) * scalabilityFactor).toFixed(6);
+        tollDisplay = hasMemo
+          ? (parseFloat(big2str(tollAmount, weiDigits)) * scalabilityFactor).toFixed(6)
+          : '0';
+        balanceDisplay = (parseFloat(big2str(balance, weiDigits)) * scalabilityFactor).toFixed(6);
+        totalDisplay = (parseFloat(big2str(totalRequired, weiDigits)) * scalabilityFactor).toFixed(
+          6
+        );
+        currency = 'USD';
+      } else {
+        // Display in LIB
+        amountDisplay = big2str(amount, weiDigits).slice(0, -12);
+        feeDisplay = big2str(txFeeInWei, weiDigits).slice(0, -12);
+        tollDisplay = hasMemo ? big2str(tollAmount, weiDigits).slice(0, -12) : '0';
+        balanceDisplay = big2str(balance, weiDigits).slice(0, -12);
+        totalDisplay = big2str(totalRequired, 18).slice(0, -12);
+        currency = 'LIB';
+      }
+
+      const prefix = isUSD ? '$' : '';
+      const suffix = ` ${currency}`;
+
+      if (hasMemo && tollAmount > 0n) {
+        balanceWarning.textContent = `Insufficient balance. Need greater than: ${prefix}${amountDisplay} + ${prefix}${feeDisplay} fee + ${prefix}${tollDisplay} toll = ${prefix}${totalDisplay}${suffix}. Available: ${prefix}${balanceDisplay}${suffix}`;
+      } else {
+        balanceWarning.textContent = `Insufficient balance. Need greater than: ${prefix}${amountDisplay} + ${prefix}${feeDisplay} fee = ${prefix}${totalDisplay}${suffix}. Available: ${prefix}${balanceDisplay}${suffix}`;
+      }
+
+      balanceWarning.style.display = 'block';
+    }
+    return false;
+  }
+
+  if (balanceWarning) {
+    balanceWarning.style.display = 'none';
+  }
+  return true;
 }
+
+// /**
+//  * Validate the balance of the user
+//  * @param {BigInt} amount - The amount to validate
+//  * @param {number} assetIndex - The index of the asset to validate
+//  * @param {HTMLElement} balanceWarning - The element to display the balance warning
+//  * @returns {Promise<boolean>} - A promise that resolves to true if the balance is sufficient, false otherwise
+//  */
+// async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
+//   if (!amount) {
+//     if (balanceWarning) balanceWarning.style.display = 'none';
+//     console.warn('[validateBalance] amount is 0');
+//     return false;
+//   } else if (amount < 0) {
+//     console.warn('[validateBalance] amount is negative');
+//     if (balanceWarning) balanceWarning.style.display = 'inline';
+//     balanceWarning.textContent = 'Amount cannot be negative';
+//     return false;
+//   }
+
+//   await getNetworkParams();
+//   const asset = myData.wallet.assets[assetIndex];
+//   const feeInWei = parameters.current.transactionFee || 1n * wei;
+//   const totalRequired = bigxnum2big(1n, amount.toString()) + feeInWei;
+//   const hasInsufficientBalance = BigInt(asset.balance) < totalRequired;
+
+//   if (balanceWarning) {
+//     if (hasInsufficientBalance) {
+//       balanceWarning.textContent = `Insufficient balance (including ${big2str(feeInWei, 18).slice(0, -16)} LIB fee)`;
+//       balanceWarning.style.display = 'block';
+//     } else {
+//       balanceWarning.style.display = 'none';
+//     }
+//   }
+
+//   // use ! to return true if the balance is sufficient, false otherwise
+//   return !hasInsufficientBalance;
+// }
 
 // The user has filled out the form to send assets to a recipient and clicked the Send button
 // The recipient account may not exist in myData.contacts and might have to be created
@@ -8514,6 +8631,7 @@ class SendAssetFormModal {
     this.sendForm = document.getElementById('sendForm');
     this.username = null;
     this.usernameInput = document.getElementById('sendToAddress');
+    this.currentUsername = null;
     this.amountInput = document.getElementById('sendAmount');
     this.memoInput = document.getElementById('sendMemo');
     this.retryTxIdInput = document.getElementById('retryOfPaymentTxId');
@@ -8525,8 +8643,13 @@ class SendAssetFormModal {
     this.availableBalance = document.getElementById('availableBalance');
     this.toggleBalanceButton = document.getElementById('toggleBalance');
     this.sendTollValue = document.getElementById('sendTollValue');
+    this.sendTollLabel = document.getElementById('sendTollLabel');
     this.toll = 0n;
     this.tollUnit = 'LIB';
+    this.usernameAddress = null;
+    this.tollRequiredToSend = null;
+    this.balanceWarning = document.getElementById('balanceWarning');
+    this.calculatedTollAmount = 0n; // Always in LIB (wei)
   }
 
   /**
@@ -8542,7 +8665,7 @@ class SendAssetFormModal {
     // have submit disabled until function is done running
     this.usernameInput.addEventListener('input', async (e) => {
       this.submitButton.disabled = true;
-      debounce(await this.handleSendToAddressInput(e), 300);
+      await this.handleSendToAddressInput(e);
     });
 
     this.availableBalance.addEventListener('click', this.fillAmount.bind(this));
@@ -8550,8 +8673,8 @@ class SendAssetFormModal {
       // updateSendAddresses();
       this.updateAvailableBalance();
     });
-    // amount input listener for real-time balance validation
     this.amountInput.addEventListener('input', this.updateAvailableBalance.bind(this));
+    this.memoInput.addEventListener('input', this.handleMemoInput.bind(this));
     // Add custom validation message for minimum amount
     this.amountInput.addEventListener('invalid', (event) => {
       if (event.target.validity.rangeUnderflow) {
@@ -8581,6 +8704,17 @@ class SendAssetFormModal {
     this.memoInput.value = '';
     this.retryTxIdInput.value = '';
     this.sendTollValue.textContent = '';
+    this.usernameAddress = null;
+    this.tollRequiredToSend = null;
+    this.balanceWarning.textContent = '';
+    this.balanceWarning.style.display = 'none';
+    this.toll = 0n;
+    this.tollUnit = 'LIB';
+    // hide toll-value and toll-label
+    this.sendTollLabel.style.display = 'none';
+    this.sendTollValue.style.display = 'none';
+    // enable memo input
+    this.memoInput.disabled = false;
 
     this.usernameAvailable.style.display = 'none';
     this.submitButton.disabled = true;
@@ -8618,17 +8752,23 @@ class SendAssetFormModal {
   }
 
   /**
-   * When the user types in the username input, this function is called to check if the username is too short, available, or not available
-   * It will also update the toll display for the username
-   * It will also update the send button state based on the username and amount
-   * It will also update the available balance based on the asset selected
+   * Handles username input and checks if the username is too short, available, or not available
    * @param {Event} e - The event object
    * @returns {Promise<void>}
    */
   async handleSendToAddressInput(e) {
+    // enable memo input
+    this.memoInput.disabled = false;
+    // clear balance warning
+    this.balanceWarning.textContent = '';
+    this.balanceWarning.style.display = 'none';
+    // clear toll-value and toll-label
+    this.sendTollValue.textContent = '';
+    this.sendTollLabel.style.display = 'none';
+    this.sendTollValue.style.display = 'none';
+
     // Check availability on input changes
     const username = normalizeUsername(e.target.value);
-    const usernameAvailable = this.usernameAvailable;
 
     // Clear previous timeout
     if (this.sendAssetFormModalCheckTimeout) {
@@ -8637,11 +8777,20 @@ class SendAssetFormModal {
 
     // Check if username is too short
     if (username.length < 3) {
-      usernameAvailable.textContent = 'too short';
-      usernameAvailable.style.color = '#dc3545';
-      usernameAvailable.style.display = 'inline';
-      // Clear toll display for invalid input
+      this.usernameAvailable.textContent = 'too short';
+      this.usernameAvailable.style.color = '#dc3545';
+      this.usernameAvailable.style.display = 'inline';
       this.sendTollValue.textContent = '';
+      this.sendTollLabel.style.display = 'none';
+      this.sendTollValue.style.display = 'none';
+
+      if (username.length === 0) {
+        // clear username available message
+        this.usernameAvailable.textContent = '';
+        this.usernameAvailable.style.color = '';
+        this.usernameAvailable.style.display = 'none';
+      }
+
       await this.refreshSendButtonDisabledState();
       return;
     }
@@ -8650,56 +8799,34 @@ class SendAssetFormModal {
     this.sendAssetFormModalCheckTimeout = setTimeout(async () => {
       const taken = await checkUsernameAvailability(username, myAccount.keys.address);
       if (taken == 'taken') {
-        usernameAvailable.textContent = 'found';
-        usernameAvailable.style.color = '#28a745';
-        usernameAvailable.style.display = 'inline';
-
-        // Update toll display for found username
-        // Get the address for this username
-        const usernameBytes = utf82bin(normalizeUsername(username));
-        const usernameHash = hashBytes(usernameBytes);
-        try {
-          const randomGateway = getGatewayForRequest();
-          if (randomGateway) {
-            const response = await fetch(
-              `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}/address/${usernameHash}`
-            );
-            const addressData = await response.json();
-            if (addressData && addressData.address) {
-              // Only call updateSendModalTollAmountUI since it queries account data directly
-              await this.updateSendModalTollAmountUI(addressData.address);
-            }
-          }
-        } catch (error) {
-          console.log('Error fetching address for toll display:', error);
-        }
+        this.usernameAvailable.textContent = 'found';
+        this.usernameAvailable.style.color = '#28a745';
+        this.usernameAvailable.style.display = 'inline';
+        await this.updateSendModalTollAmountUI();
       } else if (taken == 'mine') {
-        usernameAvailable.textContent = 'mine';
-        usernameAvailable.style.color = '#dc3545';
-        usernameAvailable.style.display = 'inline';
+        this.usernameAvailable.textContent = 'mine';
+        this.usernameAvailable.style.color = '#dc3545';
+        this.usernameAvailable.style.display = 'inline';
         // Clear toll display for own username
-        const sendTollValue = document.getElementById('sendTollValue');
-        if (sendTollValue) {
-          sendTollValue.textContent = '';
-        }
+        this.sendTollValue.textContent = '';
+        this.sendTollLabel.style.display = 'none';
+        this.sendTollValue.style.display = 'none';
       } else if (taken == 'available') {
-        usernameAvailable.textContent = 'not found';
-        usernameAvailable.style.color = '#dc3545';
-        usernameAvailable.style.display = 'inline';
+        this.usernameAvailable.textContent = 'not found';
+        this.usernameAvailable.style.color = '#dc3545';
+        this.usernameAvailable.style.display = 'inline';
         // Clear toll display for not found username
-        const sendTollValue = document.getElementById('sendTollValue');
-        if (sendTollValue) {
-          sendTollValue.textContent = '';
-        }
+        this.sendTollValue.textContent = '';
+        this.sendTollLabel.style.display = 'none';
+        this.sendTollValue.style.display = 'none';
       } else {
-        usernameAvailable.textContent = 'network error';
-        usernameAvailable.style.color = '#dc3545';
-        usernameAvailable.style.display = 'inline';
+        this.usernameAvailable.textContent = 'network error';
+        this.usernameAvailable.style.color = '#dc3545';
+        this.usernameAvailable.style.display = 'inline';
         // Clear toll display for network error
-        const sendTollValue = document.getElementById('sendTollValue');
-        if (sendTollValue) {
-          sendTollValue.textContent = '';
-        }
+        this.sendTollValue.textContent = '';
+        this.sendTollLabel.style.display = 'none';
+        this.sendTollValue.style.display = 'none';
       }
       await this.refreshSendButtonDisabledState(); // Update button state based on new address status and current amount status
     }, 1000);
@@ -8788,6 +8915,14 @@ class SendAssetFormModal {
     const walletData = myData.wallet;
     const assetIndex = this.assetSelectDropdown.value;
 
+    // if amount is empty, don't update the balance
+    if (this.amountInput.value === '') {
+      // clear warning and return
+      this.balanceWarning.textContent = '';
+      this.balanceWarning.style.display = 'none';
+      return;
+    }
+
     // Check if we have any assets
     if (!walletData.assets || walletData.assets.length === 0) {
       this.updateBalanceDisplay(null);
@@ -8871,16 +9006,15 @@ class SendAssetFormModal {
    * @returns {Promise<void>}
    */
   async refreshSendButtonDisabledState() {
-    const sendToAddressError = document.getElementById('sendToAddressError');
     // Address is valid if its error/status message is visible and set to 'found'.
     const isAddressConsideredValid =
-      sendToAddressError.style.display === 'inline' && sendToAddressError.textContent === 'found';
+      this.usernameAvailable.style.display === 'inline' &&
+      this.usernameAvailable.textContent === 'found';
     //console.log(`isAddressConsideredValid ${isAddressConsideredValid}`);
 
-    const amountInput = document.getElementById('sendAmount');
-    const amount = amountInput.value;
-    const assetIndex = document.getElementById('sendAsset').value;
-    const balanceWarning = document.getElementById('balanceWarning');
+    const amount = this.amountInput.value;
+    const memo = this.memoInput.value.trim();
+    const hasMemo = memo.length > 0;
 
     // Check if amount is in USD and convert to LIB for validation
     const balanceSymbol = document.getElementById('balanceSymbol');
@@ -8897,9 +9031,52 @@ class SendAssetFormModal {
     // convert amount to bigint
     const amountBigInt = bigxnum2big(wei, amountForValidation.toString());
 
-    // validateBalance returns false if the amount/balance is invalid.
-    const isAmountAndBalanceValid = await validateBalance(amountBigInt, assetIndex, balanceWarning);
-    console.log(`isAmountAndBalanceValid ${isAmountAndBalanceValid}`);
+    // Get toll amount for validation (only if memo is provided)
+    // Toll is always passed as-is since validateBalance will handle it in LIB
+    let tollForValidation = 0n;
+    if (hasMemo && this.toll > 0n && isAddressConsideredValid) {
+      // display toll-value and toll-label only if username is found
+      this.sendTollLabel.style.display = 'inline';
+      this.sendTollValue.style.display = 'inline';
+
+      // determine if toll should be included
+      if (this.tollRequiredToSend === 1) {
+        // need to check if the amount is greater than the toll
+        if (amountBigInt < this.toll && this.usernameAvailable.textContent === 'found') {
+          console.warn('[refreshSendButtonDisabledState] amount is less than toll');
+          this.balanceWarning.textContent = 'Amount must be greater than toll';
+          this.balanceWarning.style.display = 'inline';
+          // disable send button
+          this.sendButton.disabled = true;
+          return;
+        }
+        tollForValidation = this.toll;
+      }
+    } else if (this.tollRequiredToSend === 2) {
+      console.warn('[refreshSendButtonDisabledState] toll is blocked');
+      // clear and disable memo input
+      this.memoInput.value = '';
+      this.memoInput.disabled = true;
+      // toll should be 0n
+      tollForValidation = 0n;
+    }
+
+    // only need to validate balance if username is `found` and amount is present
+    if (!isAddressConsideredValid || amount === '') {
+      // clear balance warning
+      this.balanceWarning.textContent = '';
+      this.balanceWarning.style.display = 'none';
+      return;
+    }
+
+    // Enhanced balance validation with toll consideration
+    const isAmountAndBalanceValid = await validateBalance(
+      amountBigInt,
+      this.assetSelectDropdown.value,
+      this.balanceWarning,
+      tollForValidation,
+      hasMemo
+    );
 
     const submitButton = document.querySelector('#sendForm button[type="submit"]');
 
@@ -8958,41 +9135,51 @@ class SendAssetFormModal {
    * @param {string} address - The address of the contact
    * @returns {Promise<void>}
    */
-  async updateSendModalTollAmountUI(address) {
+  async updateSendModalTollAmountUI() {
     const tollValue = document.getElementById('sendTollValue');
-    if (!tollValue) return;
+    if (!tollValue || !this.usernameAddress) return;
+
     await getNetworkParams();
     tollValue.style.color = 'black';
 
-    // Query the account data directly from the network
-    const contactAccountData = await queryNetwork(`/account/${longAddress(address)}`);
+    // Query the account data directly from the network using stored address
+    const contactAccountData = await queryNetwork(`/account/${longAddress(this.usernameAddress)}`);
     if (!contactAccountData?.account?.data) {
       tollValue.textContent = 'Account not found';
+      this.toll = 0n;
+      this.tollUnit = 'LIB';
       return;
     }
 
     let toll = contactAccountData.account.data.toll || 0n;
     const tollUnit = contactAccountData.account.data.tollUnit || 'LIB';
+
     const mainIsUSD = tollUnit === 'USD';
     const mainValue = parseFloat(big2str(toll, weiDigits));
     // Conversion factor (USD/LIB)
     const scaleMul = parameters.current.stabilityScaleMul || 1;
     const scaleDiv = parameters.current.stabilityScaleDiv || 1;
     const factor = scaleDiv !== 0 ? scaleMul / scaleDiv : 1;
+
     let mainString, otherString;
     if (mainIsUSD) {
       toll = bigxnum2big(toll, (1.0 / factor).toString());
-      mainString = mainValue + ' USD';
+      mainString = mainValue.toFixed(6) + ' USD';
       const libValue = mainValue / factor;
-      otherString = libValue + ' LIB';
+      otherString = libValue.toFixed(6) + ' LIB';
     } else {
-      mainString = mainValue + ' LIB';
+      mainString = mainValue.toFixed(6) + ' LIB';
       const usdValue = mainValue * factor;
-      otherString = usdValue + ' USD';
+      otherString = usdValue.toFixed(6) + ' USD';
     }
+
+    // Store toll data in the modal instance
+    this.toll = toll; // Always in LIB (wei) as a bigint to be used for validation
+    this.tollUnit = tollUnit; // Always in LIB (wei) as a string to be used for validation
+
     // Check if toll is required by querying the chatId toll endpoint
     const myAddr = longAddress(myAccount.keys.address);
-    const contactAddr = longAddress(address);
+    const contactAddr = longAddress(this.usernameAddress);
     const sortedAddresses = [myAddr, contactAddr].sort();
     const hash = hashBytes(sortedAddresses.join(''));
     const myIndex = sortedAddresses.indexOf(myAddr);
@@ -9000,7 +9187,6 @@ class SendAssetFormModal {
 
     let tollRequiredToSend = toll > 0n ? 1 : 0; // Default to requiring toll if toll > 0
 
-    // check if the contact is a friend
     try {
       const chatTollData = await queryNetwork(`/messages/${hash}/toll`);
       if (chatTollData && chatTollData.toll && chatTollData.toll.required) {
@@ -9011,22 +9197,87 @@ class SendAssetFormModal {
       // Use default value
     }
 
+    this.tollRequiredToSend = tollRequiredToSend;
+
     let display;
     if (tollRequiredToSend == 1) {
       display = `${mainString} (${otherString})`;
     } else if (tollRequiredToSend == 2) {
       tollValue.style.color = 'red';
-      display = `blocked`;
+      display = `blocked (cannot send memo)`;
+      // clear memo input
+      this.memoInput.value = '';
+      this.memoInput.disabled = true;
+      // make sure we can see toll-value and toll-label
+      this.sendTollLabel.style.display = 'inline';
+      this.sendTollValue.style.display = 'inline';
     } else {
       // light green used to show success
       tollValue.style.color = '#28a745';
       display = `free (${mainString} (${otherString}))`;
     }
     tollValue.textContent = display;
+  }
 
-    // Store toll information in the send modal
-    sendAssetFormModal.toll = toll;
-    sendAssetFormModal.tollUnit = tollUnit;
+  /**
+   * handleMemoInput - Handles the memo input
+   * @param {Event} e - The event object
+   * @returns {void}
+   */
+  handleMemoInput(e) {
+    console.log('DEBUG: handleMemoInput');
+    e.preventDefault();
+    const memo = this.memoInput.value.trim();
+
+    // if memo is empty, just hide toll display but keep toll values for efficiency
+    if (memo === '') {
+      console.log('DEBUG: memo is empty');
+      this.sendTollLabel.style.display = 'none';
+      this.sendTollValue.style.display = 'none';
+      this.balanceWarning.textContent = '';
+      this.balanceWarning.style.display = 'none';
+      this.currentUsername = '';
+      // if username is present and amount is present, validate balance
+      if (this.usernameInput.value && this.amountInput.value) {
+        this.refreshSendButtonDisabledState();
+      }
+      return;
+    }
+
+    // if sendToAddressError is 'found', display toll-value and toll-label
+    if (this.usernameAvailable.textContent === 'found') {
+      this.sendTollLabel.style.display = 'inline';
+      this.sendTollValue.style.display = 'inline';
+    }
+
+    if (
+      this.currentUsername !== this.usernameInput.value &&
+      this.amountInput.value &&
+      this.usernameInput.value
+    ) {
+      console.log('DEBUG: currentUsername !== username');
+      this.balanceWarning.textContent = '';
+      this.balanceWarning.style.display = 'none';
+      // if memo is not empty and username is found, display toll-value and toll-label
+      if (this.usernameAvailable.textContent === 'found') {
+        this.sendTollLabel.style.display = 'inline';
+        this.sendTollValue.style.display = 'inline';
+      }
+
+      // validate balance again since the toll values have changed
+      this.refreshSendButtonDisabledState();
+      this.currentUsername = this.usernameInput.value;
+    } else {
+      // if memo is not empty, display toll-value and toll-label only if username is found
+      if (
+        this.usernameInput.value &&
+        this.amountInput.value &&
+        this.usernameAvailable.textContent === 'found'
+      ) {
+        this.sendTollLabel.style.display = 'inline';
+        this.sendTollValue.style.display = 'inline';
+      }
+    }
   }
 }
 
