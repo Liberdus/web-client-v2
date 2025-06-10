@@ -195,7 +195,7 @@ async function checkOnlineStatus() {
   }
 }
 
-async function checkUsernameAvailability(username, address) {
+async function checkUsernameAvailability(username, address, foundAddressObject) {
   // First check if we're offline
   if (!isOnline) {
     console.log('Checking username availability offline');
@@ -217,6 +217,9 @@ async function checkUsernameAvailability(username, address) {
     // If we have the username but address doesn't match
     if (netidAccounts?.usernames && netidAccounts.usernames[username]) {
       console.log('Username found locally but address does not match');
+      if (foundAddressObject) {
+        foundAddressObject.address = netidAccounts.usernames[username].address;
+      }
       return 'taken';
     }
 
@@ -242,6 +245,9 @@ async function checkUsernameAvailability(username, address) {
     if (data && data.address) {
       if (address && normalizeAddress(data.address) === normalizeAddress(address)) {
         return 'mine';
+      }
+      if (foundAddressObject) {
+        foundAddressObject.address = data.address;
       }
       return 'taken';
     }
@@ -8524,6 +8530,7 @@ class SendAssetFormModal {
     this.balanceSymbol = document.getElementById('balanceSymbol');
     this.availableBalance = document.getElementById('availableBalance');
     this.toggleBalanceButton = document.getElementById('toggleBalance');
+    this.foundAddressObject = {};
   }
 
   /**
@@ -8638,7 +8645,7 @@ class SendAssetFormModal {
 
     // Check network availability
     this.sendAssetFormModalCheckTimeout = setTimeout(async () => {
-      const taken = await checkUsernameAvailability(username, myAccount.keys.address);
+      const taken = await checkUsernameAvailability(username, myAccount.keys.address, this.foundAddressObject);
       if (taken == 'taken') {
         usernameAvailable.textContent = 'found';
         usernameAvailable.style.color = '#28a745';
