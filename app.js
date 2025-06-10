@@ -8698,6 +8698,7 @@ class SendAssetFormModal {
         tollUnit: queriedTollUnit,
         required: tollInfo.toll.required[toIndex],
       };
+      this.needTollInfo = false;
     }
   }
 
