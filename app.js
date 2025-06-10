@@ -9154,6 +9154,16 @@ class SendAssetFormModal {
     let toll = contactAccountData.account.data.toll || 0n;
     const tollUnit = contactAccountData.account.data.tollUnit || 'LIB';
 
+    // update the local storage with the new toll value if it is different from the toll field in localStorage
+    if (
+      toll !== myData.contacts[this.usernameAddress].toll &&
+      tollUnit !== myData.contacts[this.usernameAddress].tollUnit
+    ) {
+      console.log(`DEBUG: updating toll value in local storage`);
+      myData.contacts[this.usernameAddress].toll = toll;
+      myData.contacts[this.usernameAddress].tollUnit = tollUnit;
+    }
+
     const mainIsUSD = tollUnit === 'USD';
     const mainValue = parseFloat(big2str(toll, weiDigits));
     // Conversion factor (USD/LIB)
