@@ -8531,6 +8531,8 @@ class SendAssetFormModal {
     this.availableBalance = document.getElementById('availableBalance');
     this.toggleBalanceButton = document.getElementById('toggleBalance');
     this.foundAddressObject = {};
+    this.needTollInfo = false;
+    this.tollInfo = {};
   }
 
   /**
@@ -8645,7 +8647,11 @@ class SendAssetFormModal {
 
     // Check network availability
     this.sendAssetFormModalCheckTimeout = setTimeout(async () => {
-      const taken = await checkUsernameAvailability(username, myAccount.keys.address, this.foundAddressObject);
+      const taken = await checkUsernameAvailability(
+        username,
+        myAccount.keys.address,
+        this.foundAddressObject
+      );
       if (taken == 'taken') {
         usernameAvailable.textContent = 'found';
         usernameAvailable.style.color = '#28a745';
@@ -8663,8 +8669,36 @@ class SendAssetFormModal {
         usernameAvailable.style.color = '#dc3545';
         usernameAvailable.style.display = 'inline';
       }
-      await this.refreshSendButtonDisabledState(); // Update button state based on new address status and current amount status
+      // check if found
+      if (this.foundAddressObject?.address) {
+        this.needTollInfo = true;
+        this.validateForm();
+      }
+      //await this.refreshSendButtonDisabledState(); // Update button state based on new address status and current amount status
     }, 1000);
+  }
+
+  async validateForm() {
+    if (this.needTollInfo) {
+      const myAddr = longAddress(myAccount.keys.address);
+      const contactAddr = longAddress(this.foundAddressObject.address);
+      const sortedAddresses = [myAddr, contactAddr].sort();
+      const chatId = hashBytes(sortedAddresses.join(''));
+      const myIndex = sortedAddresses.indexOf(myAddr);
+      const toIndex = 1 - myIndex;
+
+      // query
+      const tollInfo = await queryNetwork(`/messages/${chatId}/toll`);
+      // query account for toll set by receiver
+      const accountData = await queryNetwork(`/account/${this.foundAddressObject.address}`);
+      const queriedToll = accountData?.account?.data?.toll; // type bigint
+      const queriedTollUnit = accountData?.account?.data?.tollUnit; // type string
+      this.tollInfo = {
+        toll: queriedToll,
+        tollUnit: queriedTollUnit,
+        required: tollInfo.toll.required[toIndex],
+      };
+    }
   }
 
   /**
