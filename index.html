@@ -918,6 +918,9 @@
             <div class="form-group">
               <label for="sendMemo">Memo (Optional)</label>
               <textarea id="sendMemo" class="form-control" maxlength="2000"></textarea>
+              <div class="toll-container" id="memoTollContainer" style="display: none">
+                <span class="toll-memo" id="tollMemo"></span>
+              </div>
             </div>
             <input type="hidden" id="retryOfPaymentTxId" />
             <button type="submit" class="update-button">Send</button>

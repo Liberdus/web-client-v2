@@ -8672,7 +8672,7 @@ class SendAssetFormModal {
       // check if found
       if (this.foundAddressObject?.address) {
         this.needTollInfo = true;
-        this.validateForm();
+        await this.validateForm();
       }
       //await this.refreshSendButtonDisabledState(); // Update button state based on new address status and current amount status
     }, 1000);
@@ -8688,7 +8688,8 @@ class SendAssetFormModal {
       const toIndex = 1 - myIndex;
 
       // query
-      const tollInfo = await queryNetwork(`/messages/${chatId}/toll`);
+      const tollInfo_ = await queryNetwork(`/messages/${chatId}/toll`);
+      //console.warn(`DEBUG: tollInfo_ ${JSON.stringify(tollInfo_, null, 2)}`);
       // query account for toll set by receiver
       const accountData = await queryNetwork(`/account/${this.foundAddressObject.address}`);
       const queriedToll = accountData?.account?.data?.toll; // type bigint
@@ -8696,10 +8697,58 @@ class SendAssetFormModal {
       this.tollInfo = {
         toll: queriedToll,
         tollUnit: queriedTollUnit,
-        required: tollInfo.toll.required[toIndex],
+        required: tollInfo_.toll.required[toIndex],
       };
       this.needTollInfo = false;
     }
+    if (this.tollInfo.required && this.tollInfo.toll) {
+      // build string to display under memo input. with lib amoutn and (usd amount)
+      /* const tollInfoString = `Toll:  */
+      this.updateMemoTollUI();
+    }
+  }
+
+  /**
+   * updateTollAmountUI
+   */
+  updateMemoTollUI() {
+    const memoToll = document.getElementById('tollMemo');
+    memoToll.style.color = 'black';
+    let toll = this.tollInfo.toll || 0n;
+    const tollUnit = this.tollInfo.tollUnit || 'LIB';
+    const decimals = 18;
+    const mainIsUSD = tollUnit === 'USD';
+    const mainValue = parseFloat(big2str(toll, decimals));
+    // Conversion factor (USD/LIB)
+    const scaleMul = parameters.current.stabilityScaleMul || 1;
+    const scaleDiv = parameters.current.stabilityScaleDiv || 1;
+    const factor = scaleDiv !== 0 ? scaleMul / scaleDiv : 1;
+    let mainString, otherString;
+    if (mainIsUSD) {
+      toll = bigxnum2big(toll, (1.0 / factor).toString());
+      mainString = mainValue.toFixed(6) + ' USD';
+      const libValue = mainValue / factor;
+      otherString = libValue.toFixed(6) + ' LIB';
+    } else {
+      mainString = mainValue.toFixed(6) + ' LIB';
+      const usdValue = mainValue * factor;
+      otherString = usdValue.toFixed(6) + ' USD';
+    }
+    let display;
+    if (this.tollInfo.required == 1) {
+      display = `${mainString} (${otherString})`;
+    } else if (this.tollInfo.required == 2) {
+      memoToll.style.color = 'red';
+      display = `blocked`;
+    } else {
+      // light green used to show success
+      memoToll.style.color = '#28a745';
+      display = `free (${mainString} (${otherString}))`;
+    }
+    //display the container
+    const memoTollContainer = document.getElementById('memoTollContainer');
+    memoTollContainer.style.display = 'block';
+    memoToll.textContent = `Toll: ${ display}`;
   }
 
   /**
