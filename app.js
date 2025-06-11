@@ -8740,37 +8740,41 @@ class SendAssetFormModal {
   }
 
   /**
-   * Handles username input and checks if the username is too short, available, or not available
-   * @param {Event} e - The event object
-   * @returns {Promise<void>}
+   * Clears toll display elements
+   * @returns {void}
    */
-  async handleSendToAddressInput(e) {
+  clearTollDisplay() {
+    this.sendTollValue.textContent = '';
+    this.sendTollLabel.style.display = 'none';
+    this.sendTollValue.style.display = 'none';
+  }
+
+  /**
+   * Clears UI elements related to toll display and warnings
+   * @returns {void}
+   */
+  clearUIElements() {
     // enable memo input
     this.memoInput.disabled = false;
     // clear balance warning
     this.balanceWarning.textContent = '';
     this.balanceWarning.style.display = 'none';
-    // clear toll-value and toll-label
-    this.sendTollValue.textContent = '';
-    this.sendTollLabel.style.display = 'none';
-    this.sendTollValue.style.display = 'none';
+    // clear toll display
+    this.clearTollDisplay();
+  }
 
-    // Check availability on input changes
-    const username = normalizeUsername(e.target.value);
-
-    // Clear previous timeout
-    if (this.sendAssetFormModalCheckTimeout) {
-      clearTimeout(this.sendAssetFormModalCheckTimeout);
-    }
-
+  /**
+   * Validates username length and updates UI accordingly
+   * @param {string} username - The normalized username
+   * @returns {Promise<boolean>} - Returns true if username is valid length, false otherwise
+   */
+  async validateUsernameLength(username) {
     // Check if username is too short
     if (username.length < 3) {
       this.usernameAvailable.textContent = 'too short';
       this.usernameAvailable.style.color = '#dc3545';
       this.usernameAvailable.style.display = 'inline';
-      this.sendTollValue.textContent = '';
-      this.sendTollLabel.style.display = 'none';
-      this.sendTollValue.style.display = 'none';
+      this.clearTollDisplay();
 
       if (username.length === 0) {
         // clear username available message
@@ -8780,44 +8784,81 @@ class SendAssetFormModal {
       }
 
       await this.refreshSendButtonDisabledState();
-      return;
+      return false;
     }
+    return true;
+  }
 
+  /**
+   * Processes username availability check with network call
+   * @param {string} username - The normalized username
+   * @returns {void}
+   */
+  processUsernameAvailability(username) {
     // Check network availability
     this.sendAssetFormModalCheckTimeout = setTimeout(async () => {
       const taken = await checkUsernameAvailability(username, myAccount.keys.address);
-      if (taken == 'taken') {
-        this.usernameAvailable.textContent = 'found';
-        this.usernameAvailable.style.color = '#28a745';
-        this.usernameAvailable.style.display = 'inline';
-        await this.updateSendModalTollAmountUI();
-      } else if (taken == 'mine') {
-        this.usernameAvailable.textContent = 'mine';
-        this.usernameAvailable.style.color = '#dc3545';
-        this.usernameAvailable.style.display = 'inline';
-        // Clear toll display for own username
-        this.sendTollValue.textContent = '';
-        this.sendTollLabel.style.display = 'none';
-        this.sendTollValue.style.display = 'none';
-      } else if (taken == 'available') {
-        this.usernameAvailable.textContent = 'not found';
-        this.usernameAvailable.style.color = '#dc3545';
-        this.usernameAvailable.style.display = 'inline';
-        // Clear toll display for not found username
-        this.sendTollValue.textContent = '';
-        this.sendTollLabel.style.display = 'none';
-        this.sendTollValue.style.display = 'none';
-      } else {
-        this.usernameAvailable.textContent = 'network error';
-        this.usernameAvailable.style.color = '#dc3545';
-        this.usernameAvailable.style.display = 'inline';
-        // Clear toll display for network error
-        this.sendTollValue.textContent = '';
-        this.sendTollLabel.style.display = 'none';
-        this.sendTollValue.style.display = 'none';
-      }
+      this.updateUsernameStatusUI(taken);
       await this.refreshSendButtonDisabledState(); // Update button state based on new address status and current amount status
     }, 1000);
+  }
+
+  /**
+   * Updates UI based on username availability status
+   * @param {string} status - The availability status ('taken', 'mine', 'available', or other)
+   * @returns {void}
+   */
+  async updateUsernameStatusUI(status) {
+    if (status === 'taken') {
+      this.usernameAvailable.textContent = 'found';
+      this.usernameAvailable.style.color = '#28a745';
+      this.usernameAvailable.style.display = 'inline';
+      await this.updateSendModalTollAmountUI();
+    } else if (status === 'mine') {
+      this.usernameAvailable.textContent = 'mine';
+      this.usernameAvailable.style.color = '#dc3545';
+      this.usernameAvailable.style.display = 'inline';
+      // Clear toll display for own username
+      this.clearTollDisplay();
+    } else if (status === 'available') {
+      this.usernameAvailable.textContent = 'not found';
+      this.usernameAvailable.style.color = '#dc3545';
+      this.usernameAvailable.style.display = 'inline';
+      // Clear toll display for not found username
+      this.clearTollDisplay();
+    } else {
+      this.usernameAvailable.textContent = 'network error';
+      this.usernameAvailable.style.color = '#dc3545';
+      this.usernameAvailable.style.display = 'inline';
+      // Clear toll display for network error
+      this.clearTollDisplay();
+    }
+  }
+
+  /**
+   * Handles username input and checks if the username is too short, available, or not available
+   * @param {Event} e - The event object
+   * @returns {Promise<void>}
+   */
+  async handleSendToAddressInput(e) {
+    this.clearUIElements();
+
+    // Check availability on input changes
+    const username = normalizeUsername(e.target.value);
+
+    // Clear previous timeout
+    if (this.sendAssetFormModalCheckTimeout) {
+      clearTimeout(this.sendAssetFormModalCheckTimeout);
+    }
+
+    // Validate username length first
+    const isValidLength = await this.validateUsernameLength(username);
+    if (!isValidLength) {
+      return;
+    }
+
+    // Process username availability
+    this.processUsernameAvailability(username);
   }
 
   /**
