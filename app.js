@@ -1346,8 +1346,10 @@ function setupAddToHomeScreen() {
           const currentUrl = window.location.href;
           showToast(
             'Open in Safari...\n\n' +
-              'iOS only supports adding to home screen through Safari browser.'
-          , 5000, 'info');
+              'iOS only supports adding to home screen through Safari browser.',
+            5000,
+            'info'
+          );
           // Open the current URL in Safari
           window.location.href = currentUrl;
         });
@@ -1358,8 +1360,10 @@ function setupAddToHomeScreen() {
             'To add to home screen:\n\n' +
               '1. Tap the share button (rectangle with arrow) at the bottom of Safari\n' +
               '2. Scroll down and tap "Add to Home Screen"\n' +
-              '3. Tap "Add" in the top right'
-          , 10000, 'info');
+              '3. Tap "Add" in the top right',
+            10000,
+            'info'
+          );
         });
       }
     } else if (isDesktop) {
@@ -1386,14 +1390,22 @@ function setupAddToHomeScreen() {
           }
         } else if (isOpera) {
           showToast(
-            'Installation is not supported in Opera browser. Please use Google Chrome or Microsoft Edge.'
-          , 5000, 'info');
+            'Installation is not supported in Opera browser. Please use Google Chrome or Microsoft Edge.',
+            5000,
+            'info'
+          );
         } else if (isFirefox) {
           showToast(
-            'Installation is not supported in Firefox browser. Please use Google Chrome or Microsoft Edge.'
-          , 5000, 'info');
+            'Installation is not supported in Firefox browser. Please use Google Chrome or Microsoft Edge.',
+            5000,
+            'info'
+          );
         } else {
-          showToast('This app is already installed or cannot be installed on this device/browser.', 5000, 'info');
+          showToast(
+            'This app is already installed or cannot be installed on this device/browser.',
+            5000,
+            'info'
+          );
         }
       });
     } else {
@@ -2396,7 +2408,11 @@ async function handleSendAsset(event) {
     const amountStr = big2str(amount, 18).slice(0, -16);
     const feeStr = big2str(txFeeInLIB, 18).slice(0, -16);
     const balanceStr = big2str(balance, 18).slice(0, -16);
-    showToast(`Insufficient balance: ${amountStr} + ${feeStr} (fee) > ${balanceStr} LIB`, 0, 'error');
+    showToast(
+      `Insufficient balance: ${amountStr} + ${feeStr} (fee) > ${balanceStr} LIB`,
+      0,
+      'error'
+    );
     return;
   }
 
