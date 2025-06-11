@@ -196,7 +196,10 @@ async function checkOnlineStatus() {
 }
 
 async function checkUsernameAvailability(username, address, foundAddressObject) {
-  // First check if we're offline
+  if (foundAddressObject){
+    foundAddressObject.address = null;
+  }
+// First check if we're offline
   if (!isOnline) {
     console.log('Checking username availability offline');
     // When offline, check local storage only
@@ -8530,7 +8533,7 @@ class SendAssetFormModal {
     this.balanceSymbol = document.getElementById('balanceSymbol');
     this.availableBalance = document.getElementById('availableBalance');
     this.toggleBalanceButton = document.getElementById('toggleBalance');
-    this.foundAddressObject = {};
+    this.foundAddressObject = {address:null};
     this.needTollInfo = false;
     this.tollInfo = {};
     this.tollMemoSpan = document.getElementById('tollMemo');
@@ -8638,6 +8641,8 @@ class SendAssetFormModal {
       clearTimeout(this.sendAssetFormModalCheckTimeout);
     }
 
+    this.clearFormInfo()
+
     // Check if username is too short
     if (username.length < 3) {
       usernameAvailable.textContent = 'too short';
@@ -8672,7 +8677,7 @@ class SendAssetFormModal {
         usernameAvailable.style.display = 'inline';
       }
       // check if found
-      if (this.foundAddressObject?.address) {
+      if (this.foundAddressObject.address) {
         this.needTollInfo = true;
         await this.validateForm();
       }
@@ -8748,6 +8753,10 @@ class SendAssetFormModal {
     }
     //display the container
     this.tollMemoSpan.textContent = `Toll: ${display}`;
+  }
+
+  clearFormInfo(){
+    this.tollMemoSpan.textContent = ''
   }
 
   /**
