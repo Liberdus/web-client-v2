@@ -8574,6 +8574,7 @@ class SendAssetFormModal {
     this.toggleBalanceButton.addEventListener('click', this.handleToggleBalance.bind(this));
     this.usernameInput.addEventListener('paste', handlePaste);
     this.usernameInput.addEventListener('input', filterUsernameInput);
+    this.memoInput.addEventListener('input', this.handleMemoInputChange.bind(this))
   }
 
   /**
@@ -8763,6 +8764,12 @@ class SendAssetFormModal {
 
   clearFormInfo(){
     this.tollMemoSpan.textContent = ''
+  }
+
+  handleMemoInputChange(){
+    if (this.foundAddressObject.address) {
+      this.validateForm();
+    }
   }
 
   /**
