@@ -9256,29 +9256,27 @@ class SendAssetFormModal {
   }
 
   /**
-   * updateSendModalTollAmountUI - Updates toll display in the send asset modal
-   * @param {string} address - The address of the contact
-   * @returns {Promise<void>}
+   * Fetches contact account data from the network
+   * @returns {Promise<Object|null>} - Account data or null if not found
    */
-  async updateSendModalTollAmountUI() {
-    const tollValue = document.getElementById('sendTollValue');
-    if (!tollValue || !this.usernameAddress) return;
+  async fetchContactAccountData() {
+    if (!this.usernameAddress) return null;
 
-    await getNetworkParams();
-    tollValue.style.color = 'black';
-
-    // Query the account data directly from the network using stored address
     const contactAccountData = await queryNetwork(`/account/${longAddress(this.usernameAddress)}`);
     if (!contactAccountData?.account?.data) {
-      tollValue.textContent = 'Account not found';
-      this.toll = 0n;
-      this.tollUnit = 'LIB';
-      return;
+      return null;
     }
 
-    let toll = contactAccountData.account.data.toll || 0n;
-    const tollUnit = contactAccountData.account.data.tollUnit || 'LIB';
+    return contactAccountData.account.data;
+  }
 
+  /**
+   * Updates local toll storage if values have changed
+   * @param {bigint} toll - Toll amount
+   * @param {string} tollUnit - Toll unit ('LIB' or 'USD')
+   * @returns {void}
+   */
+  updateContactTollInLocalStorage(toll, tollUnit) {
     // update the local storage with the new toll value if it is different from the toll field in localStorage
     if (
       toll !== myData.contacts[this.usernameAddress].toll &&
@@ -9288,17 +9286,29 @@ class SendAssetFormModal {
       myData.contacts[this.usernameAddress].toll = toll;
       myData.contacts[this.usernameAddress].tollUnit = tollUnit;
     }
+  }
 
+  /**
+   * Calculates toll display values with USD/LIB conversions
+   * @param {bigint} toll - Toll amount
+   * @param {string} tollUnit - Toll unit ('LIB' or 'USD')
+   * @returns {Object} - Object containing display strings and converted toll
+   */
+  convertTollForDisplay(toll, tollUnit) {
     const mainIsUSD = tollUnit === 'USD';
     const mainValue = parseFloat(big2str(toll, weiDigits));
+
     // Conversion factor (USD/LIB)
     const scaleMul = parameters.current.stabilityScaleMul || 1;
     const scaleDiv = parameters.current.stabilityScaleDiv || 1;
     const factor = scaleDiv !== 0 ? scaleMul / scaleDiv : 1;
 
-    let mainString, otherString;
+    let mainString,
+      otherString,
+      convertedToll = toll;
+
     if (mainIsUSD) {
-      toll = bigxnum2big(toll, (1.0 / factor).toString());
+      convertedToll = bigxnum2big(toll, (1.0 / factor).toString());
       mainString = mainValue.toFixed(6) + ' USD';
       const libValue = mainValue / factor;
       otherString = libValue.toFixed(6) + ' LIB';
@@ -9308,11 +9318,18 @@ class SendAssetFormModal {
       otherString = usdValue.toFixed(6) + ' USD';
     }
 
-    // Store toll data in the modal instance
-    this.toll = toll; // Always in LIB (wei) as a bigint to be used for validation
-    this.tollUnit = tollUnit; // Always in LIB (wei) as a string to be used for validation
+    return {
+      mainString,
+      otherString,
+      convertedToll,
+    };
+  }
 
-    // Check if toll is required by querying the chatId toll endpoint
+  /**
+   * Determines toll requirement by querying chat toll endpoint
+   * @returns {Promise<number>} - Toll requirement (0=free, 1=required, 2=blocked)
+   */
+  async queryTollRequirementStatus() {
     const myAddr = longAddress(myAccount.keys.address);
     const contactAddr = longAddress(this.usernameAddress);
     const sortedAddresses = [myAddr, contactAddr].sort();
@@ -9320,7 +9337,7 @@ class SendAssetFormModal {
     const myIndex = sortedAddresses.indexOf(myAddr);
     const toIndex = 1 - myIndex;
 
-    let tollRequiredToSend = toll > 0n ? 1 : 0; // Default to requiring toll if toll > 0
+    let tollRequiredToSend = this.toll > 0n ? 1 : 0; // Default to requiring toll if toll > 0
 
     try {
       const chatTollData = await queryNetwork(`/messages/${hash}/toll`);
@@ -9332,10 +9349,22 @@ class SendAssetFormModal {
       // Use default value
     }
 
-    this.tollRequiredToSend = tollRequiredToSend;
+    return tollRequiredToSend;
+  }
+
+  /**
+   * Updates toll display UI based on requirement status
+   * @param {number} tollRequiredToSend - Toll requirement status
+   * @param {string} mainString - Main display string
+   * @param {string} otherString - Alternative display string
+   * @returns {void}
+   */
+  renderTollDisplayElements(tollRequiredToSend, mainString, otherString) {
+    const tollValue = document.getElementById('sendTollValue');
 
     let display;
     if (tollRequiredToSend == 1) {
+      tollValue.style.color = 'black';
       display = `${mainString} (${otherString})`;
     } else if (tollRequiredToSend == 2) {
       tollValue.style.color = 'red';
@@ -9344,8 +9373,7 @@ class SendAssetFormModal {
       this.memoInput.value = '';
       this.memoInput.disabled = true;
       // make sure we can see toll-value and toll-label
-      this.sendTollLabel.style.display = 'inline';
-      this.sendTollValue.style.display = 'inline';
+      this.showTollDisplay();
     } else {
       // light green used to show success
       tollValue.style.color = '#28a745';
@@ -9354,6 +9382,47 @@ class SendAssetFormModal {
     tollValue.textContent = display;
   }
 
+  /**
+   * updateSendModalTollAmountUI - Updates toll display in the send asset modal
+   * @returns {Promise<void>}
+   */
+  async updateSendModalTollAmountUI() {
+    const tollValue = document.getElementById('sendTollValue');
+    if (!tollValue || !this.usernameAddress) return;
+
+    await getNetworkParams();
+    tollValue.style.color = 'black';
+
+    // Fetch contact account data
+    const accountData = await this.fetchContactAccountData();
+    if (!accountData) {
+      tollValue.textContent = 'Account not found';
+      this.toll = 0n;
+      this.tollUnit = 'LIB';
+      return;
+    }
+
+    let toll = accountData.toll || 0n;
+    const tollUnit = accountData.tollUnit || 'LIB';
+
+    // Update local storage if needed
+    this.updateContactTollInLocalStorage(toll, tollUnit);
+
+    // Calculate display values
+    const { mainString, otherString, convertedToll } = this.convertTollForDisplay(toll, tollUnit);
+
+    // Store toll data in the modal instance
+    this.toll = convertedToll; // Always in LIB (wei) as a bigint to be used for validation
+    this.tollUnit = tollUnit; // Store original unit for reference
+
+    // Determine toll requirement
+    const tollRequiredToSend = await this.queryTollRequirementStatus();
+    this.tollRequiredToSend = tollRequiredToSend;
+
+    // Update UI
+    this.renderTollDisplayElements(tollRequiredToSend, mainString, otherString);
+  }
+  
   /**
    * handleMemoInput - Handles the memo input
    * @param {Event} e - The event object
