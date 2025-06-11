@@ -8590,6 +8590,7 @@ class SendAssetFormModal {
     this.memoInput.value = '';
     this.retryTxIdInput.value = '';
     this.tollMemoSpan.textContent = '';
+    this.foundAddressObject.address = null;
 
     this.usernameAvailable.style.display = 'none';
     this.submitButton.disabled = true;
@@ -8643,6 +8644,7 @@ class SendAssetFormModal {
     }
 
     this.clearFormInfo()
+    this.foundAddressObject.address = null;
 
     // Check if username is too short
     if (username.length < 3) {
