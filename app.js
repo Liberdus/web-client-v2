@@ -11,7 +11,7 @@ async function checkVersion() {
     newVersion = await response.text();
   } catch (error) {
     console.error('Version check failed:', error);
-    alert('Version check failed. Your Internet connection may be down.');
+    showToast('Version check failed. Your Internet connection may be down.', 0, 'error');
     // Only trigger offline UI if it's a network error
     if (!navigator.onLine || error instanceof TypeError) {
       isOnline = false;
@@ -25,7 +25,7 @@ async function checkVersion() {
   console.log(parseInt(myVersion.replace(/\D/g, '')), parseInt(newVersion.replace(/\D/g, '')));
   if (parseInt(myVersion.replace(/\D/g, '')) != parseInt(newVersion.replace(/\D/g, ''))) {
     if (parseInt(myVersion.replace(/\D/g, '')) > 0) {
-      alert('Updating to new version: ' + newVersion + ' ' + version);
+      showToast('Updating to new version: ' + newVersion + ' ' + version, 3000, 'info');
     }
     localStorage.setItem('version', newVersion); // Save new version
     forceReload([
@@ -1344,22 +1344,22 @@ function setupAddToHomeScreen() {
         // Non-Safari iOS browsers
         addToHomeScreenButton.addEventListener('click', () => {
           const currentUrl = window.location.href;
-          alert(
+          showToast(
             'Open in Safari...\n\n' +
               'iOS only supports adding to home screen through Safari browser.'
-          );
+          , 5000, 'info');
           // Open the current URL in Safari
           window.location.href = currentUrl;
         });
       } else {
         // iOS Safari - Show numbered install instructions
         addToHomeScreenButton.addEventListener('click', () => {
-          alert(
+          showToast(
             'To add to home screen:\n\n' +
               '1. Tap the share button (rectangle with arrow) at the bottom of Safari\n' +
               '2. Scroll down and tap "Add to Home Screen"\n' +
               '3. Tap "Add" in the top right'
-          );
+          , 10000, 'info');
         });
       }
     } else if (isDesktop) {
@@ -1385,15 +1385,15 @@ function setupAddToHomeScreen() {
             addToHomeScreenButton.style.display = 'none';
           }
         } else if (isOpera) {
-          alert(
+          showToast(
             'Installation is not supported in Opera browser. Please use Google Chrome or Microsoft Edge.'
-          );
+          , 5000, 'info');
         } else if (isFirefox) {
-          alert(
+          showToast(
             'Installation is not supported in Firefox browser. Please use Google Chrome or Microsoft Edge.'
-          );
+          , 5000, 'info');
         } else {
-          alert('This app is already installed or cannot be installed on this device/browser.');
+          showToast('This app is already installed or cannot be installed on this device/browser.', 5000, 'info');
         }
       });
     } else {
@@ -2396,17 +2396,17 @@ async function handleSendAsset(event) {
     const amountStr = big2str(amount, 18).slice(0, -16);
     const feeStr = big2str(txFeeInLIB, 18).slice(0, -16);
     const balanceStr = big2str(balance, 18).slice(0, -16);
-    alert(`Insufficient balance: ${amountStr} + ${feeStr} (fee) > ${balanceStr} LIB`);
+    showToast(`Insufficient balance: ${amountStr} + ${feeStr} (fee) > ${balanceStr} LIB`, 0, 'error');
     return;
   }
 
   // Validate username - must be username; address not supported
   if (username.startsWith('0x')) {
-    alert('Address not supported; enter username instead.');
+    showToast('Address not supported; enter username instead.', 0, 'error');
     return;
   }
   if (username.length < 3) {
-    alert('Username too short');
+    showToast('Username too short', 0, 'error');
     return;
   }
   try {
@@ -2420,13 +2420,13 @@ async function handleSendAsset(event) {
 */
     const data = await queryNetwork(`/address/${usernameHash}`);
     if (!data || !data.address) {
-      alert('Username not found');
+      showToast('Username not found', 0, 'error');
       return;
     }
     toAddress = normalizeAddress(data.address);
   } catch (error) {
     console.error('Error looking up username:', error);
-    alert('Error looking up username');
+    showToast('Error looking up username', 0, 'error');
     return;
   }
 
@@ -2623,7 +2623,7 @@ async function handleSendAsset(event) {
 */
   } catch (error) {
     console.error('Transaction error:', error);
-    alert('Transaction failed. Please try again.');
+    showToast('Transaction failed. Please try again.', 0, 'error');
   }
 }
 handleSendAsset.timestamp = getCorrectedTimestamp();
@@ -5915,7 +5915,7 @@ class BackupAccountModal {
       this.close();
     } catch (error) {
       console.error('Encryption failed:', error);
-      alert('Failed to encrypt data. Please try again.');
+      showToast('Failed to encrypt data. Please try again.', 0, 'error');
     }
   }
 }
@@ -7704,7 +7704,7 @@ class ChatModal {
       // Get sender's keys from wallet
       const keys = myAccount.keys;
       if (!keys) {
-        alert('Keys not found for sender address');
+        showToast('Keys not found for sender address', 0, 'error');
         return;
       }
 
@@ -7855,7 +7855,7 @@ class ChatModal {
       }
     } catch (error) {
       console.error('Message error:', error);
-      alert('Failed to send message. Please try again.');
+      showToast('Failed to send message. Please try again.', 0, 'error');
     } finally {
       this.sendButton.disabled = false; // Re-enable the button
     }
