@@ -217,6 +217,7 @@ async function checkUsernameAvailability(username, address) {
     // If we have the username but address doesn't match
     if (netidAccounts?.usernames && netidAccounts.usernames[username]) {
       console.log('Username found locally but address does not match');
+      sendAssetFormModal.usernameAddress = netidAccounts.usernames[username].address;
       return 'taken';
     }
 
@@ -2328,13 +2329,13 @@ function formatBalanceErrorMessage(amount, fee, toll, balance, total, hasMemo) {
     const scalabilityFactor =
       parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
 
-    amountDisplay = (parseFloat(big2str(amount, weiDigits)) * scalabilityFactor).toFixed(6);
-    feeDisplay = (parseFloat(big2str(fee, weiDigits)) * scalabilityFactor).toFixed(6);
+    amountDisplay = (parseFloat(big2str(amount, weiDigits)) * scalabilityFactor).toFixed(2);
+    feeDisplay = (parseFloat(big2str(fee, weiDigits)) * scalabilityFactor).toFixed(2);
     tollDisplay = hasMemo
-      ? (parseFloat(big2str(toll, weiDigits)) * scalabilityFactor).toFixed(6)
+      ? (parseFloat(big2str(toll, weiDigits)) * scalabilityFactor).toFixed(2)
       : '0';
-    balanceDisplay = (parseFloat(big2str(balance, weiDigits)) * scalabilityFactor).toFixed(6);
-    totalDisplay = (parseFloat(big2str(total, weiDigits)) * scalabilityFactor).toFixed(6);
+    balanceDisplay = (parseFloat(big2str(balance, weiDigits)) * scalabilityFactor).toFixed(2);
+    totalDisplay = (parseFloat(big2str(total, weiDigits)) * scalabilityFactor).toFixed(2);
     currency = 'USD';
   } else {
     // Display in LIB
@@ -8651,18 +8652,18 @@ class SendAssetFormModal {
     this.sendForm.addEventListener('submit', this.handleSendFormSubmit.bind(this));
     // TODO: need to add check that it's not a back/delete key
     // have submit disabled until function is done running
-    this.usernameInput.addEventListener('input', async (e) => {
+    this.usernameInput.addEventListener('input', debounce(async (e) => {
       this.submitButton.disabled = true;
       await this.handleSendToAddressInput(e);
-    });
+    }, 300));
 
     this.availableBalance.addEventListener('click', this.fillAmount.bind(this));
     this.assetSelectDropdown.addEventListener('change', () => {
       // updateSendAddresses();
       this.updateAvailableBalance();
     });
-    this.amountInput.addEventListener('input', this.updateAvailableBalance.bind(this));
-    this.memoInput.addEventListener('input', this.handleMemoInput.bind(this));
+    this.amountInput.addEventListener('input', debounce(this.updateAvailableBalance.bind(this), 300));
+    this.memoInput.addEventListener('input', debounce(this.handleMemoInput.bind(this), 300));
     // Add custom validation message for minimum amount
     this.amountInput.addEventListener('invalid', (event) => {
       if (event.target.validity.rangeUnderflow) {
@@ -8741,8 +8742,10 @@ class SendAssetFormModal {
    * Clears toll display elements
    * @returns {void}
    */
-  clearTollDisplay() {
-    this.sendTollValue.textContent = '';
+  clearTollDisplay(clearValue = true) {
+    if (clearValue) {
+      this.sendTollValue.textContent = '';
+    }
     this.hideTollDisplay();
   }
 
@@ -8800,11 +8803,11 @@ class SendAssetFormModal {
    * @param {string} username - The normalized username
    * @returns {void}
    */
-  processUsernameAvailability(username) {
+  async processUsernameAvailability(username) {
     // Check network availability
     this.sendAssetFormModalCheckTimeout = setTimeout(async () => {
       const taken = await checkUsernameAvailability(username, myAccount.keys.address);
-      this.updateUsernameStatusUI(taken);
+      await this.updateUsernameStatusUI(taken);
       await this.refreshSendButtonDisabledState(); // Update button state based on new address status and current amount status
     }, 1000);
   }
@@ -8812,7 +8815,7 @@ class SendAssetFormModal {
   /**
    * Updates UI based on username availability status
    * @param {string} status - The availability status ('taken', 'mine', 'available', or other)
-   * @returns {void}
+   * @returns {Promise<void>}
    */
   async updateUsernameStatusUI(status) {
     if (status === 'taken') {
@@ -9102,7 +9105,7 @@ class SendAssetFormModal {
   async calculateTollForValidation(hasMemo, isAddressValid) {
     let tollForValidation = 0n;
 
-    if (hasMemo && this.toll > 0n && isAddressValid) {
+    if (this.shouldDisplayToll(hasMemo, isAddressValid)) {
       // display toll-value and toll-label only if username is found
       this.showTollDisplay();
 
@@ -9202,7 +9205,7 @@ class SendAssetFormModal {
     }
 
     // only need to validate balance if username is `found` and amount is present
-    if (!isAddressConsideredValid || amount === '') {
+    if (!isAddressConsideredValid || !this.isAmountValid(amount)) {
       this.clearBalanceWarning();
       this.updateSubmitButtonState(false);
       return;
@@ -9219,6 +9222,28 @@ class SendAssetFormModal {
     const isFormValid = isAddressConsideredValid && isAmountAndBalanceValid;
     this.updateSubmitButtonState(isFormValid);
   }
+
+  /**
+   * Checks if amount is valid (not empty, not zero, is a number)
+   * @param {string|number} amount - The amount to validate
+   * @returns {boolean} - True if amount is valid
+   */
+  isAmountValid(amount) {
+    if (!amount || amount === '') return false;
+    const numAmount = parseFloat(amount);
+    return !isNaN(numAmount) && numAmount > 0;
+  }
+
+  /**
+   * Determines if toll should be displayed based on memo and address validity
+   * @param {boolean} hasMemo - Whether memo is present
+   * @param {boolean} isAddressValid - Whether address is valid
+   * @returns {boolean} - True if toll should be displayed
+   */
+  shouldDisplayToll(hasMemo, isAddressValid) {
+    return hasMemo && isAddressValid && this.toll > 0n;
+  }
+
   /**
    * Toggles the currency symbol between LIB and USD
    * @returns {string} - The new currency symbol after toggle
@@ -9248,11 +9273,9 @@ class SendAssetFormModal {
     const sendAmount = document.getElementById('sendAmount');
 
     if (isLib) {
-      // Converting from USD to LIB
-      sendAmount.value = sendAmount.value / scalabilityFactor;
+      sendAmount.value = this.convertUSDToLIB(sendAmount.value, scalabilityFactor);
     } else {
-      // Converting from LIB to USD
-      sendAmount.value = sendAmount.value * scalabilityFactor;
+      sendAmount.value = this.convertLIBToUSD(sendAmount.value, scalabilityFactor);
     }
   }
 
@@ -9294,10 +9317,32 @@ class SendAssetFormModal {
       transactionFee.textContent = feeInLIB + ' LIB';
     } else {
       // Display in USD
-      balanceAmount.textContent = '$' + (parseFloat(balanceInLIB) * scalabilityFactor).toString();
+      balanceAmount.textContent =
+        '$' + this.convertLIBToUSD(balanceInLIB, scalabilityFactor).toString();
       availableBalanceSymbol.textContent = '';
-      transactionFee.textContent = '$' + (parseFloat(feeInLIB) * scalabilityFactor).toString();
+      transactionFee.textContent =
+        '$' + this.convertLIBToUSD(feeInLIB, scalabilityFactor).toString();
     }
+  }
+
+  /**
+   * Converts LIB amount to USD
+   * @param {number|string} amount - Amount in LIB
+   * @param {number} scalabilityFactor - The conversion factor
+   * @returns {number} - Amount in USD
+   */
+  convertLIBToUSD(amount, scalabilityFactor) {
+    return parseFloat(amount) * scalabilityFactor;
+  }
+
+  /**
+   * Converts USD amount to LIB
+   * @param {number|string} amount - Amount in USD
+   * @param {number} scalabilityFactor - The conversion factor
+   * @returns {number} - Amount in LIB
+   */
+  convertUSDToLIB(amount, scalabilityFactor) {
+    return parseFloat(amount) / scalabilityFactor;
   }
 
   /**
@@ -9350,13 +9395,21 @@ class SendAssetFormModal {
    */
   updateContactTollInLocalStorage(toll, tollUnit) {
     // update the local storage with the new toll value if it is different from the toll field in localStorage
+    const normalizedAddress = normalizeAddress(this.usernameAddress);
+    const contact = myData.contacts[normalizedAddress];
+    
+    if (!contact) {
+      console.log(`Contact not found for normalized address: ${normalizedAddress}, skipping toll update`);
+      return;
+    }
+    
     if (
-      toll !== myData.contacts[this.usernameAddress].toll &&
-      tollUnit !== myData.contacts[this.usernameAddress].tollUnit
+      toll !== contact.toll &&
+      tollUnit !== contact.tollUnit
     ) {
       console.log(`DEBUG: updating toll value in local storage`);
-      myData.contacts[this.usernameAddress].toll = toll;
-      myData.contacts[this.usernameAddress].tollUnit = tollUnit;
+      contact.toll = toll;
+      contact.tollUnit = tollUnit;
     }
   }
 
@@ -9501,7 +9554,7 @@ class SendAssetFormModal {
    */
   handleEmptyMemo() {
     console.log('DEBUG: memo is empty');
-    this.clearTollDisplay();
+    this.clearTollDisplay(false);
     this.clearBalanceWarning();
     this.currentUsername = '';
 
