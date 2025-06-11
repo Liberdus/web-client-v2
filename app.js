@@ -2307,6 +2307,56 @@ function fillStakeAddressFromQR(data) {
 }
 
 /**
+ * Format balance amounts for display based on current UI currency setting
+ * @param {BigInt} amount - Amount in wei
+ * @param {BigInt} fee - Fee in wei
+ * @param {BigInt} toll - Toll in wei
+ * @param {BigInt} balance - Balance in wei
+ * @param {BigInt} total - Total required in wei
+ * @param {boolean} hasMemo - Whether memo is present
+ * @returns {string} - Formatted error message
+ */
+function formatBalanceErrorMessage(amount, fee, toll, balance, total, hasMemo) {
+  // Check if we should display in USD
+  const balanceSymbol = document.getElementById('balanceSymbol');
+  const isUSD = balanceSymbol && balanceSymbol.textContent === 'USD';
+
+  let amountDisplay, feeDisplay, tollDisplay, balanceDisplay, totalDisplay, currency;
+
+  if (isUSD) {
+    // Convert all values to USD for display
+    const scalabilityFactor =
+      parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+
+    amountDisplay = (parseFloat(big2str(amount, weiDigits)) * scalabilityFactor).toFixed(6);
+    feeDisplay = (parseFloat(big2str(fee, weiDigits)) * scalabilityFactor).toFixed(6);
+    tollDisplay = hasMemo
+      ? (parseFloat(big2str(toll, weiDigits)) * scalabilityFactor).toFixed(6)
+      : '0';
+    balanceDisplay = (parseFloat(big2str(balance, weiDigits)) * scalabilityFactor).toFixed(6);
+    totalDisplay = (parseFloat(big2str(total, weiDigits)) * scalabilityFactor).toFixed(6);
+    currency = 'USD';
+  } else {
+    // Display in LIB
+    amountDisplay = big2str(amount, weiDigits).slice(0, -12);
+    feeDisplay = big2str(fee, weiDigits).slice(0, -12);
+    tollDisplay = hasMemo ? big2str(toll, weiDigits).slice(0, -12) : '0';
+    balanceDisplay = big2str(balance, weiDigits).slice(0, -12);
+    totalDisplay = big2str(total, 18).slice(0, -12);
+    currency = 'LIB';
+  }
+
+  const prefix = isUSD ? '$' : '';
+  const suffix = ` ${currency}`;
+
+  if (hasMemo && toll > 0n) {
+    return `Insufficient balance. Need greater than: ${prefix}${amountDisplay} + ${prefix}${feeDisplay} fee + ${prefix}${tollDisplay} toll = ${prefix}${totalDisplay}${suffix}. Available: ${prefix}${balanceDisplay}${suffix}`;
+  } else {
+    return `Insufficient balance. Need greater than: ${prefix}${amountDisplay} + ${prefix}${feeDisplay} fee = ${prefix}${totalDisplay}${suffix}. Available: ${prefix}${balanceDisplay}${suffix}`;
+  }
+}
+
+/**
  * Validate the balance of the user
  * @param {BigInt} amount - The amount to validate
  * @param {number} assetIndex - The index of the asset to validate
@@ -2322,6 +2372,7 @@ async function validateBalance(
   tollAmount = 0n,
   hasMemo = false
 ) {
+  // Early validation: Check if amount is provided and valid
   if (!amount) {
     if (balanceWarning) {
       balanceWarning.style.display = 'none';
@@ -2335,9 +2386,11 @@ async function validateBalance(
     return false;
   }
 
+  // Get current network parameters to determine transaction fee
   await getNetworkParams();
   const txFeeInWei = parameters.current.transactionFee || 1n * wei;
 
+  // Validate wallet assets exist
   if (!myData.wallet.assets || myData.wallet.assets.length === 0) {
     if (balanceWarning) {
       balanceWarning.textContent = 'No wallet assets available';
@@ -2346,6 +2399,7 @@ async function validateBalance(
     return false;
   }
 
+  // Validate the selected asset exists
   const asset = myData.wallet.assets[assetIndex];
   if (!asset) {
     if (balanceWarning) {
@@ -2355,12 +2409,13 @@ async function validateBalance(
     return false;
   }
 
+  // Get current balance for the selected asset
   const balance = BigInt(asset.balance);
 
-  // Calculate total required amount
+  // Calculate total amount needed: base amount + transaction fee
   let totalRequired = amount + txFeeInWei;
 
-  // Add toll if memo is provided
+  // Add toll to total if memo is provided and toll is required
   if (hasMemo && tollAmount > 0n) {
     totalRequired += tollAmount;
   }
@@ -2369,96 +2424,29 @@ async function validateBalance(
     `[validateBalance] amount: ${amount}, fee: ${txFeeInWei}, toll: ${tollAmount}, hasMemo: ${hasMemo}, total: ${totalRequired}, balance: ${balance}`
   );
 
+  // Check if user has sufficient balance for the transaction
   if (totalRequired >= balance) {
+    // Display formatted error message if balance is insufficient
     if (balanceWarning) {
-      // Check if we should display in USD
-      const balanceSymbol = document.getElementById('balanceSymbol');
-      const isUSD = balanceSymbol && balanceSymbol.textContent === 'USD';
-
-      let amountDisplay, feeDisplay, tollDisplay, balanceDisplay, totalDisplay, currency;
-
-      if (isUSD) {
-        // Convert all values to USD for display
-        const scalabilityFactor =
-          parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
-
-        amountDisplay = (parseFloat(big2str(amount, weiDigits)) * scalabilityFactor).toFixed(6);
-        feeDisplay = (parseFloat(big2str(txFeeInWei, weiDigits)) * scalabilityFactor).toFixed(6);
-        tollDisplay = hasMemo
-          ? (parseFloat(big2str(tollAmount, weiDigits)) * scalabilityFactor).toFixed(6)
-          : '0';
-        balanceDisplay = (parseFloat(big2str(balance, weiDigits)) * scalabilityFactor).toFixed(6);
-        totalDisplay = (parseFloat(big2str(totalRequired, weiDigits)) * scalabilityFactor).toFixed(
-          6
-        );
-        currency = 'USD';
-      } else {
-        // Display in LIB
-        amountDisplay = big2str(amount, weiDigits).slice(0, -12);
-        feeDisplay = big2str(txFeeInWei, weiDigits).slice(0, -12);
-        tollDisplay = hasMemo ? big2str(tollAmount, weiDigits).slice(0, -12) : '0';
-        balanceDisplay = big2str(balance, weiDigits).slice(0, -12);
-        totalDisplay = big2str(totalRequired, 18).slice(0, -12);
-        currency = 'LIB';
-      }
-
-      const prefix = isUSD ? '$' : '';
-      const suffix = ` ${currency}`;
-
-      if (hasMemo && tollAmount > 0n) {
-        balanceWarning.textContent = `Insufficient balance. Need greater than: ${prefix}${amountDisplay} + ${prefix}${feeDisplay} fee + ${prefix}${tollDisplay} toll = ${prefix}${totalDisplay}${suffix}. Available: ${prefix}${balanceDisplay}${suffix}`;
-      } else {
-        balanceWarning.textContent = `Insufficient balance. Need greater than: ${prefix}${amountDisplay} + ${prefix}${feeDisplay} fee = ${prefix}${totalDisplay}${suffix}. Available: ${prefix}${balanceDisplay}${suffix}`;
-      }
-
+      balanceWarning.textContent = formatBalanceErrorMessage(
+        amount,
+        txFeeInWei,
+        tollAmount,
+        balance,
+        totalRequired,
+        hasMemo
+      );
       balanceWarning.style.display = 'block';
     }
-    return false;
+    return false; // Insufficient balance
   }
 
+  // Balance is sufficient - hide any previous warning messages
   if (balanceWarning) {
     balanceWarning.style.display = 'none';
   }
-  return true;
+  return true; // Balance validation passed
 }
-
-// /**
-//  * Validate the balance of the user
-//  * @param {BigInt} amount - The amount to validate
-//  * @param {number} assetIndex - The index of the asset to validate
-//  * @param {HTMLElement} balanceWarning - The element to display the balance warning
-//  * @returns {Promise<boolean>} - A promise that resolves to true if the balance is sufficient, false otherwise
-//  */
-// async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
-//   if (!amount) {
-//     if (balanceWarning) balanceWarning.style.display = 'none';
-//     console.warn('[validateBalance] amount is 0');
-//     return false;
-//   } else if (amount < 0) {
-//     console.warn('[validateBalance] amount is negative');
-//     if (balanceWarning) balanceWarning.style.display = 'inline';
-//     balanceWarning.textContent = 'Amount cannot be negative';
-//     return false;
-//   }
-
-//   await getNetworkParams();
-//   const asset = myData.wallet.assets[assetIndex];
-//   const feeInWei = parameters.current.transactionFee || 1n * wei;
-//   const totalRequired = bigxnum2big(1n, amount.toString()) + feeInWei;
-//   const hasInsufficientBalance = BigInt(asset.balance) < totalRequired;
-
-//   if (balanceWarning) {
-//     if (hasInsufficientBalance) {
-//       balanceWarning.textContent = `Insufficient balance (including ${big2str(feeInWei, 18).slice(0, -16)} LIB fee)`;
-//       balanceWarning.style.display = 'block';
-//     } else {
-//       balanceWarning.style.display = 'none';
-//     }
-//   }
-
-//   // use ! to return true if the balance is sufficient, false otherwise
-//   return !hasInsufficientBalance;
-// }
 
 // The user has filled out the form to send assets to a recipient and clicked the Send button
 // The recipient account may not exist in myData.contacts and might have to be created
