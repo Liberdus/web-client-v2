@@ -9579,6 +9579,8 @@ class SendAssetFormModal {
    * @returns {void}
    */
   validateMemoStateChange() {
+    const memo = this.memoInput.value.trim();
+    
     if (
       this.currentUsername !== this.usernameInput.value &&
       this.amountInput.value &&
@@ -9586,16 +9588,18 @@ class SendAssetFormModal {
     ) {
       console.log('DEBUG: currentUsername !== username');
       this.clearBalanceWarning();
-
+  
       // if memo is not empty and username is found, display toll-value and toll-label
-      this.handleMemoWithValidUsername();
-
+      if (memo !== '') {
+        this.handleMemoWithValidUsername();
+      }
+  
       // validate balance again since the toll values have changed
       this.refreshSendButtonDisabledState();
       this.currentUsername = this.usernameInput.value;
     } else {
       // if memo is not empty, display toll-value and toll-label only if username is found
-      if (this.usernameInput.value && this.amountInput.value && this.isUsernameFound()) {
+      if (memo !== '' && this.usernameInput.value && this.amountInput.value && this.isUsernameFound()) {
         this.showTollDisplay();
       }
     }
