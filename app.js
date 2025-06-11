@@ -9031,23 +9031,146 @@ class SendAssetFormModal {
   }
 
   /**
-   * Refreshes the disabled state of the send button based on the username and amount
-   * @returns {Promise<void>}
+   * Shows toll display elements
+   * @returns {void}
    */
-  async refreshSendButtonDisabledState() {
-    // Address is valid if its error/status message is visible and set to 'found'.
-    const isAddressConsideredValid =
-      this.usernameAvailable.style.display === 'inline' &&
-      this.usernameAvailable.textContent === 'found';
-    //console.log(`isAddressConsideredValid ${isAddressConsideredValid}`);
+  showTollDisplay() {
+    this.sendTollLabel.style.display = 'inline';
+    this.sendTollValue.style.display = 'inline';
+  }
 
+  /**
+   * Clears balance warning display
+   * @returns {void}
+   */
+  clearBalanceWarning() {
+    this.balanceWarning.textContent = '';
+    this.balanceWarning.style.display = 'none';
+  }
+
+  /**
+   * Shows balance warning with message
+   * @param {string} message - The warning message to display
+   * @returns {void}
+   */
+  showBalanceWarning(message) {
+    this.balanceWarning.textContent = message;
+    this.balanceWarning.style.display = 'inline';
+  }
+
+  /**
+   * Checks if username status is 'found'
+   * @returns {boolean}
+   */
+  isUsernameFound() {
+    return (
+      this.usernameAvailable.style.display === 'inline' &&
+      this.usernameAvailable.textContent === 'found'
+    );
+  }
+
+  /**
+   * Validates if address and amount are in valid state
+   * @returns {Object} - Object containing validation results
+   */
+  validateAddressAndAmount() {
+    const isAddressConsideredValid = this.isUsernameFound();
     const amount = this.amountInput.value;
     const memo = this.memoInput.value.trim();
     const hasMemo = memo.length > 0;
 
-    // Check if amount is in USD and convert to LIB for validation
-    const balanceSymbol = document.getElementById('balanceSymbol');
-    const isUSD = balanceSymbol.textContent === 'USD';
+    return {
+      isAddressConsideredValid,
+      amount,
+      hasMemo,
+      memo,
+    };
+  }
+
+  /**
+   * Calculates toll amount for validation purposes
+   * @param {boolean} hasMemo - Whether memo is present
+   * @param {boolean} isAddressValid - Whether address is valid
+   * @returns {Promise<bigint>} - Toll amount in wei
+   */
+  async calculateTollForValidation(hasMemo, isAddressValid) {
+    let tollForValidation = 0n;
+
+    if (hasMemo && this.toll > 0n && isAddressValid) {
+      // display toll-value and toll-label only if username is found
+      this.showTollDisplay();
+
+      // determine if toll should be included
+      if (this.tollRequiredToSend === 1) {
+        tollForValidation = this.toll;
+      }
+    } else if (this.tollRequiredToSend === 2) {
+      console.warn('[refreshSendButtonDisabledState] toll is blocked');
+      // clear and disable memo input
+      this.memoInput.value = '';
+      this.memoInput.disabled = true;
+      // toll should be 0n
+      tollForValidation = 0n;
+    }
+
+    return tollForValidation;
+  }
+
+  /**
+   * Validates toll amount against send amount
+   * @param {bigint} amountBigInt - Amount to send in wei
+   * @param {bigint} tollForValidation - Toll amount in wei
+   * @returns {boolean} - True if toll validation passes
+   */
+  validateTollAmount(amountBigInt, tollForValidation) {
+    // if toll is required and toll is greater than 0n, check if the amount is greater than the toll
+    if (this.tollRequiredToSend === 1 && tollForValidation > 0n) {
+      // need to check if the amount is greater than the toll
+      if (amountBigInt < this.toll && this.isUsernameFound()) {
+        console.warn('[refreshSendButtonDisabledState] amount is less than toll');
+        this.showBalanceWarning('Amount must be greater than toll');
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Performs final balance validation
+   * @param {bigint} amountBigInt - Amount in wei
+   * @param {bigint} tollForValidation - Toll amount in wei
+   * @param {boolean} hasMemo - Whether memo is present
+   * @returns {Promise<boolean>} - True if balance is valid
+   */
+  async performBalanceValidation(amountBigInt, tollForValidation, hasMemo) {
+    return await validateBalance(
+      amountBigInt,
+      this.assetSelectDropdown.value,
+      this.balanceWarning,
+      tollForValidation,
+      hasMemo
+    );
+  }
+
+  /**
+   * Updates submit button enabled/disabled state
+   * @param {boolean} isValid - Whether form is valid
+   * @returns {void}
+   */
+  updateSubmitButtonState(isValid) {
+    this.submitButton.disabled = !isValid;
+  }
+
+  /**
+   * Refreshes the disabled state of the send button based on the username and amount
+   * @returns {Promise<void>}
+   */
+  async refreshSendButtonDisabledState() {
+    // Validate address and amount
+    const { isAddressConsideredValid, amount, hasMemo } = this.validateAddressAndAmount();
+
+    // Check if toggled to USD and convert to LIB for validation
+    const isUSD = this.balanceSymbol.textContent === 'USD';
     let amountForValidation = amount;
 
     if (isUSD && amount) {
@@ -9060,63 +9183,36 @@ class SendAssetFormModal {
     // convert amount to bigint
     const amountBigInt = bigxnum2big(wei, amountForValidation.toString());
 
-    // Get toll amount for validation (only if memo is provided)
-    // Toll is always passed as-is since validateBalance will handle it in LIB
-    let tollForValidation = 0n;
-    if (hasMemo && this.toll > 0n && isAddressConsideredValid) {
-      // display toll-value and toll-label only if username is found
-      this.sendTollLabel.style.display = 'inline';
-      this.sendTollValue.style.display = 'inline';
+    // Get toll amount for validation
+    const tollForValidation = await this.calculateTollForValidation(
+      hasMemo,
+      isAddressConsideredValid
+    );
 
-      // determine if toll should be included
-      if (this.tollRequiredToSend === 1) {
-        // need to check if the amount is greater than the toll
-        if (amountBigInt < this.toll && this.usernameAvailable.textContent === 'found') {
-          console.warn('[refreshSendButtonDisabledState] amount is less than toll');
-          this.balanceWarning.textContent = 'Amount must be greater than toll';
-          this.balanceWarning.style.display = 'inline';
-          // disable send button
-          this.sendButton.disabled = true;
-          return;
-        }
-        tollForValidation = this.toll;
-      }
-    } else if (this.tollRequiredToSend === 2) {
-      console.warn('[refreshSendButtonDisabledState] toll is blocked');
-      // clear and disable memo input
-      this.memoInput.value = '';
-      this.memoInput.disabled = true;
-      // toll should be 0n
-      tollForValidation = 0n;
+    // Validate toll amount
+    if (!this.validateTollAmount(amountBigInt, tollForValidation)) {
+      this.updateSubmitButtonState(false);
+      return;
     }
 
     // only need to validate balance if username is `found` and amount is present
     if (!isAddressConsideredValid || amount === '') {
-      // clear balance warning
-      this.balanceWarning.textContent = '';
-      this.balanceWarning.style.display = 'none';
+      this.clearBalanceWarning();
+      this.updateSubmitButtonState(false);
       return;
     }
 
     // Enhanced balance validation with toll consideration
-    const isAmountAndBalanceValid = await validateBalance(
+    const isAmountAndBalanceValid = await this.performBalanceValidation(
       amountBigInt,
-      this.assetSelectDropdown.value,
-      this.balanceWarning,
       tollForValidation,
       hasMemo
     );
 
-    const submitButton = document.querySelector('#sendForm button[type="submit"]');
-
-    // Enable button only if both conditions are met.
-    if (isAddressConsideredValid && isAmountAndBalanceValid) {
-      submitButton.disabled = false;
-    } else {
-      submitButton.disabled = true;
-    }
+    // Enable button only if both conditions are met
+    const isFormValid = isAddressConsideredValid && isAmountAndBalanceValid;
+    this.updateSubmitButtonState(isFormValid);
   }
-
   /**
    * This function is called when the user clicks the toggle LIB/USD button.
    * Updates the balance symbol and the send amount to the equivalent value in USD/LIB
