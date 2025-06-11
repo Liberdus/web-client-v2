@@ -8533,6 +8533,7 @@ class SendAssetFormModal {
     this.foundAddressObject = {};
     this.needTollInfo = false;
     this.tollInfo = {};
+    this.tollMemoSpan = document.getElementById('tollMemo');
   }
 
   /**
@@ -8584,6 +8585,7 @@ class SendAssetFormModal {
     this.amountInput.value = '';
     this.memoInput.value = '';
     this.retryTxIdInput.value = '';
+    this.tollMemoSpan.textContent = '';
 
     this.usernameAvailable.style.display = 'none';
     this.submitButton.disabled = true;
@@ -8701,7 +8703,7 @@ class SendAssetFormModal {
       };
       this.needTollInfo = false;
     }
-    if (this.tollInfo.required && this.tollInfo.toll) {
+    if (this.tollInfo.required !== undefined && this.tollInfo.toll !== undefined) {
       // build string to display under memo input. with lib amoutn and (usd amount)
       /* const tollInfoString = `Toll:  */
       this.updateMemoTollUI();
@@ -8712,8 +8714,7 @@ class SendAssetFormModal {
    * updateTollAmountUI
    */
   updateMemoTollUI() {
-    const memoToll = document.getElementById('tollMemo');
-    memoToll.style.color = 'black';
+    this.tollMemoSpan.style.color = 'black';
     let toll = this.tollInfo.toll || 0n;
     const tollUnit = this.tollInfo.tollUnit || 'LIB';
     const decimals = 18;
@@ -8738,17 +8739,15 @@ class SendAssetFormModal {
     if (this.tollInfo.required == 1) {
       display = `${mainString} (${otherString})`;
     } else if (this.tollInfo.required == 2) {
-      memoToll.style.color = 'red';
+      this.tollMemoSpan.style.color = 'red';
       display = `blocked`;
     } else {
       // light green used to show success
-      memoToll.style.color = '#28a745';
+      this.tollMemoSpan.style.color = '#28a745';
       display = `free (${mainString} (${otherString}))`;
     }
     //display the container
-    const memoTollContainer = document.getElementById('memoTollContainer');
-    memoTollContainer.style.display = 'block';
-    memoToll.textContent = `Toll: ${ display}`;
+    this.tollMemoSpan.textContent = `Toll: ${display}`;
   }
 
   /**
