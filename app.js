@@ -8743,6 +8743,9 @@ class SendAssetFormModal {
     let display;
     if (this.tollInfo.required == 1) {
       display = `${mainString} (${otherString})`;
+      if (this.memoInput.value.trim() == ''){
+        display = ''
+      }
     } else if (this.tollInfo.required == 2) {
       this.tollMemoSpan.style.color = 'red';
       display = `blocked`;
@@ -8752,7 +8755,10 @@ class SendAssetFormModal {
       display = `free (${mainString} (${otherString}))`;
     }
     //display the container
-    this.tollMemoSpan.textContent = `Toll: ${display}`;
+    if (display != ''){
+      display = 'Toll: ' + display
+    }
+    this.tollMemoSpan.textContent = display;
   }
 
   clearFormInfo(){
