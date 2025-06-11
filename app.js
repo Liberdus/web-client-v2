@@ -8996,11 +8996,6 @@ class SendAssetFormModal {
         const scaleDiv = parameters.current.stabilityScaleDiv || 1;
         const factor = scaleDiv !== 0 ? scaleMul / scaleDiv : 1;
         let amountInLIB = amount;
-        /*
-        if (this.balanceSymbol.textContent !== 'LIB'){
-          amountInLIB = bigxnum2big(amount, (1.0 / factor).toString());
-        }
-        */
         let tollInLIB = this.tollInfo.toll;
         if (this.tollInfo.tollUnit !== 'LIB') {
           tollInLIB = bigxnum2big(this.tollInfo.toll, (1.0 / factor).toString());
@@ -9014,6 +9009,9 @@ class SendAssetFormModal {
           return false;
         }
       }
+    }
+    if (this.tollInfo.required == 2) {
+      return false;
     }
     return true;
   }
