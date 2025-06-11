@@ -8698,9 +8698,7 @@ class SendAssetFormModal {
     this.balanceWarning.style.display = 'none';
     this.toll = 0n;
     this.tollUnit = 'LIB';
-    // hide toll-value and toll-label
-    this.sendTollLabel.style.display = 'none';
-    this.sendTollValue.style.display = 'none';
+    this.clearTollDisplay();
     // enable memo input
     this.memoInput.disabled = false;
 
@@ -8745,6 +8743,14 @@ class SendAssetFormModal {
    */
   clearTollDisplay() {
     this.sendTollValue.textContent = '';
+    this.hideTollDisplay();
+  }
+
+  /**
+   * Hides toll display elements
+   * @returns {void}
+   */
+  hideTollDisplay() {
     this.sendTollLabel.style.display = 'none';
     this.sendTollValue.style.display = 'none';
   }
@@ -9213,113 +9219,113 @@ class SendAssetFormModal {
     const isFormValid = isAddressConsideredValid && isAmountAndBalanceValid;
     this.updateSubmitButtonState(isFormValid);
   }
-/**
- * Toggles the currency symbol between LIB and USD
- * @returns {string} - The new currency symbol after toggle
- */
-toggleCurrencySymbol() {
-  const balanceSymbol = document.getElementById('balanceSymbol');
-  balanceSymbol.textContent = balanceSymbol.textContent === 'LIB' ? 'USD' : 'LIB';
-  return balanceSymbol.textContent;
-}
-
-/**
- * Gets the current scalability factor for LIB/USD conversion
- * @returns {Promise<number>} - The scalability factor
- */
-async getScalabilityFactor() {
-  await getNetworkParams();
-  return parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
-}
-
-/**
- * Converts amount values between LIB and USD
- * @param {boolean} isLib - True if converting to LIB, false if converting to USD
- * @param {number} scalabilityFactor - The conversion factor
- * @returns {void}
- */
-convertSendAmountValue(isLib, scalabilityFactor) {
-  const sendAmount = document.getElementById('sendAmount');
-  
-  if (isLib) {
-    // Converting from USD to LIB
-    sendAmount.value = sendAmount.value / scalabilityFactor;
-  } else {
-    // Converting from LIB to USD
-    sendAmount.value = sendAmount.value * scalabilityFactor;
+  /**
+   * Toggles the currency symbol between LIB and USD
+   * @returns {string} - The new currency symbol after toggle
+   */
+  toggleCurrencySymbol() {
+    const balanceSymbol = document.getElementById('balanceSymbol');
+    balanceSymbol.textContent = balanceSymbol.textContent === 'LIB' ? 'USD' : 'LIB';
+    return balanceSymbol.textContent;
   }
-}
 
-/**
- * Gets raw balance and fee values in LIB format
- * @returns {Promise<Object>} - Object containing balance and fee values
- */
-async getRawBalanceValues() {
-  await getNetworkParams();
-  const asset = myData.wallet.assets[this.assetSelectDropdown.value];
-  const txFeeInWei = parameters.current.transactionFee || 1n * wei;
-  
-  const balanceInLIB = big2str(BigInt(asset.balance), 18).slice(0, -12);
-  const feeInLIB = big2str(txFeeInWei, 18).slice(0, -16);
-  
-  return {
-    balanceInLIB,
-    feeInLIB
-  };
-}
-
-/**
- * Updates balance display elements based on currency mode
- * @param {boolean} isLib - True if displaying in LIB, false if USD
- * @param {string} balanceInLIB - Balance value in LIB
- * @param {string} feeInLIB - Fee value in LIB
- * @param {number} scalabilityFactor - Conversion factor
- * @returns {void}
- */
-updateBalanceDisplayElements(isLib, balanceInLIB, feeInLIB, scalabilityFactor) {
-  const balanceAmount = document.getElementById('balanceAmount');
-  const transactionFee = document.getElementById('transactionFee');
-  const availableBalanceSymbol = document.getElementById('availableBalanceSymbol');
-
-  if (isLib) {
-    // Display in LIB
-    balanceAmount.textContent = balanceInLIB;
-    availableBalanceSymbol.textContent = 'LIB';
-    transactionFee.textContent = feeInLIB + ' LIB';
-  } else {
-    // Display in USD
-    balanceAmount.textContent = '$' + (parseFloat(balanceInLIB) * scalabilityFactor).toString();
-    availableBalanceSymbol.textContent = '';
-    transactionFee.textContent = '$' + (parseFloat(feeInLIB) * scalabilityFactor).toString();
+  /**
+   * Gets the current scalability factor for LIB/USD conversion
+   * @returns {Promise<number>} - The scalability factor
+   */
+  async getScalabilityFactor() {
+    await getNetworkParams();
+    return parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
   }
-}
 
-/**
- * This function is called when the user clicks the toggle LIB/USD button.
- * Updates the balance symbol and the send amount to the equivalent value in USD/LIB
- * @param {Event} e - The event object
- * @returns {void}
- */
-async handleToggleBalance(e) {
-  e.preventDefault();
-  
-  // Toggle currency symbol
-  const newSymbol = this.toggleCurrencySymbol();
-  // check if the new symbol is LIB
-  const isLib = newSymbol === 'LIB';
-  
-  // Get scalability factor
-  const scalabilityFactor = await this.getScalabilityFactor();
-  
-  // Convert send amount value
-  this.convertSendAmountValue(isLib, scalabilityFactor);
-  
-  // Get raw balance values
-  const { balanceInLIB, feeInLIB } = await this.getRawBalanceValues();
-  
-  // Update balance display elements
-  this.updateBalanceDisplayElements(isLib, balanceInLIB, feeInLIB, scalabilityFactor);
-}
+  /**
+   * Converts amount values between LIB and USD
+   * @param {boolean} isLib - True if converting to LIB, false if converting to USD
+   * @param {number} scalabilityFactor - The conversion factor
+   * @returns {void}
+   */
+  convertSendAmountValue(isLib, scalabilityFactor) {
+    const sendAmount = document.getElementById('sendAmount');
+
+    if (isLib) {
+      // Converting from USD to LIB
+      sendAmount.value = sendAmount.value / scalabilityFactor;
+    } else {
+      // Converting from LIB to USD
+      sendAmount.value = sendAmount.value * scalabilityFactor;
+    }
+  }
+
+  /**
+   * Gets raw balance and fee values in LIB format
+   * @returns {Promise<Object>} - Object containing balance and fee values
+   */
+  async getRawBalanceValues() {
+    await getNetworkParams();
+    const asset = myData.wallet.assets[this.assetSelectDropdown.value];
+    const txFeeInWei = parameters.current.transactionFee || 1n * wei;
+
+    const balanceInLIB = big2str(BigInt(asset.balance), 18).slice(0, -12);
+    const feeInLIB = big2str(txFeeInWei, 18).slice(0, -16);
+
+    return {
+      balanceInLIB,
+      feeInLIB,
+    };
+  }
+
+  /**
+   * Updates balance display elements based on currency mode
+   * @param {boolean} isLib - True if displaying in LIB, false if USD
+   * @param {string} balanceInLIB - Balance value in LIB
+   * @param {string} feeInLIB - Fee value in LIB
+   * @param {number} scalabilityFactor - Conversion factor
+   * @returns {void}
+   */
+  updateBalanceDisplayElements(isLib, balanceInLIB, feeInLIB, scalabilityFactor) {
+    const balanceAmount = document.getElementById('balanceAmount');
+    const transactionFee = document.getElementById('transactionFee');
+    const availableBalanceSymbol = document.getElementById('availableBalanceSymbol');
+
+    if (isLib) {
+      // Display in LIB
+      balanceAmount.textContent = balanceInLIB;
+      availableBalanceSymbol.textContent = 'LIB';
+      transactionFee.textContent = feeInLIB + ' LIB';
+    } else {
+      // Display in USD
+      balanceAmount.textContent = '$' + (parseFloat(balanceInLIB) * scalabilityFactor).toString();
+      availableBalanceSymbol.textContent = '';
+      transactionFee.textContent = '$' + (parseFloat(feeInLIB) * scalabilityFactor).toString();
+    }
+  }
+
+  /**
+   * This function is called when the user clicks the toggle LIB/USD button.
+   * Updates the balance symbol and the send amount to the equivalent value in USD/LIB
+   * @param {Event} e - The event object
+   * @returns {void}
+   */
+  async handleToggleBalance(e) {
+    e.preventDefault();
+
+    // Toggle currency symbol
+    const newSymbol = this.toggleCurrencySymbol();
+    // check if the new symbol is LIB
+    const isLib = newSymbol === 'LIB';
+
+    // Get scalability factor
+    const scalabilityFactor = await this.getScalabilityFactor();
+
+    // Convert send amount value
+    this.convertSendAmountValue(isLib, scalabilityFactor);
+
+    // Get raw balance values
+    const { balanceInLIB, feeInLIB } = await this.getRawBalanceValues();
+
+    // Update balance display elements
+    this.updateBalanceDisplayElements(isLib, balanceInLIB, feeInLIB, scalabilityFactor);
+  }
 
   /**
    * Fetches contact account data from the network
@@ -9488,7 +9494,60 @@ async handleToggleBalance(e) {
     // Update UI
     this.renderTollDisplayElements(tollRequiredToSend, mainString, otherString);
   }
-  
+
+  /**
+   * Handles empty memo case - hides toll display and clears warnings
+   * @returns {void}
+   */
+  handleEmptyMemo() {
+    console.log('DEBUG: memo is empty');
+    this.clearTollDisplay();
+    this.clearBalanceWarning();
+    this.currentUsername = '';
+
+    // if username is present and amount is present, validate balance
+    if (this.usernameInput.value && this.amountInput.value) {
+      this.refreshSendButtonDisabledState();
+    }
+  }
+
+  /**
+   * Handles memo input when username is found - shows toll display
+   * @returns {void}
+   */
+  handleMemoWithValidUsername() {
+    if (this.isUsernameFound()) {
+      this.showTollDisplay();
+    }
+  }
+
+  /**
+   * Validates and handles memo state changes when username changes
+   * @returns {void}
+   */
+  validateMemoStateChange() {
+    if (
+      this.currentUsername !== this.usernameInput.value &&
+      this.amountInput.value &&
+      this.usernameInput.value
+    ) {
+      console.log('DEBUG: currentUsername !== username');
+      this.clearBalanceWarning();
+
+      // if memo is not empty and username is found, display toll-value and toll-label
+      this.handleMemoWithValidUsername();
+
+      // validate balance again since the toll values have changed
+      this.refreshSendButtonDisabledState();
+      this.currentUsername = this.usernameInput.value;
+    } else {
+      // if memo is not empty, display toll-value and toll-label only if username is found
+      if (this.usernameInput.value && this.amountInput.value && this.isUsernameFound()) {
+        this.showTollDisplay();
+      }
+    }
+  }
+
   /**
    * handleMemoInput - Handles the memo input
    * @param {Event} e - The event object
@@ -9501,53 +9560,15 @@ async handleToggleBalance(e) {
 
     // if memo is empty, just hide toll display but keep toll values for efficiency
     if (memo === '') {
-      console.log('DEBUG: memo is empty');
-      this.sendTollLabel.style.display = 'none';
-      this.sendTollValue.style.display = 'none';
-      this.balanceWarning.textContent = '';
-      this.balanceWarning.style.display = 'none';
-      this.currentUsername = '';
-      // if username is present and amount is present, validate balance
-      if (this.usernameInput.value && this.amountInput.value) {
-        this.refreshSendButtonDisabledState();
-      }
+      this.handleEmptyMemo();
       return;
     }
 
-    // if sendToAddressError is 'found', display toll-value and toll-label
-    if (this.usernameAvailable.textContent === 'found') {
-      this.sendTollLabel.style.display = 'inline';
-      this.sendTollValue.style.display = 'inline';
-    }
+    // Handle memo with valid username
+    this.handleMemoWithValidUsername();
 
-    if (
-      this.currentUsername !== this.usernameInput.value &&
-      this.amountInput.value &&
-      this.usernameInput.value
-    ) {
-      console.log('DEBUG: currentUsername !== username');
-      this.balanceWarning.textContent = '';
-      this.balanceWarning.style.display = 'none';
-      // if memo is not empty and username is found, display toll-value and toll-label
-      if (this.usernameAvailable.textContent === 'found') {
-        this.sendTollLabel.style.display = 'inline';
-        this.sendTollValue.style.display = 'inline';
-      }
-
-      // validate balance again since the toll values have changed
-      this.refreshSendButtonDisabledState();
-      this.currentUsername = this.usernameInput.value;
-    } else {
-      // if memo is not empty, display toll-value and toll-label only if username is found
-      if (
-        this.usernameInput.value &&
-        this.amountInput.value &&
-        this.usernameAvailable.textContent === 'found'
-      ) {
-        this.sendTollLabel.style.display = 'inline';
-        this.sendTollValue.style.display = 'inline';
-      }
-    }
+    // Validate memo state changes
+    this.validateMemoStateChange();
   }
 }
 
