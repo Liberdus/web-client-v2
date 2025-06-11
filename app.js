@@ -392,6 +392,7 @@ function openCreateAccountModal() {
 let createAccountCheckTimeout;
 function handleCreateAccountInput(e) {
   const username = normalizeUsername(e.target.value);
+  e.target.value = username;
   const usernameAvailable = document.getElementById('newUsernameAvailable');
   const submitButton = document.querySelector('#createAccountForm button[type="submit"]');
 
@@ -1160,8 +1161,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // create account button listener to clear message input on create account
   document.getElementById('newUsername').addEventListener('input', handleCreateAccountInput);
-  document.getElementById('newUsername').addEventListener('paste', handlePaste);
-  document.getElementById('newUsername').addEventListener('input', filterUsernameInput);
 
   // Event Listerns for FailedPaymentModal
   const failedPaymentModal = document.getElementById('failedPaymentModal');
@@ -8359,8 +8358,6 @@ class NewChatModal {
       'input',
       debounce(this.handleUsernameInput.bind(this), 300)
     );
-    this.recipientInput.addEventListener('paste', handlePaste);
-    this.recipientInput.addEventListener('input', filterUsernameInput);
   }
 
   /**
@@ -8491,6 +8488,7 @@ class NewChatModal {
     this.submitButton.disabled = true;
 
     const username = normalizeUsername(e.target.value);
+    e.target.value = username;
 
     // Clear previous timeout
     if (this.usernameInputCheckTimeout) {
@@ -8568,8 +8566,6 @@ class SendAssetFormModal {
     this.usernameInput.addEventListener('input', async (e) => {
       this.handleSendToAddressInput(e);
     });
-    this.usernameInput.addEventListener('paste', handlePaste);
-    this.usernameInput.addEventListener('input', filterUsernameInput);
 
     this.availableBalance.addEventListener('click', this.fillAmount.bind(this));
     this.assetSelectDropdown.addEventListener('change', () => {
@@ -8652,6 +8648,7 @@ class SendAssetFormModal {
   async handleSendToAddressInput(e) {
     // Check availability on input changes
     const username = normalizeUsername(e.target.value);
+    e.target.value = username;
     const usernameAvailable = this.usernameAvailable;
 
     // Clear previous timeout
@@ -9408,27 +9405,3 @@ async function getNetworkParams() {
 }
 getNetworkParams.timestamp = 0;
 
-function filterUsernameInput(e) {
-  const input = e.target;
-  const filteredValue = input.value.replace(/[^a-zA-Z0-9]/g, '');
-  if (input.value !== filteredValue) {
-    input.value = filteredValue;
-  }
-}
-
-function handlePaste(e) {
-  e.preventDefault(); // Prevent the default paste
-  const pastedText = (e.clipboardData || window.clipboardData).getData('text');
-  const filteredText = pastedText.replace(/[^a-zA-Z0-9]/g, '');
-  const input = e.target;
-
-  // Get the current cursor position
-  const start = input.selectionStart;
-  const end = input.selectionEnd;
-
-  // Insert the filtered text at cursor position
-  input.value = input.value.substring(0, start) + filteredText + input.value.substring(end);
-
-  // Set cursor position after the pasted text
-  input.setSelectionRange(start + filteredText.length, start + filteredText.length);
-}
