@@ -9213,47 +9213,113 @@ class SendAssetFormModal {
     const isFormValid = isAddressConsideredValid && isAmountAndBalanceValid;
     this.updateSubmitButtonState(isFormValid);
   }
-  /**
-   * This function is called when the user clicks the toggle LIB/USD button.
-   * Updates the balance symbol and the send amount to the equivalent value in USD/LIB
-   * @param {Event} e - The event object
-   * @returns {void}
-   */
-  async handleToggleBalance(e) {
-    e.preventDefault();
-    const balanceSymbol = document.getElementById('balanceSymbol');
-    balanceSymbol.textContent = balanceSymbol.textContent === 'LIB' ? 'USD' : 'LIB';
-    const sendAmount = document.getElementById('sendAmount');
-    const balanceAmount = document.getElementById('balanceAmount');
-    const transactionFee = document.getElementById('transactionFee');
+/**
+ * Toggles the currency symbol between LIB and USD
+ * @returns {string} - The new currency symbol after toggle
+ */
+toggleCurrencySymbol() {
+  const balanceSymbol = document.getElementById('balanceSymbol');
+  balanceSymbol.textContent = balanceSymbol.textContent === 'LIB' ? 'USD' : 'LIB';
+  return balanceSymbol.textContent;
+}
 
-    // check the context value of the button to determine if it's LIB or USD
-    const isLib = balanceSymbol.textContent === 'LIB';
+/**
+ * Gets the current scalability factor for LIB/USD conversion
+ * @returns {Promise<number>} - The scalability factor
+ */
+async getScalabilityFactor() {
+  await getNetworkParams();
+  return parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+}
 
-    // get the scalability factor for LIB/USD conversion
-    await getNetworkParams();
-    const scalabilityFactor =
-      parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
-
-    // Get the raw values in LIB format
-    const asset = myData.wallet.assets[this.assetSelectDropdown.value];
-    const txFeeInWei = parameters.current.transactionFee || 1n * wei;
-    const balanceInLIB = big2str(BigInt(asset.balance), 18).slice(0, -12);
-    const feeInLIB = big2str(txFeeInWei, 18).slice(0, -16);
-
-    // if isLib is false, convert the sendAmount to USD
-    if (!isLib) {
-      sendAmount.value = sendAmount.value * scalabilityFactor;
-      balanceAmount.textContent = '$' + (parseFloat(balanceInLIB) * scalabilityFactor).toString();
-      document.getElementById('availableBalanceSymbol').textContent = '';
-      transactionFee.textContent = '$' + (parseFloat(feeInLIB) * scalabilityFactor).toString();
-    } else {
-      sendAmount.value = sendAmount.value / scalabilityFactor;
-      balanceAmount.textContent = balanceInLIB;
-      document.getElementById('availableBalanceSymbol').textContent = 'LIB';
-      transactionFee.textContent = feeInLIB + ' LIB';
-    }
+/**
+ * Converts amount values between LIB and USD
+ * @param {boolean} isLib - True if converting to LIB, false if converting to USD
+ * @param {number} scalabilityFactor - The conversion factor
+ * @returns {void}
+ */
+convertSendAmountValue(isLib, scalabilityFactor) {
+  const sendAmount = document.getElementById('sendAmount');
+  
+  if (isLib) {
+    // Converting from USD to LIB
+    sendAmount.value = sendAmount.value / scalabilityFactor;
+  } else {
+    // Converting from LIB to USD
+    sendAmount.value = sendAmount.value * scalabilityFactor;
   }
+}
+
+/**
+ * Gets raw balance and fee values in LIB format
+ * @returns {Promise<Object>} - Object containing balance and fee values
+ */
+async getRawBalanceValues() {
+  await getNetworkParams();
+  const asset = myData.wallet.assets[this.assetSelectDropdown.value];
+  const txFeeInWei = parameters.current.transactionFee || 1n * wei;
+  
+  const balanceInLIB = big2str(BigInt(asset.balance), 18).slice(0, -12);
+  const feeInLIB = big2str(txFeeInWei, 18).slice(0, -16);
+  
+  return {
+    balanceInLIB,
+    feeInLIB
+  };
+}
+
+/**
+ * Updates balance display elements based on currency mode
+ * @param {boolean} isLib - True if displaying in LIB, false if USD
+ * @param {string} balanceInLIB - Balance value in LIB
+ * @param {string} feeInLIB - Fee value in LIB
+ * @param {number} scalabilityFactor - Conversion factor
+ * @returns {void}
+ */
+updateBalanceDisplayElements(isLib, balanceInLIB, feeInLIB, scalabilityFactor) {
+  const balanceAmount = document.getElementById('balanceAmount');
+  const transactionFee = document.getElementById('transactionFee');
+  const availableBalanceSymbol = document.getElementById('availableBalanceSymbol');
+
+  if (isLib) {
+    // Display in LIB
+    balanceAmount.textContent = balanceInLIB;
+    availableBalanceSymbol.textContent = 'LIB';
+    transactionFee.textContent = feeInLIB + ' LIB';
+  } else {
+    // Display in USD
+    balanceAmount.textContent = '$' + (parseFloat(balanceInLIB) * scalabilityFactor).toString();
+    availableBalanceSymbol.textContent = '';
+    transactionFee.textContent = '$' + (parseFloat(feeInLIB) * scalabilityFactor).toString();
+  }
+}
+
+/**
+ * This function is called when the user clicks the toggle LIB/USD button.
+ * Updates the balance symbol and the send amount to the equivalent value in USD/LIB
+ * @param {Event} e - The event object
+ * @returns {void}
+ */
+async handleToggleBalance(e) {
+  e.preventDefault();
+  
+  // Toggle currency symbol
+  const newSymbol = this.toggleCurrencySymbol();
+  // check if the new symbol is LIB
+  const isLib = newSymbol === 'LIB';
+  
+  // Get scalability factor
+  const scalabilityFactor = await this.getScalabilityFactor();
+  
+  // Convert send amount value
+  this.convertSendAmountValue(isLib, scalabilityFactor);
+  
+  // Get raw balance values
+  const { balanceInLIB, feeInLIB } = await this.getRawBalanceValues();
+  
+  // Update balance display elements
+  this.updateBalanceDisplayElements(isLib, balanceInLIB, feeInLIB, scalabilityFactor);
+}
 
   /**
    * Fetches contact account data from the network
