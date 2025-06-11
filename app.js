@@ -2322,13 +2322,13 @@ function fillStakeAddressFromQR(data) {
  * @returns {Promise<boolean>} - A promise that resolves to true if the balance is sufficient, false otherwise
  */
 async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
+  if (balanceWarning) balanceWarning.style.display = 'none';
   if (!amount) {
-    if (balanceWarning) balanceWarning.style.display = 'none';
     console.warn('[validateBalance] amount is 0');
     return false;
   } else if (amount < 0) {
     console.warn('[validateBalance] amount is negative');
-    if (balanceWarning) balanceWarning.style.display = 'inline';
+    if (balanceWarning) balanceWarning.style.display = 'block';
     balanceWarning.textContent = 'Amount cannot be negative';
     return false;
   }
@@ -8552,6 +8552,8 @@ class SendAssetFormModal {
     this.usernameInput.addEventListener('input', async (e) => {
       this.handleSendToAddressInput(e);
     });
+    this.usernameInput.addEventListener('paste', handlePaste);
+    this.usernameInput.addEventListener('input', filterUsernameInput);
 
     this.availableBalance.addEventListener('click', this.fillAmount.bind(this));
     this.assetSelectDropdown.addEventListener('change', () => {
@@ -8572,8 +8574,6 @@ class SendAssetFormModal {
     });
     // event listener for toggle LIB/USD button
     this.toggleBalanceButton.addEventListener('click', this.handleToggleBalance.bind(this));
-    this.usernameInput.addEventListener('paste', handlePaste);
-    this.usernameInput.addEventListener('input', filterUsernameInput);
     this.memoInput.addEventListener('input', this.handleMemoInputChange.bind(this))
   }
 
@@ -8684,7 +8684,9 @@ class SendAssetFormModal {
         this.needTollInfo = true;
         await this.validateForm();
       }
-      //await this.refreshSendButtonDisabledState(); // Update button state based on new address status and current amount status
+      else{
+        await this.refreshSendButtonDisabledState();
+      }
     }, 1000);
   }
 
@@ -8715,6 +8717,7 @@ class SendAssetFormModal {
       // build string to display under memo input. with lib amoutn and (usd amount)
       /* const tollInfoString = `Toll:  */
       this.updateMemoTollUI();
+      this.refreshSendButtonDisabledState()
     }
   }
 
@@ -8972,12 +8975,48 @@ class SendAssetFormModal {
 
     const submitButton = document.querySelector('#sendForm button[type="submit"]');
 
+    let isAmountAndTollValid = true;
+    if (this.foundAddressObject.address){
+      if (amountInput.value.trim() != ''){
+        isAmountAndTollValid = this.validateToll(amountBigInt, assetIndex, balanceWarning)
+        console.log('ismountAndTollValid '+isAmountAndTollValid)
+      }
+    }
     // Enable button only if both conditions are met.
-    if (isAddressConsideredValid && isAmountAndBalanceValid) {
+    if (isAddressConsideredValid && isAmountAndBalanceValid && isAmountAndTollValid) {
       submitButton.disabled = false;
     } else {
       submitButton.disabled = true;
     }
+  }
+
+  validateToll(amount, assetIndex = 0, balanceWarning = null){
+    // check if user is required to pay a toll
+    if (this.tollInfo.required == 1){
+      if (this.memoInput.value.trim() != ''){
+        console.log('checking if toll > amount')
+        const scaleMul = parameters.current.stabilityScaleMul || 1;
+        const scaleDiv = parameters.current.stabilityScaleDiv || 1;
+        const factor = scaleDiv !== 0 ? scaleMul / scaleDiv : 1;
+        let amountInLIB = amount;
+        /*
+        if (this.balanceSymbol.textContent !== 'LIB'){
+          amountInLIB = bigxnum2big(amount, (1.0 / factor).toString());
+        }
+        */
+        let tollInLIB = this.tollInfo.toll;
+        if (this.tollInfo.tollUnit !== 'LIB'){
+          tollInLIB = bigxnum2big(this.tollInfo.toll, (1.0 / factor).toString());
+        }
+        console.log(`toll > amount  ${big2str(tollInLIB,8)} > ${big2str(amountInLIB,8)} : ${tollInLIB>amountInLIB}`)
+        if (tollInLIB > amountInLIB){
+          balanceWarning.textContent = 'Amount is less than toll for memo.'
+          balanceWarning.style.display = 'block'
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
   /**
