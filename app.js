@@ -909,9 +909,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('newPrivateKeyError').style.display = 'none';
     openCreateAccountModal();
   });
-  document
-    .getElementById('closeCreateAccountModal')
-    .addEventListener('click', closeCreateAccountModal);
+  document.getElementById('closeCreateAccountModal').addEventListener('click', closeCreateAccountModal);
   document.getElementById('createAccountForm').addEventListener('submit', handleCreateAccount);
 
   // Event listener for the private key toggle checkbox
@@ -964,9 +962,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   sendAssetFormModal.load();
 
   // Add event listeners for send asset confirmation modal
-  document
-    .getElementById('closeSendAssetConfirmModal')
-    .addEventListener('click', closeSendAssetConfirmModal);
+  document.getElementById('closeSendAssetConfirmModal').addEventListener('click', closeSendAssetConfirmModal);
   document.getElementById('confirmSendButton').addEventListener('click', handleSendAsset);
   document.getElementById('cancelSendButton').addEventListener('click', closeSendAssetConfirmModal);
 
@@ -985,15 +981,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('receiveMemo').addEventListener('input', debounce(updateQRCode, 300));
 
   document.getElementById('switchToChats').addEventListener('click', () => switchView('chats'));
-  document
-    .getElementById('switchToContacts')
-    .addEventListener('click', () => switchView('contacts'));
+  document.getElementById('switchToContacts').addEventListener('click', () => switchView('contacts'));
   document.getElementById('switchToWallet').addEventListener('click', () => switchView('wallet'));
 
   document.getElementById('handleSignOut').addEventListener('click', handleSignOut);
-  document
-    .getElementById('closeContactInfoModal')
-    .addEventListener('click', () => contactInfoModal.close());
+  document.getElementById('closeContactInfoModal').addEventListener('click', () => contactInfoModal.close());
 
   // add event listener for back-button presses to prevent shift+tab
   document.querySelectorAll('.back-button').forEach((button) => {
@@ -1156,9 +1148,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('username').addEventListener('change', handleUsernameOnSignInModal);
 
   // Add event listener for remove account button
-  document
-    .getElementById('removeAccountButton')
-    .addEventListener('click', handleRemoveAccountButton);
+  document.getElementById('removeAccountButton').addEventListener('click', handleRemoveAccountButton);
 
   // create account button listener to clear message input on create account
   document.getElementById('newUsername').addEventListener('input', handleCreateAccountInput);
@@ -1269,8 +1259,7 @@ function setupAddToHomeScreen() {
     document.referrer.includes('android-app://');
 
   // Add browser detection
-  const isOpera =
-    navigator.userAgent.indexOf('OPR') > -1 || navigator.userAgent.indexOf('Opera') > -1;
+  const isOpera = navigator.userAgent.indexOf('OPR') > -1 || navigator.userAgent.indexOf('Opera') > -1;
   const isFirefox = navigator.userAgent.indexOf('Firefox') > -1;
 
   // Function to check if the app can be installed
@@ -1345,8 +1334,7 @@ function setupAddToHomeScreen() {
         addToHomeScreenButton.addEventListener('click', () => {
           const currentUrl = window.location.href;
           showToast(
-            'Open in Safari...\n\n' +
-              'iOS only supports adding to home screen through Safari browser.',
+            'Open in Safari...\n\n' + 'iOS only supports adding to home screen through Safari browser.',
             5000,
             'info'
           );
@@ -1401,11 +1389,7 @@ function setupAddToHomeScreen() {
             'info'
           );
         } else {
-          showToast(
-            'This app is already installed or cannot be installed on this device/browser.',
-            5000,
-            'info'
-          );
+          showToast('This app is already installed or cannot be installed on this device/browser.', 5000, 'info');
         }
       });
     } else {
@@ -1505,8 +1489,7 @@ async function updateChatList() {
       // If contact doesn't exist, skip this chat item
       if (!contact) return null;
 
-      const latestActivity =
-        contact.messages && contact.messages.length > 0 ? contact.messages[0] : null;
+      const latestActivity = contact.messages && contact.messages.length > 0 ? contact.messages[0] : null;
 
       // If there's no latest activity (no messages), skip this chat item
       if (!latestActivity) return null;
@@ -1632,8 +1615,7 @@ async function updateWalletBalances() {
 
 async function switchView(view) {
   // Store the current view for potential rollback
-  const previousView =
-    document.querySelector('.app-screen.active')?.id?.replace('Screen', '') || 'chats';
+  const previousView = document.querySelector('.app-screen.active')?.id?.replace('Screen', '') || 'chats';
   const previousButton = document.querySelector('.nav-button.active');
 
   // Initialize WebSocket connection regardless of view
@@ -1846,9 +1828,7 @@ async function updateContactsList() {
     const group = statusGroups[key];
     if (group.length > 0) {
       html += `<div class="contact-section-header">${label}</div>`;
-      const items = await Promise.all(
-        group.map((contact) => renderContactItem(contact, itemClass))
-      );
+      const items = await Promise.all(group.map((contact) => renderContactItem(contact, itemClass)));
       html += items.join('');
       allContacts = allContacts.concat(group);
     }
@@ -1964,10 +1944,7 @@ async function updateTollRequired(address) {
     if (contactAccountData?.error === 'No account with the given chatId') {
       console.warn(`chatId has not been created yet: ${address}`, contactAccountData.error);
     } else if (contactAccountData?.error) {
-      console.error(
-        `Error querying toll required for address: ${address}`,
-        contactAccountData.error
-      );
+      console.error(`Error querying toll required for address: ${address}`, contactAccountData.error);
       return;
     }
 
@@ -1999,10 +1976,7 @@ async function updateTollValue(address) {
   const queriedTollUnit = contactAccountData?.account?.data?.tollUnit; // type string */
 
   // update the toll value in the UI if the queried toll value is different from the toll value or toll unit in localStorage
-  if (
-    myData.contacts[address].toll != queriedToll ||
-    myData.contacts[address].tollUnit != queriedTollUnit
-  ) {
+  if (myData.contacts[address].toll != queriedToll || myData.contacts[address].tollUnit != queriedTollUnit) {
     myData.contacts[address].toll = queriedToll;
     myData.contacts[address].tollUnit = queriedTollUnit;
     // if correct modal is open for this address, update the toll value
@@ -2010,9 +1984,7 @@ async function updateTollValue(address) {
       updateTollAmountUI(address);
     }
   } else {
-    console.log(
-      `Returning early since queried toll value is the same as the toll field in localStorage`
-    );
+    console.log(`Returning early since queried toll value is the same as the toll field in localStorage`);
     // return early
     return;
   }
@@ -2168,10 +2140,7 @@ function updateQRCode() {
     // Create URI with liberdus:// prefix
     const qrText = `liberdus://${base64Data}`;
     console.log('QR code text length:', qrText.length);
-    console.log(
-      'QR code text (first 100 chars):',
-      qrText.substring(0, 100) + (qrText.length > 100 ? '...' : '')
-    );
+    console.log('QR code text (first 100 chars):', qrText.substring(0, 100) + (qrText.length > 100 ? '...' : ''));
 
     const gifBytes = qr.encodeQR(qrText, 'gif', { scale: 4 });
     // Convert the raw bytes to a base64 data URL
@@ -2224,8 +2193,7 @@ function updateQRCode() {
     } catch (fallbackError) {
       // If even the fallback fails (e.g., username missing), show a simple error
       console.error('Error generating fallback QR code:', fallbackError);
-      qrcodeContainer.innerHTML =
-        '<p style="color: red; text-align: center;">Failed to generate QR code.</p>';
+      qrcodeContainer.innerHTML = '<p style="color: red; text-align: center;">Failed to generate QR code.</p>';
       if (previewElement) {
         previewElement.innerHTML = '<p style="color: red;">Error generating QR code.</p>';
         previewElement.style.display = 'block'; // Make the error visible
@@ -2408,11 +2376,7 @@ async function handleSendAsset(event) {
     const amountStr = big2str(amount, 18).slice(0, -16);
     const feeStr = big2str(txFeeInLIB, 18).slice(0, -16);
     const balanceStr = big2str(balance, 18).slice(0, -16);
-    showToast(
-      `Insufficient balance: ${amountStr} + ${feeStr} (fee) > ${balanceStr} LIB`,
-      0,
-      'error'
-    );
+    showToast(`Insufficient balance: ${amountStr} + ${feeStr} (fee) > ${balanceStr} LIB`, 0, 'error');
     return;
   }
 
@@ -2616,8 +2580,7 @@ async function handleSendAsset(event) {
 
     // Update the chat modal to show the newly sent transfer message
     // Check if the chat modal for this recipient is currently active
-    const inActiveChatWithRecipient =
-      chatModal.address === toAddress && chatModal.modal.classList.contains('active');
+    const inActiveChatWithRecipient = chatModal.address === toAddress && chatModal.modal.classList.contains('active');
 
     if (inActiveChatWithRecipient) {
       chatModal.appendChatModal(); // Re-render the chat modal and highlight the new item
@@ -2691,8 +2654,7 @@ class ContactInfoModal {
 
     // Update the avatar section
     avatarDiv.innerHTML = identicon;
-    nameDiv.textContent =
-      displayInfo.name !== 'Not provided' ? displayInfo.name : displayInfo.username;
+    nameDiv.textContent = displayInfo.name !== 'Not provided' ? displayInfo.name : displayInfo.username;
     subtitleDiv.textContent = displayInfo.address;
 
     const fields = {
@@ -2777,9 +2739,7 @@ class FriendModal {
     this.friendForm.addEventListener('submit', (event) => this.handleFriendSubmit(event));
 
     // Friend modal close button
-    this.modal
-      .querySelector('.back-button')
-      .addEventListener('click', () => this.closeFriendModal());
+    this.modal.querySelector('.back-button').addEventListener('click', () => this.closeFriendModal());
   }
 
   // Open the friend modal
@@ -2837,16 +2797,11 @@ class FriendModal {
     const contact = myData.contacts[this.currentContactAddress];
     if (!contact) return;
 
-    const selectedStatus = this.friendForm.querySelector(
-      'input[name="friendStatus"]:checked'
-    )?.value;
+    const selectedStatus = this.friendForm.querySelector('input[name="friendStatus"]:checked')?.value;
     if (!selectedStatus) return;
 
     // send transaction to update chat toll
-    const res = await this.postUpdateTollRequired(
-      this.currentContactAddress,
-      Number(selectedStatus)
-    );
+    const res = await this.postUpdateTollRequired(this.currentContactAddress, Number(selectedStatus));
     if (res?.transaction?.success === false) {
       console.log(
         `[handleFriendSubmit] update_toll_required transaction failed: ${res?.transaction?.reason}. Did not update contact status.`
@@ -2939,8 +2894,7 @@ async function openEditContactModal() {
   nameInput.value = originalName;
 
   // field-action-button should be clear
-  nameInput.parentElement.querySelector('.field-action-button').className =
-    'field-action-button clear';
+  nameInput.parentElement.querySelector('.field-action-button').className = 'field-action-button clear';
 
   // Show the edit contact modal
   editContactModal.classList.add('active');
@@ -3110,8 +3064,7 @@ function handleFailedPaymentClick(txid, element) {
   // Get the address and memo from the original failed transfer element
   const address = element?.dataset?.address || chatModal.address;
   const memo =
-    element?.querySelector('.transaction-memo')?.textContent ||
-    element?.querySelector('.payment-memo')?.textContent;
+    element?.querySelector('.transaction-memo')?.textContent || element?.querySelector('.payment-memo')?.textContent;
   //const assetID = element?.dataset?.assetID || ''; // TODO: need to add assetID to `myData.wallet.history` for when we have multiple assets
 
   // Store the address and memo in properties of handleFailedPaymentClick
@@ -3159,16 +3112,12 @@ function handleFailedPaymentRetry() {
     // find username in myData.contacts[handleFailedPaymentClick.address].senderInfo.username
     // enter as an input to invoke the oninput event
     sendAssetFormModal.usernameInput.value =
-      myData.contacts[handleFailedPaymentClick.address]?.senderInfo?.username ||
-      handleFailedPaymentClick.address ||
-      '';
+      myData.contacts[handleFailedPaymentClick.address]?.senderInfo?.username || handleFailedPaymentClick.address || '';
     sendAssetFormModal.usernameInput.dispatchEvent(new Event('input', { bubbles: true }));
 
     // 4. fill in the amount input
     // get the amount from myData.wallet.history since we need to the bigint value
-    const amount = myData.wallet.history.find(
-      (tx) => tx.txid === handleFailedPaymentClick.txid
-    )?.amount;
+    const amount = myData.wallet.history.find((tx) => tx.txid === handleFailedPaymentClick.txid)?.amount;
     // convert bigint to string
     const amountStr = big2str(amount, 18);
     sendAssetFormModal.amountInput.value = amountStr;
@@ -3461,13 +3410,8 @@ async function queryNetwork(url) {
   }
 
   try {
-    const response = await fetch(
-      `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}${url}`
-    );
-    console.log(
-      'query',
-      `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}${url}`
-    );
+    const response = await fetch(`${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}${url}`);
+    console.log('query', `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}${url}`);
     const data = parse(await response.text());
     console.log('response', data);
     return data;
@@ -3538,8 +3482,7 @@ async function checkWebSocketStatus() {
     const diagnosticInfo = {
       browserState: {
         isPrivateMode: !window.localStorage,
-        networkProtocol:
-          window.location.protocol === 'https:' ? 'Secure (HTTPS)' : 'Insecure (HTTP)',
+        networkProtocol: window.location.protocol === 'https:' ? 'Secure (HTTPS)' : 'Insecure (HTTP)',
         isOnline: navigator.onLine,
         webSocketSupport: typeof WebSocket !== 'undefined',
       },
@@ -3680,8 +3623,7 @@ async function processChats(chats, keys) {
       // This check determines if we're currently chatting with the sender
       // We ONLY want to avoid notifications if we're actively viewing this exact chat
       const inActiveChatWithSender =
-        chatModal.address === from &&
-        document.getElementById('chatModal')?.classList.contains('active'); // Added null check for safety
+        chatModal.address === from && document.getElementById('chatModal')?.classList.contains('active'); // Added null check for safety
 
       for (let i in res.messages) {
         const tx = res.messages[i]; // the messages are actually the whole tx
@@ -3833,12 +3775,8 @@ async function processChats(chats, keys) {
 
           added += 1;
 
-          const walletScreenActive = document
-            .getElementById('walletScreen')
-            ?.classList.contains('active');
-          const historyModalActive = document
-            .getElementById('historyModal')
-            ?.classList.contains('active');
+          const walletScreenActive = document.getElementById('walletScreen')?.classList.contains('active');
+          const historyModalActive = document.getElementById('historyModal')?.classList.contains('active');
           // Update wallet view if it's active
           if (walletScreenActive) {
             updateWalletView();
@@ -4294,10 +4232,7 @@ function searchMessages(searchText) {
       if (message.message.toLowerCase().includes(searchLower)) {
         // Highlight matching text
         const messageText = escapeHtml(message.message);
-        const highlightedText = messageText.replace(
-          new RegExp(searchText, 'gi'),
-          (match) => `<mark>${match}</mark>`
-        );
+        const highlightedText = messageText.replace(new RegExp(searchText, 'gi'), (match) => `<mark>${match}</mark>`);
         results.push({
           contactAddress: address,
           username: contact.username || address,
@@ -4460,9 +4395,7 @@ function searchContacts(searchText) {
     if (matches) {
       // Determine match type for sorting
       const exactMatch = searchFields.some((field) => field.toLowerCase() === searchLower);
-      const startsWithMatch = searchFields.some((field) =>
-        field.toLowerCase().startsWith(searchLower)
-      );
+      const startsWithMatch = searchFields.some((field) => field.toLowerCase().startsWith(searchLower));
 
       results.push({
         ...contact,
@@ -4683,11 +4616,7 @@ async function handleConnectivityChange() {
         await updateWalletView();
       } catch (error) {
         console.error('Failed to update data on reconnect:', error);
-        showToast(
-          "Some data couldn't be updated. Please refresh if you notice missing information.",
-          5000,
-          'warning'
-        );
+        showToast("Some data couldn't be updated. Please refresh if you notice missing information.", 5000, 'warning');
       }
     }
   } else if (!isOnline) {
@@ -4929,10 +4858,7 @@ function getGatewayForRequest() {
   initializeGatewayConfig();
 
   // If we have a default gateway set, use it
-  if (
-    myData.network.defaultGatewayIndex >= 0 &&
-    myData.network.defaultGatewayIndex < myData.network.gateways.length
-  ) {
+  if (myData.network.defaultGatewayIndex >= 0 && myData.network.defaultGatewayIndex < myData.network.gateways.length) {
     return myData.network.gateways[myData.network.defaultGatewayIndex];
   }
 
@@ -4977,9 +4903,7 @@ async function startCamera() {
         case 'NotFoundError':
           throw new Error('No camera device was found on your system.');
         case 'NotReadableError':
-          throw new Error(
-            'Camera is already in use by another application or encountered a hardware error.'
-          );
+          throw new Error('Camera is already in use by another application or encountered a hardware error.');
         case 'SecurityError':
           throw new Error("Camera access was blocked by your browser's security policy.");
         case 'AbortError':
@@ -5019,11 +4943,7 @@ async function startCamera() {
     stopCamera(); // Ensure we clean up any partial setup
 
     // Show user-friendly error message
-    showToast(
-      error.message || 'Failed to access camera. Please check your permissions and try again.',
-      5000,
-      'error'
-    );
+    showToast(error.message || 'Failed to access camera. Please check your permissions and try again.', 5000, 'error');
 
     // Re-throw the error if you need to handle it further up
     throw error;
@@ -5233,10 +5153,7 @@ class WSManager {
   connect() {
     updateWebSocketIndicator();
     // Check if ws is not null and readyState is either CONNECTING or OPEN
-    if (
-      this.ws &&
-      (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)
-    ) {
+    if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) {
       console.log('WebSocket connection already established');
       return;
     }
@@ -5486,10 +5403,7 @@ class WSManager {
     this.reconnectAttempts++;
 
     // Exponential backoff
-    const delay = Math.min(
-      30000,
-      Math.pow(2, this.reconnectAttempts) * 1000 + Math.random() * 1000
-    );
+    const delay = Math.min(30000, Math.pow(2, this.reconnectAttempts) * 1000 + Math.random() * 1000);
 
     const reconnectInfo = {
       attempt: this.reconnectAttempts,
@@ -5531,16 +5445,13 @@ class WSManager {
       environment: {
         protocol: window.location.protocol,
         hostname: window.location.hostname,
-        isLocalhost:
-          window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1',
+        isLocalhost: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1',
       },
     };
 
     // Add iOS standalone info
     const isIOSStandalone =
-      /iPad|iPhone|iPod/.test(navigator.userAgent) &&
-      !window.MSStream &&
-      window.navigator.standalone === true;
+      /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream && window.navigator.standalone === true;
     if (isIOSStandalone) {
       supportInfo.ios = {
         mode: 'standalone_pwa',
@@ -5551,8 +5462,7 @@ class WSManager {
     // Add Firefox-specific info
     if (navigator.userAgent.includes('Firefox')) {
       supportInfo.firefox = {
-        mixedContentBlocked:
-          window.location.protocol === 'https:' && network.websocket.url.startsWith('ws://'),
+        mixedContentBlocked: window.location.protocol === 'https:' && network.websocket.url.startsWith('ws://'),
         usingSecureWebSocket: network.websocket.url.startsWith('wss://'),
         port: network.websocket.url.split(':')[2]?.split('/')[0] || 'default',
       };
@@ -5661,9 +5571,7 @@ function insertSorted(array, item, timestampField = 'timestamp') {
   // Find the index where the new item should be inserted.
   // We are looking for the first element with a timestamp LESS THAN the new item's timestamp.
   // This is because the array is sorted descending (newest first).
-  const index = array.findIndex(
-    (existingItem) => existingItem[timestampField] < item[timestampField]
-  );
+  const index = array.findIndex((existingItem) => existingItem[timestampField] < item[timestampField]);
 
   if (index === -1) {
     // If no such element is found, the new item is the oldest (or the array is empty),
@@ -5726,10 +5634,7 @@ async function timeDifference(retryCount = 0) {
     );
   } catch (error) {
     // Handle errors from queryNetwork (e.g., network issues, gateway unavailable)
-    console.warn(
-      `Attempt ${retryCount + 1} failed to fetch time via queryNetwork(${timestampEndpoint}):`,
-      error
-    );
+    console.warn(`Attempt ${retryCount + 1} failed to fetch time via queryNetwork(${timestampEndpoint}):`, error);
 
     if (retryCount < maxRetries) {
       console.log(`Retrying time fetch in ${retryDelay}ms... (Attempt ${retryCount + 2})`);
@@ -5827,9 +5732,7 @@ class RemoveAccountModal {
     // called when the DOM is loaded; can setup event handlers here
     this.modal = document.getElementById('removeAccountModal');
     document.getElementById('openRemoveAccount').addEventListener('click', () => this.open());
-    document
-      .getElementById('closeRemoveAccountModal')
-      .addEventListener('click', () => this.close());
+    document.getElementById('closeRemoveAccountModal').addEventListener('click', () => this.close());
     document.getElementById('confirmRemoveAccount').addEventListener('click', () => this.submit());
   }
 
@@ -5891,9 +5794,7 @@ class BackupAccountModal {
     this.modal = document.getElementById('exportModal');
     document.getElementById('openExportForm').addEventListener('click', () => this.open());
     document.getElementById('closeExportForm').addEventListener('click', () => this.close());
-    document
-      .getElementById('exportForm')
-      .addEventListener('submit', (event) => this.handleSubmit(event));
+    document.getElementById('exportForm').addEventListener('submit', (event) => this.handleSubmit(event));
   }
 
   open() {
@@ -5945,9 +5846,7 @@ class RestoreAccountModal {
     this.modal = document.getElementById('importModal');
     document.getElementById('importAccountButton').addEventListener('click', () => this.open());
     document.getElementById('closeImportForm').addEventListener('click', () => this.close());
-    document
-      .getElementById('importForm')
-      .addEventListener('submit', (event) => this.handleSubmit(event));
+    document.getElementById('importForm').addEventListener('submit', (event) => this.handleSubmit(event));
   }
 
   open() {
@@ -6042,9 +5941,7 @@ class GatewayModal {
     document.getElementById('openNetwork').addEventListener('click', () => this.open());
     document.getElementById('closeGatewayForm').addEventListener('click', () => this.close());
     document.getElementById('addGatewayButton').addEventListener('click', () => this.openAddForm());
-    document
-      .getElementById('closeAddEditGatewayForm')
-      .addEventListener('click', () => this.closeAddEditForm());
+    document.getElementById('closeAddEditGatewayForm').addEventListener('click', () => this.closeAddEditForm());
     this.gatewayForm.addEventListener('submit', (e) => this.handleFormSubmit(e));
   }
 
@@ -6300,10 +6197,7 @@ class GatewayModal {
     this.updateList();
 
     // Show success message
-    const message =
-      index === -1
-        ? 'Using random gateway selection for better reliability'
-        : 'Default gateway set';
+    const message = index === -1 ? 'Using random gateway selection for better reliability' : 'Default gateway set';
     showToast(message);
   }
 }
@@ -6324,9 +6218,7 @@ class TollModal {
     document
       .getElementById('toggleTollCurrency')
       .addEventListener('click', (event) => this.handleToggleTollCurrency(event));
-    document
-      .getElementById('tollForm')
-      .addEventListener('submit', (event) => this.saveAndPostNewToll(event));
+    document.getElementById('tollForm').addEventListener('submit', (event) => this.saveAndPostNewToll(event));
   }
 
   open() {
@@ -6366,14 +6258,11 @@ class TollModal {
     this.currentCurrency = this.currentCurrency === 'LIB' ? 'USD' : 'LIB';
     tollCurrencySymbol.textContent = this.currentCurrency;
 
-    const scalabilityFactor =
-      parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+    const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
     if (newTollAmountInput.value !== '') {
       const currentValue = parseFloat(newTollAmountInput.value);
       const convertedValue =
-        this.currentCurrency === 'USD'
-          ? currentValue * scalabilityFactor
-          : currentValue / scalabilityFactor;
+        this.currentCurrency === 'USD' ? currentValue * scalabilityFactor : currentValue / scalabilityFactor;
       newTollAmountInput.value = convertedValue.toString();
     }
 
@@ -6406,24 +6295,15 @@ class TollModal {
     // Check if the toll is non-zero but less than minimum
     if (newToll > 0n) {
       if (this.currentCurrency === 'LIB' && newToll < this.minToll) {
-        showToast(
-          `Toll must be at least ${parseFloat(big2str(this.minToll, 18)).toFixed(6)} LIB`,
-          0,
-          'error'
-        );
+        showToast(`Toll must be at least ${parseFloat(big2str(this.minToll, 18)).toFixed(6)} LIB`, 0, 'error');
         return;
       }
       if (this.currentCurrency === 'USD') {
-        const scalabilityFactor =
-          parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+        const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
         const newTollLIB = bigxnum2big(newToll, (1 / scalabilityFactor).toString());
         if (newTollLIB < this.minToll) {
           const minTollUSD = bigxnum2big(this.minToll, scalabilityFactor.toString());
-          showToast(
-            `Toll must be at least ${parseFloat(big2str(minTollUSD, 18)).toFixed(4)} USD`,
-            0,
-            'error'
-          );
+          showToast(`Toll must be at least ${parseFloat(big2str(minTollUSD, 18)).toFixed(4)} USD`, 0, 'error');
           return;
         }
       }
@@ -6437,8 +6317,7 @@ class TollModal {
       }
     } else {
       // For USD, convert the max toll to USD for comparison
-      const scalabilityFactor =
-        parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+      const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
       const maxTollUSD = MAX_TOLL * scalabilityFactor;
       if (newTollValue > maxTollUSD) {
         showToast(`Toll cannot exceed ${maxTollUSD.toFixed(2)} USD`, 0, 'error');
@@ -6467,8 +6346,7 @@ class TollModal {
    * @returns {void}
    */
   updateTollDisplay(toll, tollUnit) {
-    const scalabilityFactor =
-      parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+    const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
     let tollValueLib = '';
     let tollValueUSD = '';
 
@@ -6535,9 +6413,7 @@ class InviteModal {
     // Set up event listeners
     document.getElementById('openInvite').addEventListener('click', () => this.open());
     document.getElementById('closeInviteModal').addEventListener('click', () => this.close());
-    document
-      .getElementById('inviteForm')
-      .addEventListener('submit', (event) => this.handleSubmit(event));
+    document.getElementById('inviteForm').addEventListener('submit', (event) => this.handleSubmit(event));
 
     // Add input event listeners for email and phone fields
     this.inviteEmailInput.addEventListener('input', () => this.validateInputs());
@@ -6672,9 +6548,7 @@ class MyProfileModal {
     this.closeButton = document.getElementById('closeAccountForm');
     document.getElementById('openAccountForm').addEventListener('click', () => this.open());
     this.closeButton.addEventListener('click', () => this.close());
-    document
-      .getElementById('accountForm')
-      .addEventListener('submit', (event) => this.handleSubmit(event));
+    document.getElementById('accountForm').addEventListener('submit', (event) => this.handleSubmit(event));
     this.submitButton = document.querySelector('#accountForm .update-button');
 
     // Add input event listeners for validation
@@ -6829,18 +6703,14 @@ class ValidatorStakingModal {
 
     let currentPendingTx = null;
     if (myData && myData.pending && Array.isArray(myData.pending) && myData.pending.length > 0) {
-      currentPendingTx = myData.pending.find(
-        (tx) => tx.type === 'deposit_stake' || tx.type === 'withdraw_stake'
-      );
+      currentPendingTx = myData.pending.find((tx) => tx.type === 'deposit_stake' || tx.type === 'withdraw_stake');
     }
 
     if (currentPendingTx) {
       this.detailsElement.style.display = 'block';
       this.pendingSkeletonBar.style.display = 'flex';
       this.pendingTxTextInBar.textContent =
-        currentPendingTx.type === 'withdraw_stake'
-          ? 'Pending Unstake Transaction'
-          : 'Pending Stake Transaction';
+        currentPendingTx.type === 'withdraw_stake' ? 'Pending Unstake Transaction' : 'Pending Stake Transaction';
       this.pendingTxTextInBar.style.display = 'block';
 
       if (currentPendingTx.type === 'deposit_stake') {
@@ -6877,11 +6747,7 @@ class ValidatorStakingModal {
 
       // Calculate Derived Values
       let stabilityFactor = null;
-      if (
-        stabilityScaleMul != null &&
-        stabilityScaleDiv != null &&
-        Number(stabilityScaleDiv) !== 0
-      ) {
+      if (stabilityScaleMul != null && stabilityScaleDiv != null && Number(stabilityScaleDiv) !== 0) {
         stabilityFactor = Number(stabilityScaleMul) / Number(stabilityScaleDiv);
       }
 
@@ -6915,11 +6781,7 @@ class ValidatorStakingModal {
       let userStakedUsd = null; // number or null
       // TODO: Calculate User Staked Amount (USD) using market price - Use stability factor if available?
       // For now, using market price as implemented previously.
-      if (
-        userStakedBaseUnits != null &&
-        typeof userStakedBaseUnits === 'bigint' &&
-        marketPrice != null
-      ) {
+      if (userStakedBaseUnits != null && typeof userStakedBaseUnits === 'bigint' && marketPrice != null) {
         // Check it's a BigInt
         try {
           // userStakedBaseUnits is already a BigInt object
@@ -6953,12 +6815,10 @@ class ValidatorStakingModal {
       // Format & Update UI
 
       // stakeAmountLibBaseUnits is a BigInt object or null. Pass its string representation to big2str.
-      this.stakeForm.dataset.minStake =
-        stakeAmountLibBaseUnits === null ? '0' : big2str(stakeAmountLibBaseUnits, 18);
+      this.stakeForm.dataset.minStake = stakeAmountLibBaseUnits === null ? '0' : big2str(stakeAmountLibBaseUnits, 18);
 
       // stakeRequiredUsd is a BigInt object or null/undefined. Pass its string representation.
-      const displayNetworkStakeUsd =
-        stakeRequiredUsd != null ? '$' + big2str(stakeRequiredUsd, 18).slice(0, 6) : 'N/A';
+      const displayNetworkStakeUsd = stakeRequiredUsd != null ? '$' + big2str(stakeRequiredUsd, 18).slice(0, 6) : 'N/A';
       // stakeAmountLibBaseUnits is a BigInt object or null. Pass its string representation.
       const displayNetworkStakeLib =
         stakeAmountLibBaseUnits !== null ? big2str(stakeAmountLibBaseUnits, 18).slice(0, 7) : 'N/A';
@@ -6966,9 +6826,7 @@ class ValidatorStakingModal {
       const displayMarketPrice = marketPrice ? '$' + marketPrice.toFixed(6) : 'N/A';
       // marketStakeUsdBaseUnits is a BigInt object or null. Pass its string representation.
       const displayMarketStakeUsd =
-        marketStakeUsdBaseUnits !== null
-          ? '$' + big2str(marketStakeUsdBaseUnits, 18).slice(0, 6)
-          : 'N/A';
+        marketStakeUsdBaseUnits !== null ? '$' + big2str(marketStakeUsdBaseUnits, 18).slice(0, 6) : 'N/A';
 
       this.networkStakeUsdValue.textContent = displayNetworkStakeUsd;
       this.networkStakeLibValue.textContent = displayNetworkStakeLib;
@@ -6985,8 +6843,7 @@ class ValidatorStakingModal {
         // Case: Nominee Exists
 
         // userStakedBaseUnits is a BigInt object or null/undefined. Pass its string representation.
-        const displayUserStakedLib =
-          userStakedBaseUnits != null ? big2str(userStakedBaseUnits, 18).slice(0, 6) : 'N/A';
+        const displayUserStakedLib = userStakedBaseUnits != null ? big2str(userStakedBaseUnits, 18).slice(0, 6) : 'N/A';
         const displayUserStakedUsd = userStakedUsd != null ? '$' + userStakedUsd.toFixed(6) : 'N/A';
 
         this.nomineeLabelElement.textContent = 'Nominated Validator:';
@@ -7033,9 +6890,7 @@ class ValidatorStakingModal {
     if (!nominee || nominee.length < 10) {
       // Add a basic sanity check for length
       showToast('Could not find nominated validator.', 4000, 'error');
-      console.warn(
-        'ValidatorStakingModal: Nominee not found or invalid in DOM element #validator-nominee.'
-      );
+      console.warn('ValidatorStakingModal: Nominee not found or invalid in DOM element #validator-nominee.');
       return;
     }
 
@@ -7127,16 +6982,11 @@ class ValidatorStakingModal {
           (!account.rewardEndTime || account.rewardEndTime === 0);
         return { isActive: isActive, error: null };
       } else {
-        console.warn(
-          `ValidatorStakingModal: No account data found for validator ${validatorAddress}.`
-        );
+        console.warn(`ValidatorStakingModal: No account data found for validator ${validatorAddress}.`);
         return { isActive: false, error: 'Could not fetch validator data' };
       }
     } catch (error) {
-      console.error(
-        `ValidatorStakingModal: Error fetching data for validator ${validatorAddress}:`,
-        error
-      );
+      console.error(`ValidatorStakingModal: Error fetching data for validator ${validatorAddress}:`, error);
       // Network error or other issue fetching data.
       return { isActive: false, error: 'Network error fetching validator status' };
     }
@@ -7306,8 +7156,7 @@ class StakeValidatorModal {
     // Check 1.5: Node Address Format (64 hex chars)
     const addressRegex = /^[0-9a-fA-F]{64}$/;
     if (!addressRegex.test(nodeAddress)) {
-      this.nodeAddressWarning.textContent =
-        'Invalid node address format (must be 64 hex characters).';
+      this.nodeAddressWarning.textContent = 'Invalid node address format (must be 64 hex characters).';
       this.nodeAddressWarning.style.display = 'block';
       this.amountWarning.style.display = 'none';
       this.amountWarning.textContent = '';
@@ -7433,10 +7282,7 @@ class ChatModal {
       if (messagesContainer) {
         // Check if we're already at the bottom (within 50px threshold)
         const isAtBottom =
-          messagesContainer.scrollHeight -
-            messagesContainer.scrollTop -
-            messagesContainer.clientHeight <=
-          50;
+          messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight <= 50;
         if (isAtBottom) {
           // Wait for keyboard to appear and viewport to adjust
           setTimeout(() => {
@@ -7641,9 +7487,7 @@ class ChatModal {
       type: 'reclaim_toll',
       from: longAddress(myData.account.keys.address),
       to: longAddress(contactAddress),
-      chatId: hashBytes(
-        [longAddress(myData.account.keys.address), longAddress(contactAddress)].sort().join``
-      ),
+      chatId: hashBytes([longAddress(myData.account.keys.address), longAddress(contactAddress)].sort().join``),
       timestamp: getCorrectedTimestamp(),
     };
     const txid = await signObj(tx, myAccount.keys);
@@ -7662,10 +7506,7 @@ class ChatModal {
    */
   async canSenderReclaimToll(contactAddress) {
     // keep track receiver index during the sort
-    const sortedAddresses = [
-      longAddress(myData.account.keys.address),
-      longAddress(contactAddress),
-    ].sort();
+    const sortedAddresses = [longAddress(myData.account.keys.address), longAddress(contactAddress)].sort();
     const receiverIndex = sortedAddresses.indexOf(longAddress(contactAddress));
     const chatId = hashBytes(sortedAddresses.join``);
     const chatIdAccount = await queryNetwork(`/messages/${chatId}/toll`);
@@ -7716,9 +7557,7 @@ class ChatModal {
       type: 'read',
       from: longAddress(myData.account.keys.address),
       to: longAddress(contactAddress),
-      chatId: hashBytes(
-        [longAddress(myData.account.keys.address), longAddress(contactAddress)].sort().join``
-      ),
+      chatId: hashBytes([longAddress(myData.account.keys.address), longAddress(contactAddress)].sort().join``),
       timestamp: getCorrectedTimestamp(),
       oldContactTimestamp: myData.contacts[contactAddress].timestamp,
     };
@@ -7874,9 +7713,7 @@ class ChatModal {
       };
 
       // Remove existing chat for this contact if it exists. Not handling in removeFailedTx anymore.
-      const existingChatIndex = chatsData.chats.findIndex(
-        (chat) => chat.address === currentAddress
-      );
+      const existingChatIndex = chatsData.chats.findIndex((chat) => chat.address === currentAddress);
       if (existingChatIndex !== -1) {
         chatsData.chats.splice(existingChatIndex, 1);
       }
@@ -7969,12 +7806,7 @@ class ChatModal {
    */
   appendChatModal(highlightNewMessage = false) {
     const currentAddress = this.address; // Use a local constant
-    console.log(
-      'appendChatModal running for address:',
-      currentAddress,
-      'Highlight:',
-      highlightNewMessage
-    );
+    console.log('appendChatModal running for address:', currentAddress, 'Highlight:', highlightNewMessage);
     if (!currentAddress) {
       return;
     }
@@ -8200,9 +8032,7 @@ class ChatModal {
 
       if (messageElement) {
         // If the element exists, the failed message is visible in the open chat. Refresh the modal.
-        console.log(
-          `DEBUG: Refreshing active chat modal because failed txid ${txid} was found in the view.`
-        );
+        console.log(`DEBUG: Refreshing active chat modal because failed txid ${txid} was found in the view.`);
         this.appendChatModal(); // This will redraw the messages based on the updated data (where the failed tx is removed)
       } else {
         // The failed txid doesn't correspond to a visible message in the *currently open* chat modal. No UI refresh needed for the modal itself.
@@ -8271,10 +8101,7 @@ class FailedMessageModal {
   load() {
     this.retryButton.addEventListener('click', this.handleFailedMessageRetry.bind(this));
     this.deleteButton.addEventListener('click', this.handleFailedMessageDelete.bind(this));
-    this.closeButton.addEventListener(
-      'click',
-      this.closeFailedMessageModalAndClearState.bind(this)
-    );
+    this.closeButton.addEventListener('click', this.closeFailedMessageModalAndClearState.bind(this));
     this.modal.addEventListener('click', this.handleFailedMessageBackdropClick.bind(this));
   }
 
@@ -8413,10 +8240,7 @@ class NewChatModal {
     this.newChatButton.addEventListener('click', this.openNewChatModal.bind(this));
     this.closeNewChatModalButton.addEventListener('click', this.closeNewChatModal.bind(this));
     this.newChatForm.addEventListener('submit', this.handleNewChat.bind(this));
-    this.recipientInput.addEventListener(
-      'input',
-      debounce(this.handleUsernameInput.bind(this), 300)
-    );
+    this.recipientInput.addEventListener('input', debounce(this.handleUsernameInput.bind(this), 300));
   }
 
   /**
@@ -8733,11 +8557,7 @@ class SendAssetFormModal {
 
     // Check network availability
     this.sendAssetFormModalCheckTimeout = setTimeout(async () => {
-      const taken = await checkUsernameAvailability(
-        username,
-        myAccount.keys.address,
-        this.foundAddressObject
-      );
+      const taken = await checkUsernameAvailability(username, myAccount.keys.address, this.foundAddressObject);
       if (taken == 'taken') {
         usernameAvailable.textContent = 'found';
         usernameAvailable.style.color = '#28a745';
@@ -8860,16 +8680,14 @@ class SendAssetFormModal {
     event.preventDefault();
 
     // Get form values
-    const assetSymbol =
-      this.assetSelectDropdown.options[this.assetSelectDropdown.selectedIndex].text;
+    const assetSymbol = this.assetSelectDropdown.options[this.assetSelectDropdown.selectedIndex].text;
     let amount = this.amountInput.value;
     const memo = this.memoInput.value;
     const confirmButton = document.getElementById('confirmSendButton');
     const cancelButton = document.getElementById('cancelSendButton');
 
     await getNetworkParams();
-    const scalabilityFactor =
-      parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+    const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
 
     // need to convert to LIB if USD is selected
     const isLib = this.balanceSymbol.textContent === 'LIB';
@@ -8914,8 +8732,7 @@ class SendAssetFormModal {
     const isUSD = this.balanceSymbol.textContent === 'USD';
 
     if (isUSD) {
-      const scalabilityFactor =
-        parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+      const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
       // Convert to USD before displaying
       this.amountInput.value = (parseFloat(maxAmountStr) * scalabilityFactor).toString();
     } else {
@@ -8960,8 +8777,7 @@ class SendAssetFormModal {
 
     await getNetworkParams();
     const txFeeInLIB = parameters.current.transactionFee || 1n * wei;
-    const scalabilityFactor =
-      parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+    const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
 
     // Preserve the current toggle state (LIB/USD) instead of overwriting it
     const currentSymbol = this.balanceSymbol.textContent;
@@ -9003,8 +8819,7 @@ class SendAssetFormModal {
   async refreshSendButtonDisabledState() {
     // Address is valid if its error/status message is visible and set to 'found'.
     const isAddressConsideredValid =
-      this.usernameAvailable.style.display === 'inline' &&
-      this.usernameAvailable.textContent === 'found';
+      this.usernameAvailable.style.display === 'inline' && this.usernameAvailable.textContent === 'found';
 
     const amount = this.amountInput.value;
     const assetIndex = this.assetSelectDropdown.value;
@@ -9015,8 +8830,7 @@ class SendAssetFormModal {
 
     if (isUSD && amount) {
       await getNetworkParams();
-      const scalabilityFactor =
-        parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+      const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
       amountForValidation = parseFloat(amount) / scalabilityFactor;
     }
 
@@ -9024,11 +8838,7 @@ class SendAssetFormModal {
     const amountBigInt = bigxnum2big(wei, amountForValidation.toString());
 
     // validateBalance returns false if the amount/balance is invalid.
-    const isAmountAndBalanceValid = await validateBalance(
-      amountBigInt,
-      assetIndex,
-      this.balanceWarning
-    );
+    const isAmountAndBalanceValid = await validateBalance(amountBigInt, assetIndex, this.balanceWarning);
 
     let isAmountAndTollValid = true;
     if (this.foundAddressObject.address) {
@@ -9089,8 +8899,7 @@ class SendAssetFormModal {
 
     // get the scalability factor for LIB/USD conversion
     await getNetworkParams();
-    const scalabilityFactor =
-      parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+    const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
 
     // Get the raw values in LIB format
     const asset = myData.wallet.assets[this.assetSelectDropdown.value];
@@ -9117,10 +8926,8 @@ class SendAssetFormModal {
    */
   updateBalanceAndFeeDisplay(balanceInLIB, feeInLIB, isUSD, scalabilityFactor) {
     if (isUSD) {
-      this.balanceAmount.textContent =
-        '$' + (parseFloat(balanceInLIB) * scalabilityFactor).toPrecision(6);
-      this.transactionFee.textContent =
-        '$' + (parseFloat(feeInLIB) * scalabilityFactor).toPrecision(2);
+      this.balanceAmount.textContent = '$' + (parseFloat(balanceInLIB) * scalabilityFactor).toPrecision(6);
+      this.transactionFee.textContent = '$' + (parseFloat(feeInLIB) * scalabilityFactor).toPrecision(2);
     } else {
       this.balanceAmount.textContent = balanceInLIB + ' LIB';
       this.transactionFee.textContent = feeInLIB + ' LIB';
@@ -9188,10 +8995,7 @@ async function checkPendingTransactions() {
       //console.log(`DEBUG: txid ${txid} endpointPath: ${endpointPath}`);
       const res = await queryNetwork(endpointPath);
       //console.log(`DEBUG: txid ${txid} res: ${JSON.stringify(res)}`);
-      if (
-        submittedts < thirtySecondsAgo &&
-        (res.transaction === null || Object.keys(res.transaction).length === 0)
-      ) {
+      if (submittedts < thirtySecondsAgo && (res.transaction === null || Object.keys(res.transaction).length === 0)) {
         console.error(`DEBUG: txid ${txid} timed out, removing completely`);
         // remove the pending tx from the pending array
         myData.pending.splice(i, 1);
@@ -9213,9 +9017,7 @@ async function checkPendingTransactions() {
           const index = myData.wallet.history.findIndex((tx) => tx.txid === txid);
           if (index !== -1) {
             // covert amount to wei
-            myData.wallet.history[index].amount = parse(
-              stringify(res.transaction.additionalInfo.totalUnstakeAmount)
-            );
+            myData.wallet.history[index].amount = parse(stringify(res.transaction.additionalInfo.totalUnstakeAmount));
           } else {
             console.log(`DEBUG: txid ${txid} not found in wallet history`);
           }
@@ -9223,11 +9025,7 @@ async function checkPendingTransactions() {
 
         if (type === 'deposit_stake' || type === 'withdraw_stake') {
           // show toast notification with the success message
-          showToast(
-            `${type === 'deposit_stake' ? 'Stake' : 'Unstake'} transaction successful`,
-            5000,
-            'success'
-          );
+          showToast(`${type === 'deposit_stake' ? 'Stake' : 'Unstake'} transaction successful`, 5000, 'success');
           // refresh only if validator modal is open
           if (document.getElementById('validatorModal').classList.contains('active')) {
             validatorStakingModal.close();
@@ -9279,11 +9077,7 @@ async function checkPendingTransactions() {
               tollModal.tollAmountUSD = tollModal.oldToll;
             }
           } else if (type === 'update_toll_required') {
-            showToast(
-              `Update contact status failed: ${failureReason}. Reverting contact to old status.`,
-              0,
-              'error'
-            );
+            showToast(`Update contact status failed: ${failureReason}. Reverting contact to old status.`, 0, 'error');
             // revert the local myData.contacts[toAddress].friend to the old value
             myData.contacts[pendingTxInfo.to].friend = pendingTxInfo.friend;
           } else if (type === 'read') {
@@ -9432,9 +9226,7 @@ async function getNetworkParams() {
     return;
   }
 
-  console.log(
-    `getNetworkParams: Data for account ${NETWORK_ACCOUNT_ID} is stale or missing. Attempting to fetch...`
-  );
+  console.log(`getNetworkParams: Data for account ${NETWORK_ACCOUNT_ID} is stale or missing. Attempting to fetch...`);
   try {
     const fetchedData = await queryNetwork(`/account/${NETWORK_ACCOUNT_ID}`);
 
