@@ -8717,7 +8717,6 @@ class SendAssetFormModal {
 
       // query
       const tollInfo_ = await queryNetwork(`/messages/${chatId}/toll`);
-      //console.warn(`DEBUG: tollInfo_ ${JSON.stringify(tollInfo_, null, 2)}`);
       // query account for toll set by receiver
       const accountData = await queryNetwork(`/account/${this.foundAddressObject.address}`);
       const queriedToll = accountData?.account?.data?.toll; // type bigint
@@ -8725,7 +8724,7 @@ class SendAssetFormModal {
       this.tollInfo = {
         toll: queriedToll,
         tollUnit: queriedTollUnit,
-        required: tollInfo_.toll.required[toIndex],
+        required: tollInfo_?.toll?.required?.[toIndex] ?? 1, // assume toll is required if not set
       };
       this.needTollInfo = false;
     }
