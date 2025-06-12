@@ -6658,7 +6658,13 @@ class ContactModal {
 const contactModal = new ContactModal();
 
 class MyProfileModal {
-  constructor() {}
+  constructor() {
+    this.name = document.getElementById('name');
+    this.email = document.getElementById('email');
+    this.phone = document.getElementById('phone');
+    this.linkedin = document.getElementById('linkedin');
+    this.x = document.getElementById('x');
+  }
 
   load() {
     // called when the DOM is loaded; can setup event handlers here
@@ -6670,6 +6676,37 @@ class MyProfileModal {
       .getElementById('accountForm')
       .addEventListener('submit', (event) => this.handleSubmit(event));
     this.submitButton = document.querySelector('#accountForm .update-button');
+
+    // Add input event listeners for validation
+    this.name.addEventListener('input', (e) => this.handleNameInput(e));
+    this.phone.addEventListener('input', (e) => this.handlePhoneInput(e));
+    this.linkedin.addEventListener('input', (e) => this.handleLinkedInInput(e));
+    this.x.addEventListener('input', (e) => this.handleXInput(e));
+  }
+
+  // Input sanitization and validation methods
+  handleNameInput(e) {
+    // Allow letters, spaces, and basic punctuation
+    const normalized = e.target.value.replace(/[^a-zA-Z\s\-'.]/g, '');
+    e.target.value = normalized;
+  }
+
+  handlePhoneInput(e) {
+    // Allow only numbers, spaces, dashes, and parentheses
+    const normalized = e.target.value.replace(/[^\d\s\-()]/g, '');
+    e.target.value = normalized;
+  }
+
+  handleLinkedInInput(e) {
+    // Allow letters, numbers, dashes, and underscores
+    const normalized = e.target.value.replace(/[^a-zA-Z0-9\-_]/g, '');
+    e.target.value = normalized;
+  }
+
+  handleXInput(e) {
+    // Allow letters, numbers, and underscores
+    const normalized = e.target.value.replace(/[^a-zA-Z0-9_]/g, '');
+    e.target.value = normalized;
   }
 
   open() {
@@ -6691,15 +6728,15 @@ class MyProfileModal {
 
   async handleSubmit(event) {
     event.preventDefault();
+    
+    // Get and sanitize form data
     const formData = {
-      name: document.getElementById('name').value,
-      email: document.getElementById('email').value,
-      phone: document.getElementById('phone').value,
-      linkedin: document.getElementById('linkedin').value,
-      x: document.getElementById('x').value,
+      name: this.name.value.trim(),
+      email: this.email.value.trim(),
+      phone: this.phone.value.trim(),
+      linkedin: this.linkedin.value.trim(),
+      x: this.x.value.trim(),
     };
-
-    // TODO massage the inputs and check for correct formats; for now assume it is all good
 
     // Save to myData.account
     myData.account = { ...myData.account, ...formData };
