@@ -630,7 +630,7 @@ async function handleCreateAccount(event) {
         checkPendingTransactionsIntervalId = setInterval(checkPendingTransactions, 5000);
       }
       if (!getSystemNoticeIntervalId) {
-        getSystemNoticeIntervalId = setInterval(getSystemNotice, 10000);
+        getSystemNoticeIntervalId = setInterval(getSystemNotice, 15000);
       }
 
       // Wait for the transaction confirmation
@@ -765,7 +765,7 @@ async function handleSignIn(event) {
     checkPendingTransactionsIntervalId = setInterval(checkPendingTransactions, 5000);
   }
   if (!getSystemNoticeIntervalId) {
-    getSystemNoticeIntervalId = setInterval(getSystemNotice, 10000);
+    getSystemNoticeIntervalId = setInterval(getSystemNotice, 15000);
   }
   // Close modal and proceed to app
   closeSignInModal();
@@ -9272,13 +9272,10 @@ async function getSystemNotice() {
   try {
     const response = await fetch(`./notice.html?${Math.random()}`);
     if (!response.ok) {
-      console.warn('Failed to fetch notice.html');
       return;
     }
-    console.log('notice file response', JSON.stringify(response, null, 2))
 
     const text = await response.text();
-    console.log('raw text of notice file', text)
     const lines = text.split('\n');
     
     if (lines.length < 2) {
@@ -9300,7 +9297,6 @@ async function getSystemNotice() {
         showToast(noticeMessage, 0, 'error');
         // Update the timestamp in settings
         myData.settings.noticets = timestamp;
-//        saveState();
       }
     }
   } catch (error) {
