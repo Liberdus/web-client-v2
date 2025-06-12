@@ -6315,6 +6315,7 @@ class TollModal {
     this.oldToll = null;
     this.minToll = null; // Will be set from network account
     this.minTollDisplay = document.getElementById('minTollDisplay');
+    this.MAX_TOLL = 1_000_000; // 1M limit
   }
 
   load() {
@@ -6396,7 +6397,6 @@ class TollModal {
     let newTollValue = parseFloat(newTollAmountInput.value);
 
     if (isNaN(newTollValue) || newTollValue < 0) {
-      // console.error("Invalid toll amount");
       showToast('Invalid toll amount entered.', 0, 'error');
       return;
     }
@@ -6426,6 +6426,23 @@ class TollModal {
           );
           return;
         }
+      }
+    }
+
+    // Add maximum toll validation
+    if (this.currentCurrency === 'LIB') {
+      if (newTollValue > this.MAX_TOLL) {
+        showToast(`Toll cannot exceed ${this.MAX_TOLL} LIB`, 0, 'error');
+        return;
+      }
+    } else {
+      // For USD, convert the max toll to USD for comparison
+      const scalabilityFactor =
+        parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+      const maxTollUSD = this.MAX_TOLL * scalabilityFactor;
+      if (newTollValue > maxTollUSD) {
+        showToast(`Toll cannot exceed ${maxTollUSD.toFixed(2)} USD`, 0, 'error');
+        return;
       }
     }
 
@@ -9397,4 +9414,3 @@ async function getNetworkParams() {
   }
 }
 getNetworkParams.timestamp = 0;
-
