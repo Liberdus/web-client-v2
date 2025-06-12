@@ -6728,7 +6728,7 @@ class MyProfileModal {
 
   async handleSubmit(event) {
     event.preventDefault();
-    
+
     // Get and sanitize form data
     const formData = {
       name: this.name.value.trim(),
