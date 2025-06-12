@@ -6713,11 +6713,11 @@ class MyProfileModal {
     // called when the modal needs to be opened
     this.modal.classList.add('active');
     if (myData && myData.account) {
-      document.getElementById('name').value = myData.account.name || '';
-      document.getElementById('email').value = myData.account.email || '';
-      document.getElementById('phone').value = myData.account.phone || '';
-      document.getElementById('linkedin').value = myData.account.linkedin || '';
-      document.getElementById('x').value = myData.account.x || '';
+      this.name.value = myData.account.name || '';
+      this.email.value = myData.account.email || '';
+      this.phone.value = myData.account.phone || '';
+      this.linkedin.value = myData.account.linkedin || '';
+      this.x.value = myData.account.x || '';
     }
   }
 
