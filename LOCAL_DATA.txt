@@ -128,7 +128,8 @@ LocalStore key "username_netid"; gets read into myData global variable in app.js
   },
   "settings": {
     "toll": 2,
-    "encrypt": true
+    "encrypt": true,
+    "noticets": 1749764951000  // millisecond timestamp of when the user was shown the system notice
   }
 }
 

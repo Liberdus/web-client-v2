@@ -170,6 +170,7 @@ let timeSkew = 0;
 
 let updateWebSocketIndicatorIntervalId = null;
 let checkPendingTransactionsIntervalId = null;
+let getSystemNoticeIntervalId = null;
 //let checkConnectivityIntervalId = null;
 
 // Used in getNetworkParams function
@@ -628,6 +629,9 @@ async function handleCreateAccount(event) {
       if (!checkPendingTransactionsIntervalId) {
         checkPendingTransactionsIntervalId = setInterval(checkPendingTransactions, 5000);
       }
+      if (!getSystemNoticeIntervalId) {
+        getSystemNoticeIntervalId = setInterval(getSystemNotice, 10000);
+      }
 
       // Wait for the transaction confirmation
       const confirmationDetails = await pendingPromiseService.register(txid);
@@ -673,6 +677,10 @@ async function handleCreateAccount(event) {
         clearInterval(checkPendingTransactionsIntervalId);
         checkPendingTransactionsIntervalId = null;
       }
+      if (getSystemNoticeIntervalId) {
+        clearInterval(getSystemNoticeIntervalId);
+        getSystemNoticeIntervalId = null;
+      }
 
       // Note: `checkPendingTransactions` will also remove the item from `myData.pending` if it's rejected by the service.
       return;
@@ -689,6 +697,10 @@ async function handleCreateAccount(event) {
     if (checkPendingTransactionsIntervalId) {
       clearInterval(checkPendingTransactionsIntervalId);
       checkPendingTransactionsIntervalId = null;
+    }
+    if (getSystemNoticeIntervalId) {
+      clearInterval(getSystemNoticeIntervalId);
+      getSystemNoticeIntervalId = null;
     }
 
     // no toast here since injectTx will show it
@@ -752,7 +764,9 @@ async function handleSignIn(event) {
   if (!checkPendingTransactionsIntervalId) {
     checkPendingTransactionsIntervalId = setInterval(checkPendingTransactions, 5000);
   }
-
+  if (!getSystemNoticeIntervalId) {
+    getSystemNoticeIntervalId = setInterval(getSystemNotice, 10000);
+  }
   // Close modal and proceed to app
   closeSignInModal();
   document.getElementById('welcomeScreen').style.display = 'none';
@@ -816,6 +830,7 @@ function newDataRecord(myAccount) {
       encrypt: true,
       toll: parameters?.current?.defaultToll || 1n * wei,
       tollUnit: parameters?.current?.defaultTollUnit || 'LIB',
+      noticets: 0,
     },
   };
 
@@ -3000,6 +3015,10 @@ function handleSignOut() {
   if (checkPendingTransactionsIntervalId) {
     clearInterval(checkPendingTransactionsIntervalId);
     checkPendingTransactionsIntervalId = null;
+  }
+  if (getSystemNoticeIntervalId) {
+    clearInterval(getSystemNoticeIntervalId);
+    getSystemNoticeIntervalId = null;
   }
   // Stop camera if it's running
   if (typeof startCamera !== 'undefined' && startCamera.scanInterval) {
@@ -9248,3 +9267,43 @@ async function getNetworkParams() {
   }
 }
 getNetworkParams.timestamp = 0;
+
+async function getSystemNotice() {
+  try {
+    const response = await fetch(`./notice.html?${Math.random()}`);
+    if (!response.ok) {
+      console.warn('Failed to fetch notice.html');
+      return;
+    }
+    console.log('notice file response', JSON.stringify(response, null, 2))
+
+    const text = await response.text();
+    console.log('raw text of notice file', text)
+    const lines = text.split('\n');
+    
+    if (lines.length < 2) {
+      console.warn('Notice file is empty or malformed');
+      return;
+    }
+
+    const timestamp = parseInt(lines[0]);
+    if (isNaN(timestamp)) {
+      console.warn('Invalid timestamp in notice file');
+      return;
+    }
+
+    // Check if we need to show the notice
+    if (!myData.settings.noticets || myData.settings.noticets < timestamp) {
+      // Join remaining lines for the notice message
+      const noticeMessage = lines.slice(1).join('\n').trim();
+      if (noticeMessage) {
+        showToast(noticeMessage, 0, 'error');
+        // Update the timestamp in settings
+        myData.settings.noticets = timestamp;
+//        saveState();
+      }
+    }
+  } catch (error) {
+    console.error('Error processing system notice:', error);
+  }
+}
