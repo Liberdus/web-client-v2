@@ -2645,7 +2645,7 @@ async function handleSendAsset(event) {
 handleSendAsset.timestamp = getCorrectedTimestamp();
 
 // Contact Info Modal Management
-class ContactInfoModalManager {
+class ContactInfoModal {
   constructor() {
     this.modal = document.getElementById('contactInfoModal');
     this.currentContactAddress = null;
@@ -3035,7 +3035,7 @@ function handleSaveEditContact() {
 }
 
 // Create a singleton instance
-const contactInfoModal = new ContactInfoModalManager();
+const contactInfoModal = new ContactInfoModal();
 
 function handleSignOut() {
   // Clear intervals
@@ -4555,7 +4555,7 @@ function createDisplayInfo(contact) {
   };
 }
 
-// Add this function before the ContactInfoModalManager class
+// Add this function before the ContactInfoModal class
 function showToast(message, duration = 2000, type = 'default') {
   const toastContainer = document.getElementById('toastContainer');
   const toast = document.createElement('div');
