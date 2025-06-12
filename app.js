@@ -8144,7 +8144,7 @@ class ChatModal {
         console.log(
           `DEBUG: Refreshing active chat modal because failed txid ${txid} was found in the view.`
         );
-        this.modal.appendChatModal(); // This will redraw the messages based on the updated data (where the failed tx is removed)
+        this.appendChatModal(); // This will redraw the messages based on the updated data (where the failed tx is removed)
       } else {
         // The failed txid doesn't correspond to a visible message in the *currently open* chat modal. No UI refresh needed for the modal itself.
         console.log(
