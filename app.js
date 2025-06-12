@@ -175,6 +175,7 @@ let checkPendingTransactionsIntervalId = null;
 // Used in getNetworkParams function
 const NETWORK_ACCOUNT_UPDATE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
 const NETWORK_ACCOUNT_ID = '0000000000000000000000000000000000000000000000000000000000000000';
+const MAX_TOLL = 1_000_000; // 1M limit
 
 // TODO - get the parameters from the network
 // mock network parameters
@@ -6315,7 +6316,6 @@ class TollModal {
     this.oldToll = null;
     this.minToll = null; // Will be set from network account
     this.minTollDisplay = document.getElementById('minTollDisplay');
-    this.MAX_TOLL = 1_000_000; // 1M limit
   }
 
   load() {
@@ -6431,15 +6431,15 @@ class TollModal {
 
     // Add maximum toll validation
     if (this.currentCurrency === 'LIB') {
-      if (newTollValue > this.MAX_TOLL) {
-        showToast(`Toll cannot exceed ${this.MAX_TOLL} LIB`, 0, 'error');
+      if (newTollValue > MAX_TOLL) {
+        showToast(`Toll cannot exceed ${MAX_TOLL} LIB`, 0, 'error');
         return;
       }
     } else {
       // For USD, convert the max toll to USD for comparison
       const scalabilityFactor =
         parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
-      const maxTollUSD = this.MAX_TOLL * scalabilityFactor;
+      const maxTollUSD = MAX_TOLL * scalabilityFactor;
       if (newTollValue > maxTollUSD) {
         showToast(`Toll cannot exceed ${maxTollUSD.toFixed(2)} USD`, 0, 'error');
         return;
