@@ -3643,10 +3643,10 @@ small {
 }
 
 .icon-button.edit-icon {
-  width: 24px; /* smaller, matches icon size */
-  height: 24px; /* smaller, matches icon size */
-  padding: 0; /* remove extra space */
-  margin-left: 6px; /* space between value and icon */
+  width: 24px;              /* smaller, matches icon size */
+  height: 24px;             /* smaller, matches icon size */
+  padding: 0;               /* remove extra space */
+  margin-left: 6px;         /* space between value and icon */
   border-radius: 8px;
   background: none;
   border: none;
