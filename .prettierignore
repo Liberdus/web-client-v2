@@ -4,6 +4,5 @@
 # But don't ignore these core files
 !index.html
 !app.js
-!styles.css
 !service-worker.js
 
