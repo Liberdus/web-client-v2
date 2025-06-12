@@ -1993,12 +1993,10 @@ input[type='file'].form-control {
 }
 
 .contact-info-label {
-  width: 100%;
-  text-align: center;
-  font-size: 0.95rem;
-  font-weight: 400;
-  color: var(--text-secondary, #888);
-  margin-bottom: 2px;
+  font-family: var(--font-primary);
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text-color);
+  margin-bottom: 4px;
 }
 
 .contact-info-value {
@@ -3649,7 +3647,6 @@ small {
   height: 24px;             /* smaller, matches icon size */
   padding: 0;               /* remove extra space */
   margin-left: 6px;         /* space between value and icon */
-  margin-bottom: 10px;
   border-radius: 8px;
   background: none;
   border: none;
@@ -3672,13 +3669,12 @@ small {
 
 .contact-info-value-container {
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
+  gap: 6px; /* space between value and icon */
   width: 100%;
   position: relative;
-  gap: 6px; /* space between value and icon */
 }
-
 
 .contact-info-value-container .contact-info-value {
   text-align: center;
