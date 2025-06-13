@@ -6595,7 +6595,7 @@ class MyProfileModal {
     e.target.value = normalized;
   }
 
-  handlePhoneInput(e) {
+  handleEmailInput(e) {
     const normalized = normalizeEmail(e.target.value);
     e.target.value = normalized;
   }
