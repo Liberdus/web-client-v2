@@ -7710,9 +7710,8 @@ class ChatModal {
       // can create a function to query the account and get the receivers toll they've set
       // TODO: will need to query network and receiver account where we validate
       // TODO: decided to query everytime we do chatModal.open and save as global variable. We don't need to clear it but we can clear it when closing the modal but should get reset when opening the modal again anyway
-      const toll = this.toll;
-
-      const chatMessageObj = await this.createChatMessage(currentAddress, payload, toll, keys);
+      const tollInLib = await convertTollToLib(this.toll, this.tollUnit);
+      const chatMessageObj = await this.createChatMessage(currentAddress, payload, tollInLib, keys);
       const txid = await signObj(chatMessageObj, keys);
 
       // if there a hidden txid input, get the value to be used to delete that txid from relevant data stores
@@ -7811,7 +7810,7 @@ class ChatModal {
    * @param {Object} keys - The keys of the sender
    * @returns {Object} The chat message object
    */
-  async createChatMessage(to, payload, toll, keys) {
+  async createChatMessage(to, payload, tollInLib, keys) {
     const toAddr = longAddress(to);
     const fromAddr = longAddress(keys.address);
     await getNetworkParams();
@@ -7819,7 +7818,7 @@ class ChatModal {
       type: 'message',
       from: fromAddr,
       to: toAddr,
-      amount: toll, // not sure if this is used by the backend
+      amount: tollInLib,
       chatId: hashBytes([fromAddr, toAddr].sort().join``),
       message: 'x',
       xmessage: payload,
@@ -9289,7 +9288,7 @@ async function getSystemNotice() {
 
     const text = await response.text();
     const lines = text.split('\n');
-    
+
     if (lines.length < 2) {
       console.warn('Notice file is empty or malformed');
       return;
@@ -9364,4 +9363,23 @@ function normalizeEmail(s) {
   // Keep only valid email characters
   s = s.replace(/[^a-z0-9._%+-@]/g, '');  
   return s;
+}
+
+/**
+ * Converts toll to LIB
+ * @param {number} toll - The toll amount
+ * @param {string} tollUnit - The unit of the toll
+ * @returns {Promise<number>} The toll amount in LIB
+ */
+async function convertTollToLib(toll, tollUnit) {
+  await getNetworkParams();
+  const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+
+  // If toll is in USD, convert to LIB
+  if (tollUnit === 'USD') {
+    return toll / scalabilityFactor;
+  }
+  
+  // If already in LIB, return as is
+  return toll;
 }
