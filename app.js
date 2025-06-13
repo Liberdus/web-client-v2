@@ -1893,7 +1893,10 @@ function createNewContact(addr, username, friendStatus = 1) {
 }
 
 /**
- * updateTollAmountUI
+ * updateTollAmountUI updates the toll amount UI for a given contact
+ * sets contactModal.toll and contactModal.tollUnit to the bigint toll and string tollUnit of the contact
+ * @param {string} address - the address of the contact
+ * @returns {void}
  */
 function updateTollAmountUI(address) {
   const tollValue = document.getElementById('tollValue');
@@ -9367,9 +9370,9 @@ function normalizeEmail(s) {
 
 /**
  * Converts toll to LIB
- * @param {number} toll - The toll amount
+ * @param {bigint} toll - The toll amount
  * @param {string} tollUnit - The unit of the toll
- * @returns {Promise<number>} The toll amount in LIB
+ * @returns {Promise<bigint>} The toll amount in LIB
  */
 async function convertTollToLib(toll, tollUnit) {
   await getNetworkParams();
