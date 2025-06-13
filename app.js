@@ -3674,7 +3674,8 @@ async function processChats(chats, keys) {
           //console.log("payload", payload)
           decryptMessage(payload, keys); // modifies the payload object
           if (payload.senderInfo) {
-            contact.senderInfo = JSON.parse(JSON.stringify(payload.senderInfo)); // make a copy
+//            contact.senderInfo = JSON.parse(JSON.stringify(payload.senderInfo)); // make a copy
+            contact.senderInfo = cleanSenderInfo(payload.senderInfo)
             delete payload.senderInfo;
             if (!contact.username && contact.senderInfo.username) {
               // TODO check the network to see if the username given with the message maps to the address of this contact
@@ -3735,7 +3736,8 @@ async function processChats(chats, keys) {
           //console.log("payload", payload)
           decryptMessage(payload, keys); // modifies the payload object
           if (payload.senderInfo) {
-            contact.senderInfo = JSON.parse(JSON.stringify(payload.senderInfo)); // make a copy
+//            contact.senderInfo = JSON.parse(JSON.stringify(payload.senderInfo)); // make a copy
+            contact.senderInfo = cleanSenderInfo(payload.senderInfo);
             delete payload.senderInfo;
             if (!contact.username && contact.senderInfo.username) {
               // TODO check the network to see if the username given with the message maps to the address of this contact
@@ -9302,4 +9304,54 @@ async function getSystemNotice() {
   } catch (error) {
     console.error('Error processing system notice:', error);
   }
+}
+
+function cleanSenderInfo(si) {
+  const csi = {};
+  if (si.username) {
+    csi.username = normalizeUsername(si.username).slice(0,40)
+  }
+  if (si.name) {
+    csi.name = normalizeName(si.name).trim().slice(0,80);
+  }
+  if (si.phone) {
+    csi.phone = normalizePhone(si.phone).trim().slice(0,20)
+  }
+  if (si.email) {
+    csi.email = normalizeEmail(si.email).slice(0,80)
+  }
+  if (si.linkedin) {
+    csi.linkedin = normalizeUsername(si.linkedin).slice(0,40)
+  }
+  if (si.x) {
+    csi.x = normalizeUsername(si.x).slice(0,40)
+  }
+  return csi;
+}
+
+// keep only alphabet and space characters; lowercase all letters; capitalize the first letter of each word
+function normalizeName(s) {
+  if (!s) return '';
+  return s
+    .replace(/[^a-zA-Z\s]/g, '') // keep only alphabet and space characters
+    .toLowerCase() // lowercase all letters
+    .replace(/\b\w/g, c => c.toUpperCase()); // capitalize first letter of each word
+}
+
+// this function noralizes and returns phone number; allowing for country codes
+function normalizePhone(s) {
+  if (!s) return '';
+  return s.replace(/\D/g, ''); // remove all non-digit characters
+}
+
+// this function normalizes emails; keeps only characters allowed in email addresses; makes letters lower case
+function normalizeEmail(s) {
+  if (!s) return '';
+  // Convert to lowercase
+  s = s.toLowerCase();  
+  // Remove any whitespace
+  s = s.trim();
+  // Keep only valid email characters
+  s = s.replace(/[^a-z0-9._%+-@]/g, '');  
+  return s;
 }
