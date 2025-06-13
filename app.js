@@ -6575,6 +6575,7 @@ class MyProfileModal {
     // Add input event listeners for validation
     this.name.addEventListener('input', (e) => this.handleNameInput(e));
     this.phone.addEventListener('input', (e) => this.handlePhoneInput(e));
+    this.email.addEventListener('input', (e) => this.handleEmailInput(e));
     this.linkedin.addEventListener('input', (e) => this.handleLinkedInInput(e));
     this.x.addEventListener('input', (e) => this.handleXInput(e));
   }
@@ -6591,6 +6592,11 @@ class MyProfileModal {
     // Allow only numbers, spaces, dashes, and parentheses
 //    const normalized = e.target.value.replace(/[^\d\s\-()]/g, '');
     const normalized = normalizePhone(e.target.value);
+    e.target.value = normalized;
+  }
+
+  handlePhoneInput(e) {
+    const normalized = normalizeEmail(e.target.value);
     e.target.value = normalized;
   }
 
