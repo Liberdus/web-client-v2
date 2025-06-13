@@ -6582,25 +6582,29 @@ class MyProfileModal {
   // Input sanitization and validation methods
   handleNameInput(e) {
     // Allow letters, spaces, and basic punctuation
-    const normalized = e.target.value.replace(/[^a-zA-Z\s\-'.]/g, '');
+//    const normalized = e.target.value.replace(/[^a-zA-Z\s\-'.]/g, '');
+    const normalized = normalizeName(e.target.value)
     e.target.value = normalized;
   }
 
   handlePhoneInput(e) {
     // Allow only numbers, spaces, dashes, and parentheses
-    const normalized = e.target.value.replace(/[^\d\s\-()]/g, '');
+//    const normalized = e.target.value.replace(/[^\d\s\-()]/g, '');
+    const normalized = normalizePhone(e.target.value);
     e.target.value = normalized;
   }
 
   handleLinkedInInput(e) {
     // Allow letters, numbers, dashes, and underscores
-    const normalized = e.target.value.replace(/[^a-zA-Z0-9\-_]/g, '');
+//    const normalized = e.target.value.replace(/[^a-zA-Z0-9\-_]/g, '');
+    const normalized = normalizeUsername(e.target.value);
     e.target.value = normalized;
   }
 
   handleXInput(e) {
     // Allow letters, numbers, and underscores
-    const normalized = e.target.value.replace(/[^a-zA-Z0-9_]/g, '');
+//    const normalized = e.target.value.replace(/[^a-zA-Z0-9_]/g, '');
+    const normalized = normalizeUsername(e.target.value);
     e.target.value = normalized;
   }
 
