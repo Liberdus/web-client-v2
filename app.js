@@ -4027,7 +4027,7 @@ async function injectTx(tx, txid) {
         tx.type === 'deposit_stake' ||
         tx.type === 'withdraw_stake'
       ) {
-        pendingTxData.to = tx.to;
+        pendingTxData.to = normalizeAddress(tx.to);
       }
       myData.pending.push(pendingTxData);
     } else {
