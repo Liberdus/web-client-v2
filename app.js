@@ -2875,9 +2875,6 @@ class FriendModal {
     button.classList.remove('status-0', 'status-1', 'status-2', 'status-3');
     // Add the current status class
     button.classList.add(`status-${contact.friend}`);
-
-    // Simply hide the button if there are no messages
-    button.style.display = contact.messages && contact.messages.length > 0 ? 'block' : 'none';
   }
 }
 
