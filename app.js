@@ -7785,8 +7785,7 @@ class ChatModal {
         const regex = /toll/i;
   
         if (str.match(regex)) {
-          this.close();
-          await this.open(currentAddress);
+          await this.reopen(currentAddress);
         }
         //let userMessage = 'Message failed to send. Please try again.';
         //const reason = response.result?.reason || '';
@@ -8124,6 +8123,11 @@ class ChatModal {
       // Trigger resize
       this.messageInput.style.height = Math.min(this.messageInput.scrollHeight, 120) + 'px';
     }
+  }
+
+  async reopen(address) {
+    this.close();
+    await this.open(address);
   }
 }
 
@@ -9130,9 +9134,7 @@ async function checkPendingTransactions() {
             showToast(`Stake failed: ${failureReason}`, 0, 'error');
           } else if (type === 'message') {
             if (chatModal.modal.classList.contains('active')) {
-              const tempAddress = chatModal.address;
-              chatModal.close();
-              chatModal.open(tempAddress);
+              await chatModal.reopen(chatModal.address);
             }
           } else if (type === 'transfer') {
             if (sendAssetFormModal.modal.classList.contains('active')) {
