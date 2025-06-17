@@ -7328,7 +7328,7 @@ class ChatModal {
   /**
    * Opens the chat modal for the given address.
    * @param {string} address - The address of the contact to open the chat modal for.
-   * @returns {void}
+   * @returns {Promise<void>}
    */
   async open(address) {
     friendModal.setAddress(address);
@@ -7760,6 +7760,7 @@ class ChatModal {
 
       // Call debounced save directly with empty string
       this.debouncedSaveDraft('');
+      contact.draft = '';
 
       // Update the chat modal UI immediately
       this.appendChatModal(); // This should now display the 'sending' message
@@ -7774,6 +7775,13 @@ class ChatModal {
 
       if (!response || !response.result || !response.result.success) {
         console.log('message failed to send', response);
+        const str = response.result.reason;
+        const regex = /toll/i;
+  
+        if (str.match(regex)) {
+          this.close();
+          await this.open(currentAddress);
+        }
         //let userMessage = 'Message failed to send. Please try again.';
         //const reason = response.result?.reason || '';
 
@@ -9099,7 +9107,21 @@ async function checkPendingTransactions() {
             showToast(`Unstake failed: ${failureReason}`, 0, 'error');
           } else if (type === 'deposit_stake') {
             showToast(`Stake failed: ${failureReason}`, 0, 'error');
-          } else if (type === 'toll') {
+          } else if (type === 'message') {
+            if (chatModal.modal.classList.contains('active')) {
+              const tempAddress = chatModal.address;
+              chatModal.close();
+              chatModal.open(tempAddress);
+            }
+          } else if (type === 'transfer') {
+            if (sendAssetFormModal.modal.classList.contains('active')) {
+              const tempUsername = sendAssetFormModal.username;
+              sendAssetFormModal.close();
+              sendAssetFormModal.username = tempUsername;
+              sendAssetFormModal.open();
+            }
+          }
+          else if (type === 'toll') {
             showToast(
               `Toll submission failed! Reverting to old toll: ${tollModal.oldToll}. Failure reason: ${failureReason}. `,
               0,
