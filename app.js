@@ -2528,6 +2528,10 @@ async function handleSendAsset(event) {
     // Send the transaction using postAssetTransfer
     const response = await postAssetTransfer(toAddress, amount, payload, keys);
 
+    if (!response || !response.result || !response.result.success) {
+      throw new Error('Transaction failed');
+    }
+
     /* if (!response || !response.result || !response.result.success) {
             alert('Transaction failed: ' + response.result.reason);
             return;
@@ -2620,7 +2624,7 @@ async function handleSendAsset(event) {
 */
   } catch (error) {
     console.error('Transaction error:', error);
-    showToast('Transaction failed. Please try again.', 0, 'error');
+    //showToast('Transaction failed. Please try again.', 0, 'error');
   }
 }
 handleSendAsset.timestamp = getCorrectedTimestamp();
