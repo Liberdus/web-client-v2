@@ -7350,6 +7350,8 @@ class ChatModal {
     // update local contact object with the toll required to send and receive
     updateTollRequired(address);
 
+    // check if toll required and 
+
     // clear hidden txid input
     this.retryOfTxId.value = '';
 
@@ -8367,6 +8369,9 @@ class NewChatModal {
     // Check if contact exists
     if (!chatsData.contacts[recipientAddress]) {
       createNewContact(recipientAddress, username, 2);
+      // TODO: uncomment after backend support updating tollRequired before chatId is created
+      // update to not require toll
+      //friendModal.postUpdateTollRequired(recipientAddress, 0);
     }
     chatsData.contacts[recipientAddress].username = username;
 
