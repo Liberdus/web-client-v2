@@ -3132,7 +3132,7 @@ function handleFailedPaymentRetry() {
     retryOfPaymentTxId.value = handleFailedPaymentClick.txid;
 
     // 2. fill in the memo input
-    sendAssetFormModal.querySelector('#sendMemo').value = handleFailedPaymentClick.memo;
+    sendAssetFormModal.memoInput.value = handleFailedPaymentClick?.memo || '';
 
     // 3. fill in the to address input
     // find username in myData.contacts[handleFailedPaymentClick.address].senderInfo.username
@@ -7996,7 +7996,7 @@ class ChatModal {
 
       // If the message is a payment message, show the failed history item modal
       if (messageEl.classList.contains('payment-info')) {
-        failedMessageModal.handleFailedPaymentClick(messageEl.dataset.txid, messageEl);
+        handleFailedPaymentClick(messageEl.dataset.txid, messageEl);
       }
 
       // TODO: if message is a payment open sendAssetFormModal and fill with information in the payment message?
