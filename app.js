@@ -2526,6 +2526,12 @@ async function handleSendAsset(event) {
     const response = await postAssetTransfer(toAddress, amount, payload, keys);
 
     if (!response || !response.result || !response.result.success) {
+      const str = response.result.reason;
+      const regex = /toll/i;
+
+      if (str.match(regex) || str.match(/at least/i)) {
+       await sendAssetFormModal.reopen();
+      }
       throw new Error('Transaction failed');
     }
 
@@ -8523,7 +8529,7 @@ class SendAssetFormModal {
 
   /**
    * Opens the send asset modal
-   * @returns {void}
+   * @returns {Promise<void>}
    */
   async open() {
     this.modal.classList.add('active');
@@ -8562,7 +8568,7 @@ class SendAssetFormModal {
 
   /**
    * Closes the send asset modal
-   * @returns {void}
+   * @returns {Promise<void>}
    */
   async close() {
     await updateChatList();
@@ -8978,6 +8984,21 @@ class SendAssetFormModal {
       this.transactionFee.textContent = feeInLIB + ' LIB';
     }
   }
+
+  /**
+   * Reopens the send asset form modal with the previous values
+   * @returns {Promise<void>}
+   */
+  async reopen () {
+    const tempUsername = this.usernameInput?.value;
+    const tempAmount = this.amountInput?.value;
+    const tempMemo = this.memoInput?.value;
+    await this.close();
+    this.username.value = tempUsername;
+    await this.open();
+    this.amountInput.value = tempAmount;
+    this.memoInput.value = tempMemo || '';
+  }
 }
 
 const sendAssetFormModal = new SendAssetFormModal();
@@ -9115,10 +9136,7 @@ async function checkPendingTransactions() {
             }
           } else if (type === 'transfer') {
             if (sendAssetFormModal.modal.classList.contains('active')) {
-              const tempUsername = sendAssetFormModal.username;
-              sendAssetFormModal.close();
-              sendAssetFormModal.username = tempUsername;
-              sendAssetFormModal.open();
+              await sendAssetFormModal.reopen();
             }
           }
           else if (type === 'toll') {
