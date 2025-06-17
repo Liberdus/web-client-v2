@@ -8999,7 +8999,7 @@ class SendAssetFormModal {
     const tempAmount = this.amountInput?.value;
     const tempMemo = this.memoInput?.value;
     await this.close();
-    this.username.value = tempUsername;
+    this.username = tempUsername;
     await this.open();
     this.amountInput.value = tempAmount;
     this.memoInput.value = tempMemo || '';
