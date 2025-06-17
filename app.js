@@ -8993,7 +8993,7 @@ class SendAssetFormModal {
    * Reopens the send asset form modal with the previous values
    * @returns {Promise<void>}
    */
-  async reopen () {
+  async reopen() {
     const tempUsername = this.usernameInput?.value;
     const tempAmount = this.amountInput?.value;
     const tempMemo = this.memoInput?.value;
