@@ -7350,8 +7350,6 @@ class ChatModal {
     // update local contact object with the toll required to send and receive
     updateTollRequired(address);
 
-    // check if toll required and 
-
     // clear hidden txid input
     this.retryOfTxId.value = '';
 
