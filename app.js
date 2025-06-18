@@ -3681,12 +3681,22 @@ async function processChats(chats, keys) {
           //console.log("payload", payload)
           decryptMessage(payload, keys); // modifies the payload object
           if (payload.senderInfo) {
-//            contact.senderInfo = JSON.parse(JSON.stringify(payload.senderInfo)); // make a copy
+            //            contact.senderInfo = JSON.parse(JSON.stringify(payload.senderInfo)); // make a copy
             contact.senderInfo = cleanSenderInfo(payload.senderInfo)
             delete payload.senderInfo;
             if (!contact.username && contact.senderInfo.username) {
-              // TODO check the network to see if the username given with the message maps to the address of this contact
-              contact.username = contact.senderInfo.username;
+              // check if the username given with the message maps to the address of this contact
+              const usernameAddress = await getUsernameAddress(contact.senderInfo.username);
+                if (usernameAddress && normalizeAddress(usernameAddress) === normalizeAddress(tx.from)) {
+                  contact.username = contact.senderInfo.username;
+                } else {
+                  // username doesn't match address so skipping this message
+                  console.error(`Username ${contact.senderInfo.username} does not match address ${tx.from}`);
+                  continue;
+                }
+            } else {
+              // if we already have the username, we can use it
+              contact.senderInfo.username = contact.username;
             }
           }
           //  skip if this tx was processed before and is already in contact.messages;
@@ -3747,8 +3757,18 @@ async function processChats(chats, keys) {
             contact.senderInfo = cleanSenderInfo(payload.senderInfo);
             delete payload.senderInfo;
             if (!contact.username && contact.senderInfo.username) {
-              // TODO check the network to see if the username given with the message maps to the address of this contact
-              contact.username = contact.senderInfo.username;
+              // check if the username given with the message maps to the address of this contact
+              const usernameAddress = await getUsernameAddress(contact.senderInfo.username);
+                if (usernameAddress && normalizeAddress(usernameAddress) === normalizeAddress(tx.from)) {
+                  contact.username = contact.senderInfo.username;
+                } else {
+                  // username doesn't match address so skipping this message
+                  console.error(`Username ${contact.senderInfo.username} does not match address ${tx.from}`);
+                  continue;
+                }
+            } else {
+              // if we already have the username, we can use it
+              contact.senderInfo.username = contact.username;
             }
           }
           // compute the transaction id (txid)
@@ -3890,6 +3910,36 @@ async function processChats(chats, keys) {
     console.log('Updated global chat timestamp to', newTimestamp);
   }
 }
+
+/**
+ * Get the address of a username and return the address if it exists
+ * @param {string} username - The username to check
+ * @returns {Promise<string|null>} The address of the username or null if it doesn't exist
+ */
+async function getUsernameAddress(username) {
+  const usernameBytes = utf82bin(normalizeUsername(username));
+  const usernameHash = hashBytes(usernameBytes);
+  const randomGateway = getGatewayForRequest();
+  if (!randomGateway) {
+    console.error('No gateway available for username check');
+    return null;
+  }
+  try {
+    const response = await fetch(
+      `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}/address/${usernameHash}`
+    );
+    const data = await response.json();
+    // if address is not present, return null
+    if (!data || !data.address) {
+      return null;
+    }
+    return data.address;
+  } catch (error) {
+    console.log('Error checking username:', error);
+    return null;
+  }
+}
+
 
 `
 The main difference between a chat message and an asset transfer is
