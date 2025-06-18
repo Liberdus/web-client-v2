@@ -3687,15 +3687,22 @@ async function processChats(chats, keys) {
               // check if the username given with the message maps to the address of this contact
               const usernameAddress = await getUsernameAddress(contact.senderInfo.username);
                 if (usernameAddress && normalizeAddress(usernameAddress) === normalizeAddress(tx.from)) {
+                  console.log(`Username: ${contact.senderInfo.username} matches address ${tx.from}`);
                   contact.username = contact.senderInfo.username;
                 } else {
                   // username doesn't match address so skipping this message
-                  console.error(`Username ${contact.senderInfo.username} does not match address ${tx.from}`);
+                  console.error(`Username: ${contact.senderInfo.username} does not match address ${tx.from}`);
                   continue;
                 }
             } else {
-              // if we already have the username, we can use it
-              contact.senderInfo.username = contact.username;
+              if(contact.username) {
+                console.log(`Username: ${contact.username} already exists`);
+                // if we already have the username, we can use it
+                contact.senderInfo.username = contact.username;
+              } else {
+                console.error(`Username not provided in sendInfo.`)
+                continue
+              }
             }
           }
           //  skip if this tx was processed before and is already in contact.messages;
@@ -3758,15 +3765,22 @@ async function processChats(chats, keys) {
               // check if the username given with the message maps to the address of this contact
               const usernameAddress = await getUsernameAddress(contact.senderInfo.username);
                 if (usernameAddress && normalizeAddress(usernameAddress) === normalizeAddress(tx.from)) {
+                  console.log(`Username: ${contact.senderInfo.username} matches address ${tx.from}`);
                   contact.username = contact.senderInfo.username;
                 } else {
                   // username doesn't match address so skipping this message
-                  console.error(`Username ${contact.senderInfo.username} does not match address ${tx.from}`);
+                  console.error(`Username: ${contact.senderInfo.username} does not match address ${tx.from}`);
                   continue;
                 }
             } else {
-              // if we already have the username, we can use it
-              contact.senderInfo.username = contact.username;
+              if(contact.username) {
+                console.log(`Username: ${contact.username} already exists`);
+                // if we already have the username, we can use it
+                contact.senderInfo.username = contact.username;
+              } else {
+                console.error(`Username not provided in sendInfo.`)
+                continue
+              }
             }
           }
           // compute the transaction id (txid)
