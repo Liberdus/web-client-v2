@@ -6267,11 +6267,13 @@ class TollModal {
     this.currentCurrency = 'LIB'; // Reset currency state
     document.getElementById('tollCurrencySymbol').textContent = this.currentCurrency;
     this.newTollAmountInputElement.value = ''; // Clear input field
+    this.warningMessageElement.textContent = '';
+    this.warningMessageElement.style.display = 'none';
+    this.saveButton.disabled = true;
 
     // Update min toll display under input
     const minTollValue = parseFloat(big2str(this.minToll, 18)).toFixed(6); // Show 6 decimal places
     this.minTollDisplay.textContent = `Minimum toll: ${minTollValue} LIB`;
-    this.saveButton.disabled = true;
   }
 
   close() {
