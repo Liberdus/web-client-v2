@@ -3700,7 +3700,7 @@ async function processChats(chats, keys) {
                 // if we already have the username, we can use it
                 contact.senderInfo.username = contact.username;
               } else {
-                console.error(`Username not provided in sendInfo.`)
+                console.error(`Username not provided in senderInfo.`)
                 continue
               }
             }
@@ -3778,7 +3778,7 @@ async function processChats(chats, keys) {
                 // if we already have the username, we can use it
                 contact.senderInfo.username = contact.username;
               } else {
-                console.error(`Username not provided in sendInfo.`)
+                console.error(`Username not provided in senderInfo.`)
                 continue
               }
             }
