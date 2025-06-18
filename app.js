@@ -6238,15 +6238,21 @@ class TollModal {
     this.oldToll = null;
     this.minToll = null; // Will be set from network account
     this.minTollDisplay = document.getElementById('minTollDisplay');
+    this.newTollAmountInputElement = document.getElementById('newTollAmountInput');
+    this.toggleTollCurrencyElement = document.getElementById('toggleTollCurrency');
+    this.openTollElement = document.getElementById('openToll');
+    this.warningMessageElement = document.getElementById('tollWarningMessage');
+    this.saveButton = document.getElementById('saveNewTollButton');
   }
 
   load() {
-    document.getElementById('openToll').addEventListener('click', () => this.open());
+    this.openTollElement.addEventListener('click', () => this.open());
     document.getElementById('closeTollModal').addEventListener('click', () => this.close());
-    document
-      .getElementById('toggleTollCurrency')
-      .addEventListener('click', (event) => this.handleToggleTollCurrency(event));
+    this.toggleTollCurrencyElement.addEventListener('click', (event) => this.handleToggleTollCurrency(event));
     document.getElementById('tollForm').addEventListener('submit', (event) => this.saveAndPostNewToll(event));
+
+    // Add event listeners for input validation
+    this.newTollAmountInputElement.addEventListener('input', () => this.updateSaveButtonState());
   }
 
   open() {
@@ -6262,11 +6268,15 @@ class TollModal {
 
     this.currentCurrency = 'LIB'; // Reset currency state
     document.getElementById('tollCurrencySymbol').textContent = this.currentCurrency;
-    document.getElementById('newTollAmountInput').value = ''; // Clear input field
+    this.newTollAmountInputElement.value = ''; // Clear input field
 
     // Update min toll display under input
     const minTollValue = parseFloat(big2str(this.minToll, 18)).toFixed(6); // Show 6 decimal places
     this.minTollDisplay.textContent = `Minimum toll: ${minTollValue} LIB`;
+
+    // Initialize save button state
+    this.updateSaveButtonState();
+    this.warningMessageElement.style.display = 'none';
   }
 
   close() {
@@ -6313,6 +6323,9 @@ class TollModal {
     const newTollAmountInput = document.getElementById('newTollAmountInput');
     let newTollValue = parseFloat(newTollAmountInput.value);
 
+    // disable submit button
+    this.saveButton.disabled = true;
+
     if (isNaN(newTollValue) || newTollValue < 0) {
       showToast('Invalid toll amount entered.', 0, 'error');
       return;
@@ -6323,7 +6336,7 @@ class TollModal {
     // Check if the toll is non-zero but less than minimum
     if (newToll > 0n) {
       if (this.currentCurrency === 'LIB' && newToll < this.minToll) {
-        showToast(`Toll must be at least ${parseFloat(big2str(this.minToll, 18)).toFixed(6)} LIB`, 0, 'error');
+        showToast(`Toll must be at least ${parseFloat(big2str(this.minToll, 18)).toFixed(6)} LIB or 0 LIB`, 0, 'error');
         return;
       }
       if (this.currentCurrency === 'USD') {
@@ -6331,7 +6344,7 @@ class TollModal {
         const newTollLIB = bigxnum2big(newToll, (1 / scalabilityFactor).toString());
         if (newTollLIB < this.minToll) {
           const minTollUSD = bigxnum2big(this.minToll, scalabilityFactor.toString());
-          showToast(`Toll must be at least ${parseFloat(big2str(minTollUSD, 18)).toFixed(4)} USD`, 0, 'error');
+          showToast(`Toll must be at least ${parseFloat(big2str(minTollUSD, 18)).toFixed(4)} USD or 0 USD`, 0, 'error');
           return;
         }
       }
@@ -6362,6 +6375,8 @@ class TollModal {
       console.error(`Toll submission failed for txid: ${response.txid}`);
       return;
     }
+
+    this.newTollAmountInputElement.value = '';
 
     // Update the display for tollAmountLIB and tollAmountUSD
     this.updateTollDisplay(newToll, this.currentCurrency);
@@ -6423,6 +6438,74 @@ class TollModal {
     const txid = await signObj(tollTx, myAccount.keys);
     const response = await injectTx(tollTx, txid);
     return response;
+  }
+
+  /**
+   * Gets the warning message based on input validation
+   * @returns {string|null} - The warning message or null if no warning
+   */
+  getWarningMessage() {
+    const value = this.newTollAmountInputElement.value;
+
+    // return null if just . or ,
+    if (value.trim() === '.' || value.trim() === ',') {
+      return null;
+    }
+
+    // check if input is empty or only whitespace
+    if (value.trim() === '') {
+      return 'Please enter a toll amount';
+    }
+
+    const newTollValue = parseFloat(value);
+
+    // Check if it's a valid number
+    if (isNaN(newTollValue) || newTollValue < 0) {
+      return 'Please enter a valid positive number';
+    }
+
+    // Allow zero toll
+    if (newTollValue === 0) {
+      return null;
+    }
+
+    const newToll = bigxnum2big(wei, value);
+
+    // Check minimum toll requirements
+    if (this.currentCurrency === 'LIB') {
+      if (newToll < this.minToll) {
+        return `Toll must be at least ${parseFloat(big2str(this.minToll, 18)).toFixed(6)} LIB or 0 LIB`;
+      }
+    } else {
+      const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+      const newTollLIB = bigxnum2big(newToll, (1 / scalabilityFactor).toString());
+      if (newTollLIB < this.minToll) {
+        const minTollUSD = bigxnum2big(this.minToll, scalabilityFactor.toString());
+        return `Toll must be at least ${parseFloat(big2str(minTollUSD, 18)).toFixed(4)} USD or 0 USD`;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Updates the save button state and warning message based on input validation
+   */
+  updateSaveButtonState() {
+    const warningMessage = this.getWarningMessage();
+    const isValid = !warningMessage;
+
+    // Update save button state
+    this.saveButton.disabled = !isValid;
+
+    // Update warning message
+    if (warningMessage) {
+      this.warningMessageElement.textContent = warningMessage;
+      this.warningMessageElement.style.display = 'block';
+    } else {
+      this.warningMessageElement.textContent = '';
+      this.warningMessageElement.style.display = 'none';
+    }
   }
 }
 

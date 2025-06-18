@@ -4498,6 +4498,19 @@ small {
   padding: 20px;
 }
 
+/* Warning text styling */
+.warning-text {
+  color: #dc3545; /* Bootstrap's danger color */
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+  display: none; /* Hidden by default */
+}
+
+.warning-text.show {
+  display: block;
+}
+
 /* Friend Modal Styles */
 .radio-group {
   display: flex;
