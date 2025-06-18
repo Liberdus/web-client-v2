@@ -6271,10 +6271,7 @@ class TollModal {
     // Update min toll display under input
     const minTollValue = parseFloat(big2str(this.minToll, 18)).toFixed(6); // Show 6 decimal places
     this.minTollDisplay.textContent = `Minimum toll: ${minTollValue} LIB`;
-
-    // Initialize save button state
-    this.updateSaveButtonState();
-    this.warningMessageElement.style.display = 'none';
+    this.saveButton.disabled = true;
   }
 
   close() {
