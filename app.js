@@ -1924,14 +1924,14 @@ function updateTollAmountUI(address) {
   }
   let display;
   if (contact.tollRequiredToSend == 1) {
-    display = `${mainString} (${otherString})`;
+    display = `${mainString} = ${otherString}`;
   } else if (contact.tollRequiredToSend == 2) {
     tollValue.style.color = 'red';
     display = `blocked`;
   } else {
     // light green used to show success
     tollValue.style.color = '#28a745';
-    display = `free (${mainString} (${otherString}))`;
+    display = `free; ${mainString} = ${otherString}`;
   }
   tollValue.textContent = display;
 
@@ -8778,7 +8778,7 @@ class SendAssetFormModal {
     }
     let display;
     if (this.tollInfo.required == 1) {
-      display = `${mainString} (${otherString})`;
+      display = `${mainString} = ${otherString}`;
       if (this.memoInput.value.trim() == '') {
         display = '';
       }
@@ -8788,13 +8788,14 @@ class SendAssetFormModal {
     } else {
       // light green used to show success
       this.tollMemoSpan.style.color = '#28a745';
-      display = `free (${mainString} (${otherString}))`;
+      display = `free; ${mainString} = ${otherString}`;
     }
     //display the container
     if (display != '') {
-      display = 'Toll: ' + display;
+      // want only the word "Toll:" to be black and bold
+      display = '<span style="color: black;">Toll:</span> ' + display;
     }
-    this.tollMemoSpan.textContent = display;
+    this.tollMemoSpan.innerHTML = display;
   }
 
   clearFormInfo() {
