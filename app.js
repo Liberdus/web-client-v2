@@ -6250,8 +6250,6 @@ class TollModal {
     document.getElementById('closeTollModal').addEventListener('click', () => this.close());
     this.toggleTollCurrencyElement.addEventListener('click', (event) => this.handleToggleTollCurrency(event));
     document.getElementById('tollForm').addEventListener('submit', (event) => this.saveAndPostNewToll(event));
-
-    // Add event listeners for input validation
     this.newTollAmountInputElement.addEventListener('input', () => this.updateSaveButtonState());
   }
 
