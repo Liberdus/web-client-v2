@@ -2321,9 +2321,8 @@ function fillStakeAddressFromQR(data) {
  */
 async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
   if (balanceWarning) balanceWarning.style.display = 'none';
-  if (amount == 0n) {
-    return false;
-  } else if (amount < 0n) {
+  // not checking for 0 since we allow 0 amount for messages when toll is not required
+  if (amount < 0n) {
     if (balanceWarning) balanceWarning.style.display = 'block';
     balanceWarning.textContent = 'Amount cannot be negative';
     return false;
@@ -9018,7 +9017,7 @@ class SendAssetFormModal {
 
     const amount = this.amountInput.value.trim();
 
-    if (amount == '') {
+    if (amount == '' || amount == 0n) {
       this.balanceWarning.textContent = '';
       this.balanceWarning.style.display = 'none';
       this.submitButton.disabled = true;
@@ -9039,7 +9038,7 @@ class SendAssetFormModal {
     // convert amount to bigint
     const amountBigInt = bigxnum2big(wei, amountForValidation.toString());
 
-    // validateBalance returns false if the amount/balance is invalid.
+    // returns false if the amount/balance is invalid.
     const isAmountAndBalanceValid = await validateBalance(amountBigInt, assetIndex, this.balanceWarning);
 
     let isAmountAndTollValid = true;
