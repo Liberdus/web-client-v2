@@ -2322,10 +2322,8 @@ function fillStakeAddressFromQR(data) {
 async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
   if (balanceWarning) balanceWarning.style.display = 'none';
   if (amount == 0n) {
-    console.warn('[validateBalance] amount is zero');
     return false;
   } else if (amount < 0n) {
-    console.warn('[validateBalance] amount is negative');
     if (balanceWarning) balanceWarning.style.display = 'block';
     balanceWarning.textContent = 'Amount cannot be negative';
     return false;
@@ -9021,7 +9019,6 @@ class SendAssetFormModal {
     const amount = this.amountInput.value.trim();
 
     if (amount == '') {
-      console.warn('[refreshSendButtonDisabledState] amount is empty');
       this.balanceWarning.textContent = '';
       this.balanceWarning.style.display = 'none';
       this.submitButton.disabled = true;
