@@ -244,7 +244,8 @@ async function checkUsernameAvailability(username, address, foundAddressObject) 
   const usernameHash = hashBytes(usernameBytes);
   try {
     const response = await fetch(
-      `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}/address/${usernameHash}`
+//      `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}/address/${usernameHash}`
+      `${randomGateway.web}/address/${usernameHash}`
     );
     const data = await response.json();
     if (data && data.address) {
@@ -781,6 +782,8 @@ function newDataRecord(myAccount) {
           protocol: gateway.protocol,
           host: gateway.host,
           port: gateway.port,
+          web: gateway.web,
+          ws:gateway.ws,
           name: `${gateway.host} (System)`,
           isSystem: true,
           isDefault: false,
@@ -3437,8 +3440,8 @@ async function queryNetwork(url) {
   }
 
   try {
-    const response = await fetch(`${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}${url}`);
-    console.log('query', `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}${url}`);
+    const response = await fetch(`${randomGateway.web}${url}`);
+    console.log('query', `${randomGateway.web}${url}`);
     const data = parse(await response.text());
     console.log('response', data);
     return data;

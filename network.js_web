@@ -5,7 +5,9 @@ const network = {
     {
       "protocol": "https",
       "host": "dev.liberdus.com",
-      "port": 3030    
+      "port": 3030,
+      "web": "https://dev.liberdus.com:3030",
+      "ws": :wss://dev.liberdus.com:3031"
     },
   ],
   "monitor": {

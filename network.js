@@ -5,7 +5,9 @@ const network = {
     {
       "protocol": "http",
       "host": "localhost",
-      "port": 3030    
+      "port": 3030,
+      "web": "http://localhost:3030",
+      "ws": "ws://localhost:3031"
     },
   ],
   "monitor": {
