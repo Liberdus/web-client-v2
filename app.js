@@ -9017,7 +9017,7 @@ class SendAssetFormModal {
 
     const amount = this.amountInput.value.trim();
 
-    if (amount == '' || parseInt(amount) == 0) {
+    if (amount == '' || parseFloat(amount) == 0) {
       this.balanceWarning.textContent = '';
       this.balanceWarning.style.display = 'none';
       this.submitButton.disabled = true;
