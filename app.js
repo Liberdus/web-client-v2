@@ -7638,16 +7638,13 @@ class ChatModal {
    */
   async sendReclaimTollTransaction(contactAddress) {
     console.log(`[sendReclaimTollTransaction] entering function`);
-    const sevenDaysAgo = getCorrectedTimestamp() - 7 * 24 * 60 * 60 * 1000;
-    console.log(`this.newestSentMessage: ${!!this.newestSentMessage}`);
-    console.log(`this.newestSentMessage?.timestamp: ${this.newestSentMessage?.timestamp}`);
-    console.log(`sevenDaysAgo: ${sevenDaysAgo}`);
-    console.log(
-      `this.newestSentMessage?.timestamp > sevenDaysAgo: ${this.newestSentMessage?.timestamp < sevenDaysAgo}`
-    );
-    if (!this.newestSentMessage || this.newestSentMessage?.timestamp > sevenDaysAgo) {
+    await getNetworkParams();
+    const currentTime = getCorrectedTimestamp();
+    const networkTollTimeoutInMs = parameters.current.tollTimeout; 
+    const timeSinceNewestSentMessage = currentTime - this.newestSentMessage?.timestamp;
+    if (!this.newestSentMessage || timeSinceNewestSentMessage < networkTollTimeoutInMs) {
       console.log(
-        `[sendReclaimTollTransaction] newestSentMessage is null or timestamp is less than 7 days ago, skipping reclaim toll transaction`
+        `[sendReclaimTollTransaction] timeSinceNewestSentMessage ${timeSinceNewestSentMessage}ms is less than networkTollTimeoutInMs ${networkTollTimeoutInMs}ms, skipping reclaim toll transaction`
       );
       return;
     }
