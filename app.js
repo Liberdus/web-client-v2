@@ -1184,7 +1184,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const welcomeScreenLastItem = document.getElementById('welcomeScreenLastItem');
   welcomeScreenLastItem.focus();
 
-  setupAddToHomeScreen();
+  // Deprecated - do not want to encourage or confuse users with this feature since on IOS uses seperate local storage
+  //setupAddToHomeScreen();
 });
 
 function handleUnload() {
@@ -1255,7 +1256,7 @@ function saveState() {
   }
 }
 
-function setupAddToHomeScreen() {
+/* function setupAddToHomeScreen() {
   // Add to home screen functionality
   let deferredInstallPrompt;
   let addToHomeScreenButton = document.getElementById('addToHomeScreenButton');
@@ -1446,7 +1447,7 @@ function setupAddToHomeScreen() {
       updateButtonVisibility();
     });
   }
-}
+} */
 
 async function updateChatData() {
   let gotChats = 0;
