@@ -250,51 +250,43 @@
           <div class="modal-title">About Liberdus</div>
         </div>
         <div class="form-container">
-          <div style="padding: 1rem">
-            <img
-              src="./media/liberdus_logo_250.png"
-              alt="Liberdus Logo"
-              style="margin-bottom: 20px; width: 100%; max-width: 200px"
-            />
-            <p>Liberdus is a decentralized messaging and wallet application.</p>
-            <br /><br />
-            <div style="font-size: 0.8rem; margin-top: 10px; text-align: center">
-              Version <span id="versionDisplayAbout"></span>
+          <div class="about-content">
+            <img class="about-logo" src="./media/liberdus_logo_250.png" alt="Liberdus Logo" />
+            <p class="about-description">Liberdus is a decentralized messaging and wallet application.</p>
+
+            <div class="about-info-section">
+              <div class="about-info-item">Version <span id="versionDisplayAbout"></span></div>
+              <div class="about-info-item">Network Name: <span id="networkNameAbout"></span></div>
+              <div class="about-info-item">
+                Net ID:<br />
+                <span class="about-net-id" id="netIdAbout"></span>
+              </div>
             </div>
-            <div style="font-size: 0.8rem; margin-top: 10px; text-align: center">
-              Network Name: <span id="networkNameAbout"></span>
+
+            <div class="about-links-section">
+              <a class="about-link" href="https://liberdus.com" target="_blank">Liberdus.com</a>
+              <a class="about-link" href="https://github.com/liberdus" target="_blank">Source Code</a>
             </div>
-            <div style="font-size: 0.8rem; margin-top: 10px; text-align: center">
-              Net ID:<br />
-              <span style="font-size: 0.7rem" id="netIdAbout"></span>
+
+            <div class="about-source-links">
+              <a class="about-link" href="index.html.txt" target="_blank">index.html</a>
+              <a class="about-link" href="styles.css" target="_blank">styles.css</a>
+              <a class="about-link" href="app.js" target="_blank">app.js</a>
+              <a class="about-link" href="crypto.js" target="_blank">crypto.js</a>
+              <a class="about-link" href="lib.js" target="_blank">lib.js</a>
+              <a class="about-link" href="network.js" target="_blank">network.js</a>
+              <a class="about-link" href="service-worker.js" target="_blank">service-worker.js</a>
             </div>
-            <br /><br />
-            <div>
-              <a href="https://liberdus.com" target="_blank">Liberdus.com</a>
+
+            <div class="about-external-links">
+              <a class="about-link" href="./external/noble-post-quantum.js" target="_blank">noble-post-quantum.js</a>
+              <a class="about-link" href="./external/noble-secp256k1.js" target="_blank">noble-secp256k1.js</a>
+              <a class="about-link" href="./external/noble-ciphers.js" target="_blank">noble-ciphers.js</a>
+              <a class="about-link" href="./external/blake2b.js" target="_blank">blake2b.js</a>
+              <a class="about-link" href="./external/keccak256.js" target="_blank">keccak256.js</a>
+              <a class="about-link" href="./external/stringify-shardus.js" target="_blank">stringify-shardus.js</a>
+              <a class="about-link" href="./external/qr.js" target="_blank">qr.js</a>
             </div>
-            <p>
-              <a href="https://github.com/liberdus" target="_blank">Source Code</a>
-            </p>
-            <br />
-            <p>
-              <a href="index.html.txt" target="_blank">index.html</a>
-              <a href="styles.css" target="_blank">styles.css</a>
-              <a href="app.js" target="_blank">app.js</a>
-              <a href="crypto.js" target="_blank">crypto.js</a>
-              <a href="lib.js" target="_blank">lib.js</a>
-              <a href="network.js" target="_blank">network.js</a>
-              <a href="service-worker.js" target="_blank">service-worker.js</a>
-            </p>
-            <br />
-            <p>
-              <a href="./external/noble-post-quantum.js" target="_blank">noble-post-quantum.js</a>
-              <a href="./external/noble-secp256k1.js" target="_blank">noble-secp256k1.js</a>
-              <a href="./external/noble-ciphers.js" target="_blank">noble-ciphers.js</a>
-              <a href="./external/blake2b.js" target="_blank">blake2b.js</a>
-              <a href="./external/keccak256.js" target="_blank">keccak256.js</a>
-              <a href="./external/stringify-shardus.js" target="_blank">stringify-shardus.js</a>
-              <a href="./external/qr.js" target="_blank">qr.js</a>
-            </p>
           </div>
         </div>
         <a class="last-item" href="#"> </a>
