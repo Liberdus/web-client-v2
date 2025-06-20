@@ -5283,11 +5283,12 @@ class WSManager {
     }
 
     this.connectionState = 'connecting';
+    const selectedGateway = getGatewayForRequest();
     console.log(
       'WebSocket Connection:',
       JSON.stringify(
         {
-          url: network.websocket.url,
+          url: selectedGateway.ws,
           protocol: window.location.protocol,
           userAgent: navigator.userAgent,
         },
@@ -5298,7 +5299,7 @@ class WSManager {
 
     try {
       console.log('Creating new WebSocket instance');
-      this.ws = new WebSocket(network.websocket.url);
+      this.ws = new WebSocket(selectedGateway.ws);
       this.setupEventHandlers();
     } catch (error) {
       console.error('WebSocket connection creation error:', error);
@@ -5500,10 +5501,11 @@ class WSManager {
 
     // Add Firefox-specific diagnostics
     if (navigator.userAgent.includes('Firefox')) {
+      const selectedGateway = getGatewayForRequest();
       diagnosticInfo.firefox = {
         securityPolicy: 'Different security policies for WebSockets',
         mixedContent: 'Check if HTTPS site with WS instead of WSS',
-        websocketUrl: network.websocket.url,
+        websocketUrl: selectedGateway?.ws || 'No gateway available',
         pageProtocol: window.location.protocol,
       };
     }
@@ -5566,33 +5568,42 @@ class WSManager {
       },
     };
 
+    // Get selected gateway for WebSocket URL
+    const selectedGateway = getGatewayForRequest();
+
     // Add iOS standalone info
     const isIOSStandalone =
       /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream && window.navigator.standalone === true;
     if (isIOSStandalone) {
       supportInfo.ios = {
         mode: 'standalone_pwa',
-        restrictions: network.websocket.url.startsWith('wss://'),
+        restrictions: selectedGateway?.ws ? selectedGateway.ws.startsWith('wss://') : false,
       };
     }
 
     // Add Firefox-specific info
     if (navigator.userAgent.includes('Firefox')) {
       supportInfo.firefox = {
-        mixedContentBlocked: window.location.protocol === 'https:' && network.websocket.url.startsWith('ws://'),
-        usingSecureWebSocket: network.websocket.url.startsWith('wss://'),
-        port: network.websocket.url.split(':')[2]?.split('/')[0] || 'default',
+        mixedContentBlocked: window.location.protocol === 'https:' && selectedGateway?.ws ? selectedGateway.ws.startsWith('ws://') : false,
+        usingSecureWebSocket: selectedGateway?.ws ? selectedGateway.ws.startsWith('wss://') : false,
+        port: selectedGateway?.ws ? selectedGateway.ws.split(':')[2]?.split('/')[0] || 'default' : 'No gateway',
       };
     }
 
     // Add WebSocket URL details
-    const wsUrl = new URL(network.websocket.url);
-    supportInfo.websocket = {
+    const wsUrl = new URL(selectedGateway?.ws);
+    supportInfo.websocket = wsUrl ? {
       protocol: wsUrl.protocol,
       hostname: wsUrl.hostname,
       port: wsUrl.port || (wsUrl.protocol === 'wss:' ? '443' : '80'),
       pathname: wsUrl.pathname,
       requiresSecureContext: wsUrl.protocol === 'wss:' && !supportInfo.environment.isLocalhost,
+    } : {
+      protocol: 'No gateway',
+      hostname: 'No gateway',
+      port: 'No gateway',
+      pathname: 'No gateway',
+      requiresSecureContext: false,
     };
 
     console.log('WebSocket Support Analysis:', JSON.stringify(supportInfo, null, 2));
