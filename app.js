@@ -234,8 +234,8 @@ async function checkUsernameAvailability(username, address, foundAddressObject) 
   }
 
   // Online flow - existing implementation
-  const randomGateway = getGatewayForRequest();
-  if (!randomGateway) {
+  const selectedGateway = getGatewayForRequest();
+  if (!selectedGateway) {
     console.error('No gateway available for username check');
     return 'error';
   }
@@ -244,8 +244,8 @@ async function checkUsernameAvailability(username, address, foundAddressObject) 
   const usernameHash = hashBytes(usernameBytes);
   try {
     const response = await fetch(
-//      `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}/address/${usernameHash}`
-      `${randomGateway.web}/address/${usernameHash}`
+//      `${selectedGateway.protocol}://${selectedGateway.host}:${selectedGateway.port}/address/${usernameHash}`
+      `${selectedGateway.web}/address/${usernameHash}`
     );
     const data = await response.json();
     if (data && data.address) {
@@ -2233,8 +2233,8 @@ async function handleSendAsset(event) {
     const usernameBytes = utf82bin(username);
     const usernameHash = hashBytes(usernameBytes);
     /*
-        const randomGateway = network.gateways[Math.floor(Math.random() * network.gateways.length)];
-        const response = await fetch(`${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}/address/${usernameHash}`);
+        const selectedGateway = network.gateways[Math.floor(Math.random() * network.gateways.length)];
+        const response = await fetch(`${selectedGateway.protocol}://${selectedGateway.host}:${selectedGateway.port}/address/${usernameHash}`);
         const data = await response.json();
 */
     const data = await queryNetwork(`/address/${usernameHash}`);
@@ -3443,15 +3443,15 @@ async function queryNetwork(url) {
     //alert('not online')
     return null;
   }
-  const randomGateway = getGatewayForRequest();
-  if (!randomGateway) {
+  const selectedGateway = getGatewayForRequest();
+  if (!selectedGateway) {
     console.error('No gateway available for network query');
     return null;
   }
 
   try {
-    const response = await fetch(`${randomGateway.web}${url}`);
-    console.log('query', `${randomGateway.web}${url}`);
+    const response = await fetch(`${selectedGateway.web}${url}`);
+    console.log('query', `${selectedGateway.web}${url}`);
     const data = parse(await response.text());
     console.log('response', data);
     return data;
@@ -3941,14 +3941,14 @@ async function processChats(chats, keys) {
 async function getUsernameAddress(username) {
   const usernameBytes = utf82bin(normalizeUsername(username));
   const usernameHash = hashBytes(usernameBytes);
-  const randomGateway = getGatewayForRequest();
-  if (!randomGateway) {
+  const selectedGateway = getGatewayForRequest();
+  if (!selectedGateway) {
     console.error('No gateway available for username check');
     return null;
   }
   try {
     const response = await fetch(
-      `${randomGateway.web}/address/${usernameHash}`
+      `${selectedGateway.web}/address/${usernameHash}`
     );
     const data = await response.json();
     // if address is not present, return null
@@ -4055,8 +4055,8 @@ async function injectTx(tx, txid) {
   if (!isOnline) {
     return null;
   }
-  const randomGateway = getGatewayForRequest();
-  if (!randomGateway) {
+  const selectedGateway = getGatewayForRequest();
+  if (!selectedGateway) {
     console.error('No gateway available for transaction injection');
     return null;
   }
@@ -4076,7 +4076,7 @@ async function injectTx(tx, txid) {
       body: stringify({ tx: stringify(tx) }),
     };
     const response = await fetch(
-      `${randomGateway.web}/inject`,
+      `${selectedGateway.web}/inject`,
       options
     );
     console.log('DEBUG: injectTx response', response);
