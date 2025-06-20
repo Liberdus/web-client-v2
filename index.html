@@ -213,7 +213,6 @@
           <li class="menu-item" id="openAccountForm">Profile</li>
           <li class="menu-item" id="openToll">Toll</li>
           <li class="menu-item" id="openExportForm">Backup</li>
-          <li class="menu-item" id="openNetwork">Gateway</li>
           <li class="menu-item" id="openValidator">Validator</li>
           <li class="menu-item" id="openInvite">Invite</li>
           <!--                <li class="menu-item" id="openSettings">Settings</li> -->
@@ -822,55 +821,6 @@
               />
             </div>
             <button type="submit" class="update-button">Download Data</button>
-          </form>
-          <a class="last-item" href="#"> </a>
-        </div>
-      </div>
-
-      <!-- Gateway Form Modal -->
-      <div class="modal" id="gatewayModal">
-        <div class="modal-header">
-          <button class="back-button" id="closeGatewayForm"></button>
-          <div class="modal-title">Gateway Settings</div>
-        </div>
-        <div class="form-container">
-          <div id="gatewayList" class="gateway-list">
-            <!-- Gateway items will be populated here -->
-          </div>
-          <button id="addGatewayButton" class="update-button">Add Gateway</button>
-          <a class="last-item" href="#"> </a>
-        </div>
-      </div>
-
-      <!-- Add/Edit Gateway Modal -->
-      <div class="modal" id="addEditGatewayModal">
-        <div class="modal-header">
-          <button class="back-button" id="closeAddEditGatewayForm"></button>
-          <div class="modal-title" id="addEditGatewayTitle">Add Gateway</div>
-        </div>
-        <div class="form-container">
-          <form id="gatewayForm">
-            <input type="hidden" id="gatewayEditIndex" value="-1" />
-            <div class="form-group">
-              <label for="gatewayName">Name</label>
-              <input type="text" id="gatewayName" class="form-control" placeholder="My Gateway" required />
-            </div>
-            <div class="form-group">
-              <label for="gatewayProtocol">Protocol</label>
-              <select id="gatewayProtocol" class="form-control" required>
-                <option value="https">HTTPS</option>
-                <option value="http">HTTP</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="gatewayHost">Host</label>
-              <input type="text" id="gatewayHost" class="form-control" placeholder="example.com" required />
-            </div>
-            <div class="form-group">
-              <label for="gatewayPort">Port</label>
-              <input type="number" id="gatewayPort" class="form-control" placeholder="3030" required />
-            </div>
-            <button type="submit" class="update-button">Save</button>
           </form>
           <a class="last-item" href="#"> </a>
         </div>
