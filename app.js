@@ -4918,11 +4918,21 @@ function initializeGatewayConfig() {
     myData.network.gateways = [];
   }
 
-  // Ensure defaultGatewayIndex property exists and set to -1 (random selection)
-  if (myData.network.defaultGatewayIndex === undefined) {
-    myData.network.defaultGatewayIndex = -1; // -1 means use random selection
+  if (network && network.gateways && network.gateways.length > 0){
+    myData.network = parse(stringify(network))
+  }
+  else if (myData.network.gateway.length <= 0){
+    showToast("No gateway server available; edit network.js file", 0, "error")
+    return;
   }
 
+  // Ensure defaultGatewayIndex property exists and set to -1 (random selection)
+  if (myData.network.defaultGatewayIndex === undefined) {
+    // TODO ping the gateway servers and pick one that is working
+    myData.network.defaultGatewayIndex = 0; // -1 means use random selection
+  }
+  
+  /*
   // If no gateways, initialize with system gateways
   if (myData.network.gateways.length === 0) {
     // Add system gateways from the global network object
@@ -4941,6 +4951,7 @@ function initializeGatewayConfig() {
       });
     }
   }
+  */
 }
 
 // Function to get the gateway to use for a request
@@ -6030,6 +6041,8 @@ class RestoreAccountModal {
 }
 const restoreAccountModal = new RestoreAccountModal();
 
+// TODO - we are not going to allow users to change the gateway
+//        so we don't need this class anymore
 class GatewayModal {
   constructor() {}
 
