@@ -3948,7 +3948,7 @@ async function getUsernameAddress(username) {
   }
   try {
     const response = await fetch(
-      `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}/address/${usernameHash}`
+      `${randomGateway.web}/address/${usernameHash}`
     );
     const data = await response.json();
     // if address is not present, return null
@@ -4076,7 +4076,7 @@ async function injectTx(tx, txid) {
       body: stringify({ tx: stringify(tx) }),
     };
     const response = await fetch(
-      `${randomGateway.protocol}://${randomGateway.host}:${randomGateway.port}/inject`,
+      `${randomGateway.web}/inject`,
       options
     );
     console.log('DEBUG: injectTx response', response);
