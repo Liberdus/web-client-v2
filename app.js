@@ -4932,6 +4932,8 @@ function initializeGatewayConfig() {
           protocol: gateway.protocol,
           host: gateway.host,
           port: gateway.port,
+          web: gateway.web,
+          ws: gateway.ws,
           name: `${gateway.host} (System)`,
           isSystem: true,
           isDefault: false,
