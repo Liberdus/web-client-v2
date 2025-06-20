@@ -3514,9 +3514,8 @@ async function pollChats() {
 // Helper function to check WebSocket status and log diagnostics if needed
 async function checkWebSocketStatus() {
   if (!wsManager) return 'not initialized';
-
   const status = wsManager.isConnected() ? 'connected' : 'disconnected';
-
+  const selectedGateway = getGatewayForRequest();
   // Log diagnostic info if disconnected
   if (status === 'disconnected' && wsManager.connectionState === 'disconnected') {
     const diagnosticInfo = {
@@ -3527,13 +3526,18 @@ async function checkWebSocketStatus() {
         webSocketSupport: typeof WebSocket !== 'undefined',
       },
       websocketConfig: {
-        urlValid: network?.websocket?.url
-          ? network.websocket.url.startsWith('ws://') || network.websocket.url.startsWith('wss://')
-          : false,
-        url: network?.websocket?.url || 'Not configured',
+        urlValid: (() => {
+          return selectedGateway?.ws
+            ? selectedGateway.ws.startsWith('ws://') || selectedGateway.ws.startsWith('wss://')
+            : false;
+        })(),
+        url: (() => {
+          const selectedGateway = getGatewayForRequest();
+          return selectedGateway?.ws || 'Not configured';
+        })(),
       },
     };
-    console.log('WebSocket Diagnostic Information:', diagnosticInfo);
+    console.warn('WebSocket Diagnostic Information:', diagnosticInfo);
   }
 
   return status;
@@ -5630,10 +5634,11 @@ class WSManager {
     }
 
     try {
+      const selectedGateway = getGatewayForRequest();
       const initInfo = {
         status: 'starting',
         config: {
-          url: network.websocket.url,
+          url: selectedGateway?.ws || 'No gateway available',
         },
         account: {
           available: !!myAccount?.keys?.address,
