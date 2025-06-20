@@ -3,20 +3,8 @@ const network = {
   "name": "Devnet",
   "gateways": [
     {
-      "protocol": "http",
-      "host": "localhost",
-      "port": 3030,
       "web": "http://localhost:3030",
       "ws": "ws://localhost:3031"
     },
   ],
-  "monitor": {
-    "url": "https://test.liberdus.com/monitor"
-  },
-  "explorer": {
-    "url": "https://test.liberdus.com/explorer"
-  },
-  websocket: {
-    url: "ws://localhost:3031",
-  }
 }
