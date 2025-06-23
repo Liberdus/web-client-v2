@@ -511,15 +511,9 @@ async function handleCreateAccount(event) {
     const txid = res.txid;
 
     try {
-      // Start intervals since trying to create account and tx should be in pending
-      if (!updateWebSocketIndicatorIntervalId) {
-        updateWebSocketIndicatorIntervalId = setInterval(updateWebSocketIndicator, 5000);
-      }
+      // Start interval since trying to create account and tx should be in pending
       if (!checkPendingTransactionsIntervalId) {
         checkPendingTransactionsIntervalId = setInterval(checkPendingTransactions, 5000);
-      }
-      if (!getSystemNoticeIntervalId) {
-        getSystemNoticeIntervalId = setInterval(getSystemNotice, 15000);
       }
 
       // Wait for the transaction confirmation
@@ -530,7 +524,7 @@ async function handleCreateAccount(event) {
       ) {
         throw new Error('Confirmation details mismatch.');
       }
-
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       if (waitingToastId) hideToast(waitingToastId);
       showToast('Account created successfully!', 3000, 'success');
       submitButton.disabled = false;
@@ -540,13 +534,14 @@ async function handleCreateAccount(event) {
       backButton.disabled = false;
       closeCreateAccountModal();
       document.getElementById('welcomeScreen').style.display = 'none';
-      getChats.lastCall = getCorrectedTimestamp();
+      // TODO: may not need to get set since gets set in `getChats`. Need to check signin flow.
+      //getChats.lastCall = getCorrectedTimestamp();
       // Store updated accounts back in localStorage
       existingAccounts.netids[netid].usernames[username] = { address: myAccount.keys.address };
       localStorage.setItem('accounts', stringify(existingAccounts));
       saveState();
-
-      await switchView('chats');
+      
+      signInModal.open(username);
     } catch (error) {
       if (waitingToastId) hideToast(waitingToastId);
       console.log(`DEBUG: handleCreateAccount error`, JSON.stringify(error, null, 2));
@@ -557,18 +552,10 @@ async function handleCreateAccount(event) {
       privateKeyInput.disabled = false;
       backButton.disabled = false;
 
-      // Clear intervals
-      if (updateWebSocketIndicatorIntervalId) {
-        clearInterval(updateWebSocketIndicatorIntervalId);
-        updateWebSocketIndicatorIntervalId = null;
-      }
+      // Clear interval
       if (checkPendingTransactionsIntervalId) {
         clearInterval(checkPendingTransactionsIntervalId);
         checkPendingTransactionsIntervalId = null;
-      }
-      if (getSystemNoticeIntervalId) {
-        clearInterval(getSystemNoticeIntervalId);
-        getSystemNoticeIntervalId = null;
       }
 
       // Note: `checkPendingTransactions` will also remove the item from `myData.pending` if it's rejected by the service.
@@ -2464,6 +2451,7 @@ class SignInModal {
     this.signInModalLastItem = document.getElementById('signInModalLastItem');
     this.backButton = document.getElementById('closeSignInModal');
     this.setupEventListeners();
+    this.preselectedUsername = null;
   }
 
   setupEventListeners() {
@@ -2480,12 +2468,13 @@ class SignInModal {
     this.backButton.addEventListener('click', () => this.close());
   }
 
-  open() {
+  open(preselectedUsername_) {
     // Get existing accounts
     const { netid } = network;
     const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
     const netidAccounts = existingAccounts.netids[netid];
     const usernames = netidAccounts?.usernames ? Object.keys(netidAccounts.usernames) : [];
+    this.preselectedUsername = preselectedUsername_;
 
     // First show the modal so we can properly close it if needed
     this.modal.classList.add('active');
@@ -2502,10 +2491,19 @@ class SignInModal {
       <option value="" disabled selected hidden>Select an account</option>
       ${usernames.map((username) => `<option value="${username}">${username}</option>`).join('')}
     `;
-
+    
     // If only one account exists, select it and trigger change event
     if (usernames.length === 1) {
       this.usernameSelect.value = usernames[0];
+      this.usernameSelect.dispatchEvent(new Event('change'));
+      return;
+    }
+
+    // If a username should be auto-selected (either preselect or only one account), do it
+    const autoSelect = preselectedUsername_ && usernames.includes(preselectedUsername_) ? preselectedUsername_ : null;
+    console.log('autoSelected username', autoSelect);
+    if (autoSelect) {
+      this.usernameSelect.value = autoSelect;
       this.usernameSelect.dispatchEvent(new Event('change'));
       return;
     }
@@ -2525,6 +2523,7 @@ class SignInModal {
 
   close() {
     this.modal.classList.remove('active');
+    this.preselectedUsername = null;
   }
 
   async handleSignIn(event) {
@@ -2604,7 +2603,21 @@ class SignInModal {
     const availability = await checkUsernameAvailability(username, address);
     //console.log('usernames.length', usernames.length);
     //console.log('availability', availability);
+
+    console.log('this.preselectedUsername', this.preselectedUsername);
+    console.log('username', username);
+    console.log('availability', availability);
+    // If this username was pre-selected and is available, auto-sign-in
+    if (this.preselectedUsername && username === this.preselectedUsername && availability === 'mine') {
+      console.log('auto-sign-in when pre-selected username is available');
+      this.handleSignIn();
+      this.preselectedUsername = null;
+      return;
+    }
+
+
     if (usernames.length === 1 && availability === 'mine') {
+      console.log('auto-sign-in when only one account exists');
       this.handleSignIn();
       return;
     } else if (availability === 'mine') {
