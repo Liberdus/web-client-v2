@@ -2501,7 +2501,6 @@ class SignInModal {
 
     // If a username should be auto-selected (either preselect or only one account), do it
     const autoSelect = preselectedUsername_ && usernames.includes(preselectedUsername_) ? preselectedUsername_ : null;
-    console.log('autoSelected username', autoSelect);
     if (autoSelect) {
       this.usernameSelect.value = autoSelect;
       this.usernameSelect.dispatchEvent(new Event('change'));
@@ -2604,20 +2603,13 @@ class SignInModal {
     //console.log('usernames.length', usernames.length);
     //console.log('availability', availability);
 
-    console.log('this.preselectedUsername', this.preselectedUsername);
-    console.log('username', username);
-    console.log('availability', availability);
     // If this username was pre-selected and is available, auto-sign-in
     if (this.preselectedUsername && username === this.preselectedUsername && availability === 'mine') {
-      console.log('auto-sign-in when pre-selected username is available');
       this.handleSignIn();
       this.preselectedUsername = null;
       return;
     }
-
-
     if (usernames.length === 1 && availability === 'mine') {
-      console.log('auto-sign-in when only one account exists');
       this.handleSignIn();
       return;
     } else if (availability === 'mine') {
