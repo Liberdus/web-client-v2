@@ -9097,8 +9097,10 @@ async function checkPendingTransactions() {
       }
     }
   }
-  // update wallet balances
-  updateWalletBalances();
+  // if createAccountModal is open, skip balance change
+  if (!document.getElementById('createAccountModal').classList.contains('active')) {
+    updateWalletBalances();
+  }
 }
 
 /**
