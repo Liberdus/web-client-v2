@@ -3509,8 +3509,8 @@ async function processChats(chats, keys) {
           payload.my = false;
           payload.timestamp = payload.sent_timestamp;
           insertSorted(contact.messages, payload, 'timestamp');
-          // if we are not in the chatModal of who sent it, playChatSound
-          if (!inActiveChatWithSender) {
+          // if we are not in the chatModal of who sent it, playChatSound or if device visibility is hidden play sound
+          if (!inActiveChatWithSender || document.visibilityState === 'hidden') {
             playChatSound(true);
           }
           added += 1;
