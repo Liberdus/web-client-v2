@@ -5568,8 +5568,8 @@ function updateWebSocketIndicator() {
     updateWebSocketIndicator.lastSubscribed = getCorrectedTimestamp();
   }
   const indicator = document.getElementById('wsStatusIndicator');
-  indicator.style.display = 'block';
   if (!indicator) return;
+  indicator.style.display = 'block';
   if (!wsManager || !wsManager.isConnected()) {
     indicator.textContent = 'Not Connected';
     indicator.className = 'ws-status-indicator ws-red';
