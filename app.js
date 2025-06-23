@@ -540,7 +540,7 @@ async function handleCreateAccount(event) {
       existingAccounts.netids[netid].usernames[username] = { address: myAccount.keys.address };
       localStorage.setItem('accounts', stringify(existingAccounts));
       saveState();
-      
+
       signInModal.open(username);
     } catch (error) {
       if (waitingToastId) hideToast(waitingToastId);
@@ -2491,7 +2491,7 @@ class SignInModal {
       <option value="" disabled selected hidden>Select an account</option>
       ${usernames.map((username) => `<option value="${username}">${username}</option>`).join('')}
     `;
-    
+
     // If only one account exists, select it and trigger change event
     if (usernames.length === 1) {
       this.usernameSelect.value = usernames[0];
