@@ -590,26 +590,12 @@ async function handleCreateAccount(event) {
 }
 
 function newDataRecord(myAccount) {
-  // Process network gateways first
-  const networkGateways =
-    typeof network !== 'undefined' && network?.gateways?.length
-      ? network.gateways.map((gateway) => ({
-          protocol: gateway.protocol,
-          host: gateway.host,
-          port: gateway.port,
-          web: gateway.web,
-          ws:gateway.ws,
-          name: `${gateway.host} (System)`,
-          isSystem: true,
-          isDefault: false,
-        }))
-      : [];
 
   const myData = {
     timestamp: getCorrectedTimestamp(),
     account: myAccount,
     network: {
-      gateways: networkGateways,
+      gateways: [],
       defaultGatewayIndex: -1, // -1 means use random selection
     },
     contacts: {},
