@@ -3516,7 +3516,7 @@ small {
   opacity: 0.7;
   transition: opacity 0.2s;
   position: absolute;
-  left: calc(43% + 50px);
+  left: calc(50% + 30px);
   top: -25px; /* Move the icon up slightly */
 }
 
