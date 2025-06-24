@@ -25,7 +25,7 @@ async function checkVersion() {
   console.log(parseInt(myVersion.replace(/\D/g, '')), parseInt(newVersion.replace(/\D/g, '')));
   if (parseInt(myVersion.replace(/\D/g, '')) != parseInt(newVersion.replace(/\D/g, ''))) {
     if (parseInt(myVersion.replace(/\D/g, '')) > 0) {
-      showToast('Updating to new version: ' + newVersion + ' ' + version, 3000, 'info');
+      alert('Updating to new version: ' + newVersion + ' ' + version);
     }
     localStorage.setItem('version', newVersion); // Save new version
     forceReload([
@@ -1021,6 +1021,11 @@ async function handleVisibilityChange() {
 
   if (document.visibilityState === 'hidden') {
     saveState();
+    // if chatModal was opened, save the last message count
+    if (chatModal.modal.classList.contains('active') && chatModal.address) {
+      const contact = myData.contacts[chatModal.address];
+      chatModal.lastMessageCount = contact?.messages?.length || 0;
+    }
     if (handleSignOut.exit) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       return;
@@ -1029,6 +1034,14 @@ async function handleVisibilityChange() {
     // Reconnect WebSocket if needed
     if (wsManager && !wsManager.isConnected() && myAccount) {
       wsManager.connect();
+    }
+    // if chatModal was opened, check if message count changed while hidden
+    if (chatModal.modal.classList.contains('active') && chatModal.address) {
+      const contact = myData.contacts[chatModal.address];
+      const currentCount = contact?.messages?.length || 0;
+      if (currentCount !== chatModal.lastMessageCount) {
+        chatModal.appendChatModal(true);
+      }
     }
   }
 }
@@ -3614,7 +3627,7 @@ async function processChats(chats, keys) {
           // Always play transfer sound for new transfers
           playTransferSound(true);
           // is chatModal of sender address is active
-          if (inActiveChatWithSender) {
+          if (inActiveChatWithSender && document.visibilityState === 'visible') {
             // add the transfer tx to the chatModal
             chatModal.appendChatModal(true);
           }
@@ -3637,7 +3650,9 @@ async function processChats(chats, keys) {
         } else {
           // If chat modal is active, explicitly call appendChatModal to update it
           // and trigger highlight/scroll for the new message.
-          chatModal.appendChatModal(true); // Pass true for highlightNewMessage flag
+          if (document.visibilityState === 'visible') {
+            chatModal.appendChatModal(true); // Pass true for highlightNewMessage flag
+          }
         }
 
         // Remove existing chat for this contact if it exists
@@ -6943,6 +6958,7 @@ class ChatModal {
     this.messageInput = document.querySelector('.message-input');
     this.newestReceivedMessage = null;
     this.newestSentMessage = null;
+    this.lastMessageCount = 0;
 
     // used by updateTollValue and updateTollRequired
     this.toll = null;
@@ -7608,9 +7624,19 @@ class ChatModal {
         );
 
         if (newestReceivedElementDOM) {
-          // Found the element, scroll to and highlight it
-          newestReceivedElementDOM.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
+          // Focus the modal first
+          this.modal.focus();
+          
+          if (messageContainer) {
+            // Calculate the scroll position manually
+            const elementTop = newestReceivedElementDOM.offsetTop;
+            const containerHeight = messageContainer.clientHeight;
+            const scrollTop = elementTop - (containerHeight / 2); // Center the element
+            
+            // Scroll to the calculated position
+            messageContainer.scrollTop = scrollTop;
+          }
+          
           // Apply highlight immediately
           newestReceivedElementDOM.classList.add('highlighted');
 
