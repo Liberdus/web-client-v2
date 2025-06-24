@@ -9351,7 +9351,6 @@ function normalizeEmail(s) {
 }
 
 function longPoll() {
-  console.log('invoking longPoll');
   const myAccount = myData?.account;
   // Skip if no valid account
   if (!myAccount?.keys?.address) {
@@ -9364,7 +9363,8 @@ function longPoll() {
     const timestamp = myAccount.chatTimestamp || 0;
     const random = Math.floor(Math.random()*1000000);
     // call this with a promise that'll resolve with callback longPollResult function with the data
-    const longPollPromise = queryNetwork(`/account/${longAddress(myAccount.keys.address)}/chats/${timestamp}?random=${random}`);
+    const longPollPromise = queryNetwork(`/collector/api/poll?account=${longAddress(myAccount.keys.address)}&chatTimestamp=${timestamp}`);
+    console.log(`longPoll started with account=${longAddress(myAccount.keys.address)} chatTimestamp=${timestamp}`);
     // if there's an issue, reject the promise
     longPollPromise.catch(error => {
       console.error('Chat polling error:', error);
@@ -9381,17 +9381,15 @@ function longPoll() {
 longPoll.start = 0;
 
 async function longPollResult(data) {
+  console.log('longpoll data', data)
   // calculate the time since the last poll
   let nextPoll = 4000 - (getCorrectedTimestamp() - longPoll.start)
   if (nextPoll < 0) {
     nextPoll = 0;
   }
-
   // schedule the next poll
   setTimeout(longPoll, nextPoll + 1000);
-  
-  let chatCount = data.chats ? Object.keys(data.chats).length : 0; // Handle null/undefined data.chats
-  if (data.chats && chatCount > 0) {
+  if (data.success){
     try {
       const gotChats = await updateChatData();
       if (gotChats > 0) {
