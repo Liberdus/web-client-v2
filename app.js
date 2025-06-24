@@ -2238,7 +2238,7 @@ class SignInModal {
     this.backButton.addEventListener('click', () => this.close());
   }
 
-  open(preselectedUsername_) {
+  async open(preselectedUsername_) {
     // Get existing accounts
     const { netid } = network;
     const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
@@ -2262,17 +2262,27 @@ class SignInModal {
       ${usernames.map((username) => `<option value="${username}">${username}</option>`).join('')}
     `;
 
-    // If only one account exists, select it and trigger change event
-    if (usernames.length === 1) {
-      this.usernameSelect.value = usernames[0];
-      this.usernameSelect.dispatchEvent(new Event('change'));
-      return;
-    }
-
     // If a username should be auto-selected (either preselect or only one account), do it
     const autoSelect = preselectedUsername_ && usernames.includes(preselectedUsername_) ? preselectedUsername_ : null;
     if (autoSelect) {
       this.usernameSelect.value = autoSelect;
+      await this.handleUsernameChange();
+      if (this.notFoundMessage.textContent === 'not found') {
+        // remove not found and make button available
+        this.notFoundMessage.textContent = '';
+        this.notFoundMessage.style.display = 'none';
+        this.submitButton.style.display = 'inline';
+        this.submitButton.disabled = false;
+        this.submitButton.textContent = 'Sign In';
+        this.removeButton.style.display = 'none';
+        this.handleSignIn();
+      }
+      return;
+    }
+
+    // If only one account exists, select it and trigger change event
+    if (usernames.length === 1) {
+      this.usernameSelect.value = usernames[0];
       this.usernameSelect.dispatchEvent(new Event('change'));
       return;
     }
