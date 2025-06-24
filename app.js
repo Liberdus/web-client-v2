@@ -2291,6 +2291,14 @@ class SignInModal {
   }
 
   close() {
+    // clear signInModal input fields
+    this.usernameSelect.value = '';
+    this.submitButton.disabled = true;
+    this.submitButton.textContent = 'Sign In';
+    this.submitButton.style.display = 'inline';
+    this.removeButton.style.display = 'none';
+    this.notFoundMessage.style.display = 'none';
+    
     this.modal.classList.remove('active');
     this.preselectedUsername = null;
   }
