@@ -1030,10 +1030,6 @@ async function handleVisibilityChange() {
     if (wsManager && !wsManager.isConnected() && myAccount) {
       wsManager.connect();
     }
-    setTimeout(async () => {
-      await updateChatData();
-      await updateChatList();
-    }, 1000);
   }
 }
 
@@ -3367,16 +3363,7 @@ async function getChats(keys, retry = 1) {
     // TODO check if above is working
     await processChats(senders.chats, keys);
   } else {
-    if (retry > 0) {
-      const getChatsRetryLimit = 3;
-      if (retry <= getChatsRetryLimit) {
-        await new Promise((resolve) => setTimeout(resolve, 1000 * retry));
-        // call getChats recursively
-        chatCount = await getChats(keys, retry + 1);
-      } else {
-        console.error('Failed to get chats after', getChatsRetryLimit, 'retries');
-      }
-    }
+    console.error('getChats: no senders found')
   }
   if (chatModal.address) {
     // clear the unread count of address for open chat modal
