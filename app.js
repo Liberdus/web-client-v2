@@ -2488,6 +2488,7 @@ class ContactInfoModal {
     const fields = {
       Username: 'contactInfoUsername',
       Name: 'contactInfoName',
+      ProvidedName: 'contactInfoProvidedName',
       Email: 'contactInfoEmail',
       Phone: 'contactInfoPhone',
       LinkedIn: 'contactInfoLinkedin',
@@ -4371,7 +4372,8 @@ function createDisplayInfo(contact) {
       contact.senderInfo?.username ||
       contact.username ||
       contact.address.slice(0, 8) + '...' + contact.address.slice(-6),
-    name: contact.name || contact.senderInfo?.name || 'Not provided',
+    name: contact.name || 'Not provided',
+    providedname: contact.senderInfo?.name || 'Not provided',
     email: contact.senderInfo?.email || 'Not provided',
     phone: contact.senderInfo?.phone || 'Not provided',
     linkedin: contact.senderInfo?.linkedin || 'Not provided',
