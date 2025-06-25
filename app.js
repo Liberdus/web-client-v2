@@ -7395,7 +7395,7 @@ class ChatModal {
       };
 
       // Add additional info only if recipient is a friend
-      if (contact && contact.friend) {
+      if (contact && contact?.friend && contact?.friend >= 3) {
         // Add more personal details for friends
         senderInfo.name = myData.account.name;
         senderInfo.email = myData.account.email;
