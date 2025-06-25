@@ -2749,7 +2749,12 @@ async function openEditContactModal() {
 
   // Create a handler function to focus the input after the modal transition
   const editContactFocusHandler = () => {
-    nameInput.focus();
+    // add slight delay and focus on the the very right of the input
+    setTimeout(() => {
+      nameInput.focus();
+      // Set cursor position to the end of the input content
+      nameInput.setSelectionRange(nameInput.value.length, nameInput.value.length);
+    }, 200);
     editContactModal.removeEventListener('transitionend', editContactFocusHandler);
   };
 
