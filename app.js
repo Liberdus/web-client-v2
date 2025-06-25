@@ -2665,6 +2665,9 @@ class FriendModal {
     this.updateFriendButton(contact, 'addFriendButtonContactInfo');
     this.updateFriendButton(contact, 'addFriendButtonChat');
 
+    // Update the contact list
+    await updateContactsList();
+
     // Close the friend modal
     this.closeFriendModal();
   }
