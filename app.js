@@ -1338,10 +1338,7 @@ async function updateChatList() {
 
       // Use the determined latest timestamp for display
       const timeDisplay = formatTime(latestItemTimestamp);
-      const contactName =
-        contact.name ||
-        contact.username ||
-        `${contact.address.slice(0, 8)}...${contact.address.slice(-6)}`;
+      const contactName = getContactDisplayName(contact);
 
       // Create the list item element
       const li = document.createElement('li');
@@ -1625,12 +1622,13 @@ async function updateContactsList() {
   // Helper to render a contact item
   const renderContactItem = async (contact, itemClass) => {
     const identicon = await generateIdenticon(contact.address);
+    const contactName = getContactDisplayName(contact);
     return `
             <li class="${itemClass}">
                 <div class="chat-avatar">${identicon}</div>
                 <div class="chat-content">
                     <div class="chat-header">
-                        <div class="chat-name">${contact.name || contact.username || `${contact.address.slice(0, 8)}...${contact.address.slice(-6)}`}</div>
+                        <div class="chat-name">${contactName}</div>
                     </div>
                     <div class="contact-list-info">
                         ${contact.email || contact.x || contact.phone || `${contact.address.slice(0, 8)}…${contact.address.slice(-6)}`}
@@ -3147,6 +3145,7 @@ async function updateTransactionHistory() {
     .map((tx) => {
       const txidAttr = tx?.txid ? `data-txid="${tx.txid}"` : '';
       const statusAttr = tx?.status ? `data-status="${tx.status}"` : '';
+      const contactName = getContactDisplayName(contacts[tx.address]);
       return `
         <div class="transaction-item" data-address="${tx.address}" ${txidAttr} ${statusAttr}>
             <div class="transaction-info">
@@ -3159,7 +3158,7 @@ async function updateTransactionHistory() {
             </div>
             <div class="transaction-details">
                 <div class="transaction-address">
-                    ${tx.sign === -1 ? 'To:' : 'From:'} ${tx.nominee || contacts[tx.address]?.name || contacts[tx.address]?.username || `${contacts[tx.address]?.address.slice(0, 8)}...${contacts[tx.address]?.address.slice(-6)}`}
+                    ${tx.sign === -1 ? 'To:' : 'From:'} ${tx.nominee || contactName}
                 </div>
                 <div class="transaction-time">${formatTime(tx.timestamp)}</div>
             </div>
@@ -7041,10 +7040,7 @@ class ChatModal {
     const contact = myData.contacts[address];
     friendModal.updateFriendButton(contact, 'addFriendButtonChat');
     // Set user info
-    this.modalTitle.textContent =
-      contact.name ||
-      contact.username ||
-      `${contact.address.slice(0, 8)}...${contact.address.slice(-6)}`;
+    this.modalTitle.textContent = getContactDisplayName(contact);
 
     updateWalletBalances();
 
@@ -9441,4 +9437,10 @@ async function longPollResult(data) {
       console.error('Chat polling error:', error);
     }
   }
+}
+
+function getContactDisplayName(contact) {
+  return contact?.name || 
+         contact?.username || 
+         `${contact?.address?.slice(0, 8)}...${contact?.address?.slice(-6)}`;
 }
