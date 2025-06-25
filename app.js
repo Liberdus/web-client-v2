@@ -1340,7 +1340,6 @@ async function updateChatList() {
       const timeDisplay = formatTime(latestItemTimestamp);
       const contactName =
         contact.name ||
-        contact.senderInfo?.name ||
         contact.username ||
         `${contact.address.slice(0, 8)}...${contact.address.slice(-6)}`;
 
@@ -1631,7 +1630,7 @@ async function updateContactsList() {
                 <div class="chat-avatar">${identicon}</div>
                 <div class="chat-content">
                     <div class="chat-header">
-                        <div class="chat-name">${contact.name || contact.senderInfo?.name || contact.username || `${contact.address.slice(0, 8)}...${contact.address.slice(-6)}`}</div>
+                        <div class="chat-name">${contact.name || contact.username || `${contact.address.slice(0, 8)}...${contact.address.slice(-6)}`}</div>
                     </div>
                     <div class="contact-list-info">
                         ${contact.email || contact.x || contact.phone || `${contact.address.slice(0, 8)}…${contact.address.slice(-6)}`}
@@ -3160,7 +3159,7 @@ async function updateTransactionHistory() {
             </div>
             <div class="transaction-details">
                 <div class="transaction-address">
-                    ${tx.sign === -1 ? 'To:' : 'From:'} ${tx.nominee || contacts[tx.address]?.name || contacts[tx.address]?.senderInfo?.name || contacts[tx.address]?.username || `${contacts[tx.address]?.address.slice(0, 8)}...${contacts[tx.address]?.address.slice(-6)}`}
+                    ${tx.sign === -1 ? 'To:' : 'From:'} ${tx.nominee || contacts[tx.address]?.name || contacts[tx.address]?.username || `${contacts[tx.address]?.address.slice(0, 8)}...${contacts[tx.address]?.address.slice(-6)}`}
                 </div>
                 <div class="transaction-time">${formatTime(tx.timestamp)}</div>
             </div>
@@ -7044,7 +7043,6 @@ class ChatModal {
     // Set user info
     this.modalTitle.textContent =
       contact.name ||
-      contact.senderInfo?.name ||
       contact.username ||
       `${contact.address.slice(0, 8)}...${contact.address.slice(-6)}`;
 
