@@ -9494,7 +9494,7 @@ function normalizeXTwitterUsername(username, final = false) {
 
 /** * Normalizes a string .
  * @param {string} value - The float as a string to normalize.
- * @returns {string} - The normalized float as a string string.
+ * @returns {string} - The normalized float as a string.
  * */
 function normalizeUnsignedFloat(value) {
   if (!value) return '';
