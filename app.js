@@ -2452,6 +2452,7 @@ class ContactInfoModal {
     });
 
     document.getElementById('nameEditButton').addEventListener('click', openEditContactModal);
+    document.getElementById('editContactProvidedNameContainer').addEventListener('click', handleProvidedNameClick);
 
     // Add close button handler for edit contact modal
     document.getElementById('closeEditContactModal').addEventListener('click', () => {
@@ -2766,6 +2767,26 @@ async function openEditContactModal() {
 }
 
 openEditContactModal.originalName = '';
+
+/**
+ * Handles the click event for the provided name
+ * @returns {void}
+ */
+function handleProvidedNameClick() {
+  const providedNameContainer = document.getElementById('editContactProvidedNameContainer');
+  const providedNameValue = providedNameContainer.querySelector('.contact-info-value').textContent;
+  const nameInput = document.getElementById('editContactNameInput');
+  
+  // Fill the input with the provided name
+  nameInput.value = providedNameValue;
+  
+  // Focus on the input and set cursor to end
+  nameInput.focus();
+  nameInput.setSelectionRange(nameInput.value.length, nameInput.value.length);
+
+  // Invoke input event
+  nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+}
 
 /**
  * Handles the input changes for the edit contact modal by updating the action button
