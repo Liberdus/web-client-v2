@@ -5880,6 +5880,7 @@ class TollModal {
     document.getElementById('closeTollModal').addEventListener('click', () => this.close());
     this.toggleTollCurrencyElement.addEventListener('click', (event) => this.handleToggleTollCurrency(event));
     document.getElementById('tollForm').addEventListener('submit', (event) => this.saveAndPostNewToll(event));
+    this.newTollAmountInputElement.addEventListener('input', () => this.newTollAmountInputElement.value = normalizeUnsignedFloat(this.newTollAmountInputElement.value));
     this.newTollAmountInputElement.addEventListener('input', () => this.updateSaveButtonState());
   }
 
@@ -8270,6 +8271,8 @@ class SendAssetFormModal {
       // updateSendAddresses();
       this.updateAvailableBalance();
     });
+    // amount input listener for normalizing
+    this.amountInput.addEventListener('input', () => this.amountInput.value = normalizeUnsignedFloat(this.amountInput.value));
     // amount input listener for real-time balance validation
     this.amountInput.addEventListener('input', this.updateAvailableBalance.bind(this));
     // Add custom validation message for minimum amount

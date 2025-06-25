@@ -730,11 +730,9 @@
               <label for="sendAmount">Amount</label>
               <div class="amount-container">
                 <input
-                  type="number"
+                  type="text"
                   id="sendAmount"
                   class="form-control"
-                  step="any"
-                  min="0.000000000000000001"
                   required
                 />
                 <!-- add button to toggle between LIB and USD -->
@@ -1092,12 +1090,10 @@
               </div>
               <div class="amount-container">
                 <input
-                  type="number"
+                  type="text"
                   id="newTollAmountInput"
                   class="form-control"
                   placeholder="Enter new amount"
-                  step="any"
-                  min="0"
                   required
                 />
                 <button type="button" id="toggleTollCurrency" class="toggle-balance">
