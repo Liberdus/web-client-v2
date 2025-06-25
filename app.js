@@ -2759,22 +2759,21 @@ async function openEditContactModal() {
 
 openEditContactModal.originalName = '';
 
-// Creates a handler for input changes
+/**
+ * Handles the input changes for the edit contact modal by updating the action button
+ * @returns {void}
+ */
 function handleEditNameInput() {
   const nameInput = document.getElementById('editContactNameInput');
   const nameActionButton = nameInput.parentElement.querySelector('.field-action-button');
-  const originalNameValue = openEditContactModal.originalName;
 
-  const currentValue = nameInput.value.trim();
-  const valueChanged = currentValue !== originalNameValue;
-
-  if (valueChanged) {
-    nameActionButton.className = 'field-action-button add';
-    nameActionButton.setAttribute('aria-label', 'Save');
-  } else {
-    nameActionButton.className = 'field-action-button clear';
-    nameActionButton.setAttribute('aria-label', 'Clear');
+  // if already 'add' class, return early
+  if (nameActionButton.classList.contains('add')) {
+    return;
   }
+
+  nameActionButton.className = 'field-action-button add';
+  nameActionButton.setAttribute('aria-label', 'Save');
 }
 
 // Creates a handler for action button clicks
