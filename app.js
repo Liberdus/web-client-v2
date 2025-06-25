@@ -5878,7 +5878,7 @@ class TollModal {
 
     this.updateTollDisplay(toll, tollUnit);
 
-    this.currentCurrency = 'LIB'; // Reset currency state
+    this.currentCurrency = tollUnit;
     document.getElementById('tollCurrencySymbol').textContent = this.currentCurrency;
     this.newTollAmountInputElement.value = ''; // Clear input field
     this.warningMessageElement.textContent = '';
