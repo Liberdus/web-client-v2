@@ -2822,7 +2822,11 @@ function handleSaveEditContact() {
 
   // update title if chatModal is open and if contact.name is '' fallback to contact.username
   if (chatModal.isOpen() && chatModal.address === currentContactAddress) {
-    chatModal.modalTitle.textContent = contact.name.trim() === '' ? contact.username : contact.name;
+    if (contact.name === null || contact.name === '') {
+      chatModal.modalTitle.textContent = contact.username;
+    } else if (contact.name?.trim() !== '') {
+      chatModal.modalTitle.textContent = contact.name;
+    } 
   }
 
   // Safely update the contact info modal if it exists and is open
