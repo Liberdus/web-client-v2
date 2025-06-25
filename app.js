@@ -6301,7 +6301,8 @@ class MyProfileModal {
     this.email.addEventListener('input', (e) => this.handleEmailInput(e));
     this.linkedin.addEventListener('input', (e) => this.handleLinkedInInput(e));
     this.linkedin.addEventListener('blur', (e) => this.handleLinkedInBlur(e));
-    this.x.addEventListener('input', (e) => this.handleXInput(e));
+    this.x.addEventListener('input', (e) => this.handleXTwitterInput(e));
+    this.x.addEventListener('blur', (e) => this.handleXTwitterBlur(e));
   }
 
   // Input sanitization and validation methods
@@ -6338,10 +6339,17 @@ class MyProfileModal {
     e.target.value = normalized;
   }
 
-  handleXInput(e) {
+  handleXTwitterInput(e) {
     // Allow letters, numbers, and underscores
 //    const normalized = e.target.value.replace(/[^a-zA-Z0-9_]/g, '');
-    const normalized = normalizeUsername(e.target.value);
+    const normalized = normalizeXTwitterUsername(e.target.value);
+    e.target.value = normalized;
+  }
+
+  handleXTwitterBlur(e) {
+    // Allow letters, numbers, and underscores
+//    const normalized = e.target.value.replace(/[^a-zA-Z0-9_]/g, '');
+    const normalized = normalizeXTwitterUsername(e.target.value, true);
     e.target.value = normalized;
   }
 
@@ -9417,11 +9425,11 @@ function normalizeEmail(s) {
 
 function normalizeLinkedinUsername(username, final = false) {
   if (!username) return '';
-  // Remove any leading characters before last slash (/); in case they pasted a URL
   let normalized = username;
   if (normalized.includes('/')) {
     // Remove trailing slashes
     normalized = normalized.replace(/\/+$/, '');        
+    // Keep only the username from the URL
     normalized = normalized.substring(normalized.lastIndexOf('/') + 1);
   }
   // Step 1: Remove all characters that are not letters, numbers, or hyphens
@@ -9441,6 +9449,33 @@ function normalizeLinkedinUsername(username, final = false) {
       normalized = '';
     }
   }  
+  return normalized;
+}
+
+function normalizeXTwitterUsername(username, final = false) {
+  if (!username) return '';
+  let normalized = username;
+  if (normalized.includes('/')) {
+    // Remove trailing slashes
+    normalized = normalized.replace(/\/+$/, '');        
+    // Keep only the username from the URL
+    normalized = normalized.substring(normalized.lastIndexOf('/') + 1);
+  }
+  // Step 3: Remove all characters that are not letters, numbers, or underscores
+  normalized = normalized.replace(/[^a-zA-Z0-9_]/g, '');  
+  // Step 4: Truncate to maximum length (15 characters)
+  normalized = normalized.substring(0, 15);  
+  // Step 5: If final is true, apply strict validation rules
+  if (final) {
+    // Ensure it's not only numbers
+    if (normalized && /^\d+$/.test(normalized)) {
+      normalized = ''
+    }   
+  }
+  // Ensure minimum length of 1 character
+  if (normalized.length < 1) {
+    normalized = '';
+  } 
   return normalized;
 }
 
