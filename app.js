@@ -6278,6 +6278,7 @@ class MyProfileModal {
     this.phone.addEventListener('input', (e) => this.handlePhoneInput(e));
     this.email.addEventListener('input', (e) => this.handleEmailInput(e));
     this.linkedin.addEventListener('input', (e) => this.handleLinkedInInput(e));
+    this.linkedin.addEventListener('blur', (e) => this.handleLinkedInBlur(e));
     this.x.addEventListener('input', (e) => this.handleXInput(e));
   }
 
@@ -6304,7 +6305,14 @@ class MyProfileModal {
   handleLinkedInInput(e) {
     // Allow letters, numbers, dashes, and underscores
 //    const normalized = e.target.value.replace(/[^a-zA-Z0-9\-_]/g, '');
-    const normalized = normalizeUsername(e.target.value);
+    const normalized = normalizeLinkedinUsername(e.target.value);
+    e.target.value = normalized;
+  }
+
+  handleLinkedInBlur(e) {
+    // Allow letters, numbers, dashes, and underscores
+//    const normalized = e.target.value.replace(/[^a-zA-Z0-9\-_]/g, '');
+    const normalized = normalizeLinkedinUsername(e.target.value, true);
     e.target.value = normalized;
   }
 
@@ -9379,6 +9387,35 @@ function normalizeEmail(s) {
   // Keep only valid email characters
   s = s.replace(/[^a-z0-9._%+-@]/g, '');  
   return s;
+}
+
+function normalizeLinkedinUsername(username, final = false) {
+  if (!username) return '';
+  // Remove any leading characters before last slash (/); in case they pasted a URL
+  let normalized = username;
+  if (normalized.includes('/')) {
+    // Remove trailing slashes
+    normalized = normalized.replace(/\/+$/, '');        
+    normalized = normalized.substring(normalized.lastIndexOf('/') + 1);
+  }
+  // Step 1: Remove all characters that are not letters, numbers, or hyphens
+  normalized = normalized.replace(/[^a-zA-Z0-9-]/g, '');  
+  // Step 2: Replace consecutive hyphens with a single hyphen
+  normalized = normalized.replace(/-+/g, '-');  
+  // Remove leading hyphens
+  normalized = normalized.replace(/^-+/, '');    
+  // Step 3: Truncate to maximum length (30 characters)
+  normalized = normalized.substring(0, 30);  
+  // Step 4: If final is true, apply strict validation rules
+  if (final) {
+    // Remove trailing hyphens
+    normalized = normalized.replace(/-+$/, '');        
+    // If still empty or too short after cleanup, return empty string
+    if (normalized.length < 3) {
+      normalized = '';
+    }
+  }  
+  return normalized;
 }
 
 function longPoll() {
