@@ -2702,8 +2702,13 @@ async function openEditContactModal() {
 
   // Update the avatar section
   avatarDiv.innerHTML = identicon;
-  nameDiv.textContent = document.getElementById('contactInfoName').textContent;
-  subtitleDiv.textContent = document.getElementById('contactInfoUsername').textContent;
+  // update the name and subtitle
+  nameDiv.textContent = document.getElementById('contactInfoUsername').textContent;
+  subtitleDiv.textContent = document.getElementById('contactInfoModal').querySelector('.subtitle').textContent;
+
+  // update the provided name
+  const providedNameDiv = document.getElementById('editContactProvidedName');
+  providedNameDiv.textContent = document.getElementById('contactInfoProvidedName').textContent;
 
   // Get the original name from the contact info display
   const contactNameDisplay = document.getElementById('contactInfoName');
