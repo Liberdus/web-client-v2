@@ -5922,6 +5922,7 @@ class TollModal {
     } else {
       this.minTollDisplay.textContent = `Minimum toll: ${parseFloat(big2str(this.minToll, 18)).toFixed(6)} LIB`; // Show 6 decimal places for LIB
     }
+    this.updateSaveButtonState();
   }
 
   /**
@@ -6112,26 +6113,16 @@ class TollModal {
     // Additional check: disable if the new toll is the same as the current toll
     if (isValid && this.newTollAmountInputElement.value) {
       const newTollValue = parseFloat(this.newTollAmountInputElement.value);
-
+      const newTollBigInt = bigxnum2big(wei, this.newTollAmountInputElement.value);
       const currentToll = myData.settings.toll;
       const currentTollUnit = myData.settings.tollUnit;
-      const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
 
       if (!isNaN(newTollValue)) {
-        const newTollBigInt = bigxnum2big(wei, this.newTollAmountInputElement.value);
-        
-        let currentTollInSelectedCurrency;
         if (currentTollUnit === this.currentCurrency) {
-          currentTollInSelectedCurrency = currentToll;
-        } else if (currentTollUnit === 'LIB' && this.currentCurrency === 'USD') {
-          currentTollInSelectedCurrency = bigxnum2big(currentToll, scalabilityFactor.toString());
-        } else { // currentTollUnit === 'USD' && this.currentCurrency === 'LIB'
-          currentTollInSelectedCurrency = bigxnum2big(currentToll, (1 / scalabilityFactor).toString());
-        }
-
-        if (newTollBigInt === currentTollInSelectedCurrency) {
-          this.saveButton.disabled = true;
-        }
+          if (newTollBigInt === currentToll) {
+            this.saveButton.disabled = true;
+          }
+        } 
       }
 
     }
