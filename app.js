@@ -6802,6 +6802,7 @@ class StakeValidatorModal {
     this.debouncedValidateStakeInputs = debounce(() => this.validateStakeInputs(), 300);
 
     this.nodeAddressInput.addEventListener('input', this.debouncedValidateStakeInputs);
+    this.amountInput.addEventListener('input', () => this.amountInput.value = normalizeUnsignedFloat(this.amountInput.value));
     this.amountInput.addEventListener('input', this.debouncedValidateStakeInputs);
 
     // Add listener for opening the modal
