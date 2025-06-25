@@ -8797,6 +8797,7 @@ class ReceiveModal {
     
     // QR code updates
     this.assetSelect.addEventListener('change', () => this.updateQRCode());
+    this.amountInput.addEventListener('input', () => this.amountInput.value = normalizeUnsignedFloat(this.amountInput.value));
     this.amountInput.addEventListener('input', this.debouncedUpdateQRCode);
     this.memoInput.addEventListener('input', this.debouncedUpdateQRCode);
   }
@@ -9489,6 +9490,27 @@ function normalizeXTwitterUsername(username, final = false) {
     normalized = '';
   } 
   return normalized;
+}
+
+/** * Normalizes a string .
+ * @param {string} value - The float as a string to normalize.
+ * @returns {string} - The normalized float as a string string.
+ * */
+function normalizeUnsignedFloat(value) {
+  if (!value) return '';
+
+  // keep only digits or dots
+  let clean = value.replace(/[^0-9.]/g, '');
+
+  // keep only the first dot
+  const firstDot = clean.indexOf('.');
+  if (firstDot !== -1) {
+    clean =
+      clean.slice(0, firstDot + 1) +          
+      clean.slice(firstDot + 1).replace(/\./g, ''); 
+  }
+
+  return clean;
 }
 
 function longPoll() {
