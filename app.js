@@ -6180,7 +6180,9 @@ class InviteModal {
     document.getElementById('inviteForm').addEventListener('submit', (event) => this.handleSubmit(event));
 
     // Add input event listeners for email and phone fields
+    this.inviteEmailInput.addEventListener('input', () => this.inviteEmailInput.value = normalizeEmail(this.inviteEmailInput.value));
     this.inviteEmailInput.addEventListener('input', () => this.validateInputs());
+    this.invitePhoneInput.addEventListener('input', () => this.invitePhoneInput.value = normalizePhone(this.invitePhoneInput.value));
     this.invitePhoneInput.addEventListener('input', () => this.validateInputs());
   }
 
