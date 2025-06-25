@@ -2482,7 +2482,7 @@ class ContactInfoModal {
 
     // Update the avatar section
     avatarDiv.innerHTML = identicon;
-    nameDiv.textContent = displayInfo.name !== 'Not provided' ? displayInfo.name : displayInfo.username;
+    nameDiv.textContent = displayInfo.name !== 'Not Entered' ? displayInfo.name : displayInfo.username;
     subtitleDiv.textContent = displayInfo.address;
 
     const fields = {
@@ -2500,6 +2500,7 @@ class ContactInfoModal {
       if (element) {
         const value = displayInfo[field.toLowerCase()] || 'Not provided';
         element.textContent = value;
+        element.parentElement.style.display = value === 'Not provided' ? 'none' : 'block';
       }
     });
   }
@@ -4382,11 +4383,8 @@ function displayContactResults(results, searchText) {
 // Create a display info object from a contact object
 function createDisplayInfo(contact) {
   return {
-    username:
-      contact.senderInfo?.username ||
-      contact.username ||
-      contact.address.slice(0, 8) + '...' + contact.address.slice(-6),
-    name: contact.name || 'Not provided',
+    username: contact.username || contact.address.slice(0, 8) + '...' + contact.address.slice(-6),
+    name: contact.name || 'Not Entered',
     providedname: contact.senderInfo?.name || 'Not provided',
     email: contact.senderInfo?.email || 'Not provided',
     phone: contact.senderInfo?.phone || 'Not provided',
