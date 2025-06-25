@@ -2723,7 +2723,7 @@ async function openEditContactModal() {
   // Get the original name from the contact info display
   const contactNameDisplay = document.getElementById('contactInfoName');
   let originalName = contactNameDisplay.textContent;
-  if (originalName === 'Not provided') {
+  if (originalName === 'Not Entered') {
     originalName = '';
   }
 
