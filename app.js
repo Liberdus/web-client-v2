@@ -9500,17 +9500,17 @@ function normalizeUnsignedFloat(value) {
   if (!value) return '';
 
   // keep only digits or dots
-  let clean = value.replace(/[^0-9.]/g, '');
+  let normalized = value.replace(/[^0-9.]/g, '');
 
   // keep only the first dot
-  const firstDot = clean.indexOf('.');
+  const firstDot = normalized.indexOf('.');
   if (firstDot !== -1) {
-    clean =
-      clean.slice(0, firstDot + 1) +          
-      clean.slice(firstDot + 1).replace(/\./g, ''); 
+    normalized =
+      normalized.slice(0, firstDot + 1) +
+      normalized.slice(firstDot + 1).replace(/\./g, '');
   }
 
-  return clean;
+  return normalized;
 }
 
 function longPoll() {
