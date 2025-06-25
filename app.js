@@ -6109,6 +6109,33 @@ class TollModal {
     // Update save button state
     this.saveButton.disabled = !isValid;
 
+    // Additional check: disable if the new toll is the same as the current toll
+    if (isValid && this.newTollAmountInputElement.value) {
+      const newTollValue = parseFloat(this.newTollAmountInputElement.value);
+
+      const currentToll = myData.settings.toll;
+      const currentTollUnit = myData.settings.tollUnit;
+      const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+
+      if (!isNaN(newTollValue)) {
+        const newTollBigInt = bigxnum2big(wei, this.newTollAmountInputElement.value);
+        
+        let currentTollInSelectedCurrency;
+        if (currentTollUnit === this.currentCurrency) {
+          currentTollInSelectedCurrency = currentToll;
+        } else if (currentTollUnit === 'LIB' && this.currentCurrency === 'USD') {
+          currentTollInSelectedCurrency = bigxnum2big(currentToll, scalabilityFactor.toString());
+        } else { // currentTollUnit === 'USD' && this.currentCurrency === 'LIB'
+          currentTollInSelectedCurrency = bigxnum2big(currentToll, (1 / scalabilityFactor).toString());
+        }
+
+        if (newTollBigInt === currentTollInSelectedCurrency) {
+          this.saveButton.disabled = true;
+        }
+      }
+
+    }
+
     // Update warning message
     if (warningMessage) {
       this.warningMessageElement.textContent = warningMessage;
