@@ -2807,6 +2807,11 @@ function handleSaveEditContact() {
     editModal.classList.remove('active');
   }
 
+  // update title if chatModal is open
+  if (chatModal.isOpen() && chatModal.address === currentContactAddress) {
+    chatModal.modalTitle.textContent = contact.name;
+  }
+
   // Safely update the contact info modal if it exists and is open
   if (contactInfoModal.currentContactAddress) {
     const contactInfoModalElement = document.getElementById('contactInfoModal');
@@ -7112,6 +7117,14 @@ class ChatModal {
         pollChatInterval(pollIntervalChatting); // poll for messages at a faster rate
       }
     }
+  }
+
+  /**
+   * Check if chatModal is open
+   * @returns {boolean} - True if modal is open, false otherwise
+   */
+  isOpen() {
+    return this.modal.classList.contains('active');
   }
 
   /**
