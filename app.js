@@ -6111,7 +6111,7 @@ class TollModal {
     this.saveButton.disabled = !isValid;
 
     // Additional check: disable if the new toll is the same as the current toll
-    if (isValid && this.newTollAmountInputElement.value) {
+    if (isValid) {
       const newTollValue = parseFloat(this.newTollAmountInputElement.value);
       const newTollBigInt = bigxnum2big(wei, this.newTollAmountInputElement.value);
       const currentToll = myData.settings.toll;
@@ -6124,7 +6124,6 @@ class TollModal {
           }
         } 
       }
-
     }
 
     // Update warning message
