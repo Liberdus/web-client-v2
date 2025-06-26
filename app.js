@@ -4643,7 +4643,7 @@ function markConnectivityDependentElements() {
       element.setAttribute('data-requires-connection', 'true');
 
       // Add tooltip for disabled state
-      element.title = 'This feature requires an internet connection';
+      // element.title = 'This feature requires an internet connection';
 
       // Add aria label for accessibility
       element.setAttribute('aria-disabled', !isOnline);
