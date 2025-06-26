@@ -2388,6 +2388,7 @@ class EditContactModal {
 
     // Setup event listeners
     this.nameInput.addEventListener('input', (e) => this.handleNameInput(e));
+    this.nameInput.addEventListener('blur', () => this.handleNameBlur());
     this.nameInput.addEventListener('keydown', (e) => this.handleNameKeydown(e));
     this.nameActionButton.addEventListener('click', () => this.handleNameButton());
     this.providedNameContainer.addEventListener('click', () => this.handleProvidedNameClick());
@@ -2478,6 +2479,10 @@ class EditContactModal {
   }
 
   handleNameInput() {
+    // normalize the input using normalizeName
+    const normalizedName = normalizeName(this.nameInput.value);
+    this.nameInput.value = normalizedName;
+
     // if already 'add' class, return early
     if (this.nameActionButton.classList.contains('add')) {
       return;
@@ -2485,6 +2490,12 @@ class EditContactModal {
 
     this.nameActionButton.className = 'field-action-button add';
     this.nameActionButton.setAttribute('aria-label', 'Save');
+  }
+
+  handleNameBlur() {
+    // normalize the input using normalizeName
+    const normalizedName = normalizeName(this.nameInput.value, true);
+    this.nameInput.value = normalizedName;
   }
 
   handleNameButton() {
@@ -9537,13 +9548,29 @@ function cleanSenderInfo(si) {
   return csi;
 }
 
-// keep only alphabet and space characters; lowercase all letters; capitalize the first letter of each word
-function normalizeName(s) {
+/**
+ * Normalizes a string to a name. Keeps only alphabet and space characters; lowercase all letters; capitalize the first letter of each word.
+ * @param {string} s - The string to normalize.
+ * @param {boolean} final - Whether to apply strict validation rules.
+ * @returns {string} - The normalized string.
+ */
+function normalizeName(s, final = false) {
   if (!s) return '';
-  return s
+  let normalized = s
     .replace(/[^a-zA-Z\s]/g, '') // keep only alphabet and space characters
     .toLowerCase() // lowercase all letters
-    .replace(/\b\w/g, c => c.toUpperCase()); // capitalize first letter of each word
+    .replace(/\b\w/g, c => c.toUpperCase()) // capitalize first letter of each word
+    .substring(0, 20); // limit to 20 characters
+  
+  if (final) {
+    normalized = normalized.trim();
+    normalized = normalized.replace(/\s+/g, ' ');
+    // if empty or too short after cleanup, return empty string
+    if (normalized.length < 3) { // increased from 2 to 3 for consistency
+      normalized = '';
+    }
+  }
+  return normalized;
 }
 
 // this function noralizes and returns phone number; allowing for country codes
