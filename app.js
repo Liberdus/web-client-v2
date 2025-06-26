@@ -6248,7 +6248,7 @@ class InviteModal {
     }
 
     try {
-      const response = await fetch('http://arimaa.com:5050/api/invite', {
+        const response = await fetch('https://inv.liberdus.com:2053/api/invite', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
