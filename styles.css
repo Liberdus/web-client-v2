@@ -633,12 +633,6 @@ button:disabled {
   cursor: not-allowed;
 }
 
-/* Keep special cases for icon transitions */
-.refresh-button:hover {
-  background-color: rgba(61, 61, 206, 0.12);
-  transform: rotate(180deg);
-}
-
 /* Button sizing and shape for primary/secondary buttons */
 .primary-button,
 .secondary-button {
@@ -1055,7 +1049,6 @@ input[type='file'].form-control::file-selector-button {
     transform 0.2s,
     background-color 0.2s;
   /* z-index: 1000; */
-  opacity: 0.68;
 }
 
 .floating-button.visible {
@@ -1344,7 +1337,7 @@ input[type='file'].form-control::file-selector-button {
   background-size: contain;
 }
 
-.refresh-button:hover {
+.refresh-button.active {
   background-color: rgba(61, 61, 206, 0.12);
   transform: rotate(180deg);
 }

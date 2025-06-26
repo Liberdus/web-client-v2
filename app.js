@@ -814,6 +814,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Add refresh balance button handler
   document.getElementById('refreshBalance').addEventListener('click', async () => {
+    const button = document.getElementById('refreshBalance');
+    
+    // Add active class for animation
+    button.classList.add('active');
+    
+    // Remove active class after animation completes
+    setTimeout(() => {
+      button.classList.remove('active');
+      // Force blur to remove focus
+      button.blur();
+    }, 300);
+
     // await updateWalletBalances();
     updateWalletView();
   });
