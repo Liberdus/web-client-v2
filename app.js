@@ -2633,7 +2633,7 @@ class FriendModal {
 
     // send transaction to update chat toll
     const res = await this.postUpdateTollRequired(this.currentContactAddress, Number(selectedStatus));
-    if (res?.transaction?.success === false) {
+    if (res?.result?.success === false) {
       console.log(
         `[handleFriendSubmit] update_toll_required transaction failed: ${res?.transaction?.reason}. Did not update contact status.`
       );
