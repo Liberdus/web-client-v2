@@ -162,6 +162,8 @@ const pollIntervalNormal = 30000; // in millisconds
 const pollIntervalChatting = 5000; // in millseconds
 //network.monitor.url = "http://test.liberdus.com:3000"    // URL of the monitor server
 //network.explorer.url = "http://test.liberdus.com:6001"   // URL of the chain explorer
+const MAX_MEMO_BYTES = 50; // 50 bytes for memos
+const MAX_CHAT_MESSAGE_BYTES = 100; // 100 bytes for chat messages
 
 let myData = null;
 let myAccount = null; // this is set to myData.account for convience
@@ -8286,6 +8288,9 @@ class SendAssetFormModal {
     this.balanceAmount = document.getElementById('balanceAmount');
     this.transactionFee = document.getElementById('transactionFee');
     this.balanceWarning = document.getElementById('balanceWarning');
+    this.memoLabel = document.querySelector('label[for="sendMemo"]');
+    this.memoByteCounter = document.querySelector('.memo-byte-counter');
+    this.memoValidation = {}
   }
 
   /**
@@ -8332,6 +8337,7 @@ class SendAssetFormModal {
    */
   async open() {
     this.modal.classList.add('active');
+    this.memoValidation = {};
 
     // Clear fields when opening the modal
     this.usernameInput.value = '';
@@ -8457,6 +8463,12 @@ class SendAssetFormModal {
       };
       this.needTollInfo = false;
     }
+
+    // memo byte size validation
+    const memoText = this.memoInput.value;
+    this.memoValidation = this.validateMemoSize(memoText);
+    this.updateMemoByteCounter(this.memoValidation);
+
     if (this.tollInfo.required !== undefined && this.tollInfo.toll !== undefined) {
       // build string to display under memo input. with lib amoutn and (usd amount)
       /* const tollInfoString = `Toll:  */
@@ -8465,6 +8477,39 @@ class SendAssetFormModal {
     }
   }
 
+  /**
+   * validateMemoSize
+   * @param {string} text - The text to validate
+   * @returns {object} - The validation object
+   */
+  validateMemoSize(text) {
+    const maxBytes = MAX_MEMO_BYTES;
+    const byteSize = new Blob([text]).size;
+    return {
+      isValid: byteSize <= maxBytes,
+      currentBytes: byteSize,
+      remainingBytes: maxBytes - byteSize,
+      percentage: (byteSize / maxBytes) * 100,
+      maxBytes: maxBytes
+    };
+  }
+
+  updateMemoByteCounter(validation) {
+    // Only show counter when at 90% or higher
+    if (validation.percentage >= 90) {
+      
+      if (validation.percentage > 100) {
+        this.memoByteCounter.style.color = '#dc3545';
+        this.memoByteCounter.textContent = `${validation.currentBytes - validation.maxBytes} bytes - over limit`;
+      } else if (validation.percentage >= 90) {
+        this.memoByteCounter.style.color = '#ffa726';
+        this.memoByteCounter.textContent = `${validation.remainingBytes} bytes - left`;
+      }
+      this.memoByteCounter.style.display = 'inline';
+    } else {
+      this.memoByteCounter.style.display = 'none';
+    }
+  }
   /**
    * updateTollAmountUI
    */
@@ -8706,7 +8751,7 @@ class SendAssetFormModal {
       }
     }
     // Enable button only if both conditions are met.
-    if (isAddressConsideredValid && isAmountAndBalanceValid && isAmountAndTollValid) {
+    if (isAddressConsideredValid && isAmountAndBalanceValid && isAmountAndTollValid && this.memoValidation.isValid) {
       this.submitButton.disabled = false;
     } else {
       this.submitButton.disabled = true;
