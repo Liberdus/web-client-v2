@@ -2635,7 +2635,7 @@ class FriendModal {
     const res = await this.postUpdateTollRequired(this.currentContactAddress, Number(selectedStatus));
     if (res?.result?.success === false) {
       console.log(
-        `[handleFriendSubmit] update_toll_required transaction failed: ${res?.transaction?.reason}. Did not update contact status.`
+        `[handleFriendSubmit] update_toll_required transaction failed: ${res?.result?.reason}. Did not update contact status.`
       );
       return;
     }
