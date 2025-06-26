@@ -9634,7 +9634,7 @@ function normalizeXTwitterUsername(username, final = false) {
   return normalized;
 }
 
-/** * Normalizes a string .
+/** Normalizes a string to a float and limits the number of decimals to 18 and the number of digits before the decimal point to 9.
  * @param {string} value - The float as a string to normalize.
  * @returns {string} - The normalized float as a string.
  * */
@@ -9651,7 +9651,30 @@ function normalizeUnsignedFloat(value) {
       normalized.slice(0, firstDot + 1) +
       normalized.slice(firstDot + 1).replace(/\./g, '');
   }
+  // if the first character is a dot, add a 0 in front
+  if (normalized.startsWith('.')) {
+    normalized = '0' + normalized;
+  }
+  // only allow up to 18 decimals after and up to 9 before the decimal point
+  normalized = normalized.replace(/^0+/, '');
 
+  // Handle numbers that exceed the 9-digit limit before decimal
+  if (normalized.includes('.')) {
+    const [wholePart, decimalPart] = normalized.split('.');
+    if (wholePart.length > 9) {
+      // Slice to exactly 9 digits before decimal
+      normalized = wholePart.slice(0, 9) + '.' + decimalPart;
+    }
+    // Limit decimal places to 18
+    if (decimalPart && decimalPart.length > 18) {
+      normalized = wholePart + '.' + decimalPart.slice(0, 18);
+    }
+  } else {
+    // No decimal point - limit to 9 digits
+    if (normalized.length > 9) {
+      normalized = normalized.slice(0, 9);
+    }
+  }
   return normalized;
 }
 
