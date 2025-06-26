@@ -3947,9 +3947,7 @@ async function injectTx(tx, txid) {
       console.error('Error injecting transaction:', data?.result?.reason);
       if (data?.result?.reason?.includes('timestamp out of range')) {
         console.error('Timestamp out of range, updating timestamp');
-        // recalculate time skew
         timeDifference()
-
         showToast('Try again.', 0, 'error');
       }
     }
