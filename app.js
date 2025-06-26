@@ -9702,7 +9702,7 @@ async function longPollResult(data) {
   }
   // schedule the next poll
   setTimeout(longPoll, nextPoll + 1000);
-  if (data.success){
+  if (data?.success){
     try {
       const gotChats = await updateChatData();
       if (gotChats > 0) {
