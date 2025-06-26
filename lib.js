@@ -1,5 +1,6 @@
 export function normalizeUsername(u){
-    return u.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    const normalized = u.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    return normalized.substring(0, 15);
 }
 
 // Convert string to Uint8Array for hashing
