@@ -7066,6 +7066,7 @@ class ChatModal {
     this.newestReceivedMessage = null;
     this.newestSentMessage = null;
     this.lastMessageCount = 0;
+    this.messageByteCounter = document.querySelector('.message-byte-counter');
 
     // used by updateTollValue and updateTollRequired
     this.toll = null;
@@ -7094,6 +7095,10 @@ class ChatModal {
       this.messageInput.style.height = '48px';
       this.messageInput.style.height = Math.min(this.messageInput.scrollHeight, 120) + 'px';
 
+      const messageText = e.target.value;
+      const messageValidation = this.validateMessageSize(messageText);
+      this.updateMessageByteCounter(messageValidation);
+
       // Save draft (text is already limited to 2000 chars by maxlength attribute)
       this.debouncedSaveDraft(e.target.value);
     });
@@ -7121,6 +7126,11 @@ class ChatModal {
    * @returns {Promise<void>}
    */
   async open(address) {
+    // clear message input
+    this.messageInput.value = '';
+    this.messageInput.style.height = '48px';
+    this.messageByteCounter.style.display = 'none';
+
     friendModal.setAddress(address);
     document.getElementById('newChatButton').classList.remove('visible');
     const contact = myData.contacts[address];
@@ -7917,6 +7927,8 @@ class ChatModal {
       this.messageInput.value = contact.draft;
       // Trigger resize
       this.messageInput.style.height = Math.min(this.messageInput.scrollHeight, 120) + 'px';
+      // trigger input event to update the byte counter
+      this.messageInput.dispatchEvent(new Event('input'));
     }
   }
 
@@ -7924,6 +7936,48 @@ class ChatModal {
     const tempAddress = this.address;
     this.close();
     await this.open(tempAddress);
+  }
+
+  /**
+   * Validates the size of a message
+   * @param {string} text - The message text to validate
+   * @returns {Object} - An object containing the validation result
+   */
+  validateMessageSize(text) {
+    const maxBytes = MAX_CHAT_MESSAGE_BYTES;
+    const byteSize = new Blob([text]).size;
+    return {
+      isValid: byteSize <= maxBytes,
+      currentBytes: byteSize,
+      remainingBytes: maxBytes - byteSize,
+      percentage: (byteSize / maxBytes) * 100,
+      maxBytes: maxBytes
+    };
+  }
+  
+  /**
+   * Updates the message byte counter
+   * @param {Object} validation - The validation result
+   * @returns {void}
+   */
+  updateMessageByteCounter(validation) {
+    // Only show counter when at 90% or higher
+    if (validation.percentage >= 90) {
+      if (validation.percentage > 100) {
+        this.messageByteCounter.style.color = '#dc3545';
+        this.messageByteCounter.textContent = `${validation.currentBytes - validation.maxBytes} bytes - over limit`;
+        // disable send button
+        this.sendButton.disabled = true;
+      } else if (validation.percentage > 90) {
+        this.messageByteCounter.style.color = '#ffa726';
+        this.messageByteCounter.textContent = `${validation.remainingBytes} bytes - left`;
+        this.sendButton.disabled = false;
+      }
+      this.messageByteCounter.style.display = 'block';
+    } else {
+      this.messageByteCounter.style.display = 'none';
+      this.sendButton.disabled = false;
+    }
   }
 }
 

@@ -455,19 +455,22 @@
           <div class="messages-list"></div>
         </div>
         <div class="message-input-container">
-          <div class="message-input-wrapper">
-            <textarea class="message-input" placeholder="Type a message..." maxlength="2000"></textarea>
-            <div class="toll-container">
-              <span class="toll-label">Toll:</span>
-              <span class="toll-value" id="tollValue"></span>
+          <div class="message-byte-counter"></div>
+          <div class="message-input-row">
+            <div class="message-input-wrapper">
+              <textarea class="message-input" placeholder="Type a message..."></textarea>
+              <div class="toll-container">
+                <span class="toll-label">Toll:</span>
+                <span class="toll-value" id="tollValue"></span>
+              </div>
             </div>
+            <input type="hidden" id="retryOfTxId" />
+            <button class="send-button" id="handleSendMessage">
+              <svg viewBox="0 0 24 24">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+              </svg>
+            </button>
           </div>
-          <input type="hidden" id="retryOfTxId" />
-          <button class="send-button" id="handleSendMessage">
-            <svg viewBox="0 0 24 24">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-            </svg>
-          </button>
         </div>
         <a class="last-item" href="#"> </a>
       </div>

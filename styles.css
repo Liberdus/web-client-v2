@@ -1096,10 +1096,27 @@ input[type='file'].form-control::file-selector-button {
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
   background: white;
   display: flex;
-  gap: 12px;
-  align-items: center; /* Ensures vertical centering of direct children */
+  flex-direction: column; /* Change to column layout */
+  gap: 4px; /* Reduce gap for vertical layout */
   width: 100%;
   pointer-events: none; /* Make the container itself non-interactive */
+}
+
+.message-input-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+}
+
+.message-byte-counter {
+  font-size: 12px;
+  color: #666;
+  text-align: right;
+  margin-bottom: 4px;
+  display: none;
+  width: 100%;
+  padding-right: 63px;
 }
 
 .message-input {
@@ -1144,10 +1161,6 @@ input[type='file'].form-control::file-selector-button {
   padding: 0;
   flex-shrink: 0;
   pointer-events: auto; /* Ensure the button is interactive */
-}
-
-.send-button:hover {
-  opacity: 0.9;
 }
 
 .send-button svg {
