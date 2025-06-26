@@ -7968,7 +7968,7 @@ class ChatModal {
         this.messageByteCounter.textContent = `${validation.currentBytes - validation.maxBytes} bytes - over limit`;
         // disable send button
         this.sendButton.disabled = true;
-      } else if (validation.percentage > 90) {
+      } else if (validation.percentage >= 90) {
         this.messageByteCounter.style.color = '#ffa726';
         this.messageByteCounter.textContent = `${validation.remainingBytes} bytes - left`;
         this.sendButton.disabled = false;
