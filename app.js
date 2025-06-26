@@ -9565,10 +9565,6 @@ function normalizeName(s, final = false) {
   if (final) {
     normalized = normalized.trim();
     normalized = normalized.replace(/\s+/g, ' ');
-    // if empty or too short after cleanup, return empty string
-    if (normalized.length < 3) { // increased from 2 to 3 for consistency
-      normalized = '';
-    }
   }
   return normalized;
 }
