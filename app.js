@@ -8239,7 +8239,7 @@ class CreateAccountModal {
 
     try {
       await getNetworkParams();
-      const storedKey = `data_${netid}_${username}`;
+      const storedKey = `${username}_${netid}`;
       const storedData = localStorage.getItem(storedKey);
       if (storedData) {
         myData = JSON.parse(storedData);
