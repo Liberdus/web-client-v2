@@ -6052,7 +6052,7 @@ class MyProfileModal {
   }
 
   handleEmailInput(e) {
-    let normalized = normalizeEmail(e.target.value).substring(0, 256);
+    let normalized = normalizeEmail(e.target.value);
     e.target.value = normalized;
   }
 
