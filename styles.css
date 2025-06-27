@@ -3495,6 +3495,36 @@ small {
   background-color: rgba(61, 61, 206, 0.04);
 }
 
+#sendAssetConfirmModal .usd-equivalent {
+  font-size: 0.92em;
+  color: var(--secondary-text-color);
+  opacity: 0.7;
+  margin-top: 2px;
+  margin-left: 2px;
+  font-weight: var(--font-weight-medium);
+}
+
+#sendAssetConfirmModal .form-group {
+  position: relative;
+}
+
+#sendAssetConfirmModal .usd-equivalent {
+  position: absolute;
+  right: 16px;           /* Align to the right edge */
+  left: auto;            /* Ensure left is not set */
+  top: calc(100% - 0px); /* Just below the amount box */
+  font-size: 0.92em;
+  color: var(--secondary-text-color);
+  opacity: 0.7;
+  font-weight: var(--font-weight-medium);
+  margin: 0;
+  pointer-events: none;
+  text-align: right;     /* Align text to the right */
+  width: calc(100% - 32px); /* Ensure it doesn't overflow the input */
+}
+
+
+
 .icon-button.edit-icon {
   width: 24px;              /* smaller, matches icon size */
   height: 24px;             /* smaller, matches icon size */

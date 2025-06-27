@@ -8656,7 +8656,7 @@ class SendAssetFormModal {
 
     // Get form values
     const assetSymbol = this.assetSelectDropdown.options[this.assetSelectDropdown.selectedIndex].text;
-    let amount = this.amountInput.value;
+    const amount = this.amountInput.value;
     const memo = this.memoInput.value;
     const confirmButton = document.getElementById('confirmSendButton');
     const cancelButton = document.getElementById('cancelSendButton');
@@ -8664,15 +8664,23 @@ class SendAssetFormModal {
     await getNetworkParams();
     const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
 
-    // need to convert to LIB if USD is selected
+    // get `usdAmount` and `amount` in lib
+    let usdAmount;
+    let libAmount;
     const isLib = this.balanceSymbol.textContent === 'LIB';
     if (!isLib) {
-      amount = amount / scalabilityFactor;
+      usdAmount = this.amountInput.value;
+      libAmount = amount / scalabilityFactor;
+    } else {
+      usdAmount = amount * scalabilityFactor;
+      libAmount = amount;
     }
 
     // Update confirmation modal with values
+    // show up to 6 decimal places
+    document.getElementById('confirmAmountUSD').textContent = `≈ $${parseFloat(usdAmount).toFixed(6)} USD`;
     document.getElementById('confirmRecipient').textContent = this.usernameInput.value;
-    document.getElementById('confirmAmount').textContent = `${amount}`;
+    document.getElementById('confirmAmount').textContent = `${libAmount}`;
     document.getElementById('confirmAsset').textContent = assetSymbol;
 
     // Show/hide memo if present
