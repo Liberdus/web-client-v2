@@ -8236,10 +8236,18 @@ class CreateAccountModal {
     };
     let waitingToastId = showToast('Creating account...', 0, 'loading');
     let res;
-    // Create new data entry
+
     try {
       await getNetworkParams();
-      myData = newDataRecord(myAccount);
+      const storedKey = `data_${netid}_${username}`;
+      const storedData = localStorage.getItem(storedKey);
+      if (storedData) {
+        myData = JSON.parse(storedData);
+        myAccount = myData.account;
+      } else {
+        // create new data record if it doesn't exist
+        myData = newDataRecord(myAccount);
+      }
       res = await postRegisterAlias(username, myAccount.keys);
     } catch (error) {
       this.reEnableControls();
