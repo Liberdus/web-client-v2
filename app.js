@@ -5892,6 +5892,7 @@ class InviteModal {
     this.inviteEmailInput.addEventListener('input', () => this.inviteEmailInput.value = normalizeEmail(this.inviteEmailInput.value));
     this.inviteEmailInput.addEventListener('input', () => this.validateInputs());
     this.invitePhoneInput.addEventListener('input', () => this.invitePhoneInput.value = normalizePhone(this.invitePhoneInput.value));
+    this.invitePhoneInput.addEventListener('blur', () => this.invitePhoneInput.value = normalizePhone(this.invitePhoneInput.value, true));
     this.invitePhoneInput.addEventListener('input', () => this.validateInputs());
   }
 
@@ -6029,6 +6030,7 @@ class MyProfileModal {
     // Add input event listeners for validation
     this.name.addEventListener('input', (e) => this.handleNameInput(e));
     this.phone.addEventListener('input', (e) => this.handlePhoneInput(e));
+    this.phone.addEventListener('blur', (e) => this.handlePhoneBlur(e));
     this.email.addEventListener('input', (e) => this.handleEmailInput(e));
     this.linkedin.addEventListener('input', (e) => this.handleLinkedInInput(e));
     this.linkedin.addEventListener('blur', (e) => this.handleLinkedInBlur(e));
@@ -6053,6 +6055,11 @@ class MyProfileModal {
 
   handleEmailInput(e) {
     const normalized = normalizeEmail(e.target.value);
+    e.target.value = normalized;
+  }
+
+  handlePhoneBlur(e) {
+    const normalized = normalizePhone(e.target.value, true);
     e.target.value = normalized;
   }
 
@@ -9572,9 +9579,17 @@ function normalizeName(s, final = false) {
 }
 
 // this function noralizes and returns phone number; allowing for country codes
-function normalizePhone(s) {
+function normalizePhone(s, final = false) {
   if (!s) return '';
-  return s.replace(/\D/g, ''); // remove all non-digit characters
+  // remove all non-digit characters
+  let normalized = s.replace(/\D/g, ''); 
+  // limit to 20 characters
+  normalized = normalized.substring(0, 20);
+  // if final is true, wipe out if less than 7 digits
+  if (final && normalized.length < 7) {
+    normalized = '';
+  }
+  return normalized;
 }
 
 // this function normalizes emails; keeps only characters allowed in email addresses; makes letters lower case
@@ -9586,7 +9601,7 @@ function normalizeEmail(s) {
   s = s.trim();
   // Keep only valid email characters
   s = s.replace(/[^a-z0-9._%+-@]/g, '');
-  // limit to 255 characters
+  // limit to 256 characters
   s = s.substring(0, 256);
   return s;
 }
