@@ -8408,6 +8408,8 @@ class SendAssetFormModal {
   async open() {
     this.modal.classList.add('active');
     this.memoValidation = {};
+    this.memoByteCounter.textContent = '';
+    this.memoByteCounter.style.display = 'none';
 
     // Clear fields when opening the modal
     this.usernameInput.value = '';
