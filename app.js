@@ -162,8 +162,8 @@ const pollIntervalNormal = 30000; // in millisconds
 const pollIntervalChatting = 5000; // in millseconds
 //network.monitor.url = "http://test.liberdus.com:3000"    // URL of the monitor server
 //network.explorer.url = "http://test.liberdus.com:6001"   // URL of the chain explorer
-const MAX_MEMO_BYTES = 50; // 50 bytes for memos
-const MAX_CHAT_MESSAGE_BYTES = 100; // 100 bytes for chat messages
+const MAX_MEMO_BYTES = 1000; // 1000 bytes for memos
+const MAX_CHAT_MESSAGE_BYTES = 1000; // 1000 bytes for chat messages
 
 let myData = null;
 let myAccount = null; // this is set to myData.account for convience
