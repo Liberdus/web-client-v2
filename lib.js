@@ -30,6 +30,25 @@ export function str2ab(str) {
     return encoder.encode(str);
 }
 
+/**
+ * Normalizes a string to a phone number. Keeps only digits; limit to 20 characters; if final is true, wipe out if less than 7 digits.
+ * @param {string} s - The string to normalize.
+ * @param {boolean} final - Whether to apply strict validation rules.
+ * @returns {string} - The normalized string.
+ */
+export function normalizePhone(s, final = false) {
+    if (!s) return '';
+    // remove all non-digit characters
+    let normalized = s.replace(/\D/g, '');
+    // limit to 20 characters
+    normalized = normalized.substring(0, 20);
+    // if final is true, wipe out if less than 7 digits
+    if (final && normalized.length < 7) {
+        normalized = '';
+    }
+    return normalized;
+}
+
 // Generate SVG path for identicon
 export function generateIdenticonSvg(hash, size = 50) {
     const padding = 5;

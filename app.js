@@ -140,6 +140,7 @@ import {
 import {
   normalizeUsername,
   normalizeName,
+  normalizePhone,
   generateIdenticon,
   formatTime,
   isValidEthereumAddress,
@@ -9563,20 +9564,6 @@ function cleanSenderInfo(si) {
     csi.x = normalizeUsername(si.x).slice(0,40)
   }
   return csi;
-}
-
-// this function noralizes and returns phone number; allowing for country codes
-function normalizePhone(s, final = false) {
-  if (!s) return '';
-  // remove all non-digit characters
-  let normalized = s.replace(/\D/g, ''); 
-  // limit to 20 characters
-  normalized = normalized.substring(0, 20);
-  // if final is true, wipe out if less than 7 digits
-  if (final && normalized.length < 7) {
-    normalized = '';
-  }
-  return normalized;
 }
 
 // this function normalizes emails; keeps only characters allowed in email addresses; makes letters lower case
