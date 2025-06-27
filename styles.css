@@ -3523,8 +3523,6 @@ small {
   width: calc(100% - 32px); /* Ensure it doesn't overflow the input */
 }
 
-
-
 .icon-button.edit-icon {
   width: 24px;              /* smaller, matches icon size */
   height: 24px;             /* smaller, matches icon size */
