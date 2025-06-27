@@ -139,6 +139,7 @@ import {
 // Put standalone conversion function in lib.js
 import {
   normalizeUsername,
+  normalizeName,
   generateIdenticon,
   formatTime,
   isValidEthereumAddress,
@@ -9562,27 +9563,6 @@ function cleanSenderInfo(si) {
     csi.x = normalizeUsername(si.x).slice(0,40)
   }
   return csi;
-}
-
-/**
- * Normalizes a string to a name. Keeps only alphabet and space characters; lowercase all letters; capitalize the first letter of each word.
- * @param {string} s - The string to normalize.
- * @param {boolean} final - Whether to apply strict validation rules.
- * @returns {string} - The normalized string.
- */
-function normalizeName(s, final = false) {
-  if (!s) return '';
-  let normalized = s
-    .replace(/[^a-zA-Z\s]/g, '') // keep only alphabet and space characters
-    .toLowerCase() // lowercase all letters
-    .replace(/\b\w/g, c => c.toUpperCase()) // capitalize first letter of each word
-    .substring(0, 20); // limit to 20 characters
-  
-  if (final) {
-    normalized = normalized.trim();
-    normalized = normalized.replace(/\s+/g, ' ');
-  }
-  return normalized;
 }
 
 // this function noralizes and returns phone number; allowing for country codes

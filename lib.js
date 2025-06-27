@@ -3,6 +3,27 @@ export function normalizeUsername(u){
     return normalized.substring(0, 15);
 }
 
+/**
+ * Normalizes a string to a name. Keeps only alphabet and space characters; lowercase all letters; capitalize the first letter of each word.
+ * @param {string} s - The string to normalize.
+ * @param {boolean} final - Whether to apply strict validation rules.
+ * @returns {string} - The normalized string.
+ */
+export function normalizeName(s, final = false) {
+    if (!s) return '';
+    let normalized = s
+      .replace(/[^a-zA-Z\s]/g, '') // keep only alphabet and space characters
+      .toLowerCase() // lowercase all letters
+      .replace(/\b\w/g, c => c.toUpperCase()) // capitalize first letter of each word
+      .substring(0, 20); // limit to 20 characters
+    
+    if (final) {
+      normalized = normalized.trim();
+      normalized = normalized.replace(/\s+/g, ' ');
+    }
+    return normalized;
+  }
+
 // Convert string to Uint8Array for hashing
 export function str2ab(str) {
     const encoder = new TextEncoder();
