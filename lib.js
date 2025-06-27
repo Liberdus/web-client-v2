@@ -1,3 +1,8 @@
+/**
+ * Normalizes a username string. Keeps only letters and numbers; lowercase all letters; limit to 15 characters.
+ * @param {string} u - The string to normalize.
+ * @returns {string} - The normalized string.
+ */
 export function normalizeUsername(u){
     const normalized = u.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
     return normalized.substring(0, 15);
@@ -44,6 +49,92 @@ export function normalizePhone(s, final = false) {
     normalized = normalized.substring(0, 20);
     // if final is true, wipe out if less than 7 digits
     if (final && normalized.length < 7) {
+        normalized = '';
+    }
+    return normalized;
+}
+
+/**
+ * Normalizes a string to an email address. Keeps only lowercase letters, numbers, and allowed special characters; limit to 256 characters.
+ * @param {string} s - The string to normalize.
+ * @returns {string} - The normalized string.
+ */
+export function normalizeEmail(s) {
+    if (!s) return '';
+    // Convert to lowercase
+    s = s.toLowerCase();
+    // Remove any whitespace
+    s = s.trim();
+    // Keep only valid email characters
+    s = s.replace(/[^a-z0-9._%+-@]/g, '');
+    // limit to 256 characters
+    s = s.substring(0, 256);
+    return s;
+}
+
+/**
+ * Normalizes a string to a LinkedIn username. Keeps only letters, numbers, and hyphens; limit to 30 characters; if final is true, apply strict validation rules.
+ * @param {string} username - The string to normalize.
+ * @param {boolean} final - Whether to apply strict validation rules.
+ * @returns {string} - The normalized string.
+ */
+export function normalizeLinkedinUsername(username, final = false) {
+    if (!username) return '';
+    let normalized = username;
+    if (normalized.includes('/')) {
+        // Remove trailing slashes
+        normalized = normalized.replace(/\/+$/, '');
+        // Keep only the username from the URL
+        normalized = normalized.substring(normalized.lastIndexOf('/') + 1);
+    }
+    // Step 1: Remove all characters that are not letters, numbers, or hyphens
+    normalized = normalized.replace(/[^a-zA-Z0-9-]/g, '');
+    // Step 2: Replace consecutive hyphens with a single hyphen
+    normalized = normalized.replace(/-+/g, '-');
+    // Remove leading hyphens
+    normalized = normalized.replace(/^-+/, '');
+    // Step 3: Truncate to maximum length (30 characters)
+    normalized = normalized.substring(0, 30);
+    // Step 4: If final is true, apply strict validation rules
+    if (final) {
+        // Remove trailing hyphens
+        normalized = normalized.replace(/-+$/, '');
+        // If still empty or too short after cleanup, return empty string
+        if (normalized.length < 3) {
+            normalized = '';
+        }
+    }
+    return normalized;
+}
+
+/**
+ * Normalizes a string to an X (Twitter) username. Keeps only letters, numbers, and underscores; limit to 15 characters; if final is true, apply strict validation rules.
+ * @param {string} username - The string to normalize.
+ * @param {boolean} final - Whether to apply strict validation rules.
+ * @returns {string} - The normalized string.
+ */
+export function normalizeXTwitterUsername(username, final = false) {
+    if (!username) return '';
+    let normalized = username;
+    if (normalized.includes('/')) {
+        // Remove trailing slashes
+        normalized = normalized.replace(/\/+$/, '');
+        // Keep only the username from the URL
+        normalized = normalized.substring(normalized.lastIndexOf('/') + 1);
+    }
+    // Step 3: Remove all characters that are not letters, numbers, or underscores
+    normalized = normalized.replace(/[^a-zA-Z0-9_]/g, '');
+    // Step 4: Truncate to maximum length (15 characters)
+    normalized = normalized.substring(0, 15);
+    // Step 5: If final is true, apply strict validation rules
+    if (final) {
+        // Ensure it's not only numbers
+        if (normalized && /^\d+$/.test(normalized)) {
+            normalized = ''
+        }
+    }
+    // Ensure minimum length of 1 character
+    if (normalized.length < 1) {
         normalized = '';
     }
     return normalized;
