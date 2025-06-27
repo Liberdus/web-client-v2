@@ -8664,7 +8664,7 @@ class SendAssetFormModal {
     await getNetworkParams();
     const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
 
-    // get `usdAmount` and `amount` in lib
+    // get `usdAmount` and `libAmount`
     let usdAmount;
     let libAmount;
     const isLib = this.balanceSymbol.textContent === 'LIB';
@@ -8677,7 +8677,6 @@ class SendAssetFormModal {
     }
 
     // Update confirmation modal with values
-    // show up to 6 decimal places
     document.getElementById('confirmAmountUSD').textContent = `≈ $${parseFloat(usdAmount).toFixed(6)} USD`;
     document.getElementById('confirmRecipient').textContent = this.usernameInput.value;
     document.getElementById('confirmAmount').textContent = `${libAmount}`;
