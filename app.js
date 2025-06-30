@@ -3870,9 +3870,10 @@ function searchMessages(searchText) {
         // Highlight matching text
         const messageText = escapeHtml(message.message);
         const highlightedText = messageText.replace(new RegExp(searchText, 'gi'), (match) => `<mark>${match}</mark>`);
+        const displayedName = getContactDisplayName(contact);
         results.push({
           contactAddress: address,
-          username: contact.username || address,
+          username: displayedName,
           messageId: index,
           message: message, // Pass the entire message object
           timestamp: message.timestamp,
@@ -4079,6 +4080,7 @@ function displayContactResults(results, searchText) {
           (match) => `<mark>${match}</mark>`
         )}`
       : '';
+    const displayedName = getContactDisplayName(contact);
 
     contactElement.innerHTML = `
             <div class="chat-avatar">
@@ -4086,7 +4088,7 @@ function displayContactResults(results, searchText) {
             </div>
             <div class="chat-content">
                 <div class="chat-header">
-                    <span class="chat-name">${contact.username || 'Unknown'}</span>
+                    <span class="chat-name">${displayedName}</span>
                 </div>
                 <div class="chat-message">
                     <span class="match-label">${matchPreview}</span>
