@@ -9579,22 +9579,22 @@ async function getSystemNotice() {
 function cleanSenderInfo(si) {
   const csi = {};
   if (si.username) {
-    csi.username = normalizeUsername(si.username).slice(0,40)
+    csi.username = normalizeUsername(si.username)
   }
   if (si.name) {
-    csi.name = normalizeName(si.name).trim().slice(0,80);
+    csi.name = normalizeName(si.name)
   }
   if (si.phone) {
-    csi.phone = normalizePhone(si.phone).trim().slice(0,20)
+    csi.phone = normalizePhone(si.phone)
   }
   if (si.email) {
-    csi.email = normalizeEmail(si.email).slice(0,80)
+    csi.email = normalizeEmail(si.email)
   }
   if (si.linkedin) {
-    csi.linkedin = normalizeUsername(si.linkedin).slice(0,40)
+    csi.linkedin = normalizeLinkedinUsername(si.linkedin)
   }
   if (si.x) {
-    csi.x = normalizeUsername(si.x).slice(0,40)
+    csi.x = normalizeXTwitterUsername(si.x)
   }
   return csi;
 }
