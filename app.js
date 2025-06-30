@@ -2958,9 +2958,8 @@ function handleHistoryItemClick(event) {
     const address = item.dataset.address;
     if (address && myData.contacts[address]) {
       // close contactInfoModal if it is open
-      if (document.getElementById('contactInfoModal').classList.contains('active')) {
-        // not using close() because we want to keep state of this modal to be able to back into it
-        contactInfoModal.modal.classList.remove('active');
+      if (contactInfoModal.modal && contactInfoModal.modal.classList.contains('active')) {
+        contactInfoModal.close();
       }
 
       // Close the history modal
