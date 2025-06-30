@@ -2960,7 +2960,7 @@ function handleHistoryItemClick(event) {
       // close contactInfoModal if it is open
       if (document.getElementById('contactInfoModal').classList.contains('active')) {
         // not using close() because we want to keep state of this modal to be able to back into it
-        document.getElementById('contactInfoModal').classList.remove('active');
+        contactInfoModal.modal.classList.remove('active');
       }
 
       // Close the history modal
