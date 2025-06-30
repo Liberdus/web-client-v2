@@ -599,8 +599,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Omar added
   document.getElementById('scanQRButton').addEventListener('click', () => scanQRModal.open());
   document.getElementById('scanStakeQRButton').addEventListener('click', () => scanQRModal.open());
-  document.getElementById('closeQRScanModal').addEventListener('click', () => scanQRModal.close());
-
+  
   // File upload handlers
   document.getElementById('uploadQRButton').addEventListener('click', () => {
     document.getElementById('qrFileInput').click();
