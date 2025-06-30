@@ -1595,7 +1595,7 @@ class ScanQRModal {
       };
 
       // Add error handler for video element
-      video.onerror = function (error) {
+      this.video.onerror = function (error) {
         console.error('Video element error:', error);
         this.stopCamera();
         throw new Error('Failed to start video stream');
@@ -1667,7 +1667,7 @@ class ScanQRModal {
       this.camera.scanInterval = null;
     }
 
-    startCamera.scanning = false;
+    this.camera.scanning = false;
 
     // Stop the camera
     this.stopCamera();
@@ -3119,8 +3119,8 @@ function handleSignOut() {
     getSystemNoticeIntervalId = null;
   }
   // Stop camera if it's running
-  if (typeof qrScanModal !== 'undefined' && qrScanModal.camera.scanInterval) {
-    qrScanModal.stopCamera();
+  if (typeof scanQRModal !== 'undefined' && scanQRModal.camera.scanInterval) {
+    scanQRModal.stopCamera();
   }
 
   //    const shouldLeave = confirm('Do you want to leave this page?');
