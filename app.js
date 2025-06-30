@@ -2229,6 +2229,14 @@ class ContactInfoModal {
 // Create a singleton instance
 const contactInfoModal = new ContactInfoModal();
 
+/**
+ * Friend Modal
+ * Frontend: 0 = blocked, 1 = Other, 2 = Acquaintance, 3 = Friend
+ * Backend: 1 = toll required, 0 = toll not required, 2 = blocked
+ * 
+ * @description Modal for setting the friend status for a contact
+ * @class FriendModal
+ */
 class FriendModal {
   constructor() {
     this.modal = document.getElementById('friendModal');
