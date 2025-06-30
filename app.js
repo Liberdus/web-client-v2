@@ -2179,8 +2179,27 @@ class ContactInfoModal {
       const element = document.getElementById(elementId);
       if (element) {
         const value = displayInfo[field.toLowerCase()] || 'Not provided';
-        element.textContent = value;
-        element.parentElement.style.display = value === 'Not provided' ? 'none' : 'block';
+        
+        if (field === 'Email' && value !== 'Not provided') {
+          // Handle email link
+          element.textContent = value;
+          element.href = `mailto:${value}`;
+          element.parentElement.parentElement.style.display = 'block';
+        } else if (field === 'LinkedIn' && value !== 'Not provided') {
+          // Handle LinkedIn link
+          element.textContent = value;
+          element.href = `https://linkedin.com/in/${value}`;
+          element.parentElement.parentElement.style.display = 'block';
+        } else if (field === 'X' && value !== 'Not provided') {
+          // Handle X-Twitter link
+          element.textContent = value;
+          element.href = `https://x.com/${value}`;
+          element.parentElement.parentElement.style.display = 'block';
+        } else {
+          // Handle other fields as before
+          element.textContent = value;
+          element.parentElement.style.display = value === 'Not provided' ? 'none' : 'block';
+        }
       }
     });
   }

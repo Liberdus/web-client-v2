@@ -1974,6 +1974,24 @@ input[type='file'].form-control {
   padding: 1rem;
 }
 
+/* Contact Info Link Styles */
+.contact-info-link {
+  display: inline-block;
+  color: var(--primary-color);
+  text-decoration: none;
+  font-family: var(--font-primary);
+  font-size: var(--font-size-base);
+  transition: opacity 0.2s ease;
+}
+
+.contact-info-link:hover {
+  opacity: 0.7;
+}
+
+.contact-info-link:visited {
+  color: var(--primary-color);
+}
+
 /* Contact Avatar Section */
 .contact-avatar-section {
   display: flex;
