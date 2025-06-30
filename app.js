@@ -5916,6 +5916,7 @@ class InviteModal {
     this.inviteEmailInput.value = '';
     this.invitePhoneInput.value = '';
     this.validateInputs(); // Set initial button state
+    // TODO: invitePhone formgroup is hidden in html. Remove this once we have a way to invite by phone and update description in the modal.
     this.modal.classList.add('active');
   }
 
