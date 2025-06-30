@@ -1521,7 +1521,7 @@ class ScanQRModal {
 
   open() {
     this.modal.classList.add('active');
-    this.startCamera(this.fillFunction);
+    this.startCamera();
   }
 
   close() {
