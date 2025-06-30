@@ -5220,8 +5220,6 @@ if (!useLongPolling) {
 
 function closeSendAssetConfirmModal() {
   document.getElementById('sendAssetConfirmModal').classList.remove('active');
-  // not using .open() because we want to keep state of this modal
-  sendAssetFormModal.modal.classList.add('active');
 }
 
 /**
