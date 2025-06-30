@@ -8698,9 +8698,6 @@ class SendAssetFormModal {
       memoGroup.style.display = 'none';
     }
 
-    // Hide send asset modal and show confirmation modal (not using close, don't want to clear the state)
-    this.modal.classList.remove('active');
-
     confirmButton.disabled = false;
     cancelButton.disabled = false;
     document.getElementById('sendAssetConfirmModal').classList.add('active');
