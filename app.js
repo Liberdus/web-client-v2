@@ -2638,7 +2638,7 @@ class HistoryModal {
     const walletData = myData.wallet;
     const assetIndex = this.assetSelect.value;
     
-    if (!walletData.assets || walletData.assets.length === 0) {
+    if (!walletData.history || walletData.history.length === 0) {
       this.showEmptyState();
       return;
     }
