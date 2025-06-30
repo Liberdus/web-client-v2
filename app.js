@@ -2228,7 +2228,7 @@ class ContactInfoModal {
    * @returns {boolean}
    */
   isActive() {
-    return this.modal?.classList.contains('active');
+    return this.modal?.classList.contains('active') || false;
   }
 }
 
@@ -2716,7 +2716,7 @@ class HistoryModal {
    * @returns {boolean}
    */
   isActive() {
-    return this.modal?.classList.contains('active');
+    return this.modal?.classList.contains('active') || false;
   }
 }
 
@@ -6533,7 +6533,7 @@ class ValidatorStakingModal {
    * @returns {boolean}
    */
   isActive() {
-    return this.modal?.classList.contains('active');
+    return this.modal?.classList.contains('active') || false;
   }
 }
 const validatorStakingModal = new ValidatorStakingModal();
@@ -6938,7 +6938,7 @@ class ChatModal {
    * @returns {boolean} - True if modal is open, false otherwise
    */
   isActive() {
-    return this.modal?.classList.contains('active');
+    return this.modal?.classList.contains('active') || false;
   }
 
   /**
@@ -8070,7 +8070,7 @@ class CreateAccountModal {
    * @returns {boolean}
    */
   isActive() {
-    return this.modal?.classList.contains('active');
+    return this.modal?.classList.contains('active') || false;
   }
 
   handleUsernameInput(e) {
@@ -8970,7 +8970,7 @@ class SendAssetFormModal {
    * @returns {boolean}
    */
   isActive() {
-    return this.modal?.classList.contains('active');
+    return this.modal?.classList.contains('active') || false;
   }
 }
 
