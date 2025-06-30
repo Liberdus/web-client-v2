@@ -707,7 +707,7 @@ async function handleVisibilityChange() {
   if (document.visibilityState === 'hidden') {
     saveState();
     // if chatModal was opened, save the last message count
-    if (chatModal.modal.classList.contains('active') && chatModal.address) {
+    if (chatModal.isActive() && chatModal.address) {
       const contact = myData.contacts[chatModal.address];
       chatModal.lastMessageCount = contact?.messages?.length || 0;
     }
@@ -721,7 +721,7 @@ async function handleVisibilityChange() {
       wsManager.connect();
     }
     // if chatModal was opened, check if message count changed while hidden
-    if (chatModal.modal.classList.contains('active') && chatModal.address) {
+    if (chatModal.isActive() && chatModal.address) {
       const contact = myData.contacts[chatModal.address];
       const currentCount = contact?.messages?.length || 0;
       if (currentCount !== chatModal.lastMessageCount) {
@@ -1457,7 +1457,7 @@ async function updateTollRequired(address) {
     localContact.tollRequiredToSend = contactAccountData.toll.required[toIndex];
     localContact.tollRequiredToReceive = contactAccountData.toll.required[myIndex];
 
-    if (chatModal.modal.classList.contains('active') && chatModal.address === address) {
+    if (chatModal.isActive() && chatModal.address === address) {
       updateTollAmountUI(address);
     }
 
@@ -1485,7 +1485,7 @@ async function updateTollValue(address) {
     myData.contacts[address].toll = queriedToll;
     myData.contacts[address].tollUnit = queriedTollUnit;
     // if correct modal is open for this address, update the toll value
-    if (chatModal.modal.classList.contains('active') && chatModal.address === address) {
+    if (chatModal.isActive() && chatModal.address === address) {
       updateTollAmountUI(address);
     }
   } else {
@@ -1865,7 +1865,7 @@ async function handleSendAsset(event) {
 
     // Update the chat modal to show the newly sent transfer message
     // Check if the chat modal for this recipient is currently active
-    const inActiveChatWithRecipient = chatModal.address === toAddress && chatModal.modal.classList.contains('active');
+    const inActiveChatWithRecipient = chatModal.address === toAddress && chatModal.isActive();
 
     if (inActiveChatWithRecipient) {
       chatModal.appendChatModal(); // Re-render the chat modal and highlight the new item
@@ -2222,6 +2222,14 @@ class ContactInfoModal {
       this.needsContactListUpdate = false;
     }
   }
+
+  /**
+   * Check if the contact info modal is active
+   * @returns {boolean}
+   */
+  isActive() {
+    return this.modal?.classList.contains('active');
+  }
 }
 
 // Create a singleton instance
@@ -2538,14 +2546,13 @@ class EditContactModal {
     }
 
     // update title if chatModal is open and if contact.name is '' fallback to contact.username
-    if (chatModal.isOpen() && chatModal.address === this.currentContactAddress) {
+    if (chatModal.isActive() && chatModal.address === this.currentContactAddress) {
       chatModal.modalTitle.textContent = getContactDisplayName(contact);
     }
 
     // Safely update the contact info modal if it exists and is open
     if (contactInfoModal.currentContactAddress) {
-      const contactInfoModalElement = document.getElementById('contactInfoModal');
-      if (contactInfoModalElement && contactInfoModalElement.classList.contains('active')) {
+      if (contactInfoModal.isActive()) {
         contactInfoModal.updateContactInfo(createDisplayInfo(myData.contacts[this.currentContactAddress]));
       }
     }
@@ -2688,7 +2695,7 @@ class HistoryModal {
     const address = item.dataset.address;
     if (address && myData.contacts[address]) {
       // Close contact info modal if open
-      if (contactInfoModal.modal && contactInfoModal.modal.classList.contains('active')) {
+      if (contactInfoModal.isActive()) {
         contactInfoModal.close();
       }
       
@@ -2699,13 +2706,17 @@ class HistoryModal {
 
   // Public method for external updates
   async refresh() {
-    if (this.isOpen()) {
+    if (this.isActive()) {
       await this.updateTransactionHistory();
     }
   }
 
-  isOpen() {
-    return this.modal.classList.contains('active');
+  /**
+   * Check if the history modal is active
+   * @returns {boolean}
+   */
+  isActive() {
+    return this.modal?.classList.contains('active');
   }
 }
 
@@ -3198,7 +3209,7 @@ async function processChats(chats, keys) {
       // This check determines if we're currently chatting with the sender
       // We ONLY want to avoid notifications if we're actively viewing this exact chat
       const inActiveChatWithSender =
-        chatModal.address === from && document.getElementById('chatModal')?.classList.contains('active'); // Added null check for safety
+        chatModal.address === from && chatModal.isActive();
 
       for (let i in res.messages) {
         const tx = res.messages[i]; // the messages are actually the whole tx
@@ -6516,6 +6527,14 @@ class ValidatorStakingModal {
       return { isActive: false, error: 'Network error fetching validator status' };
     }
   }
+
+  /**
+   * Check if the validator staking modal is active
+   * @returns {boolean}
+   */
+  isActive() {
+    return this.modal?.classList.contains('active');
+  }
 }
 const validatorStakingModal = new ValidatorStakingModal();
 
@@ -6915,11 +6934,11 @@ class ChatModal {
   }
 
   /**
-   * Check if chatModal is open
+   * Check if chatModal is active
    * @returns {boolean} - True if modal is open, false otherwise
    */
-  isOpen() {
-    return this.modal.classList.contains('active');
+  isActive() {
+    return this.modal?.classList.contains('active');
   }
 
   /**
@@ -7577,12 +7596,12 @@ class ChatModal {
     const messagesList = this.modal ? this.messagesList : null;
 
     // 1. Refresh History Modal if active
-    if (historyModal.isOpen()) {
+    if (historyModal.isActive()) {
       console.log('DEBUG: Refreshing transaction history modal due to transaction failure.');
       historyModal.refresh();
     }
     // 2. Refresh Chat Modal if active AND the failed txid's message is currently rendered
-    if (this.modal && this.modal.classList.contains('active') && txid && messagesList) {
+    if (this.isActive() && txid && messagesList) {
       // Check if an element with the specific data-txid exists within the message list
       const messageElement = messagesList.querySelector(`[data-txid="${txid}"]`);
 
@@ -8046,8 +8065,12 @@ class CreateAccountModal {
     this.open();
   }
 
-  isOpen() {
-    return this.modal.classList.contains('active');
+  /**
+   * Check if the create account modal is active
+   * @returns {boolean}
+   */
+  isActive() {
+    return this.modal?.classList.contains('active');
   }
 
   handleUsernameInput(e) {
@@ -8941,6 +8964,14 @@ class SendAssetFormModal {
     this.amountInput.value = tempAmount;
     this.memoInput.value = tempMemo || '';
   }
+
+  /**
+   * Check if the send asset form modal is active
+   * @returns {boolean}
+   */
+  isActive() {
+    return this.modal?.classList.contains('active');
+  }
 }
 
 const sendAssetFormModal = new SendAssetFormModal();
@@ -9274,7 +9305,7 @@ async function checkPendingTransactions() {
           // show toast notification with the success message
           showToast(`${type === 'deposit_stake' ? 'Stake' : 'Unstake'} transaction successful`, 5000, 'success');
           // refresh only if validator modal is open
-          if (document.getElementById('validatorModal').classList.contains('active')) {
+          if (validatorStakingModal.isActive()) {
             validatorStakingModal.close();
             validatorStakingModal.open();
           }
@@ -9310,11 +9341,11 @@ async function checkPendingTransactions() {
           } else if (type === 'deposit_stake') {
             showToast(`Stake failed: ${failureReason}`, 0, 'error');
           } else if (type === 'message') {
-            if (chatModal.modal.classList.contains('active')) {
+            if (chatModal.isActive()) {
               await chatModal.reopen();
             }
           } else if (type === 'transfer') {
-            if (sendAssetFormModal.modal.classList.contains('active')) {
+            if (sendAssetFormModal.isActive()) {
               await sendAssetFormModal.reopen();
             }
           }
@@ -9327,7 +9358,7 @@ async function checkPendingTransactions() {
             // revert the local myData.settings.toll to the old value
             tollModal.editMyDataToll(tollModal.oldToll);
             // check if the toll modal is open
-            if (tollModal.modal.classList.contains('active')) {
+            if (tollModal.isActive()) {
               // change the tollAmountLIB and tollAmountUSD to the old value
               tollModal.tollAmountLIB = tollModal.oldToll;
               tollModal.tollAmountUSD = tollModal.oldToll;
@@ -9359,7 +9390,7 @@ async function checkPendingTransactions() {
           // remove from wallet history
           myData.wallet.history = myData.wallet.history.filter((tx) => tx.txid !== txid);
 
-          if (document.getElementById('validatorModal').classList.contains('active')) {
+          if (validatorStakingModal.isActive()) {
             // refresh the validator modal
             validatorStakingModal.close();
             validatorStakingModal.open();
@@ -9371,7 +9402,7 @@ async function checkPendingTransactions() {
     }
   }
   // if createAccountModal is open, skip balance change
-  if (!createAccountModal.isOpen()) {
+  if (!createAccountModal.isActive()) {
     updateWalletBalances();
   }
 }
