@@ -2959,6 +2959,7 @@ function handleHistoryItemClick(event) {
     if (address && myData.contacts[address]) {
       // close contactInfoModal if it is open
       if (document.getElementById('contactInfoModal').classList.contains('active')) {
+        // not using close() because we want to keep state of this modal to be able to back into it
         document.getElementById('contactInfoModal').classList.remove('active');
       }
 
@@ -5220,7 +5221,8 @@ if (!useLongPolling) {
 
 function closeSendAssetConfirmModal() {
   document.getElementById('sendAssetConfirmModal').classList.remove('active');
-  document.getElementById('sendAssetFormModal').classList.add('active');
+  // not using .open() because we want to keep state of this modal
+  sendAssetFormModal.modal.classList.add('active');
 }
 
 /**
@@ -7750,19 +7752,11 @@ class FailedMessageModal {
       chatModal.messageInput.value = messageToRetry;
       chatModal.retryOfTxId.value = originalTxid;
 
-      if (this.modal) {
-        this.modal.classList.remove('active');
-      }
+      this.closeFailedMessageModalAndClearState();
       chatModal.messageInput.focus();
-
-      // Clear the stored values after use
-      this.handleFailedMessageData.handleFailedMessage = '';
-      this.handleFailedMessageData.txid = '';
     } else {
       console.error('Error preparing message retry: Necessary elements or data missing.');
-      if (this.modal) {
-        this.modal.classList.remove('active');
-      }
+      this.closeFailedMessageModalAndClearState();
     }
   }
 
@@ -7778,20 +7772,13 @@ class FailedMessageModal {
       const currentAddress = chatModal.address;
       removeFailedTx(originalTxid, currentAddress);
 
-      if (this.modal) {
-        this.modal.classList.remove('active');
-      }
+      this.closeFailedMessageModalAndClearState();
 
-      // Clear the stored values
-      this.handleFailedMessageData.handleFailedMessage = '';
-      this.handleFailedMessageData.txid = '';
       // refresh current chatModal
       chatModal.appendChatModal();
     } else {
       console.error('Error deleting message: TXID not found.');
-      if (this.modal) {
-        this.modal.classList.remove('active');
-      }
+      this.closeFailedMessageModalAndClearState();
     }
   }
 
@@ -7801,9 +7788,7 @@ class FailedMessageModal {
    * @returns {void}
    */
   closeFailedMessageModalAndClearState() {
-    if (this.modal) {
-      this.modal.classList.remove('active');
-    }
+    this.modal.classList.remove('active');
     // Clear the stored values when modal is closed
     this.handleFailedMessageData.handleFailedMessage = '';
     this.handleFailedMessageData.txid = '';
@@ -8714,7 +8699,7 @@ class SendAssetFormModal {
       memoGroup.style.display = 'none';
     }
 
-    // Hide send asset modal and show confirmation modal
+    // Hide send asset modal and show confirmation modal (not using close, don't want to clear the state)
     this.modal.classList.remove('active');
 
     confirmButton.disabled = false;
