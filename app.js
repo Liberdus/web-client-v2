@@ -2633,8 +2633,6 @@ class HistoryModal {
   }
 
   async updateTransactionHistory() {
-    await updateChatList();
-    
     const walletData = myData.wallet;
     const assetIndex = this.assetSelect.value;
     
