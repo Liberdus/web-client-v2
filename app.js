@@ -7315,6 +7315,9 @@ class ChatModal {
       this.messageInput.value = '';
       this.messageInput.style.height = '48px'; // original height
 
+      // Hide byte counter
+      this.messageByteCounter.style.display = 'none'; 
+
       // Call debounced save directly with empty string
       this.debouncedSaveDraft('');
       contact.draft = '';
