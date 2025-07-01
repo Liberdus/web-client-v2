@@ -1040,8 +1040,8 @@ async function updateChatList() {
                     <div class="chat-time">${timeDisplay} <span class="chat-time-chevron"></span></div>
                 </div>
                 <div class="chat-message">
-                    ${previewHTML}
                     ${contact.unread ? `<span class="chat-unread">${contact.unread}</span>` : ''}
+                    ${previewHTML}
                 </div>
             </div>
         `;
