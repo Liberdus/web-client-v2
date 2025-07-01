@@ -1972,6 +1972,9 @@ input[type='file'].form-control {
 /* Contact Info Modal Styles */
 .contact-info-list {
   padding: 1rem;
+  overflow-y: auto;
+  max-height: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Contact Info Link Styles */
@@ -1982,6 +1985,9 @@ input[type='file'].form-control {
   font-family: var(--font-primary);
   font-size: var(--font-size-base);
   transition: opacity 0.2s ease;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
 }
 
 .contact-info-link:hover {
@@ -2053,6 +2059,9 @@ input[type='file'].form-control {
   font-family: var(--font-primary);
   font-size: var(--font-size-base);
   color: var(--text-color);
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
 }
 
 .chat-user-info {
