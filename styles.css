@@ -876,7 +876,24 @@ button:disabled {
   display: flex;
   align-items: center;
   margin-left: 48px;
+  margin-right: 140px; /* Reserve space for header actions */
   gap: 12px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 180px; /* Minimum width for the container */
+  max-width: calc(100vw - 200px); /* Responsive max width */
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 480px) {
+  .chat-user-info {
+    min-width: 120px; /* Smaller minimum on mobile */
+    margin-right: 100px; /* Less margin on smaller screens */
+  }
+}
+
+.chat-user-info:hover {
+  opacity: 0.8;
 }
 
 .modal-avatar {
@@ -903,6 +920,11 @@ button:disabled {
   font-weight: var(--font-weight-semibold);
   color: var(--text-color);
   margin: 0 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0; /* Allow flex item to shrink below content size */
+  max-width: 100%; /* Allow full width when possible */
 }
 
 .menu-list {
@@ -1241,14 +1263,6 @@ input[type='file'].form-control::file-selector-button {
   word-wrap: break-word;
   word-break: break-word;
   hyphens: auto;
-}
-
-.chat-user-info {
-  cursor: pointer;
-}
-
-.chat-user-info:hover {
-  opacity: 0.8;
 }
 
 /* Wrapper for the send button and the toll information */
@@ -2062,14 +2076,6 @@ input[type='file'].form-control {
   word-break: break-word;
   overflow-wrap: break-word;
   max-width: 100%;
-}
-
-.chat-user-info {
-  cursor: pointer;
-}
-
-.chat-user-info:hover {
-  opacity: 0.8;
 }
 
 /* Logs Modal Styles */
