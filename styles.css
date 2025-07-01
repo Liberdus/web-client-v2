@@ -2041,6 +2041,9 @@ input[type='file'].form-control {
   font-weight: var(--font-weight-semibold);
   color: var(--text-color);
   margin-bottom: 0.25rem;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
 }
 
 .contact-avatar-section .subtitle {
