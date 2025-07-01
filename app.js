@@ -2367,29 +2367,37 @@ class ContactInfoModal {
 
     Object.entries(fields).forEach(([field, elementId]) => {
       const element = document.getElementById(elementId);
-      if (element) {
-        const value = displayInfo[field.toLowerCase()] || 'Not provided';
-        
-        if (field === 'Email' && value !== 'Not provided') {
-          // Handle email link
-          element.textContent = value;
-          element.href = `mailto:${value}`;
-          element.parentElement.parentElement.style.display = 'block';
-        } else if (field === 'LinkedIn' && value !== 'Not provided') {
-          // Handle LinkedIn link
-          element.textContent = value;
-          element.href = `https://linkedin.com/in/${value}`;
-          element.parentElement.parentElement.style.display = 'block';
-        } else if (field === 'X' && value !== 'Not provided') {
-          // Handle X-Twitter link
-          element.textContent = value;
-          element.href = `https://x.com/${value}`;
-          element.parentElement.parentElement.style.display = 'block';
-        } else {
-          // Handle other fields as before
-          element.textContent = value;
-          element.parentElement.style.display = value === 'Not provided' ? 'none' : 'block';
-        }
+      if (!element) return;
+
+      const rawValue = displayInfo[field.toLowerCase()];
+      const value = (rawValue === null || rawValue === undefined || rawValue === '') ? 'Not provided' : rawValue;
+      const isEmpty = value === 'Not provided' || value === '';
+      
+      // Get the container to show/hide (contact-info-item div)
+      const container = field === 'Email' || field === 'LinkedIn' || field === 'X' 
+        ? element.parentElement.parentElement 
+        : element.parentElement;
+
+      if (isEmpty) {
+        // Hide the entire field container (including label)
+        container.style.display = 'none';
+        return;
+      }
+
+      // Show the container and set the value
+      container.style.display = 'block';
+      
+      if (field === 'Email') {
+        element.textContent = value;
+        element.href = `mailto:${value}`;
+      } else if (field === 'LinkedIn') {
+        element.textContent = value;
+        element.href = `https://linkedin.com/in/${value}`;
+      } else if (field === 'X') {
+        element.textContent = value;
+        element.href = `https://x.com/${value}`;
+      } else {
+        element.textContent = value;
       }
     });
   }
