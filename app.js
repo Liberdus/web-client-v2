@@ -1842,16 +1842,19 @@ async function handleSendAsset(event) {
     const feeStr = big2str(txFeeInLIB, 18).slice(0, -16);
     const balanceStr = big2str(balance, 18).slice(0, -16);
     showToast(`Insufficient balance: ${amountStr} + ${feeStr} (fee) > ${balanceStr} LIB`, 0, 'error');
+    cancelButton.disabled = false;
     return;
   }
 
   // Validate username - must be username; address not supported
   if (username.startsWith('0x')) {
     showToast('Address not supported; enter username instead.', 0, 'error');
+    cancelButton.disabled = false;
     return;
   }
   if (username.length < 3) {
     showToast('Username too short', 0, 'error');
+    cancelButton.disabled = false;
     return;
   }
   try {
@@ -1866,12 +1869,14 @@ async function handleSendAsset(event) {
     const data = await queryNetwork(`/address/${usernameHash}`);
     if (!data || !data.address) {
       showToast('Username not found', 0, 'error');
+      cancelButton.disabled = false;
       return;
     }
     toAddress = normalizeAddress(data.address);
   } catch (error) {
     console.error('Error looking up username:', error);
     showToast('Error looking up username', 0, 'error');
+    cancelButton.disabled = false;
     return;
   }
 
@@ -1887,6 +1892,7 @@ async function handleSendAsset(event) {
     const recipientInfo = await queryNetwork(`/account/${longAddress(toAddress)}`);
     if (!recipientInfo?.account?.publicKey) {
       console.log(`no public key found for recipient ${toAddress}`);
+      cancelButton.disabled = false;
       return;
     }
     if (recipientInfo.account.publicKey) {
@@ -2078,6 +2084,7 @@ async function handleSendAsset(event) {
   } catch (error) {
     console.error('Transaction error:', error);
     //showToast('Transaction failed. Please try again.', 0, 'error');
+    cancelButton.disabled = false;
   }
 }
 handleSendAsset.timestamp = getCorrectedTimestamp();
