@@ -8533,6 +8533,8 @@ class SendAssetFormModal {
    * @returns {void}
    */
   async handleSendToAddressInput(e) {
+    this.submitButton.disabled = true;
+
     // Check availability on input changes
     const username = normalizeUsername(e.target.value);
     e.target.value = username;
