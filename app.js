@@ -1346,6 +1346,7 @@ class MenuModal {
   constructor() {
     this.isSignoutExit = false;
   }
+
   load() {
     this.modal = document.getElementById('menuModal');
     this.closeButton = document.getElementById('closeMenu');
@@ -1373,16 +1374,20 @@ class MenuModal {
     this.signOutButton = document.getElementById('handleSignOut');
     this.signOutButton.addEventListener('click', () => this.handleSignOut());
   }
+
   open() {
     this.modal.classList.add('active');
   }
+
   close() {
     
     this.modal.classList.remove('active');  
   }
+
   isActive() {
     return this.modal.classList.contains('active');
   }
+  
   handleSignOut() {
     // Clear intervals
     if (updateWebSocketIndicatorIntervalId && wsManager) {
