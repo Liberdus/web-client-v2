@@ -4067,7 +4067,7 @@ class SearchContactsModal {
         this.close();
       });
 
-      resultsContainer.appendChild(contactElement);
+      this.resultsContainer.appendChild(contactElement);
     });
   }
 }
