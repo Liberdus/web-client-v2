@@ -1140,11 +1140,10 @@ class Footer {
       }
   
       // Show/hide new chat button
-      const newChatButton = newChatModal.newChatButton;
       if (view === 'chats' || view === 'contacts') {
-        newChatButton.classList.add('visible');
+        this.newChatButton.classList.add('visible');
       } else {
-        newChatButton.classList.remove('visible');
+        this.newChatButton.classList.remove('visible');
       }
   
       // Update lists when switching views
@@ -2663,7 +2662,7 @@ function handleSignOut() {
   // Hide header and footer
   document.getElementById('header').classList.remove('active');
   footer.close();
-  newChatModal.newChatButton.classList.remove('visible');
+  footer.newChatButton.classList.remove('visible');
 
   // Reset header text
   document.querySelector('.app-name').textContent = 'Liberdus';
@@ -6642,7 +6641,7 @@ class ChatModal {
     this.messageByteCounter.style.display = 'none';
 
     friendModal.setAddress(address);
-    newChatModal.newChatButton.classList.remove('visible');
+    footer.newChatButton.classList.remove('visible');
     const contact = myData.contacts[address];
     friendModal.updateFriendButton(contact, 'addFriendButtonChat');
     // Set user info
@@ -6747,11 +6746,11 @@ class ChatModal {
     this.modal.classList.remove('active');
     if (document.getElementById('chatsScreen').classList.contains('active')) {
       updateChatList();
-      newChatModal.newChatButton.classList.add('visible');
+      footer.newChatButton.classList.add('visible');
     }
     if (document.getElementById('contactsScreen').classList.contains('active')) {
       updateContactsList();
-      newChatModal.newChatButton.classList.add('visible');
+      footer.newChatButton.classList.add('visible');
     }
     this.address = null;
     if (isOnline) {
