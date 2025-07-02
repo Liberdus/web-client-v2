@@ -1072,8 +1072,10 @@ class Footer {
     this.chatButton = document.getElementById('switchToChats');
     this.contactsButton = document.getElementById('switchToContacts');
     this.walletButton = document.getElementById('switchToWallet');
+    this.newChatButton = document.getElementById('newChatButton');
     this.lastItem = this.footer.querySelector('.last-item');
 
+    this.newChatButton.addEventListener('click', () => newChatModal.openNewChatModal());
     this.chatButton.addEventListener('click', () => this.switchView('chats'));
     this.contactsButton.addEventListener('click', () => this.switchView('contacts'));
     this.walletButton.addEventListener('click', () => this.switchView('wallet'));
@@ -7618,7 +7620,6 @@ const failedMessageModal = new FailedMessageModal();
 class NewChatModal {
   constructor() {
     this.modal = document.getElementById('newChatModal');
-    this.newChatButton = document.getElementById('newChatButton');
     this.closeNewChatModalButton = document.getElementById('closeNewChatModal');
     this.newChatForm = document.getElementById('newChatForm');
     this.usernameAvailable = document.getElementById('chatRecipientError');
@@ -7632,7 +7633,6 @@ class NewChatModal {
    * @returns {void}
    */
   load() {
-    this.newChatButton.addEventListener('click', this.openNewChatModal.bind(this));
     this.closeNewChatModalButton.addEventListener('click', this.closeNewChatModal.bind(this));
     this.newChatForm.addEventListener('submit', this.handleNewChat.bind(this));
     this.recipientInput.addEventListener('input', debounce(this.handleUsernameInput.bind(this), 300));
@@ -7645,7 +7645,7 @@ class NewChatModal {
    */
   openNewChatModal() {
     this.modal.classList.add('active');
-    this.newChatButton.classList.remove('visible');
+    footer.newChatButton.classList.remove('visible');
     this.usernameAvailable.style.display = 'none';
     this.submitButton.disabled = true;
 
@@ -7669,10 +7669,10 @@ class NewChatModal {
     this.modal.classList.remove('active');
     this.newChatForm.reset();
     if (document.getElementById('chatsScreen').classList.contains('active')) {
-      this.newChatButton.classList.add('visible');
+      footer.newChatButton.classList.add('visible');
     }
     if (document.getElementById('contactsScreen').classList.contains('active')) {
-      this.newChatButton.classList.add('visible');
+      footer.newChatButton.classList.add('visible');
     }
   }
 
