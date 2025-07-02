@@ -474,11 +474,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Search Messages Modal
   searchMessagesModal.load();
 
-  // Add event listeners for send asset confirmation modal
-  document.getElementById('closeSendAssetConfirmModal').addEventListener('click', closeSendAssetConfirmModal);
-  document.getElementById('confirmSendButton').addEventListener('click', handleSendAsset);
-  document.getElementById('cancelSendButton').addEventListener('click', closeSendAssetConfirmModal);
-
   // History Modal
   historyModal.load();
 
