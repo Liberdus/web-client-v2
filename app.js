@@ -1072,7 +1072,6 @@ class Footer {
     this.chatButton = document.getElementById('switchToChats');
     this.contactsButton = document.getElementById('switchToContacts');
     this.walletButton = document.getElementById('switchToWallet');
-    this.newChatButton = document.getElementById('newChatButton');
     this.lastItem = this.footer.querySelector('.last-item');
 
     this.chatButton.addEventListener('click', () => this.switchView('chats'));
@@ -1139,7 +1138,7 @@ class Footer {
       }
   
       // Show/hide new chat button
-      const newChatButton = document.getElementById('newChatButton');
+      const newChatButton = newChatModal.newChatButton;
       if (view === 'chats' || view === 'contacts') {
         newChatButton.classList.add('visible');
       } else {
@@ -2495,7 +2494,7 @@ class HistoryModal {
   close() {
     this.modal.classList.remove('active');
     this.openButton.classList.remove('has-notification');
-    document.getElementById('switchToWallet').classList.remove('has-notification');
+    footer.walletButton.classList.remove('has-notification');
   }
 
   populateAssets() {
@@ -2662,7 +2661,7 @@ function handleSignOut() {
   // Hide header and footer
   document.getElementById('header').classList.remove('active');
   footer.close();
-  document.getElementById('newChatButton').classList.remove('visible');
+  newChatModal.newChatButton.classList.remove('visible');
 
   // Reset header text
   document.querySelector('.app-name').textContent = 'Liberdus';
@@ -3345,10 +3344,8 @@ async function processChats(chats, keys) {
 
         // Only suppress notification if we're ACTIVELY viewing this chat and if not a transfer
         if (!inActiveChatWithSender && !hasNewTransfer) {
-          // Add notification indicator to Chats tab if we're not on it
-          const chatsButton = document.getElementById('switchToChats');
           if (!document.getElementById('chatsScreen').classList.contains('active')) {
-            chatsButton.classList.add('has-notification');
+            footer.chatButton.classList.add('has-notification');
           }
         }
       }
@@ -3356,9 +3353,8 @@ async function processChats(chats, keys) {
       // Show transfer notification even if no messages were added
       if (hasNewTransfer) {
         // Add notification indicator to Wallet tab if we're not on it
-        const walletButton = document.getElementById('switchToWallet');
         if (!document.getElementById('walletScreen').classList.contains('active')) {
-          walletButton.classList.add('has-notification');
+          footer.walletButton.classList.add('has-notification');
         }
         // Add notification to openHistoryModal wallet-action-button
         const historyButton = document.getElementById('openHistoryModal');
@@ -6644,7 +6640,7 @@ class ChatModal {
     this.messageByteCounter.style.display = 'none';
 
     friendModal.setAddress(address);
-    document.getElementById('newChatButton').classList.remove('visible');
+    newChatModal.newChatButton.classList.remove('visible');
     const contact = myData.contacts[address];
     friendModal.updateFriendButton(contact, 'addFriendButtonChat');
     // Set user info
@@ -6749,11 +6745,11 @@ class ChatModal {
     this.modal.classList.remove('active');
     if (document.getElementById('chatsScreen').classList.contains('active')) {
       updateChatList();
-      document.getElementById('newChatButton').classList.add('visible');
+      newChatModal.newChatButton.classList.add('visible');
     }
     if (document.getElementById('contactsScreen').classList.contains('active')) {
       updateContactsList();
-      document.getElementById('newChatButton').classList.add('visible');
+      newChatModal.newChatButton.classList.add('visible');
     }
     this.address = null;
     if (isOnline) {
