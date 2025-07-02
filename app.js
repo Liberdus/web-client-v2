@@ -4071,39 +4071,6 @@ function setupAppStateManagement() {
     }
 } */
 
-// Add these search-related functions
-function searchMessages(searchText) {
-  if (!searchText || !myData?.contacts) return [];
-
-  const results = [];
-  const searchLower = searchText.toLowerCase();
-
-  // Search through all contacts and their messages
-  Object.entries(myData.contacts).forEach(([address, contact]) => {
-    if (!contact.messages) return;
-
-    contact.messages.forEach((message, index) => {
-      if (message.message.toLowerCase().includes(searchLower)) {
-        // Highlight matching text
-        const messageText = escapeHtml(message.message);
-        const highlightedText = messageText.replace(new RegExp(searchText, 'gi'), (match) => `<mark>${match}</mark>`);
-        const displayedName = getContactDisplayName(contact);
-        results.push({
-          contactAddress: address,
-          username: displayedName,
-          messageId: index,
-          message: message, // Pass the entire message object
-          timestamp: message.timestamp,
-          preview: truncateMessage(highlightedText, 100),
-          my: message.my, // Include the my property
-        });
-      }
-    });
-  });
-
-  return results.sort((a, b) => b.timestamp - a.timestamp);
-}
-
 class SearchMessagesModal {
   constructor() {}
 
@@ -4124,7 +4091,7 @@ class SearchMessagesModal {
           return;
         }
 
-        const results = searchMessages(searchText);
+        const results = this.searchMessages(searchText);
         if (results.length === 0) {
           this.displayEmptyState('searchResults', 'No messages found');
         } else {
@@ -4149,6 +4116,38 @@ class SearchMessagesModal {
     return this.modal.classList.contains('active');
   }
 
+  searchMessages(searchText) {
+    if (!searchText || !myData?.contacts) return [];
+
+    const results = [];
+    const searchLower = searchText.toLowerCase();
+
+    // Search through all contacts and their messages
+    Object.entries(myData.contacts).forEach(([address, contact]) => {
+      if (!contact.messages) return;
+
+      contact.messages.forEach((message, index) => {
+        if (message.message.toLowerCase().includes(searchLower)) {
+          // Highlight matching text
+          const messageText = escapeHtml(message.message);
+          const highlightedText = messageText.replace(new RegExp(searchText, 'gi'), (match) => `<mark>${match}</mark>`);
+          const displayedName = getContactDisplayName(contact);
+          results.push({
+            contactAddress: address,
+            username: displayedName,
+            messageId: message.txid,
+            message: message, // Pass the entire message object
+            timestamp: message.timestamp,
+            preview: truncateMessage(highlightedText, 100),
+            my: message.my, // Include the my property
+          });
+        }
+      });
+    });
+
+    return results.sort((a, b) => b.timestamp - a.timestamp);
+  }
+
   // this is also used by contact search 
   displayEmptyState(containerId, message = 'No results found') {
     const resultsContainer = document.getElementById(containerId);
@@ -4171,8 +4170,9 @@ class SearchMessagesModal {
       chatModal.open(result.contactAddress);
 
       // Scroll to and highlight the message
+      // could move this into chat modal class as scrollToMessage
       setTimeout(() => {
-        const messageSelector = `[data-message-id="${result.messageId}"]`;
+        const messageSelector = `[data-txid="${result.messageId}"]`;
         const messageElement = document.querySelector(messageSelector);
         if (messageElement) {
           messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -4250,7 +4250,7 @@ class SearchMessagesModal {
           return;
         }
 
-        const results = searchMessages(trimmedText);
+        const results = this.searchMessages(trimmedText);
         if (results.length === 0) {
           this.displayEmptyState('searchResults', 'No messages found');
         } else {
