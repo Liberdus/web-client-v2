@@ -1421,7 +1421,7 @@ class MenuModal {
 
     // Close all modals
     menuModal.close();
-    document.getElementById('accountModal').classList.remove('active');
+    myProfileModal.close();
 
     // Hide header and footer
     document.getElementById('header').classList.remove('active');
