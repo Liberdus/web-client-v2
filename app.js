@@ -364,6 +364,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Add event listeners
   document.getElementById('toggleMenu').addEventListener('click', () => menuModal.open());
 
+  // Header
+  header.load();
+
   // Footer
   footer.load();
 
@@ -451,10 +454,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // add event listener for last-item to prevent tab
   document.querySelectorAll('.last-item').forEach((item) => {
     item.addEventListener('keydown', ignoreTabKey);
-  });
-  // add event listener for first-item to prevent shift+tab
-  document.querySelectorAll('.logo-link').forEach((item) => {
-    item.addEventListener('keydown', ignoreShiftTabKey);
   });
 
   // Add refresh balance button handler
@@ -882,6 +881,26 @@ class WelcomeScreen {
 
 const welcomeScreen = new WelcomeScreen
 
+class Header {
+  constructor() {}
+
+  load() {
+    this.header = document.getElementById('header');
+    this.logoLink = this.header.querySelector('.logoLink');
+    // add event listener for first-item to prevent shift+tab
+    this.logoLink.addEventListener('keydown', ignoreShiftTabKey);
+  }
+
+  open() {
+  }
+
+  close() {
+  }
+
+}
+
+const header = new Header();
+
 class Footer {
   constructor() {
     // No DOM dependencies in constructor
@@ -944,7 +963,7 @@ class Footer {
       }
   
       // Show header and footer
-      document.getElementById('header').classList.add('active');
+      document.getElementById('header').classList.add('active'); // here
       footer.open();
   
       // Update header with username if signed in
@@ -1404,7 +1423,7 @@ class MenuModal {
     myProfileModal.close();
 
     // Hide header and footer
-    document.getElementById('header').classList.remove('active');
+    document.getElementById('header').classList.remove('active'); /// here
     footer.close();
     footer.newChatButton.classList.remove('visible');
 
