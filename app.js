@@ -411,6 +411,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Chats Screen
   chatsScreen.load();
 
+  // Contacts Screen
+  contactsScreen.load();
+
   // About and Contact Modals
   aboutModal.load();
   contactModal.load();
@@ -481,10 +484,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Menu Modal
   menuModal.load();
 
-  document.getElementById('switchToChats').addEventListener('click', () => switchView('chats'));
-  document.getElementById('switchToContacts').addEventListener('click', () => switchView('contacts'));
-  document.getElementById('switchToWallet').addEventListener('click', () => switchView('wallet'));
-
   document.getElementById('closeContactInfoModal').addEventListener('click', () => contactInfoModal.close());
 
   // add event listener for back-button presses to prevent shift+tab
@@ -527,14 +526,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     searchModal.classList.remove('active');
     messageSearch.value = '';
     document.getElementById('searchResults').innerHTML = '';
-  });
-
-  // Add contact search functionality on contact list screen
-  const contactSearchInput = document.getElementById('contactSearchInput');
-
-  // Open contact search modal when clicking the search bar
-  contactSearchInput.addEventListener('click', () => {
-    searchContactsModal.open();
   });
 
   // Omar added
@@ -968,12 +959,11 @@ class Footer {
   
     try {
       // Direct references to view elements
-      const contactsScreen = document.getElementById('contactsScreen');
       const walletScreen = document.getElementById('walletScreen');
   
       // Hide all screens
       chatsScreen.close();
-      contactsScreen.classList.remove('active');
+      contactsScreen.close();
       walletScreen.classList.remove('active');
   
       // Show selected screen
@@ -1028,7 +1018,7 @@ class Footer {
           footer.lastItem.focus();
         }
       } else if (view === 'contacts') {
-        await updateContactsList();
+        await contactsScreen.updateContactsList();
       } else if (view === 'wallet') {
         this.walletButton.classList.remove('has-notification');
         await updateWalletView();
@@ -1041,13 +1031,11 @@ class Footer {
         console.log(`Restoring previous view: ${previousView}`);
   
         // Get references to screens and buttons
-        const chatScreen = document.getElementById('chatsScreen');
-        const contactsScreen = document.getElementById('contactsScreen');
         const walletScreen = document.getElementById('walletScreen');
   
         // Hide all screens with direct references
-        chatScreen.classList.remove('active');
-        contactsScreen.classList.remove('active');
+        chatsScreen.close();
+        contactsScreen.close();
         walletScreen.classList.remove('active');
   
         // Show previous screen
@@ -1242,67 +1230,94 @@ class ChatsScreen {
 
 const chatsScreen = new ChatsScreen();
 
-// Update contacts list UI
-async function updateContactsList() {
-  const contactsList = document.getElementById('contactsList');
-  const contacts = myData.contacts;
+class ContactsScreen {
+  constructor() {
 
-  if (Object.keys(contacts).length === 0) {
-    contactsList.innerHTML = `
+  }
+
+  load() {
+    this.screen = document.getElementById('contactsScreen');
+    this.contactsList = document.getElementById('contactsList');
+    this.contactSearchInput = document.getElementById('contactSearchInput');
+
+    // Handle search input click that's on the contactsScreen
+    this.contactSearchInput.addEventListener('click', () => {
+      searchContactsModal.open();
+    });
+  }
+
+  open() {
+    this.screen.classList.add('active');
+  }
+
+  close() {
+    this.screen.classList.remove('active');
+  }
+
+  isActive() {
+    return this.screen.classList.contains('active');
+  }
+
+  // Update contacts list UI
+  async updateContactsList() {
+    const contacts = myData.contacts;
+
+    if (Object.keys(contacts).length === 0) {
+      this.contactsList.innerHTML = `
             <div class="empty-state">
                 <div style="font-size: 2rem; margin-bottom: 1rem"></div>
                 <div style="font-weight: bold; margin-bottom: 0.5rem">No Contacts Yet</div>
                 <div>Your contacts will appear here</div>
             </div>`;
-    return;
-  }
+      return;
+    }
 
-  // Convert contacts object to array and sort
-  const contactsArray = Object.values(contacts);
+    // Convert contacts object to array and sort
+    const contactsArray = Object.values(contacts);
 
-  // Split into status groups in a single pass
-  const statusGroups = contactsArray.reduce(
-    (acc, contact) => {
-      // 0 = blocked, 1 = Other, 2 = Acquaintance, 3 = Friend
-      switch (contact.friend) {
-        case 0:
-          acc.blocked.push(contact);
-          break;
-        case 2:
-          acc.acquaintances.push(contact);
-          break;
-        case 3:
-          acc.friends.push(contact);
-          break;
-        default:
-          acc.others.push(contact);
-      }
-      return acc;
-    },
-    { others: [], acquaintances: [], friends: [], blocked: [] }
-  );
+    // Split into status groups in a single pass
+    const statusGroups = contactsArray.reduce(
+      (acc, contact) => {
+        // 0 = blocked, 1 = Other, 2 = Acquaintance, 3 = Friend
+        switch (contact.friend) {
+          case 0:
+            acc.blocked.push(contact);
+            break;
+          case 2:
+            acc.acquaintances.push(contact);
+            break;
+          case 3:
+            acc.friends.push(contact);
+            break;
+          default:
+            acc.others.push(contact);
+        }
+        return acc;
+      },
+      { others: [], acquaintances: [], friends: [], blocked: [] }
+    );
 
-  // Sort each group by name first, then by username if name is not available
-  const sortByName = (a, b) => {
-    const nameA = a.name || a.username || '';
-    const nameB = b.name || b.username || '';
-    return nameA.localeCompare(nameB);
-  };
-  Object.values(statusGroups).forEach((group) => group.sort(sortByName));
+    // Sort each group by name first, then by username if name is not available
+    const sortByName = (a, b) => {
+      const nameA = a.name || a.username || '';
+      const nameB = b.name || b.username || '';
+      return nameA.localeCompare(nameB);
+    };
+    Object.values(statusGroups).forEach((group) => group.sort(sortByName));
 
-  // Group metadata for rendering
-  const groupMeta = [
-    { key: 'friends', label: 'Friends', itemClass: 'chat-item' },
-    { key: 'acquaintances', label: 'Acquaintances', itemClass: 'chat-item' },
-    { key: 'others', label: 'Others', itemClass: 'chat-item' },
-    { key: 'blocked', label: 'Blocked', itemClass: 'chat-item blocked' },
-  ];
+    // Group metadata for rendering
+    const groupMeta = [
+      { key: 'friends', label: 'Friends', itemClass: 'chat-item' },
+      { key: 'acquaintances', label: 'Acquaintances', itemClass: 'chat-item' },
+      { key: 'others', label: 'Others', itemClass: 'chat-item' },
+      { key: 'blocked', label: 'Blocked', itemClass: 'chat-item blocked' },
+    ];
 
-  // Helper to render a contact item
-  const renderContactItem = async (contact, itemClass) => {
-    const identicon = await generateIdenticon(contact.address);
-    const contactName = getContactDisplayName(contact);
-    return `
+    // Helper to render a contact item
+    const renderContactItem = async (contact, itemClass) => {
+      const identicon = await generateIdenticon(contact.address);
+      const contactName = getContactDisplayName(contact);
+      return `
             <li class="${itemClass}">
                 <div class="chat-avatar">${identicon}</div>
                 <div class="chat-content">
@@ -1315,31 +1330,34 @@ async function updateContactsList() {
                 </div>
             </li>
         `;
-  };
-
-  // Build HTML for all sections
-  let html = '';
-  let allContacts = [];
-  for (const { key, label, itemClass } of groupMeta) {
-    const group = statusGroups[key];
-    if (group.length > 0) {
-      html += `<div class="contact-section-header">${label}</div>`;
-      const items = await Promise.all(group.map((contact) => renderContactItem(contact, itemClass)));
-      html += items.join('');
-      allContacts = allContacts.concat(group);
-    }
-  }
-
-  contactsList.innerHTML = html;
-
-  // Add click handlers to contact items
-  document.querySelectorAll('#contactsList .chat-item').forEach((item, index) => {
-    const contact = allContacts[index];
-    item.onclick = () => {
-      contactInfoModal.open(createDisplayInfo(contact));
     };
-  });
+
+    // Build HTML for all sections
+    let html = '';
+    let allContacts = [];
+    for (const { key, label, itemClass } of groupMeta) {
+      const group = statusGroups[key];
+      if (group.length > 0) {
+        html += `<div class="contact-section-header">${label}</div>`;
+        const items = await Promise.all(group.map((contact) => renderContactItem(contact, itemClass)));
+        html += items.join('');
+        allContacts = allContacts.concat(group);
+      }
+    }
+
+    this.contactsList.innerHTML = html;
+
+    // Add click handlers to contact items
+    this.contactsList.querySelectorAll('.chat-item').forEach((item, index) => {
+      const contact = allContacts[index];
+      item.onclick = () => {
+        contactInfoModal.open(createDisplayInfo(contact));
+      };
+    });
+  }
 }
+
+const contactsScreen = new ContactsScreen();
 
 
 class MenuModal {
@@ -2256,7 +2274,7 @@ class ContactInfoModal {
 
     // If we made changes that affect the contact list, update it
     if (this.needsContactListUpdate) {
-      updateContactsList();
+      contactsScreen.updateContactsList();
       this.needsContactListUpdate = false;
     }
   }
@@ -2403,7 +2421,7 @@ class FriendModal {
     this.updateFriendButton(contact, 'addFriendButtonChat');
 
     // Update the contact list
-    await updateContactsList();
+    await contactsScreen.updateContactsList();
 
     // Close the friend modal
     this.closeFriendModal();
@@ -4295,7 +4313,7 @@ async function handleConnectivityChange() {
         }
 
         // Update contacts with reconnection handling
-        await updateContactsList();
+        await contactsScreen.updateContactsList();
 
         // Update wallet with reconnection handling
         await updateWalletView();
@@ -6809,8 +6827,8 @@ class ChatModal {
       chatsScreen.updateChatList();
       footer.newChatButton.classList.add('visible');
     }
-    if (document.getElementById('contactsScreen').classList.contains('active')) {
-      updateContactsList();
+    if (contactsScreen.isActive()) {
+      contactsScreen.updateContactsList();
       footer.newChatButton.classList.add('visible');
     }
     this.address = null;
@@ -7731,7 +7749,7 @@ class NewChatModal {
     if (document.getElementById('chatsScreen').classList.contains('active')) {
       footer.newChatButton.classList.add('visible');
     }
-    if (document.getElementById('contactsScreen').classList.contains('active')) {
+    if (contactsScreen.isActive()) {
       footer.newChatButton.classList.add('visible');
     }
   }
