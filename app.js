@@ -361,14 +361,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Welcome Screen
   welcomeScreen.load()
 
-  // Add event listeners
-  document.getElementById('toggleMenu').addEventListener('click', () => menuModal.open());
+  // Footer
+  footer.load();
 
   // Header
   header.load();
-
-  // Footer
-  footer.load();
 
   // Chats Screen
   chatsScreen.load();
@@ -832,6 +829,8 @@ class WelcomeScreen {
     this.createAccountButton = document.getElementById('createAccountButton');
     this.importAccountButton = document.getElementById('importAccountButton');
     this.welcomeButtons = document.querySelector('.welcome-buttons');
+    this.logoLink = this.screen.querySelector('.logo-link');
+    this.logoLink.addEventListener('keydown', ignoreShiftTabKey);  // add event listener for first-item to prevent shift+tab
     
     this.signInButton.addEventListener('click', () => signInModal.open());
     this.createAccountButton.addEventListener('click', () => createAccountModal.openWithReset());
@@ -886,15 +885,28 @@ class Header {
 
   load() {
     this.header = document.getElementById('header');
-    this.logoLink = this.header.querySelector('.logoLink');
-    // add event listener for first-item to prevent shift+tab
-    this.logoLink.addEventListener('keydown', ignoreShiftTabKey);
+    this.text = this.header.querySelector('.app-name');
+    this.logoLink = this.header.querySelector('.logo-link');
+    this.menuButton = document.getElementById('toggleMenu');
+
+    this.logoLink.addEventListener('keydown', ignoreShiftTabKey); // add event listener for first-item to prevent shift+tab
+    this.menuButton.addEventListener('click', () => menuModal.open());
   }
 
   open() {
+    this.header.classList.add('active');
   }
 
   close() {
+    this.header.classList.remove('active');
+  }
+
+  isActive() {
+    return this.header.classList.contains('active');
+  }
+
+  setText(newText) {
+    this.text.textContent = newText;
   }
 
 }
@@ -963,7 +975,7 @@ class Footer {
       }
   
       // Show header and footer
-      document.getElementById('header').classList.add('active'); // here
+      header.open();
       footer.open();
   
       // Update header with username if signed in
@@ -1423,12 +1435,12 @@ class MenuModal {
     myProfileModal.close();
 
     // Hide header and footer
-    document.getElementById('header').classList.remove('active'); /// here
+    header.close();
     footer.close();
     footer.newChatButton.classList.remove('visible');
 
     // Reset header text
-    document.querySelector('.app-name').textContent = 'Liberdus';
+    header.setText('Liberdus');
 
     // Hide all app screens
     document.querySelectorAll('.app-screen').forEach((screen) => {
