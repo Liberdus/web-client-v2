@@ -158,7 +158,6 @@ const MAX_CHAT_MESSAGE_BYTES = 1000; // 1000 bytes for chat messages
 
 let myData = null;
 let myAccount = null; // this is set to myData.account for convience
-let isInstalledPWA = false;
 let timeSkew = 0;
 let useLongPolling = true;
 let wsManager = null;
@@ -4651,16 +4650,6 @@ class WSManager {
 
     // Get selected gateway for WebSocket URL
     const selectedGateway = getGatewayForRequest();
-
-    // Add iOS standalone info
-    const isIOSStandalone =
-      /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream && window.navigator.standalone === true;
-    if (isIOSStandalone) {
-      supportInfo.ios = {
-        mode: 'standalone_pwa',
-        restrictions: selectedGateway?.ws ? selectedGateway.ws.startsWith('wss://') : false,
-      };
-    }
 
     // Add Firefox-specific info
     if (navigator.userAgent.includes('Firefox')) {
