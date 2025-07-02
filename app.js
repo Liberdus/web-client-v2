@@ -35,7 +35,6 @@ async function checkVersion() {
       'app.js',
       'lib.js',
       'network.js',
-      'service-worker.js',
       'offline.html',
     ]);
     const newUrl = window.location.href;
@@ -323,30 +322,10 @@ function newDataRecord(myAccount) {
   return myData;
 }
 
-// Check if app is running as installed PWA
-function checkIsInstalledPWA() {
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    window.navigator.standalone ||
-    document.referrer.includes('android-app://')
-  );
-}
-
 // Load saved account data and update chat list on page load
 document.addEventListener('DOMContentLoaded', async () => {
   await checkVersion(); // version needs to be checked before anything else happens
   timeDifference(); // Calculate and log time difference early
-
-  // Initialize service worker only if running as installed PWA
-  isInstalledPWA = checkIsInstalledPWA(); // Set the global variable
-  if (isInstalledPWA && 'serviceWorker' in navigator) {
-    await registerServiceWorker();
-    setupServiceWorkerMessaging();
-    setupAppStateManagement();
-  } else {
-    // Web-only mode
-    console.log('Running in web-only mode, skipping service worker initialization');
-  }
 
   setupConnectivityDetection();
 
@@ -626,199 +605,6 @@ function saveState() {
     localStorage.setItem(`${myAccount.username}_${myAccount.netid}`, stringify(myData));
   }
 }
-
-/* function setupAddToHomeScreen() {
-  // Add to home screen functionality
-  let deferredInstallPrompt;
-  let addToHomeScreenButton = document.getElementById('addToHomeScreenButton');
-
-  // Device and browser detection with improved iOS browser checks
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  const isChromeIOS = /CriOS/.test(navigator.userAgent);
-  const isFirefoxIOS = /FxiOS/.test(navigator.userAgent);
-  const isEdgeIOS = /EdgiOS/.test(navigator.userAgent);
-  const isSafari = /^((?!chrome|android|CriOS|FxiOS|EdgiOS).)*safari/i.test(navigator.userAgent);
-  const isAndroid = /android/i.test(navigator.userAgent);
-  const isDesktop = !isIOS && !isAndroid;
-  const isStandalone =
-    window.matchMedia('(display-mode: standalone)').matches ||
-    window.navigator.standalone || // iOS
-    document.referrer.includes('android-app://');
-
-  // Add browser detection
-  const isOpera = navigator.userAgent.indexOf('OPR') > -1 || navigator.userAgent.indexOf('Opera') > -1;
-  const isFirefox = navigator.userAgent.indexOf('Firefox') > -1;
-
-  // Function to check if the app can be installed
-  const canInstall = () => {
-    // Already installed as PWA
-    if (isStandalone) {
-      console.log('App is already installed');
-      return false;
-    }
-
-    // iOS - show button for all browsers (will handle redirect to Safari)
-    if (isIOS) {
-      const browser = isChromeIOS
-        ? 'Chrome'
-        : isFirefoxIOS
-          ? 'Firefox'
-          : isEdgeIOS
-            ? 'Edge'
-            : isSafari
-              ? 'Safari'
-              : 'other';
-      console.log(`iOS ${browser} detected - showing button`);
-      return true;
-    }
-
-    // For both Desktop and Android, rely on actual install prompt support
-    return 'serviceWorker' in navigator && 'BeforeInstallPromptEvent' in window;
-  };
-
-  // Function to update button visibility
-  const updateButtonVisibility = () => {
-    if (addToHomeScreenButton) {
-      if (canInstall()) {
-        console.log('Can install - showing button');
-        addToHomeScreenButton.style.display = 'block';
-      } else {
-        console.log('Cannot install - hiding button');
-        addToHomeScreenButton.style.display = 'none';
-      }
-    }
-  };
-
-  // Create button if it doesn't exist
-  if (!addToHomeScreenButton) {
-    console.log('Creating Add to Home Screen button');
-    const welcomeButtons = document.querySelector('.welcome-buttons');
-    if (welcomeButtons) {
-      addToHomeScreenButton = document.createElement('button');
-      addToHomeScreenButton.id = 'addToHomeScreenButton';
-      addToHomeScreenButton.className = 'secondary-button';
-      addToHomeScreenButton.textContent = 'Install';
-      welcomeButtons.appendChild(addToHomeScreenButton);
-    }
-  }
-
-  // Set up installation handling
-  if (addToHomeScreenButton) {
-    console.log('Setting up installation handling');
-    console.log('Device/Browser Detection:', {
-      isIOS,
-      isChromeIOS,
-      isFirefoxIOS,
-      isEdgeIOS,
-      isSafari,
-      isDesktop,
-      isStandalone,
-    });
-
-    if (isIOS) {
-      if (!isSafari) {
-        // Non-Safari iOS browsers
-        addToHomeScreenButton.addEventListener('click', () => {
-          const currentUrl = window.location.href;
-          showToast(
-            'Open in Safari...\n\n' + 'iOS only supports adding to home screen through Safari browser.',
-            5000,
-            'info'
-          );
-          // Open the current URL in Safari
-          window.location.href = currentUrl;
-        });
-      } else {
-        // iOS Safari - Show numbered install instructions
-        addToHomeScreenButton.addEventListener('click', () => {
-          showToast(
-            'To add to home screen:\n\n' +
-              '1. Tap the share button (rectangle with arrow) at the bottom of Safari\n' +
-              '2. Scroll down and tap "Add to Home Screen"\n' +
-              '3. Tap "Add" in the top right',
-            10000,
-            'info'
-          );
-        });
-      }
-    } else if (isDesktop) {
-      // Desktop browsers - Handle install prompt
-      window.addEventListener('beforeinstallprompt', (e) => {
-        console.log('beforeinstallprompt fired on desktop');
-        e.preventDefault();
-        deferredInstallPrompt = e;
-
-        // Make sure the button is visible when we can install
-        updateButtonVisibility();
-      });
-
-      addToHomeScreenButton.addEventListener('click', async () => {
-        if (deferredInstallPrompt) {
-          console.log('prompting desktop install');
-          deferredInstallPrompt.prompt();
-          const { outcome } = await deferredInstallPrompt.userChoice;
-          console.log(`User response to the desktop install prompt: ${outcome}`);
-          deferredInstallPrompt = null;
-
-          if (outcome === 'accepted') {
-            addToHomeScreenButton.style.display = 'none';
-          }
-        } else if (isOpera) {
-          showToast(
-            'Installation is not supported in Opera browser. Please use Google Chrome or Microsoft Edge.',
-            5000,
-            'info'
-          );
-        } else if (isFirefox) {
-          showToast(
-            'Installation is not supported in Firefox browser. Please use Google Chrome or Microsoft Edge.',
-            5000,
-            'info'
-          );
-        } else {
-          showToast('This app is already installed or cannot be installed on this device/browser.', 5000, 'info');
-        }
-      });
-    } else {
-      // Android - Handle install prompt
-      window.addEventListener('beforeinstallprompt', (e) => {
-        console.log('beforeinstallprompt fired on Android');
-        e.preventDefault();
-        deferredInstallPrompt = e;
-
-        updateButtonVisibility();
-      });
-
-      addToHomeScreenButton.addEventListener('click', async () => {
-        if (deferredInstallPrompt) {
-          console.log('prompting Android install');
-          deferredInstallPrompt.prompt();
-          const { outcome } = await deferredInstallPrompt.userChoice;
-          console.log(`User response to the Android install prompt: ${outcome}`);
-          deferredInstallPrompt = null;
-
-          if (outcome === 'accepted') {
-            addToHomeScreenButton.style.display = 'none';
-          }
-        }
-      });
-    }
-
-    // Hide button after successful installation
-    window.addEventListener('appinstalled', (event) => {
-      console.log('👍', 'appinstalled', event);
-      addToHomeScreenButton.style.display = 'none';
-    });
-
-    // Check if we can display the install button
-    updateButtonVisibility();
-
-    // Listen for display mode changes
-    window.matchMedia('(display-mode: standalone)').addEventListener('change', () => {
-      updateButtonVisibility();
-    });
-  }
-} */
 
 class WelcomeScreen {
   constructor() {}
@@ -3762,174 +3548,6 @@ async function signObj(tx, keys) {
   return txidHex;
 }
 
-// Service Worker Registration and Management
-async function registerServiceWorker() {
-  if (!('serviceWorker' in navigator)) {
-    console.log('Service Worker not supported');
-    return;
-  }
-
-  try {
-    // Get the current service worker registration
-    const registration = await navigator.serviceWorker.getRegistration();
-
-    // If there's an existing service worker
-    if (registration?.active) {
-      console.log('Service Worker already registered and active');
-
-      // Set up message handling for the active worker
-      setupServiceWorkerMessaging(registration.active);
-
-      // Check if there's a new version waiting
-      if (registration.waiting) {
-        // Notify user about new version
-        showUpdateNotification(registration);
-      }
-
-      return registration;
-    }
-
-    // Explicitly unregister any existing registration
-    if (registration) {
-      await registration.unregister();
-    }
-
-    // Register new service worker
-    const newRegistration = await navigator.serviceWorker.register('./service-worker.js', {
-      scope: './',
-      updateViaCache: 'none', // Don't cache service worker file
-    });
-
-    console.log('Service Worker registered successfully:', newRegistration.scope);
-
-    // Set up new service worker handling
-    newRegistration.addEventListener('updatefound', () => {
-      const newWorker = newRegistration.installing;
-
-      newWorker.addEventListener('statechange', () => {
-        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-          // New service worker available
-          showUpdateNotification(newRegistration);
-        }
-      });
-    });
-
-    // Wait for the service worker to be ready
-    await navigator.serviceWorker.ready;
-    console.log('Service Worker ready');
-
-    return newRegistration;
-  } catch (error) {
-    console.error('Service Worker registration failed:', error);
-    return null;
-  }
-}
-
-// Handle service worker messages
-function setupServiceWorkerMessaging() {
-  // Listen for messages from service worker
-  navigator.serviceWorker.addEventListener('message', (event) => {
-    const data = event.data;
-
-    // Handle different message types
-    switch (data.type) {
-      case 'error':
-        console.error('Service Worker error:', data.error);
-        break;
-      case 'OFFLINE_MODE':
-        console.warn('Service worker detected offline mode:', data.url);
-        isOnline = false;
-        updateUIForConnectivity();
-        markConnectivityDependentElements();
-        break;
-      case 'CACHE_UPDATED':
-        console.log('Cache updated:', data.url);
-        break;
-      case 'CACHE_ERROR':
-        console.error('Cache error:', data.error);
-        break;
-      case 'OFFLINE_READY':
-        showToast('App ready for offline use');
-        break;
-      case 'NEW_CONTENT':
-        showUpdateNotification();
-        break;
-    }
-  });
-}
-
-// App state management
-function setupAppStateManagement() {
-  // Initialize app state
-  localStorage.setItem('appPaused', '0');
-
-  // Stop polling if service worker was already polling
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.ready.then((registration) => {
-      registration.active?.postMessage({ type: 'stop_polling' });
-    });
-  }
-
-  // Handle visibility changes
-  document.addEventListener('visibilitychange', async () => {
-    if (!myData || !myAccount) return; // Only manage state if logged in
-
-    if (document.hidden) {
-      // App is being hidden/closed
-      console.log('📱 App hidden - starting service worker polling');
-      const timestamp = getCorrectedTimestamp().toString();
-      localStorage.setItem('appPaused', timestamp);
-
-      // Prepare account data for service worker
-      const accountData = {
-        address: myAccount.keys.address,
-        network: {
-          gateways: myData.network.gateways,
-          defaultGatewayIndex: myData.network.defaultGatewayIndex,
-        },
-      };
-
-      // Start polling in service worker with timestamp and account data
-      const registration = await navigator.serviceWorker.ready;
-      registration.active?.postMessage({
-        type: 'start_polling',
-        timestamp,
-        account: accountData,
-      });
-    } else {
-      // App is becoming visible/open
-      console.log('📱 App visible - stopping service worker polling');
-      localStorage.setItem('appPaused', '0');
-
-      // Stop polling in service worker
-      const registration = await navigator.serviceWorker.ready;
-      registration.active?.postMessage({ type: 'stop_polling' });
-
-      const gotChats = await chatsScreen.updateChatData();
-      if (gotChats > 0) {
-        await chatsScreen.updateChatList();
-      }
-    }
-  });
-}
-
-/* function requestNotificationPermission() {
-    if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission()
-            .then(permission => {
-                console.log('Notification permission result:', permission);
-                if (permission === 'granted') {
-                    console.log('Notification permission granted');
-                } else {
-                    console.log('Notification permission denied');
-                }
-            })
-            .catch(error => {
-                console.error('Error during notification permission request:', error);
-            });
-    }
-} */
-
 class SearchMessagesModal {
   constructor() {}
 
@@ -4329,45 +3947,6 @@ function hideToast(toastId) {
   }, 300); // Match transition duration
 }
 
-// Show update notification to user
-function showUpdateNotification() {
-  // Create update notification
-  const updateNotification = document.createElement('div');
-  updateNotification.className = 'update-notification';
-  updateNotification.innerHTML = `
-        <div class="update-message">
-            A new version is available
-            <button class="update-button">
-                Update Now
-            </button>
-        </div>
-    `;
-
-  // Add click handler directly to the button
-  updateNotification.querySelector('.update-button').addEventListener('click', () => {
-    updateServiceWorker();
-  });
-
-  document.body.appendChild(updateNotification);
-}
-
-// Update the service worker
-async function updateServiceWorker() {
-  const registration = await navigator.serviceWorker.getRegistration();
-  if (!registration) return;
-
-  // If there's a waiting worker, activate it
-  if (registration.waiting) {
-    // Send message to service worker to skip waiting
-    registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-
-    // Reload once the new service worker takes over
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('New service worker activated, reloading...');
-      window.location.reload();
-    });
-  }
-}
 
 // Handle online/offline events
 async function handleConnectivityChange() {
@@ -4412,12 +3991,6 @@ async function handleConnectivityChange() {
 
 // Setup connectivity detection
 function setupConnectivityDetection() {
-  // Only setup offline detection if running as installed PWA
-  /* if (!checkIsInstalledPWA()) {
-        isOnline = true; // Always consider online in web mode
-        return;
-    } */
-
   // Listen for browser online/offline events
   window.addEventListener('online', handleConnectivityChange);
   window.addEventListener('offline', handleConnectivityChange);
@@ -4465,6 +4038,9 @@ function markConnectivityDependentElements() {
     '.menu-item[id="openMonitor"]',
     '.menu-item[id="openAbout"]',
     '.menu-item[id="openRemoveAccount"]',
+
+    // submitFeedback button
+    '#submitFeedback',
   ];
 
   // Add data attribute to all network-dependent elements
