@@ -3373,7 +3373,7 @@ async function processChats(chats, keys) {
 
         // Only suppress notification if we're ACTIVELY viewing this chat and if not a transfer
         if (!inActiveChatWithSender && !hasNewTransfer) {
-          if (!chatsScreen.screen.classList.contains('active')) {
+          if (!chatsScreen.isActive()) {
             footer.chatButton.classList.add('has-notification');
           }
         }
