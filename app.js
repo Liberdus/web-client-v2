@@ -4104,55 +4104,6 @@ function searchMessages(searchText) {
   return results.sort((a, b) => b.timestamp - a.timestamp);
 }
 
-// moved
-function displaySearchResults(results) {
-  const searchResults = document.getElementById('searchResults');
-  // Create a ul element to properly contain the list items
-  const resultsList = document.createElement('ul');
-  resultsList.className = 'chat-list';
-
-  results.forEach(async (result) => {
-    const resultElement = document.createElement('li');
-    resultElement.className = 'chat-item search-result-item';
-
-    // Generate identicon for the contact
-    const identicon = await generateIdenticon(result.contactAddress);
-
-    // Format message preview with "You:" prefix if it's a sent message
-    // make this textContent?
-    const messagePreview = result.my ? `You: ${result.preview}` : `${result.preview}`;
-
-    resultElement.innerHTML = `
-            <div class="chat-avatar">
-                ${identicon}
-            </div>
-            <div class="chat-content">
-                <div class="chat-header">
-                    <div class="chat-name">${result.username}</div>
-                    <div class="chat-time">${formatTime(result.timestamp)}</div>
-                </div>
-                <div class="chat-message">
-                    ${messagePreview}
-                </div>
-            </div>
-        `;
-
-    resultElement.addEventListener('click', (event) => {
-      event.stopImmediatePropagation(); // Stop all other listeners and bubbling immediately
-      // clear search input and clear results
-      document.getElementById('messageSearch').value = '';
-      document.getElementById('searchResults').innerHTML = '';
-      handleSearchResultClick(result);
-    });
-
-    resultsList.appendChild(resultElement);
-  });
-
-  // Clear and append the new list
-  searchResults.innerHTML = '';
-  searchResults.appendChild(resultsList);
-}
-
 class SearchMessagesModal {
   constructor() {}
 
