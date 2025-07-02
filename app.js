@@ -8198,7 +8198,7 @@ class CreateAccountModal {
         showToast('Account created successfully!', 3000, 'success');
         this.reEnableControls();
         this.close();
-        document.getElementById('welcomeScreen').style.display = 'none';
+        welcomeScreen.close();
         // TODO: may not need to get set since gets set in `getChats`. Need to check signin flow.
         //getChats.lastCall = getCorrectedTimestamp();
         // Store updated accounts back in localStorage
