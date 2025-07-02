@@ -568,7 +568,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const results = searchContacts(searchText);
         if (results.length === 0) {
-          displayEmptyState('contactSearchResults', 'No contacts found');
+          searchMessagesModal.displayEmptyState('contactSearchResults', 'No contacts found');
         } else {
           displayContactResults(results, searchText);
         }
