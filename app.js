@@ -976,7 +976,6 @@ class Footer {
 
   close() {
     this.footer.classList.remove('active');
-    welcomeScreen.screen.style.display = 'none';
   }
 
   async switchView(view) {
