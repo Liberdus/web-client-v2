@@ -409,6 +409,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Footer
   footer.load();
 
+  // Chats Screen
+  chatsScreen.load();
+
   // About and Contact Modals
   aboutModal.load();
   contactModal.load();
@@ -526,13 +529,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     searchModal.classList.remove('active');
     messageSearch.value = '';
     document.getElementById('searchResults').innerHTML = '';
-  });
-
-
-  // Handle search input click
-  // this is the button on the chat screen
-  document.getElementById('searchInput').addEventListener('click', (e) => {
-    searchMessagesModal.open();
   });
 
   // Add contact search functionality on contact list screen
@@ -881,133 +877,6 @@ function saveState() {
   }
 } */
 
-/**
- * Update the chat list by fetching the latest chats from the server
- * @returns {Promise<number>} The number of chats fetched
- */
-async function updateChatData() {
-  let gotChats = 0;
-  if (myAccount && myAccount.keys) {
-    try {
-      let retryCount = 0;
-      const maxRetries = 2;
-
-      while (retryCount <= maxRetries) {
-        try {
-          gotChats = await getChats(myAccount.keys);
-          break; // Success, exit the retry loop
-        } catch (networkError) {
-          retryCount++;
-          if (retryCount > maxRetries) {
-            throw networkError; // Rethrow if max retries reached
-          }
-          console.log(`Retry ${retryCount}/${maxRetries} for chat update...${Date.now()}`);
-          await new Promise((resolve) => setTimeout(resolve, 1000 * retryCount)); // Increasing backoff
-        }
-      }
-    } catch (error) {
-      console.error('Error updating chat list:', error);
-    }
-  }
-  return gotChats;
-}
-
-// Update chat list UI
-async function updateChatList() {
-  const chatList = document.getElementById('chatList');
-  //const chatsData = myData
-  const contacts = myData.contacts;
-  const chats = myData.chats;
-  if (chats.length === 0) {
-    chatList.innerHTML = `
-            <div class="empty-state">
-                <div style="font-size: 2rem; margin-bottom: 1rem"></div>
-                <div style="font-weight: bold; margin-bottom: 0.5rem">Click the + button to start a chat</div>
-                <div>Your conversations will appear here</div>
-            </div>`;
-    return;
-  }
-
-  console.log('updateChatList chats.length', JSON.stringify(chats.length));
-
-  // Clear existing chat items before adding new ones
-  chatList.innerHTML = '';
-
-  const chatElements = await Promise.all(
-    chats.map(async (chat) => {
-      const identicon = await generateIdenticon(chat.address);
-      const contact = contacts[chat.address];
-
-      // If contact doesn't exist, skip this chat item
-      if (!contact) return null;
-
-      const latestActivity = contact.messages && contact.messages.length > 0 ? contact.messages[0] : null;
-
-      // If there's no latest activity (no messages), skip this chat item
-      if (!latestActivity) return null;
-
-      let previewHTML = ''; // Default
-      const latestItemTimestamp = latestActivity.timestamp;
-
-      // Check if the latest activity is a payment/transfer message
-      if (typeof latestActivity.amount === 'bigint') {
-        // Latest item is a payment/transfer
-        const amountStr = parseFloat(big2str(latestActivity.amount, 18)).toFixed(6);
-        const amountDisplay = `${amountStr} ${latestActivity.symbol || 'LIB'}`;
-        const directionText = latestActivity.my ? '-' : '+';
-        // Create payment preview text
-        previewHTML = `<span class="payment-preview">${directionText} ${amountDisplay}</span>`;
-        // Optionally add memo preview
-        if (latestActivity.message) {
-          // Memo is stored in the 'message' field for transfers
-          previewHTML += ` <span class="memo-preview"> | ${truncateMessage(escapeHtml(latestActivity.message), 25)}</span>`;
-        }
-      } else {
-        // Latest item is a regular message
-        const messageText = escapeHtml(latestActivity.message);
-        // Add "You:" prefix for sent messages
-        const prefix = latestActivity.my ? 'You: ' : '';
-        previewHTML = `${prefix}${truncateMessage(messageText, 50)}`; // Truncate for preview
-      }
-
-      // Use the determined latest timestamp for display
-      const timeDisplay = formatTime(latestItemTimestamp);
-      const contactName = getContactDisplayName(contact);
-
-      // Create the list item element
-      const li = document.createElement('li');
-      li.classList.add('chat-item');
-
-      // Set its inner HTML
-      li.innerHTML = `
-            <div class="chat-avatar">${identicon}</div>
-            <div class="chat-content">
-                <div class="chat-header">
-                    <div class="chat-name">${escapeHtml(contactName)}</div>
-                    <div class="chat-time">${timeDisplay} <span class="chat-time-chevron"></span></div>
-                </div>
-                <div class="chat-message">
-                    ${contact.unread ? `<span class="chat-unread">${contact.unread}</span>` : ''}
-                    ${previewHTML}
-                </div>
-            </div>
-        `;
-
-      // Add the onclick handler directly to the element
-      li.onclick = () => chatModal.open(chat.address);
-
-      return li; // Return the created DOM element
-    })
-  );
-
-  // Append the created (and non-null) list item elements to the chatList
-  chatElements.forEach((element) => {
-    if (element) {
-      // Only append if the element is not null
-      chatList.appendChild(element);
-    }
-  });
-}
 // refresh wallet balance
 async function updateWalletBalances() {
   if (!myAccount || !myData || !myData.wallet || !myData.wallet.assets) {
@@ -1101,12 +970,11 @@ class Footer {
   
     try {
       // Direct references to view elements
-      const chatScreen = document.getElementById('chatsScreen');
       const contactsScreen = document.getElementById('contactsScreen');
       const walletScreen = document.getElementById('walletScreen');
   
       // Hide all screens
-      chatScreen.classList.remove('active');
+      chatsScreen.close();
       contactsScreen.classList.remove('active');
       walletScreen.classList.remove('active');
   
@@ -1150,7 +1018,7 @@ class Footer {
       if (view === 'chats') {
         this.chatButton.classList.remove('has-notification');
         // TODO: maybe need to invoke updateChatData here?
-        await updateChatList();
+        await chatsScreen.updateChatList();
         if (isOnline) {
           if (wsManager && !wsManager.isSubscribed()) {
             pollChatInterval(pollIntervalNormal);
@@ -1215,6 +1083,166 @@ class Footer {
 }
 
 const footer = new Footer();
+
+class ChatsScreen {
+  constructor() {
+
+  }
+
+  load() {
+    this.screen = document.getElementById('chatsScreen');
+    this.chatList = document.getElementById('chatList');
+    this.searchBarContainer = document.getElementById('searchBarContainer');
+    this.searchInput = document.getElementById('searchInput');
+
+    // Handle search input click that's on the chatsScreen
+    this.searchInput.addEventListener('click', () => {
+      searchMessagesModal.open();
+    });
+  }
+
+  open() {
+    this.screen.classList.add('active');
+  }
+
+  close() {
+    this.screen.classList.remove('active');
+  }
+
+  isActive() {
+    return this.screen.classList.contains('active');
+  }
+
+  /**
+ * Update the chat list by fetching the latest chats from the server
+ * @returns {Promise<number>} The number of chats fetched
+ */
+  async updateChatData() {
+    let gotChats = 0;
+    if (myAccount && myAccount.keys) {
+      try {
+        let retryCount = 0;
+        const maxRetries = 2;
+
+        while (retryCount <= maxRetries) {
+          try {
+            gotChats = await getChats(myAccount.keys);
+            break; // Success, exit the retry loop
+          } catch (networkError) {
+            retryCount++;
+            if (retryCount > maxRetries) {
+              throw networkError; // Rethrow if max retries reached
+            }
+            console.log(`Retry ${retryCount}/${maxRetries} for chat update...${Date.now()}`);
+            await new Promise((resolve) => setTimeout(resolve, 1000 * retryCount)); // Increasing backoff
+          }
+        }
+      } catch (error) {
+        console.error('Error updating chat list:', error);
+      }
+    }
+    return gotChats;
+  }
+
+  // Update chat list UI
+  async updateChatList() {
+    const chatList = this.chatList;
+    //const chatsData = myData
+    const contacts = myData.contacts;
+    const chats = myData.chats;
+    if (chats.length === 0) {
+      chatList.innerHTML = `
+            <div class="empty-state">
+                <div style="font-size: 2rem; margin-bottom: 1rem"></div>
+                <div style="font-weight: bold; margin-bottom: 0.5rem">Click the + button to start a chat</div>
+                <div>Your conversations will appear here</div>
+            </div>`;
+      return;
+    }
+
+    console.log('chats.length', JSON.stringify(chats.length));
+
+    // Clear existing chat items before adding new ones
+    chatList.innerHTML = '';
+
+    const chatElements = await Promise.all(
+      chats.map(async (chat) => {
+        const identicon = await generateIdenticon(chat.address);
+        const contact = contacts[chat.address];
+
+        // If contact doesn't exist, skip this chat item
+        if (!contact) return null;
+
+        const latestActivity = contact.messages && contact.messages.length > 0 ? contact.messages[0] : null;
+
+        // If there's no latest activity (no messages), skip this chat item
+        if (!latestActivity) return null;
+
+        let previewHTML = ''; // Default
+        const latestItemTimestamp = latestActivity.timestamp;
+
+        // Check if the latest activity is a payment/transfer message
+        if (typeof latestActivity.amount === 'bigint') {
+          // Latest item is a payment/transfer
+          const amountStr = parseFloat(big2str(latestActivity.amount, 18)).toFixed(6);
+          const amountDisplay = `${amountStr} ${latestActivity.symbol || 'LIB'}`;
+          const directionText = latestActivity.my ? '-' : '+';
+          // Create payment preview text
+          previewHTML = `<span class="payment-preview">${directionText} ${amountDisplay}</span>`;
+          // Optionally add memo preview
+          if (latestActivity.message) {
+            // Memo is stored in the 'message' field for transfers
+            previewHTML += ` <span class="memo-preview"> | ${truncateMessage(escapeHtml(latestActivity.message), 25)}</span>`;
+          }
+        } else {
+          // Latest item is a regular message
+          const messageText = escapeHtml(latestActivity.message);
+          // Add "You:" prefix for sent messages
+          const prefix = latestActivity.my ? 'You: ' : '';
+          previewHTML = `${prefix}${truncateMessage(messageText, 50)}`; // Truncate for preview
+        }
+
+        // Use the determined latest timestamp for display
+        const timeDisplay = formatTime(latestItemTimestamp);
+        const contactName = getContactDisplayName(contact);
+
+        // Create the list item element
+        const li = document.createElement('li');
+        li.classList.add('chat-item');
+
+        // Set its inner HTML
+        li.innerHTML = `
+            <div class="chat-avatar">${identicon}</div>
+            <div class="chat-content">
+                <div class="chat-header">
+                    <div class="chat-name">${escapeHtml(contactName)}</div>
+                    <div class="chat-time">${timeDisplay} <span class="chat-time-chevron"></span></div>
+                </div>
+                <div class="chat-message">
+                    ${contact.unread ? `<span class="chat-unread">${contact.unread}</span>` : ''}
+                    ${previewHTML}
+                </div>
+            </div>
+        `;
+
+        // Add the onclick handler directly to the element
+        li.onclick = () => chatModal.open(chat.address);
+
+        return li; // Return the created DOM element
+      })
+    );
+
+    // Append the created (and non-null) list item elements to the chatList
+    chatElements.forEach((element) => {
+      if (element) {
+        // Only append if the element is not null
+        chatList.appendChild(element);
+      }
+    });
+  }
+}
+
+const chatsScreen = new ChatsScreen();
 
 // Update contacts list UI
 async function updateContactsList() {
@@ -2927,9 +2955,9 @@ async function pollChats() {
     }
 
     try {
-      const gotChats = await updateChatData();
+      const gotChats = await chatsScreen.updateChatData();
       if (gotChats > 0) {
-        await updateChatList();
+        await chatsScreen.updateChatList();
       }
 
       if (document.getElementById('walletScreen')?.classList.contains('active')) {
@@ -3345,7 +3373,7 @@ async function processChats(chats, keys) {
 
         // Only suppress notification if we're ACTIVELY viewing this chat and if not a transfer
         if (!inActiveChatWithSender && !hasNewTransfer) {
-          if (!document.getElementById('chatsScreen').classList.contains('active')) {
+          if (!chatsScreen.screen.classList.contains('active')) {
             footer.chatButton.classList.add('has-notification');
           }
         }
@@ -3736,9 +3764,9 @@ function setupAppStateManagement() {
       const registration = await navigator.serviceWorker.ready;
       registration.active?.postMessage({ type: 'stop_polling' });
 
-      const gotChats = await updateChatData();
+      const gotChats = await chatsScreen.updateChatData();
       if (gotChats > 0) {
-        await updateChatList();
+        await chatsScreen.updateChatList();
       }
     }
   });
@@ -4219,9 +4247,9 @@ async function handleConnectivityChange() {
     if (myAccount && myAccount.keys) {
       try {
         // Update chats with reconnection handling
-        const gotChats = await updateChatData();
+        const gotChats = await chatsScreen.updateChatData();
         if (gotChats > 0) {
-          await updateChatList();
+          await chatsScreen.updateChatList();
         }
 
         // Update contacts with reconnection handling
@@ -4699,11 +4727,11 @@ class WSManager {
           }
         } else if (!data.id && data.result.account_id && data.result.timestamp) {
           console.log('Received new chat notification in ws');
-          const gotChats = await updateChatData();
+          const gotChats = await chatsScreen.updateChatData();
           console.log('gotChats inside of ws.onmessage', gotChats);
           if (gotChats > 0) {
             console.log('inside of ws.onmessage, gotChats > 0, updating chat list');
-            await updateChatList();
+            await chatsScreen.updateChatList();
           }
         } else {
           // Handle any other unexpected message formats
@@ -6704,7 +6732,7 @@ class ChatModal {
     if (contact.unread > 0) {
       myData.state.unread = Math.max(0, (myData.state.unread || 0) - contact.unread);
       contact.unread = 0;
-      updateChatList();
+      chatsScreen.updateChatList();
     }
 
     // Setup state for appendChatModal and perform initial render
@@ -6744,8 +6772,8 @@ class ChatModal {
     this.debouncedSaveDraft(this.messageInput.value);
 
     this.modal.classList.remove('active');
-    if (document.getElementById('chatsScreen').classList.contains('active')) {
-      updateChatList();
+    if (chatsScreen.isActive()) {
+      chatsScreen.updateChatList();
       footer.newChatButton.classList.add('visible');
     }
     if (document.getElementById('contactsScreen').classList.contains('active')) {
@@ -7405,9 +7433,9 @@ class ChatModal {
       }
     }
     // 3. Refresh Chat List if active
-    if (chatsScreen && chatsScreen.classList.contains('active')) {
+    if (chatsScreen.isActive()) {
       console.log('DEBUG: Refreshing chat list view due to transaction failure.');
-      updateChatList();
+      chatsScreen.updateChatList();
     }
     // No other active view to refresh in this context
   }
@@ -8271,7 +8299,7 @@ class SendAssetFormModal {
    * @returns {Promise<void>}
    */
   async close() {
-    await updateChatList();
+    await chatsScreen.updateChatList();
     this.modal.classList.remove('active');
     this.sendForm.reset();
     this.username = null;
@@ -9801,9 +9829,9 @@ async function longPollResult(data) {
   setTimeout(longPoll, nextPoll + 1000);
   if (data?.success){
     try {
-      const gotChats = await updateChatData();
+      const gotChats = await chatsScreen.updateChatData();
       if (gotChats > 0) {
-        await updateChatList();
+        await chatsScreen.updateChatList();
       }
     } catch (error) {
       console.error('Chat polling error:', error);
