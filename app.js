@@ -387,6 +387,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Contacts Screen
   contactsScreen.load();
 
+  // Wallet Screen
+  walletScreen.load();
+
   // About and Contact Modals
   aboutModal.load();
   contactModal.load();
@@ -483,7 +486,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, 300);
 
     // await updateWalletBalances();
-    updateWalletView();
+    walletScreen.updateWalletView();
   });
 
   // Add new search functionality
@@ -835,59 +838,6 @@ function saveState() {
   }
 } */
 
-// refresh wallet balance
-async function updateWalletBalances() {
-  if (!myAccount || !myData || !myData.wallet || !myData.wallet.assets) {
-    console.error('No wallet data available');
-    return;
-  } else if (!isOnline) {
-    console.error('Not online. Not updating wallet balances');
-    return;
-  }
-  await updateAssetPricesIfNeeded();
-  const now = getCorrectedTimestamp();
-  if (!myData.wallet.timestamp) {
-    myData.wallet.timestamp = 0;
-  }
-  if (now - myData.wallet.timestamp < 5000) {
-    return;
-  }
-
-  // TODO - first update the asset prices from a public API
-
-  let totalWalletNetworth = 0.0;
-
-  // Update balances for each asset and address
-  for (const asset of myData.wallet.assets) {
-    let assetTotalBalance = 0n;
-
-    // Get balance for each address in the asset
-    for (const addr of asset.addresses) {
-      try {
-        const address = longAddress(addr.address);
-        const data = await queryNetwork(`/account/${address}/balance`);
-        console.log('balance', data);
-        // Update address balance
-        addr.balance = data.balance || 0n;
-
-        // Add to asset total (convert to USD using asset price)
-        assetTotalBalance += addr.balance;
-      } catch (error) {
-        console.error(`Error fetching balance for address ${addr.address}:`, error);
-      }
-    }
-    asset.balance = assetTotalBalance;
-    asset.networth = (asset.price * Number(assetTotalBalance)) / Number(wei);
-
-    // Add this asset's total to wallet total
-    totalWalletNetworth += asset.networth;
-  }
-
-  // Update total wallet balance
-  myData.wallet.networth = totalWalletNetworth;
-  myData.wallet.timestamp = now;
-}
-
 class WelcomeScreen {
   constructor() {}
 
@@ -985,13 +935,10 @@ class Footer {
     }
   
     try {
-      // Direct references to view elements
-      const walletScreen = document.getElementById('walletScreen');
-  
       // Hide all screens
       chatsScreen.close();
       contactsScreen.close();
-      walletScreen.classList.remove('active');
+      walletScreen.close();
   
       // Show selected screen
       document.getElementById(`${view}Screen`).classList.add('active');
@@ -1048,7 +995,7 @@ class Footer {
         await contactsScreen.updateContactsList();
       } else if (view === 'wallet') {
         this.walletButton.classList.remove('has-notification');
-        await updateWalletView();
+        await walletScreen.updateWalletView();
       }
     } catch (error) {
       console.error(`Error switching to ${view} view:`, error);
@@ -1057,13 +1004,10 @@ class Footer {
       if (previousView && previousButton) {
         console.log(`Restoring previous view: ${previousView}`);
   
-        // Get references to screens and buttons
-        const walletScreen = document.getElementById('walletScreen');
-  
         // Hide all screens with direct references
         chatsScreen.close();
         contactsScreen.close();
-        walletScreen.classList.remove('active');
+        walletScreen.close();
   
         // Show previous screen
         const previousScreenElement = document.getElementById(`${previousView}Screen`);
@@ -1503,6 +1447,143 @@ class MenuModal {
 }
 
 const menuModal = new MenuModal();
+
+class WalletScreen {
+  constructor() {
+
+  }
+
+  load() {
+    // screen
+    this.screen = document.getElementById('walletScreen');
+    // balance elements
+    this.totalBalance = document.getElementById('walletTotalBalance');
+    this.refreshBalanceButton = document.getElementById('refreshBalance');
+    // assets list
+    this.assetsList = document.getElementById('assetsList');
+    // action buttons
+    this.openSendAssetFormModalButton = document.getElementById('openSendAssetFormModal');
+    this.openReceiveModalButton = document.getElementById('openReceiveModal');
+    this.openHistoryModalButton = document.getElementById('openHistoryModal');
+
+    this.openSendAssetFormModalButton.addEventListener('click', () => {
+      sendAssetFormModal.open();
+    });
+    this.openReceiveModalButton.addEventListener('click', () => {
+      receiveModal.open();
+    });
+    this.openHistoryModalButton.addEventListener('click', () => {
+      historyModal.open();
+    });
+    // handle refresh balance button click
+    this.refreshBalanceButton.addEventListener('click', () => {
+      this.updateWalletView();
+    });
+  }
+
+  open() {
+    this.screen.classList.add('active');
+  }
+
+  close() {
+    this.screen.classList.remove('active');
+  }
+
+  isActive() {
+    return this.screen.classList.contains('active');
+  }
+
+  // Update wallet view; refresh wallet
+  async updateWalletView() {
+    const walletData = myData.wallet;
+
+    await this.updateWalletBalances();
+
+    // Update total networth
+    this.totalBalance.textContent = (walletData.networth || 0).toFixed(2);
+
+    if (!Array.isArray(walletData.assets) || walletData.assets.length === 0) {
+      this.assetsList.innerHTML = `
+              <div class="empty-state">
+                  <div style="font-size: 2rem; margin-bottom: 1rem"></div>
+                  <div style="font-weight: bold; margin-bottom: 0.5rem">No Assets Yet</div>
+                  <div>Your assets will appear here</div>
+              </div>`;
+      return;
+    }
+
+    this.assetsList.innerHTML = walletData.assets
+      .map((asset) => {
+        console.log('asset balance', asset, asset.balance);
+        return `
+              <div class="asset-item">
+                  <div class="asset-logo"><img src="./media/liberdus_logo_50.png" class="asset-logo"></div>
+                  <div class="asset-info">
+                      <div class="asset-name">${asset.name}</div>
+                      <div class="asset-symbol">$${asset.price} / ${asset.symbol}</div>
+                  </div>
+                  <div class="asset-balance">${(Number(asset.balance) / Number(wei)).toFixed(6)}<br><span class="asset-symbol">$${asset.networth.toFixed(6)}</span></div>
+              </div>
+          `;
+      })
+      .join('');
+  }
+
+  // refresh wallet balance
+  async updateWalletBalances() {
+    if (!myAccount || !myData || !myData.wallet || !myData.wallet.assets) {
+      console.error('No wallet data available');
+      return;
+    } else if (!isOnline) {
+      console.error('Not online. Not updating wallet balances');
+      return;
+    }
+    await updateAssetPricesIfNeeded();
+    const now = getCorrectedTimestamp();
+    if (!myData.wallet.timestamp) {
+      myData.wallet.timestamp = 0;
+    }
+    if (now - myData.wallet.timestamp < 5000) {
+      return;
+    }
+
+    // TODO - first update the asset prices from a public API
+
+    let totalWalletNetworth = 0.0;
+
+    // Update balances for each asset and address
+    for (const asset of myData.wallet.assets) {
+      let assetTotalBalance = 0n;
+
+      // Get balance for each address in the asset
+      for (const addr of asset.addresses) {
+        try {
+          const address = longAddress(addr.address);
+          const data = await queryNetwork(`/account/${address}/balance`);
+          console.log('balance', data);
+          // Update address balance
+          addr.balance = data.balance || 0n;
+
+          // Add to asset total (convert to USD using asset price)
+          assetTotalBalance += addr.balance;
+        } catch (error) {
+          console.error(`Error fetching balance for address ${addr.address}:`, error);
+        }
+      }
+      asset.balance = assetTotalBalance;
+      asset.networth = (asset.price * Number(assetTotalBalance)) / Number(wei);
+
+      // Add this asset's total to wallet total
+      totalWalletNetworth += asset.networth;
+    }
+
+    // Update total wallet balance
+    myData.wallet.networth = totalWalletNetworth;
+    myData.wallet.timestamp = now;
+  }
+}
+
+const walletScreen = new WalletScreen();
 
 // create new contact
 /**
@@ -2657,14 +2738,12 @@ class HistoryModal {
     this.modal = document.getElementById('historyModal');
     this.assetSelect = document.getElementById('historyAsset');
     this.transactionList = document.getElementById('transactionList');
-    this.openButton = document.getElementById('openHistoryModal');
     this.closeButton = document.getElementById('closeHistoryModal');
 
     // Cache the form container for scrollToTop
     this.formContainer = this.modal.querySelector('.form-container');
 
     // Setup event listeners
-    this.openButton.addEventListener('click', () => this.open());
     this.closeButton.addEventListener('click', () => this.close());
     this.assetSelect.addEventListener('change', () => this.handleAssetChange());
     this.transactionList.addEventListener('click', (event) => this.handleItemClick(event));
@@ -2678,7 +2757,7 @@ class HistoryModal {
 
   close() {
     this.modal.classList.remove('active');
-    this.openButton.classList.remove('has-notification');
+    walletScreen.openHistoryModalButton.classList.remove('has-notification');
     footer.walletButton.classList.remove('has-notification');
   }
 
@@ -2917,45 +2996,6 @@ function handleFailedPaymentBackdropClick(event) {
   }
 }
 
-// Update wallet view; refresh wallet
-async function updateWalletView() {
-  const walletData = myData.wallet;
-
-  await updateWalletBalances();
-
-  // Update total networth
-  document.getElementById('walletTotalBalance').textContent = (walletData.networth || 0).toFixed(2);
-
-  // Update assets list
-  const assetsList = document.getElementById('assetsList');
-
-  if (!Array.isArray(walletData.assets) || walletData.assets.length === 0) {
-    assetsList.innerHTML = `
-            <div class="empty-state">
-                <div style="font-size: 2rem; margin-bottom: 1rem"></div>
-                <div style="font-weight: bold; margin-bottom: 0.5rem">No Assets Yet</div>
-                <div>Your assets will appear here</div>
-            </div>`;
-    return;
-  }
-
-  assetsList.innerHTML = walletData.assets
-    .map((asset) => {
-      console.log('asset balance', asset, asset.balance);
-      return `
-            <div class="asset-item">
-                <div class="asset-logo"><img src="./media/liberdus_logo_50.png" class="asset-logo"></div>
-                <div class="asset-info">
-                    <div class="asset-name">${asset.name}</div>
-                    <div class="asset-symbol">$${asset.price} / ${asset.symbol}</div>
-                </div>
-                <div class="asset-balance">${(Number(asset.balance) / Number(wei)).toFixed(6)}<br><span class="asset-symbol">$${asset.networth.toFixed(6)}</span></div>
-            </div>
-        `;
-    })
-    .join('');
-}
-
 async function updateAssetPricesIfNeeded() {
   if (!myData || !myData.wallet || !myData.wallet.assets) {
     console.error('No wallet data available to update asset prices');
@@ -3046,8 +3086,8 @@ async function pollChats() {
         await chatsScreen.updateChatList();
       }
 
-      if (document.getElementById('walletScreen')?.classList.contains('active')) {
-        await updateWalletView();
+      if (walletScreen.isActive()) {
+        await walletScreen.updateWalletView();
       }
     } catch (error) {
       console.error('Chat polling error:', error);
@@ -3401,10 +3441,9 @@ async function processChats(chats, keys) {
 
           added += 1;
 
-          const walletScreenActive = document.getElementById('walletScreen')?.classList.contains('active');
           // Update wallet view if it's active
-          if (walletScreenActive) {
-            updateWalletView();
+          if (walletScreen.isActive()) {
+            walletScreen.updateWalletView();
           }
           // update history modal if it's active
           historyModal.refresh();
@@ -3468,12 +3507,11 @@ async function processChats(chats, keys) {
       // Show transfer notification even if no messages were added
       if (hasNewTransfer) {
         // Add notification indicator to Wallet tab if we're not on it
-        if (!document.getElementById('walletScreen').classList.contains('active')) {
+        if (!walletScreen.isActive()) {
           footer.walletButton.classList.add('has-notification');
         }
         // Add notification to openHistoryModal wallet-action-button
-        const historyButton = document.getElementById('openHistoryModal');
-        historyButton.classList.add('has-notification');
+        walletScreen.openHistoryModalButton.classList.add('has-notification');
       }
     }
   }
@@ -4342,7 +4380,7 @@ async function handleConnectivityChange() {
         await contactsScreen.updateContactsList();
 
         // Update wallet with reconnection handling
-        await updateWalletView();
+        await walletScreen.updateWalletView();
       } catch (error) {
         console.error('Failed to update data on reconnect:', error);
         showToast("Some data couldn't be updated. Please refresh if you notice missing information.", 5000, 'warning');
@@ -6157,7 +6195,7 @@ class ValidatorStakingModal {
       const [userAccountData, networkAccountData] = await Promise.all([
         userAddress ? queryNetwork(`/account/${longAddress(userAddress)}`) : Promise.resolve(null), // Fetch User Data if available
         queryNetwork('/account/0000000000000000000000000000000000000000000000000000000000000000'), // Fetch Network Data
-        updateWalletBalances(),
+        walletScreen.updateWalletBalances(),
       ]);
 
       // Extract Raw Data (API values are now actual BigInt objects or other types)
@@ -6751,7 +6789,7 @@ class ChatModal {
     // Set user info
     this.modalTitle.textContent = getContactDisplayName(contact);
 
-    updateWalletBalances();
+    walletScreen.updateWalletBalances();
 
     // update the toll value. Will not await this and it'll update the toll value while the modal is open.
     updateTollValue(address);
@@ -8262,7 +8300,6 @@ const createAccountModal = new CreateAccountModal();
 class SendAssetFormModal {
   constructor() {
     this.modal = document.getElementById('sendAssetFormModal');
-    this.openSendAssetFormModalButton = document.getElementById('openSendAssetFormModal');
     this.closeSendAssetFormModalButton = document.getElementById('closeSendAssetFormModal');
     this.sendForm = document.getElementById('sendForm');
     this.username = null;
@@ -8296,7 +8333,6 @@ class SendAssetFormModal {
    */
   load() {
     // TODO add comment about which send form this is for chat or assets
-    this.openSendAssetFormModalButton.addEventListener('click', this.open.bind(this));
     this.closeSendAssetFormModalButton.addEventListener('click', this.close.bind(this));
     this.sendForm.addEventListener('submit', this.handleSendFormSubmit.bind(this));
     // TODO: need to add check that it's not a back/delete key
@@ -8358,7 +8394,7 @@ class SendAssetFormModal {
       this.username = null;
     }
 
-    await updateWalletBalances(); // Refresh wallet balances first
+    await walletScreen.updateWalletBalances(); // Refresh wallet balances first
     // Get wallet data
     const wallet = myData.wallet;
     // Populate assets dropdown
@@ -9214,8 +9250,7 @@ class ReceiveModal {
     // Create debounced function
     this.debouncedUpdateQRCode = debounce(() => this.updateQRCode(), 300);
 
-    // Modal open/close
-    document.getElementById('openReceiveModal').addEventListener('click', () => this.open());
+    // Modal close
     document.getElementById('closeReceiveModal').addEventListener('click', () => this.close());
     
     // Copy address
@@ -9624,7 +9659,7 @@ async function checkPendingTransactions() {
   }
   // if createAccountModal is open, skip balance change
   if (!createAccountModal.isActive()) {
-    updateWalletBalances();
+    walletScreen.updateWalletBalances();
   }
 }
 
