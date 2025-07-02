@@ -4078,27 +4078,10 @@ class SearchMessagesModal {
     this.modal = document.getElementById('searchModal');
     this.searchInput = document.getElementById('messageSearch');
     this.closeButton = document.getElementById('closeSearchModal');
+    this.searchResults = document.getElementById('searchResults');
 
     this.closeButton.addEventListener('click', () => {this.close();});
     this.searchInput.addEventListener('input', (e) => {this.handleMessageSearchInput(e);});
-    // Handle search input with debounce
-    this.searchInput.addEventListener(
-      'input',
-      debounce((e) => {
-        const searchText = e.target.value.trim();
-        if (searchText.length < 2) {
-          this.displayEmptyState('searchResults', 'No messages found');
-          return;
-        }
-
-        const results = this.searchMessages(searchText);
-        if (results.length === 0) {
-          this.displayEmptyState('searchResults', 'No messages found');
-        } else {
-          this.displaySearchResults(results);
-        }
-      }, 300)
-    );
   }
 
   open() {
@@ -4109,7 +4092,7 @@ class SearchMessagesModal {
   close() {
     this.modal.classList.remove('active');
     this.searchInput.value = '';
-    document.getElementById('searchResults').innerHTML = '';
+    this.searchResults.innerHTML = '';
   }
 
   isActive() {
@@ -4161,7 +4144,7 @@ class SearchMessagesModal {
   handleSearchResultClick(result) {
     try {
       // Close search modal
-      document.getElementById('searchModal').classList.remove('active');
+      this.close();
 
       // Switch to chats view if not already there
       switchView('chats');
@@ -4190,7 +4173,6 @@ class SearchMessagesModal {
   }
 
   displaySearchResults(results) {
-    const searchResults = document.getElementById('searchResults');
     // Create a ul element to properly contain the list items
     const resultsList = document.createElement('ul');
     resultsList.className = 'chat-list';
@@ -4233,20 +4215,18 @@ class SearchMessagesModal {
     });
 
     // Clear and append the new list
-    searchResults.innerHTML = '';
-    searchResults.appendChild(resultsList);
+    this.searchResults.innerHTML = '';
+    this.searchResults.appendChild(resultsList);
   }
 
   handleMessageSearchInput(e) {
-    const searchResults = document.getElementById('searchResults');
-
     // debounced search
     const debouncedSearch = debounce(
       (searchText) => {
         const trimmedText = searchText.trim();
 
         if (!trimmedText) {
-          searchResults.innerHTML = '';
+          this.searchResults.innerHTML = '';
           return;
         }
 
