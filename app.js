@@ -459,6 +459,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Send Asset Modal
   sendAssetFormModal.load();
 
+  // Send Asset Confirm Modal
+  sendAssetConfirmModal.load();
+
   // Receive Modal
   receiveModal.load();
 
@@ -1777,298 +1780,6 @@ async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
   // use ! to return true if the balance is sufficient, false otherwise
   return !hasInsufficientBalance;
 }
-
-// The user has filled out the form to send assets to a recipient and clicked the Send button
-// The recipient account may not exist in myData.contacts and might have to be created
-/**
- * Handle the send asset event
- * @param {Event} event - The event object
- * @returns {Promise<void>}- A promise that resolves when the send asset event is handled
- */
-async function handleSendAsset(event) {
-  event.preventDefault();
-  const confirmButton = document.getElementById('confirmSendButton');
-  const cancelButton = document.getElementById('cancelSendButton');
-  const username = normalizeUsername(document.getElementById('sendToAddress').value);
-
-  // if it's your own username disable the send button
-  if (username == myAccount.username) {
-    confirmButton.disabled = true;
-    showToast('You cannot send assets to yourself', 3000, 'error');
-    return;
-  }
-
-  if (getCorrectedTimestamp() - handleSendAsset.timestamp < 2000 || confirmButton.disabled) {
-    return;
-  }
-
-  confirmButton.disabled = true;
-  cancelButton.disabled = true;
-
-  handleSendAsset.timestamp = getCorrectedTimestamp();
-  const wallet = myData.wallet;
-  const assetIndex = document.getElementById('sendAsset').value; // TODO include the asset id and symbol in the tx
-  const amount = bigxnum2big(wei, document.getElementById('sendAmount').value);
-  const memoIn = document.getElementById('sendMemo').value || '';
-  const memo = memoIn.trim();
-  const keys = myAccount.keys;
-  let toAddress;
-
-  // Validate amount including transaction fee
-  if (!(await validateBalance(amount, assetIndex))) {
-    await getNetworkParams();
-    const txFeeInLIB = parameters.current.transactionFee || 1n * wei;
-    const balance = BigInt(wallet.assets[assetIndex].balance);
-    const amountStr = big2str(amount, 18).slice(0, -16);
-    const feeStr = big2str(txFeeInLIB, 18).slice(0, -16);
-    const balanceStr = big2str(balance, 18).slice(0, -16);
-    showToast(`Insufficient balance: ${amountStr} + ${feeStr} (fee) > ${balanceStr} LIB`, 0, 'error');
-    cancelButton.disabled = false;
-    return;
-  }
-
-  // Validate username - must be username; address not supported
-  if (username.startsWith('0x')) {
-    showToast('Address not supported; enter username instead.', 0, 'error');
-    cancelButton.disabled = false;
-    return;
-  }
-  if (username.length < 3) {
-    showToast('Username too short', 0, 'error');
-    cancelButton.disabled = false;
-    return;
-  }
-  try {
-    // Look up username on network
-    const usernameBytes = utf82bin(username);
-    const usernameHash = hashBytes(usernameBytes);
-    /*
-        const selectedGateway = network.gateways[Math.floor(Math.random() * network.gateways.length)];
-        const response = await fetch(`${selectedGateway.protocol}://${selectedGateway.host}:${selectedGateway.port}/address/${usernameHash}`);
-        const data = await response.json();
-*/
-    const data = await queryNetwork(`/address/${usernameHash}`);
-    if (!data || !data.address) {
-      showToast('Username not found', 0, 'error');
-      cancelButton.disabled = false;
-      return;
-    }
-    toAddress = normalizeAddress(data.address);
-  } catch (error) {
-    console.error('Error looking up username:', error);
-    showToast('Error looking up username', 0, 'error');
-    cancelButton.disabled = false;
-    return;
-  }
-
-  if (!myData.contacts[toAddress]) {
-    createNewContact(toAddress, username, 2);
-  }
-
-  // Get recipient's public key from contacts
-  let recipientPubKey = myData.contacts[toAddress]?.public;
-  let pqRecPubKey = myData.contacts[toAddress]?.pqPublic;
-  let pqEncSharedKey = '';
-  if (!recipientPubKey || !pqRecPubKey) {
-    const recipientInfo = await queryNetwork(`/account/${longAddress(toAddress)}`);
-    if (!recipientInfo?.account?.publicKey) {
-      console.log(`no public key found for recipient ${toAddress}`);
-      cancelButton.disabled = false;
-      return;
-    }
-    if (recipientInfo.account.publicKey) {
-      recipientPubKey = recipientInfo.account.publicKey;
-      myData.contacts[toAddress].public = recipientPubKey;
-    }
-    if (recipientInfo.account.pqPublicKey) {
-      pqRecPubKey = recipientInfo.account.pqPublicKey;
-      myData.contacts[toAddress].pqPublic = pqRecPubKey;
-    }
-  }
-  let dhkey = '';
-  let sharedKeyMethod = 'none';
-  if (recipientPubKey) {
-    dhkey = ecSharedKey(keys.secret, recipientPubKey);
-    sharedKeyMethod = 'ec';
-    if (pqRecPubKey) {
-      // Generate shared secret using ECDH and take first 32 bytes
-      const { cipherText, sharedSecret } = pqSharedKey(pqRecPubKey);
-      const combined = new Uint8Array(dhkey.length + sharedSecret.length);
-      combined.set(dhkey);
-      combined.set(sharedSecret, dhkey.length);
-      dhkey = deriveDhKey(combined);
-      pqEncSharedKey = bin2base64(cipherText);
-      sharedKeyMethod = 'pq';
-    }
-  }
-
-  let encMemo = '';
-  if (memo && sharedKeyMethod !== 'none') {
-    // We purposely do not encrypt/decrypt using browser native crypto functions; all crypto functions must be readable
-    // Encrypt message using shared secret
-    encMemo = encryptChacha(dhkey, memo);
-  }
-
-  // hidden input field retryOfTxId value is not an empty string
-  if (document.getElementById('retryOfPaymentTxId').value) {
-    // remove from myData use txid from hidden field retryOfPaymentTxId
-    removeFailedTx(document.getElementById('retryOfPaymentTxId').value, toAddress);
-
-    // clear the field
-    handleFailedPaymentClick.txid = '';
-    handleFailedPaymentClick.address = '';
-    handleFailedPaymentClick.memo = '';
-    document.getElementById('retryOfPaymentTxId').value = '';
-  }
-
-  // only include the sender info if the recipient is is a friend and has a pqKey
-  let encSenderInfo = '';
-  let senderInfo = '';
-  if (pqRecPubKey && myData.contacts[toAddress]?.friend === 3) {
-    // Create sender info object
-    senderInfo = {
-      username: myAccount.username,
-      name: myData.account.name,
-      email: myData.account.email,
-      phone: myData.account.phone,
-      linkedin: myData.account.linkedin,
-      x: myData.account.x,
-    };
-  } else if (recipientPubKey) {
-    senderInfo = {
-      username: myAccount.username,
-    };
-  } else {
-    senderInfo = { username: myAccount.address };
-  }
-  if (sharedKeyMethod !== 'none') {
-    encSenderInfo = encryptChacha(dhkey, stringify(senderInfo));
-  } else {
-    encSenderInfo = stringify(senderInfo);
-  }
-  // Create message payload
-  const payload = {
-    message: encMemo, // we need to call this field message, so we can use decryptMessage()
-    senderInfo: encSenderInfo,
-    encrypted: true,
-    encryptionMethod: 'xchacha20poly1305',
-    pqEncSharedKey: pqEncSharedKey,
-    sharedKeyMethod: sharedKeyMethod,
-    sent_timestamp: getCorrectedTimestamp(),
-  };
-
-  try {
-    console.log('payload is', payload);
-    // Send the transaction using postAssetTransfer
-    const response = await postAssetTransfer(toAddress, amount, payload, keys);
-
-    if (!response || !response.result || !response.result.success) {
-      const str = response.result.reason;
-      const regex = /toll/i;
-
-      if (str.match(regex) || str.match(/at least/i)) {
-       await sendAssetFormModal.reopen();
-      }
-      throw new Error('Transaction failed');
-    }
-
-    /* if (!response || !response.result || !response.result.success) {
-            alert('Transaction failed: ' + response.result.reason);
-            return;
-        } */
-
-    // Create contact if it doesn't exit
-    /* if (!myData.contacts[toAddress].messages) {
-      const username = document.getElementById('sendToAddress').value;
-      createNewContact(toAddress, username, 2);
-      // TODO can pass the username to createNewConact and get rid of the following line
-      // myData.contacts[toAddress].username = normalizeUsername(recipientInput);
-    } */
-
-    // Add transaction to history
-    const currentTime = getCorrectedTimestamp();
-
-    const newPayment = {
-      txid: response.txid,
-      amount: amount,
-      sign: -1,
-      timestamp: currentTime,
-      address: toAddress,
-      memo: memo,
-      status: 'sent',
-    };
-    insertSorted(wallet.history, newPayment, 'timestamp');
-
-    // Don't try to update the balance here; the tx might not have gone through; let user refresh the balance from the wallet page
-    // Maybe we can set a timer to check on the status of the tx using txid and update the balance if the txid was processed
-    /*
-        // Update local balance after successful transaction
-        fromAddress.balance -= amount;
-        walletData.balance = walletData.assets.reduce((total, asset) =>
-            total + asset.addresses.reduce((sum, addr) => sum + bigxnum2num(addr.balance, asset.price), 0), 0);
-        // Update wallet view and close modal
-        updateWalletView();
-*/
-
-    // --- Create and Insert Sent Transfer Message into contact.messages ---
-    const transferMessage = {
-      timestamp: currentTime,
-      sent_timestamp: currentTime,
-      my: true, // Sent transfer
-      message: memo, // Use the memo as the message content
-      amount: amount, // Use the BigInt amount
-      symbol: 'LIB', // TODO: Use the asset symbol
-      txid: response.txid,
-      status: 'sent',
-    };
-    // Insert the transfer message into the contact's message list, maintaining sort order
-    insertSorted(myData.contacts[toAddress].messages, transferMessage, 'timestamp');
-    // --------------------------------------------------------------
-
-    // --- Update myData.chats to reflect the new message ---
-    const existingChatIndex = myData.chats.findIndex((chat) => chat.address === toAddress);
-    if (existingChatIndex !== -1) {
-      myData.chats.splice(existingChatIndex, 1); // Remove existing entry
-    }
-    // Create the new chat entry
-    const chatUpdate = {
-      address: toAddress,
-      timestamp: currentTime,
-      txid: response.txid,
-    };
-    // Find insertion point to maintain timestamp order (newest first)
-    insertSorted(myData.chats, chatUpdate, 'timestamp');
-    // --- End Update myData.chats ---
-
-    // Update the chat modal to show the newly sent transfer message
-    // Check if the chat modal for this recipient is currently active
-    const inActiveChatWithRecipient = chatModal.address === toAddress && chatModal.isActive();
-
-    if (inActiveChatWithRecipient) {
-      chatModal.appendChatModal(); // Re-render the chat modal and highlight the new item
-    }
-
-    sendAssetFormModal.close();
-    closeSendAssetConfirmModal();
-    document.getElementById('sendToAddress').value = '';
-    document.getElementById('sendAmount').value = '';
-    document.getElementById('sendMemo').value = '';
-    document.getElementById('sendToAddressError').style.display = 'none';
-    // Show history modal after successful transaction
-    historyModal.open();
-    /*
-        const sendToAddressError = document.getElementById('sendToAddressError');
-        if (sendToAddressError) {
-            sendToAddressError.style.display = 'none';
-        }
-*/
-  } catch (error) {
-    console.error('Transaction error:', error);
-    //showToast('Transaction failed. Please try again.', 0, 'error');
-    cancelButton.disabled = false;
-  }
-}
-handleSendAsset.timestamp = getCorrectedTimestamp();
 
 // Sign In Modal Management
 class SignInModal {
@@ -5280,10 +4991,6 @@ class WSManager {
 
 if (!useLongPolling) {
   wsManager = new WSManager();
-}
-
-function closeSendAssetConfirmModal() {
-  document.getElementById('sendAssetConfirmModal').classList.remove('active');
 }
 
 /**
@@ -8743,8 +8450,8 @@ class SendAssetFormModal {
     const assetSymbol = this.assetSelectDropdown.options[this.assetSelectDropdown.selectedIndex].text;
     const amount = this.amountInput.value;
     const memo = this.memoInput.value;
-    const confirmButton = document.getElementById('confirmSendButton');
-    const cancelButton = document.getElementById('cancelSendButton');
+    const confirmButton = sendAssetConfirmModal.confirmSendButton;
+    const cancelButton = sendAssetConfirmModal.cancelButton;
 
     await getNetworkParams();
     const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
@@ -8762,15 +8469,15 @@ class SendAssetFormModal {
     }
 
     // Update confirmation modal with values
-    document.getElementById('confirmAmountUSD').textContent = `≈ $${parseFloat(usdAmount).toFixed(6)} USD`;
-    document.getElementById('confirmRecipient').textContent = this.usernameInput.value;
-    document.getElementById('confirmAmount').textContent = `${libAmount}`;
-    document.getElementById('confirmAsset').textContent = assetSymbol;
+    sendAssetConfirmModal.confirmAmountUSD.textContent = `≈ $${parseFloat(usdAmount).toFixed(6)} USD`;
+    sendAssetConfirmModal.confirmRecipient.textContent = this.usernameInput.value;
+    sendAssetConfirmModal.confirmAmount.textContent = `${libAmount}`;
+    sendAssetConfirmModal.confirmAsset.textContent = assetSymbol;
 
     // Show/hide memo if present
-    const memoGroup = document.getElementById('confirmMemoGroup');
+    const memoGroup = sendAssetConfirmModal.confirmMemoGroup;
     if (memo) {
-      document.getElementById('confirmMemo').textContent = memo;
+      sendAssetConfirmModal.confirmMemo.textContent = memo;
       memoGroup.style.display = 'block';
     } else {
       memoGroup.style.display = 'none';
@@ -8778,7 +8485,7 @@ class SendAssetFormModal {
 
     confirmButton.disabled = false;
     cancelButton.disabled = false;
-    document.getElementById('sendAssetConfirmModal').classList.add('active');
+    sendAssetConfirmModal.open();
   }
 
   /**
@@ -9030,6 +8737,335 @@ class SendAssetFormModal {
 }
 
 const sendAssetFormModal = new SendAssetFormModal();
+
+class SendAssetConfirmModal {
+  constructor() {
+    this.timestamp = getCorrectedTimestamp();
+  }
+
+  load() {
+    this.modal = document.getElementById('sendAssetConfirmModal');
+    this.confirmAmount = document.getElementById('confirmAmount');
+    this.confirmAmountUSD = document.getElementById('confirmAmountUSD');
+    this.confirmAsset = document.getElementById('confirmAsset');
+    this.confirmMemo = document.getElementById('confirmMemo');
+    this.confirmRecipient = document.getElementById('confirmRecipient');
+    this.confirmSendButton = document.getElementById('confirmSendButton');
+    this.closeButton = document.getElementById('closeSendAssetConfirmModal');
+    this.cancelButton = document.getElementById('cancelSendButton');
+    this.confirmMemoGroup = document.getElementById('confirmMemoGroup');
+
+    // Add event listeners for send asset confirmation modal
+    this.closeButton.addEventListener('click', this.close.bind(this));
+    this.confirmSendButton.addEventListener('click', this.handleSendAsset.bind(this));
+    this.cancelButton.addEventListener('click', this.close.bind(this));
+  }
+
+  open() {
+    this.modal.classList.add('active');
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+  }
+  isActive() {
+    return this.modal?.classList.contains('active') || false;
+  }
+
+  // The user has filled out the form to send assets to a recipient and clicked the Send button
+  // The recipient account may not exist in myData.contacts and might have to be created
+  /**
+   * Handle the send asset event
+   * @param {Event} event - The event object
+   * @returns {Promise<void>}- A promise that resolves when the send asset event is handled
+   */
+  async handleSendAsset(event) {
+    event.preventDefault();
+    const confirmButton = this.confirmSendButton;
+    const cancelButton = this.cancelButton;
+    const username = normalizeUsername(sendAssetFormModal.usernameInput.value);
+
+    // if it's your own username disable the send button
+    if (username == myAccount.username) {
+      confirmButton.disabled = true;
+      showToast('You cannot send assets to yourself', 3000, 'error');
+      return;
+    }
+
+    if (getCorrectedTimestamp() - this.timestamp < 2000 || confirmButton.disabled) {
+      return;
+    }
+
+    confirmButton.disabled = true;
+    cancelButton.disabled = true;
+
+    this.timestamp = getCorrectedTimestamp();
+    const wallet = myData.wallet;
+    const assetIndex = sendAssetFormModal.assetSelectDropdown.value; // TODO include the asset id and symbol in the tx
+    const amount = bigxnum2big(wei, sendAssetFormModal.amountInput.value);
+    const memoIn = sendAssetFormModal.memoInput.value || '';
+    const memo = memoIn.trim();
+    const keys = myAccount.keys;
+    let toAddress;
+
+    // Validate amount including transaction fee
+    if (!(await validateBalance(amount, assetIndex))) {
+      await getNetworkParams();
+      const txFeeInLIB = parameters.current.transactionFee || 1n * wei;
+      const balance = BigInt(wallet.assets[assetIndex].balance);
+      const amountStr = big2str(amount, 18).slice(0, -16);
+      const feeStr = big2str(txFeeInLIB, 18).slice(0, -16);
+      const balanceStr = big2str(balance, 18).slice(0, -16);
+      showToast(`Insufficient balance: ${amountStr} + ${feeStr} (fee) > ${balanceStr} LIB`, 0, 'error');
+      cancelButton.disabled = false;
+      return;
+    }
+
+    // Validate username - must be username; address not supported
+    if (username.startsWith('0x')) {
+      showToast('Address not supported; enter username instead.', 0, 'error');
+      cancelButton.disabled = false;
+      return;
+    }
+    if (username.length < 3) {
+      showToast('Username too short', 0, 'error');
+      cancelButton.disabled = false;
+      return;
+    }
+    try {
+      // Look up username on network
+      const usernameBytes = utf82bin(username);
+      const usernameHash = hashBytes(usernameBytes);
+      /*
+          const selectedGateway = network.gateways[Math.floor(Math.random() * network.gateways.length)];
+          const response = await fetch(`${selectedGateway.protocol}://${selectedGateway.host}:${selectedGateway.port}/address/${usernameHash}`);
+          const data = await response.json();
+  */
+      const data = await queryNetwork(`/address/${usernameHash}`);
+      if (!data || !data.address) {
+        showToast('Username not found', 0, 'error');
+        cancelButton.disabled = false;
+        return;
+      }
+      toAddress = normalizeAddress(data.address);
+    } catch (error) {
+      console.error('Error looking up username:', error);
+      showToast('Error looking up username', 0, 'error');
+      cancelButton.disabled = false;
+      return;
+    }
+
+    if (!myData.contacts[toAddress]) {
+      createNewContact(toAddress, username, 2);
+    }
+
+    // Get recipient's public key from contacts
+    let recipientPubKey = myData.contacts[toAddress]?.public;
+    let pqRecPubKey = myData.contacts[toAddress]?.pqPublic;
+    let pqEncSharedKey = '';
+    if (!recipientPubKey || !pqRecPubKey) {
+      const recipientInfo = await queryNetwork(`/account/${longAddress(toAddress)}`);
+      if (!recipientInfo?.account?.publicKey) {
+        console.log(`no public key found for recipient ${toAddress}`);
+        cancelButton.disabled = false;
+        return;
+      }
+      if (recipientInfo.account.publicKey) {
+        recipientPubKey = recipientInfo.account.publicKey;
+        myData.contacts[toAddress].public = recipientPubKey;
+      }
+      if (recipientInfo.account.pqPublicKey) {
+        pqRecPubKey = recipientInfo.account.pqPublicKey;
+        myData.contacts[toAddress].pqPublic = pqRecPubKey;
+      }
+    }
+    let dhkey = '';
+    let sharedKeyMethod = 'none';
+    if (recipientPubKey) {
+      dhkey = ecSharedKey(keys.secret, recipientPubKey);
+      sharedKeyMethod = 'ec';
+      if (pqRecPubKey) {
+        // Generate shared secret using ECDH and take first 32 bytes
+        const { cipherText, sharedSecret } = pqSharedKey(pqRecPubKey);
+        const combined = new Uint8Array(dhkey.length + sharedSecret.length);
+        combined.set(dhkey);
+        combined.set(sharedSecret, dhkey.length);
+        dhkey = deriveDhKey(combined);
+        pqEncSharedKey = bin2base64(cipherText);
+        sharedKeyMethod = 'pq';
+      }
+    }
+
+    let encMemo = '';
+    if (memo && sharedKeyMethod !== 'none') {
+      // We purposely do not encrypt/decrypt using browser native crypto functions; all crypto functions must be readable
+      // Encrypt message using shared secret
+      encMemo = encryptChacha(dhkey, memo);
+    }
+
+    // hidden input field retryOfTxId value is not an empty string
+    if (sendAssetFormModal.retryTxIdInput.value) {
+      // remove from myData use txid from hidden field retryOfPaymentTxId
+      removeFailedTx(sendAssetFormModal.retryTxIdInput.value, toAddress);
+
+      // clear the field
+      handleFailedPaymentClick.txid = '';
+      handleFailedPaymentClick.address = '';
+      handleFailedPaymentClick.memo = '';
+      sendAssetFormModal.retryTxIdInput.value = '';
+    }
+
+    // only include the sender info if the recipient is is a friend and has a pqKey
+    let encSenderInfo = '';
+    let senderInfo = '';
+    if (pqRecPubKey && myData.contacts[toAddress]?.friend === 3) {
+      // Create sender info object
+      senderInfo = {
+        username: myAccount.username,
+        name: myData.account.name,
+        email: myData.account.email,
+        phone: myData.account.phone,
+        linkedin: myData.account.linkedin,
+        x: myData.account.x,
+      };
+    } else if (recipientPubKey) {
+      senderInfo = {
+        username: myAccount.username,
+      };
+    } else {
+      senderInfo = { username: myAccount.address };
+    }
+    if (sharedKeyMethod !== 'none') {
+      encSenderInfo = encryptChacha(dhkey, stringify(senderInfo));
+    } else {
+      encSenderInfo = stringify(senderInfo);
+    }
+    // Create message payload
+    const payload = {
+      message: encMemo, // we need to call this field message, so we can use decryptMessage()
+      senderInfo: encSenderInfo,
+      encrypted: true,
+      encryptionMethod: 'xchacha20poly1305',
+      pqEncSharedKey: pqEncSharedKey,
+      sharedKeyMethod: sharedKeyMethod,
+      sent_timestamp: getCorrectedTimestamp(),
+    };
+
+    try {
+      console.log('payload is', payload);
+      // Send the transaction using postAssetTransfer
+      const response = await postAssetTransfer(toAddress, amount, payload, keys);
+
+      if (!response || !response.result || !response.result.success) {
+        const str = response.result.reason;
+        const regex = /toll/i;
+
+        if (str.match(regex) || str.match(/at least/i)) {
+          await sendAssetFormModal.reopen();
+        }
+        throw new Error('Transaction failed');
+      }
+
+      /* if (!response || !response.result || !response.result.success) {
+              alert('Transaction failed: ' + response.result.reason);
+              return;
+          } */
+
+      // Create contact if it doesn't exit
+      /* if (!myData.contacts[toAddress].messages) {
+        const username = document.getElementById('sendToAddress').value;
+        createNewContact(toAddress, username, 2);
+        // TODO can pass the username to createNewConact and get rid of the following line
+        // myData.contacts[toAddress].username = normalizeUsername(recipientInput);
+      } */
+
+      // Add transaction to history
+      const currentTime = getCorrectedTimestamp();
+
+      const newPayment = {
+        txid: response.txid,
+        amount: amount,
+        sign: -1,
+        timestamp: currentTime,
+        address: toAddress,
+        memo: memo,
+        status: 'sent',
+      };
+      insertSorted(wallet.history, newPayment, 'timestamp');
+
+      // Don't try to update the balance here; the tx might not have gone through; let user refresh the balance from the wallet page
+      // Maybe we can set a timer to check on the status of the tx using txid and update the balance if the txid was processed
+      /*
+          // Update local balance after successful transaction
+          fromAddress.balance -= amount;
+          walletData.balance = walletData.assets.reduce((total, asset) =>
+              total + asset.addresses.reduce((sum, addr) => sum + bigxnum2num(addr.balance, asset.price), 0), 0);
+          // Update wallet view and close modal
+          updateWalletView();
+  */
+
+      // --- Create and Insert Sent Transfer Message into contact.messages ---
+      const transferMessage = {
+        timestamp: currentTime,
+        sent_timestamp: currentTime,
+        my: true, // Sent transfer
+        message: memo, // Use the memo as the message content
+        amount: amount, // Use the BigInt amount
+        symbol: 'LIB', // TODO: Use the asset symbol
+        txid: response.txid,
+        status: 'sent',
+      };
+      // Insert the transfer message into the contact's message list, maintaining sort order
+      insertSorted(myData.contacts[toAddress].messages, transferMessage, 'timestamp');
+      // --------------------------------------------------------------
+
+      // --- Update myData.chats to reflect the new message ---
+      const existingChatIndex = myData.chats.findIndex((chat) => chat.address === toAddress);
+      if (existingChatIndex !== -1) {
+        myData.chats.splice(existingChatIndex, 1); // Remove existing entry
+      }
+      // Create the new chat entry
+      const chatUpdate = {
+        address: toAddress,
+        timestamp: currentTime,
+        txid: response.txid,
+      };
+      // Find insertion point to maintain timestamp order (newest first)
+      insertSorted(myData.chats, chatUpdate, 'timestamp');
+      // --- End Update myData.chats ---
+
+      // Update the chat modal to show the newly sent transfer message
+      // Check if the chat modal for this recipient is currently active
+      const inActiveChatWithRecipient = chatModal.address === toAddress && chatModal.isActive();
+
+      if (inActiveChatWithRecipient) {
+        chatModal.appendChatModal(); // Re-render the chat modal and highlight the new item
+      }
+
+      sendAssetFormModal.close();
+      this.close();
+      sendAssetFormModal.usernameInput.value = '';
+      sendAssetFormModal.amountInput.value = '';
+      sendAssetFormModal.memoInput.value = '';
+      sendAssetFormModal.usernameAvailable.style.display = 'none';
+
+      // Show history modal after successful transaction
+      historyModal.open();
+      /*
+          const sendToAddressError = document.getElementById('sendToAddressError');
+          if (sendToAddressError) {
+              sendToAddressError.style.display = 'none';
+          }
+  */
+    } catch (error) {
+      console.error('Transaction error:', error);
+      //showToast('Transaction failed. Please try again.', 0, 'error');
+      cancelButton.disabled = false;
+    }
+  }
+}
+
+const sendAssetConfirmModal = new SendAssetConfirmModal();
 
 class ReceiveModal {
   constructor() {
