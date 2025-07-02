@@ -425,11 +425,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Account Form Modal
   myProfileModal.load();
 
-  document.getElementById('openExplorer').addEventListener('click', () => {window.open('./explorer', '_blank');});
-  document.getElementById('openMonitor').addEventListener('click', () => {
-    window.open('./network', '_blank');
-  });
-
   restoreAccountModal.load();
 
   // Validator Modals
@@ -490,7 +485,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('switchToContacts').addEventListener('click', () => switchView('contacts'));
   document.getElementById('switchToWallet').addEventListener('click', () => switchView('wallet'));
 
-  document.getElementById('handleSignOut').addEventListener('click', handleSignOut);
   document.getElementById('closeContactInfoModal').addEventListener('click', () => contactInfoModal.close());
 
   // add event listener for back-button presses to prevent shift+tab
@@ -613,7 +607,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function handleUnload() {
   console.log('in handleUnload');
-  if (handleSignOut.exit) {
+  if (menuModal.isSignoutExit) {
     return;
   } // User selected to Signout; state was already saved
   else {
@@ -637,7 +631,7 @@ function handleBeforeUnload(e) {
   }
 
   saveState();
-  if (handleSignOut.exit) {
+  if (menuModal.isSignoutExit) {
     window.removeEventListener('beforeunload', handleBeforeUnload);
     return;
   } // user selected to Signout; state was already saved
@@ -660,7 +654,7 @@ async function handleVisibilityChange() {
       const contact = myData.contacts[chatModal.address];
       chatModal.lastMessageCount = contact?.messages?.length || 0;
     }
-    if (handleSignOut.exit) {
+    if (menuModal.isSignoutExit) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       return;
     }
@@ -1349,7 +1343,9 @@ async function updateContactsList() {
 
 
 class MenuModal {
-  constructor() {}
+  constructor() {
+    this.isSignoutExit = false;
+  }
   load() {
     this.modal = document.getElementById('menuModal');
     this.closeButton = document.getElementById('closeMenu');
@@ -1357,7 +1353,7 @@ class MenuModal {
     this.profileButton = document.getElementById('openAccountForm');
     this.profileButton.addEventListener('click', () => myProfileModal.open());
     this.tollButton = document.getElementById('openToll');
-    this.tollButton.addEventListener('click', () => myTollModal.open());
+    this.tollButton.addEventListener('click', () => tollModal.open());
     this.backupButton = document.getElementById('openExportForm');
     this.backupButton.addEventListener('click', () => backupAccountModal.open());
     this.validatorButton = document.getElementById('openValidator');
@@ -1375,7 +1371,7 @@ class MenuModal {
     this.aboutButton = document.getElementById('openAbout');
     this.aboutButton.addEventListener('click', () => aboutModal.open());
     this.signOutButton = document.getElementById('handleSignOut');
-    this.signOutButton.addEventListener('click', handleSignOut);
+    this.signOutButton.addEventListener('click', () => this.handleSignOut());
   }
   open() {
     this.modal.classList.add('active');
@@ -1386,6 +1382,74 @@ class MenuModal {
   }
   isActive() {
     return this.modal.classList.contains('active');
+  }
+  handleSignOut() {
+    // Clear intervals
+    if (updateWebSocketIndicatorIntervalId && wsManager) {
+      clearInterval(updateWebSocketIndicatorIntervalId);
+      updateWebSocketIndicatorIntervalId = null;
+    }
+    if (checkPendingTransactionsIntervalId) {
+      clearInterval(checkPendingTransactionsIntervalId);
+      checkPendingTransactionsIntervalId = null;
+    }
+    if (getSystemNoticeIntervalId) {
+      clearInterval(getSystemNoticeIntervalId);
+      getSystemNoticeIntervalId = null;
+    }
+    // Stop camera if it's running
+    if (typeof scanQRModal !== 'undefined' && scanQRModal.camera.scanInterval) {
+      scanQRModal.stopCamera();
+    }
+
+    //    const shouldLeave = confirm('Do you want to leave this page?');
+    //    if (shouldLeave == false) { return }
+
+    // Clean up WebSocket connection
+    if (wsManager) {
+      wsManager.disconnect();
+      wsManager = null;
+    }
+
+    // Save myData to localStorage if it exists
+    saveState();
+    /*
+      if (myData && myAccount) {
+          localStorage.setItem(`${myAccount.username}_${myAccount.netid}`, stringify(myData));
+      }
+  */
+
+    // Close all modals
+    menuModal.close();
+    document.getElementById('accountModal').classList.remove('active');
+
+    // Hide header and footer
+    document.getElementById('header').classList.remove('active');
+    footer.close();
+    footer.newChatButton.classList.remove('visible');
+
+    // Reset header text
+    document.querySelector('.app-name').textContent = 'Liberdus';
+
+    // Hide all app screens
+    document.querySelectorAll('.app-screen').forEach((screen) => {
+      screen.classList.remove('active');
+    });
+
+    // Show welcome screen
+    document.getElementById('welcomeScreen').style.display = 'flex';
+
+    this.isSignoutExit = true;
+
+    // Add offline fallback
+    if (!navigator.onLine) {
+      // Just reset the UI state without clearing storage
+      document.getElementById('welcomeScreen').classList.add('active');
+      return;
+    }
+
+    // Only reload if online
+    window.location.reload();
   }
 }
 
@@ -2689,76 +2753,6 @@ class HistoryModal {
 
 // Create singleton instance
 const historyModal = new HistoryModal();
-
-function handleSignOut() {
-  // Clear intervals
-  if (updateWebSocketIndicatorIntervalId && wsManager) {
-    clearInterval(updateWebSocketIndicatorIntervalId);
-    updateWebSocketIndicatorIntervalId = null;
-  }
-  if (checkPendingTransactionsIntervalId) {
-    clearInterval(checkPendingTransactionsIntervalId);
-    checkPendingTransactionsIntervalId = null;
-  }
-  if (getSystemNoticeIntervalId) {
-    clearInterval(getSystemNoticeIntervalId);
-    getSystemNoticeIntervalId = null;
-  }
-  // Stop camera if it's running
-  if (typeof scanQRModal !== 'undefined' && scanQRModal.camera.scanInterval) {
-    scanQRModal.stopCamera();
-  }
-
-  //    const shouldLeave = confirm('Do you want to leave this page?');
-  //    if (shouldLeave == false) { return }
-
-  // Clean up WebSocket connection
-  if (wsManager) {
-    wsManager.disconnect();
-    wsManager = null;
-  }
-
-  // Save myData to localStorage if it exists
-  saveState();
-  /*
-    if (myData && myAccount) {
-        localStorage.setItem(`${myAccount.username}_${myAccount.netid}`, stringify(myData));
-    }
-*/
-
-  // Close all modals
-  menuModal.close();
-  document.getElementById('accountModal').classList.remove('active');
-
-  // Hide header and footer
-  document.getElementById('header').classList.remove('active');
-  footer.close();
-  footer.newChatButton.classList.remove('visible');
-
-  // Reset header text
-  document.querySelector('.app-name').textContent = 'Liberdus';
-
-  // Hide all app screens
-  document.querySelectorAll('.app-screen').forEach((screen) => {
-    screen.classList.remove('active');
-  });
-
-  // Show welcome screen
-  document.getElementById('welcomeScreen').style.display = 'flex';
-
-  handleSignOut.exit = true;
-
-  // Add offline fallback
-  if (!navigator.onLine) {
-    // Just reset the UI state without clearing storage
-    document.getElementById('welcomeScreen').classList.add('active');
-    return;
-  }
-
-  // Only reload if online
-  window.location.reload();
-}
-handleSignOut.exit = false;
 
 function handleFailedPaymentClick(txid, element) {
   console.log('handleFailedPaymentClick', txid);
@@ -5265,7 +5259,6 @@ class RemoveAccountModal {
   load() {
     // called when the DOM is loaded; can setup event handlers here
     this.modal = document.getElementById('removeAccountModal');
-    document.getElementById('openRemoveAccount').addEventListener('click', () => this.open());
     document.getElementById('closeRemoveAccountModal').addEventListener('click', () => this.close());
     document.getElementById('confirmRemoveAccount').addEventListener('click', () => this.submit());
   }
@@ -5326,7 +5319,6 @@ class BackupAccountModal {
   load() {
     // called when the DOM is loaded; can setup event handlers here
     this.modal = document.getElementById('exportModal');
-    document.getElementById('openExportForm').addEventListener('click', () => this.open());
     document.getElementById('closeExportForm').addEventListener('click', () => this.close());
     document.getElementById('exportForm').addEventListener('submit', (event) => this.handleSubmit(event));
   }
@@ -5471,13 +5463,11 @@ class TollModal {
     this.minTollDisplay = document.getElementById('minTollDisplay');
     this.newTollAmountInputElement = document.getElementById('newTollAmountInput');
     this.toggleTollCurrencyElement = document.getElementById('toggleTollCurrency');
-    this.openTollElement = document.getElementById('openToll');
     this.warningMessageElement = document.getElementById('tollWarningMessage');
     this.saveButton = document.getElementById('saveNewTollButton');
   }
 
   load() {
-    this.openTollElement.addEventListener('click', () => this.open());
     document.getElementById('closeTollModal').addEventListener('click', () => this.close());
     this.toggleTollCurrencyElement.addEventListener('click', (event) => this.handleToggleTollCurrency(event));
     document.getElementById('tollForm').addEventListener('submit', (event) => this.saveAndPostNewToll(event));
@@ -5768,7 +5758,6 @@ class InviteModal {
 
   load() {
     // Set up event listeners
-    document.getElementById('openInvite').addEventListener('click', () => this.open());
     document.getElementById('closeInviteModal').addEventListener('click', () => this.close());
     document.getElementById('inviteForm').addEventListener('submit', (event) => this.handleSubmit(event));
 
@@ -5850,7 +5839,6 @@ class AboutModal {
 
   load() {
     // Set up event listeners
-    document.getElementById('openAbout').addEventListener('click', () => this.open());
     document.getElementById('closeAboutModal').addEventListener('click', () => this.close());
 
     // Set version and network information once during initialization
@@ -5876,7 +5864,6 @@ class ContactModal {
   }
 
   load() {
-    document.getElementById('openContact').addEventListener('click', () => this.open());
     document.getElementById('closeContactModal').addEventListener('click', () => this.close());
     document.getElementById('submitFeedback').addEventListener('click', () => {
       window.open('https://github.com/liberdus/web-client-v2/issues', '_blank');
@@ -5906,7 +5893,6 @@ class MyProfileModal {
     // called when the DOM is loaded; can setup event handlers here
     this.modal = document.getElementById('accountModal');
     this.closeButton = document.getElementById('closeAccountForm');
-    document.getElementById('openAccountForm').addEventListener('click', () => this.open());
     this.closeButton.addEventListener('click', () => this.close());
     document.getElementById('accountForm').addEventListener('submit', (event) => this.handleSubmit(event));
     this.submitButton = document.querySelector('#accountForm .update-button');
@@ -6063,7 +6049,6 @@ class ValidatorStakingModal {
     this.unstakeButton.addEventListener('click', () => this.handleUnstake());
 
     // Add listeners for opening and closing the modal
-    document.getElementById('openValidator').addEventListener('click', () => this.open());
     this.backButton.addEventListener('click', () => this.close());
   }
 
