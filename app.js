@@ -391,11 +391,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   aboutModal.load();
   contactModal.load();
 
-  // Sign In Modal
-  signInBtn.addEventListener('click', () => signInModal.open());
-
   // Create Account Modal
-  createAccountBtn.addEventListener('click', () => createAccountModal.openWithReset());
   createAccountModal.load();
 
   // Account Form Modal
