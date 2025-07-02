@@ -3943,11 +3943,11 @@ class SearchContactsModal {
             return;
           }
 
-          const results = searchContacts(searchText);
+          const results = this.searchContacts(searchText);
           if (results.length === 0) {
             searchMessagesModal.displayEmptyState('contactSearchResults', 'No contacts found');
           } else {
-            displayContactResults(results, searchText);
+            this.displayContactResults(results, searchText);
           }
         },
         (searchText) => (searchText.length === 1 ? 600 : 300)
@@ -4073,110 +4073,6 @@ class SearchContactsModal {
 }
 
 const searchContactsModal = new SearchContactsModal();
-
-
-// Contact search functions
-function searchContacts(searchText) {
-  if (!searchText || !myData?.contacts) return [];
-
-  const results = [];
-  const searchLower = searchText.toLowerCase();
-
-  // Search through all contacts
-  Object.entries(myData.contacts).forEach(([address, contact]) => {
-    // Fields to search through
-    const searchFields = [
-      contact.username,
-      contact.name,
-      contact.email,
-      contact.phone,
-      contact.linkedin,
-      contact.x,
-    ].filter(Boolean); // Remove null/undefined values
-
-    // Check if any field matches
-    const matches = searchFields.some((field) => field.toLowerCase().includes(searchLower));
-
-    if (matches) {
-      // Determine match type for sorting
-      const exactMatch = searchFields.some((field) => field.toLowerCase() === searchLower);
-      const startsWithMatch = searchFields.some((field) => field.toLowerCase().startsWith(searchLower));
-
-      results.push({
-        ...contact,
-        address,
-        matchType: exactMatch ? 2 : startsWithMatch ? 1 : 0,
-      });
-    }
-  });
-
-  // Sort results by match type and then alphabetically by username
-  return results.sort((a, b) => {
-    if (a.matchType !== b.matchType) {
-      return b.matchType - a.matchType;
-    }
-    return (a.username || '').localeCompare(b.username || '');
-  });
-}
-
-function displayContactResults(results, searchText) {
-  const resultsContainer = document.getElementById('contactSearchResults');
-  resultsContainer.innerHTML = '';
-
-  results.forEach(async (contact) => {
-    const contactElement = document.createElement('div');
-    contactElement.className = 'chat-item contact-item';
-
-    // Generate identicon for the contact
-    const identicon = await generateIdenticon(contact.address);
-
-    // Determine which field matched for display
-    const matchedField = [
-      { field: 'username', value: contact.username },
-      { field: 'name', value: contact.name },
-      { field: 'email', value: contact.email },
-      { field: 'phone', value: contact.phone },
-      { field: 'linkedin', value: contact.linkedin },
-      { field: 'x', value: contact.x },
-    ].find((f) => f.value && f.value.toLowerCase().includes(searchText.toLowerCase()));
-
-    // Create match preview with label and highlighted matched value
-    const matchPreview = matchedField
-      ? `${matchedField.field}: ${matchedField.value.replace(
-          new RegExp(searchText, 'gi'),
-          (match) => `<mark>${match}</mark>`
-        )}`
-      : '';
-    const displayedName = getContactDisplayName(contact);
-
-    contactElement.innerHTML = `
-            <div class="chat-avatar">
-                ${identicon}
-            </div>
-            <div class="chat-content">
-                <div class="chat-header">
-                    <span class="chat-name">${displayedName}</span>
-                </div>
-                <div class="chat-message">
-                    <span class="match-label">${matchPreview}</span>
-                </div>
-            </div>
-        `;
-
-    // Add click handler to show contact info
-    contactElement.addEventListener('click', () => {
-      // clear search results and input contactSearchResults
-      document.getElementById('contactSearchResults').innerHTML = '';
-      document.getElementById('contactSearch').value = '';
-      // Create display info and open contact info modal
-      contactInfoModal.open(createDisplayInfo(contact));
-      // Close the search modal
-      document.getElementById('contactSearchModal').classList.remove('active');
-    });
-
-    resultsContainer.appendChild(contactElement);
-  });
-}
 
 // Create a display info object from a contact object
 function createDisplayInfo(contact) {
