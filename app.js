@@ -9395,7 +9395,6 @@ async function getSystemNotice() {
 
     const timestamp = parseInt(lines[0]);
     if (isNaN(timestamp)) {
-      console.warn('Invalid timestamp in notice file');
       return;
     }
 
