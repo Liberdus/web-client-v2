@@ -372,35 +372,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('beforeunload', handleBeforeUnload);
   document.addEventListener('visibilitychange', handleVisibilityChange); // Keep as document
 
-  // Check for existing accounts and arrange welcome buttons
-  const usernames = getAvailableUsernames();
-  const hasAccounts = usernames.length > 0;
-
-  const signInBtn = document.getElementById('signInButton');
-  const createAccountBtn = document.getElementById('createAccountButton');
-  const importAccountBtn = document.getElementById('importAccountButton');
-  const welcomeButtons = document.querySelector('.welcome-buttons');
-
-  // Reorder buttons based on accounts existence
-  if (hasAccounts) {
-    welcomeButtons.innerHTML = ''; // Clear existing order
-    signInBtn.classList.remove('hidden');
-    createAccountBtn.classList.remove('hidden');
-    importAccountBtn.classList.remove('hidden');
-    welcomeButtons.appendChild(signInBtn);
-    welcomeButtons.appendChild(createAccountBtn);
-    welcomeButtons.appendChild(importAccountBtn);
-    signInBtn.classList.add('primary-button');
-    signInBtn.classList.remove('secondary-button');
-  } else {
-    welcomeButtons.innerHTML = ''; // Clear existing order
-    createAccountBtn.classList.remove('hidden');
-    importAccountBtn.classList.remove('hidden');
-    welcomeButtons.appendChild(createAccountBtn);
-    welcomeButtons.appendChild(importAccountBtn);
-    createAccountBtn.classList.add('primary-button');
-    createAccountBtn.classList.remove('secondary-button');
-  }
+  // Welcome Screen
+  welcomeScreen.load()
 
   // Add event listeners
   document.getElementById('toggleMenu').addEventListener('click', () => menuModal.open());
@@ -919,6 +892,64 @@ async function updateWalletBalances() {
   myData.wallet.timestamp = now;
 }
 
+class WelcomeScreen {
+  constructor() {}
+
+  load() {
+    this.screen = document.getElementById('welcomeScreen');
+    this.signInButton = document.getElementById('signInButton');
+    this.createAccountButton = document.getElementById('createAccountButton');
+    this.importAccountButton = document.getElementById('importAccountButton');
+    this.welcomeButtons = document.querySelector('.welcome-buttons');
+    
+    this.signInButton.addEventListener('click', () => signInModal.open());
+    this.createAccountButton.addEventListener('click', () => createAccountModal.openWithReset());
+    this.importAccountButton.addEventListener('click', () => restoreAccountModal.open());
+
+    this.orderButtons();
+  }
+
+  open() {
+    this.screen.style.display = 'flex';
+  }
+
+  close() {
+    this.screen.style.display = 'none';
+  }
+
+  isActive() {
+    return this.screen.style.display === 'flex';
+  }
+
+  orderButtons() {
+    // Check for existing accounts and arrange welcome buttons
+    const usernames = getAvailableUsernames();
+    const hasAccounts = usernames.length > 0;
+    // Reorder buttons based on accounts existence
+    if (hasAccounts) {
+      this.welcomeButtons.innerHTML = ''; // Clear existing order
+      this.signInButton.classList.remove('hidden');
+      this.createAccountButton.classList.remove('hidden');
+      this.importAccountButton.classList.remove('hidden');
+      this.welcomeButtons.appendChild(this.signInButton);
+      this.welcomeButtons.appendChild(this.createAccountButton);
+      this.welcomeButtons.appendChild(this.importAccountButton);
+      this.signInButton.classList.add('primary-button');
+      this.signInButton.classList.remove('secondary-button');
+    } else {
+      this.welcomeButtons.innerHTML = ''; // Clear existing order
+      this.createAccountButton.classList.remove('hidden');
+      this.importAccountButton.classList.remove('hidden');
+      this.welcomeButtons.appendChild(this.createAccountButton);
+      this.welcomeButtons.appendChild(this.importAccountButton);
+      this.createAccountButton.classList.add('primary-button');
+      this.createAccountButton.classList.remove('secondary-button');
+    }
+  }
+}
+
+const welcomeScreen = new WelcomeScreen
+
 class Footer {
   constructor() {
     // No DOM dependencies in constructor
@@ -945,6 +976,7 @@ class Footer {
 
   close() {
     this.footer.classList.remove('active');
+    welcomeScreen.screen.style.display = 'none';
   }
 
   async switchView(view) {
@@ -1460,14 +1492,13 @@ class MenuModal {
     });
 
     // Show welcome screen
-    document.getElementById('welcomeScreen').style.display = 'flex';
+    welcomeScreen.open();
 
     this.isSignoutExit = true;
 
     // Add offline fallback
     if (!navigator.onLine) {
       // Just reset the UI state without clearing storage
-      document.getElementById('welcomeScreen').classList.add('active');
       return;
     }
 
@@ -2080,7 +2111,7 @@ class SignInModal {
     }
     // Close modal and proceed to app
     this.close();
-    document.getElementById('welcomeScreen').style.display = 'none';
+    welcomeScreen.close();
     await footer.switchView('chats'); // Default view
   }
 
@@ -5393,7 +5424,6 @@ class RestoreAccountModal {
   load() {
     // called when the DOM is loaded; can setup event handlers here
     this.modal = document.getElementById('importModal');
-    document.getElementById('importAccountButton').addEventListener('click', () => this.open());
     document.getElementById('closeImportForm').addEventListener('click', () => this.close());
     document.getElementById('importForm').addEventListener('submit', (event) => this.handleSubmit(event));
   }
