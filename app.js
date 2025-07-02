@@ -403,8 +403,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Add event listeners
-  document.getElementById('toggleMenu').addEventListener('click', toggleMenu);
-  document.getElementById('closeMenu').addEventListener('click', toggleMenu);
+  document.getElementById('toggleMenu').addEventListener('click', () => menuModal.open());
 
   // Footer
   footer.load();
@@ -426,9 +425,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Account Form Modal
   myProfileModal.load();
 
-  document.getElementById('openExplorer').addEventListener('click', () => {
-    window.open('./explorer', '_blank');
-  });
+  document.getElementById('openExplorer').addEventListener('click', () => {window.open('./explorer', '_blank');});
   document.getElementById('openMonitor').addEventListener('click', () => {
     window.open('./network', '_blank');
   });
@@ -485,6 +482,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // History Modal
   historyModal.load();
+
+  // Menu Modal
+  menuModal.load();
+
+  document.getElementById('switchToChats').addEventListener('click', () => switchView('chats'));
+  document.getElementById('switchToContacts').addEventListener('click', () => switchView('contacts'));
+  document.getElementById('switchToWallet').addEventListener('click', () => switchView('wallet'));
 
   document.getElementById('handleSignOut').addEventListener('click', handleSignOut);
   document.getElementById('closeContactInfoModal').addEventListener('click', () => contactInfoModal.close());
@@ -1343,10 +1347,49 @@ async function updateContactsList() {
   });
 }
 
-function toggleMenu() {
-  document.getElementById('menuModal').classList.toggle('active');
-  //    document.getElementById('accountModal').classList.remove('active');
+
+class MenuModal {
+  constructor() {}
+  load() {
+    this.modal = document.getElementById('menuModal');
+    this.closeButton = document.getElementById('closeMenu');
+    this.closeButton.addEventListener('click', () => this.close());
+    this.profileButton = document.getElementById('openAccountForm');
+    this.profileButton.addEventListener('click', () => myProfileModal.open());
+    this.tollButton = document.getElementById('openToll');
+    this.tollButton.addEventListener('click', () => myTollModal.open());
+    this.backupButton = document.getElementById('openExportForm');
+    this.backupButton.addEventListener('click', () => backupAccountModal.open());
+    this.validatorButton = document.getElementById('openValidator');
+    this.validatorButton.addEventListener('click', () => validatorStakingModal.open());
+    this.inviteButton = document.getElementById('openInvite');
+    this.inviteButton.addEventListener('click', () => inviteModal.open());
+    this.explorerButton = document.getElementById('openExplorer');
+    this.explorerButton.addEventListener('click', () => {window.open('./explorer', '_blank');});
+    this.networkButton = document.getElementById('openMonitor');
+    this.networkButton.addEventListener('click', () => {window.open('./network', '_blank');});
+    this.removeButton = document.getElementById('openRemoveAccount');
+    this.removeButton.addEventListener('click', () => removeAccountModal.open());
+    this.contactUsButton = document.getElementById('openContact');
+    this.contactUsButton.addEventListener('click', () => contactModal.open());
+    this.aboutButton = document.getElementById('openAbout');
+    this.aboutButton.addEventListener('click', () => aboutModal.open());
+    this.signOutButton = document.getElementById('handleSignOut');
+    this.signOutButton.addEventListener('click', handleSignOut);
+  }
+  open() {
+    this.modal.classList.add('active');
+  }
+  close() {
+    
+    this.modal.classList.remove('active');  
+  }
+  isActive() {
+    return this.modal.classList.contains('active');
+  }
 }
+
+const menuModal = new MenuModal();
 
 // create new contact
 /**
@@ -2684,7 +2727,7 @@ function handleSignOut() {
 */
 
   // Close all modals
-  document.getElementById('menuModal').classList.remove('active');
+  menuModal.close();
   document.getElementById('accountModal').classList.remove('active');
 
   // Hide header and footer
