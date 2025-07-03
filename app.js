@@ -6956,7 +6956,6 @@ class ChatModal {
    */
   refreshCurrentView(txid) {
     // contactAddress is kept for potential future use but not needed for this txid-based logic
-    const chatsScreen = document.getElementById('chatsScreen');
     const messagesList = this.modal ? this.messagesList : null;
 
     // 1. Refresh History Modal if active
@@ -7243,7 +7242,7 @@ class NewChatModal {
   closeNewChatModal() {
     this.modal.classList.remove('active');
     this.newChatForm.reset();
-    if (document.getElementById('chatsScreen').classList.contains('active')) {
+    if (chatsScreen.isActive()) {
       footer.newChatButton.classList.add('visible');
     }
     if (contactsScreen.isActive()) {
