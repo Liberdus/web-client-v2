@@ -8955,16 +8955,17 @@ class FailedTransactionModal {
     this.modal.classList.add('active');
   }
 
+  close() {
+    this.modal.classList.remove('active');
+  }
+
   closeAndClearState() {
-    const failedTransactionModal = document.getElementById('failedTransactionModal');
-    if (failedTransactionModal) {
-      failedTransactionModal.classList.remove('active');
-    }
+    this.close();
     // Clear the stored values when modal is closed
     this.txid = '';
     this.address = '';
     this.memo = '';
-    //open.assetID = '';
+    //this.assetID = '';
   }
   
   /**
@@ -8975,10 +8976,7 @@ class FailedTransactionModal {
     const retryOfPaymentTxId = sendAssetFormModal.retryTxIdInput;
   
     // close the failed payment modal
-    const failedTransactionModal = document.getElementById('failedTransactionModal');
-    if (failedTransactionModal) {
-      failedTransactionModal.classList.remove('active');
-    }
+    this.close();
   
     if (sendAssetFormModal.modal && retryOfPaymentTxId) {
       sendAssetFormModal.open();
@@ -9006,16 +9004,13 @@ class FailedTransactionModal {
   }
   
   handleDelete() {
-    const failedTransactionModal = document.getElementById('failedTransactionModal');
     const originalTxid = this.txid;
   
     if (typeof originalTxid === 'string' && originalTxid) {
       const currentAddress = this.address;
       removeFailedTx(originalTxid, currentAddress);
   
-      if (failedTransactionModal) {
-        failedTransactionModal.classList.remove('active');
-      }
+      this.close();
   
       // refresh current view
       chatModal.refreshCurrentView(this.txid);
@@ -9024,18 +9019,15 @@ class FailedTransactionModal {
       this.txid = '';
       this.address = '';
       this.memo = '';
-      //open.assetID = '';
+      //this.assetID = '';
     } else {
       console.error('Error deleting message: TXID not found.');
-      if (failedTransactionModal) {
-        failedTransactionModal.classList.remove('active');
-      }
+      this.close();
     }
   }
   
   handleBackDropClick(event) {
-    const failedTransactionModal = document.getElementById('failedTransactionModal');
-    if (event.target === failedTransactionModal) {
+    if (event.target === this.modal) {
       this.closeAndClearState();
     }
   }
