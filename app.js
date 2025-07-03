@@ -6968,6 +6968,12 @@ class ChatModal {
 
 const chatModal = new ChatModal();
 
+/**
+ * Failed Message Modal Class
+ * @class
+ * @description Handles the failed message modal
+ * @returns {void}
+ */
 class FailedMessageModal {
   constructor() {
     this.handleFailedMessageData = {
@@ -7089,15 +7095,14 @@ class FailedMessageModal {
 
 const failedMessageModal = new FailedMessageModal();
 
-// new chat modal
+/**
+ * New Chat Modal Class
+ * @class
+ * @description Handles the new chat modal
+ * @returns {void}
+ */
 class NewChatModal {
   constructor() {
-    this.modal = document.getElementById('newChatModal');
-    this.closeNewChatModalButton = document.getElementById('closeNewChatModal');
-    this.newChatForm = document.getElementById('newChatForm');
-    this.usernameAvailable = document.getElementById('chatRecipientError');
-    this.recipientInput = document.getElementById('chatRecipient');
-    this.submitButton = document.querySelector('#newChatForm button[type="submit"]');
     this.usernameInputCheckTimeout = null;
   }
 
@@ -7106,6 +7111,13 @@ class NewChatModal {
    * @returns {void}
    */
   load() {
+    this.modal = document.getElementById('newChatModal');
+    this.closeNewChatModalButton = document.getElementById('closeNewChatModal');
+    this.newChatForm = document.getElementById('newChatForm');
+    this.usernameAvailable = document.getElementById('chatRecipientError');
+    this.recipientInput = document.getElementById('chatRecipient');
+    this.submitButton = document.querySelector('#newChatForm button[type="submit"]');
+
     this.closeNewChatModalButton.addEventListener('click', this.closeNewChatModal.bind(this));
     this.newChatForm.addEventListener('submit', this.handleNewChat.bind(this));
     this.recipientInput.addEventListener('input', debounce(this.handleUsernameInput.bind(this), 300));
