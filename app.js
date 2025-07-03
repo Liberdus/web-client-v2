@@ -9013,10 +9013,10 @@ class FailedTransactionModal {
     this.deleteButton = this.modal.querySelector('.delete-button');
     this.headerCloseButton = document.getElementById('closeFailedTransactionModal');
 
-    this.retryButton.addEventListener('click', this.handleRetry);
-    this.deleteButton.addEventListener('click', this.handleDelete);
-    this.headerCloseButton.addEventListener('click', this.closeAndClearState);
-    this.modal.addEventListener('click', this.handleBackDropClick);
+    this.retryButton.addEventListener('click', this.handleRetry.bind(this));
+    this.deleteButton.addEventListener('click', this.handleDelete.bind(this));
+    this.headerCloseButton.addEventListener('click', this.closeAndClearState.bind(this));
+    this.modal.addEventListener('click', this.handleBackDropClick.bind(this));
   }
 
   /**
