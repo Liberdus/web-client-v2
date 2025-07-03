@@ -5813,7 +5813,7 @@ class StakeValidatorModal {
     this.modal.classList.add('active');
 
     // Set the correct fill function for the staking context
-    scanQRModal.fillFunction = fillStakeAddressFromQR;
+    scanQRModal.fillFunction = stakeValidatorModal.fillFromQR;
 
     // Display Available Balance
     const libAsset = myData.wallet.assets.find((asset) => asset.symbol === 'LIB');
@@ -7751,7 +7751,7 @@ class SendAssetFormModal {
 
     this.usernameAvailable.style.display = 'none';
     this.submitButton.disabled = true;
-    scanQRModal.fillFunction = fillPaymentFromQR; // set function to handle filling the payment form from QR data
+    scanQRModal.fillFunction = sendAssetFormModal.fillFromQR; // set function to handle filling the payment form from QR data
 
     if (this.username) {
       this.usernameInput.value = this.username;
