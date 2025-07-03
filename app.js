@@ -384,6 +384,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Chat Modal
   chatModal.load();
 
+  // Contact Info Modal
+  contactInfoModal.load();
+
   // Failed Message Modal
   failedMessageModal.load();
 
@@ -416,8 +419,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Menu Modal
   menuModal.load();
-
-  document.getElementById('closeContactInfoModal').addEventListener('click', () => contactInfoModal.close());
 
   // add event listener for back-button presses to prevent shift+tab
   document.querySelectorAll('.back-button').forEach((button) => {
@@ -465,15 +466,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   document
     .getElementById('stakeQrFileInput')
     .addEventListener('change', (event) => handleQRFileSelect(event, fillStakeAddressFromQR));
-
-  // Add send money button handler
-  document.getElementById('contactInfoSendButton').addEventListener('click', () => {
-    const contactUsername = document.getElementById('contactInfoUsername');
-    if (contactUsername) {
-      sendAssetFormModal.username = contactUsername.textContent;
-    }
-    sendAssetFormModal.open();
-  });
 
   document.getElementById('chatSendMoneyButton').addEventListener('click', (event) => {
     const button = event.currentTarget;
@@ -2054,23 +2046,31 @@ const signInModal = new SignInModal();
 // Contact Info Modal Management
 class ContactInfoModal {
   constructor() {
-    this.modal = document.getElementById('contactInfoModal');
     this.currentContactAddress = null;
     this.needsContactListUpdate = false; // track if we need to update the contact list
-    this.setupEventListeners();
   }
 
   // Initialize event listeners that only need to be set up once
-  setupEventListeners() {
-    // Back button
-    this.modal.querySelector('.back-button').addEventListener('click', () => {
-      this.close();
-    });
+  load() {
+    this.modal = document.getElementById('contactInfoModal');
+    this.backButton = document.getElementById('closeContactInfoModal');
+    this.nameEditButton = document.getElementById('nameEditButton');
+    this.chatButton = document.getElementById('contactInfoChatButton');
+    this.sendButton = document.getElementById('contactInfoSendButton');
+    this.addFriendButton = document.getElementById('addFriendButtonContactInfo');
+    this.avatarSection = this.modal.querySelector('.contact-avatar-section');
+    this.avatarDiv = this.avatarSection.querySelector('.avatar');
+    this.nameDiv = this.avatarSection.querySelector('.name');
+    this.subtitleDiv = this.avatarSection.querySelector('.subtitle');
+    this.usernameDiv = document.getElementById('contactInfoUsername');
 
-    document.getElementById('nameEditButton').addEventListener('click', () => editContactModal.open());
+    // Back button
+    this.backButton.addEventListener('click', () => this.close());
+
+    this.nameEditButton.addEventListener('click', () => editContactModal.open());
 
     // Add chat button handler for contact info modal
-    document.getElementById('contactInfoChatButton').addEventListener('click', () => {
+    this.chatButton.addEventListener('click', () => {
       const addressToOpen = this.currentContactAddress;
       if (addressToOpen) {
         // Ensure we have an address before proceeding
@@ -2078,23 +2078,29 @@ class ContactInfoModal {
         chatModal.open(addressToOpen);
       }
     });
+
+    // Add send money button handler
+    this.sendButton.addEventListener('click', () => {
+      sendAssetFormModal.username = this.usernameDiv.textContent;
+      sendAssetFormModal.open();
+    });
+
+    // Add add friend button handler
+    this.addFriendButton.addEventListener('click', () => {
+      if (!this.currentContactAddress) return;
+      friendModal.openFriendModal();
+    });
   }
 
   // Update contact info values
   async updateContactInfo(displayInfo) {
-    // Update avatar section
-    const avatarSection = this.modal.querySelector('.contact-avatar-section');
-    const avatarDiv = avatarSection.querySelector('.avatar');
-    const nameDiv = avatarSection.querySelector('.name');
-    const subtitleDiv = avatarSection.querySelector('.subtitle');
-
     // Generate identicon for the contact
     const identicon = await generateIdenticon(displayInfo.address, 96);
 
     // Update the avatar section
-    avatarDiv.innerHTML = identicon;
-    nameDiv.textContent = displayInfo.name !== 'Not Entered' ? displayInfo.name : displayInfo.username;
-    subtitleDiv.textContent = displayInfo.address;
+    this.avatarDiv.innerHTML = identicon;
+    this.nameDiv.textContent = displayInfo.name !== 'Not Entered' ? displayInfo.name : displayInfo.username;
+    this.subtitleDiv.textContent = displayInfo.address;
 
     const fields = {
       Username: 'contactInfoUsername',
@@ -2145,11 +2151,10 @@ class ContactInfoModal {
 
   // Set up chat button functionality
   setupChatButton(displayInfo) {
-    const chatButton = document.getElementById('contactInfoChatButton');
     if (displayInfo.address) {
-      chatButton.style.display = 'block';
+      this.chatButton.style.display = 'block';
     } else {
-      chatButton.style.display = 'none';
+      this.chatButton.style.display = 'none';
     }
   }
 
@@ -2211,12 +2216,6 @@ class FriendModal {
   }
 
   setupEventListeners() {
-    // Add friend button
-    document.getElementById('addFriendButtonContactInfo').addEventListener('click', () => {
-      if (!this.currentContactAddress) return;
-      this.openFriendModal();
-    });
-
     document.getElementById('addFriendButtonChat').addEventListener('click', () => {
       if (!this.currentContactAddress) return;
       this.openFriendModal();
@@ -2383,8 +2382,8 @@ class EditContactModal {
     // Update the avatar section
     avatarDiv.innerHTML = identicon;
     // update the name and subtitle
-    nameDiv.textContent = document.getElementById('contactInfoUsername').textContent;
-    subtitleDiv.textContent = document.getElementById('contactInfoModal').querySelector('.subtitle').textContent;
+    nameDiv.textContent = contactInfoModal.usernameDiv.textContent;
+    subtitleDiv.textContent = contactInfoModal.subtitleDiv.textContent;
 
     // update the provided name
     const providedNameDiv = this.providedNameContainer.querySelector('.contact-info-value');
