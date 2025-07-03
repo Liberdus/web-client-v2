@@ -432,25 +432,51 @@ document.addEventListener('DOMContentLoaded', async () => {
     item.addEventListener('keydown', ignoreTabKey);
   });
 
-  // Omar added
-  document.getElementById('scanQRButton').addEventListener('click', () => scanQRModal.open());
-  document.getElementById('scanStakeQRButton').addEventListener('click', () => scanQRModal.open());
-  
-  // File upload handlers
-  document.getElementById('uploadQRButton').addEventListener('click', () => {
-    document.getElementById('qrFileInput').click();
+  // Add refresh balance button handler
+  document.getElementById('refreshBalance').addEventListener('click', async () => {
+    const button = document.getElementById('refreshBalance');
+    
+    // Add active class for animation
+    button.classList.add('active');
+    
+    // Remove active class after animation completes
+    setTimeout(() => {
+      button.classList.remove('active');
+      // Force blur to remove focus
+      button.blur();
+    }, 300);
+
+    // await updateWalletBalances();
+    walletScreen.updateWalletView();
   });
 
-  document.getElementById('uploadStakeQRButton').addEventListener('click', () => {
-    document.getElementById('stakeQrFileInput').click();
+  // Add send money button handler
+  document.getElementById('contactInfoSendButton').addEventListener('click', () => {
+    const contactUsername = document.getElementById('contactInfoUsername');
+    if (contactUsername) {
+      sendAssetFormModal.username = contactUsername.textContent;
+    }
+    sendAssetFormModal.open();
   });
 
-  document
-    .getElementById('qrFileInput')
-    .addEventListener('change', (event) => handleQRFileSelect(event, fillPaymentFromQR));
-  document
-    .getElementById('stakeQrFileInput')
-    .addEventListener('change', (event) => handleQRFileSelect(event, fillStakeAddressFromQR));
+  document.getElementById('chatSendMoneyButton').addEventListener('click', (event) => {
+    const button = event.currentTarget;
+    sendAssetFormModal.username = button.dataset.username;
+    sendAssetFormModal.open();
+  });
+
+  // Add listener for the password visibility toggle
+  const togglePasswordButton = document.getElementById('togglePrivateKeyVisibility');
+  const passwordInput = document.getElementById('newPrivateKey');
+
+  togglePasswordButton.addEventListener('click', function () {
+    // Toggle the type attribute
+    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+    passwordInput.setAttribute('type', type);
+
+    // Toggle the visual state class on the button
+    this.classList.toggle('toggled-visible');
+  });
 
   getNetworkParams();
 
@@ -5892,6 +5918,23 @@ class ValidatorStakingModal {
 }
 const validatorStakingModal = new ValidatorStakingModal();
 
+  
+  // File upload handlers
+  document.getElementById('uploadQRButton').addEventListener('click', () => {
+    document.getElementById('qrFileInput').click();
+  });
+
+  document.getElementById('uploadStakeQRButton').addEventListener('click', () => {
+    document.getElementById('stakeQrFileInput').click();
+  });
+
+  document
+    .getElementById('qrFileInput')
+    .addEventListener('change', (event) => handleQRFileSelect(event, fillPaymentFromQR));
+  document
+    .getElementById('stakeQrFileInput')
+    .addEventListener('change', (event) => handleQRFileSelect(event, fillStakeAddressFromQR));
+
 class StakeValidatorModal {
   constructor() {
     this.modal = document.getElementById('stakeModal');
@@ -5904,6 +5947,8 @@ class StakeValidatorModal {
     this.balanceDisplay = document.getElementById('stakeAvailableBalanceDisplay');
     this.amountWarning = document.getElementById('stakeAmountWarning');
     this.nodeAddressWarning = document.getElementById('stakeNodeAddressWarning');
+    
+
 
     this.stakedAmount = 0n;
     this.lastValidationTimestamp = 0;
@@ -5923,6 +5968,12 @@ class StakeValidatorModal {
 
     // Add listener for opening the modal
     document.getElementById('openStakeModal').addEventListener('click', () => this.open());
+
+    this.scanStakeButton = document.getElementById('scanStakeQRButton');
+    this.scanStakeButton.addEventListener('click', () => scanQRModal.open());
+    this.uploadStakeQRButton = document.getElementById('uploadStakeQRButton');
+    this.stakeQRFileInput = document.getElementById('stakeQrFileInput');
+    this.stakeQRFileInput.addEventListener('change', (event) => handleQRFileSelect(event, fillStakeAddressFromQR));
   }
 
   open() {
@@ -8363,11 +8414,20 @@ class SendAssetConfirmModal {
     this.closeButton = document.getElementById('closeSendAssetConfirmModal');
     this.cancelButton = document.getElementById('cancelSendButton');
     this.confirmMemoGroup = document.getElementById('confirmMemoGroup');
+    this.scanQRButton = document.getElementById('scanQRButton');
+    this.uploadQRButton = document.getElementById('uploadQRButton');
+    this.qrFileInput = document.getElementById('qrFileInput');
+    // File upload handlers
+    this.uploadQRButton.addEventListener('click', () => {
+      this.qrFileInput.click();
+    });
 
     // Add event listeners for send asset confirmation modal
     this.closeButton.addEventListener('click', this.close.bind(this));
     this.confirmSendButton.addEventListener('click', this.handleSendAsset.bind(this));
     this.cancelButton.addEventListener('click', this.close.bind(this));
+    this.scanQRButton.addEventListener('click', () => scanQRModal.open());
+    this.qrFileInput.addEventListener('change', (event) => handleQRFileSelect(event, fillPaymentFromQR));
   }
 
   open() {
