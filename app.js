@@ -446,17 +446,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     walletScreen.updateWalletView();
   });
 
-  // Add new search functionality
-  const messageSearch = document.getElementById('messageSearch');
-  const searchModal = document.getElementById('searchModal');
-
-  // Close search modal
-  document.getElementById('closeSearchModal').addEventListener('click', () => {
-    searchModal.classList.remove('active');
-    messageSearch.value = '';
-    document.getElementById('searchResults').innerHTML = '';
-  });
-
   // Omar added
   document.getElementById('scanQRButton').addEventListener('click', () => scanQRModal.open());
   document.getElementById('scanStakeQRButton').addEventListener('click', () => scanQRModal.open());
