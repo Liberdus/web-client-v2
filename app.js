@@ -4832,7 +4832,7 @@ class TollModal {
     this.closeButton = document.getElementById('closeTollModal');
     this.tollForm = document.getElementById('tollForm');
     this.tollCurrencySymbol = document.getElementById('tollCurrencySymbol');
-    
+
     this.tollForm.addEventListener('submit', (event) => this.saveAndPostNewToll(event));
     this.closeButton.addEventListener('click', () => this.close());
     this.toggleTollCurrencyElement.addEventListener('click', (event) => this.handleToggleTollCurrency(event));
@@ -5111,19 +5111,20 @@ const tollModal = new TollModal();
 
 // Invite Modal
 class InviteModal {
-  constructor() {
+  constructor() {}
+
+  load() {
     this.modal = document.getElementById('inviteModal');
     this.inviteEmailInput = document.getElementById('inviteEmail');
     this.invitePhoneInput = document.getElementById('invitePhone');
     this.submitButton = document.querySelector('#inviteForm button[type="submit"]');
-  }
+    this.closeButton = document.getElementById('closeInviteModal');
+    this.inviteForm = document.getElementById('inviteForm');
 
-  load() {
-    // Set up event listeners
-    document.getElementById('closeInviteModal').addEventListener('click', () => this.close());
-    document.getElementById('inviteForm').addEventListener('submit', (event) => this.handleSubmit(event));
+    this.closeButton.addEventListener('click', () => this.close());
+    this.inviteForm.addEventListener('submit', (event) => this.handleSubmit(event));
 
-    // Add input event listeners for email and phone fields
+    // input event listeners for email and phone fields
     this.inviteEmailInput.addEventListener('input', () => this.inviteEmailInput.value = normalizeEmail(this.inviteEmailInput.value));
     this.inviteEmailInput.addEventListener('input', () => this.validateInputs());
     this.invitePhoneInput.addEventListener('input', () => this.invitePhoneInput.value = normalizePhone(this.invitePhoneInput.value));
