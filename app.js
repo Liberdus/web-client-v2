@@ -4100,94 +4100,6 @@ function getGatewayForRequest() {
   return myData.network.gateways[Math.floor(Math.random() * myData.network.gateways.length)];
 }
 
-
-
-// Changed to use qr.js library instead of jsQR.js
-async function handleQRFileSelect(event, fillFunction) {
-  // Added fillFunction parameter
-  const file = event.target.files[0];
-  if (!file) {
-    return; // No file selected
-  }
-
-  const reader = new FileReader();
-
-  reader.onload = function (e) {
-    const img = new Image();
-    img.onload = async function () {
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      if (!context) {
-        console.error('Could not get 2d context from canvas');
-        showToast('Error processing image', 3000, 'error');
-        event.target.value = ''; // Reset file input
-        return;
-      }
-      canvas.width = img.width;
-      canvas.height = img.height;
-      context.drawImage(img, 0, 0, img.width, img.height);
-      const imageData = context.getImageData(0, 0, img.width, img.height);
-
-      try {
-        // Use qr.js library for decoding
-        const decodedData = qr.decodeQR({
-          data: imageData.data,
-          width: imageData.width,
-          height: imageData.height,
-        });
-
-        if (decodedData) {
-          // handleSuccessfulScan(decodedData); // Original call
-          if (typeof fillFunction === 'function') {
-            fillFunction(decodedData); // Call the provided fill function
-          } else {
-            console.error('No valid fill function provided for QR file select');
-            // Fallback or default behavior if needed, e.g., show generic error
-            showToast('Internal error handling QR data', 3000, 'error');
-          }
-        } else {
-          // qr.decodeQR might throw an error instead of returning null/undefined
-          // This else block might not be reached if errors are always thrown
-          console.error('No QR code found in image (qr.js)');
-          showToast('No QR code found in image', 3000, 'error');
-          // Clear the form fields in case of failure to find QR code
-          document.getElementById('sendForm')?.reset();
-          document.getElementById('sendToAddressError').textContent = '';
-          document.getElementById('balanceWarning').textContent = '';
-        }
-      } catch (error) {
-        console.error('Error processing QR code image with qr.js:', error);
-        // Assume error means no QR code found or decoding failed
-        showToast('Could not read QR code from image', 3000, 'error');
-        // Clear the form fields in case of error
-        document.getElementById('sendForm')?.reset();
-        document.getElementById('sendToAddressError').textContent = '';
-        document.getElementById('balanceWarning').textContent = '';
-      } finally {
-        event.target.value = ''; // Reset the file input value regardless of outcome
-      }
-    };
-    img.onerror = function () {
-      console.error('Error loading image');
-      showToast('Error loading image file', 3000, 'error');
-      event.target.value = ''; // Reset the file input value
-      // Clear the form fields in case of image loading error
-      document.getElementById('sendForm')?.reset();
-      document.getElementById('sendToAddressError').textContent = '';
-      document.getElementById('balanceWarning').textContent = '';
-    };
-    img.src = e.target.result;
-  };
-
-  reader.onerror = function () {
-    console.error('Error reading file');
-    showToast('Error reading file', 3000, 'error');
-    event.target.value = ''; // Reset the file input value
-  };
-
-  reader.readAsDataURL(file);
-}
-
 // WebSocket Manager Class
 /**
  * WebSocket Manager Class
@@ -5909,25 +5821,14 @@ class ValidatorStakingModal {
 }
 const validatorStakingModal = new ValidatorStakingModal();
 
-  
-  // File upload handlers
-  document.getElementById('uploadQRButton').addEventListener('click', () => {
-    document.getElementById('qrFileInput').click();
-  });
-
-  document.getElementById('uploadStakeQRButton').addEventListener('click', () => {
-    document.getElementById('stakeQrFileInput').click();
-  });
-
-  document
-    .getElementById('qrFileInput')
-    .addEventListener('change', (event) => handleQRFileSelect(event, fillPaymentFromQR));
-  document
-    .getElementById('stakeQrFileInput')
-    .addEventListener('change', (event) => handleQRFileSelect(event, fillStakeAddressFromQR));
-
 class StakeValidatorModal {
   constructor() {
+    this.stakedAmount = 0n;
+    this.lastValidationTimestamp = 0;
+    this.hasNominee = false;
+  }
+
+  load() {
     this.modal = document.getElementById('stakeModal');
     this.form = document.getElementById('stakeForm');
     this.nodeAddressInput = document.getElementById('stakeNodeAddress');
@@ -5938,15 +5839,10 @@ class StakeValidatorModal {
     this.balanceDisplay = document.getElementById('stakeAvailableBalanceDisplay');
     this.amountWarning = document.getElementById('stakeAmountWarning');
     this.nodeAddressWarning = document.getElementById('stakeNodeAddressWarning');
-    
+    this.scanStakeQRButton = document.getElementById('scanStakeQRButton');
+    this.uploadStakeQRButton = document.getElementById('uploadStakeQRButton');
+    this.stakeQRFileInput = document.getElementById('stakeQrFileInput');
 
-
-    this.stakedAmount = 0n;
-    this.lastValidationTimestamp = 0;
-    this.hasNominee = false;
-  }
-
-  load() {
     // Setup event listeners
     this.form.addEventListener('submit', (event) => this.handleSubmit(event));
     this.backButton.addEventListener('click', () => this.close());
@@ -5956,15 +5852,12 @@ class StakeValidatorModal {
     this.nodeAddressInput.addEventListener('input', this.debouncedValidateStakeInputs);
     this.amountInput.addEventListener('input', () => this.amountInput.value = normalizeUnsignedFloat(this.amountInput.value));
     this.amountInput.addEventListener('input', this.debouncedValidateStakeInputs);
+    this.scanStakeQRButton.addEventListener('click', () => scanQRModal.open());
+    this.stakeQRFileInput.addEventListener('change', (event) => handleQRFileSelect(event, fillStakeAddressFromQR));
 
     // Add listener for opening the modal
     document.getElementById('openStakeModal').addEventListener('click', () => this.open());
 
-    this.scanStakeButton = document.getElementById('scanStakeQRButton');
-    this.scanStakeButton.addEventListener('click', () => scanQRModal.open());
-    this.uploadStakeQRButton = document.getElementById('uploadStakeQRButton');
-    this.stakeQRFileInput = document.getElementById('stakeQrFileInput');
-    this.stakeQRFileInput.addEventListener('change', (event) => handleQRFileSelect(event, fillStakeAddressFromQR));
   }
 
   open() {
@@ -7847,6 +7740,14 @@ class SendAssetFormModal {
     // event listener for toggle LIB/USD button
     this.toggleBalanceButton.addEventListener('click', this.handleToggleBalance.bind(this));
     this.memoInput.addEventListener('input', this.handleMemoInputChange.bind(this));
+
+    //QR scanning
+    this.scanQRButton = document.getElementById('scanQRButton');
+    this.uploadQRButton = document.getElementById('uploadQRButton');
+    this.qrFileInput = document.getElementById('qrFileInput');
+    this.scanQRButton.addEventListener('click', () => scanQRModal.open());
+    this.uploadQRButton.addEventListener('click', () => {this.qrFileInput.click();});
+    this.qrFileInput.addEventListener('change', (event) => handleQRFileSelect(event, fillPaymentFromQR));
   }
 
   /**
@@ -8408,17 +8309,12 @@ class SendAssetConfirmModal {
     this.scanQRButton = document.getElementById('scanQRButton');
     this.uploadQRButton = document.getElementById('uploadQRButton');
     this.qrFileInput = document.getElementById('qrFileInput');
-    // File upload handlers
-    this.uploadQRButton.addEventListener('click', () => {
-      this.qrFileInput.click();
-    });
 
     // Add event listeners for send asset confirmation modal
     this.closeButton.addEventListener('click', this.close.bind(this));
     this.confirmSendButton.addEventListener('click', this.handleSendAsset.bind(this));
     this.cancelButton.addEventListener('click', this.close.bind(this));
-    this.scanQRButton.addEventListener('click', () => scanQRModal.open());
-    this.qrFileInput.addEventListener('change', (event) => handleQRFileSelect(event, fillPaymentFromQR));
+
   }
 
   open() {
@@ -8722,6 +8618,91 @@ class SendAssetConfirmModal {
       //showToast('Transaction failed. Please try again.', 0, 'error');
       cancelButton.disabled = false;
     }
+  }
+  
+  async handleQRFileSelect(event, fillFunction) {
+    // Added fillFunction parameter
+    const file = event.target.files[0];
+    if (!file) {
+      return; // No file selected
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = function (e) {
+      const img = new Image();
+      img.onload = async function () {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        if (!context) {
+          console.error('Could not get 2d context from canvas');
+          showToast('Error processing image', 3000, 'error');
+          event.target.value = ''; // Reset file input
+          return;
+        }
+        canvas.width = img.width;
+        canvas.height = img.height;
+        context.drawImage(img, 0, 0, img.width, img.height);
+        const imageData = context.getImageData(0, 0, img.width, img.height);
+
+        try {
+          // Use qr.js library for decoding
+          const decodedData = qr.decodeQR({
+            data: imageData.data,
+            width: imageData.width,
+            height: imageData.height,
+          });
+
+          if (decodedData) {
+            // handleSuccessfulScan(decodedData); // Original call
+            if (typeof fillFunction === 'function') {
+              fillFunction(decodedData); // Call the provided fill function
+            } else {
+              console.error('No valid fill function provided for QR file select');
+              // Fallback or default behavior if needed, e.g., show generic error
+              showToast('Internal error handling QR data', 3000, 'error');
+            }
+          } else {
+            // qr.decodeQR might throw an error instead of returning null/undefined
+            // This else block might not be reached if errors are always thrown
+            console.error('No QR code found in image (qr.js)');
+            showToast('No QR code found in image', 3000, 'error');
+            // Clear the form fields in case of failure to find QR code
+            document.getElementById('sendForm')?.reset();
+            document.getElementById('sendToAddressError').textContent = '';
+            document.getElementById('balanceWarning').textContent = '';
+          }
+        } catch (error) {
+          console.error('Error processing QR code image with qr.js:', error);
+          // Assume error means no QR code found or decoding failed
+          showToast('Could not read QR code from image', 3000, 'error');
+          // Clear the form fields in case of error
+          document.getElementById('sendForm')?.reset();
+          document.getElementById('sendToAddressError').textContent = '';
+          document.getElementById('balanceWarning').textContent = '';
+        } finally {
+          event.target.value = ''; // Reset the file input value regardless of outcome
+        }
+      };
+      img.onerror = function () {
+        console.error('Error loading image');
+        showToast('Error loading image file', 3000, 'error');
+        event.target.value = ''; // Reset the file input value
+        // Clear the form fields in case of image loading error
+        document.getElementById('sendForm')?.reset();
+        document.getElementById('sendToAddressError').textContent = '';
+        document.getElementById('balanceWarning').textContent = '';
+      };
+      img.src = e.target.result;
+    };
+
+    reader.onerror = function () {
+      console.error('Error reading file');
+      showToast('Error reading file', 3000, 'error');
+      event.target.value = ''; // Reset the file input value
+    };
+
+    reader.readAsDataURL(file);
   }
 }
 
