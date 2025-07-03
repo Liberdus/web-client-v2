@@ -8289,8 +8289,12 @@ class SendAssetFormModal {
     this.balanceWarning.textContent = '';
   }
 
-  // Handles QR file upload and fill form based on current fillFunction
-  async handleQRFileSelect(event, modalClass) {
+  /**   * Handles QR file selection and decoding
+   * @param {Event} event - The file input change event
+   * @param {Object} targetModal - The modal instance to fill with QR data
+   * @returns {Promise<void>}
+   * */
+  async handleQRFileSelect(event, targetModal) {
     const file = event.target.files[0];
     if (!file) {
       return; // No file selected
@@ -8323,8 +8327,8 @@ class SendAssetFormModal {
           });
 
           if (decodedData) {
-            if (typeof modalClass.fillFromQR === 'function') {
-              modalClass.fillFromQR(decodedData); // Call the provided fill function
+            if (typeof targetModal.fillFromQR === 'function') {
+              targetModal.fillFromQR(decodedData); // Call the provided fill function
             } else {
               console.error('No valid fill function provided for QR file select');
               // Fallback or default behavior if needed, e.g., show generic error
@@ -8336,14 +8340,14 @@ class SendAssetFormModal {
             console.error('No QR code found in image (qr.js)');
             showToast('No QR code found in image', 3000, 'error');
             // Clear the form fields in case of failure to find QR code
-            modalClass.resetForm();
+            targetModal.resetForm();
           }
         } catch (error) {
           console.error('Error processing QR code image with qr.js:', error);
           // Assume error means no QR code found or decoding failed
           showToast('Could not read QR code from image', 3000, 'error');
           // Clear the form fields in case of error
-          modalClass.resetForm();
+          targetModal.resetForm();
 
         } finally {
           event.target.value = ''; // Reset the file input value regardless of outcome
@@ -8354,7 +8358,7 @@ class SendAssetFormModal {
         showToast('Error loading image file', 3000, 'error');
         event.target.value = ''; // Reset the file input value
         // Clear the form fields in case of image loading error
-        modalClass.resetForm();
+        targetModal.resetForm();
       };
       img.src = e.target.result;
     };
