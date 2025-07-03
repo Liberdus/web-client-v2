@@ -5196,18 +5196,22 @@ class InviteModal {
 const inviteModal = new InviteModal();
 
 class AboutModal {
-  constructor() {
-    this.modal = document.getElementById('aboutModal');
-  }
+  constructor() {}
 
   load() {
+    this.modal = document.getElementById('aboutModal');
+    this.closeButton = document.getElementById('closeAboutModal');
+    this.versionDisplay = document.getElementById('versionDisplayAbout');
+    this.networkName = document.getElementById('networkNameAbout');
+    this.netId = document.getElementById('netIdAbout');
+
     // Set up event listeners
-    document.getElementById('closeAboutModal').addEventListener('click', () => this.close());
+    this.closeButton.addEventListener('click', () => this.close());
 
     // Set version and network information once during initialization
-    document.getElementById('versionDisplayAbout').textContent = myVersion + ' ' + version;
-    document.getElementById('networkNameAbout').textContent = network.name;
-    document.getElementById('netIdAbout').textContent = network.netid;
+    this.versionDisplay.textContent = myVersion + ' ' + version;
+    this.networkName.textContent = network.name;
+    this.netId.textContent = network.netid;
   }
 
   open() {
@@ -5222,13 +5226,15 @@ class AboutModal {
 const aboutModal = new AboutModal();
 
 class ContactModal {
-  constructor() {
-    this.modal = document.getElementById('contactModal');
-  }
+  constructor() {}
 
   load() {
-    document.getElementById('closeContactModal').addEventListener('click', () => this.close());
-    document.getElementById('submitFeedback').addEventListener('click', () => {
+    this.modal = document.getElementById('contactModal');
+    this.closeButton = document.getElementById('closeContactModal');
+    this.submitFeedbackButton = document.getElementById('submitFeedback');
+
+    this.closeButton.addEventListener('click', () => this.close());
+    this.submitFeedbackButton.addEventListener('click', () => {
       window.open('https://github.com/liberdus/web-client-v2/issues', '_blank');
     });
   }
@@ -5244,21 +5250,23 @@ class ContactModal {
 const contactModal = new ContactModal();
 
 class MyProfileModal {
-  constructor() {
-    this.name = document.getElementById('name');
-    this.email = document.getElementById('email');
-    this.phone = document.getElementById('phone');
-    this.linkedin = document.getElementById('linkedin');
-    this.x = document.getElementById('x');
-  }
+  constructor() {}
 
   load() {
     // called when the DOM is loaded; can setup event handlers here
     this.modal = document.getElementById('accountModal');
     this.closeButton = document.getElementById('closeAccountForm');
-    this.closeButton.addEventListener('click', () => this.close());
-    document.getElementById('accountForm').addEventListener('submit', (event) => this.handleSubmit(event));
+    this.name = document.getElementById('name');
+    this.email = document.getElementById('email');
+    this.phone = document.getElementById('phone');
+    this.linkedin = document.getElementById('linkedin');
+    this.x = document.getElementById('x');
+    this.accountForm = document.getElementById('accountForm');
     this.submitButton = document.querySelector('#accountForm .update-button');
+
+    this.closeButton.addEventListener('click', () => this.close());
+    this.accountForm.addEventListener('submit', (event) => this.handleSubmit(event));
+    
 
     // Add input event listeners for validation
     this.name.addEventListener('input', (e) => this.handleNameInput(e));
