@@ -2898,6 +2898,7 @@ async function processChats(chats, keys) {
           //console.log('contact.message', contact.messages)
           payload.my = false;
           payload.timestamp = payload.sent_timestamp;
+          payload.txid = getTxid(tx);
           insertSorted(contact.messages, payload, 'timestamp');
           // if we are not in the chatModal of who sent it, playChatSound or if device visibility is hidden play sound
           if (!inActiveChatWithSender || document.visibilityState === 'hidden') {
@@ -2953,10 +2954,13 @@ async function processChats(chats, keys) {
             }
           }
           // compute the transaction id (txid)
+          /*
           delete tx.sign;
           const jstr = stringify(tx);
           const jstrBytes = utf82bin(jstr);
           const txidHex = hashBytes(jstrBytes);
+          */
+          const txidHex = getTxid(tx);
 
           // skip if this tx was processed before and is already in the history array;
           //    txs are the same if the history[x].txid is the same as txidHex
@@ -2997,6 +3001,7 @@ async function processChats(chats, keys) {
             message: payload.message, // Use the memo as the message content
             amount: parse(stringify(tx.amount)), // Ensure amount is stored as BigInt
             symbol: 'LIB', // TODO: get the symbol from the asset
+            txid: txidHex,
           };
           // Insert the transfer message into the contact's message list, maintaining sort order
           insertSorted(contact.messages, transferMessage, 'timestamp');
@@ -3305,6 +3310,18 @@ async function signObj(tx, keys) {
     owner: longAddress(keys.address),
     sig: flatSignature,
   };
+  return txidHex;
+}
+
+function getTxid(tx){
+  let txo = tx;
+  if (typeof(tx) === "string"){
+    txo = parse(tx)
+  }
+  delete txo.sign;
+  const jstr = stringify(txo);
+  const jstrBytes = utf8(jstr);
+  const txidHex = hashBytes(jstrBytes);
   return txidHex;
 }
 
