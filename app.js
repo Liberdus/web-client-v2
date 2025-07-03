@@ -8914,13 +8914,27 @@ class ReceiveModal {
 // initialize the receive modal
 const receiveModal = new ReceiveModal();
 
+/**
+ * Failed Transaction Modal
+ * @class
+ * @description A modal for displaying failed transactions and handling the retry and delete actions
+ */
 class FailedTransactionModal {
+  /**
+   * Initialize the failed transaction modal
+   * @returns {void}
+   */
   constructor() {
     this.txid = '';
     this.address = '';
     this.memo = '';
   }
 
+  /**
+   * Load the failed transaction modal
+   * Add event listeners to the modal
+   * @returns {void}
+   */
   load() {
     this.modal = document.getElementById('failedTransactionModal');
     this.retryButton = this.modal.querySelector('.retry-button');
@@ -8933,6 +8947,12 @@ class FailedTransactionModal {
     this.modal.addEventListener('click', this.handleBackDropClick);
   }
 
+  /**
+   * Open the failed transaction modal
+   * @param {string} txid - The transaction ID
+   * @param {Element} element - The element that triggered the failed transaction
+   * @returns {void}
+   */
   open(txid, element) {
     console.log('open', txid);
   
@@ -8955,10 +8975,18 @@ class FailedTransactionModal {
     this.modal.classList.add('active');
   }
 
+  /**
+   * Close the failed transaction modal
+   * @returns {void}
+   */
   close() {
     this.modal.classList.remove('active');
   }
 
+  /**
+   * Close the failed transaction modal and clear the state
+   * @returns {void}
+   */
   closeAndClearState() {
     this.close();
     // Clear the stored values when modal is closed
@@ -8971,6 +8999,7 @@ class FailedTransactionModal {
   /**
    * Invoked when the user clicks the retry button in the failed payment modal
    * It will fill the sendAssetFormModal with the payment content and txid of the failed payment in a hidden input field in the sendAssetFormModal
+   * @returns {void}
    */
   handleRetry() {
     const retryOfPaymentTxId = sendAssetFormModal.retryTxIdInput;
@@ -9003,6 +9032,10 @@ class FailedTransactionModal {
     }
   }
   
+  /**
+   * Handle the delete button click
+   * @returns {void}
+   */
   handleDelete() {
     const originalTxid = this.txid;
   
@@ -9026,6 +9059,11 @@ class FailedTransactionModal {
     }
   }
   
+  /**
+   * Handle the backdrop click
+   * @param {Event} event - The event object
+   * @returns {void}
+   */
   handleBackDropClick(event) {
     if (event.target === this.modal) {
       this.closeAndClearState();
