@@ -3320,7 +3320,7 @@ function getTxid(tx){
   }
   delete txo.sign;
   const jstr = stringify(txo);
-  const jstrBytes = utf8(jstr);
+  const jstrBytes = utf82bin(jstr);
   const txidHex = hashBytes(jstrBytes);
   return txidHex;
 }
