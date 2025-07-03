@@ -4817,21 +4817,25 @@ const restoreAccountModal = new RestoreAccountModal();
 
 class TollModal {
   constructor() {
-    this.modal = document.getElementById('tollModal');
     this.currentCurrency = 'LIB'; // Initialize currency state
     this.oldToll = null;
     this.minToll = null; // Will be set from network account
+  }
+
+  load() {
+    this.modal = document.getElementById('tollModal');
     this.minTollDisplay = document.getElementById('minTollDisplay');
     this.newTollAmountInputElement = document.getElementById('newTollAmountInput');
     this.toggleTollCurrencyElement = document.getElementById('toggleTollCurrency');
     this.warningMessageElement = document.getElementById('tollWarningMessage');
     this.saveButton = document.getElementById('saveNewTollButton');
-  }
-
-  load() {
-    document.getElementById('closeTollModal').addEventListener('click', () => this.close());
+    this.closeButton = document.getElementById('closeTollModal');
+    this.tollForm = document.getElementById('tollForm');
+    this.tollCurrencySymbol = document.getElementById('tollCurrencySymbol');
+    
+    this.tollForm.addEventListener('submit', (event) => this.saveAndPostNewToll(event));
+    this.closeButton.addEventListener('click', () => this.close());
     this.toggleTollCurrencyElement.addEventListener('click', (event) => this.handleToggleTollCurrency(event));
-    document.getElementById('tollForm').addEventListener('submit', (event) => this.saveAndPostNewToll(event));
     this.newTollAmountInputElement.addEventListener('input', () => this.newTollAmountInputElement.value = normalizeUnsignedFloat(this.newTollAmountInputElement.value));
     this.newTollAmountInputElement.addEventListener('input', () => this.updateSaveButtonState());
   }
@@ -4848,7 +4852,7 @@ class TollModal {
     this.updateTollDisplay(toll, tollUnit);
 
     this.currentCurrency = tollUnit;
-    document.getElementById('tollCurrencySymbol').textContent = this.currentCurrency;
+    this.tollCurrencySymbol.textContent = this.currentCurrency;
     this.newTollAmountInputElement.value = ''; // Clear input field
     this.warningMessageElement.textContent = '';
     this.warningMessageElement.style.display = 'none';
@@ -4870,18 +4874,16 @@ class TollModal {
    */
   async handleToggleTollCurrency(event) {
     event.preventDefault();
-    const newTollAmountInput = document.getElementById('newTollAmountInput');
-    const tollCurrencySymbol = document.getElementById('tollCurrencySymbol');
 
     this.currentCurrency = this.currentCurrency === 'LIB' ? 'USD' : 'LIB';
-    tollCurrencySymbol.textContent = this.currentCurrency;
+    this.tollCurrencySymbol.textContent = this.currentCurrency;
 
     const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
-    if (newTollAmountInput.value !== '') {
-      const currentValue = parseFloat(newTollAmountInput.value);
+    if (this.newTollAmountInputElement.value !== '') {
+      const currentValue = parseFloat(this.newTollAmountInputElement.value);
       const convertedValue =
         this.currentCurrency === 'USD' ? currentValue * scalabilityFactor : currentValue / scalabilityFactor;
-      newTollAmountInput.value = convertedValue.toString();
+      this.newTollAmountInputElement.value = convertedValue.toString();
     }
 
     // Update min toll display with converted value
@@ -4901,8 +4903,7 @@ class TollModal {
    */
   async saveAndPostNewToll(event) {
     event.preventDefault();
-    const newTollAmountInput = document.getElementById('newTollAmountInput');
-    let newTollValue = parseFloat(newTollAmountInput.value);
+    let newTollValue = parseFloat(this.newTollAmountInputElement.value);
 
     // disable submit button
     this.saveButton.disabled = true;
@@ -4912,7 +4913,7 @@ class TollModal {
       return;
     }
 
-    const newToll = bigxnum2big(wei, newTollAmountInput.value);
+    const newToll = bigxnum2big(wei, this.newTollAmountInputElement.value);
 
     // Check if the toll is non-zero but less than minimum
     if (newToll > 0n) {
