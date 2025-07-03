@@ -450,15 +450,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     walletScreen.updateWalletView();
   });
 
-  // Add send money button handler
-  document.getElementById('contactInfoSendButton').addEventListener('click', () => {
-    const contactUsername = document.getElementById('contactInfoUsername');
-    if (contactUsername) {
-      sendAssetFormModal.username = contactUsername.textContent;
-    }
-    sendAssetFormModal.open();
-  });
-
   document.getElementById('chatSendMoneyButton').addEventListener('click', (event) => {
     const button = event.currentTarget;
     sendAssetFormModal.username = button.dataset.username;
