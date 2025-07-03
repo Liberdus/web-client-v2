@@ -1664,56 +1664,6 @@ class ScanQRModal {
 
 const scanQRModal = new ScanQRModal();
 
-function fillPaymentFromQR(data) {
-  console.log('Attempting to fill payment form from QR:', data);
-
-  // Explicitly check for the required prefix
-  if (!data || !data.startsWith('liberdus://')) {
-    console.error("Invalid payment QR code format. Missing 'liberdus://' prefix.", data);
-    showToast('Invalid payment QR code format.', 3000, 'error');
-    // Optionally clear fields or leave them as they were
-    document.getElementById('sendToAddress').value = '';
-    document.getElementById('sendAmount').value = '';
-    document.getElementById('sendMemo').value = '';
-    return; // Stop processing if the format is wrong
-  }
-
-  // Clear existing fields first
-  document.getElementById('sendToAddress').value = '';
-  document.getElementById('sendAmount').value = '';
-  document.getElementById('sendMemo').value = '';
-
-  try {
-    // Remove the prefix and process the base64 data
-    const base64Data = data.substring('liberdus://'.length);
-    const jsonData = atob(base64Data);
-    const paymentData = JSON.parse(jsonData);
-
-    console.log('Read payment data:', JSON.stringify(paymentData, null, 2));
-
-    if (paymentData.u) {
-      document.getElementById('sendToAddress').value = paymentData.u;
-    }
-    if (paymentData.a) {
-      document.getElementById('sendAmount').value = paymentData.a;
-    }
-    if (paymentData.m) {
-      document.getElementById('sendMemo').value = paymentData.m;
-    }
-
-    // Trigger username validation and amount validation
-    document.getElementById('sendToAddress').dispatchEvent(new Event('input'));
-    document.getElementById('sendAmount').dispatchEvent(new Event('input'));
-  } catch (error) {
-    console.error('Error parsing payment QR data:', error, data);
-    showToast('Failed to parse payment QR data.', 3000, 'error');
-    // Clear fields on error
-    document.getElementById('sendToAddress').value = '';
-    document.getElementById('sendAmount').value = '';
-    document.getElementById('sendMemo').value = '';
-  }
-}
-
 /**
  * Validate the balance of the user
  * @param {BigInt} amount - The amount to validate
