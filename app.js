@@ -8446,9 +8446,6 @@ class SendAssetConfirmModal {
     this.closeButton = document.getElementById('closeSendAssetConfirmModal');
     this.cancelButton = document.getElementById('cancelSendButton');
     this.confirmMemoGroup = document.getElementById('confirmMemoGroup');
-    this.scanQRButton = document.getElementById('scanQRButton');
-    this.uploadQRButton = document.getElementById('uploadQRButton');
-    this.qrFileInput = document.getElementById('qrFileInput');
 
     // Add event listeners for send asset confirmation modal
     this.closeButton.addEventListener('click', this.close.bind(this));
