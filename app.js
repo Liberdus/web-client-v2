@@ -5381,7 +5381,9 @@ class MyProfileModal {
 const myProfileModal = new MyProfileModal();
 
 class ValidatorStakingModal {
-  constructor() {
+  constructor() {}
+
+  load() {
     // Modal and main buttons
     this.modal = document.getElementById('validatorModal');
     this.stakeButton = document.getElementById('openStakeModal');
@@ -5412,14 +5414,9 @@ class ValidatorStakingModal {
     this.marketPriceValue = document.getElementById('validator-market-price');
     this.marketStakeUsdValue = document.getElementById('validator-market-stake-usd');
     this.stakeForm = document.getElementById('stakeForm');
-  }
 
-  load() {
-    // Setup event listeners when DOM is loaded
-    // stakeButton handling is in the StakeValidatorModal
+
     this.unstakeButton.addEventListener('click', () => this.handleUnstake());
-
-    // Add listeners for opening and closing the modal
     this.backButton.addEventListener('click', () => this.close());
   }
 
