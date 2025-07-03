@@ -7650,34 +7650,19 @@ class CreateAccountModal {
 // Initialize the create account modal
 const createAccountModal = new CreateAccountModal();
 
-// Send Asset Form Modal
+/**
+ * Send Asset Form Modal Class
+ * @class
+ * @description Handles the send asset form modal
+ * @returns {void}
+ */
 class SendAssetFormModal {
   constructor() {
-    this.modal = document.getElementById('sendAssetFormModal');
-    this.closeSendAssetFormModalButton = document.getElementById('closeSendAssetFormModal');
-    this.sendForm = document.getElementById('sendForm');
     this.username = null;
-    this.usernameInput = document.getElementById('sendToAddress');
-    this.amountInput = document.getElementById('sendAmount');
-    this.memoInput = document.getElementById('sendMemo');
-    this.retryTxIdInput = document.getElementById('retryOfPaymentTxId');
-    this.usernameAvailable = document.getElementById('sendToAddressError');
-    this.submitButton = document.querySelector('#sendForm button[type="submit"]');
-    this.assetSelectDropdown = document.getElementById('sendAsset');
     this.sendAssetFormModalCheckTimeout = null;
-    this.balanceSymbol = document.getElementById('balanceSymbol');
-    this.availableBalance = document.getElementById('availableBalance');
-    this.toggleBalanceButton = document.getElementById('toggleBalance');
     this.foundAddressObject = { address: null };
     this.needTollInfo = false;
     this.tollInfo = {};
-    this.tollMemoSpan = document.getElementById('tollMemo');
-    // Add balance element references
-    this.balanceAmount = document.getElementById('balanceAmount');
-    this.transactionFee = document.getElementById('transactionFee');
-    this.balanceWarning = document.getElementById('balanceWarning');
-    this.memoLabel = document.querySelector('label[for="sendMemo"]');
-    this.memoByteCounter = document.querySelector('.memo-byte-counter');
     this.memoValidation = {}
   }
 
@@ -7686,6 +7671,27 @@ class SendAssetFormModal {
    * @returns {void}
    */
   load() {
+    this.modal = document.getElementById('sendAssetFormModal');
+    this.closeSendAssetFormModalButton = document.getElementById('closeSendAssetFormModal');
+    this.sendForm = document.getElementById('sendForm');
+    this.usernameInput = document.getElementById('sendToAddress');
+    this.amountInput = document.getElementById('sendAmount');
+    this.memoInput = document.getElementById('sendMemo');
+    this.retryTxIdInput = document.getElementById('retryOfPaymentTxId');
+    this.usernameAvailable = document.getElementById('sendToAddressError');
+    this.submitButton = document.querySelector('#sendForm button[type="submit"]');
+    this.assetSelectDropdown = document.getElementById('sendAsset');
+    this.balanceSymbol = document.getElementById('balanceSymbol');
+    this.availableBalance = document.getElementById('availableBalance');
+    this.toggleBalanceButton = document.getElementById('toggleBalance');
+    this.tollMemoSpan = document.getElementById('tollMemo');
+    // Add balance element references
+    this.balanceAmount = document.getElementById('balanceAmount');
+    this.transactionFee = document.getElementById('transactionFee');
+    this.balanceWarning = document.getElementById('balanceWarning');
+    this.memoLabel = document.querySelector('label[for="sendMemo"]');
+    this.memoByteCounter = document.querySelector('.memo-byte-counter');
+
     // TODO add comment about which send form this is for chat or assets
     this.closeSendAssetFormModalButton.addEventListener('click', this.close.bind(this));
     this.sendForm.addEventListener('submit', this.handleSendFormSubmit.bind(this));
