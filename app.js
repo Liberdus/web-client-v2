@@ -429,24 +429,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     item.addEventListener('keydown', ignoreTabKey);
   });
 
-  // Add refresh balance button handler
-  document.getElementById('refreshBalance').addEventListener('click', async () => {
-    const button = document.getElementById('refreshBalance');
-    
-    // Add active class for animation
-    button.classList.add('active');
-    
-    // Remove active class after animation completes
-    setTimeout(() => {
-      button.classList.remove('active');
-      // Force blur to remove focus
-      button.blur();
-    }, 300);
-
-    // await updateWalletBalances();
-    walletScreen.updateWalletView();
-  });
-
   // Omar added
   document.getElementById('scanQRButton').addEventListener('click', () => scanQRModal.open());
   document.getElementById('scanStakeQRButton').addEventListener('click', () => scanQRModal.open());
@@ -1243,8 +1225,21 @@ class WalletScreen {
     this.openHistoryModalButton.addEventListener('click', () => {
       historyModal.open();
     });
-    // handle refresh balance button click
-    this.refreshBalanceButton.addEventListener('click', () => {
+
+    // Add refresh balance button handler
+    this.refreshBalanceButton.addEventListener('click', async () => {
+      
+      // Add active class for animation
+      this.refreshBalanceButton.classList.add('active');
+      
+      // Remove active class after animation completes
+      setTimeout(() => {
+        this.refreshBalanceButton.classList.remove('active');
+        // Force blur to remove focus
+        this.refreshBalanceButton.blur();
+      }, 300);
+
+      // await updateWalletBalances();
       this.updateWalletView();
     });
   }
