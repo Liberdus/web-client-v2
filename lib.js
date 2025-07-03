@@ -591,6 +591,7 @@ export function normalizeUnsignedFloat(value) {
 
   // keep only digits or dots
   let normalized = value.replace(/[^0-9.]/g, '');
+  normalized = normalized.replace(/^0+/,'')
 
   // keep only the first dot
   const firstDot = normalized.indexOf('.');
@@ -603,8 +604,6 @@ export function normalizeUnsignedFloat(value) {
   if (normalized.startsWith('.')) {
     normalized = '0' + normalized;
   }
-  // only allow up to 18 decimals after and up to 9 before the decimal point
-  normalized = normalized.replace(/^0+/, '');
 
   // Handle numbers that exceed the 9-digit limit before decimal
   if (normalized.includes('.')) {
