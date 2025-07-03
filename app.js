@@ -333,6 +333,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('beforeunload', handleBeforeUnload);
   document.addEventListener('visibilitychange', handleVisibilityChange); // Keep as document
 
+  // Sign In Modal
+  signInModal.load();
+
   // Welcome Screen
   welcomeScreen.load()
 
@@ -1320,7 +1323,6 @@ class WalletScreen {
 
 const walletScreen = new WalletScreen();
 
-// create new contact
 /**
  * createNewContact
  * @param {string} addr - the address of the contact
@@ -1702,6 +1704,10 @@ async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
 // Sign In Modal Management
 class SignInModal {
   constructor() {
+    this.preselectedUsername = null;
+  }
+
+  load () {
     this.modal = document.getElementById('signInModal');
     this.usernameSelect = document.getElementById('username');
     this.submitButton = document.querySelector('#signInForm button[type="submit"]');
@@ -1709,11 +1715,7 @@ class SignInModal {
     this.notFoundMessage = document.getElementById('usernameNotFound');
     this.signInModalLastItem = document.getElementById('signInModalLastItem');
     this.backButton = document.getElementById('closeSignInModal');
-    this.setupEventListeners();
-    this.preselectedUsername = null;
-  }
 
-  setupEventListeners() {
     // Sign in form submission
     document.getElementById('signInForm').addEventListener('submit', (event) => this.handleSignIn(event));
     
