@@ -591,7 +591,8 @@ export function normalizeUnsignedFloat(value) {
 
   // keep only digits or dots
   let normalized = value.replace(/[^0-9.]/g, '');
-  normalized = normalized.replace(/^0+/,'')
+  if (normalized.match(/^0+$/)){ return '0'};
+  normalized = normalized.replace(/^0+/,'');
 
   // keep only the first dot
   const firstDot = normalized.indexOf('.');
