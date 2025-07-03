@@ -328,9 +328,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   setupConnectivityDetection();
 
-  document.getElementById('versionDisplay').textContent = myVersion + ' ' + version;
-  document.getElementById('networkNameDisplay').textContent = network.name;
-
   // Add unload handler to save myData
   window.addEventListener('unload', handleUnload);
   window.addEventListener('beforeunload', handleBeforeUnload);
@@ -521,8 +518,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   getNetworkParams();
 
-  const welcomeScreenLastItem = document.getElementById('welcomeScreenLastItem');
-  welcomeScreenLastItem.focus();
+  welcomeScreen.lastItem.focus();
 
   // Deprecated - do not want to encourage or confuse users with this feature since on IOS uses seperate local storage
   //setupAddToHomeScreen();
@@ -616,12 +612,20 @@ class WelcomeScreen {
     this.welcomeButtons = document.querySelector('.welcome-buttons');
     this.logoLink = this.screen.querySelector('.logo-link');
     this.logoLink.addEventListener('keydown', ignoreShiftTabKey);  // add event listener for first-item to prevent shift+tab
+    this.versionDisplay = document.getElementById('versionDisplay');
+    this.networkNameDisplay = document.getElementById('networkNameDisplay');
+    this.lastItem = document.getElementById('welcomeScreenLastItem');
+    
+    
+    this.versionDisplay.textContent = myVersion + ' ' + version;
+    this.networkNameDisplay.textContent = network.name;
     
     this.signInButton.addEventListener('click', () => signInModal.open());
     this.createAccountButton.addEventListener('click', () => createAccountModal.openWithReset());
     this.importAccountButton.addEventListener('click', () => restoreAccountModal.open());
 
     this.orderButtons();
+    
   }
 
   open() {
