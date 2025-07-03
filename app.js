@@ -467,25 +467,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     .getElementById('stakeQrFileInput')
     .addEventListener('change', (event) => handleQRFileSelect(event, fillStakeAddressFromQR));
 
-  document.getElementById('chatSendMoneyButton').addEventListener('click', (event) => {
-    const button = event.currentTarget;
-    sendAssetFormModal.username = button.dataset.username;
-    sendAssetFormModal.open();
-  });
-
-  // Add listener for the password visibility toggle
-  const togglePasswordButton = document.getElementById('togglePrivateKeyVisibility');
-  const passwordInput = document.getElementById('newPrivateKey');
-
-  togglePasswordButton.addEventListener('click', function () {
-    // Toggle the type attribute
-    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-    passwordInput.setAttribute('type', type);
-
-    // Toggle the visual state class on the button
-    this.classList.toggle('toggled-visible');
-  });
-
   // Event Listerns for FailedPaymentModal
   const failedPaymentModal = document.getElementById('failedPaymentModal');
   const failedPaymentRetryButton = failedPaymentModal.querySelector('.retry-button');
@@ -1940,14 +1921,13 @@ class SignInModal {
     if (this.submitButton.textContent === 'Recreate') {
       const myData = parse(localStorage.getItem(`${username}_${netid}`));
       const privateKey = myData.account.keys.secret;
-      const newUsernameInput = document.getElementById('newUsername');
-      newUsernameInput.value = username;
+      createAccountModal.usernameInput.value = username;
 
-      document.getElementById('newPrivateKey').value = privateKey;
+      createAccountModal.privateKeyInput.value = privateKey;
       this.close();
       createAccountModal.open();
       // Dispatch a change event to trigger the availability check
-      newUsernameInput.dispatchEvent(new Event('input'));
+      createAccountModal.usernameInput.dispatchEvent(new Event('input'));
       return;
     }
 
@@ -6278,20 +6258,9 @@ const stakeValidatorModal = new StakeValidatorModal();
 
 class ChatModal {
   constructor() {
-    this.modal = document.getElementById('chatModal');
-    this.closeButton = document.getElementById('closeChatModal');
-    this.messagesList = document.querySelector('.messages-list');
-    this.sendButton = document.getElementById('handleSendMessage');
-    this.modalAvatar = this.modal.querySelector('.modal-avatar');
-    this.modalTitle = this.modal.querySelector('.modal-title');
-    this.editButton = document.getElementById('chatEditButton');
-    this.sendMoneyButton = document.getElementById('chatSendMoneyButton');
-    this.retryOfTxId = document.getElementById('retryOfTxId');
-    this.messageInput = document.querySelector('.message-input');
     this.newestReceivedMessage = null;
     this.newestSentMessage = null;
     this.lastMessageCount = 0;
-    this.messageByteCounter = document.querySelector('.message-byte-counter');
 
     // used by updateTollValue and updateTollRequired
     this.toll = null;
@@ -6304,6 +6273,20 @@ class ChatModal {
    * @returns {void}
    */
   load() {
+    this.modal = document.getElementById('chatModal');
+    this.closeButton = document.getElementById('closeChatModal');
+    this.messagesList = document.querySelector('.messages-list');
+    this.sendButton = document.getElementById('handleSendMessage');
+    this.modalAvatar = this.modal.querySelector('.modal-avatar');
+    this.modalTitle = this.modal.querySelector('.modal-title');
+    this.editButton = document.getElementById('chatEditButton');
+    this.sendMoneyButton = document.getElementById('chatSendMoneyButton');
+    this.retryOfTxId = document.getElementById('retryOfTxId');
+    this.messageInput = document.querySelector('.message-input');
+    this.chatSendMoneyButton = document.getElementById('chatSendMoneyButton');
+    this.messageByteCounter = document.querySelector('.message-byte-counter');
+    this.messagesContainer = document.querySelector('.messages-container');
+
     // Add message click-to-copy handler
     this.messagesList.addEventListener('click', this.handleClickToCopy.bind(this));
     this.sendButton.addEventListener('click', this.handleSendMessage.bind(this));
@@ -6330,18 +6313,22 @@ class ChatModal {
 
     // Add focus event listener for message input to handle scrolling
     this.messageInput.addEventListener('focus', function () {
-      const messagesContainer = document.querySelector('.messages-container');
-      if (messagesContainer) {
+      if (this.messagesContainer) {
         // Check if we're already at the bottom (within 50px threshold)
         const isAtBottom =
-          messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight <= 50;
+          this.messagesContainer.scrollHeight - this.messagesContainer.scrollTop - this.messagesContainer.clientHeight <= 50;
         if (isAtBottom) {
           // Wait for keyboard to appear and viewport to adjust
           setTimeout(() => {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
           }, 300); // Increased delay to ensure keyboard is fully shown
         }
       }
+    });
+
+    this.chatSendMoneyButton.addEventListener('click', () => {
+      sendAssetFormModal.username = this.chatSendMoneyButton.dataset.username;
+      sendAssetFormModal.open();
     });
   }
 
@@ -7540,12 +7527,22 @@ class CreateAccountModal {
     this.submitButton = this.form.querySelector('button[type="submit"]');
     this.usernameAvailable = document.getElementById('newUsernameAvailable');
     this.privateKeyError = document.getElementById('newPrivateKeyError');
+    this.togglePrivateKeyVisibility = document.getElementById('togglePrivateKeyVisibility');
 
     // Setup event listeners
     this.form.addEventListener('submit', (e) => this.handleSubmit(e));
     this.usernameInput.addEventListener('input', (e) => this.handleUsernameInput(e));
     this.toggleButton.addEventListener('change', () => this.handleTogglePrivateKeyInput());
     this.backButton.addEventListener('click', () => this.close());
+
+    // Add listener for the password visibility toggle
+    this.togglePrivateKeyVisibility.addEventListener('click', () => {
+      // Toggle the type attribute
+      const type = this.privateKeyInput.getAttribute('type') === 'password' ? 'text' : 'password';
+      this.privateKeyInput.setAttribute('type', type);
+      // Toggle the visual state class on the button
+      this.togglePrivateKeyVisibility.classList.toggle('toggled-visible');
+    });
   }
 
   open() {
