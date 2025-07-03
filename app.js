@@ -1973,7 +1973,7 @@ class ContactInfoModal {
     // Add add friend button handler
     this.addFriendButton.addEventListener('click', () => {
       if (!this.currentContactAddress) return;
-      friendModal.openFriendModal();
+      friendModal.open();
     });
   }
 
@@ -2093,18 +2093,14 @@ const contactInfoModal = new ContactInfoModal();
  */
 class FriendModal {
   constructor() {
-    this.modal = document.getElementById('friendModal');
-    this.friendForm = document.getElementById('friendForm');
     this.currentContactAddress = null;
     this.needsContactListUpdate = false; // track if we need to update the contact list
     this.setupEventListeners();
   }
 
   setupEventListeners() {
-    document.getElementById('addFriendButtonChat').addEventListener('click', () => {
-      if (!this.currentContactAddress) return;
-      this.openFriendModal();
-    });
+    this.modal = document.getElementById('friendModal');
+    this.friendForm = document.getElementById('friendForm');
 
     // Friend modal form submission
     this.friendForm.addEventListener('submit', (event) => this.handleFriendSubmit(event));
@@ -2114,7 +2110,7 @@ class FriendModal {
   }
 
   // Open the friend modal
-  openFriendModal() {
+  open() {
     const contact = myData.contacts[this.currentContactAddress];
     if (!contact) return;
 
@@ -2230,6 +2226,11 @@ class FriendModal {
     button.classList.remove('status-0', 'status-1', 'status-2', 'status-3');
     // Add the current status class
     button.classList.add(`status-${contact.friend}`);
+  }
+
+  // get the current contact address
+  getCurrentContactAddress() {
+    return this.currentContactAddress || false;
   }
 }
 
@@ -6044,6 +6045,7 @@ class ChatModal {
     this.chatSendMoneyButton = document.getElementById('chatSendMoneyButton');
     this.messageByteCounter = document.querySelector('.message-byte-counter');
     this.messagesContainer = document.querySelector('.messages-container');
+    this.addFriendButtonChat = document.getElementById('addFriendButtonChat');
 
     // Add message click-to-copy handler
     this.messagesList.addEventListener('click', this.handleClickToCopy.bind(this));
@@ -6087,6 +6089,11 @@ class ChatModal {
     this.chatSendMoneyButton.addEventListener('click', () => {
       sendAssetFormModal.username = this.chatSendMoneyButton.dataset.username;
       sendAssetFormModal.open();
+    });
+
+    this.addFriendButtonChat.addEventListener('click', () => {
+      if (!friendModal.getCurrentContactAddress()) return;
+      friendModal.open();
     });
   }
 
