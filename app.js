@@ -432,17 +432,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     item.addEventListener('keydown', ignoreTabKey);
   });
 
-  // Event Listerns for FailedPaymentModal
-  const failedPaymentModal = document.getElementById('failedPaymentModal');
-  const failedPaymentRetryButton = failedPaymentModal.querySelector('.retry-button');
-  const failedPaymentDeleteButton = failedPaymentModal.querySelector('.delete-button');
-  const failedPaymentHeaderCloseButton = document.getElementById('closeFailedPaymentModal');
-
-  failedPaymentRetryButton.addEventListener('click', handleFailedPaymentRetry);
-  failedPaymentDeleteButton.addEventListener('click', handleFailedPaymentDelete);
-  failedPaymentHeaderCloseButton.addEventListener('click', closeFailedPaymentModalAndClearState);
-  failedPaymentModal.addEventListener('click', handleFailedPaymentBackdropClick);
-
   getNetworkParams();
 
   welcomeScreen.lastItem.focus();
