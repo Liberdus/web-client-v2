@@ -9043,15 +9043,10 @@ class FailedTransactionModal {
       const currentAddress = this.address;
       removeFailedTx(originalTxid, currentAddress);
   
-      this.close();
-  
       // refresh current view
       chatModal.refreshCurrentView(this.txid);
   
-      // Clear the stored values
-      this.txid = '';
-      this.address = '';
-      this.memo = '';
+      this.closeAndClearState();
       //this.assetID = '';
     } else {
       console.error('Error deleting message: TXID not found.');
