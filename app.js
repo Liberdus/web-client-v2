@@ -1696,7 +1696,6 @@ class ScanQRModal {
     // Update status
     //    statusMessage.textContent = 'QR code detected! Camera stopped.';
   }
-
 }
 
 const scanQRModal = new ScanQRModal();
@@ -1748,20 +1747,6 @@ function fillPaymentFromQR(data) {
     document.getElementById('sendToAddress').value = '';
     document.getElementById('sendAmount').value = '';
     document.getElementById('sendMemo').value = '';
-  }
-}
-
-function fillStakeAddressFromQR(data) {
-  console.log('Filling stake address from QR data:', data);
-
-  // Directly set the value of the stakeNodeAddress input field
-  const stakeNodeAddressInput = document.getElementById('stakeNodeAddress');
-  if (stakeNodeAddressInput) {
-    stakeNodeAddressInput.value = data;
-    stakeNodeAddressInput.dispatchEvent(new Event('input'));
-  } else {
-    console.error('Stake node address input field not found!');
-    showToast('Could not find stake address field.', 3000, 'error');
   }
 }
 
@@ -5853,7 +5838,8 @@ class StakeValidatorModal {
     this.amountInput.addEventListener('input', () => this.amountInput.value = normalizeUnsignedFloat(this.amountInput.value));
     this.amountInput.addEventListener('input', this.debouncedValidateStakeInputs);
     this.scanStakeQRButton.addEventListener('click', () => scanQRModal.open());
-    this.stakeQRFileInput.addEventListener('change', (event) => handleQRFileSelect(event, fillStakeAddressFromQR));
+    this.uploadStakeQRButton.addEventListener('click', () => this.stakeQRFileInput.click());
+    this.stakeQRFileInput.addEventListener('change', (event) => sendAssetFormModal.handleQRFileSelect(event, this));
 
     // Add listener for opening the modal
     document.getElementById('openStakeModal').addEventListener('click', () => this.open());
@@ -6060,6 +6046,38 @@ class StakeValidatorModal {
     this.submitButton.disabled = false;
     this.amountWarning.style.display = 'none';
     this.nodeAddressWarning.style.display = 'none';
+  }
+
+  /**
+   * Fills the stake address input field from QR data
+   * @param {string} data - The QR data to fill the stake address input field
+   * @returns {void}
+   * */
+  fillFromQR(data) {
+    console.log('Filling stake address from QR data:', data);
+
+    // Directly set the value of the stakeNodeAddress input field
+    if (this.nodeAddressInput) {
+      this.nodeAddressInput.value = data;
+      this.nodeAddressInput.dispatchEvent(new Event('input'));
+    } else {
+      console.error('Stake node address input field not found!');
+      showToast('Could not find stake address field.', 3000, 'error');
+    }
+  }
+
+  /**
+   * Resets the form to its default state
+   * @returns {void}
+   * */
+  resetForm() {
+    // Default state: button disabled, warnings hidden
+    this.nodeAddressInput.value = '';    
+    this.submitButton.disabled = true;
+    this.amountWarning.style.display = 'none';
+    this.amountWarning.textContent = '';
+    this.nodeAddressWarning.style.display = 'none';
+    this.nodeAddressWarning.textContent = '';
   }
 }
 const stakeValidatorModal = new StakeValidatorModal();
@@ -7747,7 +7765,7 @@ class SendAssetFormModal {
     this.qrFileInput = document.getElementById('qrFileInput');
     this.scanQRButton.addEventListener('click', () => scanQRModal.open());
     this.uploadQRButton.addEventListener('click', () => {this.qrFileInput.click();});
-    this.qrFileInput.addEventListener('change', (event) => handleQRFileSelect(event, fillPaymentFromQR));
+    this.qrFileInput.addEventListener('change', (event) => this.handleQRFileSelect(event, this));
   }
 
   /**
@@ -8286,6 +8304,150 @@ class SendAssetFormModal {
   isActive() {
     return this.modal?.classList.contains('active') || false;
   }
+
+  /**
+   * Resets the form fields to empty values
+   * @returns {void}
+   */
+  resetForm(){
+    this.sendForm?.reset();
+    this.usernameAvailable.textContent = '';
+    this.balanceWarning.textContent = '';
+  }
+
+  // Handles QR file upload and fill form based on current fillFunction
+  async handleQRFileSelect(event, modalClass) {
+    const file = event.target.files[0];
+    if (!file) {
+      return; // No file selected
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = function (e) {
+      const img = new Image();
+      img.onload = async function () {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        if (!context) {
+          console.error('Could not get 2d context from canvas');
+          showToast('Error processing image', 3000, 'error');
+          event.target.value = ''; // Reset file input
+          return;
+        }
+        canvas.width = img.width;
+        canvas.height = img.height;
+        context.drawImage(img, 0, 0, img.width, img.height);
+        const imageData = context.getImageData(0, 0, img.width, img.height);
+
+        try {
+          // Use qr.js library for decoding
+          const decodedData = qr.decodeQR({
+            data: imageData.data,
+            width: imageData.width,
+            height: imageData.height,
+          });
+
+          if (decodedData) {
+            if (typeof modalClass.fillFromQR === 'function') {
+              modalClass.fillFromQR(decodedData); // Call the provided fill function
+            } else {
+              console.error('No valid fill function provided for QR file select');
+              // Fallback or default behavior if needed, e.g., show generic error
+              showToast('Internal error handling QR data', 3000, 'error');
+            }
+          } else {
+            // qr.decodeQR might throw an error instead of returning null/undefined
+            // This else block might not be reached if errors are always thrown
+            console.error('No QR code found in image (qr.js)');
+            showToast('No QR code found in image', 3000, 'error');
+            // Clear the form fields in case of failure to find QR code
+            modalClass.resetForm();
+          }
+        } catch (error) {
+          console.error('Error processing QR code image with qr.js:', error);
+          // Assume error means no QR code found or decoding failed
+          showToast('Could not read QR code from image', 3000, 'error');
+          // Clear the form fields in case of error
+          modalClass.resetForm();
+
+        } finally {
+          event.target.value = ''; // Reset the file input value regardless of outcome
+        }
+      };
+      img.onerror = function () {
+        console.error('Error loading image');
+        showToast('Error loading image file', 3000, 'error');
+        event.target.value = ''; // Reset the file input value
+        // Clear the form fields in case of image loading error
+        modalClass.resetForm();
+      };
+      img.src = e.target.result;
+    };
+
+    reader.onerror = function () {
+      console.error('Error reading file');
+      showToast('Error reading file', 3000, 'error');
+      event.target.value = ''; // Reset the file input value
+    };
+
+    reader.readAsDataURL(file);
+  }
+
+  /**
+   * Fills the payment form from QR code data
+   * @param {string} data - The QR code data to fill the form with
+   * @returns {void}
+   * */
+  fillFromQR(data) {
+    console.log('Attempting to fill payment form from QR:', data);
+
+    // Explicitly check for the required prefix
+    if (!data || !data.startsWith('liberdus://')) {
+      console.error("Invalid payment QR code format. Missing 'liberdus://' prefix.", data);
+      showToast('Invalid payment QR code format.', 3000, 'error');
+      // Optionally clear fields or leave them as they were
+      this.usernameInput.value = '';
+      this.amountInput.value = '';
+      this.memoInput.value = '';
+      return; // Stop processing if the format is wrong
+    }
+
+    // Clear existing fields first
+    this.usernameInput.value = '';
+    this.amountInput.value = '';
+    this.memoInput.value = '';
+
+    try {
+      // Remove the prefix and process the base64 data
+      const base64Data = data.substring('liberdus://'.length);
+      const jsonData = atob(base64Data);
+      const paymentData = JSON.parse(jsonData);
+
+      console.log('Read payment data:', JSON.stringify(paymentData, null, 2));
+
+      if (paymentData.u) {
+        this.usernameInput.value = paymentData.u;
+      }
+      if (paymentData.a) {
+        this.amountInput.value = paymentData.a;
+      }
+      if (paymentData.m) {
+        this.memoInput.value = paymentData.m;
+      }
+
+      // Trigger username validation and amount validation
+      this.usernameInput.dispatchEvent(new Event('input'));
+      this.amountInput.dispatchEvent(new Event('input'));
+    } catch (error) {
+      console.error('Error parsing payment QR data:', error, data);
+      showToast('Failed to parse payment QR data.', 3000, 'error');
+      // Clear fields on error
+      this.usernameInput.value = '';
+      this.amountInput.value = '';
+      this.memoInput.value = '';
+    }
+  }  
 }
 
 const sendAssetFormModal = new SendAssetFormModal();
@@ -8618,91 +8780,6 @@ class SendAssetConfirmModal {
       //showToast('Transaction failed. Please try again.', 0, 'error');
       cancelButton.disabled = false;
     }
-  }
-  
-  async handleQRFileSelect(event, fillFunction) {
-    // Added fillFunction parameter
-    const file = event.target.files[0];
-    if (!file) {
-      return; // No file selected
-    }
-
-    const reader = new FileReader();
-
-    reader.onload = function (e) {
-      const img = new Image();
-      img.onload = async function () {
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        if (!context) {
-          console.error('Could not get 2d context from canvas');
-          showToast('Error processing image', 3000, 'error');
-          event.target.value = ''; // Reset file input
-          return;
-        }
-        canvas.width = img.width;
-        canvas.height = img.height;
-        context.drawImage(img, 0, 0, img.width, img.height);
-        const imageData = context.getImageData(0, 0, img.width, img.height);
-
-        try {
-          // Use qr.js library for decoding
-          const decodedData = qr.decodeQR({
-            data: imageData.data,
-            width: imageData.width,
-            height: imageData.height,
-          });
-
-          if (decodedData) {
-            // handleSuccessfulScan(decodedData); // Original call
-            if (typeof fillFunction === 'function') {
-              fillFunction(decodedData); // Call the provided fill function
-            } else {
-              console.error('No valid fill function provided for QR file select');
-              // Fallback or default behavior if needed, e.g., show generic error
-              showToast('Internal error handling QR data', 3000, 'error');
-            }
-          } else {
-            // qr.decodeQR might throw an error instead of returning null/undefined
-            // This else block might not be reached if errors are always thrown
-            console.error('No QR code found in image (qr.js)');
-            showToast('No QR code found in image', 3000, 'error');
-            // Clear the form fields in case of failure to find QR code
-            document.getElementById('sendForm')?.reset();
-            document.getElementById('sendToAddressError').textContent = '';
-            document.getElementById('balanceWarning').textContent = '';
-          }
-        } catch (error) {
-          console.error('Error processing QR code image with qr.js:', error);
-          // Assume error means no QR code found or decoding failed
-          showToast('Could not read QR code from image', 3000, 'error');
-          // Clear the form fields in case of error
-          document.getElementById('sendForm')?.reset();
-          document.getElementById('sendToAddressError').textContent = '';
-          document.getElementById('balanceWarning').textContent = '';
-        } finally {
-          event.target.value = ''; // Reset the file input value regardless of outcome
-        }
-      };
-      img.onerror = function () {
-        console.error('Error loading image');
-        showToast('Error loading image file', 3000, 'error');
-        event.target.value = ''; // Reset the file input value
-        // Clear the form fields in case of image loading error
-        document.getElementById('sendForm')?.reset();
-        document.getElementById('sendToAddressError').textContent = '';
-        document.getElementById('balanceWarning').textContent = '';
-      };
-      img.src = e.target.result;
-    };
-
-    reader.onerror = function () {
-      console.error('Error reading file');
-      showToast('Error reading file', 3000, 'error');
-      event.target.value = ''; // Reset the file input value
-    };
-
-    reader.readAsDataURL(file);
   }
 }
 
