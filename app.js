@@ -1696,6 +1696,7 @@ class ScanQRModal {
     // Update status
     //    statusMessage.textContent = 'QR code detected! Camera stopped.';
   }
+
 }
 
 const scanQRModal = new ScanQRModal();
@@ -5843,7 +5844,6 @@ class StakeValidatorModal {
 
     // Add listener for opening the modal
     document.getElementById('openStakeModal').addEventListener('click', () => this.open());
-
   }
 
   open() {
@@ -8476,7 +8476,6 @@ class SendAssetConfirmModal {
     this.closeButton.addEventListener('click', this.close.bind(this));
     this.confirmSendButton.addEventListener('click', this.handleSendAsset.bind(this));
     this.cancelButton.addEventListener('click', this.close.bind(this));
-
   }
 
   open() {
