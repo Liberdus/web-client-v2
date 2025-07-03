@@ -6970,11 +6970,6 @@ const chatModal = new ChatModal();
 
 class FailedMessageModal {
   constructor() {
-    this.modal = document.getElementById('failedMessageModal');
-    this.retryButton = this.modal.querySelector('.retry-button');
-    this.deleteButton = this.modal.querySelector('.delete-button');
-    this.closeButton = document.getElementById('closeFailedMessageModal');
-    // used by handleFailedMessageClick
     this.handleFailedMessageData = {
       handleFailedMessage: '',
       txid: '',
@@ -6986,6 +6981,11 @@ class FailedMessageModal {
    * @returns {void}
    */
   load() {
+    this.modal = document.getElementById('failedMessageModal');
+    this.retryButton = this.modal.querySelector('.retry-button');
+    this.deleteButton = this.modal.querySelector('.delete-button');
+    this.closeButton = document.getElementById('closeFailedMessageModal');
+
     this.retryButton.addEventListener('click', this.handleFailedMessageRetry.bind(this));
     this.deleteButton.addEventListener('click', this.handleFailedMessageDelete.bind(this));
     this.closeButton.addEventListener('click', this.closeFailedMessageModalAndClearState.bind(this));
