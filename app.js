@@ -432,42 +432,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     item.addEventListener('keydown', ignoreTabKey);
   });
 
-  // Add refresh balance button handler
-  document.getElementById('refreshBalance').addEventListener('click', async () => {
-    const button = document.getElementById('refreshBalance');
-    
-    // Add active class for animation
-    button.classList.add('active');
-    
-    // Remove active class after animation completes
-    setTimeout(() => {
-      button.classList.remove('active');
-      // Force blur to remove focus
-      button.blur();
-    }, 300);
+  // Event Listerns for FailedPaymentModal
+  const failedPaymentModal = document.getElementById('failedPaymentModal');
+  const failedPaymentRetryButton = failedPaymentModal.querySelector('.retry-button');
+  const failedPaymentDeleteButton = failedPaymentModal.querySelector('.delete-button');
+  const failedPaymentHeaderCloseButton = document.getElementById('closeFailedPaymentModal');
 
-    // await updateWalletBalances();
-    walletScreen.updateWalletView();
-  });
-
-  document.getElementById('chatSendMoneyButton').addEventListener('click', (event) => {
-    const button = event.currentTarget;
-    sendAssetFormModal.username = button.dataset.username;
-    sendAssetFormModal.open();
-  });
-
-  // Add listener for the password visibility toggle
-  const togglePasswordButton = document.getElementById('togglePrivateKeyVisibility');
-  const passwordInput = document.getElementById('newPrivateKey');
-
-  togglePasswordButton.addEventListener('click', function () {
-    // Toggle the type attribute
-    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-    passwordInput.setAttribute('type', type);
-
-    // Toggle the visual state class on the button
-    this.classList.toggle('toggled-visible');
-  });
+  failedPaymentRetryButton.addEventListener('click', handleFailedPaymentRetry);
+  failedPaymentDeleteButton.addEventListener('click', handleFailedPaymentDelete);
+  failedPaymentHeaderCloseButton.addEventListener('click', closeFailedPaymentModalAndClearState);
+  failedPaymentModal.addEventListener('click', handleFailedPaymentBackdropClick);
 
   getNetworkParams();
 
