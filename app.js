@@ -425,6 +425,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Failed Transaction Modal
   failedTransactionModal.load();
+  
+  // Friend Modal
+  friendModal.load();
 
   // add event listener for back-button presses to prevent shift+tab
   document.querySelectorAll('.back-button').forEach((button) => {
@@ -2095,10 +2098,9 @@ class FriendModal {
   constructor() {
     this.currentContactAddress = null;
     this.needsContactListUpdate = false; // track if we need to update the contact list
-    this.setupEventListeners();
   }
 
-  setupEventListeners() {
+  load() {
     this.modal = document.getElementById('friendModal');
     this.friendForm = document.getElementById('friendForm');
 
