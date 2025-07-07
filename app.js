@@ -5346,6 +5346,7 @@ class MyProfileModal {
 
     // Add input event listeners for validation
     this.name.addEventListener('input', (e) => this.handleNameInput(e));
+    this.name.addEventListener('blur', (e) => this.handleNameInput(e));
     this.phone.addEventListener('input', (e) => this.handlePhoneInput(e));
     this.phone.addEventListener('blur', (e) => this.handlePhoneBlur(e));
     this.email.addEventListener('input', (e) => this.handleEmailInput(e));
