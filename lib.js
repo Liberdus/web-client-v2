@@ -18,13 +18,15 @@ export function normalizeName(s, final = false) {
     if (!s) return '';
     let normalized = s
       .replace(/[^a-zA-Z\s]/g, '') // keep only alphabet and space characters
+      .replace(/\s+/g, ' ')
       .toLowerCase() // lowercase all letters
       .replace(/\b\w/g, c => c.toUpperCase()) // capitalize first letter of each word
       .substring(0, 20); // limit to 20 characters
     
+    console.log('normalized with final')
     if (final) {
-      normalized = normalized.trim();
-      normalized = normalized.replace(/\s+/g, ' ');
+      normalized = normalized.replace(/\s+$/g, '');
+      console.log('normalized final')
     }
     return normalized;
   }
