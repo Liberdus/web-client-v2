@@ -23,10 +23,8 @@ export function normalizeName(s, final = false) {
       .replace(/\b\w/g, c => c.toUpperCase()) // capitalize first letter of each word
       .substring(0, 20); // limit to 20 characters
     
-    console.log('normalized with final')
     if (final) {
       normalized = normalized.replace(/\s+$/g, '');
-      console.log('normalized final')
     }
     return normalized;
   }
