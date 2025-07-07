@@ -321,8 +321,11 @@ function newDataRecord(myAccount) {
   return myData;
 }
 
-// Add this function before the DOMContentLoaded event listener
-// Add this function before the DOMContentLoaded event listener
+/**
+ * Handle native app subscription tokens and handle subscription
+ * This is used to subscribe to push notifications for the native app
+ * @returns {Promise<void>}
+ */
 async function handleNativeAppSubscription() {
   const urlParams = new URLSearchParams(window.location.search);
   const deviceToken = urlParams.get('device_token');
@@ -339,8 +342,8 @@ async function handleNativeAppSubscription() {
       
       let addresses = [];
       if (netidAccounts?.usernames) {
-        // Get addresses from all stored accounts
-        addresses = Object.values(netidAccounts.usernames).map(account => account.address);
+        // Get addresses from all stored accounts and convert to long format
+        addresses = Object.values(netidAccounts.usernames).map(account => longAddress(account.address));
       }
       
       const payload = {
