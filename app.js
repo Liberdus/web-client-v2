@@ -352,7 +352,15 @@ async function handleNativeAppSubscription() {
         addresses: addresses
       };
       
-      const SUBSCRIPTION_API = "https://dev.liberdus.com:3030/notifier/subscribe";
+      // Get the appropriate gateway for this request
+      const selectedGateway = getGatewayForRequest();
+      if (!selectedGateway) {
+        console.error('No gateway available for subscription request');
+        showToast('No gateway available', 3000, 'error');
+        return;
+      }
+      
+      const SUBSCRIPTION_API = `${selectedGateway.web}/notifier/subscribe`;
 
       console.log('payload', payload);
       console.log('SUBSCRIPTION_API', SUBSCRIPTION_API);
