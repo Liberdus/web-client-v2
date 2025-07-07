@@ -353,6 +353,9 @@ async function handleNativeAppSubscription() {
       };
       
       const SUBSCRIPTION_API = "https://dev.liberdus.com:3030/notifier/subscribe";
+
+      console.log('payload', payload);
+      console.log('SUBSCRIPTION_API', SUBSCRIPTION_API);
       
       const response = await fetch(SUBSCRIPTION_API, {
         method: 'POST',
