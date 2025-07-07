@@ -507,6 +507,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.querySelectorAll('.last-item').forEach((item) => {
     item.addEventListener('keydown', ignoreTabKey);
   });
+  
+  function closeTopModal() {
+    const activeModals = document.querySelectorAll('.modal.active');
+    const topMostModal = activeModals[activeModals.length - 1];
+
+    if (topMostModal) {
+      const backButton = topMostModal.querySelector('.back-button');
+      if (backButton && backButton.offsetParent !== null) {
+        backButton.click();
+      }
+    }
+  }
+
+  // Handle back button presses to close the top modal
+  window.addEventListener('popstate', () => {closeTopModal();});
+
+  // Handle Escape and Backspace keys to close the top modal
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' || e.key === 'Backspace') {
+      closeTopModal();
+    }
+  });
 
   getNetworkParams();
 
