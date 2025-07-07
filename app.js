@@ -2904,6 +2904,7 @@ async function processChats(chats, keys) {
           payload.my = false;
           payload.timestamp = payload.sent_timestamp;
           payload.txid = getTxid(tx);
+          delete payload.pqEncSharedKey; 
           insertSorted(contact.messages, payload, 'timestamp');
           // if we are not in the chatModal of who sent it, playChatSound or if device visibility is hidden play sound
           if (!inActiveChatWithSender || document.visibilityState === 'hidden') {
@@ -2935,6 +2936,7 @@ async function processChats(chats, keys) {
           }
           //console.log("payload", payload)
           decryptMessage(payload, keys); // modifies the payload object
+          delete payload.pqEncSharedKey;
           if (payload.senderInfo) {
             contact.senderInfo = cleanSenderInfo(payload.senderInfo);
             delete payload.senderInfo;
