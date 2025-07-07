@@ -376,14 +376,14 @@ async function handleNativeAppSubscription() {
       if (response.ok) {
         const result = await response.json();
         console.log('Subscription successful:', result);
-        showToast('Push notifications enabled', 3000, 'success');
+        /* showToast('Push notifications enabled', 3000, 'success'); */
       } else {
         console.error('Subscription failed:', response.status, response.statusText);
-        showToast('Failed to enable push notifications', 3000, 'error');
+        /* showToast('Failed to enable push notifications', 3000, 'error'); */
       }
     } catch (error) {
       console.error('Error subscribing to push notifications:', error);
-      showToast('Error enabling push notifications', 3000, 'error');
+      /* showToast('Error enabling push notifications', 3000, 'error'); */
     }
   }
 }
