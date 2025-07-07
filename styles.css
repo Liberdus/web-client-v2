@@ -1920,7 +1920,7 @@ input[type='file'].form-control {
 /* About Modal Content Styles */
 #aboutModal .modal-header {
   /* Inherited from .modal-header */
-  padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  padding-top: calc(env(safe-area-inset-top, 0px));
   position: sticky;
   top: 0;
 }
