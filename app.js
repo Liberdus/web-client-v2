@@ -508,9 +508,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     item.addEventListener('keydown', ignoreTabKey);
   });
 
-  // Add fullscreen change detection
-  document.addEventListener('fullscreenchange', handleFullscreenChange);
-
   getNetworkParams();
 
   welcomeScreen.lastItem.focus();
@@ -9680,10 +9677,4 @@ function enterFullscreen() {
       document.documentElement.requestFullscreen();
     } 
   }
-}
-
-function handleFullscreenChange() {
-  const isFullscreen = document.fullscreenElement;
-  document.body.classList.toggle('fullscreen', isFullscreen);
-  console.log('Fullscreen changed:', isFullscreen);
 }
