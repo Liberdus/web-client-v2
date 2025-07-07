@@ -4322,9 +4322,6 @@ small {
 }
 
 /* Toll Modal Specific Styles */
-#tollModal .modal-header {
-  padding: 0.75rem 1rem;
-}
 
 #tollModal .form-container {
   padding: 16px 0; /* Vertical padding for container, horizontal handled by children */
