@@ -304,7 +304,8 @@ body {
   display: none;
   align-items: center;
   width: 100%;
-  padding: 16px;
+  /* padding only on the sides */
+  padding: 0 16px;
   background-color: var(--background-color);
   color: var(--text-color);
   position: sticky;
