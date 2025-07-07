@@ -5346,7 +5346,7 @@ class MyProfileModal {
 
     // Add input event listeners for validation
     this.name.addEventListener('input', (e) => this.handleNameInput(e));
-    this.name.addEventListener('blur', (e) => this.handleNameInput(e));
+    this.name.addEventListener('blur', (e) => this.handleNameBlur(e));
     this.phone.addEventListener('input', (e) => this.handlePhoneInput(e));
     this.phone.addEventListener('blur', (e) => this.handlePhoneBlur(e));
     this.email.addEventListener('input', (e) => this.handleEmailInput(e));
@@ -5361,6 +5361,11 @@ class MyProfileModal {
     // Allow letters, spaces, and basic punctuation
 //    const normalized = e.target.value.replace(/[^a-zA-Z\s\-'.]/g, '');
     const normalized = normalizeName(e.target.value)
+    e.target.value = normalized;
+  }
+
+  handleNameBlur(e) {
+    const normalized = normalizeName(e.target.value, true)
     e.target.value = normalized;
   }
 
