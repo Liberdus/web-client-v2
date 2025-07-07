@@ -314,6 +314,19 @@ body {
   margin-top: env(safe-area-inset-top, 0);
 }
 
+/* Fullscreen mode adjustments */
+body.fullscreen .header {
+  top: 0;
+  margin-top: 0;
+  /* Keep safe area padding */
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Modal headers in fullscreen mode */
+body.fullscreen .modal-header {
+  padding-top: calc(16px + env(safe-area-inset-top));
+}
+
 #xlogo {
   font-family: var(--font-primary);
   font-size: var(--font-size-lg);
@@ -1280,7 +1293,6 @@ input[type='file'].form-control::file-selector-button {
   overflow-wrap: break-word;
   word-wrap: break-word;
   word-break: break-word;
-  hyphens: auto;
 }
 
 /* Wrapper for the send button and the toll information */
@@ -4130,13 +4142,13 @@ small {
 }
 
 /* Ensure the base .modal.active for .modal-dialog still provides the backdrop */
-.modal.modal-dialog.active {
+/* .modal.modal-dialog.active { */
   /* display: flex; /* This is usually on .modal.active already */
   /* justify-content: center; /* This is usually on .modal.active already */
   /* align-items: center; /* This is usually on .modal.active already */
   /* The above are likely inherited. If not, uncomment them. */
   /* The backdrop color comes from .modal's background-color */
-}
+/* } */
 
 .modal-dialog #failedMessageContent {
   min-height: 60px; /* Give it some initial height */
