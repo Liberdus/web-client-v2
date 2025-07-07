@@ -2513,8 +2513,6 @@ mark {
   gap: 3px;
   position: absolute;
   right: 16px;
-  top: calc(50% + env(safe-area-inset-top) / 2);  /* ← Account for the padding */
-  transform: translateY(-50%);
 }
 
 /* Icon button styles (for chat button) */
