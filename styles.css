@@ -865,6 +865,7 @@ button:disabled {
   display: flex;
   align-items: center;
   padding-top: calc(env(safe-area-inset-top));
+  margin-bottom: 8px;
   /* only want + 16px on desktop */
   @media (min-width: 769px) {
     padding-top: calc(env(safe-area-inset-top) + 16px);
