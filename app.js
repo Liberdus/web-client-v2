@@ -321,6 +321,59 @@ function newDataRecord(myAccount) {
   return myData;
 }
 
+// Add this function before the DOMContentLoaded event listener
+// Add this function before the DOMContentLoaded event listener
+async function handleNativeAppSubscription() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const deviceToken = urlParams.get('device_token');
+  const pushToken = urlParams.get('push_token');
+  
+  if (deviceToken && pushToken) {
+    console.log('Native app subscription tokens detected:', { deviceToken, pushToken });
+    
+    try {
+      // Get the user's address from localStorage if available
+      const { netid } = network;
+      const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+      const netidAccounts = existingAccounts.netids[netid];
+      
+      let addresses = [];
+      if (netidAccounts?.usernames) {
+        // Get addresses from all stored accounts
+        addresses = Object.values(netidAccounts.usernames).map(account => account.address);
+      }
+      
+      const payload = {
+        deviceToken,
+        expoPushToken: pushToken,
+        addresses: addresses
+      };
+      
+      const SUBSCRIPTION_API = "https://dev.liberdus.com:3030/notifier/subscribe";
+      
+      const response = await fetch(SUBSCRIPTION_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Subscription successful:', result);
+        showToast('Push notifications enabled', 3000, 'success');
+      } else {
+        console.error('Subscription failed:', response.status, response.statusText);
+        showToast('Failed to enable push notifications', 3000, 'error');
+      }
+    } catch (error) {
+      console.error('Error subscribing to push notifications:', error);
+      showToast('Error enabling push notifications', 3000, 'error');
+    }
+  }
+}
+
 // Load saved account data and update chat list on page load
 document.addEventListener('DOMContentLoaded', async () => {
   await checkVersion(); // version needs to be checked before anything else happens
@@ -332,6 +385,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('unload', handleUnload);
   window.addEventListener('beforeunload', handleBeforeUnload);
   document.addEventListener('visibilitychange', handleVisibilityChange); // Keep as document
+
+  // Check for native app subscription tokens and handle subscription
+  handleNativeAppSubscription();
 
   // Sign In Modal
   signInModal.load();
@@ -445,6 +501,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Deprecated - do not want to encourage or confuse users with this feature since on IOS uses seperate local storage
   //setupAddToHomeScreen();
 });
+
+
 
 function handleUnload() {
   console.log('in handleUnload');
