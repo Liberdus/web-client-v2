@@ -262,7 +262,7 @@ export function linkifyUrls(text) {
         let warningMessage = '⚠️ Security Warning\\n\\nYou are leaving Liberdus and navigating to:\\n' + properUrl + '\\n\\n⚠️ Be careful:\\n• Verify the website is legitimate\\n• Never enter passwords on suspicious sites\\n• Check the URL for typos or fake domains';
 
         if (isPotentialDownload) {
-            warningMessage += '\\n\\n⚠️ File Download Warning:\\n• This link may download a file\\n• Only download from trusted sources\\n• Scan files with antivirus software\\n• Be especially careful with executable files (.exe, .dmg, .pkg)';
+            warningMessage = '\\n\\n⚠️ File Download Warning:\\n• This link may download a file\\n• Only download from trusted sources\\n• Scan files with antivirus software\\n• Be especially careful with executable files (.exe, .dmg, .pkg)';
         }
 
         warningMessage += '\\n\\nClick OK to continue or Cancel to stay.';
