@@ -251,13 +251,8 @@ export function linkifyUrls(text) {
              return escapedUrl;
         }
 
-        // Create the link with confirmation dialog
-        return `<a href="${properUrl}" 
-                   target="_blank" 
-                   rel="noopener noreferrer"
-                   onclick="return confirm('⚠️ External Link\\n\\nYou are leaving Liberdus and navigating to:\\n${properUrl}\\n\\nClick OK to continue or Cancel to stay.')">
-                   ${escapedUrl}
-               </a>`;
+        // Create the link with confirmation dialog (no extra whitespace)
+        return `<a href="${properUrl}" target="_blank" rel="noopener noreferrer" onclick="return confirm('⚠️ External Link\\n\\nYou are leaving Liberdus and navigating to:\\n${properUrl}\\n\\nClick OK to continue or Cancel to stay.')">${escapedUrl}</a>`;
     });
 }
 
