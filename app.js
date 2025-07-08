@@ -6866,6 +6866,11 @@ class ChatModal {
    * @returns {void}
    */
   async handleClickToCopy(e) {
+    // Check if the click was on a link - if so, don't copy
+    if (e.target.tagName === 'A' || e.target.closest('a')) {
+      return;
+    }
+    
     const messageEl = e.target.closest('.message');
     if (!messageEl) return;
 
