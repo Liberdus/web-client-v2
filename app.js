@@ -2222,6 +2222,7 @@ class FriendModal {
       type: 'update_toll_required',
       timestamp: getCorrectedTimestamp(),
       friend: friend,
+      netid: network.netid,
     };
     const txid = await signObj(tx, myAccount.keys);
     const res = await injectTx(tx, txid);
@@ -3260,6 +3261,7 @@ async function postAssetTransfer(to, amount, memo, keys) {
     timestamp: getCorrectedTimestamp(),
     network: NETWORK_ACCOUNT_ID,
     fee: parameters.current.transactionFee || 1n * wei, // This is not used by the backend
+    netid: network.netid,
   };
 
   const txid = await signObj(tx, keys);
@@ -3281,6 +3283,7 @@ async function postRegisterAlias(alias, keys) {
     publicKey: keys.public,
     pqPublicKey: pqPublicKey,
     timestamp: getCorrectedTimestamp(),
+    netid: network.netid,
   };
   const txid = await signObj(tx, keys);
   const res = await injectTx(tx, txid);
@@ -5095,6 +5098,7 @@ class TollModal {
       type: 'toll',
       timestamp: getCorrectedTimestamp(),
       tollUnit: tollUnit,
+      netid: network.netid,
     };
 
     const txid = await signObj(tollTx, myAccount.keys);
@@ -5790,6 +5794,7 @@ class ValidatorStakingModal {
       nominee: nodeAddress,
       force: false,
       timestamp: getCorrectedTimestamp(),
+      netid: network.netid,
     };
 
     const txid = await signObj(unstakeTx, myAccount.keys);
@@ -5975,6 +5980,7 @@ class StakeValidatorModal {
       nominee: nodeAddress,
       stake: amount,
       timestamp: getCorrectedTimestamp(),
+      netid: network.netid,
     };
 
     const txid = await signObj(stakeTx, keys);
@@ -6392,6 +6398,7 @@ class ChatModal {
       to: longAddress(contactAddress),
       chatId: hashBytes([longAddress(myData.account.keys.address), longAddress(contactAddress)].sort().join``),
       timestamp: getCorrectedTimestamp(),
+      netid: network.netid,
     };
     const txid = await signObj(tx, myAccount.keys);
     const response = await injectTx(tx, txid);
@@ -6463,6 +6470,7 @@ class ChatModal {
       chatId: hashBytes([longAddress(myData.account.keys.address), longAddress(contactAddress)].sort().join``),
       timestamp: getCorrectedTimestamp(),
       oldContactTimestamp: myData.contacts[contactAddress].timestamp,
+      netid: network.netid,
     };
     return readTransaction;
   }
@@ -6710,6 +6718,7 @@ class ChatModal {
       timestamp: getCorrectedTimestamp(),
       network: NETWORK_ACCOUNT_ID,
       fee: parameters.current.transactionFee || 1n * wei, // This is not used by the backend
+      netid: network.netid,
     };
     return tx;
   }
