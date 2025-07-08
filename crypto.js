@@ -71,13 +71,19 @@ export function decryptChacha(key, encrypted) {
 export async function encryptData(data, password) {
     if (!password) return data;
 
-    // Derive key using 100,000 iterations of blake2b
     let key = utf82bin(password);
-    for (let i = 0; i < 100000; i++) {
+    const iterations = 100000;
+    const batchSize = 1000;
+
+    for (let i = 0; i < iterations; i++) {
         key = blake.blake2b(key, null, 32);
+
+        // Yield every batch to avoid blocking Safari
+        if (i % batchSize === 0) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
     }
 
-    // Encrypt the data using ChaCha20-Poly1305
     const encrypted = encryptChacha(key, data);
     return encrypted;
 }
