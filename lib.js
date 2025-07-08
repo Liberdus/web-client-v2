@@ -252,7 +252,7 @@ export function linkifyUrls(text) {
         }
 
         // Create the link with confirmation dialog (no extra whitespace)
-        return `<a href="${properUrl}" target="_blank" rel="noopener noreferrer" onclick="return confirm('⚠️ External Link\\n\\nYou are leaving Liberdus and navigating to:\\n${properUrl}\\n\\nClick OK to continue or Cancel to stay.')">${escapedUrl}</a>`;
+        return `<a href="${properUrl}" target="_blank" rel="noopener noreferrer" onclick="return confirm('⚠️ Security Warning\\n\\nYou are leaving Liberdus and navigating to:\\n${properUrl}\\n\\n⚠️ Be careful:\\n• Verify the website is legitimate\\n• Never enter passwords on suspicious sites\\n• Check the URL for typos or fake domains\\n\\nClick OK to continue or Cancel to stay.')">${escapedUrl}</a>`;
     });
 }
 
