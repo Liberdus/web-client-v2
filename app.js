@@ -138,6 +138,7 @@ import {
   bigxnum2big,
   big2str,
   bin2base64,
+  base642bin,
   hex2bin,
   bin2hex,
   linkifyUrls,
@@ -8474,7 +8475,7 @@ class SendAssetFormModal {
     try {
       // Remove the prefix and process the base64 data
       const base64Data = data.substring('liberdus://'.length);
-      const jsonData = new TextDecoder().decode(base64ToBytes(base64Data));
+      const jsonData = new TextDecoder().decode(base642bin(base64Data));
       const paymentData = JSON.parse(jsonData);
 
       console.log('Read payment data:', JSON.stringify(paymentData, null, 2));
@@ -8995,7 +8996,7 @@ class ReceiveModal {
 
       // Convert to JSON and encode as base64
       const jsonData = JSON.stringify(paymentData);
-      const base64Data = bytesToBase64(new TextEncoder().encode(jsonData));
+      const base64Data = bin2base64(new TextEncoder().encode(jsonData));
 
       // Create URI with liberdus:// prefix
       const qrText = `liberdus://${base64Data}`;
@@ -9677,17 +9678,4 @@ function enterFullscreen() {
       document.documentElement.requestFullscreen();
     } 
   }
-}
-
-// https://developer.mozilla.org/en-US/docs/Web/API/Window/btoa
-function base64ToBytes(base64) {
-  const binString = atob(base64);
-  return Uint8Array.from(binString, (m) => m.codePointAt(0));
-}
-
-function bytesToBase64(bytes) {
-  const binString = Array.from(bytes, (byte) =>
-    String.fromCodePoint(byte),
-  ).join("");
-  return btoa(binString);
 }
