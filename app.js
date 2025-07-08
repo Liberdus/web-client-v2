@@ -8486,7 +8486,7 @@ class SendAssetFormModal {
         this.amountInput.value = paymentData.a;
       }
       if (paymentData.m) {
-        this.memoInput.value = paymentData.m; 
+        this.memoInput.value = paymentData.m;
       }
 
       // Trigger username validation and amount validation
