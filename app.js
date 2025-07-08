@@ -135,6 +135,7 @@ import {
   normalizeAddress,
   longAddress,
   utf82bin,
+  bin2utf8,
   bigxnum2big,
   big2str,
   bin2base64,
@@ -8475,7 +8476,7 @@ class SendAssetFormModal {
     try {
       // Remove the prefix and process the base64 data
       const base64Data = data.substring('liberdus://'.length);
-      const jsonData = new TextDecoder().decode(base642bin(base64Data));
+      const jsonData = bin2utf8(base642bin(base64Data));
       const paymentData = JSON.parse(jsonData);
 
       console.log('Read payment data:', JSON.stringify(paymentData, null, 2));
@@ -8996,7 +8997,7 @@ class ReceiveModal {
 
       // Convert to JSON and encode as base64
       const jsonData = JSON.stringify(paymentData);
-      const base64Data = bin2base64(new TextEncoder().encode(jsonData));
+      const base64Data = bin2base64(utf82bin(jsonData));
 
       // Create URI with liberdus:// prefix
       const qrText = `liberdus://${base64Data}`;
