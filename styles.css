@@ -345,6 +345,7 @@ body {
 }
 
 .header.active {
+  height: 56px;
   /* only want margin-top on desktop */
   @media (min-width: 769px) {
     margin-top: 16px;
@@ -862,6 +863,7 @@ button:disabled {
 }
 
 .modal-header {
+  height: 56px;
   display: flex;
   align-items: center;
   padding-top: calc(env(safe-area-inset-top));
@@ -871,7 +873,6 @@ button:disabled {
     padding-top: calc(env(safe-area-inset-top) + 16px);
   }
   background-color: var(--background-color);
-  /* z-index: 1002; */
   position: relative;
 }
 
@@ -901,7 +902,7 @@ button:disabled {
 .chat-user-info {
   display: flex;
   align-items: center;
-  margin-left: 48px;
+  margin-left: 56px;
   margin-right: 140px; /* Reserve space for header actions */
   gap: 12px;
   cursor: pointer;
@@ -2078,7 +2079,7 @@ input[type='file'].form-control {
 }
 
 .contact-info-item {
-  padding: 1rem;
+  padding: 0.5rem;
 }
 
 .contact-info-item:last-child {
