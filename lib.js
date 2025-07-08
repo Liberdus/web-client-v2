@@ -248,11 +248,26 @@ export function linkifyUrls(text) {
         // **Safety Check:** Validate the protocol
         // Should always pass now due to the strict regex, but kept for safety.
         if (!allowedProtocols.test(properUrl)) {
-             return escapedUrl;
+            return escapedUrl;
         }
 
-        // Create the link with confirmation dialog (no extra whitespace)
-        return `<a href="${properUrl}" target="_blank" rel="noopener noreferrer" onclick="return confirm('⚠️ Security Warning\\n\\nYou are leaving Liberdus and navigating to:\\n${properUrl}\\n\\n⚠️ Be careful:\\n• Verify the website is legitimate\\n• Never enter passwords on suspicious sites\\n• Check the URL for typos or fake domains\\n\\nClick OK to continue or Cancel to stay.')">${escapedUrl}</a>`;
+        // Check if URL might lead to a file download
+        const fileExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.zip', '.rar', '.exe', '.dmg', '.pkg', '.deb', '.rpm', '.apk', '.ipa', '.mp3', '.mp4', '.avi', '.mov', '.jpg', '.jpeg', '.png', '.gif', '.svg', '.txt', '.csv', '.json', '.xml'];
+        const downloadKeywords = ['download', 'file', 'attachment', 'get', 'fetch'];
+
+        const hasFileExtension = fileExtensions.some(ext => properUrl.toLowerCase().includes(ext));
+        const hasDownloadKeyword = downloadKeywords.some(keyword => properUrl.toLowerCase().includes(keyword));
+        const isPotentialDownload = hasFileExtension || hasDownloadKeyword;
+
+        let warningMessage = '⚠️ Security Warning\\n\\nYou are leaving Liberdus and navigating to:\\n' + properUrl + '\\n\\n⚠️ Be careful:\\n• Verify the website is legitimate\\n• Never enter passwords on suspicious sites\\n• Check the URL for typos or fake domains';
+
+        if (isPotentialDownload) {
+            warningMessage += '\\n\\n⚠️ File Download Warning:\\n• This link may download a file\\n• Only download from trusted sources\\n• Scan files with antivirus software\\n• Be especially careful with executable files (.exe, .dmg, .pkg)';
+        }
+
+        warningMessage += '\\n\\nClick OK to continue or Cancel to stay.';
+
+        return `<a href="${properUrl}" target="_blank" rel="noopener noreferrer" onclick="return confirm('${warningMessage}')">${escapedUrl}</a>`;
     });
 }
 
