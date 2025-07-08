@@ -1079,8 +1079,8 @@ class ContactsScreen {
     // Group metadata for rendering
     const groupMeta = [
       { key: 'friends', label: 'Friends', itemClass: 'chat-item' },
-      { key: 'acquaintances', label: 'Acquaintances', itemClass: 'chat-item' },
-      { key: 'others', label: 'Others', itemClass: 'chat-item' },
+      { key: 'acquaintances', label: 'Connections', itemClass: 'chat-item' },
+      { key: 'others', label: 'Tolled', itemClass: 'chat-item' },
       { key: 'blocked', label: 'Blocked', itemClass: 'chat-item blocked' },
     ];
 
@@ -2263,9 +2263,9 @@ class FriendModal {
       contact.friend === 0
         ? 'Blocked'
         : contact.friend === 1
-          ? 'Added as Other'
+          ? 'Added as Tolled'
           : contact.friend === 2
-            ? 'Added as Acquaintance'
+            ? 'Added as Connection'
             : contact.friend === 3
               ? 'Added as Friend'
               : 'Error updating friend status'
