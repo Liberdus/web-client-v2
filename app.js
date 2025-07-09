@@ -9527,6 +9527,13 @@ class LockModal {
       // In clear password mode, only old password needs to be filled
       isValid = true;
       this.lockButton.textContent = 'Remove Password';
+      
+      // Set placeholder based on confirm password state
+      if (confirmPassword.length > 0) {
+        this.newPasswordInput.placeholder = '';
+      } else {
+        this.newPasswordInput.placeholder = 'Leave blank to remove password';
+      }
     } else {
       // Regular password set/update mode
       isValid = newPassword.length > 0 && confirmPassword.length > 0;
@@ -9536,6 +9543,7 @@ class LockModal {
         isValid = isValid && oldPassword.length > 0;
       }
       this.lockButton.textContent = 'Save Password';
+      this.newPasswordInput.placeholder = '';
     }
     
     // Validate password requirements and set appropriate warnings
