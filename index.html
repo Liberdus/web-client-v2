@@ -221,6 +221,7 @@
           <!--                <li class="menu-item" id="openSettings">Settings</li> -->
           <li class="menu-item" id="openExplorer" data-icon="search">Explorer</li>
           <li class="menu-item" id="openMonitor" data-icon="globe">Network</li>
+          <li class="menu-item" id="openLockModal" data-icon="lock">Lock</li>
           <!--<li class="menu-item" id="openImportFormMenu">Import</li>-->
           <li class="menu-item" id="openRemoveAccount" data-icon="trash-2">Remove</li>
           <li class="menu-item" id="openContact" data-icon="phone">Contact Us</li>
@@ -292,6 +293,37 @@
         </div>
         <a class="last-item" href="#"> </a>
       </div>
+
+      <!-- Lock Modal -->
+      <div class="modal" id="lockModal">
+      <div class="modal-header">
+        <button class="back-button" id="closeLockModal"></button>
+        <div class="modal-title">Lock</div>
+      </div>
+      <!-- description and warning to let user know if passworrd is lost they will not be able to access their account -->
+      <div class="form-container">
+        <p>Submitting a password will lock your app when you close it and you will need to unlock by entering the password.</p>
+        <p>If you lose your password, you will not be able to access your account.</p>
+      </div>
+      <div class="form-container">
+        <form id="lockForm">
+          <div class="form-group">
+            <!-- old password input default to hidden -->
+            <label for="oldPassword" id="oldPasswordLabel" style="display: none;">Old Password</label>
+            <input type="password" id="oldPassword" class="form-control" style="display: none;" />
+            <!-- new password input -->
+            <label for="newPassword">Password</label>
+            <input type="password" id="newPassword" class="form-control" />
+            <!-- confirm new password input -->
+            <label for="confirmNewPassword">Confirm New Password</label>
+            <input type="password" id="confirmNewPassword" class="form-control" />
+          </div>
+          <button type="submit" class="update-button" disabled>Lock</button>
+        </form>
+      </div>
+      <a class="last-item" href="#"> </a>
+      </div>
+
 
       <!-- Sign In Modal -->
       <div class="modal" id="signInModal">

@@ -119,6 +119,7 @@ import {
   generatePQKeys,
   generateRandomBytes,
   generateAddress,
+  passwordToKey,
 } from './crypto.js';
 
 // Put standalone conversion function in lib.js
@@ -504,6 +505,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Bridge Modal
   bridgeModal.load();
+
+  // Lock Modal
+  lockModal.load();
 
   // add event listener for back-button presses to prevent shift+tab
   document.querySelectorAll('.back-button').forEach((button) => {
@@ -9353,6 +9357,117 @@ class BridgeModal {
 }
 
 const bridgeModal = new BridgeModal();
+
+/**
+ * Lock Modal
+ * @class
+ * @description A modal for locking the app
+ */
+class LockModal {
+  constructor() {
+    
+  }
+
+  load() {
+    this.modal = document.getElementById('lockModal');
+    this.openButton = document.getElementById('openLockModal');
+    this.headerCloseButton = document.getElementById('closeLockModal');
+    this.lockForm = document.getElementById('lockForm');
+    this.oldPasswordInput = this.modal.querySelector('#oldPassword');
+    this.oldPasswordLabel = this.modal.querySelector('#oldPasswordLabel');
+    this.newPasswordInput = this.modal.querySelector('#newPassword');
+    this.confirmNewPasswordInput = this.modal.querySelector('#confirmNewPassword');
+    this.lockButton = this.modal.querySelector('.update-button');
+
+    this.openButton.addEventListener('click', () => this.open());
+    this.headerCloseButton.addEventListener('click', () => this.close());
+    this.lockForm.addEventListener('submit', (event) => this.handleSubmit(event));
+    // dynamic button state
+    this.newPasswordInput.addEventListener('input', () => this.updateButtonState());
+    this.confirmNewPasswordInput.addEventListener('input', () => this.updateButtonState());
+    this.oldPasswordInput.addEventListener('input', () => this.updateButtonState());
+  }
+
+  open() {
+    // if localStorage.lock exists, then show the old password input
+    if (localStorage?.lock) {
+      this.oldPasswordInput.style.display = 'block';
+      this.oldPasswordLabel.style.display = 'block';
+    } else {
+      this.oldPasswordInput.style.display = 'none';
+      this.oldPasswordLabel.style.display = 'none';
+    }
+
+    this.clearInputs();
+
+    // show the modal
+    this.modal.classList.add('active');
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+  }
+
+  async handleSubmit(event) {
+    event.preventDefault();
+    
+    const newPassword = this.newPasswordInput.value;
+    const confirmNewPassword = this.confirmNewPasswordInput.value;
+
+    if (newPassword !== confirmNewPassword) {
+      showToast('Passwords do not match. Please try again.', 0, 'error');
+      return;
+    }
+    
+    try {
+      // encryptData will handle the password hashing internally
+      const key = await passwordToKey(newPassword);
+      if (!key) {
+        showToast('Invalid password. Please try again.', 0, 'error');
+        return;
+      }
+      
+      // Save the key in localStorage with a key of "lock"
+      localStorage.lock = key;
+
+      // clear the inputs
+      this.clearInputs();
+      
+      // Close the modal
+      this.close();
+    } catch (error) {
+      console.error('Encryption failed:', error);
+      showToast('Failed to encrypt password. Please try again.', 0, 'error');
+    }
+  }
+
+  updateButtonState() {
+    const newPassword = this.newPasswordInput.value;
+    const confirmPassword = this.confirmNewPasswordInput.value;
+    const oldPassword = this.oldPasswordInput.value;
+    
+    let isValid = newPassword.length > 0 && confirmPassword.length > 0;
+    
+    // If old password field is visible, it must be filled
+    if (this.oldPasswordInput.style.display !== 'none') {
+      isValid = isValid && oldPassword.length > 0;
+    }
+    
+    // Check if passwords match
+    if (newPassword && confirmPassword) {
+      isValid = isValid && newPassword === confirmPassword;
+    }
+    
+    this.lockButton.disabled = !isValid;
+  }
+
+  clearInputs() {
+    this.oldPasswordInput.value = '';
+    this.newPasswordInput.value = '';
+    this.confirmNewPasswordInput.value = '';
+  }
+}
+const lockModal = new LockModal();
 
 /**
  * Remove failed transaction from the contacts messages, pending, and wallet history

@@ -103,6 +103,25 @@ export async function decryptData(encryptedData, password) {
     return decryptChacha(key, encryptedData);
 }
 
+export async function passwordToKey(password) {
+    if (!password) return null;
+
+    let key = utf82bin(password);
+    const iterations = 100000;
+    const batchSize = 1000;
+
+    for (let i = 0; i < iterations; i++) {
+        key = blake.blake2b(key, null, 32);
+
+        // Yield every batch to avoid blocking Safari
+        if (i % batchSize === 0) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+    }
+
+    return key;
+}
+
 // We purposely do not encrypt/decrypt using browser native crypto functions; all crypto functions must be readable
 export async function decryptMessage(payload, keys) {
     if (payload.encrypted) {
