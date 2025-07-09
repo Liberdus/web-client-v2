@@ -9411,9 +9411,11 @@ class LockModal {
     if (localStorage?.lock) {
       this.oldPasswordInput.style.display = 'block';
       this.oldPasswordLabel.style.display = 'block';
+      this.newPasswordInput.placeholder = 'Leave blank to remove password';
     } else {
       this.oldPasswordInput.style.display = 'none';
       this.oldPasswordLabel.style.display = 'none';
+      this.newPasswordInput.placeholder = '';
     }
 
     this.clearInputs();
@@ -9455,6 +9457,15 @@ class LockModal {
       }
     }
 
+    // if new password is empty, remove the password from localStorage
+    // once we are here we know the old password is correct
+    if (newPassword.length === 0) {
+      delete localStorage.lock;
+      showToast('Password removed', 2000, 'success');
+      this.close();
+      return;
+    }
+
     if (newPassword !== confirmNewPassword) {
       showToast('Passwords do not match. Please try again.', 0, 'error');
       return;
@@ -9484,35 +9495,51 @@ class LockModal {
     }
   }
 
-  updateButtonState() {
+  async updateButtonState() {
     const newPassword = this.newPasswordInput.value;
     const confirmPassword = this.confirmNewPasswordInput.value;
     const oldPassword = this.oldPasswordInput.value;
     
-    let isValid = newPassword.length > 0 && confirmPassword.length > 0;
+    // Check if old password is filled and new password is empty - "Clear password" mode
+    const isOldPasswordVisible = this.oldPasswordInput.style.display !== 'none';
+    const isClearPasswordMode = isOldPasswordVisible && oldPassword.length > 0 && newPassword.length === 0;
     
-    // If old password field is visible, it must be filled
-    if (this.oldPasswordInput.style.display !== 'none') {
-      isValid = isValid && oldPassword.length > 0;
+    let isValid = false;
+    
+    if (isClearPasswordMode) {
+      // In clear password mode, only old password needs to be filled
+      isValid = true;
+      this.newPasswordInput.placeholder = 'Leave blank to remove password';
+    } else {
+      // Regular password set/update mode
+      isValid = newPassword.length > 0 && confirmPassword.length > 0;
+      
+      // If old password field is visible, it must be filled
+      if (isOldPasswordVisible) {
+        isValid = isValid && oldPassword.length > 0;
+      }
+      this.newPasswordInput.placeholder = '';
     }
     
     // Validate password requirements and set appropriate warnings
     let warningMessage = '';
     
-    // Check if password is at least 4 characters
-    if (newPassword.length > 0 && newPassword.length < 4) {
-      isValid = false;
-      warningMessage = 'Password must be at least 4 characters.';
-    }
-    // Check if passwords match
-    else if (newPassword && confirmPassword && newPassword !== confirmPassword) {
-      isValid = false;
-      warningMessage = 'Password confirmation does not match.';
-    }
-    // Check if new password is same as old password
-    else if (newPassword && oldPassword && newPassword === oldPassword) {
-      isValid = false;
-      warningMessage = 'New password cannot be the same as the old password.';
+    if (!isClearPasswordMode) {
+      // Check if password is at least 4 characters
+      if (newPassword.length > 0 && newPassword.length < 4) {
+        isValid = false;
+        warningMessage = 'Password must be at least 4 characters.';
+      }
+      // Check if passwords match
+      else if (newPassword && confirmPassword && newPassword !== confirmPassword) {
+        isValid = false;
+        warningMessage = 'Password confirmation does not match.';
+      }
+      // Check if new password is same as old password
+      else if (newPassword && oldPassword && newPassword === oldPassword) {
+        isValid = false;
+        warningMessage = 'New password cannot be the same as the old password.';
+      }
     }
     
     // Update button state and warnings
