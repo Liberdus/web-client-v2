@@ -119,7 +119,7 @@ export async function passwordToKey(password) {
         }
     }
 
-    return key;
+    return bin2hex(key);
 }
 
 // We purposely do not encrypt/decrypt using browser native crypto functions; all crypto functions must be readable
