@@ -217,7 +217,7 @@
           <li class="menu-item" id="openExportForm" data-icon="download">Backup</li>
           <li class="menu-item" id="openValidator" data-icon="shield">Validator</li>
           <li class="menu-item" id="openInvite" data-icon="mail">Invite</li>
-          <li class="menu-item" id="openBridge" >Bridge</li>
+          <li class="menu-item" id="openBridge" data-icon="arrow-right-arrow-left">Bridge</li>
           <!--                <li class="menu-item" id="openSettings">Settings</li> -->
           <li class="menu-item" id="openExplorer" data-icon="search">Explorer</li>
           <li class="menu-item" id="openMonitor" data-icon="globe">Network</li>
@@ -325,6 +325,23 @@
       <a class="last-item" href="#"> </a>
       </div>
 
+      <!-- Unlock Modal -->
+      <div class="modal" id="unlockModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeUnlockModal"></button>
+          <div class="modal-title">Unlock</div>
+        </div>
+        <div class="form-container">
+          <form id="unlockForm">
+            <div class="form-group">
+              <label for="password">Password</label>
+              <input type="password" id="password" class="form-control" required />
+            </div>
+            <button type="submit" class="update-button" disabled>Unlock</button>
+          </form>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
 
       <!-- Sign In Modal -->
       <div class="modal" id="signInModal">
