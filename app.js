@@ -9413,6 +9413,16 @@ class LockModal {
     
     const newPassword = this.newPasswordInput.value;
     const confirmNewPassword = this.confirmNewPasswordInput.value;
+    const oldPassword = this.oldPasswordInput.value;
+
+    // if old password is visible, check if it is correct
+    if (this.oldPasswordInput.style.display !== 'none') {
+      const key = await passwordToKey(oldPassword);
+      if (!key) {
+        showToast('Invalid password. Please try again.', 0, 'error');
+        return;
+      }
+    }
 
     if (newPassword !== confirmNewPassword) {
       showToast('Passwords do not match. Please try again.', 0, 'error');
