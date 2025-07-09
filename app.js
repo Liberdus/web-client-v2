@@ -9412,11 +9412,11 @@ class LockModal {
       this.oldPasswordInput.style.display = 'block';
       this.oldPasswordLabel.style.display = 'block';
       this.newPasswordInput.placeholder = 'Leave blank to remove password';
-      this.lockButton.textContent = 'Save Password';
     } else {
       this.oldPasswordInput.style.display = 'none';
       this.oldPasswordLabel.style.display = 'none';
       this.newPasswordInput.placeholder = '';
+      this.lockButton.textContent = 'Save Password';
     }
 
     // disable the button
@@ -9456,6 +9456,8 @@ class LockModal {
       // decrypt the old password
       const key = await passwordToKey(oldPassword);
       if (!key) {
+        // remove the loading toast
+        if (waitingToastId) hideToast(waitingToastId);
         showToast('Invalid password. Please try again.', 0, 'error');
         return;
       }
