@@ -4778,7 +4778,7 @@ class BackupAccountModal {
     this.modal.classList.remove('active');
   }
 
-  async handleSubmit(event) {
+  async handleSubmit_old(event) {
     event.preventDefault();
 
     const password = document.getElementById('exportPassword').value;
@@ -4793,7 +4793,7 @@ class BackupAccountModal {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${myAccount.username}-liberdus-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `liberdus-${myAccount.username}-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -4806,6 +4806,46 @@ class BackupAccountModal {
       showToast('Failed to encrypt data. Please try again.', 0, 'error');
     }
   }
+
+  async handleSubmit(event) {
+    event.preventDefault();
+
+    const password = document.getElementById('exportPassword').value;
+    const myLocalStore = copyLocalStorageToObject();
+//    console.log(myLocalStore);
+    const jsonData = stringify(myLocalStore, null, 2);
+
+    try {
+      // Encrypt data if password is provided
+      const finalData = password ? await encryptData(jsonData, password) : jsonData;
+
+      // Create and trigger download
+      const blob = new Blob([finalData], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `liberdus-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // Close export modal
+      this.close();
+    } catch (error) {
+      console.error('Encryption failed:', error);
+      showToast('Failed to encrypt data. Please try again.', 0, 'error');
+    }
+  }
+
+  copyLocalStorageToObject() {
+    const myLocalStore = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      myLocalStore[key] = localStorage.getItem(key);
+    }
+    return myLocalStore;
+  }  
 }
 const backupAccountModal = new BackupAccountModal();
 
@@ -4854,32 +4894,39 @@ class RestoreAccountModal {
 
       // We first parse to jsonData so that if the parse does not work we don't destroy myData
       myData = parse(fileContent);
-      // also need to set myAccount
-      const acc = myData.account; // this could have other things which are not needed
-      myAccount = {
-        netid: acc.netid,
-        username: acc.username,
-        keys: {
-          address: acc.keys.address,
-          public: acc.keys.public,
-          secret: acc.keys.secret,
-          type: acc.keys.type,
-        },
-      };
-      // Get existing accounts or create new structure
-      const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-      // Ensure netid exists
-      if (!existingAccounts.netids[myAccount.netid]) {
-        existingAccounts.netids[myAccount.netid] = { usernames: {} };
-      }
-      // Store updated accounts back in localStorage
-      existingAccounts.netids[myAccount.netid].usernames[myAccount.username] = {
-        address: myAccount.keys.address,
-      };
-      localStorage.setItem('accounts', stringify(existingAccounts));
 
-      // Store the localStore entry for username_netid
-      localStorage.setItem(`${myAccount.username}_${myAccount.netid}`, stringify(myData));
+      if (myData.version) {
+        localStorage.clear();
+        copyObjectToLocalStorage(myData);
+      }
+      else {
+        // also need to set myAccount
+        const acc = myData.account; // this could have other things which are not needed
+        myAccount = {
+          netid: acc.netid,
+          username: acc.username,
+          keys: {
+            address: acc.keys.address,
+            public: acc.keys.public,
+            secret: acc.keys.secret,
+            type: acc.keys.type,
+          },
+        };
+        // Get existing accounts or create new structure
+        const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+        // Ensure netid exists
+        if (!existingAccounts.netids[myAccount.netid]) {
+          existingAccounts.netids[myAccount.netid] = { usernames: {} };
+        }
+        // Store updated accounts back in localStorage
+        existingAccounts.netids[myAccount.netid].usernames[myAccount.username] = {
+          address: myAccount.keys.address,
+        };
+        localStorage.setItem('accounts', stringify(existingAccounts));
+
+        // Store the localStore entry for username_netid
+        localStorage.setItem(`${myAccount.username}_${myAccount.netid}`, stringify(myData));
+      }
 
       // Show success message using toast
       showToast('Account restored successfully!', 2000, 'success');
@@ -4895,6 +4942,14 @@ class RestoreAccountModal {
       showToast(error.message || 'Import failed. Please check file and password.', 3000, 'error');
     }
   }
+
+  copyObjectToLocalStorage(obj) {
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        localStorage.setItem(key, obj[key]);
+      }
+    }
+  }  
 }
 const restoreAccountModal = new RestoreAccountModal();
 
