@@ -9404,7 +9404,6 @@ class LockModal {
     this.confirmNewPasswordInput.addEventListener('input', () => debounce(this.updateButtonState(), 100));
     this.oldPasswordInput.addEventListener('input', () => debounce(this.updateButtonState(), 100));
     this.passwordWarning = this.modal.querySelector('#passwordWarning');
-    this.confirmPasswordWarning = this.modal.querySelector('#confirmPasswordWarning');
   }
 
   open() {
@@ -9497,36 +9496,33 @@ class LockModal {
       isValid = isValid && oldPassword.length > 0;
     }
     
-    // Check if passwords match
-    if (newPassword && confirmPassword) {
-      isValid = isValid && newPassword === confirmPassword;
-      if (!isValid) {
-        this.passwordWarning.textContent = 'Password confirmation does not match.';
-        this.passwordWarning.style.display = 'block';
-        this.confirmPasswordWarning.style.display = 'none';
-      } else {
-        this.passwordWarning.style.display = 'none';
-      }
-    }
-
+    // Validate password requirements and set appropriate warnings
+    let warningMessage = '';
+    
     // Check if password is at least 4 characters
-    if (newPassword.length < 4) {
+    if (newPassword.length > 0 && newPassword.length < 4) {
       isValid = false;
-      this.passwordWarning.textContent = 'Password must be at least 4 characters.';
-      this.passwordWarning.style.display = 'block';
-      this.confirmPasswordWarning.style.display = 'none';
+      warningMessage = 'Password must be at least 4 characters.';
+    }
+    // Check if passwords match
+    else if (newPassword && confirmPassword && newPassword !== confirmPassword) {
+      isValid = false;
+      warningMessage = 'Password confirmation does not match.';
+    }
+    // Check if new password is same as old password
+    else if (newPassword && oldPassword && newPassword === oldPassword) {
+      isValid = false;
+      warningMessage = 'New password cannot be the same as the old password.';
     }
     
+    // Update button state and warnings
     this.lockButton.disabled = !isValid;
-
-    if (!isValid && (newPassword === oldPassword)) {
-      this.passwordWarning.textContent = 'New password cannot be the same as the old password.';
+    
+    if (warningMessage) {
+      this.passwordWarning.textContent = warningMessage;
       this.passwordWarning.style.display = 'block';
-      this.confirmPasswordWarning.style.display = 'none';
     } else {
       this.passwordWarning.style.display = 'none';
-      this.confirmPasswordWarning.style.display = 'none';
-      this.confirmPasswordWarning.textContent = '';
     }
   }
 
