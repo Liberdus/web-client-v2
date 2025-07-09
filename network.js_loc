@@ -1,6 +1,6 @@
 const network = {
-  "netid": "2f4b9f72089bbfce9f89d3d8e76086daab6ae6f416887c809aab26abb6e5703b",
-  "name": "Testnet",
+  "netid": "d684b22623d1a18322ac32f8b5b8dd1e3062fdd4a294ff43178817550ba78599",
+  "name": "Devnet",
   "gateways": [
     {
       "web": "http://localhost:3030",
