@@ -9400,9 +9400,9 @@ class LockModal {
     this.headerCloseButton.addEventListener('click', () => this.close());
     this.lockForm.addEventListener('submit', (event) => this.handleSubmit(event));
     // dynamic button state
-    this.newPasswordInput.addEventListener('input', () => debounce(this.updateButtonState(), 100));
-    this.confirmNewPasswordInput.addEventListener('input', () => debounce(this.updateButtonState(), 100));
-    this.oldPasswordInput.addEventListener('input', () => debounce(this.updateButtonState(), 100));
+    this.newPasswordInput.addEventListener('input', () => debounce(this.updateButtonState(), 250));
+    this.confirmNewPasswordInput.addEventListener('input', () => debounce(this.updateButtonState(), 250));
+    this.oldPasswordInput.addEventListener('input', () => debounce(this.updateButtonState(), 250));
     this.passwordWarning = this.modal.querySelector('#passwordWarning');
   }
 
