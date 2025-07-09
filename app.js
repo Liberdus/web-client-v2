@@ -9534,13 +9534,11 @@ class UnlockModal {
   }
 
   open() {
-    this.unlock();
     this.modal.classList.add('active');
   }
 
   close() {
     this.modal.classList.remove('active');
-    this.lock();
   }
 
   async handleSubmit(event) {
@@ -9552,8 +9550,9 @@ class UnlockModal {
       return;
     }
     if (key === localStorage.lock) {
-      this.close();
       this.unlock();
+      this.close();
+      signInModal.open();
     } else {
       showToast('Invalid password. Please try again.', 0, 'error');
     }
