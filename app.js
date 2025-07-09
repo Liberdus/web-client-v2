@@ -9466,6 +9466,8 @@ class LockModal {
         showToast('Invalid password. Please try again.', 0, 'error');
         return;
       }
+
+      showToast('Password updated', 2000, 'success');
       
       // Save the key in localStorage with a key of "lock"
       localStorage.lock = key;
