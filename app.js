@@ -9417,8 +9417,21 @@ class LockModal {
 
     // if old password is visible, check if it is correct
     if (this.oldPasswordInput.style.display !== 'none') {
+      // check if old password is empty
+      if (oldPassword.length === 0) {
+        showToast('Please enter your old password.', 0, 'error');
+        return;
+      }
+
+      // decrypt the old password
       const key = await passwordToKey(oldPassword);
       if (!key) {
+        showToast('Invalid password. Please try again.', 0, 'error');
+        return;
+      }
+      if (key !== localStorage.lock) {
+        // clear the old password input
+        this.oldPasswordInput.value = '';
         showToast('Invalid password. Please try again.', 0, 'error');
         return;
       }
