@@ -1,5 +1,5 @@
 const network = {
-  "netid": "d684b22623d1a18322ac32f8b5b8dd1e3062fdd4a294ff43178817550ba78599",
+  "netid": "627510f0cb0bf5e82b0cc8bace10a1a3649c74d9b733af9a32e26d495e5799fe",
   "name": "Devnet",
   "gateways": [
     {

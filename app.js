@@ -609,6 +609,7 @@ class WelcomeScreen {
     this.versionDisplay = document.getElementById('versionDisplay');
     this.networkNameDisplay = document.getElementById('networkNameDisplay');
     this.lastItem = document.getElementById('welcomeScreenLastItem');
+    this.openBackupModalButton = document.getElementById('openBackupModalButton');
     
     
     this.versionDisplay.textContent = myVersion + ' ' + version;
@@ -649,6 +650,8 @@ class WelcomeScreen {
       this.welcomeButtons.appendChild(this.importAccountButton);
       this.signInButton.classList.add('primary-button');
       this.signInButton.classList.remove('secondary-button');
+      this.openBackupModalButton.classList.remove('hidden');
+      this.welcomeButtons.appendChild(this.openBackupModalButton);
     } else {
       this.welcomeButtons.innerHTML = ''; // Clear existing order
       this.createAccountButton.classList.remove('hidden');
@@ -657,6 +660,8 @@ class WelcomeScreen {
       this.welcomeButtons.appendChild(this.importAccountButton);
       this.createAccountButton.classList.add('primary-button');
       this.createAccountButton.classList.remove('secondary-button');
+      this.openBackupModalButton.classList.remove('hidden');
+      this.welcomeButtons.appendChild(this.openBackupModalButton);
     }
   }
 }
@@ -1162,6 +1167,8 @@ class MenuModal {
     this.aboutButton.addEventListener('click', () => aboutModal.open());
     this.signOutButton = document.getElementById('handleSignOut');
     this.signOutButton.addEventListener('click', () => this.handleSignOut());
+    this.backupButton = document.getElementById('openBackupModalButton');
+    this.backupButton.addEventListener('click', () => backupAccountModal.open());
   }
 
   open() {
@@ -2222,7 +2229,7 @@ class FriendModal {
       type: 'update_toll_required',
       timestamp: getCorrectedTimestamp(),
       friend: friend,
-      netid: network.netid,
+      networkId: network.netid,
     };
     const txid = await signObj(tx, myAccount.keys);
     const res = await injectTx(tx, txid);
@@ -3261,7 +3268,7 @@ async function postAssetTransfer(to, amount, memo, keys) {
     timestamp: getCorrectedTimestamp(),
     network: NETWORK_ACCOUNT_ID,
     fee: parameters.current.transactionFee || 1n * wei, // This is not used by the backend
-    netid: network.netid,
+    networkId: network.netid,
   };
 
   const txid = await signObj(tx, keys);
@@ -3283,7 +3290,7 @@ async function postRegisterAlias(alias, keys) {
     publicKey: keys.public,
     pqPublicKey: pqPublicKey,
     timestamp: getCorrectedTimestamp(),
-    netid: network.netid,
+    networkId: network.netid,
   };
   const txid = await signObj(tx, keys);
   const res = await injectTx(tx, txid);
@@ -4811,7 +4818,7 @@ class BackupAccountModal {
     event.preventDefault();
 
     const password = document.getElementById('exportPassword').value;
-    const myLocalStore = copyLocalStorageToObject();
+    const myLocalStore = this.copyLocalStorageToObject();
 //    console.log(myLocalStore);
     const jsonData = stringify(myLocalStore, null, 2);
 
@@ -4897,7 +4904,7 @@ class RestoreAccountModal {
 
       if (myData.version) {
         localStorage.clear();
-        copyObjectToLocalStorage(myData);
+        this.copyObjectToLocalStorage(myData);
       }
       else {
         // also need to set myAccount
@@ -4945,7 +4952,7 @@ class RestoreAccountModal {
 
   copyObjectToLocalStorage(obj) {
     for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
         localStorage.setItem(key, obj[key]);
       }
     }
@@ -5153,7 +5160,7 @@ class TollModal {
       type: 'toll',
       timestamp: getCorrectedTimestamp(),
       tollUnit: tollUnit,
-      netid: network.netid,
+      networkId: network.netid,
     };
 
     const txid = await signObj(tollTx, myAccount.keys);
@@ -5849,7 +5856,7 @@ class ValidatorStakingModal {
       nominee: nodeAddress,
       force: false,
       timestamp: getCorrectedTimestamp(),
-      netid: network.netid,
+      networkId: network.netid,
     };
 
     const txid = await signObj(unstakeTx, myAccount.keys);
@@ -6035,7 +6042,7 @@ class StakeValidatorModal {
       nominee: nodeAddress,
       stake: amount,
       timestamp: getCorrectedTimestamp(),
-      netid: network.netid,
+      networkId: network.netid,
     };
 
     const txid = await signObj(stakeTx, keys);
@@ -6453,7 +6460,7 @@ class ChatModal {
       to: longAddress(contactAddress),
       chatId: hashBytes([longAddress(myData.account.keys.address), longAddress(contactAddress)].sort().join``),
       timestamp: getCorrectedTimestamp(),
-      netid: network.netid,
+      networkId: network.netid,
     };
     const txid = await signObj(tx, myAccount.keys);
     const response = await injectTx(tx, txid);
@@ -6525,7 +6532,7 @@ class ChatModal {
       chatId: hashBytes([longAddress(myData.account.keys.address), longAddress(contactAddress)].sort().join``),
       timestamp: getCorrectedTimestamp(),
       oldContactTimestamp: myData.contacts[contactAddress].timestamp,
-      netid: network.netid,
+      networkId: network.netid,
     };
     return readTransaction;
   }
@@ -6773,7 +6780,7 @@ class ChatModal {
       timestamp: getCorrectedTimestamp(),
       network: NETWORK_ACCOUNT_ID,
       fee: parameters.current.transactionFee || 1n * wei, // This is not used by the backend
-      netid: network.netid,
+      networkId: network.netid,
     };
     return tx;
   }
