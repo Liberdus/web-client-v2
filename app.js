@@ -4772,7 +4772,13 @@ class BackupAccountModal {
     // called when the DOM is loaded; can setup event handlers here
     this.modal = document.getElementById('exportModal');
     document.getElementById('closeExportForm').addEventListener('click', () => this.close());
-    document.getElementById('exportForm').addEventListener('submit', (event) => this.handleSubmit(event));
+    document.getElementById('exportForm').addEventListener('submit', (event) => {
+      if (myData) {
+        this.handleSubmitOne(event);
+      } else {
+        this.handleSubmitAll(event);
+      }
+    });
   }
 
   open() {
@@ -4785,7 +4791,7 @@ class BackupAccountModal {
     this.modal.classList.remove('active');
   }
 
-  async handleSubmit_old(event) {
+  async handleSubmitOne(event) {
     event.preventDefault();
 
     const password = document.getElementById('exportPassword').value;
@@ -4814,7 +4820,7 @@ class BackupAccountModal {
     }
   }
 
-  async handleSubmit(event) {
+  async handleSubmitAll(event) {
     event.preventDefault();
 
     const password = document.getElementById('exportPassword').value;

@@ -1851,6 +1851,19 @@ input[type='file'].form-control {
   opacity: 0.9;
 }
 
+#exportModal p {
+  font-family: var(--font-primary);
+  font-size: var(--font-size-base);
+  color: var(--text-color);
+  margin-bottom: 1rem;
+  line-height: 1.5;
+  text-align: left;
+}
+
+#exportModal p:last-of-type {
+  margin-bottom: 1.5rem;
+}
+
 /* Remove Account Modal Styles */
 #removeAccountModal .form-container {
   display: flex;
