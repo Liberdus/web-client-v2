@@ -9602,6 +9602,12 @@ async function getNetworkParams() {
     if (fetchedData !== undefined && fetchedData !== null) {
       parameters = fetchedData.account;
       getNetworkParams.timestamp = now;
+      // if network id from network.js is not the same as the parameters.current.networkId
+      if (network.netid !== parameters.current.networkId) {
+        console.error(`getNetworkParams: Network ID mismatch. Network ID from network.js: ${network.netid}, Network ID from parameters: ${parameters.current.networkId}`);
+        // show toast notification with the error message
+        showToast(`Network ID mismatch. Network ID from network.js: ${network.netid}, Network ID from parameters: ${parameters.current.networkId}`, 0, 'error');
+      }
       return;
     } else {
       console.warn(
