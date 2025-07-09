@@ -9442,8 +9442,6 @@ class LockModal {
 
       // decrypt the old password
       const key = await passwordToKey(oldPassword);
-      console.log(`DEBUG: key: ${key}`);
-      console.log(`DEBUG: localStorage.lock: ${localStorage.lock}`);
       if (!key) {
         showToast('Invalid password. Please try again.', 0, 'error');
         return;
@@ -9538,6 +9536,7 @@ class UnlockModal {
   }
 
   close() {
+    this.passwordInput.value = '';
     this.modal.classList.remove('active');
   }
 
@@ -9550,6 +9549,7 @@ class UnlockModal {
       return;
     }
     if (key === localStorage.lock) {
+      showToast('Unlock successful', 2000, 'success');
       this.unlock();
       this.close();
       signInModal.open();
