@@ -9418,6 +9418,9 @@ class LockModal {
       this.newPasswordInput.placeholder = '';
     }
 
+    // disable the button
+    this.lockButton.disabled = true;
+
     this.clearInputs();
 
     // show the modal
@@ -9429,6 +9432,12 @@ class LockModal {
   }
 
   async handleSubmit(event) {
+    // disable the button
+    this.lockButton.disabled = true;
+
+    // loading toast
+    let waitingToastId = showToast('Updating password...', 0, 'loading');
+    
     event.preventDefault();
     
     const newPassword = this.newPasswordInput.value;
@@ -9461,6 +9470,8 @@ class LockModal {
     // once we are here we know the old password is correct
     if (newPassword.length === 0) {
       delete localStorage.lock;
+      // remove the loading toast
+      if (waitingToastId) hideToast(waitingToastId);
       showToast('Password removed', 2000, 'success');
       this.close();
       return;
@@ -9479,6 +9490,9 @@ class LockModal {
         return;
       }
 
+      // remove the loading toast
+      if (waitingToastId) hideToast(waitingToastId);
+
       showToast('Password updated', 2000, 'success');
       
       // Save the key in localStorage with a key of "lock"
@@ -9492,6 +9506,8 @@ class LockModal {
     } catch (error) {
       console.error('Encryption failed:', error);
       showToast('Failed to encrypt password. Please try again.', 0, 'error');
+      // remove the loading toast
+      if (waitingToastId) hideToast(waitingToastId);
     }
   }
 
@@ -9509,7 +9525,7 @@ class LockModal {
     if (isClearPasswordMode) {
       // In clear password mode, only old password needs to be filled
       isValid = true;
-      this.newPasswordInput.placeholder = 'Leave blank to remove password';
+      this.lockButton.textContent = 'Remove Password';
     } else {
       // Regular password set/update mode
       isValid = newPassword.length > 0 && confirmPassword.length > 0;
@@ -9518,7 +9534,7 @@ class LockModal {
       if (isOldPasswordVisible) {
         isValid = isValid && oldPassword.length > 0;
       }
-      this.newPasswordInput.placeholder = '';
+      this.lockButton.textContent = 'Save Password';
     }
     
     // Validate password requirements and set appropriate warnings
@@ -9593,14 +9609,24 @@ class UnlockModal {
   }
 
   async handleSubmit(event) {
+    // disable the button
+    this.unlockButton.disabled = true;
+
+    // loading toast
+    let waitingToastId = showToast('Checking password...', 0, 'loading');
+
     event.preventDefault();
     const password = this.passwordInput.value;
     const key = await passwordToKey(password);
     if (!key) {
+      // remove the loading toast
+      if (waitingToastId) hideToast(waitingToastId);
       showToast('Invalid password. Please try again.', 0, 'error');
       return;
     }
     if (key === localStorage.lock) {
+      // remove the loading toast
+      if (waitingToastId) hideToast(waitingToastId);
       showToast('Unlock successful', 2000, 'success');
       this.unlock();
       this.close();
@@ -9608,6 +9634,9 @@ class UnlockModal {
     } else {
       showToast('Invalid password. Please try again.', 0, 'error');
     }
+
+    // remove the loading toast
+    if (waitingToastId) hideToast(waitingToastId);
   }
 
   updateButtonState() {
