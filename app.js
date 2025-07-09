@@ -9400,9 +9400,11 @@ class LockModal {
     this.headerCloseButton.addEventListener('click', () => this.close());
     this.lockForm.addEventListener('submit', (event) => this.handleSubmit(event));
     // dynamic button state
-    this.newPasswordInput.addEventListener('input', () => this.updateButtonState());
-    this.confirmNewPasswordInput.addEventListener('input', () => this.updateButtonState());
-    this.oldPasswordInput.addEventListener('input', () => this.updateButtonState());
+    this.newPasswordInput.addEventListener('input', () => debounce(this.updateButtonState(), 100));
+    this.confirmNewPasswordInput.addEventListener('input', () => debounce(this.updateButtonState(), 100));
+    this.oldPasswordInput.addEventListener('input', () => debounce(this.updateButtonState(), 100));
+    this.passwordWarning = this.modal.querySelector('#passwordWarning');
+    this.confirmPasswordWarning = this.modal.querySelector('#confirmPasswordWarning');
   }
 
   open() {
@@ -9498,9 +9500,34 @@ class LockModal {
     // Check if passwords match
     if (newPassword && confirmPassword) {
       isValid = isValid && newPassword === confirmPassword;
+      if (!isValid) {
+        this.passwordWarning.textContent = 'Password confirmation does not match.';
+        this.passwordWarning.style.display = 'block';
+        this.confirmPasswordWarning.style.display = 'none';
+      } else {
+        this.passwordWarning.style.display = 'none';
+      }
+    }
+
+    // Check if password is at least 4 characters
+    if (newPassword.length < 4) {
+      isValid = false;
+      this.passwordWarning.textContent = 'Password must be at least 4 characters.';
+      this.passwordWarning.style.display = 'block';
+      this.confirmPasswordWarning.style.display = 'none';
     }
     
     this.lockButton.disabled = !isValid;
+
+    if (!isValid && (newPassword === oldPassword)) {
+      this.passwordWarning.textContent = 'New password cannot be the same as the old password.';
+      this.passwordWarning.style.display = 'block';
+      this.confirmPasswordWarning.style.display = 'none';
+    } else {
+      this.passwordWarning.style.display = 'none';
+      this.confirmPasswordWarning.style.display = 'none';
+      this.confirmPasswordWarning.textContent = '';
+    }
   }
 
   clearInputs() {
