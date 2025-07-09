@@ -501,6 +501,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Friend Modal
   friendModal.load();
 
+  // Bridge Modal
+  bridgeModal.load();
+
   // add event listener for back-button presses to prevent shift+tab
   document.querySelectorAll('.back-button').forEach((button) => {
     button.addEventListener('keydown', ignoreShiftTabKey);
@@ -1169,6 +1172,8 @@ class MenuModal {
     this.signOutButton.addEventListener('click', () => this.handleSignOut());
     this.backupButton = document.getElementById('openBackupModalButton');
     this.backupButton.addEventListener('click', () => backupAccountModal.open());
+    this.bridgeButton = document.getElementById('openBridge');
+    this.bridgeButton.addEventListener('click', () => bridgeModal.open());
   }
 
   open() {
@@ -9309,6 +9314,39 @@ class FailedTransactionModal {
 }
 
 const failedTransactionModal = new FailedTransactionModal();
+
+class BridgeModal {
+  constructor() {}
+  load() {
+    this.modal = document.getElementById('bridgeModal');
+    this.closeButton = document.getElementById('closeBridgeModal');
+    this.bridgeToPolygonButton = document.getElementById('bridgeToPolygon');
+    this.bridgeFromPolygonButton = document.getElementById('bridgeFromPolygon');
+
+    this.closeButton.addEventListener('click', () => this.close());
+    this.bridgeFromPolygonButton.addEventListener('click', () => {window.open('./bridge', '_blank');});
+    this.bridgeToPolygonButton.addEventListener('click', () => {
+      this.close();
+      sendAssetFormModal.open();
+      sendAssetFormModal.usernameInput.value = 'liberdusbridge';
+      sendAssetFormModal.usernameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+       
+
+  }
+  open() {
+    this.modal.classList.add('active');
+  }
+  close() {
+    this.modal.classList.remove('active');
+  }
+  isActive() {
+    return this.modal.classList.contains('active');
+  }
+  
+}
+
+const bridgeModal = new BridgeModal();
 
 /**
  * Remove failed transaction from the contacts messages, pending, and wallet history
