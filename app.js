@@ -9412,6 +9412,7 @@ class LockModal {
       this.oldPasswordInput.style.display = 'block';
       this.oldPasswordLabel.style.display = 'block';
       this.newPasswordInput.placeholder = 'Leave blank to remove password';
+      this.lockButton.textContent = 'Save Password';
     } else {
       this.oldPasswordInput.style.display = 'none';
       this.oldPasswordLabel.style.display = 'none';
@@ -9632,6 +9633,7 @@ class UnlockModal {
       this.close();
       signInModal.open();
     } else {
+      if (waitingToastId) hideToast(waitingToastId);
       showToast('Invalid password. Please try again.', 0, 'error');
     }
 
