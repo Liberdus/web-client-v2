@@ -9462,6 +9462,8 @@ class LockModal {
         return;
       }
       if (key !== localStorage.lock) {
+        // remove the loading toast
+        if (waitingToastId) hideToast(waitingToastId);
         // clear the old password input
         this.oldPasswordInput.value = '';
         showToast('Invalid password. Please try again.', 0, 'error');
@@ -9489,6 +9491,8 @@ class LockModal {
       // encryptData will handle the password hashing internally
       const key = await passwordToKey(newPassword);
       if (!key) {
+        // remove the loading toast
+        if (waitingToastId) hideToast(waitingToastId);
         showToast('Invalid password. Please try again.', 0, 'error');
         return;
       }
