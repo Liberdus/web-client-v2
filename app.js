@@ -628,6 +628,7 @@ class WelcomeScreen {
     
     this.signInButton.addEventListener('click', () => {
       if (localStorage.lock && unlockModal.isLocked()) {
+        unlockModal.openButtonElementUsed = this.signInButton;
         unlockModal.open();
       } else {
         signInModal.open();
@@ -635,6 +636,7 @@ class WelcomeScreen {
     });
     this.createAccountButton.addEventListener('click', () => {
       if (localStorage.lock && unlockModal.isLocked()) {
+        unlockModal.openButtonElementUsed = this.createAccountButton;
         unlockModal.open();
       } else {
         createAccountModal.openWithReset();
@@ -9600,6 +9602,8 @@ const lockModal = new LockModal();
 class UnlockModal {
   constructor() {
     this.locked = true;
+    // keep track of what button was pressed to open the unlock modal
+    this.openButtonElementUsed = null;
   }
 
   load() {
@@ -9645,7 +9649,11 @@ class UnlockModal {
       showToast('Unlock successful', 2000, 'success');
       this.unlock();
       this.close();
-      signInModal.open();
+      if (this.openButtonElementUsed === welcomeScreen.createAccountButton) {
+        createAccountModal.openWithReset();
+      } else {
+        signInModal.open();
+      }
     } else {
       if (waitingToastId) hideToast(waitingToastId);
       showToast('Invalid password. Please try again.', 0, 'error');
