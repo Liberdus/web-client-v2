@@ -598,11 +598,52 @@ async function handleVisibilityChange() {
   }
 }
 
+function encryptAllAccounts(oldEncKey, newEncKey) {
+  // TODO loop through all accounts listed in localStore.accounts and reencrypt them and save back to localStore
+  //    note that oldEncKey and newEncKey can be null in which case it mean the account was not already encrpted 
+  //    or that it does not need to be encrypted respectively.
+}
+
+
+
+/*
+In unlock
+checkKey = passwordToKey(password)
+if (localStore.lock != checkKey){
+  error
+  return
+}
+encKey = passwordToKey(password+"liberdusData")
+*/
+
+/*
+data = localStore.get(username_netid_)
+if (localStore.lock){
+  data = decryptData(data, encKey)
+}
+myData = parse(data)
+*/
+
+/* when a lock is getting set or password getting changed
+encryptAllAccounts(oldEncKey, newEncKey)  if null it means we didn't have a key
+  loop through all username_netid
+    read data from localStore
+    unencrypt the data with oldEncKey
+    encrypte the data with newEncKey
+    save data to localStore
+*/
+
+
 function saveState() {
   console.log('in saveState');
   if (myData && myAccount && myAccount.username && myAccount.netid) {
     console.log('saving state');
-    localStorage.setItem(`${myAccount.username}_${myAccount.netid}`, stringify(myData));
+    let data = stringify(myData)
+    localStorage.setItem(`${myAccount.username}_${myAccount.netid}`, data));
+    if (localStorage.lock){
+      data = encryptData(data, encKey)
+    }
+    localStorage.setItem(`${myAccount.username}_${myAccount.netid}_`, data));
   }
 }
 
