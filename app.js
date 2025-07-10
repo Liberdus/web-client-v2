@@ -599,12 +599,58 @@ async function handleVisibilityChange() {
 }
 
 function encryptAllAccounts(oldEncKey, newEncKey) {
-  // TODO loop through all accounts listed in localStore.accounts and reencrypt them and save back to localStore
-  //    note that oldEncKey and newEncKey can be null in which case it mean the account was not already encrpted 
-  //    or that it does not need to be encrypted respectively.
+  // Get all accounts from localStorage
+  const accountsObj = parse(localStorage.getItem('accounts') || 'null');
+  if (!accountsObj.netids) return;
+
+  for (const netid in accountsObj.netids) {
+    const usernamesObj = accountsObj.netids[netid]?.usernames;
+    if (!usernamesObj) continue;
+    for (const username in usernamesObj) {
+      const key = `${username}_${netid}`;
+      let data = localStorage.getItem(key);
+      if (!data) continue;
+
+      // If oldEncKey is set, decrypt; otherwise, treat as plaintext
+      if (oldEncKey) {
+        try {
+          data = decryptData(data, oldEncKey);
+        } catch (e) {
+          console.error(`Failed to decrypt data for ${key}:`, e);
+          continue;
+        }
+      }
+
+      /*
+      // If data is still not an object, parse it
+      let parsedData;
+      try {
+        parsedData = typeof data === 'string' ? parse(data) : data;
+      } catch (e) {
+        console.error(`Failed to parse data for ${key}:`, e);
+        continue;
+      }
+
+      // Stringify for storage
+      let newData = stringify(parsedData);
+      */
+      let newData = data;
+
+      // If newEncKey is set, encrypt; otherwise, store as plaintext
+      if (newEncKey) {
+        try {
+          newData = encryptData(newData, newEncKey);
+        } catch (e) {
+          console.error(`Failed to encrypt data for ${key}:`, e);
+          continue;
+        }
+      }
+
+      // Save to localStorage (encrypted version uses _ suffix)
+      localStorage.setItem(`${key}_`, newData);
+    }
+  }
 }
-
-
 
 /*
 In unlock
