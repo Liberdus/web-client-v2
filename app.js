@@ -649,7 +649,7 @@ async function encryptAllAccounts(oldPassword, newPassword) {
       }
 
       // Save to localStorage (encrypted version uses _ suffix)
-      localStorage.setItem(`${key}_`, newData);
+      localStorage.setItem(`_${key}`, newData);
     }
   }
 }
