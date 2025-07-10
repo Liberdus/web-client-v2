@@ -9349,7 +9349,7 @@ class BridgeModal {
     this.bridgeFromPolygonButton = document.getElementById('bridgeFromPolygon');
 
     this.closeButton.addEventListener('click', () => this.close());
-    // this.bridgeFromPolygonButton.addEventListener('click', () => {window.open('./bridge', '_blank');});
+    this.bridgeFromPolygonButton.addEventListener('click', () => {window.open('./bridge', '_blank');});
     this.bridgeToPolygonButton.addEventListener('click', () => this.openSendAssetModalToBridge());
   }
 
