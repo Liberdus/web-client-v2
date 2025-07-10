@@ -598,7 +598,9 @@ async function handleVisibilityChange() {
   }
 }
 
-function encryptAllAccounts(oldEncKey, newEncKey) {
+async function encryptAllAccounts(oldPassword, newPassword) {
+  const oldEncKey = !oldPassword ? null : await passwordToKey(oldPassword+'liberdusData');
+  const newEncKey = !newPassword ? null : await passwordToKey(newPassword+'liberdusData');
   // Get all accounts from localStorage
   const accountsObj = parse(localStorage.getItem('accounts') || 'null');
   if (!accountsObj.netids) return;
@@ -614,7 +616,7 @@ function encryptAllAccounts(oldEncKey, newEncKey) {
       // If oldEncKey is set, decrypt; otherwise, treat as plaintext
       if (oldEncKey) {
         try {
-          data = decryptData(data, oldEncKey);
+          data = await decryptData(data, oldEncKey);
         } catch (e) {
           console.error(`Failed to decrypt data for ${key}:`, e);
           continue;
@@ -639,7 +641,7 @@ function encryptAllAccounts(oldEncKey, newEncKey) {
       // If newEncKey is set, encrypt; otherwise, store as plaintext
       if (newEncKey) {
         try {
-          newData = encryptData(newData, newEncKey);
+          newData = await encryptData(newData, newEncKey);
         } catch (e) {
           console.error(`Failed to encrypt data for ${key}:`, e);
           continue;
@@ -9586,13 +9588,15 @@ class LockModal {
         return;
       }
 
-      // remove the loading toast
-      if (waitingToastId) hideToast(waitingToastId);
 
       showToast('Password updated', 2000, 'success');
       
       // Save the key in localStorage with a key of "lock"
       localStorage.lock = key;
+      await encryptAllAccounts(oldPassword, newPassword)
+
+      // remove the loading toast
+      if (waitingToastId) hideToast(waitingToastId);
 
       // clear the inputs
       this.clearInputs();
