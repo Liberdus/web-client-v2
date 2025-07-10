@@ -682,6 +682,15 @@ encryptAllAccounts(oldEncKey, newEncKey)  if null it means we didn't have a key
 */
 
 
+
+function saveState() {
+  console.log('in saveState');
+  if (myData && myAccount && myAccount.username && myAccount.netid) {
+    console.log('saving state');
+    localStorage.setItem(`${myAccount.username}_${myAccount.netid}`, stringify(myData));
+  }
+}
+/*
 function saveState() {
   console.log('in saveState');
   if (myData && myAccount && myAccount.username && myAccount.netid) {
@@ -694,6 +703,7 @@ function saveState() {
     localStorage.setItem(`${myAccount.username}_${myAccount.netid}_`, data));
   }
 }
+*/
 
 class WelcomeScreen {
   constructor() {}
