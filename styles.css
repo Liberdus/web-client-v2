@@ -1098,6 +1098,76 @@ input[type='file'].form-control::file-selector-button {
   border-radius: 12px 0 0 12px;
 }
 
+/* Developer Options Styling */
+.developer-options {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 12px 0;
+  background-color: var(--hover-background);
+  transition: all 0.3s ease;
+}
+
+.developer-options .form-group {
+  margin-bottom: 12px;
+}
+
+.developer-options .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.developer-options label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-color);
+  margin-bottom: 6px;
+}
+
+.developer-options .form-control {
+  font-size: var(--font-size-sm);
+}
+
+.developer-options .form-control:disabled {
+  background-color: var(--input-background);
+  color: var(--secondary-text-color);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.developer-options .form-control:disabled::placeholder {
+  color: var(--secondary-text-color);
+  opacity: 0.6;
+}
+
+/* Developer Options Toggle Checkbox */
+#developerOptionsToggle {
+  margin-right: 8px;
+  transform: scale(1.1);
+}
+
+/* Developer Options Section Animation */
+#developerOptionsSection {
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+#developerOptionsSection.show {
+  animation: fadeInSlide 0.3s ease forwards;
+}
+
+@keyframes fadeInSlide {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    max-height: 200px;
+    transform: translateY(0);
+  }
+}
+
 /* Floating Button Styles */
 .floating-button {
   position: fixed;

@@ -4967,16 +4967,59 @@ class BackupAccountModal {
 const backupAccountModal = new BackupAccountModal();
 
 class RestoreAccountModal {
-  constructor() {}
+  constructor() {
+    this.developerOptionsEnabled = false;
+    this.netids = []; // Will be populated from network.js
+  }
 
   load() {
     // called when the DOM is loaded; can setup event handlers here
     this.modal = document.getElementById('importModal');
-    document.getElementById('closeImportForm').addEventListener('click', () => this.close());
-    document.getElementById('importForm').addEventListener('submit', (event) => this.handleSubmit(event));
+    this.developerOptionsToggle = document.getElementById('developerOptionsToggle');
+    this.oldStringSelect = document.getElementById('oldStringSelect');
+    this.oldStringCustom = document.getElementById('oldStringCustom');
+    this.newStringSelect = document.getElementById('newStringSelect');
+    this.newStringCustom = document.getElementById('newStringCustom');
+    this.closeImportForm = document.getElementById('closeImportForm');
+    this.importForm = document.getElementById('importForm');
+    this.fileInput = document.getElementById('importFile');
+    this.passwordInput = document.getElementById('importPassword');
+    this.developerOptionsSection = document.getElementById('developerOptionsSection');
+
+    this.closeImportForm.addEventListener('click', () => this.close());
+    this.importForm.addEventListener('submit', (event) => this.handleSubmit(event));
+    
+    // Add new event listeners for developer options
+    this.developerOptionsToggle.addEventListener('change', (e) => this.toggleDeveloperOptions(e));
+    // setup mutual exclusion for the developer options
+    this.setupMutualExclusion(this.oldStringSelect, this.oldStringCustom);
+    this.setupMutualExclusion(this.newStringSelect, this.newStringCustom);
+    
+    // Populate netid dropdowns
+    this.populateNetidDropdowns();
+  }
+
+  setupMutualExclusion(selectElement, inputElement) {
+    selectElement.addEventListener('change', (e) => {
+      if (e.target.value) {
+        inputElement.disabled = true;
+        inputElement.value = '';
+      } else {
+        inputElement.disabled = false;
+      }
+    });
+  
+    inputElement.addEventListener('change', (e) => {
+      if (e.target.value.trim()) {
+        selectElement.value = '';
+      }
+    });
   }
 
   open() {
+    // have developer options toggle unchecked and clear any previous inputs
+    this.clearForm();
+
     // called when the modal needs to be opened
     this.modal.classList.add('active');
   }
@@ -4984,29 +5027,93 @@ class RestoreAccountModal {
   close() {
     // called when the modal needs to be closed
     this.modal.classList.remove('active');
+    this.clearForm();
+  }
+
+  // toggle the developer options section
+  toggleDeveloperOptions(event) {
+    this.developerOptionsEnabled = event.target.checked;
+    this.developerOptionsSection.style.display = this.developerOptionsEnabled ? 'block' : 'none';
+  }
+
+  // populate the netid dropdowns
+  populateNetidDropdowns() {
+    // get all netids from network.js
+    const allNetids = [...new Set([network.netid, ...(network?.netids || [])])]; // Remove duplicates with Set
+    // remove any null or undefined netids
+    allNetids.filter(Boolean).forEach(netid => {
+      this.oldStringSelect.add(new Option(netid, netid));
+      this.newStringSelect.add(new Option(netid, netid));
+    });
+  }
+
+  // get the string substitution
+  getStringSubstitution() {
+    if (!this.developerOptionsEnabled) return null;
+    
+    const oldString = this.oldStringSelect.value || 
+                     this.oldStringCustom.value.trim();
+    const newString = this.newStringSelect.value || 
+                     this.newStringCustom.value.trim();
+    
+    if (oldString && newString && oldString !== newString) {
+      return { oldString, newString };
+    }
+    
+    return null;
+  }
+
+  // perform the string substitution
+  performStringSubstitution(fileContent, substitution) {
+    if (!substitution) return fileContent;
+
+    // Count occurrences before replacement
+    const regex = new RegExp(substitution.oldString, 'g');
+    const matches = fileContent.match(regex);
+    const matchCount = matches ? matches.length : 0;
+    
+    // Global string replacement (like sed -i 's/old/new/g')
+    const modifiedContent = fileContent.replace(regex, substitution.newString);
+    
+    // Provide feedback about the substitution
+    if (matchCount > 1) {
+      console.log(`✅ Applied substitution: ${substitution.oldString} → ${substitution.newString} (${matchCount} occurrences)`);
+    } else {
+      const reason = matchCount === 1 ? 'Only 1 match found' : 'No matches found';
+      console.log(`⚠️ ${reason} for: ${substitution.oldString}`);
+      this.clearForm();
+      throw new Error(`${reason} - import cancelled for data integrity`);
+    }
+    
+    return modifiedContent;
   }
 
   async handleSubmit(event) {
     event.preventDefault();
-    const fileInput = document.getElementById('importFile');
-    const passwordInput = document.getElementById('importPassword');
 
     try {
       // Read the file
-      const file = fileInput.files[0];
+      const file = this.fileInput.files[0];
       let fileContent = await file.text();
       const isNotEncryptedData = fileContent.match('{');
 
       // Check if data is encrypted and decrypt if necessary
       if (!isNotEncryptedData) {
-        if (!passwordInput.value.trim()) {
+        if (!this.passwordInput.value.trim()) {
           showToast('Password required for encrypted data', 3000, 'error');
           return;
         }
-        fileContent = decryptData(fileContent, passwordInput.value.trim());
+        fileContent = decryptData(fileContent, this.passwordInput.value.trim());
         if (fileContent == null) {
           throw '';
         }
+      }
+
+      // Apply string substitution if developer options are enabled
+      const substitution = this.getStringSubstitution();
+      if (substitution) {
+        fileContent = this.performStringSubstitution(fileContent, substitution);
+        console.log(`Applied substitution: ${substitution.oldString} → ${substitution.newString}`);
       }
 
       // We first parse to jsonData so that if the parse does not work we don't destroy myData
@@ -5052,12 +5159,23 @@ class RestoreAccountModal {
       setTimeout(() => {
         this.close();
         window.location.reload(); // need to go through Sign In to make sure imported account exists on network
-        fileInput.value = '';
-        passwordInput.value = '';
+        this.clearForm();
       }, 2000);
     } catch (error) {
       showToast(error.message || 'Import failed. Please check file and password.', 3000, 'error');
     }
+  }
+
+  clearForm() {
+    this.fileInput.value = '';
+    this.passwordInput.value = '';
+    this.developerOptionsToggle.checked = false;
+    this.oldStringCustom.value = '';
+    this.newStringCustom.value = '';
+    this.oldStringSelect.value = '';
+    this.newStringSelect.value = '';
+    // hide the developer options section
+    this.developerOptionsSection.style.display = 'none';
   }
 
   copyObjectToLocalStorage(obj) {

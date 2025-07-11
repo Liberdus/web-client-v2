@@ -482,6 +482,33 @@
                 placeholder="Enter password for encrypted files"
               />
             </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="developerOptionsToggle"> 
+                Developer Options
+              </label>
+            </div>
+
+            <!-- Developer options section (initially hidden) -->
+            <div id="developerOptionsSection" class="developer-options" style="display: none;">
+              <div class="form-group">
+                <label for="oldStringSelect">Old String</label>
+                <select id="oldStringSelect" class="form-control">
+                  <option value="">Select or enter custom...</option>
+                </select>
+                <input type="text" id="oldStringCustom" class="form-control" 
+                       placeholder="Enter custom old string" style="margin-top: 5px;">
+              </div>
+              
+              <div class="form-group">
+                <label for="newStringSelect">New String</label>
+                <select id="newStringSelect" class="form-control">
+                  <option value="">Select or enter custom...</option>
+                </select>
+                <input type="text" id="newStringCustom" class="form-control" 
+                       placeholder="Enter custom new string" style="margin-top: 5px;">
+              </div>
+            </div>
             <button type="submit" class="update-button">Load Account</button>
           </form>
           <a class="last-item" href="#"> </a>
