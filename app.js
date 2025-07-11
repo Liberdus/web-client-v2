@@ -399,9 +399,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   setupConnectivityDetection();
 
-  // Add unload handler to save myData
-  window.addEventListener('unload', async () => await handleUnload());
-  window.addEventListener('beforeunload', async () => await handleBeforeUnload());
+  // Add beforeunload handler to save myData; don't use unload event, it is getting depricated
+  window.addEventListener('beforeunload', handleBeforeUnload);
   document.addEventListener('visibilitychange', async () => await handleVisibilityChange()); // Keep as document
 
   // Check for native app subscription tokens and handle subscription
@@ -529,7 +528,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   //setupAddToHomeScreen();
 });
 
-async function handleUnload() {
+/* this is no longer used; using handleBeforeUnload instead
+function handleUnload() {
   console.log('in handleUnload');
   if (menuModal.isSignoutExit) {
     return;
@@ -540,28 +540,29 @@ async function handleUnload() {
       wsManager.disconnect();
       wsManager = null;
     }
-
-    await saveState();
   }
 }
+*/
 
 // Add unload handler to save myData
-async function handleBeforeUnload(e) {
+function handleBeforeUnload(e) {
+  if (menuModal.isSignoutExit){
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+    if (wsManager) {
+      wsManager.disconnect();
+      wsManager = null;
+    }
+    return;
+  }
+  e.preventDefault();
+  saveState();    // This save might not work if the amount of data to save is large and user quickly clicks on Leave button
   console.log('in handleBeforeUnload', e);
   // Clean up WebSocket connection
-  if (wsManager) {
-    wsManager.disconnect();
-    wsManager = null;
-  }
 
-  await saveState();
-  if (menuModal.isSignoutExit) {
-    window.removeEventListener('beforeunload', handleBeforeUnload);
-    return;
-  } // user selected to Signout; state was already saved
+
   console.log('stop back button');
-  e.preventDefault();
-  history.pushState(null, '', window.location.href);
+//  history.pushState(null, '', window.location.href);
+//  console.log('already called history.pushState')
 }
 
 // This is for installed apps where we can't stop the back button; just save the state
@@ -572,7 +573,6 @@ async function handleVisibilityChange() {
   }
 
   if (document.visibilityState === 'hidden') {
-    await saveState();
     // if chatModal was opened, save the last message count
     if (chatModal.isActive() && chatModal.address) {
       const contact = myData.contacts[chatModal.address];
@@ -619,7 +619,7 @@ async function encryptAllAccounts(oldPassword, newPassword) {
       // If oldEncKey is set, decrypt; otherwise, treat as plaintext
       if (oldEncKey) {
         try {
-          data = await decryptData(data, oldEncKey);
+          data = decryptData(data, oldEncKey, true);
         } catch (e) {
           console.error(`Failed to decrypt data for ${key}:`, e);
           continue;
@@ -644,7 +644,7 @@ async function encryptAllAccounts(oldPassword, newPassword) {
       // If newEncKey is set, encrypt; otherwise, store as plaintext
       if (newEncKey) {
         try {
-          newData = await encryptData(newData, newEncKey);
+          newData = encryptData(newData, newEncKey, true);
         } catch (e) {
           console.error(`Failed to encrypt data for ${key}:`, e);
           continue;
@@ -657,61 +657,23 @@ async function encryptAllAccounts(oldPassword, newPassword) {
   }
 }
 
-/*
-In unlock
-checkKey = passwordToKey(password)
-if (localStore.lock != checkKey){
-  error
-  return
-}
-encKey = passwordToKey(password+"liberdusData")
-*/
-
-/*
-data = localStore.get(username_netid_)
-if (localStore.lock){
-  data = decryptData(data, encKey)
-}
-myData = parse(data)
-*/
-
-/* when a lock is getting set or password getting changed
-encryptAllAccounts(oldEncKey, newEncKey)  if null it means we didn't have a key
-  loop through all username_netid
-    read data from localStore
-    unencrypt the data with oldEncKey
-    encrypte the data with newEncKey
-    save data to localStore
-*/
-
-
-/*
 function saveState() {
-  console.log('in saveState');
-  if (myData && myAccount && myAccount.username && myAccount.netid) {
-    console.log('saving state');
-    localStorage.setItem(`${myAccount.username}_${myAccount.netid}`, stringify(myData));
-  }
-}
-*/
-
-async function saveState() {
   console.log('in saveState');
   if (myData && myAccount && myAccount.username && myAccount.netid) {
     console.log('saving state');
     let data = stringify(myData)
     if (localStorage.lock && lockModal.encKey){  // Consider what happens if localStorage.lock was manually deleted
-      data = await encryptData(data, lockModal.encKey)
+      data = encryptData(data, lockModal.encKey, true)
     }
     localStorage.setItem(`${myAccount.username}_${myAccount.netid}`, data);
   }
 }
 
-async function loadState(account){
+function loadState(account){
   let data = localStorage.getItem(account);
   if (!data) { return null; }
   if (localStorage.lock && lockModal.encKey) {
-    data = await decryptData(data, lockModal.encKey)
+    data = decryptData(data, lockModal.encKey, true)
   }
   return parse(data);
 }
@@ -1354,7 +1316,7 @@ class MenuModal {
     unlockModal.lock();
 
     // Save myData to localStorage if it exists
-    await saveState();
+    saveState();
     /*
       if (myData && myAccount) {
           localStorage.setItem(`${myAccount.username}_${myAccount.netid}`, stringify(myData));
@@ -2051,7 +2013,7 @@ class SignInModal {
     // Check if the button text is 'Recreate'
     if (this.submitButton.textContent === 'Recreate') {
 //      const myData = parse(localStorage.getItem(`${username}_${netid}`));
-      const myData = await loadState(`${username}_${netid}`);
+      const myData = loadState(`${username}_${netid}`);
       const privateKey = myData.account.keys.secret;
       createAccountModal.usernameInput.value = username;
 
@@ -2063,7 +2025,7 @@ class SignInModal {
       return;
     }
 
-    myData = await loadState(`${username}_${netid}`)
+    myData = loadState(`${username}_${netid}`)
     if (!myData) {
       console.log('Account data not found');
       return;
@@ -4941,7 +4903,7 @@ class BackupAccountModal {
 
     try {
       // Encrypt data if password is provided
-      const finalData = password ? await encryptData(jsonData, password) : jsonData;
+      const finalData = password ? encryptData(jsonData, password) : jsonData;
 
       // Create and trigger download
       const blob = new Blob([finalData], { type: 'application/json' });
@@ -4972,7 +4934,7 @@ class BackupAccountModal {
 
     try {
       // Encrypt data if password is provided
-      const finalData = password ? await encryptData(jsonData, password) : jsonData;
+      const finalData = password ? encryptData(jsonData, password) : jsonData;
 
       // Create and trigger download
       const blob = new Blob([finalData], { type: 'application/json' });
@@ -5041,7 +5003,7 @@ class RestoreAccountModal {
           showToast('Password required for encrypted data', 3000, 'error');
           return;
         }
-        fileContent = await decryptData(fileContent, passwordInput.value.trim());
+        fileContent = decryptData(fileContent, passwordInput.value.trim());
         if (fileContent == null) {
           throw '';
         }
@@ -7862,7 +7824,7 @@ class CreateAccountModal {
     try {
       await getNetworkParams();
       const storedKey = `${username}_${netid}`;
-      myData = await loadState(storedKey)
+      myData = loadState(storedKey)
       if (myData) {
         myAccount = myData.account;
       } else {
@@ -7897,7 +7859,7 @@ class CreateAccountModal {
         }
         await new Promise((resolve) => setTimeout(resolve, 1000));
         if (waitingToastId) hideToast(waitingToastId);
-        showToast('Account created successfully!', 3000, 'success');
+//        showToast('Account created successfully!', 3000, 'success');
         this.reEnableControls();
         this.close();
         welcomeScreen.close();
@@ -7906,7 +7868,7 @@ class CreateAccountModal {
         // Store updated accounts back in localStorage
         existingAccounts.netids[netid].usernames[username] = { address: myAccount.keys.address };
         localStorage.setItem('accounts', stringify(existingAccounts));
-        await saveState();
+        saveState();
 
         signInModal.open(username);
       } catch (error) {
@@ -9763,7 +9725,7 @@ class UnlockModal {
     if (key === localStorage.lock) {
       // remove the loading toast
       if (waitingToastId) hideToast(waitingToastId);
-      showToast('Unlock successful', 2000, 'success');
+//      showToast('Unlock successful', 2000, 'success');
       lockModal.encKey = await passwordToKey(password+"liberdusData")
       this.unlock();
       this.close();
