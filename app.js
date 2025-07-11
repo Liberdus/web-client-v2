@@ -4995,6 +4995,10 @@ class RestoreAccountModal {
     this.setupMutualExclusion(this.oldStringSelect, this.oldStringCustom);
     this.setupMutualExclusion(this.newStringSelect, this.newStringCustom);
     
+    // Add listeners to extract netids from selected file
+    this.fileInput.addEventListener('change', () => this.extractNetidsFromFile());
+    this.passwordInput.addEventListener('input', debounce(() => this.extractNetidsFromFile(), 500));
+    
     // Populate netid dropdowns
     this.populateNetidDropdowns();
   }
@@ -5061,6 +5065,53 @@ class RestoreAccountModal {
     }
     
     return null;
+  }
+
+  // extract netids from selected file and add to dropdowns
+  async extractNetidsFromFile() {
+    const file = this.fileInput.files[0];
+    if (!file) return;
+
+    console.log('extractNetidsFromFile');
+
+    try {
+      let content = await file.text();
+      // Try to decrypt if encrypted
+      if (!content.match('{')) {
+        console.log('decrypting file');
+        const password = this.passwordInput.value.trim();
+        if (!password) return;
+        try {
+          content = decryptData(content, password);
+        } catch { return; } // Invalid password, skip silently
+      }
+
+      const data = parse(content);
+      const netids = new Set();
+
+      // Extract netids only from localStorage keys (username_netid format)
+      Object.keys(data).forEach(key => {
+        if (key.includes('_') && key !== 'accounts' && key !== 'version') {
+          const parts = key.split('_');
+          if (parts.length >= 2) {
+            const possibleNetid = parts[parts.length - 1]; // Get part after last underscore
+            if (possibleNetid.length === 64 && /^[a-f0-9]+$/.test(possibleNetid)) {
+              netids.add(possibleNetid);
+            }
+          }
+        }
+      });
+
+      // Add new netids to dropdowns
+      const existing = Array.from(this.oldStringSelect.options).map(opt => opt.value);
+      [...netids].filter(netid => !existing.includes(netid)).forEach(netid => {
+        const label = `${netid} (from file)`;
+        this.oldStringSelect.add(new Option(label, netid));
+        this.newStringSelect.add(new Option(label, netid));
+      });
+
+      if (netids.size > 0) console.log(`Found ${netids.size} netids from file`);
+    } catch { /* Ignore file/parse errors */ }
   }
 
   // perform the string substitution
@@ -5176,6 +5227,10 @@ class RestoreAccountModal {
     this.newStringSelect.value = '';
     // hide the developer options section
     this.developerOptionsSection.style.display = 'none';
+    // reset dropdowns to original state
+    this.oldStringSelect.length = 1;
+    this.newStringSelect.length = 1;
+    this.populateNetidDropdowns();
   }
 
   copyObjectToLocalStorage(obj) {
