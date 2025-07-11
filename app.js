@@ -432,7 +432,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // About and Contact Modals
   aboutModal.load();
-  contactModal.load();
+  helpModal.load();
 
   // Create Account Modal
   createAccountModal.load();
@@ -1258,8 +1258,8 @@ class MenuModal {
     this.networkButton.addEventListener('click', () => {window.open('./network', '_blank');});
     this.removeButton = document.getElementById('openRemoveAccount');
     this.removeButton.addEventListener('click', () => removeAccountModal.open());
-    this.contactUsButton = document.getElementById('openContact');
-    this.contactUsButton.addEventListener('click', () => contactModal.open());
+    this.helpButton = document.getElementById('openHelp');
+    this.helpButton.addEventListener('click', () => helpModal.open());
     this.aboutButton = document.getElementById('openAbout');
     this.aboutButton.addEventListener('click', () => aboutModal.open());
     this.signOutButton = document.getElementById('handleSignOut');
@@ -1536,7 +1536,7 @@ function createNewContact(addr, username, friendStatus = 1) {
 
 /**
  * updateTollAmountUI updates the toll amount UI for a given contact
- * sets contactModal.toll and contactModal.tollUnit to the bigint toll and string tollUnit of the contact
+ * sets chatModal.toll and chatModal.tollUnit to the bigint toll and string tollUnit of the contact
  * @param {string} address - the address of the contact
  * @returns {void}
  */
@@ -5481,12 +5481,12 @@ class AboutModal {
 }
 const aboutModal = new AboutModal();
 
-class ContactModal {
+class HelpModal {
   constructor() {}
 
   load() {
-    this.modal = document.getElementById('contactModal');
-    this.closeButton = document.getElementById('closeContactModal');
+    this.modal = document.getElementById('helpModal');
+    this.closeButton = document.getElementById('closeHelpModal');
     this.submitFeedbackButton = document.getElementById('submitFeedback');
 
     this.closeButton.addEventListener('click', () => this.close());
@@ -5503,7 +5503,7 @@ class ContactModal {
     this.modal.classList.remove('active');
   }
 }
-const contactModal = new ContactModal();
+const helpModal = new HelpModal();
 
 class MyProfileModal {
   constructor() {}
