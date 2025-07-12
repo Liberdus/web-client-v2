@@ -85,6 +85,7 @@
         </h1>
         <div class="welcome-buttons">
           <button id="signInButton" class="secondary-button hidden">Sign In</button>
+          <button id="migrateAccountsButton" class="secondary-button hidden">Migrate Accounts</button>
           <button id="createAccountButton" class="secondary-button hidden">Create Account</button>
           <button id="importAccountButton" class="secondary-button hidden">Restore Account</button>
           <!-- button to open backup modal -->
@@ -422,6 +423,17 @@
             </div>
             <button type="submit" class="update-button" disabled>Create Account</button>
           </form>
+          <!-- have a button to migrate accounts -->
+           <!-- with message that it will migrate all accounts to the current network and explanation of what it does -->
+          <div class="form-group" id="migrateAccountsSection" style="display: none;">
+            <label for="migrateAccountsButton">Migrate Accounts to Current Network</label>
+            <button type="button" id="migrateAccountsButton" class="secondary-button">
+              Migrate Accounts to Current Network
+            </button>
+            <small>
+              This will check if you have accounts that can be migrated to the current network.
+            </small>
+          </div>
           <a class="last-item" href="#"> </a>
         </div>
       </div>
@@ -1367,6 +1379,29 @@
         <div class="form-container" style="padding: 1rem">
           <button id="bridgeToPolygon" class="update-button" style="margin-bottom: 1rem">To Polygon Network</button>
           <button id="bridgeFromPolygon" class="update-button">From Polygon Network</button>
+          <a class="last-item" href="#"></a>
+        </div>
+      </div>
+
+      <!-- Migrate Accounts Modal -->
+      <div class="modal" id="migrateAccountsModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeMigrateAccountsModal"></button>
+          <div class="modal-title">Migrate Accounts</div>
+        </div>
+        <div class="form-container">
+          <p class="modal-summary">
+            Select an account to migrate from the old network to the current network. This will update the account's network ID and preserve all data.
+          </p>
+          <form id="migrateAccountsForm">
+            <div class="form-group">
+              <label for="migrateAccountSelect">Select Account to Migrate</label>
+              <select id="migrateAccountSelect" class="form-control" required>
+                <option value="" disabled selected hidden>Choose an account...</option>
+              </select>
+            </div>
+            <button type="submit" class="update-button" disabled>Migrate Account</button>
+          </form>
           <a class="last-item" href="#"></a>
         </div>
       </div>
