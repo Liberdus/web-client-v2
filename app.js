@@ -7790,6 +7790,8 @@ class CreateAccountModal {
     const mismatchedNetids = Object.keys(accounts.netids).filter(netid => netid !== networkId && Object.keys(accounts.netids[netid].usernames).length > 0);
     if (mismatchedNetids.length > 0) {
       this.migrateAccountsSection.style.display = 'block';
+    } else {
+      this.migrateAccountsSection.style.display = 'none';
     }
 
     this.modal.classList.add('active');
