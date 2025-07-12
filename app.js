@@ -10621,8 +10621,10 @@ function performNetidSubstitution(fileContent, oldNetid, newNetid) {
 
 /**
  * Updates the accounts registry with the given username and netid.
+ * @param {Object} accountsObj - The accounts object to update.
+ * @param {string} newNetid - The new netid to add the username to.
  * @param {string} username - The username to add to the accounts registry.
- * @param {string} netid - The netid to add the username to.
+ * @param {string} oldNetid - The old netid to remove the username from.
  */
 function updateAccountsRegistry(accountsObj, newNetid, username, oldNetid) {
   // Remove from old network registry first
