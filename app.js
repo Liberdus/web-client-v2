@@ -9656,7 +9656,7 @@ const bridgeModal = new BridgeModal();
  * @description A modal for migrating accounts from different networks
  */
 class MigrateAccountsModal {
-  constructor() {}
+  constructor() { }
 
   load() {
     this.modal = document.getElementById('migrateAccountsModal');
@@ -9692,10 +9692,10 @@ class MigrateAccountsModal {
     console.log('populate accounts');
     // an array of objects with { username, netid }
     const mismatchedAccounts = await this.migratableAccounts();
-    
+
     // Clear existing options
     this.accountList.innerHTML = '';
-    
+
     if (mismatchedAccounts.length === 0) {
       this.accountList.innerHTML = '<p>No accounts need migration</p>';
       return;
@@ -9711,12 +9711,12 @@ class MigrateAccountsModal {
       checkbox.value = account.username;
       checkbox.id = account.username;
       label.appendChild(checkbox);
-      label.appendChild(document.createTextNode(account.username+'_'+account.netid.slice(0, 6)));
+      label.appendChild(document.createTextNode(account.username + '_' + account.netid.slice(0, 6)));
       this.accountList.appendChild(label);
     });
   }
 
-    /**
+  /**
    * Returns an array of migratable accounts from localStorage.
    * Each object has { username, netid } for accounts that can be migrated to the current network.
    * Rules:
@@ -9725,40 +9725,40 @@ class MigrateAccountsModal {
    *  - If the username is not available to us on this network (checkUsernameAvailability !== 'mine'), skip
    */
   async migratableAccounts() {
-  // Get all accounts from localStorage
-  const accountsObj = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-  // Determine the current network id (prefer parameters.networkId, fallback to network.netid)
-  const currentNetId = parameters?.networkId;
-  if (!accountsObj.netids || !currentNetId) return [];
+    // Get all accounts from localStorage
+    const accountsObj = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+    // Determine the current network id (prefer parameters.networkId, fallback to network.netid)
+    const currentNetId = parameters?.networkId;
+    if (!accountsObj.netids || !currentNetId) return [];
 
-  const migratable = [];
-  const currentNetUsernames = (accountsObj.netids[currentNetId] && accountsObj.netids[currentNetId].usernames) || {};
+    const migratable = [];
+    const currentNetUsernames = (accountsObj.netids[currentNetId] && accountsObj.netids[currentNetId].usernames) || {};
 
-  // Loop through all netids except the current one
-  for (const netid in accountsObj.netids) {
-    if (netid === currentNetId) continue;
-    const usernamesObj = accountsObj.netids[netid]?.usernames;
-    if (!usernamesObj) continue;
-    for (const username in usernamesObj) {
-      const address = usernamesObj[username].address;
-      // If username+address is already present on this network, skip
-      if (
-        currentNetUsernames[username] &&
-        normalizeAddress(currentNetUsernames[username].address) === normalizeAddress(address)
-      ) {
-        continue;
+    // Loop through all netids except the current one
+    for (const netid in accountsObj.netids) {
+      if (netid === currentNetId) continue;
+      const usernamesObj = accountsObj.netids[netid]?.usernames;
+      if (!usernamesObj) continue;
+      for (const username in usernamesObj) {
+        const address = usernamesObj[username].address;
+        // If username+address is already present on this network, skip
+        if (
+          currentNetUsernames[username] &&
+          normalizeAddress(currentNetUsernames[username].address) === normalizeAddress(address)
+        ) {
+          continue;
+        }
+        // Check if the username is available to us on this network
+        // (If not, skip)
+        // Note: checkUsernameAvailability returns 'mine' if available to us
+        // We must await this as it may be async
+        const result = await checkUsernameAvailability(username, address);
+        if (result !== 'mine') continue;
+        migratable.push({ username, netid });
       }
-      // Check if the username is available to us on this network
-      // (If not, skip)
-      // Note: checkUsernameAvailability returns 'mine' if available to us
-      // We must await this as it may be async
-      const result = await checkUsernameAvailability(username, address);
-      if (result !== 'mine') continue;
-      migratable.push({ username, netid });
     }
+    return migratable;
   }
-  return migratable;
-}
 
   clearForm() {
     const checkboxes = this.accountList.querySelectorAll('input[type="checkbox"]');
