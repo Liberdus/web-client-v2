@@ -9833,7 +9833,6 @@ class MigrateAccountsModal {
       accountsObj.netids[newNetid] = { usernames: {} };
     }
 
-    // get account address from accountsObj instead of localStorage
     const accountAddress = accountsObj.netids[oldNetid].usernames[username]?.address;
 
     if (accountAddress) {
@@ -9841,7 +9840,7 @@ class MigrateAccountsModal {
         address: accountAddress
       };
     }
-    // Remove from old network registry first
+    // Finally remove old account_netid from accountsObj
     if (accountsObj.netids[oldNetid] && accountsObj.netids[oldNetid].usernames) {
       delete accountsObj.netids[oldNetid].usernames[username];
     }
