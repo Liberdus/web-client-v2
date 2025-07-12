@@ -280,56 +280,6 @@ function getAvailableUsernames() {
   return Object.keys(netidAccounts.usernames);
 }
 
-function performNetidSubstitution(fileContent, oldNetid, newNetid) {
-  // Count occurrences before replacement
-  const regex = new RegExp(oldNetid, 'g');
-  const matches = fileContent.match(regex);
-  const matchCount = matches ? matches.length : 0;
-  
-  // Validate that we have sufficient matches for a proper migration
-  if (matchCount === 0) {
-    throw new Error(`No occurrences of netid ${oldNetid} found in account data`);
-  }
-  
-  if (matchCount === 1) {
-    throw new Error(`Only 1 occurrence of netid found. This may indicate incomplete account data and could result in corrupted migration.`);
-  }
-  
-  // Global string replacement (like sed -i 's/old/new/g')
-  const modifiedContent = fileContent.replace(regex, newNetid);
-  
-  console.log(`✅ Replaced ${matchCount} occurrences of ${oldNetid} with ${newNetid}`);
-  return {
-    content: modifiedContent,
-    matchCount: matchCount
-  };
-}
-
-
-function updateAccountsRegistry(username, netid) {
-  // Get existing accounts or create new structure
-  const accounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-  
-  // Ensure netid exists in registry
-  if (!accounts.netids[netid]) {
-    accounts.netids[netid] = { usernames: {} };
-  }
-  
-  // Add username to the current netid (we need the address, so we'll get it from the account data)
-  const accountKey = `${username}_${netid}`;
-  const accountData = parse(localStorage.getItem(accountKey));
-  
-  if (accountData && accountData.account && accountData.account.keys) {
-    accounts.netids[netid].usernames[username] = {
-      address: accountData.account.keys.address
-    };
-  }
-  
-  // Save updated accounts registry
-  localStorage.setItem('accounts', stringify(accounts));
-  console.log(`Updated accounts registry for ${username} on netid ${netid}`);
-}
-
 function newDataRecord(myAccount) {
 
   const myData = {
@@ -747,7 +697,6 @@ class WelcomeScreen {
     this.signInButton = document.getElementById('signInButton');
     this.createAccountButton = document.getElementById('createAccountButton');
     this.importAccountButton = document.getElementById('importAccountButton');
-    this.migrateAccountsButton = document.getElementById('migrateAccountsButton');
     this.welcomeButtons = document.querySelector('.welcome-buttons');
     this.logoLink = this.screen.querySelector('.logo-link');
     this.logoLink.addEventListener('keydown', ignoreShiftTabKey);  // add event listener for first-item to prevent shift+tab
@@ -9718,7 +9667,6 @@ class MigrateAccountsModal {
 
     this.closeButton.addEventListener('click', () => this.close());
     this.form.addEventListener('submit', (event) => this.handleSubmit(event));
-    this.accountList.addEventListener('change', () => this.handleAccountChange());
   }
 
   async open() {
@@ -9811,87 +9759,6 @@ class MigrateAccountsModal {
   }
   return migratable;
 }
-
-  handleAccountChange() {
-    const selectedCheckboxes = this.accountList.querySelectorAll('input[type="checkbox"]:checked');
-    this.submitButton.disabled = selectedCheckboxes.length === 0;
-  }
-
-  async handleSubmit(event) {
-    event.preventDefault();
-    
-    const selectedCheckboxes = this.accountList.querySelectorAll('input[type="checkbox"]:checked');
-    if (selectedCheckboxes.length === 0) {
-      showToast('Please select an account to migrate', 3000, 'error');
-      return;
-    }
-
-    // Show loading state
-    this.submitButton.disabled = true;
-    const originalText = this.submitButton.textContent;
-    this.submitButton.textContent = 'Migrating...';
-    
-    const loadingToastId = showToast('Migrating account...', 0, 'loading');
-
-    try {
-      let successCount = 0;
-      let totalUpdates = 0;
-      
-      // Process each selected account
-      for (const checkbox of selectedCheckboxes) {
-        const selectedAccountKey = checkbox.value;
-        
-        // Get the selected account data
-        const accountData = loadState(selectedAccountKey);
-        if (!accountData) {
-          throw new Error(`Account data not found for ${selectedAccountKey}`);
-        }
-
-        // Get username from the key (format: username_oldNetid)
-        const username = selectedAccountKey.split('_')[0];
-        const oldNetid = selectedAccountKey.split('_')[1];
-        const newNetid = network.netid;
-
-        // Perform the migration
-        const accountJson = stringify(accountData);
-        const substitutionResult = performNetidSubstitution(accountJson, oldNetid, newNetid);
-        
-        if (substitutionResult.matchCount < 2) {
-          throw new Error(`Insufficient netid matches found (${substitutionResult.matchCount}) for ${username}. Migration cancelled for data integrity.`);
-        }
-
-        // Save the migrated account
-        const newKey = `${username}_${newNetid}`;
-        localStorage.setItem(newKey, substitutionResult.content);
-
-        // Update the accounts registry
-        updateAccountsRegistry(username, newNetid);
-
-        // Remove the old account data
-        localStorage.removeItem(selectedAccountKey);
-        
-        successCount++;
-        totalUpdates += substitutionResult.matchCount;
-      }
-
-      // Hide loading toast and show success
-      hideToast(loadingToastId);
-      showToast(`${successCount} account(s) migrated successfully! (${totalUpdates} references updated)`, 4000, 'success');
-
-      // Close modal and refresh the welcome screen
-      this.close();
-      welcomeScreen.orderButtons();
-
-    } catch (error) {
-      console.error('Migration failed:', error);
-      hideToast(loadingToastId);
-      showToast(`Migration failed: ${error.message}`, 5000, 'error');
-    } finally {
-      // Restore button state
-      this.submitButton.disabled = false;
-      this.submitButton.textContent = originalText;
-    }
-  }
 
   clearForm() {
     const checkboxes = this.accountList.querySelectorAll('input[type="checkbox"]');
