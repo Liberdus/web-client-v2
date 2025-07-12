@@ -7789,17 +7789,22 @@ class CreateAccountModal {
   }
 
   open() {
-    // if localStorage.account has accounts for netids which are different than the netid in params.networkid then show the `migrateAccountsSection`
     const accounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-    const networkId = parameters.networkid;
-    // if none empty account field in localstorage and has accounts of netid different from networkId and the accounts.netids[mismatchedNetid] object is not empty then display the migrateAccountsSection
-    const mismatchedNetids = Object.keys(accounts.netids).filter(netid => netid !== networkId && Object.keys(accounts.netids[netid].usernames).length > 0);
+    const networkId = parameters.networkId; // Use consistent casing
+    
+    // Add safety check for usernames existence
+    const mismatchedNetids = Object.keys(accounts.netids).filter(netid => 
+      netid !== networkId && 
+      accounts.netids[netid].usernames && 
+      Object.keys(accounts.netids[netid].usernames).length > 0
+    );
+    
     if (mismatchedNetids.length > 0) {
       this.migrateAccountsSection.style.display = 'block';
     } else {
       this.migrateAccountsSection.style.display = 'none';
     }
-
+  
     this.modal.classList.add('active');
     enterFullscreen();
   }
@@ -9667,6 +9672,11 @@ class MigrateAccountsModal {
 
     this.closeButton.addEventListener('click', () => this.close());
     this.form.addEventListener('submit', (event) => this.handleSubmit(event));
+
+    // if no check boxes are checked, disable the submit button
+    this.form.addEventListener('change', () => {
+      this.submitButton.disabled = this.form.querySelectorAll('input[type="checkbox"]:checked').length === 0;
+    });
   }
 
   async open() {
@@ -9709,7 +9719,7 @@ class MigrateAccountsModal {
       checkbox.type = 'checkbox';
       checkbox.checked = true;
       checkbox.value = account.username;
-      checkbox.id = account.username;
+      checkbox.netid = account.netid;
       label.appendChild(checkbox);
       label.appendChild(document.createTextNode(account.username + '_' + account.netid.slice(0, 6)));
       this.accountList.appendChild(label);
@@ -9758,6 +9768,36 @@ class MigrateAccountsModal {
       }
     }
     return migratable;
+  }
+
+  async handleSubmit(event) {
+    event.preventDefault();
+    console.log('handleSubmit');
+    const accountsObj = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+    const selectedAccounts = this.accountList.querySelectorAll('input[type="checkbox"]:checked');
+    console.log('selectedAccounts', selectedAccounts);
+    // remove from accounts.netids[netid].usernames[username]
+    selectedAccounts.forEach(account => {
+      const netid = account.netid;
+      const username = account.value;
+
+      // update the accounts registry
+      updateAccountsRegistry(accountsObj, parameters.networkId, username, netid);
+      // then perform netid substitution in all files in the app
+      // get the file content
+      const fileContent = localStorage.getItem(username+'_'+netid);
+      if (fileContent) {
+        // perform netid substitution in the file content
+        const substitutionResult = performNetidSubstitution(fileContent, netid, parameters.networkId);
+        console.log('substitutionResult', substitutionResult);
+        // save the file content to localStorage
+        localStorage.setItem(username+'_'+parameters.networkId, substitutionResult.content);
+        // remove the file from localStorage
+        localStorage.removeItem(username+'_'+netid);
+      }
+    });
+
+    this.close();
   }
 
   clearForm() {
@@ -10545,4 +10585,67 @@ function enterFullscreen() {
       document.documentElement.requestFullscreen();
     } 
   }
+}
+
+/**
+ * Performs a netid substitution in the given file content.
+ * @param {string} fileContent - The file content to perform the substitution on.
+ * @param {string} oldNetid - The old netid to replace.
+ * @param {string} newNetid - The new netid to replace with.
+ * @returns {Object} - An object with the modified content and the number of matches.
+ */
+function performNetidSubstitution(fileContent, oldNetid, newNetid) {
+  // Count occurrences before replacement
+  const regex = new RegExp(oldNetid, 'g');
+  const matches = fileContent.match(regex);
+  const matchCount = matches ? matches.length : 0;
+
+  // Validate that we have sufficient matches for a proper migration
+  if (matchCount === 0) {
+    throw new Error(`No occurrences of netid ${oldNetid} found in account data`);
+  }
+
+  if (matchCount === 1) {
+    throw new Error(`Only 1 occurrence of netid found. This may indicate incomplete account data and could result in corrupted migration.`);
+  }
+
+  // Global string replacement (like sed -i 's/old/new/g')
+  const modifiedContent = fileContent.replace(regex, newNetid);
+
+  console.log(`✅ Replaced ${matchCount} occurrences of ${oldNetid} with ${newNetid}`);
+  return {
+    content: modifiedContent,
+    matchCount: matchCount
+  };
+}
+
+/**
+ * Updates the accounts registry with the given username and netid.
+ * @param {string} username - The username to add to the accounts registry.
+ * @param {string} netid - The netid to add the username to.
+ */
+function updateAccountsRegistry(accountsObj, newNetid, username, oldNetid) {
+  // Remove from old network registry first
+  if (accountsObj.netids[oldNetid] && accountsObj.netids[oldNetid].usernames) {
+    delete accountsObj.netids[oldNetid].usernames[username];
+  }
+
+  // Ensure new netid exists in registry
+  if (!accountsObj.netids[newNetid]) {
+    accountsObj.netids[newNetid] = { usernames: {} };
+  }
+
+  // Add username to the new netid (read from OLD account data location)
+  const accountKey = `${username}_${oldNetid}`;
+  const accountData = parse(localStorage.getItem(accountKey));
+
+  if (accountData && accountData.account && accountData.account.keys) {
+    accountsObj.netids[newNetid].usernames[username] = {
+      address: accountData.account.keys.address
+    };
+  }
+
+  // Save updated accounts registry
+  localStorage.setItem('accounts', stringify(accountsObj));
+  console.log(`Updated accounts registry for ${username}: removed from ${oldNetid}, added to ${newNetid}`);
 }
