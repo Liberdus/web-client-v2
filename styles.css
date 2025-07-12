@@ -1968,13 +1968,29 @@ input[type='file'].form-control {
 }
 
 /* Migrate Accounts Modal styles */
-#migrateAccountsModal select.form-control {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 15px center;
-  background-size: 16px;
-  padding-right: 45px;
+#migrateAccountsModal .account-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 1.5rem;
+}
+
+#migrateAccountsModal .account-list label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  font-family: var(--font-primary);
+  font-size: var(--font-size-base);
+  color: var(--text-color);
+  cursor: pointer;
+}
+
+#migrateAccountsModal .account-list label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary-color, #007bff);
+  margin: 0;
 }
 
 #migrateAccountsModal .update-button:disabled {

@@ -1385,16 +1385,15 @@
         </div>
         <div class="form-container">
           <p class="modal-summary">
-            Select an account to migrate from the old network to the current network. This will update the account's network ID and preserve all data.
+            Checkmark accounts that you want to migrate. This will update the account's network ID and preserve all data.
           </p>
           <form id="migrateAccountsForm">
             <div class="form-group">
-              <label for="migrateAccountSelect">Select Account to Migrate</label>
-              <select id="migrateAccountSelect" class="form-control" required>
-                <option value="" disabled selected hidden>Choose an account...</option>
-              </select>
+              <div class="account-list" id="migrateAccountList">
+                <!-- javascript will fill this with checkboxes and labels -->
+              </div>
             </div>
-            <button type="submit" class="update-button" disabled>Migrate Account</button>
+            <button type="submit" class="update-button" disabled>Migrate Accounts</button>
           </form>
           <a class="last-item" href="#"></a>
         </div>
