@@ -5125,7 +5125,12 @@ class RestoreAccountModal {
     } catch { /* Ignore file/parse errors */ }
   }
 
-  // perform the string substitution
+  /**
+   * Performs a string substitution on the given file content.
+   * @param {string} fileContent - The file content to perform the substitution on.
+   * @param {Object} substitution - The substitution object to perform.
+   * @returns {string} - The modified file content.
+   */
   performStringSubstitution(fileContent, substitution) {
     if (!substitution) return fileContent;
 
@@ -9787,10 +9792,13 @@ class MigrateAccountsModal {
       const fileContent = localStorage.getItem(username + '_' + netid);
       if (fileContent) {
         // perform netid substitution in the file content
-        const substitutionResult = performNetidSubstitution(fileContent, netid, parameters.networkId);
+        const substitutionResult = restoreAccountModal.performStringSubstitution(fileContent, {
+          oldString: netid,
+          newString: parameters.networkId
+        });
         console.log('substitutionResult', substitutionResult);
         // save the file content to localStorage
-        localStorage.setItem(username + '_' + parameters.networkId, substitutionResult.content);
+        localStorage.setItem(username + '_' + parameters.networkId, substitutionResult);
         // remove the file from localStorage
         localStorage.removeItem(username + '_' + netid);
       }
@@ -10623,34 +10631,4 @@ function enterFullscreen() {
   }
 }
 
-/**
- * Performs a netid substitution in the given file content.
- * @param {string} fileContent - The file content to perform the substitution on.
- * @param {string} oldNetid - The old netid to replace.
- * @param {string} newNetid - The new netid to replace with.
- * @returns {Object} - An object with the modified content and the number of matches.
- */
-function performNetidSubstitution(fileContent, oldNetid, newNetid) {
-  // Count occurrences before replacement
-  const regex = new RegExp(oldNetid, 'g');
-  const matches = fileContent.match(regex);
-  const matchCount = matches ? matches.length : 0;
 
-  // Validate that we have sufficient matches for a proper migration
-  if (matchCount === 0) {
-    throw new Error(`No occurrences of netid ${oldNetid} found in account data`);
-  }
-
-  if (matchCount === 1) {
-    throw new Error(`Only 1 occurrence of netid found. This may indicate incomplete account data and could result in corrupted migration.`);
-  }
-
-  // Global string replacement (like sed -i 's/old/new/g')
-  const modifiedContent = fileContent.replace(regex, newNetid);
-
-  console.log(`✅ Replaced ${matchCount} occurrences of ${oldNetid} with ${newNetid}`);
-  return {
-    content: modifiedContent,
-    matchCount: matchCount
-  };
-}
