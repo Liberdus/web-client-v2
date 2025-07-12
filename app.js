@@ -9773,7 +9773,6 @@ class MigrateAccountsModal {
   async handleSubmit(event) {
     event.preventDefault();
     console.log('handleSubmit');
-    const accountsObj = parse(localStorage.getItem('accounts') || '{"netids":{}}');
     const selectedAccounts = this.accountList.querySelectorAll('input[type="checkbox"]:checked');
     console.log('selectedAccounts', selectedAccounts);
     // remove from accounts.netids[netid].usernames[username]
@@ -9782,22 +9781,59 @@ class MigrateAccountsModal {
       const username = account.value;
 
       // update the accounts registry
-      updateAccountsRegistry(accountsObj, parameters.networkId, username, netid);
+      this.updateAccountsRegistry(username, netid, parameters.networkId);
       // then perform netid substitution in all files in the app
       // get the file content
-      const fileContent = localStorage.getItem(username+'_'+netid);
+      const fileContent = localStorage.getItem(username + '_' + netid);
       if (fileContent) {
         // perform netid substitution in the file content
         const substitutionResult = performNetidSubstitution(fileContent, netid, parameters.networkId);
         console.log('substitutionResult', substitutionResult);
         // save the file content to localStorage
-        localStorage.setItem(username+'_'+parameters.networkId, substitutionResult.content);
+        localStorage.setItem(username + '_' + parameters.networkId, substitutionResult.content);
         // remove the file from localStorage
-        localStorage.removeItem(username+'_'+netid);
+        localStorage.removeItem(username + '_' + netid);
       }
     });
 
     this.close();
+    // open create account modal again so it gets refreshed
+    createAccountModal.close();
+    createAccountModal.open();
+  }
+
+  /**
+ * Updates the accounts registry with the given username and netid.
+ * @param {Object} accountsObj - The accounts object to update.
+ * @param {string} newNetid - The new netid to add the username to.
+ * @param {string} username - The username to add to the accounts registry.
+ * @param {string} oldNetid - The old netid to remove the username from.
+ */
+  updateAccountsRegistry(username, oldNetid, newNetid) {
+    const accountsObj = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+    // Remove from old network registry first
+    if (accountsObj.netids[oldNetid] && accountsObj.netids[oldNetid].usernames) {
+      delete accountsObj.netids[oldNetid].usernames[username];
+    }
+
+    // Ensure new netid exists in registry
+    if (!accountsObj.netids[newNetid]) {
+      accountsObj.netids[newNetid] = { usernames: {} };
+    }
+
+    // Add username to the new netid (read from OLD account data location)
+    const accountKey = `${username}_${oldNetid}`;
+    const accountData = parse(localStorage.getItem(accountKey));
+
+    if (accountData && accountData.account && accountData.account.keys) {
+      accountsObj.netids[newNetid].usernames[username] = {
+        address: accountData.account.keys.address
+      };
+    }
+
+    // Save updated accounts registry
+    localStorage.setItem('accounts', stringify(accountsObj));
+    console.log(`Updated accounts registry for ${username}: removed from ${oldNetid}, added to ${newNetid}`);
   }
 
   clearForm() {
@@ -10617,37 +10653,4 @@ function performNetidSubstitution(fileContent, oldNetid, newNetid) {
     content: modifiedContent,
     matchCount: matchCount
   };
-}
-
-/**
- * Updates the accounts registry with the given username and netid.
- * @param {Object} accountsObj - The accounts object to update.
- * @param {string} newNetid - The new netid to add the username to.
- * @param {string} username - The username to add to the accounts registry.
- * @param {string} oldNetid - The old netid to remove the username from.
- */
-function updateAccountsRegistry(accountsObj, newNetid, username, oldNetid) {
-  // Remove from old network registry first
-  if (accountsObj.netids[oldNetid] && accountsObj.netids[oldNetid].usernames) {
-    delete accountsObj.netids[oldNetid].usernames[username];
-  }
-
-  // Ensure new netid exists in registry
-  if (!accountsObj.netids[newNetid]) {
-    accountsObj.netids[newNetid] = { usernames: {} };
-  }
-
-  // Add username to the new netid (read from OLD account data location)
-  const accountKey = `${username}_${oldNetid}`;
-  const accountData = parse(localStorage.getItem(accountKey));
-
-  if (accountData && accountData.account && accountData.account.keys) {
-    accountsObj.netids[newNetid].usernames[username] = {
-      address: accountData.account.keys.address
-    };
-  }
-
-  // Save updated accounts registry
-  localStorage.setItem('accounts', stringify(accountsObj));
-  console.log(`Updated accounts registry for ${username}: removed from ${oldNetid}, added to ${newNetid}`);
 }
