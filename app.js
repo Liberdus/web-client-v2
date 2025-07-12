@@ -7796,20 +7796,20 @@ class CreateAccountModal {
   open() {
     const accounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
     const networkId = parameters.networkId; // Use consistent casing
-    
+
     // Add safety check for usernames existence
     const mismatchedNetids = Object.keys(accounts.netids).filter(netid => 
       netid !== networkId && 
       accounts.netids[netid].usernames && 
       Object.keys(accounts.netids[netid].usernames).length > 0
     );
-    
+
     if (mismatchedNetids.length > 0) {
       this.migrateAccountsSection.style.display = 'block';
     } else {
       this.migrateAccountsSection.style.display = 'none';
     }
-  
+
     this.modal.classList.add('active');
     enterFullscreen();
   }
@@ -10630,5 +10630,3 @@ function enterFullscreen() {
     } 
   }
 }
-
-
