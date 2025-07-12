@@ -5136,21 +5136,10 @@ class RestoreAccountModal {
 
     // Count occurrences before replacement
     const regex = new RegExp(substitution.oldString, 'g');
-    const matches = fileContent.match(regex);
-    const matchCount = matches ? matches.length : 0;
     
     // Global string replacement (like sed -i 's/old/new/g')
     const modifiedContent = fileContent.replace(regex, substitution.newString);
-    
-    // Provide feedback about the substitution
-    if (matchCount > 1) {
-      console.log(`✅ Applied substitution: ${substitution.oldString} → ${substitution.newString} (${matchCount} occurrences)`);
-    } else {
-      const reason = matchCount === 1 ? 'Only 1 match found' : 'No matches found';
-      console.log(`⚠️ ${reason} for: ${substitution.oldString}`);
-      this.clearForm();
-      throw new Error(`${reason} - import cancelled for data integrity`);
-    }
+
     
     return modifiedContent;
   }
@@ -9785,29 +9774,48 @@ class MigrateAccountsModal {
       const netid = account.netid;
       const username = account.value;
 
-      // update the accounts registry
-      this.updateAccountsRegistry(username, netid, parameters.networkId);
       // then perform netid substitution in all files in the app
       // get the file content
-      const fileContent = localStorage.getItem(username + '_' + netid);
+      let fileContent = localStorage.getItem(username + '_' + netid);
       if (fileContent) {
+        // if fileContent doesnt include { then we need to decrypt it
+        if (lockModal?.encKey) {
+          console.log('decrypting fileContent');
+          fileContent = decryptData(fileContent, lockModal.encKey, true);
+        }
+
+        if (!fileContent) {
+          console.log('fileContent is empty, skipping');
+          return;
+        }
+
         // perform netid substitution in the file content
-        const substitutionResult = restoreAccountModal.performStringSubstitution(fileContent, {
+        let substitutionResult = restoreAccountModal.performStringSubstitution(fileContent, {
           oldString: netid,
           newString: parameters.networkId
         });
-        console.log('substitutionResult', substitutionResult);
+        // if lockModal.encKey is set, encrypt the substitutionResult
+        if (lockModal?.encKey) {
+          substitutionResult = encryptData(substitutionResult, lockModal.encKey, true);
+        }
         // save the file content to localStorage
         localStorage.setItem(username + '_' + parameters.networkId, substitutionResult);
         // remove the file from localStorage
         localStorage.removeItem(username + '_' + netid);
+
+        // update the accounts registry
+        this.updateAccountsRegistry(username, netid, parameters.networkId);
       }
     });
 
-    this.close();
-    // open create account modal again so it gets refreshed
-    createAccountModal.close();
-    createAccountModal.open();
+    // show toast for success 2 seconds
+    showToast('Accounts migrated successfully', 2000, 'success');
+
+    // sleep for 2 seconds
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // reload the page
+    window.location.reload();
   }
 
   /**
@@ -9819,24 +9827,23 @@ class MigrateAccountsModal {
  */
   updateAccountsRegistry(username, oldNetid, newNetid) {
     const accountsObj = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-    // Remove from old network registry first
-    if (accountsObj.netids[oldNetid] && accountsObj.netids[oldNetid].usernames) {
-      delete accountsObj.netids[oldNetid].usernames[username];
-    }
 
     // Ensure new netid exists in registry
     if (!accountsObj.netids[newNetid]) {
       accountsObj.netids[newNetid] = { usernames: {} };
     }
 
-    // Add username to the new netid (read from OLD account data location)
-    const accountKey = `${username}_${oldNetid}`;
-    const accountData = parse(localStorage.getItem(accountKey));
+    // get account address from accountsObj instead of localStorage
+    const accountAddress = accountsObj.netids[oldNetid].usernames[username]?.address;
 
-    if (accountData && accountData.account && accountData.account.keys) {
+    if (accountAddress) {
       accountsObj.netids[newNetid].usernames[username] = {
-        address: accountData.account.keys.address
+        address: accountAddress
       };
+    }
+    // Remove from old network registry first
+    if (accountsObj.netids[oldNetid] && accountsObj.netids[oldNetid].usernames) {
+      delete accountsObj.netids[oldNetid].usernames[username];
     }
 
     // Save updated accounts registry
