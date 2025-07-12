@@ -4055,7 +4055,7 @@ function updateUIForConnectivity() {
   }
 
   networkDependentElements.forEach((element) => {
-    if (!isOnline) {
+    if (!isOnline || netIdMismatch) {
       // Disable element
       element.disabled = true;
       element.classList.add('offline-disabled');
@@ -4090,6 +4090,7 @@ function preventOfflineSubmit(event) {
 
 // Add global isOnline variable at the top with other globals
 let isOnline = true; // Will be updated by connectivity checks
+let netIdMismatch = false; // Will be updated by checkConnectivity
 
 // Add checkConnectivity function before setupConnectivityDetection
 async function checkConnectivity() {
@@ -10233,6 +10234,9 @@ async function getNetworkParams() {
       getNetworkParams.timestamp = now;
       // if network id from network.js is not the same as the parameters.current.networkId
       if (network.netid !== parameters.networkId) {
+        // treat as offline
+        netIdMismatch = true;
+        updateUIForConnectivity();
         console.error(`getNetworkParams: Network ID mismatch. Network ID from network.js: ${network.netid}, Network ID from parameters: ${parameters.networkId}`);
         console.log(parameters)
         // show toast notification with the error message
