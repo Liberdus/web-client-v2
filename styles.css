@@ -628,6 +628,11 @@ button:not(:disabled):hover {
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
   cursor: pointer;
+  width: 100%;
+  width: calc(100% - 32px);
+  padding: 12px 20px;
+  border-radius: 24px;
+  height: 48px;
 }
 
 /* Icon buttons */
@@ -643,8 +648,7 @@ button:disabled {
 }
 
 /* Button sizing and shape for primary/secondary buttons */
-.primary-button,
-.secondary-button {
+.primary-button {
   width: 240px;
   padding: 12px 20px;
   border-radius: 5px;
@@ -1961,6 +1965,30 @@ input[type='file'].form-control {
 #signInModal .update-button:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+/* Migrate Accounts Modal styles */
+#migrateAccountsModal select.form-control {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 15px center;
+  background-size: 16px;
+  padding-right: 45px;
+}
+
+#migrateAccountsModal .update-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+#migrateAccountsModal .modal-summary {
+  font-family: var(--font-primary);
+  font-size: var(--font-size-base);
+  color: var(--text-color);
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+  text-align: left;
 }
 
 /* Common label styles */

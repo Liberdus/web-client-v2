@@ -195,6 +195,13 @@ async function checkOnlineStatus() {
   }
 }
 
+/**
+ * Check if a username is available or taken
+ * @param {*} username 
+ * @param {*} address 
+ * @param {*} foundAddressObject 
+ * @returns 'mine' if the username is available and the address matches, 'taken' if the username is taken, 'available' if the username is available but the address does not match, 'error' if there is an error
+ */
 async function checkUsernameAvailability(username, address, foundAddressObject) {
   if (foundAddressObject) {
     foundAddressObject.address = null;
@@ -7757,6 +7764,7 @@ class CreateAccountModal {
     this.usernameAvailable = document.getElementById('newUsernameAvailable');
     this.privateKeyError = document.getElementById('newPrivateKeyError');
     this.togglePrivateKeyVisibility = document.getElementById('togglePrivateKeyVisibility');
+    this.migrateAccountsSection = document.getElementById('migrateAccountsSection');
 
     // Setup event listeners
     this.form.addEventListener('submit', (e) => this.handleSubmit(e));
@@ -7775,6 +7783,15 @@ class CreateAccountModal {
   }
 
   open() {
+    // if localStorage.account has accounts for netids which are different than the netid in params.networkid then show the `migrateAccountsSection`
+    const accounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+    const networkId = parameters.networkid;
+    // if none empty account field in localstorage and has accounts of netid different from networkId and the accounts.netids[mismatchedNetid] object is not empty then display the migrateAccountsSection
+    const mismatchedNetids = Object.keys(accounts.netids).filter(netid => netid !== networkId && Object.keys(accounts.netids[netid].usernames).length > 0);
+    if (mismatchedNetids.length > 0) {
+      this.migrateAccountsSection.style.display = 'block';
+    }
+
     this.modal.classList.add('active');
     enterFullscreen();
   }
