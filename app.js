@@ -559,15 +559,10 @@ function handleBeforeUnload(e) {
     }
     return;
   }
-  e.preventDefault();
-  saveState();    // This save might not work if the amount of data to save is large and user quickly clicks on Leave button
-  console.log('in handleBeforeUnload', e);
-  // Clean up WebSocket connection
-
-
-  console.log('stop back button');
-//  history.pushState(null, '', window.location.href);
-//  console.log('already called history.pushState')
+  if (myData){
+    e.preventDefault();
+    saveState();    // This save might not work if the amount of data to save is large and user quickly clicks on Leave button
+  }
 }
 
 // This is for installed apps where we can't stop the back button; just save the state
@@ -1286,6 +1281,8 @@ class MenuModal {
   }
   
   async handleSignOut() {
+    this.isSignoutExit = true;
+
     // Clear intervals
     if (updateWebSocketIndicatorIntervalId && wsManager) {
       clearInterval(updateWebSocketIndicatorIntervalId);
@@ -1317,14 +1314,6 @@ class MenuModal {
     // Lock the app
     unlockModal.lock();
 
-    // Save myData to localStorage if it exists
-    saveState();
-    /*
-      if (myData && myAccount) {
-          localStorage.setItem(`${myAccount.username}_${myAccount.netid}`, stringify(myData));
-      }
-  */
-
     // Close all modals
     menuModal.close();
     myProfileModal.close();
@@ -1345,7 +1334,10 @@ class MenuModal {
     // Show welcome screen
     welcomeScreen.open();
 
-    this.isSignoutExit = true;
+
+    // Save myData to localStorage if it exists
+    saveState();
+
 
     // Add offline fallback
     if (!navigator.onLine) {
@@ -5173,10 +5165,12 @@ class RestoreAccountModal {
       // We first parse to jsonData so that if the parse does not work we don't destroy myData
       myData = parse(fileContent);
 
+      // if myData has a version key then we assume all accounts were backed up and being restored
       if (myData.version) {
         localStorage.clear();
         this.copyObjectToLocalStorage(myData);
       }
+      // we are restoring only one account
       else {
         // also need to set myAccount
         const acc = myData.account; // this could have other things which are not needed
@@ -5212,6 +5206,7 @@ class RestoreAccountModal {
       // Reset form and close modal after delay
       setTimeout(() => {
         this.close();
+        myData = null // since we already saved to localStore, we want to make sure beforeunload calling saveState does not also save
         window.location.reload(); // need to go through Sign In to make sure imported account exists on network
         this.clearForm();
       }, 2000);
