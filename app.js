@@ -406,10 +406,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   setupConnectivityDetection();
 
-  // Add beforeunload handler to save myData; don't use unload event, it is getting depricated
-  window.addEventListener('beforeunload', handleBeforeUnload);
-  document.addEventListener('visibilitychange', async () => await handleVisibilityChange()); // Keep as document
-
   // Check for native app subscription tokens and handle subscription
   handleNativeAppSubscription();
 
@@ -557,7 +553,6 @@ function handleUnload() {
 // Add unload handler to save myData
 function handleBeforeUnload(e) {
   if (menuModal.isSignoutExit){
-    window.removeEventListener('beforeunload', handleBeforeUnload);
     if (wsManager) {
       wsManager.disconnect();
       wsManager = null;
@@ -587,10 +582,6 @@ async function handleVisibilityChange() {
     if (chatModal.isActive() && chatModal.address) {
       const contact = myData.contacts[chatModal.address];
       chatModal.lastMessageCount = contact?.messages?.length || 0;
-    }
-    if (menuModal.isSignoutExit) {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      return;
     }
   } else if (document.visibilityState === 'visible') {
     // Reconnect WebSocket if needed
@@ -1313,8 +1304,9 @@ class MenuModal {
       scanQRModal.stopCamera();
     }
 
-    //    const shouldLeave = confirm('Do you want to leave this page?');
-    //    if (shouldLeave == false) { return }
+    // Remove event listeners for beforeunload and visibilitychange
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
 
     // Clean up WebSocket connection
     if (wsManager) {
@@ -2056,6 +2048,12 @@ class SignInModal {
     if (!getSystemNoticeIntervalId) {
       getSystemNoticeIntervalId = setInterval(getSystemNotice, 15000);
     }
+
+    // Register events that will saveState if the browser is closed without proper signOut
+    // Add beforeunload handler to save myData; don't use unload event, it is getting depricated
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', async () => await handleVisibilityChange()); // Keep as document
+    
     // Close modal and proceed to app
     this.close();
     welcomeScreen.close();
