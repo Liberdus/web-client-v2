@@ -3998,6 +3998,9 @@ function markConnectivityDependentElements() {
 
     // tollModal
     '#saveNewTollButton',
+
+    //inviteModal
+    '#inviteForm button[type="submit"]',
   ];
 
   // Add data attribute to all network-dependent elements
