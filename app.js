@@ -3919,6 +3919,9 @@ function markConnectivityDependentElements() {
 
     //inviteModal
     '#inviteForm button[type="submit"]',
+
+    //unstakeModal
+    '#submitUnstake',
   ];
 
   // Add data attribute to all network-dependent elements
