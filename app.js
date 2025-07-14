@@ -10563,7 +10563,7 @@ function longPoll() {
   try {
     longPoll.start = getCorrectedTimestamp();
     const timestamp = myAccount.chatTimestamp || 0;
-    
+
     // call this with a promise that'll resolve with callback longPollResult function with the data
     const longPollPromise = queryNetwork(`/collector/api/poll?account=${longAddress(myAccount.keys.address)}&chatTimestamp=${timestamp}`);
     console.log(`longPoll started with account=${longAddress(myAccount.keys.address)} chatTimestamp=${timestamp}`);
