@@ -5144,6 +5144,14 @@ class RestoreAccountModal {
 
       // if myData has a version key then we assume all accounts were backed up and being restored
       if (myData.version) {
+        // Warn user about global restore and ask for confirmation
+        const confirmed = confirm('⚠️ WARNING: This will restore all accounts and clear existing data.\n\nIt is recommended to backup your current data before proceeding.\n\nDo you want to continue with the restore?');
+        
+        if (!confirmed) {
+          showToast('Restore cancelled by user', 2000, 'info');
+          return;
+        }
+        
         localStorage.clear();
         this.copyObjectToLocalStorage(myData);
       }
