@@ -164,9 +164,7 @@ let myData = null;
 let myAccount = null; // this is set to myData.account for convience
 let timeSkew = 0;
 let useLongPolling = true;
-let wsManager = null;
 
-let updateWebSocketIndicatorIntervalId = null;
 let checkPendingTransactionsIntervalId = null;
 let getSystemNoticeIntervalId = null;
 //let checkConnectivityIntervalId = null;
@@ -529,23 +527,12 @@ function handleUnload() {
   if (menuModal.isSignoutExit) {
     return;
   } // User selected to Signout; state was already saved
-  else {
-    // Clean up WebSocket connection
-    if (wsManager) {
-      wsManager.disconnect();
-      wsManager = null;
-    }
-  }
 }
 */
 
 // Add unload handler to save myData
 function handleBeforeUnload(e) {
   if (menuModal.isSignoutExit){
-    if (wsManager) {
-      wsManager.disconnect();
-      wsManager = null;
-    }
     return;
   }
   if (myData){
@@ -568,10 +555,6 @@ async function handleVisibilityChange() {
       chatModal.lastMessageCount = contact?.messages?.length || 0;
     }
   } else if (document.visibilityState === 'visible') {
-    // Reconnect WebSocket if needed
-    if (wsManager && !wsManager.isConnected() && myAccount) {
-      wsManager.connect();
-    }
     // if chatModal was opened, check if message count changed while hidden
     if (chatModal.isActive() && chatModal.address) {
       const contact = myData.contacts[chatModal.address];
@@ -816,11 +799,6 @@ class Footer {
     const previousView = document.querySelector('.app-screen.active')?.id?.replace('Screen', '') || 'chats';
     const previousButton = document.querySelector('.nav-button.active');
   
-    // Initialize WebSocket connection regardless of view
-    if (wsManager) {
-      wsManager.initializeWebSocketManager();
-    }
-  
     try {
       // Hide all screens
       chatsScreen.close();
@@ -868,10 +846,8 @@ class Footer {
         this.chatButton.classList.remove('has-notification');
         // TODO: maybe need to invoke updateChatData here?
         await chatsScreen.updateChatList();
-        if (isOnline) {
-          if (wsManager && !wsManager.isSubscribed()) {
-            pollChatInterval(pollIntervalNormal);
-          }
+        if (isOnline && !useLongPolling) {
+          pollChatInterval(pollIntervalNormal);
         }
   
         // focus onto last-item in the footer
@@ -1273,10 +1249,6 @@ class MenuModal {
     this.isSignoutExit = true;
 
     // Clear intervals
-    if (updateWebSocketIndicatorIntervalId && wsManager) {
-      clearInterval(updateWebSocketIndicatorIntervalId);
-      updateWebSocketIndicatorIntervalId = null;
-    }
     if (checkPendingTransactionsIntervalId) {
       clearInterval(checkPendingTransactionsIntervalId);
       checkPendingTransactionsIntervalId = null;
@@ -1293,12 +1265,6 @@ class MenuModal {
     // Remove event listeners for beforeunload and visibilitychange
     window.removeEventListener('beforeunload', handleBeforeUnload);
     document.removeEventListener('visibilitychange', handleVisibilityChange);
-
-    // Clean up WebSocket connection
-    if (wsManager) {
-      wsManager.disconnect();
-      wsManager = null;
-    }
 
     // Lock the app
     unlockModal.lock();
@@ -2018,10 +1984,6 @@ class SignInModal {
     /* requestNotificationPermission(); */
     if (useLongPolling) {
       setTimeout(longPoll(), 10);
-    }
-    // Start intervals now that user is signed in
-    if (!updateWebSocketIndicatorIntervalId && wsManager) {
-      updateWebSocketIndicatorIntervalId = setInterval(updateWebSocketIndicator, 5000);
     }
     if (!checkPendingTransactionsIntervalId) {
       checkPendingTransactionsIntervalId = setInterval(checkPendingTransactions, 5000);
@@ -2814,11 +2776,8 @@ async function pollChatInterval(milliseconds) {
 
 // Called every 30 seconds if we are online and not subscribed to WebSocket
 async function pollChats() {
-  // Step 2: variable to check if we are subscribed to WebSocket
-  const isSubscribed = wsManager && wsManager.subscribed && wsManager.isSubscribed();
-
   // Step 3: Poll if we are not subscribed to WebSocket
-  if (!isSubscribed) {
+  if (!useLongPolling) {
     // Skip if no valid account
     if (!myAccount?.keys?.address) {
       console.log('Poll skipped: No valid account');
@@ -2843,50 +2802,16 @@ async function pollChats() {
     // Clear polling if WebSocket is subscribed
     clearTimeout(window.chatUpdateTimer);
     window.chatUpdateTimer = null;
-    console.log('Poll status: Stopped - WebSocket subscribed');
+    console.log('Poll status: Stopped - using long polling');
   }
 
-  const wsStatus = await checkWebSocketStatus();
   // Step 4: Log final status
   const pollStatus = {
-    wsStatus,
+    useLongPolling: useLongPolling,
     accountValid: Boolean(myAccount?.keys?.address),
-    subscriptionStatus: isSubscribed ? 'subscribed' : 'not subscribed',
     pollingStatus: window.chatUpdateTimer ? 'polling' : 'not polling',
   };
   console.log('Poll Status:', JSON.stringify(pollStatus, null, 2));
-}
-
-// Helper function to check WebSocket status and log diagnostics if needed
-async function checkWebSocketStatus() {
-  if (!wsManager) return 'not initialized';
-  const status = wsManager.isConnected() ? 'connected' : 'disconnected';
-  const selectedGateway = getGatewayForRequest();
-  // Log diagnostic info if disconnected
-  if (status === 'disconnected' && wsManager.connectionState === 'disconnected') {
-    const diagnosticInfo = {
-      browserState: {
-        isPrivateMode: !window.localStorage,
-        networkProtocol: window.location.protocol === 'https:' ? 'Secure (HTTPS)' : 'Insecure (HTTP)',
-        isOnline: navigator.onLine,
-        webSocketSupport: typeof WebSocket !== 'undefined',
-      },
-      websocketConfig: {
-        urlValid: (() => {
-          return selectedGateway?.ws
-            ? selectedGateway.ws.startsWith('ws://') || selectedGateway.ws.startsWith('wss://')
-            : false;
-        })(),
-        url: (() => {
-          const selectedGateway = getGatewayForRequest();
-          return selectedGateway?.ws || 'Not configured';
-        })(),
-      },
-    };
-    console.warn('WebSocket Diagnostic Information:', diagnosticInfo);
-  }
-
-  return status;
 }
 
 // Helper function to schedule next poll
@@ -3917,10 +3842,6 @@ async function handleConnectivityChange() {
     // We just came back online
     updateUIForConnectivity();
     showToast("You're back online!", 3000, 'online');
-    // Initialize WebSocket connection regardless of view
-    if(wsManager) {
-      wsManager.initializeWebSocketManager();
-    }
     // Force update data with reconnection handling
     if (myAccount && myAccount.keys) {
       try {
@@ -4200,435 +4121,6 @@ function getGatewayForRequest() {
   return myData.network.gateways[Math.floor(Math.random() * myData.network.gateways.length)];
 }
 
-// WebSocket Manager Class
-/**
- * WebSocket Manager Class
- * Handles WebSocket connections, reconnection logic, and message processing for chat events.
- * Maintains connection state and provides methods for subscribing to and processing chat notifications.
- */
-class WSManager {
-  /**
-   * Initialize the WebSocket Manager with default configuration
-   */
-  constructor() {
-    this.ws = null;
-    this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 5;
-    this.connectionState = 'disconnected';
-    this.subscribed = false;
-  }
-
-  /**
-   * Connect to WebSocket server
-   */
-  connect() {
-    updateWebSocketIndicator();
-    // Check if ws is not null and readyState is either CONNECTING or OPEN
-    if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) {
-      console.log('WebSocket connection already established');
-      return;
-    }
-
-    // Check if WebSockets are supported before attempting to connect
-    if (!this.checkWebSocketSupport()) {
-      console.error('WebSockets not supported, falling back to polling');
-      this.connectionState = 'disconnected';
-      return;
-    }
-
-    this.connectionState = 'connecting';
-    const selectedGateway = getGatewayForRequest();
-    console.log(
-      'WebSocket Connection:',
-      JSON.stringify(
-        {
-          url: selectedGateway.ws,
-          protocol: window.location.protocol,
-          userAgent: navigator.userAgent,
-        },
-        null,
-        2
-      )
-    );
-
-    try {
-      console.log('Creating new WebSocket instance');
-      this.ws = new WebSocket(selectedGateway.ws);
-      this.setupEventHandlers();
-    } catch (error) {
-      console.error('WebSocket connection creation error:', error);
-      this.handleConnectionFailure();
-    }
-  }
-
-  /**
-   * Set up WebSocket event handlers
-   */
-  setupEventHandlers() {
-    if (!this.ws) {
-      console.error('Cannot setup event handlers: WebSocket is null');
-      return;
-    }
-
-    // console.log('Setting up WebSocket event handlers');
-
-    this.ws.onopen = () => {
-      updateWebSocketIndicator();
-      console.log('WebSocket connection established');
-      this.connectionState = 'connected';
-      this.reconnectAttempts = 0;
-
-      // Auto-subscribe if account is available
-      if (myAccount && myAccount.keys && myAccount.keys.address) {
-        console.log('Auto-subscribing to WebSocket events');
-        this.subscribe();
-      } else {
-        console.warn('Cannot auto-subscribe: No account information available');
-      }
-    };
-
-    this.ws.onclose = (event) => {
-      updateWebSocketIndicator();
-      console.log('WebSocket connection closed', event.code, event.reason);
-      this.connectionState = 'disconnected';
-      this.subscribed = false;
-
-      if (event.code !== 1000) {
-        // Not a normal closure, try to reconnect
-        console.log('Abnormal closure, attempting to reconnect');
-        this.handleConnectionFailure();
-      }
-    };
-
-    this.ws.onmessage = async (event) => {
-      updateWebSocketIndicator();
-      try {
-        console.log('WebSocket message received:', event.data);
-        const data = JSON.parse(event.data);
-
-        // Check if this is a subscription response
-        if (data.id !== null && data.result !== undefined) {
-          if (data.result.subscription_status === true) {
-            console.log('Server confirmed subscription successful');
-            this.subscribed = true;
-          } else if (data.error) {
-            console.error('Server rejected subscription:', data.error);
-            this.subscribed = false;
-          }
-        } else if (!data.id && data.result.account_id && data.result.timestamp) {
-          console.log('Received new chat notification in ws');
-          const gotChats = await chatsScreen.updateChatData();
-          console.log('gotChats inside of ws.onmessage', gotChats);
-          if (gotChats > 0) {
-            console.log('inside of ws.onmessage, gotChats > 0, updating chat list');
-            await chatsScreen.updateChatList();
-          }
-        } else {
-          // Handle any other unexpected message formats
-          console.warn('Received unrecognized websocket message format:', data);
-        }
-      } catch (error) {
-        console.error('Error processing WebSocket message:', error);
-      }
-    };
-
-    // Add error event handler before setupEventHandlers
-    this.ws.onerror = (error) => {
-      updateWebSocketIndicator();
-      console.error('WebSocket error occurred:', error);
-      console.log('WebSocket readyState at error:', this.ws ? this.ws.readyState : 'ws is null');
-      this.handleConnectionFailure();
-    };
-  }
-
-  /**
-   * Subscribe to chat events for the current account
-   */
-  subscribe() {
-    // don't call updateWebSocketIndicator here since that function calls this function
-    //  updateWebSocketIndicator();
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.error('Cannot subscribe: WebSocket not connected');
-      return false;
-    }
-
-    if (!myAccount || !myAccount.keys || !myAccount.keys.address) {
-      console.error('Cannot subscribe: No account information');
-      return false;
-    }
-
-    try {
-      console.log('Subscribing to chat events for address:', myAccount.keys.address);
-
-      // Create subscription message directly with the required format
-      const subscribeMessage = {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'ChatEvent',
-        params: ['subscribe', longAddress(myAccount.keys.address)],
-      };
-
-      console.log('Sending subscription message:', JSON.stringify(subscribeMessage));
-      this.ws.send(JSON.stringify(subscribeMessage));
-      console.log('Subscription message sent');
-      return true;
-    } catch (error) {
-      console.error('Error subscribing to chat events:', error);
-      this.subscribed = false;
-      return false;
-    }
-  }
-
-  /**
-   * Unsubscribe from chat events
-   */
-  unsubscribe() {
-    updateWebSocketIndicator();
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.warn('Cannot unsubscribe: WebSocket not connected');
-      return;
-    }
-
-    if (!this.subscribed) {
-      console.log('Not subscribed, no need to unsubscribe');
-      return;
-    }
-
-    try {
-      console.log('Unsubscribing from chat events');
-
-      const unsubscribeMessage = {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'ChatEvent',
-        params: ['unsubscribe', longAddress(myAccount.keys.address)],
-      };
-
-      this.ws.send(JSON.stringify(unsubscribeMessage));
-      this.subscribed = false;
-      console.log('Attempted to unsubscribe');
-    } catch (error) {
-      console.error('Error unsubscribing from chat events:', error);
-    }
-  }
-
-  /**
-   * Disconnect from WebSocket server
-   */
-  disconnect() {
-    updateWebSocketIndicator();
-    console.log('Disconnecting WebSocket');
-    if (this.subscribed) {
-      this.unsubscribe();
-    }
-
-    if (this.ws) {
-      try {
-        if (this.ws.readyState === WebSocket.OPEN) {
-          this.ws.close(1000, 'Normal closure');
-        }
-        this.ws = null;
-        this.connectionState = 'disconnected';
-        console.log('WebSocket disconnected successfully');
-      } catch (error) {
-        console.error('Error disconnecting WebSocket:', error);
-      }
-    }
-  }
-
-  /**
-   * Handle connection failures with exponential backoff retry logic
-   */
-  handleConnectionFailure() {
-    updateWebSocketIndicator();
-    const diagnosticInfo = {
-      connectionState: this.connectionState,
-      browser: {
-        userAgent: navigator.userAgent,
-        protocol: window.location.protocol,
-      },
-      reconnection: {
-        attempts: this.reconnectAttempts,
-        maxAttempts: this.maxReconnectAttempts,
-      },
-    };
-
-    // Add Firefox-specific diagnostics
-    if (navigator.userAgent.includes('Firefox')) {
-      const selectedGateway = getGatewayForRequest();
-      diagnosticInfo.firefox = {
-        securityPolicy: 'Different security policies for WebSockets',
-        mixedContent: 'Check if HTTPS site with WS instead of WSS',
-        websocketUrl: selectedGateway?.ws || 'No gateway available',
-        pageProtocol: window.location.protocol,
-      };
-    }
-
-    console.error('WebSocket Connection Failure:', JSON.stringify(diagnosticInfo, null, 2));
-
-    this.connectionState = 'disconnected';
-
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('Reconnection Status: Maximum attempts reached, falling back to polling');
-      return;
-    }
-
-    this.reconnectAttempts++;
-
-    // Exponential backoff
-    const delay = Math.min(30000, Math.pow(2, this.reconnectAttempts) * 1000 + Math.random() * 1000);
-
-    const reconnectInfo = {
-      attempt: this.reconnectAttempts,
-      maxAttempts: this.maxReconnectAttempts,
-      delaySeconds: Math.round(delay / 1000),
-    };
-    console.log('Reconnection Schedule:', JSON.stringify(reconnectInfo, null, 2));
-
-    setTimeout(() => {
-      console.log('Reconnecting to WebSocket');
-      this.connect();
-    }, delay);
-  }
-
-  /**
-   * Check if WebSocket is connected
-   */
-  isConnected() {
-    return !!(this.ws && this.ws.readyState === WebSocket.OPEN);
-  }
-
-  /**
-   * Check if WebSocket is subscribed
-   */
-  isSubscribed() {
-    return this.subscribed;
-  }
-
-  /**
-   * Check if WebSockets are supported in the current browser
-   */
-  checkWebSocketSupport() {
-    const supportInfo = {
-      webSocketAvailable: typeof WebSocket !== 'undefined',
-      browser: {
-        userAgent: navigator.userAgent,
-        language: navigator.language,
-      },
-      environment: {
-        protocol: window.location.protocol,
-        hostname: window.location.hostname,
-        isLocalhost: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1',
-      },
-    };
-
-    // Get selected gateway for WebSocket URL
-    const selectedGateway = getGatewayForRequest();
-
-    // Add Firefox-specific info
-    if (navigator.userAgent.includes('Firefox')) {
-      supportInfo.firefox = {
-        mixedContentBlocked: window.location.protocol === 'https:' && selectedGateway?.ws ? selectedGateway.ws.startsWith('ws://') : false,
-        usingSecureWebSocket: selectedGateway?.ws ? selectedGateway.ws.startsWith('wss://') : false,
-        port: selectedGateway?.ws ? selectedGateway.ws.split(':')[2]?.split('/')[0] || 'default' : 'No gateway',
-      };
-    }
-
-    // Add WebSocket URL details
-    const wsUrl = new URL(selectedGateway?.ws);
-    supportInfo.websocket = wsUrl ? {
-      protocol: wsUrl.protocol,
-      hostname: wsUrl.hostname,
-      port: wsUrl.port || (wsUrl.protocol === 'wss:' ? '443' : '80'),
-      pathname: wsUrl.pathname,
-      requiresSecureContext: wsUrl.protocol === 'wss:' && !supportInfo.environment.isLocalhost,
-    } : {
-      protocol: 'No gateway',
-      hostname: 'No gateway',
-      port: 'No gateway',
-      pathname: 'No gateway',
-      requiresSecureContext: false,
-    };
-
-    console.log('WebSocket Support Analysis:', JSON.stringify(supportInfo, null, 2));
-
-    // Return false for known unsupported conditions
-    if (!supportInfo.webSocketAvailable) {
-      console.error('WebSocket Support: Not available in browser');
-      return false;
-    }
-
-    if (supportInfo.firefox?.mixedContentBlocked) {
-      console.error('WebSocket Support: Mixed content blocked in Firefox');
-      return false;
-    }
-
-    // Allow WSS connections on localhost even with HTTP protocol
-    if (
-      supportInfo.websocket.requiresSecureContext &&
-      supportInfo.environment.protocol !== 'https:' &&
-      !supportInfo.environment.isLocalhost
-    ) {
-      console.error('WebSocket Support: Secure context required for WSS');
-      return false;
-    }
-
-    return true;
-  }
-
-  // Initialize WebSocket manager if not already created
-  initializeWebSocketManager() {
-    if (this.isConnected()) {
-      if (!this.isSubscribed()) {
-        console.log('WebSocket is already connected but not subscribed, subscribing');
-        this.subscribe();
-        return;
-      }
-      console.log('WebSocket is already connected and subscribed');
-      return;
-    }
-
-    try {
-      const selectedGateway = getGatewayForRequest();
-      const initInfo = {
-        status: 'starting',
-        config: {
-          url: selectedGateway?.ws || 'No gateway available',
-        },
-        account: {
-          available: !!myAccount?.keys?.address,
-        },
-      };
-
-      console.log('WebSocket Manager Initialization:', JSON.stringify(initInfo, null, 2));
-
-      initInfo.status = 'created';
-
-      if (initInfo.account.available) {
-        this.connect();
-        initInfo.status = 'connecting';
-      }
-      console.log('WebSocket Manager Status:', JSON.stringify(initInfo, null, 2));
-    } catch (error) {
-      console.error(
-        'WebSocket Manager Initialization Error:',
-        JSON.stringify(
-          {
-            error: error.message,
-            stack: error.stack,
-          },
-          null,
-          2
-        )
-      );
-    }
-  }
-}
-
-if (!useLongPolling) {
-  wsManager = new WSManager();
-}
-
 /**
  * Inserts an item into an array while maintaining descending order based on a timestamp field.
  * Assumes the array is already sorted in descending order.
@@ -4734,28 +4226,6 @@ function getCorrectedTimestamp() {
 
   return correctedTime;
 }
-
-function updateWebSocketIndicator() {
-  // added this so that we don't miss messages on phones, since phones drop the ws if not used periodically
-  if (getCorrectedTimestamp() - updateWebSocketIndicator.lastSubscribed > 31000) {
-    wsManager.subscribe();
-    updateWebSocketIndicator.lastSubscribed = getCorrectedTimestamp();
-  }
-  const indicator = document.getElementById('wsStatusIndicator');
-  if (!indicator) return;
-  indicator.style.display = 'block';
-  if (!wsManager || !wsManager.isConnected()) {
-    indicator.textContent = 'Not Connected';
-    indicator.className = 'ws-status-indicator ws-red';
-  } else if (wsManager.isConnected() && !wsManager.isSubscribed()) {
-    indicator.textContent = 'Connected (No Sub)';
-    indicator.className = 'ws-status-indicator ws-yellow';
-  } else if (wsManager.isConnected() && wsManager.isSubscribed()) {
-    indicator.textContent = 'Connected';
-    indicator.className = 'ws-status-indicator ws-green';
-  }
-}
-updateWebSocketIndicator.lastSubscribed = 0;
 
 // Validator Modals
 
@@ -6645,10 +6115,8 @@ class ChatModal {
     this.address = address;
     this.appendChatModal(false); // Call appendChatModal to render messages, ensure highlight=false
 
-    if (isOnline) {
-      if (wsManager && !wsManager.isSubscribed()) {
+    if (isOnline && !useLongPolling) {
         pollChatInterval(pollIntervalChatting); // poll for messages at a faster rate
-      }
     }
   }
 
@@ -6687,10 +6155,8 @@ class ChatModal {
       footer.newChatButton.classList.add('visible');
     }
     this.address = null;
-    if (isOnline) {
-      if (wsManager && !wsManager.isSubscribed()) {
-        pollChatInterval(pollIntervalNormal); // back to polling at slower rate
-      }
+    if (isOnline && !useLongPolling) {
+      pollChatInterval(pollIntervalNormal); // back to polling at slower rate
     }
   }
 
@@ -8105,10 +7571,6 @@ class CreateAccountModal {
       console.error(`DEBUG: handleCreateAccount error in else`, JSON.stringify(res, null, 2));
 
       // Clear intervals
-      if (updateWebSocketIndicatorIntervalId && wsManager) {
-        clearInterval(updateWebSocketIndicatorIntervalId);
-        updateWebSocketIndicatorIntervalId = null;
-      }
       if (checkPendingTransactionsIntervalId) {
         clearInterval(checkPendingTransactionsIntervalId);
         checkPendingTransactionsIntervalId = null;
