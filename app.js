@@ -3984,14 +3984,16 @@ function markConnectivityDependentElements() {
   const networkDependentElements = [
     // Chat related
     '#handleSendMessage',
-    '.message-input',
-    '#newChatButton',
-    '#chatSendMoneyButton',
 
     // Wallet related
-    '#openSendAssetFormModal',
     '#refreshBalance',
     '#sendForm button[type="submit"]',
+
+    // Send asset related
+    '#sendAssetForm button[type="submit"]',
+
+    // Add friend related
+    '#friendForm button[type="submit"]',
 
     // Contact related
     '#chatRecipient',
@@ -4002,15 +4004,6 @@ function markConnectivityDependentElements() {
     '#accountForm button[type="submit"]',
     '#createAccountForm button[type="submit"]',
     '#importForm button[type="submit"]',
-    '#contactInfoSendButton',
-
-    // menu list buttons
-    '.menu-item[id="openAccountForm"]',
-    '.menu-item[id="openNetwork"]',
-    '.menu-item[id="openExplorer"]',
-    '.menu-item[id="openMonitor"]',
-    '.menu-item[id="openAbout"]',
-    '.menu-item[id="openRemoveAccount"]',
 
     // submitFeedback button
     '#submitFeedback',
