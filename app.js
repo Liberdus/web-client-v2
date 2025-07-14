@@ -3923,19 +3923,11 @@ function hideToast(toastId) {
 
 // Handle online/offline events
 async function handleConnectivityChange(isOnline) {
-  
-  // isOnline = navigator.onLine;
-
-  console.log('HANDLE CONNECTIVITY CHANGE: isOnline', isOnline,);
-
   if (isOnline ) {
     console.log('Just came back online.');
     // We just came back online
     updateUIForConnectivity();
     showToast("You're back online!", 3000, 'online');
-
-    // Verify username is still valid on the network
-    /* await verifyUsernameOnReconnect(); */
     // Initialize WebSocket connection regardless of view
     if(wsManager) {
       wsManager.initializeWebSocketManager();
@@ -4091,10 +4083,7 @@ let netIdMismatch = false; // Will be updated by checkConnectivity
 // Add checkConnectivity function before setupConnectivityDetection
 async function checkConnectivity() {
   const wasOnline = isOnline;
-  //isOnline = await checkOnlineStatus();
   isOnline = navigator.onLine;
-
-  console.log('CHECK CONNECTIVITY: isOnline', isOnline, 'wasOnline', wasOnline);
 
   if (isOnline !== wasOnline) {
     // Only trigger change handler if state actually changed
