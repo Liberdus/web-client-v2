@@ -3370,7 +3370,6 @@ async function postAssetTransfer(to, amount, memo, keys) {
     // memo: stringify(memo),
     xmemo: memo,
     timestamp: getCorrectedTimestamp(),
-    network: NETWORK_ACCOUNT_ID,
     fee: parameters.current.transactionFee || 1n * wei, // This is not used by the backend
     networkId: network.netid,
   };
@@ -7059,7 +7058,6 @@ class ChatModal {
       message: 'x',
       xmessage: payload,
       timestamp: getCorrectedTimestamp(),
-      network: NETWORK_ACCOUNT_ID,
       fee: parameters.current.transactionFee || 1n * wei, // This is not used by the backend
       networkId: network.netid,
     };
