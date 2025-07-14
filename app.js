@@ -3922,8 +3922,8 @@ function hideToast(toastId) {
 
 
 // Handle online/offline events
-async function handleConnectivityChange(isOnline) {
-  if (isOnline ) {
+async function handleConnectivityChange() {
+  if (isOnline) {
     console.log('Just came back online.');
     // We just came back online
     updateUIForConnectivity();
@@ -4087,7 +4087,7 @@ async function checkConnectivity() {
 
   if (isOnline !== wasOnline) {
     // Only trigger change handler if state actually changed
-    await handleConnectivityChange(isOnline);
+    await handleConnectivityChange();
   }
 }
 
