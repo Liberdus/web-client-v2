@@ -10548,6 +10548,11 @@ function cleanSenderInfo(si) {
 }
 
 function longPoll() {
+  if (!isOnline) {
+    console.log('Poll skipped: Not online');
+    return;
+  }
+
   const myAccount = myData?.account;
   // Skip if no valid account
   if (!myAccount?.keys?.address) {
@@ -10558,7 +10563,7 @@ function longPoll() {
   try {
     longPoll.start = getCorrectedTimestamp();
     const timestamp = myAccount.chatTimestamp || 0;
-    const random = Math.floor(Math.random()*1000000);
+    
     // call this with a promise that'll resolve with callback longPollResult function with the data
     const longPollPromise = queryNetwork(`/collector/api/poll?account=${longAddress(myAccount.keys.address)}&chatTimestamp=${timestamp}`);
     console.log(`longPoll started with account=${longAddress(myAccount.keys.address)} chatTimestamp=${timestamp}`);
