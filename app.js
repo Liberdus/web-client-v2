@@ -10473,6 +10473,11 @@ async function getNetworkParams() {
 getNetworkParams.timestamp = 0;
 
 async function getSystemNotice() {
+  if (!isOnline) {
+    console.log('getSystemNotice skipped: Not online');
+    return;
+  }
+
   try {
     // First, do a HEAD request to check if the file exists and get its timestamp
     const headResponse = await fetch(`./notice.html?${Math.random()}`, { method: 'HEAD' });
