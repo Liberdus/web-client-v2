@@ -4873,6 +4873,32 @@ class BackupAccountModal {
     this.modal.classList.remove('active');
   }
 
+  /**
+   * Generate a backup filename based on the current date and time.
+   * @param {string} username - The username to include in the filename.
+   * @returns {string} The generated filename.
+   */
+  generateBackupFilename(username = null) {
+    // Generate timestamp with hour and minute
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}-${now.getMinutes().toString().padStart(2, '0')}`;
+    
+    // Get first 6 characters from network ID
+    const networkIdPrefix = network.netid.substring(0, 6);
+    
+    // Generate filename based on whether username is provided
+    if (username) {
+      return `liberdus-${username}-${dateStr}-${timeStr}-${networkIdPrefix}.json`;
+    } else {
+      return `liberdus-${dateStr}-${timeStr}-${networkIdPrefix}.json`;
+    }
+  }
+
+  /**
+   * Handle the submission of a single account backup.
+   * @param {Event} event - The event object.
+   */
   async handleSubmitOne(event) {
     event.preventDefault();
 
@@ -4888,7 +4914,7 @@ class BackupAccountModal {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `liberdus-${myAccount.username}-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = this.generateBackupFilename(myAccount.username);
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -4902,6 +4928,10 @@ class BackupAccountModal {
     }
   }
 
+  /**
+   * Handle the submission of a backup for all accounts.
+   * @param {Event} event - The event object.
+   */
   async handleSubmitAll(event) {
     event.preventDefault();
 
@@ -4919,7 +4949,7 @@ class BackupAccountModal {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `liberdus-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = this.generateBackupFilename();
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
