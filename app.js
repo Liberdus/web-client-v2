@@ -184,17 +184,6 @@ let parameters = {
   },
 };
 
-async function checkOnlineStatus() {
-  try {
-    const url = new URL(window.location.origin);
-    url.searchParams.set('rand', Math.random());
-    const response = await fetch(url.toString(), { method: 'HEAD' });
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Check if a username is available or taken
  * @param {*} username 
@@ -2794,7 +2783,7 @@ async function updateAssetPricesIfNeeded() {
 
 async function queryNetwork(url) {
   //console.log('queryNetwork', url)
-  if (!(await checkOnlineStatus())) {
+  if (!isOnline) {
     //TODO: show user we are not online
     console.warn('not online');
     //alert('not online')
