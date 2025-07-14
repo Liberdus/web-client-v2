@@ -4880,7 +4880,7 @@ class BackupAccountModal {
    */
   generateBackupFilename(username = null) {
     // Generate timestamp with hour and minute
-    const now = new Date();
+    const now = getCorrectedTimestamp();
     const dateStr = now.toISOString().split('T')[0];
     const timeStr = `${now.getHours().toString().padStart(2, '0')}-${now.getMinutes().toString().padStart(2, '0')}`;
     
