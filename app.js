@@ -846,9 +846,6 @@ class Footer {
         this.chatButton.classList.remove('has-notification');
         // TODO: maybe need to invoke updateChatData here?
         await chatsScreen.updateChatList();
-        if (isOnline && !useLongPolling) {
-          pollChatInterval(pollIntervalNormal);
-        }
   
         // focus onto last-item in the footer
         if (footer.lastItem) {
@@ -6114,10 +6111,6 @@ class ChatModal {
     // Setup state for appendChatModal and perform initial render
     this.address = address;
     this.appendChatModal(false); // Call appendChatModal to render messages, ensure highlight=false
-
-    if (isOnline && !useLongPolling) {
-        pollChatInterval(pollIntervalChatting); // poll for messages at a faster rate
-    }
   }
 
   /**
@@ -6155,9 +6148,6 @@ class ChatModal {
       footer.newChatButton.classList.add('visible');
     }
     this.address = null;
-    if (isOnline && !useLongPolling) {
-      pollChatInterval(pollIntervalNormal); // back to polling at slower rate
-    }
   }
 
   /**
