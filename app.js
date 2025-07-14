@@ -3995,6 +3995,9 @@ function markConnectivityDependentElements() {
 
     // stakeModal
     '#submitStake',
+
+    // tollModal
+    '#saveNewTollButton',
   ];
 
   // Add data attribute to all network-dependent elements
