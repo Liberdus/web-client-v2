@@ -1452,7 +1452,7 @@ class WalletScreen {
       console.error('No wallet data available');
       return;
     } else if (!isOnline) {
-      console.error('Not online. Not updating wallet balances');
+      console.warn('Not online. Not updating wallet balances');
       return;
     }
     await updateAssetPricesIfNeeded();
