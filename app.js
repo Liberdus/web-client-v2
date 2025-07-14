@@ -3970,7 +3970,7 @@ function setupConnectivityDetection() {
   // Check initial status (don't trust the browser's initial state)
   checkConnectivity();
 
-  // Periodically check connectivity (every 30 seconds)
+  // Periodically check connectivity (every 5 seconds)
   setInterval(checkConnectivity, 5000);
 }
 
