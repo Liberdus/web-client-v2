@@ -3922,11 +3922,13 @@ function hideToast(toastId) {
 
 
 // Handle online/offline events
-async function handleConnectivityChange() {
-  const wasOffline = !isOnline;
-  isOnline = navigator.onLine;
+async function handleConnectivityChange(isOnline) {
+  
+  // isOnline = navigator.onLine;
 
-  if (isOnline && wasOffline) {
+  console.log('HANDLE CONNECTIVITY CHANGE: isOnline', isOnline,);
+
+  if (isOnline ) {
     console.log('Just came back online.');
     // We just came back online
     updateUIForConnectivity();
@@ -3935,7 +3937,9 @@ async function handleConnectivityChange() {
     // Verify username is still valid on the network
     /* await verifyUsernameOnReconnect(); */
     // Initialize WebSocket connection regardless of view
-    wsManager.initializeWebSocketManager();
+    if(wsManager) {
+      wsManager.initializeWebSocketManager();
+    }
     // Force update data with reconnection handling
     if (myAccount && myAccount.keys) {
       try {
@@ -3965,8 +3969,8 @@ async function handleConnectivityChange() {
 // Setup connectivity detection
 function setupConnectivityDetection() {
   // Listen for browser online/offline events
-  window.addEventListener('online', handleConnectivityChange);
-  window.addEventListener('offline', handleConnectivityChange);
+  window.addEventListener('online', checkConnectivity);
+  window.addEventListener('offline', checkConnectivity);
 
   // Mark elements that depend on connectivity
   markConnectivityDependentElements();
@@ -3975,7 +3979,7 @@ function setupConnectivityDetection() {
   checkConnectivity();
 
   // Periodically check connectivity (every 30 seconds)
-  setInterval(checkConnectivity, 30000);
+  setInterval(checkConnectivity, 5000);
 }
 
 // Mark elements that should be disabled when offline
@@ -4081,17 +4085,20 @@ function preventOfflineSubmit(event) {
 }
 
 // Add global isOnline variable at the top with other globals
-let isOnline = true; // Will be updated by connectivity checks
+let isOnline = navigator.onLine; // Will be updated by connectivity checks
 let netIdMismatch = false; // Will be updated by checkConnectivity
 
 // Add checkConnectivity function before setupConnectivityDetection
 async function checkConnectivity() {
-  const wasOffline = !isOnline;
-  isOnline = await checkOnlineStatus();
+  const wasOnline = isOnline;
+  //isOnline = await checkOnlineStatus();
+  isOnline = navigator.onLine;
 
-  if (isOnline !== wasOffline) {
+  console.log('CHECK CONNECTIVITY: isOnline', isOnline, 'wasOnline', wasOnline);
+
+  if (isOnline !== wasOnline) {
     // Only trigger change handler if state actually changed
-    await handleConnectivityChange({ type: isOnline ? 'online' : 'offline' });
+    await handleConnectivityChange(isOnline);
   }
 }
 
