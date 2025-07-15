@@ -2865,6 +2865,8 @@ async function getChats(keys, retry = 1) {
   const timestamp = myAccount.chatTimestamp || 0;
   //    const timestamp = myData.contacts[keys.address]?.messages?.at(-1).timestamp || 0
 
+  if (timestamp > longPollResult.timestamp){ timestamp = longPollResult.timestamp }
+
   const senders = await queryNetwork(`/account/${longAddress(keys.address)}/chats/${timestamp}`); // TODO get this working
   //    const senders = await queryNetwork(`/account/${longAddress(keys.address)}/chats/0`) // TODO stop using this
   let chatCount = senders?.chats ? Object.keys(senders.chats).length : 0; // Handle null/undefined senders.chats
@@ -10153,6 +10155,7 @@ async function longPollResult(data) {
   // schedule the next poll
   setTimeout(longPoll, nextPoll + 1000);
   if (data?.success){
+    longPollResult.timestamp = data.chatTimestamp;
     try {
       const gotChats = await chatsScreen.updateChatData();
       if (gotChats > 0) {
@@ -10163,6 +10166,7 @@ async function longPollResult(data) {
     }
   }
 }
+longPollResult.timestamp = 0
 
 function getContactDisplayName(contact) {
   return contact?.name || 
