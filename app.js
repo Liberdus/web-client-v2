@@ -3392,7 +3392,12 @@ async function injectTx(tx, txid) {
 
     return data;
   } catch (error) {
-    showToast('Error injecting transaction: ' + error, 0, 'error');
+    // if error contains 'timestamp out of range' 
+    if (error.includes('timestamp out of range')) {
+      showToast('Error injecting transaction (Please try again): ' + error, 0, 'error');
+    } else {
+      showToast('Error injecting transaction: ' + error, 0, 'error');
+    }
     console.error('Error injecting transaction:', error);
     return null;
   }
