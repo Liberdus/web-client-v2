@@ -120,7 +120,7 @@ import {
   generateRandomBytes,
   generateAddress,
   passwordToKey,
-} from './crypto.js';
+} from './crypto.js?';
 
 // Put standalone conversion function in lib.js
 import {
@@ -148,7 +148,7 @@ import {
   debounce,
   truncateMessage,
   normalizeUnsignedFloat,
-} from './lib.js';
+} from './lib.js?';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);

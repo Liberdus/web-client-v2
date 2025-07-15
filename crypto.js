@@ -29,7 +29,7 @@ import { xchacha20poly1305 } from './external/noble-ciphers.js';
 //   modified to use export
 import { parse } from './external/stringify-shardus.js';
 
-import { utf82bin, bin2utf8, hex2bin, bin2hex, base642bin, bin2base64 } from './lib.js';
+import { utf82bin, bin2utf8, hex2bin, bin2hex, base642bin, bin2base64 } from './lib.js?';
 
 // Constants
 const myHashKey = hex2bin('69fa4195670576c0160d660c3be36556ff8d504725be8a59b5a96509e0c994bc');
