@@ -7452,6 +7452,8 @@ class CreateAccountModal {
   async handleSubmit(event) {
     // Disable submit button
     this.submitButton.disabled = true;
+    // disable migrate accounts button
+    this.migrateAccountsButton.disabled = true;
     // Disable input fields, back button, and toggle button
     this.toggleButton.disabled = true;
     this.usernameInput.disabled = true;
@@ -7645,6 +7647,7 @@ class CreateAccountModal {
     this.usernameInput.disabled = false;
     this.privateKeyInput.disabled = false;
     this.backButton.disabled = false;
+    this.migrateAccountsButton.disabled = false;
   }
 }
 
