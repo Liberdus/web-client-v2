@@ -667,23 +667,9 @@ class WelcomeScreen {
     this.versionDisplay.textContent = myVersion + ' ' + version;
     this.networkNameDisplay.textContent = network.name;
     
-    this.signInButton.addEventListener('click', () => {
-      if (localStorage.lock && unlockModal.isLocked()) {
-        unlockModal.openButtonElementUsed = this.signInButton;
-        unlockModal.open();
-      } else {
-        signInModal.open();
-      }
-    });
-    this.createAccountButton.addEventListener('click', () => {
-      if (localStorage.lock && unlockModal.isLocked()) {
-        unlockModal.openButtonElementUsed = this.createAccountButton;
-        unlockModal.open();
-      } else {
-        createAccountModal.openWithReset();
-      }
-    });
-    this.importAccountButton.addEventListener('click', () => restoreAccountModal.open());
+    this.handleButtonWithLock(this.signInButton, () => signInModal.open());
+    this.handleButtonWithLock(this.createAccountButton, () => createAccountModal.openWithReset());
+    this.handleButtonWithLock(this.importAccountButton, () => restoreAccountModal.open());
 
     this.orderButtons();
   }
@@ -698,6 +684,22 @@ class WelcomeScreen {
 
   isActive() {
     return this.screen.style.display === 'flex';
+  }
+
+  /**
+   * Handle button click with lock check
+   * @param {HTMLElement} button - The button element to handle
+   * @param {Function} modalOpenFn - The function to call when the modal is opened
+   */
+  handleButtonWithLock(button, modalOpenFn) {
+    button.addEventListener('click', () => {
+      if (localStorage.lock && unlockModal.isLocked()) {
+        unlockModal.openButtonElementUsed = button;
+        unlockModal.open();
+      } else {
+        modalOpenFn();
+      }
+    });
   }
 
   orderButtons() {
