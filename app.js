@@ -2862,7 +2862,7 @@ async function getChats(keys, retry = 1) {
   //console.log('messages', myData.contacts[keys.address].messages)
   //console.log('last messages', myData.contacts[keys.address].messages.at(-1))
   //console.log('timestamp', myData.contacts[keys.address].messages.at(-1).timestamp)
-  const timestamp = myAccount.chatTimestamp || 0;
+  let timestamp = myAccount.chatTimestamp || 0;
   //    const timestamp = myData.contacts[keys.address]?.messages?.at(-1).timestamp || 0
 
   if (timestamp > longPollResult.timestamp){ timestamp = longPollResult.timestamp }
