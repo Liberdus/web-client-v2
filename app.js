@@ -2881,6 +2881,7 @@ async function getChats(keys, retry = 1) {
     await processChats(senders.chats, keys);
   } else {
     console.error('getChats: no senders found')
+    myAccount.chatTimestamp = timestamp;
   }
   if (chatModal.address) {
     // clear the unread count of address for open chat modal
