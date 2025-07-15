@@ -579,14 +579,35 @@ export function big2str(amount, decimals) {
 }
 
 // Convert Uint8Array to base64
-export function bin2base64(bytes) {
+//   See https://www.perplexity.ai/search/is-there-a-more-compute-effice-q9adLBpFTWSHW12lVWn2PA
+/* export function bin2base64(bytes) {
     return btoa(String.fromCharCode(...bytes));
+} */
+export function bin2base64(bytes) {
+    let binary = '';
+    const chunkSize = 0x8000; // 32KB per chunk is safe
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode.apply(
+            null,
+            bytes.subarray(i, i + chunkSize)
+        );
+    }
+    return btoa(binary);
 }
 
 // Convert base64 to Uint8Array
-export function base642bin(str) {
+/* export function base642bin(str) {
     return Uint8Array.from(atob(str), c => c.charCodeAt(0));
+} */
+export function base642bin(str) {
+    const binaryString = atob(str);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
 }
+
 
 export function hex2bin(hex){
     return new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
