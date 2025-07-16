@@ -3021,7 +3021,9 @@ async function processChats(chats, keys) {
           if (!inActiveChatWithSender || document.visibilityState === 'hidden') {
             playChatSound(true);
           }
-          added += 1;
+          if (!mine){
+            added += 1;
+          }
         }
 
         //   Process transfer messages; this is a payment with an optional memo 
@@ -3103,7 +3105,9 @@ async function processChats(chats, keys) {
           //history.sort((a, b) => b.timestamp - a.timestamp);
 
           // Mark that we have a new transfer for toast notification
-          hasNewTransfer = true;
+          if (!mine){
+            hasNewTransfer = true;
+          }
 
           // --- Create and Insert Transfer Message into contact.messages ---
           const transferMessage = {
@@ -3119,7 +3123,9 @@ async function processChats(chats, keys) {
           insertSorted(contact.messages, transferMessage, 'timestamp');
           // --------------------------------------------------------------
 
-          added += 1;
+          if (!mine){
+            added += 1;
+          }
 
           // Update wallet view if it's active
           if (walletScreen.isActive()) {
