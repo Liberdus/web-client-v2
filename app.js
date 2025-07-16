@@ -8486,6 +8486,18 @@ class SendAssetConfirmModal {
     const cancelButton = this.cancelButton;
     const username = normalizeUsername(sendAssetFormModal.usernameInput.value);
 
+    // hidden input field retryOfTxId value is not an empty string
+    if (sendAssetFormModal.retryTxIdInput.value) {
+      // remove from myData use txid from hidden field retryOfPaymentTxId
+      removeFailedTx(sendAssetFormModal.retryTxIdInput.value, toAddress);
+
+      // clear the field
+      failedTransactionModal.txid = '';
+      failedTransactionModal.address = '';
+      failedTransactionModal.memo = '';
+      sendAssetFormModal.retryTxIdInput.value = '';
+    }
+
     // if it's your own username disable the send button
     if (username == myAccount.username) {
       confirmButton.disabled = true;
@@ -8560,6 +8572,12 @@ class SendAssetConfirmModal {
       createNewContact(toAddress, username, 2);
     }
 
+    /* Support sending payments to addresses that do not have
+      any EC publicKey or PQ publicKey. If any key is missing then we do not
+      include a memo or senderInfo. Thus we should be able to send a 
+      payment to any address. We might not ever use this feature though.
+    */
+
     // Get recipient's public key from contacts
     let recipientPubKey = myData.contacts[toAddress]?.public;
     let pqRecPubKey = myData.contacts[toAddress]?.pqPublic;
@@ -8568,33 +8586,42 @@ class SendAssetConfirmModal {
       const recipientInfo = await queryNetwork(`/account/${longAddress(toAddress)}`);
       if (!recipientInfo?.account?.publicKey) {
         console.log(`no public key found for recipient ${toAddress}`);
-        cancelButton.disabled = false;
-        return;
+//        cancelButton.disabled = false;
+//        return;
       }
-      if (recipientInfo.account.publicKey) {
+      else{
         recipientPubKey = recipientInfo.account.publicKey;
         myData.contacts[toAddress].public = recipientPubKey;
       }
-      if (recipientInfo.account.pqPublicKey) {
+      if (!recipientInfo?.account?.pqPublicKey) {
+        console.log(`no PQ public key found for recipient ${toAddress}`);
+//        cancelButton.disabled = false;
+//        return;
+      }
+      else {
         pqRecPubKey = recipientInfo.account.pqPublicKey;
         myData.contacts[toAddress].pqPublic = pqRecPubKey;
       }
     }
     let dhkey = '';
-    let sharedKeyMethod = 'none';
-    if (recipientPubKey) {
-      dhkey = ecSharedKey(keys.secret, recipientPubKey);
-      sharedKeyMethod = 'ec';
-      if (pqRecPubKey) {
-        // Generate shared secret using ECDH and take first 32 bytes
-        const { cipherText, sharedSecret } = pqSharedKey(pqRecPubKey);
-        const combined = new Uint8Array(dhkey.length + sharedSecret.length);
-        combined.set(dhkey);
-        combined.set(sharedSecret, dhkey.length);
-        dhkey = deriveDhKey(combined);
-        pqEncSharedKey = bin2base64(cipherText);
-        sharedKeyMethod = 'pq';
-      }
+    let selfKey = '';
+    let sharedKeyMethod = 'none';  // to support sending just payment to any address
+    if (recipientPubKey && pqRecPubKey) {
+      /*
+      // Generate shared secret using ECDH and take first 32 bytes
+      let dhkey = ecSharedKey(keys.secret, recipientPubKey);
+      const { cipherText, sharedSecret } = pqSharedKey(pqRecPubKey);
+      const combined = new Uint8Array(dhkey.length + sharedSecret.length);
+      combined.set(dhkey);
+      combined.set(sharedSecret, dhkey.length);
+      dhkey = deriveDhKey(combined);
+      */
+      const x = dhkeyCombined(keys.secret, recipientPubKey, pqRecPubKey)
+      dhkey = x.dhkey;
+      const cipherText = x.cipherText;
+      pqEncSharedKey = bin2base64(cipherText);
+      sharedKeyMethod = 'pq';
+      selfKey = encryptData(bin2hex(dhkey), keys.secret+keys.pqSeed, true)  // used to decrypt our own message
     }
 
     let encMemo = '';
@@ -8604,41 +8631,28 @@ class SendAssetConfirmModal {
       encMemo = encryptChacha(dhkey, memo);
     }
 
-    // hidden input field retryOfTxId value is not an empty string
-    if (sendAssetFormModal.retryTxIdInput.value) {
-      // remove from myData use txid from hidden field retryOfPaymentTxId
-      removeFailedTx(sendAssetFormModal.retryTxIdInput.value, toAddress);
-
-      // clear the field
-      failedTransactionModal.txid = '';
-      failedTransactionModal.address = '';
-      failedTransactionModal.memo = '';
-      sendAssetFormModal.retryTxIdInput.value = '';
-    }
-
     // only include the sender info if the recipient is is a friend and has a pqKey
     let encSenderInfo = '';
     let senderInfo = '';
-    if (pqRecPubKey && myData.contacts[toAddress]?.friend === 3) {
-      // Create sender info object
-      senderInfo = {
-        username: myAccount.username,
-        name: myData.account.name,
-        email: myData.account.email,
-        phone: myData.account.phone,
-        linkedin: myData.account.linkedin,
-        x: myData.account.x,
-      };
-    } else if (recipientPubKey) {
-      senderInfo = {
-        username: myAccount.username,
-      };
-    } else {
-      senderInfo = { username: myAccount.address };
-    }
-    if (sharedKeyMethod !== 'none') {
+    if (sharedKeyMethod != 'none'){
+      if (myData.contacts[toAddress]?.friend === 3) {
+        // Create sender info object
+        senderInfo = {
+          username: myAccount.username,
+          name: myData.account.name,
+          email: myData.account.email,
+          phone: myData.account.phone,
+          linkedin: myData.account.linkedin,
+          x: myData.account.x,
+        };
+      } else {
+        senderInfo = {
+          username: myAccount.username,
+        };
+      }
       encSenderInfo = encryptChacha(dhkey, stringify(senderInfo));
     } else {
+      senderInfo = { username: myAccount.address };
       encSenderInfo = stringify(senderInfo);
     }
     // Create message payload
@@ -8648,6 +8662,7 @@ class SendAssetConfirmModal {
       encrypted: true,
       encryptionMethod: 'xchacha20poly1305',
       pqEncSharedKey: pqEncSharedKey,
+      selfKey: selfKey,
       sharedKeyMethod: sharedKeyMethod,
       sent_timestamp: getCorrectedTimestamp(),
     };
