@@ -129,9 +129,29 @@ export async function passwordToKey(password) {
     return bin2hex(key);
 }
 
+export function dhkeyCombined(secKey, pubKey, pqSeedOrPubKey, pqEncSharedKey){
+    let cipherText, sharedSecret;
+    let dhkey = ecSharedKey(secKey, pubKey);
+    if (pqEncSharedKey){
+        const { publicKey, secretKey } = ml_kem1024.keygen(hex2bin(pqSeedOrPubKey))
+        sharedSecret = pqSharedKey(secretKey, pqEncSharedKey);
+    }
+    else{
+        const x = pqSharedKey(pqSeedOrPubKey);
+        cipherText = x.cipherText;
+        sharedSecret = x.sharedSecret
+    }
+    const combined = new Uint8Array(dhkey.length + sharedSecret.length)
+    combined.set(dhkey)
+    combined.set(sharedSecret, dhkey.length)
+    dhkey = deriveDhKey(combined);
+    return {dhkey, cipherText};
+}
+
 // We purposely do not encrypt/decrypt using browser native crypto functions; all crypto functions must be readable
-export async function decryptMessage(payload, keys) {
+export async function decryptMessage(payload, keys, mine){
     if (payload.encrypted) {
+        /*
         // Generate shared secret using ECDH
         let dhkey = ecSharedKey(keys.secret, payload.public)
         const { publicKey, secretKey } = ml_kem1024.keygen(hex2bin(keys.pqSeed))
@@ -139,7 +159,16 @@ export async function decryptMessage(payload, keys) {
         const combined = new Uint8Array(dhkey.length + sharedSecret.length)
         combined.set(dhkey)
         combined.set(sharedSecret, dhkey.length)
-        dhkey = blake.blake2b(combined, myHashKey, 32)
+        dhkey = deriveDhKey(combined);
+        */
+        let dhkey;
+        if (mine){
+            dhkey = hex2bin(decryptData(payload.selfKey, keys.secret+keys.pqSeed, true))
+        }
+        else{
+            const x = dhkeyCombined(keys.secret, payload.public, keys.pqSeed, payload.pqEncSharedKey)
+            dhkey = x.dhkey
+        }
 
         // Decrypt based on encryption method
         if (payload.encryptionMethod === 'xchacha20poly1305') {
@@ -168,6 +197,9 @@ export async function decryptMessage(payload, keys) {
     delete payload.encrypted;
     delete payload.encryptionMethod;
     delete payload.public;
+    delete payload.pqRecPubKey;
+    delete payload.pqEncSharedKey;
+    delete payload.selfKey;
     return payload;
 }
 
@@ -179,13 +211,13 @@ export function ecSharedKey(sec, pub) {
     ).slice(1, 33);  // Taking first 32 bytes for chacha
 }
 
-export function pqSharedKey(recipientKey, encKey) {  // inputs base64 or binary, outputs binary
-    if (typeof(recipientKey) == 'string') { recipientKey = base642bin(recipientKey) }
+export function pqSharedKey(pqSecOrPubKey, encKey) {  // inputs base64 or binary, outputs binary
+    if (typeof(pqSecOrPubKey) == 'string') { pqSecOrPubKey = base642bin(pqSecOrPubKey) }
     if (encKey) {
         if (typeof(encKey) == 'string') { encKey = base642bin(encKey) }
-        return ml_kem1024.decapsulate(encKey, recipientKey);
+        return ml_kem1024.decapsulate(encKey, pqSecOrPubKey);  // sharedSecret
     }
-    return ml_kem1024.encapsulate(recipientKey);  // { cipherText, sharedSecret }
+    return ml_kem1024.encapsulate(pqSecOrPubKey);  // { cipherText, sharedSecret }
 }
 
 // Based on what ethers.js is doing in the following code

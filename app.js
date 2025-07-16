@@ -120,6 +120,7 @@ import {
   generateRandomBytes,
   generateAddress,
   passwordToKey,
+  dhkeyCombined,
 } from './crypto.js?';
 
 // Put standalone conversion function in lib.js
@@ -537,7 +538,8 @@ function handleBeforeUnload(e) {
   }
   if (myData){
     e.preventDefault();
-    saveState();    // This save might not work if the amount of data to save is large and user quickly clicks on Leave button
+// TODO - uncomment this after testing
+//    saveState();    // This save might not work if the amount of data to save is large and user quickly clicks on Leave button
   }
 }
 
@@ -2933,6 +2935,7 @@ async function processChats(chats, keys) {
       //            contact.address = from        // not needed since createNewContact does this
       let added = 0;
       let hasNewTransfer = false;
+      let mine = false;
 
       // This check determines if we're currently chatting with the sender
       // We ONLY want to avoid notifications if we're actively viewing this exact chat
@@ -2944,12 +2947,13 @@ async function processChats(chats, keys) {
         //console.log('message tx is')
         //console.log(JSON.stringify(message, null, 4))
         newTimestamp = tx.timestamp > newTimestamp ? tx.timestamp : newTimestamp;
+        mine = tx.from == longAddress(keys.address) ? true : false;
         if (tx.type == 'message') {
-          if (tx.from == longAddress(keys.address)) {
-            continue;
-          } // skip if the message is from us
           const payload = tx.xmessage; // changed to use .message
-          if (payload.encrypted) {
+          if (mine){
+            console.warn('my message tx', tx)
+          }
+          else if (payload.encrypted) {
             let senderPublic = myData.contacts[from]?.public;
             if (!senderPublic) {
               const senderInfo = await queryNetwork(`/account/${longAddress(from)}`);
@@ -2967,8 +2971,8 @@ async function processChats(chats, keys) {
             payload.public = senderPublic;
           }
           //console.log("payload", payload)
-          decryptMessage(payload, keys); // modifies the payload object
-          if (payload.senderInfo) {
+          decryptMessage(payload, keys, mine); // modifies the payload object
+          if (payload.senderInfo && !mine){
             contact.senderInfo = cleanSenderInfo(payload.senderInfo)
             delete payload.senderInfo;
             if (!contact.username && contact.senderInfo.username) {
@@ -3011,7 +3015,7 @@ async function processChats(chats, keys) {
           }
 
           //console.log('contact.message', contact.messages)
-          payload.my = false;
+          payload.my = mine;
           payload.timestamp = payload.sent_timestamp;
           payload.txid = getTxid(tx);
           delete payload.pqEncSharedKey; 
@@ -3021,14 +3025,18 @@ async function processChats(chats, keys) {
             playChatSound(true);
           }
           added += 1;
-        } else if (tx.type == 'transfer') {
+        }
+
+        //   Process transfer messages; this is a payment with an optional memo 
+        else if (tx.type == 'transfer') {
+          const payload = tx.xmemo;
           //console.log('transfer tx is')
           //console.log(JSON.stringify(message, null, 4))
-          if (tx.from == longAddress(keys.address)) {
-            continue;
-          } // skip if the message is from us
-          const payload = tx.xmemo;
-          if (payload.encrypted) {
+          if (mine) {
+            const txx = parse(stringify(tx))
+            console.warn('my transfer tx', txx)
+          }
+          else if (payload.encrypted) {
             let senderPublic = myData.contacts[from]?.public;
             if (!senderPublic) {
               const senderInfo = await queryNetwork(`/account/${longAddress(from)}`);
@@ -3045,9 +3053,8 @@ async function processChats(chats, keys) {
             payload.public = senderPublic;
           }
           //console.log("payload", payload)
-          decryptMessage(payload, keys); // modifies the payload object
-          delete payload.pqEncSharedKey;
-          if (payload.senderInfo) {
+          decryptMessage(payload, keys, mine); // modifies the payload object
+          if (payload.senderInfo && !mine) {
             contact.senderInfo = cleanSenderInfo(payload.senderInfo);
             delete payload.senderInfo;
             if (!contact.username && contact.senderInfo.username) {
@@ -3114,7 +3121,7 @@ async function processChats(chats, keys) {
           const transferMessage = {
             timestamp: payload.sent_timestamp,
             sent_timestamp: payload.sent_timestamp,
-            my: false, // Received transfer
+            my: mine,
             message: payload.message, // Use the memo as the message content
             amount: parse(stringify(tx.amount)), // Ensure amount is stored as BigInt
             symbol: 'LIB', // TODO: get the symbol from the asset
@@ -6436,6 +6443,7 @@ class ChatModal {
         myData.contacts[currentAddress].pqPublic = pqRecPubKey;
       }
 
+      /*
       // Generate shared secret using ECDH and take first 32 bytes
       let dhkey = ecSharedKey(keys.secret, recipientPubKey);
       const { cipherText, sharedSecret } = pqSharedKey(pqRecPubKey);
@@ -6443,6 +6451,9 @@ class ChatModal {
       combined.set(dhkey);
       combined.set(sharedSecret, dhkey.length);
       dhkey = deriveDhKey(combined);
+      */
+      const {dhkey, cipherText} = dhkeyCombined(keys.secret, recipientPubKey, pqRecPubKey)
+      const selfKey = encryptData(bin2hex(dhkey), keys.secret+keys.pqSeed, true)  // used to decrypt our own message
 
       // We purposely do not encrypt/decrypt using browser native crypto functions; all crypto functions must be readable
       // Encrypt message using shared secret
@@ -6454,6 +6465,7 @@ class ChatModal {
         encrypted: true,
         encryptionMethod: 'xchacha20poly1305',
         pqEncSharedKey: bin2base64(cipherText),
+        selfKey: selfKey,
         sent_timestamp: getCorrectedTimestamp(),
       };
 
