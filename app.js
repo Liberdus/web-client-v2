@@ -3094,7 +3094,7 @@ async function processChats(chats, keys) {
             txid: txidHex,
             amount: parse(stringify(tx.amount)), // need to make a copy
 //            sign: 1,
-            sign: mine ? 1 : -1,
+            sign: mine ? -1 : 1,
             timestamp: payload.sent_timestamp,
             address: from,
             memo: payload.message,
