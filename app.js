@@ -2894,25 +2894,21 @@ async function getChats(keys, retry = 1) {
 getChats.lastCall = 0;
 
 // play sound if true or false parameter
-function playChatSound(shouldPlay) {
-  if (shouldPlay) {
-    const notificationAudio = document.getElementById('notificationSound');
-    if (notificationAudio) {
-      notificationAudio.play().catch((error) => {
-        console.warn('Notification sound playback failed:', error);
-      });
-    }
+function playChatSound() {
+  const notificationAudio = document.getElementById('notificationSound');
+  if (notificationAudio) {
+    notificationAudio.play().catch((error) => {
+      console.warn('Notification sound playback failed:', error);
+    });
   }
 }
 
-function playTransferSound(shouldPlay) {
-  if (shouldPlay) {
-    const notificationAudio = document.getElementById('transferSound');
-    if (notificationAudio) {
-      notificationAudio.play().catch((error) => {
-        console.warn('Notification sound playback failed:', error);
-      });
-    }
+function playTransferSound() {
+  const notificationAudio = document.getElementById('transferSound');
+  if (notificationAudio) {
+    notificationAudio.play().catch((error) => {
+      console.warn('Notification sound playback failed:', error);
+    });
   }
 }
 
@@ -2921,6 +2917,7 @@ async function processChats(chats, keys) {
   let newTimestamp = 0;
   const timestamp = myAccount.chatTimestamp || 0;
   const messageQueryTimestamp = Math.max(0, timestamp);
+  let hasAnyTransfer = false;
 
   for (let sender in chats) {
     // Fetch messages using the adjusted timestamp
@@ -2949,6 +2946,7 @@ async function processChats(chats, keys) {
 
         newTimestamp = tx.timestamp > newTimestamp ? tx.timestamp : newTimestamp;
         mine = tx.from == longAddress(keys.address) ? true : false;
+if (mine) console.warn('txid in processChats is', txidHex)
         if (tx.type == 'message') {
           const payload = tx.xmessage; // changed to use .message
           if (mine){
@@ -3019,7 +3017,7 @@ async function processChats(chats, keys) {
           insertSorted(contact.messages, payload, 'timestamp');
           // if we are not in the chatModal of who sent it, playChatSound or if device visibility is hidden play sound
           if (!inActiveChatWithSender || document.visibilityState === 'hidden') {
-            playChatSound(true);
+            playChatSound();
           }
           if (!mine){
             added += 1;
@@ -3104,11 +3102,6 @@ async function processChats(chats, keys) {
           //  sort history array based on timestamp field in descending order
           //history.sort((a, b) => b.timestamp - a.timestamp);
 
-          // Mark that we have a new transfer for toast notification
-          if (!mine){
-            hasNewTransfer = true;
-          }
-
           // --- Create and Insert Transfer Message into contact.messages ---
           const transferMessage = {
             timestamp: payload.sent_timestamp,
@@ -3127,33 +3120,15 @@ async function processChats(chats, keys) {
             added += 1;
           }
 
-          // Update wallet view if it's active
-          if (walletScreen.isActive()) {
-            walletScreen.updateWalletView();
-          }
-          // update history modal if it's active
-          historyModal.refresh();
-
-          // Always play transfer sound for new transfers
-          playTransferSound(true);
-          // is chatModal of sender address is active
-          if (inActiveChatWithSender && document.visibilityState === 'visible') {
-            // add the transfer tx to the chatModal
-            chatModal.appendChatModal(true);
+          // Mark that we have a new transfer for toast notification
+          if (!mine){
+            hasNewTransfer = true;
           }
         }
       }
+      if (hasNewTransfer){ hasAnyTransfer = true; }
       // If messages were added to contact.messages, update myData.chats
       if (added > 0) {
-        // Get the most recent message (index 0 because it's sorted descending)
-        const latestMessage = contact.messages[0];
-
-        // Create chat object with only guaranteed fields
-        const chatUpdate = {
-          address: from,
-          timestamp: latestMessage.timestamp,
-        };
-
         // Update unread count ONLY if the chat modal for this sender is NOT active
         if (!inActiveChatWithSender) {
           contact.unread = (contact.unread || 0) + added; // Ensure unread is initialized
@@ -3165,15 +3140,21 @@ async function processChats(chats, keys) {
           }
         }
 
+        // Add sender to the top of the chats tab
         // Remove existing chat for this contact if it exists
         const existingChatIndex = myData.chats.findIndex((chat) => chat.address === from);
         if (existingChatIndex !== -1) {
           myData.chats.splice(existingChatIndex, 1);
         }
-
+        // Get the most recent message (index 0 because it's sorted descending)
+        const latestMessage = contact.messages[0];
+        // Create chat object with only guaranteed fields
+        const chatUpdate = {
+          address: from,
+          timestamp: latestMessage.timestamp,
+        };
         // Find insertion point to maintain timestamp order (newest first)
         const insertIndex = myData.chats.findIndex((chat) => chat.timestamp < chatUpdate.timestamp);
-
         if (insertIndex === -1) {
           // If no earlier timestamp found, append to end
           myData.chats.push(chatUpdate);
@@ -3182,8 +3163,9 @@ async function processChats(chats, keys) {
           myData.chats.splice(insertIndex, 0, chatUpdate);
         }
 
+        // Add bubble to chats tab if we are not on it
         // Only suppress notification if we're ACTIVELY viewing this chat and if not a transfer
-        if (!inActiveChatWithSender && !hasNewTransfer) {
+        if (!inActiveChatWithSender) {
           if (!chatsScreen.isActive()) {
             footer.chatButton.classList.add('has-notification');
           }
@@ -3192,14 +3174,21 @@ async function processChats(chats, keys) {
 
       // Show transfer notification even if no messages were added
       if (hasNewTransfer) {
-        // Add notification indicator to Wallet tab if we're not on it
+        // Add bubble to Wallet tab if we're not on it
         if (!walletScreen.isActive()) {
           footer.walletButton.classList.add('has-notification');
         }
-        // Add notification to openHistoryModal wallet-action-button
+        // Add bubble to the wallet history button
         walletScreen.openHistoryModalButton.classList.add('has-notification');
       }
     }
+  }
+  if (hasAnyTransfer){
+    playTransferSound()
+    // update history modal if it's active
+    if (historyModal.isActive()) historyModal.refresh();
+    // Update wallet view if it's active
+    if (walletScreen.isActive()) walletScreen.updateWalletView();
   }
 
   // Update the global timestamp AFTER processing all senders
@@ -3442,6 +3431,7 @@ function getTxid(tx){
   if (typeof(tx) !== "string"){
     txo = stringify(tx)
   }
+console.warn('tx is', txo)
   txo = parse(txo)
   delete txo.sign;
   const jstr = stringify(txo);
@@ -6491,7 +6481,9 @@ class ChatModal {
         myData.contacts[currentAddress].tollRequiredToSend == 0 ? 0n : this.toll
 
       const chatMessageObj = await this.createChatMessage(currentAddress, payload, tollInLib, keys);
-      const txid = await signObj(chatMessageObj, keys);
+      const txid1 = await signObj(chatMessageObj, keys);
+      const txid = getTxid(chatMessageObj)
+console.warn('in send message', txid)
 
       // if there a hidden txid input, get the value to be used to delete that txid from relevant data stores
       const retryTxId = this.retryOfTxId.value;
