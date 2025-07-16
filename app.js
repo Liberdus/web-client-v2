@@ -2944,8 +2944,9 @@ async function processChats(chats, keys) {
 
       for (let i in res.messages) {
         const tx = res.messages[i]; // the messages are actually the whole tx
-        //console.log('message tx is')
-        //console.log(JSON.stringify(message, null, 4))
+        // compute the transaction id (txid)
+        const txidHex = getTxid(tx);
+
         newTimestamp = tx.timestamp > newTimestamp ? tx.timestamp : newTimestamp;
         mine = tx.from == longAddress(keys.address) ? true : false;
         if (tx.type == 'message') {
@@ -2999,12 +3000,8 @@ async function processChats(chats, keys) {
           //    messages are the same if the messages[x].sent_timestamp is the same as the tx.timestamp,
           //    and messages[x].my is false and messages[x].message == payload.message
           let alreadyExists = false;
-          for (const existingMessage of contact.messages) {
-            if (
-              existingMessage.sent_timestamp === payload.sent_timestamp &&
-              existingMessage.message === payload.message &&
-              existingMessage.my === false
-            ) {
+          for (const messageTx of contact.messages) {
+            if (messageTx.txid === txidHex) {
               alreadyExists = true;
               break;
             }
@@ -3017,7 +3014,7 @@ async function processChats(chats, keys) {
           //console.log('contact.message', contact.messages)
           payload.my = mine;
           payload.timestamp = payload.sent_timestamp;
-          payload.txid = getTxid(tx);
+          payload.txid = txidHex;
           delete payload.pqEncSharedKey; 
           insertSorted(contact.messages, payload, 'timestamp');
           // if we are not in the chatModal of who sent it, playChatSound or if device visibility is hidden play sound
@@ -3030,8 +3027,6 @@ async function processChats(chats, keys) {
         //   Process transfer messages; this is a payment with an optional memo 
         else if (tx.type == 'transfer') {
           const payload = tx.xmemo;
-          //console.log('transfer tx is')
-          //console.log(JSON.stringify(message, null, 4))
           if (mine) {
             const txx = parse(stringify(tx))
             console.warn('my transfer tx', txx)
@@ -3077,14 +3072,6 @@ async function processChats(chats, keys) {
               }
             }
           }
-          // compute the transaction id (txid)
-          /*
-          delete tx.sign;
-          const jstr = stringify(tx);
-          const jstrBytes = utf82bin(jstr);
-          const txidHex = hashBytes(jstrBytes);
-          */
-          const txidHex = getTxid(tx);
 
           // skip if this tx was processed before and is already in the history array;
           //    txs are the same if the history[x].txid is the same as txidHex
@@ -3104,7 +3091,8 @@ async function processChats(chats, keys) {
           const newPayment = {
             txid: txidHex,
             amount: parse(stringify(tx.amount)), // need to make a copy
-            sign: 1,
+//            sign: 1,
+            sign: mine ? 1 : -1,
             timestamp: payload.sent_timestamp,
             address: from,
             memo: payload.message,
@@ -3444,10 +3432,11 @@ async function signObj(tx, keys) {
 }
 
 function getTxid(tx){
-  let txo = tx;
-  if (typeof(tx) === "string"){
-    txo = parse(tx)
+  let txo = '';
+  if (typeof(tx) !== "string"){
+    txo = stringify(tx)
   }
+  txo = parse(txo)
   delete txo.sign;
   const jstr = stringify(txo);
   const jstrBytes = utf82bin(jstr);
