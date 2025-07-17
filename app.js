@@ -9294,15 +9294,20 @@ class MigrateAccountsModal {
     const currentNetId = parameters?.networkId;
     if (!accountsObj.netids || !currentNetId) return false;
 
-    // Check if any netid in network.netids has accounts (excluding current network)
-    for (const netid of network.netids) {
-      if (netid !== currentNetId && accountsObj.netids[netid]?.usernames) {
-        const usernames = Object.keys(accountsObj.netids[netid].usernames);
-        if (usernames.length > 0) {
-          return true;
-        }
+    // Loop through all netids except current
+    for (const netid in accountsObj.netids) {
+      // if netid is the current-netid or not in network.netids, skip
+      if (netid === currentNetId || !network.netids.includes(netid)) continue;
+
+      const usernamesObj = accountsObj.netids[netid]?.usernames;
+      if (!usernamesObj) continue;
+
+      // if there are any usernames, return true
+      if (Object.keys(usernamesObj).length > 0) {
+        return true;
       }
     }
+
     return false;
   }
 
@@ -9325,7 +9330,8 @@ class MigrateAccountsModal {
 
     // Loop through all netids except current
     for (const netid in accountsObj.netids) {
-      if (netid === currentNetId) continue;
+      // if netid is the current netid or not in network.netids, skip
+      if (netid === currentNetId || !network.netids.includes(netid)) continue;
 
       const usernamesObj = accountsObj.netids[netid]?.usernames;
       if (!usernamesObj) continue;
