@@ -9210,7 +9210,7 @@ class MigrateAccountsModal {
     this.submitButton = document.getElementById('submitMigrateAccounts');
 
     this.closeButton.addEventListener('click', () => this.close());
-    this.submitButton.addEventListener('s', (event) => this.handleSubmit(event));
+    this.submitButton.addEventListener('submit', (event) => this.handleSubmit(event));
 
     // if no check boxes are checked, disable the submit button
     this.accountList.addEventListener('change', () => {
