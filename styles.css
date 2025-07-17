@@ -2007,6 +2007,24 @@ input[type='file'].form-control {
   text-align: left;
 }
 
+.migrate-section {
+  margin-bottom: 2rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.migrate-section h3 {
+  margin-top: 0;
+  color: #333;
+}
+
+.section-description {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 1rem;
+}
+
 /* Common label styles */
 .form-group label {
   display: block;

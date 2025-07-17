@@ -9207,14 +9207,14 @@ class MigrateAccountsModal {
     this.closeButton = document.getElementById('closeMigrateAccountsModal');
     this.form = document.getElementById('migrateAccountsForm');
     this.accountList = document.getElementById('migrateAccountList');
-    this.submitButton = this.form.querySelector('button[type="submit"]');
+    this.submitButton = document.getElementById('submitMigrateAccounts');
 
     this.closeButton.addEventListener('click', () => this.close());
-    this.form.addEventListener('submit', (event) => this.handleSubmit(event));
+    this.submitButton.addEventListener('s', (event) => this.handleSubmit(event));
 
     // if no check boxes are checked, disable the submit button
-    this.form.addEventListener('change', () => {
-      this.submitButton.disabled = this.form.querySelectorAll('input[type="checkbox"]:checked').length === 0;
+    this.accountList.addEventListener('change', () => {
+      this.submitButton.disabled = this.accountList.querySelectorAll('input[type="checkbox"]:checked').length === 0;
     });
   }
 
@@ -9234,79 +9234,121 @@ class MigrateAccountsModal {
   }
 
   /**
-   * Populate the account select with checkboxes for each account in accounts.netids[mismatchedNetid].usernames
+   * Populate the accounts list with the accounts that can be migrated
    * @returns {void}
    */
   async populateAccounts() {
-    console.log('populate accounts');
-    // an array of objects with { username, netid }
-    const mismatchedAccounts = await this.migratableAccounts();
-
-    // Clear existing options
+    const categories = await this.categorizeAccounts();
     this.accountList.innerHTML = '';
 
-    if (mismatchedAccounts.length === 0) {
-      this.accountList.innerHTML = '<p>No accounts need migration</p>';
-      return;
-    }
+    // Render Mine section
+    this.renderSection('mine', 'Your Registered Accounts', categories.mine,
+      'Accounts already registered to this network');
 
-    // For each in the array, create a checkbox and label with username_netid
-    mismatchedAccounts.forEach(account => {
-      console.log('account', account);
-      const label = document.createElement('label');
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.checked = true;
-      checkbox.value = account.username;
-      checkbox.netid = account.netid;
-      label.appendChild(checkbox);
-      label.appendChild(document.createTextNode(account.username + '_' + account.netid.slice(0, 6)));
-      this.accountList.appendChild(label);
-    });
+    // Render Available section  
+    this.renderSection('available', 'Unregistered Accounts', categories.available,
+      'Accounts available to register');
+
+    // Render Taken section
+    this.renderSection('taken', 'Taken', categories.taken,
+      'Accounts already taken');
   }
 
   /**
-   * Returns an array of migratable accounts from localStorage.
-   * Each object has { username, netid } for accounts that can be migrated to the current network.
-   * Rules:
-   *  - Only accounts from netids different from the current network (parameters.networkId or network.netid)
-   *  - If the username+address is already present on this network, skip
-   *  - If the username is not available to us on this network (checkUsernameAvailability !== 'mine'), skip
+   * Render a section of the accounts list
+   * @param {string} sectionId - The id of the section
+   * @param {string} title - The title of the section
+   * @param {Array} accounts - The accounts to render
+   * @param {string} description - The description of the section
    */
-  async migratableAccounts() {
-    // Get all accounts from localStorage
+  renderSection(sectionId, title, accounts, description) {
+    if (accounts.length === 0) return;
+
+    const section = document.createElement('div');
+    section.className = 'migrate-section';
+    section.innerHTML = `
+      <h3>${title} (${accounts.length})</h3>
+      <p class="section-description">${description}</p>
+      <div class="account-checkboxes" id="${sectionId}-accounts">
+        ${accounts.map(account => `
+          <label>
+            <input type="checkbox" value="${account.username}" 
+                   data-netid="${account.netid}" 
+                   data-section="${sectionId}"
+                   ${sectionId === 'taken' ? 'disabled' : 'checked'}>
+            ${account.username}_${account.netid.slice(0, 6)}
+          </label>
+        `).join('')}
+      </div>
+    `;
+
+    this.accountList.appendChild(section);
+  }
+
+  /**
+   * Check if there are any accounts that could potentially be migrated
+   * @returns {boolean}
+   */
+  hasMigratableAccounts() {
     const accountsObj = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-    // Determine the current network id (prefer parameters.networkId, fallback to network.netid)
     const currentNetId = parameters?.networkId;
-    if (!accountsObj.netids || !currentNetId) return [];
+    if (!accountsObj.netids || !currentNetId) return false;
 
-    const migratable = [];
-    const currentNetUsernames = (accountsObj.netids[currentNetId] && accountsObj.netids[currentNetId].usernames) || {};
-
-    // Loop through all netids except the current one
-    for (const netid in accountsObj.netids) {
-      if (netid === currentNetId) continue;
-      const usernamesObj = accountsObj.netids[netid]?.usernames;
-      if (!usernamesObj) continue;
-      for (const username in usernamesObj) {
-        const address = usernamesObj[username].address;
-        // If username+address is already present on this network, skip
-        if (
-          currentNetUsernames[username] &&
-          normalizeAddress(currentNetUsernames[username].address) === normalizeAddress(address)
-        ) {
-          continue;
+    // Check if any netid in network.netids has accounts (excluding current network)
+    for (const netid of network.netids) {
+      if (netid !== currentNetId && accountsObj.netids[netid]?.usernames) {
+        const usernames = Object.keys(accountsObj.netids[netid].usernames);
+        if (usernames.length > 0) {
+          return true;
         }
-        // Check if the username is available to us on this network
-        // (If not, skip)
-        // Note: checkUsernameAvailability returns 'mine' if available to us
-        // We must await this as it may be async
-        const result = await checkUsernameAvailability(username, address);
-        if (result !== 'mine') continue;
-        migratable.push({ username, netid });
       }
     }
-    return migratable;
+    return false;
+  }
+
+  /**
+   * Categorize the accounts into three sections:
+   *  - Mine: Accounts where the username maps to our address
+   *  - Available: Accounts where the username is available to claim
+   *  - Taken: Accounts where the username is already taken
+   * @returns {Object}
+   */
+  async categorizeAccounts() {
+    const accountsObj = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+    const currentNetId = parameters?.networkId;
+
+    const categories = {
+      mine: [],      // username maps to our address
+      available: [], // username is available
+      taken: []      // username is taken
+    };
+
+    // Loop through all netids except current
+    for (const netid in accountsObj.netids) {
+      if (netid === currentNetId) continue;
+
+      const usernamesObj = accountsObj.netids[netid]?.usernames;
+      if (!usernamesObj) continue;
+
+      for (const username in usernamesObj) {
+        const address = usernamesObj[username].address;
+
+        // Check availability status
+        const availability = await checkUsernameAvailability(username, address);
+
+        const account = { username, netid, address };
+
+        if (availability === 'mine') {
+          categories.mine.push(account);
+        } else if (availability === 'available') {
+          categories.available.push(account);
+        } else {
+          categories.taken.push(account);
+        }
+      }
+    }
+
+    return categories;
   }
 
   async handleSubmit(event) {
