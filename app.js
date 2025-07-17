@@ -639,12 +639,13 @@ function saveState() {
   }
 }
 
-function loadState(account){
+function loadState(account, noparse=false){
   let data = localStorage.getItem(account);
   if (!data) { return null; }
   if (localStorage.lock && lockModal.encKey) {
     data = decryptData(data, lockModal.encKey, true)
   }
+  if (noparse) return data;
   return parse(data);
 }
 
@@ -3382,7 +3383,6 @@ async function injectTx(tx, txid) {
         showToast('Try again.', 0, 'error');
       }
     }
-
     return data;
   } catch (error) {
     // if error is a string and contains 'timestamp out of range' 
@@ -9265,7 +9265,7 @@ class MigrateAccountsModal {
             <input type="checkbox" value="${account.username}" 
                    data-netid="${account.netid}" 
                    data-section="${sectionId}"
-                   ${sectionId === 'taken' ? 'disabled' : 'checked'}>
+                   ${sectionId === 'taken' ? 'disabled' : ''}>
             ${account.username}_${account.netid.slice(0, 6)}
           </label>
         `).join('')}
@@ -9350,136 +9350,81 @@ class MigrateAccountsModal {
   async handleSubmit(event) {
     event.preventDefault();
     console.log('handleSubmit');
-  
-    // Initialize myData and myAccount for migration process if they don't exist
-    if (!myData) {
-      myData = {
-        pending: [],
-        account: { keys: { address: '' } }, // minimal account structure
-        timestamp: getCorrectedTimestamp()
-      };
-    }
-    if (!myAccount) {
-      myAccount = {
-        username: 'migration_temp',
-        netid: parameters?.networkId || '',
-        keys: { address: '' }
-      };
-    }
-    
-    // Start pending transaction monitoring for migration
-    if (!checkPendingTransactionsIntervalId) {
-      checkPendingTransactionsIntervalId = setInterval(checkPendingTransactions, 5000);
-    }
-    
+      
     const selectedAccounts = this.accountList.querySelectorAll('input[type="checkbox"]:checked');
-    const results = {
-      mine: { success: [], failed: [] },
-      available: { success: [], failed: [] }
-    };
-    
-    const promises = [];
-
-    const loadingToastId = showToast('Migrating accounts...', 0, 'loading');
   
+    const results = {}
     // Start each account processing with 2-second delays between starts
     for (let i = 0; i < selectedAccounts.length; i++) {
       const checkbox = selectedAccounts[i];
       const section = checkbox.dataset.section;
       const username = checkbox.value;
       const netid = checkbox.dataset.netid;
-
-      console.log('processing account: ', username, netid, section);
   
+      const loadingToastId = showToast('Migrating '+username, 0, 'loading');
+      console.log('processing account: ', username, netid, section);  
       // Start processing this account
       if (section === 'mine') {
-        promises.push(this.processMineAccount(username, netid, results.mine));
+        this.migrateAccountData(username, netid, parameters.networkId)
+        await new Promise(resolve => setTimeout(resolve, 100));
       } else if (section === 'available') {
-        promises.push(this.processAvailableAccount(username, netid, results.available));
-      }
-  
-      // Wait 2 seconds before starting the next account (except for the last one)
-      if (i < selectedAccounts.length - 1) {
+        myData = loadState(username+'_'+netid)
+        if (myData){ 
+          const res = await postRegisterAlias(username, myData.account.keys)
+          if (res !== null){
+            res.submittedts = getCorrectedTimestamp()
+            res.netid = netid
+            results[username] = res;
+          }
+        }
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
+      hideToast(loadingToastId);
     }
-  
-    // Wait for all accounts to finish processing
-    await Promise.allSettled(promises);
 
-    hideToast(loadingToastId);
-    
-    this.showMigrationResults(results);
-    
-    // Stop pending transaction monitoring since migration is complete
-    if (checkPendingTransactionsIntervalId) {
-      clearInterval(checkPendingTransactionsIntervalId);
-      checkPendingTransactionsIntervalId = null;
+    // loop through the results array and check the status of the pending txid which is in results[username].txid
+    // See checkPendingTransactions function for how to check the status of a pending txid
+    // update the result element based on the check; if the txid is successfully processed set it to true
+    // if the txid check does not give a result in time, set it to false
+    // when all results array elements have been resolved exit the loop
+    let done = false;
+    for(;!done;){
+      done = true;
+      for (const username in results) {
+        if (! results[username]?.txid){ continue; }
+        const loadingToastId = showToast('Migrating '+username, 0, 'loading');
+        const txid = results[username].txid;
+        const submittedts = results[username].submittedts
+console.log('migrating ',username,'checking txid', txid)
+        const result = await checkPendingTransaction(txid, submittedts); // return true, false or null
+console.log('    result is',result)
+        if (result !== null){
+          if (result == true){
+            this.migrateAccountData(username, results[username].netid, parameters.networkId)
+          }
+          results[username] = result;
+        }
+        else{ done = false; }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        hideToast(loadingToastId);
+      }
     }
-    
-    // Clear temporary myData used for migration
-    myData = null;
-    myAccount = null;
+    this.populateAccounts();
   }
   
-  /**
-   * Process a single "mine" account
-   */
-  async processMineAccount(username, netid, results) {
-    try {
-      await this.migrateAccountData(username, netid);
-      results.success.push(username);
-    } catch (error) {
-      console.error(`Failed to migrate ${username}:`, error);
-      results.failed.push({ username, error: error.message });
-    }
-  }
-  
-  /**
-   * Process a single "available" account
-   */
-  async processAvailableAccount(username, netid, results) {
-    try {
-      // Step 1: Register first
-      await this.registerUsername(username, netid);
-      
-      // Step 2: Migrate after successful registration
-      await this.migrateAccountData(username, netid);
-      
-      results.success.push(username);
-    } catch (error) {
-      console.error(`Failed to register and migrate ${username}:`, error);
-      results.failed.push({ username, error: error.message });
-    }
-  }
-
   /**
    * Migrate the account data from one netid to another
    * @param {string} username - The username to migrate
    * @param {string} netid - The netid to migrate from
    * @returns {Promise<void>}
    */
-  async migrateAccountData(username, netid) {
-    // Get the file content
-    let fileContent = localStorage.getItem(username + '_' + netid);
-    if (!fileContent) {
-      throw new Error(`No data found for ${username}_${netid}`);
-    }
-  
-    // Decrypt if needed
-    if (lockModal?.encKey) {
-      console.log('decrypting fileContent');
-      fileContent = decryptData(fileContent, lockModal.encKey, true);
-    }
-  
-    if (!fileContent) {
-      throw new Error('File content is empty after decryption');
-    }
+  migrateAccountData(username, netid, newNetId) {
+    let fileContent = loadState(username+'_'+netid, true)
   
     // Perform netid substitution
     let substitutionResult = restoreAccountModal.performStringSubstitution(fileContent, {
       oldString: netid,
-      newString: parameters.networkId
+      newString: newNetId
     });
   
     // Encrypt if needed
@@ -9488,72 +9433,15 @@ class MigrateAccountsModal {
     }
   
     // Save to new location
-    localStorage.setItem(username + '_' + parameters.networkId, substitutionResult);
+    localStorage.setItem(username + '_' + newNetId, substitutionResult);
     
     // Remove old file
     localStorage.removeItem(username + '_' + netid);
   
     // Update accounts registry
-    this.updateAccountsRegistry(username, netid, parameters.networkId);
+    this.updateAccountsRegistry(username, netid, newNetId);
   }
 
-  async registerUsername(username, originalNetid) {
-    console.log('registerUsername', username, originalNetid);
-    
-    // Get the account data from the ORIGINAL location (before migration)
-    const accountKey = `${username}_${originalNetid}`;
-    let accountData = localStorage.getItem(accountKey);
-    
-    if (!accountData) {
-      throw new Error(`No account data found for ${username}_${originalNetid}`);
-    }
-    
-    // Decrypt if needed
-    if (lockModal?.encKey) {
-      accountData = decryptData(accountData, lockModal.encKey, true);
-    }
-    
-    if (!accountData) {
-      throw new Error('Account data is empty after decryption');
-    }
-    
-    // Parse the account data to get the keys
-    const parsedData = parse(accountData);
-    const account = parsedData.account;
-    
-    if (!account || !account.keys) {
-      throw new Error('Invalid account structure - missing keys');
-    }
-    
-    // Use the existing keys from the original account
-    const keys = account.keys;
-    
-    // Register the username with existing keys
-    const res = await postRegisterAlias(username, keys);
-    
-    if (res && res.result && res.result.success && res.txid) {
-      const txid = res.txid;
-      
-      // Start pending transaction monitoring
-      if (!checkPendingTransactionsIntervalId) {
-        checkPendingTransactionsIntervalId = setInterval(checkPendingTransactions, 5000);
-      }
-      
-      // Wait for transaction confirmation
-      const confirmationDetails = await pendingPromiseService.register(txid);
-      if (
-        confirmationDetails.username !== username ||
-        confirmationDetails.address !== longAddress(keys.address)
-      ) {
-        throw new Error('Registration confirmation details mismatch');
-      }
-      
-      console.log(`Successfully registered username: ${username}`);
-      return { success: true, txid, confirmationDetails };
-    } else {
-      throw new Error(`Registration failed: ${res?.result?.reason || 'Unknown error'}`);
-    }
-  }
 
   /**
  * Updates the accounts registry with the given username and netid.
@@ -9585,23 +9473,6 @@ class MigrateAccountsModal {
     // Save updated accounts registry
     localStorage.setItem('accounts', stringify(accountsObj));
     console.log(`Updated accounts registry for ${username}: removed from ${oldNetid}, added to ${newNetid}`);
-  }
-
-  showMigrationResults(results) {
-    const allSuccesses = [...results.mine.success, ...results.available.success];
-    const allFailures = [...results.mine.failed, ...results.available.failed];
-  
-    if (allSuccesses.length > 0) {
-      showToast(`Migration complete: ${allSuccesses.join(', ')}`, 3000, 'success');
-    }
-    
-    if (allFailures.length > 0) {
-      const failedUsernames = allFailures.map(f => f.username);
-      showToast(`Migration failed: ${failedUsernames.join(', ')}`, 3000, 'error');
-    }
-  
-    this.close();
-    this.open();
   }
 
   clearForm() {
@@ -9951,6 +9822,26 @@ function removeFailedTx(txid, currentAddress) {
   }
   myData.wallet.history = myData?.wallet?.history?.filter((item) => item.txid !== txid);
 }
+
+async function checkPendingTransaction(txid, submittedts){
+  const now = getCorrectedTimestamp();
+  const duration = (now - submittedts) / 1000   // to make it in seconds
+console.log('timestamp is', submittedts, 'duration is', duration)
+  let endpointPath = `/transaction/${txid}`;
+  if (duration > 20){
+    endpointPath = `/collector/api/transaction?appReceiptId=${txid}`;
+  }
+  //console.log(`DEBUG: txid ${txid} endpointPath: ${endpointPath}`);
+  const res = await queryNetwork(endpointPath);
+  //console.log(`DEBUG: txid ${txid} res: ${JSON.stringify(res)}`);  
+  if (duration > 30 && (res.transaction === null || Object.keys(res.transaction).length === 0)) {
+    return false;
+  }
+  if (res?.transaction?.success === true) { return true; }
+  if (res?.transaction?.success === false) { return false }
+  return null;
+}
+
 
 /**
  * Check pending transactions that are at least 5 seconds old
