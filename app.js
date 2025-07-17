@@ -4413,13 +4413,30 @@ class BackupAccountModal {
       // Create and trigger download
       const blob = new Blob([finalData], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = this.generateBackupFilename(myAccount.username);
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const filename = this.generateBackupFilename(myAccount.username);
+      // Detect if running inside React Native WebView
+      if (window.ReactNativeWebView?.postMessage) {
+        // ✅ React Native WebView: Send base64 via postMessage
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64DataUrl = reader.result;
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'EXPORT_BACKUP',
+            filename,
+            dataUrl: base64DataUrl,
+          }));
+        };
+        reader.readAsDataURL(blob);
+      } else {
+        // Regular browser download
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
 
       // Close export modal
       this.close();
@@ -4453,13 +4470,30 @@ class BackupAccountModal {
       // Create and trigger download
       const blob = new Blob([finalData], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = this.generateBackupFilename();
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const filename = this.generateBackupFilename(myAccount.username);
+      // Detect if running inside React Native WebView
+      if (window.ReactNativeWebView?.postMessage) {
+        // ✅ React Native WebView: Send base64 via postMessage
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64DataUrl = reader.result;
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'EXPORT_BACKUP',
+            filename,
+            dataUrl: base64DataUrl,
+          }));
+        };
+        reader.readAsDataURL(blob);
+      } else {
+        // Regular browser download
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
 
       // Close export modal
       this.close();
