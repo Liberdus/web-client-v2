@@ -3385,8 +3385,8 @@ async function injectTx(tx, txid) {
 
     return data;
   } catch (error) {
-    // if error contains 'timestamp out of range' 
-    if (error.includes('timestamp out of range')) {
+    // if error is a string and contains 'timestamp out of range' 
+    if (typeof error === 'string' && error.includes('timestamp out of range')) {
       showToast('Error injecting transaction (Please try again): ' + error, 0, 'error');
     } else {
       showToast('Error injecting transaction: ' + error, 0, 'error');
@@ -9200,7 +9200,7 @@ class MigrateAccountsModal {
     this.submitButton = document.getElementById('submitMigrateAccounts');
 
     this.closeButton.addEventListener('click', () => this.close());
-    this.submitButton.addEventListener('submit', (event) => this.handleSubmit(event));
+    this.submitButton.addEventListener('click', (event) => this.handleSubmit(event));
 
     // if no check boxes are checked, disable the submit button
     this.accountList.addEventListener('change', () => {
@@ -9350,55 +9350,209 @@ class MigrateAccountsModal {
   async handleSubmit(event) {
     event.preventDefault();
     console.log('handleSubmit');
+  
+    // Initialize myData and myAccount for migration process if they don't exist
+    if (!myData) {
+      myData = {
+        pending: [],
+        account: { keys: { address: '' } }, // minimal account structure
+        timestamp: getCorrectedTimestamp()
+      };
+    }
+    if (!myAccount) {
+      myAccount = {
+        username: 'migration_temp',
+        netid: parameters?.networkId || '',
+        keys: { address: '' }
+      };
+    }
+    
+    // Start pending transaction monitoring for migration
+    if (!checkPendingTransactionsIntervalId) {
+      checkPendingTransactionsIntervalId = setInterval(checkPendingTransactions, 5000);
+    }
+    
     const selectedAccounts = this.accountList.querySelectorAll('input[type="checkbox"]:checked');
-    console.log('selectedAccounts', selectedAccounts);
-    // remove from accounts.netids[netid].usernames[username]
-    selectedAccounts.forEach(account => {
-      const netid = account.netid;
-      const username = account.value;
+    const results = {
+      mine: { success: [], failed: [] },
+      available: { success: [], failed: [] }
+    };
+    
+    const promises = [];
 
-      // then perform netid substitution in all files in the app
-      // get the file content
-      let fileContent = localStorage.getItem(username + '_' + netid);
-      if (fileContent) {
-        // if fileContent doesnt include { then we need to decrypt it
-        if (lockModal?.encKey) {
-          console.log('decrypting fileContent');
-          fileContent = decryptData(fileContent, lockModal.encKey, true);
-        }
+    const loadingToastId = showToast('Migrating accounts...', 0, 'loading');
+  
+    // Start each account processing with 2-second delays between starts
+    for (let i = 0; i < selectedAccounts.length; i++) {
+      const checkbox = selectedAccounts[i];
+      const section = checkbox.dataset.section;
+      const username = checkbox.value;
+      const netid = checkbox.dataset.netid;
 
-        if (!fileContent) {
-          console.log('fileContent is empty, skipping');
-          return;
-        }
-
-        // perform netid substitution in the file content
-        let substitutionResult = restoreAccountModal.performStringSubstitution(fileContent, {
-          oldString: netid,
-          newString: parameters.networkId
-        });
-        // if lockModal.encKey is set, encrypt the substitutionResult
-        if (lockModal?.encKey) {
-          substitutionResult = encryptData(substitutionResult, lockModal.encKey, true);
-        }
-        // save the file content to localStorage
-        localStorage.setItem(username + '_' + parameters.networkId, substitutionResult);
-        // remove the file from localStorage
-        localStorage.removeItem(username + '_' + netid);
-
-        // update the accounts registry
-        this.updateAccountsRegistry(username, netid, parameters.networkId);
+      console.log('processing account: ', username, netid, section);
+  
+      // Start processing this account
+      if (section === 'mine') {
+        promises.push(this.processMineAccount(username, netid, results.mine));
+      } else if (section === 'available') {
+        promises.push(this.processAvailableAccount(username, netid, results.available));
       }
+  
+      // Wait 2 seconds before starting the next account (except for the last one)
+      if (i < selectedAccounts.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+  
+    // Wait for all accounts to finish processing
+    await Promise.allSettled(promises);
+
+    hideToast(loadingToastId);
+    
+    this.showMigrationResults(results);
+    
+    // Stop pending transaction monitoring since migration is complete
+    if (checkPendingTransactionsIntervalId) {
+      clearInterval(checkPendingTransactionsIntervalId);
+      checkPendingTransactionsIntervalId = null;
+    }
+    
+    // Clear temporary myData used for migration
+    myData = null;
+    myAccount = null;
+  }
+  
+  /**
+   * Process a single "mine" account
+   */
+  async processMineAccount(username, netid, results) {
+    try {
+      await this.migrateAccountData(username, netid);
+      results.success.push(username);
+    } catch (error) {
+      console.error(`Failed to migrate ${username}:`, error);
+      results.failed.push({ username, error: error.message });
+    }
+  }
+  
+  /**
+   * Process a single "available" account
+   */
+  async processAvailableAccount(username, netid, results) {
+    try {
+      // Step 1: Register first
+      await this.registerUsername(username, netid);
+      
+      // Step 2: Migrate after successful registration
+      await this.migrateAccountData(username, netid);
+      
+      results.success.push(username);
+    } catch (error) {
+      console.error(`Failed to register and migrate ${username}:`, error);
+      results.failed.push({ username, error: error.message });
+    }
+  }
+
+  /**
+   * Migrate the account data from one netid to another
+   * @param {string} username - The username to migrate
+   * @param {string} netid - The netid to migrate from
+   * @returns {Promise<void>}
+   */
+  async migrateAccountData(username, netid) {
+    // Get the file content
+    let fileContent = localStorage.getItem(username + '_' + netid);
+    if (!fileContent) {
+      throw new Error(`No data found for ${username}_${netid}`);
+    }
+  
+    // Decrypt if needed
+    if (lockModal?.encKey) {
+      console.log('decrypting fileContent');
+      fileContent = decryptData(fileContent, lockModal.encKey, true);
+    }
+  
+    if (!fileContent) {
+      throw new Error('File content is empty after decryption');
+    }
+  
+    // Perform netid substitution
+    let substitutionResult = restoreAccountModal.performStringSubstitution(fileContent, {
+      oldString: netid,
+      newString: parameters.networkId
     });
+  
+    // Encrypt if needed
+    if (lockModal?.encKey) {
+      substitutionResult = encryptData(substitutionResult, lockModal.encKey, true);
+    }
+  
+    // Save to new location
+    localStorage.setItem(username + '_' + parameters.networkId, substitutionResult);
+    
+    // Remove old file
+    localStorage.removeItem(username + '_' + netid);
+  
+    // Update accounts registry
+    this.updateAccountsRegistry(username, netid, parameters.networkId);
+  }
 
-    // show toast for success 2 seconds
-    showToast('Accounts migrated successfully', 2000, 'success');
-
-    // sleep for 2 seconds
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // reload the page
-    window.location.reload();
+  async registerUsername(username, originalNetid) {
+    console.log('registerUsername', username, originalNetid);
+    
+    // Get the account data from the ORIGINAL location (before migration)
+    const accountKey = `${username}_${originalNetid}`;
+    let accountData = localStorage.getItem(accountKey);
+    
+    if (!accountData) {
+      throw new Error(`No account data found for ${username}_${originalNetid}`);
+    }
+    
+    // Decrypt if needed
+    if (lockModal?.encKey) {
+      accountData = decryptData(accountData, lockModal.encKey, true);
+    }
+    
+    if (!accountData) {
+      throw new Error('Account data is empty after decryption');
+    }
+    
+    // Parse the account data to get the keys
+    const parsedData = parse(accountData);
+    const account = parsedData.account;
+    
+    if (!account || !account.keys) {
+      throw new Error('Invalid account structure - missing keys');
+    }
+    
+    // Use the existing keys from the original account
+    const keys = account.keys;
+    
+    // Register the username with existing keys
+    const res = await postRegisterAlias(username, keys);
+    
+    if (res && res.result && res.result.success && res.txid) {
+      const txid = res.txid;
+      
+      // Start pending transaction monitoring
+      if (!checkPendingTransactionsIntervalId) {
+        checkPendingTransactionsIntervalId = setInterval(checkPendingTransactions, 5000);
+      }
+      
+      // Wait for transaction confirmation
+      const confirmationDetails = await pendingPromiseService.register(txid);
+      if (
+        confirmationDetails.username !== username ||
+        confirmationDetails.address !== longAddress(keys.address)
+      ) {
+        throw new Error('Registration confirmation details mismatch');
+      }
+      
+      console.log(`Successfully registered username: ${username}`);
+      return { success: true, txid, confirmationDetails };
+    } else {
+      throw new Error(`Registration failed: ${res?.result?.reason || 'Unknown error'}`);
+    }
   }
 
   /**
@@ -9431,6 +9585,23 @@ class MigrateAccountsModal {
     // Save updated accounts registry
     localStorage.setItem('accounts', stringify(accountsObj));
     console.log(`Updated accounts registry for ${username}: removed from ${oldNetid}, added to ${newNetid}`);
+  }
+
+  showMigrationResults(results) {
+    const allSuccesses = [...results.mine.success, ...results.available.success];
+    const allFailures = [...results.mine.failed, ...results.available.failed];
+  
+    if (allSuccesses.length > 0) {
+      showToast(`Migration complete: ${allSuccesses.join(', ')}`, 3000, 'success');
+    }
+    
+    if (allFailures.length > 0) {
+      const failedUsernames = allFailures.map(f => f.username);
+      showToast(`Migration failed: ${failedUsernames.join(', ')}`, 3000, 'error');
+    }
+  
+    this.close();
+    this.open();
   }
 
   clearForm() {
