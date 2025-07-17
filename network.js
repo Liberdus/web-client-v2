@@ -3,8 +3,8 @@ const network = {
   "name": "Devnet",
   "gateways": [
     {
-      "web": "http://localhost:3030",
-      "ws": "ws://localhost:3031"
+      "web": "https://dev.liberdus.com:3030",
+      "ws": "wss://dev.liberdus.com:3031"
     },
   ],
   "netids": [
