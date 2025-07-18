@@ -9268,7 +9268,7 @@ class MigrateAccountsModal {
 
   /**
    * Populate the accounts list with the accounts that can be migrated
-   * @returns {void}
+   * @returns {Promise<void>}
    */
   async populateAccounts() {
     const categories = await this.categorizeAccounts();
@@ -9393,6 +9393,8 @@ class MigrateAccountsModal {
   async handleSubmit(event) {
     event.preventDefault();
     console.log('handleSubmit');
+
+    this.submitButton.disabled = true;
       
     const selectedAccounts = this.accountList.querySelectorAll('input[type="checkbox"]:checked');
   
@@ -9456,6 +9458,7 @@ console.log('    result is',result)
       }
     }
     this.populateAccounts();
+    this.submitButton.disabled = false;
   }
   
   /**
