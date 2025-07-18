@@ -344,6 +344,8 @@ async function handleNativeAppSubscription() {
         // Get addresses from all stored accounts and convert to long format
         addresses = Object.values(netidAccounts.usernames).map(account => longAddress(account.address));
       }
+
+      if (addresses.length < 1) return;
       
       const payload = {
         deviceToken,
@@ -4779,6 +4781,7 @@ class RestoreAccountModal {
 
       // Show success message using toast
       showToast('Account restored successfully!', 2000, 'success');
+      handleNativeAppSubscription()
 
       // Reset form and close modal after delay
       setTimeout(() => {
@@ -7624,6 +7627,7 @@ class CreateAccountModal {
         existingAccounts.netids[netid].usernames[username] = { address: myAccount.keys.address };
         localStorage.setItem('accounts', stringify(existingAccounts));
         saveState();
+        handleNativeAppSubscription();
 
         signInModal.open(username);
       } catch (error) {
