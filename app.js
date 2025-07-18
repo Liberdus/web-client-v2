@@ -4471,7 +4471,7 @@ class BackupAccountModal {
       // Create and trigger download
       const blob = new Blob([finalData], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
-      const filename = this.generateBackupFilename(myAccount.username);
+      const filename = this.generateBackupFilename();
       // Detect if running inside React Native WebView
       if (window.ReactNativeWebView?.postMessage) {
         // ✅ React Native WebView: Send base64 via postMessage
