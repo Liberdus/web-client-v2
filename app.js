@@ -9395,6 +9395,7 @@ class MigrateAccountsModal {
     console.log('handleSubmit');
 
     this.submitButton.disabled = true;
+    this.closeButton.disabled = true;
       
     const selectedAccounts = this.accountList.querySelectorAll('input[type="checkbox"]:checked');
   
@@ -9459,6 +9460,7 @@ console.log('    result is',result)
     }
     this.populateAccounts();
     this.submitButton.disabled = false;
+    this.closeButton.disabled = false;
   }
   
   /**
