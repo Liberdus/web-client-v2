@@ -9425,6 +9425,9 @@ class MigrateAccountsModal {
       hideToast(loadingToastId);
     }
 
+    // clearing myData, not being used anymore
+    myData = null;
+
     // loop through the results array and check the status of the pending txid which is in results[username].txid
     // See checkPendingTransactions function for how to check the status of a pending txid
     // update the result element based on the check; if the txid is successfully processed set it to true
