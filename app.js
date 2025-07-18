@@ -540,8 +540,7 @@ function handleBeforeUnload(e) {
   }
   if (myData){
     e.preventDefault();
-// TODO - uncomment this after testing
-//    saveState();    // This save might not work if the amount of data to save is large and user quickly clicks on Leave button
+    saveState();    // This save might not work if the amount of data to save is large and user quickly clicks on Leave button
   }
 }
 
