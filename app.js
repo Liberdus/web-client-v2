@@ -2604,7 +2604,7 @@ class HistoryModal {
       .join('');
   }
 
-  async updateTransactionHistory() {
+  updateTransactionHistory() {
     const walletData = myData.wallet;
     const assetIndex = this.assetSelect.value;
     
@@ -2657,8 +2657,8 @@ class HistoryModal {
       </div>`;
   }
 
-  async handleAssetChange() {
-    await this.updateTransactionHistory();
+  handleAssetChange() {
+    this.updateTransactionHistory();
   }
 
   handleItemClick(event) {
@@ -2696,7 +2696,7 @@ class HistoryModal {
   // Public method for external updates
   async refresh() {
     if (this.isActive()) {
-      await this.updateTransactionHistory();
+      this.updateTransactionHistory();
     }
   }
 
