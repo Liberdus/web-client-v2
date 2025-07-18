@@ -7641,6 +7641,9 @@ class CreateAccountModal {
           checkPendingTransactionsIntervalId = null;
         }
 
+        myAccount = null;
+        myData = null;
+
         // Note: `checkPendingTransactions` will also remove the item from `myData.pending` if it's rejected by the service.
         return;
       }
@@ -7657,6 +7660,9 @@ class CreateAccountModal {
         clearInterval(getSystemNoticeIntervalId);
         getSystemNoticeIntervalId = null;
       }
+
+      myAccount = null;
+      myData = null;
 
       // no toast here since injectTx will show it
       this.reEnableControls();
