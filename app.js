@@ -2694,7 +2694,7 @@ class HistoryModal {
   }
 
   // Public method for external updates
-  async refresh() {
+  refresh() {
     if (this.isActive()) {
       this.updateTransactionHistory();
     }
