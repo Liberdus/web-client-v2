@@ -6071,6 +6071,7 @@ class ChatModal {
     this.messagesContainer = document.querySelector('.messages-container');
     this.addFriendButtonChat = document.getElementById('addFriendButtonChat');
     this.addAttachmentButton = document.getElementById('addAttachmentButton');
+    this.chatFileInput = document.getElementById('chatFileInput');
 
     // Add message click-to-copy handler
     this.messagesList.addEventListener('click', this.handleClickToCopy.bind(this));
@@ -6127,9 +6128,8 @@ class ChatModal {
       });
     }
 
-    const chatFileInput = document.getElementById('chatFileInput');
-    if (chatFileInput) {
-      chatFileInput.addEventListener('change', (e) => {
+    if (this.chatFileInput) {
+      this.chatFileInput.addEventListener('change', (e) => {
         this.handleFileAttachment(e);
       });
     }
@@ -6249,6 +6249,7 @@ class ChatModal {
 
     // clear file attachments
     this.fileAttachments = [];
+    this.showAttachmentPreview(); // clear listeners
 
     this.modal.classList.remove('active');
     if (chatsScreen.isActive()) {
@@ -7026,10 +7027,12 @@ console.warn('in send message', txid)
     }
 
     // Optional: File type validation
+    // add video file types
     const allowedTypes = [
       'image/jpeg', 'image/png', 'image/gif', 'image/webp',
       'application/pdf', 'text/plain', 'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'video/mp4', 'video/quicktime', 'video/webm', 'video/ogg', 'video/mov', 'video/avi', 'video/wmv', 'video/flv', 'video/mkv'
     ];
     
     if (!allowedTypes.includes(file.type)) {
@@ -7068,6 +7071,7 @@ console.warn('in send message', txid)
     const preview = document.getElementById('attachmentPreview');
     
     if (!this.fileAttachments || this.fileAttachments.length === 0) {
+      preview.innerHTML = '';
       preview.style.display = 'none';
       return;
     }
@@ -7090,13 +7094,13 @@ console.warn('in send message', txid)
         this.removeAttachment(index);
       });
     });
+
+    preview.style.display = 'block';
     
     // Check if user was at the bottom before showing preview
     const messageContainer = this.messagesContainer;
     const wasAtBottom = messageContainer ? 
       messageContainer.scrollHeight - messageContainer.scrollTop - messageContainer.clientHeight <= 50 : false;
-    
-    preview.style.display = 'block';
     
     // Only auto-scroll if user was already at the bottom
     if (wasAtBottom) {
@@ -7111,6 +7115,7 @@ console.warn('in send message', txid)
   /**
    * Removes a specific attached file
    * @param {number} index - Index of file to remove
+   * @returns {void}
    */
   removeAttachment(index) {
     if (this.fileAttachments && index >= 0 && index < this.fileAttachments.length) {
@@ -7122,11 +7127,11 @@ console.warn('in send message', txid)
 
   /**
    * Triggers file selection using the existing hidden input
+   * @returns {void}
    */
   triggerFileSelection() {
-    const fileInput = document.getElementById('chatFileInput');
-    if (fileInput) {
-      fileInput.click();
+    if (this.chatFileInput) {
+      this.chatFileInput.click();
     }
   }
 }
