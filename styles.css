@@ -3136,6 +3136,7 @@ mark {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  pointer-events: auto;
 }
 
 .icon-button.add-attachment-button::before {
@@ -4800,4 +4801,46 @@ small {
 
 #lockModal p:last-of-type {
   margin-bottom: 1.5rem;
+}
+
+/* File attachment preview */
+.attachment-preview {
+  padding: 8px 16px 0;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: #f0f0f0;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.attachment-icon {
+  font-size: 16px;
+}
+
+.attachment-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #333;
+}
+
+.remove-attachment {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: #999;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.remove-attachment:hover {
+  color: #f44336;
+  background: rgba(244, 67, 54, 0.1);
 }

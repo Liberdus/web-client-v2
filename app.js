@@ -6046,6 +6046,9 @@ class ChatModal {
     this.toll = null;
     this.tollUnit = null;
     this.address = null;
+
+    // file attachments
+    this.attachedFile = null;
   }
 
   /**
@@ -6067,6 +6070,7 @@ class ChatModal {
     this.messageByteCounter = document.querySelector('.message-byte-counter');
     this.messagesContainer = document.querySelector('.messages-container');
     this.addFriendButtonChat = document.getElementById('addFriendButtonChat');
+    this.addAttachmentButton = document.getElementById('addAttachmentButton');
 
     // Add message click-to-copy handler
     this.messagesList.addEventListener('click', this.handleClickToCopy.bind(this));
@@ -6116,6 +6120,19 @@ class ChatModal {
       if (!friendModal.getCurrentContactAddress()) return;
       friendModal.open();
     });
+
+    if (this.addAttachmentButton) {
+      this.addAttachmentButton.addEventListener('click', () => {
+        this.triggerFileSelection();
+      });
+    }
+
+    const chatFileInput = document.getElementById('chatFileInput');
+    if (chatFileInput) {
+      chatFileInput.addEventListener('change', (e) => {
+        this.handleFileAttachment(e);
+      });
+    }
   }
 
   /**
@@ -6196,6 +6213,9 @@ class ChatModal {
       chatsScreen.updateChatList();
     }
 
+    // clear file attachments
+    this.removeAttachment();
+
     // Setup state for appendChatModal and perform initial render
     this.address = address;
     this.appendChatModal(false); // Call appendChatModal to render messages, ensure highlight=false
@@ -6225,6 +6245,9 @@ class ChatModal {
 
     // Save any unsaved draft before closing
     this.debouncedSaveDraft(this.messageInput.value);
+
+    // clear file attachments
+    this.removeAttachment();
 
     this.modal.classList.remove('active');
     if (chatsScreen.isActive()) {
@@ -6979,6 +7002,106 @@ console.warn('in send message', txid)
     } else {
       this.messageByteCounter.style.display = 'none';
       this.sendButton.disabled = false;
+    }
+  }
+
+  /**
+   * Handles file selection for chat attachments
+   * @param {Event} event - The file input change event
+   * @returns {Promise<void>}
+   */
+  async handleFileAttachment(event) {
+    const file = event.target.files[0];
+    if (!file) {
+      return; // No file selected
+    }
+
+    // File size limit (e.g., 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+    if (file.size > maxSize) {
+      showToast('File size too large. Maximum size is 10MB.', 3000, 'error');
+      event.target.value = ''; // Reset file input
+      return;
+    }
+
+    // Optional: File type validation
+    const allowedTypes = [
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+      'application/pdf', 'text/plain', 'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    
+    if (!allowedTypes.includes(file.type)) {
+      showToast('File type not supported.', 3000, 'error');
+      event.target.value = ''; // Reset file input
+      return;
+    }
+
+    try {
+      // Store file for later use (e.g., when sending message)
+      this.attachedFile = {
+        file: file,
+        name: file.name,
+        size: file.size,
+        type: file.type
+      };
+
+      // Show file attachment indicator in UI
+      this.showAttachmentPreview(file);
+      
+      showToast(`File "${file.name}" attached successfully`, 2000, 'success');
+      
+    } catch (error) {
+      console.error('Error handling file attachment:', error);
+      showToast('Error processing file attachment', 3000, 'error');
+      this.attachedFile = null;
+    } finally {
+      event.target.value = ''; // Reset the file input value
+    }
+  }
+
+  /**
+   * Shows a preview of the attached file just above the textarea
+   * @returns {void}
+   */
+  showAttachmentPreview() {
+    const preview = document.getElementById('attachmentPreview');
+    
+    if (!this.attachedFile) {
+      preview.style.display = 'none';
+      return;
+    }
+  
+    preview.innerHTML = `
+      <div class="attachment-item">
+        <span class="attachment-icon">📎</span>
+        <span class="attachment-name">${this.attachedFile.name}</span>
+        <button class="remove-attachment" onclick="chatModal.removeAttachment()">×</button>
+      </div>
+    `;
+  
+    preview.style.display = 'block';
+  }
+
+  /**
+   * Removes the attached file
+   */
+  removeAttachment() {
+    if (this.attachedFile) {
+      const removedFile = this.attachedFile;
+      this.attachedFile = null;
+      this.showAttachmentPreview(); // Refresh the preview (will hide it)
+      showToast(`"${removedFile.name}" removed`, 2000, 'info');
+    }
+  }
+
+  /**
+   * Triggers file selection using the existing hidden input
+   */
+  triggerFileSelection() {
+    const fileInput = document.getElementById('chatFileInput');
+    if (fileInput) {
+      fileInput.click();
     }
   }
 }

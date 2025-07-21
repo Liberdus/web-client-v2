@@ -546,6 +546,10 @@
         </div>
         <div class="message-input-container">
           <div class="message-byte-counter"></div>
+          <!-- Add attachment preview container -->
+          <div class="attachment-preview" id="attachmentPreview" style="display: none;">
+            <!-- Will be populated by JavaScript -->
+          </div>
           <div class="message-input-row">
             <button class="icon-button add-attachment-button" id="addAttachmentButton" aria-label="Add attachment"></button>
             <div class="message-input-wrapper">
@@ -556,6 +560,8 @@
               </div>
             </div>
             <input type="hidden" id="retryOfTxId" />
+            <!-- Add hidden file input for chat attachments -->
+            <input type="file" id="chatFileInput" accept="image/*,.pdf,.txt,.doc,.docx" style="display: none;" />
             <button class="send-button" id="handleSendMessage">
               <svg viewBox="0 0 24 24">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
