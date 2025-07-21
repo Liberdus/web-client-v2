@@ -36,7 +36,7 @@ const myHashKey = hex2bin('69fa4195670576c0160d660c3be36556ff8d504725be8a59b5a96
 
 // Core encryption functions
 export function encryptChacha(key, data) {
-    const nonce = window.crypto.getRandomValues(new Uint8Array(24))
+    const nonce = globalThis.crypto.getRandomValues(new Uint8Array(24))
     const cipher = xchacha20poly1305(key, nonce);
     const encrypted = cipher.encrypt(utf82bin(data));
 
