@@ -6048,7 +6048,7 @@ class ChatModal {
     this.address = null;
 
     // file attachments
-    this.attachedFile = null;
+    this.fileAttachments = [];
   }
 
   /**
@@ -6071,7 +6071,6 @@ class ChatModal {
     this.messagesContainer = document.querySelector('.messages-container');
     this.addFriendButtonChat = document.getElementById('addFriendButtonChat');
     this.addAttachmentButton = document.getElementById('addAttachmentButton');
-    this.removeAttachmentButton = document.getElementById('removeAttachmentButton');
 
     // Add message click-to-copy handler
     this.messagesList.addEventListener('click', this.handleClickToCopy.bind(this));
@@ -6132,12 +6131,6 @@ class ChatModal {
     if (chatFileInput) {
       chatFileInput.addEventListener('change', (e) => {
         this.handleFileAttachment(e);
-      });
-    }
-
-    if (this.removeAttachmentButton) {
-      this.removeAttachmentButton.addEventListener('click', () => {
-        this.removeAttachment();
       });
     }
   }
@@ -6221,7 +6214,8 @@ class ChatModal {
     }
 
     // clear file attachments
-    this.removeAttachment();
+    this.fileAttachments = [];
+    this.showAttachmentPreview(); // Hide preview
 
     // Setup state for appendChatModal and perform initial render
     this.address = address;
@@ -6254,7 +6248,7 @@ class ChatModal {
     this.debouncedSaveDraft(this.messageInput.value);
 
     // clear file attachments
-    this.removeAttachment();
+    this.fileAttachments = [];
 
     this.modal.classList.remove('active');
     if (chatsScreen.isActive()) {
@@ -7045,13 +7039,13 @@ console.warn('in send message', txid)
     }
 
     try {
-      // Store file for later use (e.g., when sending message)
-      this.attachedFile = {
+      // Add file to attachments array
+      this.fileAttachments.push({
         file: file,
         name: file.name,
         size: file.size,
         type: file.type
-      };
+      });
 
       // Show file attachment indicator in UI
       this.showAttachmentPreview(file);
@@ -7061,7 +7055,6 @@ console.warn('in send message', txid)
     } catch (error) {
       console.error('Error handling file attachment:', error);
       showToast('Error processing file attachment', 3000, 'error');
-      this.attachedFile = null;
     } finally {
       event.target.value = ''; // Reset the file input value
     }
@@ -7073,26 +7066,56 @@ console.warn('in send message', txid)
    */
   showAttachmentPreview() {
     const preview = document.getElementById('attachmentPreview');
-    const attachmentName = document.getElementById('attachmentName');
     
-    if (!this.attachedFile) {
+    if (!this.fileAttachments || this.fileAttachments.length === 0) {
       preview.style.display = 'none';
       return;
     }
   
-    // Update the filename in the existing HTML
-    attachmentName.textContent = this.attachedFile.name;
+    const attachmentItems = this.fileAttachments.map((attachment, index) => `
+      <div class="attachment-item">
+        <span class="attachment-icon">📎</span>
+        <span class="attachment-name">${attachment.name}</span>
+        <button class="remove-attachment" data-index="${index}">×</button>
+      </div>
+    `).join('');
+  
+    preview.innerHTML = attachmentItems;
+    
+    // Add event listeners to remove buttons
+    const removeButtons = preview.querySelectorAll('.remove-attachment');
+    removeButtons.forEach(button => {
+      button.addEventListener('click', (e) => {
+        const index = parseInt(e.target.dataset.index);
+        this.removeAttachment(index);
+      });
+    });
+    
+    // Check if user was at the bottom before showing preview
+    const messageContainer = this.messagesContainer;
+    const wasAtBottom = messageContainer ? 
+      messageContainer.scrollHeight - messageContainer.scrollTop - messageContainer.clientHeight <= 50 : false;
+    
     preview.style.display = 'block';
+    
+    // Only auto-scroll if user was already at the bottom
+    if (wasAtBottom) {
+      setTimeout(() => {
+        if (messageContainer) {
+          messageContainer.scrollTop = messageContainer.scrollHeight;
+        }
+      }, 100); // Small delay to ensure the DOM has updated
+    }
   }
 
   /**
-   * Removes the attached file
+   * Removes a specific attached file
+   * @param {number} index - Index of file to remove
    */
-  removeAttachment() {
-    if (this.attachedFile) {
-      const removedFile = this.attachedFile;
-      this.attachedFile = null;
-      this.showAttachmentPreview(); // Refresh the preview (will hide it)
+  removeAttachment(index) {
+    if (this.fileAttachments && index >= 0 && index < this.fileAttachments.length) {
+      const removedFile = this.fileAttachments.splice(index, 1)[0];
+      this.showAttachmentPreview(); // Refresh the preview
       showToast(`"${removedFile.name}" removed`, 2000, 'info');
     }
   }
