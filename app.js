@@ -7042,18 +7042,47 @@ console.warn('in send message', txid)
     }
 
     try {
-      // Add file to attachments array
-      this.fileAttachments.push({
-        file: file,
-        name: file.name,
-        size: file.size,
-        type: file.type
-      });
+      this.isEncrypting = true;
+      this.sendButton.disabled = true; // Disable send button during encryption
+      const loadingToastId = showToast(`Encrypting ${file.name}...`, 1000, 'loading');
+      const { dhkey, cipherText: pqEncSharedKey } = await this.getRecipientDhKey(this.address);
 
-      // Show file attachment indicator in UI
-      this.showAttachmentPreview(file);
+      const worker = new Worker('encryption.worker.js', { type: 'module' });
+      worker.onmessage = (e) => {
+        hideToast(loadingToastId);
+        this.isEncrypting = false;
+        if (e.data.error) {
+          showToast(`File encryption failed: ${e.data.error}`, 3000, 'error');
+          this.sendButton.disabled = false; // Re-enable send button
+        } else {
+          // Encryption successful
+          this.fileAttachments.push({
+            encryptedBuffer: e.data.encryptedFileBuffer,
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            pqEncSharedKey: pqEncSharedKey,
+          });
+          this.showAttachmentPreview(file);
+          this.sendButton.disabled = false; // Re-enable send button
+          showToast(`File "${file.name}" attached successfully`, 2000, 'success');
+        }
+        worker.terminate();
+      };
+
+      worker.onerror = (err) => {
+        hideToast(loadingToastId);
+        showToast(`File encryption failed: ${err.message}`, 3000, 'error');
+        this.isEncrypting = false;
+        worker.terminate();
+      };
       
-      showToast(`File "${file.name}" attached successfully`, 2000, 'success');
+      // read the file and send it to the worker for encryption
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        worker.postMessage({ fileBuffer: e.target.result, dhkey }, [e.target.result]);
+      };
+      reader.readAsArrayBuffer(file);
       
     } catch (error) {
       console.error('Error handling file attachment:', error);
@@ -7133,6 +7162,31 @@ console.warn('in send message', txid)
     if (this.chatFileInput) {
       this.chatFileInput.click();
     }
+  }
+
+  /**
+   * Helper function to get the shared DH key for a recipient.
+   * @param {string} recipientAddress - The recipient's address.
+   * @returns {Promise<{dhkey: Uint8Array, cipherText: Uint8Array}>}
+   */
+  async getRecipientDhKey(recipientAddress) {
+    let recipientPubKey = myData.contacts[recipientAddress]?.public;
+    let pqRecPubKey = myData.contacts[recipientAddress]?.pqPublic;
+
+    if (!recipientPubKey || !pqRecPubKey) {
+      const recipientInfo = await queryNetwork(`/account/${longAddress(recipientAddress)}`);
+      recipientPubKey = recipientInfo?.account?.publicKey;
+      pqRecPubKey = recipientInfo?.account?.pqPublicKey;
+      
+      if (!recipientPubKey || !pqRecPubKey) {
+        throw new Error("Could not retrieve recipient's public keys.");
+      }
+      
+      myData.contacts[recipientAddress].public = recipientPubKey;
+      myData.contacts[recipientAddress].pqPublic = pqRecPubKey;
+    }
+    
+    return dhkeyCombined(myAccount.keys.secret, recipientPubKey, pqRecPubKey);
   }
 }
 
