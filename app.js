@@ -7029,10 +7029,21 @@ console.warn('in send message', txid)
     // Optional: File type validation
     // add video file types
     const allowedTypes = [
+      // images
       'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-      'application/pdf', 'text/plain', 'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'video/mp4', 'video/quicktime', 'video/webm', 'video/ogg', 'video/mov', 'video/avi', 'video/wmv', 'video/flv', 'video/mkv'
+
+      // video
+      'video/mp4', 'video/quicktime', 'video/webm', 'video/ogg',
+      'video/x-msvideo', 'video/x-ms-wmv', 'video/x-flv', 'video/x-matroska',
+
+      // audio
+      'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/webm',
+      'audio/x-m4a', 'audio/aac', 'audio/flac',
+
+      // docs
+      'application/pdf', 'text/plain',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ];
     
     if (!allowedTypes.includes(file.type)) {
@@ -7044,7 +7055,7 @@ console.warn('in send message', txid)
     try {
       this.isEncrypting = true;
       this.sendButton.disabled = true; // Disable send button during encryption
-      const loadingToastId = showToast(`Encrypting ${file.name}...`, 0, 'loading');
+      const loadingToastId = showToast(`Encrypting file...`, 0, 'loading');
       const { dhkey, cipherText: pqEncSharedKey } = await this.getRecipientDhKey(this.address);
 
       const worker = new Worker('encryption.worker.js', { type: 'module' });
