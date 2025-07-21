@@ -7052,7 +7052,7 @@ console.warn('in send message', txid)
         hideToast(loadingToastId);
         this.isEncrypting = false;
         if (e.data.error) {
-          showToast(`File encryption failed: ${e.data.error}`, 3000, 'error');
+          showToast(e.data.error, 3000, 'error');
           this.sendButton.disabled = false; // Re-enable send button
         } else {
           // Encryption successful
