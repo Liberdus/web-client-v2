@@ -7044,7 +7044,7 @@ console.warn('in send message', txid)
     try {
       this.isEncrypting = true;
       this.sendButton.disabled = true; // Disable send button during encryption
-      const loadingToastId = showToast(`Encrypting ${file.name}...`, 1000, 'loading');
+      const loadingToastId = showToast(`Encrypting ${file.name}...`, 0, 'loading');
       const { dhkey, cipherText: pqEncSharedKey } = await this.getRecipientDhKey(this.address);
 
       const worker = new Worker('encryption.worker.js', { type: 'module' });
@@ -7056,8 +7056,9 @@ console.warn('in send message', txid)
           this.sendButton.disabled = false; // Re-enable send button
         } else {
           // Encryption successful
+          // upload to get url here 
           this.fileAttachments.push({
-            encryptedBuffer: e.data.encryptedFileBuffer,
+            file: file,
             name: file.name,
             size: file.size,
             type: file.type,
