@@ -7018,6 +7018,13 @@ console.warn('in send message', txid)
       return; // No file selected
     }
 
+    // limit to 5 files
+    if (this.fileAttachments.length >= 5) {
+      showToast('You can only attach up to 5 files.', 3000, 'error');
+      event.target.value = ''; // Reset file input
+      return;
+    }
+
     // File size limit (e.g., 10MB)
     const maxSize = 10 * 1024 * 1024; // 10MB in bytes
     if (file.size > maxSize) {
