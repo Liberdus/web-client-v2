@@ -7047,7 +7047,7 @@ console.warn('in send message', txid)
       const { dhkey, cipherText: pqEncSharedKey } = await this.getRecipientDhKey(this.address);
 
       const worker = new Worker('encryption.worker.js', { type: 'module' });
-      worker.onmessage = (e) => {
+      worker.onmessage = async (e) => {
         hideToast(loadingToastId);
         this.isEncrypting = false;
         if (e.data.error) {
@@ -7056,12 +7056,31 @@ console.warn('in send message', txid)
         } else {
           // Encryption successful
           // upload to get url here 
+
+          const bytes = new Uint8Array(e.data.cipherBin);
+          const blob = new Blob([bytes], { type: 'application/octet-stream' });
+
+          const form = new FormData();
+          form.append('file', blob, file.name);
+
+          // TODO: move to network.js
+          const uploadUrl = 'https://inv.liberdus.com:2083';
+
+          const response = await fetch(`${uploadUrl}/post`, {
+            method: 'POST',
+            body: form
+          });
+          if (!response.ok) throw new Error(`upload failed ${response.status}`);
+
+          const { id } = await response.json();
+          if (!id) throw new Error('No file ID returned from upload');
+
           this.fileAttachments.push({
-            file: file,
+            url: `${uploadUrl}/get/${id}`,
             name: file.name,
             size: file.size,
             type: file.type,
-            pqEncSharedKey: pqEncSharedKey,
+            pqEncSharedKey
           });
           this.showAttachmentPreview(file);
           this.sendButton.disabled = false; // Re-enable send button
