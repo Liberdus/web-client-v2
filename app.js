@@ -7025,28 +7025,16 @@ console.warn('in send message', txid)
       event.target.value = ''; // Reset file input
       return;
     }
-
-    // Optional: File type validation
-    // add video file types
-    const allowedTypes = [
-      // images
-      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-
-      // video
-      'video/mp4', 'video/quicktime', 'video/webm', 'video/ogg',
-      'video/x-msvideo', 'video/x-ms-wmv', 'video/x-flv', 'video/x-matroska',
-
-      // audio
-      'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/webm',
-      'audio/x-m4a', 'audio/aac', 'audio/flac',
-
-      // docs
-      'application/pdf', 'text/plain',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ];
     
-    if (!allowedTypes.includes(file.type)) {
+    // Validate file type
+    const allowedTypePrefixes = ['image/', 'audio/', 'video/'];
+    const allowedExplicitTypes = [
+      'application/pdf', // PDF
+      'text/plain',      // TXT
+      'application/msword', // DOC
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document' // DOCX
+    ];
+    if (!(allowedTypePrefixes.some(prefix => file.type.startsWith(prefix)) || allowedExplicitTypes.includes(file.type))) {
       showToast('File type not supported.', 3000, 'error');
       event.target.value = ''; // Reset file input
       return;
