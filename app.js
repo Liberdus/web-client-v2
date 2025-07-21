@@ -6071,6 +6071,7 @@ class ChatModal {
     this.messagesContainer = document.querySelector('.messages-container');
     this.addFriendButtonChat = document.getElementById('addFriendButtonChat');
     this.addAttachmentButton = document.getElementById('addAttachmentButton');
+    this.removeAttachmentButton = document.getElementById('removeAttachmentButton');
 
     // Add message click-to-copy handler
     this.messagesList.addEventListener('click', this.handleClickToCopy.bind(this));
@@ -6131,6 +6132,12 @@ class ChatModal {
     if (chatFileInput) {
       chatFileInput.addEventListener('change', (e) => {
         this.handleFileAttachment(e);
+      });
+    }
+
+    if (this.removeAttachmentButton) {
+      this.removeAttachmentButton.addEventListener('click', () => {
+        this.removeAttachment();
       });
     }
   }
@@ -7066,20 +7073,15 @@ console.warn('in send message', txid)
    */
   showAttachmentPreview() {
     const preview = document.getElementById('attachmentPreview');
+    const attachmentName = document.getElementById('attachmentName');
     
     if (!this.attachedFile) {
       preview.style.display = 'none';
       return;
     }
   
-    preview.innerHTML = `
-      <div class="attachment-item">
-        <span class="attachment-icon">📎</span>
-        <span class="attachment-name">${this.attachedFile.name}</span>
-        <button class="remove-attachment" onclick="chatModal.removeAttachment()">×</button>
-      </div>
-    `;
-  
+    // Update the filename in the existing HTML
+    attachmentName.textContent = this.attachedFile.name;
     preview.style.display = 'block';
   }
 

@@ -548,7 +548,11 @@
           <div class="message-byte-counter"></div>
           <!-- Add attachment preview container -->
           <div class="attachment-preview" id="attachmentPreview" style="display: none;">
-            <!-- Will be populated by JavaScript -->
+            <div class="attachment-item">
+              <span class="attachment-icon">📎</span>
+              <span class="attachment-name" id="attachmentName">filename.pdf</span>
+              <button class="remove-attachment" id="removeAttachmentButton">×</button>
+            </div>
           </div>
           <div class="message-input-row">
             <button class="icon-button add-attachment-button" id="addAttachmentButton" aria-label="Add attachment"></button>

@@ -4838,6 +4838,7 @@ small {
   color: #999;
   padding: 2px 4px;
   border-radius: 3px;
+  pointer-events: auto;
 }
 
 .remove-attachment:hover {
