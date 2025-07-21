@@ -7025,7 +7025,7 @@ console.warn('in send message', txid)
       event.target.value = ''; // Reset file input
       return;
     }
-    
+
     // Validate file type
     const allowedTypePrefixes = ['image/', 'audio/', 'video/'];
     const allowedExplicitTypes = [
@@ -7074,6 +7074,7 @@ console.warn('in send message', txid)
         hideToast(loadingToastId);
         showToast(`File encryption failed: ${err.message}`, 3000, 'error');
         this.isEncrypting = false;
+        this.submitButton.disabled = false; // Re-enable send button
         worker.terminate();
       };
       
