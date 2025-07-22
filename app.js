@@ -6552,7 +6552,7 @@ class ChatModal {
         myData.contacts[currentAddress].tollRequiredToSend == 0 ? 0n : this.toll
 
       const chatMessageObj = await this.createChatMessage(currentAddress, payload, tollInLib, keys);
-      // const txid1 = await signObj(chatMessageObj, keys); // unused
+      await signObj(chatMessageObj, keys);
       const txid = getTxid(chatMessageObj)
 console.warn('in send message', txid)
 
