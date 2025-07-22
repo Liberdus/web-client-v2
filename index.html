@@ -587,6 +587,20 @@
           <span class="context-menu-icon">🗑️</span>
           <span class="context-menu-text">Delete for me</span>
         </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Failed Message Context Menu -->
+      <div class="failed-message-context-menu" id="failedMessageContextMenu" style="display: none;">
+        <div class="context-menu-option" data-action="retry" data-icon="retry">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text">Retry</span>
+        </div>
+        <div class="context-menu-option" data-action="delete" data-icon="delete">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text">Delete</span>
+        </div>
+        <a class="last-item" href="#"> </a>
       </div>
 
       <!-- Contact Info Modal -->
@@ -1342,23 +1356,6 @@
           <div class="scan-region-highlight"></div>
           <div class="scan-highlight" id="scan-highlight"></div>
           <canvas id="canvas"></canvas>
-        </div>
-        <a class="last-item" href="#"> </a>
-      </div>
-
-      <!-- Failed Message Modal -->
-      <div class="modal modal-dialog" id="failedMessageModal">
-        <div class="dialog-box-content">
-          <div class="modal-header">
-            <button class="back-button" id="closeFailedMessageModal"></button>
-            <div class="modal-title">Failed Message</div>
-          </div>
-          <div class="form-container">
-            <div class="modal-actions">
-              <button type="button" class="secondary-button delete-button">Delete</button>
-              <button type="button" class="update-button retry-button">Edit & Resend</button>
-            </div>
-          </div>
         </div>
         <a class="last-item" href="#"> </a>
       </div>

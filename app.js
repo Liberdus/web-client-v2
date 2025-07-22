@@ -538,7 +538,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   contactInfoModal.load();
 
   // Failed Message Modal
-  failedMessageModal.load();
+  failedMessageMenu.load();
 
   // New Chat Modal
   newChatModal.load();
@@ -6706,8 +6706,6 @@ console.warn('in send message', txid)
       if (retryTxId) {
         removeFailedTx(retryTxId, currentAddress);
         this.retryOfTxId.value = '';
-        failedMessageModal.handleFailedMessageData.txid = '';
-        failedMessageModal.handleFailedMessageData.handleFailedMessage = '';
       }
 
       // --- Optimistic UI Update ---
@@ -7468,7 +7466,7 @@ console.warn('in send message', txid)
       const isPayment = messageEl.classList.contains('payment-info');
       return isPayment 
         ? failedTransactionModal.open(messageEl.dataset.txid, messageEl)
-        : failedMessageModal.handleFailedMessageClick(messageEl);
+        : failedMessageMenu.open(e, messageEl);
     }
 
     this.showMessageContextMenu(e, messageEl);
@@ -7484,40 +7482,8 @@ console.warn('in send message', txid)
     e.stopPropagation();
     
     this.currentContextMessage = messageEl;
-    this.positionContextMenu(e, messageEl);
+    positionContextMenu(e, messageEl);
     this.contextMenu.style.display = 'block';
-  }
-
-  /**
-   * Positions the context menu based on available space
-   * @param {Event} e - Click event for initial positioning
-   * @param {HTMLElement} messageEl - The message element
-   */
-  positionContextMenu(e, messageEl) {
-    const rect = messageEl.getBoundingClientRect();
-    const menuWidth = 200; // match CSS
-    const menuHeight = 100;
-
-    let left = rect.left + (rect.width / 2) - (menuWidth / 2);
-    // If menu would overflow right, push left
-    if (left + menuWidth > window.innerWidth - 10) {
-      left = window.innerWidth - menuWidth - 10;
-    }
-    // If menu would overflow left, push right
-    if (left < 10) {
-      left = 10;
-    }
-
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const spaceAbove = rect.top;
-    const top = (spaceBelow >= menuHeight || spaceBelow > spaceAbove)
-      ? rect.bottom + 10
-      : rect.top - menuHeight - 10;
-
-    Object.assign(this.contextMenu.style, {
-      left: `${left}px`,
-      top: `${top}px`
-    });
   }
 
   /**
@@ -7630,131 +7596,155 @@ console.warn('in send message', txid)
 const chatModal = new ChatModal();
 
 /**
- * Failed Message Modal Class
+ * Utility function to position context menus based on available space
+ * @param {HTMLElement} menu - The context menu element
+ * @param {HTMLElement} messageEl - The message element to position relative to
+ */
+function positionContextMenu(menu, messageEl) {
+  const rect = messageEl.getBoundingClientRect();
+  const menuWidth = 200; // match CSS
+  const menuHeight = 100;
+
+  let left = rect.left + (rect.width / 2) - (menuWidth / 2);
+  // If menu would overflow right, push left
+  if (left + menuWidth > window.innerWidth - 10) {
+    left = window.innerWidth - menuWidth - 10;
+  }
+  // If menu would overflow left, push right
+  if (left < 10) {
+    left = 10;
+  }
+
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  const top = (spaceBelow >= menuHeight || spaceBelow > spaceAbove)
+    ? rect.bottom + 10
+    : rect.top - menuHeight - 10;
+
+  Object.assign(menu.style, {
+    left: `${left}px`,
+    top: `${top}px`
+  });
+}
+
+/**
+ * Failed Message Context Menu Class
  * @class
- * @description Handles the failed message modal
+ * @description Handles the failed message context menu
  * @returns {void}
  */
-class FailedMessageModal {
+class FailedMessageMenu {
   constructor() {
-    this.handleFailedMessageData = {
-      handleFailedMessage: '',
-      txid: '',
-    };
+    this.menu = document.getElementById('failedMessageContextMenu');
+    this.currentMessageEl = null;
   }
 
   /**
-   * Loads the failed message modal event listeners
+   * Loads the failed message context menu event listeners
    * @returns {void}
    */
   load() {
-    this.modal = document.getElementById('failedMessageModal');
-    this.retryButton = this.modal.querySelector('.retry-button');
-    this.deleteButton = this.modal.querySelector('.delete-button');
-    this.closeButton = document.getElementById('closeFailedMessageModal');
+    if (!this.menu) return;
 
-    this.retryButton.addEventListener('click', this.handleFailedMessageRetry.bind(this));
-    this.deleteButton.addEventListener('click', this.handleFailedMessageDelete.bind(this));
-    this.closeButton.addEventListener('click', this.closeFailedMessageModalAndClearState.bind(this));
-    this.modal.addEventListener('click', this.handleFailedMessageBackdropClick.bind(this));
+    // Menu option click handler
+    this.menu.addEventListener('click', (e) => this.handleMenuAction(e));
+
+    // Hide menu on outside click
+    document.addEventListener('click', (e) => {
+      if (this.menu.style.display === 'block' && !this.menu.contains(e.target)) {
+        this.hide();
+      }
+    });
   }
 
   /**
-   * When user clicks on a failed message this will show the failed message modal with retry, delete (delete from all data stores), and close buttons
-   * It will also store the message content and txid in the handleSendMessage object containing the handleFailedMessage and txid properties
-   * @param {Element} messageEl - The message element that failed
-   * @returns {void}
+   * Shows the context menu for a failed message
+   * @param {Event} event - Click event
+   * @param {HTMLElement} messageEl - The message element clicked
    */
-  handleFailedMessageClick(messageEl) {
-    // Get the message content and txid from the original failed message element
-    const messageContent = messageEl.querySelector('.message-content').textContent;
-    const originalTxid = messageEl.dataset.txid;
+  open(event, messageEl) {
+    if (!this.menu) return;
+    
+    event.preventDefault();
+    event.stopPropagation();
+    this.currentMessageEl = messageEl;
 
-    // Store content and txid in properties of handleSendMessage
-    this.handleFailedMessageData.handleFailedMessage = messageContent;
-    this.handleFailedMessageData.txid = originalTxid;
+    // Use shared positioning utility
+    positionContextMenu(this.menu, messageEl);
+    this.menu.style.display = 'block';
+  }
 
-    // Show the modal
-    if (this.modal) {
-      this.modal.classList.add('active');
+  /**
+   * Hides the context menu
+   */
+  hide() {
+    if (this.menu) {
+      this.menu.style.display = 'none';
+    }
+    this.currentMessageEl = null;
+  }
+
+  /**
+   * Handles context menu option clicks
+   * @param {Event} e - Click event
+   */
+  handleMenuAction(e) {
+    const option = e.target.closest('.context-menu-option');
+    if (!option || !this.currentMessageEl) return;
+    
+    const action = option.dataset.action;
+    const messageEl = this.currentMessageEl;
+    this.hide();
+
+    switch (action) {
+      case 'retry':
+        this.handleFailedMessageRetry(messageEl);
+        break;
+      case 'delete':
+        this.handleFailedMessageDelete(messageEl);
+        break;
     }
   }
 
   /**
-   * When the user clicks the retry button in the failed message modal
+   * When the user clicks the retry option in the context menu
    * It will fill the chat modal with the message content and txid of the failed message and focus the message input
+   * @param {HTMLElement} messageEl - The message element that failed
    * @returns {void}
    */
-  handleFailedMessageRetry() {
-    // Use the values stored when handleFailedMessage was called
-    const messageToRetry = this.handleFailedMessageData.handleFailedMessage;
-    const originalTxid = this.handleFailedMessageData.txid;
+  handleFailedMessageRetry(messageEl) {
+    const messageContent = messageEl.querySelector('.message-content')?.textContent;
+    const txid = messageEl.dataset.txid;
 
-    if (
-      chatModal.messageInput &&
-      chatModal.retryOfTxId &&
-      typeof messageToRetry === 'string' &&
-      typeof originalTxid === 'string'
-    ) {
-      chatModal.messageInput.value = messageToRetry;
-      chatModal.retryOfTxId.value = originalTxid;
-
-      this.closeFailedMessageModalAndClearState();
+    if (chatModal.messageInput && chatModal.retryOfTxId && messageContent && txid) {
+      chatModal.messageInput.value = messageContent;
+      chatModal.retryOfTxId.value = txid;
       chatModal.messageInput.focus();
     } else {
       console.error('Error preparing message retry: Necessary elements or data missing.');
-      this.closeFailedMessageModalAndClearState();
     }
   }
 
   /**
-   * When the user clicks the delete button in the failed message modal
+   * When the user clicks the delete option in the context menu
    * It will delete the message from all data stores using removeFailedTx and remove pending tx if exists
+   * @param {HTMLElement} messageEl - The message element that failed
    * @returns {void}
    */
-  handleFailedMessageDelete() {
-    const originalTxid = this.handleFailedMessageData.txid;
+  handleFailedMessageDelete(messageEl) {
+    const txid = messageEl.dataset.txid;
 
-    if (typeof originalTxid === 'string' && originalTxid) {
+    if (txid) {
       const currentAddress = chatModal.address;
-      removeFailedTx(originalTxid, currentAddress);
-
-      this.closeFailedMessageModalAndClearState();
-
-      // refresh current chatModal
+      removeFailedTx(txid, currentAddress);
       chatModal.appendChatModal();
     } else {
       console.error('Error deleting message: TXID not found.');
-      this.closeFailedMessageModalAndClearState();
-    }
-  }
-
-  /**
-   * Invoked when the user clicks the close button in the failed message modal
-   * It will close the modal and clear the stored values
-   * @returns {void}
-   */
-  closeFailedMessageModalAndClearState() {
-    this.modal.classList.remove('active');
-    // Clear the stored values when modal is closed
-    this.handleFailedMessageData.handleFailedMessage = '';
-    this.handleFailedMessageData.txid = '';
-  }
-
-  /**
-   * Invoked when the user clicks the backdrop in the failed message modal
-   * It will close the modal and clear the stored values
-   * @param {Event} event - The event object
-   * @returns {void}
-   */
-  handleFailedMessageBackdropClick(event) {
-    if (event.target === this.modal) {
-      this.closeFailedMessageModalAndClearState();
     }
   }
 }
 
-const failedMessageModal = new FailedMessageModal();
+const failedMessageMenu = new FailedMessageMenu();
 
 /**
  * New Chat Modal Class
