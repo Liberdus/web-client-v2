@@ -6886,7 +6886,7 @@ console.warn('in send message', txid)
         const messageClass = item.my ? 'sent' : 'received'; // Use item.my directly
         
         // Check if message was deleted
-        if (item.deletedByMe) {
+        if (item?.deleted > 0) {
           // Render deleted message with special styling
           messageHTML = `
                     <div class="message ${messageClass} deleted-message" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
@@ -7498,13 +7498,13 @@ console.warn('in send message', txid)
       
       const message = contact.messages[messageIndex];
       
-      if (message.deletedByMe) {
+      if (message.deleted) {
         return showToast('Message already deleted', 2000, 'info');
       }
       
       // Mark as deleted and clear attachments
       Object.assign(message, {
-        deletedByMe: 1,
+        deleted: 1,
         message: "Deleted for me"
       });
       delete message.xattach;
