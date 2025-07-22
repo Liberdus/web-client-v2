@@ -390,22 +390,60 @@ async function handleNativeAppSubscription() {
 }
 
 /**
- * Unsubscribe the native app from push notifications.
- * Sends /subscribe with no expoPushToken and a dummy address.
+ * Unsubscribe the native app from push notifications for the current account.
+ * If other accounts are on the device, it updates the subscription to only include them.
+ * If this is the last account, it fully unsubscribes the device.
  */
 async function handleNativeAppUnsubscribe() {
   const urlParams = new URLSearchParams(window.location.search);
-  const deviceToken = urlParams.get('device_token');      // still in the URL
+  const deviceToken = urlParams.get('device_token');
+  const pushToken = urlParams.get('push_token');
+
+  // If there's no device token, we can't perform any action.
   if (!deviceToken) return;
 
-  // dummy 64‑char shardus address (all zeros)
-  const DUMMY_ADDRESS = '0'.repeat(64);
+  // We need an active account to know which address to remove from the subscription.
+  if (!myAccount || !myAccount.keys || !myAccount.keys.address) {
+    console.warn('handleNativeAppUnsubscribe called without an active account. Aborting.');
+    return;
+  }
 
-  const payload = {
-    deviceToken,
-    addresses: [DUMMY_ADDRESS]        // must be non‑empty
-    // expoPushToken omitted → undefined on the server
-  };
+  const currentUserAddress = longAddress(myAccount.keys.address);
+
+  // Get all other stored addresses on this device for the current network.
+  const { netid } = network;
+  const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+  const netidAccounts = existingAccounts.netids[netid];
+  let allStoredAddresses = [];
+  if (netidAccounts?.usernames) {
+    allStoredAddresses = Object.values(netidAccounts.usernames).map(account => longAddress(account.address));
+  }
+
+  // Create a list of addresses to keep subscribed, excluding the current user.
+  const remainingAddresses = allStoredAddresses.filter(addr => addr !== currentUserAddress);
+
+  let payload;
+
+  if (remainingAddresses.length === 0) {
+    // This is the only account. Unsubscribe the device completely.
+    const DUMMY_ADDRESS = '0'.repeat(64);
+    payload = {
+      deviceToken,
+      addresses: [DUMMY_ADDRESS],
+      // no expoPushToken
+    };
+  } else {
+    // Other accounts remain. Update the subscription to only include them.
+    if (!pushToken) {
+      console.warn('Cannot update subscription for remaining accounts without a pushToken.');
+      return;
+    }
+    payload = {
+      deviceToken,
+      expoPushToken: pushToken,
+      addresses: remainingAddresses,
+    };
+  }
 
   const selectedGateway = getGatewayForRequest();
   if (!selectedGateway) {
@@ -421,10 +459,7 @@ async function handleNativeAppUnsubscribe() {
       body: JSON.stringify(payload)
     });
 
-    if (res.ok) {
-      const result = await res.json();
-      console.log('Unsubscribe (silent stub) successful:', result);
-    } else {
+    if (!res.ok) {
       console.error('Unsubscribe failed:', res.status, res.statusText);
     }
   } catch (err) {
@@ -440,8 +475,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupConnectivityDetection();
 
   // Check for native app subscription tokens and handle subscription
-  // handleNativeAppSubscription();
-  handleNativeAppUnsubscribe();
+  handleNativeAppSubscription();
 
   // Unlock Modal
   unlockModal.load();
@@ -1356,6 +1390,8 @@ class MenuModal {
       return;
     }
 
+    handleNativeAppSubscription();
+
     // Only reload if online
     window.location.reload();
   }
@@ -2053,6 +2089,8 @@ class SignInModal {
     window.addEventListener('beforeunload', handleBeforeUnload);
     document.addEventListener('visibilitychange', async () => await handleVisibilityChange()); // Keep as document
     
+    handleNativeAppUnsubscribe();
+
     // Close modal and proceed to app
     this.close();
     welcomeScreen.close();
