@@ -7515,6 +7515,13 @@ console.warn('in send message', txid)
       
       this.appendChatModal();
       showToast('Message deleted', 2000, 'success');
+      setTimeout(() => {
+        const selector = `[data-message-timestamp="${timestamp}"]`;
+        const deletedEl = this.messagesList.querySelector(selector);
+        if (deletedEl) {
+          deletedEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 300);
       
       // TODO: If you want to implement network deletion for sent messages,
       // you could send a delete transaction here
