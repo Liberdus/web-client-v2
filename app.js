@@ -6430,7 +6430,7 @@ class ChatModal {
       this.messageInput.focus(); // Add focus back to keep keyboard open
 
       const message = this.messageInput.value.trim();
-      if (!message) {
+      if (!message && !this.fileAttachments?.length) {
         this.sendButton.disabled = false;
         return;
       }
