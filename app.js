@@ -7522,9 +7522,6 @@ console.warn('in send message', txid)
           deletedEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       }, 300);
-      
-      // TODO: If you want to implement network deletion for sent messages,
-      // you could send a delete transaction here
     } catch (error) {
       console.error('Error deleting message:', error);
       showToast('Failed to delete message', 2000, 'error');
