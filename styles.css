@@ -4847,6 +4847,10 @@ small {
 }
 
 .message-context-menu {
+  width: 200px;
+  min-width: 0;
+  max-width: 200px;
+  white-space: nowrap;
   position: fixed;
   background: var(--background-color);
   backdrop-filter: blur(20px);
@@ -4854,7 +4858,6 @@ small {
   padding: 8px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
   z-index: 9999;
-  min-width: 140px;
   animation: contextMenuAppear 0.2s ease-out;
 }
 
@@ -4888,6 +4891,9 @@ small {
   color: var(--text-color);
   font-size: 16px;
   font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @keyframes contextMenuAppear {

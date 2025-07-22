@@ -7393,20 +7393,25 @@ console.warn('in send message', txid)
    */
   positionContextMenu(e, messageEl) {
     const rect = messageEl.getBoundingClientRect();
-    const menuHeight = 100, menuWidth = 140;
-    
+    const menuWidth = 200; // match CSS
+    const menuHeight = 100;
+
+    let left = rect.left + (rect.width / 2) - (menuWidth / 2);
+    // If menu would overflow right, push left
+    if (left + menuWidth > window.innerWidth - 10) {
+      left = window.innerWidth - menuWidth - 10;
+    }
+    // If menu would overflow left, push right
+    if (left < 10) {
+      left = 10;
+    }
+
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
-    
-    const left = Math.max(10, Math.min(
-      rect.left + (rect.width / 2) - (menuWidth / 2),
-      window.innerWidth - menuWidth - 10
-    ));
-    
     const top = (spaceBelow >= menuHeight || spaceBelow > spaceAbove)
       ? rect.bottom + 10
       : rect.top - menuHeight - 10;
-    
+
     Object.assign(this.contextMenu.style, {
       left: `${left}px`,
       top: `${top}px`
