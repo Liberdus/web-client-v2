@@ -611,8 +611,8 @@ function handleUnload() {
 */
 
 // Add unload handler to save myData
-function handleBeforeUnload(e) {
-  handleNativeAppSubscription();
+async function handleBeforeUnload(e) {
+  await handleNativeAppSubscription();
   if (menuModal.isSignoutExit){
     return;
   }
@@ -1389,7 +1389,7 @@ class MenuModal {
       return;
     }
 
-    handleNativeAppSubscription();
+    await handleNativeAppSubscription();
 
     // Only reload if online
     window.location.reload();
@@ -2085,10 +2085,10 @@ class SignInModal {
 
     // Register events that will saveState if the browser is closed without proper signOut
     // Add beforeunload handler to save myData; don't use unload event, it is getting depricated
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('beforeunload', async () => await handleBeforeUnload());
     document.addEventListener('visibilitychange', async () => await handleVisibilityChange()); // Keep as document
-    
-    handleNativeAppUnsubscribe();
+
+    await handleNativeAppUnsubscribe();
 
     // Close modal and proceed to app
     this.close();
