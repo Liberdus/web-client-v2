@@ -7482,7 +7482,7 @@ console.warn('in send message', txid)
     e.stopPropagation();
     
     this.currentContextMessage = messageEl;
-    positionContextMenu(e, messageEl);
+    positionContextMenu(this.contextMenu, messageEl);
     this.contextMenu.style.display = 'block';
   }
 
