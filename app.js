@@ -389,6 +389,49 @@ async function handleNativeAppSubscription() {
   }
 }
 
+/**
+ * Unsubscribe the native app from push notifications.
+ * Sends /subscribe with no expoPushToken and a dummy address.
+ */
+async function handleNativeAppUnsubscribe() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const deviceToken = urlParams.get('device_token');      // still in the URL
+  if (!deviceToken) return;
+
+  // dummy 64‑char shardus address (all zeros)
+  const DUMMY_ADDRESS = '0'.repeat(64);
+
+  const payload = {
+    deviceToken,
+    addresses: [DUMMY_ADDRESS]        // must be non‑empty
+    // expoPushToken omitted → undefined on the server
+  };
+
+  const selectedGateway = getGatewayForRequest();
+  if (!selectedGateway) {
+    console.error('No gateway available for unsubscribe request');
+    return;
+  }
+  const SUBSCRIPTION_API = `${selectedGateway.web}/notifier/subscribe`;
+
+  try {
+    const res = await fetch(SUBSCRIPTION_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.ok) {
+      const result = await res.json();
+      console.log('Unsubscribe (silent stub) successful:', result);
+    } else {
+      console.error('Unsubscribe failed:', res.status, res.statusText);
+    }
+  } catch (err) {
+    console.error('Error during unsubscribe:', err);
+  }
+}
+
 // Load saved account data and update chat list on page load
 document.addEventListener('DOMContentLoaded', async () => {
   await checkVersion(); // version needs to be checked before anything else happens
@@ -535,6 +578,7 @@ function handleUnload() {
 
 // Add unload handler to save myData
 function handleBeforeUnload(e) {
+  handleNativeAppSubscription();
   if (menuModal.isSignoutExit){
     return;
   }
@@ -552,12 +596,14 @@ async function handleVisibilityChange() {
   }
 
   if (document.visibilityState === 'hidden') {
+    handleNativeAppSubscription();
     // if chatModal was opened, save the last message count
     if (chatModal.isActive() && chatModal.address) {
       const contact = myData.contacts[chatModal.address];
       chatModal.lastMessageCount = contact?.messages?.length || 0;
     }
   } else if (document.visibilityState === 'visible') {
+    handleNativeAppUnsubscribe();
     // if chatModal was opened, check if message count changed while hidden
     if (chatModal.isActive() && chatModal.address) {
       const contact = myData.contacts[chatModal.address];
