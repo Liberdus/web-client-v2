@@ -7505,7 +7505,7 @@ console.warn('in send message', txid)
       // Mark as deleted and clear attachments
       Object.assign(message, {
         deleted: 1,
-        message: "Deleted for me"
+        message: "Deleted by me"
       });
       delete message.xattach;
       
