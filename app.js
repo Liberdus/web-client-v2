@@ -6252,6 +6252,19 @@ class ChatModal {
         this.handleFileAttachment(e);
       });
     }
+
+    this.messagesList.addEventListener('click', (e) => {
+      const link = e.target.closest('.attachment-link');
+      if (!link) return;
+      e.preventDefault();
+
+      const idx  = Number(link.dataset.msgIdx);
+      const item = myData.contacts[this.address].messages[idx];
+      this.handleAttachmentDownload(item, link)
+          .catch(err => console.error('Attachment download failed:', err));
+    });
+
+
   }
 
   /**
@@ -6616,18 +6629,8 @@ class ChatModal {
 
       // encrypt the file attachments
       let encXattach = null;
-      let attachmentData = null;
       if (this.fileAttachments && this.fileAttachments.length > 0) {
-        // Extract only URL, name, and size from fileAttachments
-        attachmentData = this.fileAttachments.map(attachment => ({
-          url: attachment.url,
-          name: attachment.name,
-          size: attachment.size,
-          type: attachment.type
-        }));
-        
-        // Encrypt attachment data similar to memo encryption
-        encXattach = encryptChacha(dhkey, stringify(attachmentData));
+        encXattach = encryptChacha(dhkey, stringify(this.fileAttachments));
       }
 
       // We purposely do not encrypt/decrypt using browser native crypto functions; all crypto functions must be readable
@@ -6694,13 +6697,12 @@ console.warn('in send message', txid)
         my: true,
         txid: txid,
         status: 'sent',
-        ...(attachmentData && { xattach: attachmentData }), // Only include if there are attachments
+        ...(this.fileAttachments && this.fileAttachments.length > 0 && { xattach: this.fileAttachments }), // Only include if there are attachments
       };
       insertSorted(chatsData.contacts[currentAddress].messages, newMessage, 'timestamp');
 
       // clear file attachments and remove preview
-      if (attachmentData) {
-        attachmentData = null;
+      if (this.fileAttachments && this.fileAttachments.length > 0) {
         this.fileAttachments = [];
         this.showAttachmentPreview();
       }
@@ -6908,7 +6910,17 @@ console.warn('in send message', txid)
                 <div class="attachment-row" style="display: flex; align-items: center; background: #f5f5f7; border-radius: 12px; padding: 10px 12px; margin-bottom: 6px;">
                   <span style="font-size: 2.2em; margin-right: 14px;">${emoji}</span>
                   <div style="min-width:0;">
-                    <a href="${fileUrl}" target="_blank" style="font-weight: 500; color: #222; text-decoration: underline; word-break: break-all;">${fileName}</a><br>
+                    <a  href="#"
+                      class="attachment-link"
+                      data-url="${fileUrl}"
+                      data-name="${encodeURIComponent(fileName)}"
+                      data-type="${att.type || ''}"
+                      data-pqEncSharedKey="${att.pqEncSharedKey || ''}"
+                      data-selfKey="${att.selfKey || ''}"
+                      data-msg-idx="${i}"
+                      style="font-weight:500;color:#222;text-decoration:underline;word-break:break-all;">
+                    ${fileName}
+                  </a><br>
                     <span style="font-size: 0.93em; color: #888;">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
                   </div>
                 </div>
@@ -7159,6 +7171,8 @@ console.warn('in send message', txid)
       this.sendButton.disabled = true; // Disable send button during encryption
       const loadingToastId = showToast(`Encrypting file...`, 0, 'loading');
       const { dhkey, cipherText: pqEncSharedKey } = await this.getRecipientDhKey(this.address);
+      const password = myAccount.keys.secret + myAccount.keys.pqSeed;
+      const selfKey = encryptData(bin2hex(dhkey), password, true)
 
       const worker = new Worker('encryption.worker.js', { type: 'module' });
       worker.onmessage = async (e) => {
@@ -7194,7 +7208,8 @@ console.warn('in send message', txid)
             name: file.name,
             size: file.size,
             type: file.type,
-            pqEncSharedKey
+            pqEncSharedKey: bin2base64(pqEncSharedKey),
+            selfKey
           });
           this.showAttachmentPreview(file);
           this.sendButton.disabled = false; // Re-enable send button
@@ -7299,11 +7314,12 @@ console.warn('in send message', txid)
   }
 
   /**
-   * Helper function to get the shared DH key for a recipient.
-   * @param {string} recipientAddress - The recipient's address.
-   * @returns {Promise<{dhkey: Uint8Array, cipherText: Uint8Array}>}
-   */
-  async getRecipientDhKey(recipientAddress) {
+   * Retrieves the recipient's public keys, caching them if not already available.
+   * @param {string} recipientAddress - The address of the recipient.
+   * @returns {Promise<{publicKey: string, pqPublicKey: string}>}
+   * @throws {Error} If recipient's public keys cannot be retrieved.
+   * */
+  async getRecipientKeys(recipientAddress) {
     let recipientPubKey = myData.contacts[recipientAddress]?.public;
     let pqRecPubKey = myData.contacts[recipientAddress]?.pqPublic;
 
@@ -7311,16 +7327,31 @@ console.warn('in send message', txid)
       const recipientInfo = await queryNetwork(`/account/${longAddress(recipientAddress)}`);
       recipientPubKey = recipientInfo?.account?.publicKey;
       pqRecPubKey = recipientInfo?.account?.pqPublicKey;
-      
+
       if (!recipientPubKey || !pqRecPubKey) {
         throw new Error("Could not retrieve recipient's public keys.");
       }
-      
+
       myData.contacts[recipientAddress].public = recipientPubKey;
       myData.contacts[recipientAddress].pqPublic = pqRecPubKey;
-    }
-    
-    return dhkeyCombined(myAccount.keys.secret, recipientPubKey, pqRecPubKey);
+    } 
+
+    return {
+      publicKey: recipientPubKey,
+      pqPublicKey: pqRecPubKey
+    };
+  }
+
+  /**
+   * Helper function to get the shared DH key for a recipient.
+   * @param {string} recipientAddress - The recipient's address.
+   * @returns {Promise<{dhkey: Uint8Array, cipherText: Uint8Array}>}
+   */
+  async getRecipientDhKey(recipientAddress) {
+
+    const keys = await this.getRecipientKeys(recipientAddress);
+
+    return dhkeyCombined(myAccount.keys.secret, keys.publicKey, keys.pqPublicKey);
   }
 
   /**
@@ -7348,6 +7379,55 @@ console.warn('in send message', txid)
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  async handleAttachmentDownload(item, linkEl) {
+    try {
+      // 1. Derive a fresh 32‑byte dhkey
+      let dhkey;
+      if (item.my) {
+        // you were the sender ⇒ run encapsulation side again
+        const selfKey = linkEl.dataset.selfkey;
+        const password = myAccount.keys.secret + myAccount.keys.pqSeed;
+        dhkey = hex2bin(decryptData(selfKey, password, true));
+      } else {
+        // you are the receiver ⇒ use fields stashed on the item
+        const recipientKeys = await this.getRecipientKeys(this.address);
+        const pqEncSharedKey = linkEl.dataset.pqencsharedkey;
+        dhkey = dhkeyCombined(
+          myAccount.keys.secret,
+          recipientKeys.publicKey,
+          myAccount.keys.pqSeed,
+          pqEncSharedKey
+        ).dhkey;
+      }
+
+      // 2. Download encrypted bytes
+      const res = await fetch(linkEl.dataset.url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const cipherBin = new Uint8Array(await res.arrayBuffer());
+
+      // 3. bin → base64 → decrypt → clear Uint8Array
+      const cipherB64 = bin2base64(cipherBin);
+      const plainB64  = decryptChacha(dhkey, cipherB64);
+      if (!plainB64) throw new Error('decryptChacha returned null');
+      const clearBin  = base642bin(plainB64);
+
+      // 4. Blob + download
+      const blob    = new Blob([clearBin], { type: linkEl.dataset.type || 'application/octet-stream' });
+      const blobUrl = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = decodeURIComponent(linkEl.dataset.name || 'download');
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error('Attachment decrypt failed:', err);
+      showToast(`Decryption failed.`, 3000, 'error');
+    }
   }
 
   /**
