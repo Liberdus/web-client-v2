@@ -2088,7 +2088,7 @@ class SignInModal {
     window.addEventListener('beforeunload', async () => await handleBeforeUnload());
     document.addEventListener('visibilitychange', async () => await handleVisibilityChange()); // Keep as document
 
-    await handleNativeAppUnsubscribe();
+    handleNativeAppUnsubscribe();
 
     // Close modal and proceed to app
     this.close();
