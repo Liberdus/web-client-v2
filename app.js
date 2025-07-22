@@ -440,7 +440,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupConnectivityDetection();
 
   // Check for native app subscription tokens and handle subscription
-  handleNativeAppSubscription();
+  // handleNativeAppSubscription();
+  handleNativeAppUnsubscribe();
 
   // Unlock Modal
   unlockModal.load();
@@ -4826,7 +4827,7 @@ class RestoreAccountModal {
 
       // Show success message using toast
       showToast('Account restored successfully!', 2000, 'success');
-      handleNativeAppSubscription()
+      // handleNativeAppSubscription()
 
       // Reset form and close modal after delay
       setTimeout(() => {
@@ -7931,7 +7932,7 @@ class CreateAccountModal {
         existingAccounts.netids[netid].usernames[username] = { address: myAccount.keys.address };
         localStorage.setItem('accounts', stringify(existingAccounts));
         saveState();
-        handleNativeAppSubscription();
+        // handleNativeAppSubscription();
 
         signInModal.open(username);
       } catch (error) {
