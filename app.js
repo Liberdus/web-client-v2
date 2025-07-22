@@ -121,6 +121,7 @@ import {
   generateAddress,
   passwordToKey,
   dhkeyCombined,
+  decryptChacha,
 } from './crypto.js?';
 
 // Put standalone conversion function in lib.js
@@ -3017,6 +3018,20 @@ if (mine) console.warn('txid in processChats is', txidHex)
               }
             }
             payload.public = senderPublic;
+          }
+          if (payload.xattach && typeof payload.xattach === 'string') {
+            try {
+              // if mine, use selfKey to get dhkey
+              // if not mine, use public key and pqEncSharedKey to get dhkey
+              const dhkey = mine 
+                ? hex2bin(decryptData(payload.selfKey, keys.secret + keys.pqSeed, true))
+                : dhkeyCombined(keys.secret, payload.public, keys.pqSeed, payload.pqEncSharedKey).dhkey;
+              const decryptedAttachData = decryptChacha(dhkey, payload.xattach);
+              payload.xattach = parse(decryptedAttachData);
+            } catch (error) {
+              console.error('Failed to decrypt xattach:', error);
+              delete payload.xattach;
+            }
           }
           //console.log("payload", payload)
           decryptMessage(payload, keys, mine); // modifies the payload object
