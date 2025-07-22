@@ -399,10 +399,9 @@ async function handleNativeAppUnsubscribe() {
   const deviceToken = urlParams.get('device_token');
   const pushToken = urlParams.get('push_token');
 
-  // If there's no device token, we can't perform any action.
+  // cannot unsubscribe if no device token is provided
   if (!deviceToken) return;
 
-  // We need an active account to know which address to remove from the subscription.
   if (!myAccount || !myAccount.keys || !myAccount.keys.address) {
     console.warn('handleNativeAppUnsubscribe called without an active account. Aborting.');
     return;
