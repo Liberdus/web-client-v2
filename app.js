@@ -6148,6 +6148,8 @@ class ChatModal {
 
     // file attachments
     this.fileAttachments = [];
+    // context menu properties
+    this.currentContextMessage = null;
   }
 
   /**
@@ -6172,8 +6174,26 @@ class ChatModal {
     this.addAttachmentButton = document.getElementById('addAttachmentButton');
     this.chatFileInput = document.getElementById('chatFileInput');
 
-    // Add message click-to-copy handler
-    this.messagesList.addEventListener('click', this.handleClickToCopy.bind(this));
+    // Initialize context menu
+    this.contextMenu = document.getElementById('messageContextMenu');
+    
+    // Add event delegation for message clicks (since messages are created dynamically)
+    this.messagesList.addEventListener('click', this.handleMessageClick.bind(this));
+    
+    // Add context menu option listeners
+    this.contextMenu.addEventListener('click', (e) => {
+      if (e.target.closest('.context-menu-option')) {
+        const action = e.target.closest('.context-menu-option').dataset.action;
+        this.handleContextMenuAction(action);
+      }
+    });
+    
+    // Close context menu when clicking outside
+    document.addEventListener('click', (e) => {
+      if (this.contextMenu && !this.contextMenu.contains(e.target)) {
+        this.closeContextMenu();
+      }
+    });
     this.sendButton.addEventListener('click', this.handleSendMessage.bind(this));
     this.closeButton.addEventListener('click', this.close.bind(this));
     this.sendButton.addEventListener('keydown', ignoreTabKey);
@@ -6865,38 +6885,49 @@ console.warn('in send message', txid)
         // --- Render Chat Message ---
         const messageClass = item.my ? 'sent' : 'received'; // Use item.my directly
         
-        // --- Render Attachments if present ---
-        let attachmentsHTML = '';
-        if (item.xattach && Array.isArray(item.xattach) && item.xattach.length > 0) {
-          attachmentsHTML = item.xattach.map(att => {
-            const emoji = this.getFileEmoji(att.type || '', att.name || '');
-            const fileUrl = att.url || '#';
-            const fileName = att.name || 'Attachment';
-            const fileSize = att.size ? this.formatFileSize(att.size) : '';
-            const fileType = att.type ? att.type.split('/').pop().toUpperCase() : '';
-            return `
-              <div class="attachment-row" style="display: flex; align-items: center; background: #f5f5f7; border-radius: 12px; padding: 10px 12px; margin-bottom: 6px;">
-                <span style="font-size: 2.2em; margin-right: 14px;">${emoji}</span>
-                <div style="min-width:0;">
-                  <a href="${fileUrl}" target="_blank" style="font-weight: 500; color: #222; text-decoration: underline; word-break: break-all;">${fileName}</a><br>
-                  <span style="font-size: 0.93em; color: #888;">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
-                </div>
-              </div>
-            `;
-          }).join('');
-        }
-        
-        // --- Render message text (if any) ---
-        const messageTextHTML = item.message && item.message.trim() ?
-          `<div class="message-content" style="white-space: pre-wrap; margin-top: ${attachmentsHTML ? '2px' : '0'};">${linkifyUrls(item.message)}</div>` : '';
-        
-        messageHTML = `
-                    <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
-                        ${attachmentsHTML}
-                        ${messageTextHTML}
+        // Check if message was deleted
+        if (item.deletedByMe) {
+          // Render deleted message with special styling
+          messageHTML = `
+                    <div class="message ${messageClass} deleted-message" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
+                        <div class="message-content deleted-content">${item.message}</div>
                         <div class="message-time">${timeString}</div>
                     </div>
                 `;
+        } else {
+          // --- Render Attachments if present ---
+          let attachmentsHTML = '';
+          if (item.xattach && Array.isArray(item.xattach) && item.xattach.length > 0) {
+            attachmentsHTML = item.xattach.map(att => {
+              const emoji = this.getFileEmoji(att.type || '', att.name || '');
+              const fileUrl = att.url || '#';
+              const fileName = att.name || 'Attachment';
+              const fileSize = att.size ? this.formatFileSize(att.size) : '';
+              const fileType = att.type ? att.type.split('/').pop().toUpperCase() : '';
+              return `
+                <div class="attachment-row" style="display: flex; align-items: center; background: #f5f5f7; border-radius: 12px; padding: 10px 12px; margin-bottom: 6px;">
+                  <span style="font-size: 2.2em; margin-right: 14px;">${emoji}</span>
+                  <div style="min-width:0;">
+                    <a href="${fileUrl}" target="_blank" style="font-weight: 500; color: #222; text-decoration: underline; word-break: break-all;">${fileName}</a><br>
+                    <span style="font-size: 0.93em; color: #888;">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+          
+          // --- Render message text (if any) ---
+          const messageTextHTML = item.message && item.message.trim() ?
+            `<div class="message-content" style="white-space: pre-wrap; margin-top: ${attachmentsHTML ? '2px' : '0'};">${linkifyUrls(item.message)}</div>` : '';
+          
+          messageHTML = `
+                      <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
+                          ${attachmentsHTML}
+                          ${messageTextHTML}
+                          <div class="message-time">${timeString}</div>
+                      </div>
+                  `;
+        }
       }
 
       // 4. Append the constructed HTML
@@ -6963,82 +6994,7 @@ console.warn('in send message', txid)
     }, 300); // <<< Delay of 300 milliseconds for rendering
   }
 
-  /**
-   * Invoked when the user clicks on a message to copy the content
-   * It will copy the content to the clipboard
-   * @param {Event} e - The event object
-   * @returns {void}
-   */
-  async handleClickToCopy(e) {
-    // Check if the click was on a link - if so, don't copy
-    if (e.target.tagName === 'A' || e.target.closest('a')) {
-      return;
-    }
-    
-    const messageEl = e.target.closest('.message');
-    if (!messageEl) return;
 
-    // Prevent copying if the message has failed and not `payment-info`
-    if (messageEl.dataset.status === 'failed') {
-      console.log('Copy prevented for failed message.');
-
-      // If the message is not a payment message, show the failed message modal
-      if (!messageEl.classList.contains('payment-info')) {
-        failedMessageModal.handleFailedMessageClick(messageEl);
-      }
-
-      // If the message is a payment message, show the failed history item modal
-      if (messageEl.classList.contains('payment-info')) {
-        failedTransactionModal.open(messageEl.dataset.txid, messageEl);
-      }
-
-      // TODO: if message is a payment open sendAssetFormModal and fill with information in the payment message?
-
-      return;
-    }
-
-    let textToCopy = null;
-    let contentType = 'Text'; // Default content type for toast
-
-    // Check if it's a payment message
-    if (messageEl.classList.contains('payment-info')) {
-      const paymentMemoEl = messageEl.querySelector('.payment-memo');
-      if (paymentMemoEl) {
-        textToCopy = paymentMemoEl.textContent;
-        contentType = 'Memo'; // Update type for toast
-      } else {
-        // No memo element found in this payment block
-        showToast('No memo to copy', 2000, 'info');
-        return;
-      }
-    } else {
-      // It's a regular chat message
-      const messageContentEl = messageEl.querySelector('.message-content');
-      if (messageContentEl) {
-        textToCopy = messageContentEl.textContent;
-        contentType = 'Message'; // Update type for toast
-      } else {
-        // Should not happen for regular messages, but handle gracefully
-        showToast('No content to copy', 2000, 'info');
-        return;
-      }
-    }
-
-    // Proceed with copying if text was found
-    if (textToCopy && textToCopy.trim()) {
-      try {
-        await navigator.clipboard.writeText(textToCopy.trim());
-        showToast(`${contentType} copied to clipboard`, 2000, 'success');
-      } catch (err) {
-        console.error('Failed to copy:', err);
-        showToast(`Failed to copy ${contentType.toLowerCase()}`, 2000, 'error');
-      }
-    } else if (contentType === 'Memo') {
-      // Explicitly handle the case where memo exists but is empty/whitespace
-      showToast('Memo is empty', 2000, 'info');
-    }
-    // No need for an else here, cases with no element are handled above
-  }
 
   /**
    * Refresh the current view based on which screen the user is viewing.
@@ -7392,6 +7348,175 @@ console.warn('in send message', txid)
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  /**
+   * Handles message click events
+   * @param {Event} e - Click event
+   */
+  handleMessageClick(e) {
+    if (e.target.tagName === 'A' || e.target.closest('a')) return;
+    
+    const messageEl = e.target.closest('.message');
+    if (!messageEl) return;
+
+    if (messageEl.classList.contains('deleted-message')) return;
+
+    if (messageEl.dataset.status === 'failed') {
+      const isPayment = messageEl.classList.contains('payment-info');
+      return isPayment 
+        ? failedTransactionModal.open(messageEl.dataset.txid, messageEl)
+        : failedMessageModal.handleFailedMessageClick(messageEl);
+    }
+
+    this.showMessageContextMenu(e, messageEl);
+  }
+
+  /**
+   * Shows context menu for a message
+   * @param {Event} e - Click event
+   * @param {HTMLElement} messageEl - The message element clicked
+   */
+  showMessageContextMenu(e, messageEl) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    this.currentContextMessage = messageEl;
+    this.positionContextMenu(e, messageEl);
+    this.contextMenu.style.display = 'block';
+  }
+
+  /**
+   * Positions the context menu based on available space
+   * @param {Event} e - Click event for initial positioning
+   * @param {HTMLElement} messageEl - The message element
+   */
+  positionContextMenu(e, messageEl) {
+    const rect = messageEl.getBoundingClientRect();
+    const menuHeight = 100, menuWidth = 140;
+    
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    
+    const left = Math.max(10, Math.min(
+      rect.left + (rect.width / 2) - (menuWidth / 2),
+      window.innerWidth - menuWidth - 10
+    ));
+    
+    const top = (spaceBelow >= menuHeight || spaceBelow > spaceAbove)
+      ? rect.bottom + 10
+      : rect.top - menuHeight - 10;
+    
+    Object.assign(this.contextMenu.style, {
+      left: `${left}px`,
+      top: `${top}px`
+    });
+  }
+
+  /**
+   * Closes the context menu
+   */
+  closeContextMenu() {
+    if (!this.contextMenu) return;
+    this.contextMenu.style.display = 'none';
+    this.currentContextMessage = null;
+  }
+
+  /**
+   * Handles context menu option selection
+   * @param {string} action - The action to perform
+   */
+  handleContextMenuAction(action) {
+    const messageEl = this.currentContextMessage;
+    if (!messageEl) return;
+    
+    switch (action) {
+      case 'copy':
+        this.copyMessageContent(messageEl);
+        break;
+      case 'delete':
+        this.deleteMessage(messageEl);
+        break;
+    }
+    
+    this.closeContextMenu();
+  }
+
+  /**
+   * Copies message content to clipboard
+   * @param {HTMLElement} messageEl - The message element
+   */
+  async copyMessageContent(messageEl) {
+    if (messageEl.classList.contains('deleted-message')) {
+      return showToast('Cannot copy deleted message', 2000, 'info');
+    }
+
+    const isPayment = messageEl.classList.contains('payment-info');
+    const selector = isPayment ? '.payment-memo' : '.message-content';
+    const contentType = isPayment ? 'Memo' : 'Message';
+    const contentEl = messageEl.querySelector(selector);
+
+    if (!contentEl) {
+      return showToast(`No ${contentType.toLowerCase()} to copy`, 2000, 'info');
+    }
+
+    const textToCopy = contentEl.textContent?.trim();
+    if (!textToCopy) {
+      return showToast(`${contentType} is empty`, 2000, 'info');
+    }
+
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      showToast(`${contentType} copied to clipboard`, 2000, 'success');
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      showToast(`Failed to copy ${contentType.toLowerCase()}`, 2000, 'error');
+    }
+  }
+
+  /**
+   * Deletes a message locally (and potentially from network if it's a sent message)
+   * @param {HTMLElement} messageEl - The message element to delete
+   */
+  async deleteMessage(messageEl) {
+    const { txid, messageTimestamp: timestamp } = messageEl.dataset;
+    
+    if (!timestamp || !confirm('Delete this message?')) return;
+    
+    try {
+      const contact = myData.contacts[this.address];
+      const messageIndex = contact?.messages?.findIndex(msg => 
+        msg.timestamp == timestamp || msg.txid === txid
+      );
+      
+      if (messageIndex === -1) return;
+      
+      const message = contact.messages[messageIndex];
+      
+      /* if (!message.my) {
+        return showToast('You can only delete your own messages', 2000, 'error');
+      } */
+      
+      if (message.deletedByMe) {
+        return showToast('Message already deleted', 2000, 'info');
+      }
+      
+      // Mark as deleted and clear attachments
+      Object.assign(message, {
+        deletedByMe: true,
+        message: "Deleted by me"
+      });
+      delete message.xattach;
+      
+      this.appendChatModal();
+      showToast('Message deleted', 2000, 'success');
+      
+      // TODO: If you want to implement network deletion for sent messages,
+      // you could send a delete transaction here
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      showToast('Failed to delete message', 2000, 'error');
+    }
   }
 }
 
