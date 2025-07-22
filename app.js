@@ -6765,9 +6765,36 @@ console.warn('in send message', txid)
       } else {
         // --- Render Chat Message ---
         const messageClass = item.my ? 'sent' : 'received'; // Use item.my directly
+        
+        // --- Render Attachments if present ---
+        let attachmentsHTML = '';
+        if (item.xattach && Array.isArray(item.xattach) && item.xattach.length > 0) {
+          attachmentsHTML = item.xattach.map(att => {
+            const emoji = this.getFileEmoji(att.type || '', att.name || '');
+            const fileUrl = att.url || '#';
+            const fileName = att.name || 'Attachment';
+            const fileSize = att.size ? this.formatFileSize(att.size) : '';
+            const fileType = att.type ? att.type.split('/').pop().toUpperCase() : '';
+            return `
+              <div class="attachment-row" style="display: flex; align-items: center; background: #f5f5f7; border-radius: 12px; padding: 10px 12px; margin-bottom: 6px;">
+                <span style="font-size: 2.2em; margin-right: 14px;">${emoji}</span>
+                <div style="min-width:0;">
+                  <a href="${fileUrl}" target="_blank" style="font-weight: 500; color: #222; text-decoration: underline; word-break: break-all;">${fileName}</a><br>
+                  <span style="font-size: 0.93em; color: #888;">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+        
+        // --- Render message text (if any) ---
+        const messageTextHTML = item.message && item.message.trim() ?
+          `<div class="message-content" style="white-space: pre-wrap; margin-top: ${attachmentsHTML ? '2px' : '0'};">${linkifyUrls(item.message)}</div>` : '';
+        
         messageHTML = `
                     <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
-                        <div class="message-content" style="white-space: pre-wrap">${linkifyUrls(item.message)}</div>
+                        ${attachmentsHTML}
+                        ${messageTextHTML}
                         <div class="message-time">${timeString}</div>
                     </div>
                 `;
@@ -7239,6 +7266,33 @@ console.warn('in send message', txid)
     }
     
     return dhkeyCombined(myAccount.keys.secret, recipientPubKey, pqRecPubKey);
+  }
+
+  /**
+   * Returns an appropriate emoji based on file type and name
+   * @param {string} type - MIME type of the file
+   * @param {string} name - Name of the file
+   * @returns {string} Emoji representing the file type
+   */
+  getFileEmoji(type, name) {
+    if (type && type.startsWith('image/')) return '🖼️';
+    if (type && type.startsWith('audio/')) return '🎵';
+    if (type && type.startsWith('video/')) return '🎬';
+    if ((type === 'application/pdf') || (name && name.toLowerCase().endsWith('.pdf'))) return '📄';
+    if (type && type.startsWith('text/')) return '📄';
+    return '📎';
+  }
+
+  /**
+   * Formats file size in bytes to human-readable format
+   * @param {number} bytes - File size in bytes
+   * @returns {string} Formatted file size string
+   */
+  formatFileSize(bytes) {
+    if (!bytes && bytes !== 0) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   }
 }
 
