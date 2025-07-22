@@ -7498,10 +7498,6 @@ console.warn('in send message', txid)
       
       const message = contact.messages[messageIndex];
       
-      /* if (!message.my) {
-        return showToast('You can only delete your own messages', 2000, 'error');
-      } */
-      
       if (message.deletedByMe) {
         return showToast('Message already deleted', 2000, 'info');
       }
