@@ -6503,7 +6503,8 @@ class ChatModal {
         attachmentData = this.fileAttachments.map(attachment => ({
           url: attachment.url,
           name: attachment.name,
-          size: attachment.size
+          size: attachment.size,
+          type: attachment.type
         }));
         
         // Encrypt attachment data similar to memo encryption
