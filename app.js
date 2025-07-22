@@ -7482,8 +7482,40 @@ console.warn('in send message', txid)
     e.stopPropagation();
     
     this.currentContextMessage = messageEl;
-    positionContextMenu(this.contextMenu, messageEl);
+    this.positionContextMenu(this.contextMenu, messageEl);
     this.contextMenu.style.display = 'block';
+  }
+
+  /**
+   * Utility function to position context menus based on available space
+   * @param {HTMLElement} menu - The context menu element
+   * @param {HTMLElement} messageEl - The message element to position relative to
+   */
+  positionContextMenu(menu, messageEl) {
+    const rect = messageEl.getBoundingClientRect();
+    const menuWidth = 200; // match CSS
+    const menuHeight = 100;
+
+    let left = rect.left + (rect.width / 2) - (menuWidth / 2);
+    // If menu would overflow right, push left
+    if (left + menuWidth > window.innerWidth - 10) {
+      left = window.innerWidth - menuWidth - 10;
+    }
+    // If menu would overflow left, push right
+    if (left < 10) {
+      left = 10;
+    }
+
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const top = (spaceBelow >= menuHeight || spaceBelow > spaceAbove)
+      ? rect.bottom + 10
+      : rect.top - menuHeight - 10;
+
+    Object.assign(menu.style, {
+      left: `${left}px`,
+      top: `${top}px`
+    });
   }
 
   /**
@@ -7596,38 +7628,6 @@ console.warn('in send message', txid)
 const chatModal = new ChatModal();
 
 /**
- * Utility function to position context menus based on available space
- * @param {HTMLElement} menu - The context menu element
- * @param {HTMLElement} messageEl - The message element to position relative to
- */
-function positionContextMenu(menu, messageEl) {
-  const rect = messageEl.getBoundingClientRect();
-  const menuWidth = 200; // match CSS
-  const menuHeight = 100;
-
-  let left = rect.left + (rect.width / 2) - (menuWidth / 2);
-  // If menu would overflow right, push left
-  if (left + menuWidth > window.innerWidth - 10) {
-    left = window.innerWidth - menuWidth - 10;
-  }
-  // If menu would overflow left, push right
-  if (left < 10) {
-    left = 10;
-  }
-
-  const spaceBelow = window.innerHeight - rect.bottom;
-  const spaceAbove = rect.top;
-  const top = (spaceBelow >= menuHeight || spaceBelow > spaceAbove)
-    ? rect.bottom + 10
-    : rect.top - menuHeight - 10;
-
-  Object.assign(menu.style, {
-    left: `${left}px`,
-    top: `${top}px`
-  });
-}
-
-/**
  * Failed Message Context Menu Class
  * @class
  * @description Handles the failed message context menu
@@ -7670,7 +7670,7 @@ class FailedMessageMenu {
     this.currentMessageEl = messageEl;
 
     // Use shared positioning utility
-    positionContextMenu(this.menu, messageEl);
+    chatModal.positionContextMenu(this.menu, messageEl);
     this.menu.style.display = 'block';
   }
 
