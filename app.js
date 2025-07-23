@@ -10588,9 +10588,32 @@ class LaunchModal {
       showToast('Please enter a URL', 0, 'error');
       return;
     }
-    // open the url in the app
-    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'launch', url }));
-    this.close();
+    
+    // Disable button and show loading state
+    this.launchButton.disabled = true;
+    this.launchButton.textContent = 'Checking URL...';
+    
+    // Validate URL by fetching it
+    fetch(url, { 
+      method: 'HEAD', 
+      mode: 'no-cors',
+      signal: AbortSignal.timeout(10000) // 10 second timeout
+    })
+      .then(() => {
+        // URL is reachable, proceed with launching
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'launch', url }));
+        this.close();
+      })
+      .catch((error) => {
+        // URL is not reachable or timed out
+        showToast('URL is not reachable. Please check the address and try again.', 0, 'error');
+        console.error('URL validation failed:', error);
+      })
+      .finally(() => {
+        // Reset button state
+        this.launchButton.disabled = false;
+        this.launchButton.textContent = 'Launch';
+      });
   }
 
   updateButtonState() {
