@@ -10568,10 +10568,38 @@ class LaunchModal {
     this.closeButton.addEventListener('click', () => this.close());
     this.launchForm.addEventListener('submit', (event) => this.handleSubmit(event));
     this.urlInput.addEventListener('input', () => this.updateButtonState());
+
+    // Add message listener for React Native WebView communication
+    if (window?.ReactNativeWebView) {
+      window.addEventListener('message', (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          // Handle APP_URL response from React Native
+          if (data.type === 'APP_URL' && data.url) {
+            // Remove query parameters from the URL
+            const url = new URL(data.url);
+            const baseUrl = `${url.protocol}//${url.host}${url.pathname}`;
+            
+            // Pre-fill the launch modal URL input if it's open
+            if (this.modal.classList.contains('active')) {
+              this.urlInput.value = baseUrl;
+              this.updateButtonState();
+            }
+          }
+        } catch (error) {
+          console.error('Error parsing message from React Native:', error);
+        }
+      });
+    }
   }
 
   open() {
     this.modal.classList.add('active');
+    // Send a GET_APP_URL message to React Native
+    if (window.ReactNativeWebView) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'GET_APP_URL' }));
+    }
   }
 
   close() {
