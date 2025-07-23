@@ -2720,7 +2720,7 @@ class HistoryModal {
         const statusAttr = tx?.status ? `data-status="${tx.status}"` : '';
         
         // Check if transaction was deleted
-        if (tx.deleted) {
+        if (tx?.deleted > 0) {
           return `
             <div class="transaction-item deleted-transaction" ${txidAttr} ${statusAttr}>
               <div class="transaction-info">
