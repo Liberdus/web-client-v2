@@ -426,11 +426,9 @@ async function handleNativeAppUnsubscribe() {
 
   if (remainingAddresses.length === 0) {
     // This is the only account. Unsubscribe the device completely.
-    const DUMMY_ADDRESS = '0'.repeat(64);
     payload = {
       deviceToken,
-      addresses: [DUMMY_ADDRESS],
-      // no expoPushToken
+      addresses: [],
     };
   } else {
     // Other accounts remain. Update the subscription to only include them.
