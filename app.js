@@ -7436,7 +7436,7 @@ console.warn('in send message', txid)
       // 4. Blob + download
       const blob    = new Blob([clearBin], { type: linkEl.dataset.type || 'application/octet-stream' });
       const blobUrl = URL.createObjectURL(blob);
-      const fileName = decodeURIComponent(linkEl.dataset.name || 'download');
+      const filename = decodeURIComponent(linkEl.dataset.name || 'download');
 
       if (window.ReactNativeWebView?.postMessage) {
         const reader = new FileReader();
@@ -7444,7 +7444,7 @@ console.warn('in send message', txid)
           window.ReactNativeWebView.postMessage(
             JSON.stringify({
               type: "DOWNLOAD_ATTACHMENT",
-              fileName,
+              filename: filename,
               mime: blob.type,
               dataUrl: reader.result,
             })
@@ -7455,7 +7455,7 @@ console.warn('in send message', txid)
         // Fallback for web browsers
         const a = document.createElement('a');
         a.href = blobUrl;
-        a.download = fileName;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         a.remove();
