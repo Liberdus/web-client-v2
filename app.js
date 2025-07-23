@@ -480,6 +480,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Sign In Modal
   signInModal.load();
+  
+  // My Info Modal
+  myInfoModal.load();
 
   // Welcome Screen
   welcomeScreen.load()
@@ -838,6 +841,13 @@ class Header {
 
     this.logoLink.addEventListener('keydown', ignoreShiftTabKey); // add event listener for first-item to prevent shift+tab
     this.menuButton.addEventListener('click', () => menuModal.open());
+    
+    // Add click event for username display to open myInfoModal
+    this.text.addEventListener('click', () => {
+      if (myData && myData.account) {
+        myInfoModal.open();
+      }
+    });
   }
 
   open() {
@@ -2176,6 +2186,80 @@ class SignInModal {
 const signInModal = new SignInModal();
 
 // Contact Info Modal Management
+class MyInfoModal {
+  constructor() {}
+
+  load() {
+    this.modal = document.getElementById('myInfoModal');
+    this.backButton = document.getElementById('closeMyInfoModal');
+    this.avatarSection = this.modal.querySelector('.contact-avatar-section');
+    this.avatarDiv = this.avatarSection.querySelector('.avatar');
+    this.nameDiv = this.avatarSection.querySelector('.name');
+    this.subtitleDiv = this.avatarSection.querySelector('.subtitle');
+
+    this.backButton.addEventListener('click', () => this.close());
+  }
+
+  async updateMyInfo() {
+    if (!myAccount) return;
+
+    const identicon = await generateIdenticon(myAccount.keys.address, 96);
+
+    this.avatarDiv.innerHTML = identicon;
+    this.nameDiv.textContent = myAccount.username;
+    this.subtitleDiv.textContent = myAccount.keys.address;
+
+    const { account = {} } = myData ?? {};
+    const fields = {
+      name:      { id: 'myInfoName',      label: 'Name' },
+      email:     { id: 'myInfoEmail',     label: 'Email',    href: v => `mailto:${v}` },
+      phone:     { id: 'myInfoPhone',     label: 'Phone' },
+      linkedin:  { id: 'myInfoLinkedin',  label: 'LinkedIn', href: v => `https://linkedin.com/in/${v}` },
+      x:         { id: 'myInfoX',         label: 'X',        href: v => `https://x.com/${v}` },
+    };
+
+    // Cache DOM elements once
+    const elements = Object.fromEntries(
+      Object.values(fields).map(({ id }) => [id, document.getElementById(id)])
+    );
+
+    for (const [key, cfg] of Object.entries(fields)) {
+      const el = elements[cfg.id];
+      if (!el) continue; // skip if element not found
+      const container =
+        key === 'email' || key === 'linkedin' || key === 'x'
+          ? el.parentElement.parentElement // label + anchor live two levels up
+          : el.parentElement;
+
+      const val = account[key] ?? ''; // empty string if undefined / null
+      const empty = !val;
+
+      // Show / hide container with inline style (per your constraint)
+      container.style.display = empty ? 'none' : 'block';
+      if (empty) continue;
+
+      el.textContent = val;
+      if (cfg.href) el.href = cfg.href(val);
+    }
+  }
+
+  async open() {
+    await this.updateMyInfo();
+    this.modal.classList.add('active');
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+  }
+
+  isActive() {
+    return this.modal.classList.contains('active');
+  }
+}
+
+// Create a singleton instance
+const myInfoModal = new MyInfoModal();
+
 class ContactInfoModal {
   constructor() {
     this.currentContactAddress = null;

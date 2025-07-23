@@ -364,6 +364,7 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: calc(100% - 140px);
+  cursor: pointer;
 }
 
 .header-icons {
