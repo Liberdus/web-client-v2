@@ -7670,7 +7670,6 @@ console.warn('in send message', txid)
           delete myData.wallet.history[txIndex].payment;
           delete myData.wallet.history[txIndex].sign;
           delete myData.wallet.history[txIndex].address;
-          delete myData.wallet.history[txIndex].timestamp;
         }
       }
       // Remove attachments if any
