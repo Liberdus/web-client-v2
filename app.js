@@ -7430,6 +7430,44 @@ console.warn('in send message', txid)
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   }
 
+  /**
+   * Determines if a file type can be viewed in a browser
+   * @param {string} mimeType - The MIME type of the file
+   * @returns {boolean} True if the file type can be viewed in a browser, false otherwise
+   */
+  isViewableInBrowser(mimeType) {
+    if (!mimeType) return false;
+    
+    const viewableTypes = [
+      'image/',           // All images
+      'text/',            // Text files
+      'application/pdf',  // PDFs
+      'video/',           // Videos
+      'audio/',           // Audio files
+      'application/json', // JSON
+      'application/xml',  // XML
+      'text/xml'          // XML (alternative)
+    ];
+    
+    return viewableTypes.some(type => mimeType.startsWith(type));
+  }
+
+  /**
+   * Triggers a file download
+   * @param {string} blobUrl - The URL of the file to download
+   * @param {string} filename - The name of the file to download
+   * @returns {void}
+   */
+  triggerFileDownload(blobUrl, filename) {
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    showToast(`${filename} downloaded`, 3000, 'success');
+  }
+
   async handleAttachmentDownload(item, linkEl) {
     try {
       // 1. Derive a fresh 32‑byte dhkey
@@ -7481,14 +7519,28 @@ console.warn('in send message', txid)
         };
         reader.readAsDataURL(blob);
       } else {
-        // Fallback for web browsers
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(blobUrl);
+        // Web browser handling
+        const isViewable = this.isViewableInBrowser(blob.type);
+        
+        try {
+          if (isViewable) {
+            // Open in new tab and download
+            const newTab = window.open(blobUrl, '_blank');
+            this.triggerFileDownload(blobUrl, filename);
+            
+            if (newTab) {
+              console.log('opened in new tab');
+            } else {
+              showToast('Popup blocked. File downloaded instead.', 3000, 'warning');
+            }
+          } else {
+            // Non-viewable files: download only
+            this.triggerFileDownload(blobUrl, filename);
+          }
+        } finally {
+          // Clean up blob URL after enough time for downloads/tabs to initialize
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+        }
       }
 
     } catch (err) {
