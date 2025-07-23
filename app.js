@@ -2718,6 +2718,24 @@ class HistoryModal {
       .map((tx) => {
         const txidAttr = tx?.txid ? `data-txid="${tx.txid}"` : '';
         const statusAttr = tx?.status ? `data-status="${tx.status}"` : '';
+        
+        // Check if transaction was deleted
+        if (tx.deleted) {
+          return `
+            <div class="transaction-item deleted-transaction" ${txidAttr} ${statusAttr}>
+              <div class="transaction-info">
+                <div class="transaction-type deleted">
+                  <span class="delete-icon"></span>
+                  Deleted
+                </div>
+                <div class="transaction-amount">-- --</div>
+              </div>
+              <div class="transaction-memo">${tx.memo || "Deleted by me"}</div>
+            </div>
+          `;
+        }
+        
+        // Render normal transaction
         const contactName = getContactDisplayName(contacts[tx.address]);
         
         return `
@@ -2763,6 +2781,11 @@ class HistoryModal {
     const item = event.target.closest('.transaction-item');
     
     if (!item) return;
+    
+    // Prevent clicking on deleted transactions
+    if (item.classList.contains('deleted-transaction')) {
+      return;
+    }
     
     if (item.dataset.status === 'failed') {
       console.log(`Not opening chatModal for failed transaction`);
@@ -7607,7 +7630,7 @@ console.warn('in send message', txid)
    * Deletes a message locally (and potentially from network if it's a sent message)
    * @param {HTMLElement} messageEl - The message element to delete
    */
-  async deleteMessage(messageEl) {
+  deleteMessage(messageEl) {
     const { txid, messageTimestamp: timestamp } = messageEl.dataset;
     
     if (!timestamp || !confirm('Delete this message?')) return;
@@ -7626,11 +7649,31 @@ console.warn('in send message', txid)
         return showToast('Message already deleted', 2000, 'info');
       }
       
-      // Mark as deleted and clear attachments
+      // Mark as deleted and clear payment info if present
       Object.assign(message, {
         deleted: 1,
         message: "Deleted by me"
       });
+      // Remove payment-specific fields if present
+      if (message?.amount) {
+        if (message.payment) delete message.payment;
+        if (message.memo) message.memo = "Deleted by me";
+        if (message.amount) delete message.amount;
+        if (message.symbol) delete message.symbol;
+        
+        // Update corresponding transaction in wallet history
+        const txIndex = myData.wallet.history.findIndex((tx) => tx.txid === message.txid);
+        if (txIndex !== -1) {
+          Object.assign(myData.wallet.history[txIndex], { deleted: 1, memo: 'Deleted by me' });
+          delete myData.wallet.history[txIndex].amount;
+          delete myData.wallet.history[txIndex].symbol;
+          delete myData.wallet.history[txIndex].payment;
+          delete myData.wallet.history[txIndex].sign;
+          delete myData.wallet.history[txIndex].address;
+          delete myData.wallet.history[txIndex].timestamp;
+        }
+      }
+      // Remove attachments if any
       delete message.xattach;
       
       this.appendChatModal();
