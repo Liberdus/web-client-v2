@@ -1327,7 +1327,7 @@ class MenuModal {
   }
 
   open() {
-    if (window.ReactNativeWebView) {
+    if (window?.ReactNativeWebView) {
       this.launchButton.style.display = 'block';
     }
     this.modal.classList.add('active');
