@@ -10060,6 +10060,7 @@ class MigrateAccountsModal {
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
       hideToast(loadingToastId);
+      welcomeScreen.orderButtons();
     }
 
     // clearing myData, not being used anymore
