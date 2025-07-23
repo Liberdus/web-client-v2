@@ -10577,13 +10577,9 @@ class LaunchModal {
           
           // Handle APP_URL response from React Native
           if (data.type === 'APP_URL' && data.url) {
-            // Remove query parameters from the URL
-            const url = new URL(data.url);
-            const baseUrl = `${url.protocol}//${url.host}${url.pathname}`;
-            
             // Pre-fill the launch modal URL input if it's open
             if (this.modal.classList.contains('active')) {
-              this.urlInput.value = baseUrl;
+              this.urlInput.value = data.url;
               this.updateButtonState();
             }
           }
