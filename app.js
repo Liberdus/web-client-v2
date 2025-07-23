@@ -613,8 +613,8 @@ function handleUnload() {
 */
 
 // Add unload handler to save myData
-async function handleBeforeUnload(e) {
-  await handleNativeAppSubscription();
+function handleBeforeUnload(e) {
+  handleNativeAppSubscription();
   if (menuModal.isSignoutExit){
     return;
   }
@@ -625,7 +625,7 @@ async function handleBeforeUnload(e) {
 }
 
 // This is for installed apps where we can't stop the back button; just save the state
-async function handleVisibilityChange() {
+function handleVisibilityChange() {
   console.log('in handleVisibilityChange', document.visibilityState);
   if (!myAccount) {
     return;
@@ -2099,8 +2099,8 @@ class SignInModal {
 
     // Register events that will saveState if the browser is closed without proper signOut
     // Add beforeunload handler to save myData; don't use unload event, it is getting depricated
-    window.addEventListener('beforeunload', async () => await handleBeforeUnload());
-    document.addEventListener('visibilitychange', async () => await handleVisibilityChange()); // Keep as document
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange); // Keep as document
 
     handleNativeAppUnsubscribe();
 
