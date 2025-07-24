@@ -7313,6 +7313,7 @@ console.warn('in send message', txid)
     try {
       this.isEncrypting = true;
       this.sendButton.disabled = true; // Disable send button during encryption
+      this.addAttachmentButton.disabled = true;
       const loadingToastId = showToast(`Attaching file...`, 0, 'loading');
       const { dhkey, cipherText: pqEncSharedKey } = await this.getRecipientDhKey(this.address);
       const password = myAccount.keys.secret + myAccount.keys.pqSeed;
@@ -7325,6 +7326,7 @@ console.warn('in send message', txid)
           hideToast(loadingToastId);
           showToast(e.data.error, 0, 'error');
           this.sendButton.disabled = false; // Re-enable send button
+          this.addAttachmentButton.disabled = false;
         } else {
           // Encryption successful
           // upload to get url here 
@@ -7358,6 +7360,7 @@ console.warn('in send message', txid)
           hideToast(loadingToastId);
           this.showAttachmentPreview(file);
           this.sendButton.disabled = false; // Re-enable send button
+          this.addAttachmentButton.disabled = false;
           showToast(`File "${file.name}" attached successfully`, 2000, 'success');
         }
         worker.terminate();
@@ -7367,7 +7370,8 @@ console.warn('in send message', txid)
         hideToast(loadingToastId);
         showToast(`File encryption failed: ${err.message}`, 0, 'error');
         this.isEncrypting = false;
-        this.submitButton.disabled = false; // Re-enable send button
+        this.sendButton.disabled = false; // Re-enable send button
+        this.addAttachmentButton.disabled = false;
         worker.terminate();
       };
       
