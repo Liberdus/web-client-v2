@@ -6395,8 +6395,7 @@ class ChatModal {
 
       const idx  = Number(link.dataset.msgIdx);
       const item = myData.contacts[this.address].messages[idx];
-      this.handleAttachmentDownload(item, link)
-          .catch(err => console.error('Attachment download failed:', err));
+      this.handleAttachmentDownload(item, link);
     });
 
 
@@ -7302,16 +7301,16 @@ console.warn('in send message', txid)
     try {
       this.isEncrypting = true;
       this.sendButton.disabled = true; // Disable send button during encryption
-      const loadingToastId = showToast(`Encrypting file...`, 0, 'loading');
+      const loadingToastId = showToast(`Attaching file...`, 0, 'loading');
       const { dhkey, cipherText: pqEncSharedKey } = await this.getRecipientDhKey(this.address);
       const password = myAccount.keys.secret + myAccount.keys.pqSeed;
       const selfKey = encryptData(bin2hex(dhkey), password, true)
 
       const worker = new Worker('encryption.worker.js', { type: 'module' });
       worker.onmessage = async (e) => {
-        hideToast(loadingToastId);
         this.isEncrypting = false;
         if (e.data.error) {
+          hideToast(loadingToastId);
           showToast(e.data.error, 3000, 'error');
           this.sendButton.disabled = false; // Re-enable send button
         } else {
@@ -7344,6 +7343,7 @@ console.warn('in send message', txid)
             pqEncSharedKey: bin2base64(pqEncSharedKey),
             selfKey
           });
+          hideToast(loadingToastId);
           this.showAttachmentPreview(file);
           this.sendButton.disabled = false; // Re-enable send button
           showToast(`File "${file.name}" attached successfully`, 2000, 'success');
@@ -7554,6 +7554,7 @@ console.warn('in send message', txid)
 
   async handleAttachmentDownload(item, linkEl) {
     try {
+      const loadingToastId = showToast(`Decrypting attachment...`, 0, 'loading');
       // 1. Derive a fresh 32‑byte dhkey
       let dhkey;
       if (item.my) {
@@ -7622,6 +7623,7 @@ console.warn('in send message', txid)
             this.triggerFileDownload(blobUrl, filename);
           }
         } finally {
+          hideToast(loadingToastId);
           // Clean up blob URL after enough time for downloads/tabs to initialize
           setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
         }
