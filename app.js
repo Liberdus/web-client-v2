@@ -10429,6 +10429,7 @@ const migrateAccountsModal = new MigrateAccountsModal();
 class LockModal {
   constructor() {
     this.encKey = null;
+    this.mode = 'set'; // set, change, or remove
   }
 
   load() {
@@ -10439,8 +10440,14 @@ class LockModal {
     this.oldPasswordInput = this.modal.querySelector('#oldPassword');
     this.oldPasswordLabel = this.modal.querySelector('#oldPasswordLabel');
     this.newPasswordInput = this.modal.querySelector('#newPassword');
+    this.newPasswordLabel = this.modal.querySelector('#newPasswordLabel');
     this.confirmNewPasswordInput = this.modal.querySelector('#confirmNewPassword');
-    this.lockButton = this.modal.querySelector('.update-button');
+    this.confirmNewPasswordLabel = this.modal.querySelector('#confirmNewPasswordLabel');
+    this.lockButton = this.modal.querySelector('#lockForm button[type="submit"]');
+    this.optionsBox = document.getElementById('lockOptions');
+    this.changeButton = document.getElementById('changePasswordButton');
+    this.removeButton = document.getElementById('removeLockButton');
+    this.formBox = document.getElementById('lockFormContainer');
 
     this.openButton.addEventListener('click', () => this.open());
     this.headerCloseButton.addEventListener('click', () => this.close());
@@ -10451,20 +10458,19 @@ class LockModal {
     this.confirmNewPasswordInput.addEventListener('input', this.debouncedUpdateButtonState);
     this.oldPasswordInput.addEventListener('input', this.debouncedUpdateButtonState);
     this.passwordWarning = this.modal.querySelector('#passwordWarning');
+    this.changeButton.addEventListener('click', () => this.pickMode('change'));
+    this.removeButton.addEventListener('click', () => this.pickMode('remove'));
   }
 
   open() {
-    // if localStorage.lock exists, then show the old password input
-    if (localStorage?.lock) {
-      this.oldPasswordInput.style.display = 'block';
-      this.oldPasswordLabel.style.display = 'block';
-      this.newPasswordInput.placeholder = 'Leave blank to remove password';
-    } else {
-      this.oldPasswordInput.style.display = 'none';
-      this.oldPasswordLabel.style.display = 'none';
-      this.newPasswordInput.placeholder = '';
-      this.lockButton.textContent = 'Save Password';
-    }
+    const alreadyLocked = Boolean(localStorage?.lock);
+
+    // show or hide the option picker
+    this.optionsBox.style.display = alreadyLocked ? 'block' : 'none';
+    this.formBox.style.display = alreadyLocked ? 'none' : 'block';
+
+    this.mode = alreadyLocked ? null : 'set';
+    this.prepareForm(); 
 
     // disable the button
     this.lockButton.disabled = true;
@@ -10477,6 +10483,51 @@ class LockModal {
 
   close() {
     this.modal.classList.remove('active');
+  }
+
+  pickMode(mode) {
+    this.mode = mode; // 'change' | 'remove'
+    this.optionsBox.style.display = 'none';
+    this.formBox.style.display = 'block';
+    this.prepareForm();
+    this.updateButtonState();
+  }
+
+  // adjust which fields are visible based on selected mode
+  prepareForm() {
+    // hide all the fields
+    this.oldPasswordInput.style.display        = 'none';
+    this.oldPasswordLabel.style.display        = 'none';
+    this.newPasswordInput.style.display        = 'none';
+    this.newPasswordLabel.style.display        = 'none';
+    this.confirmNewPasswordInput.style.display = 'none';
+    this.confirmNewPasswordLabel.style.display = 'none';
+
+    // reveal fields based on mode
+    if (this.mode === 'remove') {
+      // only the current‑password field
+      this.oldPasswordInput.style.display = 'block';
+      this.oldPasswordLabel.style.display = 'block';
+      this.lockButton.textContent = 'Remove Lock';
+
+    } else if (this.mode === 'change') {
+      // current + new + confirm
+      this.oldPasswordInput.style.display        = 'block';
+      this.oldPasswordLabel.style.display        = 'block';
+      this.newPasswordInput.style.display        = 'block';
+      this.newPasswordLabel.style.display        = 'block';
+      this.confirmNewPasswordInput.style.display = 'block';
+      this.confirmNewPasswordLabel.style.display = 'block';
+      this.lockButton.textContent = 'Save Password';
+
+    } else { // 'set' (no existing lock)
+      // new + confirm only
+      this.newPasswordInput.style.display        = 'block';
+      this.newPasswordLabel.style.display        = 'block';
+      this.confirmNewPasswordInput.style.display = 'block';
+      this.confirmNewPasswordLabel.style.display = 'block';
+      this.lockButton.textContent = 'Save Password';
+    }
   }
 
   async handleSubmit(event) {
@@ -10520,7 +10571,7 @@ class LockModal {
 
     // if new password is empty, remove the password from localStorage
     // once we are here we know the old password is correct
-    if (newPassword.length === 0) {
+    if (this.mode === 'remove') {
       await encryptAllAccounts(oldPassword, newPassword)
       delete localStorage.lock;
       this.encKey = null;
@@ -10576,54 +10627,30 @@ class LockModal {
     const oldPassword = this.oldPasswordInput.value;
     
     // Check if old password is filled and new password is empty - "Clear password" mode
-    const isOldPasswordVisible = this.oldPasswordInput.style.display !== 'none';
-    const isClearPasswordMode = isOldPasswordVisible && oldPassword.length > 0 && newPassword.length === 0;
+    // const isOldPasswordVisible = this.oldPasswordInput.style.display !== 'none';
+    // const isClearPasswordMode = isOldPasswordVisible && oldPassword.length > 0 && newPassword.length === 0;
     
     let isValid = false;
-    
-    if (isClearPasswordMode) {
-      // In clear password mode, only old password needs to be filled
-      isValid = true;
-      this.lockButton.textContent = 'Remove Password';
-      
-      // Set placeholder based on confirm password state
-      if (confirmPassword.length > 0) {
-        this.newPasswordInput.placeholder = '';
-      } else {
-        this.newPasswordInput.placeholder = 'Leave blank to remove password';
-      }
-    } else {
-      // Regular password set/update mode
-      isValid = newPassword.length > 0 && confirmPassword.length > 0;
-      
-      // If old password field is visible, it must be filled
-      if (isOldPasswordVisible) {
-        isValid = isValid && oldPassword.length > 0;
-      }
-      this.lockButton.textContent = 'Save Password';
-      this.newPasswordInput.placeholder = '';
-    }
-    
-    // Validate password requirements and set appropriate warnings
     let warningMessage = '';
-    
-    if (!isClearPasswordMode) {
-      // Check if password is at least 4 characters
+
+    if (this.mode === 'remove') {
+      isValid = oldPassword.length > 0;
+    } else { // set or change mode
+      // too short
       if (newPassword.length > 0 && newPassword.length < 4) {
-        isValid = false;
         warningMessage = 'too short';
-      }
-      // Check if passwords match
-      else if (newPassword && confirmPassword && newPassword !== confirmPassword) {
-        isValid = false;
+      } else if (newPassword && confirmPassword && newPassword !== confirmPassword) {
         warningMessage = 'does not match';
-      }
-      // Check if new password is same as old password
-      else if (newPassword && oldPassword && newPassword === oldPassword) {
-        isValid = false;
+      } else if (this.mode === 'change' && newPassword && oldPassword && newPassword === oldPassword) {
         warningMessage = 'same as current';
       }
+      isValid = !warningMessage && newPassword.length >= 4 && newPassword === confirmPassword;
+      if (this.mode === 'change') {
+        isValid = isValid && oldPassword.length > 0;
+      }
     }
+    
+    this.passwordWarning.style.display = 'none';
     
     // Update button state and warnings
     this.lockButton.disabled = !isValid;

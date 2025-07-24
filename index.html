@@ -329,20 +329,24 @@
         <p>If you lose your password, you will not be able to access your accounts.</p>
         <p>If you are sure you want to lock your app, please enter your password below.</p>
       </div>
-      <div class="form-container">
+      <div id="lockOptions" class="form-container" style="display:none;">
+        <button id="changePasswordButton" class="update-button">Change Password</button>
+        <button id="removeLockButton"  class="update-button">Remove Lock</button>
+      </div>
+      <div id="lockFormContainer" class="form-container">
         <form id="lockForm">
           <div class="form-group">
             <!-- old password input default to hidden -->
             <label for="oldPassword" id="oldPasswordLabel" style="display: none;">Current Password</label>
             <input type="password" id="oldPassword" class="form-control" style="display: none;" />
             <!-- new password input -->
-            <label for="newPassword">
+            <label for="newPassword" id="newPasswordLabel">
               Password
               <span id="passwordWarning" style="color: #dc3545; display: none"></span>
             </label>
             <input type="password" id="newPassword" class="form-control" />
             <!-- confirm new password input -->
-            <label for="confirmNewPassword">Confirm Password</label>
+            <label for="confirmNewPassword" id="confirmNewPasswordLabel">Confirm Password</label>
             <input type="password" id="confirmNewPassword" class="form-control" />
           </div>
           <button type="submit" class="update-button" disabled>Save Password</button>
