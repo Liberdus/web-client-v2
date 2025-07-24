@@ -7589,6 +7589,7 @@ console.warn('in send message', txid)
       const blobUrl = URL.createObjectURL(blob);
       const filename = decodeURIComponent(linkEl.dataset.name || 'download');
 
+      hideToast(loadingToastId);
       if (window.ReactNativeWebView?.postMessage) {
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -7622,7 +7623,6 @@ console.warn('in send message', txid)
             this.triggerFileDownload(blobUrl, filename);
           }
         } finally {
-          hideToast(loadingToastId);
           // Clean up blob URL after enough time for downloads/tabs to initialize
           setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
         }
