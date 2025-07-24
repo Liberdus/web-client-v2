@@ -5336,7 +5336,9 @@ const tollModal = new TollModal();
 
 // Invite Modal
 class InviteModal {
-  constructor() {}
+  constructor() {
+    this.invitedContacts = new Set(); // Track invited emails/phones
+  }
 
   load() {
     this.modal = document.getElementById('inviteModal');
@@ -5381,6 +5383,7 @@ class InviteModal {
 
   async handleSubmit(event) {
     event.preventDefault();
+    this.submitButton.disabled = true;
 
     const email = this.inviteEmailInput.value.trim();
     const phone = this.invitePhoneInput.value.trim();
@@ -5389,6 +5392,28 @@ class InviteModal {
       showToast('Please enter either an email or phone number', 0, 'error');
       // Ensure button is disabled again if somehow submitted while empty
       this.submitButton.disabled = true;
+      return;
+    }
+
+    // Check if we've already invited this email or phone
+    const emailAlreadyInvited = email && this.invitedContacts.has(email);
+    const phoneAlreadyInvited = phone && this.invitedContacts.has(phone);
+    
+    if (emailAlreadyInvited || phoneAlreadyInvited) {
+      let message = '';
+      if (emailAlreadyInvited && phoneAlreadyInvited) {
+        message = "You've already sent invites to both this email and phone number";
+      } else if (emailAlreadyInvited) {
+        message = "You've already sent an invite to this email";
+      } else {
+        message = "You've already sent an invite to this phone number";
+      }
+      
+      showToast(message, 0, 'error');
+      // Clear the input and re-enable button so they can enter different contacts
+      this.inviteEmailInput.value = '';
+      this.invitePhoneInput.value = '';
+      this.validateInputs(); // will disable the button since inputs are now empty
       return;
     }
 
@@ -5408,6 +5433,10 @@ class InviteModal {
       const data = await response.json();
 
       if (response.ok) {
+        // Add the successfully invited contacts to our tracking set
+        if (email) this.invitedContacts.add(email);
+        if (phone) this.invitedContacts.add(phone);
+        
         showToast('Invitation sent successfully!', 3000, 'success');
         this.close();
       } else {
