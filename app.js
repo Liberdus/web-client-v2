@@ -5458,9 +5458,18 @@ class AboutModal {
     this.versionDisplay = document.getElementById('versionDisplayAbout');
     this.networkName = document.getElementById('networkNameAbout');
     this.netId = document.getElementById('netIdAbout');
+    this.checkForUpdatesBtn = document.getElementById('checkForUpdatesBtn');
 
     // Set up event listeners
     this.closeButton.addEventListener('click', () => this.close());
+
+    // Only show "Check for Updates" button if user is in React Native app
+    if (window.ReactNativeWebView) {
+      this.checkForUpdatesBtn.style.display = 'inline-block';
+      this.checkForUpdatesBtn.addEventListener('click', () => this.openStore());
+    } else {
+      this.checkForUpdatesBtn.style.display = 'none';
+    }
 
     // Set version and network information once during initialization
     this.versionDisplay.textContent = myVersion + ' ' + version;
@@ -5475,6 +5484,23 @@ class AboutModal {
 
   close() {
     this.modal.classList.remove('active');
+  }
+
+  openStore() {
+    // This method only runs when user is in React Native app
+    const userAgent = navigator.userAgent.toLowerCase();
+    let storeUrl;
+
+    if (userAgent.includes('android')) {
+      storeUrl = 'https://play.google.com/store/apps/details?id=com.jairaj.liberdus';
+    } else if (userAgent.includes('iphone') || userAgent.includes('ipad') || userAgent.includes('ios')) {
+      storeUrl = 'https://testflight.apple.com/join/zSRCWyxy';
+    } else {
+      storeUrl = 'https://play.google.com/store/apps/details?id=com.jairaj.liberdus';
+    }
+
+    // Open store URL in new tab (same as explorer/network buttons and Chris is having handler to have alert happen before going to new tab)
+    window.open(storeUrl, '_blank');
   }
 }
 const aboutModal = new AboutModal();

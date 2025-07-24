@@ -2140,6 +2140,17 @@ input[type='file'].form-control {
   color: var(--primary-color);
 }
 
+button.about-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+#checkForUpdatesBtn {
+  display: none; /* Hidden by default, shown only in React Native app */
+}
+
 /* Contact Info Modal Styles */
 .contact-info-list {
   padding: 1rem;
