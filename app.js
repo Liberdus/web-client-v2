@@ -10939,7 +10939,9 @@ async function checkPendingTransactions() {
             // revert the local myData.contacts[toAddress].timestamp to the old value
             myData.contacts[pendingTxInfo.to].timestamp = pendingTxInfo.oldContactTimestamp;
           } else if (type === 'reclaim_toll') {
-            showToast(`Reclaim toll failed: ${failureReason}`, 0, 'error');
+            if (failureReason !== 'user is trying to reclaim toll but the toll pool is empty') {
+              showToast(`Reclaim toll failed: ${failureReason}`, 0, 'error');
+            }
           } else {
             // for messages, transfer etc.
             showToast(failureReason, 0, 'error');
