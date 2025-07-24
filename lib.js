@@ -267,7 +267,9 @@ export function linkifyUrls(text) {
 
         warningMessage += '\\n\\nClick OK to continue or Cancel to stay.';
 
-        return `<a href="${properUrl}" target="_blank" rel="noopener noreferrer" onclick="return confirm('${warningMessage}')">${escapedUrl}</a>`;
+        // removing the confirm dialog for now, since it triggers popup blockers
+        // return `<a href="${properUrl}" target="_blank" rel="noopener noreferrer" onclick="return confirm('${warningMessage}')">${escapedUrl}</a>`;
+        return `<a href="${properUrl}" target="_blank" rel="noopener noreferrer">${escapedUrl}</a>`;
     });
 }
 
