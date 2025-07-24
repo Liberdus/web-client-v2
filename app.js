@@ -7616,7 +7616,7 @@ console.warn('in send message', txid)
             if (newTab) {
               console.log('opened in new tab');
             } else {
-              showToast('Popup blocked. File downloaded instead.', 3000, 'warning');
+              console.log('failed to open in new tab');
             }
           } else {
             // Non-viewable files: download only
