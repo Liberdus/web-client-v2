@@ -6285,6 +6285,9 @@ class ChatModal {
     this.fileAttachments = [];
     // context menu properties
     this.currentContextMessage = null;
+
+    // Flag to prevent multiple downloads
+    this.attachmentDownloadInProgress = false; 
   }
 
   /**
@@ -6388,14 +6391,24 @@ class ChatModal {
       });
     }
 
-    this.messagesList.addEventListener('click', (e) => {
+    this.messagesList.addEventListener('click', async (e) => {
       const row = e.target.closest('.attachment-row');
       if (!row) return;
       e.preventDefault();
 
+      // Concurent download prevention
+      if (this.attachmentDownloadInProgress) return;
+
+      this.attachmentDownloadInProgress = true;
+
       const idx  = Number(row.dataset.msgIdx);
       const item = myData.contacts[this.address].messages[idx];
-      this.handleAttachmentDownload(item, row);
+
+      try {
+        await this.handleAttachmentDownload(item, row);
+      } finally {
+        this.attachmentDownloadInProgress = false;
+      }
     });
 
 
