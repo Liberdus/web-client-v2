@@ -2748,9 +2748,9 @@ mark {
 }
 
 .field-action-button {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  width: 60px;
+  height: 32px;
+  border-radius: 6px;
   border: none;
   display: flex;
   align-items: center;
@@ -2764,21 +2764,23 @@ mark {
 
 .field-action-button::before {
   content: '';
-  width: 20px;
-  height: 20px;
+  width: 60px;
+  height: 32px;
   background-position: center;
   background-repeat: no-repeat;
   background-size: contain;
-  opacity: 0.7;
+  opacity: 1;
   transition: opacity 0.2s ease;
 }
 
 .field-action-button.clear::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23dc3545' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cline x1='15' y1='9' x2='9' y2='15'%3E%3C/line%3E%3Cline x1='9' y1='9' x2='15' y2='15'%3E%3C/line%3E%3C/svg%3E");
+  width: 60px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='32' viewBox='0 0 60 32'%3E%3Crect x='2' y='2' width='56' height='28' rx='6' fill='%23ffffff' stroke='%23dc3545' stroke-width='2'/%3E%3Ctext x='30' y='21' text-anchor='middle' font-family='system-ui, -apple-system, sans-serif' font-size='14' font-weight='600' fill='%23dc3545'%3EClear%3C/text%3E%3C/svg%3E");
 }
 
 .field-action-button.add::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2328a745' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 11.08V12a10 10 0 1 1-5.93-9.14'%3E%3C/path%3E%3Cpolyline points='22 4 12 14.01 9 11.01'%3E%3C/polyline%3E%3C/svg%3E");
+  width: 54px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='54' height='32' viewBox='0 0 54 32'%3E%3Crect x='2' y='2' width='50' height='28' rx='6' fill='%2328a745' stroke='%2328a745' stroke-width='2'/%3E%3Ctext x='27' y='21' text-anchor='middle' font-family='system-ui, -apple-system, sans-serif' font-size='14' font-weight='600' fill='%23ffffff'%3ESave%3C/text%3E%3C/svg%3E");
 }
 
 .field-action-button:hover {
@@ -2787,14 +2789,6 @@ mark {
 
 .field-action-button:hover::before {
   opacity: 1;
-}
-
-.field-action-button.clear {
-  color: var(--danger-color);
-}
-
-.field-action-button.add {
-  color: var(--success-color);
 }
 
 /* Header action buttons in edit mode */

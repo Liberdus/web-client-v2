@@ -2608,7 +2608,7 @@ class EditContactModal {
 
     // if the textContent is 'Not provided', set it to an empty string
     const providedName = document.getElementById('contactInfoProvidedName').textContent;
-    if (providedName === 'Not provided') {
+    if (providedName === 'Not provided' || !providedName || providedName.trim() === '') {
       this.providedNameContainer.style.display = 'none';
     } else {
       providedNameDiv.textContent = providedName;
