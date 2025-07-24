@@ -5499,7 +5499,7 @@ class AboutModal {
       storeUrl = 'https://play.google.com/store/apps/details?id=com.jairaj.liberdus';
     }
 
-    // Open store URL in new tab (same as explorer/network buttons and Chris is having handler to have alert happen before going to new tab)
+    // Open store URL in new tab (same as explorer/network buttons)
     window.open(storeUrl, '_blank');
   }
 }
