@@ -6389,13 +6389,13 @@ class ChatModal {
     }
 
     this.messagesList.addEventListener('click', (e) => {
-      const link = e.target.closest('.attachment-link');
-      if (!link) return;
+      const row = e.target.closest('.attachment-row');
+      if (!row) return;
       e.preventDefault();
 
-      const idx  = Number(link.dataset.msgIdx);
+      const idx  = Number(row.dataset.msgIdx);
       const item = myData.contacts[this.address].messages[idx];
-      this.handleAttachmentDownload(item, link);
+      this.handleAttachmentDownload(item, row);
     });
 
 
@@ -7039,20 +7039,19 @@ console.warn('in send message', txid)
               const fileSize = att.size ? this.formatFileSize(att.size) : '';
               const fileType = att.type ? att.type.split('/').pop().toUpperCase() : '';
               return `
-                <div class="attachment-row" style="display: flex; align-items: center; background: #f5f5f7; border-radius: 12px; padding: 10px 12px; margin-bottom: 6px;">
+                <div class="attachment-row" style="display: flex; align-items: center; background: #f5f5f7; border-radius: 12px; padding: 10px 12px; margin-bottom: 6px;"
+                  data-url="${fileUrl}"
+                  data-name="${encodeURIComponent(fileName)}"
+                  data-type="${att.type || ''}"
+                  data-pqEncSharedKey="${att.pqEncSharedKey || ''}"
+                  data-selfKey="${att.selfKey || ''}"
+                  data-msg-idx="${i}"
+                >
                   <span style="font-size: 2.2em; margin-right: 14px;">${emoji}</span>
                   <div style="min-width:0;">
-                    <a  href="#"
-                      class="attachment-link"
-                      data-url="${fileUrl}"
-                      data-name="${encodeURIComponent(fileName)}"
-                      data-type="${att.type || ''}"
-                      data-pqEncSharedKey="${att.pqEncSharedKey || ''}"
-                      data-selfKey="${att.selfKey || ''}"
-                      data-msg-idx="${i}"
-                      style="font-weight:500;color:#222;text-decoration:underline;word-break:break-all;">
-                    ${fileName}
-                  </a><br>
+                    <span class="attachment-label" style="font-weight:500;color:#222;word-break:break-all;">
+                      ${fileName}
+                    </span><br>
                     <span style="font-size: 0.93em; color: #888;">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
                   </div>
                 </div>
@@ -7640,6 +7639,8 @@ console.warn('in send message', txid)
    * @param {Event} e - Click event
    */
   handleMessageClick(e) {
+    if (e.target.closest('.attachment-row')) return;
+
     if (e.target.tagName === 'A' || e.target.closest('a')) return;
     
     const messageEl = e.target.closest('.message');
