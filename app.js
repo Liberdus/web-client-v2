@@ -29,9 +29,13 @@ async function checkVersion() {
   if (parseInt(myVersion.replace(/\D/g, '')) != parseInt(newVersion.replace(/\D/g, ''))) {
     alert('Updating to new version: ' + newVersion + ' ' + version);
     localStorage.setItem('version', newVersion); // Save new version
+    const newUrl = window.location.href.split('?')[0];
+/* probably don't need to forece reload these since we are reloading newUrl now
+    './',
+    'index.html',
+*/
     await forceReload([
-      './',
-      'index.html',
+      newUrl,
       'styles.css',
       'app.js',
       'lib.js',
@@ -40,7 +44,6 @@ async function checkVersion() {
       'encryption.worker.js',
       'offline.html',
     ]);
-    const newUrl = window.location.href.split('?')[0];
     window.location.replace(newUrl);
   }
 }
