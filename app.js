@@ -6,7 +6,10 @@ async function checkVersion() {
   myVersion = localStorage.getItem('version') || '0';
   let newVersion;
   try {
-    const response = await fetch(`version.html?${getCorrectedTimestamp()}`);
+    const response = await fetch(`version.html`, {cache: 'reload', headers: {
+      'Cache-Control': 'no-cache',
+      Pragma: 'no-cache',
+    }});
     if (!response.ok) throw new Error('Version check failed');
     newVersion = await response.text();
   } catch (error) {
@@ -24,17 +27,17 @@ async function checkVersion() {
   //console.log('myVersion < newVersion then reload', myVersion, newVersion)
   console.log(parseInt(myVersion.replace(/\D/g, '')), parseInt(newVersion.replace(/\D/g, '')));
   if (parseInt(myVersion.replace(/\D/g, '')) != parseInt(newVersion.replace(/\D/g, ''))) {
-    if (parseInt(myVersion.replace(/\D/g, '')) > 0) {
-      alert('Updating to new version: ' + newVersion + ' ' + version);
-    }
+    alert('Updating to new version: ' + newVersion + ' ' + version);
     localStorage.setItem('version', newVersion); // Save new version
-    forceReload([
+    await forceReload([
       './',
       'index.html',
       'styles.css',
       'app.js',
       'lib.js',
       'network.js',
+      'crypto.js',
+      'encryption.worker.js',
       'offline.html',
     ]);
     const newUrl = window.location.href;
@@ -43,47 +46,13 @@ async function checkVersion() {
   }
 }
 
-// Usage examples:
-/*
-// These will all work:
-forceReload([
-    'images/logo.png',           // Relative to current path
-    '/styles/main.css',          // Relative to domain root
-    '../scripts/app.js',         // Parent directory
-    './data/config.json',        // Same directory
-    'https://api.example.com/data'  // Absolute URL
-]);
-*/
 async function forceReload(urls) {
   try {
-    // Convert relative URLs to absolute
-    const absoluteUrls = urls.map((url) => {
-      if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('//')) {
-        return url;
-      }
-      // If it starts with /, it's relative to domain root
-      if (url.startsWith('/')) {
-        return `${window.location.origin}${url}`;
-      }
-      // Otherwise, it's relative to current path
-      const base = `${window.location.origin}${window.location.pathname}`;
-      return new URL(url, base).href;
-    });
-    // Remove from all browser caches
-    if (window.caches) {
-      const cacheKeys = await caches.keys();
-      for (const cacheKey of cacheKeys) {
-        const cache = await caches.open(cacheKey);
-        for (const url of absoluteUrls) {
-          await cache.delete(url);
-        }
-      }
-    }
     // Fetch with cache-busting headers
-    const fetchPromises = absoluteUrls.map((url) =>
+    const fetchPromises = urls.map((url) =>
       fetch(url, {
-        cache: 'reload',
-        headers: {
+        cache: 'reload',  // this bypasses the cache to get from the server and updates the cache
+        headers: {        // this bypasses the cache of any proxies between the client and the server
           'Cache-Control': 'no-cache',
           Pragma: 'no-cache',
         },
@@ -1409,7 +1378,8 @@ class MenuModal {
     await handleNativeAppSubscription();
 
     // Only reload if online
-    window.location.reload();
+//    window.location.reload();
+    await checkVersion();
   }
 }
 
