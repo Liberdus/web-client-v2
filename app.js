@@ -295,7 +295,7 @@ function newDataRecord(myAccount) {
  * This is used to subscribe to push notifications for the native app
  * @returns {Promise<void>}
  */
-async function handleNativeAppSubscription() {
+async function handleNativeAppSubscribe() {
   const urlParams = new URLSearchParams(window.location.search);
   const deviceToken = urlParams.get('device_token');
   const pushToken = urlParams.get('push_token');
@@ -442,7 +442,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupConnectivityDetection();
 
   // Check for native app subscription tokens and handle subscription
-  handleNativeAppSubscription();
+  handleNativeAppSubscribe();
 
   // Unlock Modal
   unlockModal.load();
@@ -586,7 +586,7 @@ function handleUnload() {
 
 // Add unload handler to save myData
 function handleBeforeUnload(e) {
-  handleNativeAppSubscription();
+  handleNativeAppSubscribe();
   if (menuModal.isSignoutExit){
     return;
   }
@@ -604,7 +604,7 @@ function handleVisibilityChange() {
   }
 
   if (document.visibilityState === 'hidden') {
-    handleNativeAppSubscription();
+    handleNativeAppSubscribe();
     // if chatModal was opened, save the last message count
     if (chatModal.isActive() && chatModal.address) {
       const contact = myData.contacts[chatModal.address];
@@ -1375,7 +1375,7 @@ class MenuModal {
       return;
     }
 
-    await handleNativeAppSubscription();
+    await handleNativeAppSubscribe();
 
     // Only reload if online
 //    window.location.reload();
