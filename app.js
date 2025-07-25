@@ -4819,7 +4819,6 @@ class RestoreAccountModal {
                      this.oldStringCustom.value.trim();
     const newString = this.newStringSelect.value || 
                      this.newStringCustom.value.trim();
-                     Restore
     if (oldString && newString && oldString !== newString) {
       return { oldString, newString };
     }
