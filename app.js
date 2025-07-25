@@ -40,8 +40,7 @@ async function checkVersion() {
       'encryption.worker.js',
       'offline.html',
     ]);
-    const newUrl = window.location.href;
-    //console.log('reloading', newUrl)
+    const newUrl = window.location.href.split('?')[0];
     window.location.replace(newUrl);
   }
 }
@@ -1380,6 +1379,10 @@ class MenuModal {
     // Only reload if online
 //    window.location.reload();
     await checkVersion();
+
+    const newUrl = window.location.href.split('?')[0];
+    window.location.replace(newUrl);
+
   }
 }
 
@@ -4816,7 +4819,7 @@ class RestoreAccountModal {
                      this.oldStringCustom.value.trim();
     const newString = this.newStringSelect.value || 
                      this.newStringCustom.value.trim();
-    
+                     Restore
     if (oldString && newString && oldString !== newString) {
       return { oldString, newString };
     }
