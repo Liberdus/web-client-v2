@@ -11377,7 +11377,7 @@ function enterFullscreen() {
 }
 
 /**
- * LocalStorage Monitor Class
+ * LocalStorageMonitor class
  * Handles localStorage monitoring and warnings
  */
 class LocalStorageMonitor {
@@ -11398,12 +11398,9 @@ class LocalStorageMonitor {
    */
   checkStorageOnStartup() {
     try {
-
-
       const info = this.getStorageInfo();
 
       // Log to console
-      // wait a second to log the info
       setTimeout(() => {
         console.log('📊 STORAGE CHECK');
         console.log('========================');
@@ -11422,9 +11419,6 @@ class LocalStorageMonitor {
       } else {
         console.log(`✅ Storage OK: ${(info.availableBytes / 1024).toFixed(1)}KB available`);
       }
-
-      
-
     } catch (error) {
       console.error('Error checking localStorage on startup:', error);
     }
@@ -11496,13 +11490,6 @@ class LocalStorageMonitor {
       console.warn('Error calculating localStorage usage:', e);
     }
     return total;
-  }
-
-  /**
-   * Manual storage check (for testing)
-   */
-  checkStorage() {
-    return this.checkStorageOnStartup();
   }
 }
 
