@@ -560,6 +560,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Launch Modal
   launchModal.load();
 
+  // React Native App
+  reactNativeApp.load();
+
   // add event listener for back-button presses to prevent shift+tab
   document.querySelectorAll('.back-button').forEach((button) => {
     button.addEventListener('keydown', ignoreShiftTabKey);
@@ -612,6 +615,8 @@ function handleVisibilityChange() {
       const contact = myData.contacts[chatModal.address];
       chatModal.lastMessageCount = contact?.messages?.length || 0;
     }
+    // save state when app is put into background
+    saveState();
   } else if (document.visibilityState === 'visible') {
     handleNativeAppUnsubscribe();
     // if chatModal was opened, check if message count changed while hidden
@@ -10836,6 +10841,40 @@ class LaunchModal {
 }
 
 const launchModal = new LaunchModal();
+
+/**
+ * React Native App
+ * @class
+ * @description A class for handling communication with the React Native app
+ */
+class ReactNativeApp {
+  constructor() {}
+
+  load() {
+    // Add message listener for React Native WebView communication
+    if (window?.ReactNativeWebView) {
+      window.addEventListener('message', (event) => {
+        try {
+          const data = JSON.parse(event.data);
+
+          if (data.type === 'background') {
+            handleNativeAppSubscribe();
+            // if chatModal was opened, save the last message count
+            if (chatModal.isActive() && chatModal.address) {
+              const contact = myData.contacts[chatModal.address];
+              chatModal.lastMessageCount = contact?.messages?.length || 0;
+            }
+            saveState();
+          }
+        } catch (error) {
+          console.error('Error parsing message from React Native:', error);
+        }
+      });
+    }
+  }
+}
+
+const reactNativeApp = new ReactNativeApp();
 
 /**
  * Remove failed transaction from the contacts messages, pending, and wallet history
