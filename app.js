@@ -563,6 +563,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // React Native App
   reactNativeApp.load();
 
+  // LocalStorage Monitor
+  localStorageMonitor.load();
+
   // add event listener for back-button presses to prevent shift+tab
   document.querySelectorAll('.back-button').forEach((button) => {
     button.addEventListener('keydown', ignoreShiftTabKey);
@@ -11372,3 +11375,136 @@ function enterFullscreen() {
     } 
   }
 }
+
+/**
+ * LocalStorage Monitor Class
+ * Handles localStorage monitoring and warnings
+ */
+class LocalStorageMonitor {
+  constructor() {
+    this.warningThreshold = 100 * 1024; // 100KB in bytes
+  }
+
+  /**
+   * Initialize the localStorage monitor
+   */
+  load() {
+    console.log('🔧 Loading localStorage monitor...');
+    this.checkStorageOnStartup();
+  }
+
+  /**
+   * Check localStorage usage on app startup
+   */
+  checkStorageOnStartup() {
+    try {
+
+
+      const info = this.getStorageInfo();
+
+      // Log to console
+      // wait a second to log the info
+      setTimeout(() => {
+        console.log('📊 STORAGE CHECK');
+        console.log('========================');
+        console.log(`📁 localStorage Used: ${info.usageMB}MB (${info.usageBytes} bytes)`);
+        console.log(`💾 localStorage Available: ${info.availableMB}MB (${info.availableBytes} bytes)`);
+        console.log(`📏 localStorage Limit: ${info.limitMB}MB (${info.limitBytes} bytes)`);
+        console.log(`📊 Usage: ${info.percentageUsed}%`);
+        console.log('========================\n');
+      }, 1000);
+
+      // Check for low storage warning (less than 100KB available)
+      if (info.availableBytes < this.warningThreshold) {
+        const warningMessage = `⚠️ Storage Warning: Only ${(info.availableBytes / 1024).toFixed(1)}KB remaining! Consider clearing old data.`;
+        console.warn(warningMessage);
+        showToast(warningMessage, 8000, 'warning');
+      } else {
+        console.log(`✅ Storage OK: ${(info.availableBytes / 1024).toFixed(1)}KB available`);
+      }
+
+      
+
+    } catch (error) {
+      console.error('Error checking localStorage on startup:', error);
+    }
+  }
+
+  /**
+   * Get localStorage information using the three core functions
+   */
+  getStorageInfo() {
+    const limit = this.findLocalStorageLimit();
+    const usage = this.getLocalStorageUsage();
+    const available = limit - usage;
+    const percentageUsed = ((usage / limit) * 100).toFixed(2);
+
+    return {
+      limitBytes: limit,
+      usageBytes: usage,
+      availableBytes: available,
+      limitMB: (limit / (1024 * 1024)).toFixed(2),
+      usageMB: (usage / (1024 * 1024)).toFixed(2),
+      availableMB: (available / (1024 * 1024)).toFixed(2),
+      percentageUsed: parseFloat(percentageUsed)
+    };
+  }
+
+    /**
+   * Find the maximum localStorage capacity using binary search
+   * @returns {number} Maximum localStorage size in bytes
+   */
+  findLocalStorageLimit() {
+    const testKey = '_storage_test_';
+    let low = 0;
+    let high = 10 * 1024 * 1024; // Start with 10MB
+    let maxSize = 0;
+
+    // Clear any existing test data
+    localStorage.removeItem(testKey);
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const testData = 'x'.repeat(mid);
+
+      try {
+        localStorage.setItem(testKey, testData);
+        localStorage.removeItem(testKey);
+        maxSize = mid;
+        low = mid + 1;
+      } catch (e) {
+        high = mid - 1;
+      }
+    }
+
+    return maxSize;
+  }
+
+  /**
+   * Get current localStorage usage in bytes
+   * @returns {number} Total localStorage usage in bytes
+   */
+  getLocalStorageUsage() {
+    let total = 0;
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const value = localStorage.getItem(key) || '';
+        total += (key.length + value.length) * 2; // UTF-16 encoding
+      }
+    } catch (e) {
+      console.warn('Error calculating localStorage usage:', e);
+    }
+    return total;
+  }
+
+  /**
+   * Manual storage check (for testing)
+   */
+  checkStorage() {
+    return this.checkStorageOnStartup();
+  }
+}
+
+// Create localStorage monitor instance
+const localStorageMonitor = new LocalStorageMonitor();
