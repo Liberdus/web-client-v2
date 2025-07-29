@@ -160,10 +160,10 @@ function adjustForKeyboard() {
   if (window.visualViewport) {
     const viewport = window.visualViewport;
     // show toast
-    showToast('Keyboard adjustment with CSS custom properties enabled', 3000, 'success');
+    /* showToast('Keyboard adjustment with CSS custom properties enabled', 3000, 'success'); */
     const resizeHandler = () => {
       // show toast that we are resizing
-      showToast('Resizing', 3000, 'success');
+      /* showToast('Resizing', 3000, 'success'); */
       // Set your app container height to the visual viewport height
       document.documentElement.style.setProperty(
         '--viewport-height', 
