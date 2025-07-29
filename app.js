@@ -2998,6 +2998,11 @@ async function queryNetwork(url) {
   }
 }
 
+async function pollChatInterval(milliseconds) {
+  pollChats.nextPoll = milliseconds;
+  pollChats();
+}
+
 // Called every 30 seconds if we are online and not subscribed to WebSocket
 async function pollChats() {
   // Step 3: Poll if we are not subscribed to WebSocket
