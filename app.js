@@ -803,6 +803,10 @@ class WelcomeScreen {
       }
     });
 
+    this.openBackupModalButton.addEventListener('click', () => {
+      backupAccountModal.open();
+    });
+
     this.orderButtons();
   }
 
