@@ -11430,7 +11430,7 @@ class LocalStorageMonitor {
    */
   getStorageInfo() {
     const usage = this.getLocalStorageUsage();
-    const availableNow = this.findLocalStorageCapacity(); // How much MORE we can store right now
+    const availableNow = this.findLocalStorageAvailable(); // How much MORE we can store right now
     const totalCapacity = usage + availableNow;          // True total capacity
     const percentageUsed = ((usage / totalCapacity) * 100).toFixed(2);
 
@@ -11449,7 +11449,7 @@ class LocalStorageMonitor {
    * Find available localStorage space using binary search
    * @returns {number} Available localStorage space in bytes (how much MORE can be stored)
    */
-  findLocalStorageCapacity() {
+  findLocalStorageAvailable() {
     const testKey = '_storage_test_';
     let low = 0;
     let high = 10 * 1024 * 1024; // Start with 10MB
