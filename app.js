@@ -11452,12 +11452,13 @@ class LocalStorageMonitor {
   findLocalStorageAvailable() {
     const testKey = '_storage_test_';
     let low = 0;
-    let high = 10 * 1024 * 1024; // Start with 10MB
-    let maxSize = 0;
+    let high = 6 * 1024 * 1024; // Start with 6MB (more realistic upper bound)
+    let maxCharacters = 0;
 
     // Clear any existing test data
     localStorage.removeItem(testKey);
 
+    // Binary search for maximum storable characters
     while (low <= high) {
       const mid = Math.floor((low + high) / 2);
       const testData = 'x'.repeat(mid);
@@ -11465,14 +11466,31 @@ class LocalStorageMonitor {
       try {
         localStorage.setItem(testKey, testData);
         localStorage.removeItem(testKey);
-        maxSize = mid;
+        maxCharacters = mid;
         low = mid + 1;
       } catch (e) {
         high = mid - 1;
       }
     }
 
-    return maxSize;
+    // Verification step - test the found limit
+    if (maxCharacters > 0) {
+      try {
+        const verifyData = 'x'.repeat(maxCharacters);
+        localStorage.setItem(testKey, verifyData);
+        localStorage.removeItem(testKey);
+      } catch (e) {
+        // If verification fails, reduce by small amount and retry
+        maxCharacters = Math.max(0, maxCharacters - 1024);
+      }
+    }
+
+    // Convert characters to bytes (UTF-16: 2 bytes per character)
+    // Add key length (test key is 13 characters = 26 bytes)
+    const keyBytes = testKey.length * 2;
+    const maxBytes = (maxCharacters * 2) - keyBytes;
+
+    return Math.max(0, maxBytes);
   }
 
   /**
