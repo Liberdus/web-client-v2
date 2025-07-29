@@ -6390,7 +6390,7 @@ class ChatModal {
     });
 
     // Add focus event listener for message input to handle scrolling
-    this.messageInput.addEventListener('focus', function () {
+    this.messageInput.addEventListener('focus', () => {
       if (this.messagesContainer) {
         // Check if we're already at the bottom (within 50px threshold)
         const isAtBottom =
@@ -6399,6 +6399,7 @@ class ChatModal {
           // Wait for keyboard to appear and viewport to adjust
           setTimeout(() => {
             this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+            this.messageInput.scrollIntoView({ behavior: 'smooth', block: 'center' }); // To provide smoother, more reliable scrolling on mobile.
           }, 300); // Increased delay to ensure keyboard is fully shown
         }
       }
