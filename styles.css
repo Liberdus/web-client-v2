@@ -5040,3 +5040,28 @@ small {
 .failed-message-context-menu .context-menu-option[data-icon="info"] .context-menu-icon {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cline x1='12' y1='16' x2='12' y2='12'%3E%3C/line%3E%3Cline x1='12' y1='8' x2='12.01' y2='8'%3E%3C/line%3E%3C/svg%3E");
 }
+
+/* Update Warning Modal Styles */
+#updateWarningModal .warning-content p {
+  margin-bottom: 20px;
+}
+
+#updateWarningModal .warning-content p:first-child {
+  color: #dc3545;
+  font-weight: bold;
+}
+
+#updateWarningModal .warning-content p:last-child {
+  margin-bottom: 30px;
+}
+
+/* Make the "Continue to App Store" button red to emphasize danger */
+#updateWarningModal .secondary-button {
+  background-color: #dc3545;
+  color: white;
+}
+
+#updateWarningModal .secondary-button:hover {
+  background-color: #c82333;
+  opacity: 1;
+}

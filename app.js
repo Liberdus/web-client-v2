@@ -506,6 +506,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // About and Contact Modals
   aboutModal.load();
+  updateWarningModal.load();
   helpModal.load();
 
   // Create Account Modal
@@ -5555,11 +5556,46 @@ class AboutModal {
       storeUrl = 'https://play.google.com/store/apps/details?id=com.jairaj.liberdus';
     }
 
-    // Open store URL in new tab (same as explorer/network buttons)
-    window.open(storeUrl, '_blank');
+    // Show update warning modal
+    updateWarningModal.open(storeUrl);
   }
 }
 const aboutModal = new AboutModal();
+
+class UpdateWarningModal {
+  constructor() {}
+
+  load() {
+    this.modal = document.getElementById('updateWarningModal');
+    this.closeButton = document.getElementById('closeUpdateWarningModal');
+    this.backupFirstBtn = document.getElementById('backupFirstBtn');
+    this.proceedToStoreBtn = document.getElementById('proceedToStoreBtn');
+
+    // Set up event listeners
+    this.closeButton.addEventListener('click', () => this.close());
+    this.backupFirstBtn.addEventListener('click', () => backupAccountModal.open());
+    this.proceedToStoreBtn.addEventListener('click', () => this.proceedToStore());
+  }
+
+  open(storeUrl) {
+    // Store the URL for later use
+    this.storeUrl = storeUrl;
+    this.modal.classList.add('active');
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+  }
+
+  proceedToStore() {
+    // Close this modal and open the store URL
+    this.close();
+    if (this.storeUrl) {
+      window.open(this.storeUrl, '_blank');
+    }
+  }
+}
+const updateWarningModal = new UpdateWarningModal();
 
 class HelpModal {
   constructor() {}
