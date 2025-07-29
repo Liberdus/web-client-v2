@@ -4566,6 +4566,8 @@ class BackupAccountModal {
     this.modal = document.getElementById('exportModal');
     this.passwordInput = document.getElementById('exportPassword');
     this.passwordWarning = document.getElementById('exportPasswordWarning');
+    this.passwordConfirmInput = document.getElementById('exportPasswordConfirm');
+    this.passwordConfirmWarning = document.getElementById('exportPasswordConfirmWarning');
     this.submitButton = document.getElementById('exportForm').querySelector('button[type="submit"]');
     
     document.getElementById('closeExportForm').addEventListener('click', () => this.close());
@@ -4580,6 +4582,7 @@ class BackupAccountModal {
     // Add password validation on input with debounce
     this.debouncedUpdateButtonState = debounce(() => this.updateButtonState(), 250);
     this.passwordInput.addEventListener('input', this.debouncedUpdateButtonState);
+    this.passwordConfirmInput.addEventListener('input', this.debouncedUpdateButtonState);
   }
 
   open() {
@@ -4591,8 +4594,9 @@ class BackupAccountModal {
   close() {
     // called when the modal needs to be closed
     this.modal.classList.remove('active');
-    // Clear password for security
+    // Clear passwords for security
     this.passwordInput.value = '';
+    this.passwordConfirmInput.value = '';
   }
 
   /**
@@ -4740,15 +4744,25 @@ class BackupAccountModal {
 
   updateButtonState() {
     const password = this.passwordInput.value;
+    const confirmPassword = this.passwordConfirmInput.value;
     
     // Password is optional, but if provided, it must be at least 4 characters
     let isValid = true;
     
+    // Validate password length
     if (password.length > 0 && password.length < 4) {
       isValid = false;
       this.passwordWarning.style.display = 'inline';
     } else {
       this.passwordWarning.style.display = 'none';
+    }
+    
+    // Validate password confirmation (only show warning if user has started typing in confirm field)
+    if (password.length > 0 && confirmPassword.length > 0 && confirmPassword !== password) {
+      isValid = false;
+      this.passwordConfirmWarning.style.display = 'inline';
+    } else {
+      this.passwordConfirmWarning.style.display = 'none';
     }
     
     // Update button state
