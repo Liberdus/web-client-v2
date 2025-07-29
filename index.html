@@ -1106,13 +1106,22 @@
           <div class="modal-title">Remove Account</div>
         </div>
         <div class="form-container">
-          <div style="padding: 1rem">
-            <p>
-              Before removing your account, please export your account data to ensure you have a backup. This action
-              only removes the account from this device and not from the network. You can use the account again after
-              restoring it from the backup file.
-            </p>
-            <button id="confirmRemoveAccount" class="update-button" style="margin-top: 1rem">Remove</button>
+          <div class="modal-content-wrapper">
+            <div class="modal-text-content">
+              <h3 class="modal-heading">
+                Please backup your account before removing it.
+              </h3>
+              <p>
+                This only removes the account from this device, not from the network.
+              </p>
+              <p>
+                You can restore and use your account again anytime with the backup file.
+              </p>
+            </div>
+            <div>
+              <button id="openBackupFromRemove" class="primary-button">Backup Account</button>
+              <button id="confirmRemoveAccount" class="update-button">Remove</button>
+            </div>
           </div>
           <a class="last-item" href="#"> </a>
         </div>
