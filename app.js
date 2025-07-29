@@ -11401,12 +11401,13 @@ class LocalStorageMonitor {
       const info = this.getStorageInfo();
 
       // Log to console
+      
       setTimeout(() => {
         console.log('📊 STORAGE CHECK');
         console.log('========================');
         console.log(`📁 localStorage Used: ${info.usageMB}MB (${info.usageBytes} bytes)`);
         console.log(`💾 localStorage Available: ${info.availableMB}MB (${info.availableBytes} bytes)`);
-        console.log(`📏 localStorage Limit: ${info.limitMB}MB (${info.limitBytes} bytes)`);
+        console.log(`📏 localStorage Total: ${info.totalCapacityMB}MB (${info.totalCapacityBytes} bytes)`);
         console.log(`📊 Usage: ${info.percentageUsed}%`);
         console.log('========================\n');
       }, 1000);
@@ -11428,27 +11429,27 @@ class LocalStorageMonitor {
    * Get localStorage information using the three core functions
    */
   getStorageInfo() {
-    const limit = this.findLocalStorageLimit();
     const usage = this.getLocalStorageUsage();
-    const available = limit - usage;
-    const percentageUsed = ((usage / limit) * 100).toFixed(2);
+    const availableNow = this.findLocalStorageCapacity(); // How much MORE we can store right now
+    const totalCapacity = usage + availableNow;          // True total capacity
+    const percentageUsed = ((usage / totalCapacity) * 100).toFixed(2);
 
     return {
-      limitBytes: limit,
       usageBytes: usage,
-      availableBytes: available,
-      limitMB: (limit / (1024 * 1024)).toFixed(2),
+      availableBytes: availableNow,
+      totalCapacityBytes: totalCapacity,
+      totalCapacityMB: (totalCapacity / (1024 * 1024)).toFixed(2),
       usageMB: (usage / (1024 * 1024)).toFixed(2),
-      availableMB: (available / (1024 * 1024)).toFixed(2),
+      availableMB: (availableNow / (1024 * 1024)).toFixed(2),
       percentageUsed: parseFloat(percentageUsed)
     };
   }
 
-    /**
-   * Find the maximum localStorage capacity using binary search
-   * @returns {number} Maximum localStorage size in bytes
+  /**
+   * Find available localStorage space using binary search
+   * @returns {number} Available localStorage space in bytes (how much MORE can be stored)
    */
-  findLocalStorageLimit() {
+  findLocalStorageCapacity() {
     const testKey = '_storage_test_';
     let low = 0;
     let high = 10 * 1024 * 1024; // Start with 10MB
