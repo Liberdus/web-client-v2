@@ -542,6 +542,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Menu Modal
   menuModal.load();
 
+  // Settings Modal
+  settingsModal.load();
+
   // Failed Transaction Modal
   failedTransactionModal.load();
   
@@ -817,9 +820,11 @@ class Header {
     this.text = this.header.querySelector('.app-name');
     this.logoLink = this.header.querySelector('.logo-link');
     this.menuButton = document.getElementById('toggleMenu');
+    this.settingsButton = document.getElementById('toggleSettings');
 
     this.logoLink.addEventListener('keydown', ignoreShiftTabKey); // add event listener for first-item to prevent shift+tab
     this.menuButton.addEventListener('click', () => menuModal.open());
+    this.settingsButton.addEventListener('click', () => settingsModal.open());
     
     // Add click event for username display to open myInfoModal
     this.text.addEventListener('click', () => {
@@ -1283,12 +1288,6 @@ class MenuModal {
     this.modal = document.getElementById('menuModal');
     this.closeButton = document.getElementById('closeMenu');
     this.closeButton.addEventListener('click', () => this.close());
-    this.profileButton = document.getElementById('openAccountForm');
-    this.profileButton.addEventListener('click', () => myProfileModal.open());
-    this.tollButton = document.getElementById('openToll');
-    this.tollButton.addEventListener('click', () => tollModal.open());
-    this.backupButton = document.getElementById('openExportForm');
-    this.backupButton.addEventListener('click', () => backupAccountModal.open());
     this.validatorButton = document.getElementById('openValidator');
     this.validatorButton.addEventListener('click', () => validatorStakingModal.open());
     this.inviteButton = document.getElementById('openInvite');
@@ -1297,16 +1296,12 @@ class MenuModal {
     this.explorerButton.addEventListener('click', () => {window.open('./explorer', '_blank');});
     this.networkButton = document.getElementById('openMonitor');
     this.networkButton.addEventListener('click', () => {window.open('./network', '_blank');});
-    this.removeButton = document.getElementById('openRemoveAccount');
-    this.removeButton.addEventListener('click', () => removeAccountModal.open());
     this.helpButton = document.getElementById('openHelp');
     this.helpButton.addEventListener('click', () => helpModal.open());
     this.aboutButton = document.getElementById('openAbout');
     this.aboutButton.addEventListener('click', () => aboutModal.open());
     this.signOutButton = document.getElementById('handleSignOut');
     this.signOutButton.addEventListener('click', async () => await this.handleSignOut());
-    this.backupButton = document.getElementById('openBackupModalButton');
-    this.backupButton.addEventListener('click', () => backupAccountModal.open());
     this.bridgeButton = document.getElementById('openBridge');
     this.bridgeButton.addEventListener('click', () => bridgeModal.open());
     this.launchButton = document.getElementById('openLaunchUrl');
@@ -1398,6 +1393,50 @@ class MenuModal {
 }
 
 const menuModal = new MenuModal();
+
+class SettingsModal {
+  constructor() { }
+
+  load() {
+    this.modal = document.getElementById('settingsModal');
+    this.closeButton = document.getElementById('closeSettings');
+    this.closeButton.addEventListener('click', () => this.close());
+    
+    this.profileButton = document.getElementById('openAccountForm');
+    this.profileButton.addEventListener('click', () => myProfileModal.open());
+    
+    this.tollButton = document.getElementById('openToll');
+    this.tollButton.addEventListener('click', () => tollModal.open());
+    
+    this.lockButton = document.getElementById('openLockModal');
+    this.lockButton.addEventListener('click', () => lockModal.open());
+    
+    this.backupButton = document.getElementById('openExportForm');
+    this.backupButton.addEventListener('click', () => backupAccountModal.open());
+    
+    this.removeButton = document.getElementById('openRemoveAccount');
+    this.removeButton.addEventListener('click', () => removeAccountModal.open());
+    
+    this.signOutButton = document.getElementById('handleSignOutSettings');
+    this.signOutButton.addEventListener('click', async () => await menuModal.handleSignOut());
+  }
+
+  open() {
+    this.modal.classList.add('active');
+    enterFullscreen();
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+    enterFullscreen();
+  }
+
+  isActive() {
+    return this.modal.classList.contains('active');
+  }
+}
+
+const settingsModal = new SettingsModal();
 
 class WalletScreen {
   constructor() {

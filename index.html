@@ -73,6 +73,7 @@
         <div class="header-icons">
           <div class="offline-indicator" id="offlineIndicator">Offline</div>
           <div id="wsStatusIndicator" class="ws-status-indicator" style="display: none">WebSocket</div>
+          <button class="icon-button" id="toggleSettings"></button>
           <button class="icon-button" id="toggleMenu"></button>
         </div>
       </header>
@@ -214,23 +215,33 @@
           <div class="modal-title">Menu</div>
         </div>
         <ul class="menu-list">
-          <li class="menu-item" id="openAccountForm" data-icon="user">Profile</li>
-          <li class="menu-item" id="openToll" data-icon="dollar-sign">Toll</li>
-          <li class="menu-item" id="openExportForm" data-icon="download">Backup</li>
           <li class="menu-item" id="openValidator" data-icon="shield">Validator</li>
           <li class="menu-item" id="openInvite" data-icon="mail">Invite</li>
           <li class="menu-item" id="openBridge" data-icon="arrow-right-arrow-left">Bridge</li>
-          <!--                <li class="menu-item" id="openSettings">Settings</li> -->
           <li class="menu-item" id="openExplorer" data-icon="search">Explorer</li>
           <li class="menu-item" id="openMonitor" data-icon="globe">Network</li>
-          <li class="menu-item" id="openLockModal" data-icon="lock">Lock</li>
-          <!--<li class="menu-item" id="openImportFormMenu">Import</li>-->
-          <li class="menu-item" id="openRemoveAccount" data-icon="trash-2">Remove</li>
           <li class="menu-item" id="openHelp" data-icon="github">Help</li>
           <li class="menu-item" id="openAbout" data-icon="info">About</li>
           <!-- launch url that open a launchModal that only shows up when `window.ReactNativeWebView` is defined -->
           <li class="menu-item" id="openLaunchUrl" data-icon="launch" style="display: none;">Launch</li>
-          <li class="menu-item" id="handleSignOut" data-icon="log-out">Sign Out</li>
+          <li class="menu-item sign-out" id="handleSignOut" data-icon="log-out">Sign Out</li>
+        </ul>
+        <a class="last-item" href="#"> </a>
+      </div>
+      
+      <!-- Settings Modal -->
+      <div class="modal" id="settingsModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeSettings"></button>
+          <div class="modal-title">Settings</div>
+        </div>
+        <ul class="menu-list">
+          <li class="menu-item" id="openAccountForm" data-icon="user">Profile</li>
+          <li class="menu-item" id="openToll" data-icon="dollar-sign">Toll</li>
+          <li class="menu-item" id="openLockModal" data-icon="lock">Lock</li>
+          <li class="menu-item" id="openExportForm" data-icon="download">Backup</li>
+          <li class="menu-item" id="openRemoveAccount" data-icon="trash-2">Remove</li>
+          <li class="menu-item sign-out" id="handleSignOutSettings" data-icon="log-out">Sign Out</li>
         </ul>
         <a class="last-item" href="#"> </a>
       </div>
