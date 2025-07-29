@@ -6400,7 +6400,7 @@ class ChatModal {
           setTimeout(() => {
             this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
             this.messageInput.scrollIntoView({ behavior: 'smooth', block: 'center' }); // To provide smoother, more reliable scrolling on mobile.
-          }, 300); // Increased delay to ensure keyboard is fully shown
+          }, 500); // Increased delay to ensure keyboard is fully shown
         }
       }
     });
