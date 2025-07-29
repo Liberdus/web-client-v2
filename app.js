@@ -1335,14 +1335,17 @@ class MenuModal {
     this.signOutButton.addEventListener('click', async () => await this.handleSignOut());
     this.bridgeButton = document.getElementById('openBridge');
     this.bridgeButton.addEventListener('click', () => bridgeModal.open());
-    this.launchButton = document.getElementById('openLaunchUrl');
-    this.launchButton.addEventListener('click', () => launchModal.open());
+    
+    
+    // Show launch button if ReactNativeWebView is available
+    if (window?.ReactNativeWebView) {
+      this.launchButton = document.getElementById('openLaunchUrl');
+      this.launchButton.addEventListener('click', () => launchModal.open());
+      this.launchButton.style.display = 'block';
+    }
   }
 
   open() {
-    if (window?.ReactNativeWebView) {
-      this.launchButton.style.display = 'block';
-    }
     this.modal.classList.add('active');
     enterFullscreen();
   }
