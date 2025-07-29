@@ -79,11 +79,8 @@ import {
   encryptData,
   decryptData,
   decryptMessage,
-  ecSharedKey,
-  pqSharedKey,
   ethHashMessage,
   hashBytes,
-  deriveDhKey,
   generateRandomPrivateKey,
   getPublicKey,
   signMessage,
@@ -125,8 +122,6 @@ import {
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
-const pollIntervalNormal = 30000; // in millisconds
-const pollIntervalChatting = 5000; // in millseconds
 //network.monitor.url = "http://test.liberdus.com:3000"    // URL of the monitor server
 //network.explorer.url = "http://test.liberdus.com:6001"   // URL of the chain explorer
 const MAX_MEMO_BYTES = 1000; // 1000 bytes for memos
@@ -3041,75 +3036,6 @@ async function queryNetwork(url) {
   }
 }
 
-async function pollChatInterval(milliseconds) {
-  pollChats.nextPoll = milliseconds;
-  pollChats();
-}
-
-// Called every 30 seconds if we are online and not subscribed to WebSocket
-async function pollChats() {
-  // Step 3: Poll if we are not subscribed to WebSocket
-  if (!useLongPolling) {
-    // Skip if no valid account
-    if (!myAccount?.keys?.address) {
-      console.log('Poll skipped: No valid account');
-      return;
-    }
-
-    try {
-      const gotChats = await chatsScreen.updateChatData();
-      if (gotChats > 0) {
-        await chatsScreen.updateChatList();
-      }
-
-      if (walletScreen.isActive()) {
-        await walletScreen.updateWalletView();
-      }
-    } catch (error) {
-      console.error('Chat polling error:', error);
-    }
-
-    scheduleNextPoll();
-  } else if (window.chatUpdateTimer) {
-    // Clear polling if WebSocket is subscribed
-    clearTimeout(window.chatUpdateTimer);
-    window.chatUpdateTimer = null;
-    console.log('Poll status: Stopped - using long polling');
-  }
-
-  // Step 4: Log final status
-  const pollStatus = {
-    useLongPolling: useLongPolling,
-    accountValid: Boolean(myAccount?.keys?.address),
-    pollingStatus: window.chatUpdateTimer ? 'polling' : 'not polling',
-  };
-  console.log('Poll Status:', JSON.stringify(pollStatus, null, 2));
-}
-
-// Helper function to schedule next poll
-function scheduleNextPoll() {
-  if (window.chatUpdateTimer) {
-    clearTimeout(window.chatUpdateTimer);
-  }
-
-  const interval = pollChats.nextPoll || pollIntervalNormal;
-  const now = getCorrectedTimestamp();
-  console.log(
-    'Poll schedule:',
-    JSON.stringify(
-      {
-        timestamp: now,
-        nextPollIn: `${interval}ms`,
-        reason: 'WebSocket not subscribed',
-      },
-      null,
-      2
-    )
-  );
-
-  window.chatUpdateTimer = setTimeout(pollChats, interval);
-}
-
 async function getChats(keys, retry = 1) {
   // needs to return the number of chats that need to be processed
   console.log(`getChats retry ${retry}`);
@@ -3756,7 +3682,7 @@ class SearchMessagesModal {
     Object.entries(myData.contacts).forEach(([address, contact]) => {
       if (!contact.messages) return;
 
-      contact.messages.forEach((message, index) => {
+      contact.messages.forEach((message) => {
         if (message.message.toLowerCase().includes(searchLower)) {
           // Highlight matching text
           const messageText = escapeHtml(message.message);
