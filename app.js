@@ -4644,7 +4644,7 @@ class BackupAccountModal {
     // Disable button to prevent multiple submissions
     this.submitButton.disabled = true;
 
-    const password = document.getElementById('backupPassword').value;
+    const password = this.passwordInput.value;
     const jsonData = stringify(myData, null, 2);
 
     try {
@@ -4699,7 +4699,7 @@ class BackupAccountModal {
     // Disable button to prevent multiple submissions
     this.submitButton.disabled = true;
 
-    const password = document.getElementById('backupPassword').value;
+    const password = this.passwordInput.value;
     const myLocalStore = this.copyLocalStorageToObject();
 //    console.log(myLocalStore);
     const jsonData = stringify(myLocalStore, null, 2);
@@ -4770,10 +4770,17 @@ class BackupAccountModal {
       this.passwordWarning.style.display = 'none';
     }
     
-    // Validate password confirmation (only show warning if user has started typing in confirm field)
-    if (password.length > 0 && confirmPassword.length > 0 && confirmPassword !== password) {
-      isValid = false;
-      this.passwordConfirmWarning.style.display = 'inline';
+    // Validate password confirmation
+    // If password has been entered, confirmation is required and must match
+    if (password.length > 0) {
+      if (confirmPassword.length === 0) {
+        isValid = false;
+      } else if (confirmPassword !== password) {
+        isValid = false;
+        this.passwordConfirmWarning.style.display = 'inline';
+      } else {
+        this.passwordConfirmWarning.style.display = 'none';
+      }
     } else {
       this.passwordConfirmWarning.style.display = 'none';
     }
