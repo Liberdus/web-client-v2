@@ -1721,7 +1721,7 @@ function updateTollAmountUI(address) {
 async function updateTollRequired(address) {
   const myAddr = longAddress(myAccount.keys.address);
   const contactAddr = longAddress(address);
-  // use `hashBytes([fromAddr, toAddr].sort().join``)` to get the hash of the sorted addresses and have variable to keep track fromAddr which will be the current users order in the array
+  // use `hashBytes([fromAddr, toAddr].sort().join(''))` to get the hash of the sorted addresses and have variable to keep track fromAddr which will be the current users order in the array
   const sortedAddresses = [myAddr, contactAddr].sort();
   const hash = hashBytes(sortedAddresses.join(''));
   const myIndex = sortedAddresses.indexOf(myAddr);
@@ -2539,7 +2539,7 @@ class FriendModal {
     const requiredNum = friend === 3 || friend === 2 ? 0 : friend === 1 ? 1 : friend === 0 ? 2 : 1;
     const fromAddr = longAddress(myAccount.keys.address);
     const toAddr = longAddress(address);
-    const chatId_ = hashBytes([fromAddr, toAddr].sort().join``);
+    const chatId_ = hashBytes([fromAddr, toAddr].sort().join(''));
     console.log('DEBUG 1:chatId_', chatId_);
 
     const tx = {
@@ -3505,7 +3505,7 @@ async function postAssetTransfer(to, amount, memo, keys) {
     from: fromAddr,
     to: toAddr,
     amount: BigInt(amount),
-    chatId: hashBytes([fromAddr, toAddr].sort().join``),
+    chatId: hashBytes([fromAddr, toAddr].sort().join('')),
     // TODO backend is not allowing memo > 140 characters; by pass using xmemo; we might have to check the total tx size instead
     // memo: stringify(memo),
     xmemo: memo,
@@ -6770,7 +6770,7 @@ class ChatModal {
       type: 'reclaim_toll',
       from: longAddress(myData.account.keys.address),
       to: longAddress(contactAddress),
-      chatId: hashBytes([longAddress(myData.account.keys.address), longAddress(contactAddress)].sort().join``),
+      chatId: hashBytes([longAddress(myData.account.keys.address), longAddress(contactAddress)].sort().join('')),
       timestamp: getCorrectedTimestamp(),
       networkId: network.netid,
     };
@@ -6792,7 +6792,7 @@ class ChatModal {
     // keep track receiver index during the sort
     const sortedAddresses = [longAddress(myData.account.keys.address), longAddress(contactAddress)].sort();
     const receiverIndex = sortedAddresses.indexOf(longAddress(contactAddress));
-    const chatId = hashBytes(sortedAddresses.join``);
+    const chatId = hashBytes(sortedAddresses.join(''));
     const chatIdAccount = await queryNetwork(`/messages/${chatId}/toll`);
     if (!chatIdAccount || !chatIdAccount.toll) {
       console.warn('chatIdAccount not found', chatIdAccount);
@@ -6841,7 +6841,7 @@ class ChatModal {
       type: 'read',
       from: longAddress(myData.account.keys.address),
       to: longAddress(contactAddress),
-      chatId: hashBytes([longAddress(myData.account.keys.address), longAddress(contactAddress)].sort().join``),
+      chatId: hashBytes([longAddress(myData.account.keys.address), longAddress(contactAddress)].sort().join('')),
       timestamp: getCorrectedTimestamp(),
       oldContactTimestamp: myData.contacts[contactAddress].timestamp,
       networkId: network.netid,
@@ -7105,7 +7105,7 @@ console.warn('in send message', txid)
       from: fromAddr,
       to: toAddr,
       amount: tollInLib,
-      chatId: hashBytes([fromAddr, toAddr].sort().join``),
+      chatId: hashBytes([fromAddr, toAddr].sort().join('')),
       message: 'x',
       xmessage: payload,
       timestamp: getCorrectedTimestamp(),
