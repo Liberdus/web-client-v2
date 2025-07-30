@@ -4518,10 +4518,7 @@ class RemoveAccountModal {
     this.modal = document.getElementById('removeAccountModal');
     document.getElementById('closeRemoveAccountModal').addEventListener('click', () => this.close());
     document.getElementById('confirmRemoveAccount').addEventListener('click', () => this.submit());
-    document.getElementById('openBackupFromRemove').addEventListener('click', () => {
-      this.close();
-      backupAccountModal.open();
-    });
+    document.getElementById('openBackupFromRemove').addEventListener('click', () => backupAccountModal.open());
   }
 
   signin() {
