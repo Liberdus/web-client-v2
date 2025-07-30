@@ -5598,8 +5598,12 @@ class LogsModal {
     this.modal = document.getElementById('logsModal');
     this.closeButton = document.getElementById('closeLogsModal');
     this.logsTextarea = document.getElementById('logsTextarea');
+    this.clearButton = document.getElementById('clearLogsButton');
 
     this.closeButton.addEventListener('click', () => this.close());
+    if (this.clearButton) {
+      this.clearButton.addEventListener('click', () => this.clear());
+    }
   }
 
   open() {
@@ -5616,6 +5620,14 @@ class LogsModal {
 
   close() {
     this.modal.classList.remove('active');
+  }
+
+  clear() {
+    this.data = '';
+    localStorage.setItem('logs', '');
+    if (this.logsTextarea) {
+      this.logsTextarea.value = '';
+    }
   }
 }
 const logsModal = new LogsModal();
