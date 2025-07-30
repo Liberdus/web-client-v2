@@ -154,29 +154,69 @@ let parameters = {
 
 // Keyboard handling for React Native WebView
 function adjustForKeyboard() {
+  // Log initial device and viewport information
+  const userAgent = navigator.userAgent;
+  const isAndroid = /Android/i.test(userAgent);
+  const androidVersion = isAndroid ? userAgent.match(/Android\s([0-9.]*)/)?.[1] : 'N/A';
+  
+  logsModal.log(`🔧 adjustForKeyboard() called - Device: ${isAndroid ? 'Android ' + androidVersion : 'Non-Android'}`);
+  logsModal.log(`📱 User Agent: ${userAgent}`);
+  logsModal.log(`📐 Initial screen: ${screen.width}x${screen.height}, window: ${window.innerWidth}x${window.innerHeight}`);
+  logsModal.log(`📄 Document client: ${document.documentElement.clientWidth}x${document.documentElement.clientHeight}`);
+  
   if (window.visualViewport) {
     const viewport = window.visualViewport;
-    // show toast
-    /* showToast('Keyboard adjustment with CSS custom properties enabled', 3000, 'success'); */
-    const resizeHandler = () => {
-      // show toast that we are resizing
-      /* showToast('Resizing', 3000, 'success'); */
+    
+    // Log initial visual viewport state
+    logsModal.log(`✅ visualViewport supported - Initial state:`);
+    logsModal.log(`   📏 Visual viewport: ${viewport.width}x${viewport.height}`);
+    logsModal.log(`   📍 Offset: top=${viewport.offsetTop}, left=${viewport.offsetLeft}`);
+    logsModal.log(`   🔍 Scale: ${viewport.scale}`);
+    
+    const resizeHandler = (event) => {
+      const timestamp = new Date().toISOString();
+      const eventType = event?.type || 'manual';
+      
+      // Log before state
+      logsModal.log(`🔄 ${eventType} event triggered at ${timestamp}`);
+      logsModal.log(`   📏 BEFORE - Visual viewport: ${viewport.width}x${viewport.height}`);
+      logsModal.log(`   📍 BEFORE - Offset: top=${viewport.offsetTop}, left=${viewport.offsetLeft}`);
+      logsModal.log(`   🔍 BEFORE - Scale: ${viewport.scale}`);
+      logsModal.log(`   📐 BEFORE - Window: ${window.innerWidth}x${window.innerHeight}`);
+      logsModal.log(`   📄 BEFORE - Document client: ${document.documentElement.clientWidth}x${document.documentElement.clientHeight}`);
+      
+      // Get current CSS custom property value before change
+      const currentVH = document.documentElement.style.getPropertyValue('--viewport-height');
+      logsModal.log(`   🎨 BEFORE - CSS --viewport-height: ${currentVH || 'not set'}`);
+      
       // Set your app container height to the visual viewport height
       document.documentElement.style.setProperty(
         '--viewport-height', 
         `${viewport.height}px`
       );
+      
+      // Log after state
+      const newVH = document.documentElement.style.getPropertyValue('--viewport-height');
+      logsModal.log(`   🎨 AFTER - CSS --viewport-height: ${newVH}`);
+      logsModal.log(`   ✨ Height adjustment: ${currentVH || 'initial'} → ${viewport.height}px`);
+      
       console.log('📱 Viewport height adjusted to:', viewport.height + 'px');
     };
     
+    logsModal.log(`🎧 Setting up event listeners for resize and scroll events`);
     viewport.addEventListener('resize', resizeHandler);
     viewport.addEventListener('scroll', resizeHandler);
     
     // Set initial height
+    logsModal.log(`🏁 Setting initial viewport height`);
     resizeHandler();
+    
     console.log('✅ Keyboard adjustment with CSS custom properties enabled');
+    logsModal.log(`✅ Keyboard adjustment setup complete with comprehensive logging`);
   } else {
     console.log('❌ visualViewport not supported for keyboard adjustment');
+    logsModal.log(`❌ visualViewport not supported - keyboard adjustment disabled`);
+    logsModal.log(`💡 Fallback: window.innerHeight=${window.innerHeight}, document.clientHeight=${document.documentElement.clientHeight}`);
   }
 }
 
