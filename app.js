@@ -2268,12 +2268,14 @@ class MyInfoModal {
   load() {
     this.modal = document.getElementById('myInfoModal');
     this.backButton = document.getElementById('closeMyInfoModal');
+    this.editButton = document.getElementById('myInfoEditButton');
     this.avatarSection = this.modal.querySelector('.contact-avatar-section');
     this.avatarDiv = this.avatarSection.querySelector('.avatar');
     this.nameDiv = this.avatarSection.querySelector('.name');
     this.subtitleDiv = this.avatarSection.querySelector('.subtitle');
 
     this.backButton.addEventListener('click', () => this.close());
+    this.editButton.addEventListener('click', () => myProfileModal.open());
   }
 
   async updateMyInfo() {
@@ -5757,6 +5759,11 @@ class MyProfileModal {
     // disable the close button and submit button
     this.closeButton.disabled = true;
     this.submitButton.disabled = true;
+
+    // if myInfo modal is open update the info
+    if (myInfoModal && myInfoModal.isActive()) {
+      myInfoModal.updateMyInfo();
+    }
 
     // Hide success message after 2 seconds
     setTimeout(() => {
