@@ -517,6 +517,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   aboutModal.load();
   updateWarningModal.load();
   helpModal.load();
+  stakeInfoModal.load();
   logsModal.load();
 
   // Create Account Modal
@@ -1352,6 +1353,8 @@ class MenuModal {
     this.bridgeButton.addEventListener('click', () => bridgeModal.open());
     this.logsButton = document.getElementById('openLogs');
     this.logsButton.addEventListener('click', () => logsModal.open());
+    this.stakeButton = document.getElementById('openStake');
+    this.stakeButton.addEventListener('click', () => stakeInfoModal.open());
     
     
     // Show launch button if ReactNativeWebView is available
@@ -5588,6 +5591,38 @@ class HelpModal {
   }
 }
 const helpModal = new HelpModal();
+
+class StakeInfoModal {
+  constructor() {}
+
+  load() {
+    this.modal = document.getElementById('stakeInfoModal');
+    this.closeButton = document.getElementById('closeStakeInfoModal');
+    this.continueButton = document.getElementById('continueToStake');
+    
+    this.closeButton.addEventListener('click', () => this.close());
+    this.continueButton.addEventListener('click', () => this.handleContinue());
+  }
+
+  open() {
+    this.modal.classList.add('active');
+    enterFullscreen();
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+    enterFullscreen();
+  }
+
+  handleContinue() {
+    // Get the stake URL from network configuration
+    const stakeURL = network?.stakeUrl || 'https://liberdus.com/stake';
+    // Open the stake URL in a new tab
+    window.open(stakeURL, '_blank');
+    this.close();
+  }
+}
+const stakeInfoModal = new StakeInfoModal();
 
 class LogsModal {
   constructor() {
