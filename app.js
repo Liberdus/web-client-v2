@@ -92,7 +92,7 @@ import {
   passwordToKey,
   dhkeyCombined,
   decryptChacha,
-} from './crypto.js?';
+} from './crypto.js';
 
 // Put standalone conversion function in lib.js
 import {
@@ -120,7 +120,7 @@ import {
   debounce,
   truncateMessage,
   normalizeUnsignedFloat,
-} from './lib.js?';
+} from './lib.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
@@ -866,7 +866,7 @@ class WelcomeScreen {
   }
 }
 
-const welcomeScreen = new WelcomeScreen
+const welcomeScreen = new WelcomeScreen();
 
 class Header {
   constructor() {}
@@ -11102,7 +11102,6 @@ console.log('timestamp is', submittedts, 'duration is', duration)
   return null;
 }
 
-
 /**
  * Check pending transactions that are at least 5 seconds old
  * @returns {Promise<void>}
@@ -11697,3 +11696,5 @@ class LocalStorageMonitor {
 
 // Create localStorage monitor instance
 const localStorageMonitor = new LocalStorageMonitor();
+
+
