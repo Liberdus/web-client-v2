@@ -515,6 +515,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   aboutModal.load();
   updateWarningModal.load();
   helpModal.load();
+  logsModal.load();
 
   // Create Account Modal
   createAccountModal.load();
@@ -1347,6 +1348,8 @@ class MenuModal {
     this.signOutButton.addEventListener('click', async () => await this.handleSignOut());
     this.bridgeButton = document.getElementById('openBridge');
     this.bridgeButton.addEventListener('click', () => bridgeModal.open());
+    this.logsButton = document.getElementById('openLogs');
+    this.logsButton.addEventListener('click', () => logsModal.open());
     
     
     // Show launch button if ReactNativeWebView is available
@@ -5580,6 +5583,27 @@ class HelpModal {
   }
 }
 const helpModal = new HelpModal();
+
+class LogsModal {
+  constructor() {}
+
+  load() {
+    this.modal = document.getElementById('logsModal');
+    this.closeButton = document.getElementById('closeLogsModal');
+    this.logsTextarea = document.getElementById('logsTextarea');
+
+    this.closeButton.addEventListener('click', () => this.close());
+  }
+
+  open() {
+    this.modal.classList.add('active');
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+  }
+}
+const logsModal = new LogsModal();
 
 class MyProfileModal {
   constructor() {}

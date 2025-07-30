@@ -220,6 +220,7 @@
           <li class="menu-item" id="openBridge" data-icon="arrow-right-arrow-left">Bridge</li>
           <li class="menu-item" id="openExplorer" data-icon="search">Explorer</li>
           <li class="menu-item" id="openMonitor" data-icon="globe">Network</li>
+          <li class="menu-item" id="openLogs" data-icon="file-text">Logs</li>
           <li class="menu-item" id="openHelp" data-icon="github">Help</li>
           <li class="menu-item" id="openAbout" data-icon="info">About</li>
           <li class="menu-item sign-out" id="handleSignOut" data-icon="log-out">Sign Out</li>
@@ -255,6 +256,20 @@
           <div style="padding: 1rem">
             <p>Please contact our team to report bugs or make suggestions.</p>
             <button id="submitFeedback" class="update-button" style="margin-top: 1rem">Submit Feedback</button>
+          </div>
+          <a class="last-item" href="#"> </a>
+        </div>
+      </div>
+
+      <!-- Logs Modal -->
+      <div class="modal" id="logsModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeLogsModal"></button>
+          <div class="modal-title">Logs</div>
+        </div>
+        <div class="form-container">
+          <div style="padding: 1rem">
+            <textarea id="logsTextarea" placeholder="Enter logs here..." style="width: 100%; min-height: 200px; resize: vertical;" rows="40"></textarea>
           </div>
           <a class="last-item" href="#"> </a>
         </div>
