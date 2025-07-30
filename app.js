@@ -34,6 +34,7 @@ async function checkVersion() {
     './',
     'index.html',
 */
+    logsModal.log(`Updated to version: ${newVersion}`)
     await forceReload([
       newUrl,
       'styles.css',
@@ -46,6 +47,7 @@ async function checkVersion() {
     ]);
     window.location.replace(newUrl);
   }
+  logsModal.log(`Started version: ${myVersion}`)
 }
 
 async function forceReload(urls) {
@@ -1375,6 +1377,7 @@ class MenuModal {
   }
   
   async handleSignOut() {
+    logsModal.log(`Signout ${myAccount.username}`)
     this.isSignoutExit = true;
 
     // Clear intervals
@@ -2167,6 +2170,7 @@ class SignInModal {
       return;
     }
     myAccount = myData.account;
+    logsModal.log(`SignIn as ${username}_${netid}`)
 
     /* requestNotificationPermission(); */
     if (useLongPolling) {
@@ -5586,7 +5590,9 @@ class HelpModal {
 const helpModal = new HelpModal();
 
 class LogsModal {
-  constructor() {}
+  constructor() {
+    this.data = localStorage.getItem('logs') || '';
+  }
 
   load() {
     this.modal = document.getElementById('logsModal');
@@ -5598,6 +5604,14 @@ class LogsModal {
 
   open() {
     this.modal.classList.add('active');
+    // Fill the textarea with data and position the scroll to the bottom
+    this.logsTextarea.value = this.data;
+    this.logsTextarea.scrollTop = this.logsTextarea.scrollHeight;
+  }
+
+  log(s) {
+    this.data += s + '\n\n';
+    localStorage.setItem('logs', this.data);
   }
 
   close() {
