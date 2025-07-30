@@ -537,7 +537,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Stake Modal
   stakeValidatorModal.load();
 
-  // Export Form Modal
+  // Backup Form Modal
   backupAccountModal.load();
 
   // Remove Account Modal
@@ -1466,7 +1466,7 @@ class SettingsModal {
     this.lockButton = document.getElementById('openLockModal');
     this.lockButton.addEventListener('click', () => lockModal.open());
     
-    this.backupButton = document.getElementById('openExportForm');
+    this.backupButton = document.getElementById('openBackupForm');
     this.backupButton.addEventListener('click', () => backupAccountModal.open());
     
     this.removeButton = document.getElementById('openRemoveAccount');
@@ -4576,15 +4576,15 @@ class BackupAccountModal {
 
   load() {
     // called when the DOM is loaded; can setup event handlers here
-    this.modal = document.getElementById('exportModal');
-    this.passwordInput = document.getElementById('exportPassword');
-    this.passwordWarning = document.getElementById('exportPasswordWarning');
-    this.passwordConfirmInput = document.getElementById('exportPasswordConfirm');
-    this.passwordConfirmWarning = document.getElementById('exportPasswordConfirmWarning');
-    this.submitButton = document.getElementById('exportForm').querySelector('button[type="submit"]');
+    this.modal = document.getElementById('backupModal');
+    this.passwordInput = document.getElementById('backupPassword');
+    this.passwordWarning = document.getElementById('backupPasswordWarning');
+    this.passwordConfirmInput = document.getElementById('backupPasswordConfirm');
+    this.passwordConfirmWarning = document.getElementById('backupPasswordConfirmWarning');
+    this.submitButton = document.getElementById('backupForm').querySelector('button[type="submit"]');
     
-    document.getElementById('closeExportForm').addEventListener('click', () => this.close());
-    document.getElementById('exportForm').addEventListener('submit', (event) => {
+    document.getElementById('closeBackupForm').addEventListener('click', () => this.close());
+    document.getElementById('backupForm').addEventListener('submit', (event) => {
       if (myData) {
         this.handleSubmitOne(event);
       } else {
@@ -4644,7 +4644,7 @@ class BackupAccountModal {
     // Disable button to prevent multiple submissions
     this.submitButton.disabled = true;
 
-    const password = document.getElementById('exportPassword').value;
+    const password = document.getElementById('backupPassword').value;
     const jsonData = stringify(myData, null, 2);
 
     try {
@@ -4679,7 +4679,7 @@ class BackupAccountModal {
         URL.revokeObjectURL(url);
       }
 
-      // Close export modal
+      // Close backup modal
       this.close();
     } catch (error) {
       console.error('Encryption failed:', error);
@@ -4699,7 +4699,7 @@ class BackupAccountModal {
     // Disable button to prevent multiple submissions
     this.submitButton.disabled = true;
 
-    const password = document.getElementById('exportPassword').value;
+    const password = document.getElementById('backupPassword').value;
     const myLocalStore = this.copyLocalStorageToObject();
 //    console.log(myLocalStore);
     const jsonData = stringify(myLocalStore, null, 2);
@@ -4719,7 +4719,7 @@ class BackupAccountModal {
         reader.onloadend = () => {
           const base64DataUrl = reader.result;
           window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'EXPORT_BACKUP',
+            type: 'BACKUP_DATA',
             filename,
             dataUrl: base64DataUrl,
           }));
@@ -4736,7 +4736,7 @@ class BackupAccountModal {
         URL.revokeObjectURL(url);
       }
 
-      // Close export modal
+      // Close backup modal
       this.close();
     } catch (error) {
       console.error('Encryption failed:', error);

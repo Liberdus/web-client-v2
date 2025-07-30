@@ -239,7 +239,7 @@
           <li class="menu-item" id="openAccountForm" data-icon="user">Profile</li>
           <li class="menu-item" id="openToll" data-icon="dollar-sign">Toll</li>
           <li class="menu-item" id="openLockModal" data-icon="lock">Lock</li>
-          <li class="menu-item" id="openExportForm" data-icon="download">Backup</li>
+          <li class="menu-item" id="openBackupForm" data-icon="download">Backup</li>
           <li class="menu-item" id="openRemoveAccount" data-icon="trash-2">Remove</li>
           <li class="menu-item" id="openLaunchUrl" data-icon="launch" style="display: none;">Launch</li>
           <li class="menu-item sign-out" id="handleSignOutSettings" data-icon="log-out">Sign Out</li>
@@ -1118,10 +1118,10 @@
         </div>
       </div>
 
-      <!-- Export Modal -->
-      <div class="modal" id="exportModal">
+      <!-- Backup Modal -->
+      <div class="modal" id="backupModal">
         <div class="modal-header">
-          <button class="back-button" id="closeExportForm"></button>
+          <button class="back-button" id="closeBackupForm"></button>
           <div class="modal-title">Backup Account</div>
         </div>
         <div class="form-container">
@@ -1132,27 +1132,27 @@
           <p>
             If you are signed in, this will only save the current account. If you are not signed in, this will save all accounts.
           </p>
-          <form id="exportForm">
+          <form id="backupForm">
             <div class="form-group">
-              <label for="exportPassword">
+              <label for="backupPassword">
                 Password
-                <span id="exportPasswordWarning" style="color: #dc3545; display: none">too short</span>
+                <span id="backupPasswordWarning" style="color: #dc3545; display: none">too short</span>
               </label>
               <input
                 type="password"
-                id="exportPassword"
+                id="backupPassword"
                 class="form-control"
-                placeholder="Leave empty for unencrypted export"
+                placeholder="Leave empty for unencrypted backup"
               />
             </div>
             <div class="form-group">
-              <label for="exportPasswordConfirm">
+              <label for="backupPasswordConfirm">
                 Confirm Password
-                <span id="exportPasswordConfirmWarning" style="color: #dc3545; display: none">passwords don't match</span>
+                <span id="backupPasswordConfirmWarning" style="color: #dc3545; display: none">passwords don't match</span>
               </label>
               <input
                 type="password"
-                id="exportPasswordConfirm"
+                id="backupPasswordConfirm"
                 class="form-control"
                 placeholder="Confirm your password"
               />

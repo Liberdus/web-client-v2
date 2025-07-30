@@ -1016,7 +1016,7 @@ button:disabled {
 /* Common form styles */
 #createAccountForm,
 #accountForm,
-#exportForm,
+#backupForm,
 #signInForm,
 #newChatForm,
 #sendForm {
@@ -1921,22 +1921,22 @@ input[type='file'].form-control {
   padding-right: 45px;
 }
 
-#exportModal .form-control::placeholder {
+#backupModal .form-control::placeholder {
   color: #9ca3af;
   font-family: var(--font-primary);
 }
 
-#exportModal .form-control:focus {
+#backupModal .form-control:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 2px rgba(61, 61, 206, 0.1);
 }
 
-#exportModal .update-button:hover {
+#backupModal .update-button:hover {
   opacity: 0.9;
 }
 
-#exportModal p {
+#backupModal p {
   font-family: var(--font-primary);
   font-size: var(--font-size-base);
   color: var(--text-color);
@@ -1945,7 +1945,7 @@ input[type='file'].form-control {
   text-align: left;
 }
 
-#exportModal p:last-of-type {
+#backupModal p:last-of-type {
   margin-bottom: 1.5rem;
 }
 
