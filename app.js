@@ -5833,6 +5833,9 @@ class ValidatorStakingModal {
     this.loadingElement = document.getElementById('validator-loading');
     this.errorElement = document.getElementById('validator-error-message');
 
+    // Stake info section
+    this.stakeInfoSection = document.getElementById('validator-stake-info');
+
     // Display elements
     this.totalStakeElement = document.getElementById('validator-total-stake');
     this.totalStakeUsdElement = document.getElementById('validator-total-stake-usd');
@@ -5840,6 +5843,8 @@ class ValidatorStakingModal {
     this.userStakeUsdElement = document.getElementById('validator-user-stake-usd');
     this.nomineeLabelElement = document.getElementById('validator-nominee-label');
     this.nomineeValueElement = document.getElementById('validator-nominee');
+    this.earnMessageElement = document.getElementById('validator-earn-message');
+    this.learnMoreButton = document.getElementById('validator-learn-more');
 
     // Skeleton bar elements
     this.pendingSkeletonBar = document.getElementById('pending-nominee-skeleton-1');
@@ -5856,6 +5861,11 @@ class ValidatorStakingModal {
 
     this.unstakeButton.addEventListener('click', () => this.handleUnstake());
     this.backButton.addEventListener('click', () => this.close());
+    
+    // Set up the learn more button click handler
+    if (this.learnMoreButton) {
+      this.learnMoreButton.addEventListener('click', this.handleLearnMoreClick.bind(this));
+    }
   }
 
   async open() {
@@ -5868,9 +5878,14 @@ class ValidatorStakingModal {
     // Reset conditional elements to default state
     this.nomineeLabelElement.textContent = 'Nominated Validator:';
     this.nomineeValueElement.textContent = '';
-    // Ensure stake items are visible by default
-    this.userStakeLibElement.style.display = 'flex';
-    this.userStakeUsdElement.style.display = 'flex';
+    // Ensure stake info section and items are visible by default
+    this.stakeInfoSection.style.display = 'block';
+    this.userStakeLibElement.parentElement.style.display = 'flex';
+    this.userStakeUsdElement.parentElement.style.display = 'flex';
+    // Hide earn message by default
+    if (this.earnMessageElement) {
+      this.earnMessageElement.style.display = 'none';
+    }
     // Disable unstake button initially
     this.unstakeButton.disabled = true;
     this.stakeButton.disabled = false;
@@ -6018,13 +6033,17 @@ class ValidatorStakingModal {
       this.marketStakeUsdValue.textContent = displayMarketStakeUsd;
 
       if (!nominee) {
-        this.nomineeLabelElement.textContent = 'No Nominated Validator';
-        this.nomineeValueElement.textContent = ''; // Ensure value is empty
-        this.userStakeLibElement.style.display = 'none'; // Hide LIB stake item
-        this.userStakeUsdElement.style.display = 'none'; // Hide USD stake item
+        // Case: No Nominee - Hide the stake info section completely and show earn message
+        this.stakeInfoSection.style.display = 'none';
+        
+        // Show earn message and learn more button
+        if (this.earnMessageElement) {
+          this.earnMessageElement.style.display = 'block';
+        }
       } else {
-        // Case: Nominee Exists
-
+        // Case: Nominee Exists - Show staking info section
+        this.stakeInfoSection.style.display = 'block';
+        
         // userStakedBaseUnits is a BigInt object or null/undefined. Pass its string representation.
         const displayUserStakedLib = userStakedBaseUnits != null ? big2str(userStakedBaseUnits, 18).slice(0, 6) : 'N/A';
         const displayUserStakedUsd = userStakedUsd != null ? '$' + userStakedUsd.toFixed(6) : 'N/A';
@@ -6033,9 +6052,11 @@ class ValidatorStakingModal {
         this.nomineeValueElement.textContent = nominee;
         this.userStakeLibElement.textContent = displayUserStakedLib;
         this.userStakeUsdElement.textContent = displayUserStakedUsd;
-        // Ensure items are visible (using flex as defined in CSS) - redundant due to reset, but safe
-        this.userStakeLibElement.style.display = 'flex';
-        this.userStakeUsdElement.style.display = 'flex';
+        
+        // Hide earn message
+        if (this.earnMessageElement) {
+          this.earnMessageElement.style.display = 'none';
+        }
       }
 
       this.detailsElement.style.display = 'block'; // Or 'flex' if it's a flex container
@@ -6063,6 +6084,11 @@ class ValidatorStakingModal {
 
   close() {
     this.modal.classList.remove('active');
+  }
+  
+  handleLearnMoreClick() {
+    const validatorUrl = network.validatorUrl || 'https://liberdus.com/validator';
+    window.open(validatorUrl, '_blank');
   }
 
   async handleUnstake() {

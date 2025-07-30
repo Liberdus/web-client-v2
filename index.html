@@ -1296,7 +1296,16 @@
 
           <!-- Validator Details Display Area -->
           <div id="validator-details" class="validator-info-container" style="display: block">
-            <div class="info-section">
+            <!-- No Validator Message - shown when no nominee exists -->
+            <div id="validator-earn-message" style="display: none; margin-bottom: 20px;">
+              <div class="action-item">
+                <p class="action-description" style="margin-bottom: 10px;">Now you can earn LIB for running a validator node</p>
+                <button id="validator-learn-more" class="button full-width">Learn More</button>
+              </div>
+            </div>
+            
+            <!-- Your Stake Info - only shown when a nominee exists -->
+            <div id="validator-stake-info" class="info-section">
               <h4>Your Stake Info</h4>
               <!-- New Skeleton Bars for Pending Nominee Info -->
               <div

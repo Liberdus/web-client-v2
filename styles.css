@@ -4146,6 +4146,16 @@ small {
   background-color: var(--primary-hover);
 }
 
+#validatorModal #validator-learn-more {
+  background-color: var(--primary-color);
+  color: var(--background-color);
+  border: none;
+}
+#validatorModal #validator-learn-more:hover {
+  background-color: var(--primary-hover);
+}
+
+
 /* Ensure secondary button style (now danger) */
 #validatorModal #submitUnstake {
   /* Styles inherited from .button, .full-width, .secondary-button */
