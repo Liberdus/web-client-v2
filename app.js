@@ -8435,6 +8435,8 @@ class CreateAccountModal {
     this.togglePrivateKeyVisibility = document.getElementById('togglePrivateKeyVisibility');
     this.migrateAccountsSection = document.getElementById('migrateAccountsSection');
     this.migrateAccountsButton = document.getElementById('migrateAccountsButton');
+    this.launchSection = document.getElementById('launchSection');
+    this.launchButton = document.getElementById('launchButton');
 
     // Setup event listeners
     this.form.addEventListener('submit', (e) => this.handleSubmit(e));
@@ -8452,6 +8454,12 @@ class CreateAccountModal {
     });
 
     this.migrateAccountsButton.addEventListener('click', async () => await migrateAccountsModal.open());
+    if (window.ReactNativeWebView) {
+      this.launchSection.style.display = 'block';
+      this.launchButton.addEventListener('click', () => {
+        launchModal.open()
+      });
+    }
   }
 
   open() {

@@ -367,24 +367,6 @@
         <a class="last-item" href="#"> </a>
       </div>
 
-      <!-- Launch Modal -->
-      <div class="modal" id="launchModal">
-        <div class="modal-header">
-          <button class="back-button" id="closeLaunchModal"></button>
-          <div class="modal-title">Launch</div>
-        </div>
-        <div class="form-container">
-          <form id="launchForm">
-            <div class="form-group">
-              <label for="url">URL</label>
-              <input type="url" id="url" class="form-control" required />
-            </div>
-            <button type="submit" class="update-button" disabled>Launch</button>
-          </form>
-        </div>
-        <a class="last-item" href="#"> </a>
-      </div>
-
       <!-- Lock Modal -->
       <div class="modal" id="lockModal">
       <div class="modal-header">
@@ -525,8 +507,33 @@
               Migrate Accounts
             </button>
           </div>
+          <div class="form-group" id="launchSection" style="display: none; margin-top: 20px; padding: 0 16px">
+            <!-- have the bellow label be centered -->
+            <label for="launchButton" style="text-align: center;">Launch a different Liberdus instance</label>
+            <button type="button" id="launchButton" class="secondary-button" style="margin-top: 10px;">
+              Launch
+            </button>
+          </div>
           <a class="last-item" href="#"> </a>
         </div>
+      </div>
+
+      <!-- Launch Modal -->
+      <div class="modal" id="launchModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeLaunchModal"></button>
+          <div class="modal-title">Launch</div>
+        </div>
+        <div class="form-container">
+          <form id="launchForm">
+            <div class="form-group">
+              <label for="url">URL</label>
+              <input type="url" id="url" class="form-control" required />
+            </div>
+            <button type="submit" class="update-button" disabled>Launch</button>
+          </form>
+        </div>
+        <a class="last-item" href="#"> </a>
       </div>
 
       <!-- My Info Modal -->
