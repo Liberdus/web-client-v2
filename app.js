@@ -10304,7 +10304,7 @@ const failedTransactionModal = new FailedTransactionModal();
 
 class BridgeModal {
   constructor() {
-    this.direction = 'to'; // 'to' = from Liberdus to external, 'from' = from external to Liberdus
+    this.direction = 'in'; // 'out' = from Liberdus to external, 'in' = from external to Liberdus
     this.selectedNetwork = null;
   }
 
@@ -10313,12 +10313,14 @@ class BridgeModal {
     this.closeButton = document.getElementById('closeBridgeModal');
     this.form = document.getElementById('bridgeForm');
     this.networkSelect = document.getElementById('bridgeNetwork');
+    this.networkSelectGroup = document.querySelector('#bridgeNetwork').closest('.form-group');
     this.directionSelect = document.getElementById('bridgeDirection');
     
     // Add event listeners
     this.closeButton.addEventListener('click', () => this.close());
     this.form.addEventListener('submit', (e) => this.handleSubmit(e));
     this.networkSelect.addEventListener('change', () => this.updateSelectedNetwork());
+    this.directionSelect.addEventListener('change', () => this.handleDirectionChange());
     
     // Load bridge networks from network.js
     this.populateBridgeNetworks();
@@ -10351,14 +10353,26 @@ class BridgeModal {
       this.selectedNetwork = network.bridges[index];
     }
   }
+  
+  handleDirectionChange() {
+    this.direction = this.directionSelect.value;
+
+    // Show network dropdown only for 'out' direction (Liberdus to external network)
+    if (this.direction === 'out') {
+      this.networkSelectGroup.style.display = 'block';
+    } else {
+      // Hide network dropdown for 'in' direction (external network to Liberdus)
+      this.networkSelectGroup.style.display = 'none';
+    }
+  }
 
   open() {
     this.modal.classList.add('active');
     
     // Reset defaults
-    this.direction = 'to';
+    this.direction = 'in';
     if (this.directionSelect) {
-      this.directionSelect.value = 'to';
+      this.directionSelect.value = 'in';
     }
     
     // Ensure networks are populated
@@ -10366,6 +10380,9 @@ class BridgeModal {
     
     // Update selected network
     this.updateSelectedNetwork();
+    
+    // Set initial visibility of network dropdown
+    this.handleDirectionChange();
   }
 
   close() {
@@ -10379,8 +10396,8 @@ class BridgeModal {
   handleSubmit(event) {
     event.preventDefault();
     this.direction = this.directionSelect.value;
-    
-    if (this.direction === 'to') {
+
+    if (this.direction === 'out') {
       // From Liberdus to external network
       this.openSendAssetModalToBridge();
     } else {
@@ -10399,7 +10416,6 @@ class BridgeModal {
   }
   
   openBridgePage() {
-    // TODO open specific page for the selected bridge network
     const bridgeUrl = network && network.bridgeUrl ? network.bridgeUrl : './bridge';
     window.open(bridgeUrl, '_blank');
   }
