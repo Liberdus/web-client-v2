@@ -10590,6 +10590,25 @@ class MigrateAccountsModal {
         }
       }
     }
+    
+    // Sort function for accounts - first by netid (using network.netids order), then by username
+    const sortAccounts = (accounts) => {
+      return accounts.sort((a, b) => {
+        // First compare by netid order in network.netids
+        const netidIndexA = network.netids.indexOf(a.netid);
+        const netidIndexB = network.netids.indexOf(b.netid);
+        if (netidIndexA !== netidIndexB) {
+          return netidIndexA - netidIndexB;
+        }
+        // Then sort by username alphabetically
+        return a.username.localeCompare(b.username);
+      });
+    };
+    
+    // Sort each category
+    categories.mine = sortAccounts(categories.mine);
+    categories.available = sortAccounts(categories.available);
+    categories.taken = sortAccounts(categories.taken);
 
     return categories;
   }
