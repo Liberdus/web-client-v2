@@ -1013,6 +1013,11 @@ button:disabled {
   width: 100%;
 }
 
+.modal-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
 /* Common form styles */
 #createAccountForm,
 #accountForm,

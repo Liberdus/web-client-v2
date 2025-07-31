@@ -186,26 +186,28 @@
           <button class="back-button" id="closeNewChatModal"></button>
           <div class="modal-title">New Chat</div>
         </div>
-        <div class="form-container">
-          <form id="newChatForm">
-            <div class="form-group">
-              <label for="recipient"
-                >Recipient <span id="chatRecipientError" style="color: #dc3545; display: none"></span
-              ></label>
-              <input
-                type="text"
-                id="chatRecipient"
-                class="form-control"
-                placeholder="Enter username"
-                required
-                pattern="[a-zA-Z0-9]*"
-                inputmode="text"
-              />
-            </div>
-            <button type="submit" class="update-button">Continue</button>
-          </form>
-          <a class="last-item" href="#"> </a>
+        <div class="modal-content">
+          <div class="form-container">
+            <form id="newChatForm">
+              <div class="form-group">
+                <label for="recipient"
+                  >Recipient <span id="chatRecipientError" style="color: #dc3545; display: none"></span
+                ></label>
+                <input
+                  type="text"
+                  id="chatRecipient"
+                  class="form-control"
+                  placeholder="Enter username"
+                  required
+                  pattern="[a-zA-Z0-9]*"
+                  inputmode="text"
+                />
+              </div>
+              <button type="submit" class="update-button">Continue</button>
+            </form>
+          </div>
         </div>
+        <a class="last-item" href="#"> </a>
       </div>
 
       <!-- Menu Modal -->
@@ -214,18 +216,20 @@
           <button class="back-button" id="closeMenu"></button>
           <div class="modal-title">Menu</div>
         </div>
-        <ul class="menu-list">
-          <li class="menu-item" id="openStake" data-icon="trending-up">Stake</li>
-          <li class="menu-item" id="openValidator" data-icon="shield">Validator</li>
-          <li class="menu-item" id="openInvite" data-icon="mail">Invite</li>
-          <li class="menu-item" id="openBridge" data-icon="arrow-right-arrow-left">Bridge</li>
-          <li class="menu-item" id="openExplorer" data-icon="search">Explorer</li>
-          <li class="menu-item" id="openMonitor" data-icon="globe">Network</li>
-          <li class="menu-item" id="openLogs" data-icon="file-text">Logs</li>
-          <li class="menu-item" id="openHelp" data-icon="github">Help</li>
-          <li class="menu-item" id="openAbout" data-icon="info">About</li>
-          <li class="menu-item sign-out" id="handleSignOut" data-icon="log-out">Sign Out</li>
-        </ul>
+        <div class="modal-content">
+          <ul class="menu-list">
+            <li class="menu-item" id="openStake" data-icon="trending-up">Stake</li>
+            <li class="menu-item" id="openValidator" data-icon="shield">Validator</li>
+            <li class="menu-item" id="openInvite" data-icon="mail">Invite</li>
+            <li class="menu-item" id="openBridge" data-icon="arrow-right-arrow-left">Bridge</li>
+            <li class="menu-item" id="openExplorer" data-icon="search">Explorer</li>
+            <li class="menu-item" id="openMonitor" data-icon="globe">Network</li>
+            <li class="menu-item" id="openLogs" data-icon="file-text">Logs</li>
+            <li class="menu-item" id="openHelp" data-icon="github">Help</li>
+            <li class="menu-item" id="openAbout" data-icon="info">About</li>
+            <li class="menu-item sign-out" id="handleSignOut" data-icon="log-out">Sign Out</li>
+          </ul>
+        </div>
         <a class="last-item" href="#"> </a>
       </div>
       
@@ -235,15 +239,17 @@
           <button class="back-button" id="closeSettings"></button>
           <div class="modal-title">Settings</div>
         </div>
-        <ul class="menu-list">
-          <li class="menu-item" id="openAccountForm" data-icon="user">Profile</li>
-          <li class="menu-item" id="openToll" data-icon="dollar-sign">Toll</li>
-          <li class="menu-item" id="openLockModal" data-icon="lock">Lock</li>
-          <li class="menu-item" id="openBackupForm" data-icon="download">Backup</li>
-          <li class="menu-item" id="openRemoveAccount" data-icon="trash-2">Remove</li>
-          <li class="menu-item" id="openLaunchUrl" data-icon="launch" style="display: none;">Launch</li>
-          <li class="menu-item sign-out" id="handleSignOutSettings" data-icon="log-out">Sign Out</li>
-        </ul>
+        <div class="modal-content">
+          <ul class="menu-list">
+            <li class="menu-item" id="openAccountForm" data-icon="user">Profile</li>
+            <li class="menu-item" id="openToll" data-icon="dollar-sign">Toll</li>
+            <li class="menu-item" id="openLockModal" data-icon="lock">Lock</li>
+            <li class="menu-item" id="openBackupForm" data-icon="download">Backup</li>
+            <li class="menu-item" id="openRemoveAccount" data-icon="trash-2">Remove</li>
+            <li class="menu-item" id="openLaunchUrl" data-icon="launch" style="display: none;">Launch</li>
+            <li class="menu-item sign-out" id="handleSignOutSettings" data-icon="log-out">Sign Out</li>
+          </ul>
+        </div>
         <a class="last-item" href="#"> </a>
       </div>
 
@@ -253,13 +259,15 @@
           <button class="back-button" id="closeHelpModal"></button>
           <div class="modal-title">Help</div>
         </div>
-        <div class="form-container">
-          <div style="padding: 1rem">
-            <p>Please contact our team to report bugs or make suggestions.</p>
-            <button id="submitFeedback" class="update-button" style="margin-top: 1rem">Submit Feedback</button>
+        <div class="modal-content">
+          <div class="form-container">
+            <div style="padding: 1rem">
+              <p>Please contact our team to report bugs or make suggestions.</p>
+              <button id="submitFeedback" class="update-button" style="margin-top: 1rem">Submit Feedback</button>
+            </div>
           </div>
-          <a class="last-item" href="#"> </a>
         </div>
+        <a class="last-item" href="#"> </a>
       </div>
 
       <!-- Stake Information Modal -->
@@ -268,13 +276,15 @@
           <button class="back-button" id="closeStakeInfoModal"></button>
           <div class="modal-title">Stake</div>
         </div>
-        <div class="form-container">
-          <div style="padding: 1rem">
-            <p>Now you can earn LIB for being a liquidity provider.</p>
-            <button id="continueToStake" class="update-button" style="margin-top: 1rem">Continue</button>
+        <div class="modal-content">
+          <div class="form-container">
+            <div style="padding: 1rem">
+              <p>Now you can earn LIB for being a liquidity provider.</p>
+              <button id="continueToStake" class="update-button" style="margin-top: 1rem">Continue</button>
+            </div>
           </div>
-          <a class="last-item" href="#"> </a>
         </div>
+        <a class="last-item" href="#"> </a>
       </div>
 
       <!-- Logs Modal -->
@@ -283,13 +293,15 @@
           <button class="back-button" id="closeLogsModal"></button>
           <div class="modal-title">Logs</div>
         </div>
-        <div class="form-container">
-          <div style="padding: 1rem">
-            <textarea id="logsTextarea" placeholder="Logs will appear here..." rows="40" readonly></textarea>
+        <div class="modal-content">
+          <div class="form-container">
+            <div style="padding: 1rem">
+              <textarea id="logsTextarea" placeholder="Logs will appear here..." rows="40" readonly></textarea>
+            </div>
+            <button id="clearLogsButton" class="update-button">Clear</button>
           </div>
-          <button id="clearLogsButton" class="update-button">Clear</button>
-          <a class="last-item" href="#"> </a>
         </div>
+        <a class="last-item" href="#"> </a>
       </div>
 
       <!-- About Modal -->
@@ -298,44 +310,46 @@
           <button class="back-button" id="closeAboutModal"></button>
           <div class="modal-title">About Liberdus</div>
         </div>
-        <div class="form-container">
-          <div class="about-content">
-            <img class="about-logo" src="./media/liberdus_logo_250.png" alt="Liberdus Logo" />
-            <p class="about-description">Liberdus is a decentralized messaging and wallet application.</p>
+        <div class="modal-content">
+          <div class="form-container">
+            <div class="about-content">
+              <img class="about-logo" src="./media/liberdus_logo_250.png" alt="Liberdus Logo" />
+              <p class="about-description">Liberdus is a decentralized messaging and wallet application.</p>
 
-            <div class="about-info-section">
-              <div class="about-info-item">Version <span id="versionDisplayAbout"></span></div>
-              <div class="about-info-item">Network Name: <span id="networkNameAbout"></span></div>
-              <div class="about-info-item">
-                Net ID:<br />
-                <span class="about-net-id" id="netIdAbout"></span>
+              <div class="about-info-section">
+                <div class="about-info-item">Version <span id="versionDisplayAbout"></span></div>
+                <div class="about-info-item">Network Name: <span id="networkNameAbout"></span></div>
+                <div class="about-info-item">
+                  Net ID:<br />
+                  <span class="about-net-id" id="netIdAbout"></span>
+                </div>
               </div>
-            </div>
 
-            <div class="about-links-section">
-              <a class="about-link" href="https://liberdus.com" target="_blank">Liberdus.com</a>
-              <a class="about-link" href="https://github.com/Liberdus/web-client-v2" target="_blank">GitHub Repo</a>
-              <button class="about-link" id="checkForUpdatesBtn">Check for Updates</button>
-            </div>
+              <div class="about-links-section">
+                <a class="about-link" href="https://liberdus.com" target="_blank">Liberdus.com</a>
+                <a class="about-link" href="https://github.com/Liberdus/web-client-v2" target="_blank">GitHub Repo</a>
+                <button class="about-link" id="checkForUpdatesBtn">Check for Updates</button>
+              </div>
 
-            <div class="about-source-links">
-              <a class="about-link" href="index.html.txt" target="_blank">index.html</a>
-              <a class="about-link" href="styles.css" target="_blank">styles.css</a>
-              <a class="about-link" href="app.js" target="_blank">app.js</a>
-              <br>
-              <a class="about-link" href="crypto.js" target="_blank">crypto.js</a>
-              <a class="about-link" href="lib.js" target="_blank">lib.js</a>
-              <a class="about-link" href="network.js" target="_blank">network.js</a>
-            </div>
+              <div class="about-source-links">
+                <a class="about-link" href="index.html.txt" target="_blank">index.html</a>
+                <a class="about-link" href="styles.css" target="_blank">styles.css</a>
+                <a class="about-link" href="app.js" target="_blank">app.js</a>
+                <br>
+                <a class="about-link" href="crypto.js" target="_blank">crypto.js</a>
+                <a class="about-link" href="lib.js" target="_blank">lib.js</a>
+                <a class="about-link" href="network.js" target="_blank">network.js</a>
+              </div>
 
-            <div class="about-external-links">
-              <a class="about-link" href="./external/noble-post-quantum.js" target="_blank">noble-post-quantum.js</a>
-              <a class="about-link" href="./external/noble-secp256k1.js" target="_blank">noble-secp256k1.js</a>
-              <a class="about-link" href="./external/noble-ciphers.js" target="_blank">noble-ciphers.js</a>
-              <a class="about-link" href="./external/blake2b.js" target="_blank">blake2b.js</a>
-              <a class="about-link" href="./external/keccak256.js" target="_blank">keccak256.js</a>
-              <a class="about-link" href="./external/stringify-shardus.js" target="_blank">stringify-shardus.js</a>
-              <a class="about-link" href="./external/qr.js" target="_blank">qr.js</a>
+              <div class="about-external-links">
+                <a class="about-link" href="./external/noble-post-quantum.js" target="_blank">noble-post-quantum.js</a>
+                <a class="about-link" href="./external/noble-secp256k1.js" target="_blank">noble-secp256k1.js</a>
+                <a class="about-link" href="./external/noble-ciphers.js" target="_blank">noble-ciphers.js</a>
+                <a class="about-link" href="./external/blake2b.js" target="_blank">blake2b.js</a>
+                <a class="about-link" href="./external/keccak256.js" target="_blank">keccak256.js</a>
+                <a class="about-link" href="./external/stringify-shardus.js" target="_blank">stringify-shardus.js</a>
+                <a class="about-link" href="./external/qr.js" target="_blank">qr.js</a>
+              </div>
             </div>
           </div>
         </div>
@@ -348,61 +362,64 @@
           <button class="back-button" id="closeUpdateWarningModal"></button>
           <div class="modal-title">⚠️ Update Warning</div>
         </div>
-        <div class="form-container">
-          <div class="warning-content">
-            <p>
-              WARNING: If you accidentally uninstall the app during the update process, all your local data will be permanently lost.
-            </p>
-            <p>
-              <strong>We strongly recommend backing up your data first.</strong>
-            </p>
+        <div class="modal-content">
+          <div class="form-container">
+            <div class="warning-content">
+              <p>
+                WARNING: If you accidentally uninstall the app during the update process, all your local data will be permanently lost.
+              </p>
+              <p>
+                <strong>We strongly recommend backing up your data first.</strong>
+              </p>
+            </div>
+            <button id="backupFirstBtn" class="update-button">
+              🛡️ Backup My Data First
+            </button>
+            <button id="proceedToStoreBtn" class="secondary-button">
+              Continue to App Store
+            </button>
           </div>
-          <button id="backupFirstBtn" class="update-button">
-            🛡️ Backup My Data First
-          </button>
-          <button id="proceedToStoreBtn" class="secondary-button">
-            Continue to App Store
-          </button>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
 
       <!-- Lock Modal -->
       <div class="modal fixed-header" id="lockModal">
-      <div class="modal-header">
-        <button class="back-button" id="closeLockModal"></button>
-        <div class="modal-title">Lock</div>
-      </div>
-      <!-- description and warning to let user know if passworrd is lost they will not be able to access their account -->
-      <div class="form-container">
-        <p>Setting a password will lock all of your accounts when you sign out. You will need to enter the password to unlock.</p>
-        <p>If you lose your password, you will not be able to access your accounts.</p>
-        <p>If you are sure you want to lock your app, please enter your password below.</p>
-      </div>
-      <div id="lockOptions" class="form-container" style="display:none;">
-        <button id="changePasswordButton" class="update-button">Change Password</button>
-        <button id="removeLockButton"  class="update-button">Remove Lock</button>
-      </div>
-      <div id="lockFormContainer" class="form-container">
-        <form id="lockForm">
-          <div class="form-group">
-            <!-- old password input default to hidden -->
-            <label for="oldPassword" id="oldPasswordLabel" style="display: none;">Current Password</label>
-            <input type="password" id="oldPassword" class="form-control" style="display: none;" />
-            <!-- new password input -->
-            <label for="newPassword" id="newPasswordLabel">
-              Password
-              <span id="passwordWarning" style="color: #dc3545; display: none"></span>
-            </label>
-            <input type="password" id="newPassword" class="form-control" />
-            <!-- confirm new password input -->
-            <label for="confirmNewPassword" id="confirmNewPasswordLabel">Confirm Password</label>
-            <input type="password" id="confirmNewPassword" class="form-control" />
+        <div class="modal-header">
+          <button class="back-button" id="closeLockModal"></button>
+          <div class="modal-title">Lock</div>
+        </div>
+        <div class="modal-content">
+          <div class="form-container">
+            <p>Setting a password will lock all of your accounts when you sign out. You will need to enter the password to unlock.</p>
+            <p>If you lose your password, you will not be able to access your accounts.</p>
+            <p>If you are sure you want to lock your app, please enter your password below.</p>
           </div>
-          <button type="submit" class="update-button" disabled>Save Password</button>
-        </form>
-      </div>
-      <a class="last-item" href="#"> </a>
+          <div id="lockOptions" class="form-container" style="display:none;">
+            <button id="changePasswordButton" class="update-button">Change Password</button>
+            <button id="removeLockButton"  class="update-button">Remove Lock</button>
+          </div>
+          <div id="lockFormContainer" class="form-container">
+            <form id="lockForm">
+              <div class="form-group">
+                <!-- old password input default to hidden -->
+                <label for="oldPassword" id="oldPasswordLabel" style="display: none;">Current Password</label>
+                <input type="password" id="oldPassword" class="form-control" style="display: none;" />
+                <!-- new password input -->
+                <label for="newPassword" id="newPasswordLabel">
+                  Password
+                  <span id="passwordWarning" style="color: #dc3545; display: none"></span>
+                </label>
+                <input type="password" id="newPassword" class="form-control" />
+                <!-- confirm new password input -->
+                <label for="confirmNewPassword" id="confirmNewPasswordLabel">Confirm Password</label>
+                <input type="password" id="confirmNewPassword" class="form-control" />
+              </div>
+              <button type="submit" class="update-button" disabled>Save Password</button>
+            </form>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
       </div>
 
       <!-- Unlock Modal -->
@@ -411,14 +428,16 @@
           <button class="back-button" id="closeUnlockModal"></button>
           <div class="modal-title">Unlock</div>
         </div>
-        <div class="form-container">
-          <form id="unlockForm">
-            <div class="form-group">
-              <label for="password">Password</label>
-              <input type="password" id="password" class="form-control" required />
-            </div>
-            <button type="submit" class="update-button" disabled>Unlock</button>
-          </form>
+        <div class="modal-content">
+          <div class="form-container">
+            <form id="unlockForm">
+              <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" class="form-control" required />
+              </div>
+              <button type="submit" class="update-button" disabled>Unlock</button>
+            </form>
+          </div>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
@@ -429,21 +448,23 @@
           <button class="back-button" id="closeSignInModal"></button>
           <div class="modal-title">Sign In</div>
         </div>
-        <div class="form-container">
-          <form id="signInForm">
-            <div class="form-group">
-              <label for="username"
-                >Select Account
-                <span id="usernameNotFound" style="color: #dc3545; display: none; display: inline"></span
-              ></label>
-              <select id="username" class="form-control" required></select>
-            </div>
-            <button type="submit" class="update-button" disabled>Sign In</button>
-            <button type="button" id="removeAccountButton" class="secondary-button" style="display: none">
-              Remove
-            </button>
-          </form>
-          <a class="last-item" href="#" id="signInModalLastItem"> </a>
+        <div class="modal-content">
+          <div class="form-container">
+            <form id="signInForm">
+              <div class="form-group">
+                <label for="username"
+                  >Select Account
+                  <span id="usernameNotFound" style="color: #dc3545; display: none; display: inline"></span
+                ></label>
+                <select id="username" class="form-control" required></select>
+              </div>
+              <button type="submit" class="update-button" disabled>Sign In</button>
+              <button type="button" id="removeAccountButton" class="secondary-button" style="display: none">
+                Remove
+              </button>
+            </form>
+            <a class="last-item" href="#" id="signInModalLastItem"> </a>
+          </div>
         </div>
       </div>
 
@@ -453,69 +474,71 @@
           <button class="back-button" id="closeCreateAccountModal"></button>
           <div class="modal-title">Create Account</div>
         </div>
-        <div class="form-container">
-          <form id="createAccountForm">
-            <div class="form-group">
-              <label for="newUsername">
-                Username
-                <span id="newUsernameAvailable" style="color: #28a745; display: none"> available </span>
-              </label>
-              <div style="position: relative">
-                <input
-                  type="text"
-                  id="newUsername"
-                  class="form-control"
-                  placeholder="Select a username"
-                  required
-                  pattern="[a-zA-Z0-9]*"
-                  inputmode="text"
-                  maxlength="20"
-                />
-              </div>
-            </div>
-            <div class="form-group">
-              <input type="checkbox" id="togglePrivateKeyInput" />
-              <label for="togglePrivateKeyInput" style="display: inline; margin-left: 5px"
-                >Use my own private key (Advanced)</label
-              >
-            </div>
-            <div id="privateKeySection" style="display: none">
+        <div class="modal-content">
+          <div class="form-container">
+            <form id="createAccountForm">
               <div class="form-group">
-                <label for="newPrivateKey"
-                  >Private Key <span id="newPrivateKeyError" style="color: #dc3545; display: none"></span
-                ></label>
+                <label for="newUsername">
+                  Username
+                  <span id="newUsernameAvailable" style="color: #28a745; display: none"> available </span>
+                </label>
                 <div style="position: relative">
                   <input
-                    type="password"
-                    id="newPrivateKey"
+                    type="text"
+                    id="newUsername"
                     class="form-control"
-                    placeholder="Optional private key in hex format"
+                    placeholder="Select a username"
+                    required
+                    pattern="[a-zA-Z0-9]*"
+                    inputmode="text"
+                    maxlength="20"
                   />
-                  <button type="button" id="togglePrivateKeyVisibility" class="password-toggle-btn"></button>
                 </div>
-                <small>
-                  If you want to use an existing private key enter it here. Otherwise you can leave this empty to have a
-                  private key automatically generated.
-                </small>
               </div>
+              <div class="form-group">
+                <input type="checkbox" id="togglePrivateKeyInput" />
+                <label for="togglePrivateKeyInput" style="display: inline; margin-left: 5px"
+                  >Use my own private key (Advanced)</label
+                >
+              </div>
+              <div id="privateKeySection" style="display: none">
+                <div class="form-group">
+                  <label for="newPrivateKey"
+                    >Private Key <span id="newPrivateKeyError" style="color: #dc3545; display: none"></span
+                  ></label>
+                  <div style="position: relative">
+                    <input
+                      type="password"
+                      id="newPrivateKey"
+                      class="form-control"
+                      placeholder="Optional private key in hex format"
+                    />
+                    <button type="button" id="togglePrivateKeyVisibility" class="password-toggle-btn"></button>
+                  </div>
+                  <small>
+                    If you want to use an existing private key enter it here. Otherwise you can leave this empty to have a
+                    private key automatically generated.
+                  </small>
+                </div>
+              </div>
+              <button type="submit" class="update-button" disabled>Create Account</button>
+            </form>
+            <div class="form-group" id="migrateAccountsSection" style="display: none; margin-top: 50px; padding: 0 16px">
+              <label for="migrateAccountsButton">Check if you have accounts that can be migrated to this network</label>
+              <button type="button" id="migrateAccountsButton" class="secondary-button" style="margin-top: 10px;">
+                Migrate Accounts
+              </button>
             </div>
-            <button type="submit" class="update-button" disabled>Create Account</button>
-          </form>
-          <div class="form-group" id="migrateAccountsSection" style="display: none; margin-top: 50px; padding: 0 16px">
-            <label for="migrateAccountsButton">Check if you have accounts that can be migrated to this network</label>
-            <button type="button" id="migrateAccountsButton" class="secondary-button" style="margin-top: 10px;">
-              Migrate Accounts
-            </button>
+            <div class="form-group" id="launchSection" style="display: none; margin-top: 20px; padding: 0 16px">
+              <!-- have the bellow label be centered -->
+              <label for="launchButton" style="text-align: center;">Launch a different Liberdus instance</label>
+              <button type="button" id="launchButton" class="secondary-button" style="margin-top: 10px;">
+                Launch
+              </button>
+            </div>
           </div>
-          <div class="form-group" id="launchSection" style="display: none; margin-top: 20px; padding: 0 16px">
-            <!-- have the bellow label be centered -->
-            <label for="launchButton" style="text-align: center;">Launch a different Liberdus instance</label>
-            <button type="button" id="launchButton" class="secondary-button" style="margin-top: 10px;">
-              Launch
-            </button>
-          </div>
-          <a class="last-item" href="#"> </a>
         </div>
+        <a class="last-item" href="#"> </a>
       </div>
 
       <!-- Launch Modal -->
@@ -524,14 +547,16 @@
           <button class="back-button" id="closeLaunchModal"></button>
           <div class="modal-title">Launch</div>
         </div>
-        <div class="form-container">
-          <form id="launchForm">
-            <div class="form-group">
-              <label for="url">URL</label>
-              <input type="url" id="url" class="form-control" required />
-            </div>
-            <button type="submit" class="update-button" disabled>Launch</button>
-          </form>
+        <div class="modal-content">
+          <div class="form-container">
+            <form id="launchForm">
+              <div class="form-group">
+                <label for="url">URL</label>
+                <input type="url" id="url" class="form-control" required />
+              </div>
+              <button type="submit" class="update-button" disabled>Launch</button>
+            </form>
+          </div>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
@@ -546,40 +571,42 @@
             <button class="icon-button edit-icon" id="myInfoEditButton" aria-label="Edit profile"></button>
           </div>
         </div>
-        <div class="form-container">
-          <div class="contact-info-list">
-            <div class="contact-avatar-section">
-              <div class="avatar" id="myInfoAvatar"></div>
-              <div class="name" id="myInfoDisplayName"></div>
-              <div class="subtitle" id="myInfoDisplayUsername"></div>
-            </div>
-            <!-- My info fields -->
-            <div class="contact-info-item">
-              <div class="contact-info-label">Name</div>
-              <div class="contact-info-value-container">
-                <div class="contact-info-value" id="myInfoName"></div>
+        <div class="modal-content">
+          <div class="form-container">
+            <div class="contact-info-list">
+              <div class="contact-avatar-section">
+                <div class="avatar" id="myInfoAvatar"></div>
+                <div class="name" id="myInfoDisplayName"></div>
+                <div class="subtitle" id="myInfoDisplayUsername"></div>
               </div>
-            </div>
-            <div class="contact-info-item" style="display: none">
-              <div class="contact-info-label">Email</div>
-              <div class="contact-info-value">
-                <a href="#" id="myInfoEmail" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
+              <!-- My info fields -->
+              <div class="contact-info-item">
+                <div class="contact-info-label">Name</div>
+                <div class="contact-info-value-container">
+                  <div class="contact-info-value" id="myInfoName"></div>
+                </div>
               </div>
-            </div>
-            <div class="contact-info-item" style="display: none">
-              <div class="contact-info-label">Phone</div>
-              <div class="contact-info-value" id="myInfoPhone"></div>
-            </div>
-            <div class="contact-info-item" style="display: none">
-              <div class="contact-info-label">LinkedIn</div>
-              <div class="contact-info-value">
-                <a href="#" id="myInfoLinkedin" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">Email</div>
+                <div class="contact-info-value">
+                  <a href="#" id="myInfoEmail" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
+                </div>
               </div>
-            </div>
-            <div class="contact-info-item" style="display: none">
-              <div class="contact-info-label">X-Twitter</div>
-              <div class="contact-info-value">
-                <a href="#" id="myInfoX" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">Phone</div>
+                <div class="contact-info-value" id="myInfoPhone"></div>
+              </div>
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">LinkedIn</div>
+                <div class="contact-info-value">
+                  <a href="#" id="myInfoLinkedin" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
+                </div>
+              </div>
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">X-Twitter</div>
+                <div class="contact-info-value">
+                  <a href="#" id="myInfoX" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
+                </div>
               </div>
             </div>
           </div>
@@ -593,33 +620,35 @@
           <button class="back-button" id="closeAccountForm"></button>
           <div class="modal-title">My Profile</div>
         </div>
-        <div class="form-container">
-          <div class="profile-sharing-note">This information is shared with your friends</div>
-          <form id="accountForm">
-            <div class="form-group">
-              <label for="name">Name</label>
-              <input type="text" id="name" class="form-control" required />
-            </div>
-            <div class="form-group">
-              <label for="email">Email</label>
-              <input type="email" id="email" class="form-control" />
-            </div>
-            <div class="form-group">
-              <label for="phone">Phone</label>
-              <input type="tel" id="phone" class="form-control" />
-            </div>
-            <div class="form-group">
-              <label for="linkedin">LinkedIn</label>
-              <input type="text" id="linkedin" placeholder="username" class="form-control" />
-            </div>
-            <div class="form-group">
-              <label for="x">X-Twitter</label>
-              <input type="text" id="x" placeholder="username" class="form-control" />
-            </div>
-            <button type="submit" class="update-button">Update Profile</button>
-          </form>
-          <a class="last-item" href="#"> </a>
+        <div class="modal-content">
+          <div class="form-container">
+            <div class="profile-sharing-note">This information is shared with your friends</div>
+            <form id="accountForm">
+              <div class="form-group">
+                <label for="name">Name</label>
+                <input type="text" id="name" class="form-control" required />
+              </div>
+              <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" class="form-control" />
+              </div>
+              <div class="form-group">
+                <label for="phone">Phone</label>
+                <input type="tel" id="phone" class="form-control" />
+              </div>
+              <div class="form-group">
+                <label for="linkedin">LinkedIn</label>
+                <input type="text" id="linkedin" placeholder="username" class="form-control" />
+              </div>
+              <div class="form-group">
+                <label for="x">X-Twitter</label>
+                <input type="text" id="x" placeholder="username" class="form-control" />
+              </div>
+              <button type="submit" class="update-button">Update Profile</button>
+            </form>
+          </div>
         </div>
+        <a class="last-item" href="#"> </a>
       </div>
 
       <!-- Import Modal -->
@@ -628,52 +657,54 @@
           <button class="back-button" id="closeImportForm"></button>
           <div class="modal-title">Restore Account</div>
         </div>
-        <div class="form-container">
-          <form id="importForm">
-            <div class="form-group">
-              <label for="importFile">Select File</label>
-              <input type="file" id="importFile" class="form-control" required />
-            </div>
-            <div class="form-group">
-              <label for="importPassword">Password (if encrypted)</label>
-              <input
-                type="password"
-                id="importPassword"
-                class="form-control"
-                placeholder="Enter password for encrypted files"
-              />
-            </div>
-            <div class="form-group">
-              <label>
-                <input type="checkbox" id="developerOptionsToggle"> 
-                Developer Options
-              </label>
-            </div>
+        <div class="modal-content">
+          <div class="form-container">
+            <form id="importForm">
+              <div class="form-group">
+                <label for="importFile">Select File</label>
+                <input type="file" id="importFile" class="form-control" required />
+              </div>
+              <div class="form-group">
+                <label for="importPassword">Password (if encrypted)</label>
+                <input
+                  type="password"
+                  id="importPassword"
+                  class="form-control"
+                  placeholder="Enter password for encrypted files"
+                />
+              </div>
+              <div class="form-group">
+                <label>
+                  <input type="checkbox" id="developerOptionsToggle"> 
+                  Developer Options
+                </label>
+              </div>
 
-            <!-- Developer options section (initially hidden) -->
-            <div id="developerOptionsSection" class="developer-options" style="display: none;">
-              <div class="form-group">
-                <label for="oldStringSelect">Old String</label>
-                <select id="oldStringSelect" class="form-control">
-                  <option value="">Select or enter custom...</option>
-                </select>
-                <input type="text" id="oldStringCustom" class="form-control" 
-                       placeholder="Enter custom old string" style="margin-top: 5px;">
+              <!-- Developer options section (initially hidden) -->
+              <div id="developerOptionsSection" class="developer-options" style="display: none;">
+                <div class="form-group">
+                  <label for="oldStringSelect">Old String</label>
+                  <select id="oldStringSelect" class="form-control">
+                    <option value="">Select or enter custom...</option>
+                  </select>
+                  <input type="text" id="oldStringCustom" class="form-control" 
+                        placeholder="Enter custom old string" style="margin-top: 5px;">
+                </div>
+                
+                <div class="form-group">
+                  <label for="newStringSelect">New String</label>
+                  <select id="newStringSelect" class="form-control">
+                    <option value="">Select or enter custom...</option>
+                  </select>
+                  <input type="text" id="newStringCustom" class="form-control" 
+                        placeholder="Enter custom new string" style="margin-top: 5px;">
+                </div>
               </div>
-              
-              <div class="form-group">
-                <label for="newStringSelect">New String</label>
-                <select id="newStringSelect" class="form-control">
-                  <option value="">Select or enter custom...</option>
-                </select>
-                <input type="text" id="newStringCustom" class="form-control" 
-                       placeholder="Enter custom new string" style="margin-top: 5px;">
-              </div>
-            </div>
-            <button type="submit" class="update-button">Load Account</button>
-          </form>
-          <a class="last-item" href="#"> </a>
+              <button type="submit" class="update-button">Load Account</button>
+            </form>
+          </div>
         </div>
+        <a class="last-item" href="#"> </a>
       </div>
 
       <!-- Chat Modal -->
@@ -769,56 +800,58 @@
             ></button>
           </div>
         </div>
-        <div class="form-container">
-          <div class="contact-info-list">
-            <div class="contact-avatar-section">
-              <div class="avatar" id="contactInfoAvatar"></div>
-              <div class="name"></div>
-              <div class="subtitle"></div>
-            </div>
-            <!-- Template for contact info items -->
-            <template id="contactInfoItemTemplate">
+        <div class="modal-content">
+          <div class="form-container">
+            <div class="contact-info-list">
+              <div class="contact-avatar-section">
+                <div class="avatar" id="contactInfoAvatar"></div>
+                <div class="name"></div>
+                <div class="subtitle"></div>
+              </div>
+              <!-- Template for contact info items -->
+              <template id="contactInfoItemTemplate">
+                <div class="contact-info-item">
+                  <div class="contact-info-label"></div>
+                  <div class="contact-info-value"></div>
+                </div>
+              </template>
+              <!-- Contact info fields -->
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">Username</div>
+                <div class="contact-info-value" id="contactInfoUsername"></div>
+              </div>
               <div class="contact-info-item">
-                <div class="contact-info-label"></div>
-                <div class="contact-info-value"></div>
+                <div class="contact-info-label">Name</div>
+                <div class="contact-info-value-container">
+                  <div class="contact-info-value" id="contactInfoName"></div>
+                  <button class="icon-button edit-icon" id="nameEditButton" aria-label="Edit name"></button>
+                </div>
               </div>
-            </template>
-            <!-- Contact info fields -->
-            <div class="contact-info-item" style="display: none">
-              <div class="contact-info-label">Username</div>
-              <div class="contact-info-value" id="contactInfoUsername"></div>
-            </div>
-            <div class="contact-info-item">
-              <div class="contact-info-label">Name</div>
-              <div class="contact-info-value-container">
-                <div class="contact-info-value" id="contactInfoName"></div>
-                <button class="icon-button edit-icon" id="nameEditButton" aria-label="Edit name"></button>
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">Provided Name</div>
+                <div class="contact-info-value" id="contactInfoProvidedName"></div>
               </div>
-            </div>
-            <div class="contact-info-item" style="display: none">
-              <div class="contact-info-label">Provided Name</div>
-              <div class="contact-info-value" id="contactInfoProvidedName"></div>
-            </div>
-            <div class="contact-info-item" style="display: none">
-              <div class="contact-info-label">Email</div>
-              <div class="contact-info-value">
-                <a href="#" id="contactInfoEmail" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">Email</div>
+                <div class="contact-info-value">
+                  <a href="#" id="contactInfoEmail" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
+                </div>
               </div>
-            </div>
-            <div class="contact-info-item" style="display: none">
-              <div class="contact-info-label">Phone</div>
-              <div class="contact-info-value" id="contactInfoPhone"></div>
-            </div>
-            <div class="contact-info-item" style="display: none">
-              <div class="contact-info-label">LinkedIn</div>
-              <div class="contact-info-value">
-                <a href="#" id="contactInfoLinkedin" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">Phone</div>
+                <div class="contact-info-value" id="contactInfoPhone"></div>
               </div>
-            </div>
-            <div class="contact-info-item" style="display: none">
-              <div class="contact-info-label">X-Twitter</div>
-              <div class="contact-info-value">
-                <a href="#" id="contactInfoX" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">LinkedIn</div>
+                <div class="contact-info-value">
+                  <a href="#" id="contactInfoLinkedin" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
+                </div>
+              </div>
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">X-Twitter</div>
+                <div class="contact-info-value">
+                  <a href="#" id="contactInfoX" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
+                </div>
               </div>
             </div>
           </div>
@@ -876,63 +909,65 @@
           <button class="back-button" id="closeReceiveModal"></button>
           <div class="modal-title">Receive</div>
         </div>
-        <div class="form-container">
-          <div class="form-group">
-            <label>Your Address</label>
-            <div style="display: flex; align-items: flex-start; gap: 0.5rem">
-              <div
-                id="displayAddress"
+        <div class="modal-content">
+          <div class="form-container">
+            <div class="form-group">
+              <label>Your Address</label>
+              <div style="display: flex; align-items: flex-start; gap: 0.5rem">
+                <div
+                  id="displayAddress"
+                  class="form-control"
+                  style="
+                    flex: 1;
+                    font-size: 0.875rem;
+                    padding: 8px 12px;
+                    word-break: break-all;
+                    line-height: 1.4;
+                    background-color: #f8f9fa;
+                    cursor: default;
+                  "
+                ></div>
+                <button
+                  id="copyAddress"
+                  class="icon-button"
+                  style="color: #007bff; margin-top: 4px; flex-shrink: 0"
+                ></button>
+              </div>
+              <div id="qrcode" style="margin-top: 1rem; display: flex; justify-content: center"></div>
+
+              <!-- QR Code Preview (Moved here) -->
+              <div id="qrDataPreview" class="form-control qr-data-preview" style="display: none">
+                <!-- Error messages will be placed here directly by JS -->
+              </div>
+            </div>
+
+            <!-- Payment Request Options (New) -->
+            <div class="form-group">
+              <label for="receiveAsset">Asset</label>
+              <select id="receiveAsset" class="form-control">
+                <!-- Will be populated with assets in JavaScript -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="receiveAmount">Amount (Optional)</label>
+              <input
+                type="text"
+                id="receiveAmount"
                 class="form-control"
-                style="
-                  flex: 1;
-                  font-size: 0.875rem;
-                  padding: 8px 12px;
-                  word-break: break-all;
-                  line-height: 1.4;
-                  background-color: #f8f9fa;
-                  cursor: default;
-                "
-              ></div>
-              <button
-                id="copyAddress"
-                class="icon-button"
-                style="color: #007bff; margin-top: 4px; flex-shrink: 0"
-              ></button>
+                placeholder="Enter amount"
+                step="any"
+                min="0"
+              />
             </div>
-            <div id="qrcode" style="margin-top: 1rem; display: flex; justify-content: center"></div>
-
-            <!-- QR Code Preview (Moved here) -->
-            <div id="qrDataPreview" class="form-control qr-data-preview" style="display: none">
-              <!-- Error messages will be placed here directly by JS -->
+            <div class="form-group">
+              <label for="receiveMemo">Memo (Optional)</label>
+              <textarea
+                id="receiveMemo"
+                class="form-control"
+                placeholder="Add a note for the payment"
+                maxlength="300"
+              ></textarea>
             </div>
-          </div>
-
-          <!-- Payment Request Options (New) -->
-          <div class="form-group">
-            <label for="receiveAsset">Asset</label>
-            <select id="receiveAsset" class="form-control">
-              <!-- Will be populated with assets in JavaScript -->
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="receiveAmount">Amount (Optional)</label>
-            <input
-              type="text"
-              id="receiveAmount"
-              class="form-control"
-              placeholder="Enter amount"
-              step="any"
-              min="0"
-            />
-          </div>
-          <div class="form-group">
-            <label for="receiveMemo">Memo (Optional)</label>
-            <textarea
-              id="receiveMemo"
-              class="form-control"
-              placeholder="Add a note for the payment"
-              maxlength="300"
-            ></textarea>
           </div>
         </div>
         <a class="last-item" href="#"> </a>
@@ -944,13 +979,15 @@
           <button class="back-button" id="closeHistoryModal"></button>
           <div class="modal-title">Transaction History</div>
         </div>
-        <div class="form-container">
-          <div class="form-group">
-            <label for="historyAsset">Asset</label>
-            <select id="historyAsset" class="form-control"></select>
-          </div>
-          <div class="transaction-list" id="transactionList">
-            <!-- Transactions will be populated here -->
+        <div class="modal-content">
+          <div class="form-container">
+            <div class="form-group">
+              <label for="historyAsset">Asset</label>
+              <select id="historyAsset" class="form-control"></select>
+            </div>
+            <div class="transaction-list" id="transactionList">
+              <!-- Transactions will be populated here -->
+            </div>
           </div>
         </div>
         <a class="last-item" href="#"> </a>
@@ -962,103 +999,105 @@
           <button class="back-button" id="closeSendAssetFormModal"></button>
           <div class="modal-title">Send</div>
         </div>
-        <div class="form-container">
-          <form id="sendForm">
-            <div class="form-group">
-              <label for="sendAsset">Asset</label>
-              <select id="sendAsset" class="form-control" required></select>
-            </div>
-            <div class="form-group">
-              <label for="sendToAddress"
-                >Recipient <span id="sendToAddressError" style="color: #dc3545; display: none"></span
-              ></label>
-              <div style="display: flex; align-items: center; gap: 0.5rem">
-                <input
-                  type="text"
-                  id="sendToAddress"
-                  class="form-control"
-                  placeholder="Enter username"
-                  required
-                  pattern="[a-zA-Z0-9]*"
-                  inputmode="text"
-                  style="flex: 1"
-                />
-                <button
-                  type="button"
-                  id="uploadQRButton"
-                  class="icon-button"
-                  title="Upload QR Code"
-                  style="flex-shrink: 0"
-                >
-                  <svg viewBox="0 0 24 24" width="24" height="24" style="fill: #007bff">
-                    <path
-                      d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"
-                    />
-                  </svg>
-                </button>
-                <button type="button" id="scanQRButton" class="icon-button" title="Scan QR Code" style="flex-shrink: 0">
-                  <svg viewBox="0 0 24 24" width="24" height="24" style="fill: #007bff">
-                    <path
-                      d="M3,3 L10,3 L10,10 L3,10 Z M5,5 L5,8 L8,8 L8,5 Z M14,3 L21,3 L21,10 L14,10 Z M16,5 L16,8 L19,8 L19,5 Z M3,14 L10,14 L10,21 L3,21 Z M5,16 L5,19 L8,19 L8,16 Z M14,14 L21,14 L21,21 L14,21 Z M16,16 L16,19 L19,19 L19,16 Z M11,3 L13,3 L13,10 L11,10 Z M11,14 L13,14 L13,21 L11,21 Z M3,11 L10,11 L10,13 L3,13 Z M14,11 L21,11 L21,13 L14,13 Z"
-                    />
-                  </svg>
-                </button>
-                <!-- File input for QR code upload -->
-                <input
-                  type="file"
-                  id="qrFileInput"
-                  accept="image/*"
-                  style="display: none; position: absolute; width: 1px; height: 1px; overflow: hidden"
-                  aria-hidden="true"
-                />
+        <div class="modal-content">
+          <div class="form-container">
+            <form id="sendForm">
+              <div class="form-group">
+                <label for="sendAsset">Asset</label>
+                <select id="sendAsset" class="form-control" required></select>
               </div>
-            </div>
-            <div class="form-group">
-              <label for="sendAmount">
-                Amount <span id="balanceWarning" class="balance-warning"></span>
-              </label>
-              <div class="amount-container">
-                <input
-                  type="text"
-                  id="sendAmount"
-                  class="form-control"
-                  required
-                />
-                <!-- add button to toggle between LIB and USD -->
-                <button id="toggleBalance" class="toggle-balance">
-                  <span id="balanceSymbol">LIB</span>
-                </button>
-              </div>
-              <div id="availableBalance" class="available-balance">
-                <div class="balance-info">
-                  <span>Available: <span id="balanceAmount">0.00 LIB</span></span>
-                  <span class="fee-info">Fee: <span id="transactionFee">0.00 LIB</span></span>
+              <div class="form-group">
+                <label for="sendToAddress"
+                  >Recipient <span id="sendToAddressError" style="color: #dc3545; display: none"></span
+                ></label>
+                <div style="display: flex; align-items: center; gap: 0.5rem">
+                  <input
+                    type="text"
+                    id="sendToAddress"
+                    class="form-control"
+                    placeholder="Enter username"
+                    required
+                    pattern="[a-zA-Z0-9]*"
+                    inputmode="text"
+                    style="flex: 1"
+                  />
+                  <button
+                    type="button"
+                    id="uploadQRButton"
+                    class="icon-button"
+                    title="Upload QR Code"
+                    style="flex-shrink: 0"
+                  >
+                    <svg viewBox="0 0 24 24" width="24" height="24" style="fill: #007bff">
+                      <path
+                        d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"
+                      />
+                    </svg>
+                  </button>
+                  <button type="button" id="scanQRButton" class="icon-button" title="Scan QR Code" style="flex-shrink: 0">
+                    <svg viewBox="0 0 24 24" width="24" height="24" style="fill: #007bff">
+                      <path
+                        d="M3,3 L10,3 L10,10 L3,10 Z M5,5 L5,8 L8,8 L8,5 Z M14,3 L21,3 L21,10 L14,10 Z M16,5 L16,8 L19,8 L19,5 Z M3,14 L10,14 L10,21 L3,21 Z M5,16 L5,19 L8,19 L8,16 Z M14,14 L21,14 L21,21 L14,21 Z M16,16 L16,19 L19,19 L19,16 Z M11,3 L13,3 L13,10 L11,10 Z M11,14 L13,14 L13,21 L11,21 Z M3,11 L10,11 L10,13 L3,13 Z M14,11 L21,11 L21,13 L14,13 Z"
+                      />
+                    </svg>
+                  </button>
+                  <!-- File input for QR code upload -->
+                  <input
+                    type="file"
+                    id="qrFileInput"
+                    accept="image/*"
+                    style="display: none; position: absolute; width: 1px; height: 1px; overflow: hidden"
+                    aria-hidden="true"
+                  />
                 </div>
               </div>
-            </div>
-            <div class="form-group">
-              <label for="sendMemo">
-                Memo (Optional)
-                <span class="memo-byte-counter" style="font-size: 12px; margin-left: 8px; font-weight: normal; display: none;"></span>
-              </label>
-              <textarea id="sendMemo" class="form-control"></textarea>
-              <div class="toll-container" id="memoTollContainer">
-                <span class="toll-memo" id="tollMemo"></span>
+              <div class="form-group">
+                <label for="sendAmount">
+                  Amount <span id="balanceWarning" class="balance-warning"></span>
+                </label>
+                <div class="amount-container">
+                  <input
+                    type="text"
+                    id="sendAmount"
+                    class="form-control"
+                    required
+                  />
+                  <!-- add button to toggle between LIB and USD -->
+                  <button id="toggleBalance" class="toggle-balance">
+                    <span id="balanceSymbol">LIB</span>
+                  </button>
+                </div>
+                <div id="availableBalance" class="available-balance">
+                  <div class="balance-info">
+                    <span>Available: <span id="balanceAmount">0.00 LIB</span></span>
+                    <span class="fee-info">Fee: <span id="transactionFee">0.00 LIB</span></span>
+                  </div>
+                </div>
               </div>
-            </div>
-            <input type="hidden" id="retryOfPaymentTxId" />
-            <button type="submit" class="update-button">Send</button>
-          </form>
+              <div class="form-group">
+                <label for="sendMemo">
+                  Memo (Optional)
+                  <span class="memo-byte-counter" style="font-size: 12px; margin-left: 8px; font-weight: normal; display: none;"></span>
+                </label>
+                <textarea id="sendMemo" class="form-control"></textarea>
+                <div class="toll-container" id="memoTollContainer">
+                  <span class="toll-memo" id="tollMemo"></span>
+                </div>
+              </div>
+              <input type="hidden" id="retryOfPaymentTxId" />
+              <button type="submit" class="update-button">Send</button>
+            </form>
 
-          <!-- QR Scan Container -->
-          <div id="qrScannerContainer" class="qr-scanner-container" style="display: none">
-            <video id="qrVideo" playsinline autoplay></video>
-            <div class="scanner-overlay">
-              <div class="scanner-guide"></div>
-            </div>
-            <div class="scanner-controls">
-              <button id="closeScanner" class="scanner-button">Cancel</button>
-              <button id="switchCamera" class="scanner-button">Switch Camera</button>
+            <!-- QR Scan Container -->
+            <div id="qrScannerContainer" class="qr-scanner-container" style="display: none">
+              <video id="qrVideo" playsinline autoplay></video>
+              <div class="scanner-overlay">
+                <div class="scanner-guide"></div>
+              </div>
+              <div class="scanner-controls">
+                <button id="closeScanner" class="scanner-button">Cancel</button>
+                <button id="switchCamera" class="scanner-button">Switch Camera</button>
+              </div>
             </div>
           </div>
         </div>
@@ -1071,28 +1110,30 @@
           <button class="back-button" id="closeSendAssetConfirmModal"></button>
           <div class="modal-title">Confirm Transaction</div>
         </div>
-        <div class="form-container">
-          <div class="confirmation-details">
-            <div class="form-group">
-              <label>Recipient</label>
-              <div id="confirmRecipient" class="confirm-value"></div>
+        <div class="modal-content">
+          <div class="form-container">
+            <div class="confirmation-details">
+              <div class="form-group">
+                <label>Recipient</label>
+                <div id="confirmRecipient" class="confirm-value"></div>
+              </div>
+              <div class="form-group">
+                <label>Amount</label>
+                <div id="confirmAmount" class="confirm-value"></div>
+                <div id="confirmAmountUSD" class="confirm-value-secondary usd-equivalent"></div>
+              </div>
+              <div class="form-group">
+                <label>Asset</label>
+                <div id="confirmAsset" class="confirm-value"></div>
+              </div>
+              <div class="form-group" id="confirmMemoGroup" style="display: none">
+                <label>Memo</label>
+                <div id="confirmMemo" class="confirm-value"></div>
+              </div>
             </div>
-            <div class="form-group">
-              <label>Amount</label>
-              <div id="confirmAmount" class="confirm-value"></div>
-              <div id="confirmAmountUSD" class="confirm-value-secondary usd-equivalent"></div>
-            </div>
-            <div class="form-group">
-              <label>Asset</label>
-              <div id="confirmAsset" class="confirm-value"></div>
-            </div>
-            <div class="form-group" id="confirmMemoGroup" style="display: none">
-              <label>Memo</label>
-              <div id="confirmMemo" class="confirm-value"></div>
-            </div>
+            <button id="confirmSendButton" class="update-button">Confirm Send</button>
+            <button id="cancelSendButton" class="secondary-button">Cancel</button>
           </div>
-          <button id="confirmSendButton" class="update-button">Confirm Send</button>
-          <button id="cancelSendButton" class="secondary-button">Cancel</button>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
@@ -1103,26 +1144,28 @@
           <button class="back-button" id="closeRemoveAccountModal"></button>
           <div class="modal-title">Remove Account</div>
         </div>
-        <div class="form-container">
-          <div class="modal-content-wrapper">
-            <div class="modal-text-content">
-              <h3 class="modal-heading">
-                Please backup your account before removing it.
-              </h3>
-              <p>
-                This only removes the account from this device, not from the network.
-              </p>
-              <p>
-                You can restore and use your account again anytime with the backup file.
-              </p>
-            </div>
-            <div>
-              <button id="openBackupFromRemove" class="primary-button">Backup Account</button>
-              <button id="confirmRemoveAccount" class="update-button">Remove</button>
+        <div class="modal-content">
+          <div class="form-container">
+            <div class="modal-content-wrapper">
+              <div class="modal-text-content">
+                <h3 class="modal-heading">
+                  Please backup your account before removing it.
+                </h3>
+                <p>
+                  This only removes the account from this device, not from the network.
+                </p>
+                <p>
+                  You can restore and use your account again anytime with the backup file.
+                </p>
+              </div>
+              <div>
+                <button id="openBackupFromRemove" class="primary-button">Backup Account</button>
+                <button id="confirmRemoveAccount" class="update-button">Remove</button>
+              </div>
             </div>
           </div>
-          <a class="last-item" href="#"> </a>
         </div>
+        <a class="last-item" href="#"> </a>
       </div>
 
       <!-- Backup Modal -->
@@ -1131,43 +1174,45 @@
           <button class="back-button" id="closeBackupForm"></button>
           <div class="modal-title">Backup Account</div>
         </div>
-        <div class="form-container">
-          <!-- have description of what this is -->
-          <p>
-            This will download a file that contains your account data. You can use this file to restore your account on another device.
-          </p>
-          <p>
-            If you are signed in, this will only save the current account. If you are not signed in, this will save all accounts.
-          </p>
-          <form id="backupForm">
-            <div class="form-group">
-              <label for="backupPassword">
-                Password
-                <span id="backupPasswordWarning" style="color: #dc3545; display: none">too short</span>
-              </label>
-              <input
-                type="password"
-                id="backupPassword"
-                class="form-control"
-                placeholder="Leave empty for unencrypted backup"
-              />
-            </div>
-            <div class="form-group">
-              <label for="backupPasswordConfirm">
-                Confirm Password
-                <span id="backupPasswordConfirmWarning" style="color: #dc3545; display: none">passwords don't match</span>
-              </label>
-              <input
-                type="password"
-                id="backupPasswordConfirm"
-                class="form-control"
-                placeholder="Confirm your password"
-              />
-            </div>
-            <button type="submit" class="update-button">Download Data</button>
-          </form>
-          <a class="last-item" href="#"> </a>
+        <div class="modal-content">
+          <div class="form-container">
+            <!-- have description of what this is -->
+            <p>
+              This will download a file that contains your account data. You can use this file to restore your account on another device.
+            </p>
+            <p>
+              If you are signed in, this will only save the current account. If you are not signed in, this will save all accounts.
+            </p>
+            <form id="backupForm">
+              <div class="form-group">
+                <label for="backupPassword">
+                  Password
+                  <span id="backupPasswordWarning" style="color: #dc3545; display: none">too short</span>
+                </label>
+                <input
+                  type="password"
+                  id="backupPassword"
+                  class="form-control"
+                  placeholder="Leave empty for unencrypted backup"
+                />
+              </div>
+              <div class="form-group">
+                <label for="backupPasswordConfirm">
+                  Confirm Password
+                  <span id="backupPasswordConfirmWarning" style="color: #dc3545; display: none">passwords don't match</span>
+                </label>
+                <input
+                  type="password"
+                  id="backupPasswordConfirm"
+                  class="form-control"
+                  placeholder="Confirm your password"
+                />
+              </div>
+              <button type="submit" class="update-button">Download Data</button>
+            </form>
+          </div>
         </div>
+        <a class="last-item" href="#"> </a>
       </div>
 
       <!-- Add search modal before the other modals -->
@@ -1176,24 +1221,26 @@
           <button class="back-button" id="closeSearchModal"></button>
           <div class="modal-title">Search Messages</div>
         </div>
-        <div class="form-container">
-          <div class="search-bar">
-            <span class="search-icon"></span>
-            <input
-              type="text"
-              id="messageSearch"
-              class="search-input"
-              placeholder="Search messages..."
-              autocomplete="off"
-              autofocus
-              maxlength="30"
-            />
+        <div class="modal-content">
+          <div class="form-container">
+            <div class="search-bar">
+              <span class="search-icon"></span>
+              <input
+                type="text"
+                id="messageSearch"
+                class="search-input"
+                placeholder="Search messages..."
+                autocomplete="off"
+                autofocus
+                maxlength="30"
+              />
+            </div>
+            <div id="searchResults" class="chat-list">
+              <!-- Results will be populated here -->
+            </div>
           </div>
-          <div id="searchResults" class="chat-list">
-            <!-- Results will be populated here -->
-          </div>
-          <a class="last-item" href="#"> </a>
         </div>
+        <a class="last-item" href="#"> </a>
       </div>
 
       <!-- Add new contact search modal before closing body tag -->
@@ -1202,24 +1249,26 @@
           <button class="back-button" id="closeContactSearchModal"></button>
           <div class="modal-title">Search Contacts</div>
         </div>
-        <div class="form-container">
-          <div class="search-bar">
-            <span class="search-icon"></span>
-            <input
-              type="text"
-              id="contactSearch"
-              class="search-input"
-              placeholder="Search contacts..."
-              autocomplete="off"
-              autofocus
-              maxlength="30"
-            />
+        <div class="modal-content">
+          <div class="form-container">
+            <div class="search-bar">
+              <span class="search-icon"></span>
+              <input
+                type="text"
+                id="contactSearch"
+                class="search-input"
+                placeholder="Search contacts..."
+                autocomplete="off"
+                autofocus
+                maxlength="30"
+              />
+            </div>
+            <div id="contactSearchResults" class="chat-list">
+              <!-- Contact search results will be populated here -->
+            </div>
           </div>
-          <div id="contactSearchResults" class="chat-list">
-            <!-- Contact search results will be populated here -->
-          </div>
-          <a class="last-item" href="#"> </a>
         </div>
+        <a class="last-item" href="#"> </a>
       </div>
 
       <!-- Edit Contact Modal -->
@@ -1228,54 +1277,56 @@
           <button class="back-button" id="closeEditContactModal"></button>
           <div class="modal-title">Edit Contact</div>
         </div>
-        <div class="form-container">
-          <div class="contact-info-list">
-            <div class="contact-avatar-section">
-              <div class="avatar"></div>
-              <div class="name"></div>
-              <div class="subtitle"></div>
-            </div>
-            <div class="contact-info-item" style="display: none">
-              <div class="contact-info-label">Username</div>
-              <div class="contact-info-value" id="editContactUsername"></div>
-            </div>
-            <div class="contact-info-item">
-              <div class="contact-info-label">Name</div>
-              <div class="contact-info-value-container">
-                <div class="contact-info-value editing">
-                  <input
-                    type="text"
-                    class="edit-field-input"
-                    id="editContactNameInput"
-                    placeholder="Enter contact name"
-                  />
-                  <button class="field-action-button clear" aria-label="Add"></button>
+        <div class="modal-content">
+          <div class="form-container">
+            <div class="contact-info-list">
+              <div class="contact-avatar-section">
+                <div class="avatar"></div>
+                <div class="name"></div>
+                <div class="subtitle"></div>
+              </div>
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">Username</div>
+                <div class="contact-info-value" id="editContactUsername"></div>
+              </div>
+              <div class="contact-info-item">
+                <div class="contact-info-label">Name</div>
+                <div class="contact-info-value-container">
+                  <div class="contact-info-value editing">
+                    <input
+                      type="text"
+                      class="edit-field-input"
+                      id="editContactNameInput"
+                      placeholder="Enter contact name"
+                    />
+                    <button class="field-action-button clear" aria-label="Add"></button>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="contact-info-item" id="editContactProvidedNameContainer" style="display: none">
-              <div class="contact-info-label">Provided Name</div>
-              <div class="contact-info-value" id="editContactProvidedName"></div>
-            </div>
-            <div class="contact-info-item" style="display: none">
-              <div class="contact-info-label">Email</div>
-              <div class="contact-info-value" id="editContactEmail"></div>
-            </div>
-            <div class="contact-info-item" style="display: none">
-              <div class="contact-info-label">Phone</div>
-              <div class="contact-info-value" id="editContactPhone"></div>
-            </div>
-            <div class="contact-info-item" style="display: none">
-              <div class="contact-info-label">LinkedIn</div>
-              <div class="contact-info-value" id="editContactLinkedin"></div>
-            </div>
-            <div class="contact-info-item" style="display: none">
-              <div class="contact-info-label">X-Twitter</div>
-              <div class="contact-info-value" id="editContactX"></div>
+              <div class="contact-info-item" id="editContactProvidedNameContainer" style="display: none">
+                <div class="contact-info-label">Provided Name</div>
+                <div class="contact-info-value" id="editContactProvidedName"></div>
+              </div>
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">Email</div>
+                <div class="contact-info-value" id="editContactEmail"></div>
+              </div>
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">Phone</div>
+                <div class="contact-info-value" id="editContactPhone"></div>
+              </div>
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">LinkedIn</div>
+                <div class="contact-info-value" id="editContactLinkedin"></div>
+              </div>
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">X-Twitter</div>
+                <div class="contact-info-value" id="editContactX"></div>
+              </div>
             </div>
           </div>
-          <a class="last-item" href="#"> </a>
         </div>
+        <a class="last-item" href="#"> </a>
       </div>
 
       <!-- Validator Modal -->
@@ -1399,46 +1450,48 @@
           <button class="back-button" id="closeTollModal"></button>
           <div class="modal-title">Toll Settings</div>
         </div>
-        <div class="form-container">
-          <!-- Current Toll Amount Display Area - Moved outside the form -->
-          <div class="toll-display-area">
-            <label for="currentTollValue">Current Toll Amount</label>
-            <div class="form-text help-text">
-              This is the toll amount a sender must pay to send a message or payment to you.
-            </div>
-            <div id="tollAmountLIB" class="current-toll-value-box">
-              <span id="tollAmountLIB">N/A LIB</span>
-            </div>
-            <div id="tollAmountUSD" class="current-toll-value-box">
-              <span id="tollAmountUSD">N/A USD</span>
-            </div>
-          </div>
-
-          <form id="tollForm">
-            <div class="form-group">
-              <label for="newTollAmountInput">Set New Toll Amount</label>
+        <div class="modal-content">
+          <div class="form-container">
+            <!-- Current Toll Amount Display Area - Moved outside the form -->
+            <div class="toll-display-area">
+              <label for="currentTollValue">Current Toll Amount</label>
               <div class="form-text help-text">
-                Sets a new toll amount a sender must pay to send a message or payment to you. All tolls are received in
-                LIB. If you enter a USD amount, you will receive the equivalent LIB value at market price. Aside from 0
-                (no toll), there is a minimum toll as shown below.
+                This is the toll amount a sender must pay to send a message or payment to you.
               </div>
-              <div class="amount-container">
-                <input
-                  type="text"
-                  id="newTollAmountInput"
-                  class="form-control"
-                  placeholder="Enter new amount"
-                  required
-                />
-                <button type="button" id="toggleTollCurrency" class="toggle-balance">
-                  <span id="tollCurrencySymbol">LIB</span>
-                </button>
+              <div id="tollAmountLIB" class="current-toll-value-box">
+                <span id="tollAmountLIB">N/A LIB</span>
               </div>
-              <div id="minTollDisplay" class="form-text help-text">Minimum toll: Loading...</div>
-              <div id="tollWarningMessage" class="form-text warning-text"></div>
+              <div id="tollAmountUSD" class="current-toll-value-box">
+                <span id="tollAmountUSD">N/A USD</span>
+              </div>
             </div>
-            <button type="submit" id="saveNewTollButton" class="update-button">Save Changes</button>
-          </form>
+
+            <form id="tollForm">
+              <div class="form-group">
+                <label for="newTollAmountInput">Set New Toll Amount</label>
+                <div class="form-text help-text">
+                  Sets a new toll amount a sender must pay to send a message or payment to you. All tolls are received in
+                  LIB. If you enter a USD amount, you will receive the equivalent LIB value at market price. Aside from 0
+                  (no toll), there is a minimum toll as shown below.
+                </div>
+                <div class="amount-container">
+                  <input
+                    type="text"
+                    id="newTollAmountInput"
+                    class="form-control"
+                    placeholder="Enter new amount"
+                    required
+                  />
+                  <button type="button" id="toggleTollCurrency" class="toggle-balance">
+                    <span id="tollCurrencySymbol">LIB</span>
+                  </button>
+                </div>
+                <div id="minTollDisplay" class="form-text help-text">Minimum toll: Loading...</div>
+                <div id="tollWarningMessage" class="form-text warning-text"></div>
+              </div>
+              <button type="submit" id="saveNewTollButton" class="update-button">Save Changes</button>
+            </form>
+          </div>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
@@ -1449,79 +1502,81 @@
           <button class="back-button" id="closeStakeModal"></button>
           <div class="modal-title">Stake Validator</div>
         </div>
-        <div class="form-container">
-          <form id="stakeForm">
-            <div class="form-group" id="stakeNodeAddressGroup">
-              <label for="stakeNodeAddress">
-                Validator Node Address <span id="stakeNodeAddressWarning" class="validation-warning" style="display: none"></span>
-              </label>
-              <div style="display: flex; align-items: center; gap: 0.5rem">
-                <input
-                  type="text"
-                  id="stakeNodeAddress"
-                  class="form-control"
-                  required
-                  placeholder="Enter long node address"
-                  style="flex: 1"
-                />
-                <button
-                  type="button"
-                  id="uploadStakeQRButton"
-                  class="icon-button"
-                  title="Upload Stake Address QR"
-                  style="flex-shrink: 0"
-                >
-                  <svg viewBox="0 0 24 24" width="24" height="24" style="fill: #007bff">
-                    <path
-                      d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"
-                    />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  id="scanStakeQRButton"
-                  class="icon-button"
-                  title="Scan Stake Address QR"
-                  style="flex-shrink: 0"
-                >
-                  <svg viewBox="0 0 24 24" width="24" height="24" style="fill: #007bff">
-                    <path
-                      d="M3,3 L10,3 L10,10 L3,10 Z M5,5 L5,8 L8,8 L8,5 Z M14,3 L21,3 L21,10 L14,10 Z M16,5 L16,8 L19,8 L19,5 Z M3,14 L10,14 L10,21 L3,21 Z M5,16 L5,19 L8,19 L8,16 Z M14,14 L21,14 L21,21 L14,21 Z M16,16 L16,19 L19,19 L19,16 Z M11,3 L13,3 L13,10 L11,10 Z M11,14 L13,14 L13,21 L11,21 Z M3,11 L10,11 L10,13 L3,13 Z M14,11 L21,11 L21,13 L14,13 Z"
-                    />
-                  </svg>
-                </button>
-                <!-- File input for Stake QR code upload -->
-                <input
-                  type="file"
-                  id="stakeQrFileInput"
-                  accept="image/*"
-                  style="display: none; position: absolute; width: 1px; height: 1px; overflow: hidden"
-                  aria-hidden="true"
-                />
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="stakeAmount">
-                Stake Amount <span id="stakeAmountWarning" class="validation-warning" style="display: none"></span>
-              </label>
-              <div id="stakeAvailableBalanceDisplay" class="available-balance-display">
-                <div class="balance-info">
-                  <span>Available: <span id="stakeBalanceAmount">0.00 LIB</span></span>
-                  <span class="fee-info">Fee: <span id="stakeTransactionFee">0.00 LIB</span></span>
+        <div class="modal-content">
+          <div class="form-container">
+            <form id="stakeForm">
+              <div class="form-group" id="stakeNodeAddressGroup">
+                <label for="stakeNodeAddress">
+                  Validator Node Address <span id="stakeNodeAddressWarning" class="validation-warning" style="display: none"></span>
+                </label>
+                <div style="display: flex; align-items: center; gap: 0.5rem">
+                  <input
+                    type="text"
+                    id="stakeNodeAddress"
+                    class="form-control"
+                    required
+                    placeholder="Enter long node address"
+                    style="flex: 1"
+                  />
+                  <button
+                    type="button"
+                    id="uploadStakeQRButton"
+                    class="icon-button"
+                    title="Upload Stake Address QR"
+                    style="flex-shrink: 0"
+                  >
+                    <svg viewBox="0 0 24 24" width="24" height="24" style="fill: #007bff">
+                      <path
+                        d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    id="scanStakeQRButton"
+                    class="icon-button"
+                    title="Scan Stake Address QR"
+                    style="flex-shrink: 0"
+                  >
+                    <svg viewBox="0 0 24 24" width="24" height="24" style="fill: #007bff">
+                      <path
+                        d="M3,3 L10,3 L10,10 L3,10 Z M5,5 L5,8 L8,8 L8,5 Z M14,3 L21,3 L21,10 L14,10 Z M16,5 L16,8 L19,8 L19,5 Z M3,14 L10,14 L10,21 L3,21 Z M5,16 L5,19 L8,19 L8,16 Z M14,14 L21,14 L21,21 L14,21 Z M16,16 L16,19 L19,19 L19,16 Z M11,3 L13,3 L13,10 L11,10 Z M11,14 L13,14 L13,21 L11,21 Z M3,11 L10,11 L10,13 L3,13 Z M14,11 L21,11 L21,13 L14,13 Z"
+                      />
+                    </svg>
+                  </button>
+                  <!-- File input for Stake QR code upload -->
+                  <input
+                    type="file"
+                    id="stakeQrFileInput"
+                    accept="image/*"
+                    style="display: none; position: absolute; width: 1px; height: 1px; overflow: hidden"
+                    aria-hidden="true"
+                  />
                 </div>
               </div>
-              <input
-                type="text"
-                id="stakeAmount"
-                class="form-control"
-                required
-                placeholder="Enter amount to stake"
-              />
-            </div>
-            <button type="submit" id="submitStake" class="button full-width">Submit Stake</button>
-          </form>
-          <a class="last-item" href="#"> </a>
+              <div class="form-group">
+                <label for="stakeAmount">
+                  Stake Amount <span id="stakeAmountWarning" class="validation-warning" style="display: none"></span>
+                </label>
+                <div id="stakeAvailableBalanceDisplay" class="available-balance-display">
+                  <div class="balance-info">
+                    <span>Available: <span id="stakeBalanceAmount">0.00 LIB</span></span>
+                    <span class="fee-info">Fee: <span id="stakeTransactionFee">0.00 LIB</span></span>
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  id="stakeAmount"
+                  class="form-control"
+                  required
+                  placeholder="Enter amount to stake"
+                />
+              </div>
+              <button type="submit" id="submitStake" class="button full-width">Submit Stake</button>
+            </form>
+          </div>
         </div>
+        <a class="last-item" href="#"> </a>
       </div>
 
       <!-- QR Scan Modal -->
@@ -1547,13 +1602,16 @@
             <button class="back-button" id="closeFailedTransactionModal"></button>
             <div class="modal-title">Failed Transaction</div>
           </div>
-          <div class="form-container">
-            <div class="modal-actions">
-              <button type="button" class="secondary-button delete-button">Delete</button>
-              <button type="button" class="update-button retry-button">Edit & Resend</button>
+          <div class="modal-content">
+            <div class="form-container">
+              <div class="modal-actions">
+                <button type="button" class="secondary-button delete-button">Delete</button>
+                <button type="button" class="update-button retry-button">Edit & Resend</button>
+              </div>
             </div>
           </div>
         </div>
+        <a class="last-item" href="#"></a>
       </div>
 
       <!-- Invite Modal -->
@@ -1562,23 +1620,25 @@
           <button class="back-button" id="closeInviteModal"></button>
           <div class="modal-title">Invite Friends</div>
         </div>
-        <div class="form-container">
-          <p class="modal-summary">
-            Enter an email. An invitation with your account username will be sent to the email address.
-          </p>
-          <form id="inviteForm">
-            <div class="form-group">
-              <label for="inviteEmail">Email</label>
-              <input type="email" id="inviteEmail" class="form-control" placeholder="Enter email address" />
-            </div>
-            <div class="form-group" style="display: none">
-              <label for="invitePhone">Phone Number</label>
-              <input type="tel" id="invitePhone" class="form-control" placeholder="Enter phone number" />
-            </div>
-            <button type="submit" class="update-button">Send Invitation</button>
-          </form>
-          <a class="last-item" href="#"></a>
+        <div class="modal-content">
+          <div class="form-container">
+            <p class="modal-summary">
+              Enter an email. An invitation with your account username will be sent to the email address.
+            </p>
+            <form id="inviteForm">
+              <div class="form-group">
+                <label for="inviteEmail">Email</label>
+                <input type="email" id="inviteEmail" class="form-control" placeholder="Enter email address" />
+              </div>
+              <div class="form-group" style="display: none">
+                <label for="invitePhone">Phone Number</label>
+                <input type="tel" id="invitePhone" class="form-control" placeholder="Enter phone number" />
+              </div>
+              <button type="submit" class="update-button">Send Invitation</button>
+            </form>
+          </div>
         </div>
+        <a class="last-item" href="#"> </a>
       </div>
 
       <!-- Bridge Modal -->
@@ -1587,28 +1647,30 @@
           <button class="back-button" id="closeBridgeModal"></button>
           <div class="modal-title">Bridge</div>
         </div>
-        <div class="form-container">
-          <p class="bridge-explanation" style="margin-bottom: 1rem">
-            Bridge allows you to transfer LIB tokens between Liberdus and other networks.
-          </p>
-          <form id="bridgeForm">
-            <div class="form-group">
-              <label for="bridgeDirection">Bridge Direction</label>
-              <select id="bridgeDirection" class="form-control">
-                <option value="in">From External Network to Liberdus</option>
-                <option value="out">From Liberdus to External Network</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="bridgeNetwork">Select Network</label>
-              <select id="bridgeNetwork" class="form-control">
-                <!-- Network options will be populated from network.js -->
-              </select>
-            </div>
-            <button type="submit" class="update-button">Continue</button>
-          </form>
-          <a class="last-item" href="#"></a>
+        <div class="modal-content">
+          <div class="form-container">
+            <p class="bridge-explanation" style="margin-bottom: 1rem">
+              Bridge allows you to transfer LIB tokens between Liberdus and other networks.
+            </p>
+            <form id="bridgeForm">
+              <div class="form-group">
+                <label for="bridgeDirection">Bridge Direction</label>
+                <select id="bridgeDirection" class="form-control">
+                  <option value="in">From External Network to Liberdus</option>
+                  <option value="out">From Liberdus to External Network</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="bridgeNetwork">Select Network</label>
+                <select id="bridgeNetwork" class="form-control">
+                  <!-- Network options will be populated from network.js -->
+                </select>
+              </div>
+              <button type="submit" class="update-button">Continue</button>
+            </form>
+          </div>
         </div>
+        <a class="last-item" href="#"> </a>
       </div>
 
       <!-- Migrate Accounts Modal -->
@@ -1617,16 +1679,18 @@
           <button class="back-button" id="closeMigrateAccountsModal"></button>
           <div class="modal-title">Migrate Accounts</div>
         </div>
-        <div class="form-container">
-          <p class="modal-summary">
-            Select accounts to migrate from other networks.
-          </p>
-          <div class="account-list" id="migrateAccountList">
-            <!-- Three sections will be rendered here -->
+        <div class="modal-content">
+          <div class="form-container">
+            <p class="modal-summary">
+              Select accounts to migrate from other networks.
+            </p>
+            <div class="account-list" id="migrateAccountList">
+              <!-- Three sections will be rendered here -->
+            </div>
+            <button type="button" id="submitMigrateAccounts" class="update-button">Migrate Accounts</button>
           </div>
-          <button type="button" id="submitMigrateAccounts" class="update-button">Migrate Accounts</button>
-          <a class="last-item" href="#"></a>
         </div>
+        <a class="last-item" href="#"> </a>
       </div>
 
       <a class="last-item" href="#"> </a>
