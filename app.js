@@ -11789,6 +11789,7 @@ function enterFullscreen() {
 class LocalStorageMonitor {
   constructor() {
     this.warningThreshold = 100 * 1024; // 100KB in bytes
+    this.CAPACITY_KEY = '_localStorage_total_capacity_';
   }
 
   /**
@@ -11832,12 +11833,12 @@ class LocalStorageMonitor {
   }
 
   /**
-   * Get localStorage information using the three core functions
+   * Get localStorage information using cached or calculated capacity
    */
   getStorageInfo() {
     const usage = this.getLocalStorageUsage();
-    const availableNow = this.findLocalStorageAvailable(); // How much MORE we can store right now
-    const totalCapacity = usage + availableNow;          // True total capacity
+    const totalCapacity = this.getCachedOrCalculateCapacity();
+    const availableNow = totalCapacity - usage;
     const percentageUsed = ((usage / totalCapacity) * 100).toFixed(2);
 
     return {
@@ -11849,6 +11850,28 @@ class LocalStorageMonitor {
       availableMB: (availableNow / (1024 * 1024)).toFixed(2),
       percentageUsed: parseFloat(percentageUsed)
     };
+  }
+
+  /**
+   * Get cached localStorage capacity or calculate it for the first time
+   * @returns {number} Total localStorage capacity in bytes
+   */
+  getCachedOrCalculateCapacity() {
+    const storedCapacity = localStorage.getItem(this.CAPACITY_KEY);
+    if (storedCapacity) {
+      console.log('✅ Using stored localStorage capacity:', storedCapacity);
+      return parseInt(storedCapacity);
+    }
+    
+    console.log('🔄 Calculating localStorage capacity for first time...');
+    const usage = this.getLocalStorageUsage();
+    const available = this.findLocalStorageAvailable(); // Only runs once!
+    const totalCapacity = usage + available;
+    
+    localStorage.setItem(this.CAPACITY_KEY, totalCapacity.toString());
+    console.log('💾 Stored localStorage capacity for future use:', totalCapacity);
+    
+    return totalCapacity;
   }
 
   /**
