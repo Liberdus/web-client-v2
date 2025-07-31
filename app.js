@@ -8466,7 +8466,11 @@ class CreateAccountModal {
   }
 
   close() {
-    this.modal.classList.remove('active');
+    // reload the welcome page so that if accounts were migrated the signin button will be shown
+//    this.modal.classList.remove('active');
+    const newUrl = window.location.href.split('?')[0];
+    window.location.replace(newUrl);
+
   }
 
   openWithReset() {
