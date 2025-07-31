@@ -8474,7 +8474,6 @@ class CreateAccountModal {
   // this is called by the back button on the create account modal
   closeWithReload() {
     // reload the welcome page so that if accounts were migrated the signin button will be shown
-//    this.modal.classList.remove('active');
     const newUrl = window.location.href.split('?')[0];
     window.location.replace(newUrl);
 
