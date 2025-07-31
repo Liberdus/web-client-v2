@@ -11161,11 +11161,15 @@ const launchModal = new LaunchModal();
  * @description A class for handling communication with the React Native app
  */
 class ReactNativeApp {
-  constructor() {}
+  constructor() {
+    this.isReactNativeWebView = this.checkIfReactNativeWebView();
+  }
 
   load() {
-    // Add message listener for React Native WebView communication
-    if (window?.ReactNativeWebView) {
+    if (this.isReactNativeWebView) {
+      console.log('🌐 Initializing React Native WebView Communication');
+      this.captureInitialViewportHeight();
+
       window.addEventListener('message', (event) => {
         try {
           const data = JSON.parse(event.data);
@@ -11179,14 +11183,88 @@ class ReactNativeApp {
             }
             saveState();
           }
+
+          if (data.type === 'KEYBOARD_SHOWN') {
+            this.detectKeyboardOverlap(data.keyboardHeight);
+          }
         } catch (error) {
           console.error('Error parsing message from React Native:', error);
         }
       });
     }
   }
+
+  checkIfReactNativeWebView() {
+    return typeof window !== 'undefined' &&
+      typeof window.ReactNativeWebView !== 'undefined' &&
+      typeof window.ReactNativeWebView.postMessage === 'function';
+  }
+
+  postMessage(data) {
+    if (this.isReactNativeWebView) {
+      try {
+        window.ReactNativeWebView.postMessage(JSON.stringify(data));
+      } catch (error) {
+        console.warn('Failed to post message to React Native:', error);
+      }
+    }
+  }
+
+  captureInitialViewportHeight() {
+    const currentHeight = window.innerHeight;
+    console.log('📏 Capturing initial viewport height:', currentHeight);
+    this.postMessage({
+        type: 'VIEWPORT_HEIGHT',
+        height: currentHeight
+    });
+  }
+
+  isInputElement(element) {
+    if (!element) return false;
+
+    const tagName = element.tagName.toLowerCase();
+    const isContentEditable = element.contentEditable === 'true';
+
+    return tagName === 'input' ||
+      tagName === 'textarea' ||
+      isContentEditable ||
+      element.getAttribute('role') === 'textbox';
+  }
+
+  detectKeyboardOverlap(keyboardHeight) {
+    const input = document.activeElement;
+    if (!this.isInputElement(input)) {
+      return;
+    }
+
+    try {
+      const rect = input.getBoundingClientRect();
+      const screenHeight = window.screen.height;
+      const keyboardTop = screenHeight - keyboardHeight;
+
+      const inputBottom = rect.bottom;
+      const inputIsAboveKeyboard = inputBottom < keyboardTop;
+      const needsManualHandling = !inputIsAboveKeyboard;
+
+      console.log('⌨️ Native keyboard detection:', {
+        keyboardHeight,
+        inputBottom,
+        keyboardTop,
+        needsManualHandling
+      });
+
+      this.postMessage({
+        type: 'KEYBOARD_DETECTION',
+        needsManualHandling,
+        keyboardHeight,
+      });
+    } catch (error) {
+      console.warn('Error in keyboard detection:', error);
+    }
+  }
 }
 
+// Initialize and load the app
 const reactNativeApp = new ReactNativeApp();
 
 /**
