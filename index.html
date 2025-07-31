@@ -1580,9 +1580,26 @@
           <button class="back-button" id="closeBridgeModal"></button>
           <div class="modal-title">Bridge</div>
         </div>
-        <div class="form-container" style="padding: 1rem">
-          <button id="bridgeToPolygon" class="update-button" style="margin-bottom: 1rem">To Polygon Network</button>
-          <button id="bridgeFromPolygon" class="update-button">From Polygon Network</button>
+        <div class="form-container">
+          <p class="bridge-explanation">
+            Bridge allows you to transfer LIB tokens between Liberdus and other blockchain networks. Select the network and direction, then continue.
+          </p>
+          <form id="bridgeForm">
+            <div class="form-group">
+              <label for="bridgeNetwork">Select Network</label>
+              <select id="bridgeNetwork" class="form-control">
+                <!-- Network options will be populated from network.js -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="bridgeDirection">Bridge Direction</label>
+              <select id="bridgeDirection" class="form-control">
+                <option value="to">From Liberdus to Selected Network</option>
+                <option value="from">From Selected Network to Liberdus</option>
+              </select>
+            </div>
+            <button type="submit" class="update-button">Continue</button>
+          </form>
           <a class="last-item" href="#"></a>
         </div>
       </div>
