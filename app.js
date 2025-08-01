@@ -1972,10 +1972,26 @@ class SignInModal {
       return;
     }
 
-    // Populate select with usernames
+    // Get the notified address and sort usernames to prioritize it
+    const notifiedAddress = localStorage.getItem('lastNotificationAddress');
+    let sortedUsernames = [...usernames];
+    
+    if (notifiedAddress) {
+      // Find which username owns the notified address
+      for (const [username, accountData] of Object.entries(netidAccounts.usernames)) {
+        if (accountData.address === notifiedAddress) {
+          // Move this username to the front
+          sortedUsernames = sortedUsernames.filter(u => u !== username);
+          sortedUsernames.unshift(username);
+          break;
+        }
+      }
+    }
+
+    // Populate select with sorted usernames
     this.usernameSelect.innerHTML = `
       <option value="" disabled selected hidden>Select an account</option>
-      ${usernames.map((username) => `<option value="${username}">${username}</option>`).join('')}
+      ${sortedUsernames.map((username) => `<option value="${username}">${username}</option>`).join('')}
     `;
 
     // If a username should be auto-selected (either preselect or only one account), do it
@@ -2094,6 +2110,12 @@ class SignInModal {
     // Close modal and proceed to app
     this.close();
     welcomeScreen.close();
+    
+    // Clear any notification address since user has signed in
+    if (reactNativeApp) {
+      reactNativeApp.clearNotificationAddress();
+    }
+    
     await footer.switchView('chats'); // Default view
   }
 
@@ -11207,6 +11229,46 @@ class ReactNativeApp {
           if (data.type === 'KEYBOARD_SHOWN') {
             this.detectKeyboardOverlap(data.keyboardHeight);
           }
+
+          if (data.type === 'NOTIFICATION_TAPPED') {
+            console.log('🔔 Notification tapped, opening chat with:', data.to);
+            
+            // Check if user is signed in
+            if (!myData || !myAccount) {
+              // User is not signed in - save the notification address and open sign-in modal
+              console.log('🔔 User not signed in, saving notification address for priority');
+              this.saveNotificationAddress(data.to);
+              return;
+            }
+            
+            // User is signed in - check if it's the right account
+            if (data.to && myData.contacts[data.to]) {
+              console.log('🔔 Your account that received a new message');
+              
+              const isCurrentAccount = this.isCurrentAccount(data.to);
+              
+              if (isCurrentAccount) {
+                /* chatModal.open(data.from); */
+                // for now do nothing since z-index could be an issue
+                console.log('🔔 You are signed in to the account that received the message');
+              } else {
+                // We're signed in to a different account, ask user what to do
+                const shouldSignOut = confirm('You received a message for a different account. Would you like to sign out to switch to that account?');
+                
+                if (shouldSignOut) {
+                  // Sign out and save the notification address for priority
+                  this.saveNotificationAddress(data.to);
+                  menuModal.handleSignOut();
+                } else {
+                  // User chose to stay signed in, just save the address for next time
+                  this.saveNotificationAddress(data.to);
+                  console.log('User chose to stay signed in - notified account will appear first next time');
+                }
+              }
+            } else {
+              console.warn('Contact not found for notification:', data.to);
+            }
+          }
         } catch (error) {
           console.error('Error parsing message from React Native:', error);
         }
@@ -11281,6 +11343,35 @@ class ReactNativeApp {
     } catch (error) {
       console.warn('Error in keyboard detection:', error);
     }
+  }
+
+  isCurrentAccount(contactAddress) {
+    if (!myAccount) return false;
+    
+    const { netid } = network;
+    const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+    const netidAccounts = existingAccounts.netids[netid];
+    
+    if (!netidAccounts?.usernames) return false;
+    
+    // Check if the current account owns this contact
+    for (const [username, accountData] of Object.entries(netidAccounts.usernames)) {
+      if (accountData.address === contactAddress) {
+        return username === myAccount.username;
+      }
+    }
+    
+    return false;
+  }
+
+  saveNotificationAddress(contactAddress) {
+    localStorage.setItem('lastNotificationAddress', contactAddress);
+    console.log(` Saved notification address: ${contactAddress}`);
+  }
+
+  clearNotificationAddress() {
+    localStorage.removeItem('lastNotificationAddress');
+    console.log('🧹 Cleared notification address');
   }
 }
 
