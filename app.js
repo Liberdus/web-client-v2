@@ -1684,123 +1684,6 @@ function createNewContact(addr, username, friendStatus = 1) {
   c.friend = friendStatus;
 }
 
-/**
- * updateTollAmountUI updates the toll amount UI for a given contact
- * sets chatModal.toll and chatModal.tollUnit to the bigint toll and string tollUnit of the contact
- * @param {string} address - the address of the contact
- * @returns {void}
- */
-function updateTollAmountUI(address) {
-  const tollValue = document.getElementById('tollValue');
-  tollValue.style.color = 'black';
-  const contact = myData.contacts[address];
-  let toll = contact.toll || 0n;
-  const tollUnit = contact.tollUnit || 'LIB';
-  const decimals = 18;
-  const mainIsUSD = tollUnit === 'USD';
-  const mainValue = parseFloat(big2str(toll, decimals));
-  // Conversion factor (USD/LIB)
-  const scaleMul = parameters.current.stabilityScaleMul || 1;
-  const scaleDiv = parameters.current.stabilityScaleDiv || 1;
-  const factor = scaleDiv !== 0 ? scaleMul / scaleDiv : 1;
-  let mainString, otherString;
-  if (mainIsUSD) {
-    toll = bigxnum2big(toll, (1.0 / factor).toString());
-    mainString = mainValue.toFixed(6) + ' USD';
-    const libValue = mainValue / factor;
-    otherString = libValue.toFixed(6) + ' LIB';
-  } else {
-    mainString = mainValue.toFixed(6) + ' LIB';
-    const usdValue = mainValue * factor;
-    otherString = usdValue.toFixed(6) + ' USD';
-  }
-  let display;
-  if (contact.tollRequiredToSend == 1) {
-    display = `${mainString} = ${otherString}`;
-  } else if (contact.tollRequiredToSend == 2) {
-    tollValue.style.color = 'red';
-    display = `blocked`;
-  } else {
-    // light green used to show success
-    tollValue.style.color = '#28a745';
-    display = `free; ${mainString} = ${otherString}`;
-  }
-  tollValue.textContent = display;
-
-  chatModal.toll = toll;
-  chatModal.tollUnit = tollUnit;
-}
-
-/**
- * updateTollRequired queries contact object and updates the tollRequiredByMe and tollRequiredByOther fields
- * @param {string} address - the address of the contact
- * @returns {void}
- */
-async function updateTollRequired(address) {
-  const myAddr = longAddress(myAccount.keys.address);
-  const contactAddr = longAddress(address);
-  // use `hashBytes([fromAddr, toAddr].sort().join(''))` to get the hash of the sorted addresses and have variable to keep track fromAddr which will be the current users order in the array
-  const sortedAddresses = [myAddr, contactAddr].sort();
-  const hash = hashBytes(sortedAddresses.join(''));
-  const myIndex = sortedAddresses.indexOf(myAddr);
-  const toIndex = 1 - myIndex;
-
-  // console.log(`hash: ${hash}`);
-
-  try {
-    // query the contact's toll field from the network
-    const contactAccountData = await queryNetwork(`/messages/${hash}/toll`);
-
-    if (contactAccountData?.error === 'No account with the given chatId') {
-      console.warn(`chatId has not been created yet: ${address}`, contactAccountData.error);
-    } else if (contactAccountData?.error) {
-      console.error(`Error querying toll required for address: ${address}`, contactAccountData.error);
-      return;
-    }
-
-    const localContact = myData.contacts[address];
-    localContact.tollRequiredToSend = contactAccountData.toll.required[toIndex];
-    localContact.tollRequiredToReceive = contactAccountData.toll.required[myIndex];
-
-    if (chatModal.isActive() && chatModal.address === address) {
-      updateTollAmountUI(address);
-    }
-
-    // console.log(`localContact.tollRequiredToSend: ${localContact.tollRequiredToSend}`);
-    // console.log(`localContact.tollRequiredToReceive: ${localContact.tollRequiredToReceive}`);
-  } catch (error) {
-    console.warn(`Error updating contact toll required to send and receive: ${error}`);
-  }
-}
-
-/**
- * Invoked when opening chatModal. In the background, it will query the contact's toll field from the network.
- * If the queried toll value is different from the toll field in localStorage, it will update the toll field in localStorage and update the UI element that displays the toll field value.
- * @param {string} address - the address of the contact
- * @returns {void}
- */
-async function updateTollValue(address) {
-  // query the contact's toll field from the network
-  const contactAccountData = await queryNetwork(`/account/${longAddress(address)}`);
-  const queriedToll = contactAccountData?.account?.data?.toll; // type bigint
-  const queriedTollUnit = contactAccountData?.account?.data?.tollUnit; // type string */
-
-  // update the toll value in the UI if the queried toll value is different from the toll value or toll unit in localStorage
-  if (myData.contacts[address].toll != queriedToll || myData.contacts[address].tollUnit != queriedTollUnit) {
-    myData.contacts[address].toll = queriedToll;
-    myData.contacts[address].tollUnit = queriedTollUnit;
-    // if correct modal is open for this address, update the toll value
-    if (chatModal.isActive() && chatModal.address === address) {
-      updateTollAmountUI(address);
-    }
-  } else {
-    console.log(`Returning early since queried toll value is the same as the toll field in localStorage`);
-    // return early
-    return;
-  }
-}
-
-
 class ScanQRModal {
   constructor() {
     this.fillFunction = null;
@@ -6688,15 +6571,15 @@ class ChatModal {
     walletScreen.updateWalletBalances();
 
     // update the toll value. Will not await this and it'll update the toll value while the modal is open.
-    updateTollValue(address);
+    this.updateTollValue(address);
 
     // update local contact object with the toll required to send and receive
-    updateTollRequired(address);
+    this.updateTollRequired(address);
 
     // clear hidden txid input
     this.retryOfTxId.value = '';
 
-    updateTollAmountUI(address);
+    this.updateTollAmountUI(address);
 
     // Add data attributes to store the username and address
     this.sendMoneyButton.dataset.username = contact.username || address;
@@ -8098,6 +7981,121 @@ console.warn('in send message', txid)
       showToast('Failed to delete message', 0, 'error');
     }
   }
+
+  /**
+   * updateTollAmountUI updates the toll amount UI for a given contact
+   * @param {string} address - the address of the contact
+   * @returns {void}
+   */
+  updateTollAmountUI(address) {
+    const tollValue = document.getElementById('tollValue');
+    tollValue.style.color = 'black';
+    const contact = myData.contacts[address];
+    let toll = contact.toll || 0n;
+    const tollUnit = contact.tollUnit || 'LIB';
+    const decimals = 18;
+    const mainIsUSD = tollUnit === 'USD';
+    const mainValue = parseFloat(big2str(toll, decimals));
+    // Conversion factor (USD/LIB)
+    const scaleMul = parameters.current.stabilityScaleMul || 1;
+    const scaleDiv = parameters.current.stabilityScaleDiv || 1;
+    const factor = scaleDiv !== 0 ? scaleMul / scaleDiv : 1;
+    let mainString, otherString;
+    if (mainIsUSD) {
+      toll = bigxnum2big(toll, (1.0 / factor).toString());
+      mainString = mainValue.toFixed(6) + ' USD';
+      const libValue = mainValue / factor;
+      otherString = libValue.toFixed(6) + ' LIB';
+    } else {
+      mainString = mainValue.toFixed(6) + ' LIB';
+      const usdValue = mainValue * factor;
+      otherString = usdValue.toFixed(6) + ' USD';
+    }
+    let display;
+    if (contact.tollRequiredToSend == 1) {
+      display = `${mainString} = ${otherString}`;
+    } else if (contact.tollRequiredToSend == 2) {
+      tollValue.style.color = 'red';
+      display = `blocked`;
+    } else {
+      // light green used to show success
+      tollValue.style.color = '#28a745';
+      display = `free; ${mainString} = ${otherString}`;
+    }
+    tollValue.textContent = display;
+
+    this.toll = toll;
+    this.tollUnit = tollUnit;
+  }
+
+  /**
+   * updateTollRequired queries contact object and updates the tollRequiredByMe and tollRequiredByOther fields
+   * @param {string} address - the address of the contact
+   * @returns {void}
+   */
+  async updateTollRequired(address) {
+    const myAddr = longAddress(myAccount.keys.address);
+    const contactAddr = longAddress(address);
+    // use `hashBytes([fromAddr, toAddr].sort().join(''))` to get the hash of the sorted addresses and have variable to keep track fromAddr which will be the current users order in the array
+    const sortedAddresses = [myAddr, contactAddr].sort();
+    const hash = hashBytes(sortedAddresses.join(''));
+    const myIndex = sortedAddresses.indexOf(myAddr);
+    const toIndex = 1 - myIndex;
+
+    // console.log(`hash: ${hash}`);
+
+    try {
+      // query the contact's toll field from the network
+      const contactAccountData = await queryNetwork(`/messages/${hash}/toll`);
+
+      if (contactAccountData?.error === 'No account with the given chatId') {
+        console.warn(`chatId has not been created yet: ${address}`, contactAccountData.error);
+      } else if (contactAccountData?.error) {
+        console.error(`Error querying toll required for address: ${address}`, contactAccountData.error);
+        return;
+      }
+
+      const localContact = myData.contacts[address];
+      localContact.tollRequiredToSend = contactAccountData.toll.required[toIndex];
+      localContact.tollRequiredToReceive = contactAccountData.toll.required[myIndex];
+
+      if (this.isActive() && this.address === address) {
+        this.updateTollAmountUI(address);
+      }
+
+      // console.log(`localContact.tollRequiredToSend: ${localContact.tollRequiredToSend}`);
+      // console.log(`localContact.tollRequiredToReceive: ${localContact.tollRequiredToReceive}`);
+    } catch (error) {
+      console.warn(`Error updating contact toll required to send and receive: ${error}`);
+    }
+  }
+
+  /**
+   * Invoked when opening chatModal. In the background, it will query the contact's toll field from the network.
+   * If the queried toll value is different from the toll field in localStorage, it will update the toll field in localStorage and update the UI element that displays the toll field value.
+   * @param {string} address - the address of the contact
+   * @returns {void}
+   */
+  async updateTollValue(address) {
+    // query the contact's toll field from the network
+    const contactAccountData = await queryNetwork(`/account/${longAddress(address)}`);
+    const queriedToll = contactAccountData?.account?.data?.toll; // type bigint
+    const queriedTollUnit = contactAccountData?.account?.data?.tollUnit; // type string */
+
+    // update the toll value in the UI if the queried toll value is different from the toll value or toll unit in localStorage
+    if (myData.contacts[address].toll != queriedToll || myData.contacts[address].tollUnit != queriedTollUnit) {
+      myData.contacts[address].toll = queriedToll;
+      myData.contacts[address].tollUnit = queriedTollUnit;
+      // if correct modal is open for this address, update the toll value
+      if (this.isActive() && this.address === address) {
+        this.updateTollAmountUI(address);
+      }
+    } else {
+      console.log(`Returning early since queried toll value is the same as the toll field in localStorage`);
+      // return early
+      return;
+    }
+  }
 }
 
 const chatModal = new ChatModal();
@@ -8804,7 +8802,6 @@ class CreateAccountModal {
     this.migrateAccountsButton.disabled = false;
   }
 }
-
 // Initialize the create account modal
 const createAccountModal = new CreateAccountModal();
 
@@ -11947,5 +11944,6 @@ class LocalStorageMonitor {
 
 // Create localStorage monitor instance
 const localStorageMonitor = new LocalStorageMonitor();
+
 
 
