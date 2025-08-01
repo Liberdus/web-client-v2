@@ -11235,10 +11235,19 @@ class ReactNativeApp {
 
           if (data.type === 'NOTIFICATION_TAPPED') {
             console.log('🔔 Notification tapped, opening chat with:', data.to);
+            
+            // Check if user is signed in
+            if (!myData || !myAccount) {
+              // User is not signed in - save the notification address and open sign-in modal
+              console.log('🔔 User not signed in, saving notification address for priority');
+              this.saveNotificationAddress(data.to);
+              return;
+            }
+            
+            // User is signed in - check if it's the right account
             if (data.to && myData.contacts[data.to]) {
               console.log('🔔 Your account that received a new message');
               
-              // Check if we're currently signed in to the account that received the notification
               const isCurrentAccount = this.isCurrentAccount(data.to);
               
               if (isCurrentAccount) {
