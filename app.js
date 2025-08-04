@@ -2155,7 +2155,7 @@ class SignInModal {
   }
 
   async handleRemoveAccount() {
-    removeAccountModal.confirmSubmit();
+    removeAccountModal.removeAccount();
   }
 }
 
@@ -4415,7 +4415,8 @@ class RemoveAccountModal {
     // called when the DOM is loaded; can setup event handlers here
     this.modal = document.getElementById('removeAccountModal');
     document.getElementById('closeRemoveAccountModal').addEventListener('click', () => this.close());
-    document.getElementById('confirmRemoveAccount').addEventListener('click', () => this.submit());
+    document.getElementById('confirmRemoveAccount').addEventListener('click', () => this.removeAccount());
+    document.getElementById('confirmRemoveAllData').addEventListener('click', () => this.removeAllData());
     document.getElementById('openBackupFromRemove').addEventListener('click', () => backupAccountModal.open());
   }
 
@@ -4454,13 +4455,44 @@ class RemoveAccountModal {
     window.location.reload();
   }
 
-  confirmSubmit() {
-    const usernameSelect = document.getElementById('username');
-    const username = usernameSelect.value;
-    if (!username) return;
-    const confirmed = confirm(`Are you sure you want to remove account "${username}"?`);
+  removeAccount(username = myAccount.username) {
+    const confirmed = confirm(`Are you sure you want to remove the account "${username}" from this device?`);
     if (!confirmed) return;
-    this.submit(username);
+    
+    const { netid } = network;
+
+    // Get existing accounts
+    const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+
+    // Remove the account from the accounts object
+    if (existingAccounts.netids[netid] && existingAccounts.netids[netid].usernames) {
+      delete existingAccounts.netids[netid].usernames[username];
+      localStorage.setItem('accounts', stringify(existingAccounts));
+    }
+    // Remove the account data from localStorage
+    localStorage.removeItem(`${username}_${netid}`);
+
+    // Reload the page to redirect to welcome screen
+    clearMyData(); // need to delete this so that the reload does not save the data into localStore again
+    window.location.reload();
+  }
+  
+  removeAllData() {
+    const confirmText = prompt(`WARNING: All accounts and data will be permanently removed from this device.\n\nType "REMOVE ALL" to confirm:`);
+    if (confirmText !== "REMOVE ALL") {
+      showToast('Remove all cancelled', 2000, 'warning');
+      return;
+    }
+    
+    // Clear all localStorage data
+    localStorage.clear();
+    
+    // Show success message
+    showToast('All data has been removed from this device', 3000, 'success');
+    
+    // Reload the page to redirect to welcome screen
+    clearMyData();
+    window.location.reload();
   }
 
   signout() {
