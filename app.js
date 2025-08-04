@@ -11304,34 +11304,40 @@ class ReactNativeApp {
 
           if (data.type === 'NOTIFICATION_TAPPED') {
             console.log('🔔 Notification tapped, opening chat with:', data.to);
+
+            // normalize the address
+            const normalizedToAddress = normalizeAddress(data.to);
             
             // Check if user is signed in
             if (!myData || !myAccount) {
               // User is not signed in - save the notification address and open sign-in modal
               console.log('🔔 User not signed in, saving notification address for priority');
-              this.saveNotificationAddress(data.to);
+              this.saveNotificationAddress(normalizedToAddress);
               return;
             }
             
             // User is signed in - check if it's the right account
-            const isCurrentAccount = this.isCurrentAccount(data.to);
-            
+            const isCurrentAccount = this.isCurrentAccount(normalizedToAddress);
+            /* showToast('isCurrentAccount: ' + isCurrentAccount, 10000, 'success');
+            showToast('data.to: ' + normalizedToAddress, 10000, 'success');
+            showToast('myData.account.keys.address: ' + myData.account.keys.address, 10000, 'success'); */
             if (isCurrentAccount) {
               // We're signed in to the account that received the notification
               console.log('🔔 You are signed in to the account that received the message');
               // TODO: Open chat modal when z-index issue is resolved
               // chatModal.open(data.from);
+              showToast('You are signed in to the account that received the message', 5000, 'success');
             } else {
               // We're signed in to a different account, ask user what to do
               const shouldSignOut = confirm('You received a message for a different account. Would you like to sign out to switch to that account?');
               
               if (shouldSignOut) {
                 // Sign out and save the notification address for priority
-                this.saveNotificationAddress(data.to);
+                this.saveNotificationAddress(normalizedToAddress);
                 menuModal.handleSignOut();
               } else {
                 // User chose to stay signed in, just save the address for next time
-                this.saveNotificationAddress(data.to);
+                this.saveNotificationAddress(normalizedToAddress);
                 console.log('User chose to stay signed in - notified account will appear first next time');
               }
             }
@@ -12056,7 +12062,7 @@ class LocalStorageMonitor {
         localStorage.setItem(testKey, verifyData);
         localStorage.removeItem(testKey);
       } catch (e) {
-        // If verification fails, reduce by small amount and retry
+        // If verification fails, reduce by small amount
         maxCharacters = Math.max(0, maxCharacters - 1024);
       }
     }
