@@ -629,10 +629,16 @@ class WelcomeScreen {
     this.networkNameDisplay = document.getElementById('networkNameDisplay');
     this.lastItem = document.getElementById('welcomeScreenLastItem');
     this.openBackupModalButton = document.getElementById('openBackupModalButton');
+    this.appVersionDisplay = document.getElementById('appVersionDisplay');
+    this.appVersionText = document.getElementById('appVersionText');
     
     
     this.versionDisplay.textContent = myVersion + ' ' + version;
     this.networkNameDisplay.textContent = network.name;
+
+    if (reactNativeApp?.appVersion) {
+      this.updateAppVersionDisplay(reactNativeApp.appVersion);
+    }
     
     this.signInButton.addEventListener('click', () => {
       if (localStorage.lock && unlockModal.isLocked()) {
@@ -706,6 +712,13 @@ class WelcomeScreen {
       this.createAccountButton.classList.remove('secondary-button');
       this.openBackupModalButton.classList.remove('hidden');
       this.welcomeButtons.appendChild(this.openBackupModalButton);
+    }
+  }
+
+  updateAppVersionDisplay(appVersion) {
+    if (appVersion) {
+      this.appVersionText.textContent = appVersion;
+      this.appVersionDisplay.classList.remove('hidden');
     }
   }
 }
@@ -11201,6 +11214,7 @@ const launchModal = new LaunchModal();
 class ReactNativeApp {
   constructor() {
     this.isReactNativeWebView = this.checkIfReactNativeWebView();
+    this.appVersion = null;
   }
 
   load() {
@@ -11237,7 +11251,10 @@ class ReactNativeApp {
             // Handle app version
             if (data.data.appVersion) {
               console.log('📱 App version:', data.data.appVersion);
-              // TODO: display the app version
+              this.appVersion = data.data.appVersion
+              // Update the welcome screen to display the app version
+              welcomeScreen.updateAppVersionDisplay(this.appVersion); 
+              
             }
             // Handle device tokens
             if (data.data.deviceToken) {
