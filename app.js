@@ -337,9 +337,20 @@ async function handleNativeAppSubscribe() {
     console.log('handleNativeAppSubscribe: Device is offline, skipping subscription');
     return;
   }
-  
-  const deviceToken = window.deviceToken || null;
-  const pushToken = window.expoPushToken || null;
+
+  let deviceToken = null;
+  let pushToken = null;
+
+  // if params in URL, get the device token and push token
+  if (window.location.search && window.location.search.includes('device_token') && window.location.search.includes('push_token')) {
+    const urlParams = new URLSearchParams(window.location.search);
+    deviceToken = urlParams.get('device_token');
+    pushToken = urlParams.get('push_token');
+  } else {
+    // if params not in URL, get the device token and push token from window
+    deviceToken = window.deviceToken || null;
+    pushToken = window.expoPushToken || null;
+  }
   
   if (deviceToken && pushToken) {
     console.log('Native app subscription tokens detected:', { deviceToken, pushToken });
@@ -412,8 +423,19 @@ async function handleNativeAppUnsubscribe() {
     return;
   }
   
-  const deviceToken = window.deviceToken;
-  const pushToken = window.expoPushToken;
+  let deviceToken = null;
+  let pushToken = null;
+
+  // if params in URL, get the device token and push token
+  if (window.location.search && window.location.search.includes('device_token') && window.location.search.includes('push_token')) {
+    const urlParams = new URLSearchParams(window.location.search);
+    deviceToken = urlParams.get('device_token');
+    pushToken = urlParams.get('push_token');
+  } else {
+    // if params not in URL, get the device token and push token from window
+    deviceToken = window.deviceToken || null;
+    pushToken = window.expoPushToken || null;
+  }
 
   // cannot unsubscribe if no device token is provided
   if (!deviceToken) return;
