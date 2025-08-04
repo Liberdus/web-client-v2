@@ -4416,7 +4416,7 @@ class RemoveAccountModal {
     this.modal = document.getElementById('removeAccountModal');
     document.getElementById('closeRemoveAccountModal').addEventListener('click', () => this.close());
     document.getElementById('confirmRemoveAccount').addEventListener('click', () => this.removeAccount());
-    document.getElementById('confirmRemoveAllData').addEventListener('click', () => this.removeAllData());
+    document.getElementById('confirmRemoveAllAccounts').addEventListener('click', () => this.removeAllAccounts());
     document.getElementById('openBackupFromRemove').addEventListener('click', () => backupAccountModal.open());
   }
 
@@ -4477,7 +4477,7 @@ class RemoveAccountModal {
     window.location.reload();
   }
   
-  removeAllData() {
+  removeAllAccounts() {
     const confirmText = prompt(`WARNING: All accounts and data will be permanently removed from this device.\n\nType "REMOVE ALL" to confirm:`);
     if (confirmText !== "REMOVE ALL") {
       showToast('Remove all cancelled', 2000, 'warning');
