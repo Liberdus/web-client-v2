@@ -11249,9 +11249,9 @@ class ReactNativeApp {
           if (data.type === 'INITIAL_APP_PARAMS') {
             console.log('📱 Received initial app parameters:', data.data);
             // Handle app version
-            if (data.data.appVersion) {
+            if (data?.data?.appVersion) {
               console.log('📱 App version:', data.data.appVersion);
-              this.appVersion = data.data.appVersion
+              this.appVersion = data.data.appVersion || `N/A`
               // Update the welcome screen to display the app version
               welcomeScreen.updateAppVersionDisplay(this.appVersion); 
               
