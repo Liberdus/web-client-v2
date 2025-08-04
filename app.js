@@ -1848,7 +1848,12 @@ class SignInModal {
     // Populate select with sorted usernames
     this.usernameSelect.innerHTML = `
       <option value="" disabled selected hidden>Select an account</option>
-      ${sortedUsernames.map((username) => `<option value="${username}">${username}</option>`).join('')}
+      ${sortedUsernames.map((username) => {
+        // Check if this username owns the notified address
+        const isNotifiedAccount = notifiedAddress && netidAccounts.usernames[username]?.address === notifiedAddress;
+        const dotIndicator = isNotifiedAccount ? ' 🔔' : '';
+        return `<option value="${username}">${username}${dotIndicator}</option>`;
+      }).join('')}
     `;
 
     // If a username should be auto-selected (either preselect or only one account), do it
