@@ -338,8 +338,8 @@ async function handleNativeAppSubscribe() {
     return;
   }
   
-  const deviceToken = window.deviceToken;
-  const pushToken = window.expoPushToken;
+  const deviceToken = window.deviceToken || null;
+  const pushToken = window.expoPushToken || null;
   
   if (deviceToken && pushToken) {
     console.log('Native app subscription tokens detected:', { deviceToken, pushToken });
