@@ -11204,6 +11204,12 @@ class ReactNativeApp {
             saveState();
           }
 
+          if (data.type === 'foreground') {
+            if (myData || myAccount) {
+              handleNativeAppUnsubscribe();
+            }
+          }
+
           if (data.type === 'KEYBOARD_SHOWN') {
             this.detectKeyboardOverlap(data.keyboardHeight);
           }
