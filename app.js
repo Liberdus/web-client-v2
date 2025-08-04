@@ -11326,7 +11326,7 @@ class ReactNativeApp {
               console.log('🔔 You are signed in to the account that received the message');
               // TODO: Open chat modal when z-index issue is resolved
               // chatModal.open(data.from);
-              showToast('You are signed in to the account that received the message', 5000, 'success');
+              /* showToast('You are signed in to the account that received the message', 5000, 'success'); */
             } else {
               // We're signed in to a different account, ask user what to do
               const shouldSignOut = confirm('You received a message for a different account. Would you like to sign out to switch to that account?');
