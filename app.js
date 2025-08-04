@@ -10542,6 +10542,10 @@ class MigrateAccountsModal {
     // Render Taken section
     this.renderSection('taken', 'Taken', categories.taken,
       'Accounts already taken');
+      
+    // Check for inconsistencies and render them
+    const inconsistencies = await this.checkAccountsInconsistency();
+    this.renderInconsistencies(inconsistencies);
   }
 
   /**
@@ -10644,27 +10648,27 @@ class MigrateAccountsModal {
       }
     }
     
-    // Sort function for accounts - first by netid (using network.netids order), then by username
-    const sortAccounts = (accounts) => {
-      return accounts.sort((a, b) => {
-        // First compare by netid order in network.netids
-        const netidIndexA = network.netids.indexOf(a.netid);
-        const netidIndexB = network.netids.indexOf(b.netid);
-        if (netidIndexA !== netidIndexB) {
-          return netidIndexA - netidIndexB;
-        }
-        // Then sort by username alphabetically
-        return a.username.localeCompare(b.username);
-      });
-    };
-    
     // Sort each category
-    categories.mine = sortAccounts(categories.mine);
-    categories.available = sortAccounts(categories.available);
-    categories.taken = sortAccounts(categories.taken);
+    categories.mine = this.sortAccounts(categories.mine);
+    categories.available = this.sortAccounts(categories.available);
+    categories.taken = this.sortAccounts(categories.taken);
 
     return categories;
   }
+
+  // Sort function for accounts - first by netid (using network.netids order), then by username
+  sortAccounts = (accounts) => {
+    return accounts.sort((a, b) => {
+      // First compare by netid order in network.netids
+      const netidIndexA = network.netids.indexOf(a.netid);
+      const netidIndexB = network.netids.indexOf(b.netid);
+      if (netidIndexA !== netidIndexB) {
+        return netidIndexA - netidIndexB;
+      }
+      // Then sort by username alphabetically
+      return a.username.localeCompare(b.username);
+    });
+  };
 
   async handleSubmit(event) {
     event.preventDefault();
@@ -10807,6 +10811,122 @@ console.log('    result is',result)
     const checkboxes = this.accountList.querySelectorAll('input[type="checkbox"]');
     checkboxes.forEach(checkbox => checkbox.checked = false);
     this.submitButton.disabled = true;
+  }
+  
+  /**
+   * Check for consistency between accounts registry and actual account data in localStorage
+   * @returns {Promise<Object>} An object containing the inconsistencies found
+   */
+  async checkAccountsInconsistency() {
+    const result = {
+      missingAccounts: [], // Accounts in accounts object but missing the account entry
+      unregisteredAccounts: [] // Accounts not in accounts object but have entries in localStorage
+    };
+    
+    const accountsObj = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+    
+    for (const netid in accountsObj.netids) {
+      const usernamesObj = accountsObj.netids[netid]?.usernames;
+      if (!usernamesObj) continue;
+      
+      for (const username in usernamesObj) {
+        const accountKey = `${username}_${netid}`;
+        const accountFile = localStorage.getItem(accountKey);
+        
+        if (!accountFile) {
+          // Found an account in registry but the account file is missing
+          result.missingAccounts.push({
+            username,
+            netid
+          });
+        }
+      }
+    }
+
+    const allKeys = Object.keys(localStorage);
+    
+    // Filter keys that match the pattern username_netid
+    const accountFileKeys = allKeys.filter(key => {
+      // Skip the 'accounts' key itself
+      if (key === 'accounts') return false;
+      
+      const parts = key.split('_');
+      if (parts.length !== 2) return false;
+      
+      const netid = parts[1];
+      if (netid.length != 64) return false;
+      
+      return true;
+    });
+    
+    for (const key of accountFileKeys) {
+      const [username, netid] = key.split('_');
+      
+      const isRegistered = accountsObj.netids[netid]?.usernames?.[username];
+      
+      if (!isRegistered) {
+        result.unregisteredAccounts.push({
+          username,
+          netid
+        });
+      }
+    }
+    result.missingAccounts = this.sortAccounts(result.missingAccounts);
+    result.unregisteredAccounts = this.sortAccounts(result.unregisteredAccounts);
+
+    return result;
+  }
+  
+  /**
+   * Render the inconsistencies found in the accounts
+   * @param {Object} inconsistencies - The inconsistencies to render
+   */
+  renderInconsistencies(inconsistencies) {
+    const { missingAccounts, unregisteredAccounts } = inconsistencies;
+    
+    if (missingAccounts.length === 0 && unregisteredAccounts.length === 0) {
+      return;
+    }
+    
+    const container = document.createElement('div');
+    container.className = 'migrate-inconsistencies';
+    container.innerHTML = `<h3>Account Inconsistencies</h3>`;
+    
+    if (missingAccounts.length > 0) {
+      const missingSection = document.createElement('div');
+      missingSection.className = 'inconsistency-section';
+      missingSection.innerHTML = `
+        <h4>Accounts entries without data (${missingAccounts.length})</h4>
+        <p class="section-description">In accounts object but missing specific account data.</p>
+        <div class="inconsistency-list">
+          ${missingAccounts.map(account => `
+            <div class="inconsistency-item">
+              <span>${account.username}_${account.netid.slice(0, 6)}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      container.appendChild(missingSection);
+    }
+    
+    if (unregisteredAccounts.length > 0) {
+      const unregisteredSection = document.createElement('div');
+      unregisteredSection.className = 'inconsistency-section';
+      unregisteredSection.innerHTML = `
+        <h4>Accounts missing from Accounts Object (${unregisteredAccounts.length})</h4>
+        <p class="section-description">Account data exists but missing from accounts object.</p>
+        <div class="inconsistency-list">
+          ${unregisteredAccounts.map(account => `
+            <div class="inconsistency-item">
+              <span>${account.username}_${account.netid.slice(0, 6)}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      container.appendChild(unregisteredSection);
+    }
+    
+    this.accountList.appendChild(container);
   }
 }
 

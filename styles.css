@@ -2105,6 +2105,44 @@ input[type='file'].form-control {
   padding: 1rem;
 }
 
+/* Inconsistencies styles */
+.migrate-inconsistencies {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.migrate-inconsistencies h3 {
+  margin-bottom: 0.5rem;
+}
+
+.inconsistency-section {
+  margin-bottom: 1.5rem;
+}
+
+.inconsistency-section h4 {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-color);
+}
+
+.inconsistency-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 0.5rem;
+}
+
+.inconsistency-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background-color: var(--background-light);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
 .migrate-section h3 {
   margin-top: 0;
   color: #333;
