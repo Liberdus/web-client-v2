@@ -11314,31 +11314,26 @@ class ReactNativeApp {
             }
             
             // User is signed in - check if it's the right account
-            if (data.to && myData.contacts[data.to]) {
-              console.log('🔔 Your account that received a new message');
-              
-              const isCurrentAccount = this.isCurrentAccount(data.to);
-              
-              if (isCurrentAccount) {
-                /* chatModal.open(data.from); */
-                // for now do nothing since z-index could be an issue
-                console.log('🔔 You are signed in to the account that received the message');
-              } else {
-                // We're signed in to a different account, ask user what to do
-                const shouldSignOut = confirm('You received a message for a different account. Would you like to sign out to switch to that account?');
-                
-                if (shouldSignOut) {
-                  // Sign out and save the notification address for priority
-                  this.saveNotificationAddress(data.to);
-                  menuModal.handleSignOut();
-                } else {
-                  // User chose to stay signed in, just save the address for next time
-                  this.saveNotificationAddress(data.to);
-                  console.log('User chose to stay signed in - notified account will appear first next time');
-                }
-              }
+            const isCurrentAccount = this.isCurrentAccount(data.to);
+            
+            if (isCurrentAccount) {
+              // We're signed in to the account that received the notification
+              console.log('🔔 You are signed in to the account that received the message');
+              // TODO: Open chat modal when z-index issue is resolved
+              // chatModal.open(data.from);
             } else {
-              console.warn('Contact not found for notification:', data.to);
+              // We're signed in to a different account, ask user what to do
+              const shouldSignOut = confirm('You received a message for a different account. Would you like to sign out to switch to that account?');
+              
+              if (shouldSignOut) {
+                // Sign out and save the notification address for priority
+                this.saveNotificationAddress(data.to);
+                menuModal.handleSignOut();
+              } else {
+                // User chose to stay signed in, just save the address for next time
+                this.saveNotificationAddress(data.to);
+                console.log('User chose to stay signed in - notified account will appear first next time');
+              }
             }
           }
         } catch (error) {
@@ -11417,23 +11412,11 @@ class ReactNativeApp {
     }
   }
 
-  isCurrentAccount(contactAddress) {
-    if (!myAccount) return false;
+  isCurrentAccount(recipientAddress) {
+    if (!myData || !myAccount) return false;
     
-    const { netid } = network;
-    const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-    const netidAccounts = existingAccounts.netids[netid];
-    
-    if (!netidAccounts?.usernames) return false;
-    
-    // Check if the current account owns this contact
-    for (const [username, accountData] of Object.entries(netidAccounts.usernames)) {
-      if (accountData.address === contactAddress) {
-        return username === myAccount.username;
-      }
-    }
-    
-    return false;
+    // Check if the current user's address matches the recipient address
+    return myData.account.keys.address === recipientAddress;
   }
 
   saveNotificationAddress(contactAddress) {
