@@ -947,6 +947,9 @@ class ChatsScreen {
         while (retryCount <= maxRetries) {
           try {
             gotChats = await getChats(myAccount.keys);
+            if (gotChats > 0) {
+              saveState();
+            }
             break; // Success, exit the retry loop
           } catch (networkError) {
             retryCount++;
@@ -3410,6 +3413,10 @@ async function injectTx(tx, txid) {
     }
     console.error('Error injecting transaction:', error);
     return null;
+  } finally {
+    setTimeout(() => {
+      saveState();
+    }, 1000);
   }
 }
 
@@ -11655,6 +11662,8 @@ async function checkPendingTransactions() {
 
   if (myData.pending.length === 0) return; // No pending transactions to check
 
+  const startingPendingCount = myData.pending.length;
+
   console.log(`checking pending transactions (${myData.pending.length})`);
   const now = getCorrectedTimestamp();
   const eightSecondsAgo = now - 8000;
@@ -11808,6 +11817,11 @@ async function checkPendingTransactions() {
   // if createAccountModal is open, skip balance change
   if (!createAccountModal.isActive()) {
     walletScreen.updateWalletBalances();
+  }
+
+  // save state if pending transactions were processed
+  if (startingPendingCount !== myData.pending.length) {
+    saveState();
   }
 }
 
