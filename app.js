@@ -1979,8 +1979,9 @@ class SignInModal {
     this.close();
     welcomeScreen.close();
     
-    // Clear any notification address since user has signed in
-    if (reactNativeApp) {
+    // Clear notification address only if signing into account that owns the notification address
+    const notifiedAccount = localStorage?.getItem('lastNotificationAddress');
+    if (reactNativeApp && notifiedAccount && reactNativeApp?.isCurrentAccount(normalizeAddress(notifiedAccount))) {
       reactNativeApp.clearNotificationAddress();
     }
     
@@ -11322,14 +11323,12 @@ class ReactNativeApp {
             } else {
               // We're signed in to a different account, ask user what to do
               const shouldSignOut = confirm('You received a message for a different account. Would you like to sign out to switch to that account?');
-              
+              this.saveNotificationAddress(normalizedToAddress);
               if (shouldSignOut) {
                 // Sign out and save the notification address for priority
-                this.saveNotificationAddress(normalizedToAddress);
                 menuModal.handleSignOut();
               } else {
                 // User chose to stay signed in, just save the address for next time
-                this.saveNotificationAddress(normalizedToAddress);
                 logsModal.log('User chose to stay signed in - notified account will appear first next time');
               }
             }
