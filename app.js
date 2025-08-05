@@ -11292,7 +11292,7 @@ class ReactNativeApp {
               // User is not signed in - save the notification address and open sign-in modal
               console.log('🔔 User not signed in, saving notification address for priority');
               this.saveNotificationAddress(normalizedToAddress);
-              // if sign-in modal is open, close it and open again
+              // If the user clicks on a notification and the app is already on the SignIn modal, we need to refresh the SignIn modal to have the bell emoji and new ordering to appear.
               if (signInModal.isActive()) {
                 signInModal.close();
                 signInModal.open();
