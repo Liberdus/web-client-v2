@@ -675,6 +675,8 @@ class WelcomeScreen {
 
   open() {
     this.screen.style.display = 'flex';
+    // Show the navigation bar on the native app
+    reactNativeApp.sendNavigationBarVisibility(true);
   }
 
   close() {
@@ -1968,6 +1970,7 @@ class SignInModal {
     document.addEventListener('visibilitychange', handleVisibilityChange); // Keep as document
 
     reactNativeApp.handleNativeAppUnsubscribe();
+    reactNativeApp.sendNavigationBarVisibility(false);
 
     // Close modal and proceed to app
     this.close();
@@ -11405,6 +11408,14 @@ class ReactNativeApp {
   clearNotificationAddress() {
     localStorage.removeItem('lastNotificationAddress');
     console.log('🧹 Cleared notification address');
+  }
+
+  // Send navigation bar visibility
+  sendNavigationBarVisibility(visible) {
+    this.postMessage({
+      type: 'NAV_BAR',
+      visible
+    });
   }
 
   /**
