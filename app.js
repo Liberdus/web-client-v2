@@ -11267,10 +11267,10 @@ class ReactNativeApp {
           }
 
           if (data.type === 'INITIAL_APP_PARAMS') {
-            console.log('📱 Received initial app parameters:', data.data);
+            logsModal.log('📱 Received initial app parameters:', data.data);
             // Handle app version
             if (data?.data?.appVersion) {
-              console.log('📱 App version:', data.data.appVersion);
+              logsModal.log('📱 App version:', data.data.appVersion);
               this.appVersion = data.data.appVersion || `N/A`
               // Update the welcome screen to display the app version
               welcomeScreen.updateAppVersionDisplay(this.appVersion); 
@@ -11278,19 +11278,19 @@ class ReactNativeApp {
             }
             // Handle device tokens
             if (data.data.deviceToken) {
-              console.log('📱 Device token received');
+              logsModal.log('📱 Device token received');
               // Store device token for push notifications
               window.deviceToken = data.data.deviceToken;
             }
             if (data.data.expoPushToken) {
-              console.log('📱 Expo push token received');
+              logsModal.log('📱 Expo push token received');
               // Store expo push token for push notifications
               window.expoPushToken = data.data.expoPushToken;
             }
           }
 
           if (data.type === 'NOTIFICATION_TAPPED') {
-            console.log('🔔 Notification tapped, opening chat with:', data.to);
+            logsModal.log('🔔 Notification tapped, opening chat with:', data.to);
 
             // normalize the address
             const normalizedToAddress = normalizeAddress(data.to);
@@ -11298,7 +11298,7 @@ class ReactNativeApp {
             // Check if user is signed in
             if (!myData || !myAccount) {
               // User is not signed in - save the notification address and open sign-in modal
-              console.log('🔔 User not signed in, saving notification address for priority');
+              logsModal.log('🔔 User not signed in, saving notification address for priority');
               this.saveNotificationAddress(normalizedToAddress);
               // If the user clicks on a notification and the app is already on the SignIn modal, we need to refresh the SignIn modal to have the bell emoji and new ordering to appear.
               if (signInModal.isActive()) {
@@ -11315,7 +11315,7 @@ class ReactNativeApp {
             showToast('myData.account.keys.address: ' + myData.account.keys.address, 10000, 'success'); */
             if (isCurrentAccount) {
               // We're signed in to the account that received the notification
-              console.log('🔔 You are signed in to the account that received the message');
+              logsModal.log('🔔 You are signed in to the account that received the message');
               // TODO: Open chat modal when z-index issue is resolved
               // chatModal.open(data.from);
               /* showToast('You are signed in to the account that received the message', 5000, 'success'); */
@@ -11330,12 +11330,12 @@ class ReactNativeApp {
               } else {
                 // User chose to stay signed in, just save the address for next time
                 this.saveNotificationAddress(normalizedToAddress);
-                console.log('User chose to stay signed in - notified account will appear first next time');
+                logsModal.log('User chose to stay signed in - notified account will appear first next time');
               }
             }
           }
         } catch (error) {
-          console.error('Error parsing message from React Native:', error);
+          logsModal.error('Error parsing message from React Native:', error);
         }
       });
     }
