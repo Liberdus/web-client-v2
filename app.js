@@ -2044,6 +2044,10 @@ class SignInModal {
   async handleRemoveAccount() {
     removeAccountModal.removeAccount();
   }
+
+  isActive() {
+    return this.modal.classList.contains('active');
+  }
 }
 
 // create a singleton instance of the SignInModal
@@ -11288,6 +11292,11 @@ class ReactNativeApp {
               // User is not signed in - save the notification address and open sign-in modal
               console.log('🔔 User not signed in, saving notification address for priority');
               this.saveNotificationAddress(normalizedToAddress);
+              // if sign-in modal is open, close it and open again
+              if (signInModal.isActive()) {
+                signInModal.close();
+                signInModal.open();
+              }
               return;
             }
             
