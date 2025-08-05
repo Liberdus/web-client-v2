@@ -336,6 +336,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Setup keyboard adjustment for React Native WebView
   // adjustForKeyboard();
 
+  // React Native App
+  reactNativeApp.load();
+
   // Check for native app subscription tokens and handle subscription
   reactNativeApp.handleNativeAppSubscribe();
 
@@ -458,9 +461,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Launch Modal
   launchModal.load();
-
-  // React Native App
-  reactNativeApp.load();
 
   // LocalStorage Monitor
   localStorageMonitor.load();
@@ -11236,6 +11236,8 @@ class ReactNativeApp {
   constructor() {
     this.isReactNativeWebView = this.checkIfReactNativeWebView();
     this.appVersion = null;
+    this.deviceToken = null;
+    this.expoPushToken = null;
   }
 
   load() {
@@ -11281,13 +11283,14 @@ class ReactNativeApp {
             if (data.data.deviceToken) {
               logsModal.log('📱 Device token received');
               // Store device token for push notifications
-              window.deviceToken = data.data.deviceToken;
+              this.deviceToken = data.data.deviceToken;
             }
             if (data.data.expoPushToken) {
               logsModal.log('📱 Expo push token received');
               // Store expo push token for push notifications
-              window.expoPushToken = data.data.expoPushToken;
+              this.expoPushToken = data.data.expoPushToken;
             }
+            this.handleNativeAppSubscribe();
           }
 
           if (data.type === 'NOTIFICATION_TAPPED') {
@@ -11446,8 +11449,8 @@ class ReactNativeApp {
       return;
     }
 
-    const deviceToken = window.deviceToken || null;
-    const pushToken = window.expoPushToken || null;
+    const deviceToken = this.deviceToken || null;
+    const pushToken = this.expoPushToken || null;
 
     
     if (deviceToken && pushToken) {
@@ -11527,8 +11530,8 @@ class ReactNativeApp {
       return;
     }
 
-    const deviceToken = window.deviceToken || null;
-    const pushToken = window.expoPushToken || null;
+    const deviceToken = this.deviceToken || null;
+    const pushToken = this.expoPushToken || null;
 
     // cannot unsubscribe if no device token is provided
     if (!deviceToken) return;
