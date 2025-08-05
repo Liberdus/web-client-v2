@@ -11509,6 +11509,12 @@ class ReactNativeApp {
    * If this is the last account, it fully unsubscribes the device.
    */
   async handleNativeAppUnsubscribe() {
+    // Early return if running on Android device in React Native WebView
+    if (window.ReactNativeWebView && navigator.userAgent.toLowerCase().includes('android')) {
+      console.log('handleNativeAppUnsubscribe: Skipping unsubscribe on Android device');
+      return;
+    }
+
     // Check if we're online before proceeding
     if (!isOnline) {
       console.log('handleNativeAppUnsubscribe: Device is offline, skipping unsubscribe');
