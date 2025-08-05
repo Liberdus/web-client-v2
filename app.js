@@ -5484,8 +5484,9 @@ class LogsModal {
     this.logsTextarea.value = this.data;
     this.logsTextarea.scrollTop = this.logsTextarea.scrollHeight;
   }
-
-  log(s) {
+  
+  log(...args) {
+    const s = args.join(' ');
     try {
       this.data += s + '\n\n';
       localStorage.setItem('logs', this.data);
