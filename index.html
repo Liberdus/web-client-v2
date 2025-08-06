@@ -1197,9 +1197,16 @@
               This will download a file that contains your account data. You can use this file to restore your account on another device.
             </p>
             <p>
-              If you are signed in, this will only save the current account. If you are not signed in, this will save all accounts.
+              If you are signed in you can choose to backup all accounts or just the signed in account.
             </p>
             <form id="backupForm">
+              <div class="form-group" id="backupAllAccountsGroup" style="display: none;">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="backupAllAccounts" />
+                  <span class="checkmark"></span>
+                  Backup all accounts
+                </label>
+              </div>
               <div class="form-group">
                 <label for="backupPassword">
                   Password

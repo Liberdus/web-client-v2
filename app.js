@@ -4411,14 +4411,12 @@ class BackupAccountModal {
     this.passwordConfirmInput = document.getElementById('backupPasswordConfirm');
     this.passwordConfirmWarning = document.getElementById('backupPasswordConfirmWarning');
     this.submitButton = document.getElementById('backupForm').querySelector('button[type="submit"]');
+    this.backupAllAccountsCheckbox = document.getElementById('backupAllAccounts');
+    this.backupAllAccountsGroup = document.getElementById('backupAllAccountsGroup');
     
     document.getElementById('closeBackupForm').addEventListener('click', () => this.close());
     document.getElementById('backupForm').addEventListener('submit', (event) => {
-      if (myData) {
-        this.handleSubmitOne(event);
-      } else {
-        this.handleSubmitAll(event);
-      }
+      this.handleSubmit(event);
     });
     
     // Add password validation on input with debounce
@@ -4430,6 +4428,18 @@ class BackupAccountModal {
   open() {
     // called when the modal needs to be opened
     this.modal.classList.add('active');
+    
+    // Show/hide checkbox based on login status
+    if (myData) {
+      // User is signed in - show checkbox
+      this.backupAllAccountsGroup.style.display = 'block';
+      this.backupAllAccountsCheckbox.checked = false; // Default to current account
+    } else {
+      // User is not signed in - hide checkbox but default to all accounts
+      this.backupAllAccountsGroup.style.display = 'none';
+      this.backupAllAccountsCheckbox.checked = true; // Default to all accounts
+    }
+    
     this.updateButtonState();
   }
 
@@ -4439,6 +4449,8 @@ class BackupAccountModal {
     // Clear passwords for security
     this.passwordInput.value = '';
     this.passwordConfirmInput.value = '';
+    // Reset checkbox
+    this.backupAllAccountsCheckbox.checked = false;
   }
 
   /**
@@ -4460,6 +4472,23 @@ class BackupAccountModal {
       return `liberdus-${username}-${dateStr}-${timeStr}-${networkIdPrefix}.json`;
     } else {
       return `liberdus-${dateStr}-${timeStr}-${networkIdPrefix}.json`;
+    }
+  }
+
+  /**
+   * Handle the form submission based on checkbox state.
+   * @param {Event} event - The event object.
+   */
+  async handleSubmit(event) {
+    event.preventDefault();
+
+    // Determine which backup method to use
+    if (myData && !this.backupAllAccountsCheckbox.checked) {
+      // User is signed in and wants to backup only current account
+      await this.handleSubmitOne(event);
+    } else {
+      // User wants to backup all accounts (either not signed in or checkbox checked)
+      await this.handleSubmitAll(event);
     }
   }
 

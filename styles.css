@@ -1955,6 +1955,27 @@ input[type='file'].form-control {
   margin-bottom: 1.5rem;
 }
 
+#backupModal .checkbox-label {
+  display: flex;
+  align-items: center;
+  font-family: var(--font-primary);
+  font-size: var(--font-size-base);
+  color: var(--text-color);
+  cursor: pointer;
+  margin-bottom: 0;
+}
+
+#backupModal .checkbox-label input[type="checkbox"] {
+  margin-right: 8px;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+#backupModal .form-group {
+  margin-bottom: 1rem;
+}
+
 /* Remove Account Modal Styles */
 #removeAccountModal .form-container {
   display: flex;
