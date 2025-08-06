@@ -1842,13 +1842,13 @@ class SignInModal {
     }
 
     // Get the notified address and sort usernames to prioritize it
-    const notifiedAddress = localStorage.getItem('lastNotificationAddress');
+    const notifiedAddress = localStorage.getItem('lastNotificationAddresses');
     let sortedUsernames = [...usernames];
     
     if (notifiedAddress) {
-      // Find which username owns the notified address
+      // Find which usernames own the notified address
       for (const [username, accountData] of Object.entries(netidAccounts.usernames)) {
-        if (accountData.address === notifiedAddress) {
+        if (notifiedAddress.includes(accountData.address)) {
           // Move this username to the front
           sortedUsernames = sortedUsernames.filter(u => u !== username);
           sortedUsernames.unshift(username);
@@ -1862,7 +1862,7 @@ class SignInModal {
       <option value="" disabled selected hidden>Select an account</option>
       ${sortedUsernames.map((username) => {
         // Check if this username owns the notified address
-        const isNotifiedAccount = notifiedAddress && netidAccounts.usernames[username]?.address === notifiedAddress;
+        const isNotifiedAccount = notifiedAddress && notifiedAddress.includes(netidAccounts.usernames[username]?.address);
         const dotIndicator = isNotifiedAccount ? ' 🔔' : '';
         return `<option value="${username}">${username}${dotIndicator}</option>`;
       }).join('')}
@@ -1986,10 +1986,12 @@ class SignInModal {
     this.close();
     welcomeScreen.close();
     
-    // Clear notification address only if signing into account that owns the notification address
-    const notifiedAccount = localStorage?.getItem('lastNotificationAddress');
-    if (reactNativeApp && notifiedAccount && reactNativeApp?.isCurrentAccount(normalizeAddress(notifiedAccount))) {
-      reactNativeApp.clearNotificationAddress();
+    // Clear notification address only if signing into account that owns the notification address and only remove that account from the array 
+    const notifiedAddresses = localStorage?.getItem('lastNotificationAddresses');
+    if (reactNativeApp && notifiedAddresses) {
+      // remove address if it's in the array
+      reactNativeApp.clearNotificationAddress(myAccount.keys.address);
+      
     }
     
     await footer.switchView('chats'); // Default view
@@ -11414,9 +11416,8 @@ class ReactNativeApp {
           }
 
           if (data.type === 'ALL_NOTIFICATIONS_IN_PANEL') {
-            logsModal.log('📋 Received all panel notifications:', data.notifications);
-            
-            if (data.notifications && Array.isArray(data.notifications)) {
+            logsModal.log('📋 Received all panel notifications:', JSON.stringify(data.notifications));
+            if (data.notifications && Array.isArray(data.notifications) && data.notifications.length > 0) {
               // Process the notifications array and save the addresses
               data.notifications.forEach(notification => {
                 if (notification.data && notification.data.to) {
@@ -11520,10 +11521,13 @@ class ReactNativeApp {
     return myData.account.keys.address === recipientAddress;
   }
 
+  /**
+   * Save the notification address to localStorage array of addresses
+   * @param {string} contactAddress - The address of the contact to save
+   */
   saveNotificationAddress(contactAddress) {
-    // add to localStorage array of addresses
     // if not an array, create an empty array (backwards compatibility)
-    let addresses = localStorage.getItem('lastNotificationAddresses') || [];
+    let addresses = parse(localStorage.getItem('lastNotificationAddresses')) || [];
     if (Array.isArray(addresses)) {
       if (!addresses.includes(contactAddress)) {
         addresses.push(contactAddress);
@@ -11535,9 +11539,20 @@ class ReactNativeApp {
     console.log(` Saved notification address: ${contactAddress}`);
   }
 
-  clearNotificationAddress() {
-    localStorage.removeItem('lastNotificationAddress');
-    console.log('🧹 Cleared notification address');
+  /**
+   * Clear only selected address from the array
+   * @param {string} address - The address to clear
+   */
+  clearNotificationAddress(address) {
+    const notifiedAddresses = parse(localStorage?.getItem('lastNotificationAddresses')) || null;
+    if (notifiedAddresses) {
+      const index = notifiedAddresses.indexOf(address);
+      if (index === -1) {
+        return;
+      }
+      notifiedAddresses.splice(index, 1);
+      localStorage.setItem('lastNotificationAddresses', JSON.stringify(notifiedAddresses));
+    }
   }
 
   // Send navigation bar visibility
