@@ -529,6 +529,12 @@ function handleVisibilityChange() {
         chatModal.appendChatModal(true);
       }
     }
+    // send message `GetAllPanelNotifications` to React Native when app is brought back to foreground
+    if (window?.ReactNativeWebView) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'GetAllPanelNotifications',
+      }));
+    }
   }
 }
 
@@ -11310,6 +11316,11 @@ class ReactNativeApp {
       console.log('🌐 Initializing React Native WebView Communication');
       this.captureInitialViewportHeight();
 
+      // send message `GetAllPanelNotifications` to React Native when app is opened during DOMContentLoaded
+      this.postMessage({
+        type: 'GetAllPanelNotifications',
+      });
+
       window.addEventListener('message', (event) => {
         try {
           const data = JSON.parse(event.data);
@@ -11399,6 +11410,22 @@ class ReactNativeApp {
                 // User chose to stay signed in, just save the address for next time
                 logsModal.log('User chose to stay signed in - notified account will appear first next time');
               }
+            }
+          }
+
+          if (data.type === 'ALL_NOTIFICATIONS_IN_PANEL') {
+            logsModal.log('📋 Received all panel notifications:', data.notifications);
+            
+            if (data.notifications && Array.isArray(data.notifications)) {
+              // Process the notifications array and save the addresses
+              data.notifications.forEach(notification => {
+                if (notification.data && notification.data.to) {
+                  const normalizedToAddress = normalizeAddress(notification.data.to);
+                  this.saveNotificationAddress(normalizedToAddress);
+                }
+              });
+            } else {
+              logsModal.log('📋 No notifications or invalid notifications data received');
             }
           }
         } catch (error) {
@@ -11494,7 +11521,17 @@ class ReactNativeApp {
   }
 
   saveNotificationAddress(contactAddress) {
-    localStorage.setItem('lastNotificationAddress', contactAddress);
+    // add to localStorage array of addresses
+    // if not an array, create an empty array (backwards compatibility)
+    let addresses = localStorage.getItem('lastNotificationAddresses') || [];
+    if (Array.isArray(addresses)) {
+      if (!addresses.includes(contactAddress)) {
+        addresses.push(contactAddress);
+      }
+    } else {
+      addresses = [contactAddress];
+    }
+    localStorage.setItem('lastNotificationAddresses', JSON.stringify(addresses));
     console.log(` Saved notification address: ${contactAddress}`);
   }
 
