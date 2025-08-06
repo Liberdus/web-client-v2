@@ -1842,7 +1842,7 @@ class SignInModal {
     }
 
     // Get the notified addresses and sort usernames to prioritize them
-    const notifiedAddresses = parse(localStorage.getItem('lastNotificationAddresses')) || [];
+    const notifiedAddresses = reactNativeApp ? reactNativeApp.getNotificationAddresses() : [];
     let sortedUsernames = [...usernames];
     
     if (notifiedAddresses.length > 0) {
@@ -1987,10 +1987,12 @@ class SignInModal {
     welcomeScreen.close();
     
     // Clear notification address only if signing into account that owns the notification address and only remove that account from the array 
-    const notifiedAddresses = parse(localStorage?.getItem('lastNotificationAddresses')) || [];
-    if (reactNativeApp && notifiedAddresses.length > 0) {
-      // remove address if it's in the array
-      reactNativeApp.clearNotificationAddress(myAccount.keys.address);
+    if (reactNativeApp) {
+      const notifiedAddresses = reactNativeApp.getNotificationAddresses();
+      if (notifiedAddresses.length > 0) {
+        // remove address if it's in the array
+        reactNativeApp.clearNotificationAddress(myAccount.keys.address);
+      }
     }
     
     await footer.switchView('chats'); // Default view
@@ -11416,16 +11418,41 @@ class ReactNativeApp {
 
           if (data.type === 'ALL_NOTIFICATIONS_IN_PANEL') {
             logsModal.log('📋 Received all panel notifications:', JSON.stringify(data.notifications));
-            if (data.notifications && Array.isArray(data.notifications) && data.notifications.length > 0) {
-              // Process the notifications array and save the addresses
-              data.notifications.forEach(notification => {
-                if (notification.data && notification.data.to) {
-                  const normalizedToAddress = normalizeAddress(notification.data.to);
-                  this.saveNotificationAddress(normalizedToAddress);
-                }
-              });
-            } else {
-              logsModal.log('📋 No notifications or invalid notifications data received');
+            
+            try {
+              if (data.notifications && Array.isArray(data.notifications) && data.notifications.length > 0) {
+                // Process the notifications array and save the addresses
+                let processedCount = 0;
+                data.notifications.forEach((notification, index) => {
+                  try {
+                    // Validate notification structure
+                    if (!notification || typeof notification !== 'object') {
+                      logsModal.log(`📋 Skipping invalid notification at index ${index}: not an object`);
+                      return;
+                    }
+                    
+                    if (notification.data && notification.data.to) {
+                      // Validate the 'to' address
+                      if (typeof notification.data.to !== 'string' || !notification.data.to.trim()) {
+                        logsModal.log(`📋 Skipping notification at index ${index}: invalid 'to' address`);
+                        return;
+                      }
+                      
+                      const normalizedToAddress = normalizeAddress(notification.data.to);
+                      this.saveNotificationAddress(normalizedToAddress);
+                      processedCount++;
+                    }
+                  } catch (notificationError) {
+                    logsModal.error(`📋 Error processing notification at index ${index}:`, notificationError);
+                  }
+                });
+                
+                logsModal.log(`📋 Successfully processed ${processedCount} out of ${data.notifications.length} notifications`);
+              } else {
+                logsModal.log('📋 No notifications or invalid notifications data received');
+              }
+            } catch (processingError) {
+              logsModal.error('📋 Error processing notifications:', processingError);
             }
           }
         } catch (error) {
@@ -11525,17 +11552,36 @@ class ReactNativeApp {
    * @param {string} contactAddress - The address of the contact to save
    */
   saveNotificationAddress(contactAddress) {
-    // if not an array, create an empty array (backwards compatibility)
-    let addresses = parse(localStorage.getItem('lastNotificationAddresses')) || [];
-    if (Array.isArray(addresses)) {
-      if (!addresses.includes(contactAddress)) {
-        addresses.push(contactAddress);
+    try {
+      // Validate input
+      if (!contactAddress || typeof contactAddress !== 'string') {
+        console.warn('❌ Invalid contact address provided to saveNotificationAddress:', contactAddress);
+        return;
       }
-    } else {
-      addresses = [contactAddress];
+      
+      // if not an array, create an empty array (backwards compatibility)
+      let addresses = [];
+      try {
+        addresses = parse(localStorage.getItem('lastNotificationAddresses')) || [];
+      } catch (parseError) {
+        console.warn('⚠️ Failed to parse existing notification addresses, starting fresh:', parseError);
+        addresses = [];
+      }
+      
+      if (Array.isArray(addresses)) {
+        if (!addresses.includes(contactAddress)) {
+          addresses.push(contactAddress);
+        }
+      } else {
+        console.warn('⚠️ Existing notification addresses is not an array, resetting to new array');
+        addresses = [contactAddress];
+      }
+      
+      localStorage.setItem('lastNotificationAddresses', JSON.stringify(addresses));
+      console.log(`✅ Saved notification address: ${contactAddress}`);
+    } catch (error) {
+      console.error('❌ Error saving notification address:', error);
     }
-    localStorage.setItem('lastNotificationAddresses', JSON.stringify(addresses));
-    console.log(` Saved notification address: ${contactAddress}`);
   }
 
   /**
@@ -11543,11 +11589,36 @@ class ReactNativeApp {
    * @param {string} address - The address to clear
    */
   clearNotificationAddress(address) {
-    const notifiedAddresses = parse(localStorage?.getItem('lastNotificationAddresses')) || [];
-    const index = notifiedAddresses.indexOf(address);
-    if (index !== -1) {
-      notifiedAddresses.splice(index, 1);
-      localStorage.setItem('lastNotificationAddresses', JSON.stringify(notifiedAddresses));
+    try {
+      // Validate input
+      if (!address || typeof address !== 'string') {
+        console.warn('❌ Invalid address provided to clearNotificationAddress:', address);
+        return;
+      }
+      
+      let notifiedAddresses = [];
+      try {
+        notifiedAddresses = parse(localStorage?.getItem('lastNotificationAddresses')) || [];
+      } catch (parseError) {
+        console.warn('⚠️ Failed to parse notification addresses for clearing:', parseError);
+        return; // Can't clear from malformed data
+      }
+      
+      if (!Array.isArray(notifiedAddresses)) {
+        console.warn('⚠️ Notification addresses is not an array, cannot clear specific address');
+        return;
+      }
+      
+      const index = notifiedAddresses.indexOf(address);
+      if (index !== -1) {
+        notifiedAddresses.splice(index, 1);
+        localStorage.setItem('lastNotificationAddresses', JSON.stringify(notifiedAddresses));
+        console.log(`✅ Cleared notification address: ${address}`);
+      } else {
+        console.log(`ℹ️ Address not found in notification list: ${address}`);
+      }
+    } catch (error) {
+      console.error('❌ Error clearing notification address:', error);
     }
   }
 
@@ -11564,6 +11635,23 @@ class ReactNativeApp {
     this.postMessage({
       type: 'CLEAR_NOTI'
     });
+  }
+
+  /**
+   * Safely retrieve notification addresses from localStorage
+   * @returns {Array} Array of notification addresses, empty array if none or error
+   */
+  getNotificationAddresses() {
+    try {
+      const stored = localStorage.getItem('lastNotificationAddresses');
+      if (!stored) return [];
+      
+      const parsed = parse(stored);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.warn('⚠️ Failed to parse notification addresses:', error);
+      return [];
+    }
   }
 
   /**
