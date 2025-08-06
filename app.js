@@ -1845,6 +1845,7 @@ class SignInModal {
     const notifiedAddresses = reactNativeApp ? reactNativeApp.getNotificationAddresses() : [];
     let sortedUsernames = [...usernames];
     
+    // if there are notified addresses, sort the usernames to prioritize them
     if (notifiedAddresses.length > 0) {
       // Find which usernames own the notified addresses
       for (const [username, accountData] of Object.entries(netidAccounts.usernames)) {
@@ -1857,7 +1858,7 @@ class SignInModal {
       }
     }
 
-    // Populate select with sorted usernames
+    // Populate select with sorted usernames and add an emoji to the username if it owns a notified address
     this.usernameSelect.innerHTML = `
       <option value="" disabled selected hidden>Select an account</option>
       ${sortedUsernames.map((username) => {
