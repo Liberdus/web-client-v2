@@ -11334,8 +11334,8 @@ class ReactNativeApp {
             this.detectKeyboardOverlap(data.keyboardHeight);
           }
 
-          if (data.type === 'INITIAL_APP_PARAMS') {
-            logsModal.log('📱 Received initial app parameters:', data.data);
+          if (data.type === 'APP_PARAMS') {
+            logsModal.log('📱 Received app parameters:', data.data);
             // Handle app version
             if (data?.data?.appVersion) {
               logsModal.log('📱 App version:', data.data.appVersion);
@@ -11405,6 +11405,8 @@ class ReactNativeApp {
           logsModal.error('Error parsing message from React Native:', error);
         }
       });
+      
+      this.fetchAppParams();
     }
   }
 
@@ -11422,6 +11424,13 @@ class ReactNativeApp {
         console.warn('Failed to post message to React Native:', error);
       }
     }
+  }
+
+  // Fetch App Params from React Native
+  fetchAppParams() {
+    this.postMessage({
+      type: 'APP_PARAMS'
+    });
   }
 
   captureInitialViewportHeight() {
