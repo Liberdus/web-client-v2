@@ -1311,6 +1311,7 @@ class MenuModal {
     }
 
     await reactNativeApp.handleNativeAppSubscribe();
+    reactNativeApp.sendClearNotifications();
 
     // Only reload if online
 //    window.location.reload();
@@ -11436,6 +11437,13 @@ class ReactNativeApp {
     this.postMessage({
       type: 'NAV_BAR',
       visible
+    });
+  }
+
+  // Send clear notifications message
+  sendClearNotifications() {
+    this.postMessage({
+      type: 'CLEAR_NOTI'
     });
   }
 
