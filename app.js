@@ -11420,40 +11420,22 @@ class ReactNativeApp {
           if (data.type === 'ALL_NOTIFICATIONS_IN_PANEL') {
             logsModal.log('📋 Received all panel notifications:', JSON.stringify(data.notifications));
             
-            try {
-              if (data.notifications && Array.isArray(data.notifications) && data.notifications.length > 0) {
-                // Process the notifications array and save the addresses
-                let processedCount = 0;
-                data.notifications.forEach((notification, index) => {
-                  try {
-                    // Validate notification structure
-                    if (!notification || typeof notification !== 'object') {
-                      logsModal.log(`📋 Skipping invalid notification at index ${index}: not an object`);
-                      return;
-                    }
-                    
-                    if (notification.data && notification.data.to) {
-                      // Validate the 'to' address
-                      if (typeof notification.data.to !== 'string' || !notification.data.to.trim()) {
-                        logsModal.log(`📋 Skipping notification at index ${index}: invalid 'to' address`);
-                        return;
-                      }
-                      
-                      const normalizedToAddress = normalizeAddress(notification.data.to);
-                      this.saveNotificationAddress(normalizedToAddress);
-                      processedCount++;
-                    }
-                  } catch (notificationError) {
-                    logsModal.error(`📋 Error processing notification at index ${index}:`, notificationError);
+            if (data.notifications && Array.isArray(data.notifications) && data.notifications.length > 0) {
+              let processedCount = 0;
+              data.notifications.forEach((notification, index) => {
+                try {
+                  if (notification?.data?.to && typeof notification.data.to === 'string' && notification.data.to.trim()) {
+                    const normalizedToAddress = normalizeAddress(notification.data.to);
+                    this.saveNotificationAddress(normalizedToAddress);
+                    processedCount++;
                   }
-                });
-                
-                logsModal.log(`📋 Successfully processed ${processedCount} out of ${data.notifications.length} notifications`);
-              } else {
-                logsModal.log('📋 No notifications or invalid notifications data received');
-              }
-            } catch (processingError) {
-              logsModal.error('📋 Error processing notifications:', processingError);
+                } catch (error) {
+                  console.warn(`📋 Error processing notification ${index}:`, error);
+                }
+              });
+              logsModal.log(`📋 Processed ${processedCount}/${data.notifications.length} notifications`);
+            } else {
+              logsModal.log('📋 No valid notifications received');
             }
           }
         } catch (error) {
@@ -11553,33 +11535,15 @@ class ReactNativeApp {
    * @param {string} contactAddress - The address of the contact to save
    */
   saveNotificationAddress(contactAddress) {
+    if (!contactAddress || typeof contactAddress !== 'string') return;
+    
     try {
-      // Validate input
-      if (!contactAddress || typeof contactAddress !== 'string') {
-        console.warn('❌ Invalid contact address provided to saveNotificationAddress:', contactAddress);
-        return;
+      const addresses = this.getNotificationAddresses();
+      if (!addresses.includes(contactAddress)) {
+        addresses.push(contactAddress);
+        localStorage.setItem('lastNotificationAddresses', JSON.stringify(addresses));
+        console.log(`✅ Saved notification address: ${contactAddress}`);
       }
-      
-      // if not an array, create an empty array (backwards compatibility)
-      let addresses = [];
-      try {
-        addresses = parse(localStorage.getItem('lastNotificationAddresses')) || [];
-      } catch (parseError) {
-        console.warn('⚠️ Failed to parse existing notification addresses, starting fresh:', parseError);
-        addresses = [];
-      }
-      
-      if (Array.isArray(addresses)) {
-        if (!addresses.includes(contactAddress)) {
-          addresses.push(contactAddress);
-        }
-      } else {
-        console.warn('⚠️ Existing notification addresses is not an array, resetting to new array');
-        addresses = [contactAddress];
-      }
-      
-      localStorage.setItem('lastNotificationAddresses', JSON.stringify(addresses));
-      console.log(`✅ Saved notification address: ${contactAddress}`);
     } catch (error) {
       console.error('❌ Error saving notification address:', error);
     }
@@ -11590,33 +11554,15 @@ class ReactNativeApp {
    * @param {string} address - The address to clear
    */
   clearNotificationAddress(address) {
+    if (!address || typeof address !== 'string') return;
+    
     try {
-      // Validate input
-      if (!address || typeof address !== 'string') {
-        console.warn('❌ Invalid address provided to clearNotificationAddress:', address);
-        return;
-      }
-      
-      let notifiedAddresses = [];
-      try {
-        notifiedAddresses = parse(localStorage?.getItem('lastNotificationAddresses')) || [];
-      } catch (parseError) {
-        console.warn('⚠️ Failed to parse notification addresses for clearing:', parseError);
-        return; // Can't clear from malformed data
-      }
-      
-      if (!Array.isArray(notifiedAddresses)) {
-        console.warn('⚠️ Notification addresses is not an array, cannot clear specific address');
-        return;
-      }
-      
-      const index = notifiedAddresses.indexOf(address);
+      const addresses = this.getNotificationAddresses();
+      const index = addresses.indexOf(address);
       if (index !== -1) {
-        notifiedAddresses.splice(index, 1);
-        localStorage.setItem('lastNotificationAddresses', JSON.stringify(notifiedAddresses));
+        addresses.splice(index, 1);
+        localStorage.setItem('lastNotificationAddresses', JSON.stringify(addresses));
         console.log(`✅ Cleared notification address: ${address}`);
-      } else {
-        console.log(`ℹ️ Address not found in notification list: ${address}`);
       }
     } catch (error) {
       console.error('❌ Error clearing notification address:', error);
