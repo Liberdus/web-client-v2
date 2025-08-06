@@ -359,33 +359,6 @@
         <a class="last-item" href="#"> </a>
       </div>
 
-      <!-- Update Warning Modal -->
-      <div class="modal fixed-header" id="updateWarningModal">
-        <div class="modal-header">
-          <button class="back-button" id="closeUpdateWarningModal"></button>
-          <div class="modal-title">⚠️ Update Warning</div>
-        </div>
-        <div class="modal-content">
-          <div class="form-container">
-            <div class="warning-content">
-              <p>
-                WARNING: If you accidentally uninstall the app during the update process, all your local data will be permanently lost.
-              </p>
-              <p>
-                <strong>We strongly recommend backing up your data first.</strong>
-              </p>
-            </div>
-            <button id="backupFirstBtn" class="update-button">
-              🛡️ Backup My Data First
-            </button>
-            <button id="proceedToStoreBtn" class="secondary-button">
-              Continue to App Store
-            </button>
-          </div>
-        </div>
-        <a class="last-item" href="#"> </a>
-      </div>
-
       <!-- Lock Modal -->
       <div class="modal fixed-header" id="lockModal">
         <div class="modal-header">
@@ -498,12 +471,6 @@
                   />
                 </div>
               </div>
-              <div class="form-group">
-                <input type="checkbox" id="togglePrivateKeyInput" />
-                <label for="togglePrivateKeyInput" style="display: inline; margin-left: 5px"
-                  >Use my own private key (Advanced)</label
-                >
-              </div>
               <div id="privateKeySection" style="display: none">
                 <div class="form-group">
                   <label for="newPrivateKey"
@@ -525,6 +492,20 @@
                 </div>
               </div>
               <button type="submit" class="update-button" disabled>Create Account</button>
+              
+              <div class="form-group" style="margin-top: 20px;">
+                <input type="checkbox" id="toggleMoreOptions" />
+                <label for="toggleMoreOptions" style="display: inline; margin-left: 5px">More Options</label>
+              </div>
+              
+              <div id="moreOptionsSection" style="display: none;">
+                <div class="form-group">
+                  <input type="checkbox" id="togglePrivateKeyInput" />
+                  <label for="togglePrivateKeyInput" style="display: inline; margin-left: 5px">
+                    Use my own private key (Advanced)
+                  </label>
+                </div>
+              </div>
             </form>
             <div class="form-group" id="migrateAccountsSection" style="display: none; margin-top: 50px; padding: 0 16px">
               <label for="migrateAccountsButton">Check if you have accounts that can be migrated to this network</label>
@@ -532,13 +513,39 @@
                 Migrate Accounts
               </button>
             </div>
-            <div class="form-group" id="launchSection" style="display: none; margin-top: 20px; padding: 0 16px">
-              <!-- have the bellow label be centered -->
-              <label for="launchButton" style="text-align: center;">Launch a different Liberdus instance</label>
-              <button type="button" id="launchButton" class="secondary-button" style="margin-top: 10px;">
-                Launch
-              </button>
+            <button type="button" id="launchButton" class="secondary-button" style="display: none; margin-top: 10px;">
+              Launch
+            </button>
+            <button type="button" id="updateButton" class="secondary-button" style="display: none; margin-top: 10px;">
+              Check for Updates
+            </button>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Update Warning Modal -->
+      <div class="modal fixed-header" id="updateWarningModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeUpdateWarningModal"></button>
+          <div class="modal-title">⚠️ Update Warning</div>
+        </div>
+        <div class="modal-content">
+          <div class="form-container">
+            <div class="warning-content">
+              <p>
+                WARNING: If you accidentally uninstall the app during the update process, all your local data will be permanently lost.
+              </p>
+              <p>
+                <strong>We strongly recommend backing up your data first.</strong>
+              </p>
             </div>
+            <button id="backupFirstBtn" class="update-button">
+              🛡️ Backup My Data First
+            </button>
+            <button id="proceedToStoreBtn" class="secondary-button">
+              Continue to App Store
+            </button>
           </div>
         </div>
         <a class="last-item" href="#"> </a>

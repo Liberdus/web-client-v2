@@ -8369,13 +8369,16 @@ class CreateAccountModal {
     this.togglePrivateKeyVisibility = document.getElementById('togglePrivateKeyVisibility');
     this.migrateAccountsSection = document.getElementById('migrateAccountsSection');
     this.migrateAccountsButton = document.getElementById('migrateAccountsButton');
-    this.launchSection = document.getElementById('launchSection');
     this.launchButton = document.getElementById('launchButton');
+    this.updateButton = document.getElementById('updateButton');
+    this.toggleMoreOptions = document.getElementById('toggleMoreOptions');
+    this.moreOptionsSection = document.getElementById('moreOptionsSection');
 
     // Setup event listeners
     this.form.addEventListener('submit', (e) => this.handleSubmit(e));
     this.usernameInput.addEventListener('input', (e) => this.handleUsernameInput(e));
     this.toggleButton.addEventListener('change', () => this.handleTogglePrivateKeyInput());
+    this.toggleMoreOptions.addEventListener('change', () => this.handleToggleMoreOptions());
     this.backButton.addEventListener('click', () => this.closeWithReload());
 
     // Add listener for the password visibility toggle
@@ -8389,9 +8392,12 @@ class CreateAccountModal {
 
     this.migrateAccountsButton.addEventListener('click', async () => await migrateAccountsModal.open());
     if (window.ReactNativeWebView) {
-      this.launchSection.style.display = 'block';
       this.launchButton.addEventListener('click', () => {
         launchModal.open()
+      });
+      
+      this.updateButton.addEventListener('click', () => {
+        aboutModal.openStore();
       });
     }
   }
@@ -8427,6 +8433,14 @@ class CreateAccountModal {
     this.privateKeyInput.value = '';
     this.usernameAvailable.style.display = 'none';
     this.privateKeyError.style.display = 'none';
+    
+    // Reset More Options section
+    this.toggleMoreOptions.checked = false;
+    this.moreOptionsSection.style.display = 'none';
+    this.toggleButton.checked = false;
+    this.privateKeySection.style.display = 'none';
+    this.launchButton.style.display = 'none';
+    this.updateButton.style.display = 'none';
     
     // Open the modal
     this.open();
@@ -8490,6 +8504,25 @@ class CreateAccountModal {
     
     if (!isChecked) {
       this.privateKeyError.style.display = 'none';
+    }
+  }
+  
+  handleToggleMoreOptions() {
+    const isChecked = this.toggleMoreOptions.checked;
+    this.moreOptionsSection.style.display = isChecked ? 'block' : 'none';
+    
+    if (!isChecked) {
+      // Reset private key options when more options is unchecked
+      this.toggleButton.checked = false;
+      // Hide private key section if More Options is unchecked
+      this.privateKeySection.style.display = 'none';
+      this.privateKeyInput.value = '';
+      this.privateKeyError.style.display = 'none';
+      this.launchButton.style.display = 'none';
+      this.updateButton.style.display = 'none';
+    } else if (window.ReactNativeWebView) {
+      this.launchButton.style.display = 'block';
+      this.updateButton.style.display = 'block';
     }
   }
 
