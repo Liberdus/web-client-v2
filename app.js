@@ -1842,13 +1842,13 @@ class SignInModal {
     }
 
     // Get the notified address and sort usernames to prioritize it
-    const notifiedAddress = localStorage.getItem('lastNotificationAddresses');
+    const notifiedAddresses = parse(localStorage.getItem('lastNotificationAddresses')) || null;
     let sortedUsernames = [...usernames];
     
-    if (notifiedAddress) {
+    if (notifiedAddresses) {
       // Find which usernames own the notified address
       for (const [username, accountData] of Object.entries(netidAccounts.usernames)) {
-        if (notifiedAddress.includes(accountData.address)) {
+        if (notifiedAddresses.includes(accountData.address)) {
           // Move this username to the front
           sortedUsernames = sortedUsernames.filter(u => u !== username);
           sortedUsernames.unshift(username);
@@ -1862,7 +1862,7 @@ class SignInModal {
       <option value="" disabled selected hidden>Select an account</option>
       ${sortedUsernames.map((username) => {
         // Check if this username owns the notified address
-        const isNotifiedAccount = notifiedAddress && notifiedAddress.includes(netidAccounts.usernames[username]?.address);
+        const isNotifiedAccount = notifiedAddresses && notifiedAddresses.includes(netidAccounts.usernames[username]?.address);
         const dotIndicator = isNotifiedAccount ? ' 🔔' : '';
         return `<option value="${username}">${username}${dotIndicator}</option>`;
       }).join('')}
@@ -1987,7 +1987,7 @@ class SignInModal {
     welcomeScreen.close();
     
     // Clear notification address only if signing into account that owns the notification address and only remove that account from the array 
-    const notifiedAddresses = localStorage?.getItem('lastNotificationAddresses');
+    const notifiedAddresses = parse(localStorage?.getItem('lastNotificationAddresses')) || null;
     if (reactNativeApp && notifiedAddresses) {
       // remove address if it's in the array
       reactNativeApp.clearNotificationAddress(myAccount.keys.address);
