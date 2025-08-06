@@ -11168,9 +11168,11 @@ class LaunchModal {
     this.launchForm = document.getElementById('launchForm');
     this.urlInput = this.modal.querySelector('#url');
     this.launchButton = this.modal.querySelector('button[type="submit"]');
+    this.backupButton = this.modal.querySelector('#launchModalBackupButton');
     this.closeButton.addEventListener('click', () => this.close());
     this.launchForm.addEventListener('submit', (event) => this.handleSubmit(event));
     this.urlInput.addEventListener('input', () => this.updateButtonState());
+    this.backupButton.addEventListener('click', () => backupAccountModal.open());
   }
 
   open() {

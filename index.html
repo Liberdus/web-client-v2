@@ -552,13 +552,25 @@
         </div>
         <div class="modal-content">
           <div class="form-container">
+            <p class="launch-warning">
+              Do not change the Launch URL unless you know what you are doing.
+            </p>
+            
             <form id="launchForm">
               <div class="form-group">
                 <label for="url">URL</label>
                 <input type="url" id="url" class="form-control" required />
               </div>
-              <button type="submit" class="update-button" disabled>Launch</button>
+              <button type="submit" class="secondary-button" disabled>Launch</button>
             </form>
+            <div class="backup-section">
+              <p class="backup-note">
+                Be sure to backup all your accounts first
+              </p>
+              <button type="button" id="launchModalBackupButton" class="update-button">
+                Backup
+              </button>
+            </div>
           </div>
         </div>
         <a class="last-item" href="#"> </a>

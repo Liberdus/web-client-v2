@@ -5188,7 +5188,7 @@ small {
 }
 
 #updateWarningModal .warning-content p:first-child {
-  color: #dc3545;
+  color: var(--danger-color);
   font-weight: bold;
 }
 
@@ -5198,11 +5198,40 @@ small {
 
 /* Make the "Continue to App Store" button red to emphasize danger */
 #updateWarningModal .secondary-button {
-  background-color: #dc3545;
+  background-color: var(--danger-color);
   color: white;
 }
 
 #updateWarningModal .secondary-button:hover {
-  background-color: #c82333;
+  background-color: var(--danger-color);
   opacity: 1;
+}
+
+/* Launch Modal specific styles */
+.launch-warning {
+  color: var(--danger-color);
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+.backup-section {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.backup-note {
+  margin-bottom: 1rem;
+  color: var(--text-color);
+}
+
+/* Launch Modal button styling */
+#launchModal .secondary-button {
+  background-color: var(--danger-color);
+  color: white;
+}
+
+#launchModal .secondary-button:hover {
+  background-color: var(--danger-color);
+  opacity: 0.9;
 }
