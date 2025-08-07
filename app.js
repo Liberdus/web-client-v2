@@ -531,9 +531,7 @@ function handleVisibilityChange() {
     }
     // send message `GetAllPanelNotifications` to React Native when app is brought back to foreground
     if (window?.ReactNativeWebView) {
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'GetAllPanelNotifications',
-      }));
+      reactNativeApp.fetchAllPanelNotifications();
     }
   }
 }
@@ -1989,8 +1987,10 @@ class SignInModal {
     
     // Clear notification address only if signing into account that owns the notification address and only remove that account from the array 
     if (reactNativeApp) {
+      logsModal.log('About to clear', myAccount.keys.address);
       const notifiedAddresses = reactNativeApp.getNotificationAddresses();
       if (notifiedAddresses.length > 0) {
+        logsModal.log('Clearing notification address for', myAccount.keys.address);
         // remove address if it's in the array
         reactNativeApp.clearNotificationAddress(myAccount.keys.address);
       }
@@ -11320,14 +11320,10 @@ class ReactNativeApp {
       console.log('🌐 Initializing React Native WebView Communication');
       this.captureInitialViewportHeight();
 
-      // send message `GetAllPanelNotifications` to React Native when app is opened during DOMContentLoaded
-      this.postMessage({
-        type: 'GetAllPanelNotifications',
-      });
-
       window.addEventListener('message', (event) => {
         try {
           const data = JSON.parse(event.data);
+          logsModal.log('📱 Received message type from React Native:', data.type);
 
           if (data.type === 'background') {
             this.handleNativeAppSubscribe();
@@ -11424,10 +11420,17 @@ class ReactNativeApp {
               let processedCount = 0;
               data.notifications.forEach((notification, index) => {
                 try {
-                  if (notification?.data?.to && typeof notification.data.to === 'string' && notification.data.to.trim()) {
-                    const normalizedToAddress = normalizeAddress(notification.data.to);
-                    this.saveNotificationAddress(normalizedToAddress);
-                    processedCount++;
+                  // Extract address from notification body text
+                  if (notification?.body && typeof notification.body === 'string') {
+                    // Look for pattern "to 0x..." in the body
+                    // expecting to just return one address
+                    const addressMatch = notification.body.match(/to\s+(\S+)/);
+                    if (addressMatch && addressMatch[1]) {
+                      const normalizedToAddress = normalizeAddress(addressMatch[1]);
+                      this.saveNotificationAddress(normalizedToAddress);
+                      processedCount++;
+                      logsModal.log(`📋 Extracted address from notification ${index}: ${normalizedToAddress}`);
+                    }
                   }
                 } catch (error) {
                   console.warn(`📋 Error processing notification ${index}:`, error);
@@ -11444,6 +11447,8 @@ class ReactNativeApp {
       });
       
       this.fetchAppParams();
+      // send message `GetAllPanelNotifications` to React Native when app is opened during DOMContentLoaded
+      this.fetchAllPanelNotifications();
     }
   }
 
@@ -11467,6 +11472,14 @@ class ReactNativeApp {
   fetchAppParams() {
     this.postMessage({
       type: 'APP_PARAMS'
+    });
+  }
+
+  // fetch all panel notifications
+  fetchAllPanelNotifications() {
+    logsModal.log('Sending message `GetAllPanelNotifications` to React Native');
+    this.postMessage({
+      type: 'GetAllPanelNotifications',
     });
   }
 
