@@ -3401,13 +3401,10 @@ async function injectTx(tx, txid) {
         pendingTxData.friend = tx.friend;
       } else if (tx.type === 'read') {
         pendingTxData.oldContactTimestamp = tx.oldContactTimestamp;
-      } else if (
-        tx.type === 'message' ||
-        tx.type === 'transfer' ||
-        tx.type === 'deposit_stake' ||
-        tx.type === 'withdraw_stake'
-      ) {
+      } else if (tx.type === 'message' || tx.type === 'transfer') {
         pendingTxData.to = normalizeAddress(tx.to);
+      } else if (tx.type === 'deposit_stake' || tx.type === 'withdraw_stake') {
+        pendingTxData.to = tx.nominee; // Store 64-character address as-is for stake transactions
       }
       myData.pending.push(pendingTxData);
     } else {
