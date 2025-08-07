@@ -11369,6 +11369,12 @@ class ReactNativeApp {
             this.handleNativeAppSubscribe();
           }
 
+          if (data.type === 'NEW_NOTIFICATION') {
+            logsModal.log('🔔 New notification received!');
+            // fetch all notifications
+            this.fetchAllPanelNotifications();
+          }
+
           if (data.type === 'NOTIFICATION_TAPPED') {
             logsModal.log('🔔 Notification tapped, opening chat with:', data.to);
 
