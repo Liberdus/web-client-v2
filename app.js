@@ -5723,6 +5723,19 @@ class ValidatorStakingModal {
     this.loadingElement = document.getElementById('validator-loading');
     this.errorElement = document.getElementById('validator-error-message');
 
+    // Inline info area for unstake lock status (inserted next to the Unstake button)
+    this.unstakeLockInfoElement = document.createElement('div');
+    this.unstakeLockInfoElement.id = 'unstake-lock-info';
+    this.unstakeLockInfoElement.style.fontSize = '0.85em';
+    this.unstakeLockInfoElement.style.color = '#dc3545';
+    this.unstakeLockInfoElement.style.marginTop = '6px';
+    this.unstakeLockInfoElement.textContent = '';
+    try {
+      this.unstakeButton?.parentElement?.appendChild(this.unstakeLockInfoElement);
+    } catch (_) {
+      // noop, best-effort attach
+    }
+
     // Stake info section
     this.stakeInfoSection = document.getElementById('validator-stake-info');
 
@@ -5932,6 +5945,22 @@ class ValidatorStakingModal {
         }
       }
 
+      // Update inline lock info below the Unstake button (best-effort)
+      try {
+        if (nominee) {
+          const { remainingMs } = await this.calculateStakeLockRemaining(nominee);
+          if (remainingMs > 0) {
+            this.unstakeLockInfoElement.textContent = `Unstake locked. Wait ${this.formatDuration(remainingMs)}.`;
+          } else {
+            this.unstakeLockInfoElement.textContent = '';
+          }
+        } else {
+          this.unstakeLockInfoElement.textContent = '';
+        }
+      } catch (_) {
+        this.unstakeLockInfoElement.textContent = '';
+      }
+
       this.detailsElement.style.display = 'block'; // Or 'flex' if it's a flex container
     } catch (error) {
       console.error('Error fetching validator details:', error);
@@ -5951,6 +5980,24 @@ class ValidatorStakingModal {
       if (currentPendingTx) {
         this.unstakeButton.disabled = true;
         this.stakeButton.disabled = true;
+      }
+
+      // Enforce lock-disabled state and tooltip message if stake-lock is active
+      try {
+        this.unstakeButton.title = '';
+        if (nominee && !currentPendingTx) {
+          const { remainingMs } = await this.calculateStakeLockRemaining(nominee);
+          if (remainingMs > 0) {
+            const durationInWords = this.formatDuration(remainingMs);
+            this.unstakeButton.disabled = true;
+            this.unstakeButton.title = `Unstake locked. Wait ${durationInWords}.`;
+            if (this.unstakeLockInfoElement) {
+              this.unstakeLockInfoElement.textContent = `Unstake locked. Wait ${durationInWords}.`;
+            }
+          }
+        }
+      } catch (_) {
+        // ignore tooltip/lock update errors
       }
     }
   }
@@ -5985,6 +6032,18 @@ class ValidatorStakingModal {
     } else if (activityCheck.error) {
       showToast(`Error checking validator status: ${activityCheck.error}`, 0, 'error');
       return;
+    }
+
+    // Stake-lock period check: compute remaining time and block if still locked
+    try {
+      const { remainingMs } = await this.calculateStakeLockRemaining(nominee);
+      if (remainingMs > 0) {
+        const durationInWords = this.formatDuration(remainingMs);
+        showToast(`Unstake unavailable. Please wait ${durationInWords} before trying again.`, 5000, 'error');
+        return;
+      }
+    } catch (e) {
+      console.warn('ValidatorStakingModal: stake-lock calculation failed; proceeding without client-side block.', e);
     }
 
     // Confirmation dialog
@@ -6059,6 +6118,11 @@ class ValidatorStakingModal {
       if (data && data.account) {
         const account = data.account;
         // Active if reward has started (not 0) but hasn't ended (is 0)
+        /**
+           *  when rewardStartTime is 0, the validator is inactive
+           *  when rewardStartTime is not 0 and rewardEndTime is 0, the validator is active
+           *  when rewardStartTime is not 0 and rewardEndTime is not 0, the validator is active
+         */
         const isActive =
           account.rewardStartTime &&
           account.rewardStartTime !== 0 &&
@@ -6073,6 +6137,98 @@ class ValidatorStakingModal {
       // Network error or other issue fetching data.
       return { isActive: false, error: 'Network error fetching validator status' };
     }
+  }
+
+  /**
+   * Calculate the remaining time for a stake lock
+   * @param {string} nomineeAddress - The address of the nominee
+   * @returns {Object} - An object containing the remaining time in milliseconds and the stake lock time
+   */
+  async calculateStakeLockRemaining(nomineeAddress) {
+    // Ensure network parameters are fresh
+    await getNetworkParams();
+
+    const now = getCorrectedTimestamp();
+    const stakeLockTime = (parameters && parameters.current && parameters.current.stakeLockTime) || 0;
+
+    // Gather nominator (user) side info
+    const nominatorAddress = myData?.account?.keys?.address;
+    let lastStakeTimestamp = 0;
+    let certExp = 0;
+
+    try {
+      if (nominatorAddress) {
+        const userRes = await queryNetwork(`/account/${longAddress(nominatorAddress)}`);
+        lastStakeTimestamp = userRes?.account?.operatorAccountInfo?.lastStakeTimestamp || 0;
+        certExp = userRes?.account?.operatorAccountInfo?.certExp || 0;
+      }
+    } catch (e) {
+      console.warn('ValidatorStakingModal: Failed to fetch nominator account for stake-lock calc:', e);
+    }
+
+    // Gather nominee (validator) side info
+    let rewardStartTimeMs = 0;
+    let rewardEndTimeMs = 0;
+
+    try {
+      if (nomineeAddress) {
+        const validatorRes = await queryNetwork(`/account/${nomineeAddress}`);
+        const rs = validatorRes?.account?.rewardStartTime || 0; // seconds
+        const re = validatorRes?.account?.rewardEndTime || 0;   // seconds
+        rewardStartTimeMs = rs > 0 ? rs * 1000 : 0;
+        rewardEndTimeMs = re > 0 ? re * 1000 : 0;
+      }
+    } catch (e) {
+      console.warn('ValidatorStakingModal: Failed to fetch validator account for stake-lock calc:', e);
+    }
+
+    // Compute remaining lock contributions
+    const remainingCandidates = [];
+
+    // From last stake/unstake action
+    if (stakeLockTime > 0 && lastStakeTimestamp > 0) {
+      const delta = now - lastStakeTimestamp;
+      const rem = stakeLockTime - delta;
+      if (rem > 0) remainingCandidates.push(rem);
+    }
+
+    // Certificate delay
+    if (certExp > now) {
+      remainingCandidates.push(certExp - now);
+    }
+
+    // From reward start (active start)
+    if (stakeLockTime > 0 && rewardStartTimeMs > 0) {
+      const rem = stakeLockTime - (now - rewardStartTimeMs);
+      if (rem > 0) remainingCandidates.push(rem);
+    }
+
+    // From reward end (recently inactive/exit)
+    if (stakeLockTime > 0 && rewardEndTimeMs > 0) {
+      const rem = stakeLockTime - (now - rewardEndTimeMs);
+      if (rem > 0) remainingCandidates.push(rem);
+    }
+
+    const remainingMs = remainingCandidates.length > 0 ? Math.max(...remainingCandidates) : 0;
+
+    return { remainingMs, stakeLockTime };
+  }
+
+  /**
+   * Format a duration in milliseconds into a human-readable string
+   * @param {number} ms - The duration in milliseconds
+   * @returns {string} - The formatted duration in hours, minutes, and seconds
+   */
+  formatDuration(ms) {
+    if (ms <= 0) return '0s';
+    const totalSeconds = Math.floor(ms / 1000);
+    const seconds = totalSeconds % 60;
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    const minutes = totalMinutes % 60;
+    const hours = Math.floor(totalMinutes / 60);
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    if (minutes > 0) return `${minutes}m ${seconds}s`;
+    return `${seconds}s`;
   }
 
   /**
