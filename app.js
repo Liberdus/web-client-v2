@@ -6197,7 +6197,7 @@ class ValidatorStakingModal {
     }
 
     // Validator active (immediate blocker; no countdown)
-    if (rewardStartTimeMs > 0 && (rewardEndTimeMs === 0)) {
+    if (rewardStartTimeMs > 0 && rewardEndTimeMs === 0) {
       remainingCandidates.push({ rem: -1, reason: 'validator active' });
     }
 
