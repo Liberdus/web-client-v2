@@ -2057,7 +2057,12 @@ class SignInModal {
   }
 
   async handleRemoveAccount() {
-    removeAccountModal.removeAccount();
+    const username = this.usernameSelect.value;
+    if (!username) {
+      showToast('Please select an account to remove', 2000, 'warning');
+      return;
+    }
+    removeAccountModal.removeAccount(username);
   }
 
   isActive() {
@@ -4341,7 +4346,12 @@ class RemoveAccountModal {
     this.modal.classList.remove('active');
   }
 
-  submit(username = myAccount.username) {
+  submit(username) {
+    // Username must be provided explicitly - this method is called from sign-in modal
+    if (!username) {
+      showToast('No account selected for removal', 2000, 'error');
+      return;
+    }
     // called when the form is submitted
     // Get network ID from network.js
     const { netid } = network;
@@ -4362,7 +4372,13 @@ class RemoveAccountModal {
     window.location.reload();
   }
 
-  removeAccount(username = myAccount.username) {
+  removeAccount(username) {
+    // Username must be provided explicitly - this method is called from sign-in modal
+    // where myAccount is not yet available
+    if (!username) {
+      showToast('No account selected for removal', 2000, 'error');
+      return;
+    }
     const confirmed = confirm(`Are you sure you want to remove the account "${username}" from this device?`);
     if (!confirmed) return;
     
