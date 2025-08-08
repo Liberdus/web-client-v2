@@ -5811,7 +5811,7 @@ class ValidatorStakingModal {
       const stakeRequiredUsd = networkAccountData?.account?.current?.stakeRequiredUsd; // BigInt object
 
       const marketPrice = await getMarketPrice(); // number or null
-      const stabilityFactor = getStabilityFactor();
+      const stabilityFactor = getStabilityFactor(); // number
 
 
       let stakeAmountLibBaseUnits = null; // This will be a BigInt object or null
@@ -5821,16 +5821,7 @@ class ValidatorStakingModal {
         stabilityFactor > 0
       ) {
         try {
-          // Convert using a consistent approach that avoids floating point to BigInt conversion errors
-          // Create a precise decimal representation by scaling up
-          const precision = 1000000000000000000; // 18 decimal places precision
-          const stabilityFactorScaled = BigInt(Math.round(stabilityFactor * precision));
-          
-          // Scale up the required USD by the same precision before division
-          const stakeAmountLibScaled = stakeRequiredUsd * BigInt(precision);
-          
-          // Perform the division and then scale back down
-          stakeAmountLibBaseUnits = stakeAmountLibScaled / stabilityFactorScaled;
+          stakeAmountLibBaseUnits = bigxnum2big(stakeRequiredUsd, (1 / stabilityFactor).toString());
         } catch (e) {
           console.error('Error calculating stakeAmountLibBaseUnits with BigInt:', e, {
             stabilityFactor,
