@@ -4374,7 +4374,7 @@ class RemoveAccountModal {
       if(myAccount && this.modal.classList.contains('active')) {
         username = myAccount.username;
       } else {
-        showToast('No account selected for removal', 2000, 'error');
+        showToast('No account selected for removal', 0, 'error');
         return;
       }
     }
