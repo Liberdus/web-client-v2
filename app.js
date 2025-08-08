@@ -6126,11 +6126,6 @@ class ValidatorStakingModal {
       if (data && data.account) {
         const account = data.account;
         // Active if reward has started (not 0) but hasn't ended (is 0)
-        /**
-           *  when rewardStartTime is 0, the validator is inactive
-           *  when rewardStartTime is not 0 and rewardEndTime is 0, the validator is active
-           *  when rewardStartTime is not 0 and rewardEndTime is not 0, the validator is active
-         */
         const isActive =
           account.rewardStartTime &&
           account.rewardStartTime !== 0 &&
