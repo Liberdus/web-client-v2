@@ -5005,7 +5005,7 @@ class TollModal {
     this.currentCurrency = this.currentCurrency === 'LIB' ? 'USD' : 'LIB';
     this.tollCurrencySymbol.textContent = this.currentCurrency;
 
-    const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+    const scalabilityFactor = getStabilityFactor();
     if (this.newTollAmountInputElement.value !== '') {
       const currentValue = parseFloat(this.newTollAmountInputElement.value);
       const convertedValue =
@@ -5049,7 +5049,7 @@ class TollModal {
         return;
       }
       if (this.currentCurrency === 'USD') {
-        const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+        const scalabilityFactor = getStabilityFactor();
         const newTollLIB = bigxnum2big(newToll, (1 / scalabilityFactor).toString());
         if (newTollLIB < this.minToll) {
           const minTollUSD = bigxnum2big(this.minToll, scalabilityFactor.toString());
@@ -5067,7 +5067,7 @@ class TollModal {
       }
     } else {
       // For USD, convert the max toll to USD for comparison
-      const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+      const scalabilityFactor = getStabilityFactor();
       const maxTollUSD = MAX_TOLL * scalabilityFactor;
       if (newTollValue > maxTollUSD) {
         showToast(`Toll cannot exceed ${maxTollUSD.toFixed(2)} USD`, 0, 'error');
@@ -5098,7 +5098,7 @@ class TollModal {
    * @returns {void}
    */
   updateTollDisplay(toll, tollUnit) {
-    const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+    const scalabilityFactor = getStabilityFactor();
     let tollValueLib = '';
     let tollValueUSD = '';
 
@@ -5187,7 +5187,7 @@ class TollModal {
         return `Toll must be at least ${parseFloat(big2str(this.minToll, 18)).toFixed(6)} LIB or 0 LIB`;
       }
     } else {
-      const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+      const scalabilityFactor = getStabilityFactor();
       const newTollLIB = bigxnum2big(newToll, (1 / scalabilityFactor).toString());
       if (newTollLIB < this.minToll) {
         const minTollUSD = bigxnum2big(this.minToll, scalabilityFactor.toString());
@@ -9145,7 +9145,7 @@ class SendAssetFormModal {
     const cancelButton = sendAssetConfirmModal.cancelButton;
 
     await getNetworkParams();
-    const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+    const scalabilityFactor = getStabilityFactor();
 
     // get `usdAmount` and `libAmount`
     let usdAmount;
@@ -9194,7 +9194,7 @@ class SendAssetFormModal {
     const isUSD = this.balanceSymbol.textContent === 'USD';
 
     if (isUSD) {
-      const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+      const scalabilityFactor = getStabilityFactor();
       // Convert to USD before displaying
       this.amountInput.value = (parseFloat(maxAmountStr) * scalabilityFactor).toString();
     } else {
@@ -9239,7 +9239,7 @@ class SendAssetFormModal {
 
     await getNetworkParams();
     const txFeeInLIB = parameters.current.transactionFee || 1n * wei;
-    const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+    const scalabilityFactor = getStabilityFactor();
 
     // Preserve the current toggle state (LIB/USD) instead of overwriting it
     const currentSymbol = this.balanceSymbol.textContent;
@@ -9299,7 +9299,7 @@ class SendAssetFormModal {
     let amountForValidation = amount;
     if (isUSD && amount) {
       await getNetworkParams();
-      const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+      const scalabilityFactor = getStabilityFactor();
       amountForValidation = parseFloat(amount) / scalabilityFactor;
     }
 
@@ -9368,7 +9368,7 @@ class SendAssetFormModal {
 
     // get the scalability factor for LIB/USD conversion
     await getNetworkParams();
-    const scalabilityFactor = parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+    const scalabilityFactor = getStabilityFactor();
 
     // Get the raw values in LIB format
     const asset = myData.wallet.assets[this.assetSelectDropdown.value];
@@ -12447,5 +12447,7 @@ class LocalStorageMonitor {
 // Create localStorage monitor instance
 const localStorageMonitor = new LocalStorageMonitor();
 
-
+function getStabilityFactor() {
+  return parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+}
 
