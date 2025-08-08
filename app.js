@@ -5709,7 +5709,9 @@ class MyProfileModal {
 const myProfileModal = new MyProfileModal();
 
 class ValidatorStakingModal {
-  constructor() {}
+  constructor() {
+    this.lockInfo = null; // { remainingMs, remainingReason }
+  }
 
   load() {
     // Modal and main buttons
@@ -5723,18 +5725,9 @@ class ValidatorStakingModal {
     this.loadingElement = document.getElementById('validator-loading');
     this.errorElement = document.getElementById('validator-error-message');
 
-    // Inline info area for unstake lock status (inserted next to the Unstake button)
-    this.unstakeLockInfoElement = document.createElement('div');
-    this.unstakeLockInfoElement.id = 'unstake-lock-info';
-    this.unstakeLockInfoElement.style.fontSize = '0.85em';
-    this.unstakeLockInfoElement.style.color = '#dc3545';
-    this.unstakeLockInfoElement.style.marginTop = '6px';
-    this.unstakeLockInfoElement.textContent = '';
-    try {
-      this.unstakeButton?.parentElement?.appendChild(this.unstakeLockInfoElement);
-    } catch (_) {
-      // noop, best-effort attach
-    }
+    // Inline info area for unstake lock status (static element from index.html)
+    this.unstakeLockInfoElement = document.getElementById('unstake-lock-info');
+    if (this.unstakeLockInfoElement) this.unstakeLockInfoElement.textContent = '';
 
     // Stake info section
     this.stakeInfoSection = document.getElementById('validator-stake-info');
@@ -5945,20 +5938,15 @@ class ValidatorStakingModal {
         }
       }
 
-      // Update inline lock info below the Unstake button (best-effort)
+      // Compute and cache lock state once per open, then update UI consistently
       try {
         if (nominee) {
-          const { remainingMs } = await this.calculateStakeLockRemaining(nominee);
-          if (remainingMs > 0) {
-            this.unstakeLockInfoElement.textContent = `Unstake locked. Wait ${this.formatDuration(remainingMs)}.`;
-          } else {
-            this.unstakeLockInfoElement.textContent = '';
-          }
+          this.lockInfo = await this.calculateStakeLockRemaining(nominee);
         } else {
-          this.unstakeLockInfoElement.textContent = '';
+          this.lockInfo = null;
         }
       } catch (_) {
-        this.unstakeLockInfoElement.textContent = '';
+        this.lockInfo = null;
       }
 
       this.detailsElement.style.display = 'block'; // Or 'flex' if it's a flex container
@@ -5974,31 +5962,8 @@ class ValidatorStakingModal {
     } finally {
       // Hide loading indicator regardless of success or failure
       this.loadingElement.style.display = 'none';
-      // Set final state of unstake button based on whether a nominee was found
-      this.unstakeButton.disabled = !nominee;
-
-      if (currentPendingTx) {
-        this.unstakeButton.disabled = true;
-        this.stakeButton.disabled = true;
-      }
-
-      // Enforce lock-disabled state and tooltip message if stake-lock is active
-      try {
-        this.unstakeButton.title = '';
-        if (nominee && !currentPendingTx) {
-          const { remainingMs } = await this.calculateStakeLockRemaining(nominee);
-          if (remainingMs > 0) {
-            const durationInWords = this.formatDuration(remainingMs);
-            this.unstakeButton.disabled = true;
-            this.unstakeButton.title = `Unstake locked. Wait ${durationInWords}.`;
-            if (this.unstakeLockInfoElement) {
-              this.unstakeLockInfoElement.textContent = `Unstake locked. Wait ${durationInWords}.`;
-            }
-          }
-        }
-      } catch (_) {
-        // ignore tooltip/lock update errors
-      }
+      // Apply final UI state for Unstake (considers nominee, pending tx, and lockInfo)
+      this.updateUnstakeLockUI({ nominee, currentPendingTx });
     }
   }
 
@@ -6009,6 +5974,51 @@ class ValidatorStakingModal {
   handleLearnMoreClick() {
     const validatorUrl = network.validatorUrl || 'https://liberdus.com/validator';
     window.open(validatorUrl, '_blank');
+  }
+
+  /**
+   * Centralized UI updates for Unstake lock state
+   * Ensures consistent disabled state, tooltip, and inline message.
+   * @param {Object} params - { nominee, currentPendingTx }
+   * @param {string} params.nominee - The address of the nominee
+   * @param {Object} params.currentPendingTx - The current pending transaction
+   * @returns {void}
+   */
+  updateUnstakeLockUI({ nominee, currentPendingTx }) {
+    try {
+      // Default title and enable state
+      this.unstakeButton.title = '';
+      this.unstakeButton.disabled = !nominee;
+      if (this.unstakeLockInfoElement) this.unstakeLockInfoElement.textContent = '';
+
+      // Pending tx disables both actions
+      if (currentPendingTx) {
+        this.unstakeButton.disabled = true;
+        this.stakeButton.disabled = true;
+        return;
+      }
+
+      // Apply lock info if available
+      const info = this.lockInfo;
+      if (!info || !nominee) return;
+
+      const { remainingMs, remainingReason } = info;
+      if (remainingReason === 'validator active') {
+        this.unstakeButton.disabled = true;
+        this.unstakeButton.title = `Unstake disabled (validator active).`;
+        if (this.unstakeLockInfoElement) this.unstakeLockInfoElement.textContent = `Unstake disabled (validator active).`;
+        return;
+      }
+
+      if (remainingMs > 0) {
+        const durationInWords = this.formatDuration(remainingMs);
+        this.unstakeButton.disabled = true;
+        this.unstakeButton.title = `Unstake locked (${remainingReason}). Wait ${durationInWords}.`;
+        if (this.unstakeLockInfoElement) this.unstakeLockInfoElement.textContent = `Unstake locked (${remainingReason}). Wait ${durationInWords}.`;
+      }
+    } catch (_) {
+      // Non-fatal UI update failure; do nothing
+    }
   }
 
   async handleUnstake() {
@@ -6023,27 +6033,25 @@ class ValidatorStakingModal {
       return;
     }
 
-    // Check if the validator is active
-    const activityCheck = await this.checkValidatorActivity(nominee);
-    if (activityCheck.isActive) {
-      showToast('Cannot unstake from an active validator.', 0, 'error');
-      console.warn(`ValidatorStakingModal: Validator ${nominee} is active.`);
-      return;
-    } else if (activityCheck.error) {
-      showToast(`Error checking validator status: ${activityCheck.error}`, 0, 'error');
+    // If the button is disabled for any reason, show the current reason and exit
+    if (this.unstakeButton.disabled) {
+      const message = this.unstakeButton.title || this.unstakeLockInfoElement?.textContent || 'Unstake unavailable.';
+      if (message) showToast(message, 5000, 'error');
       return;
     }
 
-    // Stake-lock period check: compute remaining time and block if still locked
-    try {
-      const { remainingMs } = await this.calculateStakeLockRemaining(nominee);
-      if (remainingMs > 0) {
+    // Stake-lock period check using cached lockInfo; tiny guard if missing
+    const info = this.lockInfo;
+    if (info) {
+      const { remainingMs, remainingReason } = info;
+      if (remainingReason === 'validator active') {
+        showToast(`Unstake unavailable (validator active).`, 5000, 'error');
+        return;
+      } else if (remainingMs > 0) {
         const durationInWords = this.formatDuration(remainingMs);
-        showToast(`Unstake unavailable. Please wait ${durationInWords} before trying again.`, 5000, 'error');
+        showToast(`Unstake unavailable (${remainingReason}). Please wait ${durationInWords} before trying again.`, 5000, 'error');
         return;
       }
-    } catch (e) {
-      console.warn('ValidatorStakingModal: stake-lock calculation failed; proceeding without client-side block.', e);
     }
 
     // Confirmation dialog
@@ -6142,7 +6150,7 @@ class ValidatorStakingModal {
   /**
    * Calculate the remaining time for a stake lock
    * @param {string} nomineeAddress - The address of the nominee
-   * @returns {Object} - An object containing the remaining time in milliseconds and the stake lock time
+   * @returns {Object} - { remainingMs, stakeLockTime, remainingReason }
    */
   async calculateStakeLockRemaining(nomineeAddress) {
     // Ensure network parameters are fresh
@@ -6153,13 +6161,11 @@ class ValidatorStakingModal {
 
     // Gather nominator (user) side info
     const nominatorAddress = myData?.account?.keys?.address;
-    let lastStakeTimestamp = 0;
     let certExp = 0;
 
     try {
       if (nominatorAddress) {
         const userRes = await queryNetwork(`/account/${longAddress(nominatorAddress)}`);
-        lastStakeTimestamp = userRes?.account?.operatorAccountInfo?.lastStakeTimestamp || 0;
         certExp = userRes?.account?.operatorAccountInfo?.certExp || 0;
       }
     } catch (e) {
@@ -6183,35 +6189,40 @@ class ValidatorStakingModal {
     }
 
     // Compute remaining lock contributions
-    const remainingCandidates = [];
-
-    // From last stake/unstake action
-    if (stakeLockTime > 0 && lastStakeTimestamp > 0) {
-      const delta = now - lastStakeTimestamp;
-      const rem = stakeLockTime - delta;
-      if (rem > 0) remainingCandidates.push(rem);
-    }
+    const remainingCandidates = []; // Array of { rem: number, reason: string }
 
     // Certificate delay
     if (certExp > now) {
-      remainingCandidates.push(certExp - now);
+      remainingCandidates.push({ rem: certExp - now, reason: 'certificate active' });
     }
 
-    // From reward start (active start)
-    if (stakeLockTime > 0 && rewardStartTimeMs > 0) {
-      const rem = stakeLockTime - (now - rewardStartTimeMs);
-      if (rem > 0) remainingCandidates.push(rem);
+    // Validator active (immediate blocker; no countdown)
+    if (rewardStartTimeMs > 0 && (rewardEndTimeMs === 0 || rewardEndTimeMs === 0n)) {
+      remainingCandidates.push({ rem: -1, reason: 'validator active' });
     }
 
     // From reward end (recently inactive/exit)
     if (stakeLockTime > 0 && rewardEndTimeMs > 0) {
       const rem = stakeLockTime - (now - rewardEndTimeMs);
-      if (rem > 0) remainingCandidates.push(rem);
+      if (rem > 0) remainingCandidates.push({ rem, reason: 'recent validator deactivation' });
     }
 
-    const remainingMs = remainingCandidates.length > 0 ? Math.max(...remainingCandidates) : 0;
+    let remainingMs = 0;
+    let remainingReason = '';
+    if (remainingCandidates.length > 0) {
+      // If validator is active (rem === -1), treat as immediate blocker with reason
+      const activeEntry = remainingCandidates.find((e) => e.rem === -1);
+      if (activeEntry) {
+        remainingMs = 0;
+        remainingReason = activeEntry.reason;
+      } else {
+        const maxEntry = remainingCandidates.reduce((a, b) => (a.rem >= b.rem ? a : b));
+        remainingMs = maxEntry.rem;
+        remainingReason = maxEntry.reason;
+      }
+    }
 
-    return { remainingMs, stakeLockTime };
+    return { remainingMs, stakeLockTime, remainingReason };
   }
 
   /**

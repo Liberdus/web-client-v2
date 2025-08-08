@@ -1,3 +1,11 @@
+/* Unstake lock info under the Unstake button */
+#unstake-lock-info,
+.unstake-lock-info {
+  font-size: 0.85em;
+  color: #dc3545;
+  margin-top: 6px;
+  min-height: 1em; /* keep layout stable when empty */
+}
 :root {
   --border-color: #dee2e6;
   --background-color: white;
