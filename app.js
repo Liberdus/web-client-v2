@@ -6183,41 +6183,21 @@ class ValidatorStakingModal {
       console.warn('ValidatorStakingModal: Failed to fetch validator account for stake-lock calc:', e);
     }
 
-    // Compute remaining lock contributions
-    const remainingCandidates = []; // Array of { rem: number, reason: string }
-
-    // Certificate delay
-    if (certExp > now) {
-      remainingCandidates.push({ rem: certExp - now, reason: 'certificate active' });
+    // From reward end (recently inactive/exit)
+    if (stakeLockTime > 0 && rewardEndTimeMs > 0) {
+      const rem = stakeLockTime - (now - rewardEndTimeMs);
+      return { remainingMs: rem, stakeLockTime, remainingReason: 'recent validator deactivation' };
     }
 
     // Validator active (immediate blocker; no countdown)
     if (rewardStartTimeMs > 0 && rewardEndTimeMs === 0) {
-      remainingCandidates.push({ rem: -1, reason: 'validator active' });
+      return { remainingMs: 0, stakeLockTime: 0, remainingReason: 'validator active' };
     }
 
-    // From reward end (recently inactive/exit)
-    if (stakeLockTime > 0 && rewardEndTimeMs > 0) {
-      const rem = stakeLockTime - (now - rewardEndTimeMs);
-      if (rem > 0) remainingCandidates.push({ rem, reason: 'recent validator deactivation' });
+    // Certificate delay
+    if (certExp > now) {
+      return { remainingMs: certExp - now, stakeLockTime: 0, remainingReason: 'certificate active' };
     }
-
-    let remainingMs = 0;
-    let remainingReason = '';
-    if (remainingCandidates.length > 0) {
-      // If validator is active (rem === -1), treat as immediate blocker with reason
-      const activeEntry = remainingCandidates.find((e) => e.rem === -1);
-      if (activeEntry) {
-        remainingMs = 0;
-        remainingReason = activeEntry.reason;
-      } else {
-        const maxEntry = remainingCandidates.reduce((a, b) => (a.rem >= b.rem ? a : b));
-        remainingMs = maxEntry.rem;
-        remainingReason = maxEntry.reason;
-      }
-    }
-
-    return { remainingMs, stakeLockTime, remainingReason };
   }
 
   /**
