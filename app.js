@@ -4371,7 +4371,7 @@ class RemoveAccountModal {
     // Username must be provided explicitly - when called from sign-in modal, myAccount is not yet available
     if (!username) {
       // if myAccount is available and removeAccountModal is open, use myAccount.username
-      if(myAccount && this.modal.classList.contains('active')) {
+      if(myAccount && this.isActive()) {
         username = myAccount.username;
       } else {
         showToast('No account selected for removal', 0, 'error');
@@ -4415,6 +4415,10 @@ class RemoveAccountModal {
     // Reload the page to redirect to welcome screen
     clearMyData();
     window.location.reload();
+  }
+
+  isActive() {
+    return this.modal.classList.contains('active');
   }
 
   signout() {
