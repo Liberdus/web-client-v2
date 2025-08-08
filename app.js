@@ -12448,6 +12448,8 @@ class LocalStorageMonitor {
 const localStorageMonitor = new LocalStorageMonitor();
 
 function getStabilityFactor() {
-  return parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+  return parameters.current.stabilityScaleDiv / parameters.current.stabilityScaleMul;
+// need to change this back when we change the code to multiply by stabilityFactor where it was dividing and visa-versa
+//  return parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
 }
 
