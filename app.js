@@ -6157,7 +6157,7 @@ class ValidatorStakingModal {
     await getNetworkParams();
 
     const now = getCorrectedTimestamp();
-    const stakeLockTime = (parameters && parameters.current && parameters.current.stakeLockTime) || 0;
+    const stakeLockTime = parameters?.current?.stakeLockTime || 0;
 
     // Gather nominator (user) side info
     const nominatorAddress = myData?.account?.keys?.address;
