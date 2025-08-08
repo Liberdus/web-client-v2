@@ -4346,12 +4346,7 @@ class RemoveAccountModal {
     this.modal.classList.remove('active');
   }
 
-  submit(username) {
-    // Username must be provided explicitly - this method is called from sign-in modal
-    if (!username) {
-      showToast('No account selected for removal', 2000, 'error');
-      return;
-    }
+  submit(username = myAccount.username) {
     // called when the form is submitted
     // Get network ID from network.js
     const { netid } = network;
