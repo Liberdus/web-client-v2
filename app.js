@@ -6176,8 +6176,8 @@ class ValidatorStakingModal {
         const validatorRes = await queryNetwork(`/account/${nomineeAddress}`);
         const rs = validatorRes?.account?.rewardStartTime || 0; // seconds
         const re = validatorRes?.account?.rewardEndTime || 0;   // seconds
-        rewardStartTimeMs = rs > 0 ? rs * 1000 : 0;
-        rewardEndTimeMs = re > 0 ? re * 1000 : 0;
+        rewardStartTimeMs = rs * 1000;
+        rewardEndTimeMs = re * 1000;
       }
     } catch (e) {
       console.warn('ValidatorStakingModal: Failed to fetch validator account for stake-lock calc:', e);
