@@ -6036,7 +6036,7 @@ class ValidatorStakingModal {
     // If the button is disabled for any reason, show the current reason and exit
     if (this.unstakeButton.disabled) {
       const message = this.unstakeButton.title || this.unstakeLockInfoElement?.textContent || 'Unstake unavailable.';
-      if (message) showToast(message, 5000, 'error');
+      if (message) showToast(message, 0, 'error');
       return;
     }
 
@@ -6045,11 +6045,11 @@ class ValidatorStakingModal {
     if (info) {
       const { remainingMs, remainingReason } = info;
       if (remainingReason === 'validator active') {
-        showToast(`Unstake unavailable (validator active).`, 5000, 'error');
+        showToast(`Unstake unavailable (validator active).`, 0, 'error');
         return;
       } else if (remainingMs > 0) {
         const durationInWords = this.formatDuration(remainingMs);
-        showToast(`Unstake unavailable (${remainingReason}). Please wait ${durationInWords} before trying again.`, 5000, 'error');
+        showToast(`Unstake unavailable (${remainingReason}). Please wait ${durationInWords} before trying again.`, 0, 'error');
         return;
       }
     }
