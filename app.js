@@ -4372,12 +4372,16 @@ class RemoveAccountModal {
     window.location.reload();
   }
 
-  removeAccount(username) {
-    // Username must be provided explicitly - this method is called from sign-in modal
-    // where myAccount is not yet available
+  removeAccount(username = null) {
+    // Username must be provided explicitly - when called from sign-in modal, myAccount is not yet available
     if (!username) {
-      showToast('No account selected for removal', 2000, 'error');
-      return;
+      // if myAccount is available and removeAccountModal is open, use myAccount.username
+      if(myAccount && this.modal.classList.contains('active')) {
+        username = myAccount.username;
+      } else {
+        showToast('No account selected for removal', 2000, 'error');
+        return;
+      }
     }
     const confirmed = confirm(`Are you sure you want to remove the account "${username}" from this device?`);
     if (!confirmed) return;
