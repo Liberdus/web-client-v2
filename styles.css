@@ -15,6 +15,7 @@
   min-height: 1em; /* keep layout stable when empty */
 }
 :root {
+  /* Original color tokens (keeping your existing values) */
   --border-color: #dee2e6;
   --background-color: white;
   --hover-background: #f8f9fa;
@@ -30,11 +31,13 @@
   --success-color: #28a745;
   --warning-color: #ef6c00;
   --info-color: #0066cc;
-
+  --light-color: #f8f9fa;
+  --dark-color: #343a40;
   --button-background: #f8f9fa;
   --button-text: #1c1c21;
   --button-hover-background: #e4e6e9;
 
+  /* Typography tokens */
   --font-primary: 'Inter', sans-serif;
   --font-monospace: monospace;
   --font-size-xs: 12px;
@@ -57,6 +60,14 @@
   --icon-opacity-default: 0.7;
   --icon-opacity-hover: 1;
 
+  /* Overlay/modal tokens */
+  --overlay-backdrop-color: rgba(0, 0, 0, 0.5);
+  --overlay-border-radius: 8px;
+  --overlay-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  --overlay-shadow-large: 0 10px 40px rgba(0, 0, 0, 0.3);
+  --overlay-z-index-base: 1000;
+  --overlay-z-index-high: 9999;
+  --overlay-transition: opacity 0.2s ease-in-out;
 }
 
 /* ========== Generic (reset/normalize, globals) ========== */
@@ -889,20 +900,21 @@ button:disabled {
   }
 }
 
-/* Modal Styles */
+/* ========== Overlay/Modal Base Styles ========== */
+
+/* Base modal styles - slide-in from right */
 .modal {
   position: absolute;
   top: 0;
   left: 100%;
   width: 100%;
   height: 100%;
-  background-color: white;
+  background-color: var(--background-color);
   transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
   opacity: 0;
   pointer-events: none;
   display: flex;
   flex-direction: column;
-  /* z-index: 1001; */
   overflow-y: auto;
 }
 
@@ -2729,6 +2741,8 @@ mark {
   background-color: var(--hover-background);
 }
 
+/* ========== Context Menus & Dropdowns ========== */
+
 /* Dropdown menu styles */
 .dropdown-menu {
   position: absolute;
@@ -2740,7 +2754,6 @@ mark {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   display: none;
   width: 160px; /* Set a fixed width that's about half of previous */
-  /* z-index: 1000; */
 }
 
 .dropdown-menu.active {
@@ -4427,7 +4440,7 @@ small {
 
 /* Styles for the failed message pop-up dialog */
 
-/* Base for the dialog overlay/backdrop */
+/* Dialog overlay - centered with backdrop */
 .modal.modal-dialog {
   display: none; /* Hidden by default */
   position: fixed; /* Fixed position to overlay everything */
@@ -4435,12 +4448,12 @@ small {
   left: 0; /* Start from left, no slide-in */
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent backdrop */
+  background-color: var(--overlay-backdrop-color); /* Semi-transparent backdrop */
   justify-content: center; /* Center direct child (dialog-box-content) horizontally */
   align-items: center; /* Center direct child (dialog-box-content) vertically */
-  z-index: 1001; /* Ensure it's on top */
+  z-index: var(--overlay-z-index-base); /* Ensure it's on top */
   opacity: 0;
-  transition: opacity 0.2s ease-in-out;
+  transition: var(--overlay-transition);
   /* Override general .modal transition if it interferes */
   transform: none !important; /* Prevent slide-in */
 }
@@ -4454,8 +4467,8 @@ small {
 /* The actual dialog box appearance */
 .modal-dialog .dialog-box-content {
   background-color: var(--background-color);
-  border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  border-radius: var(--overlay-border-radius);
+  box-shadow: var(--overlay-shadow);
   width: auto;
   max-width: 400px; /* Max width of the dialog */
   display: flex;
@@ -4960,6 +4973,7 @@ small {
   background: rgba(244, 67, 54, 0.1);
 }
 
+/* Context menu base styles */
 .message-context-menu {
   width: 200px;
   min-width: 0;
@@ -4970,16 +4984,17 @@ small {
   backdrop-filter: blur(20px);
   border-radius: 14px;
   padding: 8px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-  z-index: 9999;
+  box-shadow: var(--overlay-shadow-large);
+  z-index: var(--overlay-z-index-high);
   animation: contextMenuAppear 0.2s ease-out;
 }
 
+/* Context menu option base styles */
 .context-menu-option {
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  border-radius: 8px;
+  border-radius: var(--overlay-border-radius);
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
@@ -4997,10 +5012,10 @@ small {
 }
 
 .context-menu-icon {
-  width: 20px;
-  height: 20px;
+  width: var(--icon-size-20);
+  height: var(--icon-size-20);
   display: inline-block;
-  background-size: 20px 20px;
+  background-size: var(--icon-size-20) var(--icon-size-20);
   background-repeat: no-repeat;
   margin-right: 12px;
   vertical-align: middle;
@@ -5008,8 +5023,8 @@ small {
 
 .context-menu-text {
   color: var(--text-color);
-  font-size: 16px;
-  font-weight: 400;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-normal);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5079,6 +5094,7 @@ small {
   font-style: italic;
 }
 
+/* Failed message context menu - inherits from base context menu */
 .failed-message-context-menu {
   width: 200px;
   min-width: 0;
@@ -5089,40 +5105,9 @@ small {
   backdrop-filter: blur(20px);
   border-radius: 14px;
   padding: 8px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-  z-index: 9999;
+  box-shadow: var(--overlay-shadow-large);
+  z-index: var(--overlay-z-index-high);
   animation: contextMenuAppear 0.2s ease-out;
-}
-
-.failed-message-context-menu .context-menu-option {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-.failed-message-context-menu .context-menu-option:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.failed-message-context-menu .context-menu-option[data-action="delete"]:hover {
-  background: rgba(255, 59, 48, 0.2);
-}
-
-.failed-message-context-menu .context-menu-option[data-action="delete"] .context-menu-text {
-  color: #ff3b30;
-}
-
-.failed-message-context-menu .context-menu-icon {
-  width: 20px;
-  height: 20px;
-  display: inline-block;
-  background-size: 20px 20px;
-  background-repeat: no-repeat;
-  margin-right: 12px;
-  vertical-align: middle;
 }
 
 .failed-message-context-menu .context-menu-option[data-icon="retry"] .context-menu-icon {
