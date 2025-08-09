@@ -72,6 +72,52 @@
 
 /* ========== Generic (reset/normalize, globals) ========== */
 
+/* ========== Screen/Modal Base Layout ========== */
+
+/* Shared scrollbar styles for screens and modals */
+.app-screen::-webkit-scrollbar,
+.modal::-webkit-scrollbar {
+  width: 6px;
+}
+
+.app-screen::-webkit-scrollbar-track,
+.modal::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-screen::-webkit-scrollbar-thumb,
+.modal::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.app-screen::-webkit-scrollbar-thumb:hover,
+.modal::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+/* Base screen layout */
+.app-screen {
+  flex: 1;
+  display: none;
+  padding: 0;
+  overflow-y: auto;
+  position: relative;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.app-screen.active {
+  display: block;
+}
+
+/* Screen-specific padding for main screens */
+#contactsScreen,
+#chatsScreen,
+#walletScreen {
+  padding-bottom: 80px;
+}
+
 /* Toast close button for error toasts */
 .toast-close-btn {
   background: transparent;
@@ -476,25 +522,6 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='3' y1='12' x2='21' y2='12'%3E%3C/line%3E%3Cline x1='3' y1='6' x2='21' y2='6'%3E%3C/line%3E%3Cline x1='3' y1='18' x2='21' y2='18'%3E%3C/line%3E%3C/svg%3E");
 }
 
-.app-screen {
-  flex: 1;
-  display: none;
-  padding: 0;
-  overflow-y: auto;
-  position: relative;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  margin-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-.app-screen.active {
-  display: block;
-}
-
-#contactsScreen,
-#chatsScreen,
-#walletScreen {
-  padding-bottom: 80px;
-}
 
 .chat-avatar {
   width: 48px;
@@ -922,6 +949,7 @@ button:disabled {
   overflow: hidden;
   flex-direction: column;
 }
+
 .modal.fixed-header .form-container {
   flex: 1;
   overflow-y: auto;
@@ -934,18 +962,24 @@ button:disabled {
   transform: translateX(-100%);
 }
 
+/* ========== Modal Header Consolidation ========== */
+
+/* Base modal header styles */
 .modal-header {
   height: 56px;
   display: flex;
   align-items: center;
   padding-top: calc(env(safe-area-inset-top));
   margin-bottom: 8px;
-  /* only want + 16px on desktop */
-  @media (min-width: 769px) {
-    padding-top: calc(env(safe-area-inset-top) + 16px);
-  }
   background-color: var(--background-color);
   position: relative;
+}
+
+/* Desktop modal header adjustments */
+@media (min-width: 769px) {
+  .modal-header {
+    padding-top: calc(env(safe-area-inset-top) + 16px);
+  }
 }
 
 .back-button {
@@ -1848,35 +1882,6 @@ input[type='file'].form-control {
   padding: 0 16px;
 }
 
-#sendAssetFormModal .form-group {
-  margin-bottom: 1.5rem;
-  width: 100%;
-}
-
-#sendAssetFormModal .form-control {
-  width: 100%;
-  height: 56px;
-  padding: 15px;
-  font-size: 16px;
-  font-family: var(--font-primary);
-  border-radius: 12px;
-  background-color: #fff;
-}
-
-#sendAssetFormModal select.form-control {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 15px center;
-  background-size: 16px;
-  padding-right: 45px;
-}
-
-#sendMemo::-webkit-scrollbar,
-#receiveMemo::-webkit-scrollbar {
-  display: none; /* Hide scrollbar for WebKit browsers */
-}
-
 #availableBalance {
   font-family: var(--font-primary);
   font-size: var(--font-size-sm);
@@ -1924,37 +1929,6 @@ input[type='file'].form-control {
   margin: 0;
 }
 
-/* History Modal Styles */
-#historyModal .form-container {
-  padding: 16px;
-  width: 100%;
-}
-
-#historyModal .form-group {
-  width: 100%;
-  max-width: 390px;
-  margin: 0 auto 1.5rem;
-}
-
-#historyModal .form-control {
-  width: 100%;
-  height: 56px;
-  padding: 15px;
-  font-size: 16px;
-  font-family: var(--font-primary);
-  border: 1px solid #d6d6de;
-  border-radius: 12px;
-  background-color: #fff;
-}
-
-#historyModal select.form-control {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 15px center;
-  background-size: 16px;
-  padding-right: 45px;
-}
 
 #backupModal .form-control::placeholder {
   color: #9ca3af;
@@ -1965,10 +1939,6 @@ input[type='file'].form-control {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 2px rgba(61, 61, 206, 0.1);
-}
-
-#backupModal .btn.btn--primary:hover {
-  opacity: 0.9;
 }
 
 #backupModal p {
@@ -1999,18 +1969,6 @@ input[type='file'].form-control {
   width: 16px;
   height: 16px;
   cursor: pointer;
-}
-
-#backupModal .form-group {
-  margin-bottom: 1rem;
-}
-
-/* Remove Account Modal Styles */
-#removeAccountModal .form-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 1rem;
 }
 
 #removeAccountModal p {
@@ -2048,11 +2006,6 @@ input[type='file'].form-control {
 #removeAccountModal .btn.btn--primary {
   background-color: var(--primary-color);
   color: var(--background-color);
-}
-
-#removeAccountModal .btn.btn--primary:hover {
-  background-color: var(--primary-hover);
-  opacity: 0.9;
 }
 
 #removeAccountModal .btn.btn--danger {
@@ -2662,34 +2615,32 @@ mark {
   border-radius: 2px;
 }
 
-/* Form container spacing */
-.form-container {
-  padding: 16px;
-}
+/* ========== Chat List Consolidation ========== */
 
-/* Search bar spacing */
-.form-container .search-bar {
-  margin-bottom: 16px;
-}
-
-/* Individual chat/search items */
-.chat-list .chat-item {
+/* Base chat item styles - consolidated from multiple instances */
+.chat-list .chat-item,
+#searchResults .chat-list .chat-item {
   display: flex;
   padding: 12px 16px;
   background: var(--background-color);
+  cursor: pointer;
 }
 
-/* Specific search result item styling */
+/* Hover effects for all chat items */
+.chat-list .chat-item:hover,
+#searchResults .chat-list .chat-item:hover {
+  background: var(--hover-background);
+}
+
+/* Search result specific overrides */
 .chat-list .search-result-item {
   border: none;
 }
 
-/* Last item border removal */
 .chat-list .search-result-item:last-child {
   border: none;
 }
 
-/* Hover effect */
 .chat-list .search-result-item:hover {
   background: var(--hover-background);
 }
@@ -2704,19 +2655,6 @@ mark {
 #searchResults .chat-list {
   padding: 0;
   margin: 0;
-}
-
-/* Individual search result items */
-#searchResults .chat-list .chat-item {
-  display: flex;
-  padding: 12px 16px;
-  background: var(--background-color);
-  margin: 0;
-}
-
-/* Ensure border shows on hover */
-#searchResults .chat-list .chat-item:hover {
-  background: var(--hover-background);
 }
 
 /* Menu button styles */
@@ -3777,20 +3715,10 @@ small {
   border: none;
 }
 
-#sendAssetConfirmModal .btn.btn--primary:hover {
-  background-color: var(--primary-hover);
-  opacity: 0.9;
-}
-
 #sendAssetConfirmModal .btn.btn--secondary {
   background-color: var(--danger-color);
   color: var(--background-color);
   border: none;
-}
-
-#sendAssetConfirmModal .btn.btn--secondary:hover {
-  background-color: var(--hover-background-dark);
-  opacity: 0.9;
 }
 
 #sendAssetConfirmModal #confirmAmount {
@@ -3815,10 +3743,6 @@ small {
   margin-top: 2px;
   margin-left: 2px;
   font-weight: var(--font-weight-medium);
-}
-
-#sendAssetConfirmModal .form-group {
-  position: relative;
 }
 
 #sendAssetConfirmModal .usd-equivalent {
@@ -3955,11 +3879,6 @@ small {
 /* Style adjustments for focus or hover if desired */
 .password-toggle-btn:hover {
   color: #343a40;
-}
-
-#sendMemo::-webkit-scrollbar,
-#receiveMemo::-webkit-scrollbar {
-  display: none; /* Hide scrollbar for WebKit browsers */
 }
 
 .error-message {
@@ -4483,14 +4402,13 @@ small {
   width: 100%;
 }
 
+/* Dialog form container - inherits from base form-container */
 .modal-dialog .form-container {
-  /* Remove properties now on dialog-box-content */
-  /* background-color, border-radius, box-shadow, max-width, margin: 0 auto are removed */
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  width: 100%; /* Take full width of parent dialog-box-content */
+  width: 100%;
 }
 
 .modal-dialog #failedMessageContent {
@@ -4637,16 +4555,6 @@ small {
   font-weight: bold;
 }
 
-/* Spacing for form groups within the tollModal form */
-#tollModal #tollForm .form-group {
-  margin-bottom: 1rem;
-}
-
-/* Add a bit more space before the submit button */
-#tollModal #tollForm .form-group:last-of-type {
-  margin-bottom: 0.25rem;
-}
-
 /* Ensure the update button in the toll modal applies full-width correctly and has some top margin */
 #tollModal .btn.btn--primary {
   margin-top: 0.25rem; /* Reduced space above the button */
@@ -4675,10 +4583,6 @@ small {
   color: #666;
   margin-bottom: 15px;
   text-align: center;
-}
-
-.form-container {
-  padding: 20px;
 }
 
 /* Warning text styling */
