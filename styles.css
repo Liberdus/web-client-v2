@@ -2064,10 +2064,6 @@ input[type='file'].form-control {
   padding-right: 45px;
 }
 
-#signInModal .btn.btn--primary:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
 
 /* Migrate Accounts Modal styles */
 #migrateAccountsModal .account-list {
@@ -2095,10 +2091,6 @@ input[type='file'].form-control {
   margin: 0;
 }
 
-#migrateAccountsModal .btn.btn--primary:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
 
 #migrateAccountsModal .modal-summary {
   font-family: var(--font-primary);
