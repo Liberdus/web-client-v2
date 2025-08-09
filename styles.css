@@ -710,6 +710,9 @@ button:not(:disabled):hover {
   font-weight: var(--font-weight-bold);
   cursor: pointer;
   transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Primary buttons */
