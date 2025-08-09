@@ -87,11 +87,11 @@
           <div style="font-size: 0.8rem; margin-top: 1px; text-align: center" id="networkNameDisplay"></div>
         </h1>
         <div class="welcome-buttons">
-          <button id="signInButton" class="secondary-button hidden">Sign In</button>
-          <button id="createAccountButton" class="secondary-button hidden">Create Account</button>
-          <button id="importAccountButton" class="secondary-button hidden">Restore Account</button>
+          <button id="signInButton" class="btn btn--primary btn--pill btn--full hidden">Sign In</button>
+          <button id="createAccountButton" class="btn btn--primary btn--pill btn--full hidden">Create Account</button>
+          <button id="importAccountButton" class="btn btn--secondary btn--pill btn--full hidden">Restore Account</button>
           <!-- button to open backup modal -->
-          <button id="openBackupModalButton" class="secondary-button hidden">Backup</button>
+          <button id="openBackupModalButton" class="btn btn--secondary btn--pill btn--full hidden">Backup</button>
           <!-- <button id="addToHomeScreenButton" class="secondary-button hidden">Install</button> -->
         </div>
         <div style="font-size: 0.8rem; margin-top: 10px; text-align: center">
@@ -206,7 +206,7 @@
                   inputmode="text"
                 />
               </div>
-              <button type="submit" class="update-button">Continue</button>
+              <button type="submit" class="btn btn--primary btn--pill btn--full">Continue</button>
             </form>
           </div>
         </div>
@@ -266,7 +266,7 @@
           <div class="form-container">
             <div style="padding: 1rem">
               <p>Please contact our team to report bugs or make suggestions.</p>
-              <button id="submitFeedback" class="update-button" style="margin-top: 1rem">Submit Feedback</button>
+              <button id="submitFeedback" class="btn btn--primary btn--pill btn--full" style="margin-top: 1rem">Submit Feedback</button>
             </div>
           </div>
         </div>
@@ -283,7 +283,7 @@
           <div class="form-container">
             <div style="padding: 1rem">
               <p>Now you can earn LIB for being a liquidity provider.</p>
-              <button id="continueToStake" class="update-button" style="margin-top: 1rem">Continue</button>
+              <button id="continueToStake" class="btn btn--primary btn--pill btn--full" style="margin-top: 1rem">Continue</button>
             </div>
           </div>
         </div>
@@ -301,7 +301,7 @@
             <div style="padding: 1rem">
               <textarea id="logsTextarea" placeholder="Logs will appear here..." rows="40" readonly></textarea>
             </div>
-            <button id="clearLogsButton" class="update-button">Clear</button>
+            <button id="clearLogsButton" class="btn btn--primary btn--pill btn--full">Clear</button>
           </div>
         </div>
         <a class="last-item" href="#"> </a>
@@ -372,8 +372,8 @@
             <p>If you are sure you want to lock your app, please enter your password below.</p>
           </div>
           <div id="lockOptions" class="form-container" style="display:none;">
-            <button id="changePasswordButton" class="update-button">Change Password</button>
-            <button id="removeLockButton"  class="update-button">Remove Lock</button>
+            <button id="changePasswordButton" class="btn btn--primary btn--pill btn--full">Change Password</button>
+            <button id="removeLockButton"  class="btn btn--primary btn--pill btn--full">Remove Lock</button>
           </div>
           <div id="lockFormContainer" class="form-container">
             <form id="lockForm">
@@ -391,7 +391,7 @@
                 <label for="confirmNewPassword" id="confirmNewPasswordLabel">Confirm Password</label>
                 <input type="password" id="confirmNewPassword" class="form-control" />
               </div>
-              <button type="submit" class="update-button" disabled>Save Password</button>
+              <button type="submit" class="btn btn--primary btn--pill btn--full" disabled>Save Password</button>
             </form>
           </div>
         </div>
@@ -411,7 +411,7 @@
                 <label for="password">Password</label>
                 <input type="password" id="password" class="form-control" required />
               </div>
-              <button type="submit" class="update-button" disabled>Unlock</button>
+              <button type="submit" class="btn btn--primary btn--pill btn--full" disabled>Unlock</button>
             </form>
           </div>
         </div>
@@ -434,8 +434,8 @@
                 ></label>
                 <select id="username" class="form-control" required></select>
               </div>
-              <button type="submit" class="update-button" disabled>Sign In</button>
-              <button type="button" id="removeAccountButton" class="secondary-button" style="display: none">
+              <button type="submit" class="btn btn--primary btn--pill btn--full" disabled>Sign In</button>
+              <button type="button" id="removeAccountButton" class="btn btn--secondary btn--pill btn--full" style="display: none">
                 Remove
               </button>
             </form>
@@ -491,7 +491,7 @@
                   </small>
                 </div>
               </div>
-              <button type="submit" class="update-button" disabled>Create Account</button>
+              <button type="submit" class="btn btn--primary btn--pill btn--full" disabled>Create Account</button>
               
               <div class="form-group" style="margin-top: 20px;">
                 <input type="checkbox" id="toggleMoreOptions" />
@@ -509,14 +509,14 @@
             </form>
             <div class="form-group" id="migrateAccountsSection" style="display: none; margin-top: 50px; padding: 0 16px">
               <label for="migrateAccountsButton">Check if you have accounts that can be migrated to this network</label>
-              <button type="button" id="migrateAccountsButton" class="secondary-button" style="margin-top: 10px;">
+              <button type="button" id="migrateAccountsButton" class="btn btn--secondary btn--pill btn--full" style="margin-top: 10px;">
                 Migrate Accounts
               </button>
             </div>
-            <button type="button" id="launchButton" class="secondary-button" style="display: none; margin-top: 10px;">
+            <button type="button" id="launchButton" class="btn btn--secondary btn--pill btn--full" style="display: none; margin-top: 10px;">
               Launch
             </button>
-            <button type="button" id="updateButton" class="secondary-button" style="display: none; margin-top: 10px;">
+            <button type="button" id="updateButton" class="btn btn--secondary btn--pill btn--full" style="display: none; margin-top: 10px;">
               Check for Updates
             </button>
           </div>
@@ -540,10 +540,10 @@
                 <strong>We strongly recommend backing up your data first.</strong>
               </p>
             </div>
-            <button id="backupFirstBtn" class="update-button">
+            <button id="backupFirstBtn" class="btn btn--primary btn--pill btn--full">
               🛡️ Backup My Data First
             </button>
-            <button id="proceedToStoreBtn" class="secondary-button">
+            <button id="proceedToStoreBtn" class="btn btn--secondary btn--pill btn--full">
               Continue to App Store
             </button>
           </div>
@@ -568,13 +568,13 @@
                 <label for="url">URL</label>
                 <input type="url" id="url" class="form-control" required />
               </div>
-              <button type="submit" class="secondary-button" disabled>Launch</button>
+              <button type="submit" class="btn btn--secondary btn--pill btn--full" disabled>Launch</button>
             </form>
             <div class="backup-section">
               <p class="backup-note">
                 Be sure to backup all your accounts first
               </p>
-              <button type="button" id="launchModalBackupButton" class="update-button">
+              <button type="button" id="launchModalBackupButton" class="btn btn--primary btn--pill btn--full">
                 Backup
               </button>
             </div>
@@ -666,7 +666,7 @@
                 <label for="x">X-Twitter</label>
                 <input type="text" id="x" placeholder="username" class="form-control" />
               </div>
-              <button type="submit" class="update-button">Update Profile</button>
+              <button type="submit" class="btn btn--primary btn--pill btn--full">Update Profile</button>
             </form>
           </div>
         </div>
@@ -722,7 +722,7 @@
                         placeholder="Enter custom new string" style="margin-top: 5px;">
                 </div>
               </div>
-              <button type="submit" class="update-button">Load Account</button>
+              <button type="submit" class="btn btn--primary btn--pill btn--full">Load Account</button>
             </form>
           </div>
         </div>
@@ -919,7 +919,7 @@
                 </div>
               </label>
             </div>
-            <button type="submit" class="update-button">Update</button>
+            <button type="submit" class="btn btn--primary btn--pill btn--full">Update</button>
           </form>
           <a class="last-item" href="#"></a>
         </div>
@@ -1107,7 +1107,7 @@
                 </div>
               </div>
               <input type="hidden" id="retryOfPaymentTxId" />
-              <button type="submit" class="update-button">Send</button>
+              <button type="submit" class="btn btn--primary btn--pill btn--full">Send</button>
             </form>
 
             <!-- QR Scan Container -->
@@ -1153,8 +1153,8 @@
                 <div id="confirmMemo" class="confirm-value"></div>
               </div>
             </div>
-            <button id="confirmSendButton" class="update-button">Confirm Send</button>
-            <button id="cancelSendButton" class="secondary-button">Cancel</button>
+            <button id="confirmSendButton" class="btn btn--primary btn--pill btn--full">Confirm Send</button>
+            <button id="cancelSendButton" class="btn btn--secondary btn--pill btn--full">Cancel</button>
           </div>
         </div>
         <a class="last-item" href="#"> </a>
@@ -1181,9 +1181,9 @@
                 </p>
               </div>
               <div>
-                <button id="openBackupFromRemove" class="primary-button">Backup Account</button>
-                <button id="confirmRemoveAccount" class="update-button">Remove Account</button>
-                <button id="confirmRemoveAllAccounts" class="update-button">Remove All Accounts</button>
+                <button id="openBackupFromRemove" class="btn btn--primary btn--fixed">Backup Account</button>
+                <button id="confirmRemoveAccount" class="btn btn--primary btn--pill btn--full">Remove Account</button>
+                <button id="confirmRemoveAllAccounts" class="btn btn--primary btn--pill btn--full">Remove All Accounts</button>
               </div>
             </div>
           </div>
@@ -1238,7 +1238,7 @@
                   placeholder="Confirm your password"
                 />
               </div>
-              <button type="submit" class="update-button">Download Data</button>
+              <button type="submit" class="btn btn--primary btn--pill btn--full">Download Data</button>
             </form>
           </div>
         </div>
@@ -1388,7 +1388,7 @@
             <div id="validator-earn-message" style="display: none; margin-bottom: 20px;">
               <div class="action-item">
                 <p class="action-description" style="margin-bottom: 10px;">Now you can earn LIB for running a validator node.</p>
-                <button id="validator-learn-more" class="button full-width">Learn More</button>
+            <button id="validator-learn-more" class="btn btn--primary btn--pill btn--full">Learn More</button>
               </div>
             </div>
             
@@ -1462,12 +1462,12 @@
           </div>
 
           <div class="action-item">
-            <button id="openStakeModal" class="button full-width">Stake</button>
+            <button id="openStakeModal" class="btn btn--primary btn--pill btn--full">Stake</button>
             <p class="action-description">Delegate LIB to a validator node to earn rewards.</p>
           </div>
 
           <div class="action-item">
-            <button id="submitUnstake" class="button full-width secondary-button">Unstake</button>
+            <button id="submitUnstake" class="btn btn--secondary btn--pill btn--full">Unstake</button>
             <div id="unstake-lock-info" class="unstake-lock-info" aria-live="polite"></div>
             <p class="action-description">Withdraw your delegated LIB from a validator node.</p>
           </div>
@@ -1520,7 +1520,7 @@
                 <div id="minTollDisplay" class="form-text help-text">Minimum toll: Loading...</div>
                 <div id="tollWarningMessage" class="form-text warning-text"></div>
               </div>
-              <button type="submit" id="saveNewTollButton" class="update-button">Save Changes</button>
+              <button type="submit" id="saveNewTollButton" class="btn btn--primary btn--pill btn--full">Save Changes</button>
             </form>
           </div>
         </div>
@@ -1603,7 +1603,7 @@
                   placeholder="Enter amount to stake"
                 />
               </div>
-              <button type="submit" id="submitStake" class="button full-width">Submit Stake</button>
+              <button type="submit" id="submitStake" class="btn btn--primary btn--pill btn--full">Submit Stake</button>
             </form>
           </div>
         </div>
@@ -1636,8 +1636,8 @@
           <div class="modal-content">
             <div class="form-container">
               <div class="modal-actions">
-                <button type="button" class="secondary-button delete-button">Delete</button>
-                <button type="button" class="update-button retry-button">Edit & Resend</button>
+                <button type="button" class="btn btn--secondary btn--pill btn--full delete-button">Delete</button>
+                <button type="button" class="btn btn--primary btn--pill btn--full retry-button">Edit & Resend</button>
               </div>
             </div>
           </div>
@@ -1665,7 +1665,7 @@
                 <label for="invitePhone">Phone Number</label>
                 <input type="tel" id="invitePhone" class="form-control" placeholder="Enter phone number" />
               </div>
-              <button type="submit" class="update-button">Send Invitation</button>
+              <button type="submit" class="btn btn--primary btn--pill btn--full">Send Invitation</button>
             </form>
           </div>
         </div>
@@ -1697,7 +1697,7 @@
                   <!-- Network options will be populated from network.js -->
                 </select>
               </div>
-              <button type="submit" class="update-button">Continue</button>
+              <button type="submit" class="btn btn--primary btn--pill btn--full">Continue</button>
             </form>
           </div>
         </div>
@@ -1718,7 +1718,7 @@
             <div class="account-list" id="migrateAccountList">
               <!-- Three sections will be rendered here -->
             </div>
-            <button type="button" id="submitMigrateAccounts" class="update-button">Migrate Accounts</button>
+            <button type="button" id="submitMigrateAccounts" class="btn btn--primary btn--pill btn--full">Migrate Accounts</button>
           </div>
         </div>
         <a class="last-item" href="#"> </a>
