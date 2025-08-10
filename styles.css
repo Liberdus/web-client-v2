@@ -1102,10 +1102,11 @@ button:disabled {
 }
 
 
-/* Common form container styles */
+/* Form Container Base Styles */
 .form-container {
   padding: 16px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .modal-content {
@@ -1126,13 +1127,19 @@ button:disabled {
   margin: 0 auto;
 }
 
-/* Common form group styles */
+/* Form Group Base Styles */
 .form-group {
   margin-bottom: 1.5rem;
   width: 100%;
+  box-sizing: border-box;
 }
 
-/* Common form control styles */
+/* Form group with no bottom margin for last child */
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+/* Form Control Base Styles */
 .form-control {
   width: 100%;
   height: 56px;
@@ -1142,6 +1149,8 @@ button:disabled {
   border: 1px solid #d6d6de;
   border-radius: 12px;
   background-color: #fff;
+  box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 /* Common focus style for form controls */
@@ -1170,7 +1179,7 @@ textarea.form-control {
   -ms-overflow-style: none; /* Hide scrollbar for IE/Edge (older versions) */
 }
 
-/* File input specific styles */
+/* File input specific styles - override base padding */
 input[type='file'].form-control {
   padding: 0;
   height: auto;
@@ -1200,12 +1209,9 @@ input[type='file'].form-control::file-selector-button {
   transition: all 0.3s ease;
 }
 
+/* Developer options form groups - tighter spacing */
 .developer-options .form-group {
   margin-bottom: 12px;
-}
-
-.developer-options .form-group:last-child {
-  margin-bottom: 0;
 }
 
 .developer-options label {
@@ -1918,13 +1924,14 @@ input[type='file'].form-control {
 }
 
 /* Number input specific styles */
-#sendAssetFormModal input[type='number'] {
-  appearance: textfield;
+/* Number input styles - consolidated from multiple modals */
+input[type='number'].form-control {
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 
-#sendAssetFormModal input[type='number']::-webkit-outer-spin-button,
-#sendAssetFormModal input[type='number']::-webkit-inner-spin-button {
+input[type='number'].form-control::-webkit-outer-spin-button,
+input[type='number'].form-control::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
@@ -3365,17 +3372,6 @@ mark {
   content: '+';
 }
 
-#receiveModal input[type='number'] {
-  -moz-appearance: textfield;
-  appearance: textfield;
-}
-
-#receiveModal input[type='number']::-webkit-outer-spin-button,
-#receiveModal input[type='number']::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
 #qrOptionsContainer {
   background-color: #f8f9fa;
   border-radius: 8px;
@@ -3551,19 +3547,6 @@ mark {
   }
 }
 /* end of scanner stuff added by DB */
-
-/* Remove spinner buttons from number inputs */
-input[type='number']::-webkit-inner-spin-button,
-input[type='number']::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-/* For Firefox */
-input[type='number'] {
-  -moz-appearance: textfield;
-  appearance: textfield;
-}
 
 /* the following qr code scan stuff was added by Omar */
 .scanner-container {
