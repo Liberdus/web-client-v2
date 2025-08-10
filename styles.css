@@ -1789,11 +1789,6 @@ input[type='file'].form-control {
   align-items: center;
 }
 
-/* Receive Modal Styles */
-#receiveModal .form-group label {
-  margin-bottom: 0.1rem;
-}
-
 #receiveModal .form-group div[style*='display: flex']:has(#displayAddress) {
   display: flex !important;
   align-items: flex-start !important;
@@ -1877,16 +1872,6 @@ input[type='file'].form-control {
   max-width: 100%;
 }
 
-/* Select element specific styles */
-#receiveModal select.form-control {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 15px center;
-  background-size: 16px;
-  padding-right: 45px;
-}
-
 /* Send Modal Styles */
 #sendForm {
   width: 100%;
@@ -1939,18 +1924,6 @@ input[type='file'].form-control {
 #sendAssetFormModal input[type='number']::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
-}
-
-
-#backupModal .form-control::placeholder {
-  color: #9ca3af;
-  font-family: var(--font-primary);
-}
-
-#backupModal .form-control:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(61, 61, 206, 0.1);
 }
 
 #backupModal p {
@@ -2057,14 +2030,6 @@ input[type='file'].form-control {
 
 #removeAccountModal .modal-text-content p:last-child {
   margin: 0;
-}
-#signInModal select.form-control {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 15px center;
-  background-size: 16px;
-  padding-right: 45px;
 }
 
 
@@ -3397,11 +3362,6 @@ mark {
   content: '+';
 }
 
-#receiveModal .form-group .form-group {
-  margin-left: 0;
-  margin-right: 0;
-}
-
 #receiveModal input[type='number'] {
   -moz-appearance: textfield;
   appearance: textfield;
@@ -3667,27 +3627,11 @@ small {
   margin-top: 8px;
 }
 
-/* Send Confirmation Modal Styles */
-#sendAssetConfirmModal .form-container {
-  padding: 16px;
-  width: 100%;
-  max-width: 390px;
-  margin: 0 auto;
-}
-
 #sendAssetConfirmModal .confirmation-details {
   margin-bottom: 24px;
   background-color: rgba(61, 61, 206, 0.08);
   border-radius: 12px;
   padding: 16px;
-}
-
-#sendAssetConfirmModal .form-group {
-  margin-bottom: 16px;
-}
-
-#sendAssetConfirmModal .form-group:last-child {
-  margin-bottom: 0;
 }
 
 #sendAssetConfirmModal label {
@@ -4516,12 +4460,6 @@ small {
 
 /* Toll Modal Specific Styles */
 
-#tollModal .form-container {
-  padding: 16px 0; /* Vertical padding for container, horizontal handled by children */
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
 #tollModal .toll-display-area,
 #tollModal #tollForm {
   width: 100%;
@@ -4557,13 +4495,6 @@ small {
 }
 
 .current-toll-value-box #tollAmount {
-  font-weight: bold;
-}
-
-/* Ensure labels in tollModal form have consistent styling */
-#tollModal #tollForm .form-group label {
-  margin-bottom: 0.25rem;
-  display: block;
   font-weight: bold;
 }
 
