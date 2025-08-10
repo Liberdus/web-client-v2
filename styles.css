@@ -713,6 +713,9 @@ button:not(:disabled):hover {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Mobile vertical centering fix */
+  line-height: 1;
+  text-align: center;
 }
 
 /* Primary buttons */
@@ -1262,15 +1265,15 @@ input[type='file'].form-control::file-selector-button {
   position: fixed;
   bottom: calc(72px + env(safe-area-inset-bottom, 0px) + 16px);
   right: 16px;
-  width: 56px;
-  height: 56px;
-  border-radius: 28px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
   background-color: var(--primary-color);
   color: var(--background-color);
-  font-size: 28px;
-  font-weight: 300;
+  font-size: 24px;
+  font-weight: 400;
   border: none;
-  box-shadow: 0 2px 8px rgba(61, 61, 206, 0.25);
+  box-shadow: 0 4px 12px rgba(61, 61, 206, 0.3);
   cursor: pointer;
   display: none;
   align-items: center;
@@ -1283,6 +1286,12 @@ input[type='file'].form-control::file-selector-button {
 
 .floating-button.visible {
   display: flex;
+  /* iOS Safari vertical centering fix */
+  -webkit-box-align: center;
+  -webkit-box-pack: center;
+  /* Mobile vertical centering fix */
+  line-height: 1;
+  text-align: center;
 }
 
 .floating-button:hover {
