@@ -1829,6 +1829,9 @@ input[type='file'].form-control {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Adjust vertical position for better centering */
+  position: relative;
+  top: -5px;
 }
 
 #copyAddress::before {
