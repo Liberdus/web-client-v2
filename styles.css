@@ -195,7 +195,6 @@ background-color: var(--surface-muted);
 .app-screen::-webkit-scrollbar,
 .messages-container::-webkit-scrollbar,
 .modal::-webkit-scrollbar,
-.logs-container::-webkit-scrollbar,
 #chatsScreen::-webkit-scrollbar,
 #contactsScreen::-webkit-scrollbar,
 #walletScreen::-webkit-scrollbar,
@@ -210,7 +209,6 @@ body::-webkit-scrollbar {
 .app-screen::-webkit-scrollbar-track,
 .messages-container::-webkit-scrollbar-track,
 .modal::-webkit-scrollbar-track,
-.logs-container::-webkit-scrollbar-track,
 #chatsScreen::-webkit-scrollbar-track,
 #contactsScreen::-webkit-scrollbar-track,
 #walletScreen::-webkit-scrollbar-track,
@@ -225,7 +223,6 @@ body::-webkit-scrollbar-track {
 .app-screen::-webkit-scrollbar-thumb,
 .messages-container::-webkit-scrollbar-thumb,
 .modal::-webkit-scrollbar-thumb,
-.logs-container::-webkit-scrollbar-thumb,
 #chatsScreen::-webkit-scrollbar-thumb,
 #contactsScreen::-webkit-scrollbar-thumb,
 #walletScreen::-webkit-scrollbar-thumb,
@@ -243,7 +240,6 @@ body::-webkit-scrollbar-thumb {
 .app-screen::-webkit-scrollbar-thumb:hover,
 .messages-container::-webkit-scrollbar-thumb:hover,
 .modal::-webkit-scrollbar-thumb:hover,
-.logs-container::-webkit-scrollbar-thumb:hover,
 #chatsScreen::-webkit-scrollbar-thumb:hover,
 #contactsScreen::-webkit-scrollbar-thumb:hover,
 #walletScreen::-webkit-scrollbar-thumb:hover,
@@ -258,7 +254,6 @@ body::-webkit-scrollbar-thumb:hover {
 .app-screen,
 .messages-container,
 .modal,
-.logs-container,
 #chatsScreen,
 #contactsScreen,
 #walletScreen,
@@ -1160,10 +1155,6 @@ input[type='file'].form-control::file-selector-button {
   margin-top: 5px;
 }
 
-.u-mt-10 {
-  margin-top: 10px;
-}
-
 .u-mt-20 {
   margin-top: 20px;
 }
@@ -1177,23 +1168,6 @@ input[type='file'].form-control::file-selector-button {
   margin: 0 auto;
   box-sizing: border-box;
 }
-
-.form-group--inline {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.form-group--tight {
-  margin-bottom: 0.75rem;
-}
-
-.form-control--sm {
-  height: 40px;
-  padding: 8px 12px;
-  font-size: var(--font-size-sm);
-}
-
 
 .form-actions {
   display: flex;
@@ -2345,81 +2319,6 @@ button.about-link {
   overflow-wrap: break-word;
   max-width: 100%;
 }
-
-/* Logs Modal Styles */
-.logs-container {
-  padding: 1rem;
-  font-family: var(--font-monospace);
-  font-size: 0.9rem;
-  overflow-y: auto;
-  line-height: 1.4;
-  text-align: left;
-}
-
-.log-entry {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  padding: 4px 0;
-  flex-wrap: wrap;
-  text-align: left;
-}
-
-.log-timestamp {
-  color: var(--secondary-text-color);
-  font-size: var(--font-size-xs);
-  white-space: nowrap;
-  text-align: left;
-}
-
-.log-source {
-  color: var(--info-color);
-  font-weight: bold;
-  text-align: left;
-}
-
-.log-level {
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  text-align: left;
-}
-
-.log-entry.info .log-level {
-  background: var(--light-color);
-  color: var(--info-color);
-}
-
-.log-entry.warn .log-level {
-  background: var(--light-color);
-  color: var(--warning-color);
-}
-
-.log-entry.error .log-level {
-  background: var(--light-color);
-  color: var(--danger-color);
-}
-
-.log-message {
-  flex: 1;
-  min-width: 200px;
-  white-space: pre-wrap;
-  font-family: var(--font-monospace);
-  margin: 0;
-  text-align: left;
-}
-
-pre.log-message {
-  font-size: 0.9rem;
-  background: var(--light-color);
-  padding: 4px 8px;
-  border-radius: 4px;
-  margin: 2px 0;
-  text-align: left;
-}
-
 /* Logs Textarea Styles */
 #logsTextarea {
   width: 100%;
@@ -2968,15 +2867,6 @@ mark {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='5' x2='12' y2='19'%3E%3C/line%3E%3Cline x1='5' y1='12' x2='19' y2='12'%3E%3C/line%3E%3C/svg%3E");
 }
 
-
-
-/* Add this after the .chat-time rule (around line 467) */
-.chat-time .fa-chevron-right {
-  font-size: var(--font-size-xs);
-  color: var(--secondary-text-color);
-  opacity: 0.7;
-}
-
 /* If you're not using Font Awesome, we can create a custom chevron icon */
 .chat-time-chevron {
   display: inline-block;
@@ -3087,59 +2977,6 @@ mark {
   white-space: nowrap;
   text-overflow: ellipsis;
   padding: 10px 40px 10px 15px;
-}
-
-.qr-data-preview .preview-content {
-  transition: opacity 0.3s ease;
-}
-
-.qr-data-preview.minimized .preview-content {
-  opacity: 0.8;
-}
-
-.qr-data-toggle {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  width: var(--icon-size-24);
-  height: var(--icon-size-24);
-  background-color: var(--accent-blue-10);
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--info-color);
-  transition: background-color 0.2s;
-}
-
-.qr-data-toggle:hover {
-  background-color: var(--accent-blue-20);
-}
-
-.qr-data-toggle::before {
-  content: '−';
-  font-size: 16px;
-  line-height: 1;
-}
-
-.qr-data-preview.minimized .qr-data-toggle::before {
-  content: '+';
-}
-
-.qr-data-preview.minimized .preview-content::before {
-  content: attr(data-minimized);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: block;
-}
-
-.qr-data-preview.minimized .preview-content br,
-.qr-data-preview.minimized .preview-content span,
-.qr-data-preview.minimized .preview-content strong {
-  display: none;
 }
 
 /* QR Scanner Styles */
@@ -3919,20 +3756,6 @@ small {
   gap: 16px;
 }
 
-/* Ensure the base .modal.active for .modal-dialog still provides the backdrop */
-/* .modal.modal-dialog.active { */
-  /* display: flex; /* This is usually on .modal.active already */
-  /* justify-content: center; /* This is usually on .modal.active already */
-  /* align-items: center; /* This is usually on .modal.active already */
-  /* The above are likely inherited. If not, uncomment them. */
-  /* The backdrop color comes from .modal's background-color */
-/* } */
-
-.modal-dialog #failedMessageContent {
-  min-height: 60px; /* Give it some initial height */
-  resize: vertical; /* Allow vertical resize if needed */
-}
-
 .modal-dialog .modal-actions {
   display: flex;
   flex-direction: column; /* Stack buttons vertically */
@@ -3998,11 +3821,6 @@ small {
   width: 100%;
 }
 
-.modal-dialog #failedMessageContent {
-  min-height: 60px; /* Give it some initial height */
-  resize: vertical; /* Allow vertical resize if needed */
-}
-
 /* Style the Delete button in the dialog to be red and pill-shaped */
 .modal-dialog .modal-actions .delete-button {
   background-color: var(--danger-color);
@@ -4013,12 +3831,6 @@ small {
 }
 
 /* Validator Modal Pending Transaction Skeleton */
-#validator-pending-tx-skeleton h4 {
-  color: var(--text-color);
-  margin-bottom: 15px;
-  text-align: center;
-  font-weight: normal; /* Adjust if you want it bolder or lighter */
-}
 
 .skeleton-item {
   background-color: var(--skeleton-bg); /* Light grey for skeleton */
@@ -4113,10 +3925,6 @@ small {
   text-align: center; /* Center the N/A or value */
   width: 100%; /* Take full width */
   box-sizing: border-box;
-}
-
-.current-toll-value-box #tollAmount {
-  font-weight: bold;
 }
 
 /* Ensure the update button in the toll modal applies full-width correctly and has some top margin */
