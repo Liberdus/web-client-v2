@@ -306,7 +306,9 @@
             <div style="padding: 1rem">
               <textarea id="logsTextarea" placeholder="Logs will appear here..." rows="40" readonly></textarea>
             </div>
-            <button id="clearLogsButton" class="btn btn--primary btn--pill btn--full">Clear</button>
+            <div class="form-actions">
+              <button id="clearLogsButton" class="btn btn--primary btn--pill btn--full">Clear</button>
+            </div>
           </div>
         </div>
         <a class="last-item" href="#"> </a>
@@ -701,8 +703,8 @@
           <div class="modal-title">Restore Account</div>
         </div>
         <div class="modal-content">
-          <div class="form-container form--narrow">
-            <form id="importForm">
+          <div class="form-container">
+            <form id="importForm" class="form--narrow">
               <div class="form-group">
                 <label for="importFile">Select File</label>
                 <input type="file" id="importFile" class="form-control" required />
@@ -1210,7 +1212,7 @@
                 </p>
               </div>
               <div class="form-actions">
-                <button id="openBackupFromRemove" class="btn btn--primary btn--fixed">Backup Account</button>
+                <button id="openBackupFromRemove" class="btn btn--primary btn--pill btn--full">Backup Account</button>
                 <button id="confirmRemoveAccount" class="btn btn--primary btn--pill btn--full">Remove Account</button>
                 <button id="confirmRemoveAllAccounts" class="btn btn--primary btn--pill btn--full">Remove All Accounts</button>
               </div>
