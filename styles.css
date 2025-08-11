@@ -1271,7 +1271,7 @@ input[type='file'].form-control::file-selector-button {
   transition:
     transform 0.2s,
     background-color 0.2s;
-  /* z-index: 1000; */
+  padding: 0;
 }
 
 .floating-button.visible {
@@ -2773,7 +2773,7 @@ mark {
     rgba(0, 0, 0, 0.153) 20px
   );
   pointer-events: none;
-  border-radius: 28px; /* Match the floating-button's border-radius */
+  border-radius: 50%; /* Match the floating-button's circular radius */
 }
 
 .offline-disabled:hover::after {
