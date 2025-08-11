@@ -1981,6 +1981,11 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   margin: 0;
 }
 
+#removeAccountModal #confirmRemoveAccount,
+#removeAccountModal #confirmRemoveAllAccounts {
+  background-color: var(--danger-color);
+  color: var(--background-color);
+}
 
 /* Migrate Accounts Modal styles */
 #migrateAccountsModal .account-list {
