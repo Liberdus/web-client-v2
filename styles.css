@@ -4024,18 +4024,6 @@ small {
   background: rgba(67, 160, 71, 0.06);
 }
 
-/* Ensure Update button fits modal */
-#friendModal .btn.btn--primary {
-  width: 75%;
-  margin: 1rem 0 0 0;
-  box-sizing: border-box;
-}
-
-/* Optional: Add a little more spacing for radio options */
-#friendModal .radio-group {
-  gap: 20px;
-}
-
 #minTollDisplay {
   font-size: 0.9em;
   color: var(--neutral-600);
