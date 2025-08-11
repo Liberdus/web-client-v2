@@ -379,7 +379,7 @@
             <p>If you are sure you want to lock your app, please enter your password below.</p>
           </div>
           <div id="lockOptions" class="form-container" style="display:none;">
-            <div class="form-actions form-actions--inline">
+            <div class="form-actions">
               <button id="changePasswordButton" class="btn btn--primary btn--pill btn--full">Change Password</button>
               <button id="removeLockButton"  class="btn btn--primary btn--pill btn--full">Remove Lock</button>
             </div>
@@ -447,7 +447,7 @@
                 ></label>
                 <select id="username" class="form-control" required></select>
               </div>
-              <div class="form-actions form-actions--inline">
+              <div class="form-actions">
                 <button type="submit" class="btn btn--primary btn--pill btn--full" disabled>Sign In</button>
                 <button type="button" id="removeAccountButton" class="btn btn--secondary btn--pill btn--full" style="display: none">
                   Remove
@@ -532,7 +532,7 @@
                 </button>
               </div>
             </div>
-            <div class="form-actions form-actions--inline">
+            <div class="form-actions">
               <button type="button" id="launchButton" class="btn btn--secondary btn--pill btn--full" style="display: none; margin-top: 10px;">
                 Launch
               </button>
@@ -564,7 +564,7 @@
             <button id="backupFirstBtn" class="btn btn--primary btn--pill btn--full">
               🛡️ Backup My Data First
             </button>
-            <button id="proceedToStoreBtn" class="btn btn--secondary btn--pill btn--full">
+            <button id="proceedToStoreBtn" class="btn btn--danger btn--pill btn--full">
               Continue to App Store
             </button>
           </div>
@@ -590,7 +590,7 @@
                 <input type="url" id="url" class="form-control" required />
               </div>
               <div class="form-actions">
-                <button type="submit" class="btn btn--secondary btn--pill btn--full" disabled>Launch</button>
+                <button type="submit" class="btn btn--danger btn--pill btn--full" disabled>Launch</button>
               </div>
             </form>
             <div class="backup-section">
@@ -1184,9 +1184,9 @@
                 <div id="confirmMemo" class="confirm-value"></div>
               </div>
             </div>
-            <div class="form-actions form-actions--inline">
+            <div class="form-actions">
               <button id="confirmSendButton" class="btn btn--primary btn--pill btn--full">Confirm Send</button>
-              <button id="cancelSendButton" class="btn btn--secondary btn--pill btn--full">Cancel</button>
+              <button id="cancelSendButton" class="btn btn--danger btn--pill btn--full">Cancel</button>
             </div>
           </div>
         </div>
@@ -1215,8 +1215,8 @@
               </div>
               <div class="form-actions">
                 <button id="openBackupFromRemove" class="btn btn--primary btn--pill btn--full">Backup Account</button>
-                <button id="confirmRemoveAccount" class="btn btn--primary btn--pill btn--full">Remove Account</button>
-                <button id="confirmRemoveAllAccounts" class="btn btn--primary btn--pill btn--full">Remove All Accounts</button>
+                <button id="confirmRemoveAccount" class="btn btn--danger btn--pill btn--full">Remove Account</button>
+                <button id="confirmRemoveAllAccounts" class="btn btn--danger btn--pill btn--full">Remove All Accounts</button>
               </div>
             </div>
           </div>
@@ -1502,7 +1502,7 @@
           </div>
 
           <div class="action-item">
-            <button id="submitUnstake" class="btn btn--secondary btn--pill btn--full">Unstake</button>
+            <button id="submitUnstake" class="btn btn--danger btn--pill btn--full">Unstake</button>
             <div id="unstake-lock-info" class="unstake-lock-info" aria-live="polite"></div>
             <p class="action-description">Withdraw your delegated LIB from a validator node.</p>
           </div>
@@ -1674,7 +1674,7 @@
           <div class="modal-content">
             <div class="form-container">
               <div class="modal-actions">
-                <button type="button" class="btn btn--secondary btn--pill btn--full delete-button">Delete</button>
+                <button type="button" class="btn btn--danger btn--pill btn--full delete-button">Delete</button>
                 <button type="button" class="btn btn--primary btn--pill btn--full retry-button">Edit & Resend</button>
               </div>
             </div>

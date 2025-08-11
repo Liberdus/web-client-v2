@@ -724,6 +724,12 @@ button:not(:disabled):hover {
   color: var(--background-color);
 }
 
+/* Primary buttons hover */
+.btn--primary:not(:disabled):hover {
+  background-color: var(--primary-hover);
+  opacity: 0.9;
+}
+
 /* Secondary buttons */
 .btn--secondary {
   background-color: var(--hover-background);
@@ -734,6 +740,18 @@ button:not(:disabled):hover {
   border-radius: 24px;
   height: 48px;
 }
+
+/* Button danger */
+.btn--danger {
+  background-color: var(--danger-color);
+  color: var(--background-color);
+}
+
+/* Hover effect specifically for the Unstake button within the Validator Modal */
+.btn--danger:not(:disabled):hover {
+  opacity: 0.9;
+}
+
 
 /* Icon buttons */
 .icon-button:hover {
@@ -774,7 +792,8 @@ button:disabled {
 }
 
 .btn.btn--primary:disabled,
-.btn.btn--secondary:disabled {
+.btn.btn--secondary:disabled,
+.btn.btn--danger:disabled {
   opacity: 0.7;
   cursor: not-allowed;
 }
@@ -1981,12 +2000,6 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   margin: 0;
 }
 
-#removeAccountModal #confirmRemoveAccount,
-#removeAccountModal #confirmRemoveAllAccounts {
-  background-color: var(--danger-color);
-  color: var(--background-color);
-}
-
 /* Migrate Accounts Modal styles */
 #migrateAccountsModal .account-list {
   display: flex;
@@ -3156,12 +3169,6 @@ small {
   border: none;
 }
 
-#sendAssetConfirmModal .btn.btn--secondary {
-  background-color: var(--danger-color);
-  color: var(--background-color);
-  border: none;
-}
-
 #sendAssetConfirmModal #confirmAmount {
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
@@ -3506,43 +3513,6 @@ small {
   background-color: var(--primary-hover);
 }
 
-
-/* Ensure secondary button style (now danger) */
-#validatorModal #submitUnstake {
-  /* Styles inherited from .btn */
-  background-color: var(--danger-color);
-  color: var(--background-color);
-  border: none; /* Ensure no border from secondary */
-}
-
-/* Hover effect specifically for the Unstake button within the Validator Modal */
-#validatorModal #submitUnstake:not(:disabled):hover {
-  opacity: 0.9; /* Standard hover effect */
-  /* Consider a slightly darker red on hover if needed */
-}
-
-/* Style submit buttons like primary action buttons */
-#stakeModal #submitStake,
-#submitUnstake {
-  /* Apply primary button styling */
-  background-color: var(--primary-color);
-  color: var(--background-color);
-  border: none;
-  width: calc(100% - 32px);
-  max-width: 360px;
-  height: 48px;
-  border-radius: 24px;
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-bold);
-  margin: 1rem auto; /* Center button */
-  display: block; /* Needed for margin: auto */
-}
-
-#stakeModal #submitStake:hover:not(:disabled) {
-  background-color: var(--primary-hover);
-  opacity: 0.9;
-}
-
 /* --- Validator Modal Details --- */
 .validator-info-container {
   padding: 0 1rem; /* Add horizontal padding */
@@ -3796,15 +3766,6 @@ small {
   /* display: flex, align-items: center are inherited or default */
   /* Ensure its width is not 100% of screen if it was before */
   width: 100%;
-}
-
-/* Style the Delete button in the dialog to be red and pill-shaped */
-.modal-dialog .modal-actions .delete-button {
-  background-color: var(--danger-color);
-  color: var(--background-color);
-  border-radius: 24px;
-  border: none; /* Ensure no border */
-  /* Padding and font-size are inherited from the common rule for dialog action buttons */
 }
 
 /* Validator Modal Pending Transaction Skeleton */
@@ -4372,17 +4333,6 @@ small {
   margin-bottom: 30px;
 }
 
-/* Make the "Continue to App Store" button red to emphasize danger */
-#updateWarningModal .btn.btn--secondary {
-  background-color: var(--danger-color);
-  color: white;
-}
-
-#updateWarningModal .btn.btn--secondary:hover {
-  background-color: var(--danger-color);
-  opacity: 1;
-}
-
 /* Launch Modal specific styles */
 .launch-warning {
   color: var(--danger-color);
@@ -4399,15 +4349,4 @@ small {
 .backup-note {
   margin-bottom: 1rem;
   color: var(--text-color);
-}
-
-/* Launch Modal button styling */
-#launchModal .btn.btn--secondary {
-  background-color: var(--danger-color);
-  color: white;
-}
-
-#launchModal .btn.btn--secondary:hover {
-  background-color: var(--danger-color);
-  opacity: 0.9;
 }
