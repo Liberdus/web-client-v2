@@ -11441,21 +11441,38 @@ class LaunchModal {
     this.launchButton.disabled = true;
     this.launchButton.textContent = 'Checking URL...';
     
-    // Validate URL by fetching it
-    fetch(url, { 
-      method: 'HEAD', 
-      mode: 'no-cors',
-      signal: AbortSignal.timeout(10000) // 10 second timeout
+    // Create the network.js URL to check
+    let urlObj = new URL(url);
+    // Ensure path ends with slash before appending network.js
+    const path = urlObj.pathname === '' ? '/' : (urlObj.pathname.endsWith('/') ? urlObj.pathname : urlObj.pathname + '/');
+    const networkJsUrl = urlObj.origin + path + 'network.js';
+    
+    // Validate if network.js exists and has required properties
+    fetch(networkJsUrl, { 
+      signal: AbortSignal.timeout(10000), 
+      mode: 'cors',
+      credentials: 'same-origin'
     })
-      .then(() => {
-        // URL is reachable, proceed with launching
+      .then(response => {
+        if (!response.ok) throw new Error('network.js not found');
+        return response.text();
+      })
+      .then(networkJsText => {
+        // Check for required network properties
+        const requiredProps = ['network', 'name', 'netid', 'gateways'];
+        const missingProps = requiredProps.filter(prop => !networkJsText.includes(prop));
+        
+        if (missingProps.length > 0) {
+          throw new Error(`Invalid network.js: Missing ${missingProps.join(', ')}`);
+        }
+        
+        // Valid network.js, proceed with launching
         window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'launch', url }));
         this.close();
       })
       .catch((error) => {
-        // URL is not reachable or timed out
-        showToast('URL is not reachable. Please check the address and try again.', 0, 'error');
-        console.error('URL validation failed:', error);
+        showToast(`Invalid Liberdus URL. Error: ${error.message}`, 0, 'error');
+        console.error('URL validation failed:', error, 'URL:', networkJsUrl);
       })
       .finally(() => {
         // Reset button state
