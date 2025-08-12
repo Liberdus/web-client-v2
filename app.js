@@ -1823,23 +1823,16 @@ class SignInModal {
     this.backButton.addEventListener('click', () => this.close());
   }
 
-  async open(preselectedUsername_) {
-    // Get existing accounts
+  /**
+   * Update the username select dropdown with notification indicators and sort by notification status
+   * @param {string} [selectedUsername] - Optionally preserve a selected username
+   * @returns {Object} Object containing usernames array and account information
+   */
+  updateUsernameSelect(selectedUsername = null) {
     const { netid } = network;
     const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
     const netidAccounts = existingAccounts.netids[netid];
     const usernames = netidAccounts?.usernames ? Object.keys(netidAccounts.usernames) : [];
-    this.preselectedUsername = preselectedUsername_;
-
-    // First show the modal so we can properly close it if needed
-    this.modal.classList.add('active');
-
-    // If no accounts exist, close modal and open Create Account modal
-    if (usernames.length === 0) {
-      this.close();
-      createAccountModal.open();
-      return;
-    }
 
     // Get the notified addresses and sort usernames to prioritize them
     const notifiedAddresses = reactNativeApp ? reactNativeApp.getNotificationAddresses() : [];
@@ -1868,6 +1861,30 @@ class SignInModal {
         return `<option value="${username}">${username}${dotIndicator}</option>`;
       }).join('')}
     `;
+
+    // Restore the previously selected username if it exists
+    if (selectedUsername && usernames.includes(selectedUsername)) {
+      this.usernameSelect.value = selectedUsername;
+    }
+
+    return { usernames, netidAccounts, sortedUsernames };
+  }
+
+  async open(preselectedUsername_) {
+    this.preselectedUsername = preselectedUsername_;
+
+    // First show the modal so we can properly close it if needed
+    this.modal.classList.add('active');
+
+    // Update username select and get usernames
+    const { usernames } = this.updateUsernameSelect();
+
+    // If no accounts exist, close modal and open Create Account modal
+    if (usernames.length === 0) {
+      this.close();
+      createAccountModal.open();
+      return;
+    }
 
     // If a username should be auto-selected (either preselect or only one account), do it
     const autoSelect = preselectedUsername_ && usernames.includes(preselectedUsername_) ? preselectedUsername_ : null;
@@ -2068,6 +2085,22 @@ class SignInModal {
 
   isActive() {
     return this.modal.classList.contains('active');
+  }
+
+  /**
+   * Update the display to reflect new notifications while the modal is open
+   * This is called when new notifications arrive while the modal is open
+   */
+  updateNotificationDisplay() {
+    // Only update if the modal is actually active
+    if (!this.isActive()) return;
+    
+    // Get the currently selected username so we can keep it selected after the update
+    const selectedUsername = this.usernameSelect.value;
+    
+    // Update the dropdown with sorted usernames and notification indicators
+    // This will also preserve the selected username if it still exists
+    this.updateUsernameSelect(selectedUsername);
   }
 }
 
@@ -11523,10 +11556,10 @@ class ReactNativeApp {
               // User is not signed in - save the notification address and open sign-in modal
               logsModal.log('🔔 User not signed in, saving notification address for priority');
               this.saveNotificationAddress(normalizedToAddress);
-              // If the user clicks on a notification and the app is already on the SignIn modal, we need to refresh the SignIn modal to have the bell emoji and new ordering to appear.
+              // If the user clicks on a notification and the app is already on the SignIn modal, 
+              // update the display to reflect the new notification
               if (signInModal.isActive()) {
-                signInModal.close();
-                signInModal.open();
+                signInModal.updateNotificationDisplay();
               }
               return;
             }
@@ -11580,6 +11613,11 @@ class ReactNativeApp {
                 }
               });
               logsModal.log(`📋 Processed ${processedCount}/${data.notifications.length} notifications`);
+              
+              // If the sign in modal is open, update the display to show new notifications
+              if (signInModal.isActive()) {
+                signInModal.updateNotificationDisplay();
+              }
             } else {
               logsModal.log('📋 No valid notifications received');
             }
