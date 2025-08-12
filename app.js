@@ -2369,11 +2369,18 @@ class FriendModal {
     const contact = myData.contacts[this.currentContactAddress];
     if (!contact) return;
 
+    // if .friend and .friendOld values are not the same disable the submit button
+    if (contact.friend !== contact.friendOld) {
+      showToast('You have a pending transaction to update the friend status. Come back to this page later.', 0, 'error');
+      this.submitButton.disabled = true;
+    } else {
+      this.submitButton.disabled = false;
+    }
+
     // Set the current friend status
     const status = contact?.friend.toString();
     const radio = this.friendForm.querySelector(`input[value="${status}"]`);
     if (radio) radio.checked = true;
-    this.submitButton.disabled = false;
 
     this.modal.classList.add('active');
   }
@@ -12083,6 +12090,7 @@ async function checkPendingTransactions() {
 
         if (type === 'update_toll_required') {
           console.log(`DEBUG: update_toll_required transaction successfully processed!`);
+          myData.contacts[pendingTxInfo.to].friendOld = myData.contacts[pendingTxInfo.to].friend;
         }
 
         if (type === 'read') {
