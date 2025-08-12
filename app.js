@@ -2367,7 +2367,6 @@ class FriendModal {
       required: requiredNum,
       type: 'update_toll_required',
       timestamp: getCorrectedTimestamp(),
-      friend: friend,
       networkId: network.netid,
     };
     const txid = await signObj(tx, myAccount.keys);
@@ -2383,16 +2382,9 @@ class FriendModal {
    */
   async handleFriendSubmit(event) {
     event.preventDefault();
-
     this.submitButton.disabled = true;
-
-    if (!this.currentContactAddress) return;
-
     const contact = myData.contacts[this.currentContactAddress];
-    if (!contact) return;
-
     const selectedStatus = this.friendForm.querySelector('input[name="friendStatus"]:checked')?.value;
-    if (!selectedStatus) return;
 
     // send transaction to update chat toll
     const res = await this.postUpdateTollRequired(this.currentContactAddress, Number(selectedStatus));
@@ -2402,6 +2394,9 @@ class FriendModal {
       );
       return;
     }
+
+    // store the old friend status
+    contact.friendOld = contact.friend;
 
     // Update friend status based on selected value
     contact.friend = Number(selectedStatus);
@@ -3410,7 +3405,7 @@ async function injectTx(tx, txid) {
         pendingTxData.username = tx.alias;
         pendingTxData.address = tx.from; // User's address (longAddress form)
       } else if (tx.type === 'update_toll_required') {
-        pendingTxData.friend = tx.friend;
+        pendingTxData.to = normalizeAddress(tx.to);
       } else if (tx.type === 'read') {
         pendingTxData.oldContactTimestamp = tx.oldContactTimestamp;
       } else if (tx.type === 'message' || tx.type === 'transfer') {
@@ -8455,6 +8450,7 @@ class NewChatModal {
     // Check if contact exists
     if (!chatsData.contacts[recipientAddress]) {
       createNewContact(recipientAddress, username, 2);
+      chatsData.contacts[recipientAddress].friendOld = 2;
       // default to 2 (Acquaintance) so recipient does not need to pay toll
       friendModal.postUpdateTollRequired(recipientAddress, 2);
     }
@@ -12099,7 +12095,7 @@ async function checkPendingTransactions() {
           } else if (type === 'update_toll_required') {
             showToast(`Update contact status failed: ${failureReason}. Reverting contact to old status.`, 0, 'error');
             // revert the local myData.contacts[toAddress].friend to the old value
-            myData.contacts[pendingTxInfo.to].friend = pendingTxInfo.friend;
+            myData.contacts[pendingTxInfo.to].friend = myData.contacts[pendingTxInfo.to].friendOld;
           } else if (type === 'read') {
             showToast(`Read transaction failed: ${failureReason}`, 0, 'error');
             // revert the local myData.contacts[toAddress].timestamp to the old value
