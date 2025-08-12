@@ -2323,6 +2323,7 @@ class FriendModal {
   load() {
     this.modal = document.getElementById('friendModal');
     this.friendForm = document.getElementById('friendForm');
+    this.submitButton = this.friendForm.querySelector('button[type="submit"]');
 
     // Friend modal form submission
     this.friendForm.addEventListener('submit', (event) => this.handleFriendSubmit(event));
@@ -2340,6 +2341,9 @@ class FriendModal {
     const status = contact?.friend.toString();
     const radio = this.friendForm.querySelector(`input[value="${status}"]`);
     if (radio) radio.checked = true;
+
+    // re-enable the submit button
+    this.submitButton.disabled = false;
 
     this.modal.classList.add('active');
   }
@@ -2381,6 +2385,8 @@ class FriendModal {
    */
   async handleFriendSubmit(event) {
     event.preventDefault();
+
+    this.submitButton.disabled = true;
 
     if (!this.currentContactAddress) return;
 
@@ -2431,6 +2437,7 @@ class FriendModal {
 
     // Close the friend modal
     this.closeFriendModal();
+    this.submitButton.disabled = false;
   }
 
   // setAddress fuction that sets a global variable that can be used to set the currentContactAddress
