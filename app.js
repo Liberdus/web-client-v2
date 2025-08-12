@@ -474,6 +474,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     item.addEventListener('keydown', ignoreTabKey);
   });
 
+  document.addEventListener('visibilitychange', handleVisibilityChange); // Keep as document
+
   getNetworkParams();
 
   welcomeScreen.lastItem.focus();
@@ -506,9 +508,6 @@ function handleBeforeUnload(e) {
 // This is for installed apps where we can't stop the back button; just save the state
 function handleVisibilityChange() {
   console.log('in handleVisibilityChange', document.visibilityState);
-  if (!myAccount) {
-    return;
-  }
 
   if (document.visibilityState === 'hidden') {
     reactNativeApp.handleNativeAppSubscribe();
@@ -520,7 +519,9 @@ function handleVisibilityChange() {
     // save state when app is put into background
     saveState();
   } else if (document.visibilityState === 'visible') {
-    reactNativeApp.handleNativeAppUnsubscribe();
+    if (myAccount) {
+      reactNativeApp.handleNativeAppUnsubscribe();
+    }
     // if chatModal was opened, check if message count changed while hidden
     if (chatModal.isActive() && chatModal.address) {
       const contact = myData.contacts[chatModal.address];
@@ -1276,7 +1277,6 @@ class MenuModal {
 
     // Remove event listeners for beforeunload and visibilitychange
     window.removeEventListener('beforeunload', handleBeforeUnload);
-    document.removeEventListener('visibilitychange', handleVisibilityChange);
 
     // Lock the app
     unlockModal.lock();
@@ -1978,7 +1978,6 @@ class SignInModal {
     // Register events that will saveState if the browser is closed without proper signOut
     // Add beforeunload handler to save myData; don't use unload event, it is getting depricated
     window.addEventListener('beforeunload', handleBeforeUnload);
-    document.addEventListener('visibilitychange', handleVisibilityChange); // Keep as document
 
     reactNativeApp.handleNativeAppUnsubscribe();
     reactNativeApp.sendNavigationBarVisibility(false);
