@@ -6318,30 +6318,22 @@ class ValidatorStakingModal {
     }
 
     const rewardStartTime = validatorData?.account?.rewardStartTime || 0; // in seconds
+    const rewardEndTime = validatorData?.account?.rewardEndTime || 0; // in seconds
     
     // If the validator hasn't started earning rewards, but might have accumulated rewards
-    if (!rewardStartTime) {
-      if (accumulatedRewardUsd > 0) {
-        // Display only accumulated rewards
-        const bigStrValue = big2str(accumulatedRewardUsd.toString(), 18);
-        const numValue = parseFloat(bigStrValue);
-        const rewardsDisplay = '$' + numValue.toFixed(2);
-        if (this.rewardsEstimateElement) {
-          this.rewardsEstimateElement.textContent = rewardsDisplay;
-        }
-      } else {
-        // No rewards accumulated and no reward start time
-        if (this.rewardsEstimateElement) this.rewardsEstimateElement.textContent = '$0.00';
-      }
+    // OR if the validator has ended (rewardEndTime > 0), only show accumulated rewards
+    if (!rewardStartTime || rewardEndTime > 0) {
+      // Display only accumulated rewards
+      const bigStrValue = big2str(accumulatedRewardUsd.toString(), 18);
+      const numValue = parseFloat(bigStrValue);
+      const rewardsDisplay = '$' + numValue.toFixed(2);
+      this.rewardsEstimateElement.textContent = rewardsDisplay || '$0.00';
       return;
     }
     
-    // Calculate rewards based on time since start
-    const rewardEndTime = validatorData?.account?.rewardEndTime || 0; // in seconds
+    // Calculate rewards based on time since start (only for active validators)
     const now = Math.floor(Date.now() / 1000); // current time in seconds
-    // Use reward end time if it exists, otherwise use current time
-    const endTimeToUse = (rewardEndTime && rewardEndTime > 0) ? rewardEndTime : now;
-    const timeSinceStart = endTimeToUse - rewardStartTime; // seconds running
+    const timeSinceStart = now - rewardStartTime; // seconds running
     const timeInMs = timeSinceStart * 1000;
     
     // Calculate both completed and partial intervals
