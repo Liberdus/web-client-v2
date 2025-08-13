@@ -7586,20 +7586,6 @@ console.warn('in send message', txid)
       return;
     }
 
-    // Validate file type
-    const allowedTypePrefixes = ['image/', 'audio/', 'video/'];
-    const allowedExplicitTypes = [
-      'application/pdf', // PDF
-      'text/plain',      // TXT
-      'application/msword', // DOC
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document' // DOCX
-    ];
-    if (!(allowedTypePrefixes.some(prefix => file.type.startsWith(prefix)) || allowedExplicitTypes.includes(file.type))) {
-      showToast('File type not supported.', 0, 'error');
-      event.target.value = ''; // Reset file input
-      return;
-    }
-
     try {
       this.isEncrypting = true;
       this.sendButton.disabled = true; // Disable send button during encryption
