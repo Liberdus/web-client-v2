@@ -5782,6 +5782,7 @@ class ValidatorStakingModal {
     this.nomineeValueElement = document.getElementById('validator-nominee');
     this.earnMessageElement = document.getElementById('validator-earn-message');
     this.learnMoreButton = document.getElementById('validator-learn-more');
+    this.rewardsEstimateElement = document.getElementById('validator-rewards-estimate');
 
     // Skeleton bar elements
     this.pendingSkeletonBar = document.getElementById('pending-nominee-skeleton-1');
@@ -5822,6 +5823,10 @@ class ValidatorStakingModal {
     // Hide earn message by default
     if (this.earnMessageElement) {
       this.earnMessageElement.style.display = 'none';
+    }
+    // Reset rewards display by default
+    if (this.rewardsEstimateElement) {
+      this.rewardsEstimateElement.textContent = 'N/A';
     }
     // Disable unstake button initially
     this.unstakeButton.disabled = true;
@@ -5960,6 +5965,11 @@ class ValidatorStakingModal {
         if (this.earnMessageElement) {
           this.earnMessageElement.style.display = 'block';
         }
+        
+        // Reset rewards display
+        if (this.rewardsEstimateElement) {
+          this.rewardsEstimateElement.textContent = 'N/A';
+        }
       } else {
         // Case: Nominee Exists - Show staking info section
         this.stakeInfoSection.style.display = 'block';
@@ -5976,6 +5986,19 @@ class ValidatorStakingModal {
         // Hide earn message
         if (this.earnMessageElement) {
           this.earnMessageElement.style.display = 'none';
+        }
+
+        const nodeRewardAmountUsd = networkAccountData.account.current.nodeRewardAmountUsd;
+        const nodeRewardInterval = networkAccountData?.account?.current?.nodeRewardInterval; 
+
+        // Calculate and display estimated rewards based on node's start time
+        try {
+          await this.calculateAndDisplayValidatorRewards(nominee, nodeRewardAmountUsd, nodeRewardInterval);
+        } catch (e) {
+          console.error('Error calculating rewards: ', e);
+          
+          // Set fallback value on error
+          if (this.rewardsEstimateElement) this.rewardsEstimateElement.textContent = 'N/A';
         }
       }
 
@@ -6256,6 +6279,89 @@ class ValidatorStakingModal {
     if (hours > 0) return `${hours}h ${minutes}m`;
     if (minutes > 0) return `${minutes}m ${seconds}s`;
     return `${seconds}s`;
+  }
+
+  /**
+   * Calculates and displays validator rewards
+   * @param {string} nominee - The nominee address
+   * @param {BigInt} nodeRewardAmountUsd - The reward amount in USD (could be an object with value property or a BigInt)
+   * @param {number} nodeRewardInterval - The reward interval in milliseconds
+   * @returns {Promise<void>}
+   */
+  async calculateAndDisplayValidatorRewards(nominee, nodeRewardAmountUsd, nodeRewardInterval) {
+    if (!nominee || !nodeRewardAmountUsd || !nodeRewardInterval) {
+      if (this.rewardsEstimateElement) this.rewardsEstimateElement.textContent = 'N/A';
+      return;
+    }
+    
+    // Get validator info to calculate rewards based on start time
+    let validatorData;
+    try {
+      validatorData = await queryNetwork(`/account/${nominee}`);
+    } catch (e) {
+      console.warn('Failed to fetch validator data for rewards calculation:', e);
+      if (this.rewardsEstimateElement) this.rewardsEstimateElement.textContent = 'N/A';
+      return;
+    }
+
+    // Get already accumulated rewards from node account - for both active and inactive validators
+    const accumulatedRewardLib = validatorData.account.reward;
+    let accumulatedRewardUsd = BigInt(0);
+    // Convert accumulatedRewardLib from LIB to USD using stability factor
+    try {
+      const stabilityFactor = getStabilityFactor();
+      if (stabilityFactor > 0) {
+        accumulatedRewardUsd = bigxnum2big(accumulatedRewardLib, stabilityFactor.toString());
+      }
+    } catch (e) {
+      console.warn('Failed to convert reward from LIB to USD:', e);
+    }
+
+    const rewardStartTime = validatorData?.account?.rewardStartTime || 0; // in seconds
+    
+    // If the validator hasn't started earning rewards, but might have accumulated rewards
+    if (!rewardStartTime) {
+      if (accumulatedRewardUsd > 0) {
+        // Display only accumulated rewards
+        const bigStrValue = big2str(accumulatedRewardUsd.toString(), 18);
+        const numValue = parseFloat(bigStrValue);
+        const rewardsDisplay = '$' + numValue.toFixed(2);
+        if (this.rewardsEstimateElement) {
+          this.rewardsEstimateElement.textContent = rewardsDisplay;
+        }
+      } else {
+        // No rewards accumulated and no reward start time
+        if (this.rewardsEstimateElement) this.rewardsEstimateElement.textContent = '$0.00';
+      }
+      return;
+    }
+    
+    // Calculate rewards based on time since start
+    const rewardEndTime = validatorData?.account?.rewardEndTime || 0; // in seconds
+    const now = Math.floor(Date.now() / 1000); // current time in seconds
+    // Use reward end time if it exists, otherwise use current time
+    const endTimeToUse = (rewardEndTime && rewardEndTime > 0) ? rewardEndTime : now;
+    const timeSinceStart = endTimeToUse - rewardStartTime; // seconds running
+    const timeInMs = timeSinceStart * 1000;
+    
+    // Calculate both completed and partial intervals
+    const completedIntervals = timeInMs / nodeRewardInterval;
+    
+    // Calculate total rewards including partial completion of current interval
+    const completedRewards = bigxnum2big(nodeRewardAmountUsd, completedIntervals.toString());
+    
+    // Add already accumulated rewards from the node account to estimated rewards
+    const totalRewardsValue = completedRewards + accumulatedRewardUsd;
+    
+    // Convert to display format with 2 decimal places for USD
+    const bigStrValue = big2str(totalRewardsValue.toString(), 18);
+    const numValue = parseFloat(bigStrValue);
+    const rewardsDisplay = '$' + numValue.toFixed(2);
+    
+    // Set reward estimate text
+    if (this.rewardsEstimateElement) {
+      this.rewardsEstimateElement.textContent = rewardsDisplay;
+    }
   }
 
   /**
