@@ -6371,6 +6371,7 @@ class StakeValidatorModal {
     this.stakedAmount = 0n;
     this.lastValidationTimestamp = 0;
     this.hasNominee = false;
+    this.isFaucetRequestInProgress = false;
   }
 
   load() {
@@ -6389,6 +6390,7 @@ class StakeValidatorModal {
     this.scanStakeQRButton = document.getElementById('scanStakeQRButton');
     this.uploadStakeQRButton = document.getElementById('uploadStakeQRButton');
     this.stakeQRFileInput = document.getElementById('stakeQrFileInput');
+    this.faucetButton = document.getElementById('faucetButton');
 
     // Setup event listeners
     this.form.addEventListener('submit', (event) => this.handleSubmit(event));
@@ -6402,6 +6404,7 @@ class StakeValidatorModal {
     this.scanStakeQRButton.addEventListener('click', () => scanQRModal.open());
     this.uploadStakeQRButton.addEventListener('click', () => this.stakeQRFileInput.click());
     this.stakeQRFileInput.addEventListener('change', (event) => sendAssetFormModal.handleQRFileSelect(event, this));
+    this.faucetButton.addEventListener('click', () => this.requestFromFaucet());
 
     // Add listener for opening the modal
     document.getElementById('openStakeModal').addEventListener('click', () => this.open());
@@ -6424,6 +6427,10 @@ class StakeValidatorModal {
     this.nodeAddressInput.value = isNominee ? nominee : '';
     this.nodeAddressGroup.style.display = isNominee ? 'none' : 'block';
     this.submitButton.textContent = isNominee ? 'Add Stake' : 'Submit Stake';
+    
+    // Reset faucet button state
+    this.faucetButton.disabled = true;
+    this.isFaucetRequestInProgress = false;
 
     // Set minimum stake amount
     const minStakeAmount = this.form.dataset.minStake || '0';
@@ -6437,7 +6444,8 @@ class StakeValidatorModal {
 
   close() {
     this.modal.classList.remove('active');
-    // TODO: clear input fields
+    // Reset the form fields
+    this.resetForm();
   }
 
   async handleSubmit(event) {
@@ -6542,9 +6550,12 @@ class StakeValidatorModal {
     this.amountWarning.textContent = '';
     this.nodeAddressWarning.style.display = 'none';
     this.nodeAddressWarning.textContent = '';
+    
+    // Disable faucet button by default
+    this.faucetButton.disabled = true;
 
     // Check 1: Empty Fields
-    if (!amountStr || !nodeAddress) {
+    if (!nodeAddress) {
       return;
     }
 
@@ -6559,6 +6570,13 @@ class StakeValidatorModal {
     } else {
       this.nodeAddressWarning.style.display = 'none';
       this.nodeAddressWarning.textContent = '';
+      
+      // Enable faucet button if node address is valid
+      this.faucetButton.disabled = false;
+    }
+
+    if (!amountStr) {
+      return;
     }
 
     // --- Amount Checks ---
@@ -6653,6 +6671,57 @@ class StakeValidatorModal {
     this.amountWarning.textContent = '';
     this.nodeAddressWarning.style.display = 'none';
     this.nodeAddressWarning.textContent = '';
+    this.faucetButton.disabled = true;
+  }
+  
+  /**
+   * Request funds from the faucet for the validator node
+   * @returns {Promise<void>}
+   */
+  async requestFromFaucet() {
+    if (this.isFaucetRequestInProgress) {
+      return;
+    }
+
+    const toastId = showToast('Requesting from faucet...', 0, 'loading');
+    try {
+      this.isFaucetRequestInProgress = true;
+      this.faucetButton.disabled = true;
+      
+      const payload = {
+        nodeAddress: this.nodeAddressInput.value.trim(),
+        userAddress: longAddress(myAccount.keys.address),
+        username: myAccount.username,
+      };
+      await signObj(payload, myAccount.keys);
+      
+      const faucetUrl = network.faucetUrl || 'https://dev.liberdus.com:3355/faucet';
+      
+      const response = await fetch(faucetUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        showToast('Faucet request successful! The LIB will be sent to your wallet.', 5000, 'success');
+        this.close();
+      } else {
+        const errorMessage = result.message || result.error || 'Unknown error';
+        showToast(`Faucet error: ${errorMessage}`, 0, 'error');
+      }
+      
+    } catch (error) {
+      console.error('Faucet request error:', error);
+      showToast(`Faucet request failed: ${error.message || 'Unknown error'}`, 0, 'error');
+    } finally {
+      hideToast(toastId);
+      this.isFaucetRequestInProgress = false;
+    }
   }
 }
 const stakeValidatorModal = new StakeValidatorModal();

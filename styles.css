@@ -3474,7 +3474,7 @@ small {
   gap: 8px; /* Space between button and its description */
 }
 
-#validatorModal .action-description {
+.action-description {
   font-size: var(--font-size-sm); /* Smaller font */
   color: var(--secondary-text-color);
   text-align: center;
