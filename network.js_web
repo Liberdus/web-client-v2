@@ -29,5 +29,5 @@ const network = {
   ],
   "stakeUrl": "https://liberdus.com/stake",
   "validatorUrl": "https://liberdus.com/validator",
-  "bridgeUrl": "https://liberdus.com/bridge",
+  "bridgeUrl": "./bridge",
 }
