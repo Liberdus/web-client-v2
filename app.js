@@ -373,7 +373,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   aboutModal.load();
   updateWarningModal.load();
   helpModal.load();
-  stakeInfoModal.load();
+  farmModal.load();
   logsModal.load();
 
   // Create Account Modal
@@ -1231,8 +1231,8 @@ class MenuModal {
     this.bridgeButton.addEventListener('click', () => bridgeModal.open());
     this.logsButton = document.getElementById('openLogs');
     this.logsButton.addEventListener('click', () => logsModal.open());
-    this.stakeButton = document.getElementById('openStake');
-    this.stakeButton.addEventListener('click', () => stakeInfoModal.open());
+    this.farmButton = document.getElementById('openFarm');
+    this.farmButton.addEventListener('click', () => farmModal.open());
     
     
     // Show launch button if ReactNativeWebView is available
@@ -5527,14 +5527,14 @@ class HelpModal {
 }
 const helpModal = new HelpModal();
 
-class StakeInfoModal {
+class FarmModal {
   constructor() {}
 
   load() {
-    this.modal = document.getElementById('stakeInfoModal');
-    this.closeButton = document.getElementById('closeStakeInfoModal');
-    this.continueButton = document.getElementById('continueToStake');
-    
+    this.modal = document.getElementById('farmModal');
+    this.closeButton = document.getElementById('closeFarmModal');
+    this.continueButton = document.getElementById('continueToFarm');
+
     this.closeButton.addEventListener('click', () => this.close());
     this.continueButton.addEventListener('click', () => this.handleContinue());
   }
@@ -5550,14 +5550,14 @@ class StakeInfoModal {
   }
 
   handleContinue() {
-    // Get the stake URL from network configuration
-    const stakeURL = network?.stakeUrl || 'https://liberdus.com/stake';
-    // Open the stake URL in a new tab
-    window.open(stakeURL, '_blank');
+    // Get the farm URL from network configuration
+    const farmURL = network?.farmUrl || 'https://liberdus.com/farm';
+    // Open the farm URL in a new tab
+    window.open(farmURL, '_blank');
     this.close();
   }
 }
-const stakeInfoModal = new StakeInfoModal();
+const farmModal = new FarmModal();
 
 class LogsModal {
   constructor() {
