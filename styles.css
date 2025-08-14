@@ -4350,3 +4350,8 @@ small {
   margin-bottom: 1rem;
   color: var(--text-color);
 }
+
+#stakeModal .btn {
+  margin-top: 0;
+  margin-bottom: 0;
+}
