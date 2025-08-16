@@ -75,33 +75,39 @@ TODO: add instructions to run collector
 
 ## Architecture
 
-The application consists of two main components:
+The application consists of four main components:
 
 1. **Web Client**: Pure HTML, JS, and CSS files that run in the browser and handle the encryption/decryption of messages
-2. **Proxy Server**: Manages message routing and delivery without ever having access to the unencrypted content
+2. **Proxy Server**: Manages message routing and delivery without ever having access to the unencrypted content; like RPC servers in Ethereum
+3. **Validator Nodes**: Provide redundant and sharded storage of the application state as well as consensus on new transactions that change the state
+4. **Archive Servers**: Provide long term storage of transaction history
 
 ## Contributing
 
 We welcome contributions from the community! To contribute:
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-new-feature`
-3. Make your changes
-4. Test thoroughly
-5. Commit your changes: `git commit -am 'Add some feature'`
-6. Push to the branch: `git push origin feature/my-new-feature`
-7. Submit a pull request
+1. Fork the repository: click the Fork button at the top right of this page
+2. Clone your forked repo: `git clone https://github.com/your-username/repo-name.git`
+3. Create a new branch: `git checkout -b my-new-branch`
+4. Make your changes
+5. Test thoroughly
+6. Commit your changes: `git add .` then `git commit -am 'Add some feature'`
+7. Push to the branch: `git push origin my-new-branch`
+8. Submit a pull request
 
 ### Code Style
 
-This project uses ESLint and Prettier to maintain consistent code formatting. The linting and formatting rules are automatically applied when you save files in VS Code.
+Although the project has ESLint and Prettier to maintain consistent code formatting, they are currently not used. Try to keep your code style consistent with the existing code. In the future linting and formatting rules will automatically be applied when you save files in VS Code.
 
 **VS Code Setup:**
 
+- You can skip this for now
 - Install the ESLint and Prettier extensions
 - The project includes VS Code settings that will automatically format your code on save
 
 **Manual Commands:**
+
+You can skip this for now
 
 ```bash
 # Check for linting errors
