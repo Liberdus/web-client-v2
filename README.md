@@ -82,14 +82,14 @@ The application consists of four main components:
 
 We welcome contributions from the community! To contribute:
 
-1. Fork the repository: click the Fork button at the top right of this page
+1. Fork the repository: click the `Fork` button at the top right of this page
 2. Clone your forked repo: `git clone https://github.com/your-username/repo-name.git`
 3. Create a new branch: `git checkout -b my-new-branch`
 4. Make your changes
 5. Test thoroughly
 6. Commit your changes: `git add .` then `git commit -am 'Add some feature'`
 7. Push to the branch: `git push origin my-new-branch`
-8. Submit a pull request
+8. Submit a pull request: from your forked github repo click `Compare & pull request`
 
 ### Code Style
 
