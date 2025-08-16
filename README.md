@@ -57,21 +57,17 @@ Try out the application at [liberdus.com/test](https://liberdus.com/test)
    npx http-server
    ```
 
-4. Clone the proxy server repository:
+4. Optionally you can also run a local proxy server (like RPC server in Ethereum). This is not required since you can configure to use an existing remote proxy server.
 
-   ```
-   git clone https://github.com/Liberdus/liberdus-proxy
-   ```
+If you want to setup your own proxy server see https://github.com/Liberdus/liberdus-proxy
 
-5. Run the proxy server:
-   ```
-   cd liberdus-proxy
-   # Follow the setup instructions in the proxy server README
-   ```
+5. Optionally you can also run a local network of validator and archive nodes. This is not required if you configure your web client to use a remote proxy server. 
 
-TODO: add instructions to run collector
+If you want to setup your own local network of validators and archivers see https://github.com/liberdus/server
 
-6. Access the application in your browser at `http://localhost:8000` (or whichever port your HTTP server is using)
+6. Configure the network.js file. If you are running your own proxy server see the network.js_loc file to see how the `gateways` field should be set. If you are using the default proxy server then no changes have to be made to this file.
+
+7. Access the application in your browser at `http://localhost:8000` (or whichever port your HTTP server is using)
 
 ## Architecture
 
