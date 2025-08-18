@@ -7264,15 +7264,20 @@ class ChatModal {
       const {dhkey, cipherText} = dhkeyCombined(keys.secret, recipientPubKey, pqRecPubKey)
       const selfKey = encryptData(bin2hex(dhkey), keys.secret+keys.pqSeed, true)  // used to decrypt our own message
 
-      // encrypt the file attachments
-      let encXattach = null;
+      // Convert message to new JSON format with type and optional attachments
+      const messageObj = {
+        type: 'message',
+        message: message
+      };
+
+      // Handle attachments - add them to the JSON structure instead of using xattach
       if (this.fileAttachments && this.fileAttachments.length > 0) {
-        encXattach = encryptChacha(dhkey, stringify(this.fileAttachments));
+        messageObj.attachments = this.fileAttachments;
       }
 
       // We purposely do not encrypt/decrypt using browser native crypto functions; all crypto functions must be readable
-      // Encrypt message using shared secret
-      const encMessage = encryptChacha(dhkey, message);
+      // Encrypt the JSON message using shared secret
+      const encMessage = encryptChacha(dhkey, stringify(messageObj));
 
       // Create message payload
       const payload = {
@@ -7281,8 +7286,7 @@ class ChatModal {
         encryptionMethod: 'xchacha20poly1305',
         pqEncSharedKey: bin2base64(cipherText),
         selfKey: selfKey,
-        sent_timestamp: getCorrectedTimestamp(),
-        ...(encXattach && { xattach: encXattach }), // Only include if there are attachments
+        sent_timestamp: getCorrectedTimestamp()
       };
 
       // Always include username, but only include other info if recipient is a friend
