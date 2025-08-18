@@ -3054,6 +3054,29 @@ if (mine) console.warn('txid in processChats is', txidHex)
           }
           //console.log("payload", payload)
           decryptMessage(payload, keys, mine); // modifies the payload object
+          
+          // Process new message format if it's JSON, otherwise keep old format
+          if (typeof payload.message === 'string') {
+            try {
+              const parsedMessage = JSON.parse(payload.message);
+              // Check if it's the new message format with type field
+              if (parsedMessage && typeof parsedMessage === 'object' && parsedMessage.type === 'message') {
+                // Extract actual message text
+                payload.message = parsedMessage.message;
+                
+                // Handle attachments field (replacing xattach)
+                if (parsedMessage.attachments) {
+                  // If we have both new attachments and old xattach, prioritize the new format
+                  if (!payload.xattach) {
+                    payload.xattach = parsedMessage.attachments;
+                  }
+                }
+              }
+            } catch (e) {
+              // Not JSON or invalid format - keep using the message as is (backwards compatibility)
+            }
+          }
+          
           if (payload.senderInfo && !mine){
             contact.senderInfo = cleanSenderInfo(payload.senderInfo)
             delete payload.senderInfo;
@@ -3096,7 +3119,17 @@ if (mine) console.warn('txid in processChats is', txidHex)
           payload.my = mine;
           payload.timestamp = payload.sent_timestamp;
           payload.txid = txidHex;
-          delete payload.pqEncSharedKey; 
+          delete payload.pqEncSharedKey;
+          
+          // Clean up any temporary fields used during processing
+          if (payload.attachments) {
+            // If we processed attachments from the new format, make sure they're in xattach
+            if (!payload.xattach) {
+              payload.xattach = payload.attachments;
+            }
+            delete payload.attachments;
+          }
+          
           insertSorted(contact.messages, payload, 'timestamp');
           // if we are not in the chatModal of who sent it, playChatSound or if device visibility is hidden play sound
           if (!inActiveChatWithSender || document.visibilityState === 'hidden') {
