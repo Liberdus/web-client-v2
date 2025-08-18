@@ -1551,6 +1551,7 @@ function createNewContact(addr, username, friendStatus = 1) {
   c.tollRequiredToReceive = 1;
   c.tollRequiredToSend = 1;
   c.friend = friendStatus;
+  c.friendOld = friendStatus;
 }
 
 class ScanQRModal {
@@ -8675,7 +8676,6 @@ class NewChatModal {
     // Check if contact exists
     if (!chatsData.contacts[recipientAddress]) {
       createNewContact(recipientAddress, username, 2);
-      chatsData.contacts[recipientAddress].friendOld = 2;
       // default to 2 (Acquaintance) so recipient does not need to pay toll
       friendModal.postUpdateTollRequired(recipientAddress, 2);
     }
