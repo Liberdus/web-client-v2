@@ -5087,6 +5087,10 @@ class TollModal {
     this.modal.classList.remove('active');
   }
 
+  isActive() {
+    return this.modal.classList.contains('active');
+  }
+
   /**
    * Handle the toggle of the toll currency
    * @param {Event} event - The event object
@@ -5179,9 +5183,6 @@ class TollModal {
     }
 
     this.newTollAmountInputElement.value = '';
-
-    // Show success message
-    showToast(`Toll updated successfully to ${newTollValue} ${this.currentCurrency}`, 3000, 'success');
 
     // Update the display for tollAmountLIB and tollAmountUSD
     this.updateTollDisplay(newToll, this.currentCurrency);
@@ -12292,6 +12293,9 @@ async function checkPendingTransactions() {
 
         if (type === 'toll') {
           console.log(`Toll transaction successfully processed!`);
+          if (tollModal.isActive()) {
+            showToast(`Toll change successful!`, 3000, 'success');
+          }
         }
 
         if (type === 'update_toll_required') {
