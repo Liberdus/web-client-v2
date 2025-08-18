@@ -5180,6 +5180,9 @@ class TollModal {
 
     this.newTollAmountInputElement.value = '';
 
+    // Show success message
+    showToast(`Toll updated successfully to ${newTollValue} ${this.currentCurrency}`, 3000, 'success');
+
     // Update the display for tollAmountLIB and tollAmountUSD
     this.updateTollDisplay(newToll, this.currentCurrency);
   }
