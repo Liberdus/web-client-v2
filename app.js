@@ -5548,10 +5548,14 @@ class HelpModal {
     this.modal = document.getElementById('helpModal');
     this.closeButton = document.getElementById('closeHelpModal');
     this.submitFeedbackButton = document.getElementById('submitFeedback');
+    this.joinDiscordButton = document.getElementById('joinDiscord');
 
     this.closeButton.addEventListener('click', () => this.close());
     this.submitFeedbackButton.addEventListener('click', () => {
       window.open('https://github.com/liberdus/web-client-v2/issues', '_blank');
+    });
+    this.joinDiscordButton.addEventListener('click', () => {
+      window.open('https://discord.gg/2cpJzFnwCR', '_blank');
     });
   }
 
