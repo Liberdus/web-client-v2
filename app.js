@@ -10134,9 +10134,13 @@ class SendAssetConfirmModal {
 
     let encMemo = '';
     if (memo && sharedKeyMethod !== 'none') {
+      const memoObj = {
+        type: "transfer",
+        message: memo
+      };
       // We purposely do not encrypt/decrypt using browser native crypto functions; all crypto functions must be readable
       // Encrypt message using shared secret
-      encMemo = encryptChacha(dhkey, memo);
+      encMemo = encryptChacha(dhkey, stringify(memoObj));
     }
 
     // only include the sender info if the recipient is is a friend and has a pqKey
