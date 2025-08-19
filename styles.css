@@ -4205,11 +4205,13 @@ small {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.context-menu-option[data-action="delete"]:hover {
+.context-menu-option[data-action="delete"]:hover,
+.context-menu-option[data-action="delete-for-all"]:hover {
   background: rgba(255, 59, 48, 0.2);
 }
 
-.context-menu-option[data-action="delete"] .context-menu-text {
+.context-menu-option[data-action="delete"] .context-menu-text,
+.context-menu-option[data-action="delete-for-all"] .context-menu-text {
   color: var(--danger-color);
 }
 
