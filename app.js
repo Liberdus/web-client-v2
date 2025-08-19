@@ -3134,6 +3134,9 @@ if (mine) console.warn('txid in processChats is', txidHex)
                     // Don't process this message further - it's just a control message
                     continue;
                   }
+                } else if (parsedMessage.type === 'call') {
+                  payload.message = parsedMessage.url;
+                  payload.type = 'call';
                 } else if (parsedMessage.type === 'message') {
                   // Regular message format processing
                   payload.message = parsedMessage.message;
@@ -6889,6 +6892,7 @@ class ChatModal {
     this.modalAvatar = this.modal.querySelector('.modal-avatar');
     this.modalTitle = this.modal.querySelector('.modal-title');
     this.editButton = document.getElementById('chatEditButton');
+    this.callButton = document.getElementById('chatCallButton');
     this.sendMoneyButton = document.getElementById('chatSendMoneyButton');
     this.retryOfTxId = document.getElementById('retryOfTxId');
     this.messageInput = document.querySelector('.message-input');
@@ -6960,6 +6964,10 @@ class ChatModal {
     this.chatSendMoneyButton.addEventListener('click', () => {
       sendAssetFormModal.username = this.chatSendMoneyButton.dataset.username;
       sendAssetFormModal.open();
+    });
+
+    this.callButton.addEventListener('click', () => {
+      this.handleCallUser();
     });
 
     this.addFriendButtonChat.addEventListener('click', () => {
@@ -7665,8 +7673,19 @@ console.warn('in send message', txid)
           }
           
           // --- Render message text (if any) ---
-          const messageTextHTML = item.message && item.message.trim() ?
-            `<div class="message-content" style="white-space: pre-wrap; margin-top: ${attachmentsHTML ? '2px' : '0'};">${linkifyUrls(item.message)}</div>` : '';
+          let messageTextHTML = '';
+          if (item.message && item.message.trim()) {
+            // Check if this is a call message
+            if (item.type === 'call') {
+              // Render call message as a special clickable link
+              messageTextHTML = `<div class="message-content call-message">
+                <a href="${item.message}" target="_blank" rel="noopener noreferrer" class="call-link">📞 Join Video Call</a>
+              </div>`;
+            } else {
+              // Regular message rendering
+              messageTextHTML = `<div class="message-content" style="white-space: pre-wrap; margin-top: ${attachmentsHTML ? '2px' : '0'};">${linkifyUrls(item.message)}</div>`;
+            }
+          }
           
           messageHTML = `
                       <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
@@ -8643,6 +8662,165 @@ console.warn('in send message', txid)
       console.log(`Returning early since queried toll value is the same as the toll field in localStorage`);
       // return early
       return;
+    }
+  }
+
+  /**
+   * Handles the call user action by generating a unique Jitsi Meet URL and sending it as a call message
+   * @returns {Promise<void>}
+   */
+  async handleCallUser() {
+    try {
+      // Generate a 256-bit random number and convert to base64
+      const randomBytes = generateRandomBytes(32); // 32 bytes = 256 bits
+      const randomBase64 = bin2base64(randomBytes);
+      
+      // Create the Jitsi Meet URL
+      const jitsiUrl = `https://meet.jit.si/${randomBase64}`;
+      
+      // Open the Jitsi URL in a new tab
+      window.open(jitsiUrl, '_blank');
+      
+      // Send a call message to the contact
+      await this.sendCallMessage(jitsiUrl);
+      
+    } catch (error) {
+      console.error('Error handling call user:', error);
+      showToast('Failed to start call. Please try again.', 0, 'error');
+    }
+  }
+
+  /**
+   * Sends a call message with the Jitsi Meet URL
+   * @param {string} jitsiUrl - The Jitsi Meet URL to send
+   * @returns {Promise<void>}
+   */
+  async sendCallMessage(jitsiUrl) {
+    // if user is blocked, don't send message, show toast
+    if (myData.contacts[this.address].tollRequiredToSend == 2) {
+      showToast('You are blocked by this user', 0, 'error');
+      return;
+    }
+
+    try {
+      // Get current chat data
+      const chatsData = myData;
+      const currentAddress = this.address;
+      if (!currentAddress) return;
+
+      // Check if trying to message self
+      if (currentAddress === myAccount.address) {
+        return;
+      }
+
+      // Get sender's keys from wallet
+      const keys = myAccount.keys;
+      if (!keys) {
+        showToast('Keys not found for sender address', 0, 'error');
+        return;
+      }
+
+      // Get recipient's public key from contacts
+      let recipientPubKey = myData.contacts[currentAddress]?.public;
+      let pqRecPubKey = myData.contacts[currentAddress]?.pqPublic;
+      if (!recipientPubKey || !pqRecPubKey) {
+        const recipientInfo = await queryNetwork(`/account/${longAddress(currentAddress)}`);
+        if (!recipientInfo?.account?.publicKey) {
+          console.log(`no public key found for recipient ${currentAddress}`);
+          return;
+        }
+        recipientPubKey = recipientInfo.account.publicKey;
+        myData.contacts[currentAddress].public = recipientPubKey;
+        pqRecPubKey = recipientInfo.account.pqPublicKey;
+        myData.contacts[currentAddress].pqPublic = pqRecPubKey;
+      }
+
+      const {dhkey, cipherText} = dhkeyCombined(keys.secret, recipientPubKey, pqRecPubKey)
+      const selfKey = encryptData(bin2hex(dhkey), keys.secret+keys.pqSeed, true)  // used to decrypt our own message
+
+      // Convert call message to new JSON format
+      const callObj = {
+        type: 'call',
+        url: jitsiUrl
+      };
+
+      // Encrypt the JSON message using shared secret
+      const encMessage = encryptChacha(dhkey, stringify(callObj));
+
+      // Create message payload
+      const payload = {
+        message: encMessage,
+        encrypted: true,
+        encryptionMethod: 'xchacha20poly1305',
+        pqEncSharedKey: bin2base64(cipherText),
+        selfKey: selfKey,
+        sent_timestamp: getCorrectedTimestamp()
+      };
+
+      // Always include username, but only include other info if recipient is a friend
+      const contact = myData.contacts[currentAddress];
+      const senderInfo = {
+        username: myAccount.username,
+      };
+
+      // Add additional info only if recipient is a friend
+      if (contact && contact?.friend && contact?.friend >= 3) {
+        senderInfo.name = myData.account.name;
+        senderInfo.email = myData.account.email;
+        senderInfo.phone = myData.account.phone;
+        senderInfo.linkedin = myData.account.linkedin;
+        senderInfo.x = myData.account.x;
+      }
+
+      // Always encrypt and send senderInfo
+      payload.senderInfo = encryptChacha(dhkey, stringify(senderInfo));
+
+      // Create and send the call message transaction
+      let tollInLib = myData.contacts[currentAddress].tollRequiredToSend == 0 ? 0n : this.toll;
+      const chatMessageObj = await this.createChatMessage(currentAddress, payload, tollInLib, keys);
+      await signObj(chatMessageObj, keys);
+      const txid = getTxid(chatMessageObj);
+
+      // Create new message object for local display immediately
+      const newMessage = {
+        message: jitsiUrl,
+        timestamp: payload.sent_timestamp,
+        sent_timestamp: payload.sent_timestamp,
+        my: true,
+        txid: txid,
+        status: 'sent',
+        type: 'call'
+      };
+      insertSorted(chatsData.contacts[currentAddress].messages, newMessage, 'timestamp');
+
+      // Update chats list
+      const chatUpdate = {
+        address: currentAddress,
+        timestamp: newMessage.sent_timestamp,
+        txid: txid,
+      };
+
+      const existingChatIndex = chatsData.chats.findIndex((chat) => chat.address === currentAddress);
+      if (existingChatIndex !== -1) {
+        chatsData.chats.splice(existingChatIndex, 1);
+      }
+      insertSorted(chatsData.chats, chatUpdate, 'timestamp');
+
+      // Update the chat modal UI immediately
+      this.appendChatModal();
+
+      // Send the message transaction
+      const response = await injectTx(chatMessageObj, txid);
+
+      if (!response || !response.result || !response.result.success) {
+        console.log('call message failed to send', response);
+        updateTransactionStatus(txid, currentAddress, 'failed', 'message');
+        this.appendChatModal();
+      }
+      
+    } catch (error) {
+      console.error('Call message error:', error);
+      showToast('Failed to send call invitation. Please try again.', 0, 'error');
     }
   }
 }
