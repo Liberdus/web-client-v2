@@ -799,6 +799,7 @@
             <input type="hidden" id="retryOfTxId" />
             <!-- Add hidden file input for chat attachments -->
             <input type="file" id="chatFileInput" style="display:none;">
+            <button class="icon-button voice-record-button" id="voiceRecordButton" aria-label="Record voice message"></button>
             <button class="send-button" id="handleSendMessage">
               <svg viewBox="0 0 24 24">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
@@ -807,6 +808,50 @@
           </div>
         </div>
         <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Voice Recording Modal -->
+      <div id="voiceRecordingModal" style="display: none;">
+        <div class="voice-recording-content">
+          <div class="voice-recording-header">
+            <h3>Voice Message</h3>
+          </div>
+          <div class="voice-recording-body">
+            <div class="voice-recording-visual">
+              <div class="recording-indicator" id="recordingIndicator">
+                <div class="pulse-ring"></div>
+                <div class="pulse-ring"></div>
+                <div class="microphone-icon">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                  </svg>
+                </div>
+              </div>
+              <div class="recording-timer" id="recordingTimer">00:00</div>
+            </div>
+            
+            <div class="voice-recording-controls">
+              <!-- Initial state: Start and Cancel buttons -->
+              <div class="initial-controls" id="initialControls">
+                <button class="voice-btn voice-btn-secondary" id="cancelRecordingButton">Cancel</button>
+                <button class="voice-btn voice-btn-primary" id="startRecordingButton">Start Recording</button>
+              </div>
+              
+              <!-- Recording state: Stop button -->
+              <div class="recording-controls" id="recordingControls" style="display: none;">
+                <button class="voice-btn voice-btn-danger" id="stopRecordingButton">Stop</button>
+              </div>
+              
+              <!-- Recorded state: Cancel, Listen, and Send buttons -->
+              <div class="recorded-controls" id="recordedControls" style="display: none;">
+                <button class="voice-btn voice-btn-secondary" id="cancelVoiceMessageButton">Cancel</button>
+                <button class="voice-btn voice-btn-secondary" id="listenVoiceMessageButton">Listen</button>
+                <button class="voice-btn voice-btn-primary" id="sendVoiceMessageButton">Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Message Context Menu -->

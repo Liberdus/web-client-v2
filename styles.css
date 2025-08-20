@@ -4382,3 +4382,247 @@ small {
   margin-top: 0;
   margin-bottom: 0;
 }
+
+/* ========== Voice Recording Styles ========== */
+
+/* Voice record button */
+.icon-button.voice-record-button {
+  width: 20px;
+  height: 48px;
+  padding: 0;
+  border-radius: 50%;
+  flex-shrink: 0;
+  pointer-events: auto;
+}
+
+.icon-button.voice-record-button::before {
+  content: '';
+  width: var(--icon-size-24);
+  height: var(--icon-size-24);
+  display: block;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: var(--icon-size-24) var(--icon-size-24);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' fill='currentColor'%3E%3Cpath d='m439.5,236c0-11.3-9.1-20.4-20.4-20.4s-20.4,9.1-20.4,20.4c0,70-64,126.9-142.7,126.9-78.7,0-142.7-56.9-142.7-126.9 0-11.3-9.1-20.4-20.4-20.4s-20.4,9.1-20.4,20.4c0,86.2 71.5,157.4 163.1,166.7v57.5h-23.6c-11.3,0-20.4,9.1-20.4,20.4 0,11.3 9.1,20.4 20.4,20.4h88c11.3,0 20.4-9.1 20.4-20.4 0-11.3-9.1-20.4-20.4-20.4h-23.6v-57.5c91.6-9.3 163.1-80.5 163.1-166.7z'/%3E%3Cpath d='m256,323.5c51,0 92.3-41.3 92.3-92.3v-127.9c0-51-41.3-92.3-92.3-92.3s-92.3,41.3-92.3,92.3v127.9c0,51 41.3,92.3 92.3,92.3zm-52.3-220.2c0-28.8 23.5-52.3 52.3-52.3s52.3,23.5 52.3,52.3v127.9c0,28.8-23.5,52.3-52.3,52.3s-52.3-23.5-52.3-52.3v-127.9z'/%3E%3C/svg%3E");
+}
+
+/* Voice recording modal */
+#voiceRecordingModal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.voice-recording-content {
+  background: var(--background-color);
+  border-radius: 12px;
+  padding: 2rem;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.voice-recording-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.voice-recording-header h3 {
+  margin: 0;
+  color: var(--primary-text-color);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.voice-recording-body {
+  text-align: center;
+}
+
+.voice-recording-visual {
+  margin-bottom: 2rem;
+}
+
+.recording-indicator {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 1rem;
+}
+
+.microphone-icon {
+  width: 80px;
+  height: 80px;
+  background: var(--primary-color);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 3;
+}
+
+.microphone-icon svg {
+  width: 40px;
+  height: 40px;
+  fill: white;
+}
+
+/* Pulse animation rings */
+.pulse-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 80px;
+  border: 3px solid var(--primary-color);
+  border-radius: 50%;
+  opacity: 0;
+  animation: pulse-ring 1.25s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+.pulse-ring:nth-child(2) {
+  animation-delay: 0.4s;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: translate(-50%, -50%) scale(0.33);
+    opacity: 1;
+  }
+  80%, 100% {
+    transform: translate(-50%, -50%) scale(2.4);
+    opacity: 0;
+  }
+}
+
+.recording-timer {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--primary-text-color);
+  font-family: 'Courier New', monospace;
+}
+
+.voice-recording-controls {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.voice-btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  min-width: 100px;
+}
+
+.voice-btn-primary {
+  background: var(--primary-color);
+  color: white;
+}
+
+.voice-btn-primary:hover {
+  background: var(--accent-bright-blue);
+}
+
+.voice-btn-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+}
+
+.voice-btn-secondary:hover {
+  background: var(--bg-hover);
+}
+
+.voice-btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.voice-btn-danger:hover {
+  background: #c82333;
+}
+
+/* Voice message display in chat */
+.voice-message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  margin: 4px 0;
+}
+
+.voice-message-play-button {
+  width: 40px;
+  height: 40px;
+  background: var(--primary-color);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.voice-message-play-button:hover {
+  background: var(--accent-bright-blue);
+}
+
+.voice-message-play-button svg {
+  width: 16px;
+  height: 16px;
+  fill: white;
+}
+
+.voice-message-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.voice-message-duration {
+  color: var(--text-color);
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+/* Make duration text white on sent messages */
+.message.sent .voice-message-duration {
+  color: white;
+}
+
+.voice-message-time-display {
+  color: var(--text-color);
+  font-size: 0.85rem;
+  font-family: 'Courier New', monospace;
+  margin-top: 4px;
+  width: 100%;
+}
+
+/* Make time display white on sent messages */
+.message.sent .voice-message-time-display {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Hide pulse rings when not recording */
+.recording-indicator:not(.recording) .pulse-ring {
+  display: none;
+}

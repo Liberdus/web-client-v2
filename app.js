@@ -465,6 +465,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // LocalStorage Monitor
   localStorageMonitor.load();
 
+  // Voice Recording Modal
+  voiceRecordingModal.load();
+
   // add event listener for back-button presses to prevent shift+tab
   document.querySelectorAll('.back-button').forEach((button) => {
     button.addEventListener('keydown', ignoreShiftTabKey);
@@ -3137,6 +3140,12 @@ if (mine) console.warn('txid in processChats is', txidHex)
                 } else if (parsedMessage.type === 'call') {
                   payload.message = parsedMessage.url;
                   payload.type = 'call';
+                } else if (parsedMessage.type === 'vm') {
+                  // Voice message format processing
+                  payload.message = ''; // Voice messages don't have text
+                  payload.url = parsedMessage.url;
+                  payload.duration = parsedMessage.duration;
+                  payload.type = 'vm';
                 } else if (parsedMessage.type === 'message') {
                   // Regular message format processing
                   payload.message = parsedMessage.message;
@@ -3199,7 +3208,26 @@ if (mine) console.warn('txid in processChats is', txidHex)
           payload.txid = txidHex;
           delete payload.pqEncSharedKey;
           
-          // Clean up any temporary fields used during processing
+          // Store voice message fields if present
+          if (payload.type === 'vm') {
+            // Keep the voice message fields and encryption keys
+            // url and duration are already set from the parsing above
+            if (!mine && tx.xmessage.pqEncSharedKey) {
+              payload.pqEncSharedKey = tx.xmessage.pqEncSharedKey;
+            }
+            if (mine && tx.xmessage.selfKey) {
+              payload.selfKey = tx.xmessage.selfKey;
+            }
+            // Store audio file encryption keys for voice message playback
+            if (!mine && tx.xmessage.audioPqEncSharedKey) {
+              payload.audioPqEncSharedKey = tx.xmessage.audioPqEncSharedKey;
+            }
+            if (mine && tx.xmessage.audioSelfKey) {
+              payload.audioSelfKey = tx.xmessage.audioSelfKey;
+            }
+          } else {
+            delete payload.pqEncSharedKey;
+          }
           if (payload.attachments) {
             // If we processed attachments from the new format, make sure they're in xattach
             if (!payload.xattach) {
@@ -6903,6 +6931,14 @@ class ChatModal {
     this.addAttachmentButton = document.getElementById('addAttachmentButton');
     this.chatFileInput = document.getElementById('chatFileInput');
 
+    // Voice recording elements
+    this.voiceRecordButton = document.getElementById('voiceRecordButton');
+    
+
+    // this.voiceRecordingModal = new VoiceRecordingModal(this);
+    // this.voiceRecordingModal.init();
+
+
     // Initialize context menu
     this.contextMenu = document.getElementById('messageContextMenu');
     
@@ -6987,6 +7023,13 @@ class ChatModal {
       });
     }
 
+    // Voice recording event listeners
+    if (this.voiceRecordButton) {
+      this.voiceRecordButton.addEventListener('click', () => {
+        voiceRecordingModal.open();
+      });
+    }
+
     this.messagesList.addEventListener('click', async (e) => {
       const row = e.target.closest('.attachment-row');
       if (!row) return;
@@ -7004,6 +7047,15 @@ class ChatModal {
         await this.handleAttachmentDownload(item, row);
       } finally {
         this.attachmentDownloadInProgress = false;
+      }
+    });
+
+    // Voice message play button event delegation
+    this.messagesList.addEventListener('click', (e) => {
+      const playButton = e.target.closest('.voice-message-play-button');
+      if (playButton) {
+        e.preventDefault();
+        this.playVoiceMessage(playButton);
       }
     });
 
@@ -7687,6 +7739,26 @@ console.warn('in send message', txid)
             }
           }
           
+          // Check for voice message
+          if (item.type === 'vm') {
+            const duration = this.formatDuration(item.duration);
+            // Use audio encryption keys for playback, fall back to message encryption keys if not available
+            const audioEncKey = item.audioPqEncSharedKey || item.pqEncSharedKey || '';
+            const audioSelfKey = item.audioSelfKey || item.selfKey || '';
+            messageTextHTML = `
+              <div class="voice-message" data-voice-url="${item.url || ''}" data-pqEncSharedKey="${audioEncKey}" data-selfKey="${audioSelfKey}" data-msg-idx="${i}">
+                <button class="voice-message-play-button">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                </button>
+                <div class="voice-message-info">
+                  <div class="voice-message-duration">Voice message</div>
+                  <div class="voice-message-time-display">0:00 / ${duration}</div>
+                </div>
+              </div>`;
+          }
+          
           messageHTML = `
                       <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
                           ${attachmentsHTML}
@@ -8254,6 +8326,7 @@ console.warn('in send message', txid)
    */
   handleMessageClick(e) {
     if (e.target.closest('.attachment-row')) return;
+    if (e.target.closest('.voice-message-play-button')) return;
 
     if (e.target.tagName === 'A' || e.target.closest('a')) return;
     
@@ -8823,6 +8896,304 @@ console.warn('in send message', txid)
       showToast('Failed to send call invitation. Please try again.', 0, 'error');
     }
   }
+
+  // ========== Voice Message Methods ==========
+
+  /**
+   * Format duration from seconds to mm:ss
+   * @param {number} seconds - Duration in seconds
+   * @returns {string} Formatted duration
+   */
+  formatDuration(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  /**
+   * Send voice message transaction
+   * @param {string} voiceMessageUrl - URL of the uploaded voice message
+   * @param {number} duration - Duration in seconds
+   * @param {Uint8Array} audioPqEncSharedKey - Encrypted shared key for audio file
+   * @param {string} audioSelfKey - Self key for audio file decryption
+   * @returns {Promise<void>}
+   */
+  async sendVoiceMessageTx(voiceMessageUrl, duration, audioPqEncSharedKey, audioSelfKey) {
+    // Create voice message object
+    const messageObj = {
+      type: 'vm',
+      url: voiceMessageUrl,
+      duration: duration
+    };
+
+    // Get recipient's public key
+    let recipientPubKey = myData.contacts[this.address]?.public;
+    let pqRecPubKey = myData.contacts[this.address]?.pqPublic;
+    
+    if (!recipientPubKey || !pqRecPubKey) {
+      const recipientInfo = await queryNetwork(`/account/${longAddress(this.address)}`);
+      if (!recipientInfo?.account?.publicKey) {
+        throw new Error(`No public key found for recipient ${this.address}`);
+      }
+      recipientPubKey = recipientInfo.account.publicKey;
+      myData.contacts[this.address].public = recipientPubKey;
+      pqRecPubKey = recipientInfo.account.pqPublicKey;
+      myData.contacts[this.address].pqPublic = pqRecPubKey;
+    }
+
+    // Encrypt message object
+    const {dhkey, cipherText: messagePqEncSharedKey} = dhkeyCombined(myAccount.keys.secret, recipientPubKey, pqRecPubKey);
+    const encMessage = encryptChacha(dhkey, stringify(messageObj));
+
+    // Create payload
+    const payload = {
+      message: encMessage,
+      encrypted: true,
+      encryptionMethod: 'xchacha20poly1305',
+      pqEncSharedKey: bin2base64(messagePqEncSharedKey),
+      selfKey: encryptData(bin2hex(dhkey), myAccount.keys.secret + myAccount.keys.pqSeed, true),
+      // Audio file encryption keys (for voice message playback)
+      audioPqEncSharedKey: bin2base64(audioPqEncSharedKey),
+      audioSelfKey: audioSelfKey,
+      sent_timestamp: getCorrectedTimestamp()
+    };
+
+    // Add sender info
+    const contact = myData.contacts[this.address];
+    const senderInfo = {
+      username: myAccount.username,
+    };
+
+    if (contact && contact?.friend && contact?.friend >= 3) {
+      senderInfo.name = myData.account.name;
+      senderInfo.email = myData.account.email;
+      senderInfo.phone = myData.account.phone;
+      senderInfo.linkedin = myData.account.linkedin;
+      senderInfo.x = myData.account.x;
+    }
+
+    payload.senderInfo = encryptChacha(dhkey, stringify(senderInfo));
+
+    // Calculate toll
+    let tollInLib = myData.contacts[this.address].tollRequiredToSend == 0 ? 0n : this.toll;
+
+    // Create and send transaction
+    const chatMessageObj = await this.createChatMessage(this.address, payload, tollInLib, myAccount.keys);
+    await signObj(chatMessageObj, myAccount.keys);
+    const txid = getTxid(chatMessageObj);
+
+    // Optimistic UI update
+    const newMessage = {
+      message: '', // Voice messages don't have text
+      url: voiceMessageUrl,
+      duration: duration,
+      type: 'vm',
+      timestamp: payload.sent_timestamp,
+      sent_timestamp: payload.sent_timestamp,
+      my: true,
+      txid: txid,
+      status: 'sent',
+      selfKey: audioSelfKey, // Add audio file selfKey for our own message decryption
+      pqEncSharedKey: bin2base64(audioPqEncSharedKey) // Add audio file pqEncSharedKey
+    };
+
+    const contact2 = myData.contacts[this.address];
+    if (contact2) {
+      insertSorted(contact2.messages, newMessage, 'timestamp');
+      this.appendChatModal();
+      
+      // Update chats list
+      const existingChatIndex = myData.chats.findIndex((chat) => chat.address === this.address);
+      if (existingChatIndex !== -1) {
+        myData.chats.splice(existingChatIndex, 1);
+      }
+      
+      const chatUpdate = {
+        address: this.address,
+        timestamp: newMessage.timestamp,
+      };
+      
+      const insertIndex = myData.chats.findIndex((chat) => chat.timestamp < chatUpdate.timestamp);
+      if (insertIndex === -1) {
+        myData.chats.push(chatUpdate);
+      } else {
+        myData.chats.splice(insertIndex, 0, chatUpdate);
+      }
+    }
+
+    // Send to network
+    try {
+      await injectTx(chatMessageObj, txid);
+      newMessage.status = 'sent';
+    } catch (error) {
+      console.error('Failed to send voice message to network:', error);
+      newMessage.status = 'failed';
+      showToast('Voice message failed to send', 0, 'error');
+    }
+
+    this.appendChatModal();
+    chatsScreen.updateChatList();
+    saveState();
+  }
+
+  /**
+   * Play voice message
+   * @param {HTMLElement} buttonElement - Play button element
+   * @returns {Promise<void>}
+   */
+  async playVoiceMessage(buttonElement) {
+    const voiceMessageElement = buttonElement.closest('.voice-message');
+    if (!voiceMessageElement) return;
+
+    // Check if audio is already playing/paused
+    const existingAudio = voiceMessageElement.audioElement;
+    
+    if (existingAudio) {
+      if (existingAudio.paused) {
+        // Resume playback
+        existingAudio.play();
+        buttonElement.innerHTML = `
+          <svg viewBox="0 0 24 24">
+            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+          </svg>
+        `;
+      } else {
+        // Pause playback
+        existingAudio.pause();
+        buttonElement.innerHTML = `
+          <svg viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+        `;
+      }
+      return;
+    }
+
+    const voiceUrl = voiceMessageElement.dataset.voiceUrl;
+    const pqEncSharedKey = voiceMessageElement.dataset.pqencsharedkey;
+    const selfKey = voiceMessageElement.dataset.selfkey;
+    const msgIdx = voiceMessageElement.dataset.msgIdx;
+
+    if (!voiceUrl) {
+      showToast('Voice message URL not found', 3000, 'error');
+      return;
+    }
+
+    try {
+      // Check if it's our own message or received message
+      const message = myData.contacts[this.address].messages[msgIdx];
+      const isMyMessage = message.my;
+
+      buttonElement.disabled = true;
+      
+      // Download the encrypted voice message
+      const response = await fetch(voiceUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to download voice message: ${response.status}`);
+      }
+
+      const encryptedData = await response.arrayBuffer();
+      
+      let dhkey;
+      if (isMyMessage && selfKey) {
+        // For our own messages, decrypt using selfKey
+        const password = myAccount.keys.secret + myAccount.keys.pqSeed;
+        dhkey = hex2bin(decryptData(selfKey, password, true));
+      } else if (pqEncSharedKey) {
+        // For received messages, use recipient's key and pqEncSharedKey
+        const contact = myData.contacts[this.address];
+        let senderPublic = contact?.public;
+        
+        if (!senderPublic) {
+          const senderInfo = await queryNetwork(`/account/${longAddress(this.address)}`);
+          if (!senderInfo?.account?.publicKey) {
+            throw new Error(`No public key found for sender ${this.address}`);
+          }
+          senderPublic = senderInfo.account.publicKey;
+          contact.public = senderPublic;
+        }
+        
+        dhkey = dhkeyCombined(myAccount.keys.secret, senderPublic, myAccount.keys.pqSeed, base642bin(pqEncSharedKey)).dhkey;
+      } else {
+        throw new Error('Missing encryption keys for voice message');
+      }
+
+      // Decrypt the voice message
+      const cipherB64 = bin2base64(new Uint8Array(encryptedData));
+      const plainB64 = decryptChacha(dhkey, cipherB64);
+      if (!plainB64) {
+        throw new Error('decryptChacha returned null');
+      }
+      const clearBin = base642bin(plainB64);
+      
+      // Create audio blob and play
+      const audioBlob = new Blob([clearBin], { type: 'audio/webm' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      
+      // Store audio element reference for pause/resume functionality
+      voiceMessageElement.audioElement = audio;
+      voiceMessageElement.audioUrl = audioUrl;
+      
+      // Update UI to show playing state and enable button for pause functionality
+      buttonElement.innerHTML = `
+        <svg viewBox="0 0 24 24">
+          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+        </svg>
+      `;
+      buttonElement.disabled = false; // Enable button for pause functionality
+      
+      // Time display tracking
+      const timeDisplayElement = voiceMessageElement.querySelector('.voice-message-time-display');
+      
+      audio.ontimeupdate = () => {
+        if (timeDisplayElement) {
+          const currentTime = this.formatDuration(Math.floor(audio.currentTime));
+          const totalTime = this.formatDuration(message.duration);
+          timeDisplayElement.textContent = `${currentTime} / ${totalTime}`;
+        }
+      };
+      
+      audio.onended = () => {
+        // Reset UI
+        buttonElement.innerHTML = `
+          <svg viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+        `;
+        buttonElement.disabled = false;
+        if (timeDisplayElement) {
+          // Get the original duration from the voice message data
+          const originalDuration = this.formatDuration(message.duration);
+          timeDisplayElement.textContent = `0:00 / ${originalDuration}`;
+        }
+        // Clean up audio element and URL
+        delete voiceMessageElement.audioElement;
+        URL.revokeObjectURL(voiceMessageElement.audioUrl);
+        delete voiceMessageElement.audioUrl;
+      };
+      
+      audio.onerror = (error) => {
+        console.error('Error playing voice message:', error);
+        showToast('Error playing voice message', 3000, 'error');
+        buttonElement.disabled = false;
+        // Clean up on error
+        delete voiceMessageElement.audioElement;
+        if (voiceMessageElement.audioUrl) {
+          URL.revokeObjectURL(voiceMessageElement.audioUrl);
+          delete voiceMessageElement.audioUrl;
+        }
+      };
+      
+      // Start playing
+      await audio.play();
+      
+    } catch (error) {
+      console.error('Error playing voice message:', error);
+      showToast(`Error playing voice message: ${error.message}`, 3000, 'error');
+      buttonElement.disabled = false;
+    }
+  }
 }
 
 const chatModal = new ChatModal();
@@ -8945,6 +9316,376 @@ class FailedMessageMenu {
 }
 
 const failedMessageMenu = new FailedMessageMenu();
+
+/**
+ * Voice Recording Modal Class
+ * @class
+ * @description Handles the voice recording modal functionality
+ * @returns {void}
+ */
+class VoiceRecordingModal {
+  constructor() {
+    this.mediaRecorder = null;
+    this.recordedBlob = null;
+    this.recordingStartTime = null;
+    this.recordingInterval = null;
+  }
+
+  load() {
+    // Get modal elements
+    this.modal = document.getElementById('voiceRecordingModal');
+    this.startRecordingButton = document.getElementById('startRecordingButton');
+    this.stopRecordingButton = document.getElementById('stopRecordingButton');
+    this.cancelRecordingButton = document.getElementById('cancelRecordingButton');
+    this.cancelVoiceMessageButton = document.getElementById('cancelVoiceMessageButton');
+    this.listenVoiceMessageButton = document.getElementById('listenVoiceMessageButton');
+    this.sendVoiceMessageButton = document.getElementById('sendVoiceMessageButton');
+    this.recordingIndicator = document.getElementById('recordingIndicator');
+    this.recordingTimer = document.getElementById('recordingTimer');
+    this.initialControls = document.getElementById('initialControls');
+    this.recordingControls = document.getElementById('recordingControls');
+    this.recordedControls = document.getElementById('recordedControls');
+
+    this.startRecordingButton.addEventListener('click', () => {
+      this.startVoiceRecording();
+    });
+    this.stopRecordingButton.addEventListener('click', () => {
+      this.stopVoiceRecording();
+    });
+    this.cancelRecordingButton.addEventListener('click', () => {
+      this.cancelVoiceRecording();
+    });
+    this.cancelVoiceMessageButton.addEventListener('click', () => {
+      this.cancelVoiceMessage();
+    });
+    this.listenVoiceMessageButton.addEventListener('click', () => {
+      this.listenVoiceMessage();
+    });
+    this.sendVoiceMessageButton.addEventListener('click', () => {
+      this.sendVoiceMessage();
+    });
+    // Close voice recording modal when clicking outside
+    this.modal.addEventListener('click', (e) => {
+      if (e.target === this.modal) {
+        this.close();
+      }
+    });
+
+    // Add event listeners
+    this.setupEventListeners();
+  }
+
+  /**
+   * Open the voice recording modal
+   * @returns {void}
+   */
+  open() {
+    console.log('Opening voice recording modal');
+    this.modal.style.display = 'flex';
+    this.resetUI();
+  }
+
+  /**
+   * Close the voice recording modal
+   * @returns {void}
+   */
+  close() {
+    this.modal.style.display = 'none';
+    this.cleanup();
+  }
+
+  /**
+   * Reset the voice recording UI to initial state
+   * @returns {void}
+   */
+  resetUI() {
+    this.initialControls.style.display = 'flex';
+    this.recordingControls.style.display = 'none';
+    this.recordedControls.style.display = 'none';
+    this.recordingTimer.textContent = '00:00';
+    this.recordingIndicator.classList.remove('recording');
+  }
+
+  /**
+   * Start voice recording
+   * @returns {Promise<void>}
+   */
+  async startVoiceRecording() {
+    try {
+      // Request microphone access
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: { 
+          echoCancellation: true, 
+          noiseSuppression: true,
+          sampleRate: 44100
+        } 
+      });
+      
+      // Initialize MediaRecorder
+      const options = { 
+        mimeType: 'audio/webm;codecs=opus',
+        audioBitsPerSecond: 128000
+      };
+      
+      // Fallback to other formats if webm/opus is not supported
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options.mimeType = 'audio/webm';
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+          options.mimeType = 'audio/mp4';
+          if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+            options.mimeType = ''; // Let browser choose
+          }
+        }
+      }
+
+      this.mediaRecorder = new MediaRecorder(stream, options);
+      
+      const audioChunks = [];
+      
+      this.mediaRecorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
+      
+      this.mediaRecorder.onstop = () => {
+        this.recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        stream.getTracks().forEach(track => track.stop());
+        this.showRecordedControls();
+      };
+      
+      // Start recording
+      this.mediaRecorder.start();
+      this.recordingStartTime = Date.now();
+      
+      // Update UI
+      this.initialControls.style.display = 'none';
+      this.recordingControls.style.display = 'flex';
+      this.recordingIndicator.classList.add('recording');
+      
+      // Start timer
+      this.startRecordingTimer();
+      
+    } catch (error) {
+      console.error('Error starting voice recording:', error);
+      showToast('Could not access microphone. Please check permissions.', 0, 'error');
+    }
+  }
+
+  /**
+   * Stop voice recording
+   * @returns {void}
+   */
+  stopVoiceRecording() {
+    if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+      this.mediaRecorder.stop();
+      this.stopRecordingTimer();
+      this.recordingIndicator.classList.remove('recording');
+    }
+  }
+
+  /**
+   * Start the recording timer
+   * @returns {void}
+   */
+  startRecordingTimer() {
+    this.recordingInterval = setInterval(() => {
+      const elapsed = Date.now() - this.recordingStartTime;
+      const seconds = Math.floor(elapsed / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      
+      this.recordingTimer.textContent = 
+        `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+      
+      // Stop recording after 5 minutes
+      if (elapsed >= 5 * 60 * 1000) {
+        this.stopVoiceRecording();
+        showToast('Maximum recording time reached (5 minutes)', 3000, 'warning');
+      }
+    }, 1000);
+  }
+
+  /**
+   * Stop the recording timer
+   * @returns {void}
+   */
+  stopRecordingTimer() {
+    if (this.recordingInterval) {
+      clearInterval(this.recordingInterval);
+      this.recordingInterval = null;
+    }
+  }
+
+  /**
+   * Show recorded controls UI
+   * @returns {void}
+   */
+  showRecordedControls() {
+    this.recordingControls.style.display = 'none';
+    this.recordedControls.style.display = 'flex';
+  }
+
+  /**
+   * Cancel voice recording
+   * @returns {void}
+   */
+  cancelVoiceRecording() {
+    if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+      this.mediaRecorder.stop();
+      // Stop the stream tracks
+      if (this.mediaRecorder.stream) {
+        this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      }
+    }
+    this.close();
+  }
+
+  /**
+   * Cancel voice message
+   * @returns {void}
+   */
+  cancelVoiceMessage() {
+    this.close();
+  }
+
+  /**
+   * Listen to recorded voice message
+   * @returns {void}
+   */
+  listenVoiceMessage() {
+    if (this.recordedBlob) {
+      const audioUrl = URL.createObjectURL(this.recordedBlob);
+      const audio = new Audio(audioUrl);
+      
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      audio.onerror = (error) => {
+        console.error('Error playing voice message:', error);
+        showToast('Error playing voice message', 3000, 'error');
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      audio.play().catch(error => {
+        console.error('Error playing voice message:', error);
+        showToast('Error playing voice message', 3000, 'error');
+      });
+    }
+  }
+
+  /**
+   * Send voice message
+   * @returns {Promise<void>}
+   */
+  async sendVoiceMessage() {
+    if (!this.recordedBlob) return;
+    
+    this.sendVoiceMessageButton.disabled = true;
+
+    try {
+      // Calculate duration
+      const duration = this.getRecordingDuration();
+      
+      // Get recipient's DH key for encryption
+      const { dhkey, cipherText: pqEncSharedKey } = await chatModal.getRecipientDhKey(chatModal.address);
+      const password = myAccount.keys.secret + myAccount.keys.pqSeed;
+      const selfKey = encryptData(bin2hex(dhkey), password, true);
+
+      // Encrypt the audio file similar to attachments
+      const audioArrayBuffer = await this.recordedBlob.arrayBuffer();
+      const audioData = new Uint8Array(audioArrayBuffer);
+      
+      // Encrypt the audio data
+      const worker = new Worker('encryption.worker.js', { type: 'module' });
+      
+      const encryptionPromise = new Promise((resolve, reject) => {
+        worker.onmessage = (e) => {
+          if (e.data.error) {
+            reject(new Error(e.data.error));
+          } else {
+            resolve(e.data.cipherBin);
+          }
+          worker.terminate();
+        };
+        
+        worker.onerror = (error) => {
+          reject(error);
+          worker.terminate();
+        };
+      });
+      
+      // Send encryption job to worker
+      worker.postMessage({
+        fileBuffer: audioData.buffer,
+        dhkey: dhkey
+      }, [audioData.buffer]);
+      
+      const encryptedData = await encryptionPromise;
+      
+      // Upload encrypted audio file
+      const blob = new Blob([new Uint8Array(encryptedData)], { type: 'application/octet-stream' });
+      const form = new FormData();
+      form.append('file', blob, `voice_message_${Date.now()}.webm`);
+
+      const uploadUrl = 'https://inv.liberdus.com:2083';
+      const response = await fetch(`${uploadUrl}/post`, {
+        method: 'POST',
+        body: form
+      });
+
+      if (!response.ok) throw new Error(`Upload failed: ${response.status}`);
+
+      const { id } = await response.json();
+      if (!id) throw new Error('No file ID returned from upload');
+
+      const voiceMessageUrl = `${uploadUrl}/get/${id}`;
+      
+      // Send the voice message through chat modal
+      await chatModal.sendVoiceMessageTx(voiceMessageUrl, duration, pqEncSharedKey, selfKey);
+      
+      this.close();
+      
+    } catch (error) {
+      console.error('Error sending voice message:', error);
+      showToast(`Failed to send voice message: ${error.message}`, 0, 'error');
+    } finally {
+      this.sendVoiceMessageButton.disabled = false;
+    }
+  }
+
+  /**
+   * Get recording duration in seconds
+   * @returns {number} Duration in seconds
+   */
+  getRecordingDuration() {
+    if (!this.recordingStartTime) return 0;
+    return Math.floor((Date.now() - this.recordingStartTime) / 1000);
+  }
+
+  /**
+   * Cleanup voice recording resources
+   * @returns {void}
+   */
+  cleanup() {
+    // Stop any ongoing recording
+    if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+      this.mediaRecorder.stop();
+      if (this.mediaRecorder.stream) {
+        this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      }
+    }
+    
+    // Clear timers
+    this.stopRecordingTimer();
+    
+    // Reset state
+    this.mediaRecorder = null;
+    this.recordedBlob = null;
+    this.recordingStartTime = null;
+  }
+}
+
+const voiceRecordingModal = new VoiceRecordingModal();
 
 /**
  * New Chat Modal Class
