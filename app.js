@@ -468,6 +468,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Voice Recording Modal
   voiceRecordingModal.load();
 
+
   // add event listener for back-button presses to prevent shift+tab
   document.querySelectorAll('.back-button').forEach((button) => {
     button.addEventListener('keydown', ignoreShiftTabKey);
@@ -1946,6 +1947,21 @@ class SignInModal {
       event.preventDefault();
     }
 
+    history.pushState({state:1}, "", ".")
+    window.addEventListener('popstate', handleBrowserBackButton);
+    /*
+    window.addEventListener('popstate', (event) => {
+      console.log('in popstate')
+      // If a state has been provided, we have a "simulated" page
+      // and we update the current page.
+      if (event.state) {
+        // Simulate the loading of the previous page
+        console.log(event.state);
+      }
+    });
+    */
+
+    
     enterFullscreen();
     
     const username = this.usernameSelect.value;
@@ -13983,3 +13999,141 @@ function getStabilityFactor() {
 //  return parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
 }
 
+
+function handleBrowserBackButton(event) {
+  console.log('in popstate')
+  history.pushState({state:1}, '', '.');
+
+  const topModal = findTopModal();
+  
+  if (topModal) {
+    const modalId = topModal.id;
+    const modalInstance = window[modalId];
+    
+    const closed = closeTopModal(topModal)
+    if (closed){
+      return true;
+    }
+  }
+  return false;
+}
+
+function findTopModal() {
+  const activeModals = document.querySelectorAll('.modal.active');
+  if (activeModals.length === 0) return null;
+  const topModal = activeModals[activeModals.length - 1];
+  return topModal;
+}
+
+function closeTopModal(topModal){
+  const modalId = topModal.id;
+  console.log('trying to close', modalId)
+  switch (modalId) {
+    case 'chatModal':
+      chatModal.close();
+      break;
+    case 'menuModal':
+      menuModal.close();
+      break;
+    case 'settingsModal':
+      settingsModal.close();
+      break;
+    case 'sendAssetFormModal':
+      sendAssetFormModal.close();
+      break;
+    case 'historyModal':
+      historyModal.close();
+      break;
+    case 'scanQRModal':
+      scanQRModal.close();
+      break;
+    case 'newChatModal':
+      newChatModal.close();
+      break;
+    case 'createAccountModal':
+      createAccountModal.close();
+      break;
+    case 'backupAccountModal':
+      backupAccountModal.close();
+      break;
+    case 'restoreAccountModal':
+      restoreAccountModal.close();
+      break;
+    case 'tollModal':
+      tollModal.close();
+      break;
+    case 'inviteModal':
+      inviteModal.close();
+      break;
+    case 'aboutModal':
+      aboutModal.close();
+      break;
+    case 'helpModal':
+      helpModal.close();
+      break;
+    case 'farmModal':
+      farmModal.close();
+      break;
+    case 'logsModal':
+      logsModal.close();
+      break;
+    case 'myProfileModal':
+      myProfileModal.close();
+      break;
+    case 'validatorStakingModal':
+      validatorStakingModal.close();
+      break;
+    case 'stakeValidatorModal':
+      stakeValidatorModal.close();
+      break;
+    case 'contactInfoModal':
+      contactInfoModal.close();
+      break;
+    case 'friendModal':
+      friendModal.close();
+      break;
+    case 'editContactModal':
+      editContactModal.close();
+      break;
+    case 'searchMessagesModal':
+      searchMessagesModal.close();
+      break;
+    case 'searchContactsModal':
+      searchContactsModal.close();
+      break;
+    case 'receiveModal':
+      receiveModal.close();
+      break;
+    case 'sendAssetConfirmModal':
+      sendAssetConfirmModal.close();
+      break;
+    case 'failedTransactionModal':
+      failedTransactionModal.close();
+      break;
+    case 'bridgeModal':
+      bridgeModal.close();
+      break;
+    case 'migrateAccountsModal':
+      migrateAccountsModal.close();
+      break;
+    case 'lockModal':
+      lockModal.close();
+      break;
+    case 'unlockModal':
+      unlockModal.close();
+      break;
+    case 'launchModal':
+      launchModal.close();
+      break;
+    case 'updateWarningModal':
+      updateWarningModal.close();
+      break;
+    case 'removeAccountModal':
+      removeAccountModal.close();
+      break;
+    default:
+      console.log('Unknown modal:', modalId);
+      return false;
+  }
+  return true; // means we closed a modal
+}
