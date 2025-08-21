@@ -1949,18 +1949,6 @@ class SignInModal {
 
     history.pushState({state:1}, "", ".")
     window.addEventListener('popstate', handleBrowserBackButton);
-    /*
-    window.addEventListener('popstate', (event) => {
-      console.log('in popstate')
-      // If a state has been provided, we have a "simulated" page
-      // and we update the current page.
-      if (event.state) {
-        // Simulate the loading of the previous page
-        console.log(event.state);
-      }
-    });
-    */
-
     
     enterFullscreen();
     
