@@ -9416,7 +9416,13 @@ class CallInviteModal {
     this.modal.classList.add('active');
 
     // Build contacts list (exclude the current chat participant and self)
-    const contacts = Object.values(myData.contacts || {}).filter(c => c.address !== this.address && c.address !== myAccount.address);
+    const contacts = Object.values(myData.contacts || {})
+      .filter(c => c.address !== this.address && c.address !== myAccount.address)
+      .sort((a, b) => {
+        const aName = (a.username || a.address || '').toString().toLowerCase();
+        const bName = (b.username || b.address || '').toString().toLowerCase();
+        return aName.localeCompare(bName);
+      });
 
     for (const contact of contacts) {
       const clone = this.template.content ? this.template.content.cloneNode(true) : null;
@@ -9434,8 +9440,13 @@ class CallInviteModal {
       const label = clone.querySelector('.invite-contact-label');
       if (label && checkbox) {
         label.addEventListener('click', (ev) => {
+          // If the click originated directly on the checkbox, let the native behavior occur
+          if (ev.target === checkbox) {
+            // updateCounter will be called via the change listener on the contacts list
+            return;
+          }
           ev.preventDefault();
-          // Toggle checkbox manually
+          // Toggle checkbox manually when clicking the label text/row
           checkbox.checked = !checkbox.checked;
           this.updateCounter();
         });
