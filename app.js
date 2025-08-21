@@ -468,6 +468,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Voice Recording Modal
   voiceRecordingModal.load();
 
+  // Call Invite Modal
+  callInviteModal.load();
+
   // add event listener for back-button presses to prevent shift+tab
   document.querySelectorAll('.back-button').forEach((button) => {
     button.addEventListener('keydown', ignoreShiftTabKey);
@@ -8367,6 +8370,22 @@ console.warn('in send message', txid)
     if (deleteForAllOption) {
       deleteForAllOption.style.display = isMine ? 'flex' : 'none';
     }
+
+  // If this is a call message, show call-specific options and hide copy
+  // The `.call-message` element may be nested inside the `.message` element, so check for a descendant
+  const isCall = (messageEl.dataset && messageEl.dataset.type === 'call') || !!messageEl.querySelector('.call-message');
+    const copyOption = this.contextMenu.querySelector('[data-action="copy"]');
+    const joinOption = this.contextMenu.querySelector('[data-action="join"]');
+    const inviteOption = this.contextMenu.querySelector('[data-action="invite"]');
+    if (isCall) {
+      if (copyOption) copyOption.style.display = 'none';
+      if (joinOption) joinOption.style.display = 'flex';
+      if (inviteOption) inviteOption.style.display = 'flex';
+    } else {
+      if (copyOption) copyOption.style.display = 'flex';
+      if (joinOption) joinOption.style.display = 'none';
+      if (inviteOption) inviteOption.style.display = 'none';
+    }
     
     this.positionContextMenu(this.contextMenu, messageEl);
     this.contextMenu.style.display = 'block';
@@ -8425,6 +8444,13 @@ console.warn('in send message', txid)
       case 'copy':
         this.copyMessageContent(messageEl);
         break;
+      case 'join':
+        this.handleJoinCall(messageEl);
+        break;
+      case 'invite':
+        this.closeContextMenu();
+        callInviteModal.open(messageEl);
+        break;
       case 'delete':
         this.deleteMessage(messageEl);
         break;
@@ -8468,6 +8494,159 @@ console.warn('in send message', txid)
       showToast(`Failed to copy ${contentType.toLowerCase()}`, 0, 'error');
     }
   }
+
+  /**
+   * Attempts to join the call represented by the call message element.
+   * @param {HTMLElement} messageEl
+   */
+  handleJoinCall(messageEl) {
+  // The call link may be stored in dataset.callLink or inside the .call-message anchor or message content
+  const callLink = messageEl.dataset.callLink || messageEl.querySelector('.call-message a')?.href || messageEl.querySelector('.message-content')?.textContent?.trim();
+    if (!callLink) return showToast('Call link not found', 2000, 'error');
+    // Open the call link in a new window/tab
+    window.open(callLink, '_blank');
+    this.closeContextMenu();
+  }
+
+  // /**
+  //  * Opens the invite modal and populates contact list.
+  //  * @param {HTMLElement} messageEl
+  //  */
+  // openInviteModal(messageEl) {
+  //   this.closeContextMenu();
+  //   const modal = document.getElementById('callInviteModal');
+  //   const contactsListEl = document.getElementById('inviteContactsList');
+  //   const template = document.getElementById('inviteContactTemplate');
+  //   const inviteCounter = document.getElementById('inviteCounter');
+  //   const inviteSendBtn = document.getElementById('inviteSendBtn');
+  //   const inviteCancelBtn = document.getElementById('inviteCancelBtn');
+
+  //   if (!modal || !contactsListEl || !template) return;
+
+  //   contactsListEl.innerHTML = '';
+  //   modal.classList.add('active');
+
+  //   // Build contacts list (exclude the current chat participant and self)
+  //   const contacts = Object.values(myData.contacts || {}).filter(c => c.address !== this.address && c.address !== myAccount.address);
+
+  //   for (const contact of contacts) {
+  //     const clone = template.content ? template.content.cloneNode(true) : null;
+  //     if (!clone) continue;
+  //     const row = clone.querySelector('.invite-contact-row');
+  //     const checkbox = clone.querySelector('.invite-contact-checkbox');
+  //     const nameSpan = clone.querySelector('.invite-contact-name');
+  //     if (row) row.dataset.address = contact.address || '';
+  //     if (checkbox) {
+  //       checkbox.value = contact.address || '';
+  //       checkbox.id = `invite_cb_${(contact.address||'').replace(/[^a-zA-Z0-9]/g,'')}`;
+  //     }
+  //     if (nameSpan) nameSpan.textContent = contact.username || contact.address || 'Unknown';
+  //     // Make the whole row clickable to toggle checkbox
+  //     const label = clone.querySelector('.invite-contact-label');
+  //     if (label && checkbox) {
+  //       label.addEventListener('click', (ev) => {
+  //         ev.preventDefault();
+  //         // Toggle checkbox manually
+  //         checkbox.checked = !checkbox.checked;
+  //         updateCounter();
+  //       });
+  //     }
+  //     contactsListEl.appendChild(clone);
+  //   }
+
+  //   function updateCounter() {
+  //     const selected = contactsListEl.querySelectorAll('.invite-contact-checkbox:checked').length;
+  //     inviteCounter.textContent = `${selected} selected (max 10)`;
+  //     inviteSendBtn.disabled = selected === 0;
+  //     // enforce max 10: disable unchecked boxes when limit reached
+  //     const unchecked = Array.from(contactsListEl.querySelectorAll('.invite-contact-checkbox:not(:checked)'));
+  //     if (selected >= 10) {
+  //       unchecked.forEach(cb => cb.disabled = true);
+  //     } else {
+  //       unchecked.forEach(cb => cb.disabled = false);
+  //     }
+  //   }
+
+  //   // Attach listeners
+  //   inviteSendBtn.onclick = async () => {
+  //     const selectedBoxes = Array.from(contactsListEl.querySelectorAll('.invite-contact-checkbox:checked'));
+  //     const addresses = selectedBoxes.map(cb => cb.value).slice(0,10);
+  //     // get call link from original message
+  //     const msgCallLink = messageEl.dataset.callLink || messageEl.querySelector('.message-content')?.textContent?.trim();
+  //     if (!msgCallLink) return showToast('Call link not found', 2000, 'error');
+
+  //     inviteSendBtn.disabled = true;
+  //     inviteSendBtn.textContent = 'Sending...';
+
+  //     try {
+  //       for (const addr of addresses) {
+  //         // reuse createChatMessage/injectTx flow: prepare payload with type 'call' and same link
+  //         const keys = myAccount.keys;
+  //         if (!keys) {
+  //           showToast('Keys not found', 0, 'error');
+  //           break;
+  //         }
+
+  //         // build payload similar to chat send: using plaintext or encrypted according to contact data
+  //         const contact = myData.contacts[addr];
+  //         const payload = { type: 'call', link: msgCallLink, sent_timestamp: getCorrectedTimestamp() };
+
+  //         // If contact has public keys, encrypt, else send plaintext
+  //         let messagePayload = {};
+  //         if (contact?.public) {
+  //           const recipientPubKey = contact.public;
+  //           const pqRecPubKey = contact.pqPublic || '';
+  //           const {dhkey, cipherText} = dhkeyCombined(keys.secret, recipientPubKey, pqRecPubKey);
+  //           const encMessage = encryptChacha(dhkey, stringify(payload));
+  //           const selfKey = encryptData(bin2hex(dhkey), keys.secret+keys.pqSeed, true);
+  //           messagePayload = {
+  //             message: encMessage,
+  //             encrypted: true,
+  //             encryptionMethod: 'xchacha20poly1305',
+  //             pqEncSharedKey: bin2base64(cipherText),
+  //             selfKey: selfKey,
+  //             sent_timestamp: getCorrectedTimestamp()
+  //           };
+  //         } else {
+  //           messagePayload = {
+  //             message: stringify(payload),
+  //             encrypted: false,
+  //             sent_timestamp: getCorrectedTimestamp()
+  //           };
+  //         }
+
+  //         // create and send using this instance's createChatMessage
+  //         const createFn = this.createChatMessage?.bind(this);
+  //         if (!createFn) {
+  //           console.warn('createChatMessage not available - cannot send invite');
+  //           continue;
+  //         }
+  //         const messageObj = await createFn(addr, messagePayload, 0n, keys);
+  //         await signObj(messageObj, keys);
+  //         const txid = getTxid(messageObj);
+  //         await injectTx(messageObj, txid);
+  //       }
+
+  //       showToast('Invites sent', 3000, 'success');
+  //     } catch (err) {
+  //       console.error('Invite send error', err);
+  //       showToast('Failed to send invites', 0, 'error');
+  //     } finally {
+  //       inviteSendBtn.disabled = false;
+  //       inviteSendBtn.textContent = 'Invite';
+  //       inviteModal.style.display = 'none';
+  //     }
+  //   };
+
+  //   inviteCancelBtn.onclick = () => {
+  //     inviteModal.style.display = 'none';
+  //   };
+
+  //   // live update counter when checkboxes change (in case of non-label clicks)
+  //   contactsListEl.addEventListener('change', updateCounter);
+  //   // initial counter update
+  //   updateCounter();
+  // }
 
   /**
    * Deletes a message locally (and potentially from network if it's a sent message)
@@ -9203,6 +9382,209 @@ console.warn('in send message', txid)
 
 const chatModal = new ChatModal();
 
+class CallInviteModal {
+  constructor() {
+    this.messageEl = null;
+  }
+
+  load() {
+    this.modal = document.getElementById('callInviteModal');
+    this.contactsList = document.getElementById('inviteContactsList');
+    this.template = document.getElementById('inviteContactTemplate');
+    this.inviteCounter = document.getElementById('inviteCounter');
+    this.inviteSendBtn = document.getElementById('inviteSendBtn');
+    this.inviteCancelBtn = document.getElementById('inviteCancelBtn');
+    this.closeButton = document.getElementById('closeCallInviteModal');
+
+    this.contactsList.addEventListener('change', this.updateCounter.bind(this));
+    this.inviteSendBtn.addEventListener('click', this.sendInvites.bind(this));
+    this.inviteCancelBtn.addEventListener('click', () => {
+      console.log('Invite modal cancelled');
+      this.close();
+    });
+    this.closeButton.addEventListener('click', this.close.bind(this));
+  }
+
+  /**
+   * Opens the invite modal and populates contact list.
+   * @param {HTMLElement} messageEl
+   */
+  open(messageEl) {
+    this.messageEl = messageEl;
+
+    this.contactsList.innerHTML = '';
+    this.modal.classList.add('active');
+
+    // Build contacts list (exclude the current chat participant and self)
+    const contacts = Object.values(myData.contacts || {}).filter(c => c.address !== this.address && c.address !== myAccount.address);
+
+    for (const contact of contacts) {
+      const clone = this.template.content ? this.template.content.cloneNode(true) : null;
+      if (!clone) continue;
+      const row = clone.querySelector('.invite-contact-row');
+      const checkbox = clone.querySelector('.invite-contact-checkbox');
+      const nameSpan = clone.querySelector('.invite-contact-name');
+      if (row) row.dataset.address = contact.address || '';
+      if (checkbox) {
+        checkbox.value = contact.address || '';
+        checkbox.id = `invite_cb_${(contact.address||'').replace(/[^a-zA-Z0-9]/g,'')}`;
+      }
+      if (nameSpan) nameSpan.textContent = contact.username || contact.address || 'Unknown';
+      // Make the whole row clickable to toggle checkbox
+      const label = clone.querySelector('.invite-contact-label');
+      if (label && checkbox) {
+        label.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          // Toggle checkbox manually
+          checkbox.checked = !checkbox.checked;
+          this.updateCounter();
+        });
+      }
+      this.contactsList.appendChild(clone);
+    }
+
+    // initial counter update
+    this.updateCounter();
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+  }
+
+  updateCounter() {
+    const selected = this.contactsList.querySelectorAll('.invite-contact-checkbox:checked').length;
+    this.inviteCounter.textContent = `${selected} selected (max 10)`;
+    this.inviteSendBtn.disabled = selected === 0;
+    // enforce max 10: disable unchecked boxes when limit reached
+    const unchecked = Array.from(this.contactsList.querySelectorAll('.invite-contact-checkbox:not(:checked)'));
+    if (selected >= 10) {
+      unchecked.forEach(cb => cb.disabled = true);
+    } else {
+      unchecked.forEach(cb => cb.disabled = false);
+    }
+  }
+
+  async sendInvites() {
+    const selectedBoxes = Array.from(this.contactsList.querySelectorAll('.invite-contact-checkbox:checked'));
+    const addresses = selectedBoxes.map(cb => cb.value).slice(0,10);
+    // get call link from original message
+    const msgCallLink = this.messageEl.querySelector('.call-message a')?.href;
+    if (!msgCallLink) return showToast('Call link not found', 2000, 'error');
+
+    this.inviteSendBtn.disabled = true;
+    this.inviteSendBtn.textContent = 'Sending...';
+
+    try {
+      for (const addr of addresses) {
+        const keys = myAccount.keys;
+        if (!keys) {
+          showToast('Keys not found', 0, 'error');
+          break;
+        }
+
+        const contact = myData.contacts[addr];
+        const payload = { type: 'call', url: msgCallLink };
+
+        let messagePayload = {};
+        const recipientPubKey = contact.public;
+        const pqRecPubKey = contact.pqPublic;
+        if (!recipientPubKey || !pqRecPubKey) {
+          showToast(`Skipping ${contact.username || addr} (missing keys)`, 2000, 'warning');
+          continue;
+        }
+        const {dhkey, cipherText} = dhkeyCombined(keys.secret, recipientPubKey, pqRecPubKey);
+        const encMessage = encryptChacha(dhkey, stringify(payload));
+        const selfKey = encryptData(bin2hex(dhkey), keys.secret+keys.pqSeed, true);
+
+        messagePayload = {
+          message: encMessage,
+          encrypted: true,
+          encryptionMethod: 'xchacha20poly1305',
+          pqEncSharedKey: bin2base64(cipherText),
+          selfKey: selfKey,
+          sent_timestamp: getCorrectedTimestamp()
+        };
+
+        // get user toll amount
+        const sortedAddresses = [longAddress(keys.address), longAddress(addr)].sort();
+        const chatId = hashBytes(sortedAddresses.join(''));
+        const chatIdAccount = await queryNetwork(`/messages/${chatId}/toll`);
+        const toIndex = sortedAddresses.indexOf(longAddress(addr));
+        const tollRequiredToSend = chatIdAccount.toll?.required?.[toIndex] ?? 1;
+        let toll = 0n;
+        if (tollRequiredToSend === 1) {
+          const contactData = await queryNetwork(`/account/${longAddress(addr)}`);
+          const tollUnit = contactData.account.data.tollUnit || 'LIB';
+          const factor = getStabilityFactor();
+          if (tollUnit === 'USD') {
+            // Convert toll to LIB
+            toll = bigxnum2big(contactData.account.data.toll, (1.0 / factor).toString());
+          } else {
+            toll = contactData.account.data.toll;
+          }
+        }
+
+        const messageObj = await chatModal.createChatMessage(addr, messagePayload, toll, keys);
+        await signObj(messageObj, keys);
+        const txid = getTxid(messageObj);
+        await injectTx(messageObj, txid);
+
+        // Create new message object for local display immediately
+        const newMessage = {
+          message: payload.url,
+          timestamp: messagePayload.sent_timestamp,
+          sent_timestamp: messagePayload.sent_timestamp,
+          my: true,
+          txid: txid,
+          status: 'sent',
+          type: 'call'
+        };
+        insertSorted(contact.messages, newMessage, 'timestamp');
+
+        // Update chats list
+        const chatUpdate = {
+          address: addr,
+          timestamp: newMessage.sent_timestamp,
+          txid: txid,
+        };
+
+        const existingChatIndex = myData.chats.findIndex((chat) => chat.address === addr);
+        if (existingChatIndex !== -1) {
+          myData.chats.splice(existingChatIndex, 1);
+        }
+        insertSorted(myData.chats, chatUpdate, 'timestamp');
+
+        // Update the chat modal UI immediately
+        if (chatModal.isActive() && chatModal.address === addr) {
+          chatModal.appendChatModal();
+        }
+
+        // Send the message transaction
+        const response = await injectTx(messageObj, txid);
+
+        if (!response || !response.result || !response.result.success) {
+          console.log('call message failed to send', response);
+          updateTransactionStatus(txid, addr, 'failed', 'message');
+          if (chatModal.isActive() && chatModal.address === addr) {
+            chatModal.appendChatModal();
+          }
+        }
+        showToast(`Call invite sent to ${contact.username || addr}`, 3000, 'success');
+      }
+
+    } catch (err) {
+      console.error('Invite send error', err);
+      showToast('Failed to send invites', 0, 'error');
+    } finally {
+      this.inviteSendBtn.disabled = false;
+      this.inviteSendBtn.textContent = 'Invite';
+      this.close();
+    }
+  };
+}
+
+const callInviteModal = new CallInviteModal();
+
 /**
  * Failed Message Context Menu Class
  * @class
@@ -9375,9 +9757,6 @@ class VoiceRecordingModal {
         this.close();
       }
     });
-
-    // Add event listeners
-    this.setupEventListeners();
   }
 
   /**

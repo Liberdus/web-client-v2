@@ -860,6 +860,16 @@
           <span class="context-menu-icon"></span>
           <span class="context-menu-text">Copy</span>
         </div>
+        <!-- Call-specific action: Join -->
+        <div class="context-menu-option" data-action="join" data-icon="call" style="display: none;">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text">Join</span>
+        </div>
+        <!-- Call-specific action: Invite -->
+        <div class="context-menu-option" data-action="invite" data-icon="invite" style="display: none;">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text">Invite</span>
+        </div>
         <div class="context-menu-option" data-action="delete" data-icon="delete">
           <span class="context-menu-icon"></span>
           <span class="context-menu-text">Delete for me</span>
@@ -867,6 +877,39 @@
         <div class="context-menu-option" data-action="delete-for-all" data-icon="delete" style="display: none;">
           <span class="context-menu-icon"></span>
           <span class="context-menu-text">Delete for all</span>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Invite Modal -->
+      <div class="modal fixed-header" id="callInviteModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeCallInviteModal"></button>
+          <div class="modal-title">Invite Contacts</div>
+        </div>
+        <div class="modal-content">
+          <div class="form-container">
+            <div class="contacts-list" id="inviteContactsList">
+              <!-- Contacts will be populated here -->
+            </div>
+            <template id="inviteContactTemplate">
+              <div class="invite-contact-row" data-address="">
+                <label class="invite-contact-label">
+                  <input type="checkbox" class="invite-contact-checkbox" value="" />
+                  <span class="invite-contact-name"></span>
+                </label>
+              </div>
+            </template>
+            <div class="form-actions" style="margin-top:12px;">
+              <div style="display:flex; gap:8px; align-items:center; justify-content:space-between;">
+                <div id="inviteCounter">0 selected (max 10)</div>
+                <div style="display:flex; gap:8px;">
+                  <button id="inviteCancelBtn" class="btn btn--secondary btn--pill">Cancel</button>
+                  <button id="inviteSendBtn" class="btn btn--primary btn--pill">Invite</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
