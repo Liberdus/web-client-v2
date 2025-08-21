@@ -7729,10 +7729,15 @@ console.warn('in send message', txid)
           if (item.message && item.message.trim()) {
             // Check if this is a call message
             if (item.type === 'call') {
-              // Render call message as a special clickable link
-              messageTextHTML = `<div class="message-content call-message">
-                <a href="${item.message}" target="_blank" rel="noopener noreferrer" class="call-link">📞 Join Video Call</a>
-              </div>`;
+              // Render call message with a left circular phone icon (clickable) and plain text to the right
+              // Icon is an anchor so only the icon is clickable (like voice play button)
+              messageTextHTML = `
+                <div class="call-message">
+                  <a href="${item.message}" target="_blank" rel="noopener noreferrer" class="call-message-phone-button" aria-label="Join Video Call">
+                    <span class="sr-only">Join Video Call</span>
+                  </a>
+                  <div class="call-message-text">Join Video Call</div>
+                </div>`;
             } else {
               // Regular message rendering
               messageTextHTML = `<div class="message-content" style="white-space: pre-wrap; margin-top: ${attachmentsHTML ? '2px' : '0'};">${linkifyUrls(item.message)}</div>`;
@@ -7753,7 +7758,7 @@ console.warn('in send message', txid)
                   </svg>
                 </button>
                 <div class="voice-message-info">
-                  <div class="voice-message-duration">Voice message</div>
+                  <div class="voice-message-text">Voice message</div>
                   <div class="voice-message-time-display">0:00 / ${duration}</div>
                 </div>
               </div>`;

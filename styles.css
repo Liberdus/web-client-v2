@@ -4580,6 +4580,10 @@ small {
   padding: 0;
 }
 
+.message.sent .voice-message-play-button {
+  background: rgba(255, 255, 255, 0.18);
+}
+
 .voice-message-play-button:hover {
   background: var(--accent-bright-blue);
 }
@@ -4590,6 +4594,76 @@ small {
   fill: white;
 }
 
+.call-message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  margin: 4px 0;
+}
+
+.call-message-phone-button {
+  width: 40px;
+  height: 40px;
+  background-color: var(--primary-color);
+  border: none;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  text-decoration: none;
+  transition: background-color 0.15s ease, transform 0.08s ease;
+  flex-shrink: 0;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+}
+
+.call-message-phone-button:hover {
+  opacity: 0.9;
+  transition: all 0.2s ease;
+}
+
+.call-message-text {
+  color: var(--text-color);
+}
+
+.call-message-phone-button {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z'%3E%3C/path%3E%3C/svg%3E"); 
+  background-position:center; 
+  background-repeat:no-repeat; 
+  background-size:20px;
+}
+
+.message.sent .call-message-text {
+  color: white;
+}
+
+.message.sent .call-message-phone-button {
+  background-color: rgba(255,255,255,0.18);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z'%3E%3C/path%3E%3C/svg%3E");
+  background-position:center;
+  background-repeat:no-repeat;
+  background-size:20px;
+  color: white;
+}
+
+/* Utility: screen-reader only text (for accessibility) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .voice-message-info {
   flex: 1;
   display: flex;
@@ -4598,14 +4672,13 @@ small {
   min-width: 0;
 }
 
-.voice-message-duration {
+.voice-message-text {
   color: var(--text-color);
-  font-size: 0.9rem;
   margin-bottom: 4px;
 }
 
 /* Make duration text white on sent messages */
-.message.sent .voice-message-duration {
+.message.sent .voice-message-text {
   color: white;
 }
 
