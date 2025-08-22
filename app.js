@@ -8375,7 +8375,7 @@ console.warn('in send message', txid)
   const isCall = !!messageEl.querySelector('.call-message');
     const copyOption = this.contextMenu.querySelector('[data-action="copy"]');
     const joinOption = this.contextMenu.querySelector('[data-action="join"]');
-    const inviteOption = this.contextMenu.querySelector('[data-action="invite"]');
+    const inviteOption = this.contextMenu.querySelector('[data-action="call-invite"]');
     if (isCall) {
       if (copyOption) copyOption.style.display = 'none';
       if (joinOption) joinOption.style.display = 'flex';
@@ -8446,7 +8446,7 @@ console.warn('in send message', txid)
       case 'join':
         this.handleJoinCall(messageEl);
         break;
-      case 'invite':
+      case 'call-invite':
         this.closeContextMenu();
         callInviteModal.open(messageEl);
         break;
