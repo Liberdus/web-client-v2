@@ -9338,11 +9338,11 @@ class CallInviteModal {
   }
 
   updateCounter() {
-    const selected = this.contactsList.querySelectorAll('.invite-contact-checkbox:checked').length;
+    const selected = this.contactsList.querySelectorAll('.call-invite-contact-checkbox:checked').length;
     this.inviteCounter.textContent = `${selected} selected (max 10)`;
     this.inviteSendButton.disabled = selected === 0;
     // enforce max 10: disable unchecked boxes when limit reached
-    const unchecked = Array.from(this.contactsList.querySelectorAll('.invite-contact-checkbox:not(:checked)'));
+    const unchecked = Array.from(this.contactsList.querySelectorAll('.call-invite-contact-checkbox:not(:checked)'));
     if (selected >= 10) {
       unchecked.forEach(cb => cb.disabled = true);
     } else {
@@ -9351,7 +9351,7 @@ class CallInviteModal {
   }
 
   async sendInvites() {
-    const selectedBoxes = Array.from(this.contactsList.querySelectorAll('.invite-contact-checkbox:checked'));
+    const selectedBoxes = Array.from(this.contactsList.querySelectorAll('.call-invite-contact-checkbox:checked'));
     const addresses = selectedBoxes.map(cb => cb.value).slice(0,10);
     // get call link from original message
     const msgCallLink = this.messageEl.querySelector('.call-message a')?.href;
@@ -9400,7 +9400,11 @@ class CallInviteModal {
         let toll = 0n;
         if (tollRequiredToSend === 1) {
           const contactData = await queryNetwork(`/account/${longAddress(addr)}`);
-          const tollUnit = contactData.account.data.tollUnit || 'LIB';
+          if (!contactData || !contactData.account) {
+            showToast(`Skipping ${contact.username || addr} (account not found)`, 2000, 'warning');
+            continue;
+          }
+          const tollUnit = contactData.account?.data?.tollUnit || 'LIB';
           const factor = getStabilityFactor();
           if (tollUnit === 'USD') {
             // Convert toll to LIB
