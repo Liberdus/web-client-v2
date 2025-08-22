@@ -9246,16 +9246,16 @@ class CallInviteModal {
 
   load() {
     this.modal = document.getElementById('callInviteModal');
-    this.contactsList = document.getElementById('inviteContactsList');
-    this.template = document.getElementById('inviteContactTemplate');
-    this.inviteCounter = document.getElementById('inviteCounter');
-    this.inviteSendBtn = document.getElementById('inviteSendBtn');
-    this.inviteCancelBtn = document.getElementById('inviteCancelBtn');
+    this.contactsList = document.getElementById('callInviteContactsList');
+    this.template = document.getElementById('callInviteContactTemplate');
+    this.inviteCounter = document.getElementById('callInviteCounter');
+    this.inviteSendButton = document.getElementById('callInviteSendBtn');
+    this.cancelButton = document.getElementById('callInviteCancelBtn');
     this.closeButton = document.getElementById('closeCallInviteModal');
 
     this.contactsList.addEventListener('change', this.updateCounter.bind(this));
-    this.inviteSendBtn.addEventListener('click', this.sendInvites.bind(this));
-    this.inviteCancelBtn.addEventListener('click', () => {
+    this.inviteSendButton.addEventListener('click', this.sendInvites.bind(this));
+    this.cancelButton.addEventListener('click', () => {
       console.log('Invite modal cancelled');
       this.close();
     });
@@ -9272,43 +9272,61 @@ class CallInviteModal {
     this.contactsList.innerHTML = '';
     this.modal.classList.add('active');
 
-    // Build contacts list (exclude the current chat participant and self)
-    const contacts = Object.values(myData.contacts || {})
-      .filter(c => c.address !== this.address && c.address !== myAccount.address)
-      .sort((a, b) => {
-        const aName = (a.username || a.address || '').toString().toLowerCase();
-        const bName = (b.username || b.address || '').toString().toLowerCase();
-        return aName.localeCompare(bName);
-      });
+    // Build contacts list (exclude the current chat participant and self) and group by status
+    const allContacts = Object.values(myData.contacts || {})
+      .filter(c => c.address !== chatModal.address && c.address !== myAccount.address)
+      .map(c => ({
+        address: c.address,
+        username: c.username || c.address,
+        friend: c.friend || 1
+      }));
 
-    for (const contact of contacts) {
-      const clone = this.template.content ? this.template.content.cloneNode(true) : null;
-      if (!clone) continue;
-      const row = clone.querySelector('.invite-contact-row');
-      const checkbox = clone.querySelector('.invite-contact-checkbox');
-      const nameSpan = clone.querySelector('.invite-contact-name');
-      if (row) row.dataset.address = contact.address || '';
-      if (checkbox) {
-        checkbox.value = contact.address || '';
-        checkbox.id = `invite_cb_${(contact.address||'').replace(/[^a-zA-Z0-9]/g,'')}`;
+    // Group contacts by friend status: friends (3), acquaintances (2), others (1), blocked (0)
+    const groups = {
+      friends: allContacts.filter(c => c.friend === 3).sort((a,b) => a.username.toLowerCase().localeCompare(b.username.toLowerCase())),
+      acquaintances: allContacts.filter(c => c.friend === 2).sort((a,b) => a.username.toLowerCase().localeCompare(b.username.toLowerCase())),
+      others: allContacts.filter(c => ![2,3,0].includes(c.friend)).sort((a,b) => a.username.toLowerCase().localeCompare(b.username.toLowerCase())),
+    };
+
+    const sectionMeta = [
+      { key: 'friends', label: 'Friends' },
+      { key: 'acquaintances', label: 'Connections' },
+      { key: 'others', label: 'Tolled' },
+    ];
+
+    for (const { key, label } of sectionMeta) {
+      const list = groups[key];
+      if (!list || list.length === 0) continue;
+      const header = document.createElement('div');
+      header.className = 'call-invite-section-header';
+      header.textContent = label;
+      this.contactsList.appendChild(header);
+
+      for (const contact of list) {
+        const clone = this.template.content ? this.template.content.cloneNode(true) : null;
+        if (!clone) continue;
+        const row = clone.querySelector('.call-invite-contact-row');
+        const checkbox = clone.querySelector('.call-invite-contact-checkbox');
+        const nameSpan = clone.querySelector('.call-invite-contact-name');
+        if (row) row.dataset.address = contact.address || '';
+        if (checkbox) {
+          checkbox.value = contact.address || '';
+          checkbox.id = `invite_cb_${(contact.address||'').replace(/[^a-zA-Z0-9]/g,'')}`;
+        }
+        if (nameSpan) nameSpan.textContent = contact.username || contact.address || 'Unknown';
+        const labelEl = clone.querySelector('.call-invite-contact-label');
+        if (labelEl && checkbox) {
+            labelEl.addEventListener('click', (ev) => {
+              // If the checkbox is disabled (max reached), do nothing
+              if (checkbox.disabled) return;
+              if (ev.target === checkbox) return;
+              ev.preventDefault();
+              checkbox.checked = !checkbox.checked;
+              this.updateCounter();
+            });
+        }
+        this.contactsList.appendChild(clone);
       }
-      if (nameSpan) nameSpan.textContent = contact.username || contact.address || 'Unknown';
-      // Make the whole row clickable to toggle checkbox
-      const label = clone.querySelector('.invite-contact-label');
-      if (label && checkbox) {
-        label.addEventListener('click', (ev) => {
-          // If the click originated directly on the checkbox, let the native behavior occur
-          if (ev.target === checkbox) {
-            // updateCounter will be called via the change listener on the contacts list
-            return;
-          }
-          ev.preventDefault();
-          // Toggle checkbox manually when clicking the label text/row
-          checkbox.checked = !checkbox.checked;
-          this.updateCounter();
-        });
-      }
-      this.contactsList.appendChild(clone);
     }
 
     // initial counter update
@@ -9322,7 +9340,7 @@ class CallInviteModal {
   updateCounter() {
     const selected = this.contactsList.querySelectorAll('.invite-contact-checkbox:checked').length;
     this.inviteCounter.textContent = `${selected} selected (max 10)`;
-    this.inviteSendBtn.disabled = selected === 0;
+    this.inviteSendButton.disabled = selected === 0;
     // enforce max 10: disable unchecked boxes when limit reached
     const unchecked = Array.from(this.contactsList.querySelectorAll('.invite-contact-checkbox:not(:checked)'));
     if (selected >= 10) {
@@ -9339,8 +9357,8 @@ class CallInviteModal {
     const msgCallLink = this.messageEl.querySelector('.call-message a')?.href;
     if (!msgCallLink) return showToast('Call link not found', 2000, 'error');
 
-    this.inviteSendBtn.disabled = true;
-    this.inviteSendBtn.textContent = 'Sending...';
+    this.inviteSendButton.disabled = true;
+    this.inviteSendButton.textContent = 'Sending...';
 
     try {
       for (const addr of addresses) {
@@ -9444,8 +9462,8 @@ class CallInviteModal {
       console.error('Invite send error', err);
       showToast('Failed to send invites', 0, 'error');
     } finally {
-      this.inviteSendBtn.disabled = false;
-      this.inviteSendBtn.textContent = 'Invite';
+      this.inviteSendButton.disabled = false;
+      this.inviteSendButton.textContent = 'Invite';
       this.close();
     }
   };

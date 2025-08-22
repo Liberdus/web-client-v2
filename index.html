@@ -881,32 +881,32 @@
         <a class="last-item" href="#"> </a>
       </div>
 
-      <!-- Invite Modal -->
+      <!-- Call Invite Modal -->
       <div class="modal fixed-header" id="callInviteModal">
         <div class="modal-header">
           <button class="back-button" id="closeCallInviteModal"></button>
-          <div class="modal-title">Invite Contacts</div>
+          <div class="modal-title">Call Invite</div>
         </div>
         <div class="modal-content">
-          <div class="form-container">
-            <div class="contacts-list" id="inviteContactsList">
-              <!-- Contacts will be populated here -->
+          <div class="form-container call-invite-modal-container">
+            <div class="call-invite-contacts-scroll">
+              <div class="contacts-list" id="callInviteContactsList">
+                <!-- Contacts will be populated here -->
+              </div>
             </div>
-            <template id="inviteContactTemplate">
-              <div class="invite-contact-row" data-address="">
-                <label class="invite-contact-label">
-                  <input type="checkbox" class="invite-contact-checkbox" value="" />
-                  <span class="invite-contact-name"></span>
+            <template id="callInviteContactTemplate">
+              <div class="call-invite-contact-row" data-address="">
+                <label class="call-invite-contact-label">
+                  <input type="checkbox" class="call-invite-contact-checkbox" value="" />
+                  <span class="call-invite-contact-name"></span>
                 </label>
               </div>
             </template>
-            <div class="form-actions" style="margin-top:12px;">
-              <div style="display:flex; gap:8px; align-items:center; justify-content:space-between;">
-                <div id="inviteCounter">0 selected (max 10)</div>
-                <div style="display:flex; gap:8px;">
-                  <button id="inviteCancelBtn" class="btn btn--secondary btn--pill">Cancel</button>
-                  <button id="inviteSendBtn" class="btn btn--primary btn--pill">Invite</button>
-                </div>
+            <div class="call-invite-modal-footer">
+              <div id="callInviteCounter" class="call-invite-counter">0 selected (max 10)</div>
+              <div class="call-invite-footer-actions">
+                <button id="callInviteCancelBtn" class="btn btn--secondary btn--pill">Cancel</button>
+                <button id="callInviteSendBtn" class="btn btn--primary btn--pill">Invite</button>
               </div>
             </div>
           </div>
