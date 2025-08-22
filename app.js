@@ -8371,8 +8371,8 @@ console.warn('in send message', txid)
       deleteForAllOption.style.display = isMine ? 'flex' : 'none';
     }
 
-  // If this is a call message, show call-specific options and hide copy
-  const isCall = !!messageEl.querySelector('.call-message');
+    // If this is a call message, show call-specific options and hide copy
+    const isCall = !!messageEl.querySelector('.call-message');
     const copyOption = this.contextMenu.querySelector('[data-action="copy"]');
     const joinOption = this.contextMenu.querySelector('[data-action="join"]');
     const inviteOption = this.contextMenu.querySelector('[data-action="call-invite"]');
