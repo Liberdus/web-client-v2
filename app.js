@@ -9337,6 +9337,10 @@ class CallInviteModal {
     this.modal.classList.remove('active');
   }
 
+  isActive() {
+    return this.modal.classList.contains('active');
+  }
+
   updateCounter() {
     const selected = this.contactsList.querySelectorAll('.call-invite-contact-checkbox:checked').length;
     this.inviteCounter.textContent = `${selected} selected (max 10)`;
