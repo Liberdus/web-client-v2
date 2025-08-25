@@ -2755,7 +2755,7 @@ class HistoryModal {
                 </div>
                 <div class="transaction-amount">-- --</div>
               </div>
-              <div class="transaction-memo">${tx.memo || "Deleted by me"}</div>
+              <div class="transaction-memo">${tx.memo || "Deleted on this device"}</div>
             </div>
           `;
         }
@@ -3115,19 +3115,19 @@ if (mine) console.warn('txid in processChats is', txidHex)
                       
                       // Mark the message as deleted
                       messageToDelete.deleted = 1;
-                      messageToDelete.message = "Deleted by you";
+                      messageToDelete.message = "Deleted for all";
                       
                       // Remove payment-specific fields if present - same logic as above
                       if (messageToDelete.amount) {
                         if (messageToDelete.payment) delete messageToDelete.payment;
-                        if (messageToDelete.memo) messageToDelete.memo = "Deleted by you";
+                        if (messageToDelete.memo) messageToDelete.memo = "Deleted for all";
                         if (messageToDelete.amount) delete messageToDelete.amount;
                         if (messageToDelete.symbol) delete messageToDelete.symbol;
                         
                         // Update corresponding transaction in wallet history
                         const txIndex = myData.wallet.history.findIndex((tx) => tx.txid === messageToDelete.txid);
                         if (txIndex !== -1) {
-                          Object.assign(myData.wallet.history[txIndex], { deleted: 1, memo: 'Deleted by you' });
+                          Object.assign(myData.wallet.history[txIndex], { deleted: 1, memo: 'Deleted for all' });
                           delete myData.wallet.history[txIndex].amount;
                           delete myData.wallet.history[txIndex].symbol;
                           delete myData.wallet.history[txIndex].payment;
@@ -8534,19 +8534,19 @@ console.warn('in send message', txid)
       // Mark as deleted and clear payment info if present
       Object.assign(message, {
         deleted: 1,
-        message: "Deleted by me"
+        message: "Deleted on this device"
       });
       // Remove payment-specific fields if present
       if (message?.amount) {
         if (message.payment) delete message.payment;
-        if (message.memo) message.memo = "Deleted by me";
+        if (message.memo) message.memo = "Deleted on this device";
         if (message.amount) delete message.amount;
         if (message.symbol) delete message.symbol;
         
         // Update corresponding transaction in wallet history
         const txIndex = myData.wallet.history.findIndex((tx) => tx.txid === message.txid);
         if (txIndex !== -1) {
-          Object.assign(myData.wallet.history[txIndex], { deleted: 1, memo: 'Deleted by me' });
+          Object.assign(myData.wallet.history[txIndex], { deleted: 1, memo: 'Deleted on this device' });
           delete myData.wallet.history[txIndex].amount;
           delete myData.wallet.history[txIndex].symbol;
           delete myData.wallet.history[txIndex].payment;
