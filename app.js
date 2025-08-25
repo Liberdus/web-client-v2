@@ -8791,7 +8791,7 @@ console.warn('in send message', txid)
     try {
       // Generate a 256-bit random number and convert to base64
       const randomBytes = generateRandomBytes(32); // 32 bytes = 256 bits
-      const randomHex = bin2hex(randomBytes).slice(0, 20);;
+      const randomHex = bin2hex(randomBytes).slice(0, 20);
 
       // Create the Jitsi Meet URL
       const jitsiUrl = `https://meet.jit.si/${randomHex}`;
