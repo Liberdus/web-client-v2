@@ -8896,6 +8896,8 @@ console.warn('in send message', txid)
       // Create and send the call message transaction
       let tollInLib = myData.contacts[currentAddress].tollRequiredToSend == 0 ? 0n : this.toll;
       const chatMessageObj = await this.createChatMessage(currentAddress, payload, tollInLib, keys);
+      chatMessageObj.callType = true
+
       await signObj(chatMessageObj, keys);
       const txid = getTxid(chatMessageObj);
 
@@ -13108,6 +13110,8 @@ class ReactNativeApp {
     this.appVersion = null;
     this.deviceToken = null;
     this.expoPushToken = null;
+    this.fcmToken = null;
+    this.voipToken = null;
   }
 
   load() {
@@ -13160,6 +13164,16 @@ class ReactNativeApp {
               logsModal.log('📱 Expo push token received');
               // Store expo push token for push notifications
               this.expoPushToken = data.data.expoPushToken;
+            }
+            if (data.data.fcmToken) {
+              logsModal.log('📱 FCM push token received');
+              // Store fcm push token for call notifications
+              this.fcmToken = data.data.fcmToken;
+            }
+            if (data.data.voipToken) {
+              logsModal.log('📱 VOIP push token received');
+              // Store voip push token for call notifications
+              this.voipToken = data.data.voipToken;
             }
             this.handleNativeAppSubscribe();
           }
@@ -13433,11 +13447,12 @@ class ReactNativeApp {
     }
 
     const deviceToken = this.deviceToken || null;
-    const pushToken = this.expoPushToken || null;
-
+    const expoPushToken = this.expoPushToken || null;
+    const fcmToken = this.fcmToken || null;
+    const voipToken = this.voipToken || null;
     
-    if (deviceToken && pushToken) {
-      console.log('Native app subscription tokens detected:', { deviceToken, pushToken });
+    if (deviceToken && expoPushToken) {
+      console.log('Native app subscription tokens detected:', { deviceToken, expoPushToken, fcmToken, voipToken });
       
       try {
         // Get the user's address from localStorage if available
@@ -13455,7 +13470,9 @@ class ReactNativeApp {
         
         const payload = {
           deviceToken,
-          expoPushToken: pushToken,
+          expoPushToken,
+          ...fcmToken && { fcmToken },
+          ...voipToken && { voipToken },
           addresses: addresses
         };
         
@@ -13466,7 +13483,7 @@ class ReactNativeApp {
           showToast('No gateway available', 0, 'error');
           return;
         }
-        
+
         const SUBSCRIPTION_API = `${selectedGateway.web}/notifier/subscribe`;
 
         console.log('payload', payload);
@@ -13514,7 +13531,9 @@ class ReactNativeApp {
     }
 
     const deviceToken = this.deviceToken || null;
-    const pushToken = this.expoPushToken || null;
+    const expoPushToken = this.expoPushToken || null;
+    const fcmToken = this.fcmToken || null;
+    const voipToken = this.voipToken || null;
 
     // cannot unsubscribe if no device token is provided
     if (!deviceToken) return;
@@ -13554,7 +13573,9 @@ class ReactNativeApp {
       }
       payload = {
         deviceToken,
-        expoPushToken: pushToken,
+        expoPushToken,
+        ...fcmToken && { fcmToken },
+        ...voipToken && { voipToken },
         addresses: remainingAddresses,
       };
     }
