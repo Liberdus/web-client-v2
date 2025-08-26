@@ -5580,7 +5580,7 @@ class InviteModal {
   async shareLiberdusInvite() {
     const url = "https://liberdus.com/download";
     const title = "Join me on Liberdus";
-    const text = `Message me on Liberdus! ${url}`;
+    const text = `Message ${myAccount.username} on Liberdus! ${url}`;
 
     // 1) Try native share sheet
     if (navigator.share) {
