@@ -13096,7 +13096,7 @@ class LaunchModal {
       credentials: 'same-origin'
     })
       .then(response => {
-        if (!response.ok) throw new Error('network.js not found');
+        if (!response.ok) throw new Error(`network.js not found (HTTP ${response.status})`);
         return response.text();
       })
       .then(networkJsText => {
@@ -13114,7 +13114,10 @@ class LaunchModal {
       })
       .catch((error) => {
         showToast(`Invalid Liberdus URL. Error: ${error.message}`, 0, 'error');
-        console.error('URL validation failed:', error, 'URL:', networkJsUrl);
+        const errStr = error && (error.stack || error.message)
+            ? `${error.name || 'Error'}: ${error.message}\n${error.stack || ''}`
+            : String(error);
+        logsModal.log('Launch URL validation failed', `url=${networkJsUrl}`, errStr);
       })
       .finally(() => {
         // Reset button state
