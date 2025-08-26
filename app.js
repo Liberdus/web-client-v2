@@ -13055,7 +13055,7 @@ class LaunchModal {
     this.launchButton = this.modal.querySelector('button[type="submit"]');
     this.backupButton = this.modal.querySelector('#launchModalBackupButton');
     this.closeButton.addEventListener('click', () => this.close());
-    this.launchForm.addEventListener('submit', (event) => this.handleSubmit(event));
+    this.launchForm.addEventListener('submit', async (event) => await this.handleSubmit(event));
     this.urlInput.addEventListener('input', () => this.updateButtonState());
     this.backupButton.addEventListener('click', () => backupAccountModal.open());
   }
@@ -13071,7 +13071,7 @@ class LaunchModal {
     this.modal.classList.remove('active');
   }
 
-  handleSubmit(event) {
+  async handleSubmit(event) {
     event.preventDefault();
     const url = this.urlInput.value;
     if (!url) {
@@ -13082,48 +13082,46 @@ class LaunchModal {
     // Disable button and show loading state
     this.launchButton.disabled = true;
     this.launchButton.textContent = 'Checking URL...';
-    
+
     // Create the network.js URL to check
     let urlObj = new URL(url);
-    // Ensure path ends with slash before appending network.js
     const path = urlObj.pathname === '' ? '/' : (urlObj.pathname.endsWith('/') ? urlObj.pathname : urlObj.pathname + '/');
     const networkJsUrl = urlObj.origin + path + 'network.js';
     
-    // Validate if network.js exists and has required properties
-    fetch(networkJsUrl, { 
-      signal: AbortSignal.timeout(10000), 
-      mode: 'cors',
-      credentials: 'omit'
-    })
-      .then(response => {
-        if (!response.ok) throw new Error(`network.js not found (HTTP ${response.status})`);
-        return response.text();
-      })
-      .then(networkJsText => {
-        // Check for required network properties
-        const requiredProps = ['network', 'name', 'netid', 'gateways'];
-        const missingProps = requiredProps.filter(prop => !networkJsText.includes(prop));
-        
-        if (missingProps.length > 0) {
-          throw new Error(`Invalid network.js: Missing ${missingProps.join(', ')}`);
-        }
-        
-        // Valid network.js, proceed with launching
-        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'launch', url }));
-        this.close();
-      })
-      .catch((error) => {
-        showToast(`Invalid Liberdus URL. Error: ${error.message}`, 0, 'error');
-        const errStr = error && (error.stack || error.message)
-            ? `${error.name || 'Error'}: ${error.message}\n${error.stack || ''}`
-            : String(error);
-        logsModal.log('Launch URL validation failed', `url=${networkJsUrl}`, errStr);
-      })
-      .finally(() => {
-        // Reset button state
-        this.launchButton.disabled = false;
-        this.launchButton.textContent = 'Launch';
-      });
+    try {
+      logsModal.log('Launch URL validation starting', `url=${networkJsUrl}`);
+  
+      // Validate if network.js exists and has required properties
+      const result = await fetch(networkJsUrl);
+  
+      if (!result.ok) {
+        throw new Error(`network.js not found (HTTP ${result.status}: ${result.statusText})`);
+      }
+  
+      const networkJson = await result.text();
+      logsModal.log('Launch URL validation network.js text', `url=${networkJsUrl}`, networkJson);
+  
+      // Check for required network properties
+      const requiredProps = ['network', 'name', 'netid', 'gateways'];
+      const missingProps = requiredProps.filter(prop => !networkJson?.includes(prop));
+    
+      if (missingProps.length > 0) {
+        throw new Error(`Invalid network.js: Missing ${missingProps.join(', ')}`);
+      }
+  
+      // Success - proceed with launching
+      logsModal.log('Launch URL validation success', `url=${networkJsUrl}`);
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'launch', url }));
+      this.close();
+  
+    } catch (error) {
+      logsModal.log('Launch URL validation failed', `url=${networkJsUrl}`, error);
+      showToast(`Invalid Liberdus URL. Error: ${error.message}`, 0, 'error');
+    } finally {
+      // Reset button state (this should always happen)
+      this.launchButton.disabled = false;
+      this.launchButton.textContent = 'Launch';
+    }
   }
 
   updateButtonState() {
