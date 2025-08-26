@@ -5474,6 +5474,7 @@ class InviteModal {
     this.submitButton = document.querySelector('#inviteForm button[type="submit"]');
     this.closeButton = document.getElementById('closeInviteModal');
     this.inviteForm = document.getElementById('inviteForm');
+    this.shareButton = document.getElementById('shareInviteButton');
 
     this.closeButton.addEventListener('click', () => this.close());
     this.inviteForm.addEventListener('submit', (event) => this.handleSubmit(event));
@@ -5484,6 +5485,8 @@ class InviteModal {
     this.invitePhoneInput.addEventListener('input', () => this.invitePhoneInput.value = normalizePhone(this.invitePhoneInput.value));
     this.invitePhoneInput.addEventListener('blur', () => this.invitePhoneInput.value = normalizePhone(this.invitePhoneInput.value, true));
     this.invitePhoneInput.addEventListener('input', () => this.validateInputs());
+
+    this.shareButton.addEventListener('click', () => this.shareLiberdusInvite());
   }
 
   validateInputs() {
@@ -5571,6 +5574,35 @@ class InviteModal {
       }
     } catch (error) {
       showToast('Failed to send invitation. Please try again.', 0, 'error');
+    }
+  }
+
+  async shareLiberdusInvite() {
+    const url = "https://liberdus.com/download";
+    const title = "Join me on Liberdus";
+    const text = `Message me on Liberdus! ${url}`;
+
+    // 1) Try native share sheet
+    if (navigator.share) {
+      try {
+        await navigator.share({ url, text, title });
+        return; // success
+      } catch (err) {
+        // iOS Safari/WKWebView: cancel → AbortError / "Share canceled"
+        if (err && (err.name === "AbortError" || /canceled/i.test(String(err.message || "")))) {
+          showToast("Share canceled", 2000, "warning");
+          return; // don't fallback: user activation is gone
+        }
+        // fall through to clipboard on real errors
+      }
+    }
+
+    // 2) Clipboard fallback (no mailto)
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("Invite copied to clipboard!", 3000, "success");
+    } catch {
+      showToast("Could not copy invite link.", 0, "error");
     }
   }
 }
