@@ -13093,6 +13093,7 @@ class LaunchModal {
     fetch(networkJsUrl, { 
       signal: AbortSignal.timeout(10000), 
       mode: 'cors',
+      credentials: 'omit'
     })
       .then(response => {
         if (!response.ok) throw new Error(`network.js not found (HTTP ${response.status})`);
