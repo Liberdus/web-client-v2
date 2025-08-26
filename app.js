@@ -44,7 +44,6 @@ async function checkVersion() {
       'crypto.js',
       'encryption.worker.js',
       'offline.html',
-      'notice.html',
     ]);
     window.location.replace(newUrl);
   }
