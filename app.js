@@ -1030,6 +1030,12 @@ class ChatsScreen {
             // Memo is stored in the 'message' field for transfers
             previewHTML += ` <span class="memo-preview"> | ${truncateMessage(escapeHtml(latestActivity.message), 25)}</span>`;
           }
+        } else if (latestActivity.type === 'call') {
+          previewHTML = `<span><i>Join call</i></span>`;
+        } else if (latestActivity.type === 'vm') {
+          previewHTML = `<span><i>Voice message</i></span>`;
+        } else if ((!latestActivity.message || String(latestActivity.message).trim() === '') && latestActivity.xattach) {
+          previewHTML = `<span><i>Attachment</i></span>`;
         } else {
           // Latest item is a regular message
           const messageText = escapeHtml(latestActivity.message);
