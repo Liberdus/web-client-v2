@@ -6852,7 +6852,7 @@ class StakeValidatorModal {
    * @param {string} data - The QR data to fill the stake address input field
    * @returns {void}
    * */
-  fillFromQR(data) {
+  async fillFromQR(data) {
     console.log('Filling stake address from QR data:', data);
 
     // Directly set the value of the stakeNodeAddress input field
@@ -11410,7 +11410,7 @@ class SendAssetFormModal {
    * @param {string} data - The QR code data to fill the form with
    * @returns {void}
    * */
-  fillFromQR(data) {
+  async fillFromQR(data) {
     console.log('Attempting to fill payment form from QR:', data);
 
     // Explicitly check for the required prefix
@@ -11439,6 +11439,20 @@ class SendAssetFormModal {
 
       if (paymentData.u) {
         this.usernameInput.value = paymentData.u;
+      }
+      if (paymentData.s) {
+        try {
+          const symbol = String(paymentData.s).toUpperCase();
+          const current = String(this.balanceSymbol.textContent || 'LIB').toUpperCase();
+          if (symbol === 'USD' && current !== 'USD') {
+            // call the existing toggle handler to reuse conversion logic
+            await this.handleToggleBalance({ preventDefault: () => {} });
+          } else if (symbol === 'LIB' && current !== 'LIB') {
+            await this.handleToggleBalance({ preventDefault: () => {} });
+          }
+        } catch (err) {
+          console.error('Error toggling balance from QR symbol', err);
+        }
       }
       if (paymentData.a) {
         this.amountInput.value = paymentData.a;
