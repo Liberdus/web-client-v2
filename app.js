@@ -9513,6 +9513,7 @@ class CallInviteModal {
         }
 
         const messageObj = await chatModal.createChatMessage(addr, messagePayload, toll, keys);
+        messageObj.callType = true
         await signObj(messageObj, keys);
         const txid = getTxid(messageObj);
         await injectTx(messageObj, txid);
