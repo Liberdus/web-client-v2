@@ -6944,6 +6944,18 @@ class ChatModal {
 
     // Flag to prevent multiple downloads
     this.attachmentDownloadInProgress = false; 
+
+    // Abort controller for cancelling file operations
+    this.abortController = new AbortController();
+  }
+
+  /**
+   * Cancels all ongoing file operations and creates a new abort controller
+   * @returns {void}
+   */
+  cancelAllOperations() {
+    this.abortController.abort();
+    this.abortController = new AbortController();
   }
 
   /**
@@ -7211,6 +7223,9 @@ class ChatModal {
 
     // Save any unsaved draft before closing
     this.debouncedSaveDraft(this.messageInput.value);
+
+    // Cancel all ongoing file operations
+    this.cancelAllOperations();
 
     // clear file attachments
     this.fileAttachments = [];
@@ -8022,11 +8037,12 @@ console.warn('in send message', txid)
       return;
     }
 
+    let loadingToastId;
     try {
       this.isEncrypting = true;
       this.sendButton.disabled = true; // Disable send button during encryption
       this.addAttachmentButton.disabled = true;
-      const loadingToastId = showToast(`Attaching file...`, 0, 'loading');
+      loadingToastId = showToast(`Attaching file...`, 0, 'loading');
       const { dhkey, cipherText: pqEncSharedKey } = await this.getRecipientDhKey(this.address);
       const password = myAccount.keys.secret + myAccount.keys.pqSeed;
       const selfKey = encryptData(bin2hex(dhkey), password, true)
@@ -8052,28 +8068,42 @@ console.warn('in send message', txid)
           // TODO: move to network.js
           const uploadUrl = 'https://inv.liberdus.com:2083';
 
-          const response = await fetch(`${uploadUrl}/post`, {
-            method: 'POST',
-            body: form
-          });
-          if (!response.ok) throw new Error(`upload failed ${response.status}`);
+          try {
+            const response = await fetch(`${uploadUrl}/post`, {
+              method: 'POST',
+              body: form,
+              signal: this.abortController.signal
+            });
+            if (!response.ok) throw new Error(`upload failed ${response.status}`);
 
-          const { id } = await response.json();
-          if (!id) throw new Error('No file ID returned from upload');
+            const { id } = await response.json();
+            if (!id) throw new Error('No file ID returned from upload');
 
-          this.fileAttachments.push({
-            url: `${uploadUrl}/get/${id}`,
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            pqEncSharedKey: bin2base64(pqEncSharedKey),
-            selfKey
-          });
-          hideToast(loadingToastId);
-          this.showAttachmentPreview(file);
-          this.sendButton.disabled = false; // Re-enable send button
-          this.addAttachmentButton.disabled = false;
-          showToast(`File "${file.name}" attached successfully`, 2000, 'success');
+            this.fileAttachments.push({
+              url: `${uploadUrl}/get/${id}`,
+              name: file.name,
+              size: file.size,
+              type: file.type,
+              pqEncSharedKey: bin2base64(pqEncSharedKey),
+              selfKey
+            });
+            hideToast(loadingToastId);
+            this.showAttachmentPreview(file);
+            this.sendButton.disabled = false; // Re-enable send button
+            this.addAttachmentButton.disabled = false;
+            showToast(`File "${file.name}" attached successfully`, 2000, 'success');
+          } catch (fetchError) {
+            // Handle fetch errors (including AbortError) inside the worker callback
+            if (fetchError.name === 'AbortError') {
+              hideToast(loadingToastId);
+            } else {
+              hideToast(loadingToastId);
+              showToast(`Upload failed: ${fetchError.message}`, 0, 'error');
+            }
+            this.sendButton.disabled = false;
+            this.addAttachmentButton.disabled = false;
+            this.isEncrypting = false;
+          }
         }
         worker.terminate();
       };
@@ -8096,7 +8126,18 @@ console.warn('in send message', txid)
       
     } catch (error) {
       console.error('Error handling file attachment:', error);
-      showToast('Error processing file attachment', 0, 'error');
+      
+      // Hide loading toast if it was an abort error
+      if (error.name === 'AbortError') {
+        hideToast(loadingToastId);
+      } else {
+        showToast('Error processing file attachment', 0, 'error');
+      }
+      
+      // Re-enable buttons
+      this.sendButton.disabled = false;
+      this.addAttachmentButton.disabled = false;
+      this.isEncrypting = false;
     } finally {
       event.target.value = ''; // Reset the file input value
     }
@@ -8281,8 +8322,9 @@ console.warn('in send message', txid)
   }
 
   async handleAttachmentDownload(item, linkEl) {
+    let loadingToastId;
     try {
-      const loadingToastId = showToast(`Decrypting attachment...`, 0, 'loading');
+      loadingToastId = showToast(`Decrypting attachment...`, 0, 'loading');
       // 1. Derive a fresh 32‑byte dhkey
       let dhkey;
       if (item.my) {
@@ -8303,7 +8345,9 @@ console.warn('in send message', txid)
       }
 
       // 2. Download encrypted bytes
-      const res = await fetch(linkEl.dataset.url);
+      const res = await fetch(linkEl.dataset.url, {
+        signal: this.abortController.signal
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const cipherBin = new Uint8Array(await res.arrayBuffer());
 
@@ -8359,7 +8403,13 @@ console.warn('in send message', txid)
 
     } catch (err) {
       console.error('Attachment decrypt failed:', err);
-      showToast(`Decryption failed.`, 0, 'error');
+      
+      // Hide loading toast if it was an abort error
+      if (err.name === 'AbortError') {
+        hideToast(loadingToastId);
+      } else {
+        showToast(`Decryption failed.`, 0, 'error');
+      }
     }
   }
 
