@@ -2602,7 +2602,7 @@ mark {
   top: 25%;
   left: 50%;
   transform: translate(-50%, 0);
-  /* z-index: 2000; */
+  z-index: 2000;
   display: flex;
   flex-direction: column;
   gap: 8px;

@@ -9952,6 +9952,8 @@ class VoiceRecordingModal {
    */
   async sendVoiceMessage() {
     if (!this.recordedBlob) return;
+
+    const loadingToastId = showToast('Sending voice message...', 0, 'loading');
     
     this.sendVoiceMessageButton.disabled = true;
 
@@ -10015,7 +10017,8 @@ class VoiceRecordingModal {
       
       // Send the voice message through chat modal
       await chatModal.sendVoiceMessageTx(voiceMessageUrl, duration, pqEncSharedKey, selfKey);
-      
+
+      hideToast(loadingToastId);
       this.close();
       
     } catch (error) {
