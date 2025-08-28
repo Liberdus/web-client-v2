@@ -3898,15 +3898,14 @@ small {
 .amount-container {
   display: flex;
   align-items: center;
+  gap: 8px; /* Add spacing between input and button */
 }
 
-/* Added to make the input field flexible and adjust its right-side appearance */
+/* Updated to separate the input and button */
 .amount-container .form-control {
   flex: 1; /* Allows the input to take available space */
   min-width: 0; /* Important for flex item shrinkage */
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-  border-right: none; /* Remove the input's right border to join with the button */
+  border-right: 1px solid #ccc; /* Restore right border */
   /* width: auto; /* Overrides the default form-control width: 100% */
 }
 
@@ -3916,12 +3915,8 @@ small {
   padding: 0 16px; /* Horizontal padding */
   background-color: var(--button-background);
   color: var(--button-text);
-  border: 1px solid var(--border-color);
-  border-left: none; /* Remove left border to seamlessly join with the input */
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-  border-top-right-radius: 12px; /* Match form-control's border radius */
-  border-bottom-right-radius: 12px; /* Match form-control's border radius */
+  border: 1.5px solid var(--border-color);
+  border-radius: 12px; /* Full border radius to match form-control */
   font-family: var(--font-primary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
@@ -3937,8 +3932,6 @@ small {
 
 #sendAmount,
 #newTollAmountInput {
-  border-top-right-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
   text-align: right;
 }
 

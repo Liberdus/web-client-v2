@@ -10748,6 +10748,8 @@ class SendAssetFormModal {
       // Clear custom validity message when user types
       event.target.setCustomValidity('');
     });
+    // Clear amount field on focus if it contains only "0"
+    this.amountInput.addEventListener('focus', this.handleAmountFocus.bind(this));
     // event listener for toggle LIB/USD button
     this.toggleBalanceButton.addEventListener('click', this.handleToggleBalance.bind(this));
     this.memoInput.addEventListener('input', this.handleMemoInputChange.bind(this));
@@ -11252,6 +11254,22 @@ class SendAssetFormModal {
     }
 
     this.updateBalanceAndFeeDisplay(balanceInLIB, feeInLIB, !isLib, scalabilityFactor);
+  }
+
+  /**
+   * Handles focus event on amount input field
+   * Clears the field if it contains only "0" to improve user experience
+   * @param {Event} e - The focus event object
+   * @returns {void}
+   */
+  handleAmountFocus(e) {
+    const input = e.target;
+    const value = input.value.trim();
+    
+    // Clear the field if the numeric value is 0
+    if (parseFloat(value) === 0) {
+      input.value = '';
+    }
   }
 
   /**
