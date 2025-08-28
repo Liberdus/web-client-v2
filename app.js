@@ -14120,12 +14120,14 @@ async function getNetworkParams() {
       return;
     } else {
       isOnline = false;
+      updateUIForConnectivity();
       console.warn(
         `getNetworkParams: Received null or undefined data from queryNetwork for account ${NETWORK_ACCOUNT_ID}. Cached data (if any) will remain unchanged.`
       );
     }
   } catch (error) {
     isOnline = false;
+    updateUIForConnectivity();
     console.error(
       `getNetworkParams: Error fetching network account data for ${NETWORK_ACCOUNT_ID}: Cached data (if any) will remain unchanged.`,
       error
