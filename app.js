@@ -13227,40 +13227,92 @@ class LaunchModal {
     this.launchButton.disabled = true;
     this.launchButton.textContent = 'Checking URL...';
 
-    // Create the network.js URL to check
-    let urlObj = new URL(url);
-    const path = urlObj.pathname === '' ? '/' : (urlObj.pathname.endsWith('/') ? urlObj.pathname : urlObj.pathname + '/');
-    const networkJsUrl = urlObj.origin + path + 'network.js';
+    let networkJsUrl;
     
+    // Step 1: URL parsing
     try {
-      logsModal.log('Launch URL validation starting', `url=${networkJsUrl}`);
-  
-      // Validate if network.js exists and has required properties
-      const result = await fetch(networkJsUrl);
-  
+      const urlObj = new URL(url);
+      const path = urlObj.pathname === '' ? '/' : (urlObj.pathname.endsWith('/') ? urlObj.pathname : urlObj.pathname + '/');
+      networkJsUrl = urlObj.origin + path + 'network.js';
+      logsModal.log('Launch URL validation - URL parsed successfully', `url=${networkJsUrl}`);
+    } catch (urlError) {
+      logsModal.log('Launch URL validation - URL parsing failed', `url=${url}`, `error=${urlError.message}`);
+      showToast(`Invalid URL format: ${urlError.message}`, 0, 'error');
+      this.launchButton.disabled = false;
+      this.launchButton.textContent = 'Launch';
+      return;
+    }
+
+    // Step 2: Fetch network.js
+    let result;
+    try {
+      logsModal.log('Launch URL validation - starting fetch', `url=${networkJsUrl}`);
+
+      result = await fetch(networkJsUrl,{
+        cache: 'reload',
+      });
+      
       if (!result.ok) {
-        throw new Error(`network.js not found (HTTP ${result.status}: ${result.statusText})`);
+        throw new Error(`HTTP ${result.status}: ${result.statusText}`);
       }
-  
-      const networkJson = await result.text();
-      logsModal.log('Launch URL validation network.js text', `url=${networkJsUrl}`, networkJson);
-  
-      // Check for required network properties
+      
+      logsModal.log('Launch URL validation - fetch successful', `url=${networkJsUrl}`, `status=${result.status}`);
+    } catch (fetchError) {
+      logsModal.log('Full fetch error:', fetchError);
+      logsModal.log('Error name:', fetchError.name);
+      logsModal.log('Error message:', fetchError.message);
+      logsModal.log('Error stack:', fetchError.stack);
+      logsModal.log('fetchError full:', fetchError);
+      logsModal.log('Launch URL validation - fetch failed', `url=${networkJsUrl}`, `error=${fetchError.message}`, `errorName=${fetchError.name}`);
+      showToast(`Network error: ${fetchError.message}`, 0, 'error');
+      this.launchButton.disabled = false;
+      this.launchButton.textContent = 'Launch';
+      return;
+    }
+
+    // Step 3: Parse response text
+    let networkJson;
+    try {
+      networkJson = await result.text();
+      logsModal.log('Launch URL validation - response text parsed', `url=${networkJsUrl}`, `length=${networkJson.length}`);
+      
+      if (!networkJson || networkJson.length === 0) {
+        throw new Error('Empty response received');
+      }
+    } catch (parseError) {
+      logsModal.log('Launch URL validation - response parsing failed', `url=${networkJsUrl}`, `error=${parseError.message}`);
+      showToast(`Response parsing error: ${parseError.message}`, 0, 'error');
+      this.launchButton.disabled = false;
+      this.launchButton.textContent = 'Launch';
+      return;
+    }
+
+    // Step 4: Validate required properties
+    try {
       const requiredProps = ['network', 'name', 'netid', 'gateways'];
-      const missingProps = requiredProps.filter(prop => !networkJson?.includes(prop));
+      const missingProps = requiredProps.filter(prop => !networkJson.includes(prop));
     
       if (missingProps.length > 0) {
-        throw new Error(`Invalid network.js: Missing ${missingProps.join(', ')}`);
+        throw new Error(`Missing required properties: ${missingProps.join(', ')}`);
       }
-  
-      // Success - proceed with launching
-      logsModal.log('Launch URL validation success', `url=${networkJsUrl}`);
+      
+      logsModal.log('Launch URL validation - properties validated', `url=${networkJsUrl}`, `allPropsFound=true`);
+    } catch (validationError) {
+      logsModal.log('Launch URL validation - property validation failed', `url=${networkJsUrl}`, `error=${validationError.message}`);
+      showToast(`Invalid network configuration: ${validationError.message}`, 0, 'error');
+      this.launchButton.disabled = false;
+      this.launchButton.textContent = 'Launch';
+      return;
+    }
+
+    // Step 5: Success - launch the app
+    try {
+      logsModal.log('Launch URL validation - success, launching app', `url=${networkJsUrl}`);
       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'launch', url }));
       this.close();
-  
-    } catch (error) {
-      logsModal.log('Launch URL validation failed', `url=${networkJsUrl}`, error);
-      showToast(`Invalid Liberdus URL. Error: ${error.message}`, 0, 'error');
+    } catch (launchError) {
+      logsModal.log('Launch URL validation - launch failed', `url=${networkJsUrl}`, `error=${launchError.message}`);
+      showToast(`Launch error: ${launchError.message}`, 0, 'error');
     } finally {
       // Reset button state (this should always happen)
       this.launchButton.disabled = false;
