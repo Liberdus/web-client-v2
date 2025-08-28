@@ -11226,11 +11226,9 @@ class SendAssetFormModal {
   /**
    * This function is called when the user clicks the toggle LIB/USD button.
    * Updates the balance symbol and the send amount to the equivalent value in USD/LIB
-   * @param {Event} e - The event object
    * @returns {void}
    */
-  async handleToggleBalance(e) {
-    e.preventDefault();
+  async handleToggleBalance() {
     this.balanceSymbol.textContent = this.balanceSymbol.textContent === 'LIB' ? 'USD' : 'LIB';
 
     // check the context value of the button to determine if it's LIB or USD
@@ -11440,18 +11438,18 @@ class SendAssetFormModal {
       if (paymentData.u) {
         this.usernameInput.value = paymentData.u;
       }
-      if (paymentData.s) {
+      if (paymentData.d) {
         try {
-          const symbol = String(paymentData.s).toUpperCase();
+          const symbol = String(paymentData.d).toUpperCase();
           const current = String(this.balanceSymbol.textContent || 'LIB').toUpperCase();
           if (symbol === 'USD' && current !== 'USD') {
             // call the existing toggle handler to reuse conversion logic
-            await this.handleToggleBalance({ preventDefault: () => {} });
+            await this.handleToggleBalance();
           } else if (symbol === 'LIB' && current !== 'LIB') {
-            await this.handleToggleBalance({ preventDefault: () => {} });
+            await this.handleToggleBalance();
           }
         } catch (err) {
-          console.error('Error toggling balance from QR symbol', err);
+          console.error('Error toggling balance from QR display unit field', err);
         }
       }
       if (paymentData.a) {
@@ -11853,6 +11851,10 @@ class ReceiveModal {
     this.amountInput.addEventListener('input', () => this.amountInput.value = normalizeUnsignedFloat(this.amountInput.value));
     this.amountInput.addEventListener('input', this.debouncedUpdateQRCode);
     this.memoInput.addEventListener('input', this.debouncedUpdateQRCode);
+    // Receive modal balance toggle (LIB/USD)
+    this.toggleReceiveBalanceButton = document.getElementById('toggleReceiveBalance');
+    this.receiveBalanceSymbol = document.getElementById('receiveBalanceSymbol');
+    this.toggleReceiveBalanceButton.addEventListener('click', this.handleToggleBalance.bind(this));
   }
 
   open() {
@@ -11887,6 +11889,9 @@ class ReceiveModal {
     // Clear input fields
     this.amountInput.value = '';
     this.memoInput.value = '';
+
+    this.receiveBalanceSymbol.textContent = 'LIB';
+
 
     // Initial update for addresses based on the first asset
     this.updateReceiveAddresses();
@@ -11957,6 +11962,7 @@ class ReceiveModal {
       u: myAccount.username, // username
       i: assetId, // assetId
       s: symbol, // symbol
+      d: String(this.receiveBalanceSymbol.textContent || 'LIB').toUpperCase() //display unit
     };
 
     // Add optional fields if they have values
@@ -12043,6 +12049,37 @@ class ReceiveModal {
         console.error('Error generating fallback QR code:', fallbackError);
         this.qrcodeContainer.innerHTML = '<p style="color: red; text-align: center;">Failed to generate QR code.</p>';
       }
+    }
+  }
+
+  /**
+   * Toggle LIB/USD display for the receive amount and update the QR accordingly
+   */
+  async handleToggleBalance() {
+    try {
+      this.receiveBalanceSymbol.textContent = this.receiveBalanceSymbol.textContent === 'LIB' ? 'USD' : 'LIB';
+
+      const isLib = this.receiveBalanceSymbol.textContent === 'LIB';
+
+      await getNetworkParams();
+      const scalabilityFactor = getStabilityFactor();
+
+      if (this.amountInput && this.amountInput.value.trim() !== '') {
+        const currentValue = parseFloat(this.amountInput.value);
+        if (!isNaN(currentValue)) {
+          if (!isLib) {
+            // now showing USD, convert LIB -> USD
+            this.amountInput.value = (currentValue * scalabilityFactor).toString();
+          } else {
+            // now showing LIB, convert USD -> LIB
+            this.amountInput.value = (currentValue / scalabilityFactor).toString();
+          }
+        }
+      }
+
+      this.updateQRCode();
+    } catch (err) {
+      console.error('Error toggling receive balance:', err);
     }
   }
 
