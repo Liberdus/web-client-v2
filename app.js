@@ -10488,7 +10488,7 @@ class CreateAccountModal {
     
     // Check if username is too short after normalization
     if (username.length < 3) {
-      this.usernameAvailable.textContent = 'Username too short after normalization';
+      this.usernameAvailable.textContent = 'too short';
       this.usernameAvailable.style.color = '#dc3545';
       this.usernameAvailable.style.display = 'inline';
       this.reEnableControls();
