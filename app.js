@@ -147,34 +147,6 @@ let parameters = {
   },
 };
 
-// Keyboard handling for React Native WebView
-// function adjustForKeyboard() {
-//   if (window.visualViewport) {
-//     const viewport = window.visualViewport;
-//     // show toast
-//     /* showToast('Keyboard adjustment with CSS custom properties enabled', 3000, 'success'); */
-//     const resizeHandler = () => {
-//       // show toast that we are resizing
-//       /* showToast('Resizing', 3000, 'success'); */
-//       // Set your app container height to the visual viewport height
-//       document.documentElement.style.setProperty(
-//         '--viewport-height', 
-//         `${viewport.height}px`
-//       );
-//       console.log('📱 Viewport height adjusted to:', viewport.height + 'px');
-//     };
-    
-//     viewport.addEventListener('resize', resizeHandler);
-//     viewport.addEventListener('scroll', resizeHandler);
-    
-//     // Set initial height
-//     resizeHandler();
-//     console.log('✅ Keyboard adjustment with CSS custom properties enabled');
-//   } else {
-//     console.log('❌ visualViewport not supported for keyboard adjustment');
-//   }
-// }
-
 /**
  * Check if a username is available or taken
  * @param {*} username 
@@ -327,9 +299,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   timeDifference(); // Calculate and log time difference early
 
   setupConnectivityDetection();
-
-  // Setup keyboard adjustment for React Native WebView
-  // adjustForKeyboard();
 
   // React Native App
   reactNativeApp.load();
