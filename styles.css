@@ -3931,11 +3931,6 @@ small {
   width: 62px
 }
 
-#sendAmount,
-#newTollAmountInput {
-  text-align: right;
-}
-
 .toggle-balance:hover {
   background-color: var(--button-hover-background);
 }
