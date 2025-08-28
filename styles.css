@@ -3898,7 +3898,7 @@ small {
 .amount-container {
   display: flex;
   align-items: center;
-  gap: 8px; /* Add spacing between input and button */
+  gap: 18px; /* Add spacing between input and button */
 }
 
 /* Updated to separate the input and button */
@@ -3928,6 +3928,7 @@ small {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 62px
 }
 
 #sendAmount,
