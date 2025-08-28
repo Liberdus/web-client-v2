@@ -30,10 +30,7 @@ async function checkVersion() {
     alert('Updating to new version: ' + newVersion + ' ' + version);
     localStorage.setItem('version', newVersion); // Save new version
     const newUrl = window.location.href.split('?')[0];
-/* probably don't need to forece reload these since we are reloading newUrl now
-    './',
-    'index.html',
-*/
+
     logsModal.log(`Updated to version: ${newVersion}`)
     await forceReload([
       newUrl,
@@ -141,11 +138,9 @@ let getSystemNoticeIntervalId = null;
 
 // Used in getNetworkParams function
 const NETWORK_ACCOUNT_UPDATE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
-const NETWORK_ACCOUNT_ID = '0000000000000000000000000000000000000000000000000000000000000000';
+const NETWORK_ACCOUNT_ID = '0'.repeat(64);
 const MAX_TOLL = 1_000_000; // 1M limit
 
-// TODO - get the parameters from the network
-// mock network parameters
 let parameters = {
   current: {
     transactionFee: 1n * wei,
@@ -4092,6 +4087,8 @@ function hideToast(toastId) {
 // Handle online/offline events
 async function handleConnectivityChange() {
   if (isOnline) {
+    await getNetworkParams();
+    if (!isOnline) return;
     console.log('Just came back online.');
     // We just came back online
     updateUIForConnectivity();
@@ -14122,11 +14119,13 @@ async function getNetworkParams() {
       }
       return;
     } else {
+      isOnline = false;
       console.warn(
         `getNetworkParams: Received null or undefined data from queryNetwork for account ${NETWORK_ACCOUNT_ID}. Cached data (if any) will remain unchanged.`
       );
     }
   } catch (error) {
+    isOnline = false;
     console.error(
       `getNetworkParams: Error fetching network account data for ${NETWORK_ACCOUNT_ID}: Cached data (if any) will remain unchanged.`,
       error
