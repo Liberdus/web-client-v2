@@ -11226,9 +11226,13 @@ class SendAssetFormModal {
   /**
    * This function is called when the user clicks the toggle LIB/USD button.
    * Updates the balance symbol and the send amount to the equivalent value in USD/LIB
+   * @param {Event} e - The event object
    * @returns {void}
    */
-  async handleToggleBalance() {
+  async handleToggleBalance(e) {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
     this.balanceSymbol.textContent = this.balanceSymbol.textContent === 'LIB' ? 'USD' : 'LIB';
 
     // check the context value of the button to determine if it's LIB or USD
