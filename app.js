@@ -10482,7 +10482,19 @@ class CreateAccountModal {
     this.backButton.disabled = true;
 
     event.preventDefault();
+    
+    // Validate username at submit time after normalization
     const username = normalizeUsername(this.usernameInput.value);
+    
+    // Check if username is too short after normalization
+    if (username.length < 3) {
+      this.usernameAvailable.textContent = 'Username too short after normalization';
+      this.usernameAvailable.style.color = '#dc3545';
+      this.usernameAvailable.style.display = 'inline';
+      this.reEnableControls();
+      return;
+    }
+    
 
     // Get network ID from network.js
     const { netid } = network;
