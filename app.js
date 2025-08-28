@@ -11836,6 +11836,8 @@ class ReceiveModal {
     this.qrcodeContainer = document.getElementById('qrcode');
     this.previewElement = document.getElementById('qrDataPreview');
     this.copyButton = document.getElementById('copyAddress');
+    this.toggleReceiveBalanceButton = document.getElementById('toggleReceiveBalance');
+    this.receiveBalanceSymbol = document.getElementById('receiveBalanceSymbol');
 
     // Create debounced function
     this.debouncedUpdateQRCode = debounce(() => this.updateQRCode(), 300);
@@ -11851,9 +11853,6 @@ class ReceiveModal {
     this.amountInput.addEventListener('input', () => this.amountInput.value = normalizeUnsignedFloat(this.amountInput.value));
     this.amountInput.addEventListener('input', this.debouncedUpdateQRCode);
     this.memoInput.addEventListener('input', this.debouncedUpdateQRCode);
-    // Receive modal balance toggle (LIB/USD)
-    this.toggleReceiveBalanceButton = document.getElementById('toggleReceiveBalance');
-    this.receiveBalanceSymbol = document.getElementById('receiveBalanceSymbol');
     this.toggleReceiveBalanceButton.addEventListener('click', this.handleToggleBalance.bind(this));
   }
 
