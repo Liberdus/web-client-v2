@@ -728,11 +728,29 @@
               </div>
               <div class="form-group">
                 <label>
+                  <input type="checkbox" id="overwriteAccountsCheckbox"> 
+                  Overwrite existing accounts from backup file
+                </label>
+              </div>
+
+              <div class="form-group" id="backupAccountLockGroup" style="display: none;">
+                <label for="backupAccountLock">Backup Account Password</label>
+                <input
+                  type="password"
+                  id="backupAccountLock"
+                  class="form-control"
+                  placeholder="Enter password used to lock accounts in backup"
+                />
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn--primary btn--pill btn--full">Load Account</button>
+              </div>
+              <div class="form-group">
+                <label>
                   <input type="checkbox" id="developerOptionsToggle"> 
                   Developer Options
                 </label>
               </div>
-
               <!-- Developer options section (initially hidden) -->
               <div id="developerOptionsSection" class="developer-options" style="display: none;">
                 <div class="form-group">
@@ -752,9 +770,6 @@
                   <input type="text" id="newStringCustom" class="form-control u-mt-5" 
                         placeholder="Enter custom new string">
                 </div>
-              </div>
-              <div class="form-actions">
-                <button type="submit" class="btn btn--primary btn--pill btn--full">Load Account</button>
               </div>
             </form>
           </div>

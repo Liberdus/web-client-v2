@@ -4852,6 +4852,9 @@ class RestoreAccountModal {
     this.importForm = document.getElementById('importForm');
     this.fileInput = document.getElementById('importFile');
     this.passwordInput = document.getElementById('importPassword');
+    this.overwriteAccountsCheckbox = document.getElementById('overwriteAccountsCheckbox');
+    this.backupAccountLockGroup = document.getElementById('backupAccountLockGroup');
+    this.backupAccountLock = document.getElementById('backupAccountLock');
     this.developerOptionsSection = document.getElementById('developerOptionsSection');
 
     this.closeImportForm.addEventListener('click', () => this.close());
@@ -4889,10 +4892,12 @@ class RestoreAccountModal {
   }
 
   open() {
-    // have developer options toggle unchecked and clear any previous inputs
-    this.clearForm();
+    // reset any backup lock UI
+    this.backupAccountLockGroup.style.display = 'none';
+    this.backupAccountLock.value = '';
 
-    // called when the modal needs to be opened
+    // clear and show modal
+    this.clearForm();
     this.modal.classList.add('active');
   }
 
@@ -4954,6 +4959,14 @@ class RestoreAccountModal {
       }
 
       const data = parse(content);
+      // If the backup file contains a top-level lock field (accounts were locked in backup)
+      if (data.lock) {
+        // Show password input so user can provide password needed to unlock accounts
+        this.backupAccountLockGroup.style.display = 'block';
+      } else {
+        this.backupAccountLockGroup.style.display = 'none';
+        this.backupAccountLock.value = '';
+      }
       const netids = new Set();
 
       // Extract netids only from localStorage keys (username_netid format)
@@ -5000,6 +5013,126 @@ class RestoreAccountModal {
     return modifiedContent;
   }
 
+  // Merge accounts from a backup object into localStorage without clearing other keys.
+  // Handles encrypted accounts in backup (requires backup password) and re-encrypts with local lock if needed.
+  async mergeBackupAccountsToLocal(backupData) {
+    const overwrite = this.overwriteAccountsCheckbox?.checked;
+
+    // If backup has a lock, require backup password
+    let backupEncKey = null;
+    if (backupData.lock) {
+      const password = this.backupAccountLock.value || '';
+      if (!password) {
+        showToast('Backup password required to unlock accounts in the backup file', 0, 'error');
+        return false;
+      }
+      backupEncKey = await passwordToKey(password + 'liberdusData');
+      if (!backupEncKey) {
+        showToast('Invalid backup password', 0, 'error');
+        return false;
+      }
+    }
+
+    // Ensure we have local accounts registry
+    const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+
+    // Merge accounts registry first
+    const backupAccountsRegistry = parse(backupData.accounts || '{"netids":{}}');
+    Object.keys(backupAccountsRegistry.netids || {}).forEach(netid => {
+      if (!existingAccounts.netids[netid]) existingAccounts.netids[netid] = { usernames: {} };
+      const usernames = backupAccountsRegistry.netids[netid].usernames || {};
+      Object.keys(usernames).forEach(username => {
+        if (overwrite || !existingAccounts.netids[netid].usernames[username]) {
+          existingAccounts.netids[netid].usernames[username] = usernames[username];
+        }
+      });
+    });
+    localStorage.setItem('accounts', stringify(existingAccounts));
+
+
+    // Helper to extract address from parsed account data
+    const extractAddress = (maybeJson) => {
+      try {
+        const obj = typeof maybeJson === 'string' ? parse(maybeJson) : maybeJson;
+        return obj?.account?.keys?.address || '';
+      } catch (e) {
+        return '';
+      }
+    };
+
+    // Iterate over keys in backupData and copy account entries
+    for (const key of Object.keys(backupData)) {
+      const parts = key.split('_');
+      if (parts.length !== 2) continue;
+      const username = parts[0];
+      const netid = parts[1];
+      // basic netid check
+      if (netid.length !== 64 || !/^[a-f0-9]+$/.test(netid)) continue;
+
+      const localKey = `${username}_${netid}`;
+      const exists = localStorage.getItem(localKey) !== null;
+      if (exists && !overwrite) continue; // skip when not overwriting
+
+      let value = backupData[key];
+
+      // If backupData.lock equals localStorage.lock, we can copy directly
+      if (backupData.lock && localStorage.lock && backupData.lock === localStorage.lock) {
+        // Direct copy
+        localStorage.setItem(localKey, value);
+      } else {
+        // Need to decrypt with backupEncKey if available
+        let decrypted = value;
+        if (backupData.lock) {
+            if (!backupEncKey) {
+              showToast('Backup Account password required to unlock accounts in the backup file', 0, 'error');
+              return false;
+            }
+          try {
+            const maybe = decryptData(value, backupEncKey, true);
+            if (maybe != null) decrypted = maybe;
+            else {
+              // failed to decrypt
+              showToast(`Failed to decrypt account ${username} on ${netid}. Skipping.`, 4000, 'error');
+              continue;
+            }
+          } catch (e) {
+            showToast(`Failed to decrypt account ${username} on ${netid}. Skipping.`, 4000, 'error');
+            continue;
+          }
+        }
+
+        // Now re-encrypt with local lock if localStorage.lock exists
+        let finalValue = decrypted;
+          if (localStorage.lock) {
+          if (!lockModal?.encKey) {
+            showToast('Local lock is set but unlock state is missing. Please unlock before importing.', 0, 'error');
+            return false;
+          }
+          try {
+            finalValue = encryptData(decrypted, lockModal.encKey, true);
+          } catch (e) {
+            showToast(`Failed to re-encrypt account ${username} on ${netid}. Skipping.`, 4000, 'error');
+            continue;
+          }
+        }
+
+        // Finally store the account entry
+          localStorage.setItem(localKey, finalValue);
+
+        // Update accounts registry address if possible
+        const address = extractAddress(decrypted);
+        if (address) {
+          const accountsObj = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+          if (!accountsObj.netids[netid]) accountsObj.netids[netid] = { usernames: {} };
+          accountsObj.netids[netid].usernames[username] = { address };
+          localStorage.setItem('accounts', stringify(accountsObj));
+        }
+      }
+    }
+
+    return true;
+  }
+
   async handleSubmit(event) {
     event.preventDefault();
 
@@ -5029,25 +5162,30 @@ class RestoreAccountModal {
       }
 
       // We first parse to jsonData so that if the parse does not work we don't destroy myData
-      myData = parse(fileContent);
+      const backupData = parse(fileContent);
 
-      // if myData has a version key then we assume all accounts were backed up and being restored
-      if (myData.version) {
-        // Warn user about global restore and ask for confirmation
-        const confirmed = confirm('⚠️ WARNING: This will restore all accounts and clear existing data.\n\nIt is recommended to backup your current data before proceeding.\n\nDo you want to continue with the restore?');
-        
+      // if backupData has a version key then we assume all accounts were backed up and being restored
+      if (backupData.version) {
+        // Instead of clearing localStorage, we'll merge accounts from backup into localStorage
+        // Ask for confirmation (previous behavior warned about clearing; keep a similar warning)
+        const confirmed = confirm('⚠️ WARNING: This will import all accounts from the backup file.\n\nExisting local accounts will not be removed. If "Overwrite existing accounts" is checked, accounts with the same username and netid will be replaced.\n\nIt is recommended to backup your current data before proceeding.\n\nDo you want to continue with the restore?');
+
         if (!confirmed) {
           showToast('Restore cancelled by user', 2000, 'info');
           return;
         }
-        
-        localStorage.clear();
-        this.copyObjectToLocalStorage(myData);
+
+        // Merge and abort if merge failed
+        const ok = await this.mergeBackupAccountsToLocal(backupData);
+        if (!ok) {
+          return; // merge failed — keep modal open and do not proceed to reset/close
+        }
+        showToast('Accounts restored successfully!', 2000, 'success');
       }
       // we are restoring only one account
       else {
         // also need to set myAccount
-        const acc = myData.account; // this could have other things which are not needed
+        const acc = backupData.account; // this could have other things which are not needed
         myAccount = {
           netid: acc.netid,
           username: acc.username,
@@ -5071,14 +5209,15 @@ class RestoreAccountModal {
         localStorage.setItem('accounts', stringify(existingAccounts));
 
         // if lock enckey exist we need to encrypt the myData
-        const updatedMyData = lockModal?.encKey ? encryptData(stringify(myData), lockModal?.encKey, true) : stringify(myData);
+        const updatedMyData = lockModal?.encKey ? encryptData(stringify(backupData), lockModal?.encKey, true) : stringify(backupData);
 
         // Store the localStore entry for username_netid
         localStorage.setItem(`${myAccount.username}_${myAccount.netid}`, updatedMyData);
+        // Show success message using toast
+        showToast('Account restored successfully!', 2000, 'success');
       }
 
-      // Show success message using toast
-      showToast('Account restored successfully!', 2000, 'success');
+      
       // handleNativeAppSubscription()
 
       // Reset form and close modal after delay
