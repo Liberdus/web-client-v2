@@ -224,14 +224,6 @@ async function checkUsernameAvailability(username, address, foundAddressObject) 
   }
 }
 
-function getAvailableUsernames() {
-  const { netid } = network;
-  const accounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-  const netidAccounts = accounts.netids[netid];
-  if (!netidAccounts || !netidAccounts.usernames) return [];
-  return Object.keys(netidAccounts.usernames);
-}
-
 function newDataRecord(myAccount) {
 
   const myData = {
@@ -664,8 +656,8 @@ class WelcomeScreen {
 
   orderButtons() {
     // Check for existing accounts and arrange welcome buttons
-    const usernames = getAvailableUsernames();
-    const hasAccounts = usernames.length > 0;
+    const { usernames } = signInModal.getSignInUsernames() || { usernames: [] };
+    const hasAccounts = usernames?.length > 0;
     // Reorder buttons based on accounts existence
     if (hasAccounts) {
       this.welcomeButtons.innerHTML = ''; // Clear existing order
@@ -1801,15 +1793,24 @@ class SignInModal {
   }
 
   /**
+   * Get the available usernames for the current network
+   * @returns {string[]} - An array of available usernames
+   */
+  getSignInUsernames() {
+    const { netid } = network;
+    const accounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+    const netidAccounts = accounts.netids[netid];
+    if (!netidAccounts || !netidAccounts.usernames) return [];
+    return { usernames: Object.keys(netidAccounts.usernames), netidAccounts };
+  }
+
+  /**
    * Update the username select dropdown with notification indicators and sort by notification status
    * @param {string} [selectedUsername] - Optionally preserve a selected username
    * @returns {Object} Object containing usernames array and account information
    */
   updateUsernameSelect(selectedUsername = null) {
-    const { netid } = network;
-    const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-    const netidAccounts = existingAccounts.netids[netid];
-    const usernames = netidAccounts?.usernames ? Object.keys(netidAccounts.usernames) : [];
+    const { usernames, netidAccounts } = signInModal.getSignInUsernames() || [];
 
     // Get the notified addresses and sort usernames to prioritize them
     const notifiedAddresses = reactNativeApp ? reactNativeApp.getNotificationAddresses() : [];
