@@ -152,7 +152,10 @@ let parameters = {
  * @param {*} username 
  * @param {*} address 
  * @param {*} foundAddressObject 
- * @returns 'mine' if the username is available and the address matches, 'taken' if the username is taken, 'available' if the username is available but the address does not match, 'error' if there is an error
+ * @returns 'mine' if the username is taken and the address matches,
+ *          'taken' if the username is taken and address does not match,
+ *          'available' if the username is available,
+ *          'error' if there is an error
  */
 async function checkUsernameAvailability(username, address, foundAddressObject) {
   if (foundAddressObject) {
@@ -200,10 +203,7 @@ async function checkUsernameAvailability(username, address, foundAddressObject) 
   const usernameBytes = utf82bin(normalizeUsername(username));
   const usernameHash = hashBytes(usernameBytes);
   try {
-    const response = await fetch(
-//      `${selectedGateway.protocol}://${selectedGateway.host}:${selectedGateway.port}/address/${usernameHash}`
-      `${selectedGateway.web}/address/${usernameHash}`
-    );
+    const response = await fetch(`${selectedGateway.web}/address/${usernameHash}`);
     const data = await response.json();
     if (data && data.address) {
       if (address && normalizeAddress(data.address) === normalizeAddress(address)) {
@@ -12323,6 +12323,7 @@ class MigrateAccountsModal {
     this.closeButton = document.getElementById('closeMigrateAccountsModal');
     this.form = document.getElementById('migrateAccountsForm');
     this.accountList = document.getElementById('migrateAccountList');
+    this.errorAndInconsistentAccounts = document.getElementById('errorAndInconsistentAccounts');
     this.submitButton = document.getElementById('submitMigrateAccounts');
 
     this.closeButton.addEventListener('click', () => this.close());
@@ -12368,6 +12369,10 @@ class MigrateAccountsModal {
     // Render Taken section
     this.renderSection('taken', 'Taken', categories.taken,
       'Accounts already taken');
+
+    // Render Error section
+    this.renderSection('error', 'Error', categories.error,
+      'Error checking username availability');
       
     // Check for inconsistencies and render them
     const inconsistencies = await this.checkAccountsInconsistency();
@@ -12395,14 +12400,17 @@ class MigrateAccountsModal {
             <input type="checkbox" value="${account.username}" 
                    data-netid="${account.netid}" 
                    data-section="${sectionId}"
-                   ${sectionId === 'taken' ? 'disabled' : ''}>
+                   ${sectionId === ('taken' || 'error') ? 'disabled' : ''}>
             ${account.username}_${account.netid.slice(0, 6)}
           </label>
         `).join('')}
       </div>
     `;
-
-    this.accountList.appendChild(section);
+    if (sectionId === 'error') {
+      this.errorAndInconsistentAccounts.appendChild(section);
+    } else {
+      this.accountList.appendChild(section);
+    }
   }
 
   /**
@@ -12445,7 +12453,8 @@ class MigrateAccountsModal {
     const categories = {
       mine: [],      // username maps to our address
       available: [], // username is available
-      taken: []      // username is taken
+      taken: [],      // username is taken
+      error: []      // error checking username availability
     };
 
     // Loop through all netids except current
@@ -12468,8 +12477,12 @@ class MigrateAccountsModal {
           categories.mine.push(account);
         } else if (availability === 'available') {
           categories.available.push(account);
-        } else {
+        } else if (availability === 'taken') {
           categories.taken.push(account);
+        } else if (availability === 'error') {
+          categories.error.push(account);
+        } else {
+          console.error("Unknown availability status: ", availability);
         }
       }
     }
@@ -12478,6 +12491,7 @@ class MigrateAccountsModal {
     categories.mine = this.sortAccounts(categories.mine);
     categories.available = this.sortAccounts(categories.available);
     categories.taken = this.sortAccounts(categories.taken);
+    categories.error = this.sortAccounts(categories.error);
 
     return categories;
   }
@@ -12752,7 +12766,7 @@ console.log('    result is',result)
       container.appendChild(unregisteredSection);
     }
     
-    this.accountList.appendChild(container);
+    this.errorAndInconsistentAccounts.appendChild(container);
   }
 }
 

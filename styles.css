@@ -2009,7 +2009,7 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.5rem;
 }
 
 #migrateAccountsModal .account-list label {
@@ -2041,7 +2041,7 @@ input[type='number'].form-control::-webkit-inner-spin-button {
 }
 
 .migrate-section {
-  margin-bottom: 2rem;
+  margin-bottom: 0.5rem;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 1rem;
@@ -3993,7 +3993,7 @@ small {
 
 /* Warning text styling */
 .warning-text {
-  color: #dc3545; /* Bootstrap's danger color */
+  color: var(--danger-color); /* Bootstrap's danger color */
   font-size: 0.8rem;
   margin-top: 0.25rem;
   margin-bottom: 0.5rem;
@@ -4006,6 +4006,14 @@ small {
 .warning-text.show {
   visibility: visible;
   opacity: 1;
+}
+
+.warning-text-migrate-accounts {
+  color: var(--danger-color); /* Bootstrap's danger color */
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+  min-height: 1.2em; /* Reserve space for the warning message */
 }
 
 /* Friend Modal Styles */
