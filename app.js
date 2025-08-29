@@ -251,7 +251,6 @@ function newDataRecord(myAccount) {
           balance: 0n,
           networth: 0.0,
           addresses: [
-            // TODO remove addresses and only the address in myData.account.keys.address
             {
               address: myAccount.keys.address,
               balance: 0n,
@@ -294,9 +293,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // React Native App
   reactNativeApp.load();
-
-  // Check for native app subscription tokens and handle subscription
-  reactNativeApp.handleNativeAppSubscribe();
 
   // Unlock Modal
   unlockModal.load();
@@ -441,19 +437,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   getNetworkParams();
 
   welcomeScreen.lastItem.focus();
-
-  // Deprecated - do not want to encourage or confuse users with this feature since on IOS uses seperate local storage
-  //setupAddToHomeScreen();
 });
-
-/* this is no longer used; using handleBeforeUnload instead
-function handleUnload() {
-  console.log('in handleUnload');
-  if (menuModal.isSignoutExit) {
-    return;
-  } // User selected to Signout; state was already saved
-}
-*/
 
 // Add unload handler to save myData
 function handleBeforeUnload(e) {
@@ -13430,6 +13414,8 @@ class ReactNativeApp {
       this.fetchAppParams();
       // send message `GetAllPanelNotifications` to React Native when app is opened during DOMContentLoaded
       this.fetchAllPanelNotifications();
+      // Check for native app subscription tokens and handle subscription
+      this.handleNativeAppSubscribe();
     }
   }
 
