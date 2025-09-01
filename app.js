@@ -7180,10 +7180,6 @@ class ChatModal {
 
     this.modalAvatar.innerHTML = generateIdenticon(contact.address, 40);
 
-    /* generateIdenticon(contact.address, 40).then((identicon) => {
-      this.modalAvatar.innerHTML = identicon;
-    }); */
-
     // Clear previous messages from the UI
     this.messagesList.innerHTML = '';
 
