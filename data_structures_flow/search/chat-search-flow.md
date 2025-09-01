@@ -184,7 +184,7 @@ function displaySearchResults(results) {
     resultElement.className = "chat-item search-result-item";
 
     // Generate identicon for the contact
-    const identicon = await generateIdenticon(result.contactAddress);
+    const identicon = generateIdenticon(result.contactAddress);
 
     // Format message preview with "You:" prefix if it's a sent message
     const messagePreview = result.my
@@ -334,7 +334,7 @@ async function handleChatClick(contactAddress) {
   chatModal.classList.add("active");
 
   // Generate the identicon first
-  const identicon = await generateIdenticon(contactAddress);
+  const identicon = generateIdenticon(contactAddress);
 
   // Update chat header with contact info and avatar - match exact structure from chat view
   const modalHeader = chatModal.querySelector(".modal-header");

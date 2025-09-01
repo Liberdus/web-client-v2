@@ -265,7 +265,7 @@ function displayContactResults(results, searchText) {
     const resultElement = document.createElement("li");
     resultElement.className = "chat-item search-result-item";
 
-    const identicon = await generateIdenticon(result.address);
+    const identicon = generateIdenticon(result.address);
 
     resultElement.innerHTML = `
       <div class="chat-avatar">

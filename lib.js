@@ -187,13 +187,8 @@ export function generateIdenticonSvg(hash, size = 50) {
 }
 
 // Generate identicon from address
-export async function generateIdenticon(address, size = 50) {
-    // Hash the address using SHA-256
-    const hashBuffer = await crypto.subtle.digest('SHA-256', str2ab(address));
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = bin2hex(hashArray)  // hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-    return generateIdenticonSvg(hashHex, size);
+export function generateIdenticon(address, size = 50) {
+    return generateIdenticonSvg(address, size);
 }
 
 // Format timestamp to relative time

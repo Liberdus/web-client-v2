@@ -511,19 +511,6 @@ async function encryptAllAccounts(oldPassword, newPassword) {
         }
       }
 
-      /*
-      // If data is still not an object, parse it
-      let parsedData;
-      try {
-        parsedData = typeof data === 'string' ? parse(data) : data;
-      } catch (e) {
-        console.error(`Failed to parse data for ${key}:`, e);
-        continue;
-      }
-
-      // Stringify for storage
-      let newData = stringify(parsedData);
-      */
       let newData = data;
 
       // If newEncKey is set, encrypt; otherwise, store as plaintext
@@ -800,8 +787,7 @@ class Footer {
       // Update lists when switching views
       if (view === 'chats') {
         this.chatButton.classList.remove('has-notification');
-        // TODO: maybe need to invoke updateChatData here?
-        await chatsScreen.updateChatList();
+        chatsScreen.updateChatList();
   
         // focus onto last-item in the footer
         if (footer.lastItem) {
@@ -921,7 +907,7 @@ class ChatsScreen {
   }
 
   // Update chat list UI
-  async updateChatList() {
+  updateChatList() {
     const chatList = this.chatList;
     //const chatsData = myData
     const contacts = myData.contacts;
@@ -941,9 +927,9 @@ class ChatsScreen {
     // Clear existing chat items before adding new ones
     chatList.innerHTML = '';
 
-    const chatElements = await Promise.all(
-      chats.map(async (chat) => {
-        const identicon = await generateIdenticon(chat.address);
+    const chatElements =
+      chats.map((chat) => {
+        const identicon = generateIdenticon(chat.address);
         const contact = contacts[chat.address];
 
         // If contact doesn't exist, skip this chat item
@@ -1012,7 +998,6 @@ class ChatsScreen {
 
         return li; // Return the created DOM element
       })
-    );
 
     // Append the created (and non-null) list item elements to the chatList
     chatElements.forEach((element) => {
@@ -1111,7 +1096,7 @@ class ContactsScreen {
 
     // Helper to render a contact item
     const renderContactItem = async (contact, itemClass) => {
-      const identicon = await generateIdenticon(contact.address);
+      const identicon = generateIdenticon(contact.address);
       const contactName = getContactDisplayName(contact);
       return `
             <li class="${itemClass}">
@@ -2092,7 +2077,7 @@ class MyInfoModal {
   async updateMyInfo() {
     if (!myAccount) return;
 
-    const identicon = await generateIdenticon(myAccount.keys.address, 96);
+    const identicon = generateIdenticon(myAccount.keys.address, 96);
 
     this.avatarDiv.innerHTML = identicon;
     this.nameDiv.textContent = myAccount.username;
@@ -2200,7 +2185,7 @@ class ContactInfoModal {
   // Update contact info values
   async updateContactInfo(displayInfo) {
     // Generate identicon for the contact
-    const identicon = await generateIdenticon(displayInfo.address, 96);
+    const identicon = generateIdenticon(displayInfo.address, 96);
 
     // Update the avatar section
     this.avatarDiv.innerHTML = identicon;
@@ -3749,7 +3734,7 @@ class SearchMessagesModal {
       resultElement.className = 'chat-item search-result-item';
 
       // Generate identicon for the contact
-      const identicon = await generateIdenticon(result.contactAddress);
+      const identicon = generateIdenticon(result.contactAddress);
 
       // Format message preview with "You:" prefix if it's a sent message
       // make this textContent?
@@ -3913,7 +3898,7 @@ class SearchContactsModal {
       contactElement.className = 'chat-item contact-item';
 
       // Generate identicon for the contact
-      const identicon = await generateIdenticon(contact.address);
+      const identicon = generateIdenticon(contact.address);
 
       // Determine which field matched for display
       const matchedField = [
@@ -4057,7 +4042,7 @@ async function handleConnectivityChange() {
         // Update chats with reconnection handling
         const gotChats = await chatsScreen.updateChatData();
         if (gotChats > 0) {
-          await chatsScreen.updateChatList();
+          chatsScreen.updateChatList();
         }
 
         // Update contacts with reconnection handling
@@ -7193,9 +7178,11 @@ class ChatModal {
     // Add data attributes to store the username and address
     this.sendMoneyButton.dataset.username = contact.username || address;
 
-    generateIdenticon(contact.address, 40).then((identicon) => {
+    this.modalAvatar.innerHTML = generateIdenticon(contact.address, 40);
+
+    /* generateIdenticon(contact.address, 40).then((identicon) => {
       this.modalAvatar.innerHTML = identicon;
-    });
+    }); */
 
     // Clear previous messages from the UI
     this.messagesList.innerHTML = '';
@@ -10866,7 +10853,7 @@ class SendAssetFormModal {
    * @returns {Promise<void>}
    */
   async close() {
-    await chatsScreen.updateChatList();
+    chatsScreen.updateChatList();
     this.modal.classList.remove('active');
     this.sendForm.reset();
     this.username = null;
@@ -14389,7 +14376,7 @@ async function longPollResult(data) {
     try {
       const gotChats = await chatsScreen.updateChatData();
       if (gotChats > 0) {
-        await chatsScreen.updateChatList();
+        chatsScreen.updateChatList();
       }
     } catch (error) {
       console.error('Chat polling error:', error);
