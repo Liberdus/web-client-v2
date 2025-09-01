@@ -1139,6 +1139,150 @@ class ContactsScreen {
 
 const contactsScreen = new ContactsScreen();
 
+class WalletScreen {
+  constructor() {
+
+  }
+
+  load() {
+    // screen
+    this.screen = document.getElementById('walletScreen');
+    // balance elements
+    this.totalBalance = document.getElementById('walletTotalBalance');
+    this.refreshBalanceButton = document.getElementById('refreshBalance');
+    // assets list
+    this.assetsList = document.getElementById('assetsList');
+    // action buttons
+    this.openSendAssetFormModalButton = document.getElementById('openSendAssetFormModal');
+    this.openReceiveModalButton = document.getElementById('openReceiveModal');
+    this.openHistoryModalButton = document.getElementById('openHistoryModal');
+
+    this.openSendAssetFormModalButton.addEventListener('click', () => {
+      sendAssetFormModal.open();
+    });
+    this.openReceiveModalButton.addEventListener('click', () => {
+      receiveModal.open();
+    });
+    this.openHistoryModalButton.addEventListener('click', () => {
+      historyModal.open();
+    });
+
+    // Add refresh balance button handler
+    this.refreshBalanceButton.addEventListener('click', async () => {
+      
+      // Add active class for animation
+      this.refreshBalanceButton.classList.add('active');
+      
+      // Remove active class after animation completes
+      setTimeout(() => {
+        this.refreshBalanceButton.classList.remove('active');
+        // Force blur to remove focus
+        this.refreshBalanceButton.blur();
+      }, 300);
+
+      // await updateWalletBalances();
+      this.updateWalletView();
+    });
+  }
+
+  open() {
+    this.screen.classList.add('active');
+  }
+
+  close() {
+    this.screen.classList.remove('active');
+  }
+
+  isActive() {
+    return this.screen.classList.contains('active');
+  }
+
+  // Update wallet view; refresh wallet
+  async updateWalletView() {
+    const walletData = myData.wallet;
+
+    await this.updateWalletBalances();
+
+    // Update total networth
+    this.totalBalance.textContent = (walletData.networth || 0).toFixed(2);
+
+    if (!Array.isArray(walletData.assets) || walletData.assets.length === 0) {
+      this.assetsList.querySelector('.empty-state').style.display = 'block';
+      return;
+    }
+
+    this.assetsList.innerHTML = walletData.assets
+      .map((asset) => {
+        console.log('asset balance', asset, asset.balance);
+        return `
+              <div class="asset-item">
+                  <div class="asset-logo"><img src="./media/liberdus_logo_50.png" class="asset-logo"></div>
+                  <div class="asset-info">
+                      <div class="asset-name">${asset.name}</div>
+                      <div class="asset-symbol">$${asset.price} / ${asset.symbol}</div>
+                  </div>
+                  <div class="asset-balance">${(Number(asset.balance) / Number(wei)).toFixed(6)}<br><span class="asset-symbol">$${asset.networth.toFixed(6)}</span></div>
+              </div>
+          `;
+      })
+      .join('');
+  }
+
+  // refresh wallet balance
+  async updateWalletBalances() {
+    if (!myAccount || !myData || !myData.wallet || !myData.wallet.assets) {
+      console.error('No wallet data available');
+      return;
+    } else if (!isOnline) {
+      console.warn('Not online. Not updating wallet balances');
+      return;
+    }
+    await updateAssetPricesIfNeeded();
+    const now = getCorrectedTimestamp();
+    if (!myData.wallet.timestamp) {
+      myData.wallet.timestamp = 0;
+    }
+    if (now - myData.wallet.timestamp < 5000) {
+      return;
+    }
+
+    // TODO - first update the asset prices from a public API
+
+    let totalWalletNetworth = 0.0;
+
+    // Update balances for each asset and address
+    for (const asset of myData.wallet.assets) {
+      let assetTotalBalance = 0n;
+
+      // Get balance for each address in the asset
+      for (const addr of asset.addresses) {
+        try {
+          const address = longAddress(addr.address);
+          const data = await queryNetwork(`/account/${address}/balance`);
+          console.log('balance', data);
+          // Update address balance
+          addr.balance = data.balance || 0n;
+
+          // Add to asset total (convert to USD using asset price)
+          assetTotalBalance += addr.balance;
+        } catch (error) {
+          console.error(`Error fetching balance for address ${addr.address}:`, error);
+        }
+      }
+      asset.balance = assetTotalBalance;
+      asset.networth = (asset.price * Number(assetTotalBalance)) / Number(wei);
+
+      // Add this asset's total to wallet total
+      totalWalletNetworth += asset.networth;
+    }
+
+    // Update total wallet balance
+    myData.wallet.networth = totalWalletNetworth;
+    myData.wallet.timestamp = now;
+  }
+}
+
+const walletScreen = new WalletScreen();
 
 class MenuModal {
   constructor() {
@@ -1306,151 +1450,6 @@ class SettingsModal {
 }
 
 const settingsModal = new SettingsModal();
-
-class WalletScreen {
-  constructor() {
-
-  }
-
-  load() {
-    // screen
-    this.screen = document.getElementById('walletScreen');
-    // balance elements
-    this.totalBalance = document.getElementById('walletTotalBalance');
-    this.refreshBalanceButton = document.getElementById('refreshBalance');
-    // assets list
-    this.assetsList = document.getElementById('assetsList');
-    // action buttons
-    this.openSendAssetFormModalButton = document.getElementById('openSendAssetFormModal');
-    this.openReceiveModalButton = document.getElementById('openReceiveModal');
-    this.openHistoryModalButton = document.getElementById('openHistoryModal');
-
-    this.openSendAssetFormModalButton.addEventListener('click', () => {
-      sendAssetFormModal.open();
-    });
-    this.openReceiveModalButton.addEventListener('click', () => {
-      receiveModal.open();
-    });
-    this.openHistoryModalButton.addEventListener('click', () => {
-      historyModal.open();
-    });
-
-    // Add refresh balance button handler
-    this.refreshBalanceButton.addEventListener('click', async () => {
-      
-      // Add active class for animation
-      this.refreshBalanceButton.classList.add('active');
-      
-      // Remove active class after animation completes
-      setTimeout(() => {
-        this.refreshBalanceButton.classList.remove('active');
-        // Force blur to remove focus
-        this.refreshBalanceButton.blur();
-      }, 300);
-
-      // await updateWalletBalances();
-      this.updateWalletView();
-    });
-  }
-
-  open() {
-    this.screen.classList.add('active');
-  }
-
-  close() {
-    this.screen.classList.remove('active');
-  }
-
-  isActive() {
-    return this.screen.classList.contains('active');
-  }
-
-  // Update wallet view; refresh wallet
-  async updateWalletView() {
-    const walletData = myData.wallet;
-
-    await this.updateWalletBalances();
-
-    // Update total networth
-    this.totalBalance.textContent = (walletData.networth || 0).toFixed(2);
-
-    if (!Array.isArray(walletData.assets) || walletData.assets.length === 0) {
-      this.assetsList.querySelector('.empty-state').style.display = 'block';
-      return;
-    }
-
-    this.assetsList.innerHTML = walletData.assets
-      .map((asset) => {
-        console.log('asset balance', asset, asset.balance);
-        return `
-              <div class="asset-item">
-                  <div class="asset-logo"><img src="./media/liberdus_logo_50.png" class="asset-logo"></div>
-                  <div class="asset-info">
-                      <div class="asset-name">${asset.name}</div>
-                      <div class="asset-symbol">$${asset.price} / ${asset.symbol}</div>
-                  </div>
-                  <div class="asset-balance">${(Number(asset.balance) / Number(wei)).toFixed(6)}<br><span class="asset-symbol">$${asset.networth.toFixed(6)}</span></div>
-              </div>
-          `;
-      })
-      .join('');
-  }
-
-  // refresh wallet balance
-  async updateWalletBalances() {
-    if (!myAccount || !myData || !myData.wallet || !myData.wallet.assets) {
-      console.error('No wallet data available');
-      return;
-    } else if (!isOnline) {
-      console.warn('Not online. Not updating wallet balances');
-      return;
-    }
-    await updateAssetPricesIfNeeded();
-    const now = getCorrectedTimestamp();
-    if (!myData.wallet.timestamp) {
-      myData.wallet.timestamp = 0;
-    }
-    if (now - myData.wallet.timestamp < 5000) {
-      return;
-    }
-
-    // TODO - first update the asset prices from a public API
-
-    let totalWalletNetworth = 0.0;
-
-    // Update balances for each asset and address
-    for (const asset of myData.wallet.assets) {
-      let assetTotalBalance = 0n;
-
-      // Get balance for each address in the asset
-      for (const addr of asset.addresses) {
-        try {
-          const address = longAddress(addr.address);
-          const data = await queryNetwork(`/account/${address}/balance`);
-          console.log('balance', data);
-          // Update address balance
-          addr.balance = data.balance || 0n;
-
-          // Add to asset total (convert to USD using asset price)
-          assetTotalBalance += addr.balance;
-        } catch (error) {
-          console.error(`Error fetching balance for address ${addr.address}:`, error);
-        }
-      }
-      asset.balance = assetTotalBalance;
-      asset.networth = (asset.price * Number(assetTotalBalance)) / Number(wei);
-
-      // Add this asset's total to wallet total
-      totalWalletNetworth += asset.networth;
-    }
-
-    // Update total wallet balance
-    myData.wallet.networth = totalWalletNetworth;
-    myData.wallet.timestamp = now;
-  }
-}
-
-const walletScreen = new WalletScreen();
 
 /**
  * createNewContact
