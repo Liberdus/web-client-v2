@@ -483,62 +483,77 @@ function handleVisibilityChange() {
   }
 }
 
+/**
+ * Encrypt all accounts in localStorage (fail-fast, two-phase commit)
+ * @param {*} oldPassword 
+ * @param {*} newPassword
+ */
 async function encryptAllAccounts(oldPassword, newPassword) {
   const oldEncKey = !oldPassword ? null : await passwordToKey(oldPassword+'liberdusData');
   const newEncKey = !newPassword ? null : await passwordToKey(newPassword+'liberdusData');
   // Get all accounts from localStorage
   const accountsObj = parse(localStorage.getItem('accounts') || 'null');
-  if (!accountsObj.netids) return;
+  if (!accountsObj?.netids) return;
 
   console.log('looping through all netids')
+  // Phase 1: prepare (decrypt -> encrypt) without writing
+  const prepared = [];
   for (const netid in accountsObj.netids) {
     const usernamesObj = accountsObj.netids[netid]?.usernames;
     if (!usernamesObj) continue;
     console.log('looping through all accounts for '+netid)
     for (const username in usernamesObj) {
       const key = `${username}_${netid}`;
-      let data = localStorage.getItem(key);
-      if (!data) continue;
+      let originalData = localStorage.getItem(key);
+      if (!originalData) continue;
       console.log('about to reencrypt '+key)
-
-      // If oldEncKey is set, decrypt; otherwise, treat as plaintext
+      let decrypted = originalData;
       if (oldEncKey) {
         try {
-          data = decryptData(data, oldEncKey, true);
+          decrypted = decryptData(originalData, oldEncKey, true);
         } catch (e) {
           console.error(`Failed to decrypt data for ${key}:`, e);
-          continue;
+          throw new Error(`Failed to decrypt: ${key}`);
         }
       }
-
-      /*
-      // If data is still not an object, parse it
-      let parsedData;
-      try {
-        parsedData = typeof data === 'string' ? parse(data) : data;
-      } catch (e) {
-        console.error(`Failed to parse data for ${key}:`, e);
-        continue;
-      }
-
-      // Stringify for storage
-      let newData = stringify(parsedData);
-      */
-      let newData = data;
-
-      // If newEncKey is set, encrypt; otherwise, store as plaintext
+      let encrypted = decrypted;
       if (newEncKey) {
         try {
-          newData = encryptData(newData, newEncKey, true);
+          encrypted = encryptData(decrypted, newEncKey, true);
         } catch (e) {
           console.error(`Failed to encrypt data for ${key}:`, e);
-          continue;
+          throw new Error(`Failed to encrypt: ${key}`);
         }
       }
-
-      // Save to localStorage (encrypted version uses _ suffix)
-      localStorage.setItem(`${key}`, newData);
+      prepared.push({ key, newData: encrypted, oldData: originalData });
     }
+  }
+  // Phase 2: commit
+  const written = [];
+  try {
+    for (const item of prepared) {
+      localStorage.setItem(item.key, item.newData);
+      written.push(item);
+    }
+  } catch (e) {
+    console.error('Failed during commit phase:', e);
+    // Best-effort rollback (continue even if some rollbacks fail)
+    const rollbackFailures = [];
+    for (const item of written) {
+      try {
+        localStorage.setItem(item.key, item.oldData);
+      } catch (rollbackError) {
+        console.error(`Rollback failed for ${item.key}:`, rollbackError);
+        rollbackFailures.push(item.key);
+      }
+    }
+    if (rollbackFailures.length) {
+      try { e.rollbackFailures = rollbackFailures; } catch (_) {
+        console.error('Failed to add rollbackFailures to error:', e,);
+        console.error('rollbackFailures:', rollbackFailures);
+      }
+    }
+    throw e;
   }
 }
 
@@ -13047,14 +13062,21 @@ class LockModal {
     // if new password is empty, remove the password from localStorage
     // once we are here we know the old password is correct
     if (this.mode === 'remove') {
-      await encryptAllAccounts(oldPassword, newPassword)
-      delete localStorage.lock;
-      this.encKey = null;
-      // remove the loading toast
-      if (waitingToastId) hideToast(waitingToastId);
-      showToast('Password removed', 2000, 'success');
-      this.close();
-      return;
+      try {
+        await encryptAllAccounts(oldPassword, newPassword)
+        delete localStorage.lock;
+        this.encKey = null;
+        // remove the loading toast
+        if (waitingToastId) hideToast(waitingToastId);
+        showToast('Password removed', 2000, 'success');
+        this.close();
+        return;
+      } catch (e) {
+        if (waitingToastId) hideToast(waitingToastId);
+        showToast('Failed to remove password. Please try again.', 0, 'error');
+        this.lockButton.disabled = false;
+        return;
+      }
     }
 
     if (newPassword !== confirmNewPassword) {
@@ -13074,13 +13096,14 @@ class LockModal {
 
 
       
-      // Save the key in localStorage with a key of "lock"
-      localStorage.lock = key;
-      this.encKey = await passwordToKey(newPassword+"liberdusData")
+      // First attempt re-encryption. Only switch lock if all succeed.
       await encryptAllAccounts(oldPassword, newPassword)
 
       // remove the loading toast
       if (waitingToastId) hideToast(waitingToastId);
+      // Save the key in localStorage with a key of "lock" only after success
+      localStorage.lock = key;
+      this.encKey = await passwordToKey(newPassword+"liberdusData")
       showToast('Password updated', 2000, 'success');
 
       // clear the inputs
