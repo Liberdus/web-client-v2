@@ -640,6 +640,17 @@ body {
   text-align: center;
   padding: 2rem;
   color: var(--secondary-text-color);
+  display: none;
+}
+
+.empty-state > div:first-child {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state > div:nth-child(2) {
+  font-weight: bold;
+  margin-bottom: 0.5rem;
 }
 
 .empty-state::before {

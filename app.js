@@ -748,20 +748,20 @@ class Footer {
       contactsScreen.close();
       walletScreen.close();
   
-      // Show selected screen
-      document.getElementById(`${view}Screen`).classList.add('active');
-  
       // Update nav buttons - remove active class from all
       this.chatButton.classList.remove('active');
       this.contactsButton.classList.remove('active');
       this.walletButton.classList.remove('active');
   
-      // Add active class to selected button
+      // Add active class to selected button and add active or use .open() for relevant screen
       if (view === 'chats') {
+        chatsScreen.open();
         this.chatButton.classList.add('active');
       } else if (view === 'contacts') {
+        contactsScreen.open();
         this.contactsButton.classList.add('active');
       } else if (view === 'wallet') {
+        walletScreen.open();
         this.walletButton.classList.add('active');
       }
   
@@ -909,16 +909,10 @@ class ChatsScreen {
   // Update chat list UI
   updateChatList() {
     const chatList = this.chatList;
-    //const chatsData = myData
     const contacts = myData.contacts;
     const chats = myData.chats;
     if (chats.length === 0) {
-      chatList.innerHTML = `
-            <div class="empty-state">
-                <div style="font-size: 2rem; margin-bottom: 1rem"></div>
-                <div style="font-weight: bold; margin-bottom: 0.5rem">Click the + button to start a chat</div>
-                <div>Your conversations will appear here</div>
-            </div>`;
+      chatList.querySelector('.empty-state').style.display = 'block';
       return;
     }
 
@@ -1044,12 +1038,7 @@ class ContactsScreen {
     const contacts = myData.contacts;
 
     if (Object.keys(contacts).length === 0) {
-      this.contactsList.innerHTML = `
-            <div class="empty-state">
-                <div style="font-size: 2rem; margin-bottom: 1rem"></div>
-                <div style="font-weight: bold; margin-bottom: 0.5rem">No Contacts Yet</div>
-                <div>Your contacts will appear here</div>
-            </div>`;
+      this.contactsList.querySelector('.empty-state').style.display = 'block';
       return;
     }
 
@@ -1382,12 +1371,7 @@ class WalletScreen {
     this.totalBalance.textContent = (walletData.networth || 0).toFixed(2);
 
     if (!Array.isArray(walletData.assets) || walletData.assets.length === 0) {
-      this.assetsList.innerHTML = `
-              <div class="empty-state">
-                  <div style="font-size: 2rem; margin-bottom: 1rem"></div>
-                  <div style="font-weight: bold; margin-bottom: 0.5rem">No Assets Yet</div>
-                  <div>Your assets will appear here</div>
-              </div>`;
+      this.assetsList.querySelector('.empty-state').style.display = 'block';
       return;
     }
 
@@ -2730,12 +2714,7 @@ class HistoryModal {
   }
 
   showEmptyState() {
-    this.transactionList.innerHTML = `
-      <div class="empty-state">
-        <div style="font-size: 2rem; margin-bottom: 1rem"></div>
-        <div style="font-weight: bold; margin-bottom: 0.5rem">No Transactions</div>
-        <div>Your transaction history will appear here</div>
-      </div>`;
+    this.transactionList.querySelector('.empty-state').style.display = 'block';
   }
 
   handleAssetChange() {
