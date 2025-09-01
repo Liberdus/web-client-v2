@@ -737,6 +737,14 @@ class Footer {
     this.footer.classList.remove('active');
   }
 
+  openNewChatButton() {
+    this.newChatButton.classList.add('visible');
+  }
+
+  closeNewChatButton() {
+    this.newChatButton.classList.remove('visible');
+  }
+
   async switchView(view) {
     // Store the current view for potential rollback
     const previousView = document.querySelector('.app-screen.active')?.id?.replace('Screen', '') || 'chats';
@@ -779,9 +787,9 @@ class Footer {
   
       // Show/hide new chat button
       if (view === 'chats' || view === 'contacts') {
-        this.newChatButton.classList.add('visible');
+        this.openNewChatButton();
       } else {
-        this.newChatButton.classList.remove('visible');
+        this.closeNewChatButton();
       }
   
       // Update lists when switching views
@@ -948,7 +956,7 @@ class ChatsScreen {
           // Optionally add memo preview
           if (latestActivity.message) {
             // Memo is stored in the 'message' field for transfers
-            previewHTML += ` <span class="memo-preview"> | ${truncateMessage(escapeHtml(latestActivity.message), 25)}</span>`;
+            previewHTML += ` <span class="memo-preview"> | ${truncateMessage(escapeHtml(latestActivity.message), 50)}</span>`;
           }
         } else if (latestActivity.type === 'call') {
           previewHTML = `<span><i>Join call</i></span>`;
@@ -956,6 +964,8 @@ class ChatsScreen {
           previewHTML = `<span><i>Voice message</i></span>`;
         } else if ((!latestActivity.message || String(latestActivity.message).trim() === '') && latestActivity.xattach) {
           previewHTML = `<span><i>Attachment</i></span>`;
+        } else if (latestActivity.xattach && latestActivity.message && String(latestActivity.message).trim() !== '') {
+          previewHTML = `<span><i>Attachment</i></span> <span class="memo-preview"> | ${truncateMessage(escapeHtml(latestActivity.message), 40)}</span>`;
         } else {
           // Latest item is a regular message
           const messageText = escapeHtml(latestActivity.message);
@@ -1211,13 +1221,10 @@ class MenuModal {
     menuModal.close();
     settingsModal.close(); // may be triggered from settings modal, calls openFullscreen() again
 
-    // this seems to be unnecessary but also benign
-    // myProfileModal.close();
-
     // Hide header and footer
     header.close();
     footer.close();
-    footer.newChatButton.classList.remove('visible');
+    footer.closeNewChatButton();
 
     // Reset header text
     header.setText('Liberdus');
@@ -1244,9 +1251,6 @@ class MenuModal {
 
     await reactNativeApp.handleNativeAppSubscribe();
     reactNativeApp.sendClearNotifications();
-
-    // Only reload if online
-//    window.location.reload();
     await checkVersion();
 
     // checkVersion() may update online status
@@ -3933,7 +3937,7 @@ const searchContactsModal = new SearchContactsModal();
 // Create a display info object from a contact object
 function createDisplayInfo(contact) {
   return {
-    username: contact.username || contact.address.slice(0, 8) + '...' + contact.address.slice(-6),
+    username: contact.username || contact.address.slice(0, 8) + '…' + contact.address.slice(-6),
     name: contact.name || 'Not Entered',
     providedname: contact.senderInfo?.name || 'Not provided',
     email: contact.senderInfo?.email || 'Not provided',
@@ -7135,7 +7139,7 @@ class ChatModal {
     this.messageByteCounter.style.display = 'none';
 
     friendModal.setAddress(address);
-    footer.newChatButton.classList.remove('visible');
+    footer.closeNewChatButton();
     const contact = myData.contacts[address];
     friendModal.updateFriendButton(contact, 'addFriendButtonChat');
     // Set user info
@@ -7243,11 +7247,11 @@ class ChatModal {
     this.modal.classList.remove('active');
     if (chatsScreen.isActive()) {
       chatsScreen.updateChatList();
-      footer.newChatButton.classList.add('visible');
+      footer.openNewChatButton();
     }
     if (contactsScreen.isActive()) {
       contactsScreen.updateContactsList();
-      footer.newChatButton.classList.add('visible');
+      footer.openNewChatButton();
     }
     this.address = null;
   }
@@ -10101,7 +10105,7 @@ class NewChatModal {
    */
   openNewChatModal() {
     this.modal.classList.add('active');
-    footer.newChatButton.classList.remove('visible');
+    footer.closeNewChatButton();
     this.usernameAvailable.style.display = 'none';
     this.submitButton.disabled = true;
 
@@ -10125,10 +10129,10 @@ class NewChatModal {
     this.modal.classList.remove('active');
     this.newChatForm.reset();
     if (chatsScreen.isActive()) {
-      footer.newChatButton.classList.add('visible');
+      footer.openNewChatButton();
     }
     if (contactsScreen.isActive()) {
-      footer.newChatButton.classList.add('visible');
+      footer.openNewChatButton();
     }
   }
 
@@ -14363,7 +14367,7 @@ longPollResult.timestamp = 0
 function getContactDisplayName(contact) {
   return contact?.name || 
          contact?.username || 
-         `${contact?.address?.slice(0, 8)}...${contact?.address?.slice(-6)}`;
+         `${contact?.address?.slice(0, 8)}…${contact?.address?.slice(-6)}`;
 }
 
 function isMobile() {
