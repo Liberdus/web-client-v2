@@ -1180,7 +1180,6 @@ class WalletScreen {
         this.refreshBalanceButton.blur();
       }, 300);
 
-      // await updateWalletBalances();
       this.updateWalletView();
     });
   }
@@ -1246,10 +1245,8 @@ class WalletScreen {
       return;
     }
 
-    // TODO - first update the asset prices from a public API
-
     let totalWalletNetworth = 0.0;
-
+    let failedToGetBalance = false;
     // Update balances for each asset and address
     for (const asset of myData.wallet.assets) {
       let assetTotalBalance = 0n;
@@ -1259,10 +1256,16 @@ class WalletScreen {
         try {
           const address = longAddress(addr.address);
           const data = await queryNetwork(`/account/${address}/balance`);
+          if (!data) {
+            failedToGetBalance = true;
+            console.error(`Error fetching balance for address ${addr.address}:`, data);
+            continue;
+          }
           console.log('balance', data);
-          // Update address balance
-          addr.balance = data.balance || 0n;
-
+          if (data?.balance) {
+            // Update address balance
+            addr.balance = data.balance;
+          }
           // Add to asset total (convert to USD using asset price)
           assetTotalBalance += addr.balance;
         } catch (error) {
@@ -1274,6 +1277,11 @@ class WalletScreen {
 
       // Add this asset's total to wallet total
       totalWalletNetworth += asset.networth;
+    }
+
+    if (failedToGetBalance) {
+      showToast(`Error fetching balance. Try again later.` ,0 ,'error');
+      console.error('Failed to get balance for some addresses');
     }
 
     // Update total wallet balance
