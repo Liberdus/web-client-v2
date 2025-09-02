@@ -1466,8 +1466,8 @@ const settingsModal = new SettingsModal();
  * @param {number = 1} friendStatus - the friend status of the contact, default is 1
  * @returns {void}
  */
-function createNewContact(addr, username, friendStatus = 1) {
-  const address = normalizeAddress(addr);
+function createNewContact(contactAddress, username, friendStatus = 1) {
+  const address = normalizeAddress(contactAddress);
   if (myData.contacts[address]) {
     return;
   } // already exists
@@ -2933,11 +2933,11 @@ async function processChats(chats, keys) {
     const res = await queryNetwork(`/messages/${chats[sender]}/${messageQueryTimestamp}`);
     console.log('processChats sender', sender, 'fetching since', messageQueryTimestamp);
     if (res && res.messages) {
-      const from = normalizeAddress(sender);
-      if (!myData.contacts[from]) {
-        createNewContact(from);
+      const contactAddress = normalizeAddress(sender);
+      if (!myData.contacts[contactAddress]) {
+        createNewContact(contactAddress);
       }
-      const contact = myData.contacts[from];
+      const contact = myData.contacts[contactAddress];
       //            contact.address = from        // not needed since createNewContact does this
       let added = 0;
       let hasNewTransfer = false;
@@ -2946,7 +2946,7 @@ async function processChats(chats, keys) {
       // This check determines if we're currently chatting with the sender
       // We ONLY want to avoid notifications if we're actively viewing this exact chat
       const inActiveChatWithSender =
-        chatModal.address === from && chatModal.isActive();
+        chatModal.address === contactAddress && chatModal.isActive();
 
       for (let i in res.messages) {
         const tx = res.messages[i]; // the messages are actually the whole tx
@@ -2962,9 +2962,9 @@ if (mine) console.warn('txid in processChats is', txidHex)
             console.warn('my message tx', tx)
           }
           else if (payload.encrypted) {
-            let senderPublic = myData.contacts[from]?.public;
+            let senderPublic = myData.contacts[contactAddress]?.public;
             if (!senderPublic) {
-              const senderInfo = await queryNetwork(`/account/${longAddress(from)}`);
+              const senderInfo = await queryNetwork(`/account/${longAddress(contactAddress)}`);
               // TODO for security, make sure hash of public key is same as from address; needs to be in other similar situations
               //console.log('senderInfo.account', senderInfo.account)
               if (!senderInfo?.account?.publicKey) {
@@ -2972,8 +2972,8 @@ if (mine) console.warn('txid in processChats is', txidHex)
                 continue;
               }
               senderPublic = senderInfo.account.publicKey;
-              if (myData.contacts[from]) {
-                myData.contacts[from].public = senderPublic;
+              if (myData.contacts[contactAddress]) {
+                myData.contacts[contactAddress].public = senderPublic;
               }
             }
             payload.public = senderPublic;
@@ -3013,7 +3013,7 @@ if (mine) console.warn('txid in processChats is', txidHex)
                     // (normalize addresses for comparison)
                     const originalSender = normalizeAddress(tx.from);
                     
-                    if (!messageToDelete.my && originalSender === from) {
+                    if (!messageToDelete.my && originalSender === contactAddress) {
                       // This is a message received from sender, who is now deleting it - valid
                       console.log(`Deleting message ${txidToDelete} as requested by sender`);
                       
@@ -3067,7 +3067,7 @@ if (mine) console.warn('txid in processChats is', txidHex)
                       }
                     }
                     
-                    if (chatModal.isActive() && chatModal.address === from) {
+                    if (chatModal.isActive() && chatModal.address === contactAddress) {
                       chatModal.appendChatModal();
                     }
                     // Don't process this message further - it's just a control message
@@ -3190,17 +3190,17 @@ if (mine) console.warn('txid in processChats is', txidHex)
             console.warn('my transfer tx', txx)
           }
           else if (payload.encrypted) {
-            let senderPublic = myData.contacts[from]?.public;
+            let senderPublic = myData.contacts[contactAddress]?.public;
             if (!senderPublic) {
-              const senderInfo = await queryNetwork(`/account/${longAddress(from)}`);
+              const senderInfo = await queryNetwork(`/account/${longAddress(contactAddress)}`);
               //console.log('senderInfo.account', senderInfo.account)
               if (!senderInfo?.account?.publicKey) {
                 console.log(`no public key found for sender ${sender}`);
                 continue;
               }
               senderPublic = senderInfo.account.publicKey;
-              if (myData.contacts[from]) {
-                myData.contacts[from].public = senderPublic;
+              if (myData.contacts[contactAddress]) {
+                myData.contacts[contactAddress].public = senderPublic;
               }
             }
             payload.public = senderPublic;
@@ -3267,7 +3267,7 @@ if (mine) console.warn('txid in processChats is', txidHex)
 //            sign: 1,
             sign: mine ? -1 : 1,
             timestamp: payload.sent_timestamp,
-            address: from,
+            address: contactAddress,
             memo: payload.message,
           };
           insertSorted(history, newPayment, 'timestamp');
@@ -3315,7 +3315,7 @@ if (mine) console.warn('txid in processChats is', txidHex)
 
         // Add sender to the top of the chats tab
         // Remove existing chat for this contact if it exists
-        const existingChatIndex = myData.chats.findIndex((chat) => chat.address === from);
+        const existingChatIndex = myData.chats.findIndex((chat) => chat.address === contactAddress);
         if (existingChatIndex !== -1) {
           myData.chats.splice(existingChatIndex, 1);
         }
@@ -3323,7 +3323,7 @@ if (mine) console.warn('txid in processChats is', txidHex)
         const latestMessage = contact.messages[0];
         // Create chat object with only guaranteed fields
         const chatUpdate = {
-          address: from,
+          address: contactAddress,
           timestamp: latestMessage.timestamp,
         };
         // Find insertion point to maintain timestamp order (newest first)
@@ -10152,7 +10152,7 @@ class NewChatModal {
   async handleNewChat(event) {
     event.preventDefault();
     const input = this.recipientInput.value.trim();
-    let recipientAddress;
+    let contactAddress;
     let username;
 
     this.hideRecipientError();
@@ -10164,7 +10164,7 @@ class NewChatModal {
         return;
       }
       // Input is valid Ethereum address, normalize it
-      recipientAddress = normalizeAddress(input);
+      contactAddress = normalizeAddress(input);
     } else {
       if (input.length < 3) {
         this.showRecipientError('Username too short');
@@ -10181,7 +10181,7 @@ class NewChatModal {
           return;
         }
         // Normalize address from API if it has 0x prefix or trailing zeros
-        recipientAddress = normalizeAddress(data.address);
+        contactAddress = normalizeAddress(data.address);
       } catch (error) {
         console.log('Error looking up username:', error);
         this.showRecipientError('Error looking up username');
@@ -10193,16 +10193,16 @@ class NewChatModal {
     const chatsData = myData;
 
     // Check if contact exists
-    if (!chatsData.contacts[recipientAddress]) {
-      createNewContact(recipientAddress, username, 2);
+    if (!chatsData.contacts[contactAddress]) {
+      createNewContact(contactAddress, username, 2);
       // default to 2 (Acquaintance) so recipient does not need to pay toll
-      friendModal.postUpdateTollRequired(recipientAddress, 2);
+      friendModal.postUpdateTollRequired(contactAddress, 2);
     }
-    chatsData.contacts[recipientAddress].username = username;
+    chatsData.contacts[contactAddress].username = username;
 
     // Close new chat modal and open chat modal
     this.closeNewChatModal();
-    chatModal.open(recipientAddress);
+    chatModal.open(contactAddress);
   }
 
   /**
@@ -11558,7 +11558,7 @@ class SendAssetConfirmModal {
     // hidden input field retryOfTxId value is not an empty string
     if (sendAssetFormModal.retryTxIdInput.value) {
       // remove from myData use txid from hidden field retryOfPaymentTxId
-      removeFailedTx(sendAssetFormModal.retryTxIdInput.value, toAddress);
+      removeFailedTx(sendAssetFormModal.retryTxIdInput.value, contactAddress);
 
       // clear the field
       failedTransactionModal.txid = '';
@@ -11588,7 +11588,7 @@ class SendAssetConfirmModal {
     const memoIn = sendAssetFormModal.memoInput.value || '';
     const memo = memoIn.trim();
     const keys = myAccount.keys;
-    let toAddress;
+    let contactAddress;
 
     // Validate amount including transaction fee
     if (!(await validateBalance(amount, assetIndex))) {
@@ -11629,7 +11629,7 @@ class SendAssetConfirmModal {
         cancelButton.disabled = false;
         return;
       }
-      toAddress = normalizeAddress(data.address);
+      contactAddress = normalizeAddress(data.address);
     } catch (error) {
       console.error('Error looking up username:', error);
       showToast('Error looking up username', 0, 'error');
@@ -11637,8 +11637,8 @@ class SendAssetConfirmModal {
       return;
     }
 
-    if (!myData.contacts[toAddress]) {
-      createNewContact(toAddress, username, 2);
+    if (!myData.contacts[contactAddress]) {
+      createNewContact(contactAddress, username, 2);
     }
 
     /* Support sending payments to addresses that do not have
@@ -11648,28 +11648,28 @@ class SendAssetConfirmModal {
     */
 
     // Get recipient's public key from contacts
-    let recipientPubKey = myData.contacts[toAddress]?.public;
-    let pqRecPubKey = myData.contacts[toAddress]?.pqPublic;
+    let recipientPubKey = myData.contacts[contactAddress]?.public;
+    let pqRecPubKey = myData.contacts[contactAddress]?.pqPublic;
     let pqEncSharedKey = '';
     if (!recipientPubKey || !pqRecPubKey) {
-      const recipientInfo = await queryNetwork(`/account/${longAddress(toAddress)}`);
+      const recipientInfo = await queryNetwork(`/account/${longAddress(contactAddress)}`);
       if (!recipientInfo?.account?.publicKey) {
-        console.log(`no public key found for recipient ${toAddress}`);
+        console.log(`no public key found for recipient ${contactAddress}`);
 //        cancelButton.disabled = false;
 //        return;
       }
       else{
         recipientPubKey = recipientInfo.account.publicKey;
-        myData.contacts[toAddress].public = recipientPubKey;
+        myData.contacts[contactAddress].public = recipientPubKey;
       }
       if (!recipientInfo?.account?.pqPublicKey) {
-        console.log(`no PQ public key found for recipient ${toAddress}`);
+        console.log(`no PQ public key found for recipient ${contactAddress}`);
 //        cancelButton.disabled = false;
 //        return;
       }
       else {
         pqRecPubKey = recipientInfo.account.pqPublicKey;
-        myData.contacts[toAddress].pqPublic = pqRecPubKey;
+        myData.contacts[contactAddress].pqPublic = pqRecPubKey;
       }
     }
     let dhkey = '';
@@ -11708,7 +11708,7 @@ class SendAssetConfirmModal {
     let encSenderInfo = '';
     let senderInfo = '';
     if (sharedKeyMethod != 'none'){
-      if (myData.contacts[toAddress]?.friend === 3) {
+      if (myData.contacts[contactAddress]?.friend === 3) {
         // Create sender info object
         senderInfo = {
           username: myAccount.username,
@@ -11743,7 +11743,7 @@ class SendAssetConfirmModal {
     try {
       console.log('payload is', payload);
       // Send the transaction using postAssetTransfer
-      const response = await postAssetTransfer(toAddress, amount, payload, keys);
+      const response = await postAssetTransfer(contactAddress, amount, payload, keys);
 
       if (!response || !response.result || !response.result.success) {
         const str = response.result.reason;
@@ -11776,7 +11776,7 @@ class SendAssetConfirmModal {
         amount: amount,
         sign: -1,
         timestamp: currentTime,
-        address: toAddress,
+        address: contactAddress,
         memo: memo,
         status: 'sent',
       };
@@ -11805,17 +11805,17 @@ class SendAssetConfirmModal {
         status: 'sent',
       };
       // Insert the transfer message into the contact's message list, maintaining sort order
-      insertSorted(myData.contacts[toAddress].messages, transferMessage, 'timestamp');
+      insertSorted(myData.contacts[contactAddress].messages, transferMessage, 'timestamp');
       // --------------------------------------------------------------
 
       // --- Update myData.chats to reflect the new message ---
-      const existingChatIndex = myData.chats.findIndex((chat) => chat.address === toAddress);
+      const existingChatIndex = myData.chats.findIndex((chat) => chat.address === contactAddress);
       if (existingChatIndex !== -1) {
         myData.chats.splice(existingChatIndex, 1); // Remove existing entry
       }
       // Create the new chat entry
       const chatUpdate = {
-        address: toAddress,
+        address: contactAddress,
         timestamp: currentTime,
         txid: response.txid,
       };
@@ -11825,7 +11825,7 @@ class SendAssetConfirmModal {
 
       // Update the chat modal to show the newly sent transfer message
       // Check if the chat modal for this recipient is currently active
-      const inActiveChatWithRecipient = chatModal.address === toAddress && chatModal.isActive();
+      const inActiveChatWithRecipient = chatModal.address === contactAddress && chatModal.isActive();
 
       if (inActiveChatWithRecipient) {
         chatModal.appendChatModal(); // Re-render the chat modal and highlight the new item
