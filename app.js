@@ -1774,31 +1774,38 @@ class SignInModal {
    * @returns {Object} Object containing usernames array and account information
    */
   updateUsernameSelect(selectedUsername = null) {
-    const { usernames, netidAccounts } = signInModal.getSignInUsernames() || [];
+    const signInData = signInModal.getSignInUsernames() || {};
+    const usernames = Array.isArray(signInData.usernames) ? signInData.usernames : [];
+    const netidAccounts = signInData.netidAccounts || { usernames: {} };
 
     // Get the notified addresses and sort usernames to prioritize them
     const notifiedAddresses = reactNativeApp ? reactNativeApp.getNotificationAddresses() : [];
+    const notifiedAddressSet = new Set(Array.isArray(notifiedAddresses) ? notifiedAddresses : []);
     let sortedUsernames = [...usernames];
+    const notifiedUsernameSet = new Set();
     
-    // if there are notified addresses, sort the usernames to prioritize them
+    // if there are notified addresses, partition the usernames (stable) so notified come first
     if (notifiedAddresses.length > 0) {
-      // Find which usernames own the notified addresses
-      for (const [username, accountData] of Object.entries(netidAccounts.usernames)) {
-        if (notifiedAddresses.includes(accountData.address)) {
-          // Move this username to the front
-          sortedUsernames = sortedUsernames.filter(u => u !== username);
-          sortedUsernames.unshift(username);
-          break;
+      const notifiedUsernames = [];
+      const otherUsernames = [];
+      for (const username of sortedUsernames) {
+        const address = netidAccounts?.usernames?.[username]?.address;
+        const isNotified = Boolean(address && notifiedAddressSet.has(address));
+        if (isNotified) {
+          notifiedUsernames.push(username);
+          notifiedUsernameSet.add(username);
+        } else {
+          otherUsernames.push(username);
         }
       }
+      sortedUsernames = [...notifiedUsernames, ...otherUsernames];
     }
 
     // Populate select with sorted usernames and add an emoji to the username if it owns a notified address
     this.usernameSelect.innerHTML = `
       <option value="" disabled selected hidden>Select an account</option>
       ${sortedUsernames.map((username) => {
-        // Check if this username owns the notified address
-        const isNotifiedAccount = notifiedAddresses.includes(netidAccounts.usernames[username]?.address);
+        const isNotifiedAccount = notifiedUsernameSet.has(username);
         const dotIndicator = isNotifiedAccount ? ' 🔔' : '';
         return `<option value="${username}">${username}${dotIndicator}</option>`;
       }).join('')}
