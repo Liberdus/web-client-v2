@@ -1704,7 +1704,18 @@ async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
 
   await getNetworkParams();
   const asset = myData.wallet.assets[assetIndex];
-  const feeInWei = parameters.current.transactionFee || 1n * wei;
+  
+  // Check if transaction fee is available from network parameters
+  if (!parameters.current || !parameters.current.transactionFee) {
+    console.error('Transaction fee not available from network parameters');
+    if (balanceWarning) {
+      balanceWarning.textContent = 'Network error: Cannot determine transaction fee';
+      balanceWarning.style.display = 'inline';
+    }
+    return false;
+  }
+  
+  const feeInWei = parameters.current.transactionFee;
   const totalRequired = amount + feeInWei;
   const hasInsufficientBalance = BigInt(asset.balance) < totalRequired;
 
