@@ -1528,10 +1528,6 @@ class ScanQRModal {
         this.stopCamera();
       }
 
-      // Hide previous results
-      // resultContainer.classList.add('hidden');
-
-      // statusMessage.textContent = 'Accessing camera...';
       // Request camera access with specific error handling
       try {
         this.camera.stream = await navigator.mediaDevices.getUserMedia({
@@ -1546,6 +1542,7 @@ class ScanQRModal {
         // Handle specific getUserMedia errors
         switch (mediaError.name) {
           case 'NotAllowedError':
+            this.close();
             throw new Error(
               'Camera access was denied. Please check your browser settings and grant permission to use the camera.'
             );
@@ -1572,13 +1569,10 @@ class ScanQRModal {
 
         // Enable scanning and update button
         this.camera.scanning = true;
-        // toggleButton.textContent = 'Stop Camera';
 
         // Start scanning for QR codes
         // Use interval instead of requestAnimationFrame for better control over scan frequency
         this.camera.scanInterval = setInterval(() => this.readQRCode(), 100); // scan every 100ms (10 times per second)
-
-        // statusMessage.textContent = 'Camera active. Point at a QR code.';
       };
 
       // Add error handler for video element
@@ -1593,9 +1587,6 @@ class ScanQRModal {
 
       // Show user-friendly error message
       showToast(error.message || 'Failed to access camera. Please check your permissions and try again.', 0, 'error');
-
-      // Re-throw the error if you need to handle it further up
-      throw error;
     }
   }
 
@@ -1641,47 +1632,16 @@ class ScanQRModal {
         }
       } catch (error) {
         // qr.decodeQR throws error if not found or on error
-        //console.log('QR scanning error or not found:', error); // Optional: Log if needed
+        //console.log('QR scanning error or not found:', error); // Optional: Log if needed since function is called every 100ms
       }
     }
   }
 
   handleSuccessfulScan(data) {
-    // const scanHighlight = document.getElementById('scan-highlight');
-    // Stop scanning
-    if (this.camera.scanInterval) {
-      clearInterval(this.camera.scanInterval);
-      this.camera.scanInterval = null;
-    }
-
-    this.camera.scanning = false;
-
-    // Stop the camera
-    this.stopCamera();
-
-    /*
-      // Show highlight effect
-      scanHighlight.classList.add('active');
-      setTimeout(() => {
-          scanHighlight.classList.remove('active');
-      }, 500);
-  */
-
-    // Display the result
-    //    qrResult.textContent = data;
-    //    resultContainer.classList.remove('hidden');
-    console.log('Raw QR Data Scanned:', data);
-    if (this.fillFunction) {
-      // Call the assigned fill function (e.g., fillPaymentFromQR or fillStakeAddressFromQR)
-      this.fillFunction(data);
-    }
-
     this.close();
-
-    // Update status
-    //    statusMessage.textContent = 'QR code detected! Camera stopped.';
+    console.log('Raw QR Data Scanned');
+    if (this.fillFunction) this.fillFunction(data); // Call the assigned fill function (e.g., fillPaymentFromQR or fillStakeAddressFromQR)
   }
-
 }
 
 const scanQRModal = new ScanQRModal();
