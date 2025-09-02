@@ -1765,6 +1765,14 @@ class SignInModal {
     this.notFoundMessage.style.display = 'none';
   }
 
+  setUiDisabledSignIn() {
+    this.submitButton.disabled = true;
+    this.submitButton.textContent = 'Sign In';
+    this.submitButton.style.display = 'inline';
+    this.removeButton.style.display = 'none';
+    this.notFoundMessage.style.display = 'none';
+  }
+
   setUiForTaken() {
     this.submitButton.style.display = 'none';
     this.removeButton.style.display = 'inline';
@@ -1895,11 +1903,7 @@ class SignInModal {
     }
 
     // Multiple accounts exist, show modal with select dropdown
-    this.submitButton.disabled = true; // Keep button disabled until an account is selected
-    this.submitButton.textContent = 'Sign In';
-    this.submitButton.style.display = 'inline';
-    this.removeButton.style.display = 'none';
-    this.notFoundMessage.style.display = 'none';
+    this.setUiDisabledSignIn();
 
     // set timeout to focus on the last item so shift+tab and tab prevention works
     setTimeout(() => {
@@ -1910,11 +1914,7 @@ class SignInModal {
   close() {
     // clear signInModal input fields
     this.usernameSelect.value = '';
-    this.submitButton.disabled = true;
-    this.submitButton.textContent = 'Sign In';
-    this.submitButton.style.display = 'inline';
-    this.removeButton.style.display = 'none';
-    this.notFoundMessage.style.display = 'none';
+    this.setUiDisabledSignIn();
     
     this.modal.classList.remove('active');
     this.preselectedUsername = null;
