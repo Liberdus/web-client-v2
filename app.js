@@ -4651,12 +4651,30 @@ class BackupAccountModal {
    */
   async handleSubmitOne(event) {
     event.preventDefault();
+    saveState();
 
     // Disable button to prevent multiple submissions
     this.submitButton.disabled = true;
 
     const password = this.passwordInput.value;
-    const jsonData = stringify(myData, null, 2);
+    // Build new structured backup object
+    const username = myData?.account?.username;
+    const netid = myData?.account?.netid;
+    const accountKey = `${username}_${netid}`;
+    // get key from localStorage
+    const account = localStorage.getItem(accountKey);
+
+    const backupObj = {
+      [accountKey]: account,
+    };
+
+    // Include global lock value from localStorage if present
+    const lockVal = localStorage.getItem('lock');
+    if (lockVal !== null) {
+      backupObj.lock = lockVal;
+    }
+
+    const jsonData = stringify(backupObj, null, 2);
 
     try {
       // Encrypt data if password is provided
@@ -5039,7 +5057,11 @@ class RestoreAccountModal {
 
       const localKey = `${username}_${netid}`;
       const exists = localStorage.getItem(localKey) !== null;
-      if (exists && !overwrite) continue; // skip when not overwriting
+      if (exists && !overwrite) {
+        // skip when not overwriting
+        showToast(`Account ${username} on ${netid.slice(0, 6)}... already exists. Not overwriting.`, 3000, 'warning');
+        continue;
+      }
 
       let value = backupData[key];
 
@@ -5132,8 +5154,6 @@ class RestoreAccountModal {
       // We first parse to jsonData so that if the parse does not work we don't destroy myData
       const backupData = parse(fileContent);
 
-      // if backupData has a version key then we assume all accounts were backed up and being restored
-      if (backupData.version) {
         // Instead of clearing localStorage, we'll merge accounts from backup into localStorage
         // Ask for confirmation (previous behavior warned about clearing; keep a similar warning)
         const confirmed = confirm('⚠️ WARNING: This will import all accounts from the backup file.\n\nExisting local accounts will not be removed. If "Overwrite existing accounts" is checked, accounts with the same username and netid will be replaced.\n\nIt is recommended to backup your current data before proceeding.\n\nDo you want to continue with the restore?');
@@ -5149,42 +5169,6 @@ class RestoreAccountModal {
           return; // merge failed — keep modal open and do not proceed to reset/close
         }
         showToast('Accounts restored successfully!', 2000, 'success');
-      }
-      // we are restoring only one account
-      else {
-        // also need to set myAccount
-        const acc = backupData.account; // this could have other things which are not needed
-        myAccount = {
-          netid: acc.netid,
-          username: acc.username,
-          keys: {
-            address: acc.keys.address,
-            public: acc.keys.public,
-            secret: acc.keys.secret,
-            type: acc.keys.type,
-          },
-        };
-        // Get existing accounts or create new structure
-        const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-        // Ensure netid exists
-        if (!existingAccounts.netids[myAccount.netid]) {
-          existingAccounts.netids[myAccount.netid] = { usernames: {} };
-        }
-        // Store updated accounts back in localStorage
-        existingAccounts.netids[myAccount.netid].usernames[myAccount.username] = {
-          address: myAccount.keys.address,
-        };
-        localStorage.setItem('accounts', stringify(existingAccounts));
-
-        // if lock enckey exist we need to encrypt the myData
-        const updatedMyData = lockModal?.encKey ? encryptData(stringify(backupData), lockModal?.encKey, true) : stringify(backupData);
-
-        // Store the localStore entry for username_netid
-        localStorage.setItem(`${myAccount.username}_${myAccount.netid}`, updatedMyData);
-        // Show success message using toast
-        showToast('Account restored successfully!', 2000, 'success');
-      }
-
       
       // handleNativeAppSubscription()
 
