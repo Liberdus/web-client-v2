@@ -1756,6 +1756,52 @@ class SignInModal {
     this.backButton.addEventListener('click', () => this.close());
   }
 
+  // Centralized UI state helpers for availability results
+  setUiForMine() {
+    this.submitButton.disabled = false;
+    this.submitButton.textContent = 'Sign In';
+    this.submitButton.style.display = 'inline';
+    this.removeButton.style.display = 'none';
+    this.notFoundMessage.style.display = 'none';
+  }
+
+  setUiForTaken() {
+    this.submitButton.style.display = 'none';
+    this.removeButton.style.display = 'inline';
+    this.notFoundMessage.textContent = 'taken';
+    this.notFoundMessage.style.display = 'inline';
+  }
+
+  setUiForAvailableNotFound() {
+    this.submitButton.disabled = false;
+    this.submitButton.textContent = 'Recreate';
+    this.submitButton.style.display = 'inline';
+    this.removeButton.style.display = 'inline';
+    this.notFoundMessage.textContent = 'not found';
+    this.notFoundMessage.style.display = 'inline';
+  }
+
+  setUiForNetworkError() {
+    this.submitButton.disabled = true;
+    this.submitButton.textContent = 'Sign In';
+    this.submitButton.style.display = 'none';
+    this.removeButton.style.display = 'none';
+    this.notFoundMessage.textContent = 'network error';
+    this.notFoundMessage.style.display = 'inline';
+  }
+
+  // When auto-selecting after account creation, the network may not have propagated
+  // the alias yet. In that case we suppress the
+  // transient "not found" and allow local sign-in using stored state.
+  applyAutoSelectNotFoundOverride() {
+    this.notFoundMessage.textContent = '';
+    this.notFoundMessage.style.display = 'none';
+    this.submitButton.style.display = 'inline';
+    this.submitButton.disabled = false;
+    this.submitButton.textContent = 'Sign In';
+    this.removeButton.style.display = 'none';
+  }
+
   /**
    * Get the available usernames for the current network
    * @returns {string[]} - An array of available usernames
@@ -1829,18 +1875,13 @@ class SignInModal {
     }
 
     // If a username should be auto-selected (either preselect or only one account), do it
-    const autoSelect = preselectedUsername_ && usernames.includes(preselectedUsername_) ? preselectedUsername_ : null;
+    const autoSelect = preselectedUsername_ && usernames.includes(preselectedUsername_) ? preselectedUsername_ : false;
     if (autoSelect) {
       this.usernameSelect.value = autoSelect;
       await this.handleUsernameChange();
+      // happens when autoselect parameter is given since new account was just created and network may not have propagated account
       if (this.notFoundMessage.textContent === 'not found') {
-        // remove not found and make button available
-        this.notFoundMessage.textContent = '';
-        this.notFoundMessage.style.display = 'none';
-        this.submitButton.style.display = 'inline';
-        this.submitButton.disabled = false;
-        this.submitButton.textContent = 'Sign In';
-        this.removeButton.style.display = 'none';
+        this.applyAutoSelectNotFoundOverride();
         this.handleSignIn();
       }
       return;
@@ -1992,30 +2033,13 @@ class SignInModal {
       this.handleSignIn();
       return;
     } else if (availability === 'mine') {
-      this.submitButton.disabled = false;
-      this.submitButton.textContent = 'Sign In';
-      this.submitButton.style.display = 'inline';
-      this.removeButton.style.display = 'none';
-      this.notFoundMessage.style.display = 'none';
+      this.setUiForMine();
     } else if (availability === 'taken') {
-      this.submitButton.style.display = 'none';
-      this.removeButton.style.display = 'inline';
-      this.notFoundMessage.textContent = 'taken';
-      this.notFoundMessage.style.display = 'inline';
+      this.setUiForTaken();
     } else if (availability === 'available') {
-      this.submitButton.disabled = false;
-      this.submitButton.textContent = 'Recreate';
-      this.submitButton.style.display = 'inline';
-      this.removeButton.style.display = 'inline';
-      this.notFoundMessage.textContent = 'not found';
-      this.notFoundMessage.style.display = 'inline';
+      this.setUiForAvailableNotFound();
     } else {
-      this.submitButton.disabled = true;
-      this.submitButton.textContent = 'Sign In';
-      this.submitButton.style.display = 'none';
-      this.removeButton.style.display = 'none';
-      this.notFoundMessage.textContent = 'network error';
-      this.notFoundMessage.style.display = 'inline';
+      this.setUiForNetworkError();
     }
   }
 
