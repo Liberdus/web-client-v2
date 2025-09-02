@@ -2305,6 +2305,13 @@ class FriendModal {
     // Friend modal form submission
     this.friendForm.addEventListener('submit', (event) => this.handleFriendSubmit(event));
 
+    // Enable/disable submit button based on selection changes
+    this.friendForm.addEventListener('change', (e) => {
+      if (e.target && e.target.name === 'friendStatus') {
+        this.updateSubmitButtonState();
+      }
+    });
+
     // Friend modal close button
     this.modal.querySelector('.back-button').addEventListener('click', () => this.closeFriendModal());
   }
@@ -2314,18 +2321,13 @@ class FriendModal {
     const contact = myData.contacts[this.currentContactAddress];
     if (!contact) return;
 
-    // if .friend and .friendOld values are not the same disable the submit button
-    if (contact.friend !== contact.friendOld) {
-      showToast('You have a pending transaction to update the friend status. Come back to this page later.', 0, 'error');
-      this.submitButton.disabled = true;
-    } else {
-      this.submitButton.disabled = false;
-    }
-
     // Set the current friend status
     const status = contact?.friend.toString();
     const radio = this.friendForm.querySelector(`input[value="${status}"]`);
     if (radio) radio.checked = true;
+
+    // Initialize submit button state
+    this.updateSubmitButtonState();
 
     this.modal.classList.add('active');
   }
@@ -2369,6 +2371,12 @@ class FriendModal {
     this.submitButton.disabled = true;
     const contact = myData.contacts[this.currentContactAddress];
     const selectedStatus = this.friendForm.querySelector('input[name="friendStatus"]:checked')?.value;
+
+    if (selectedStatus == null || Number(selectedStatus) === contact.friend) {
+      this.submitButton.disabled = true;
+      console.log('No change in friend status or no status selected.');
+      return;
+    }
 
     // send transaction to update chat toll
     const res = await this.postUpdateTollRequired(this.currentContactAddress, Number(selectedStatus));
@@ -2434,6 +2442,31 @@ class FriendModal {
     button.classList.remove('status-0', 'status-1', 'status-2', 'status-3');
     // Add the current status class
     button.classList.add(`status-${contact.friend}`);
+  }
+
+  // Update the submit button's enabled state based on current and selected status
+  updateSubmitButtonState() {
+    const contact = myData?.contacts?.[this.currentContactAddress];
+    if (!contact) {
+      this.submitButton.disabled = true;
+      return;
+    }
+
+    // If there's already a pending tx (friend != friendOld) keep disabled
+    if (contact.friend !== contact.friendOld) {
+      this.submitButton.disabled = true;
+      showToast('You have a pending transaction to update the friend status. Come back to this page later.', 0, 'error');
+      return;
+    }
+
+    const selectedStatus = this.friendForm.querySelector('input[name="friendStatus"]:checked')?.value;
+    if (!selectedStatus) {
+      this.submitButton.disabled = true;
+      return;
+    }
+
+    // Enable only if different from current friend status
+    this.submitButton.disabled = Number(selectedStatus) === contact.friend;
   }
 
   // get the current contact address
