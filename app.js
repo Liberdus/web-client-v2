@@ -11555,18 +11555,6 @@ class SendAssetConfirmModal {
     const cancelButton = this.cancelButton;
     const username = normalizeUsername(sendAssetFormModal.usernameInput.value);
 
-    // hidden input field retryOfTxId value is not an empty string
-    if (sendAssetFormModal.retryTxIdInput.value) {
-      // remove from myData use txid from hidden field retryOfPaymentTxId
-      removeFailedTx(sendAssetFormModal.retryTxIdInput.value, toAddress);
-
-      // clear the field
-      failedTransactionModal.txid = '';
-      failedTransactionModal.address = '';
-      failedTransactionModal.memo = '';
-      sendAssetFormModal.retryTxIdInput.value = '';
-    }
-
     // if it's your own username disable the send button
     if (username == myAccount.username) {
       confirmButton.disabled = true;
@@ -11630,6 +11618,18 @@ class SendAssetConfirmModal {
         return;
       }
       toAddress = normalizeAddress(data.address);
+
+      // hidden input field retryOfTxId value is not an empty string
+      if (sendAssetFormModal.retryTxIdInput.value) {
+        // remove from myData use txid from hidden field retryOfPaymentTxId
+        removeFailedTx(sendAssetFormModal.retryTxIdInput.value, toAddress);
+
+        // clear the field
+        failedTransactionModal.txid = '';
+        failedTransactionModal.address = '';
+        failedTransactionModal.memo = '';
+        sendAssetFormModal.retryTxIdInput.value = '';
+      }
     } catch (error) {
       console.error('Error looking up username:', error);
       showToast('Error looking up username', 0, 'error');
