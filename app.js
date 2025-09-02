@@ -12238,7 +12238,7 @@ class FailedTransactionModal {
       // find username in myData.contacts[this.address].senderInfo.username
       // enter as an input to invoke the oninput event
       sendAssetFormModal.usernameInput.value =
-        myData.contacts[this.address]?.senderInfo?.username || this.address || '';
+        myData.contacts[this.address]?.username || '';
       sendAssetFormModal.usernameInput.dispatchEvent(new Event('input', { bubbles: true }));
   
       // 4. fill in the amount input
