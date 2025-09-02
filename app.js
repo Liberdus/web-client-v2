@@ -2384,6 +2384,7 @@ class FriendModal {
       console.log(
         `[handleFriendSubmit] update_toll_required transaction failed: ${res?.result?.reason}. Did not update contact status.`
       );
+      showToast('Failed to update friend status. Please try again.', 0, 'error');
       return;
     }
 
@@ -2408,10 +2409,6 @@ class FriendModal {
 
     // Mark that we need to update the contact list
     this.needsContactListUpdate = true;
-
-    // TODO - do we really need to saveState here
-    // Save state
-//    saveState();
 
     // Update the friend button
     this.updateFriendButton(contact, 'addFriendButtonContactInfo');
