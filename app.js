@@ -1883,9 +1883,8 @@ class SignInModal {
     }
 
     // If a username should be auto-selected (either preselect or only one account), do it
-    const autoSelect = preselectedUsername_ && usernames.includes(preselectedUsername_) ? preselectedUsername_ : false;
-    if (autoSelect) {
-      this.usernameSelect.value = autoSelect;
+    if ((preselectedUsername_ && usernames.includes(preselectedUsername_))) {
+      this.usernameSelect.value = this.preselectedUsername;
       await this.handleUsernameChange();
       // happens when autoselect parameter is given since new account was just created and network may not have propagated account
       if (this.notFoundMessage.textContent === 'not found') {
