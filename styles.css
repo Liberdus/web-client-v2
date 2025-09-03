@@ -2107,6 +2107,74 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   margin-bottom: 1rem;
 }
 
+/* Remove Accounts Modal styles */
+#removeAccountsModal .account-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+#removeAccountsModal .remove-accounts-section + .remove-accounts-section {
+  margin-top: 1rem;
+  border-top: 1px solid var(--border-color, #2d2d2d);
+  padding-top: 0.75rem;
+}
+
+#removeAccountsModal .remove-accounts-section h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  opacity: 0.8;
+  letter-spacing: 0.5px;
+}
+
+#removeAccountsModal .account-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+#removeAccountsModal label.remove-account-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--surface-muted-alt, rgba(255,255,255,0.02));
+  border: 1px solid var(--border-color, #2d2d2d);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+#removeAccountsModal label.remove-account-row:hover {
+  background: var(--surface-hover, rgba(255,255,255,0.06));
+}
+
+#removeAccountsModal label.remove-account-row input[type="checkbox"] {
+  margin: 0;
+  width: 14px;
+  height: 14px;
+  accent-color: var(--primary-color, #007bff);
+}
+
+#removeAccountsModal .remove-account-username {
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+
+#removeAccountsModal .remove-account-stats {
+  margin-left: auto;
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+#removeAccountsModal .modal-summary {
+  font-size: 0.8rem;
+  line-height: 1.2rem;
+  opacity: 0.9;
+}
+
 /* Common label styles */
 .form-group label {
   display: block;

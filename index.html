@@ -88,6 +88,7 @@
         <div class="welcome-buttons">
           <button id="signInButton" class="btn btn--primary btn--pill btn--full hidden">Sign In</button>
           <button id="createAccountButton" class="btn btn--primary btn--pill btn--full hidden">Create Account</button>
+          <button id="openRemoveAccountsModalButton" class="btn btn--secondary btn--pill btn--full hidden">Remove Accounts</button>
           <button id="openWelcomeMenu" class="btn btn--secondary btn--pill btn--full hidden">Menu</button>
         </div>
         <div style="font-size: 0.8rem; margin-top: 10px; text-align: center">
@@ -1365,6 +1366,22 @@
                 <button id="confirmRemoveAllAccounts" class="btn btn--danger btn--pill btn--full">Remove All Accounts</button>
               </div>
             </div>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Remove Accounts Modal (multi select) -->
+      <div class="modal fixed-header" id="removeAccountsModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeRemoveAccountsModal"></button>
+          <div class="modal-title">Remove Accounts</div>
+        </div>
+        <div class="modal-content">
+          <div class="form-container">
+            <p class="modal-summary">Select accounts to remove from this device.</p>
+            <div id="removeAccountsList" class="account-list"></div>
+            <button type="button" id="submitRemoveAccounts" class="btn btn--primary btn--pill btn--full" disabled>Remove Selected</button>
           </div>
         </div>
         <a class="last-item" href="#"> </a>

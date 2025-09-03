@@ -426,6 +426,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Call Invite Modal
   callInviteModal.load();
 
+  // Remove Accounts Modal
+  removeAccountsModal.load();
+
   // add event listener for back-button presses to prevent shift+tab
   document.querySelectorAll('.back-button').forEach((button) => {
     button.addEventListener('keydown', ignoreShiftTabKey);
@@ -569,6 +572,7 @@ class WelcomeScreen {
     this.networkNameDisplay = document.getElementById('networkNameDisplay');
     this.lastItem = document.getElementById('welcomeScreenLastItem');
     this.openBackupModalButton = document.getElementById('openBackupModalButton');
+    this.openRemoveAccountsModalButton = document.getElementById('openRemoveAccountsModalButton');
     this.appVersionDisplay = document.getElementById('appVersionDisplay');
     this.appVersionText = document.getElementById('appVersionText');
     
@@ -598,6 +602,10 @@ class WelcomeScreen {
     });
     this.openWelcomeMenuButton.addEventListener('click', () => {
       welcomeMenuModal.open();
+    });
+
+    this.openRemoveAccountsModalButton.addEventListener('click', () => {
+      removeAccountsModal.open();
     });
 
     this.orderButtons();
@@ -634,7 +642,10 @@ class WelcomeScreen {
       this.signInButton.classList.remove('btn--secondary');
       this.createAccountButton.classList.remove('btn--primary');
       this.createAccountButton.classList.add('btn--secondary');
-      
+      this.openBackupModalButton.classList.remove('hidden');
+      this.welcomeButtons.appendChild(this.openBackupModalButton);
+      this.openRemoveAccountsModalButton.classList.remove('hidden');
+      this.welcomeButtons.appendChild(this.openRemoveAccountsModalButton);
     } else {
       this.welcomeButtons.innerHTML = ''; // Clear existing order
       this.createAccountButton.classList.remove('hidden');
@@ -643,6 +654,8 @@ class WelcomeScreen {
       this.welcomeButtons.appendChild(this.openWelcomeMenuButton);
       this.createAccountButton.classList.remove('btn--secondary');
       this.createAccountButton.classList.add('btn--primary')
+      this.openRemoveAccountsModalButton.classList.remove('hidden');
+      this.welcomeButtons.appendChild(this.openRemoveAccountsModalButton);
     }
   }
 
@@ -4633,6 +4646,175 @@ class RemoveAccountModal {
   }
 }
 const removeAccountModal = new RemoveAccountModal();
+
+// Modal to remove multiple accounts at once from welcome screen
+class RemoveAccountsModal {
+  constructor() {}
+
+  load() {
+    this.modal = document.getElementById('removeAccountsModal');
+    this.closeButton = document.getElementById('closeRemoveAccountsModal');
+    this.listContainer = document.getElementById('removeAccountsList');
+    this.submitButton = document.getElementById('submitRemoveAccounts');
+    this.closeButton.addEventListener('click', () => this.close());
+    this.submitButton.addEventListener('click', () => this.handleSubmit());
+  }
+
+  open() {
+    this.renderAccounts();
+    this.submitButton.disabled = true;
+    this.modal.classList.add('active');
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+    this.listContainer.innerHTML = '';
+  }
+
+  isActive() { 
+    return this.modal?.classList.contains('active'); 
+  }
+
+  getAllAccountsData() {
+    const accountsObj = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+    const result = [];
+    // Walk accounts registry to get username + netid list and derive counts
+    for (const netid in accountsObj.netids) {
+      const usernamesObj = accountsObj.netids[netid]?.usernames || {};
+      for (const username in usernamesObj) {
+        const key = `${username}_${netid}`;
+        const state = loadState(key); // decrypted & parsed
+        let contactsCount = 0;
+        let messagesCount = 0;
+        if (state) {
+          try {
+            contactsCount = Object.keys(state.contacts || {}).length;
+            // Sum messages arrays lengths per contact
+            if (state.contacts) {
+              for (const addr in state.contacts) {
+                messagesCount += (state.contacts[addr].messages?.length || 0);
+              }
+            }
+          } catch (e) {
+            console.warn('Error counting contacts/messages for', key, e);
+          }
+        }
+        result.push({ username, netid, contactsCount, messagesCount });
+      }
+    }
+
+    // Find any orphaned account files not in accounts object (username_netid)
+    for (let i = 0; i < localStorage.length; i++) {
+      const storageKey = localStorage.key(i);
+      if (!storageKey) continue;
+      const parts = storageKey.split('_');
+      if (parts.length !== 2) continue;
+      const [username, netid] = parts;
+      if (netid.length !== 64) continue;
+      const already = result.find(r => r.username === username && r.netid === netid);
+      if (already) continue;
+      const state = loadState(storageKey);
+      let contactsCount = 0; let messagesCount = 0;
+      if (state) {
+        try {
+          contactsCount = Object.keys(state.contacts || {}).length;
+          if (state.contacts) {
+            for (const addr in state.contacts) {
+              messagesCount += (state.contacts[addr].messages?.length || 0);
+            }
+          }
+        } catch (e) {
+          console.warn('Error counting orphan account', storageKey, e);
+        }
+      }
+      result.push({ username, netid, contactsCount, messagesCount, orphan: true });
+    }
+    return result;
+  }
+
+  sortAccounts(accounts) {
+    const orderedNetids = network.netids || [];
+    return accounts.sort((a,b) => {
+      const ia = orderedNetids.indexOf(a.netid);
+      const ib = orderedNetids.indexOf(b.netid);
+      const aKnown = ia !== -1; const bKnown = ib !== -1;
+      if (aKnown && bKnown && ia !== ib) return ia - ib; // both known use index order
+      if (aKnown && !bKnown) return -1; // known before unknown
+      if (!aKnown && bKnown) return 1;
+      if (!aKnown && !bKnown) { // both unknown alphabetical by netid
+        if (a.netid !== b.netid) return a.netid.localeCompare(b.netid);
+      }
+      // same netid or both unknown same netid -> by username
+      return a.username.localeCompare(b.username);
+    });
+  }
+
+  groupByNetid(accounts) {
+    const groups = {};
+    for (const acct of accounts) {
+      if (!groups[acct.netid]) groups[acct.netid] = [];
+      groups[acct.netid].push(acct);
+    }
+    return groups;
+  }
+
+  renderAccounts() {
+    const accounts = this.sortAccounts(this.getAllAccountsData());
+    const groups = this.groupByNetid(accounts);
+    this.listContainer.innerHTML = '';
+    const orderedNetids = [...(network.netids || [])];
+    // Append unknown netids afterwards
+    const unknownNetids = Object.keys(groups).filter(n => !orderedNetids.includes(n)).sort();
+    const finalOrder = [...orderedNetids.filter(n => groups[n]), ...unknownNetids];
+    for (const netid of finalOrder) {
+      const section = document.createElement('div');
+      section.className = 'remove-accounts-section';
+      const accountsForNet = groups[netid];
+      section.innerHTML = `<h3>${netid.slice(0,6)} (${accountsForNet.length})</h3>`;
+      const list = document.createElement('div');
+      list.className = 'account-checkboxes';
+      accountsForNet.forEach(acc => {
+        const label = document.createElement('label');
+        label.className = 'remove-account-row';
+        label.innerHTML = `
+          <input type="checkbox" data-username="${acc.username}" data-netid="${acc.netid}" />
+          <span class="remove-account-username">${acc.username}</span>
+          <span class="remove-account-stats">${acc.contactsCount} contacts, ${acc.messagesCount} messages${acc.orphan ? ' (orphan)' : ''}</span>
+        `;
+        list.appendChild(label);
+      });
+      section.appendChild(list);
+      this.listContainer.appendChild(section);
+    }
+    // checkbox change handler for enabling submit
+    this.listContainer.addEventListener('change', () => {
+      const checked = this.listContainer.querySelectorAll('input[type="checkbox"]:checked').length;
+      this.submitButton.disabled = checked === 0;
+    }, { once: true }); // attach once, inside we attach nested listeners via event bubbling
+  }
+
+  handleSubmit() {
+    const checked = this.listContainer.querySelectorAll('input[type="checkbox"]:checked');
+    if (checked.length === 0) return;
+    const confirmText = confirm(`Remove ${checked.length} selected account(s) from this device?`);
+    if (!confirmText) return;
+    const accountsObj = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+    checked.forEach(cb => {
+      const username = cb.dataset.username;
+      const netid = cb.dataset.netid;
+      // remove account data file
+      localStorage.removeItem(`${username}_${netid}`);
+      // remove from registry if present
+      if (accountsObj.netids[netid] && accountsObj.netids[netid].usernames && accountsObj.netids[netid].usernames[username]) {
+        delete accountsObj.netids[netid].usernames[username];
+      }
+    });
+    localStorage.setItem('accounts', stringify(accountsObj));
+    showToast('Selected accounts removed', 3000, 'success');
+    this.close();
+  }
+}
+const removeAccountsModal = new RemoveAccountsModal();
 
 class BackupAccountModal {
   constructor() {}
