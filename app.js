@@ -306,6 +306,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Welcome Screen
   welcomeScreen.load()
 
+  // Welcome Menu Modal
+  welcomeMenuModal.load();
+
   // Footer
   footer.load();
 
@@ -395,9 +398,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Settings Modal
   settingsModal.load();
-
-  // Welcome Menu Modal
-  welcomeMenuModal.load();
 
   // Failed Transaction Modal
   failedTransactionModal.load();
