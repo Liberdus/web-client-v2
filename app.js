@@ -5570,12 +5570,25 @@ class InviteModal {
     this.closeButton = document.getElementById('closeInviteModal');
     this.inviteForm = document.getElementById('inviteForm');
     this.shareButton = document.getElementById('shareInviteButton');
+    this.resetInviteButton = document.getElementById('resetInviteMessage');
 
     this.closeButton.addEventListener('click', () => this.close());
     this.inviteForm.addEventListener('submit', (event) => this.handleSubmit(event));
 
     // input listener for editable message
     this.inviteMessageInput.addEventListener('input', () => this.validateInputs());
+    // reset invite message
+    this.resetInviteButton.addEventListener('click', () => this.handleResetClick());
+  }
+
+  handleResetClick() {
+    this.inviteMessageInput.value = this.getDefaultInviteText();
+    this.validateInputs();
+    this.inviteMessageInput.focus();
+  }
+
+  getDefaultInviteText() {
+    return `Message ${myAccount?.username || ''} on Liberdus! ${this.inviteURL}`;
   }
 
   validateInputs() {
@@ -5586,11 +5599,13 @@ class InviteModal {
   open() {
     // Clear any previous values
     // Prefill the editable invite message with a useful default
-    const defaultText = `Message ${myAccount?.username || ''} on Liberdus! ${this.inviteURL}`;
+    const savedText = myData?.settings?.inviteMessage;
+    const defaultText = this.getDefaultInviteText();
+    const initialText = (savedText && savedText.trim()) ? savedText : defaultText;
     if (this.inviteMessageInput) {
       // Only set default if the user hasn't previously entered something
       if (!this.inviteMessageInput.value || !this.inviteMessageInput.value.trim()) {
-        this.inviteMessageInput.value = defaultText;
+        this.inviteMessageInput.value = initialText;
       }
     }
     this.validateInputs(); // Set initial button state
@@ -5611,10 +5626,18 @@ class InviteModal {
       return;
     }
 
+    // Save edited message to settings and persist
+    if (myData && myData.settings) {
+      myData.settings.inviteMessage = message;
+      saveState();
+    }
+
     // 2-second cooldown on Share button
     this.submitButton.disabled = true;
+    this.resetInviteButton.disabled = true;
     setTimeout(() => {
       this.validateInputs();
+      this.resetInviteButton.disabled = false;
     }, 2000);
 
     try {
