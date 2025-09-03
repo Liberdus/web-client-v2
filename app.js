@@ -5594,22 +5594,25 @@ class InviteModal {
 
   async handleSubmit(event) {
     event.preventDefault();
-    this.submitButton.disabled = true;
 
     const message = this.inviteMessageInput.value.trim();
 
     if (!message) {
       showToast('Please enter a message to share', 0, 'error');
-      this.submitButton.disabled = false;
       return;
     }
+
+    // 2-second cooldown on Share button
+    this.submitButton.disabled = true;
+    setTimeout(() => {
+      this.validateInputs();
+    }, 2000);
 
     try {
       await this.shareLiberdusInvite(message);
     } catch (err) {
-      // shareLiberdusInvite will show its own errors; if it throws, show a fallback
+      // shareLiberdusInvite will show its own errors; rely on cooldown to re-enable
       showToast('Could not share invitation. Try copying manually.', 0, 'error');
-      this.submitButton.disabled = false;
     }
   }
 
