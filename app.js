@@ -561,7 +561,6 @@ class WelcomeScreen {
     this.screen = document.getElementById('welcomeScreen');
     this.signInButton = document.getElementById('signInButton');
     this.createAccountButton = document.getElementById('createAccountButton');
-    /* this.importAccountButton = document.getElementById('importAccountButton'); */
     this.openWelcomeMenuButton = document.getElementById('openWelcomeMenu');
     this.welcomeButtons = document.querySelector('.welcome-buttons');
     this.logoLink = this.screen.querySelector('.logo-link');
@@ -597,16 +596,6 @@ class WelcomeScreen {
         createAccountModal.openWithReset();
       }
     });
-
-    /* this.importAccountButton.addEventListener('click', () => {
-      if (localStorage.lock && unlockModal.isLocked()) {
-        unlockModal.openButtonElementUsed = this.importAccountButton;
-        unlockModal.open();
-      } else {
-        restoreAccountModal.open();
-      }
-    }); */
-
     this.openWelcomeMenuButton.addEventListener('click', () => {
       welcomeMenuModal.open();
     });
@@ -637,6 +626,7 @@ class WelcomeScreen {
       this.welcomeButtons.innerHTML = ''; // Clear existing order
       this.signInButton.classList.remove('hidden');
       this.createAccountButton.classList.remove('hidden');
+      this.openWelcomeMenuButton.classList.remove('hidden');
       this.welcomeButtons.appendChild(this.signInButton);
       this.welcomeButtons.appendChild(this.createAccountButton);
       this.welcomeButtons.appendChild(this.openWelcomeMenuButton);
@@ -648,11 +638,11 @@ class WelcomeScreen {
     } else {
       this.welcomeButtons.innerHTML = ''; // Clear existing order
       this.createAccountButton.classList.remove('hidden');
+      this.openWelcomeMenuButton.classList.remove('hidden');
       this.welcomeButtons.appendChild(this.createAccountButton);
       this.welcomeButtons.appendChild(this.openWelcomeMenuButton);
       this.createAccountButton.classList.remove('btn--secondary');
       this.createAccountButton.classList.add('btn--primary')
-      
     }
   }
 
@@ -679,6 +669,7 @@ class WelcomeMenuModal {
     this.removeButton = document.getElementById('welcomeOpenRemove');
     this.migrateButton = document.getElementById('welcomeOpenMigrate');
     this.launchButton = document.getElementById('welcomeOpenLaunch');
+    this.lockButton = document.getElementById('welcomeOpenLockModal');
     this.updateButton = document.getElementById('welcomeOpenUpdate');
     
 
@@ -686,7 +677,7 @@ class WelcomeMenuModal {
     this.restoreButton.addEventListener('click', () => restoreAccountModal.open());
     this.removeButton.addEventListener('click', () => removeAccountModal.open());
     this.migrateButton.addEventListener('click', () => migrateAccountsModal.open());
-    
+    this.lockButton.addEventListener('click', () => lockModal.open());
 
     // Show launch button if ReactNativeWebView is available
     if (window?.ReactNativeWebView) {
