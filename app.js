@@ -10407,8 +10407,6 @@ class CreateAccountModal {
     this.togglePrivateKeyVisibility = document.getElementById('togglePrivateKeyVisibility');
     this.migrateAccountsSection = document.getElementById('migrateAccountsSection');
     this.migrateAccountsButton = document.getElementById('migrateAccountsButton');
-    this.launchButton = document.getElementById('launchButton');
-    this.updateButton = document.getElementById('updateButton');
     this.toggleMoreOptions = document.getElementById('toggleMoreOptions');
     this.moreOptionsSection = document.getElementById('moreOptionsSection');
 
@@ -10429,15 +10427,6 @@ class CreateAccountModal {
     });
 
     this.migrateAccountsButton.addEventListener('click', async () => await migrateAccountsModal.open());
-    if (window.ReactNativeWebView) {
-      this.launchButton.addEventListener('click', () => {
-        launchModal.open()
-      });
-      
-      this.updateButton.addEventListener('click', () => {
-        aboutModal.openStore();
-      });
-    }
   }
 
   open() {
@@ -10477,8 +10466,6 @@ class CreateAccountModal {
     this.moreOptionsSection.style.display = 'none';
     this.toggleButton.checked = false;
     this.privateKeySection.style.display = 'none';
-    this.launchButton.style.display = 'none';
-    this.updateButton.style.display = 'none';
     
     // Open the modal
     this.open();
@@ -10556,11 +10543,6 @@ class CreateAccountModal {
       this.privateKeySection.style.display = 'none';
       this.privateKeyInput.value = '';
       this.privateKeyError.style.display = 'none';
-      this.launchButton.style.display = 'none';
-      this.updateButton.style.display = 'none';
-    } else if (window.ReactNativeWebView) {
-      this.launchButton.style.display = 'block';
-      this.updateButton.style.display = 'block';
     }
   }
 
