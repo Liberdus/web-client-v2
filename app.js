@@ -1306,7 +1306,7 @@ class WalletScreen {
             continue;
           }
           console.log('balance', data);
-          if (data?.balance) {
+          if (data?.balance !== undefined) {
             // Update address balance
             addr.balance = data.balance;
           }
