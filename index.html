@@ -88,10 +88,11 @@
         <div class="welcome-buttons">
           <button id="signInButton" class="btn btn--primary btn--pill btn--full hidden">Sign In</button>
           <button id="createAccountButton" class="btn btn--primary btn--pill btn--full hidden">Create Account</button>
-          <button id="importAccountButton" class="btn btn--secondary btn--pill btn--full hidden">Restore Account</button>
+          <!-- <button id="importAccountButton" class="btn btn--secondary btn--pill btn--full hidden">Restore Account</button> -->
           <!-- button to open backup modal -->
-          <button id="openBackupModalButton" class="btn btn--secondary btn--pill btn--full hidden">Backup</button>
+          <!-- <button id="openBackupModalButton" class="btn btn--secondary btn--pill btn--full hidden">Backup</button> -->
           <!-- <button id="addToHomeScreenButton" class="secondary-button hidden">Install</button> -->
+          <button id="openWelcomeMenu" class="btn btn--secondary btn--pill btn--full ">Menu</button>
         </div>
         <div style="font-size: 0.8rem; margin-top: 10px; text-align: center">
           Version <span id="versionDisplay"></span>
@@ -268,6 +269,25 @@
             <li class="menu-item" id="openRemoveAccount" data-icon="trash-2">Remove</li>
             <li class="menu-item" id="openLaunchUrl" data-icon="launch" style="display: none;">Launch</li>
             <li class="menu-item sign-out" id="handleSignOutSettings" data-icon="log-out">Sign Out</li>
+          </ul>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Welcome Menu Modal -->
+      <div class="modal fixed-header" id="welcomeMenuModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeWelcomeMenu"></button>
+          <div class="modal-title">Menu</div>
+        </div>
+        <div class="modal-content">
+          <ul class="menu-list">
+            <li class="menu-item" id="welcomeOpenBackup" data-icon="download">Backup</li>
+            <li class="menu-item" id="welcomeOpenRestore" data-icon="rotate-ccw">Restore</li>
+            <li class="menu-item" id="welcomeOpenRemove" data-icon="trash-2">Remove</li>
+            <li class="menu-item" id="welcomeOpenMigrate" data-icon="shuffle">Migrate</li>
+            <li class="menu-item" id="welcomeOpenLaunch" data-icon="launch" style="display: none;">Launch</li>
+            <li class="menu-item" id="welcomeOpenUpdate" data-icon="smartphone">Update</li>
           </ul>
         </div>
         <a class="last-item" href="#"> </a>
