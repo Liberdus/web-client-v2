@@ -7243,6 +7243,10 @@ class ChatModal {
 
     // Abort controller for cancelling file operations
     this.abortController = new AbortController();
+    
+    // Keyboard detection properties
+    this.isKeyboardVisible = false; // Track keyboard state
+    this.initialViewportHeight = window.innerHeight; // Store initial viewport height
   }
 
   /**
@@ -7325,6 +7329,21 @@ class ChatModal {
 
       // Save draft (text is already limited to 2000 chars by maxlength attribute)
       this.debouncedSaveDraft(e.target.value);
+    });
+
+    // Add viewport resize listener for keyboard detection
+    window.addEventListener('resize', () => {
+      const currentHeight = window.innerHeight;
+      const heightDifference = this.initialViewportHeight - currentHeight;
+      
+      // If viewport height decreased significantly, keyboard is likely open
+      if (heightDifference > 150) { // 150px threshold for keyboard detection
+        this.isKeyboardVisible = true;
+        console.log('⌨️ Keyboard detected as open (viewport height decreased by', heightDifference, 'px)');
+      } else if (heightDifference < 50) { // If height increased or stayed similar, keyboard is likely closed
+        this.isKeyboardVisible = false;
+        console.log('⌨️ Keyboard detected as closed (viewport height difference:', heightDifference, 'px)');
+      }
     });
 
     // Add focus event listener for message input to handle scrolling
@@ -8708,6 +8727,15 @@ console.warn('in send message', txid)
   }
 
   /**
+   * Detects if the keyboard is currently open
+   * @returns {boolean} True if keyboard is likely open
+   */
+  isKeyboardOpen() {
+    // Use the tracked state from resize listener for more reliable detection
+    return this.isKeyboardVisible;
+  }
+
+  /**
    * Handles message click events
    * @param {Event} e - Click event
    */
@@ -8721,6 +8749,12 @@ console.warn('in send message', txid)
     if (!messageEl) return;
 
     if (messageEl.classList.contains('deleted-message')) return;
+
+    // Check if keyboard is open - if so, don't show context menu
+    if (this.isKeyboardOpen()) {
+      console.log('⌨️ Keyboard is open, preventing context menu');
+      return;
+    }
 
     if (messageEl.dataset.status === 'failed') {
       const isPayment = messageEl.classList.contains('payment-info');
