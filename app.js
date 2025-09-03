@@ -1426,6 +1426,7 @@ class WelcomeMenuModal {
     this.removeButton = document.getElementById('welcomeOpenRemove');
     this.migrateButton = document.getElementById('welcomeOpenMigrate');
     this.launchButton = document.getElementById('welcomeOpenLaunch');
+    this.updateButton = document.getElementById('welcomeOpenUpdate');
     
 
     this.backupButton.addEventListener('click', () => backupAccountModal.open());
@@ -1438,8 +1439,8 @@ class WelcomeMenuModal {
     if (window?.ReactNativeWebView) {
       this.launchButton.addEventListener('click', () => launchModal.open());
       this.launchButton.style.display = 'block';
-      this.updateButton = document.getElementById('welcomeOpenUpdate');
       this.updateButton.addEventListener('click', () => aboutModal.openStore());
+      this.updateButton.style.display = 'block';
     }
   }
 
