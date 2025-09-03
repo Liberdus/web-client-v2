@@ -4536,7 +4536,6 @@ class RemoveAccountModal {
     this.modal = document.getElementById('removeAccountModal');
     document.getElementById('closeRemoveAccountModal').addEventListener('click', () => this.close());
     document.getElementById('confirmRemoveAccount').addEventListener('click', () => this.removeAccount());
-    document.getElementById('confirmRemoveAllAccounts').addEventListener('click', () => this.removeAllAccounts());
     document.getElementById('openBackupFromRemove').addEventListener('click', () => backupAccountModal.open());
   }
 
@@ -4606,24 +4605,6 @@ class RemoveAccountModal {
     clearMyData(); // need to delete this so that the reload does not save the data into localStore again
     window.location.reload();
   }
-  
-  removeAllAccounts() {
-    const confirmText = prompt(`WARNING: All accounts and data will be permanently removed from this device.\n\nType "REMOVE ALL" to confirm:`);
-    if (confirmText !== "REMOVE ALL") {
-      showToast('Remove all cancelled', 2000, 'warning');
-      return;
-    }
-    
-    // Clear all localStorage data
-    localStorage.clear();
-    
-    // Show success message
-    showToast('All data has been removed from this device', 3000, 'success');
-    
-    // Reload the page to redirect to welcome screen
-    clearMyData();
-    window.location.reload();
-  }
 
   isActive() {
     return this.modal.classList.contains('active');
@@ -4647,7 +4628,7 @@ class RemoveAccountsModal {
     this.removeAllButton = document.getElementById('removeAllAccountsButton');
     this.closeButton.addEventListener('click', () => this.close());
     this.submitButton.addEventListener('click', () => this.handleSubmit());
-    this.removeAllButton.addEventListener('click', () => removeAccountModal.removeAllAccounts());
+    this.removeAllButton.addEventListener('click', () => this.handleRemoveAllAccounts());
   }
 
   open() {
@@ -4802,6 +4783,24 @@ class RemoveAccountsModal {
     localStorage.setItem('accounts', stringify(accountsObj));
     showToast('Selected accounts removed', 3000, 'success');
     this.close();
+  }
+
+  handleRemoveAllAccounts() {
+    const confirmText = prompt(`WARNING: All accounts and data will be permanently removed from this device.\n\nType "REMOVE ALL" to confirm:`);
+    if (confirmText !== "REMOVE ALL") {
+      showToast('Remove all cancelled', 2000, 'warning');
+      return;
+    }
+    
+    // Clear all localStorage data
+    localStorage.clear();
+    
+    // Show success message
+    showToast('All data has been removed from this device', 3000, 'success');
+    
+    // Reload the page to redirect to welcome screen
+    clearMyData();
+    window.location.reload();
   }
 }
 const removeAccountsModal = new RemoveAccountsModal();
