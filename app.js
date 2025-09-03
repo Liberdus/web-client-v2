@@ -5190,7 +5190,7 @@ class RestoreAccountModal {
       }
 
       // We first parse to jsonData so that if the parse does not work we don't destroy myData
-      const backupData = parse(fileContent);
+      let backupData = parse(fileContent);
 
         // Instead of clearing localStorage, we'll merge accounts from backup into localStorage
         // Ask for confirmation (previous behavior warned about clearing; keep a similar warning)
@@ -5199,6 +5199,15 @@ class RestoreAccountModal {
         if (!confirmed) {
           showToast('Restore cancelled by user', 2000, 'info');
           return;
+        }
+
+        // backwards compatibility for old single account export
+        if(typeof backupData === 'object' && 'account' in backupData) {
+          const username = backupData.account.username;
+          const netid = backupData.account.netid;
+          backupData = {
+            [`${username}_${netid}`]: stringify(backupData)
+          };
         }
 
         // Merge and abort if merge failed
