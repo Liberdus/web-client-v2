@@ -640,18 +640,20 @@ class WelcomeScreen {
       this.createAccountButton.classList.remove('hidden');
       this.welcomeButtons.appendChild(this.signInButton);
       this.welcomeButtons.appendChild(this.createAccountButton);
+      this.welcomeButtons.appendChild(this.openWelcomeMenuButton);
       this.signInButton.classList.add('btn--primary');
       this.signInButton.classList.remove('btn--secondary');
       this.createAccountButton.classList.remove('btn--primary');
       this.createAccountButton.classList.add('btn--secondary');
-      this.welcomeButtons.appendChild(this.openWelcomeMenuButton);
+      
     } else {
       this.welcomeButtons.innerHTML = ''; // Clear existing order
       this.createAccountButton.classList.remove('hidden');
       this.welcomeButtons.appendChild(this.createAccountButton);
+      this.welcomeButtons.appendChild(this.openWelcomeMenuButton);
       this.createAccountButton.classList.remove('btn--secondary');
       this.createAccountButton.classList.add('btn--primary')
-      this.welcomeButtons.appendChild(this.openWelcomeMenuButton);
+      
     }
   }
 
