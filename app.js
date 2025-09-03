@@ -698,8 +698,13 @@ class WelcomeMenuModal {
   }
 
   open() {
-    this.modal.classList.add('active');
-    enterFullscreen();
+    if (localStorage.lock && unlockModal.isLocked()) {
+      unlockModal.openButtonElementUsed = welcomeScreen.openWelcomeMenuButton;
+      unlockModal.open();
+    } else {
+      this.modal.classList.add('active');
+      enterFullscreen();
+    }
   }
 
   close() {
@@ -13282,10 +13287,11 @@ class UnlockModal {
       lockModal.encKey = await passwordToKey(password+"liberdusData")
       this.unlock();
       this.close();
-      if (this.openButtonElementUsed === welcomeScreen.createAccountButton) {
-        createAccountModal.openWithReset();
-      } else if (this.openButtonElementUsed === welcomeScreen.importAccountButton) {
-        restoreAccountModal.open();
+      const targetElement = this.openButtonElementUsed;
+      this.openButtonElementUsed = null;
+      if (targetElement && typeof targetElement.click === 'function' && document.contains(targetElement)) {
+        // Defer click to next tick to ensure unlock modal has fully closed
+        setTimeout(() => targetElement.click(), 0);
       } else {
         signInModal.open();
       }
