@@ -4644,8 +4644,10 @@ class RemoveAccountsModal {
     this.closeButton = document.getElementById('closeRemoveAccountsModal');
     this.listContainer = document.getElementById('removeAccountsList');
     this.submitButton = document.getElementById('submitRemoveAccounts');
+    this.removeAllButton = document.getElementById('removeAllAccountsButton');
     this.closeButton.addEventListener('click', () => this.close());
     this.submitButton.addEventListener('click', () => this.handleSubmit());
+    this.removeAllButton.addEventListener('click', () => removeAccountModal.removeAllAccounts());
   }
 
   open() {
