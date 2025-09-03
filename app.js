@@ -11966,18 +11966,6 @@ class SendAssetConfirmModal {
         return;
       }
       toAddress = normalizeAddress(data.address);
-
-      // hidden input field retryOfTxId value is not an empty string
-      if (sendAssetFormModal.retryTxIdInput.value) {
-        // remove from myData use txid from hidden field retryOfPaymentTxId
-        removeFailedTx(sendAssetFormModal.retryTxIdInput.value, toAddress);
-
-        // clear the field
-        failedTransactionModal.txid = '';
-        failedTransactionModal.address = '';
-        failedTransactionModal.memo = '';
-        sendAssetFormModal.retryTxIdInput.value = '';
-      }
     } catch (error) {
       console.error('Error looking up username:', error);
       showToast('Error looking up username', 0, 'error');
@@ -12101,6 +12089,18 @@ class SendAssetConfirmModal {
           await sendAssetFormModal.reopen();
         }
         throw new Error('Transaction failed');
+      }
+
+      // hidden input field retryOfTxId value is not an empty string
+      if (sendAssetFormModal.retryTxIdInput.value) {
+        // remove from myData use txid from hidden field retryOfPaymentTxId
+        removeFailedTx(sendAssetFormModal.retryTxIdInput.value, toAddress);
+
+        // clear the field
+        failedTransactionModal.txid = '';
+        failedTransactionModal.address = '';
+        failedTransactionModal.memo = '';
+        sendAssetFormModal.retryTxIdInput.value = '';
       }
 
       /* if (!response || !response.result || !response.result.success) {
