@@ -8758,9 +8758,12 @@ console.warn('in send message', txid)
 
     if (messageEl.dataset.status === 'failed') {
       const isPayment = messageEl.classList.contains('payment-info');
-      return isPayment 
-        ? failedTransactionModal.open(messageEl.dataset.txid, messageEl)
-        : failedMessageMenu.open(e, messageEl);
+      if (isPayment) {
+        // Open main context menu but configure for failed payment
+        this.showMessageContextMenu(e, messageEl);
+        return;
+      }
+      return failedMessageMenu.open(e, messageEl);
     }
 
     this.showMessageContextMenu(e, messageEl);
@@ -8789,14 +8792,23 @@ console.warn('in send message', txid)
     const copyOption = this.contextMenu.querySelector('[data-action="copy"]');
     const joinOption = this.contextMenu.querySelector('[data-action="join"]');
     const inviteOption = this.contextMenu.querySelector('[data-action="call-invite"]');
+    const editResendOption = this.contextMenu.querySelector('[data-action="edit-resend"]');
+    const isFailedPayment = messageEl.dataset.status === 'failed' && messageEl.classList.contains('payment-info');
+    // For failed payment messages, hide copy and delete-for-all regardless of sender
+    if (isFailedPayment) {
+      if (copyOption) copyOption.style.display = 'none';
+      if (deleteForAllOption) deleteForAllOption.style.display = 'none';
+    }
     if (isCall) {
       if (copyOption) copyOption.style.display = 'none';
       if (joinOption) joinOption.style.display = 'flex';
       if (inviteOption) inviteOption.style.display = 'flex';
+      if (editResendOption) editResendOption.style.display = 'none';
     } else {
       if (copyOption) copyOption.style.display = 'flex';
       if (joinOption) joinOption.style.display = 'none';
       if (inviteOption) inviteOption.style.display = 'none';
+      if (editResendOption) editResendOption.style.display = isFailedPayment ? 'flex' : 'none';
     }
     
     this.positionContextMenu(this.contextMenu, messageEl);
@@ -8859,14 +8871,65 @@ console.warn('in send message', txid)
         callInviteModal.open(messageEl);
         break;
       case 'delete':
-        this.deleteMessage(messageEl);
+        if (messageEl.dataset.status === 'failed' && messageEl.classList.contains('payment-info')) {
+          this.deleteFailedPayment(messageEl);
+        } else {
+          this.deleteMessage(messageEl);
+        }
         break;
       case 'delete-for-all':
         this.deleteMessageForAll(messageEl);
         break;
+      case 'edit-resend':
+        this.handleFailedPaymentEditResend(messageEl);
+        break;
     }
     
     this.closeContextMenu();
+  }
+
+  /**
+   * Deletes a failed payment
+   * @param {HTMLElement} messageEl
+   */
+  deleteFailedPayment(messageEl) {
+      const txid = messageEl.dataset.txid;
+      if (txid) {
+        const currentAddress = this.address;
+        removeFailedTx(txid, currentAddress);
+        this.appendChatModal();
+      }
+  }
+
+  /**
+   * Prefill Send form for a failed payment to edit and resend
+   * @param {HTMLElement} messageEl
+   */
+  handleFailedPaymentEditResend(messageEl) {
+    const txid = messageEl.dataset.txid;
+    const address = messageEl?.dataset?.address || this.address;
+    const memo = messageEl.querySelector('.payment-memo')?.textContent || '';
+
+    if (!sendAssetFormModal?.modal || !sendAssetFormModal?.retryTxIdInput) return;
+
+    // Open send modal
+    sendAssetFormModal.open();
+
+    // Hidden retry txid input (used later to remove original failed tx on successful resend)
+    sendAssetFormModal.retryTxIdInput.value = txid || '';
+
+    // Memo
+    sendAssetFormModal.memoInput.value = memo || '';
+
+    // Recipient username (best-effort from contacts)
+    sendAssetFormModal.usernameInput.value = myData.contacts[address]?.username || '';
+    sendAssetFormModal.usernameInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Amount from wallet history (BigInt → string)
+    const amountBig = myData.wallet.history.find((tx) => tx.txid === txid)?.amount;
+    if (typeof amountBig === 'bigint') {
+      sendAssetFormModal.amountInput.value = big2str(amountBig, 18);
+    }
   }
 
 
