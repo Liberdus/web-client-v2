@@ -5619,7 +5619,17 @@ class InviteModal {
     const defaultText = `Message ${myAccount.username} on Liberdus! ${this.inviteURL}`;
     const text = (typeof overrideText === 'string' && overrideText.trim().length) ? overrideText.trim() : defaultText;
 
-    // 1) Try native share sheet
+    // 1) Check if running in React Native WebView
+    if (reactNativeApp.isReactNativeWebView) {
+      try {
+        reactNativeApp.shareInvite(url, text, title);
+        return; // success
+      } catch (err) {
+        // fall through to native share or clipboard on errors
+      }
+    }
+
+    // 2) Try native share sheet
     if (navigator.share) {
       try {
         await navigator.share({ url, text, title });
@@ -5634,7 +5644,7 @@ class InviteModal {
       }
     }
 
-    // 2) Clipboard fallback (no mailto)
+    // 3) Clipboard fallback (no mailto)
     try {
       await navigator.clipboard.writeText(text);
       showToast("Invite copied to clipboard!", 3000, "success");
@@ -13874,6 +13884,15 @@ class ReactNativeApp {
     } catch (err) {
       console.error('Error during unsubscribe:', err);
     }
+  }
+  
+  shareInvite(url, text, title) {
+    this.postMessage({
+      type: 'SHARE_INVITE',
+      url,
+      text,
+      title
+    });
   }
 }
 
