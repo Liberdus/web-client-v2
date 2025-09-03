@@ -554,7 +554,6 @@ function loadState(account, noparse=false){
   return parse(data);
 }
 
-
 class WelcomeScreen {
   constructor() {}
 
@@ -666,6 +665,54 @@ class WelcomeScreen {
 }
 
 const welcomeScreen = new WelcomeScreen();
+
+class WelcomeMenuModal {
+  constructor() {}
+
+  load() {
+    this.modal = document.getElementById('welcomeMenuModal');
+    this.closeButton = document.getElementById('closeWelcomeMenu');
+    this.closeButton.addEventListener('click', () => this.close());
+
+    this.backupButton = document.getElementById('welcomeOpenBackup');
+    this.restoreButton = document.getElementById('welcomeOpenRestore');
+    this.removeButton = document.getElementById('welcomeOpenRemove');
+    this.migrateButton = document.getElementById('welcomeOpenMigrate');
+    this.launchButton = document.getElementById('welcomeOpenLaunch');
+    this.updateButton = document.getElementById('welcomeOpenUpdate');
+    
+
+    this.backupButton.addEventListener('click', () => backupAccountModal.open());
+    this.restoreButton.addEventListener('click', () => restoreAccountModal.open());
+    this.removeButton.addEventListener('click', () => removeAccountModal.open());
+    this.migrateButton.addEventListener('click', () => migrateAccountsModal.open());
+    
+
+    // Show launch button if ReactNativeWebView is available
+    if (window?.ReactNativeWebView) {
+      this.launchButton.addEventListener('click', () => launchModal.open());
+      this.launchButton.style.display = 'block';
+      this.updateButton.addEventListener('click', () => aboutModal.openStore());
+      this.updateButton.style.display = 'block';
+    }
+  }
+
+  open() {
+    this.modal.classList.add('active');
+    enterFullscreen();
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+    enterFullscreen();
+  }
+
+  isActive() {
+    return this.modal.classList.contains('active');
+  }
+}
+
+const welcomeMenuModal = new WelcomeMenuModal();
 
 class Header {
   constructor() {}
@@ -1414,53 +1461,6 @@ class MenuModal {
 }
 
 const menuModal = new MenuModal();
-
-class WelcomeMenuModal {
-  constructor() {}
-
-  load() {
-    this.modal = document.getElementById('welcomeMenuModal');
-    this.closeButton = document.getElementById('closeWelcomeMenu');
-    this.closeButton.addEventListener('click', () => this.close());
-
-    this.backupButton = document.getElementById('welcomeOpenBackup');
-    this.restoreButton = document.getElementById('welcomeOpenRestore');
-    this.removeButton = document.getElementById('welcomeOpenRemove');
-    this.migrateButton = document.getElementById('welcomeOpenMigrate');
-    this.launchButton = document.getElementById('welcomeOpenLaunch');
-    this.updateButton = document.getElementById('welcomeOpenUpdate');
-    
-
-    this.backupButton.addEventListener('click', () => backupAccountModal.open());
-    this.restoreButton.addEventListener('click', () => restoreAccountModal.open());
-    this.removeButton.addEventListener('click', () => removeAccountModal.open());
-    this.migrateButton.addEventListener('click', () => migrateAccountsModal.open());
-    
-
-    // Show launch button if ReactNativeWebView is available
-    if (window?.ReactNativeWebView) {
-      this.launchButton.addEventListener('click', () => launchModal.open());
-      this.launchButton.style.display = 'block';
-      this.updateButton.addEventListener('click', () => aboutModal.openStore());
-      this.updateButton.style.display = 'block';
-    }
-  }
-
-  open() {
-    this.modal.classList.add('active');
-    enterFullscreen();
-  }
-
-  close() {
-    this.modal.classList.remove('active');
-    enterFullscreen();
-  }
-
-  isActive() {
-    return this.modal.classList.contains('active');
-  }
-}
-const welcomeMenuModal = new WelcomeMenuModal();
 
 class SettingsModal {
   constructor() { }
