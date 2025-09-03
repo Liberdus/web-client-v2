@@ -8775,29 +8775,24 @@ console.warn('in send message', txid)
    */
   positionContextMenu(menu, messageEl) {
     const rect = messageEl.getBoundingClientRect();
-    const menuWidth = 200; // match CSS
+    const container = messageEl.closest('.messages-container');
+    const containerRect = container?.getBoundingClientRect() || { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight };
+    
+    const menuWidth = 200;
     const menuHeight = 100;
-
-    let left = rect.left + (rect.width / 2) - (menuWidth / 2);
-    // If menu would overflow right, push left
-    if (left + menuWidth > window.innerWidth - 10) {
-      left = window.innerWidth - menuWidth - 10;
+    
+    // Center horizontally, clamp to container
+    let left = Math.max(containerRect.left + 10, 
+                        Math.min(containerRect.right - menuWidth - 10, 
+                                 rect.left + rect.width/2 - menuWidth/2));
+    
+    // Prefer below, fallback to above, clamp to container
+    let top = rect.bottom + 10;
+    if (top + menuHeight > containerRect.bottom) {
+      top = Math.max(containerRect.top + 10, rect.top - menuHeight - 10);
     }
-    // If menu would overflow left, push right
-    if (left < 10) {
-      left = 10;
-    }
-
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const spaceAbove = rect.top;
-    const top = (spaceBelow >= menuHeight || spaceBelow > spaceAbove)
-      ? rect.bottom + 10
-      : rect.top - menuHeight - 10;
-
-    Object.assign(menu.style, {
-      left: `${left}px`,
-      top: `${top}px`
-    });
+    
+    Object.assign(menu.style, { left: `${left}px`, top: `${top}px` });
   }
 
   /**
