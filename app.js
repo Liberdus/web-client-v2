@@ -571,8 +571,6 @@ class WelcomeScreen {
     this.versionDisplay = document.getElementById('versionDisplay');
     this.networkNameDisplay = document.getElementById('networkNameDisplay');
     this.lastItem = document.getElementById('welcomeScreenLastItem');
-    this.openBackupModalButton = document.getElementById('openBackupModalButton');
-    this.openRemoveAccountsModalButton = document.getElementById('openRemoveAccountsModalButton');
     this.appVersionDisplay = document.getElementById('appVersionDisplay');
     this.appVersionText = document.getElementById('appVersionText');
     
@@ -602,10 +600,6 @@ class WelcomeScreen {
     });
     this.openWelcomeMenuButton.addEventListener('click', () => {
       welcomeMenuModal.open();
-    });
-
-    this.openRemoveAccountsModalButton.addEventListener('click', () => {
-      removeAccountsModal.open();
     });
 
     this.orderButtons();
@@ -642,10 +636,6 @@ class WelcomeScreen {
       this.signInButton.classList.remove('btn--secondary');
       this.createAccountButton.classList.remove('btn--primary');
       this.createAccountButton.classList.add('btn--secondary');
-      this.openBackupModalButton.classList.remove('hidden');
-      this.welcomeButtons.appendChild(this.openBackupModalButton);
-      this.openRemoveAccountsModalButton.classList.remove('hidden');
-      this.welcomeButtons.appendChild(this.openRemoveAccountsModalButton);
     } else {
       this.welcomeButtons.innerHTML = ''; // Clear existing order
       this.createAccountButton.classList.remove('hidden');
@@ -654,8 +644,6 @@ class WelcomeScreen {
       this.welcomeButtons.appendChild(this.openWelcomeMenuButton);
       this.createAccountButton.classList.remove('btn--secondary');
       this.createAccountButton.classList.add('btn--primary')
-      this.openRemoveAccountsModalButton.classList.remove('hidden');
-      this.welcomeButtons.appendChild(this.openRemoveAccountsModalButton);
     }
   }
 
@@ -688,7 +676,7 @@ class WelcomeMenuModal {
 
     this.backupButton.addEventListener('click', () => backupAccountModal.open());
     this.restoreButton.addEventListener('click', () => restoreAccountModal.open());
-    this.removeButton.addEventListener('click', () => removeAccountModal.open());
+    this.removeButton.addEventListener('click', () => removeAccountsModal.open());
     this.migrateButton.addEventListener('click', () => migrateAccountsModal.open());
     this.lockButton.addEventListener('click', () => lockModal.open());
 
