@@ -8743,18 +8743,18 @@ console.warn('in send message', txid)
     if (e.target.closest('.attachment-row')) return;
     if (e.target.closest('.voice-message-play-button')) return;
 
+    // Check if keyboard is open - if so, don't show context menu
+    if (this.isKeyboardOpen()) {
+      console.log('⌨️ Keyboard is open, preventing context menu');
+      return;
+    }
+
     if (e.target.tagName === 'A' || e.target.closest('a')) return;
     
     const messageEl = e.target.closest('.message');
     if (!messageEl) return;
 
     if (messageEl.classList.contains('deleted-message')) return;
-
-    // Check if keyboard is open - if so, don't show context menu
-    if (this.isKeyboardOpen()) {
-      console.log('⌨️ Keyboard is open, preventing context menu');
-      return;
-    }
 
     if (messageEl.dataset.status === 'failed') {
       const isPayment = messageEl.classList.contains('payment-info');
