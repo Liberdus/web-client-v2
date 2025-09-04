@@ -9180,9 +9180,12 @@ console.warn('in send message', txid)
     const decimals = 18;
     const factor = getStabilityFactor();
     const tollFloat = parseFloat(big2str(toll, decimals));
-    // Always show USD only
+    // Compute USD and LIB values; show USD with LIB equivalent in parentheses
     const usdValue = tollUnit === 'USD' ? tollFloat : tollFloat * factor;
-    const usdString = `${usdValue.toFixed(6)} USD`;
+    const libValue = factor > 0 ? (usdValue / factor) : NaN;
+    const usdString = isNaN(libValue)
+      ? `${usdValue.toFixed(6)} USD`
+      : `${usdValue.toFixed(6)} USD (≈ ${libValue.toFixed(6)} LIB)`;
     let display;
     if (contact.tollRequiredToSend == 1) {
       display = `${usdString}`;
@@ -11352,7 +11355,8 @@ class SendAssetFormModal {
     const factor = getStabilityFactor();
     const mainValue = parseFloat(big2str(toll, decimals));
     const usd = tollUnit === 'USD' ? mainValue : (mainValue * factor);
-    const usdString = usd.toFixed(6) + ' USD';
+    const lib = factor > 0 ? (usd / factor) : NaN;
+    const usdString = lib ? `${usd.toFixed(6)} USD (≈ ${lib.toFixed(6)} LIB)` : `${usd.toFixed(6)} USD`;
     let display;
     if (this.tollInfo.required == 1) {
       display = `${usdString}`;

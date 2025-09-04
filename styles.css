@@ -4002,7 +4002,7 @@ small {
   /* width: auto; /* Overrides the default form-control width: 100% */
 }
 
-/* Styles for the toggle button */
+/* Styles for the static USD label in toll modal */
 .usd-amount {
   height: 56px; /* Match the form-control height */
   padding: 0 16px; /* Horizontal padding */
@@ -4020,9 +4020,28 @@ small {
   width: 62px
 }
 
-.toggle-balance:hover {
-  background-color: var(--button-hover-background);
+/* Preserve interactive styling for real toggle buttons (e.g., send form) */
+.toggle-balance {
+  height: 56px; /* Match the form-control height */
+  padding: 0 16px; /* Horizontal padding */
+  background-color: var(--button-background);
+  color: var(--button-text);
+  border: 1.5px solid var(--border-color);
+  border-radius: 12px; /* Full border radius to match form-control */
+  font-family: var(--font-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+  white-space: nowrap; /* Prevent text like "USD" from wrapping */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 62px
 }
+.toggle-balance:hover { background-color: var(--button-hover-background); }
 
 /* Toll Modal Specific Styles */
 
