@@ -100,7 +100,7 @@
             <div class="p-4 border-b border-gray-700 flex justify-between items-center">
                 <h2 class="text-xl font-semibold">Chat</h2>
                 <button id="close-chat-btn" class="p-1 rounded-full hover:bg-gray-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="x" class="lucide lucide-x"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                    <i data-lucide="x"></i>
                 </button>
             </div>
             <div id="chat-messages" class="flex-1 p-4 overflow-y-auto flex flex-col space-y-2"></div>
@@ -108,7 +108,7 @@
                 <form id="chat-form" class="flex space-x-2">
                     <input type="text" id="chat-input" placeholder="Type a message..." class="flex-1 bg-gray-700 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <button type="submit" class="bg-blue-600 hover:bg-blue-700 p-2 rounded-md">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="send" class="lucide lucide-send"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"></path><path d="m21.854 2.147-10.94 10.939"></path></svg>
+                        <i data-lucide="send"></i>
                     </button>
                 </form>
             </div>
@@ -138,20 +138,22 @@
     <!-- Controls Bar -->
     <footer class="bg-gray-800 p-4 flex justify-center items-center space-x-4">
         <button id="mic-btn" class="control-btn p-3 bg-gray-700 rounded-full hover:bg-gray-600 active">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="mic" class="lucide lucide-mic"><path d="M12 19v3"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><rect x="9" y="2" width="6" height="13" rx="3"></rect></svg>
+            <i data-lucide="mic"></i>
         </button>
-        <button id="video-btn" class="control-btn p-3 bg-gray-700 rounded-full hover:bg-gray-600"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="video-off" class="lucide lucide-video-off"><path d="M10.66 6H14a2 2 0 0 1 2 2v2.5l5.248-3.062A.5.5 0 0 1 22 7.87v8.196"></path><path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2"></path><path d="m2 2 20 20"></path></svg></button>
+        <button id="video-btn" class="control-btn p-3 bg-gray-700 rounded-full hover:bg-gray-600">
+            <i data-lucide="video-off"></i>
+        </button>
         <button id="screen-share-btn" class="control-btn p-3 bg-gray-700 rounded-full hover:bg-gray-600">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="screen-share" class="lucide lucide-screen-share"><path d="M13 3H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3"></path><path d="M8 21h8"></path><path d="M12 17v4"></path><path d="m17 8 5-5"></path><path d="M17 3h5v5"></path></svg>
+            <i data-lucide="screen-share"></i>
         </button>
         <button id="chat-btn" class="control-btn p-3 bg-gray-700 rounded-full hover:bg-gray-600">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="message-square" class="lucide lucide-message-square"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"></path></svg>
+            <i data-lucide="message-square"></i>
         </button>
         <button id="tile-view-btn" class="control-btn p-3 bg-gray-700 rounded-full hover:bg-gray-600" title="Return to Tile View">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            <i data-lucide="layout-grid"></i>
         </button>
         <button id="leave-btn" class="control-btn danger p-3 rounded-full hover:bg-red-700">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="phone-off" class="lucide lucide-phone-off"><path d="M10.1 13.9a14 14 0 0 0 3.732 2.668 1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2 18 18 0 0 1-12.728-5.272"></path><path d="M22 2 2 22"></path><path d="M4.76 13.582A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 .244.473"></path></svg>
+            <i data-lucide="phone-off"></i>
         </button>
     </footer>
 
@@ -357,7 +359,7 @@
             if (!badge) {
                 badge = document.createElement('div');
                 badge.className = 'pinned-badge flex items-center gap-1';
-                badge.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="m9 9-1 1a6 6 0 1 0 8.49.085L15 9"/><circle cx="12" cy="5" r="2"/></svg><span class="text-[10px] uppercase tracking-wide">Pinned</span>';
+                badge.innerHTML = '<span class="text-[10px] uppercase tracking-wide">Pinned</span>';
                 container.appendChild(badge);
             }
         }
