@@ -20,7 +20,12 @@
         /* Mobile specific layout adjustments */
         @media (max-width: 640px) {
             body { overscroll-behavior-y: contain; }
-            main { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+            /* We'll explicitly size main to avoid iOS Safari dynamic toolbar cropping */
+            main { 
+                /* Height is set dynamically via --app-vh minus footer height to prevent overlap and vertical push */
+                height: calc(var(--app-vh, 100dvh) - var(--footer-h, 76px));
+                padding-bottom: 0 !important; /* we subtract footer instead */
+            }
             footer.call-controls {
                 position: fixed;
                 left: 0; right: 0; bottom: 0;
@@ -34,9 +39,12 @@
             flex-wrap: wrap;
             align-content: flex-start; /* pack rows at the top */
             width: 100%;
-            height: 100%;
+            height: auto;
             /* gap set dynamically via JS to keep math consistent with layout algorithm */
             box-sizing: border-box;
+        }
+        @media (max-width:640px) {
+            #video-grid { margin-bottom: calc(var(--footer-h, 76px) + 24px); }
         }
         video {
             width: 100%;
@@ -157,12 +165,15 @@
                 </div>
                 <!-- Filmstrip / Grid Container -->
                 <div id="filmstrip-wrapper" class="flex-1 flex overflow-hidden"> 
-                    <div id="video-grid" class="w-full h-full">
+                    <div id="video-scroll" class="w-full h-full overflow-y-auto overflow-x-hidden touch-pan-y" style="-webkit-overflow-scrolling: touch;">
+                        <div id="video-grid" class="w-full h-full">
                         <!-- Local video will be appended here -->
                         <div class="video-container" id="local-video-container" data-participant-id="local" data-is-local="true">
                             <video id="local-video" autoplay muted></video>
                             <div class="participant-name flex items-center gap-1"><span>You</span></div>
                         </div>
+                        </div>
+                        <div id="video-grid-spacer" style="width:100%; height: calc(var(--footer-h, 76px) + 24px);"></div>
                     </div>
                 </div>
             </div>
@@ -208,8 +219,28 @@
         // Initialize Lucide Icons
         lucide.createIcons();
 
+        // --- Mobile (iOS Safari) viewport height fix ---
+        (function setupDynamicVh() {
+            function setVh() {
+                const vh = window.innerHeight + 'px';
+                document.documentElement.style.setProperty('--app-vh', vh);
+                const footer = document.querySelector('footer.call-controls');
+                if (footer) {
+                    const fh = footer.getBoundingClientRect().height + 'px';
+                    document.documentElement.style.setProperty('--footer-h', fh);
+                } else {
+                    document.documentElement.style.setProperty('--footer-h', '76px');
+                }
+            }
+            window.addEventListener('resize', setVh);
+            window.addEventListener('orientationchange', () => setTimeout(setVh, 100));
+            setVh();
+        })();
+
         // --- DOM Elements ---
-        const videoGrid = document.getElementById('video-grid');
+    const videoGrid = document.getElementById('video-grid');
+    const videoScroll = document.getElementById('video-scroll');
+    const videoGridSpacer = document.getElementById('video-grid-spacer');
         const localVideo = document.getElementById('local-video');
         const roomModal = document.getElementById('room-modal');
         const roomForm = document.getElementById('room-form');
@@ -387,7 +418,30 @@
         // Mobile filmstrip toggle management
         let filmstripToggleBtn = null;
         function ensureMobileFilmstripToggle(stageArea, filmstripWrapper) {
-            if (filmstripToggleBtn) return; // already exists
+            // If the toggle already exists, ensure its visual/ARIA state matches wrapper state.
+            if (filmstripToggleBtn) {
+                const wrapperIsOpen = filmstripWrapper.classList.contains('open');
+                const btnIsOpen = filmstripToggleBtn.classList.contains('open');
+                // If out of sync (e.g., wrapper forced closed after a pin), normalize.
+                if (wrapperIsOpen !== btnIsOpen) {
+                    if (wrapperIsOpen) {
+                        filmstripToggleBtn.classList.add('open');
+                        filmstripToggleBtn.classList.remove('closed');
+                        filmstripToggleBtn.setAttribute('aria-expanded', 'true');
+                        filmstripToggleBtn.setAttribute('aria-label', 'Hide participants');
+                        filmstripToggleBtn.innerHTML = arrowSvg('right');
+                    } else {
+                        filmstripToggleBtn.classList.remove('open');
+                        filmstripToggleBtn.classList.add('closed');
+                        filmstripToggleBtn.setAttribute('aria-expanded', 'false');
+                        filmstripToggleBtn.setAttribute('aria-label', 'Show participants');
+                        filmstripToggleBtn.innerHTML = arrowSvg('left');
+                    }
+                }
+                // Always reposition in case width or open/closed changed.
+                positionToggleRelative();
+                return; // nothing else to do
+            }
             filmstripToggleBtn = document.createElement('button');
             filmstripToggleBtn.type = 'button';
             filmstripToggleBtn.className = 'filmstrip-toggle-btn closed';
@@ -865,12 +919,41 @@
                 const tiles = videoGrid.querySelectorAll('.video-container');
                 const participantCount = tiles.length;
                 if (!participantCount) return;
-                const viewportHeight = videoGrid.getBoundingClientRect().height; // current height remains
+                // Use scroll container height if present to avoid expanded grid height skewing calculations
+                const scrollContainer = document.getElementById('video-scroll');
+                const viewportHeight = scrollContainer ? scrollContainer.getBoundingClientRect().height : videoGrid.getBoundingClientRect().height;
                 const viewportWidth = explicitWidthPx; // pretend final width
+                const isMobile = window.innerWidth <= 640;
 
                 // Reuse existing logic but pass temporary width via direct variable override
                 if (participantCount <= 3) {
                     const gapX = layoutConfig.horizontalGap;
+                    const gapY = layoutConfig.verticalGap;
+                    if (isMobile && participantCount === 2) {
+                        // Vertical stack: full width, split height
+                        const tileHeight = (viewportHeight - gapY) / 2;
+                        tiles.forEach(t => {
+                            t.style.width = viewportWidth + 'px';
+                            t.style.height = tileHeight + 'px';
+                        });
+                        return;
+                    }
+                    if (isMobile && participantCount === 3) {
+                        // Two on top row (split width), one full width bottom row
+                        const rowHeight = (viewportHeight - gapY) / 2;
+                        const topTileWidth = (viewportWidth - gapX) / 2;
+                        tiles.forEach((t, idx) => {
+                            if (idx < 2) {
+                                t.style.width = topTileWidth + 'px';
+                                t.style.height = rowHeight + 'px';
+                            } else { // last full width
+                                t.style.width = viewportWidth + 'px';
+                                t.style.height = rowHeight + 'px';
+                            }
+                        });
+                        return;
+                    }
+                    // Non-mobile (or 1 participant mobile) simple horizontal layout
                     const totalGapWidth = gapX * (participantCount - 1);
                     const tileWidth = (viewportWidth - totalGapWidth) / participantCount;
                     const tileHeight = viewportHeight;
@@ -883,6 +966,16 @@
                     viewportHeight,
                     config: layoutConfig
                 });
+                if (isMobile && layout.columns === 2) {
+                    // Force exact fill for two columns (avoid leftover horizontal space from aspect fitting)
+                    const gapX = layoutConfig.horizontalGap;
+                    const gapY = layoutConfig.verticalGap;
+                    const rows = Math.ceil(participantCount / 2);
+                    const tileWidth = (viewportWidth - gapX) / 2; // exact two columns
+                    const tileHeight = (viewportHeight - gapY * (rows - 1)) / rows;
+                    tiles.forEach(t => { t.style.width = tileWidth + 'px'; t.style.height = tileHeight + 'px'; });
+                    return;
+                }
                 tiles.forEach(t => { t.style.width = layout.tileWidth + 'px'; t.style.height = layout.tileHeight + 'px'; });
             }
 
@@ -1230,6 +1323,7 @@
             const tiles = videoGrid.querySelectorAll('.video-container');
             const participantCount = tiles.length;
             if (!participantCount) return;
+            const isMobile = window.innerWidth <= 640;
 
             // In any stage mode (auto or pinned) we treat the filmstrip as a simple
             // vertical list with fixed tile heights (set via CSS). We only need to
@@ -1240,33 +1334,47 @@
                 videoGrid.style.padding = '0';
                 videoGrid.style.columnGap = '0px';
                 videoGrid.style.rowGap = '0px';
-                videoGrid.style.overflowY = 'auto';
+                // Use parent scroll container
+                if (videoScroll) videoScroll.style.overflowY = 'auto';
                 tiles.forEach(tile => {
                     tile.style.width = '100%';
-                    // Let CSS important rule control height; clear inline to avoid conflicts
                     tile.style.height = '';
                 });
                 return;
             }
 
-            const parentRect = videoGrid.getBoundingClientRect();
+            const parentRect = (videoScroll || videoGrid).getBoundingClientRect();
             const viewportWidth = parentRect.width;
             const viewportHeight = parentRect.height;
 
             // Special-case small counts: 1-3 participants => single row spanning full height for immersive feel
             if (participantCount > 0 && participantCount <= 3) {
                 const gapX = layoutConfig.horizontalGap;
-                const isMobile = window.innerWidth <= 640;
-                const maxPerRow = isMobile ? 2 : participantCount;
-                const columns = Math.min(participantCount, maxPerRow);
-                const rows = Math.ceil(participantCount / columns);
+                let columns;
+                let rows;
+                if (isMobile && participantCount === 2) {
+                    // Force vertical stack: 1 column, 2 rows
+                    columns = 1; rows = 2;
+                } else {
+                    const maxPerRow = isMobile ? 2 : participantCount;
+                    columns = Math.min(participantCount, maxPerRow);
+                    rows = Math.ceil(participantCount / columns);
+                }
                 const baseTileWidth = (viewportWidth - gapX * (columns - 1)) / columns;
-                const tileHeight = rows === 1 ? viewportHeight : (viewportHeight - layoutConfig.verticalGap * (rows - 1)) / rows;
+                let tileHeight;
+                if (isMobile && rows > 1) {
+                    // Use aspect ratio for multi-row small-count so content can extend and scroll
+                    const aspect = layoutConfig.baseAspectRatio || (16/9);
+                    tileHeight = Math.round(baseTileWidth / aspect);
+                } else {
+                    tileHeight = rows === 1 ? viewportHeight : (viewportHeight - layoutConfig.verticalGap * (rows - 1)) / rows;
+                }
                 videoGrid.style.padding = '0';
-                videoGrid.style.columnGap = gapX + 'px';
-                videoGrid.style.rowGap = layoutConfig.verticalGap + 'px';
-                videoGrid.style.overflowY = rows > 1 ? 'auto' : 'hidden';
-                const loneLastRow = isMobile && participantCount % 2 === 1 && participantCount > 1; // e.g., 3 participants -> last one full width
+                videoGrid.style.paddingBottom = '0px';
+                videoGrid.style.columnGap = columns > 1 ? gapX + 'px' : '0px';
+                videoGrid.style.rowGap = rows > 1 ? layoutConfig.verticalGap + 'px' : '0px';
+                if (videoScroll) videoScroll.style.overflowY = 'auto';
+                const loneLastRow = isMobile && participantCount % 2 === 1 && participantCount > 2; // e.g., 3 participants -> last one full width
                 tiles.forEach((tile, idx) => {
                     const isLast = idx === participantCount - 1;
                     if (loneLastRow && isLast) {
@@ -1286,10 +1394,35 @@
                 config: layoutConfig
             });
 
+            // Mobile specific: if algorithm chose 2 columns, stretch to full width evenly
+            if (isMobile && layout.columns === 2) {
+                const gapX = layoutConfig.horizontalGap;
+                const gapY = layoutConfig.verticalGap;
+                const rows = Math.ceil(participantCount / 2);
+                const tileWidth = (viewportWidth - gapX) / 2;
+                const aspect = layoutConfig.baseAspectRatio || (16/9);
+                const tileHeight = Math.round(tileWidth / aspect);
+                videoGrid.style.padding = '0';
+                videoGrid.style.paddingBottom = '0px';
+                videoGrid.style.columnGap = gapX + 'px';
+                videoGrid.style.rowGap = gapY + 'px';
+                const contentHeight = tileHeight * rows + gapY * (rows - 1);
+                if (videoScroll) videoScroll.style.overflowY = 'auto';
+                tiles.forEach(tile => {
+                    tile.style.width = tileWidth + 'px';
+                    tile.style.height = tileHeight + 'px';
+                });
+                return;
+            }
+
             videoGrid.style.padding = '0';
+            videoGrid.style.paddingBottom = '0px';
             videoGrid.style.columnGap = layoutConfig.horizontalGap + 'px';
             videoGrid.style.rowGap = layoutConfig.verticalGap + 'px';
-            videoGrid.style.overflowY = layout.scrollNeeded ? 'auto' : 'hidden';
+            // Force scroll on mobile if participant count implies more than 4 rows ( > 8 tiles ) or algorithm indicates it
+            if (videoScroll) {
+                videoScroll.style.overflowY = 'auto';
+            }
 
             tiles.forEach(tile => {
                 tile.style.width = layout.tileWidth + 'px';
