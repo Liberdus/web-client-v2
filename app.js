@@ -5498,8 +5498,8 @@ class TollModal {
   load() {
     this.modal = document.getElementById('tollModal');
     this.minTollDisplay = document.getElementById('minTollDisplay');
+    this.equivalentLibDisplay = document.getElementById('equivalentLibDisplay');
     this.newTollAmountInputElement = document.getElementById('newTollAmountInput');
-    this.toggleTollCurrencyElement = document.getElementById('toggleTollCurrency');
     this.warningMessageElement = document.getElementById('tollWarningMessage');
     this.saveButton = document.getElementById('saveNewTollButton');
     this.closeButton = document.getElementById('closeTollModal');
@@ -5508,32 +5508,34 @@ class TollModal {
 
     this.tollForm.addEventListener('submit', (event) => this.saveAndPostNewToll(event));
     this.closeButton.addEventListener('click', () => this.close());
-    this.toggleTollCurrencyElement.addEventListener('click', (event) => this.handleToggleTollCurrency(event));
     this.newTollAmountInputElement.addEventListener('input', () => this.newTollAmountInputElement.value = normalizeUnsignedFloat(this.newTollAmountInputElement.value));
     this.newTollAmountInputElement.addEventListener('input', () => this.updateSaveButtonState());
+    this.newTollAmountInputElement.addEventListener('input', () => this.updateEquivalentLibDisplay());
   }
 
   open() {
     this.modal.classList.add('active');
-    // set currentTollValue to the toll value in wei
+    // set currentTollValue to the toll value
     const toll = myData.settings.toll || 0n;
-    const tollUnit = myData.settings.tollUnit || 'LIB';
+    const tollUnit = myData.settings.tollUnit || 'USD';
 
     // Fetch network parameters to get minToll
     this.minToll = parameters?.current?.minToll || 1n * wei; // Default to 1 LIB if not set
 
     this.updateTollDisplay(toll, tollUnit);
 
-    this.currentCurrency = tollUnit;
-    this.tollCurrencySymbol.textContent = this.currentCurrency;
+    this.currentCurrency = 'USD';
+    if (this.tollCurrencySymbol) this.tollCurrencySymbol.textContent = 'USD';
     this.newTollAmountInputElement.value = ''; // Clear input field
     this.warningMessageElement.textContent = '';
     this.warningMessageElement.classList.remove('show');
     this.saveButton.disabled = true;
 
-    // Update min toll display under input
-    const minTollValue = parseFloat(big2str(this.minToll, 18)).toFixed(6); // Show 6 decimal places
-    this.minTollDisplay.textContent = `Minimum toll: ${minTollValue} LIB`;
+    // Update min toll display under input (USD)
+    const scalabilityFactor = getStabilityFactor();
+    const minTollUSD = bigxnum2big(this.minToll, scalabilityFactor.toString());
+    this.minTollDisplay.textContent = `Minimum toll: ${parseFloat(big2str(minTollUSD, 18)).toFixed(4)} USD`;
+    this.updateEquivalentLibDisplay();
   }
 
   close() {
@@ -5649,22 +5651,50 @@ class TollModal {
    */
   updateTollDisplay(toll, tollUnit) {
     const scalabilityFactor = getStabilityFactor();
-    let tollValueLib = '';
     let tollValueUSD = '';
+    let tollValueLIB = '';
 
     if (tollUnit == 'LIB') {
-      tollValueLib = big2str(toll, 18);
-      tollValueUSD = (parseFloat(big2str(toll, 18)) * scalabilityFactor).toString();
+      const libFloat = parseFloat(big2str(toll, 18));
+      tollValueUSD = (libFloat * scalabilityFactor).toString();
+      tollValueLIB = libFloat.toString();
     } else {
-      tollValueUSD = big2str(toll, 18);
-      tollValueLib = (parseFloat(big2str(toll, 18)) / scalabilityFactor).toString();
+      const usdFloat = parseFloat(big2str(toll, 18));
+      tollValueUSD = usdFloat.toString();
+      tollValueLIB = (usdFloat / scalabilityFactor).toString();
     }
 
-    tollValueLib = parseFloat(tollValueLib).toString();
-    tollValueUSD = parseFloat(tollValueUSD).toString();
+    const usdDisplay = parseFloat(tollValueUSD).toFixed(6);
+    const libDisplay = scalabilityFactor > 0 ? parseFloat(tollValueLIB).toFixed(6) : 'N/A';
 
-    document.getElementById('tollAmountLIB').textContent = tollValueLib + ' LIB';
-    document.getElementById('tollAmountUSD').textContent = tollValueUSD + ' USD';
+    // USD-only UI
+    document.getElementById('tollAmountUSD').textContent = `${usdDisplay} USD (≈ ${libDisplay} LIB)`;
+  }
+
+  /**
+   * Updates the equivalent LIB display beneath the USD input
+   * @returns {void}
+   */
+  updateEquivalentLibDisplay() {
+    if (!this.equivalentLibDisplay) return;
+    const value = this.newTollAmountInputElement.value;
+    if (!value || value.trim() === '' || value.trim() === '.' || value.trim() === ',') {
+      this.equivalentLibDisplay.textContent = '';
+      return;
+    }
+    const usd = parseFloat(value);
+    if (isNaN(usd) || usd < 0) {
+      this.equivalentLibDisplay.textContent = '';
+      return;
+    }
+    const factor = getStabilityFactor();
+    if (!factor || factor <= 0) {
+      this.equivalentLibDisplay.textContent = '';
+      return;
+    }
+    const lib = usd / factor;
+    this.equivalentLibDisplay.style.display = 'block';
+    this.equivalentLibDisplay.textContent = `≈ ${lib.toFixed(6)} LIB`;
   }
 
   /**
@@ -9177,31 +9207,21 @@ console.warn('in send message', txid)
     let toll = contact.toll || 0n;
     const tollUnit = contact.tollUnit || 'LIB';
     const decimals = 18;
-    const mainIsUSD = tollUnit === 'USD';
-    const mainValue = parseFloat(big2str(toll, decimals));
-    // Conversion factor (USD/LIB)
     const factor = getStabilityFactor();
-    let mainString, otherString;
-    if (mainIsUSD) {
-      toll = bigxnum2big(toll, (1.0 / factor).toString());
-      mainString = mainValue.toFixed(6) + ' USD';
-      const libValue = mainValue / factor;
-      otherString = libValue.toFixed(6) + ' LIB';
-    } else {
-      mainString = mainValue.toFixed(6) + ' LIB';
-      const usdValue = mainValue * factor;
-      otherString = usdValue.toFixed(6) + ' USD';
-    }
+    const tollFloat = parseFloat(big2str(toll, decimals));
+    // Always show USD only
+    const usdValue = tollUnit === 'USD' ? tollFloat : tollFloat * factor;
+    const usdString = `${usdValue.toFixed(6)} USD`;
     let display;
     if (contact.tollRequiredToSend == 1) {
-      display = `${mainString} = ${otherString}`;
+      display = `${usdString}`;
     } else if (contact.tollRequiredToSend == 2) {
       tollValue.style.color = 'red';
       display = `blocked`;
     } else {
       // light green used to show success
       tollValue.style.color = '#28a745';
-      display = `free; ${mainString} = ${otherString}`;
+      display = `free; ${usdString}`;
     }
     tollValue.textContent = display;
 
@@ -11358,24 +11378,13 @@ class SendAssetFormModal {
     let toll = this.tollInfo.toll || 0n;
     const tollUnit = this.tollInfo.tollUnit || 'LIB';
     const decimals = 18;
-    const mainIsUSD = tollUnit === 'USD';
-    const mainValue = parseFloat(big2str(toll, decimals));
-    // Conversion factor (USD/LIB)
     const factor = getStabilityFactor();
-    let mainString, otherString;
-    if (mainIsUSD) {
-      toll = bigxnum2big(toll, (1.0 / factor).toString());
-      mainString = mainValue.toFixed(6) + ' USD';
-      const libValue = mainValue / factor;
-      otherString = libValue.toFixed(6) + ' LIB';
-    } else {
-      mainString = mainValue.toFixed(6) + ' LIB';
-      const usdValue = mainValue * factor;
-      otherString = usdValue.toFixed(6) + ' USD';
-    }
+    const mainValue = parseFloat(big2str(toll, decimals));
+    const usd = tollUnit === 'USD' ? mainValue : (mainValue * factor);
+    const usdString = usd.toFixed(6) + ' USD';
     let display;
     if (this.tollInfo.required == 1) {
-      display = `${mainString} = ${otherString}`;
+      display = `${usdString}`;
       if (this.memoInput.value.trim() == '') {
         display = '';
       }
@@ -11385,7 +11394,7 @@ class SendAssetFormModal {
     } else {
       // light green used to show success
       this.tollMemoSpan.style.color = '#28a745';
-      display = `free; ${mainString} = ${otherString}`;
+      display = `free; ${usdString}`;
     }
     //display the container
     if (display != '') {

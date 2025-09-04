@@ -1695,9 +1695,6 @@
               <div class="form-text help-text">
                 This is the toll amount a sender must pay to send a message or payment to you.
               </div>
-              <div id="tollAmountLIB" class="current-toll-value-box">
-                <span id="tollAmountLIB">N/A LIB</span>
-              </div>
               <div id="tollAmountUSD" class="current-toll-value-box">
                 <span id="tollAmountUSD">N/A USD</span>
               </div>
@@ -1707,9 +1704,7 @@
               <div class="form-group">
                 <label for="newTollAmountInput">Set New Toll Amount</label>
                 <div class="form-text help-text">
-                  Sets a new toll amount a sender must pay to send a message or payment to you. All tolls are received in
-                  LIB. If you enter a USD amount, you will receive the equivalent LIB value at market price. Aside from 0
-                  (no toll), there is a minimum toll as shown below.
+                  Enter the toll in USD. You will be paid in LIB at market rate equivalent to the USD amount you enter. Set to 0 for no toll, otherwise enter an amount at least the minimum toll shown below.
                 </div>
                 <div class="amount-container">
                   <input
@@ -1720,12 +1715,12 @@
                     placeholder="Enter new amount"
                     required
                   />
-                  <button type="button" id="toggleTollCurrency" class="toggle-balance">
-                    <span id="tollCurrencySymbol">LIB</span>
-                  </button>
+                  <!-- Static currency label (USD) -->
+                  <span id="tollCurrencySymbol" class="toggle-balance" style="pointer-events: none;">USD</span>
                 </div>
-                <div id="minTollDisplay" class="form-text help-text">Minimum toll: Loading...</div>
-                <div id="tollWarningMessage" class="form-text warning-text"></div>
+                <div id="equivalentLibDisplay" class="help-text" style="min-height: 15px;"></div>
+                <div id="minTollDisplay" class="help-text">Minimum toll: Loading...</div>
+                <div id="tollWarningMessage" class="warning-text"></div>
               </div>
               <div class="form-actions">
                 <button type="submit" id="saveNewTollButton" class="btn btn--primary btn--pill btn--full">Save Changes</button>

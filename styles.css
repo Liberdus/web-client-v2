@@ -4003,20 +4003,16 @@ small {
 }
 
 /* Styles for the toggle button */
-.toggle-balance {
+.usd-amount {
   height: 56px; /* Match the form-control height */
   padding: 0 16px; /* Horizontal padding */
   background-color: var(--button-background);
   color: var(--button-text);
-  border: 1.5px solid var(--border-color);
   border-radius: 12px; /* Full border radius to match form-control */
   font-family: var(--font-primary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease;
+  cursor: none;
   white-space: nowrap; /* Prevent text like "USD" from wrapping */
   display: flex;
   align-items: center;
