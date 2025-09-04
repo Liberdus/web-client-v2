@@ -41,6 +41,7 @@ async function checkVersion() {
       'crypto.js',
       'encryption.worker.js',
       'offline.html',
+      'meet/index.html',
     ]);
     window.location.replace(newUrl);
   }
@@ -4749,8 +4750,14 @@ class RemoveAccountsModal {
       // Check if this account is registered in the accounts object
       const isRegistered = accountsObj.netids[netid]?.usernames?.[username];
       if (isRegistered) continue;
-      
-      const state = loadState(storageKey);
+      let state = null;
+      try{
+        state = loadState(storageKey);
+      } catch (e) {
+        console.warn('Error loading orphan account', storageKey, e);
+        result.push({ username, netid, contactsCount: -1, messagesCount: -1, orphan: true });
+        continue;
+      }
       let contactsCount = 0; let messagesCount = 0;
       if (state) {
         try {
