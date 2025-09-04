@@ -17,6 +17,18 @@
         body {
             font-family: 'Inter', sans-serif;
         }
+        /* Mobile specific layout adjustments */
+        @media (max-width: 640px) {
+            body { overscroll-behavior-y: contain; }
+            main { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+            footer.call-controls {
+                position: fixed;
+                left: 0; right: 0; bottom: 0;
+                z-index: 30;
+                padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.25rem);
+                box-shadow: 0 -2px 6px rgba(0,0,0,0.4);
+            }
+        }
         #video-grid {
             display: flex; /* switched from CSS grid to flex for algorithmic sizing */
             flex-wrap: wrap;
@@ -138,7 +150,7 @@
     </main>
 
     <!-- Controls Bar -->
-    <footer class="bg-gray-800 p-4 flex justify-center items-center space-x-4">
+    <footer class="call-controls bg-gray-800 p-4 flex justify-center items-center space-x-4">
         <button id="mic-btn" class="control-btn p-3 bg-gray-700 rounded-full hover:bg-gray-600 active">
             <i data-lucide="mic"></i>
         </button>
@@ -1046,8 +1058,12 @@
             return simpleGrid({ participantCount, usableWidth, usableHeight, maxColumns, minTileHeight, aspect: baseAspectRatio, horizontalGap, verticalGap });
           }
 
-          const best = { chosen: null, zeroVisible: null };
-          const maxCandidateCols = Math.min(maxColumns, participantCount, targetVisibleTiles);
+        const best = { chosen: null, zeroVisible: null };
+        let maxCandidateCols = Math.min(maxColumns, participantCount, targetVisibleTiles);
+        // Mobile safeguard: never more than 2 columns on narrow screens
+        if (window.innerWidth <= 640) {
+            maxCandidateCols = Math.min(maxCandidateCols, 2);
+        }
 
             for (let c = 1; c <= maxCandidateCols; c++) {
                 const r = Math.ceil(participantCount / c);
@@ -1165,15 +1181,24 @@
             // Special-case small counts: 1-3 participants => single row spanning full height for immersive feel
             if (participantCount > 0 && participantCount <= 3) {
                 const gapX = layoutConfig.horizontalGap;
-                const totalGapWidth = gapX * (participantCount - 1);
-                const tileWidth = (viewportWidth - totalGapWidth) / participantCount;
-                const tileHeight = viewportHeight; // full height usage
+                const isMobile = window.innerWidth <= 640;
+                const maxPerRow = isMobile ? 2 : participantCount;
+                const columns = Math.min(participantCount, maxPerRow);
+                const rows = Math.ceil(participantCount / columns);
+                const baseTileWidth = (viewportWidth - gapX * (columns - 1)) / columns;
+                const tileHeight = rows === 1 ? viewportHeight : (viewportHeight - layoutConfig.verticalGap * (rows - 1)) / rows;
                 videoGrid.style.padding = '0';
                 videoGrid.style.columnGap = gapX + 'px';
-                videoGrid.style.rowGap = '0px';
-                videoGrid.style.overflowY = 'hidden';
-                tiles.forEach(tile => {
-                    tile.style.width = tileWidth + 'px';
+                videoGrid.style.rowGap = layoutConfig.verticalGap + 'px';
+                videoGrid.style.overflowY = rows > 1 ? 'auto' : 'hidden';
+                const loneLastRow = isMobile && participantCount % 2 === 1 && participantCount > 1; // e.g., 3 participants -> last one full width
+                tiles.forEach((tile, idx) => {
+                    const isLast = idx === participantCount - 1;
+                    if (loneLastRow && isLast) {
+                        tile.style.width = viewportWidth + 'px';
+                    } else {
+                        tile.style.width = baseTileWidth + 'px';
+                    }
                     tile.style.height = tileHeight + 'px';
                 });
                 return;
