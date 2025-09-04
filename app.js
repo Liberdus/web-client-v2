@@ -13169,9 +13169,6 @@ console.log('    result is',result)
       const match = key.match(/(.+)_(.+)$/);
       if (!match) return false;
       
-      const [, , netid] = match;
-      if (netid.length != 64) return false;
-      
       return true;
     });
     
