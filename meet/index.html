@@ -1,8 +1,8 @@
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
+<!DOCTYPE html>
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemini Meet - WebRTC Video Call</title>
+    <title>Liberdus Video Call</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -16,9 +16,13 @@
             font-family: 'Inter', sans-serif;
         }
         #video-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 1rem;
+            display: flex; /* switched from CSS grid to flex for algorithmic sizing */
+            flex-wrap: wrap;
+            align-content: flex-start; /* pack rows at the top */
+            width: 100%;
+            height: 100%;
+            /* gap set dynamically via JS to keep math consistent with layout algorithm */
+            box-sizing: border-box;
         }
         video {
             width: 100%;
@@ -29,10 +33,28 @@
         }
         .video-container {
             position: relative;
-            background-color: #2C2C2C;
+            background-color: #000; /* pure black, reduces grey letterboxing perception */
             border-radius: 0.5rem;
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: width 150ms ease, height 150ms ease; /* smooth resize */
         }
+        .video-container > video { flex: 1 1 auto; width:100%; height:100%; object-fit: cover; }
+        .video-container.active-speaker { box-shadow: 0 0 0 3px #22c55e, 0 0 16px 4px rgba(34,197,94,0.5); }
+        .video-container.pinned { box-shadow: 0 0 0 3px #3b82f6, 0 0 18px 6px rgba(59,130,246,0.4); }
+        #stage-area .pinned-video-wrapper { position: relative; width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+        #stage-area .pinned-video-wrapper video { width:100%; height:100%; object-fit:cover; }
+        #filmstrip-wrapper.stage-mode { flex: 0 0 320px; max-width:320px; border-left:1px solid #1f2937; background:#111827; overflow-y:auto; }
+        #filmstrip-wrapper.stage-mode #video-grid { display:flex; flex-direction:column; align-content:stretch; align-items:stretch; flex-wrap:nowrap; overflow-y:auto; }
+        #filmstrip-wrapper.stage-mode #video-grid .video-container { flex:0 0 auto; width:100%!important; height:180px!important; margin:0 0 8px 0!important; }
+        #filmstrip-wrapper.stage-mode #video-grid .video-container:last-child { margin-bottom:0; }
+        .pin-btn { opacity:0; transition:opacity .15s ease; }
+        .video-container:hover .pin-btn { opacity:1; }
+        .pinned-badge { position:absolute; top:8px; left:8px; background:#3b82f6; color:#fff; font-size:10px; padding:2px 6px; border-radius:12px; letter-spacing:.5px; text-transform:uppercase; }
+        /* When we are animating container width (chat slide) we disable tile transitions
+           to prevent intermediate wrap causing flicker. */
+        .suspend-tile-anim .video-container { transition: none !important; }
         .participant-name {
             position: absolute;
             bottom: 8px;
@@ -68,65 +90,73 @@
             color: white;
         }
     </style>
-</head>
+<style>*, ::before, ::after{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/* ! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com */*,::after,::before{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}::after,::before{--tw-content:''}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;tab-size:4;font-family:ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0;padding:0}legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.fixed{position:fixed}.inset-0{inset:0px}.z-50{z-index:50}.mb-4{margin-bottom:1rem}.mb-6{margin-bottom:1.5rem}.flex{display:flex}.h-full{height:100%}.h-screen{height:100vh}.w-80{width:20rem}.w-full{width:100%}.flex-1{flex:1 1 0%}.translate-x-full{--tw-translate-x:100%;transform:translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.transform{transform:translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.flex-col{flex-direction:column}.items-center{align-items:center}.justify-center{justify-content:center}.justify-between{justify-content:space-between}.space-x-2 > :not([hidden]) ~ :not([hidden]){--tw-space-x-reverse:0;margin-right:calc(0.5rem * var(--tw-space-x-reverse));margin-left:calc(0.5rem * calc(1 - var(--tw-space-x-reverse)))}.space-x-4 > :not([hidden]) ~ :not([hidden]){--tw-space-x-reverse:0;margin-right:calc(1rem * var(--tw-space-x-reverse));margin-left:calc(1rem * calc(1 - var(--tw-space-x-reverse)))}.space-y-2 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(0.5rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(0.5rem * var(--tw-space-y-reverse))}.overflow-hidden{overflow:hidden}.overflow-y-auto{overflow-y:auto}.rounded-full{border-radius:9999px}.rounded-lg{border-radius:0.5rem}.rounded-md{border-radius:0.375rem}.border-b{border-bottom-width:1px}.border-t{border-top-width:1px}.border-gray-700{--tw-border-opacity:1;border-color:rgb(55 65 81 / var(--tw-border-opacity, 1))}.bg-black{--tw-bg-opacity:1;background-color:rgb(0 0 0 / var(--tw-bg-opacity, 1))}.bg-blue-600{--tw-bg-opacity:1;background-color:rgb(37 99 235 / var(--tw-bg-opacity, 1))}.bg-gray-700{--tw-bg-opacity:1;background-color:rgb(55 65 81 / var(--tw-bg-opacity, 1))}.bg-gray-800{--tw-bg-opacity:1;background-color:rgb(31 41 55 / var(--tw-bg-opacity, 1))}.bg-gray-900{--tw-bg-opacity:1;background-color:rgb(17 24 39 / var(--tw-bg-opacity, 1))}.bg-opacity-75{--tw-bg-opacity:0.75}.p-1{padding:0.25rem}.p-2{padding:0.5rem}.p-3{padding:0.75rem}.p-4{padding:1rem}.p-8{padding:2rem}.text-center{text-align:center}.text-3xl{font-size:1.875rem;line-height:2.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.font-bold{font-weight:700}.font-semibold{font-weight:600}.text-gray-400{--tw-text-opacity:1;color:rgb(156 163 175 / var(--tw-text-opacity, 1))}.text-white{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.shadow-xl{--tw-shadow:0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);--tw-shadow-colored:0 20px 25px -5px var(--tw-shadow-color), 0 8px 10px -6px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.transition-all{transition-property:all;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.duration-300{transition-duration:300ms}.hover\:bg-blue-700:hover{--tw-bg-opacity:1;background-color:rgb(29 78 216 / var(--tw-bg-opacity, 1))}.hover\:bg-gray-600:hover{--tw-bg-opacity:1;background-color:rgb(75 85 99 / var(--tw-bg-opacity, 1))}.hover\:bg-gray-700:hover{--tw-bg-opacity:1;background-color:rgb(55 65 81 / var(--tw-bg-opacity, 1))}.hover\:bg-red-700:hover{--tw-bg-opacity:1;background-color:rgb(185 28 28 / var(--tw-bg-opacity, 1))}.focus\:outline-none:focus{outline:2px solid transparent;outline-offset:2px}.focus\:ring-2:focus{--tw-ring-offset-shadow:var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);--tw-ring-shadow:var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);box-shadow:var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000)}.focus\:ring-blue-500:focus{--tw-ring-opacity:1;--tw-ring-color:rgb(59 130 246 / var(--tw-ring-opacity, 1))}</style></head>
 <body class="bg-gray-900 text-white flex flex-col h-screen overflow-hidden">
 
     <!-- Main Content -->
-    <main class="flex-1 flex overflow-hidden">
-        <!-- Video Grid Area -->
-        <div id="video-area" class="flex-1 p-4 transition-all duration-300">
-            <div id="video-grid" class="w-full h-full">
-                <!-- Local video will be appended here -->
-                <div class="video-container" id="local-video-container">
-                    <video id="local-video" autoplay muted></video>
-                    <div class="participant-name">You</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Chat Panel -->
-        <aside id="chat-panel" class="w-80 bg-gray-800 flex flex-col h-full transform translate-x-full">
+    <main class="flex-1 relative overflow-hidden"> <!-- make relative for absolute chat -->
+        <!-- Chat Panel (Left Sliding) -->
+        <aside id="chat-panel" class="w-80 bg-gray-800 flex flex-col h-full absolute top-0 left-0 -translate-x-full transition-transform duration-300 z-20 shadow-xl">
             <div class="p-4 border-b border-gray-700 flex justify-between items-center">
                 <h2 class="text-xl font-semibold">Chat</h2>
                 <button id="close-chat-btn" class="p-1 rounded-full hover:bg-gray-700">
-                    <i data-lucide="x"></i>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="x" class="lucide lucide-x"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
                 </button>
             </div>
-            <div id="chat-messages" class="flex-1 p-4 overflow-y-auto flex flex-col space-y-2">
-                <!-- Chat messages will be appended here -->
-            </div>
+            <div id="chat-messages" class="flex-1 p-4 overflow-y-auto flex flex-col space-y-2"></div>
             <div class="p-4 border-t border-gray-700">
                 <form id="chat-form" class="flex space-x-2">
                     <input type="text" id="chat-input" placeholder="Type a message..." class="flex-1 bg-gray-700 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <button type="submit" class="bg-blue-600 hover:bg-blue-700 p-2 rounded-md">
-                        <i data-lucide="send"></i>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="send" class="lucide lucide-send"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"></path><path d="m21.854 2.147-10.94 10.939"></path></svg>
                     </button>
                 </form>
             </div>
         </aside>
+
+        <!-- Video / Stage Layout Wrapper -->
+        <div id="video-area" class="h-full w-full transition-all duration-300 flex flex-col"> <!-- video area spans full, will shift when chat shows -->
+            <div id="call-layout" class="flex flex-1 overflow-hidden">
+                <!-- Stage Area (shown when a participant is pinned) -->
+                <div id="stage-area" class="hidden relative flex-1 bg-black items-center justify-center overflow-hidden">
+                    <!-- Large pinned video inserted here -->
+                </div>
+                <!-- Filmstrip / Grid Container -->
+                <div id="filmstrip-wrapper" class="flex-1 flex overflow-hidden"> 
+                    <div id="video-grid" class="w-full h-full">
+                        <!-- Local video will be appended here -->
+                        <div class="video-container" id="local-video-container" data-participant-id="local" data-is-local="true">
+                            <video id="local-video" autoplay muted></video>
+                            <div class="participant-name flex items-center gap-1"><span>You</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
 
     <!-- Controls Bar -->
     <footer class="bg-gray-800 p-4 flex justify-center items-center space-x-4">
         <button id="mic-btn" class="control-btn p-3 bg-gray-700 rounded-full hover:bg-gray-600 active">
-            <i data-lucide="mic"></i>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="mic" class="lucide lucide-mic"><path d="M12 19v3"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><rect x="9" y="2" width="6" height="13" rx="3"></rect></svg>
         </button>
-        <button id="video-btn" class="control-btn p-3 bg-gray-700 rounded-full hover:bg-gray-600 active">
-            <i data-lucide="video"></i>
-        </button>
+        <button id="video-btn" class="control-btn p-3 bg-gray-700 rounded-full hover:bg-gray-600"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="video-off" class="lucide lucide-video-off"><path d="M10.66 6H14a2 2 0 0 1 2 2v2.5l5.248-3.062A.5.5 0 0 1 22 7.87v8.196"></path><path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2"></path><path d="m2 2 20 20"></path></svg></button>
         <button id="screen-share-btn" class="control-btn p-3 bg-gray-700 rounded-full hover:bg-gray-600">
-            <i data-lucide="screen-share"></i>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="screen-share" class="lucide lucide-screen-share"><path d="M13 3H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3"></path><path d="M8 21h8"></path><path d="M12 17v4"></path><path d="m17 8 5-5"></path><path d="M17 3h5v5"></path></svg>
         </button>
         <button id="chat-btn" class="control-btn p-3 bg-gray-700 rounded-full hover:bg-gray-600">
-            <i data-lucide="message-square"></i>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="message-square" class="lucide lucide-message-square"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"></path></svg>
+        </button>
+        <button id="tile-view-btn" class="control-btn p-3 bg-gray-700 rounded-full hover:bg-gray-600" title="Return to Tile View">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         </button>
         <button id="leave-btn" class="control-btn danger p-3 rounded-full hover:bg-red-700">
-            <i data-lucide="phone-off"></i>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="phone-off" class="lucide lucide-phone-off"><path d="M10.1 13.9a14 14 0 0 0 3.732 2.668 1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2 18 18 0 0 1-12.728-5.272"></path><path d="M22 2 2 22"></path><path d="M4.76 13.582A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 .244.473"></path></svg>
         </button>
     </footer>
 
     <!-- Room Entry Modal -->
-    <div id="room-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+    <div id="room-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50" style="display: none;">
         <div class="bg-gray-800 p-8 rounded-lg shadow-xl text-center">
             <h1 class="text-3xl font-bold mb-4">Gemini Meet</h1>
             <p class="mb-6 text-gray-400">Enter a room name to join or create a call.</p>
@@ -160,6 +190,7 @@
         const chatForm = document.getElementById('chat-form');
         const chatInput = document.getElementById('chat-input');
         const chatMessages = document.getElementById('chat-messages');
+    const tileViewBtn = document.getElementById('tile-view-btn');
 
         // --- Globals ---
         // IMPORTANT: We now connect over HTTPS
@@ -171,6 +202,262 @@
         let isScreenSharing = false;
         let roomId;
         const peers = {}; // To store peer connections: { socketId: RTCPeerConnection }
+
+        /******************** Participant / Stage / Active Speaker State ********************/
+        const participants = new Map(); // id -> { id, container, videoEl, stream, isLocal, analyser, energy }
+    let pinnedParticipantId = null; // currently pinned participant (id)
+    let activeSpeakerId = null;    // currently detected active speaker (id)
+    let stageMode = 'none';        // 'none' | 'auto' | 'pinned'
+    let previousNonScreenStageMode = 'none'; // remember what mode we were in before forcing screen share stage
+    const activeScreenSharers = new Set();
+    let lastScreenSharerId = null;
+        let audioContext = null;       // shared AudioContext (lazy)
+        let activeSpeakerInterval = null;
+
+        function registerLocalParticipant() {
+            const container = document.getElementById('local-video-container');
+            if (!container) return;
+            const videoEl = container.querySelector('video');
+            participants.set('local', { id: 'local', container, videoEl, stream: localStream, isLocal: true, analyser: null, energy: 0 });
+            setupAudioAnalyser('local');
+        }
+
+        function registerRemoteParticipant(userId, stream) {
+            const videoEl = document.getElementById(userId);
+            if (!videoEl) return; // should exist
+            const container = videoEl.parentElement;
+            container.dataset.participantId = userId;
+            participants.set(userId, { id: userId, container, videoEl, stream, isLocal: false, analyser: null, energy: 0 });
+            setupAudioAnalyser(userId);
+        }
+
+        function unregisterParticipant(userId) {
+            participants.delete(userId);
+            if (pinnedParticipantId === userId) {
+                unpinParticipant();
+            }
+            if (activeSpeakerId === userId) {
+                setActiveSpeaker(null);
+            }
+        }
+
+        function attachPinButton() { /* deprecated: click-to-pin now */ }
+
+        /******************** Stage / Pin Logic ********************/
+        function pinParticipant(id) {
+            if (!participants.has(id)) return;
+            pinnedParticipantId = id;
+            stageMode = 'pinned';
+            applyStageLayout();
+        }
+
+        function unpinParticipant({ preserveAuto = false } = {}) {
+            pinnedParticipantId = null;
+            if (preserveAuto && stageMode !== 'none') {
+                stageMode = 'auto';
+            } else {
+                stageMode = 'none';
+            }
+            applyStageLayout();
+        }
+
+        function applyStageLayout() {
+            const stageArea = document.getElementById('stage-area');
+            const filmstripWrapper = document.getElementById('filmstrip-wrapper');
+            const wantsStage = stageMode !== 'none';
+
+            if (wantsStage) {
+                stageArea.classList.remove('hidden');
+                filmstripWrapper.classList.add('stage-mode');
+                // Ensure wrapper + stage video exist
+                let wrapper = stageArea.querySelector('.pinned-video-wrapper');
+                if (!wrapper) {
+                    wrapper = document.createElement('div');
+                    wrapper.className = 'pinned-video-wrapper w-full h-full relative';
+                    stageArea.innerHTML = '';
+                    stageArea.appendChild(wrapper);
+                }
+                let stageVideo = wrapper.querySelector('video');
+                if (!stageVideo) {
+                    stageVideo = document.createElement('video');
+                    stageVideo.autoplay = true;
+                    stageVideo.playsInline = true;
+                    stageVideo.style.width = '100%';
+                    stageVideo.style.height = '100%';
+                    stageVideo.style.objectFit = 'cover';
+                    wrapper.appendChild(stageVideo);
+                }
+
+                let streamSourceParticipant = null;
+                if (stageMode === 'pinned' && pinnedParticipantId && participants.has(pinnedParticipantId)) {
+                    streamSourceParticipant = participants.get(pinnedParticipantId);
+                } else if (stageMode === 'auto') {
+                    if (activeSpeakerId && participants.has(activeSpeakerId)) {
+                        streamSourceParticipant = participants.get(activeSpeakerId);
+                    } else {
+                        // fallback first participant
+                        const first = participants.values().next().value;
+                        if (first) streamSourceParticipant = first;
+                    }
+                }
+                if (streamSourceParticipant && streamSourceParticipant.stream) {
+                    stageVideo.srcObject = streamSourceParticipant.stream;
+                    stageVideo.muted = !!streamSourceParticipant.isLocal; // mute if local
+                    const isScreen = isScreenShareStream(streamSourceParticipant.stream, streamSourceParticipant.id === 'local');
+                    if (isScreen) {
+                        stageVideo.style.objectFit = 'contain'; // ensure full screen visible (no cropping)
+                        stageVideo.style.backgroundColor = '#000';
+                        stageVideo.style.transform = 'none';
+                    } else {
+                        stageVideo.style.objectFit = 'cover';
+                        stageVideo.style.backgroundColor = 'transparent';
+                        if (streamSourceParticipant.isLocal) {
+                            stageVideo.style.transform = 'scaleX(-1)';
+                        } else {
+                            stageVideo.style.transform = 'none';
+                        }
+                    }
+                }
+
+                // Visual badges/classes only for pinned mode
+                participants.forEach(p => {
+                    if (stageMode === 'pinned' && p.id === pinnedParticipantId) {
+                        p.container.classList.add('pinned');
+                        addOrUpdatePinnedBadge(p.container);
+                    } else {
+                        p.container.classList.remove('pinned');
+                        removePinnedBadge(p.container);
+                    }
+                });
+            } else {
+                stageArea.classList.add('hidden');
+                filmstripWrapper.classList.remove('stage-mode');
+                participants.forEach(p => { p.container.classList.remove('pinned'); removePinnedBadge(p.container); });
+            }
+            debouncedAdjustGrid();
+        }
+
+        function isScreenShareStream(stream, isLocal) {
+            if (!stream) return false;
+            if (isLocal && isScreenSharing) return true; // authoritative for local
+            const tracks = stream.getVideoTracks ? stream.getVideoTracks() : [];
+            if (!tracks.length) return false;
+            const track = tracks[0];
+            try {
+                const settings = track.getSettings ? track.getSettings() : {};
+                if (settings.displaySurface) return true; // monitor/window/application/browser
+            } catch {}
+            const label = (track.label || '').toLowerCase();
+            if (label.includes('screen') || label.includes('window') || label.includes('share') || label.includes('display')) return true;
+            return false;
+        }
+
+        function addOrUpdatePinnedBadge(container) {
+            let badge = container.querySelector('.pinned-badge');
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.className = 'pinned-badge flex items-center gap-1';
+                badge.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="m9 9-1 1a6 6 0 1 0 8.49.085L15 9"/><circle cx="12" cy="5" r="2"/></svg><span class="text-[10px] uppercase tracking-wide">Pinned</span>';
+                container.appendChild(badge);
+            }
+        }
+
+        function removePinnedBadge(container) {
+            const badge = container.querySelector('.pinned-badge');
+            if (badge) badge.remove();
+        }
+
+        /******************** Active Speaker Detection ********************/
+        function setupAudioAnalyser(id) {
+            const participant = participants.get(id);
+            if (!participant || !participant.stream) return;
+            const audioTracks = participant.stream.getAudioTracks();
+            if (!audioTracks.length) return;
+            try {
+                if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioContext.createMediaStreamSource(participant.stream);
+                const analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256; // small for lightweight processing
+                source.connect(analyser);
+                participant.analyser = analyser;
+                participant.dataArray = new Uint8Array(analyser.frequencyBinCount);
+            } catch (e) {
+                console.warn('Audio analyser setup failed for', id, e);
+            }
+        }
+
+        function startActiveSpeakerLoop() {
+            if (activeSpeakerInterval) return;
+            activeSpeakerInterval = setInterval(runActiveSpeakerDetection, 350);
+        }
+
+        function runActiveSpeakerDetection() {
+            let bestId = null;
+            let bestEnergy = 0.0;
+            participants.forEach(p => {
+                if (!p.analyser) return;
+                p.analyser.getByteFrequencyData(p.dataArray);
+                // Compute simple average energy in [0,1]
+                let sum = 0;
+                for (let i = 0; i < p.dataArray.length; i++) sum += p.dataArray[i];
+                const energy = sum / (p.dataArray.length * 255);
+                p.energy = energy;
+                if (energy > bestEnergy) {
+                    bestEnergy = energy;
+                    bestId = p.id;
+                }
+            });
+            const THRESHOLD = 0.08; // empirical small-room threshold
+            if (bestEnergy < THRESHOLD) {
+                // Silence; keep current unless it's been silent for a while
+                return;
+            }
+            if (bestId && bestId !== activeSpeakerId) {
+                setActiveSpeaker(bestId);
+            }
+        }
+
+        function setActiveSpeaker(id) {
+            if (activeSpeakerId && participants.has(activeSpeakerId)) {
+                participants.get(activeSpeakerId).container.classList.remove('active-speaker');
+            }
+            activeSpeakerId = id;
+            if (id && participants.has(id)) {
+                participants.get(id).container.classList.add('active-speaker');
+            }
+            if (stageMode === 'auto') {
+                applyStageLayout(); // refresh stage stream to new speaker
+            }
+        }
+
+        /******************** Tile Click Behavior ********************/
+        document.addEventListener('click', (e) => {
+            const container = e.target.closest('.video-container');
+            if (!container || !videoGrid.contains(container)) return;
+            const id = container.dataset.participantId;
+            if (!id) return;
+            if (stageMode === 'none') {
+                // Grid -> pin directly
+                pinParticipant(id);
+                return;
+            }
+            if (stageMode === 'auto') {
+                // Auto -> pin chosen
+                pinParticipant(id);
+                return;
+            }
+            if (stageMode === 'pinned') {
+                if (pinnedParticipantId === id) {
+                    // Clicking pinned participant switches to auto mode
+                    pinnedParticipantId = null;
+                    stageMode = 'auto';
+                    applyStageLayout();
+                } else {
+                    // Pin another participant
+                    pinParticipant(id);
+                }
+            }
+        });
 
         // --- WebRTC Configuration ---
         const peerConnectionConfig = {
@@ -211,6 +498,9 @@
                 // Get user media
                 localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 localVideo.srcObject = localStream;
+                registerLocalParticipant();
+                startActiveSpeakerLoop();
+                debouncedAdjustGrid();
 
                 // Join the room
                 socket.emit('join-room', roomId);
@@ -283,11 +573,65 @@
                 const videoElement = document.getElementById(userId);
                 if (videoElement) {
                     videoElement.parentElement.remove();
+                    debouncedAdjustGrid();
                 }
+                unregisterParticipant(userId);
             });
             
             socket.on('chat-message', ({ from, message }) => {
                 appendChatMessage(message, 'other');
+            });
+
+            socket.on('screen-share-started', ({ from }) => {
+                activeScreenSharers.add(from);
+                lastScreenSharerId = from;
+                if (!pinnedParticipantId) previousNonScreenStageMode = stageMode;
+                // If their participant object already exists, stage immediately
+                if (participants.has(from)) {
+                    pinnedParticipantId = from;
+                    stageMode = 'pinned';
+                    applyStageLayout();
+                } else {
+                    // Delay until track arrives: poll briefly
+                    let attempts = 0;
+                    const interval = setInterval(() => {
+                        attempts++;
+                        if (participants.has(from) || attempts > 20) {
+                            clearInterval(interval);
+                            if (participants.has(from)) {
+                                pinnedParticipantId = from;
+                                stageMode = 'pinned';
+                                applyStageLayout();
+                            }
+                        }
+                    }, 250);
+                }
+            });
+
+            socket.on('screen-share-stopped', ({ from }) => {
+                activeScreenSharers.delete(from);
+                if (activeScreenSharers.size > 0) {
+                    // Switch to another still-active sharer (most recent)
+                    const next = Array.from(activeScreenSharers).slice(-1)[0];
+                    if (participants.has(next)) {
+                        pinnedParticipantId = next;
+                        stageMode = 'pinned';
+                        applyStageLayout();
+                    }
+                } else {
+                    // Restore pre-share mode
+                    pinnedParticipantId = null;
+                    stageMode = previousNonScreenStageMode;
+                    if (stageMode === 'pinned') {
+                        // If previous mode was pinned but we lost pinned target, fallback to auto
+                        if (!pinnedParticipantId) stageMode = 'auto';
+                    }
+                    if (stageMode === 'none') {
+                        applyStageLayout();
+                    } else {
+                        applyStageLayout();
+                    }
+                }
             });
         }
 
@@ -308,6 +652,7 @@
                 if (!videoElement) {
                     const videoContainer = document.createElement('div');
                     videoContainer.classList.add('video-container');
+                    videoContainer.dataset.participantId = targetUserId;
                     
                     videoElement = document.createElement('video');
                     videoElement.id = targetUserId;
@@ -321,8 +666,17 @@
                     videoContainer.appendChild(videoElement);
                     videoContainer.appendChild(nameTag);
                     videoGrid.appendChild(videoContainer);
+                    debouncedAdjustGrid();
                 }
                 videoElement.srcObject = event.streams[0];
+                // Register (or update) remote participant with audio analyser
+                if (!participants.has(targetUserId)) {
+                    registerRemoteParticipant(targetUserId, event.streams[0]);
+                } else {
+                    const p = participants.get(targetUserId);
+                    p.stream = event.streams[0];
+                    setupAudioAnalyser(targetUserId);
+                }
             };
 
             // Handle ICE candidates
@@ -355,18 +709,116 @@
             });
 
             screenShareBtn.addEventListener('click', toggleScreenSharing);
+            tileViewBtn.addEventListener('click', () => {
+                if (stageMode === 'none') {
+                    // Enter auto speaker stage mode
+                    stageMode = 'auto';
+                    applyStageLayout();
+                } else if (stageMode === 'auto') {
+                    // Leave stage entirely
+                    stageMode = 'none';
+                    applyStageLayout();
+                } else if (stageMode === 'pinned') {
+                    // From pinned -> exit to auto speaker mode
+                    pinnedParticipantId = null;
+                    stageMode = 'auto';
+                    applyStageLayout();
+                }
+            });
 
             leaveBtn.addEventListener('click', () => {
-                window.location.reload();
+                try {
+                    // Gracefully close all peer connections
+                    Object.keys(peers).forEach(id => {
+                        try { peers[id].close(); } catch {}
+                        delete peers[id];
+                    });
+                    // Stop local media tracks
+                    if (localStream) {
+                        localStream.getTracks().forEach(t => { try { t.stop(); } catch {} });
+                    }
+                    if (screenStream) {
+                        screenStream.getTracks().forEach(t => { try { t.stop(); } catch {} });
+                    }
+                    // Inform server we're leaving (optional; no specific event defined, so just disconnect)
+                    try { socket.disconnect(); } catch {}
+                } catch (e) {
+                    console.warn('Error during leave cleanup', e);
+                }
+                // Attempt to close the window/tab (will only succeed if user opened it via script or browser allows)
+                window.open('', '_self'); // Helps some browsers allow close()
+                window.close();
+                // Fallback: navigate to a blank page if close is blocked
+                setTimeout(() => {
+                    if (!document.hidden) {
+                        window.location.href = 'about:blank';
+                    }
+                }, 150);
             });
 
+            const CHAT_WIDTH = 320; // px (w-80)
+            let chatOpen = false;
+            let layoutSuppressedUntil = 0;
+
+            function computeLayoutForWidth(explicitWidthPx) {
+                const tiles = videoGrid.querySelectorAll('.video-container');
+                const participantCount = tiles.length;
+                if (!participantCount) return;
+                const viewportHeight = videoGrid.getBoundingClientRect().height; // current height remains
+                const viewportWidth = explicitWidthPx; // pretend final width
+
+                // Reuse existing logic but pass temporary width via direct variable override
+                if (participantCount <= 3) {
+                    const gapX = layoutConfig.horizontalGap;
+                    const totalGapWidth = gapX * (participantCount - 1);
+                    const tileWidth = (viewportWidth - totalGapWidth) / participantCount;
+                    const tileHeight = viewportHeight;
+                    tiles.forEach(t => { t.style.width = tileWidth + 'px'; t.style.height = tileHeight + 'px'; });
+                    return;
+                }
+                const layout = computeResponsiveGrid({
+                    participantCount,
+                    viewportWidth,
+                    viewportHeight,
+                    config: layoutConfig
+                });
+                tiles.forEach(t => { t.style.width = layout.tileWidth + 'px'; t.style.height = layout.tileHeight + 'px'; });
+            }
+
+            function openChat() {
+                chatOpen = true;
+                // Disable transitions on tiles to avoid flicker
+                document.body.classList.add('suspend-tile-anim');
+                // Precompute layout for the target width BEFORE animating panel slide
+                const finalWidth = videoArea.parentElement.clientWidth - CHAT_WIDTH; // parent width minus panel
+                computeLayoutForWidth(finalWidth);
+                // Now start animation (panel slides in, video area shifts but tiles already sized for final width)
+                videoArea.style.marginLeft = CHAT_WIDTH + 'px';
+                videoArea.style.width = finalWidth + 'px';
+                chatPanel.classList.remove('-translate-x-full');
+                // After animation completes (~300ms) re-enable transitions and do a safety adjust
+                setTimeout(() => {
+                    document.body.classList.remove('suspend-tile-anim');
+                    adjustGrid();
+                }, 320);
+            }
+            function closeChat() {
+                chatOpen = false;
+                document.body.classList.add('suspend-tile-anim');
+                chatPanel.classList.add('-translate-x-full');
+                videoArea.style.marginLeft = '0px';
+                videoArea.style.width = '100%';
+                // Adjust after frame for restored full width
+                requestAnimationFrame(() => {
+                    adjustGrid();
+                    requestAnimationFrame(() => document.body.classList.remove('suspend-tile-anim'));
+                });
+            }
             chatBtn.addEventListener('click', () => {
-                chatPanel.classList.toggle('translate-x-full');
-                videoArea.classList.toggle('w-full'); // Adjust video area width
+                chatOpen ? closeChat() : openChat();
             });
-
             closeChatBtn.addEventListener('click', () => {
-                chatPanel.classList.add('translate-x-full');
+                if (chatOpen) closeChat();
             });
             
             chatForm.addEventListener('submit', (e) => {
@@ -395,7 +847,30 @@
                     }
 
                     localVideo.srcObject = screenStream;
-                    screenShareBtn.classList.add('active');
+                    const localParticipant = participants.get('local');
+                    if (localParticipant) {
+                        localParticipant.stream = screenStream;
+                    }
+                    // Remove mirror effect for screen share in local tile
+                    localVideo.style.transform = 'none';
+                    // Style: dedicated screen-sharing state (solid red always)
+                    screenShareBtn.classList.remove('active','bg-gray-700','hover:bg-gray-600','hover:bg-red-700');
+                    screenShareBtn.classList.add('danger','hover:bg-red-700');
+                    // Update icon while sharing
+                    screenShareBtn.innerHTML = '<i data-lucide="screen-share-off"></i>';
+                    lucide.createIcons();
+
+                    // Force stage view to show this screen if not already in a screen-forced stage
+                    if (!anyScreenShareActive()) {
+                        previousNonScreenStageMode = stageMode; // remember
+                    }
+                    // Enter pinned stage focusing local sharer (treat as pinned for stability)
+                    pinnedParticipantId = 'local';
+                    stageMode = 'pinned';
+                    applyStageLayout();
+
+                    // Notify others that screen sharing started
+                    socket.emit('screen-share-started', { from: socket.id });
 
                     // When user stops sharing via browser UI
                     screenStream.getVideoTracks()[0].onended = () => {
@@ -423,8 +898,74 @@
 
             screenStream.getTracks().forEach(track => track.stop());
             localVideo.srcObject = localStream;
+            const localParticipant = participants.get('local');
+            if (localParticipant) {
+                localParticipant.stream = localStream;
+            }
+            // Restore mirror for camera self-view
+            localVideo.style.transform = 'scaleX(-1)';
             isScreenSharing = false;
-            screenShareBtn.classList.remove('active');
+            screenShareBtn.classList.remove('danger');
+            // Revert button styling/icon
+            screenShareBtn.classList.remove('hover:bg-red-700');
+            screenShareBtn.classList.add('bg-gray-700','hover:bg-gray-600');
+            screenShareBtn.innerHTML = '<i data-lucide="screen-share"></i>';
+            lucide.createIcons();
+            if (!anyScreenShareActive()) {
+                // No more screen shares anywhere; restore previous mode
+                if (previousNonScreenStageMode === 'none') {
+                    stageMode = 'none';
+                    pinnedParticipantId = null;
+                } else {
+                    stageMode = previousNonScreenStageMode;
+                    if (stageMode !== 'pinned') pinnedParticipantId = null;
+                }
+                applyStageLayout();
+            } else {
+                // Another participant still sharing; refresh stage (it will switch to them on next detection cycle if needed)
+                applyStageLayout();
+            }
+            // Notify others
+            socket.emit('screen-share-stopped', { from: socket.id });
+        }
+
+        function anyScreenShareActive() {
+            for (const p of participants.values()) {
+                if (isScreenShareStream(p.stream, p.id === 'local')) return true;
+            }
+            return false;
+        }
+
+        // Enhance active speaker detection loop to prioritize screen shares: if any screen share is active, keep stage focused on it (first found or pinned)
+        const _origRunActiveSpeakerDetection = runActiveSpeakerDetection;
+        runActiveSpeakerDetection = function() {
+            // If any screen share is active and we are not pinned to a different participant manually, auto stage it
+            let screenSharer = null;
+            participants.forEach(p => {
+                if (!screenSharer && isScreenShareStream(p.stream, p.id === 'local')) screenSharer = p;
+            });
+            if (screenSharer) {
+                if (!anyScreenShareActive()) return; // guard (shouldn't happen)
+                if (pinnedParticipantId && pinnedParticipantId !== screenSharer.id) {
+                    // User explicitly pinned someone else; honor that
+                } else {
+                    // Force stage mode if not already
+                    if (stageMode !== 'pinned' || pinnedParticipantId !== screenSharer.id) {
+                        if (!pinnedParticipantId) previousNonScreenStageMode = stageMode; // remember pre-screen mode
+                        pinnedParticipantId = screenSharer.id;
+                        stageMode = 'pinned';
+                        applyStageLayout();
+                    }
+                }
+            } else {
+                // No screen share anymore; fall back if we were in a forced screen stage
+                if (pinnedParticipantId && stageMode === 'pinned' && previousNonScreenStageMode !== 'pinned') {
+                    pinnedParticipantId = null;
+                    stageMode = previousNonScreenStageMode;
+                    applyStageLayout();
+                }
+                _origRunActiveSpeakerDetection();
+            }
         }
         
         function appendChatMessage(message, type) {
@@ -435,8 +976,348 @@
             chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll
         }
 
+        // --- Dynamic Grid Layout ---
+        /******************** Adaptive Tile View Layout ************************/
+        const layoutConfig = {
+            targetVisibleTiles: 25,
+            maxColumns: 7,
+            minTileHeight: 110,
+            baseAspectRatio: 16 / 9,
+            portraitAspectRatio: 9 / 16,
+            allowEnlargement: true,
+            disableResponsive: false,
+            horizontalGap: 12,
+            verticalGap: 12,
+            outerPaddingX: 0, // no padding so cameras can use full width
+            outerPaddingY: 0,
+            scrollBarAllowance: 12
+        };
+
+        function computeResponsiveGrid({
+          participantCount,
+          viewportWidth,
+          viewportHeight,
+          config
+        }) {
+          const {
+            targetVisibleTiles,
+            maxColumns,
+            minTileHeight,
+            baseAspectRatio,
+            portraitAspectRatio,
+            allowEnlargement,
+            disableResponsive,
+            horizontalGap,
+            verticalGap,
+            outerPaddingX,
+            outerPaddingY
+          } = config;
+
+          const usableWidth  = viewportWidth  - outerPaddingX;
+          const usableHeight = viewportHeight - outerPaddingY;
+
+          if (participantCount === 0) {
+            return emptyResult();
+          }
+
+          if (disableResponsive) {
+            return simpleGrid({ participantCount, usableWidth, usableHeight, maxColumns, minTileHeight, aspect: baseAspectRatio, horizontalGap, verticalGap });
+          }
+
+          const best = { chosen: null, zeroVisible: null };
+          const maxCandidateCols = Math.min(maxColumns, participantCount, targetVisibleTiles);
+
+            for (let c = 1; c <= maxCandidateCols; c++) {
+                const r = Math.ceil(participantCount / c);
+                const desiredVisibleRows = participantCount <= targetVisibleTiles ? r : Math.max(1, Math.floor(targetVisibleTiles / c));
+                const rawTileWidth  = (usableWidth  - (c - 1) * horizontalGap) / c;
+                const rawTileHeight = (usableHeight - (desiredVisibleRows - 1) * verticalGap) / desiredVisibleRows;
+                let aspect = baseAspectRatio;
+                if (allowEnlargement) {
+                    const viewportRatio = usableHeight / usableWidth;
+                    if (viewportRatio > 1.1 || rawTileWidth < rawTileHeight) {
+                        aspect = portraitAspectRatio;
+                    }
+                }
+                let tileHeight = Math.min(rawTileHeight, rawTileWidth / aspect);
+                let tileWidth  = tileHeight * aspect;
+                let minHeightEnforced = false;
+                if (tileHeight < minTileHeight) {
+                    tileHeight = minTileHeight;
+                    tileWidth  = aspect * tileHeight;
+                    minHeightEnforced = true;
+                    const totalWidth = tileWidth * c + horizontalGap * (c - 1);
+                    if (totalWidth > usableWidth) continue;
+                }
+                const maxVisibleRows = Math.floor((usableHeight + verticalGap) / (tileHeight + verticalGap));
+                if (maxVisibleRows <= 0) {
+                    if (!best.zeroVisible) {
+                        best.zeroVisible = { columns: c, rows: r, tileWidth, tileHeight, visibleRows: 0, areaScore: 0, minHeightEnforced, visibleTiles: 0 };
+                    }
+                    continue;
+                }
+                const visibleRows = Math.min(desiredVisibleRows, maxVisibleRows);
+                const visibleTiles = Math.min(participantCount, visibleRows * c);
+                const areaScore = tileWidth * tileHeight * visibleTiles;
+                const candidate = { columns: c, rows: r, tileWidth, tileHeight, visibleRows, visibleTiles, areaScore, minHeightEnforced };
+                if (!best.chosen) { best.chosen = candidate; } else {
+                    const cur = best.chosen;
+                    if (candidate.areaScore > cur.areaScore) {
+                        best.chosen = candidate;
+                    } else if (candidate.areaScore === cur.areaScore) {
+                        const target = Math.min(participantCount, targetVisibleTiles);
+                        const curDelta = Math.abs(cur.visibleTiles - target);
+                        const candDelta = Math.abs(candidate.visibleTiles - target);
+                        if (candDelta < curDelta) {
+                            best.chosen = candidate;
+                        } else if (candDelta === curDelta) {
+                            if (candidate.tileHeight > cur.tileHeight) {
+                                best.chosen = candidate;
+                            } else if (candidate.tileHeight === cur.tileHeight) {
+                                if (candidate.minHeightEnforced && candidate.columns > cur.columns) {
+                                    best.chosen = candidate;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (!best.chosen) {
+                const fb = best.zeroVisible || simpleSingleColumnFallback({ participantCount, usableWidth, usableHeight, aspect: baseAspectRatio, minTileHeight, verticalGap });
+                return finalizeResult(fb, participantCount);
+            }
+            return finalizeResult(best.chosen, participantCount);
+        }
+
+        function simpleGrid({ participantCount, usableWidth, usableHeight, maxColumns, minTileHeight, aspect, horizontalGap, verticalGap }) {
+            const columns = Math.min(Math.ceil(Math.sqrt(participantCount)), maxColumns);
+            const rows = Math.ceil(participantCount / columns);
+            let tileWidth = (usableWidth - (columns - 1) * horizontalGap) / columns;
+            let tileHeight = tileWidth / aspect;
+            if (tileHeight < minTileHeight) { tileHeight = minTileHeight; tileWidth = tileHeight * aspect; }
+            const maxVisibleRows = Math.floor((usableHeight + verticalGap) / (tileHeight + verticalGap));
+            const visibleRows = Math.min(rows, maxVisibleRows);
+            const visibleTiles = Math.min(participantCount, visibleRows * columns);
+            return finalizeResult({ columns, rows, tileWidth, tileHeight, visibleRows, visibleTiles, areaScore: tileWidth * tileHeight * visibleTiles, minHeightEnforced: tileHeight === minTileHeight }, participantCount);
+        }
+        function simpleSingleColumnFallback({ participantCount, usableWidth, usableHeight, aspect, minTileHeight, verticalGap }) {
+            let tileWidth = usableWidth;
+            let tileHeight = tileWidth / aspect;
+            if (tileHeight < minTileHeight) { tileHeight = minTileHeight; tileWidth = tileHeight * aspect; }
+            const maxVisibleRows = Math.floor((usableHeight + verticalGap) / (tileHeight + verticalGap));
+            const visibleRows = Math.min(participantCount, maxVisibleRows);
+            return { columns: 1, rows: participantCount, tileWidth, tileHeight, visibleRows, visibleTiles: visibleRows, areaScore: tileWidth * tileHeight * visibleRows, minHeightEnforced: tileHeight === minTileHeight };
+        }
+        function emptyResult() { return { columns: 0, rows: 0, visibleRows: 0, tileWidth: 0, tileHeight: 0, visibleTiles: 0, scrollNeeded: false }; }
+        function finalizeResult(candidate, participantCount) { return { ...candidate, scrollNeeded: candidate.visibleTiles < participantCount }; }
+
+        function debounce(fn, ms) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; }
+
+        function adjustGrid() {
+            const tiles = videoGrid.querySelectorAll('.video-container');
+            const participantCount = tiles.length;
+            if (!participantCount) return;
+
+            // In any stage mode (auto or pinned) we treat the filmstrip as a simple
+            // vertical list with fixed tile heights (set via CSS). We only need to
+            // ensure tiles take full width and the container scrolls; we skip the
+            // adaptive grid math entirely so it cannot accidentally remove scrolling
+            // by forcing overflow hidden.
+            if (stageMode !== 'none') {
+                videoGrid.style.padding = '0';
+                videoGrid.style.columnGap = '0px';
+                videoGrid.style.rowGap = '0px';
+                videoGrid.style.overflowY = 'auto';
+                tiles.forEach(tile => {
+                    tile.style.width = '100%';
+                    // Let CSS important rule control height; clear inline to avoid conflicts
+                    tile.style.height = '';
+                });
+                return;
+            }
+
+            const parentRect = videoGrid.getBoundingClientRect();
+            const viewportWidth = parentRect.width;
+            const viewportHeight = parentRect.height;
+
+            // Special-case small counts: 1-3 participants => single row spanning full height for immersive feel
+            if (participantCount > 0 && participantCount <= 3) {
+                const gapX = layoutConfig.horizontalGap;
+                const totalGapWidth = gapX * (participantCount - 1);
+                const tileWidth = (viewportWidth - totalGapWidth) / participantCount;
+                const tileHeight = viewportHeight; // full height usage
+                videoGrid.style.padding = '0';
+                videoGrid.style.columnGap = gapX + 'px';
+                videoGrid.style.rowGap = '0px';
+                videoGrid.style.overflowY = 'hidden';
+                tiles.forEach(tile => {
+                    tile.style.width = tileWidth + 'px';
+                    tile.style.height = tileHeight + 'px';
+                });
+                return;
+            }
+
+            const layout = computeResponsiveGrid({
+                participantCount,
+                viewportWidth,
+                viewportHeight,
+                config: layoutConfig
+            });
+
+            videoGrid.style.padding = '0';
+            videoGrid.style.columnGap = layoutConfig.horizontalGap + 'px';
+            videoGrid.style.rowGap = layoutConfig.verticalGap + 'px';
+            videoGrid.style.overflowY = layout.scrollNeeded ? 'auto' : 'hidden';
+
+            tiles.forEach(tile => {
+                tile.style.width = layout.tileWidth + 'px';
+                tile.style.height = layout.tileHeight + 'px';
+            });
+        }
+
+        const debouncedAdjustGrid = debounce(adjustGrid, 120);
+
+        window.addEventListener('resize', () => {
+            window.requestAnimationFrame(debouncedAdjustGrid);
+        });
+
+        // Observe size changes of video area; guard against noisy intermediate widths during chat animation
+        const resizeObserver = new ResizeObserver(() => {
+            if (typeof layoutSuppressedUntil === 'number' && performance.now() < layoutSuppressedUntil) return;
+            debouncedAdjustGrid();
+        });
+        resizeObserver.observe(videoGrid);
+
     </script>
     
+    <!-- 
+    ============================================================================
+    SERVER-SIDE CODE (Node.js) - UPDATED FOR HTTPS
+    ============================================================================
+    
+    To run this application with HTTPS, you need to set up a Node.js server and
+    generate a self-signed SSL certificate for local development.
+    
+    1.  Prerequisites:
+        -   Install Node.js: https://nodejs.org/
+        -   Install OpenSSL. It's pre-installed on Linux and macOS. For Windows,
+            you can install it with Git for Windows or from https://slproweb.com/products/Win32OpenSSL.html
+    
+    2.  Generate SSL Certificate:
+        -   Open a terminal in your project folder.
+        -   Run the following command. This will create two files: `key.pem` (your private key)
+            and `cert.pem` (your public certificate).
+        
+        openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -sha256 -days 365 -nodes -subj "/C=US/ST=State/L=City/O=Organization/OU=OrgUnit/CN=localhost"
 
-</body>
-</html>
+    3.  Setup your project:
+        -   Create a new folder for your project (e.g., `gemini-meet-secure`).
+        -   Inside the folder, create a file named `server.js` and paste the UPDATED code below.
+        -   Create a file named `package.json` and paste the JSON content below.
+        -   Run `npm install` to install the required dependencies.
+    
+    4.  Run the server:
+        -   In your terminal, run `node server.js`.
+        -   The server will start on https://localhost:3000.
+        
+    5.  Run the client:
+        -   Open this HTML file in your browser.
+        -   *** VERY IMPORTANT ***: Your browser will show a security warning like "Your connection
+            is not private" because the certificate is self-signed. You must bypass this.
+            Click "Advanced" and then "Proceed to localhost (unsafe)".
+        -   Open the page in two or more browser tabs/windows to test the connection.
+    
+    --- package.json ---
+    
+    {
+      "name": "gemini-meet-server-secure",
+      "version": "1.0.0",
+      "description": "Secure signaling server for WebRTC video call app",
+      "main": "server.js",
+      "scripts": {
+        "start": "node server.js"
+      },
+      "dependencies": {
+        "express": "^4.19.2",
+        "socket.io": "^4.7.5"
+      }
+    }
+    
+    --- server.js (UPDATED FOR HTTPS) ---
+    
+    const express = require('express');
+    const https = require('https');
+    const fs = require('fs');
+    const { Server } = require("socket.io");
+    
+    const app = express();
+    
+    // SSL Certificate options
+    const options = {
+      key: fs.readFileSync('key.pem'),
+      cert: fs.readFileSync('cert.pem')
+    };
+    
+    const server = https.createServer(options, app);
+    
+    // Allow CORS for development
+    const io = new Server(server, {
+      cors: {
+        origin: "*", // In production, restrict this to your frontend's domain
+        methods: ["GET", "POST"]
+      }
+    });
+    
+    const PORT = process.env.PORT || 3000;
+    
+    io.on('connection', (socket) => {
+      console.log(`User connected: ${socket.id}`);
+    
+      socket.on('join-room', (roomId) => {
+        // Leave previous rooms if any
+        const previousRooms = Object.keys(socket.rooms);
+        previousRooms.forEach(room => {
+            if(room !== socket.id) {
+                socket.leave(room);
+            }
+        });
+    
+        // Join the new room
+        socket.join(roomId);
+        console.log(`User ${socket.id} joined room ${roomId}`);
+    
+        // Notify others in the room
+        socket.to(roomId).emit('user-connected', socket.id);
+    
+        socket.on('offer', (payload) => {
+          io.to(payload.target).emit('offer', { from: socket.id, offer: payload.offer });
+        });
+    
+        socket.on('answer', (payload) => {
+          io.to(payload.target).emit('answer', { from: socket.id, answer: payload.answer });
+        });
+    
+        socket.on('ice-candidate', (payload) => {
+          io.to(payload.target).emit('ice-candidate', { from: socket.id, candidate: payload.candidate });
+        });
+
+        socket.on('chat-message', (message) => {
+            socket.to(roomId).emit('chat-message', { from: socket.id, message });
+        });
+    
+        socket.on('disconnect', () => {
+          console.log(`User disconnected: ${socket.id}`);
+          io.to(roomId).emit('user-disconnected', socket.id);
+        });
+      });
+    });
+    
+    server.listen(PORT, () => {
+      console.log(`Secure signaling server running on https://localhost:${PORT}`);
+    });
+    
+    -->
+
+
+
+</body></html>
