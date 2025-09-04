@@ -9283,7 +9283,7 @@ console.warn('in send message', txid)
       const randomHex = bin2hex(randomBytes).slice(0, 20);
 
       // Create the Meet URL
-      const meetUrl = `https://arimaa.com/meet?room=${randomHex}`;
+      const meetUrl = `./meet?room=${randomHex}`;
       
       // Open the URL in a new tab
       window.open(meetUrl, '_blank');

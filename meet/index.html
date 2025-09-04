@@ -1,0 +1,442 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Meet - WebRTC Video Call</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Socket.IO Client -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    
+    <style>
+        /* Custom styles for a better look and feel */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        #video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 0.5rem;
+            transform: scaleX(-1); /* Mirror effect for self-view */
+        }
+        .video-container {
+            position: relative;
+            background-color: #2C2C2C;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        .participant-name {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+        .control-btn.active {
+            background-color: #4A90E2;
+            color: white;
+        }
+        .control-btn.danger {
+            background-color: #D0021B;
+            color: white;
+        }
+        #chat-panel {
+            transition: transform 0.3s ease-in-out;
+        }
+        .chat-message {
+            max-width: 80%;
+        }
+        .my-message {
+            align-self: flex-end;
+            background-color: #4A90E2;
+            color: white;
+        }
+        .other-message {
+            align-self: flex-start;
+            background-color: #4A4A4A;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex flex-col h-screen overflow-hidden">
+
+    <!-- Main Content -->
+    <main class="flex-1 flex overflow-hidden">
+        <!-- Video Grid Area -->
+        <div id="video-area" class="flex-1 p-4 transition-all duration-300">
+            <div id="video-grid" class="w-full h-full">
+                <!-- Local video will be appended here -->
+                <div class="video-container" id="local-video-container">
+                    <video id="local-video" autoplay muted></video>
+                    <div class="participant-name">You</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Panel -->
+        <aside id="chat-panel" class="w-80 bg-gray-800 flex flex-col h-full transform translate-x-full">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                <h2 class="text-xl font-semibold">Chat</h2>
+                <button id="close-chat-btn" class="p-1 rounded-full hover:bg-gray-700">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div id="chat-messages" class="flex-1 p-4 overflow-y-auto flex flex-col space-y-2">
+                <!-- Chat messages will be appended here -->
+            </div>
+            <div class="p-4 border-t border-gray-700">
+                <form id="chat-form" class="flex space-x-2">
+                    <input type="text" id="chat-input" placeholder="Type a message..." class="flex-1 bg-gray-700 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 p-2 rounded-md">
+                        <i data-lucide="send"></i>
+                    </button>
+                </form>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Controls Bar -->
+    <footer class="bg-gray-800 p-4 flex justify-center items-center space-x-4">
+        <button id="mic-btn" class="control-btn p-3 bg-gray-700 rounded-full hover:bg-gray-600 active">
+            <i data-lucide="mic"></i>
+        </button>
+        <button id="video-btn" class="control-btn p-3 bg-gray-700 rounded-full hover:bg-gray-600 active">
+            <i data-lucide="video"></i>
+        </button>
+        <button id="screen-share-btn" class="control-btn p-3 bg-gray-700 rounded-full hover:bg-gray-600">
+            <i data-lucide="screen-share"></i>
+        </button>
+        <button id="chat-btn" class="control-btn p-3 bg-gray-700 rounded-full hover:bg-gray-600">
+            <i data-lucide="message-square"></i>
+        </button>
+        <button id="leave-btn" class="control-btn danger p-3 rounded-full hover:bg-red-700">
+            <i data-lucide="phone-off"></i>
+        </button>
+    </footer>
+
+    <!-- Room Entry Modal -->
+    <div id="room-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-xl text-center">
+            <h1 class="text-3xl font-bold mb-4">Gemini Meet</h1>
+            <p class="mb-6 text-gray-400">Enter a room name to join or create a call.</p>
+            <form id="room-form">
+                <input type="text" id="room-id-input" placeholder="e.g., project-kickoff" class="w-full bg-gray-700 text-white p-3 rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center">
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded-md font-semibold">Join Room</button>
+            </form>
+        </div>
+    </div>
+
+
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // --- DOM Elements ---
+        const videoGrid = document.getElementById('video-grid');
+        const localVideo = document.getElementById('local-video');
+        const roomModal = document.getElementById('room-modal');
+        const roomForm = document.getElementById('room-form');
+        const roomIdInput = document.getElementById('room-id-input');
+        
+        const micBtn = document.getElementById('mic-btn');
+        const videoBtn = document.getElementById('video-btn');
+        const screenShareBtn = document.getElementById('screen-share-btn');
+        const leaveBtn = document.getElementById('leave-btn');
+        const chatBtn = document.getElementById('chat-btn');
+        const closeChatBtn = document.getElementById('close-chat-btn');
+        const chatPanel = document.getElementById('chat-panel');
+        const videoArea = document.getElementById('video-area');
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+        const chatMessages = document.getElementById('chat-messages');
+
+        // --- Globals ---
+        // IMPORTANT: We now connect over HTTPS
+        const SERVER_URL = 'https://arimaa.com:3000'; 
+        const socket = io(SERVER_URL);
+        
+        let localStream;
+        let screenStream;
+        let isScreenSharing = false;
+        let roomId;
+        const peers = {}; // To store peer connections: { socketId: RTCPeerConnection }
+
+        // --- WebRTC Configuration ---
+        const peerConnectionConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                // In a production environment, you would add TURN servers here
+            ]
+        };
+
+        // --- Core Logic ---
+
+        // Check for room in URL on page load
+        window.addEventListener('load', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomFromUrl = urlParams.get('room');
+
+            if (roomFromUrl) {
+                roomId = roomFromUrl.trim();
+                roomIdInput.value = roomId; // Pre-fill the input just in case
+                roomModal.style.display = 'none';
+                init(); // Automatically start the call
+            }
+        });
+
+        // 1. Join Room
+        roomForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            roomId = roomIdInput.value.trim();
+            if (roomId) {
+                roomModal.style.display = 'none';
+                await init();
+            }
+        });
+
+        async function init() {
+            try {
+                // Get user media
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                localVideo.srcObject = localStream;
+
+                // Join the room
+                socket.emit('join-room', roomId);
+
+                setupSocketListeners();
+                setupControlEvents();
+
+            } catch (error) {
+                console.error('Error initializing:', error);
+                alert("Could not access camera and microphone. Please check permissions and ensure you are on a secure (HTTPS) connection.");
+                roomModal.style.display = 'flex';
+            }
+        }
+
+        // 2. Socket Listeners
+        function setupSocketListeners() {
+            socket.on('user-connected', (userId) => {
+                console.log(`New user connected: ${userId}`);
+                // Create a new peer connection for the new user
+                const peerConnection = createPeerConnection(userId);
+                // Create an offer to send to the new user
+                peerConnection.createOffer()
+                    .then(offer => {
+                        return peerConnection.setLocalDescription(offer);
+                    })
+                    .then(() => {
+                        socket.emit('offer', { target: userId, offer: peerConnection.localDescription });
+                    })
+                    .catch(e => console.error('Offer creation error:', e));
+            });
+
+            socket.on('offer', ({ from, offer }) => {
+                console.log(`Received offer from: ${from}`);
+                const peerConnection = createPeerConnection(from);
+                peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
+                    .then(() => peerConnection.createAnswer())
+                    .then(answer => {
+                        return peerConnection.setLocalDescription(answer);
+                    })
+                    .then(() => {
+                        socket.emit('answer', { target: from, answer: peerConnection.localDescription });
+                    })
+                    .catch(e => console.error('Answer creation error:', e));
+            });
+
+            socket.on('answer', ({ from, answer }) => {
+                console.log(`Received answer from: ${from}`);
+                const peerConnection = peers[from];
+                if (peerConnection) {
+                    peerConnection.setRemoteDescription(new RTCSessionDescription(answer))
+                        .catch(e => console.error('Set remote description error:', e));
+                }
+            });
+
+            socket.on('ice-candidate', ({ from, candidate }) => {
+                console.log(`Received ICE candidate from: ${from}`);
+                const peerConnection = peers[from];
+                if (peerConnection && candidate) {
+                    peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+                        .catch(e => console.error('Add ICE candidate error:', e));
+                }
+            });
+
+            socket.on('user-disconnected', (userId) => {
+                console.log(`User disconnected: ${userId}`);
+                if (peers[userId]) {
+                    peers[userId].close();
+                    delete peers[userId];
+                }
+                const videoElement = document.getElementById(userId);
+                if (videoElement) {
+                    videoElement.parentElement.remove();
+                }
+            });
+            
+            socket.on('chat-message', ({ from, message }) => {
+                appendChatMessage(message, 'other');
+            });
+        }
+
+        // 3. WebRTC Peer Connection
+        function createPeerConnection(targetUserId) {
+            const peerConnection = new RTCPeerConnection(peerConnectionConfig);
+            peers[targetUserId] = peerConnection;
+
+            // Add local stream tracks to the connection
+            const streamToUse = isScreenSharing ? screenStream : localStream;
+            streamToUse.getTracks().forEach(track => {
+                peerConnection.addTrack(track, streamToUse);
+            });
+
+            // Handle incoming tracks from the remote peer
+            peerConnection.ontrack = (event) => {
+                let videoElement = document.getElementById(targetUserId);
+                if (!videoElement) {
+                    const videoContainer = document.createElement('div');
+                    videoContainer.classList.add('video-container');
+                    
+                    videoElement = document.createElement('video');
+                    videoElement.id = targetUserId;
+                    videoElement.autoplay = true;
+                    videoElement.style.transform = 'scaleX(-1)'; // Mirror remote videos too for consistency
+
+                    const nameTag = document.createElement('div');
+                    nameTag.classList.add('participant-name');
+                    nameTag.textContent = `User ${targetUserId.substring(0, 6)}`;
+
+                    videoContainer.appendChild(videoElement);
+                    videoContainer.appendChild(nameTag);
+                    videoGrid.appendChild(videoContainer);
+                }
+                videoElement.srcObject = event.streams[0];
+            };
+
+            // Handle ICE candidates
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('ice-candidate', { target: targetUserId, candidate: event.candidate });
+                }
+            };
+
+            return peerConnection;
+        }
+        
+        // 4. UI Controls
+        function setupControlEvents() {
+            micBtn.addEventListener('click', () => {
+                const enabled = localStream.getAudioTracks()[0].enabled;
+                localStream.getAudioTracks()[0].enabled = !enabled;
+                micBtn.classList.toggle('active', !enabled);
+                micBtn.innerHTML = enabled ? '<i data-lucide="mic-off"></i>' : '<i data-lucide="mic"></i>';
+                lucide.createIcons();
+            });
+
+            videoBtn.addEventListener('click', () => {
+                if(isScreenSharing) return; // Don't allow toggling video while screen sharing
+                const enabled = localStream.getVideoTracks()[0].enabled;
+                localStream.getVideoTracks()[0].enabled = !enabled;
+                videoBtn.classList.toggle('active', !enabled);
+                videoBtn.innerHTML = enabled ? '<i data-lucide="video-off"></i>' : '<i data-lucide="video"></i>';
+                lucide.createIcons();
+            });
+
+            screenShareBtn.addEventListener('click', toggleScreenSharing);
+
+            leaveBtn.addEventListener('click', () => {
+                window.location.reload();
+            });
+
+            chatBtn.addEventListener('click', () => {
+                chatPanel.classList.toggle('translate-x-full');
+                videoArea.classList.toggle('w-full'); // Adjust video area width
+            });
+
+            closeChatBtn.addEventListener('click', () => {
+                chatPanel.classList.add('translate-x-full');
+            });
+            
+            chatForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const message = chatInput.value.trim();
+                if (message) {
+                    socket.emit('chat-message', message);
+                    appendChatMessage(message, 'my');
+                    chatInput.value = '';
+                }
+            });
+        }
+
+        async function toggleScreenSharing() {
+            if (!isScreenSharing) {
+                try {
+                    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                    isScreenSharing = true;
+                    
+                    // Replace video track for all peers
+                    for (const peerId in peers) {
+                        const sender = peers[peerId].getSenders().find(s => s.track.kind === 'video');
+                        if (sender) {
+                            sender.replaceTrack(screenStream.getVideoTracks()[0]);
+                        }
+                    }
+
+                    localVideo.srcObject = screenStream;
+                    screenShareBtn.classList.add('active');
+
+                    // When user stops sharing via browser UI
+                    screenStream.getVideoTracks()[0].onended = () => {
+                        stopScreenSharing();
+                    };
+
+                } catch (error) {
+                    console.error('Error starting screen share:', error);
+                }
+            } else {
+                stopScreenSharing();
+            }
+        }
+
+        function stopScreenSharing() {
+            if (!isScreenSharing) return;
+
+            // Revert to camera track for all peers
+            for (const peerId in peers) {
+                const sender = peers[peerId].getSenders().find(s => s.track.kind === 'video');
+                if (sender) {
+                    sender.replaceTrack(localStream.getVideoTracks()[0]);
+                }
+            }
+
+            screenStream.getTracks().forEach(track => track.stop());
+            localVideo.srcObject = localStream;
+            isScreenSharing = false;
+            screenShareBtn.classList.remove('active');
+        }
+        
+        function appendChatMessage(message, type) {
+            const messageElement = document.createElement('div');
+            messageElement.textContent = message;
+            messageElement.classList.add('chat-message', 'p-2', 'rounded-lg', 'break-words', `${type}-message`);
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll
+        }
+
+    </script>
+    
+
+</body>
+</html>
