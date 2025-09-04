@@ -156,7 +156,7 @@
     </footer>
 
     <!-- Room Entry Modal -->
-    <div id="room-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50" style="display: none;">
+    <div id="room-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
         <div class="bg-gray-800 p-8 rounded-lg shadow-xl text-center">
             <h1 class="text-3xl font-bold mb-4">Gemini Meet</h1>
             <p class="mb-6 text-gray-400">Enter a room name to join or create a call.</p>
@@ -205,12 +205,12 @@
 
         /******************** Participant / Stage / Active Speaker State ********************/
         const participants = new Map(); // id -> { id, container, videoEl, stream, isLocal, analyser, energy }
-    let pinnedParticipantId = null; // currently pinned participant (id)
-    let activeSpeakerId = null;    // currently detected active speaker (id)
-    let stageMode = 'none';        // 'none' | 'auto' | 'pinned'
-    let previousNonScreenStageMode = 'none'; // remember what mode we were in before forcing screen share stage
-    const activeScreenSharers = new Set();
-    let lastScreenSharerId = null;
+        let pinnedParticipantId = null; // currently pinned participant (id)
+        let activeSpeakerId = null;    // currently detected active speaker (id)
+        let stageMode = 'none';        // 'none' | 'auto' | 'pinned'
+        let previousNonScreenStageMode = 'none'; // remember what mode we were in before forcing screen share stage
+        const activeScreenSharers = new Set();
+        let lastScreenSharerId = null;
         let audioContext = null;       // shared AudioContext (lazy)
         let activeSpeakerInterval = null;
 
@@ -489,6 +489,13 @@
             roomId = roomIdInput.value.trim();
             if (roomId) {
                 roomModal.style.display = 'none';
+                // Update URL to reflect joined room without reloading the page
+                try {
+                    const newUrl = `${window.location.pathname}?room=${encodeURIComponent(roomId)}`;
+                    window.history.replaceState({ room: roomId }, '', newUrl);
+                } catch (err) {
+                    console.warn('Failed to update URL with room id', err);
+                }
                 await init();
             }
         });
