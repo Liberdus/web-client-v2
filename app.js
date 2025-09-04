@@ -2771,9 +2771,9 @@ class HistoryModal {
         }
         
         // Handle stake transactions differently
-        if (tx.memo === 'stake' || tx.memo === 'unstake') {
-          const isStake = tx.memo === 'stake';
-          const isUnstake = tx.memo === 'unstake';
+        if (tx.type === 'deposit_stake' || tx.type === 'withdraw_stake') {
+          const isStake = tx.type === 'deposit_stake';
+          const isUnstake = tx.type === 'withdraw_stake';
           
           // Determine unstake color based on amount (positive = blue, negative = red)
           let unstakeTypeClass = '';
@@ -2801,7 +2801,7 @@ class HistoryModal {
                 </div>
                 <div class="transaction-time">${formatTime(tx.timestamp)}</div>
               </div>
-              ${tx.memo ? `<div class="transaction-memo">${linkifyUrls(tx.memo)}</div>` : ''}
+              <div class="transaction-memo">${tx.memo}</div>
             </div>
           `;
         }
@@ -6691,6 +6691,7 @@ class ValidatorStakingModal {
           nominee: nodeAddress,
           amount: bigxnum2big(wei, '0'),
           memo: 'unstake',
+          type: 'withdraw_stake',
           sign: 1,
           status: 'sent',
           timestamp: getCorrectedTimestamp(),
@@ -7032,6 +7033,7 @@ class StakeValidatorModal {
           nominee: nodeAddress,
           amount: amount_in_wei,
           memo: 'stake',
+          type: 'deposit_stake',
           sign: -1,
           status: 'sent',
           timestamp: getCorrectedTimestamp(),
