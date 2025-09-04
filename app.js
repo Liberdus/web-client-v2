@@ -4696,16 +4696,11 @@ class RemoveAccountsModal {
       const storageKey = localStorage.key(i);
       if (!storageKey) continue;
       
-      // Look for keys with underscore that end with a valid address
-      if (!storageKey.includes('_')) continue;
+      // Use regex to extract username and netid from storage key
+      const match = storageKey.match(/(.+)_(.+)$/);
+      if (!match) continue;
       
-      const parts = storageKey.split('_');
-      if (parts.length < 2) continue;
-      
-      // Last part should be the address/netid
-      const netid = parts[parts.length - 1];
-      // Everything before the last underscore is the username
-      const username = parts.slice(0, -1).join('_');
+      const [, username, netid] = match;
       
       // Validate username and netid
       if (!username || !netid || netid.length !== 64) continue;
@@ -13171,19 +13166,17 @@ console.log('    result is',result)
       // Skip the 'accounts' key itself
       if (key === 'accounts') return false;
       
-      const parts = key.split('_');
-      if (parts.length < 2) return false;
+      const match = key.match(/(.+)_(.+)$/);
+      if (!match) return false;
       
-      const netid = parts[parts.length - 1];
+      const [, , netid] = match;
       if (netid.length != 64) return false;
       
       return true;
     });
     
     for (const key of accountFileKeys) {
-      const parts = key.split('_');
-      const username = parts.slice(0, -1).join('_');
-      const netid = parts[parts.length - 1];
+      const [, username, netid] = key.match(/(.+)_(.+)$/);
       
       const isRegistered = accountsObj.netids[netid]?.usernames?.[username];
       
