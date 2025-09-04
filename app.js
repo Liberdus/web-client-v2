@@ -4691,21 +4691,39 @@ class RemoveAccountsModal {
       }
     }
 
-    // Find any orphaned account files not in accounts object (username_netid)
+    // Find any orphaned account files not in accounts object
     for (let i = 0; i < localStorage.length; i++) {
       const storageKey = localStorage.key(i);
       if (!storageKey) continue;
+      
+      // Look for keys with underscore that end with a valid address
+      if (!storageKey.includes('_')) continue;
+      
       const parts = storageKey.split('_');
-      if (parts.length !== 2) continue;
-      const [username, netid] = parts;
-      if (netid.length !== 64) continue;
+      if (parts.length < 2) continue;
+      
+      // Last part should be the address/netid
+      const netid = parts[parts.length - 1];
+      // Everything before the last underscore is the username
+      const username = parts.slice(0, -1).join('_');
+      
+      // Validate username and netid
+      if (!username || !netid || netid.length !== 64) continue;
+      
+      // Check if this account is already in our result list
       const already = result.find(r => r.username === username && r.netid === netid);
       if (already) continue;
+      
+      // Check if this account is registered in the accounts object
+      const isRegistered = accountsObj.netids[netid]?.usernames?.[username];
+      if (isRegistered) continue;
+      
       const state = loadState(storageKey);
       let contactsCount = 0; let messagesCount = 0;
       if (state) {
         try {
           contactsCount = Object.keys(state.contacts || {}).length;
+          // Sum messages arrays lengths per contact
           if (state.contacts) {
             for (const addr in state.contacts) {
               messagesCount += (state.contacts[addr].messages?.length || 0);
@@ -4767,7 +4785,7 @@ class RemoveAccountsModal {
         label.innerHTML = `
           <input type="checkbox" data-username="${acc.username}" data-netid="${acc.netid}" />
           <span class="remove-account-username">${acc.username}</span>
-          <span class="remove-account-stats">${acc.contactsCount} contacts, ${acc.messagesCount} messages${acc.orphan ? ' (orphan)' : ''}</span>
+          <span class="remove-account-stats">${acc.contactsCount} contacts, ${acc.messagesCount} messages</span>
         `;
         list.appendChild(label);
       });
@@ -13154,16 +13172,18 @@ console.log('    result is',result)
       if (key === 'accounts') return false;
       
       const parts = key.split('_');
-      if (parts.length !== 2) return false;
+      if (parts.length < 2) return false;
       
-      const netid = parts[1];
+      const netid = parts[parts.length - 1];
       if (netid.length != 64) return false;
       
       return true;
     });
     
     for (const key of accountFileKeys) {
-      const [username, netid] = key.split('_');
+      const parts = key.split('_');
+      const username = parts.slice(0, -1).join('_');
+      const netid = parts[parts.length - 1];
       
       const isRegistered = accountsObj.netids[netid]?.usernames?.[username];
       
