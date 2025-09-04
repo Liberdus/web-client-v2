@@ -13173,7 +13173,9 @@ console.log('    result is',result)
     });
     
     for (const key of accountFileKeys) {
-      const [, username, netid] = key.match(/(.+)_(.+)$/);
+      const match = key.match(/(.+)_(.+)$/);
+      if (!match) continue;
+      const [, username, netid] = match;
       
       const isRegistered = accountsObj.netids[netid]?.usernames?.[username];
       
