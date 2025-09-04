@@ -63,6 +63,26 @@
         #filmstrip-wrapper.stage-mode #video-grid { display:flex; flex-direction:column; align-content:stretch; align-items:stretch; flex-wrap:nowrap; overflow-y:auto; }
         #filmstrip-wrapper.stage-mode #video-grid .video-container { flex:0 0 auto; width:100%!important; height:180px!important; margin:0 0 8px 0!important; }
         #filmstrip-wrapper.stage-mode #video-grid .video-container:last-child { margin-bottom:0; }
+        /* Mobile stage overlay filmstrip */
+        @media (max-width:640px) {
+            #filmstrip-wrapper.stage-mode { /* default collapsed */
+                position:absolute; top:0; right:0; bottom:0; left:auto;
+                transform: translateX(100%);
+                width:240px; max-width:70%; flex:0 0 auto !important;
+                transition: transform .25s ease;
+                border-left:1px solid #1f2937;
+                z-index:35; /* over stage video */
+                box-shadow:-2px 0 10px rgba(0,0,0,.5);
+            }
+            #filmstrip-wrapper.stage-mode.open { transform: translateX(0); }
+            .filmstrip-toggle-btn { position:absolute; top:50%; transform:translateY(-50%); right:240px; /* same as panel width when hidden */ z-index:36; width:40px; height:40px; background:rgba(17,24,39,0.75); border:1px solid rgba(255,255,255,0.15); color:#fff; padding:0; border-radius:8px 0 0 8px; display:flex; align-items:center; justify-content:center; backdrop-filter:blur(6px); box-shadow:0 2px 6px rgba(0,0,0,.4); transition: right .25s ease, background .2s ease; }
+            .filmstrip-toggle-btn.open { right:240px; border-radius:8px 0 0 8px; }
+            #filmstrip-wrapper.stage-mode.open + .filmstrip-toggle-btn { right:240px; }
+            .filmstrip-toggle-btn:hover { background:rgba(31,41,55,0.85); }
+            .filmstrip-toggle-btn:active { transform:translateY(-50%) scale(.94); }
+            /* When closed, button should sit at screen right edge (just left of hidden panel) */
+            .filmstrip-toggle-btn.closed { right:0; border-radius:8px 0 0 8px; }
+        }
         .pin-btn { opacity:0; transition:opacity .15s ease; }
         .video-container:hover .pin-btn { opacity:1; }
         .pinned-badge { position:absolute; top:8px; left:8px; background:#3b82f6; color:#fff; font-size:10px; padding:2px 6px; border-radius:12px; letter-spacing:.5px; text-transform:uppercase; }
@@ -288,13 +308,19 @@
             if (wantsStage) {
                 stageArea.classList.remove('hidden');
                 filmstripWrapper.classList.add('stage-mode');
-                // Ensure wrapper + stage video exist
+                // Ensure wrapper + stage video exist BEFORE adding toggle so toggle isn't wiped
                 let wrapper = stageArea.querySelector('.pinned-video-wrapper');
                 if (!wrapper) {
                     wrapper = document.createElement('div');
                     wrapper.className = 'pinned-video-wrapper w-full h-full relative';
-                    stageArea.innerHTML = '';
                     stageArea.appendChild(wrapper);
+                }
+                // Mobile overlay behavior: ensure collapsed unless previously opened (after wrapper exists)
+                if (window.innerWidth <= 640) {
+                    filmstripWrapper.classList.remove('open');
+                    ensureMobileFilmstripToggle(stageArea, filmstripWrapper);
+                } else {
+                    removeMobileFilmstripToggle();
                 }
                 let stageVideo = wrapper.querySelector('video');
                 if (!stageVideo) {
@@ -351,9 +377,58 @@
             } else {
                 stageArea.classList.add('hidden');
                 filmstripWrapper.classList.remove('stage-mode');
+                filmstripWrapper.classList.remove('open');
+                removeMobileFilmstripToggle();
                 participants.forEach(p => { p.container.classList.remove('pinned'); removePinnedBadge(p.container); });
             }
             debouncedAdjustGrid();
+        }
+
+        // Mobile filmstrip toggle management
+        let filmstripToggleBtn = null;
+        function ensureMobileFilmstripToggle(stageArea, filmstripWrapper) {
+            if (filmstripToggleBtn) return; // already exists
+            filmstripToggleBtn = document.createElement('button');
+            filmstripToggleBtn.type = 'button';
+            filmstripToggleBtn.className = 'filmstrip-toggle-btn closed';
+            filmstripToggleBtn.setAttribute('aria-label', 'Show participants');
+            filmstripToggleBtn.setAttribute('aria-expanded', 'false');
+            filmstripToggleBtn.innerHTML = arrowSvg('left');
+            filmstripToggleBtn.addEventListener('click', () => {
+                const isOpen = filmstripWrapper.classList.toggle('open');
+                filmstripToggleBtn.classList.toggle('closed', !isOpen);
+                filmstripToggleBtn.classList.toggle('open', isOpen);
+                filmstripToggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                filmstripToggleBtn.setAttribute('aria-label', isOpen ? 'Hide participants' : 'Show participants');
+                filmstripToggleBtn.innerHTML = arrowSvg(isOpen ? 'right' : 'left');
+                if (isOpen) {
+                    const firstContainer = filmstripWrapper.querySelector('.video-container');
+                    if (firstContainer) firstContainer.focus?.();
+                }
+                positionToggleRelative();
+            });
+            // Append after filmstrip so stacking order keeps button visible even when panel animates
+            stageArea.appendChild(filmstripToggleBtn);
+            positionToggleRelative();
+        }
+        function arrowSvg(direction) {
+            // direction 'left' means panel closed; arrow points outward (←). 'right' means open; arrow points inward (→)
+            const d = direction === 'left' ? 'M15 6 L9 12 L15 18' : 'M9 6 L15 12 L9 18';
+            return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="${direction==='left'?'15 18 9 12 15 6':'9 18 15 12 9 6'}"></polyline></svg>`;
+        }
+        function positionToggleRelative() {
+            if (!filmstripToggleBtn) return;
+            if (window.innerWidth > 640 || stageMode === 'none') return;
+            const filmstripWrapper = document.getElementById('filmstrip-wrapper');
+            const isOpen = filmstripWrapper.classList.contains('open');
+            // When closed, button sits flush at right edge (right:0). When open, it sits at left edge of panel (right: filmstrip width)
+            filmstripToggleBtn.style.right = isOpen ? filmstripWrapper.offsetWidth + 'px' : '0px';
+        }
+        function removeMobileFilmstripToggle() {
+            if (filmstripToggleBtn) {
+                filmstripToggleBtn.remove();
+                filmstripToggleBtn = null;
+            }
         }
 
         function isScreenShareStream(stream, isLocal) {
@@ -1226,6 +1301,19 @@
 
         window.addEventListener('resize', () => {
             window.requestAnimationFrame(debouncedAdjustGrid);
+            // Adapt filmstrip overlay behavior when crossing mobile breakpoint in stage mode
+            const filmstripWrapper = document.getElementById('filmstrip-wrapper');
+            const stageArea = document.getElementById('stage-area');
+            if (stageMode !== 'none') {
+                if (window.innerWidth <= 640) {
+                    filmstripWrapper.classList.remove('open');
+                    ensureMobileFilmstripToggle(stageArea, filmstripWrapper);
+                } else {
+                    filmstripWrapper.classList.remove('open');
+                    removeMobileFilmstripToggle();
+                }
+            }
+            positionToggleRelative();
         });
 
         // Observe size changes of video area; guard against noisy intermediate widths during chat animation
