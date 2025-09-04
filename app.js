@@ -2774,6 +2774,7 @@ class HistoryModal {
         if (tx.type === 'deposit_stake' || tx.type === 'withdraw_stake') {
           const isStake = tx.type === 'deposit_stake';
           const isUnstake = tx.type === 'withdraw_stake';
+          const stakeType = isStake ? 'stake' : 'unstake';
           
           // Determine unstake color based on amount (positive = blue, negative = red)
           let unstakeTypeClass = '';
@@ -2786,7 +2787,7 @@ class HistoryModal {
           const amountNegativeAttr = (isUnstake && Number(tx.amount) < 0) ? 'data-amount-negative="true"' : '';
           
           return `
-            <div class="transaction-item" data-memo="${tx.memo}" ${txidAttr} ${statusAttr} ${amountNegativeAttr}>
+            <div class="transaction-item" data-memo="${stakeType}" ${txidAttr} ${statusAttr} ${amountNegativeAttr}>
               <div class="transaction-info">
                 <div class="transaction-type ${isStake ? 'stake' : unstakeTypeClass}">
                   ${isStake ? '↑ Staked' : '↓ Unstaked'}
@@ -2801,7 +2802,7 @@ class HistoryModal {
                 </div>
                 <div class="transaction-time">${formatTime(tx.timestamp)}</div>
               </div>
-              <div class="transaction-memo">${tx.memo}</div>
+              <div class="transaction-memo">${stakeType}</div>
             </div>
           `;
         }
@@ -6690,7 +6691,6 @@ class ValidatorStakingModal {
         myData.wallet.history.unshift({
           nominee: nodeAddress,
           amount: bigxnum2big(wei, '0'),
-          memo: 'unstake',
           type: 'withdraw_stake',
           sign: 1,
           status: 'sent',
@@ -7032,7 +7032,6 @@ class StakeValidatorModal {
         myData.wallet.history.unshift({
           nominee: nodeAddress,
           amount: amount_in_wei,
-          memo: 'stake',
           type: 'deposit_stake',
           sign: -1,
           status: 'sent',
