@@ -9199,7 +9199,14 @@ console.warn('in send message', txid)
     }
     tollValue.textContent = display;
 
-    this.toll = toll;
+    // Store the toll in LIB format for message creation (chat messages expect LIB wei)
+    if (tollUnit === 'USD') {
+      // Convert USD toll to LIB wei for internal use
+      this.toll = bigxnum2big(wei, (usdValue / factor).toString());
+    } else {
+      // Already in LIB format
+      this.toll = toll;
+    }
     this.tollUnit = tollUnit;
   }
 
