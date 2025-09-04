@@ -4780,7 +4780,7 @@ class RemoveAccountsModal {
         label.innerHTML = `
           <input type="checkbox" data-username="${acc.username}" data-netid="${acc.netid}" />
           <span class="remove-account-username">${acc.username}</span>
-          <span class="remove-account-stats">${acc.contactsCount} contacts, ${acc.messagesCount} messages</span>
+          <span class="remove-account-stats">${acc.contactsCount} contacts, ${acc.messagesCount} messages${acc.orphan ? ' (orphan)' : ''}</span>
         `;
         list.appendChild(label);
       });
