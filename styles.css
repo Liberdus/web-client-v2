@@ -2739,6 +2739,15 @@ mark {
   background: rgba(239, 108, 0, 0.9);
 }
 
+.toast.info {
+  background: rgba(0, 123, 255, 0.9);
+  text-align: left;
+  max-width: 400px;
+  width: 90%;
+  padding: 16px 20px;
+  line-height: 1.4;
+}
+
 .toast.online {
   background: rgba(0, 102, 204, 0.9);
 }

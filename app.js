@@ -4031,11 +4031,16 @@ function createDisplayInfo(contact) {
 }
 
 // Add this function before the ContactInfoModal class
-function showToast(message, duration = 2000, type = 'default') {
+function showToast(message, duration = 2000, type = 'default', isHTML = false) {
   const toastContainer = document.getElementById('toastContainer');
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  toast.textContent = message;
+  
+  if (isHTML) {
+    toast.innerHTML = message;
+  } else {
+    toast.textContent = message;
+  }
 
   // Generate a unique ID for this toast
   const toastId = 'toast-' + getCorrectedTimestamp() + '-' + Math.floor(Math.random() * 1000);
@@ -4063,7 +4068,19 @@ function showToast(message, duration = 2000, type = 'default') {
       toast.onclick = () => {
         hideToast(toastId);
       };
-    } else if (duration > 0) {
+    } else if (duration <= 0) {
+      // Sticky non-error toast (e.g., info) with close button
+      toast.style.pointerEvents = 'auto';
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'toast-close-btn';
+      closeBtn.setAttribute('aria-label', 'Close');
+      closeBtn.innerHTML = '&times;';
+      toast.appendChild(closeBtn);
+
+      toast.onclick = () => {
+        hideToast(toastId);
+      };
+    } else {
       setTimeout(() => {
         hideToast(toastId);
       }, duration);
@@ -7424,6 +7441,16 @@ class ChatModal {
       }
     });
 
+
+    // Make toll info clickable: show sticky info toast and refresh toll in background
+    const tollContainer = this.modal.querySelector('.toll-container');
+    if (tollContainer) {
+      tollContainer.style.cursor = 'pointer';
+      tollContainer.addEventListener('click', () => {
+        const message = '<strong>What is a Toll?</strong><br><br>A toll is a small amount of LIB that recipients require with your message to prevent spam.<br><br><strong>How it works:</strong><br>• You must send the toll amount to send a message<br>• The toll is typically returned when they respond<br>• Tolls can change based on friend status<br>• Higher tolls = stronger spam protection';
+        showToast(message, 0, 'info', true);
+      });
+    }
 
   }
 
