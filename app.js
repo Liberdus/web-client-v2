@@ -9252,7 +9252,7 @@ console.warn('in send message', txid)
   }
 
   /**
-   * Handles the call user action by generating a unique Jitsi Meet URL and sending it as a call message
+   * Handles the call user action by generating a unique WebRTC Meet URL and sending it as a call message
    * @returns {Promise<void>}
    */
   async handleCallUser() {
@@ -9261,14 +9261,14 @@ console.warn('in send message', txid)
       const randomBytes = generateRandomBytes(32); // 32 bytes = 256 bits
       const randomHex = bin2hex(randomBytes).slice(0, 20);
 
-      // Create the Jitsi Meet URL
-      const jitsiUrl = `https://meet.jit.si/${randomHex}`;
+      // Create the Meet URL
+      const meetUrl = `https://arimaa.com/meet?room=${randomHex}`;
       
-      // Open the Jitsi URL in a new tab
-      window.open(jitsiUrl, '_blank');
+      // Open the URL in a new tab
+      window.open(meetUrl, '_blank');
       
       // Send a call message to the contact
-      await this.sendCallMessage(jitsiUrl);
+      await this.sendCallMessage(meetUrl);
       
     } catch (error) {
       console.error('Error handling call user:', error);
@@ -9277,11 +9277,11 @@ console.warn('in send message', txid)
   }
 
   /**
-   * Sends a call message with the Jitsi Meet URL
-   * @param {string} jitsiUrl - The Jitsi Meet URL to send
+   * Sends a call message with the Meet URL
+   * @param {string} meetUrl - The Meet URL to send
    * @returns {Promise<void>}
    */
-  async sendCallMessage(jitsiUrl) {
+  async sendCallMessage(meetUrl) {
     // if user is blocked, don't send message, show toast
     if (myData.contacts[this.address].tollRequiredToSend == 2) {
       showToast('You are blocked by this user', 0, 'error');
@@ -9327,7 +9327,7 @@ console.warn('in send message', txid)
       // Convert call message to new JSON format
       const callObj = {
         type: 'call',
-        url: jitsiUrl
+        url: meetUrl
       };
 
       // Encrypt the JSON message using shared secret
@@ -9371,7 +9371,7 @@ console.warn('in send message', txid)
 
       // Create new message object for local display immediately
       const newMessage = {
-        message: jitsiUrl,
+        message: meetUrl,
         timestamp: payload.sent_timestamp,
         sent_timestamp: payload.sent_timestamp,
         my: true,
