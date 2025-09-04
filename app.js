@@ -4703,7 +4703,7 @@ class RemoveAccountsModal {
       const [, username, netid] = match;
       
       // Validate username and netid
-      if (!username || !netid || netid.length !== 64) continue;
+      if (!username || !netid) continue;
       
       // Check if this account is already in our result list
       const already = result.find(r => r.username === username && r.netid === netid);
