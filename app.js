@@ -2770,6 +2770,42 @@ class HistoryModal {
           `;
         }
         
+        // Handle stake transactions differently
+        if (tx.memo === 'stake' || tx.memo === 'unstake') {
+          const isStake = tx.memo === 'stake';
+          const isUnstake = tx.memo === 'unstake';
+          
+          // Determine unstake color based on amount (positive = blue, negative = red)
+          let unstakeTypeClass = '';
+          if (isUnstake) {
+            const amount = Number(tx.amount);
+            unstakeTypeClass = amount >= 0 ? 'unstake-positive' : 'unstake-negative';
+          }
+          
+          // Add data attribute for negative unstake transactions to help with CSS styling
+          const amountNegativeAttr = (isUnstake && Number(tx.amount) < 0) ? 'data-amount-negative="true"' : '';
+          
+          return `
+            <div class="transaction-item" data-memo="${tx.memo}" ${txidAttr} ${statusAttr} ${amountNegativeAttr}>
+              <div class="transaction-info">
+                <div class="transaction-type ${isStake ? 'stake' : unstakeTypeClass}">
+                  ${isStake ? '↑ Staked' : '↓ Unstaked'}
+                </div>
+                <div class="transaction-amount">
+                  ${isStake ? '-' : (Number(tx.amount) >= 0 ? '+' : '-')} ${Math.abs(Number(tx.amount) / Number(wei)).toFixed(6)} ${asset.symbol}
+                </div>
+              </div>
+              <div class="transaction-details">
+                <div class="transaction-address">
+                  ${isStake ? 'To:' : 'From:'} ${tx.nominee || 'Unknown Validator'}
+                </div>
+                <div class="transaction-time">${formatTime(tx.timestamp)}</div>
+              </div>
+              ${tx.memo ? `<div class="transaction-memo">${linkifyUrls(tx.memo)}</div>` : ''}
+            </div>
+          `;
+        }
+        
         // Render normal transaction
         const contactName = getContactDisplayName(contacts[tx.address]);
         

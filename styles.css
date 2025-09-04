@@ -1769,6 +1769,35 @@ input[type='file'].form-control::file-selector-button {
   color: var(--success-color);
 }
 
+.transaction-type.stake {
+  color: var(--warning-color); /* Orange color for stake transactions */
+}
+
+.transaction-type.unstake-positive {
+  color: var(--info-color); /* Blue color for positive unstake transactions */
+}
+
+.transaction-type.unstake-negative {
+  color: var(--danger-color); /* Red color for negative unstake transactions */
+}
+
+/* Add visual distinction for stake transactions */
+.transaction-item[data-memo="stake"] {
+  border-left: 3px solid var(--warning-color);
+  padding-left: calc(1rem - 3px); /* Adjust padding to account for border */
+}
+
+/* Add visual distinction for unstake transactions */
+.transaction-item[data-memo="unstake"] {
+  border-left: 3px solid var(--info-color); /* Default blue border for unstake */
+  padding-left: calc(1rem - 3px); /* Adjust padding to account for border */
+}
+
+/* Override border color for negative unstake transactions */
+.transaction-item[data-memo="unstake"][data-amount-negative="true"] {
+  border-left-color: var(--danger-color);
+}
+
 .transaction-amount {
   font-family: var(--font-primary);
   font-weight: var(--font-weight-semibold);
