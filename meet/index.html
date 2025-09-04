@@ -252,6 +252,9 @@
             if (!participants.has(id)) return;
             pinnedParticipantId = id;
             stageMode = 'pinned';
+            // Persist this as a user-selected pin so screen-share fallback logic
+            // will not automatically revert it when a screen share ends.
+            previousNonScreenStageMode = 'pinned';
             applyStageLayout();
         }
 
@@ -969,8 +972,16 @@
                     }
                 }
             } else {
-                // No screen share anymore; fall back if we were in a forced screen stage
-                if (pinnedParticipantId && stageMode === 'pinned' && previousNonScreenStageMode !== 'pinned') {
+                // No screen share anymore; fall back ONLY if current pin was a forced screen-share pin
+                // (i.e., previousNonScreenStageMode was something other than 'pinned' AND the pinned participant
+                // matches the last screen sharer we auto-selected). Manual user pins set previousNonScreenStageMode
+                // to 'pinned' and won't be reverted here.
+                if (
+                    pinnedParticipantId &&
+                    stageMode === 'pinned' &&
+                    previousNonScreenStageMode !== 'pinned' &&
+                    pinnedParticipantId === lastScreenSharerId
+                ) {
                     pinnedParticipantId = null;
                     stageMode = previousNonScreenStageMode;
                     applyStageLayout();
