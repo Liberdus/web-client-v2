@@ -5547,35 +5547,6 @@ class TollModal {
   }
 
   /**
-   * Handle the toggle of the toll currency
-   * @param {Event} event - The event object
-   * @returns {void}
-   */
-  async handleToggleTollCurrency(event) {
-    event.preventDefault();
-
-    this.currentCurrency = this.currentCurrency === 'LIB' ? 'USD' : 'LIB';
-    this.tollCurrencySymbol.textContent = this.currentCurrency;
-
-    const scalabilityFactor = getStabilityFactor();
-    if (this.newTollAmountInputElement.value !== '') {
-      const currentValue = parseFloat(this.newTollAmountInputElement.value);
-      const convertedValue =
-        this.currentCurrency === 'USD' ? currentValue * scalabilityFactor : currentValue / scalabilityFactor;
-      this.newTollAmountInputElement.value = convertedValue.toString();
-    }
-
-    // Update min toll display with converted value
-    if (this.currentCurrency === 'USD') {
-      const minTollUSD = bigxnum2big(this.minToll, scalabilityFactor.toString());
-      this.minTollDisplay.textContent = `Minimum toll: ${parseFloat(big2str(minTollUSD, 18)).toFixed(4)} USD`; // Show 4 decimal places for USD
-    } else {
-      this.minTollDisplay.textContent = `Minimum toll: ${parseFloat(big2str(this.minToll, 18)).toFixed(6)} LIB`; // Show 6 decimal places for LIB
-    }
-    this.updateSaveButtonState();
-  }
-
-  /**
    * Save and post the new toll to the network
    * @param {Event} event - The event object
    * @returns {Promise<void>}
