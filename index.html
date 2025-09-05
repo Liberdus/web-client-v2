@@ -850,6 +850,55 @@
         <a class="last-item" href="#"> </a>
       </div>
 
+      <!-- Call Schedule Choice Modal -->
+      <div class="modal modal-dialog" id="callScheduleChoiceModal">
+        <div class="dialog-box-content">
+          <div class="modal-header">
+            <button class="back-button" id="closeCallScheduleChoiceModal"></button>
+            <div class="modal-title">Start a Call</div>
+          </div>
+          <div class="modal-content">
+            <div class="form-container">
+              <p class="modal-summary">Choose to call now or schedule a future time.</p>
+              <div class="form--narrow">
+                <div class="form-actions">
+                  <button type="button" id="callScheduleNowBtn" class="btn btn--primary btn--pill btn--full">Call Now</button>
+                  <button type="button" id="openCallScheduleDateBtn" class="btn btn--primary btn--pill btn--full">Schedule</button>
+                  <button type="button" id="cancelCallScheduleChoice" class="btn btn--secondary btn--pill btn--full">Cancel</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <a class="last-item" href="#"></a>
+      </div>
+
+      <!-- Call Schedule Date Modal -->
+      <div class="modal modal-dialog" id="callScheduleDateModal">
+        <div class="dialog-box-content">
+          <div class="modal-header">
+            <button class="back-button" id="closeCallScheduleDateModal"></button>
+            <div class="modal-title">Schedule Call</div>
+          </div>
+          <div class="modal-content">
+            <div class="form-container">
+              <form id="callScheduleDateForm" class="form--narrow">
+                <div class="form-group">
+                  <label for="callScheduleInput">Select date and time</label>
+                  <input id="callScheduleInput" type="datetime-local" class="form-control" />
+                  <small>Your local time</small>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" id="confirmCallSchedule" class="btn btn--primary btn--pill btn--full">Submit</button>
+                  <button type="button" id="cancelCallScheduleDate" class="btn btn--secondary btn--pill btn--full">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        <a class="last-item" href="#"></a>
+      </div>
+
       <!-- Voice Recording Modal -->
       <div id="voiceRecordingModal" style="display: none;">
         <div class="voice-recording-content">
