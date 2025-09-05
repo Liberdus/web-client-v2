@@ -3657,13 +3657,14 @@ async function injectTx(tx, txid) {
       }
       myData.pending.push(pendingTxData);
     } else {
-      showToast('Error injecting transaction: ' + data?.result?.reason, 0, 'error');
+      let toastMessage = 'Error injecting transaction: ' + data?.result?.reason;
       console.error('Error injecting transaction:', data?.result?.reason);
       if (data?.result?.reason?.includes('timestamp out of range')) {
         console.error('Timestamp out of range, updating timestamp');
         timeDifference()
-        showToast('Try again.', 0, 'error');
+        toastMessage += ' (Please try again)';
       }
+      showToast(toastMessage, 0, 'error');
     }
     return data;
   } catch (error) {
