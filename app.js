@@ -13459,13 +13459,18 @@ class LockModal {
     // if new password is empty, remove the password from localStorage
     // once we are here we know the old password is correct
     if (this.mode === 'remove') {
-      await encryptAllAccounts(oldPassword, newPassword)
-      delete localStorage.lock;
-      this.encKey = null;
-      // remove the loading toast
-      if (waitingToastId) hideToast(waitingToastId);
-      showToast('Password removed', 2000, 'success');
-      this.close();
+      try {
+        await encryptAllAccounts(oldPassword, newPassword)
+        delete localStorage.lock;
+        this.encKey = null;
+        // remove the loading toast
+        if (waitingToastId) hideToast(waitingToastId);
+        showToast('Password removed', 2000, 'success');
+        this.close();
+      } catch (error) {
+        console.error('Decryption failed:', error);
+        showToast('Failed to decrypt accounts. Please try again.', 0, 'error');
+      }
       return;
     }
 
