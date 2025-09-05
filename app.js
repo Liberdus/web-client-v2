@@ -9342,6 +9342,23 @@ console.warn('in send message', txid)
    */
   async handleCallUser() {
     try {
+      // Synchronous eligibility based on cached value fetched on ChatModal open
+      const contact = myData.contacts[this.address] || {};
+      const required = contact.tollRequiredToSend;
+      if (required !== 0) {
+        const username = contact.username || `${this.address.slice(0, 8)}...${this.address.slice(-6)}`;
+        if (required === 2) {
+          showToast('You are blocked by this user', 0, 'error');
+        } else {
+          showToast(
+            `You can only call people who have added you as a friend or connection. Ask ${username} to add you as a friend or connection`,
+            0,
+            'info'
+          );
+        }
+        return;
+      }
+
       // Generate a 256-bit random number and convert to base64
       const randomBytes = generateRandomBytes(32); // 32 bytes = 256 bits
       const randomHex = bin2hex(randomBytes).slice(0, 20);
