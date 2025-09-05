@@ -2864,8 +2864,8 @@ class HistoryModal {
       return;
     }
     
-    const memo = item.querySelector('.transaction-memo')?.textContent;
-    if (memo === 'stake' || memo === 'unstake') {
+    const type = item.querySelector('.transaction-type')?.textContent;
+    if (type.includes('stake')) {
       validatorStakingModal.open();
       return;
     }
