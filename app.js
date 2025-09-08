@@ -4247,6 +4247,11 @@ function markConnectivityDependentElements() {
 
     //unstakeModal
     '#submitUnstake',
+
+    // Call schedule modals
+    '#callScheduleNowBtn',
+    '#openCallScheduleDateBtn',
+    '#confirmCallSchedule',
   ];
 
   // Add data attribute to all network-dependent elements
@@ -7377,6 +7382,23 @@ class ChatModal {
     
     // Add event delegation for message clicks (since messages are created dynamically)
     this.messagesList.addEventListener('click', this.handleMessageClick.bind(this));
+    // Intercept clicks on call icon to gate future calls
+    this.messagesList.addEventListener('click', (e) => {
+      const phoneAnchor = e.target.closest('.call-message-phone-button');
+      if (!phoneAnchor) return;
+      const messageEl = phoneAnchor.closest('.message');
+      if (!messageEl) return;
+      const callTimeAttr = messageEl.getAttribute('data-call-time');
+      const callTime = callTimeAttr ? Number(callTimeAttr) : 0;
+      if (callTime && callTime > getCorrectedTimestamp()) {
+        e.preventDefault();
+        e.stopPropagation();
+        const whenLocal = new Date(callTime - timeSkew).toLocaleString();
+        showToast(`Call scheduled for ${whenLocal}`, 2500, 'info');
+        return false;
+      }
+      return true;
+    });
     
     // Add context menu option listeners
     this.contextMenu.addEventListener('click', (e) => {
@@ -8188,14 +8210,24 @@ console.warn('in send message', txid)
           if (item.message && item.message.trim()) {
             // Check if this is a call message
             if (item.type === 'call') {
+              // Build scheduled label if in the future
+              const callTimeMs = item.callTime || 0;
+              const nowCorr = getCorrectedTimestamp();
+              let scheduleHTML = '';
+              if (callTimeMs && callTimeMs > nowCorr) {
+                const whenLocal = new Date(callTimeMs - timeSkew).toLocaleString();
+                scheduleHTML = `<div class="call-message-schedule">Scheduled: ${whenLocal}</div>`;
+              }
               // Render call message with a left circular phone icon (clickable) and plain text to the right
-              // Icon is an anchor so only the icon is clickable (like voice play button)
               messageTextHTML = `
                 <div class="call-message">
                   <a href="${item.message}" target="_blank" rel="noopener noreferrer" class="call-message-phone-button" aria-label="Join Video Call">
                     <span class="sr-only">Join Video Call</span>
                   </a>
-                  <div class="call-message-text">Join Video Call</div>
+                  <div>
+                    <div class="call-message-text">Join Video Call</div>
+                    ${scheduleHTML}
+                  </div>
                 </div>`;
             } else {
               // Regular message rendering
@@ -8223,8 +8255,9 @@ console.warn('in send message', txid)
               </div>`;
           }
           
+          const callTimeAttribute = item.type === 'call' && item.callTime ? `data-call-time="${item.callTime}"` : '';
           messageHTML = `
-                      <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
+                      <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute} ${callTimeAttribute}>
                           ${attachmentsHTML}
                           ${messageTextHTML}
                           <div class="message-time">${timeString}</div>
@@ -9065,6 +9098,15 @@ console.warn('in send message', txid)
   handleJoinCall(messageEl) {
     const callLink = messageEl.querySelector('.call-message a')?.href;
     if (!callLink) return showToast('Call link not found', 2000, 'error');
+    // Gate future scheduled calls
+    const callTimeAttr = messageEl.getAttribute('data-call-time');
+    const callTime = callTimeAttr ? Number(callTimeAttr) : 0;
+    if (callTime && callTime > getCorrectedTimestamp()) {
+      const whenLocal = new Date(callTime - timeSkew).toLocaleString();
+      showToast(`Call scheduled for ${whenLocal}`, 2500, 'info');
+      this.closeContextMenu();
+      return;
+    }
     window.open(callLink, '_blank');
     this.closeContextMenu();
   }
@@ -9529,7 +9571,8 @@ console.warn('in send message', txid)
         my: true,
         txid: txid,
         status: 'sent',
-        type: 'call'
+        type: 'call',
+        callTime: callTime || 0
       };
       insertSorted(chatsData.contacts[currentAddress].messages, newMessage, 'timestamp');
 
