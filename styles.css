@@ -2837,7 +2837,6 @@ mark {
   cursor: not-allowed !important;
   position: relative;
   pointer-events: none;
-  background-color: var(--hover-background) !important;
 }
 
 /* Offline indicator in header */
@@ -2911,7 +2910,7 @@ mark {
     rgba(0, 0, 0, 0.153) 20px
   );
   pointer-events: none;
-  border-radius: 50%; /* Match the floating-button's circular radius */
+  border-radius: inherit; /* Match the target element's radius (works for circles and rectangles) */
 }
 
 .offline-disabled:hover::after {
