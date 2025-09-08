@@ -829,6 +829,8 @@
           </div>
           <div class="message-input-row">
             <button class="icon-button add-attachment-button" id="addAttachmentButton" aria-label="Add attachment"></button>
+            <!-- Cancel Edit button (shown only when editing a message) -->
+            <button class="icon-button cancel-edit-button" id="cancelEditButton" aria-label="Cancel edit" style="display: none;"></button>
             <div class="message-input-wrapper">
               <textarea class="message-input" placeholder="Type a message..."></textarea>
               <div class="toll-container">
@@ -837,6 +839,7 @@
               </div>
             </div>
             <input type="hidden" id="retryOfTxId" />
+            <input type="hidden" id="editOfTxId" />
             <!-- Add hidden file input for chat attachments -->
             <input type="file" id="chatFileInput" style="display:none;">
             <button class="icon-button voice-record-button" id="voiceRecordButton" aria-label="Record voice message"></button>
@@ -899,6 +902,11 @@
         <div class="context-menu-option" data-action="copy" data-icon="copy">
           <span class="context-menu-icon"></span>
           <span class="context-menu-text">Copy</span>
+        </div>
+        <!-- Edit own message option (shown only within allowed time window) -->
+        <div class="context-menu-option" data-action="edit" data-icon="edit" style="display: none;">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text">Edit</span>
         </div>
         <!-- Call-specific action: Join -->
         <div class="context-menu-option" data-action="join" data-icon="call" style="display: none;">

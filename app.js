@@ -3186,6 +3186,28 @@ if (mine) console.warn('txid in processChats is', txidHex)
                     // Don't process this message further - it's just a control message
                     continue;
                   }
+                } else if (parsedMessage.type === 'edit') {
+                  const txidToEdit = parsedMessage.txid;
+                  const newText = parsedMessage.text;
+                  if (txidToEdit && typeof newText === 'string') {
+                    const messageToEdit = contact.messages.find(msg => msg.txid === txidToEdit);
+                    if (messageToEdit && !messageToEdit.deleted) {
+                      // Allow editing only if original sender matches editor and it's their own message OR
+                      // we receive someone else's edit for their own message
+                      const originalSender = normalizeAddress(tx.from);
+                      const isOriginalMine = messageToEdit.my && normalizeAddress(keys.address) === originalSender;
+                      const isOriginalTheirs = !messageToEdit.my && originalSender === from;
+                      if (isOriginalMine || isOriginalTheirs) {
+                        messageToEdit.message = newText;
+                        messageToEdit.edited = 1;
+                        messageToEdit.edited_timestamp = tx.timestamp;
+                        if (chatModal.isActive() && chatModal.address === from) {
+                          chatModal.appendChatModal();
+                        }
+                      }
+                    }
+                  }
+                  continue; // control message, don't add
                 } else if (parsedMessage.type === 'call') {
                   payload.message = parsedMessage.url;
                   payload.type = 'call';
@@ -7343,6 +7365,7 @@ class ChatModal {
     this.closeButton = document.getElementById('closeChatModal');
     this.messagesList = document.querySelector('.messages-list');
     this.sendButton = document.getElementById('handleSendMessage');
+    this.cancelEditButton = document.getElementById('cancelEditButton');
     this.modalAvatar = this.modal.querySelector('.modal-avatar');
     this.modalTitle = this.modal.querySelector('.modal-title');
     this.editButton = document.getElementById('chatEditButton');
@@ -7386,6 +7409,7 @@ class ChatModal {
       }
     });
     this.sendButton.addEventListener('click', this.handleSendMessage.bind(this));
+    this.cancelEditButton.addEventListener('click', () => this.cancelEdit());
     this.closeButton.addEventListener('click', this.close.bind(this));
     this.sendButton.addEventListener('keydown', ignoreTabKey);
 
@@ -7523,6 +7547,11 @@ class ChatModal {
     this.messageInput.value = '';
     this.messageInput.style.height = '48px';
     this.messageByteCounter.style.display = 'none';
+    // clear any edit state and hide cancel button
+    const editInputInit = document.getElementById('editOfTxId');
+    editInputInit.value = '';
+    this.cancelEditButton.style.display = 'none';
+    this.addAttachmentButton.disabled = false;
 
     friendModal.setAddress(address);
     footer.closeNewChatButton();
@@ -7805,6 +7834,13 @@ class ChatModal {
       return;
     }
 
+    // Declare edit-related state outside try so catch can access
+    let isEdit = false;
+    let originalMsg = null;
+    let originalMsgState = null;
+    let editInput = null;
+    let editTargetTxId = '';
+
     try {
       this.messageInput.focus(); // Add focus back to keep keyboard open
 
@@ -7874,11 +7910,44 @@ class ChatModal {
       const {dhkey, cipherText} = dhkeyCombined(keys.secret, recipientPubKey, pqRecPubKey)
       const selfKey = encryptData(bin2hex(dhkey), keys.secret+keys.pqSeed, true)  // used to decrypt our own message
 
-      // Convert message to new JSON format with type and optional attachments
-      const messageObj = {
-        type: 'message',
-        message: message
-      };
+      // Determine if this is an edit of an existing message
+      editInput = document.getElementById('editOfTxId');
+      editTargetTxId = editInput ? editInput.value.trim() : '';
+
+      // Build message object: either normal message or edit control
+      let messageObj;
+      if (editTargetTxId) {
+        // Validate we still can edit
+        const contactMsgs = myData.contacts[currentAddress].messages;
+        originalMsg = contactMsgs.find(m => m.txid === editTargetTxId);
+        const EDIT_WINDOW_MS = 15 * 60 * 1000;
+        if (!originalMsg) {
+          // Original disappeared; fallback to normal send
+          console.warn('Edit target message not found locally; sending as new message');
+        } else if (!originalMsg.my) {
+          console.warn('Attempt to edit a message not owned by user');
+        } else if (originalMsg.deleted) {
+          console.warn('Attempt to edit a deleted message');
+        } else if ((Date.now() - Number(originalMsg.timestamp || 0)) > EDIT_WINDOW_MS) {
+          showToast('Edit window expired', 3000, 'info');
+        } else {
+          isEdit = true;
+        }
+      }
+
+      if (isEdit) {
+        messageObj = {
+          type: 'edit',
+            txid: editTargetTxId,
+            text: message
+        };
+      } else {
+        // Convert message to new JSON format with type and optional attachments
+        messageObj = {
+          type: 'message',
+          message: message
+        };
+      }
 
       // Handle attachments - add them to the JSON structure instead of using xattach
       if (this.fileAttachments && this.fileAttachments.length > 0) {
@@ -7939,16 +8008,39 @@ console.warn('in send message', txid)
 
       // --- Optimistic UI Update ---
       // Create new message object for local display immediately
-      const newMessage = {
-        message,
-        timestamp: payload.sent_timestamp,
-        sent_timestamp: payload.sent_timestamp,
-        my: true,
-        txid: txid,
-        status: 'sent',
-        ...(this.fileAttachments && this.fileAttachments.length > 0 && { xattach: this.fileAttachments }), // Only include if there are attachments
-      };
-      insertSorted(chatsData.contacts[currentAddress].messages, newMessage, 'timestamp');
+      let newMessage;
+      if (isEdit) {
+        // Optimistic update of original message (record original so we can revert on failure)
+        const contactMsgs = chatsData.contacts[currentAddress].messages;
+        originalMsg = contactMsgs.find(m => m.txid === editTargetTxId);
+        if (originalMsg) {
+          originalMsgState = {
+            message: originalMsg.message,
+            edited: originalMsg.edited,
+            edited_timestamp: originalMsg.edited_timestamp
+          };
+          originalMsg.message = message;
+          originalMsg.edited = 1;
+          originalMsg.edited_timestamp = payload.sent_timestamp;
+          this.appendChatModal();
+        }
+        // Clear edit marker only after capturing state and hide cancel button
+        editInput.value = '';
+        this.cancelEditButton.style.display = 'none';
+        // Leaving edit mode optimistically; re-enable attachments
+        this.addAttachmentButton.disabled = false;
+      } else {
+        newMessage = {
+          message,
+          timestamp: payload.sent_timestamp,
+          sent_timestamp: payload.sent_timestamp,
+          my: true,
+          txid: txid,
+          status: 'sent',
+          ...(this.fileAttachments && this.fileAttachments.length > 0 && { xattach: this.fileAttachments }), // Only include if there are attachments
+        };
+        insertSorted(chatsData.contacts[currentAddress].messages, newMessage, 'timestamp');
+      }
 
       // clear file attachments and remove preview
       if (this.fileAttachments && this.fileAttachments.length > 0) {
@@ -7959,7 +8051,7 @@ console.warn('in send message', txid)
       // Update or add to chats list, maintaining chronological order
       const chatUpdate = {
         address: currentAddress,
-        timestamp: newMessage.sent_timestamp,
+        timestamp: (newMessage ? newMessage.sent_timestamp : getCorrectedTimestamp()),
         txid: txid,
       };
 
@@ -7972,7 +8064,7 @@ console.warn('in send message', txid)
       insertSorted(chatsData.chats, chatUpdate, 'timestamp');
 
       // Clear input and reset height, and delete any saved draft
-      this.messageInput.value = '';
+           this.messageInput.value = '';
       this.messageInput.style.height = '48px'; // original height
 
       // Hide byte counter
@@ -7983,7 +8075,7 @@ console.warn('in send message', txid)
       contact.draft = '';
 
       // Update the chat modal UI immediately
-      this.appendChatModal(); // This should now display the 'sending' message
+      if (!isEdit) this.appendChatModal(); // This should now display the 'sending' message
 
       // Scroll to bottom of chat modal
       this.messagesList.parentElement.scrollTop = this.messagesList.parentElement.scrollHeight;
@@ -8013,23 +8105,85 @@ console.warn('in send message', txid)
         //showToast(userMessage, 4000, 'error');
 
         // Update message status to 'failed' in the UI
-        updateTransactionStatus(txid, currentAddress, 'failed', 'message');
-        this.appendChatModal();
+        if (!isEdit) {
+          updateTransactionStatus(txid, currentAddress, 'failed', 'message');
+          this.appendChatModal();
+        } else {
+          showToast('Edit failed to send', 0, 'error');
+          // Revert optimistic edit
+          if (originalMsg && originalMsgState) {
+            originalMsg.message = originalMsgState.message;
+            if (originalMsgState.edited) {
+              originalMsg.edited = originalMsgState.edited;
+              originalMsg.edited_timestamp = originalMsgState.edited_timestamp;
+            } else {
+              delete originalMsg.edited;
+              delete originalMsg.edited_timestamp;
+            }
+            this.appendChatModal();
+          }
+          // Restore edit UI state to allow user to retry or cancel
+          editInput.value = editTargetTxId;
+          this.cancelEditButton.style.display = '';
+          this.addAttachmentButton.disabled = true;
+          // Restore the attempted edit text in the input
+          this.messageInput.value = message;
+          this.messageInput.focus();
+        }
 
         // Remove from pending transactions as injectTx itself indicated failure
         /* if (myData && myData.pending) {
                     myData.pending = myData.pending.filter(pTx => pTx.txid !== txid);
                 } */
       } else {
-        // Message sent successfully (or at least accepted by gateway)
-        // The optimistic UI update for 'sent' status is already handled before injectTx.
-        // No specific action needed here for success as the UI already reflects 'sent'.
+        // Success: for normal message nothing extra; for edit we already updated locally
+        if (isEdit) {
+          showToast('Message edited', 2000, 'success');
+          this.addAttachmentButton.disabled = false;
+        }
       }
     } catch (error) {
       console.error('Message error:', error);
       showToast('Failed to send message. Please try again.', 0, 'error');
+      // Revert optimistic edit on exception
+      if (isEdit && originalMsg && originalMsgState) {
+        originalMsg.message = originalMsgState.message;
+        if (originalMsgState.edited) {
+          originalMsg.edited = originalMsgState.edited;
+          originalMsg.edited_timestamp = originalMsgState.edited_timestamp;
+        } else {
+          delete originalMsg.edited;
+          delete originalMsg.edited_timestamp;
+        }
+        this.appendChatModal();
+      }
     } finally {
       this.sendButton.disabled = false; // Re-enable the button
+    }
+  }
+
+  /**
+   * Cancel editing mode without sending: clears hidden edit txid and restores UI state
+   */
+  cancelEdit() {
+    try {
+      const editInput = document.getElementById('editOfTxId');
+      if (editInput) editInput.value = '';
+      // Clear input text and reset height
+      this.messageInput.value = '';
+      this.messageByteCounter.style.display = 'none';
+      // Clear any saved draft
+      if (typeof this.debouncedSaveDraft === 'function') {
+        this.debouncedSaveDraft('');
+      }
+      // Hide cancel button
+      this.cancelEditButton.style.display = 'none';
+      // Re-enable attachments on cancel
+      this.addAttachmentButton.disabled = false;
+      // Give feedback
+      showToast('Edit cancelled', 1500, 'info');
+    } catch (e) {
+      console.error('Failed to cancel edit', e);
     }
   }
 
@@ -8220,7 +8374,7 @@ console.warn('in send message', txid)
                       <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
                           ${attachmentsHTML}
                           ${messageTextHTML}
-                          <div class="message-time">${timeString}</div>
+                          <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}</div>
                       </div>
                   `;
         }
@@ -8879,6 +9033,7 @@ console.warn('in send message', txid)
     const joinOption = this.contextMenu.querySelector('[data-action="join"]');
     const inviteOption = this.contextMenu.querySelector('[data-action="call-invite"]');
     const editResendOption = this.contextMenu.querySelector('[data-action="edit-resend"]');
+    const editOption = this.contextMenu.querySelector('[data-action="edit"]');
     const isFailedPayment = messageEl.dataset.status === 'failed' && messageEl.classList.contains('payment-info');
     // For failed payment messages, hide copy and delete-for-all regardless of sender
     if (isFailedPayment) {
@@ -8890,11 +9045,24 @@ console.warn('in send message', txid)
       if (joinOption) joinOption.style.display = 'flex';
       if (inviteOption) inviteOption.style.display = 'flex';
       if (editResendOption) editResendOption.style.display = 'none';
+      if (editOption) editOption.style.display = 'none';
     } else {
       if (copyOption) copyOption.style.display = 'flex';
       if (joinOption) joinOption.style.display = 'none';
       if (inviteOption) inviteOption.style.display = 'none';
       if (editResendOption) editResendOption.style.display = isFailedPayment ? 'flex' : 'none';
+      // Determine if edit should be shown
+      if (editOption) {
+        // Conditions: own message (.sent), not deleted, not payment, not failed, within 15 minutes, plain message (not voice/call/payment)
+        const EDIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+        const createdTs = parseInt(messageEl.dataset.messageTimestamp || messageEl.dataset.timestamp || '0', 10);
+        const ageOk = createdTs && (Date.now() - createdTs) < EDIT_WINDOW_MS;
+        const isDeleted = messageEl.classList.contains('deleted-message');
+        const isPayment = messageEl.classList.contains('payment-info');
+        const isVoice = !!messageEl.querySelector('.voice-message');
+        const show = isMine && !isDeleted && !isPayment && !isVoice && !isFailedPayment && ageOk;
+        editOption.style.display = show ? 'flex' : 'none';
+      }
     }
     
     this.positionContextMenu(this.contextMenu, messageEl);
@@ -8969,9 +9137,44 @@ console.warn('in send message', txid)
       case 'edit-resend':
         this.handleFailedPaymentEditResend(messageEl);
         break;
+      case 'edit':
+        this.startEditMessage(messageEl);
+        break;
     }
     
     this.closeContextMenu();
+  }
+
+  /**
+   * Initiates editing of a message: fills input with existing text and stores txid
+   * @param {HTMLElement} messageEl
+   */
+  startEditMessage(messageEl) {
+    try {
+      const txid = messageEl.dataset.txid;
+      const timestamp = parseInt(messageEl.dataset.messageTimestamp || '0', 10);
+      const EDIT_WINDOW_MS = 15 * 60 * 1000;
+      if (!txid) return;
+      // Enforce edit window in case UI got out of sync
+      if (timestamp && (Date.now() - timestamp) > EDIT_WINDOW_MS) {
+        return showToast('Edit window expired', 3000, 'info');
+      }
+      const contentEl = messageEl.querySelector('.message-content');
+      if (!contentEl) return;
+      const text = contentEl.textContent || '';
+      this.messageInput.value = text;
+      const editInput = document.getElementById('editOfTxId');
+      if (editInput) editInput.value = txid;
+      // Show cancel edit button while editing
+      this.cancelEditButton.style.display = '';
+      // Disable attachments while editing
+      this.addAttachmentButton.disabled = true;
+      // Focus input and move caret to end
+      this.messageInput.focus();
+      this.messageInput.selectionStart = this.messageInput.selectionEnd = this.messageInput.value.length;
+    } catch (err) {
+      console.error('startEditMessage error', err);
+    }
   }
 
   /**
