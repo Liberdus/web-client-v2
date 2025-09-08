@@ -10249,8 +10249,8 @@ class CallScheduleDateModal {
       return d.toISOString().slice(0, 16);
     };
     const nowMs = Date.now();
-    const minMs = nowMs + 60 * 1000;
-    const defaultMs = nowMs + 5 * 60 * 1000;
+    const minMs = nowMs + 5 * 60 * 1000;
+    const defaultMs = nowMs + 10 * 60 * 1000;
     if (this.input) {
       this.input.min = toLocalInputValue(minMs);
       if (!this.input.value || Date.parse(this.input.value) < minMs) {
@@ -10286,7 +10286,7 @@ class CallScheduleDateModal {
     }
     const corrected = localMs + timeSkew;
     const nowCorrected = getCorrectedTimestamp();
-    if (corrected <= nowCorrected) {
+    if (corrected <= nowCorrected + 5 * 60 * 1000) {
       showToast('Please choose a time in the future', 2000, 'error');
       return;
     }
