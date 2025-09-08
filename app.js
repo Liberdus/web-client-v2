@@ -7388,13 +7388,9 @@ class ChatModal {
       if (!phoneAnchor) return;
       const messageEl = phoneAnchor.closest('.message');
       if (!messageEl) return;
-      const callTimeAttr = messageEl.getAttribute('data-call-time');
-      const callTime = callTimeAttr ? Number(callTimeAttr) : 0;
-      if (callTime && callTime > getCorrectedTimestamp()) {
+      if (this.gateScheduledCall(messageEl)) {
         e.preventDefault();
         e.stopPropagation();
-        const whenLocal = new Date(callTime - timeSkew).toLocaleString();
-        showToast(`Call scheduled for ${whenLocal}`, 2500, 'info');
         return false;
       }
       return true;
@@ -8212,12 +8208,7 @@ console.warn('in send message', txid)
             if (item.type === 'call') {
               // Build scheduled label if in the future
               const callTimeMs = item.callTime || 0;
-              const nowCorr = getCorrectedTimestamp();
-              let scheduleHTML = '';
-              if (callTimeMs && callTimeMs > nowCorr) {
-                const whenLocal = new Date(callTimeMs - timeSkew).toLocaleString();
-                scheduleHTML = `<div class="call-message-schedule">Scheduled: ${whenLocal}</div>`;
-              }
+              const scheduleHTML = this.buildCallScheduleHTML(callTimeMs);
               // Render call message with a left circular phone icon (clickable) and plain text to the right
               messageTextHTML = `
                 <div class="call-message">
@@ -9098,12 +9089,8 @@ console.warn('in send message', txid)
   handleJoinCall(messageEl) {
     const callLink = messageEl.querySelector('.call-message a')?.href;
     if (!callLink) return showToast('Call link not found', 2000, 'error');
-    // Gate future scheduled calls
-    const callTimeAttr = messageEl.getAttribute('data-call-time');
-    const callTime = callTimeAttr ? Number(callTimeAttr) : 0;
-    if (callTime && callTime > getCorrectedTimestamp()) {
-      const whenLocal = new Date(callTime - timeSkew).toLocaleString();
-      showToast(`Call scheduled for ${whenLocal}`, 2500, 'info');
+    // Gate future scheduled calls (context menu path)
+    if (this.gateScheduledCall(messageEl)) {
       this.closeContextMenu();
       return;
     }
@@ -9903,6 +9890,32 @@ console.warn('in send message', txid)
       showToast(`Error playing voice message: ${error.message}`, 3000, 'error');
       buttonElement.disabled = false;
     }
+  }
+
+  // ---- Call scheduling helpers ----
+  isFutureCall(ts) {
+    return typeof ts === 'number' && ts > getCorrectedTimestamp();
+  }
+
+  formatLocalDateTime(ts) {
+    return new Date(ts - timeSkew).toLocaleString();
+  }
+
+  gateScheduledCall(messageEl) {
+    if (!messageEl) return false;
+    const callTime = Number(messageEl.dataset?.callTime || 0);
+    if (this.isFutureCall(callTime)) {
+      showToast(`Call scheduled for ${this.formatLocalDateTime(callTime)}`, 2500, 'info');
+      return true;
+    }
+    return false;
+  }
+
+  buildCallScheduleHTML(callTime) {
+    if (this.isFutureCall(callTime)) {
+      return `<div class="call-message-schedule">Scheduled: ${this.formatLocalDateTime(callTime)}</div>`;
+    }
+    return '';
   }
 }
 

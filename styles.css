@@ -3994,19 +3994,6 @@ small {
   overflow: hidden; /* Clip children to border-radius */
 }
 
-/* Call Schedule Modal tweaks: re-use radio group styles */
-#callScheduleModal .radio-group {
-  margin-top: 0;
-}
-
-#callScheduleModal .modal-title {
-  text-align: center;
-}
-
-#callScheduleModal .form-group small {
-  margin-top: 6px;
-}
-
 .modal-dialog .modal-header {
   padding: 12px 16px;
   /* display: flex, align-items: center are inherited or default */
