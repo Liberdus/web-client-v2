@@ -3,17 +3,6 @@
   "version": "1.0.0",
   "description": "A transparent, end-to-end encrypted web-based messaging application with a decentralized backend that prioritizes user privacy and security.",
   "main": "app.js",
-  "scripts": {
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
-  },
-  "devDependencies": {
-    "eslint": "^8.57.0",
-    "eslint-config-prettier": "^9.1.0",
-    "prettier": "^3.2.5"
-  },
   "keywords": [
     "messaging",
     "encryption",
