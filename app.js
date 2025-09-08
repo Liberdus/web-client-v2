@@ -4206,7 +4206,6 @@ function setupConnectivityDetection() {
 }
 
 // Mark elements that should be disabled when offline
-let connectivityObserverInitialized = false;
 function markConnectivityDependentElements() {
   // Elements that require network connectivity
   const networkDependentElements = [
@@ -4256,8 +4255,8 @@ function markConnectivityDependentElements() {
     '#confirmCallSchedule',
     '.call-message-phone-button',
 
-    // Message context menu (disable all except 'Delete for me' and 'Copy')
-    '.message-context-menu .context-menu-option:not([data-action="delete"]):not([data-action="copy"])',
+    // Message context menu (disable all except 'Delete for me' and 'Copy' and 'Join')
+    '.message-context-menu .context-menu-option:not([data-action="delete"]):not([data-action="copy"]):not([data-action="join"])',
   ];
 
   // Add data attribute to all network-dependent elements
@@ -4273,41 +4272,6 @@ function markConnectivityDependentElements() {
       element.setAttribute('aria-disabled', !isOnline);
     });
   });
-
-  // Initialize a MutationObserver once to auto-mark dynamically added elements
-  if (!connectivityObserverInitialized) {
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        mutation.addedNodes.forEach((node) => {
-          if (!(node instanceof Element)) return;
-
-          networkDependentElements.forEach((selector) => {
-            // If the added node itself matches
-            if (node.matches && node.matches(selector)) {
-              node.setAttribute('data-requires-connection', 'true');
-              node.setAttribute('aria-disabled', !isOnline);
-              if (!isOnline || netIdMismatch) {
-                node.classList.add('offline-disabled');
-              }
-            }
-
-            // If the added node contains matching descendants
-            const descendants = node.querySelectorAll ? node.querySelectorAll(selector) : [];
-            descendants.forEach((el) => {
-              el.setAttribute('data-requires-connection', 'true');
-              el.setAttribute('aria-disabled', !isOnline);
-              if (!isOnline || netIdMismatch) {
-                el.classList.add('offline-disabled');
-              }
-            });
-          });
-        });
-      });
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
-    connectivityObserverInitialized = true;
-  }
 }
 
 // Update UI elements based on connectivity status
