@@ -3194,7 +3194,7 @@ if (mine) console.warn('txid in processChats is', txidHex)
                   payload.message = parsedMessage.url;
                   payload.type = 'call';
                   // Use callTime when present; default to 0 (immediate)
-                  payload.callTime = (typeof parsedMessage.callTime === 'number' ? parsedMessage.callTime : 0);
+                  payload.callTime = Number(parsedMessage.callTime) || 0;
                 } else if (parsedMessage.type === 'vm') {
                   // Voice message format processing
                   payload.message = ''; // Voice messages don't have text
@@ -9436,12 +9436,12 @@ console.warn('in send message', txid)
       const meetUrl = `https://meet.liberdus.com/${randomHex}`;
       
       // Open immediately only if call is now
-      if (!chosenCallTime || chosenCallTime === 0) {
+      if (chosenCallTime === 0) {
         window.open(meetUrl, '_blank');
       }
       
       // Send a call message to the contact with callTime (0 or future timestamp)
-      await this.sendCallMessage(meetUrl, chosenCallTime || 0);
+      await this.sendCallMessage(meetUrl, chosenCallTime);
       
       if (chosenCallTime && chosenCallTime > 0) {
         const when = new Date(chosenCallTime - timeSkew); // convert back to local wall-clock for display
@@ -9503,11 +9503,12 @@ console.warn('in send message', txid)
       const selfKey = encryptData(bin2hex(dhkey), keys.secret+keys.pqSeed, true)  // used to decrypt our own message
 
       // Convert call message to new JSON format
+      const normalizedCallTime = Number(callTime) || 0;
       const callObj = {
         type: 'call',
         url: meetUrl,
         // callTime: 0 for immediate, or corrected future timestamp (ms since epoch)
-        callTime: callTime || 0
+        callTime: normalizedCallTime
       };
 
       // Encrypt the JSON message using shared secret
@@ -9558,7 +9559,7 @@ console.warn('in send message', txid)
         txid: txid,
         status: 'sent',
         type: 'call',
-        callTime: callTime || 0
+        callTime: normalizedCallTime
       };
       insertSorted(chatsData.contacts[currentAddress].messages, newMessage, 'timestamp');
 
