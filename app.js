@@ -142,6 +142,8 @@ const NETWORK_ACCOUNT_UPDATE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes in mill
 const NETWORK_ACCOUNT_ID = '0'.repeat(64);
 const MAX_TOLL = 1_000_000; // 1M limit
 
+const EDIT_WINDOW_MS = 15 * 60 * 1000; // 15 minute limit for editing messages
+
 let parameters = {
   current: {
     transactionFee: 1n * wei,
@@ -7920,7 +7922,6 @@ class ChatModal {
         // Validate we still can edit
         const contactMsgs = myData.contacts[currentAddress].messages;
         originalMsg = contactMsgs.find(m => m.txid === editTargetTxId);
-        const EDIT_WINDOW_MS = 15 * 60 * 1000;
         if (!originalMsg) {
           // Original disappeared; fallback to normal send
           console.warn('Edit target message not found locally; sending as new message');
@@ -9054,7 +9055,6 @@ console.warn('in send message', txid)
       // Determine if edit should be shown
       if (editOption) {
         // Conditions: own message (.sent), not deleted, not payment, not failed, within 15 minutes, plain message (not voice/call/payment)
-        const EDIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
         const createdTs = parseInt(messageEl.dataset.messageTimestamp || messageEl.dataset.timestamp || '0', 10);
         const ageOk = createdTs && (Date.now() - createdTs) < EDIT_WINDOW_MS;
         const isDeleted = messageEl.classList.contains('deleted-message');
@@ -9153,7 +9153,6 @@ console.warn('in send message', txid)
     try {
       const txid = messageEl.dataset.txid;
       const timestamp = parseInt(messageEl.dataset.messageTimestamp || '0', 10);
-      const EDIT_WINDOW_MS = 15 * 60 * 1000;
       if (!txid) return;
       // Enforce edit window in case UI got out of sync
       if (timestamp && (Date.now() - timestamp) > EDIT_WINDOW_MS) {
