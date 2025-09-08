@@ -3499,10 +3499,7 @@ small {
 
 /* Call Invite Modal Styles */
 .call-invite-modal-container {
-  display: flex;
-  flex-direction: column;
-  height: 55vh;
-  min-height: 420px;
+  min-height: 250px;
 }
 
 .call-invite-contacts-scroll {
