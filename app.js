@@ -3193,9 +3193,8 @@ if (mine) console.warn('txid in processChats is', txidHex)
                 } else if (parsedMessage.type === 'call') {
                   payload.message = parsedMessage.url;
                   payload.type = 'call';
-                  // Backward compatibility: prefer callTime, fallback to callTimestamp, else 0
-                  payload.callTime = (typeof parsedMessage.callTime === 'number' ? parsedMessage.callTime :
-                    (typeof parsedMessage.callTimestamp === 'number' ? parsedMessage.callTimestamp : 0));
+                  // Use callTime when present; default to 0 (immediate)
+                  payload.callTime = (typeof parsedMessage.callTime === 'number' ? parsedMessage.callTime : 0);
                 } else if (parsedMessage.type === 'vm') {
                   // Voice message format processing
                   payload.message = ''; // Voice messages don't have text
