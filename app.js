@@ -4253,7 +4253,6 @@ function markConnectivityDependentElements() {
     '#callScheduleNowBtn',
     '#openCallScheduleDateBtn',
     '#confirmCallSchedule',
-    '.call-message-phone-button',
 
     // Message context menu (disable all except 'Delete for me' and 'Copy' and 'Join')
     '.message-context-menu .context-menu-option:not([data-action="delete"]):not([data-action="copy"]):not([data-action="join"])',
