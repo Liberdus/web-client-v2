@@ -9595,7 +9595,7 @@ console.warn('in send message', txid)
   async updateTollValue(address) {
     // query the contact's toll field from the network
     const contactAccountData = await queryNetwork(`/account/${longAddress(address)}`);
-    // If offline or invalid response, do not overwrite cached values
+    // If invalid response, do not overwrite cached values
     if (!contactAccountData?.account?.data) {
       console.warn('updateTollValue: no network data available; skipping update');
       return;
