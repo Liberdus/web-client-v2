@@ -3040,6 +3040,33 @@ function playTransferSound() {
   }
 }
 
+// Ensure a contact has both EC and PQ public keys in local data.
+// Returns true if both keys are available (already or fetched), false otherwise.
+async function ensureContactKeys(address) {
+  try {
+    const contact = myData.contacts[address];
+    let hasPub = !!contact.public;
+    let hasPq = !!contact.pqPublic;
+    if (hasPub && hasPq) return true;
+
+    const accountInfo = await queryNetwork(`/account/${longAddress(address)}`);
+    const netPub = accountInfo?.account?.publicKey;
+    const netPq = accountInfo?.account?.pqPublicKey;
+    if (netPub) {
+      contact.public = netPub;
+      hasPub = true;
+    }
+    if (netPq) {
+      contact.pqPublic = netPq;
+      hasPq = true;
+    }
+    return hasPub && hasPq;
+  } catch (e) {
+    console.log('ensureContactKeys error:', e);
+    return false;
+  }
+}
+
 // Actually payments also appear in the chats, so we can add these to
 async function processChats(chats, keys) {
   let newTimestamp = 0;
@@ -3081,16 +3108,12 @@ if (mine) console.warn('txid in processChats is', txidHex)
             console.warn('my message tx', tx)
           }
           else if (payload.encrypted) {
-            let senderPublic = myData.contacts[from]?.public;
-            if (!senderPublic) {
-              const { publicKey } = await fetchAndCacheContactKeys(from, false);
-              if (!publicKey) {
-                console.log(`no public key found for sender ${sender}`);
-                continue;
-              }
-              senderPublic = publicKey;
+            await ensureContactKeys(from);
+            if (!myData.contacts[from]?.public) {
+              console.log(`no public key found for sender ${sender}`);
+              continue;
             }
-            payload.public = senderPublic;
+            payload.public = myData.contacts[from].public;
           }
           if (payload.xattach && typeof payload.xattach === 'string') {
             try {
@@ -3338,16 +3361,12 @@ if (mine) console.warn('txid in processChats is', txidHex)
             console.warn('my transfer tx', txx)
           }
           else if (payload.encrypted) {
-            let senderPublic = myData.contacts[from]?.public;
-            if (!senderPublic) {
-              const { publicKey } = await fetchAndCacheContactKeys(from, false);
-              if (!publicKey) {
-                console.log(`no public key found for sender ${sender}`);
-                continue;
-              }
-              senderPublic = publicKey;
+            await ensureContactKeys(from);
+            if (!myData.contacts[from]?.public) {
+              console.log(`no public key found for sender ${sender}`);
+              continue;
             }
-            payload.public = senderPublic;
+            payload.public = myData.contacts[from].public;
           }
           //console.log("payload", payload)
           decryptMessage(payload, keys, mine); // modifies the payload object
@@ -7914,18 +7933,13 @@ class ChatModal {
         return;
       }
 
-      ///yyy
-      // Get recipient's public key(s)
+      // Ensure recipient's keys are available
+      const keysOk = await ensureContactKeys(currentAddress);
       let recipientPubKey = myData.contacts[currentAddress]?.public;
       let pqRecPubKey = myData.contacts[currentAddress]?.pqPublic;
-      if (!recipientPubKey || !pqRecPubKey) {
-        const { publicKey, pqPublicKey } = await fetchAndCacheContactKeys(currentAddress, true);
-        if (!publicKey || !pqPublicKey) {
-          console.log(`no public key found for recipient ${currentAddress}`);
-          return;
-        }
-        recipientPubKey = publicKey;
-        pqRecPubKey = pqPublicKey;
+      if (!keysOk || !recipientPubKey || !pqRecPubKey) {
+        console.log(`no public/PQ key found for recipient ${currentAddress}`);
+        return;
       }
 
       /*
@@ -8853,16 +8867,6 @@ console.warn('in send message', txid)
     }
   }
 
-  /**
-   * Retrieves the recipient's public keys, caching them if not already available.
-   * @param {string} recipientAddress - The address of the recipient.
-   * @returns {Promise<{publicKey: string, pqPublicKey: string}>}
-   * @throws {Error} If recipient's public keys cannot be retrieved.
-   * */
-  async getRecipientKeys(recipientAddress) {
-    const { publicKey, pqPublicKey } = await fetchAndCacheContactKeys(recipientAddress, true);
-    return { publicKey, pqPublicKey };
-  }
 
   /**
    * Helper function to get the shared DH key for a recipient.
@@ -8870,10 +8874,12 @@ console.warn('in send message', txid)
    * @returns {Promise<{dhkey: Uint8Array, cipherText: Uint8Array}>}
    */
   async getRecipientDhKey(recipientAddress) {
-
-    const keys = await this.getRecipientKeys(recipientAddress);
-
-    return dhkeyCombined(myAccount.keys.secret, keys.publicKey, keys.pqPublicKey);
+    const ok = await ensureContactKeys(recipientAddress);
+      if (!ok) {
+        throw new Error('Recipient keys unavailable');
+    }
+    const recipient = myData.contacts[recipientAddress];
+    return dhkeyCombined(myAccount.keys.secret, recipient.public, recipient.pqPublic);
   }
 
   /**
@@ -8954,11 +8960,13 @@ console.warn('in send message', txid)
         dhkey = hex2bin(decryptData(selfKey, password, true));
       } else {
         // you are the receiver ⇒ use fields stashed on the item
-        const recipientKeys = await this.getRecipientKeys(this.address);
+        const ok = await ensureContactKeys(this.address);
+        const senderPublicKey = myData.contacts[this.address]?.public;
+        if (!ok || !senderPublicKey) throw new Error(`No public key found for sender ${this.address}`);
         const pqEncSharedKey = linkEl.dataset.pqencsharedkey;
         dhkey = dhkeyCombined(
           myAccount.keys.secret,
-          recipientKeys.publicKey,
+          senderPublicKey,
           myAccount.keys.pqSeed,
           pqEncSharedKey
         ).dhkey;
@@ -9440,18 +9448,14 @@ console.warn('in send message', txid)
         return;
       }
 
-      // Get recipient's public key(s)
-      let recipientPubKey = myData.contacts[this.address]?.public;
-      let pqRecPubKey = myData.contacts[this.address]?.pqPublic;
-      if (!recipientPubKey || !pqRecPubKey) {
-        try {
-          const { publicKey, pqPublicKey } = await fetchAndCacheContactKeys(this.address, true);
-          recipientPubKey = publicKey;
-          pqRecPubKey = pqPublicKey;
-        } catch {
-          console.log(`No public key found for recipient ${this.address}`);
-          return showToast('Failed to get recipient key', 0, 'error');
-        }
+      // Ensure recipient keys are available
+      const ok = await ensureContactKeys(this.address);
+      const recipientPubKey = myData.contacts[this.address]?.public;
+      const pqRecPubKey = myData.contacts[this.address]?.pqPublic;
+      if (!ok || !recipientPubKey || !pqRecPubKey) {
+        console.log(`No public/PQ key found for recipient ${this.address}`);
+        showToast('Failed to get recipient key', 0, 'error');
+        return;
       }
 
       const {dhkey, cipherText} = dhkeyCombined(keys.secret, recipientPubKey, pqRecPubKey);
@@ -9765,17 +9769,14 @@ console.warn('in send message', txid)
         return;
       }
 
-      // Get recipient's public key(s)
-      let recipientPubKey = myData.contacts[currentAddress]?.public;
-      let pqRecPubKey = myData.contacts[currentAddress]?.pqPublic;
-      if (!recipientPubKey || !pqRecPubKey) {
-        const { publicKey, pqPublicKey } = await fetchAndCacheContactKeys(currentAddress, true);
-        if (!publicKey || !pqPublicKey) {
-          console.log(`no public key found for recipient ${currentAddress}`);
-          return;
-        }
-        recipientPubKey = publicKey;
-        pqRecPubKey = pqPublicKey;
+      // Ensure recipient keys are available
+      const ok = await ensureContactKeys(currentAddress);
+      const recipientPubKey = myData.contacts[currentAddress]?.public;
+      const pqRecPubKey = myData.contacts[currentAddress]?.pqPublic;
+      if (!ok || !recipientPubKey || !pqRecPubKey) {
+        console.log(`no public/PQ key found for recipient ${currentAddress}`);
+        showToast('Failed to get recipient key', 0, 'error');
+        return;
       }
 
       const {dhkey, cipherText} = dhkeyCombined(keys.secret, recipientPubKey, pqRecPubKey)
@@ -9905,16 +9906,12 @@ console.warn('in send message', txid)
       duration: duration
     };
 
-    // Get recipient's public key(s)
-    let recipientPubKey = myData.contacts[this.address]?.public;
-    let pqRecPubKey = myData.contacts[this.address]?.pqPublic;
-    if (!recipientPubKey || !pqRecPubKey) {
-      const { publicKey, pqPublicKey } = await fetchAndCacheContactKeys(this.address, true);
-      if (!publicKey || !pqPublicKey) {
-        throw new Error(`No public key found for recipient ${this.address}`);
-      }
-      recipientPubKey = publicKey;
-      pqRecPubKey = pqPublicKey;
+    // Ensure recipient keys are available
+    const ok = await ensureContactKeys(this.address);
+    const recipientPubKey = myData.contacts[this.address]?.public;
+    const pqRecPubKey = myData.contacts[this.address]?.pqPublic;
+    if (!ok || !recipientPubKey || !pqRecPubKey) {
+      throw new Error(`No public/PQ key found for recipient ${this.address}`);
     }
 
     // Encrypt message object
@@ -10076,18 +10073,13 @@ console.warn('in send message', txid)
         const password = myAccount.keys.secret + myAccount.keys.pqSeed;
         dhkey = hex2bin(decryptData(selfKey, password, true));
       } else if (pqEncSharedKey) {
-        // For received messages, use recipient's key and pqEncSharedKey
-        const contact = myData.contacts[this.address];
-        let senderPublic = contact?.public;
-        
-        if (!senderPublic) {
-          const { publicKey } = await fetchAndCacheContactKeys(this.address, false);
-          if (!publicKey) {
-            throw new Error(`No public key found for sender ${this.address}`);
-          }
-          senderPublic = publicKey;
+        // For received messages, ensure keys are present and use pqEncSharedKey
+        const ok = await ensureContactKeys(this.address);
+        const senderPublicKey = myData.contacts[this.address]?.public;
+        if (!ok || !senderPublicKey) {
+          throw new Error(`No public key found for sender ${this.address}`);
         }
-        dhkey = dhkeyCombined(myAccount.keys.secret, senderPublic, myAccount.keys.pqSeed, base642bin(pqEncSharedKey)).dhkey;
+        dhkey = dhkeyCombined(myAccount.keys.secret, senderPublicKey, myAccount.keys.pqSeed, base642bin(pqEncSharedKey)).dhkey;
       } else {
         throw new Error('Missing encryption keys for voice message');
       }
@@ -10189,40 +10181,10 @@ console.warn('in send message', txid)
   }
 
   buildCallScheduleHTML(callTime) {
-    if (!callTime) return '';
-    callTime = Number(callTime);
-    return `<div class="call-message-schedule">Scheduled: ${this.formatLocalDateTime(callTime)}</div>`;
-  }
-}
-
-// --- Global helper: fetch and cache contact keys in one place ---
-/**
- * Fetches classical and PQ public keys for a contact from the network and caches them
- * in myData.contacts. Does not show UI toasts; callers decide how to handle missing keys.
- *
- * Contract:
- * - Input: `address` is a short/long address; will be normalized via longAddress for query
- * - Output: { publicKey: string|null, pqPublicKey: string|null }
- * - Side effects: myData.contacts[address].public and .pqPublic set when available
- */
-async function fetchAndCacheContactKeys(address, requireBoth = false) {
-  try {
-    const info = await queryNetwork(`/account/${longAddress(address)}`);
-    const publicKey = info?.account?.publicKey || null;
-    const pqPublicKey = info?.account?.pqPublicKey || null;
-    
-    if (publicKey) myData.contacts[address].public = publicKey;
-    if (pqPublicKey) myData.contacts[address].pqPublic = pqPublicKey;
-
-    if (requireBoth && (!publicKey || !pqPublicKey)) {
-      throw new Error('Missing required public key(s)');
+    if (this.isFutureCall(callTime)) {
+      return `<div class="call-message-schedule">Scheduled: ${this.formatLocalDateTime(callTime)}</div>`;
     }
-
-    return { publicKey, pqPublicKey };
-  } catch (e) {
-    // Do not toast here; callers decide UX. Return nulls to signal failure if not throwing.
-    if (requireBoth) throw e;
-    return { publicKey: null, pqPublicKey: null };
+    return '';
   }
 }
 
@@ -10361,24 +10323,17 @@ class CallInviteModal {
           break;
         }
 
-        const payload = { type: 'call', url: msgCallLink, callTime: msgCallTime };
-        console.log('payload', payload);
-
+        const payload = { type: 'call', url: msgCallLink };
         let messagePayload = {};
 
         const contact = myData.contacts[addr];
-        let recipientPubKey = contact.public;
-        let pqRecPubKey = contact.pqPublic;
-        if (!recipientPubKey || !pqRecPubKey) {
-          try {
-            const { publicKey, pqPublicKey } = await fetchAndCacheContactKeys(addr, true);
-            recipientPubKey = publicKey;
-            pqRecPubKey = pqPublicKey;
-          } catch {
-            showToast(`Skipping ${contact.username || addr} (cannot get public key)`, 2000, 'warning');
-            continue;
-          }
+        const ok = await ensureContactKeys(addr);
+        if (!ok) {
+          showToast(`Skipping ${contact.username || addr} (cannot get public key)`, 2000, 'warning');
+          continue;
         }
+        const recipientPubKey = myData.contacts[addr].public;
+        const pqRecPubKey = myData.contacts[addr].pqPublic;
         
         const {dhkey, cipherText} = dhkeyCombined(keys.secret, recipientPubKey, pqRecPubKey);
         const encMessage = encryptChacha(dhkey, stringify(payload));
@@ -10433,8 +10388,7 @@ class CallInviteModal {
           my: true,
           txid: txid,
           status: 'sent',
-          type: 'call',
-          callTime: payload.callTime
+          type: 'call'
         };
         insertSorted(contact.messages, newMessage, 'timestamp');
 
@@ -12643,21 +12597,11 @@ class SendAssetConfirmModal {
       payment to any address. We might not ever use this feature though.
     */
 
-    // Get recipient's public key(s)
-    let recipientPubKey = myData.contacts[toAddress]?.public;
-    let pqRecPubKey = myData.contacts[toAddress]?.pqPublic;
+    // Ensure recipient keys exist locally; function handles local check and network fetch.
+    await ensureContactKeys(toAddress);
+    const recipientPubKey = myData.contacts[toAddress]?.public;
+    const pqRecPubKey = myData.contacts[toAddress]?.pqPublic;
     let pqEncSharedKey = '';
-    if (!recipientPubKey || !pqRecPubKey) {
-      const { publicKey, pqPublicKey } = await fetchAndCacheContactKeys(toAddress);
-      if (!recipientPubKey) recipientPubKey = publicKey;
-      if (!pqRecPubKey) pqRecPubKey = pqPublicKey;
-      if (!recipientPubKey) {
-        console.log(`no public key found for recipient ${toAddress}`);
-      }
-      if (!pqRecPubKey) {
-        console.log(`no PQ public key found for recipient ${toAddress}`);
-      }
-    }
     let dhkey = '';
     let selfKey = '';
     let sharedKeyMethod = 'none';  // to support sending just payment to any address
