@@ -10167,7 +10167,16 @@ console.warn('in send message', txid)
   }
 
   formatLocalDateTime(ts) {
-    return new Date(ts - timeSkew).toLocaleString();
+    const localMs = (typeof ts === 'number' ? ts : Number(ts)) - timeSkew;
+    const minute = 60 * 1000;
+    const roundedMs = Math.round(localMs / minute) * minute;
+    return new Date(roundedMs).toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
   }
 
   gateScheduledCall(messageEl) {
@@ -10490,11 +10499,15 @@ class CallScheduleDateModal {
   constructor() {
     this.modal = null;
     this.form = null;
-    this.input = null;
+    this.dateInput = null;
+    this.hourSelect = null;
+    this.minuteSelect = null;
+    this.ampmSelect = null;
     this.submitBtn = null;
     this.cancelBtn = null;
     this.closeBtn = null;
     this.onDone = null; // function(timestamp|null)
+    this.DEFAULT_OFFSET_MINUTES = 5;
     this._onSubmit = this._onSubmit.bind(this);
     this._onSubmitBtn = this._onSubmitBtn.bind(this);
     this._onCancel = this._onCancel.bind(this);
@@ -10504,7 +10517,10 @@ class CallScheduleDateModal {
     this.modal = document.getElementById('callScheduleDateModal');
     if (!this.modal) return;
     this.form = document.getElementById('callScheduleDateForm');
-    this.input = document.getElementById('callScheduleInput');
+    this.dateInput = document.getElementById('callScheduleDate');
+    this.hourSelect = document.getElementById('callScheduleHour');
+    this.minuteSelect = document.getElementById('callScheduleMinute');
+    this.ampmSelect = document.getElementById('callScheduleAmPm');
     this.submitBtn = document.getElementById('confirmCallSchedule');
     this.cancelBtn = document.getElementById('cancelCallScheduleDate');
     this.closeBtn = document.getElementById('closeCallScheduleDateModal');
@@ -10517,20 +10533,41 @@ class CallScheduleDateModal {
 
   open(onDone) {
     this.onDone = onDone;
-    // initialize min/default each time it opens
-    const toLocalInputValue = (ms) => {
-      const d = new Date(ms);
-      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-      return d.toISOString().slice(0, 16);
-    };
-    const nowMs = Date.now();
-    const minMs = nowMs + 1 * 60 * 1000;
-    const defaultMs = nowMs + 1 * 60 * 1000;
-    if (this.input) {
-      this.input.min = toLocalInputValue(minMs);
-      if (!this.input.value || Date.parse(this.input.value) < minMs) {
-        this.input.value = toLocalInputValue(defaultMs);
+    const defaultDate = this._getDefaultDate();
+    // Populate hours 1-12 (12-hour format)
+    if (this.hourSelect) {
+      this.hourSelect.innerHTML = '';
+      for (let h = 1; h <= 12; h++) {
+        const opt = document.createElement('option');
+        opt.value = this._pad2(h);
+        opt.textContent = this._pad2(h);
+        this.hourSelect.appendChild(opt);
       }
+      const hour24 = defaultDate.getHours();
+      const hour12 = ((hour24 % 12) === 0) ? 12 : (hour24 % 12);
+      this.hourSelect.value = this._pad2(hour12);
+    }
+    // Set AM/PM
+    if (this.ampmSelect) {
+      const hour24 = defaultDate.getHours();
+      this.ampmSelect.value = hour24 >= 12 ? 'PM' : 'AM';
+    }
+    // Populate rotating 5-minute list starting at default minute
+    if (this.minuteSelect) {
+      this.minuteSelect.innerHTML = '';
+      const start = defaultDate.getMinutes();
+      for (let i = 0; i < 12; i++) {
+        const m = (start + i * 5) % 60;
+        const opt = document.createElement('option');
+        opt.value = this._pad2(m);
+        opt.textContent = this._pad2(m);
+        this.minuteSelect.appendChild(opt);
+      }
+      this.minuteSelect.value = this._pad2(start);
+    }
+    // Set local date input
+    if (this.dateInput) {
+      this.dateInput.value = this._formatDateInput(defaultDate);
     }
     this.modal?.classList.add('active');
   }
@@ -10548,17 +10585,25 @@ class CallScheduleDateModal {
   }
 
   _submitValue() {
-    if (!this.input) return;
-    const inputVal = this.input.value;
-    if (!inputVal) {
+    if (!this.dateInput || !this.hourSelect || !this.minuteSelect || !this.ampmSelect) return;
+    const dateVal = this.dateInput.value;
+    const hourVal = this.hourSelect.value;
+    const minuteVal = this.minuteSelect.value;
+    const ampmVal = this.ampmSelect.value;
+    if (!dateVal || hourVal === '' || minuteVal === '') {
       showToast('Please pick a date and time', 2000, 'error');
       return;
     }
-    const localMs = Date.parse(inputVal);
-    if (!localMs || Number.isNaN(localMs)) {
+    const parsed = this._parseDateInput(dateVal);
+    const hour12 = Number(hourVal);
+    const minute = Number(minuteVal);
+    if (!parsed || Number.isNaN(hour12) || Number.isNaN(minute)) {
       showToast('Invalid date/time selected', 2000, 'error');
       return;
     }
+    const hour24 = this._convert12To24(hour12, ampmVal);
+    const { year, month, day } = parsed;
+    const localMs = new Date(year, month - 1, day, hour24, minute, 0, 0).getTime();
     const corrected = localMs + timeSkew;
     const nowCorrected = getCorrectedTimestamp();
     if (corrected <= nowCorrected) {
@@ -10566,6 +10611,47 @@ class CallScheduleDateModal {
       return;
     }
     this._closeWith(corrected);
+  }
+
+  // Helpers
+  _pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+  _formatDateInput(d) {
+    return `${d.getFullYear()}-${this._pad2(d.getMonth() + 1)}-${this._pad2(d.getDate())}`;
+  }
+
+  _roundUpToNextFiveMinutes(ms) {
+    const d = new Date(ms);
+    d.setSeconds(0, 0);
+    const minutes = d.getMinutes();
+    const rounded = Math.ceil(minutes / 5) * 5;
+    if (rounded === 60) {
+      d.setHours(d.getHours() + 1, 0, 0, 0);
+    } else {
+      d.setMinutes(rounded, 0, 0);
+    }
+    return d.getTime();
+  }
+
+  _getDefaultDate() {
+    const nowMs = Date.now();
+    const offsetMs = this.DEFAULT_OFFSET_MINUTES * 60 * 1000;
+    const defaultMs = this._roundUpToNextFiveMinutes(nowMs + offsetMs);
+    return new Date(defaultMs);
+  }
+
+  _parseDateInput(val) {
+    const parts = val.split('-');
+    if (parts.length !== 3) return null;
+    const [yearStr, monthStr, dayStr] = parts;
+    const year = Number(yearStr), month = Number(monthStr), day = Number(dayStr);
+    if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) return null;
+    return { year, month, day };
+  }
+
+  _convert12To24(hour12, ampm) {
+    if (ampm === 'AM') return hour12 === 12 ? 0 : hour12;
+    return hour12 === 12 ? 12 : hour12 + 12;
   }
 
   _closeWith(value) {

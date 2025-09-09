@@ -4972,3 +4972,23 @@ small {
 .recording-indicator:not(.recording) .pulse-ring {
   display: none;
 }
+
+/* Call Schedule Form Styles */
+.call-schedule-form-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.call-schedule-form-row:not(:first-child) {
+  margin-top: 8px;
+}
+
+.call-schedule-date-input {
+  flex: 1;
+  width: 100%;
+}
+
+.call-schedule-time-select {
+  width: 90px;
+}

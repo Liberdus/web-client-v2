@@ -887,8 +887,18 @@
             <div class="form-container call-invite-modal-container">
               <form id="callScheduleDateForm" class="form--narrow">
                 <div class="form-group">
-                  <label for="callScheduleInput">Select date and time</label>
-                  <input id="callScheduleInput" type="datetime-local" class="form-control" />
+                  <label for="callScheduleDate">Select date and time</label>
+                  <div class="call-schedule-form-row">
+                    <input id="callScheduleDate" type="date" class="form-control call-schedule-date-input" />
+                  </div>
+                  <div class="call-schedule-form-row">
+                    <select id="callScheduleHour" class="form-control call-schedule-time-select"></select>
+                    <select id="callScheduleMinute" class="form-control call-schedule-time-select"></select>
+                    <select id="callScheduleAmPm" class="form-control call-schedule-time-select">
+                      <option value="AM">AM</option>
+                      <option value="PM">PM</option>
+                    </select>
+                  </div>
                 </div>
                 <div class="form-actions">
                   <button type="submit" id="confirmCallSchedule" class="btn btn--primary btn--pill btn--full">Submit</button>
