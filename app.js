@@ -7473,7 +7473,7 @@ class ChatModal {
         console.log('⌨️ Keyboard detected as open (viewport height decreased by', heightDifference, 'px)');
       } else if (heightDifference < 50) { // If height increased or stayed similar, keyboard is likely closed
         this.isKeyboardVisible = false;
-        console.log('⌨️ Keyboard detected as closed (viewport height difference:', heightDifference, 'px)');
+        /* console.log('⌨️ Keyboard detected as closed (viewport height difference:', heightDifference, 'px)'); */
       }
     });
 
@@ -9467,6 +9467,41 @@ console.warn('in send message', txid)
   }
 
   /**
+   * Formats toll amounts to display text and returns LIB wei and unit for internal use
+   * @param {bigint} tollBigInt
+   * @param {string} tollUnit
+   * @param {number} factor
+   * @returns {{ text: string, libWei: bigint, unit: string }}
+   */
+  formatTollDisplay(tollBigInt, tollUnit, factor) {
+    const factorValid = Number.isFinite(factor) && factor > 0;
+    const normalizedUnit = tollUnit === 'USD' ? 'USD' : 'LIB';
+    const safeToll = typeof tollBigInt === 'bigint' ? tollBigInt : 0n;
+    const tollFloat = parseFloat(big2str(safeToll, weiDigits));
+
+    const usdValue = normalizedUnit === 'USD' ? tollFloat : (factorValid ? tollFloat * factor : NaN);
+    const libValue = factorValid ? (usdValue / factor) : NaN;
+
+    let text;
+    if (isNaN(usdValue) || isNaN(libValue)) {
+      text = `${tollFloat.toFixed(6)} USD`;
+    } else {
+      text = `${usdValue.toFixed(6)} USD (≈ ${libValue.toFixed(6)} LIB)`;
+    }
+
+    let libWei;
+    if (normalizedUnit === 'USD' && factorValid && !isNaN(usdValue)) {
+      libWei = bigxnum2big(wei, (usdValue / factor).toString());
+    } else if (normalizedUnit === 'LIB') {
+      libWei = safeToll;
+    } else {
+      libWei = 0n;
+    }
+
+    return { text, libWei, unit: normalizedUnit };
+  }
+
+  /**
    * updateTollAmountUI updates the toll amount UI for a given contact
    * @param {string} address - the address of the contact
    * @returns {void}
@@ -9474,18 +9509,26 @@ console.warn('in send message', txid)
   updateTollAmountUI(address) {
     const tollValue = document.getElementById('tollValue');
     tollValue.style.color = 'black';
-    const contact = myData.contacts[address];
-    let toll = contact.toll || 0n;
-    const tollUnit = contact.tollUnit || 'LIB';
-    const decimals = 18;
+    const contact = myData.contacts[address] || {};
+    const isOffline = !isOnline;
+
+    // If offline and no cached toll, show a clear offline status and exit
+    if (isOffline && (contact.toll === undefined || contact.toll === null)) {
+      tollValue.style.color = 'black';
+      tollValue.textContent = 'offline';
+      this.toll = 0n;
+      this.tollUnit = 'LIB';
+      return;
+    }
+
+    // Use cached values safely and format
     const factor = getStabilityFactor();
-    const tollFloat = parseFloat(big2str(toll, decimals));
-    // Compute USD and LIB values; show USD with LIB equivalent in parentheses
-    const usdValue = tollUnit === 'USD' ? tollFloat : tollFloat * factor;
-    const libValue = factor > 0 ? (usdValue / factor) : NaN;
-    const usdString = isNaN(libValue)
-      ? `${usdValue.toFixed(6)} USD`
-      : `${usdValue.toFixed(6)} USD (≈ ${libValue.toFixed(6)} LIB)`;
+    const { text: usdString, libWei, unit } = this.formatTollDisplay(
+      contact.toll,
+      contact.tollUnit,
+      factor
+    );
+
     let display;
     if (contact.tollRequiredToSend == 1) {
       display = `${usdString}`;
@@ -9500,14 +9543,8 @@ console.warn('in send message', txid)
     tollValue.textContent = display;
 
     // Store the toll in LIB format for message creation (chat messages expect LIB wei)
-    if (tollUnit === 'USD') {
-      // Convert USD toll to LIB wei for internal use
-      this.toll = bigxnum2big(wei, (usdValue / factor).toString());
-    } else {
-      // Already in LIB format
-      this.toll = toll;
-    }
-    this.tollUnit = tollUnit;
+    this.toll = typeof libWei === 'bigint' ? libWei : 0n;
+    this.tollUnit = unit || 'LIB';
   }
 
   /**
@@ -9561,8 +9598,13 @@ console.warn('in send message', txid)
   async updateTollValue(address) {
     // query the contact's toll field from the network
     const contactAccountData = await queryNetwork(`/account/${longAddress(address)}`);
-    const queriedToll = contactAccountData?.account?.data?.toll; // type bigint
-    const queriedTollUnit = contactAccountData?.account?.data?.tollUnit; // type string */
+    // If offline or invalid response, do not overwrite cached values
+    if (!contactAccountData?.account?.data) {
+      console.warn('updateTollValue: no network data available; skipping update');
+      return;
+    }
+    const queriedToll = contactAccountData.account.data.toll; // type bigint
+    const queriedTollUnit = contactAccountData.account.data.tollUnit; // type string
 
     // update the toll value in the UI if the queried toll value is different from the toll value or toll unit in localStorage
     if (myData.contacts[address].toll != queriedToll || myData.contacts[address].tollUnit != queriedTollUnit) {
