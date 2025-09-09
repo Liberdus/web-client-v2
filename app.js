@@ -10355,6 +10355,17 @@ class CallInviteModal {
     const addresses = selectedBoxes.map(cb => cb.value).slice(0,10);
     // get call link from original message
     const msgCallLink = this.messageEl.querySelector('.call-message a')?.href;
+    const msgCallTimeText = this.messageEl.querySelector('.call-message-schedule')?.textContent;
+    
+    // Parse the formatted call time text back to timestamp
+    let msgCallTime = 0; // Default to immediate call
+    if (msgCallTimeText) {
+      const parsedDate = new Date(msgCallTimeText.replace('Scheduled: ', ''));
+      if (!isNaN(parsedDate.getTime())) {
+        msgCallTime = parsedDate.getTime() + timeSkew; // Convert back to corrected timestamp
+      }
+    }
+    
     if (!msgCallLink) return showToast('Call link not found', 2000, 'error');
 
     this.inviteSendButton.disabled = true;
@@ -10369,7 +10380,8 @@ class CallInviteModal {
         }
 
         const contact = myData.contacts[addr];
-        const payload = { type: 'call', url: msgCallLink };
+        const payload = { type: 'call', url: msgCallLink, callTime: msgCallTime };
+        console.log('payload', payload);
 
         let messagePayload = {};
         const recipientPubKey = contact.public;
@@ -10415,7 +10427,10 @@ class CallInviteModal {
         }
 
         const messageObj = await chatModal.createChatMessage(addr, messagePayload, toll, keys);
-        messageObj.callType = true
+        // set callType to true if callTime is 0 so recipient phone rings
+        if (payload?.callTime === 0) {
+          messageObj.callType = true
+        }
         await signObj(messageObj, keys);
         const txid = getTxid(messageObj);
         await injectTx(messageObj, txid);
@@ -10428,7 +10443,8 @@ class CallInviteModal {
           my: true,
           txid: txid,
           status: 'sent',
-          type: 'call'
+          type: 'call',
+          callTime: payload.callTime
         };
         insertSorted(contact.messages, newMessage, 'timestamp');
 
