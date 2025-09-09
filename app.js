@@ -10357,6 +10357,7 @@ class CallInviteModal {
     if (!msgCallLink) return showToast('Call link not found', 2000, 'error');
     let msgCallTime = Number(this.messageEl.getAttribute('data-call-time')) || 0;
     const now = getCorrectedTimestamp();
+    // if call time is within 5 minutes of now, set to 0 so recipient phone rings
     if (msgCallTime <= now + 5 * 60 * 1000) {
       msgCallTime = 0;
     }
