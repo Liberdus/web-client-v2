@@ -10507,7 +10507,7 @@ class CallScheduleDateModal {
     this.cancelBtn = null;
     this.closeBtn = null;
     this.onDone = null; // function(timestamp|null)
-    this.DEFAULT_OFFSET_MINUTES = 5;
+    this.DEFAULT_OFFSET_MINUTES = 0;
     this._onSubmit = this._onSubmit.bind(this);
     this._onSubmitBtn = this._onSubmitBtn.bind(this);
     this._onCancel = this._onCancel.bind(this);
