@@ -10181,10 +10181,9 @@ console.warn('in send message', txid)
   }
 
   buildCallScheduleHTML(callTime) {
-    if (this.isFutureCall(callTime)) {
-      return `<div class="call-message-schedule">Scheduled: ${this.formatLocalDateTime(callTime)}</div>`;
-    }
-    return '';
+    if (!callTime) return '';
+    callTime = Number(callTime);
+    return `<div class="call-message-schedule">Scheduled: ${this.formatLocalDateTime(callTime)}</div>`;
   }
 }
 
@@ -10323,9 +10322,10 @@ class CallInviteModal {
           break;
         }
 
-        const payload = { type: 'call', url: msgCallLink };
-        let messagePayload = {};
+        const payload = { type: 'call', url: msgCallLink, callTime: msgCallTime };
+        console.log('payload', payload);
 
+        let messagePayload = {}
         const contact = myData.contacts[addr];
         const ok = await ensureContactKeys(addr);
         if (!ok) {
@@ -10388,7 +10388,8 @@ class CallInviteModal {
           my: true,
           txid: txid,
           status: 'sent',
-          type: 'call'
+          type: 'call',
+          callTime: payload.callTime
         };
         insertSorted(contact.messages, newMessage, 'timestamp');
 
