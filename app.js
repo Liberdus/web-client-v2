@@ -3204,9 +3204,19 @@ if (mine) console.warn('txid in processChats is', txidHex)
                       const isOriginalMine = messageToEdit.my && normalizeAddress(keys.address) === originalSender;
                       const isOriginalTheirs = !messageToEdit.my && originalSender === from;
                       if (isOriginalMine || isOriginalTheirs) {
+                        // Update chat message memo/text
                         messageToEdit.message = newText;
                         messageToEdit.edited = 1;
                         messageToEdit.edited_timestamp = tx.timestamp;
+                        // Also update wallet history entry memo if present
+                        if (myData?.wallet?.history && Array.isArray(myData.wallet.history)) {
+                          const hIdx = myData.wallet.history.findIndex((h) => h.txid === txidToEdit);
+                          if (hIdx !== -1) {
+                            myData.wallet.history[hIdx].memo = newText;
+                            myData.wallet.history[hIdx].edited = 1;
+                            myData.wallet.history[hIdx].edited_timestamp = tx.timestamp;
+                          }
+                        }
                         if (chatModal.isActive() && chatModal.address === from) {
                           chatModal.appendChatModal();
                         }
@@ -8052,6 +8062,20 @@ console.warn('in send message', txid)
           originalMsg.message = message;
           originalMsg.edited = 1;
           originalMsg.edited_timestamp = payload.sent_timestamp;
+          // Also update wallet history memo if this was a payment we sent
+          if (myData?.wallet?.history && Array.isArray(myData.wallet.history)) {
+            const hIdx = myData.wallet.history.findIndex((h) => h.txid === editTargetTxId);
+            if (hIdx !== -1) {
+              // Preserve prior state for potential revert
+              if (!originalMsgState.history) originalMsgState.history = {};
+              originalMsgState.history.memo = myData.wallet.history[hIdx].memo;
+              originalMsgState.history.edited = myData.wallet.history[hIdx].edited;
+              originalMsgState.history.edited_timestamp = myData.wallet.history[hIdx].edited_timestamp;
+              myData.wallet.history[hIdx].memo = message;
+              myData.wallet.history[hIdx].edited = 1;
+              myData.wallet.history[hIdx].edited_timestamp = payload.sent_timestamp;
+            }
+          }
           this.appendChatModal();
         }
         // Clear edit marker only after capturing state and hide cancel button
@@ -8150,6 +8174,27 @@ console.warn('in send message', txid)
               delete originalMsg.edited;
               delete originalMsg.edited_timestamp;
             }
+            // Revert wallet history memo if we changed it optimistically
+            if (myData?.wallet?.history && Array.isArray(myData.wallet.history)) {
+              const hIdx = myData.wallet.history.findIndex((h) => h.txid === editTargetTxId);
+              if (hIdx !== -1 && originalMsgState.history) {
+                if (typeof originalMsgState.history.memo !== 'undefined') {
+                  myData.wallet.history[hIdx].memo = originalMsgState.history.memo;
+                } else {
+                  delete myData.wallet.history[hIdx].memo;
+                }
+                if (typeof originalMsgState.history.edited !== 'undefined') {
+                  myData.wallet.history[hIdx].edited = originalMsgState.history.edited;
+                } else {
+                  delete myData.wallet.history[hIdx].edited;
+                }
+                if (typeof originalMsgState.history.edited_timestamp !== 'undefined') {
+                  myData.wallet.history[hIdx].edited_timestamp = originalMsgState.history.edited_timestamp;
+                } else {
+                  delete myData.wallet.history[hIdx].edited_timestamp;
+                }
+              }
+            }
             this.appendChatModal();
           }
           // Restore edit UI state to allow user to retry or cancel
@@ -8184,6 +8229,27 @@ console.warn('in send message', txid)
         } else {
           delete originalMsg.edited;
           delete originalMsg.edited_timestamp;
+        }
+        // Revert wallet history memo if we changed it optimistically
+        if (myData?.wallet?.history && Array.isArray(myData.wallet.history)) {
+          const hIdx = myData.wallet.history.findIndex((h) => h.txid === editTargetTxId);
+          if (hIdx !== -1 && originalMsgState.history) {
+            if (typeof originalMsgState.history.memo !== 'undefined') {
+              myData.wallet.history[hIdx].memo = originalMsgState.history.memo;
+            } else {
+              delete myData.wallet.history[hIdx].memo;
+            }
+            if (typeof originalMsgState.history.edited !== 'undefined') {
+              myData.wallet.history[hIdx].edited = originalMsgState.history.edited;
+            } else {
+              delete myData.wallet.history[hIdx].edited;
+            }
+            if (typeof originalMsgState.history.edited_timestamp !== 'undefined') {
+              myData.wallet.history[hIdx].edited_timestamp = originalMsgState.history.edited_timestamp;
+            } else {
+              delete myData.wallet.history[hIdx].edited_timestamp;
+            }
+          }
         }
         this.appendChatModal();
       }
@@ -8312,7 +8378,7 @@ console.warn('in send message', txid)
                             <span class="payment-direction">${directionText}</span>
                             <span class="payment-amount">${amountDisplay}</span>
                         </div>
-                        ${itemMemo ? `<div class="payment-memo">${linkifyUrls(itemMemo)}</div>` : ''}
+                        ${itemMemo ? `<div class="payment-memo">${linkifyUrls(itemMemo)}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}</div>` : ''}
                         <div class="message-time">${timeString}</div>
                     </div>
                 `;
@@ -9089,13 +9155,15 @@ console.warn('in send message', txid)
       if (editResendOption) editResendOption.style.display = isFailedPayment ? 'flex' : 'none';
       // Determine if edit should be shown
       if (editOption) {
-        // Conditions: own message (.sent), not deleted, not payment, not failed, within 15 minutes, plain message (not voice/call/payment)
+        // Conditions: own plain message OR own payment with memo text, not deleted/failed/voice, within 15 minutes
         const createdTs = parseInt(messageEl.dataset.messageTimestamp || messageEl.dataset.timestamp || '0', 10);
         const ageOk = createdTs && (Date.now() - createdTs) < EDIT_WINDOW_MS;
         const isDeleted = messageEl.classList.contains('deleted-message');
         const isPayment = messageEl.classList.contains('payment-info');
+        const hasMemo = !!messageEl.querySelector('.payment-memo');
         const isVoice = !!messageEl.querySelector('.voice-message');
-        const show = isMine && !isDeleted && !isPayment && !isVoice && !isFailedPayment && ageOk;
+        const allowedType = !isPayment || (isPayment && hasMemo);
+        const show = isMine && !isDeleted && allowedType && !isVoice && !isFailedPayment && ageOk;
         editOption.style.display = show ? 'flex' : 'none';
       }
     }
@@ -9193,7 +9261,10 @@ console.warn('in send message', txid)
       if (timestamp && (Date.now() - timestamp) > EDIT_WINDOW_MS) {
         return showToast('Edit window expired', 3000, 'info');
       }
-      const contentEl = messageEl.querySelector('.message-content');
+      // If this is a payment, edit the memo; else edit plain message content
+      const contentEl = messageEl.classList.contains('payment-info')
+        ? messageEl.querySelector('.payment-memo')
+        : messageEl.querySelector('.message-content');
       if (!contentEl) return;
       const text = contentEl.textContent || '';
       this.messageInput.value = text;
