@@ -10376,15 +10376,15 @@ class CallInviteModal {
         let recipientPubKey = contact.public;
         let pqRecPubKey = contact.pqPublic;
         if (!recipientPubKey || !pqRecPubKey) {
-          const recipientInfo = await queryNetwork(`/account/${longAddress(this.address)}`);
+          const recipientInfo = await queryNetwork(`/account/${longAddress(addr)}`);
           if (!recipientInfo?.account?.publicKey) {
             showToast(`Skipping ${contact.username || addr} (cannot get public key)`, 2000, 'warning');
             continue;
           }
           recipientPubKey = recipientInfo.account.publicKey;
-          myData.contacts[this.address].public = recipientPubKey;
+          myData.contacts[addr].public = recipientPubKey;
           pqRecPubKey = recipientInfo.account.pqPublicKey;
-          myData.contacts[this.address].pqPublic = pqRecPubKey;
+          myData.contacts[addr].pqPublic = pqRecPubKey;
         }
         
         const {dhkey, cipherText} = dhkeyCombined(keys.secret, recipientPubKey, pqRecPubKey);
