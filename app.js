@@ -9791,7 +9791,10 @@ console.warn('in send message', txid)
       // Create and send the call message transaction
       let tollInLib = myData.contacts[currentAddress].tollRequiredToSend == 0 ? 0n : this.toll;
       const chatMessageObj = await this.createChatMessage(currentAddress, payload, tollInLib, keys);
-      chatMessageObj.callType = true
+      // if there's a callobj.calltime is present and is 0 set callType to true
+      if (callObj?.callTime === 0) {
+        chatMessageObj.callType = true;
+      }
 
       await signObj(chatMessageObj, keys);
       const txid = getTxid(chatMessageObj);
