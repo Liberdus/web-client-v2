@@ -8875,8 +8875,8 @@ console.warn('in send message', txid)
    */
   async getRecipientDhKey(recipientAddress) {
     const ok = await ensureContactKeys(recipientAddress);
-      if (!ok) {
-        throw new Error('Recipient keys unavailable');
+    if (!ok) {
+      throw new Error('Recipient keys unavailable');
     }
     const recipient = myData.contacts[recipientAddress];
     return dhkeyCombined(myAccount.keys.secret, recipient.public, recipient.pqPublic);
