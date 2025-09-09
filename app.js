@@ -10226,10 +10226,9 @@ console.warn('in send message', txid)
   }
 
   buildCallScheduleHTML(callTime) {
-    if (this.isFutureCall(callTime)) {
-      return `<div class="call-message-schedule">Scheduled: ${this.formatLocalDateTime(callTime)}</div>`;
-    }
-    return '';
+    if (!callTime) return '';
+    callTime = Number(callTime);
+    return `<div class="call-message-schedule">Scheduled: ${this.formatLocalDateTime(callTime)}</div>`;
   }
 }
 
@@ -10355,17 +10354,7 @@ class CallInviteModal {
     const addresses = selectedBoxes.map(cb => cb.value).slice(0,10);
     // get call link from original message
     const msgCallLink = this.messageEl.querySelector('.call-message a')?.href;
-    const msgCallTimeText = this.messageEl.querySelector('.call-message-schedule')?.textContent;
-    
-    // Parse the formatted call time text back to timestamp
-    let msgCallTime = 0; // Default to immediate call
-    if (msgCallTimeText) {
-      const parsedDate = new Date(msgCallTimeText.replace('Scheduled: ', ''));
-      if (!isNaN(parsedDate.getTime())) {
-        msgCallTime = parsedDate.getTime() + timeSkew; // Convert back to corrected timestamp
-      }
-    }
-    
+    const msgCallTime = this.messageEl.getAttribute('data-call-time');
     if (!msgCallLink) return showToast('Call link not found', 2000, 'error');
 
     this.inviteSendButton.disabled = true;
