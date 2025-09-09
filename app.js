@@ -10367,17 +10367,26 @@ class CallInviteModal {
           break;
         }
 
-        const contact = myData.contacts[addr];
         const payload = { type: 'call', url: msgCallLink, callTime: msgCallTime };
         console.log('payload', payload);
 
         let messagePayload = {};
-        const recipientPubKey = contact.public;
-        const pqRecPubKey = contact.pqPublic;
+
+        const contact = myData.contacts[addr];
+        let recipientPubKey = contact.public;
+        let pqRecPubKey = contact.pqPublic;
         if (!recipientPubKey || !pqRecPubKey) {
-          showToast(`Skipping ${contact.username || addr} (missing keys)`, 2000, 'warning');
-          continue;
+          const recipientInfo = await queryNetwork(`/account/${longAddress(this.address)}`);
+          if (!recipientInfo?.account?.publicKey) {
+            showToast(`Skipping ${contact.username || addr} (cannot get public key)`, 2000, 'warning');
+            continue;
+          }
+          recipientPubKey = recipientInfo.account.publicKey;
+          myData.contacts[this.address].public = recipientPubKey;
+          pqRecPubKey = recipientInfo.account.pqPublicKey;
+          myData.contacts[this.address].pqPublic = pqRecPubKey;
         }
+        
         const {dhkey, cipherText} = dhkeyCombined(keys.secret, recipientPubKey, pqRecPubKey);
         const encMessage = encryptChacha(dhkey, stringify(payload));
         const selfKey = encryptData(bin2hex(dhkey), keys.secret+keys.pqSeed, true);
