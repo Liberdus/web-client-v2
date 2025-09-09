@@ -7685,7 +7685,11 @@ class ChatModal {
     console.log(`[close] needsToSendReadTx: ${needsToSendReadTx}`);
     // if newestRecevied message does not have an amount property and user has not responded, then send a read transaction
     if (needsToSendReadTx) {
-      this.sendReadTransaction(this.address);
+      if (isOnline) {
+        this.sendReadTransaction(this.address);
+      } else {
+        console.log(`[close] offline; skipping read transaction`);
+      }
     }
 
     this.sendReclaimTollTransaction(this.address);
@@ -7827,6 +7831,10 @@ class ChatModal {
    */
   async sendReadTransaction(contactAddress) {
     console.log(`[sendReadTransaction] entering function`);
+    if (!isOnline) {
+      console.log(`[sendReadTransaction] offline; skipping read transaction`);
+      return;
+    }
     const contact = myData.contacts[contactAddress];
 
     console.log(`[sendReadTransaction] injecting read transaction`);
