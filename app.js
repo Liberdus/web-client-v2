@@ -10354,7 +10354,7 @@ class CallInviteModal {
     const addresses = selectedBoxes.map(cb => cb.value).slice(0,10);
     // get call link from original message
     const msgCallLink = this.messageEl.querySelector('.call-message a')?.href;
-    const msgCallTime = this.messageEl.getAttribute('data-call-time');
+    const msgCallTime = this.messageEl.getAttribute('data-call-time') || '0';
     if (!msgCallLink) return showToast('Call link not found', 2000, 'error');
 
     this.inviteSendButton.disabled = true;
