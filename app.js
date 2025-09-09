@@ -7690,6 +7690,8 @@ class ChatModal {
       }
       
       this.sendReclaimTollTransaction(this.address);
+    } else {
+      showToast('Offline: toll not processed', 0, 'error');
     }
 
     // Save any unsaved draft before closing
