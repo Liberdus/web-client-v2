@@ -9470,16 +9470,15 @@ console.warn('in send message', txid)
    * Formats toll amounts to display text and returns LIB wei and unit for internal use
    * @param {bigint} tollBigInt
    * @param {string} tollUnit
-   * @param {number} factor
    * @returns {{ text: string, libWei: bigint, unit: string }}
    */
-  formatTollDisplay(tollBigInt, tollUnit, factor) {
+  formatTollDisplay(tollBigInt, tollUnit) {
+    const factor = getStabilityFactor();
     const factorValid = Number.isFinite(factor) && factor > 0;
-    const normalizedUnit = tollUnit === 'USD' ? 'USD' : 'LIB';
     const safeToll = typeof tollBigInt === 'bigint' ? tollBigInt : 0n;
     const tollFloat = parseFloat(big2str(safeToll, weiDigits));
 
-    const usdValue = normalizedUnit === 'USD' ? tollFloat : (factorValid ? tollFloat * factor : NaN);
+    const usdValue = tollUnit === 'USD' ? tollFloat : (factorValid ? tollFloat * factor : NaN);
     const libValue = factorValid ? (usdValue / factor) : NaN;
 
     let text;
@@ -9490,15 +9489,15 @@ console.warn('in send message', txid)
     }
 
     let libWei;
-    if (normalizedUnit === 'USD' && factorValid && !isNaN(usdValue)) {
+    if (tollUnit === 'USD' && factorValid && !isNaN(usdValue)) {
       libWei = bigxnum2big(wei, (usdValue / factor).toString());
-    } else if (normalizedUnit === 'LIB') {
+    } else if (tollUnit === 'LIB') {
       libWei = safeToll;
     } else {
       libWei = 0n;
     }
 
-    return { text, libWei, unit: normalizedUnit };
+    return { text, libWei };
   }
 
   /**
@@ -9521,12 +9520,10 @@ console.warn('in send message', txid)
       return;
     }
 
-    // Use cached values safely and format
-    const factor = getStabilityFactor();
-    const { text: usdString, libWei, unit } = this.formatTollDisplay(
+    // Format toll display
+    const { text: usdString, libWei } = this.formatTollDisplay(
       contact.toll,
-      contact.tollUnit,
-      factor
+      contact.tollUnit
     );
 
     let display;
@@ -9544,7 +9541,7 @@ console.warn('in send message', txid)
 
     // Store the toll in LIB format for message creation (chat messages expect LIB wei)
     this.toll = typeof libWei === 'bigint' ? libWei : 0n;
-    this.tollUnit = unit || 'LIB';
+    this.tollUnit = contact.tollUnit || 'LIB';
   }
 
   /**
