@@ -8175,26 +8175,7 @@ console.warn('in send message', txid)
               delete originalMsg.edited_timestamp;
             }
             // Revert wallet history memo if we changed it optimistically
-            if (myData?.wallet?.history && Array.isArray(myData.wallet.history)) {
-              const hIdx = myData.wallet.history.findIndex((h) => h.txid === editTargetTxId);
-              if (hIdx !== -1 && originalMsgState.history) {
-                if (typeof originalMsgState.history.memo !== 'undefined') {
-                  myData.wallet.history[hIdx].memo = originalMsgState.history.memo;
-                } else {
-                  delete myData.wallet.history[hIdx].memo;
-                }
-                if (typeof originalMsgState.history.edited !== 'undefined') {
-                  myData.wallet.history[hIdx].edited = originalMsgState.history.edited;
-                } else {
-                  delete myData.wallet.history[hIdx].edited;
-                }
-                if (typeof originalMsgState.history.edited_timestamp !== 'undefined') {
-                  myData.wallet.history[hIdx].edited_timestamp = originalMsgState.history.edited_timestamp;
-                } else {
-                  delete myData.wallet.history[hIdx].edited_timestamp;
-                }
-              }
-            }
+            this.revertWalletHistoryEdit(editTargetTxId, originalMsgState.history);
             this.appendChatModal();
           }
           // Restore edit UI state to allow user to retry or cancel
@@ -8231,26 +8212,7 @@ console.warn('in send message', txid)
           delete originalMsg.edited_timestamp;
         }
         // Revert wallet history memo if we changed it optimistically
-        if (myData?.wallet?.history && Array.isArray(myData.wallet.history)) {
-          const hIdx = myData.wallet.history.findIndex((h) => h.txid === editTargetTxId);
-          if (hIdx !== -1 && originalMsgState.history) {
-            if (typeof originalMsgState.history.memo !== 'undefined') {
-              myData.wallet.history[hIdx].memo = originalMsgState.history.memo;
-            } else {
-              delete myData.wallet.history[hIdx].memo;
-            }
-            if (typeof originalMsgState.history.edited !== 'undefined') {
-              myData.wallet.history[hIdx].edited = originalMsgState.history.edited;
-            } else {
-              delete myData.wallet.history[hIdx].edited;
-            }
-            if (typeof originalMsgState.history.edited_timestamp !== 'undefined') {
-              myData.wallet.history[hIdx].edited_timestamp = originalMsgState.history.edited_timestamp;
-            } else {
-              delete myData.wallet.history[hIdx].edited_timestamp;
-            }
-          }
-        }
+        this.revertWalletHistoryEdit(editTargetTxId, originalMsgState.history);
         this.appendChatModal();
       }
     } finally {
@@ -8280,6 +8242,38 @@ console.warn('in send message', txid)
       showToast('Edit cancelled', 1500, 'info');
     } catch (e) {
       console.error('Failed to cancel edit', e);
+    }
+  }
+
+  /**
+   * Revert wallet history memo/edited fields for a given txid using the provided originalHistory snapshot
+   * @param {string} txid - Transaction id to locate in myData.wallet.history
+   * @param {{memo?: string, edited?: number, edited_timestamp?: number}} originalHistory - Original values to restore
+   */
+  revertWalletHistoryEdit(txid, originalHistory) {
+    try {
+      if (!originalHistory) return; // nothing captured, nothing to revert
+      if (!(myData?.wallet?.history) || !Array.isArray(myData.wallet.history)) return;
+      const hIdx = myData.wallet.history.findIndex((h) => h.txid === txid);
+      if (hIdx === -1) return;
+
+      if (typeof originalHistory.memo !== 'undefined') {
+        myData.wallet.history[hIdx].memo = originalHistory.memo;
+      } else {
+        delete myData.wallet.history[hIdx].memo;
+      }
+      if (typeof originalHistory.edited !== 'undefined') {
+        myData.wallet.history[hIdx].edited = originalHistory.edited;
+      } else {
+        delete myData.wallet.history[hIdx].edited;
+      }
+      if (typeof originalHistory.edited_timestamp !== 'undefined') {
+        myData.wallet.history[hIdx].edited_timestamp = originalHistory.edited_timestamp;
+      } else {
+        delete myData.wallet.history[hIdx].edited_timestamp;
+      }
+    } catch (e) {
+      console.error('Failed to revert wallet history edit', e);
     }
   }
 
