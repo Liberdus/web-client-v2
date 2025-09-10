@@ -6385,6 +6385,11 @@ class LogsModal {
     const s = args.join(' ');
     try {
       this.data += s + '\n\n';
+      // if length of data is more than 100k; remove some of the old lines from data to keep only the most recent 100k of lines
+      if (this.data.length > 100000) {
+        this.data = this.data.slice(this.data.length - 100000);
+        this.data += s + '\n\n';
+      }
       localStorage.setItem('logs', this.data);
     } catch (e) {
       console.error('Error saving logs to localStorage:', e);
