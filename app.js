@@ -14669,7 +14669,7 @@ class ReactNativeApp {
             // User is signed in - check if it's the right account
             const isCurrentAccount = this.isCurrentAccount(normalizedToAddress);
             if (isCurrentAccount) {
-              logsModal.log('🔔 You are signed in to the account that received the message');
+              console.log('🔔 You are signed in to the account that received the message');
             } else {
               // We're signed in to a different account, ask user what to do
               const shouldSignOut = confirm('You received a message for a different account. Would you like to sign out to switch to that account?');
@@ -14678,7 +14678,7 @@ class ReactNativeApp {
                 // Sign out and save the notification address for priority
                 menuModal.handleSignOut();
               } else {
-                logsModal.log('User chose to stay signed in - notified account will appear first next time');
+                console.log('User chose to stay signed in - notified account will appear first next time');
               }
             }
           }
@@ -14708,7 +14708,7 @@ class ReactNativeApp {
                 signInModal.updateNotificationDisplay();
               }
             } else {
-              logsModal.log('📋 No valid notifications received');
+              console.log('📋 No valid notifications received');
             }
           }
         } catch (error) {
