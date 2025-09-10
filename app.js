@@ -10003,13 +10003,6 @@ console.warn('in send message', txid)
       await signObj(chatMessageObj, keys);
       const txid = getTxid(chatMessageObj);
 
-      // if there a hidden txid input, get the value to be used to delete that txid from relevant data stores
-      const retryTxId = this.retryOfTxId.value;
-      if (retryTxId) {
-        removeFailedTx(retryTxId, currentAddress);
-        this.retryOfTxId.value = '';
-      }
-
       // Create new message object for local display immediately
       const newMessage = {
         message: meetUrl,
@@ -10884,6 +10877,16 @@ class FailedMessageMenu {
     event.stopPropagation();
     this.currentMessageEl = messageEl;
 
+    // Check if this is a video call message and hide retry option
+    const isVideoCall = !!messageEl.querySelector('.call-message');
+    const retryOption = this.menu.querySelector('[data-action="retry"]');
+    
+    if (isVideoCall) {
+      retryOption.style.display = 'none';
+    } else {
+      retryOption.style.display = 'flex';
+    }
+
     // Use shared positioning utility
     chatModal.positionContextMenu(this.menu, messageEl);
     this.menu.style.display = 'block';
@@ -10928,31 +10931,8 @@ class FailedMessageMenu {
    * @returns {void}
    */
   handleFailedMessageRetry(messageEl) {
+    const messageContent = messageEl.querySelector('.message-content')?.textContent;
     const txid = messageEl.dataset.txid;
-    
-    // Check if this is a call message or regular message
-    const callMessageText = messageEl.querySelector('.call-message-text');
-    const regularMessageContent = messageEl.querySelector('.message-content');
-    
-    let messageContent = null;
-    
-    if (callMessageText) {
-      // This is a call message - we need to trigger the call functionality instead of filling text
-      // For call messages, we should trigger the call button click to resend the call
-      const callButton = document.getElementById('chatCallButton');
-      if (callButton) {
-        // Set the retry txid for cleanup
-        if (chatModal.retryOfTxId) {
-          chatModal.retryOfTxId.value = txid;
-        }
-        // Trigger the call button click to resend the call
-        callButton.click();
-        return;
-      }
-    } else if (regularMessageContent) {
-      // This is a regular message
-      messageContent = regularMessageContent.textContent;
-    }
 
     if (chatModal.messageInput && chatModal.retryOfTxId && messageContent && txid) {
       chatModal.messageInput.value = messageContent;
