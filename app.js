@@ -31,7 +31,6 @@ async function checkVersion() {
     localStorage.setItem('version', newVersion); // Save new version
     const newUrl = window.location.href.split('?')[0];
 
-    logsModal.log(`Updated to version: ${newVersion}`)
     await forceReload([
       newUrl,
       'styles.css',
@@ -45,7 +44,6 @@ async function checkVersion() {
     ]);
     window.location.replace(newUrl);
   }
-  logsModal.log(`Started version: ${myVersion}`)
 }
 
 async function forceReload(urls) {
@@ -1401,7 +1399,6 @@ class MenuModal {
   }
   
   async handleSignOut() {
-    logsModal.log(`Signout ${myAccount.username}`)
     this.isSignoutExit = true;
 
     // Clear intervals
@@ -2000,7 +1997,6 @@ class SignInModal {
       return;
     }
     myAccount = myData.account;
-    logsModal.log(`SignIn as ${username}_${netid}`)
 
     /* requestNotificationPermission(); */
     if (useLongPolling) {
@@ -2026,13 +2022,19 @@ class SignInModal {
     
     // Clear notification address only if signing into account that owns the notification address and only remove that account from the array 
     if (reactNativeApp) {
-      logsModal.log('About to clear', myAccount.keys.address);
       const notifiedAddresses = reactNativeApp.getNotificationAddresses();
       if (notifiedAddresses.length > 0) {
-        logsModal.log('Clearing notification address for', myAccount.keys.address);
         // remove address if it's in the array
         reactNativeApp.clearNotificationAddress(myAccount.keys.address);
       }
+    }
+    
+    // Log storage information after successful sign-in
+    try {
+      const storageInfo = localStorageMonitor.getStorageInfo();
+      logsModal.log(`💾 Storage Status: ${storageInfo.usageMB}MB used, ${storageInfo.availableMB}MB available (${storageInfo.percentageUsed}% used)`);
+    } catch (error) {
+      logsModal.log('⚠️ Could not retrieve storage information');
     }
     
     await footer.switchView('chats'); // Default view
@@ -14491,9 +14493,7 @@ class LaunchModal {
       const urlObj = new URL(url);
       const path = urlObj.pathname === '' ? '/' : (urlObj.pathname.endsWith('/') ? urlObj.pathname : urlObj.pathname + '/');
       networkJsUrl = urlObj.origin + path + 'network.js';
-      logsModal.log('Launch URL validation - URL parsed successfully', `url=${networkJsUrl}`);
     } catch (urlError) {
-      logsModal.log('Launch URL validation - URL parsing failed', `url=${url}`, `error=${urlError.message}`);
       showToast(`Invalid URL format: ${urlError.message}`, 0, 'error');
       this.launchButton.disabled = false;
       this.launchButton.textContent = 'Launch';
@@ -14503,7 +14503,6 @@ class LaunchModal {
     // Step 2: Fetch network.js
     let result;
     try {
-      logsModal.log('Launch URL validation - starting fetch', `url=${networkJsUrl}`);
 
       result = await fetch(networkJsUrl,{
         cache: 'reload',
@@ -14513,14 +14512,7 @@ class LaunchModal {
         throw new Error(`HTTP ${result.status}: ${result.statusText}`);
       }
       
-      logsModal.log('Launch URL validation - fetch successful', `url=${networkJsUrl}`, `status=${result.status}`);
     } catch (fetchError) {
-      logsModal.log('Full fetch error:', fetchError);
-      logsModal.log('Error name:', fetchError.name);
-      logsModal.log('Error message:', fetchError.message);
-      logsModal.log('Error stack:', fetchError.stack);
-      logsModal.log('fetchError full:', fetchError);
-      logsModal.log('Launch URL validation - fetch failed', `url=${networkJsUrl}`, `error=${fetchError.message}`, `errorName=${fetchError.name}`);
       showToast(`Network error: ${fetchError.message}`, 0, 'error');
       this.launchButton.disabled = false;
       this.launchButton.textContent = 'Launch';
@@ -14531,13 +14523,11 @@ class LaunchModal {
     let networkJson;
     try {
       networkJson = await result.text();
-      logsModal.log('Launch URL validation - response text parsed', `url=${networkJsUrl}`, `length=${networkJson.length}`);
       
       if (!networkJson || networkJson.length === 0) {
         throw new Error('Empty response received');
       }
     } catch (parseError) {
-      logsModal.log('Launch URL validation - response parsing failed', `url=${networkJsUrl}`, `error=${parseError.message}`);
       showToast(`Response parsing error: ${parseError.message}`, 0, 'error');
       this.launchButton.disabled = false;
       this.launchButton.textContent = 'Launch';
@@ -14553,9 +14543,7 @@ class LaunchModal {
         throw new Error(`Missing required properties: ${missingProps.join(', ')}`);
       }
       
-      logsModal.log('Launch URL validation - properties validated', `url=${networkJsUrl}`, `allPropsFound=true`);
     } catch (validationError) {
-      logsModal.log('Launch URL validation - property validation failed', `url=${networkJsUrl}`, `error=${validationError.message}`);
       showToast(`Invalid network configuration: ${validationError.message}`, 0, 'error');
       this.launchButton.disabled = false;
       this.launchButton.textContent = 'Launch';
@@ -14564,11 +14552,9 @@ class LaunchModal {
 
     // Step 5: Success - launch the app
     try {
-      logsModal.log('Launch URL validation - success, launching app', `url=${networkJsUrl}`);
       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'launch', url }));
       this.close();
     } catch (launchError) {
-      logsModal.log('Launch URL validation - launch failed', `url=${networkJsUrl}`, `error=${launchError.message}`);
       showToast(`Launch error: ${launchError.message}`, 0, 'error');
     } finally {
       // Reset button state (this should always happen)
@@ -14608,7 +14594,6 @@ class ReactNativeApp {
       window.addEventListener('message', (event) => {
         try {
           const data = JSON.parse(event.data);
-          logsModal.log('📱 Received message type from React Native:', data.type);
 
           if (data.type === 'background') {
             this.handleNativeAppSubscribe();
@@ -14631,33 +14616,26 @@ class ReactNativeApp {
           }
 
           if (data.type === 'APP_PARAMS') {
-            logsModal.log('📱 Received app parameters:', data.data);
             // Handle app version
             if (data?.data?.appVersion) {
-              logsModal.log('📱 App version:', data.data.appVersion);
               this.appVersion = data.data.appVersion || `N/A`
               // Update the welcome screen to display the app version
               welcomeScreen.updateAppVersionDisplay(this.appVersion); 
-              
             }
             // Handle device tokens
             if (data.data.deviceToken) {
-              logsModal.log('📱 Device token received');
               // Store device token for push notifications
               this.deviceToken = data.data.deviceToken;
             }
             if (data.data.expoPushToken) {
-              logsModal.log('📱 Expo push token received');
               // Store expo push token for push notifications
               this.expoPushToken = data.data.expoPushToken;
             }
             if (data.data.fcmToken) {
-              logsModal.log('📱 FCM push token received');
               // Store fcm push token for call notifications
               this.fcmToken = data.data.fcmToken;
             }
             if (data.data.voipToken) {
-              logsModal.log('📱 VOIP push token received');
               // Store voip push token for call notifications
               this.voipToken = data.data.voipToken;
             }
@@ -14665,21 +14643,16 @@ class ReactNativeApp {
           }
 
           if (data.type === 'NEW_NOTIFICATION') {
-            logsModal.log('🔔 New notification received!');
-            // fetch all notifications
             this.fetchAllPanelNotifications();
           }
 
           if (data.type === 'NOTIFICATION_TAPPED') {
-            logsModal.log('🔔 Notification tapped, opening chat with:', data.to);
-
             // normalize the address
             const normalizedToAddress = normalizeAddress(data.to);
             
             // Check if user is signed in
             if (!myData || !myAccount) {
               // User is not signed in - save the notification address and open sign-in modal
-              logsModal.log('🔔 User not signed in, saving notification address for priority');
               this.saveNotificationAddress(normalizedToAddress);
               // If the user clicks on a notification and the app is already on the SignIn modal, 
               // update the display to reflect the new notification
@@ -14691,15 +14664,8 @@ class ReactNativeApp {
             
             // User is signed in - check if it's the right account
             const isCurrentAccount = this.isCurrentAccount(normalizedToAddress);
-            /* showToast('isCurrentAccount: ' + isCurrentAccount, 10000, 'success');
-            showToast('data.to: ' + normalizedToAddress, 10000, 'success');
-            showToast('myData.account.keys.address: ' + myData.account.keys.address, 10000, 'success'); */
             if (isCurrentAccount) {
-              // We're signed in to the account that received the notification
               logsModal.log('🔔 You are signed in to the account that received the message');
-              // TODO: Open chat modal when z-index issue is resolved
-              // chatModal.open(data.from);
-              /* showToast('You are signed in to the account that received the message', 5000, 'success'); */
             } else {
               // We're signed in to a different account, ask user what to do
               const shouldSignOut = confirm('You received a message for a different account. Would you like to sign out to switch to that account?');
@@ -14708,15 +14674,12 @@ class ReactNativeApp {
                 // Sign out and save the notification address for priority
                 menuModal.handleSignOut();
               } else {
-                // User chose to stay signed in, just save the address for next time
                 logsModal.log('User chose to stay signed in - notified account will appear first next time');
               }
             }
           }
 
           if (data.type === 'ALL_NOTIFICATIONS_IN_PANEL') {
-            logsModal.log('📋 Received all panel notifications:', JSON.stringify(data.notifications));
-            
             if (data.notifications && Array.isArray(data.notifications) && data.notifications.length > 0) {
               let processedCount = 0;
               data.notifications.forEach((notification, index) => {
@@ -14730,15 +14693,12 @@ class ReactNativeApp {
                       const normalizedToAddress = normalizeAddress(addressMatch[1]);
                       this.saveNotificationAddress(normalizedToAddress);
                       processedCount++;
-                      logsModal.log(`📋 Extracted address from notification ${index}: ${normalizedToAddress}`);
                     }
                   }
                 } catch (error) {
                   console.warn(`📋 Error processing notification ${index}:`, error);
                 }
               });
-              logsModal.log(`📋 Processed ${processedCount}/${data.notifications.length} notifications`);
-              
               // If the sign in modal is open, update the display to show new notifications
               if (signInModal.isActive()) {
                 signInModal.updateNotificationDisplay();
@@ -14785,7 +14745,6 @@ class ReactNativeApp {
 
   // fetch all panel notifications
   fetchAllPanelNotifications() {
-    logsModal.log('Sending message `GetAllPanelNotifications` to React Native');
     this.postMessage({
       type: 'GetAllPanelNotifications',
     });
