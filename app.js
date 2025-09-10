@@ -14318,9 +14318,7 @@ class LockModal {
     if (this.oldPasswordInput.style.display !== 'none') {
       // check if old password is empty
       if (oldPassword.length === 0) {
-        // remove the loading toast
         if (waitingToastId) hideToast(waitingToastId);
-        // re-enable the button
         showToast('Please enter your old password.', 0, 'error');
         return;
       }
@@ -14356,7 +14354,6 @@ class LockModal {
         this.close();
       } catch (error) {
         console.error('Decryption failed:', error);
-        // remove the loading toast
         if (waitingToastId) hideToast(waitingToastId);
         showToast('Failed to decrypt accounts. Please try again.', 0, 'error');
       }
