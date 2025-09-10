@@ -4962,7 +4962,7 @@ class RemoveAccountsModal {
       if (!storageKey) continue;
       
       // Use regex to extract username and netid from storage key
-      const match = storageKey.match(/(.+)_(.+)$/);
+      const match = storageKey.match(/^([^_]+)_([^_]+)$/);
       if (!match) continue;
       
       const [, username, netid] = match;
@@ -14011,14 +14011,16 @@ console.log('    result is',result)
       // Skip the 'accounts' key itself
       if (key === 'accounts') return false;
       
-      const match = key.match(/(.+)_(.+)$/);
+      // Only match keys with exactly one underscore
+      const match = key.match(/^[^_]+_[^_]+$/);
       if (!match) return false;
       
       return true;
     });
     
     for (const key of accountFileKeys) {
-      const match = key.match(/(.+)_(.+)$/);
+      // Extract username and netid ensuring only one underscore is present
+      const match = key.match(/^([^_]+)_([^_]+)$/);
       if (!match) continue;
       const [, username, netid] = match;
       
