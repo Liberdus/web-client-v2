@@ -2913,14 +2913,10 @@ mark {
 
 /* Offline indicator in header */
 .offline-indicator {
-  background-color: var(--danger-color);
-  color: white;
+  color: var(--danger-color);
   font-size: 12px;
   font-weight: 600;
-  padding: 4px 8px;
   border-radius: 12px;
-  opacity: 0;
-  visibility: hidden;
   transition:
     opacity 0.3s ease,
     width 0.3s ease,
