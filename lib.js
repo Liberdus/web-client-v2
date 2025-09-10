@@ -665,3 +665,97 @@ function getColorFromHash(hash, index) {
     const lightness = 45 + (parseInt(hash.slice((index * 2) + 4, (index * 2) + 6), 16) % 10);
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
+
+export class EthNum {
+  /**
+   * Converts a base 10 string representation of an Ethereum-like number
+   * (with up to 18 decimal places) into its BigInt representation (Wei).
+   * @param {string} str The string to convert.
+   * @returns {bigint} The BigInt representation in Wei.
+   */
+  static toWei(str) {
+    if (typeof str !== 'string') {
+      throw new Error('Input must be a string');
+    }
+    const parts = str.split('.');
+    let integerPart = parts[0];
+    let decimalPart = parts[1] || '';
+    if (decimalPart.length > 18) {
+      throw new Error('Decimal precision cannot exceed 18 digits');
+    }
+    const padding = 18 - decimalPart.length;
+    const paddedDecimal = decimalPart + '0'.repeat(padding);
+    return BigInt(integerPart + paddedDecimal);
+  }
+
+  /**
+   * Converts a BigInt representation of an Ethereum-like number (Wei)
+   * back into a base 10 string with up to 18 decimal places.
+   * @param {bigint} wei The BigInt to convert.
+   * @returns {string} The string representation.
+   */
+  static toStr(wei) {
+    if (typeof wei !== 'bigint') {
+      throw new Error('Input must be a BigInt');
+    }
+    const weiStr = wei.toString().padStart(19, '0');
+    const integerPart = weiStr.slice(0, -18);
+    const decimalPart = weiStr.slice(-18).replace(/0+$/, '');
+    if (decimalPart === '') {
+      return integerPart;
+    }
+    return `${integerPart}.${decimalPart}`;
+  }
+
+  /**
+   * Adds two Ethereum-like numbers given as strings and returns their sum as a string.
+   * @param {string} str1 The first number string.
+   * @param {string} str2 The second number string.
+   * @returns {string} The sum as a string.
+   */
+  static add(str1, str2) {
+    const wei1 = EthNum.toWei(str1);
+    const wei2 = EthNum.toWei(str2);
+    const sumWei = wei1 + wei2;
+    return EthNum.toStr(sumWei);
+  }
+
+  /**
+   * Subtracts one Ethereum-like number string from another and returns the result as a string.
+   * @param {string} str1 The number string to subtract from.
+   * @param {string} str2 The number string to subtract.
+   * @returns {string} The difference as a string.
+   */
+  static sub(str1, str2) {
+    const wei1 = EthNum.toWei(str1);
+    const wei2 = EthNum.toWei(str2);
+    const diffWei = wei1 - wei2;
+    return EthNum.toStr(diffWei);
+  }
+
+  /**
+   * Multiplies two Ethereum-like number strings and returns the product as a string.
+   * @param {string} str1 The first number string.
+   * @param {string} str2 The second number string.
+   * @returns {string} The product as a string.
+   */
+  static mul(str1, str2) {
+    const wei1 = EthNum.toWei(str1);
+    const wei2 = EthNum.toWei(str2);
+    const productWei = (wei1 * wei2) / BigInt(1e18);
+    return EthNum.toStr(productWei);
+  }
+
+  /**
+   * Divides one Ethereum-like number string by another and returns the quotient as a string.
+   * @param {string} str1 The dividend string.
+   * @param {string} str2 The divisor string.
+   * @returns {string} The quotient as a string.
+   */
+  static div(str1, str2) {
+    const wei1 = EthNum.toWei(str1);
+    const wei2 = EthNum.toWei(str2);
+    const quotientWei = (wei1 * BigInt(1e18)) / wei2;
+    return EthNum.toStr(quotientWei);
+  }
+}
