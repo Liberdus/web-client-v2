@@ -118,6 +118,7 @@ import {
   debounce,
   truncateMessage,
   normalizeUnsignedFloat,
+  EthNum,
 } from './lib.js';
 
 const weiDigits = 18;
@@ -1717,7 +1718,7 @@ async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
   const asset = myData.wallet.assets[assetIndex];
   
   // Check if transaction fee is available from network parameters
-  if (!parameters.current || !parameters.current.transactionFee) {
+  if (!parameters.current || !parameters.current.transactionFeeUsdStr) {
     console.error('Transaction fee not available from network parameters');
     if (balanceWarning) {
       balanceWarning.textContent = 'Network error: Cannot determine transaction fee';
@@ -1726,7 +1727,7 @@ async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
     return false;
   }
   
-  const feeInWei = parameters.current.transactionFee;
+  const feeInWei = getTransactionFeeWei();
   const totalRequired = amount + feeInWei;
   const hasInsufficientBalance = BigInt(asset.balance) < totalRequired;
 
@@ -3618,7 +3619,7 @@ async function postAssetTransfer(to, amount, memo, keys) {
     // memo: stringify(memo),
     xmemo: memo,
     timestamp: getCorrectedTimestamp(),
-    fee: parameters.current.transactionFee || 1n * wei, // This is not used by the backend
+    fee: getTransactionFeeWei(), // This is not used by the backend
     networkId: network.netid,
   };
 
@@ -6511,7 +6512,7 @@ class ValidatorStakingModal {
       nominee = userAccountData?.account?.operatorAccountInfo?.nominee; // string
       const userStakedBaseUnits = userAccountData?.account?.operatorAccountInfo?.stake; // BigInt object
 
-      const stakeRequiredUsd = networkAccountData?.account?.current?.stakeRequiredUsd; // BigInt object
+      const stakeRequiredUsd = EthNum.toWei(networkAccountData?.account?.current?.stakeRequiredUsdStr); // BigInt object
 
       const marketPrice = await getMarketPrice(); // number or null
       const stabilityFactor = getStabilityFactor(); // number
@@ -7162,7 +7163,7 @@ class StakeValidatorModal {
     }
 
     await getNetworkParams();
-    const txFeeInLIB = parameters.current.transactionFee || 1n * wei;
+    const txFeeInLIB = getTransactionFeeWei();
     
     const balanceInLIB = big2str(BigInt(libAsset.balance), 18).slice(0, -12);
     const feeInLIB = big2str(txFeeInLIB, 18).slice(0, -16);
@@ -8305,7 +8306,7 @@ console.warn('in send message', txid)
       message: 'x',
       xmessage: payload,
       timestamp: getCorrectedTimestamp(),
-      fee: parameters.current.transactionFee || 1n * wei, // This is not used by the backend
+      fee: getTransactionFeeWei(), // This is not used by the backend
       networkId: network.netid,
     };
     return tx;
@@ -12140,7 +12141,7 @@ class SendAssetFormModal {
   async fillAmount() {
     await getNetworkParams();
     const asset = myData.wallet.assets[this.assetSelectDropdown.value];
-    const feeInWei = parameters.current.transactionFee || 1n * wei;
+    const feeInWei = getTransactionFeeWei();
     const maxAmount = BigInt(asset.balance) - feeInWei;
     const maxAmountStr = big2str(maxAmount > 0n ? maxAmount : 0n, 18).slice(0, -16);
 
@@ -12148,8 +12149,8 @@ class SendAssetFormModal {
     const isUSD = this.balanceSymbol.textContent === 'USD';
 
     if (isUSD) {
-      const scalabilityFactor = getStabilityFactor();
       // Convert to USD before displaying
+      const scalabilityFactor = getStabilityFactor();
       this.amountInput.value = (parseFloat(maxAmountStr) * scalabilityFactor).toString();
     } else {
       // Display in LIB
@@ -12192,7 +12193,7 @@ class SendAssetFormModal {
     }
 
     await getNetworkParams();
-    const txFeeInLIB = parameters.current.transactionFee || 1n * wei;
+    const txFeeInLIB = getTransactionFeeWei();
     const scalabilityFactor = getStabilityFactor();
 
     // Preserve the current toggle state (LIB/USD) instead of overwriting it
@@ -12326,7 +12327,7 @@ class SendAssetFormModal {
 
     // Get the raw values in LIB format
     const asset = myData.wallet.assets[this.assetSelectDropdown.value];
-    const txFeeInWei = parameters.current.transactionFee || 1n * wei;
+    const txFeeInWei = getTransactionFeeWei();
     const balanceInLIB = big2str(BigInt(asset.balance), 18).slice(0, -12);
     const feeInLIB = big2str(txFeeInWei, 18).slice(0, -16);
 
@@ -12634,7 +12635,7 @@ class SendAssetConfirmModal {
     // Validate amount including transaction fee
     if (!(await validateBalance(amount, assetIndex))) {
       await getNetworkParams();
-      const txFeeInLIB = parameters.current.transactionFee || 1n * wei;
+      const txFeeInLIB = getTransactionFeeWei();
       const balance = BigInt(wallet.assets[assetIndex].balance);
       const amountStr = big2str(amount, 18).slice(0, -16);
       const feeStr = big2str(txFeeInLIB, 18).slice(0, -16);
@@ -15600,9 +15601,14 @@ class LocalStorageMonitor {
 const localStorageMonitor = new LocalStorageMonitor();
 
 function getStabilityFactor() {
-  return parameters.current.stabilityScaleDiv / parameters.current.stabilityScaleMul;
-// need to change this back when we change the code to multiply by stabilityFactor where it was dividing and visa-versa
-//  return parameters.current.stabilityScaleMul / parameters.current.stabilityScaleDiv;
+  parameters.current.stabilityFactorStr = '0.008'; // hardcoded since backend is using old value
+  return parseFloat(parameters.current.stabilityFactorStr);
+}
+
+// returns transaction fee in wei
+function getTransactionFeeWei() {
+  parameters.current.stabilityFactorStr = '0.008'; // hardcoded since backend is using old value
+  return EthNum.toWei(EthNum.div(parameters.current.transactionFeeUsdStr, parameters.current.stabilityFactorStr)) || 1n * wei;
 }
 
 
