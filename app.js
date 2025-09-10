@@ -505,7 +505,7 @@ async function encryptAllAccounts(oldPassword, newPassword) {
   const newEncKey = !newPassword ? null : await passwordToKey(newPassword+'liberdusData');
   // Get all accounts from localStorage
   const accountsObj = parse(localStorage.getItem('accounts') || 'null');
-  if (!accountsObj.netids) return;
+  if (!accountsObj?.netids) return;
 
   console.log('looping through all netids')
   for (const netid in accountsObj.netids) {
