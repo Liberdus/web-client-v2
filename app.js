@@ -6512,7 +6512,7 @@ class ValidatorStakingModal {
       nominee = userAccountData?.account?.operatorAccountInfo?.nominee; // string
       const userStakedBaseUnits = userAccountData?.account?.operatorAccountInfo?.stake; // BigInt object
 
-      const stakeRequiredUsd = EthNum.toWei(networkAccountData?.account?.current?.stakeRequiredUsdStr); // BigInt object
+      const stakeRequiredUsd = networkAccountData?.account?.current?.stakeRequiredUsd; // BigInt object
 
       const marketPrice = await getMarketPrice(); // number or null
       const stabilityFactor = getStabilityFactor(); // number
@@ -7163,7 +7163,7 @@ class StakeValidatorModal {
     }
 
     await getNetworkParams();
-    const txFeeInLIB = getTransactionFeeWei();
+    const txFeeInLIB = parameters.current.transactionFee || 1n * wei;
     
     const balanceInLIB = big2str(BigInt(libAsset.balance), 18).slice(0, -12);
     const feeInLIB = big2str(txFeeInLIB, 18).slice(0, -16);
