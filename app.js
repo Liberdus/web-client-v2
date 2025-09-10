@@ -3207,8 +3207,20 @@ async function ensureContactKeys(address) {
     const netPub = accountInfo?.account?.publicKey;
     const netPq = accountInfo?.account?.pqPublicKey;
     if (netPub) {
-      contact.public = netPub;
-      hasPub = true;
+      try {
+        const derivedHex = bin2hex(generateAddress(hex2bin(netPub)));
+        const expected = normalizeAddress(address);
+        if (derivedHex === expected) {
+          contact.public = netPub;
+          hasPub = true;
+        } else {
+          console.error('ensureContactKeys: public key/address mismatch', { address: expected, derivedHex });
+          return false;
+        }
+      } catch (verr) {
+        console.error('ensureContactKeys: failed to verify public key', verr);
+        return false;
+      }
     }
     if (netPq) {
       contact.pqPublic = netPq;
@@ -3216,7 +3228,7 @@ async function ensureContactKeys(address) {
     }
     return hasPub && hasPq;
   } catch (e) {
-    console.log('ensureContactKeys error:', e);
+    console.error('ensureContactKeys error:', e);
     return false;
   }
 }
@@ -3255,7 +3267,7 @@ async function processChats(chats, keys) {
 
         newTimestamp = tx.timestamp > newTimestamp ? tx.timestamp : newTimestamp;
         mine = tx.from == longAddress(keys.address) ? true : false;
-if (mine) console.warn('txid in processChats is', txidHex)
+        if (mine) console.warn('txid in processChats is', txidHex)
         if (tx.type == 'message') {
           const payload = tx.xmessage; // changed to use .message
           if (mine){
