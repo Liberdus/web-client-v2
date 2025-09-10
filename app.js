@@ -3011,7 +3011,7 @@ class CallsModal {
   }
 
   /**
-   * Renders the calls list
+   * Renders the calls list by looping through calls and creating a list item for each call
    * @returns {void}
    */
   render() {
@@ -3019,7 +3019,7 @@ class CallsModal {
     const empty = list.querySelector('.empty-state');
     const hasCalls = this.calls.length > 0;
     const existingItems = list.querySelectorAll('.chat-item');
-
+    // if no calls, show empty state and remove existing items
     if (!hasCalls) {
       if (empty) empty.style.display = 'block';
       if (existingItems.length) existingItems.forEach((el) => el.remove());
@@ -3027,12 +3027,14 @@ class CallsModal {
     }
 
     if (empty) empty.style.display = 'none';
+    // create a fragment to append new items to
     const fragment = document.createDocumentFragment();
     this.calls.forEach((c, i) => {
       const li = document.createElement('li');
       li.className = 'chat-item';
       li.setAttribute('data-index', String(i));
       li.setAttribute('data-address', c.address);
+      // format the call time
       const when = chatModal.formatLocalDateTime(c.callTime);
       const identicon = generateIdenticon(c.address);
       li.innerHTML = `
@@ -3050,7 +3052,7 @@ class CallsModal {
       `;
       fragment.appendChild(li);
     });
-    // Remove previous items and append new
+    // remove previous items and append new items
     if (existingItems.length) existingItems.forEach((el) => el.remove());
     list.appendChild(fragment);
   }
