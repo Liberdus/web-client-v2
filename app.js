@@ -31,6 +31,7 @@ async function checkVersion() {
     localStorage.setItem('version', newVersion); // Save new version
     const newUrl = window.location.href.split('?')[0];
 
+    logsModal.log(`Updated to version: ${newVersion}`)
     await forceReload([
       newUrl,
       'styles.css',
@@ -44,6 +45,7 @@ async function checkVersion() {
     ]);
     window.location.replace(newUrl);
   }
+  logsModal.log(`Started version: ${myVersion}`)
 }
 
 async function forceReload(urls) {
@@ -1399,6 +1401,7 @@ class MenuModal {
   }
   
   async handleSignOut() {
+    logsModal.log(`Signout ${myAccount.username}`)
     this.isSignoutExit = true;
 
     // Clear intervals
@@ -1997,6 +2000,7 @@ class SignInModal {
       return;
     }
     myAccount = myData.account;
+    logsModal.log(`SignIn as ${username}_${netid}`)
 
     /* requestNotificationPermission(); */
     if (useLongPolling) {
