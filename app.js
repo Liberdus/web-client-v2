@@ -14217,7 +14217,7 @@ class LockModal {
     this.headerCloseButton.addEventListener('click', () => this.close());
     this.lockForm.addEventListener('submit', (event) => this.handleSubmit(event));
     // dynamic button state with debounce
-    this.debouncedUpdateButtonState = debounce(() => this.updateButtonState(), 250);
+    this.debouncedUpdateButtonState = debounce(() => this.updateButtonState(), 100);
     this.newPasswordInput.addEventListener('input', this.debouncedUpdateButtonState);
     this.confirmNewPasswordInput.addEventListener('input', this.debouncedUpdateButtonState);
     this.oldPasswordInput.addEventListener('input', this.debouncedUpdateButtonState);
@@ -14297,20 +14297,30 @@ class LockModal {
   async handleSubmit(event) {
     // disable the button
     this.lockButton.disabled = true;
-
-    // loading toast
-    let waitingToastId = showToast('Updating password...', 0, 'loading');
-    
     event.preventDefault();
     
     const newPassword = this.newPasswordInput.value;
     const confirmNewPassword = this.confirmNewPasswordInput.value;
     const oldPassword = this.oldPasswordInput.value;
 
+    // Check if new passwords match first (for non-remove mode)
+    if (newPassword !== confirmNewPassword) {
+      this.lockButton.disabled = true;
+      // Keep button disabled - passwords don't match
+      showToast('Passwords do not match. Please try again.', 0, 'error');
+      return;
+    }
+
+    // loading toast
+    let waitingToastId = showToast('Updating password...', 0, 'loading');
+
     // if old password is visible, check if it is correct
     if (this.oldPasswordInput.style.display !== 'none') {
       // check if old password is empty
       if (oldPassword.length === 0) {
+        // remove the loading toast
+        if (waitingToastId) hideToast(waitingToastId);
+        // re-enable the button
         showToast('Please enter your old password.', 0, 'error');
         return;
       }
@@ -14346,13 +14356,10 @@ class LockModal {
         this.close();
       } catch (error) {
         console.error('Decryption failed:', error);
+        // remove the loading toast
+        if (waitingToastId) hideToast(waitingToastId);
         showToast('Failed to decrypt accounts. Please try again.', 0, 'error');
       }
-      return;
-    }
-
-    if (newPassword !== confirmNewPassword) {
-      showToast('Passwords do not match. Please try again.', 0, 'error');
       return;
     }
     
