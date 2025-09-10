@@ -404,6 +404,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Failed Transaction Modal
   failedTransactionModal.load();
+
+  // Calls Modal
+  callsModal.load();
   
   // Friend Modal
   friendModal.load();
@@ -1473,6 +1476,9 @@ class SettingsModal {
     this.modal = document.getElementById('settingsModal');
     this.closeButton = document.getElementById('closeSettings');
     this.closeButton.addEventListener('click', () => this.close());
+    
+    this.callsButton = document.getElementById('openCallsModal');
+    this.callsButton.addEventListener('click', () => callsModal.open());
     
     this.profileButton = document.getElementById('openAccountForm');
     this.profileButton.addEventListener('click', () => myProfileModal.open());
@@ -2906,6 +2912,151 @@ class HistoryModal {
 
 // Create singleton instance
 const historyModal = new HistoryModal();
+
+class CallsModal {
+  constructor() {
+    this.calls = [];
+  }
+
+  load() {
+    this.modal = document.getElementById('callsModal');
+    this.list = document.getElementById('callList');
+    this.closeButton = document.getElementById('closeCallsModal');
+    this.closeButton.addEventListener('click', () => this.close());
+
+    // Click on list item: open chat
+    this.list.addEventListener('click', (e) => {
+      const li = e.target.closest('.chat-item');
+      if (!li) return;
+      const address = li.getAttribute('data-address');
+      const action = e.target.closest('.call-join');
+      if (action) {
+        this.handleJoinClick(li);
+        return;
+      }
+      chatModal.open(address);
+    });
+  }
+
+  /**
+   * Opens the calls modal
+   * @returns {void}
+   */
+  open() {
+    this.refreshCalls();
+    this.render();
+    this.modal.classList.add('active');
+  }
+
+  /**
+   * Closes the calls modal
+   * @returns {void}
+   */
+  close() {
+    this.modal.classList.remove('active');
+  }
+
+  /**
+   * Refreshes the calls list by looping through contacts and getting calls that are within last 2 hours or in future
+   * @returns {void}
+   */
+  refreshCalls() {
+    this.calls = [];
+    if (!myData?.contacts) return;
+    const now = getCorrectedTimestamp();
+    const twoHoursMs = 2 * 60 * 60 * 1000;
+    const threshold = now - twoHoursMs;
+    // loop through contacts and get calls that are within last 2 hours or in future
+    for (const [address, contact] of Object.entries(myData.contacts)) {
+      const messages = contact?.messages || [];
+      const displayName = getContactDisplayName(contact);
+      for (const msg of messages) {
+        if (msg?.type !== 'call') continue;
+        const callTime = Number(msg.callTime);
+        // Only include valid scheduled calls: positive timestamp within last 2h or in future
+        if (!Number.isFinite(callTime) || callTime <= 0) continue;
+        if (callTime >= threshold) {
+          this.calls.push({
+            address,
+            calling: displayName,
+            callTime,
+            callUrl: msg.message,
+            txid: msg.txid || ''
+          });
+        }
+      }
+    }
+    this.calls.sort((a, b) => (a.callTime || 0) - (b.callTime || 0));
+  }
+
+  /** 
+   * Handles the join click event for a call
+   * @param {HTMLElement} li - The list item element
+   * @returns {void}
+   */
+  handleJoinClick(li) {
+    const idx = Number(li.getAttribute('data-index'));
+    const item = this.calls[idx];
+    if (!item) return;
+    // Gate future calls
+    if (chatModal.isFutureCall(item.callTime)) {
+      showToast(`Call scheduled for ${chatModal.formatLocalDateTime(item.callTime)}`, 2500, 'info');
+      return;
+    }
+    if (!item.callUrl) {
+      showToast('Call link not found', 2000, 'error');
+      return;
+    }
+    window.open(item.callUrl, '_blank');
+  }
+
+  /**
+   * Renders the calls list
+   * @returns {void}
+   */
+  render() {
+    const list = this.list;
+    const empty = list.querySelector('.empty-state');
+    const hasCalls = this.calls.length > 0;
+    const existingItems = list.querySelectorAll('.chat-item');
+
+    if (!hasCalls) {
+      if (empty) empty.style.display = 'block';
+      if (existingItems.length) existingItems.forEach((el) => el.remove());
+      return;
+    }
+
+    if (empty) empty.style.display = 'none';
+    const fragment = document.createDocumentFragment();
+    this.calls.forEach((c, i) => {
+      const li = document.createElement('li');
+      li.className = 'chat-item';
+      li.setAttribute('data-index', String(i));
+      li.setAttribute('data-address', c.address);
+      const when = chatModal.formatLocalDateTime(c.callTime);
+      const identicon = generateIdenticon(c.address);
+      li.innerHTML = `
+        <div class="chat-avatar">${identicon}</div>
+        <div class="chat-content">
+          <div class="chat-header">
+            <div class="chat-name">${escapeHtml(c.calling)}</div>
+            <button class="call-join call-message-phone-button" aria-label="Join Call"></button>
+          </div>
+          <div class="chat-message">
+            <div class="call-time">${when}</div>
+            <span class="chat-time-chevron"></span>
+          </div>
+        </div>
+      `;
+      fragment.appendChild(li);
+    });
+    // Remove previous items and append new
+    if (existingItems.length) existingItems.forEach((el) => el.remove());
+    list.appendChild(fragment);
+  }
+}
+
+const callsModal = new CallsModal();
 
 async function updateAssetPricesIfNeeded() {
   if (!myData || !myData.wallet || !myData.wallet.assets) {
