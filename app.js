@@ -2920,9 +2920,89 @@ class HistoryModal {
 // Create singleton instance
 const historyModal = new HistoryModal();
 
+/**
+ * Reusable Clock Timer utility class
+ * Provides ticking clock functionality for modal headers
+ */
+class ClockTimer {
+  constructor(elementId) {
+    this.elementId = elementId;
+    this.timerInterval = null;
+    this.currentTimeElement = null;
+  }
+
+  /**
+   * Formats current time as HH:MM:SS for the ticking clock display
+   * @returns {string} Formatted current time string
+   */
+  formatCurrentTime() {
+    const now = getCorrectedTimestamp();
+    const localMs = now - timeSkew;
+    const date = new Date(localMs);
+    
+    return date.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true // Use 12-hour format with AM/PM
+    });
+  }
+
+  /**
+   * Starts the ticking clock timer
+   * @returns {void}
+   */
+  start() {
+    // Clear any existing timer
+    this.stop();
+    
+    // Get the current time element
+    this.currentTimeElement = document.getElementById(this.elementId);
+    if (!this.currentTimeElement) {
+      console.warn(`ClockTimer: Element with id '${this.elementId}' not found`);
+      return;
+    }
+    
+    // Update immediately
+    this.update();
+    
+    // Set up interval to update every second
+    this.timerInterval = setInterval(() => {
+      this.update();
+    }, 1000);
+  }
+
+  /**
+   * Stops the ticking clock timer
+   * @returns {void}
+   */
+  stop() {
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+  }
+
+  /**
+   * Updates the clock display with current time
+   * @returns {void}
+   */
+  update() {
+    if (!this.currentTimeElement) return;
+    
+    try {
+      const currentTime = this.formatCurrentTime();
+      this.currentTimeElement.textContent = currentTime;
+    } catch (error) {
+      console.error(`ClockTimer: Error updating clock for '${this.elementId}':`, error);
+    }
+  }
+}
+
 class CallsModal {
   constructor() {
     this.calls = [];
+    this.clockTimer = new ClockTimer('callsCurrentTime');
   }
 
   load() {
@@ -2953,6 +3033,7 @@ class CallsModal {
     this.refreshCalls();
     this.render();
     this.modal.classList.add('active');
+    this.clockTimer.start();
   }
 
   /**
@@ -2960,6 +3041,7 @@ class CallsModal {
    * @returns {void}
    */
   close() {
+    this.clockTimer.stop();
     this.modal.classList.remove('active');
   }
 
@@ -10689,6 +10771,7 @@ class CallScheduleDateModal {
     this.closeBtn = null;
     this.onDone = null; // function(timestamp|null)
     this.DEFAULT_OFFSET_MINUTES = 0;
+    this.clockTimer = new ClockTimer('callScheduleCurrentTime');
     this._onSubmit = this._onSubmit.bind(this);
     this._onSubmitBtn = this._onSubmitBtn.bind(this);
     this._onCancel = this._onCancel.bind(this);
@@ -10751,6 +10834,7 @@ class CallScheduleDateModal {
       this.dateInput.value = this._formatDateInput(defaultDate);
     }
     this.modal?.classList.add('active');
+    this.clockTimer.start();
   }
 
   _onSubmit(e) {
@@ -10836,6 +10920,7 @@ class CallScheduleDateModal {
   }
 
   _closeWith(value) {
+    this.clockTimer.stop();
     if (this.modal) this.modal.classList.remove('active');
     const cb = this.onDone;
     this.onDone = null;

@@ -1128,6 +1128,22 @@ button:disabled {
   max-width: 100%; /* Allow full width when possible */
 }
 
+/* Current time display in modal headers */
+.current-time {
+  position: absolute;
+  right: 16px;
+  font-family: var(--font-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--secondary-text-color);
+  white-space: nowrap;
+  user-select: none;
+  /* Ensure it doesn't overlap with back button on smaller screens */
+  max-width: calc(100% - 80px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .menu-list {
   list-style: none;
   padding: 0;
