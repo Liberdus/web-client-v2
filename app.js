@@ -2360,6 +2360,7 @@ class FriendModal {
   constructor() {
     this.currentContactAddress = null;
     this.needsContactListUpdate = false; // track if we need to update the contact list
+    this.lastChangeTimeStamp = 0; // track the last time the friend status was changed
   }
 
   load() {
@@ -2469,6 +2470,8 @@ class FriendModal {
     // Update friend status based on selected value
     contact.friend = Number(selectedStatus);
 
+    this.lastChangeTimeStamp = Date.now();
+
     // Show appropriate toast message depending value 0,1,2,3
     showToast(
       contact.friend === 0
@@ -2526,9 +2529,14 @@ class FriendModal {
 
     // If there's already a pending tx (friend != friendOld) keep disabled
     if (contact.friend !== contact.friendOld) {
-      this.submitButton.disabled = true;
-      showToast('You have a pending transaction to update the friend status. Come back to this page later.', 0, 'error');
-      return;
+      const SIXTY_SECONDS = 60*1000;
+      if(this.lastChangeTimeStamp < (Date.now - SIXTY_SECONDS)){
+        contact.friend = contact.friendOld
+      } else {
+        this.submitButton.disabled = true;
+        showToast('You have a pending transaction to update the friend status. Come back to this page later.', 0, 'error');
+        return;
+      }
     }
 
     const selectedStatus = this.friendForm.querySelector('input[name="friendStatus"]:checked')?.value;
