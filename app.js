@@ -2530,6 +2530,7 @@ class FriendModal {
     // If there's already a pending tx (friend != friendOld) keep disabled
     if (contact.friend !== contact.friendOld) {
       const SIXTY_SECONDS = 60 * 1000;
+      // if the last change was more than 60 seconds ago, reset the friend status so user does not get stuck
       if (this.lastChangeTimeStamp < (Date.now - SIXTY_SECONDS)) {
         contact.friend = contact.friendOld
       } else {
