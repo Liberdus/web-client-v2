@@ -1555,6 +1555,28 @@ input[type='file'].form-control::file-selector-button {
   text-align: left;
 }
 
+/* Dot indicating a message was edited since last read */
+.edited-new-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--primary-color);
+  border-radius: 50%;
+  margin-left: 6px;
+  box-shadow: 0 0 0 2px var(--primary-tint-12);
+  vertical-align: middle;
+}
+
+@keyframes editedDotPulse {
+  0% { transform: scale(0.6); opacity: 0.4; }
+  50% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.6); opacity: 0.4; }
+}
+
+.edited-new-dot {
+  animation: editedDotPulse 2s ease-in-out 2;
+}
+
 .message-content {
   overflow-wrap: break-word;
   word-wrap: break-word;

@@ -3344,7 +3344,7 @@ async function ensureContactKeys(address) {
 async function processChats(chats, keys) {
   let newTimestamp = 0;
   const timestamp = myAccount.chatTimestamp || 0;
-  const messageQueryTimestamp = Math.max(0, timestamp);
+  const messageQueryTimestamp = Math.max(0, timestamp+1);
   let hasAnyTransfer = false;
 
   for (let sender in chats) {
@@ -3361,6 +3361,8 @@ async function processChats(chats, keys) {
       let added = 0;
       let hasNewTransfer = false;
       let mine = false;
+      // Count of edits (from the other party) applied while user not viewing this chat
+      let editIncrements = 0;
 
       // This check determines if we're currently chatting with the sender
       // We ONLY want to avoid notifications if we're actively viewing this exact chat
@@ -3516,6 +3518,9 @@ async function processChats(chats, keys) {
                             myData.wallet.history[hIdx].edited = 1;
                             myData.wallet.history[hIdx].edited_timestamp = tx.timestamp;
                           }
+                        }
+                        if (!messageToEdit.my && !inActiveChatWithSender) {
+                          editIncrements += 1;
                         }
                         if (chatModal.isActive() && chatModal.address === from) {
                           chatModal.appendChatModal();
@@ -3798,6 +3803,27 @@ async function processChats(chats, keys) {
         }
         // Add bubble to the wallet history button
         walletScreen.openHistoryModalButton.classList.add('has-notification');
+      }
+
+      // Handle edit-only (or edit + message) unread increments.
+      if (editIncrements > 0) {
+        // If the chat is not active, increment unread for edits.
+        if (!inActiveChatWithSender) {
+          contact.unread = (contact.unread || 0) + editIncrements;
+          // Add notification bubble if chats screen not active
+          if (!chatsScreen.isActive()) {
+            footer.chatButton.classList.add('has-notification');
+          }
+          // Refresh list if user is currently viewing chat list so unread counts update
+          if (chatsScreen.isActive()) {
+            chatsScreen.updateChatList();
+          }
+        } else {
+          // If user is in the chat while edits arrive, just re-render to show edited markers
+          if (chatModal.isActive() && chatModal.address === from) {
+            chatModal.appendChatModal();
+          }
+        }
       }
     }
   }
@@ -7982,6 +8008,7 @@ class ChatModal {
 
     // Setup state for appendChatModal and perform initial render
     this.address = address;
+
     this.appendChatModal(false); // Call appendChatModal to render messages, ensure highlight=false
   }
 
@@ -8030,6 +8057,12 @@ class ChatModal {
       contactsScreen.updateContactsList();
       footer.openNewChatButton();
     }
+
+    // Record the time user last viewed this chat for edit notification purposes
+    if (this.address && myData.contacts[this.address]) {
+      myData.contacts[this.address].lastChatOpenTs = getCorrectedTimestamp();
+    }
+
     this.address = null;
   }
 
@@ -8636,6 +8669,8 @@ console.warn('in send message', txid)
       return;
     }
     const messages = contact.messages; // Already sorted descending
+    // Last time user previously had this chat open (used to mark newly edited messages)
+    const lastReadTs = contact.lastChatOpenTs || 0;
 
     if (!this.modal) return;
     if (!this.messagesList) return;
@@ -8680,16 +8715,17 @@ console.warn('in send message', txid)
         // --- Render Payment Transaction ---
         const directionText = item.my ? '-' : '+';
         const messageClass = item.my ? 'sent' : 'received';
-        messageHTML = `
-                    <div class="message ${messageClass} payment-info" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
-                        <div class="payment-header">
-                            <span class="payment-direction">${directionText}</span>
-                            <span class="payment-amount">${amountDisplay}</span>
-                        </div>
-                        ${itemMemo ? `<div class="payment-memo">${linkifyUrls(itemMemo)}</div>` : ''}
-                        <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}</div>
-                    </div>
-                `;
+    const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !item.deleted;
+    messageHTML = `
+          <div class="message ${messageClass} payment-info" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
+            <div class="payment-header">
+              <span class="payment-direction">${directionText}</span>
+              <span class="payment-amount">${amountDisplay}</span>
+            </div>
+            ${itemMemo ? `<div class="payment-memo">${linkifyUrls(itemMemo)}</div>` : ''}
+            <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
+          </div>
+        `;
       } else {
         // --- Render Chat Message ---
         const messageClass = item.my ? 'sent' : 'received'; // Use item.my directly
@@ -8780,13 +8816,14 @@ console.warn('in send message', txid)
           }
           
           const callTimeAttribute = item.type === 'call' && item.callTime ? `data-call-time="${item.callTime}"` : '';
-          messageHTML = `
-                      <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute} ${callTimeAttribute}>
-                          ${attachmentsHTML}
-                          ${messageTextHTML}
-                          <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}</div>
-                      </div>
-                  `;
+      const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !item.deleted;
+      messageHTML = `
+            <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute} ${callTimeAttribute}>
+              ${attachmentsHTML}
+              ${messageTextHTML}
+              <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
+            </div>
+          `;
         }
       }
 
