@@ -5053,8 +5053,8 @@ class RemoveAccountsModal {
       const storageKey = localStorage.key(i);
       if (!storageKey) continue;
       
-      // Use regex to extract username and netid from storage key
-      const match = storageKey.match(/^([^_]+)_([^_]+)$/);
+  // Use regex to extract username and netid from storage key: username_<64-hex>
+  const match = storageKey.match(/^([^_]+)_([0-9a-fA-F]{64})$/);
       if (!match) continue;
       
       const [, username, netid] = match;
@@ -14219,21 +14219,21 @@ console.log('    result is',result)
 
     const allKeys = Object.keys(localStorage);
     
-    // Filter keys that match the pattern username_netid
+    // Filter keys that match the pattern username_<64-hex netid>
     const accountFileKeys = allKeys.filter(key => {
       // Skip the 'accounts' key itself
       if (key === 'accounts') return false;
       
-      // Only match keys with exactly one underscore
-      const match = key.match(/^[^_]+_[^_]+$/);
+      // Only match keys with exactly one underscore and 64 hex chars after underscore
+      const match = key.match(/^[^_]+_[0-9a-fA-F]{64}$/);
       if (!match) return false;
       
       return true;
     });
     
     for (const key of accountFileKeys) {
-      // Extract username and netid ensuring only one underscore is present
-      const match = key.match(/^([^_]+)_([^_]+)$/);
+      // Extract username and 64-hex netid ensuring only one underscore is present
+      const match = key.match(/^([^_]+)_([0-9a-fA-F]{64})$/);
       if (!match) continue;
       const [, username, netid] = match;
       
