@@ -8638,8 +8638,8 @@ console.warn('in send message', txid)
                             <span class="payment-direction">${directionText}</span>
                             <span class="payment-amount">${amountDisplay}</span>
                         </div>
-                        ${itemMemo ? `<div class="payment-memo">${linkifyUrls(itemMemo)}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}</div>` : ''}
-                        <div class="message-time">${timeString}</div>
+                        ${itemMemo ? `<div class="payment-memo">${linkifyUrls(itemMemo)}</div>` : ''}
+                        <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}</div>
                     </div>
                 `;
       } else {
