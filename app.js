@@ -10919,7 +10919,8 @@ class CallScheduleDateModal {
     const localMs = new Date(year, month - 1, day, hour24, minute, 0, 0).getTime();
     const corrected = localMs + timeSkew;
     const nowCorrected = getCorrectedTimestamp();
-    if (corrected <= nowCorrected) {
+    const minAllowed = nowCorrected - 5 * 60 * 1000;
+    if (corrected < minAllowed) {
       showToast('Please choose a time in the future', 2000, 'error');
       return;
     }
