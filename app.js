@@ -3232,6 +3232,7 @@ async function queryNetwork(url) {
     return data;
   } catch (error) {
     console.error(`queryNetwork ERROR: ${error}`);
+    showToast(`queryNetwork: error: ${error}`, 0, 'error')
     return null;
   }
 }
