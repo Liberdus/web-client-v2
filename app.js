@@ -4402,8 +4402,18 @@ function createDisplayInfo(contact) {
 }
 
 // Add this function before the ContactInfoModal class
-function showToast(message, duration = 2000, type = 'default', isHTML = false) {
+function showToast(message, duration = 2000, type = 'default', isHTML = false, deduplicateKey = null) {
   const toastContainer = document.getElementById('toastContainer');
+  
+  // Check for duplicate toasts if deduplicateKey is provided
+  if (deduplicateKey) {
+    const existingToast = document.querySelector(`[data-deduplicate-key="${deduplicateKey}"]`);
+    if (existingToast && existingToast.parentNode) {
+      // Toast with this key already exists, don't create another one
+      return existingToast.id;
+    }
+  }
+  
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
   
@@ -4416,6 +4426,11 @@ function showToast(message, duration = 2000, type = 'default', isHTML = false) {
   // Generate a unique ID for this toast
   const toastId = 'toast-' + getCorrectedTimestamp() + '-' + Math.floor(Math.random() * 1000);
   toast.id = toastId;
+  
+  // Add deduplication key if provided
+  if (deduplicateKey) {
+    toast.setAttribute('data-deduplicate-key', deduplicateKey);
+  }
 
   toastContainer.appendChild(toast);
 
@@ -10921,7 +10936,7 @@ class CallScheduleDateModal {
     const nowCorrected = getCorrectedTimestamp();
     const minAllowed = nowCorrected - 5 * 60 * 1000;
     if (corrected < minAllowed) {
-      showToast('Please choose a time in the future', 2000, 'error');
+      showToast('Please choose a time in the future', 2000, 'error', false, 'call-schedule-date-modal-future-time');
       return;
     }
     this._closeWith(corrected);
@@ -11278,7 +11293,7 @@ class VoiceRecordingModal {
       
     } catch (error) {
       console.error('Error starting voice recording:', error);
-      showToast('Could not access microphone. Please check permissions.', 0, 'error');
+      showToast('Could not access microphone. Please check permissions.', 0, 'error', false, 'microphone-permission-error');
     }
   }
 
