@@ -3213,12 +3213,14 @@ async function queryNetwork(url) {
   if (!isOnline) {
     //TODO: show user we are not online
     console.warn('not online');
+    showToast('queryNetwork: not online', 0, 'error')
     //alert('not online')
     return null;
   }
   const selectedGateway = getGatewayForRequest();
   if (!selectedGateway) {
     console.error('No gateway available for network query');
+    showToast('queryNetwork: no gateway', 0, 'error')
     return null;
   }
 
