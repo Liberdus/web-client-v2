@@ -2529,8 +2529,8 @@ class FriendModal {
 
     // If there's already a pending tx (friend != friendOld) keep disabled
     if (contact.friend !== contact.friendOld) {
-      const SIXTY_SECONDS = 60*1000;
-      if(this.lastChangeTimeStamp < (Date.now - SIXTY_SECONDS)){
+      const SIXTY_SECONDS = 60 * 1000;
+      if (this.lastChangeTimeStamp < (Date.now - SIXTY_SECONDS)) {
         contact.friend = contact.friendOld
       } else {
         this.submitButton.disabled = true;
