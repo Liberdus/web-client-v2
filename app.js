@@ -3378,6 +3378,16 @@ async function processChats(chats, keys) {
         newTimestamp = tx.timestamp > newTimestamp ? tx.timestamp : newTimestamp;
         mine = tx.from == longAddress(keys.address) ? true : false;
         if (mine) console.warn('txid in processChats is', txidHex)
+        // timestamp-skew check for incoming messages/transfers
+        if (!mine && (tx.type === 'message' || tx.type === 'transfer')) {
+          const sentTs = Number(((tx.type === 'message' ? tx.xmessage : tx.xmemo) || {}).sent_timestamp || 0);
+          const txTs = Number(tx.timestamp || 0);
+          const MAX_TS_SKEW_MS = 10 * 1000;
+          if ((txTs - sentTs) < 0 || (txTs - sentTs) > MAX_TS_SKEW_MS) {
+            console.warn('Dropping incoming tx due to timestamp skew', { from, type: tx.type, txid: txidHex, txTs, sentTs });
+            continue;
+          }
+        }
         if (tx.type == 'message') {
           const payload = tx.xmessage; // changed to use .message
           if (mine){
