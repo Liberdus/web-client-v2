@@ -2447,12 +2447,18 @@ class FriendModal {
       console.log('no need to post a change to the network since toll required would be 0 for both cases')
     }
     else{
-      // send transaction to update chat toll
-      const res = await this.postUpdateTollRequired(this.currentContactAddress, Number(selectedStatus));
-      if (res?.result?.success === false) {
-        console.log(
-          `[handleFriendSubmit] update_toll_required transaction failed: ${res?.result?.reason}. Did not update contact status.`
-        );
+      try {
+        // send transaction to update chat toll
+        const res = await this.postUpdateTollRequired(this.currentContactAddress, Number(selectedStatus));
+        if (res?.result?.success !== true) {
+          console.log(
+            `[handleFriendSubmit] update_toll_required transaction failed: ${res?.result?.reason}. Did not update contact status.`
+          );
+          showToast('Failed to update friend status. Please try again.', 0, 'error');
+          return;
+        }
+      } catch (error) {
+        console.error('Error sending transaction to update chat toll:', error);
         showToast('Failed to update friend status. Please try again.', 0, 'error');
         return;
       }
