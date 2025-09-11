@@ -3495,6 +3495,15 @@ async function processChats(chats, keys) {
                       const isOriginalMine = messageToEdit.my && normalizeAddress(keys.address) === originalSender;
                       const isOriginalTheirs = !messageToEdit.my && originalSender === from;
                       if (isOriginalMine || isOriginalTheirs) {
+                        // Enforce client-side edit window with 5 min slack (20 minutes total)
+                        const originalTs = Number(messageToEdit.sent_timestamp || 0);
+                        const editTs = Number(tx.timestamp || 0);
+                        const CLIENT_EDIT_ACCEPT_MS = EDIT_WINDOW_MS + (5 * 60 * 1000);
+                        // Ignore invalid/missing timestamps, edits older than window, or edits that predate the original
+                        if ( editTs < originalTs || (editTs - originalTs) >= CLIENT_EDIT_ACCEPT_MS) {
+                          console.warn('Ignoring edit outside allowed time window', { originalTs, editTs, txid: txidToEdit });
+                          continue; // too old or invalid edit; skip processing this control message
+                        }
                         // Update chat message memo/text
                         messageToEdit.message = newText;
                         messageToEdit.edited = 1;
