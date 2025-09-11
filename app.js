@@ -4408,7 +4408,7 @@ function showToast(message, duration = 2000, type = 'default', isHTML = false, d
   // Check for duplicate toasts if deduplicateKey is provided
   if (deduplicateKey) {
     const existingToast = document.querySelector(`[data-deduplicate-key="${deduplicateKey}"]`);
-    if (existingToast && existingToast.parentNode) {
+    if (existingToast) {
       // Toast with this key already exists, don't create another one
       return existingToast.id;
     }
