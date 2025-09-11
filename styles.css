@@ -3049,7 +3049,6 @@ mark {
   width: 20px;
   height: 48px;
   padding: 0;
-  border-radius: 50%;
   flex-shrink: 0;
   pointer-events: auto;
 }
@@ -3059,7 +3058,6 @@ mark {
   width: 20px;
   height: 48px;
   padding: 0;
-  border-radius: 50%;
   flex-shrink: 0;
   pointer-events: auto;
   color: var(--danger-color);
@@ -4723,7 +4721,6 @@ small {
   width: 20px;
   height: 48px;
   padding: 0;
-  border-radius: 50%;
   flex-shrink: 0;
   pointer-events: auto;
 }
