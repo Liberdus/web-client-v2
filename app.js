@@ -5735,8 +5735,11 @@ class RestoreAccountModal {
     return modifiedContent;
   }
 
-  // Merge accounts from a backup object into localStorage without clearing other keys.
-  // Handles encrypted accounts in backup (requires backup password) and re-encrypts with local lock if needed.
+  /**
+   * Merge accounts from a parsed backup object into localStorage without removing any existing unrelated keys.
+   * @param {Object} backupData Parsed JSON object produced from the backup file contents.
+   * @returns {number|false} Number of accounts stored, or false if the merge was aborted.
+   */
   async mergeBackupAccountsToLocal(backupData) {
     const overwrite = this.overwriteAccountsCheckbox?.checked;
 
@@ -5783,6 +5786,7 @@ class RestoreAccountModal {
     };
 
     // Iterate over keys in backupData and copy account entries
+    let restoredCount = 0;
     for (const key of Object.keys(backupData)) {
       const parts = key.split('_');
       if (parts.length !== 2) continue;
@@ -5805,6 +5809,7 @@ class RestoreAccountModal {
       if (backupData.lock && localStorage.lock && backupData.lock === localStorage.lock) {
         // Direct copy
         localStorage.setItem(localKey, value);
+        restoredCount++;
       } else {
         // Need to decrypt with backupEncKey if available
         let decrypted = value;
@@ -5844,6 +5849,7 @@ class RestoreAccountModal {
 
         // Finally store the account entry
           localStorage.setItem(localKey, finalValue);
+          restoredCount++;
 
         // Update accounts registry address if possible
         const address = extractAddress(decrypted);
@@ -5856,7 +5862,7 @@ class RestoreAccountModal {
       }
     }
 
-    return true;
+    return restoredCount;
   }
 
   async handleSubmit(event) {
@@ -5909,11 +5915,11 @@ class RestoreAccountModal {
         }
 
         // Merge and abort if merge failed
-        const ok = await this.mergeBackupAccountsToLocal(backupData);
-        if (!ok) {
+        const restoredCount = await this.mergeBackupAccountsToLocal(backupData);
+        if (restoredCount === false) {
           return; // merge failed — keep modal open and do not proceed to reset/close
         }
-        showToast('Accounts restored successfully!', 2000, 'success');
+        showToast(`${restoredCount} account${restoredCount === 1 ? '' : 's'} restored`, 3000, 'success');
       
       // handleNativeAppSubscription()
 
