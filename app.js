@@ -16251,13 +16251,11 @@ class LocalStorageMonitor {
 const localStorageMonitor = new LocalStorageMonitor();
 
 function getStabilityFactor() {
-  parameters.current.stabilityFactorStr = '0.008'; // hardcoded since backend is using old value
   return parseFloat(parameters.current.stabilityFactorStr);
 }
 
 // returns transaction fee in wei
 function getTransactionFeeWei() {
-  parameters.current.stabilityFactorStr = '0.008'; // hardcoded since backend is using old value
   return EthNum.toWei(EthNum.div(parameters.current.transactionFeeUsdStr, parameters.current.stabilityFactorStr)) || 1n * wei;
 }
 
