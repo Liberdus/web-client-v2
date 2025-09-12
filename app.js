@@ -3547,6 +3547,12 @@ async function processChats(chats, keys) {
                   payload.type = 'call';
                   // Use callTime when present; default to 0 (immediate)
                   payload.callTime = Number(parsedMessage.callTime) || 0;
+                  if (reactNativeApp.isReactNativeWebView) {
+                    // If callTime is greater than the current time, send it to the native app
+                    if (payload.callTime && payload.callTime > Date.now()) {
+                      reactNativeApp.sendScheduledCall(contact.username, payload.callTime)
+                    }
+                  }
                 } else if (parsedMessage.type === 'vm') {
                   // Voice message format processing
                   payload.message = ''; // Voice messages don't have text
@@ -15382,6 +15388,14 @@ class ReactNativeApp {
       url,
       text,
       title
+    });
+  }
+
+  sendScheduledCall(username, timestamp){
+    this.postMessage({
+      type: 'SCHEDULE_CALL',
+      username,
+      timestamp
     });
   }
 }
