@@ -408,6 +408,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Calls Modal
   callsModal.load();
+
+  // Group Call Participants Modal
+  groupCallParticipantsModal.load();
   
   // Friend Modal
   friendModal.load();
@@ -3030,7 +3033,7 @@ class CallsModal {
     this.closeButton = document.getElementById('closeCallsModal');
     this.closeButton.addEventListener('click', () => this.close());
 
-    // Click on list item: open chat (single calls) or join call (group calls)
+    // Click on list item: open chat (single calls) or show participants (group calls)
     this.list.addEventListener('click', (e) => {
       const li = e.target.closest('.chat-item');
       if (!li) return;
@@ -3042,8 +3045,8 @@ class CallsModal {
       // Handle clicks on the list item itself
       const isGroupCall = li.classList.contains('group-call');
       if (isGroupCall) {
-        // Group calls: clicking anywhere joins the call
-        this.handleJoinClick(li);
+        // Group calls: show participant selection modal
+        this.showGroupCallParticipants(li);
       } else {
         // Single participant calls: clicking opens chat
         const address = li.getAttribute('data-address');
@@ -3145,6 +3148,19 @@ class CallsModal {
   }
 
   /**
+   * Shows the group call participants modal
+   * @param {HTMLElement} li - The list item element
+   * @returns {void}
+   */
+  showGroupCallParticipants(li) {
+    const idx = Number(li.getAttribute('data-index'));
+    const callGroup = this.calls[idx];
+    if (!callGroup) return;
+
+    groupCallParticipantsModal.open(callGroup, li);
+  }
+
+  /**
    * Renders the calls list by looping through calls and creating a list item for each call
    * @returns {void}
    */
@@ -3212,6 +3228,94 @@ class CallsModal {
 }
 
 const callsModal = new CallsModal();
+
+class GroupCallParticipantsModal {
+  constructor() {
+    this.modal = null;
+    this.participantsList = null;
+    this.closeButton = null;
+    this.currentCallGroup = null;
+    this.currentListItem = null;
+    this._onParticipantClick = this._onParticipantClick.bind(this);
+    this._onJoinClick = this._onJoinClick.bind(this);
+    this._onCancel = this._onCancel.bind(this);
+  }
+
+  load() {
+    this.modal = document.getElementById('groupCallParticipantsModal');
+    if (!this.modal) return;
+    this.participantsList = document.getElementById('groupCallParticipantsList');
+    this.closeButton = document.getElementById('closeGroupCallParticipantsModal');
+
+    [this.participantsList, this.closeButton]
+      .forEach((el, i) => {
+        if (el) el.addEventListener('click', [this._onParticipantClick, this._onJoinClick, this._onCancel, this._onCancel][i]);
+      });
+  }
+
+  open(callGroup, listItem) {
+    this.currentCallGroup = callGroup;
+    this.currentListItem = listItem;
+    
+    // Clear existing participants
+    if (this.participantsList) {
+      this.participantsList.innerHTML = '';
+    }
+
+    // Populate participants
+    if (callGroup?.participants) {
+      const template = document.getElementById('groupCallParticipantTemplate');
+      if (template) {
+        callGroup.participants.forEach(participant => {
+          const participantEl = template.content.cloneNode(true).querySelector('.participant-item');
+          participantEl.setAttribute('data-address', participant.address);
+          
+          const avatar = participantEl.querySelector('.participant-avatar');
+          const name = participantEl.querySelector('.participant-name');
+          
+          if (avatar) avatar.innerHTML = generateIdenticon(participant.address);
+          if (name) name.textContent = participant.calling;
+          
+          this.participantsList.appendChild(participantEl);
+        });
+      }
+    }
+
+    this.modal?.classList.add('active');
+  }
+
+  _onParticipantClick(e) {
+    const participantItem = e.target.closest('.participant-item');
+    if (!participantItem) return;
+    
+    const address = participantItem.getAttribute('data-address');
+    if (address) {
+      // Directly open the chat modal for the selected participant
+      chatModal.open(address);
+      this.close();
+    }
+  }
+
+  _onJoinClick() {
+    // Directly call the join function from callsModal
+    if (this.currentListItem) {
+      callsModal.handleJoinClick(this.currentListItem);
+    }
+    this.close();
+  }
+
+  _onCancel() {
+    this.close();
+  }
+
+  close() {
+    this.modal?.classList.remove('active');
+    this.currentCallGroup = null;
+    this.currentListItem = null;
+  }
+}
+
+const groupCallParticipantsModal = new GroupCallParticipantsModal();
 
 async function updateAssetPricesIfNeeded() {
   if (!myData || !myData.wallet || !myData.wallet.assets) {
@@ -9561,7 +9665,7 @@ console.warn('in send message', txid)
       if (inviteOption) inviteOption.style.display = 'flex';
       if (editResendOption) editResendOption.style.display = 'none';
       if (editOption) editOption.style.display = 'none';
-    } if (isVoice) {
+    } else if (isVoice) {
       if (copyOption) copyOption.style.display = 'none';
     } else {
       if (copyOption) copyOption.style.display = 'flex';

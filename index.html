@@ -857,6 +857,35 @@
         </li>
       </template>
 
+      <!-- Group Call Participants Modal -->
+      <div class="modal modal-dialog" id="groupCallParticipantsModal">
+        <div class="dialog-box-content">
+          <div class="modal-header">
+            <button class="back-button" id="closeGroupCallParticipantsModal"></button>
+            <div class="modal-title">Call Participants</div>
+          </div>
+          <div class="modal-content">
+            <div class="form-container call-invite-modal-container">
+              <p class="modal-summary">Choose a participant to open their chat, or join the call.</p>
+              <div class="participants-list" id="groupCallParticipantsList">
+                <!-- Participants will be populated here -->
+              </div>
+            </div>
+          </div>
+        </div>
+        <a class="last-item" href="#"></a>
+      </div>
+
+      <!-- Template for participant items -->
+      <template id="groupCallParticipantTemplate">
+        <div class="participant-item" data-address="">
+          <div class="participant-avatar"></div>
+          <div class="participant-info">
+            <div class="participant-name"></div>
+          </div>
+        </div>
+      </template>
+
       <!-- Chat Modal -->
       <div class="modal fixed-header" id="chatModal">
         <div class="modal-header">
