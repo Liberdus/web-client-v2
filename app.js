@@ -3080,6 +3080,8 @@ class CallsModal {
       const displayName = getContactDisplayName(contact);
       for (const msg of messages) {
         if (msg?.type !== 'call') continue;
+        // Skip deleted messages
+        if (msg?.deleted === 1) continue;
         const callTime = Number(msg.callTime);
         // Only include valid scheduled calls: positive timestamp within last 2h or in future
         if (!Number.isFinite(callTime) || callTime <= 0) continue;
