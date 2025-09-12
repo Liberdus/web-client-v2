@@ -2444,7 +2444,7 @@ class FriendModal {
       return;
     }
 
-    if (contact.friend in [2,3] && Number(selectedStatus) in [2, 3]){
+    if ([2,3].includes(contact.friend) && [2,3].includes(Number(selectedStatus))){
       console.log('no need to post a change to the network since toll required would be 0 for both cases')
     }
     else{
