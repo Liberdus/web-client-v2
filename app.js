@@ -10942,18 +10942,42 @@ class CallScheduleDateModal {
       const hour24 = defaultDate.getHours();
       this.ampmSelect.value = hour24 >= 12 ? 'PM' : 'AM';
     }
-    // Populate rotating 5-minute list starting at default minute
+    // Populate 5-minute list starting with 00, going to 55
     if (this.minuteSelect) {
       this.minuteSelect.innerHTML = '';
-      const start = defaultDate.getMinutes();
+      const defaultMinute = defaultDate.getMinutes();
+      
+      // Always populate 00, 05, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55
       for (let i = 0; i < 12; i++) {
-        const m = (start + i * 5) % 60;
+        const m = i * 5;
         const opt = document.createElement('option');
         opt.value = this._pad2(m);
         opt.textContent = this._pad2(m);
         this.minuteSelect.appendChild(opt);
       }
-      this.minuteSelect.value = this._pad2(start);
+      
+      // Pre-select the closest future time (round up to next 5-minute interval)
+      const roundedMinute = Math.ceil(defaultMinute / 5) * 5;
+      if (roundedMinute === 60) {
+        // If we round up to 60 minutes, we need to go to next hour and set minute to 00
+        this.minuteSelect.value = '00';
+        // Update hour to next hour
+        if (this.hourSelect && this.ampmSelect) {
+          const currentHour12 = parseInt(this.hourSelect.value);
+          const isAM = this.ampmSelect.value === 'AM';
+          
+          if (currentHour12 === 12) {
+            // 12 PM -> 1 AM, 12 AM -> 1 PM
+            this.hourSelect.value = '01';
+            this.ampmSelect.value = isAM ? 'PM' : 'AM';
+          } else {
+            // 1-11 -> next hour
+            this.hourSelect.value = this._pad2(currentHour12 + 1);
+          }
+        }
+      } else {
+        this.minuteSelect.value = this._pad2(roundedMinute);
+      }
     }
     // Set local date input
     if (this.dateInput) {
@@ -10999,7 +11023,7 @@ class CallScheduleDateModal {
     const nowCorrected = getCorrectedTimestamp();
     const minAllowed = nowCorrected - 5 * 60 * 1000;
     if (corrected < minAllowed) {
-      showToast('Please choose a time in the future', 2000, 'error', false, 'call-schedule-date-modal-future-time');
+      showToast('Please choose a date or time in the future', 2000, 'error', false, 'call-schedule-date-modal-future-time');
       return;
     }
     this._closeWith(corrected);
