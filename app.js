@@ -3376,6 +3376,7 @@ async function processChats(chats, keys) {
         const tx = res.messages[i]; // the messages are actually the whole tx
         // compute the transaction id (txid)
         const txidHex = getTxid(tx);
+        const useTxTimestamp = false;
 
         newTimestamp = tx.timestamp > newTimestamp ? tx.timestamp : newTimestamp;
         mine = tx.from == longAddress(keys.address) ? true : false;
@@ -3387,11 +3388,14 @@ async function processChats(chats, keys) {
           const MAX_TS_SKEW_MS = 10 * 1000;
           if ((txTs - sentTs) < 0 || (txTs - sentTs) > MAX_TS_SKEW_MS) {
             // ensures we don't use out of range sent_timestamp
-            payload.sent_timestamp = tx.timestamp;
+            useTxTimestamp = true;
           }
         }
         if (tx.type == 'message') {
           const payload = tx.xmessage; // changed to use .message
+          if (useTxTimestamp){ 
+            payload.sent_timestamp = tx.timestamp;
+          }
           if (mine){
             console.warn('my message tx', tx)
           }
@@ -3656,6 +3660,9 @@ async function processChats(chats, keys) {
         //   Process transfer messages; this is a payment with an optional memo 
         else if (tx.type == 'transfer') {
           const payload = tx.xmemo;
+          if (useTxTimestamp){ 
+            payload.sent_timestamp = tx.timestamp;
+          }
           if (mine) {
             const txx = parse(stringify(tx))
             console.warn('my transfer tx', txx)
