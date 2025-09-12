@@ -3376,7 +3376,7 @@ async function processChats(chats, keys) {
         const tx = res.messages[i]; // the messages are actually the whole tx
         // compute the transaction id (txid)
         const txidHex = getTxid(tx);
-        const useTxTimestamp = false;
+        let useTxTimestamp = false;
 
         newTimestamp = tx.timestamp > newTimestamp ? tx.timestamp : newTimestamp;
         mine = tx.from == longAddress(keys.address) ? true : false;
