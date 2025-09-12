@@ -10958,25 +10958,19 @@ class CallScheduleDateModal {
       
       // Pre-select the closest future time (round up to next 5-minute interval)
       const roundedMinute = Math.ceil(defaultMinute / 5) * 5;
-      if (roundedMinute === 60) {
-        // If we round up to 60 minutes, we need to go to next hour and set minute to 00
-        this.minuteSelect.value = '00';
-        // Update hour to next hour
-        if (this.hourSelect && this.ampmSelect) {
-          const currentHour12 = parseInt(this.hourSelect.value);
-          const isAM = this.ampmSelect.value === 'AM';
-          
-          if (currentHour12 === 12) {
-            // 12 PM -> 1 AM, 12 AM -> 1 PM
-            this.hourSelect.value = '01';
-            this.ampmSelect.value = isAM ? 'PM' : 'AM';
-          } else {
-            // 1-11 -> next hour
-            this.hourSelect.value = this._pad2(currentHour12 + 1);
-          }
+      this.minuteSelect.value = this._pad2(roundedMinute % 60);
+      
+      // Handle hour rollover when minute rounds to 60
+      if (roundedMinute === 60 && this.hourSelect && this.ampmSelect) {
+        const currentHour12 = parseInt(this.hourSelect.value);
+        const isAM = this.ampmSelect.value === 'AM';
+        
+        if (currentHour12 === 12) {
+          this.hourSelect.value = '01';
+          this.ampmSelect.value = isAM ? 'PM' : 'AM';
+        } else {
+          this.hourSelect.value = this._pad2(currentHour12 + 1);
         }
-      } else {
-        this.minuteSelect.value = this._pad2(roundedMinute);
       }
     }
     // Set local date input
