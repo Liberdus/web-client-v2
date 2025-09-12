@@ -4941,6 +4941,10 @@ small {
   gap: 1rem;
 }
 
+.voice-recording-controls button{
+  margin: 0 5px;
+}
+
 .voice-btn {
   padding: 12px 24px;
   border: none;
