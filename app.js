@@ -8851,15 +8851,20 @@ console.warn('in send message', txid)
             const audioEncKey = item.audioPqEncSharedKey || item.pqEncSharedKey || '';
             const audioSelfKey = item.audioSelfKey || item.selfKey || '';
             messageTextHTML = `
-              <div class="voice-message" data-voice-url="${item.url || ''}" data-pqEncSharedKey="${audioEncKey}" data-selfKey="${audioSelfKey}" data-msg-idx="${i}">
-                <button class="voice-message-play-button">
-                  <svg viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z"/>
-                  </svg>
-                </button>
-                <div class="voice-message-info">
-                  <div class="voice-message-text">Voice message</div>
-                  <div class="voice-message-time-display">0:00 / ${duration}</div>
+              <div class="voice-message" data-voice-url="${item.url || ''}" data-pqEncSharedKey="${audioEncKey}" data-selfKey="${audioSelfKey}" data-msg-idx="${i}" data-duration="${item.duration || 0}">
+                <div class="voice-message-controls" style="display:flex;align-items:center;gap:10px;">
+                  <button class="voice-message-play-button" aria-label="Play voice message" style="flex:0 0 auto;">
+                    <svg viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z"/>
+                    </svg>
+                  </button>
+                  <div class="voice-message-info" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                      <div class="voice-message-text" style="font-weight:500;">Voice message</div>
+                      <div class="voice-message-time-display" style="font-size:0.85em;white-space:nowrap;">0:00 / ${duration}</div>
+                    </div>
+                    <input type="range" class="voice-message-seek" min="0" max="${item.duration || 0}" value="0" step="1" aria-label="Seek voice message" style="width:100%;cursor:pointer;">
+                  </div>
                 </div>
               </div>`;
           }
@@ -9454,6 +9459,7 @@ console.warn('in send message', txid)
   handleMessageClick(e) {
     if (e.target.closest('.attachment-row')) return;
     if (e.target.closest('.voice-message-play-button')) return;
+    if (e.target.closest('.voice-message-seek')) return;
 
     // Check if keyboard is open - if so, don't show context menu
     if (this.isKeyboardOpen()) {
@@ -9501,6 +9507,7 @@ console.warn('in send message', txid)
 
     // If this is a call message, show call-specific options and hide copy
     const isCall = !!messageEl.querySelector('.call-message');
+    const isVoice = !!messageEl.querySelector('.voice-message');
     const copyOption = this.contextMenu.querySelector('[data-action="copy"]');
     const joinOption = this.contextMenu.querySelector('[data-action="join"]');
     const inviteOption = this.contextMenu.querySelector('[data-action="call-invite"]');
@@ -9518,6 +9525,8 @@ console.warn('in send message', txid)
       if (inviteOption) inviteOption.style.display = 'flex';
       if (editResendOption) editResendOption.style.display = 'none';
       if (editOption) editOption.style.display = 'none';
+    } if (isVoice) {
+      if (copyOption) copyOption.style.display = 'none';
     } else {
       if (copyOption) copyOption.style.display = 'flex';
       if (joinOption) joinOption.style.display = 'none';
@@ -10421,6 +10430,13 @@ console.warn('in send message', txid)
     if (existingAudio) {
       if (existingAudio.paused) {
         // Resume playback
+        const existingSeek = buttonElement.closest('.voice-message')?.querySelector('.voice-message-seek');
+        if (existingSeek) {
+          const desired = Number(existingSeek.value || 0);
+          if (!isNaN(desired) && Math.abs(existingAudio.currentTime - desired) > 0.25) {
+            try { existingAudio.currentTime = desired; } catch (e) { /* ignore */ }
+          }
+        }
         existingAudio.play();
         buttonElement.innerHTML = `
           <svg viewBox="0 0 24 24">
@@ -10497,6 +10513,30 @@ console.warn('in send message', txid)
       // Store audio element reference for pause/resume functionality
       voiceMessageElement.audioElement = audio;
       voiceMessageElement.audioUrl = audioUrl;
+      const seekEl = voiceMessageElement.querySelector('.voice-message-seek');
+      const timeDisplayElement = voiceMessageElement.querySelector('.voice-message-time-display');
+      const totalDurationSeconds = message.duration || Math.floor(audio.duration) || 0;
+      if (seekEl) {
+        // Ensure max reflects known duration; fall back to audio.metadata once loaded
+        seekEl.max = totalDurationSeconds;
+      }
+      // If user set a seek position before playback, honor it after metadata loads
+      audio.addEventListener('loadedmetadata', () => {
+        const metaDuration = Math.floor(audio.duration) || totalDurationSeconds;
+        if (seekEl) {
+          seekEl.max = metaDuration;
+          const preVal = Number(seekEl.value || 0);
+          if (preVal > 0 && preVal < metaDuration) {
+            try { audio.currentTime = preVal; } catch (e) { /* ignore */ }
+          } else if (voiceMessageElement.pendingSeekTime !== undefined) {
+            const pst = voiceMessageElement.pendingSeekTime;
+            if (pst >= 0 && pst < metaDuration) {
+              try { audio.currentTime = pst; } catch (e) { /* ignore */ }
+            }
+            delete voiceMessageElement.pendingSeekTime;
+          }
+        }
+      }, { once: true });
       
       // Update UI to show playing state and enable button for pause functionality
       buttonElement.innerHTML = `
@@ -10506,16 +10546,59 @@ console.warn('in send message', txid)
       `;
       buttonElement.disabled = false; // Enable button for pause functionality
       
-      // Time display tracking
-      const timeDisplayElement = voiceMessageElement.querySelector('.voice-message-time-display');
-      
+      // Time & progress tracking
       audio.ontimeupdate = () => {
-        if (timeDisplayElement) {
-          const currentTime = this.formatDuration(Math.floor(audio.currentTime));
-          const totalTime = this.formatDuration(message.duration);
-          timeDisplayElement.textContent = `${currentTime} / ${totalTime}`;
+        if (!voiceMessageElement.isScrubbing) {
+          if (seekEl) {
+            seekEl.value = Math.floor(audio.currentTime);
+          }
+          if (timeDisplayElement) {
+            const currentTime = this.formatDuration(Math.floor(audio.currentTime));
+            const totalTime = this.formatDuration(totalDurationSeconds);
+            timeDisplayElement.textContent = `${currentTime} / ${totalTime}`;
+          }
         }
       };
+
+      if (seekEl && !voiceMessageElement.seekSetup) {
+        // Avoid duplicate listener setup
+        voiceMessageElement.seekSetup = true;
+        const updateFromSeekValue = (commit) => {
+          const newTime = Number(seekEl.value || 0);
+          if (timeDisplayElement) {
+            const currentTime = this.formatDuration(newTime);
+            const totalTime = this.formatDuration(totalDurationSeconds);
+            timeDisplayElement.textContent = `${currentTime} / ${totalTime}`;
+          }
+          if (audio && !isNaN(newTime)) {
+            // If metadata not yet loaded, store pending seek
+            if (audio.readyState < 1) { // HAVE_METADATA
+              voiceMessageElement.pendingSeekTime = newTime;
+            } else if (commit || voiceMessageElement.isScrubbing) {
+              // During scrubbing (live) or on commit, set currentTime
+              try { audio.currentTime = newTime; } catch (e) { /* ignore */ }
+            }
+          }
+        };
+        const startScrub = () => { voiceMessageElement.isScrubbing = true; };
+        const endScrub = () => { voiceMessageElement.isScrubbing = false; updateFromSeekValue(true); };
+        seekEl.addEventListener('pointerdown', startScrub);
+        seekEl.addEventListener('pointerup', endScrub);
+        seekEl.addEventListener('touchstart', startScrub, { passive: true });
+        seekEl.addEventListener('touchend', endScrub, { passive: true });
+        seekEl.addEventListener('mousedown', startScrub);
+        seekEl.addEventListener('mouseup', endScrub);
+        // Throttle input updates to avoid performance issues
+        let lastInputUpdate = 0;
+        seekEl.addEventListener('input', () => {
+          const now = performance.now();
+            if (now - lastInputUpdate > 50) { // ~20fps updates
+              lastInputUpdate = now;
+              updateFromSeekValue(false);
+            }
+        });
+        seekEl.addEventListener('change', () => updateFromSeekValue(true));
+      }
       
       audio.onended = () => {
         // Reset UI
@@ -10527,9 +10610,10 @@ console.warn('in send message', txid)
         buttonElement.disabled = false;
         if (timeDisplayElement) {
           // Get the original duration from the voice message data
-          const originalDuration = this.formatDuration(message.duration);
+          const originalDuration = this.formatDuration(totalDurationSeconds);
           timeDisplayElement.textContent = `0:00 / ${originalDuration}`;
         }
+        if (seekEl) seekEl.value = 0;
         // Clean up audio element and URL
         delete voiceMessageElement.audioElement;
         URL.revokeObjectURL(voiceMessageElement.audioUrl);
@@ -10540,6 +10624,7 @@ console.warn('in send message', txid)
         console.error('Error playing voice message:', error);
         showToast('Error playing voice message', 3000, 'error');
         buttonElement.disabled = false;
+        if (seekEl) seekEl.value = 0;
         // Clean up on error
         delete voiceMessageElement.audioElement;
         if (voiceMessageElement.audioUrl) {
