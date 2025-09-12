@@ -3030,17 +3030,21 @@ class CallsModal {
     this.closeButton = document.getElementById('closeCallsModal');
     this.closeButton.addEventListener('click', () => this.close());
 
-    // Click on list item: open chat
+    // Click on list item: open chat (only for single participant calls)
     this.list.addEventListener('click', (e) => {
       const li = e.target.closest('.chat-item');
       if (!li) return;
-      const address = li.getAttribute('data-address');
       const action = e.target.closest('.call-join');
       if (action) {
         this.handleJoinClick(li);
         return;
       }
-      chatModal.open(address);
+      // Only open chat for single participant calls
+      const isGroupCall = li.classList.contains('group-call');
+      if (!isGroupCall) {
+        const address = li.getAttribute('data-address');
+        chatModal.open(address);
+      }
     });
   }
 
@@ -3074,6 +3078,10 @@ class CallsModal {
     const now = getCorrectedTimestamp();
     const twoHoursMs = 2 * 60 * 60 * 1000;
     const threshold = now - twoHoursMs;
+    
+    // Group calls by URL and callTime
+    const callGroups = new Map();
+    
     // loop through contacts and get calls that are within last 2 hours or in future
     for (const [address, contact] of Object.entries(myData.contacts)) {
       const messages = contact?.messages || [];
@@ -3086,17 +3094,28 @@ class CallsModal {
         // Only include valid scheduled calls: positive timestamp within last 2h or in future
         if (!Number.isFinite(callTime) || callTime <= 0) continue;
         if (callTime >= threshold) {
-          this.calls.push({
+          const callUrl = msg.message;
+          const groupKey = `${callTime}-${callUrl}`;
+          
+          if (!callGroups.has(groupKey)) {
+            callGroups.set(groupKey, {
+              callTime,
+              callUrl,
+              participants: []
+            });
+          }
+          
+          callGroups.get(groupKey).participants.push({
             address,
             calling: displayName,
-            callTime,
-            callUrl: msg.message,
             txid: msg.txid || ''
           });
         }
       }
     }
-    this.calls.sort((a, b) => (a.callTime || 0) - (b.callTime || 0));
+    
+    // Convert grouped calls to array and sort by call time
+    this.calls = Array.from(callGroups.values()).sort((a, b) => (a.callTime || 0) - (b.callTime || 0));
   }
 
   /** 
@@ -3106,18 +3125,18 @@ class CallsModal {
    */
   handleJoinClick(li) {
     const idx = Number(li.getAttribute('data-index'));
-    const item = this.calls[idx];
-    if (!item) return;
+    const callGroup = this.calls[idx];
+    if (!callGroup) return;
     // Gate future calls
-    if (chatModal.isFutureCall(item.callTime)) {
-      showToast(`Call scheduled for ${chatModal.formatLocalDateTime(item.callTime)}`, 2500, 'info');
+    if (chatModal.isFutureCall(callGroup.callTime)) {
+      showToast(`Call scheduled for ${chatModal.formatLocalDateTime(callGroup.callTime)}`, 2500, 'info');
       return;
     }
-    if (!item.callUrl) {
+    if (!callGroup.callUrl) {
       showToast('Call link not found', 2000, 'error');
       return;
     }
-    window.open(item.callUrl, '_blank');
+    window.open(callGroup.callUrl, '_blank');
   }
 
   /**
@@ -3139,27 +3158,46 @@ class CallsModal {
     if (empty) empty.style.display = 'none';
     // create a fragment to append new items to
     const fragment = document.createDocumentFragment();
-    this.calls.forEach((c, i) => {
-      const li = document.createElement('li');
-      li.className = 'chat-item';
-      li.setAttribute('data-index', String(i));
-      li.setAttribute('data-address', c.address);
+    this.calls.forEach((callGroup, i) => {
       // format the call time
-      const when = chatModal.formatLocalDateTime(c.callTime);
-      const identicon = generateIdenticon(c.address);
-      li.innerHTML = `
-        <div class="chat-avatar">${identicon}</div>
-        <div class="chat-content">
-          <div class="chat-header">
-            <div class="chat-name">${escapeHtml(c.calling)}</div>
-            <button class="call-join call-message-phone-button" aria-label="Join Call"></button>
-          </div>
-          <div class="chat-message">
-            <div class="call-time">${when}</div>
-            <span class="chat-time-chevron"></span>
-          </div>
-        </div>
-      `;
+      const when = chatModal.formatLocalDateTime(callGroup.callTime);
+      const isGroupCall = callGroup.participants.length > 1;
+      
+      let li;
+      if (isGroupCall) {
+        // Group call: use template
+        const template = document.getElementById('groupCallTemplate');
+        li = template.content.cloneNode(true).querySelector('li');
+        
+        // Generate avatars for all participants
+        const participantAvatars = callGroup.participants.map(p => 
+          `<div class="participant-avatar" title="${escapeHtml(p.calling)}">${generateIdenticon(p.address)}</div>`
+        ).join('');
+        
+        // Create participant names list
+        const participantNames = callGroup.participants.map(p => escapeHtml(p.calling)).join(', ');
+        
+        // Populate template
+        li.setAttribute('data-index', String(i));
+        li.querySelector('.call-group-avatars').innerHTML = participantAvatars;
+        li.querySelector('.chat-name').textContent = participantNames;
+        li.querySelector('.call-time').textContent = when;
+      } else {
+        // Single participant call: use template
+        const template = document.getElementById('singleCallTemplate');
+        li = template.content.cloneNode(true).querySelector('li');
+        
+        const participant = callGroup.participants[0];
+        const identicon = generateIdenticon(participant.address);
+        
+        // Populate template
+        li.setAttribute('data-index', String(i));
+        li.setAttribute('data-address', participant.address);
+        li.querySelector('.chat-avatar').innerHTML = identicon;
+        li.querySelector('.chat-name').textContent = participant.calling;
+        li.querySelector('.call-time').textContent = when;
+      }
+      
       fragment.appendChild(li);
     });
     // remove previous items and append new items

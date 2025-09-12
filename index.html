@@ -824,6 +824,39 @@
         <a class="last-item" href="#"> </a>
       </div>
 
+      <!-- Templates for call list items -->
+      <template id="singleCallTemplate">
+        <li class="chat-item" data-index="" data-address="">
+          <div class="chat-avatar"></div>
+          <div class="chat-content">
+            <div class="chat-header">
+              <div class="chat-name"></div>
+              <button class="call-join call-message-phone-button" aria-label="Join Call"></button>
+            </div>
+            <div class="chat-message">
+              <div class="call-time"></div>
+              <span class="chat-time-chevron"></span>
+            </div>
+          </div>
+        </li>
+      </template>
+
+      <template id="groupCallTemplate">
+        <li class="chat-item group-call" data-index="">
+          <div class="chat-avatar call-group-avatars"></div>
+          <div class="chat-content">
+            <div class="chat-header">
+              <div class="chat-name"></div>
+              <button class="call-join call-message-phone-button" aria-label="Join Call"></button>
+            </div>
+            <div class="chat-message">
+              <div class="call-time"></div>
+              <span class="chat-time-chevron"></span>
+            </div>
+          </div>
+        </li>
+      </template>
+
       <!-- Chat Modal -->
       <div class="modal fixed-header" id="chatModal">
         <div class="modal-header">

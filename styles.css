@@ -532,13 +532,14 @@ body {
 
 
 .chat-avatar {
-  width: 48px;
-  height: 48px;
   border-radius: 50%;
   margin-right: 12px;
   background-color: var(--light-color);
   flex-shrink: 0;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Base chat list styles */
@@ -602,6 +603,64 @@ body {
 #callsModal .chat-avatar svg {
   width: 44px;
   height: 44px;
+  max-width: 44px;
+  max-height: 44px;
+}
+
+/* Group call styling */
+.group-call {
+  cursor: default;
+}
+
+.group-call:hover {
+  background-color: var(--hover-background) !important;
+}
+
+/* Group call avatars */
+.call-group-avatars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+}
+
+.participant-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  background-color: var(--light-color);
+}
+
+.participant-avatar svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* For 2 participants */
+.call-group-avatars:has(.participant-avatar:nth-child(2):last-child) .participant-avatar {
+  width: 22px;
+  height: 22px;
+}
+
+.call-group-avatars:has(.participant-avatar:nth-child(2):last-child) .participant-avatar svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* For 3+ participants, show first 3 with smaller size */
+.call-group-avatars:has(.participant-avatar:nth-child(3)) .participant-avatar {
+  width: 18px;
+  height: 18px;
+}
+
+.call-group-avatars:has(.participant-avatar:nth-child(3)) .participant-avatar svg {
+  width: 18px;
+  height: 18px;
 }
 
 #callsModal .chat-name {
