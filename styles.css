@@ -609,7 +609,7 @@ body {
 
 /* Group call styling */
 .group-call {
-  cursor: default;
+  cursor: pointer;
 }
 
 .group-call:hover {

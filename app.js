@@ -3030,7 +3030,7 @@ class CallsModal {
     this.closeButton = document.getElementById('closeCallsModal');
     this.closeButton.addEventListener('click', () => this.close());
 
-    // Click on list item: open chat (only for single participant calls)
+    // Click on list item: open chat (single calls) or join call (group calls)
     this.list.addEventListener('click', (e) => {
       const li = e.target.closest('.chat-item');
       if (!li) return;
@@ -3039,9 +3039,13 @@ class CallsModal {
         this.handleJoinClick(li);
         return;
       }
-      // Only open chat for single participant calls
+      // Handle clicks on the list item itself
       const isGroupCall = li.classList.contains('group-call');
-      if (!isGroupCall) {
+      if (isGroupCall) {
+        // Group calls: clicking anywhere joins the call
+        this.handleJoinClick(li);
+      } else {
+        // Single participant calls: clicking opens chat
         const address = li.getAttribute('data-address');
         chatModal.open(address);
       }
@@ -3129,7 +3133,8 @@ class CallsModal {
     if (!callGroup) return;
     // Gate future calls
     if (chatModal.isFutureCall(callGroup.callTime)) {
-      showToast(`Call scheduled for ${chatModal.formatLocalDateTime(callGroup.callTime)}`, 2500, 'info');
+      // have id be with call time so we don't repeat same toast for same call
+      showToast(`Call scheduled for ${chatModal.formatLocalDateTime(callGroup.callTime)}`, 2500, 'info', false, `call-scheduled-${callGroup.callTime}`);
       return;
     }
     if (!callGroup.callUrl) {
