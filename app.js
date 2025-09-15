@@ -138,6 +138,9 @@ let checkPendingTransactionsIntervalId = null;
 let getSystemNoticeIntervalId = null;
 //let checkConnectivityIntervalId = null;
 
+// parameters to add to the call URL when opening the page
+const callUrlParams = `#config.toolbarButtons=["camera","microphone","desktop","hangup"]&config.disableDeepLinking=true&config.prejoinPageEnabled=false&config.startWithAudioMuted=false&startWithVideoMuted=false&userInfo.displayName=`
+
 // Used in getNetworkParams function
 const NETWORK_ACCOUNT_UPDATE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
 const NETWORK_ACCOUNT_ID = '0'.repeat(64);
@@ -3144,7 +3147,7 @@ class CallsModal {
       showToast('Call link not found', 0, 'error', false, 'call-link-not-found');
       return;
     }
-    window.open(callGroup.callUrl, '_blank');
+    window.open(callGroup.callUrl+`${callUrlParams}"${myAccount.username}"`, '_blank');
   }
 
   /**
@@ -8968,9 +8971,10 @@ console.warn('in send message', txid)
               const callTimeMs = item.callTime || 0;
               const scheduleHTML = this.buildCallScheduleHTML(callTimeMs);
               // Render call message with a left circular phone icon (clickable) and plain text to the right
+              // TODO - remove the href and instead have it call a function which will open the URL and at the time of opening it adds the callUrlParam and username
               messageTextHTML = `
                 <div class="call-message">
-                  <a href="${item.message}" target="_blank" rel="noopener noreferrer" class="call-message-phone-button" aria-label="Join Video Call">
+                  <a href='${item.message}${callUrlParams}"${myAccount.username}"' target="_blank" rel="noopener noreferrer" class="call-message-phone-button" aria-label="Join Video Call">
                     <span class="sr-only">Join Video Call</span>
                   </a>
                   <div>
@@ -9883,14 +9887,14 @@ console.warn('in send message', txid)
    * @param {HTMLElement} messageEl
    */
   handleJoinCall(messageEl) {
-    const callLink = messageEl.querySelector('.call-message a')?.href;
-    if (!callLink) return showToast('Call link not found', 2000, 'error');
+    const callUrl = messageEl.querySelector('.call-message a')?.href;
+    if (!callUrl) return showToast('Call link not found', 2000, 'error');
     // Gate future scheduled calls (context menu path)
     if (this.gateScheduledCall(messageEl)) {
       this.closeContextMenu();
       return;
     }
-    window.open(callLink, '_blank');
+    window.open(callUrl+`${callUrlParams}"${myAccount.username}"`, '_blank');
     this.closeContextMenu();
   }
 
@@ -10266,15 +10270,15 @@ console.warn('in send message', txid)
       const randomHex = bin2hex(randomBytes).slice(0, 20);
 
       // Create the Meet URL
-      const meetUrl = `https://meet.liberdus.com/${randomHex}`;
+      const callUrl = `https://meet2.liberdus.com/${randomHex}`;
       
       // Open immediately only if call is now
       if (chosenCallTime === 0) {
-        window.open(meetUrl, '_blank');
+        window.open(callUrl+`${callUrlParams}"${myAccount.username}"`, '_blank');
       }
       
       // Send a call message to the contact with callTime (0 or future timestamp)
-      await this.sendCallMessage(meetUrl, chosenCallTime);
+      await this.sendCallMessage(callUrl, chosenCallTime);
       
       if (chosenCallTime && chosenCallTime > 0) {
         const when = new Date(chosenCallTime - timeSkew); // convert back to local wall-clock for display
