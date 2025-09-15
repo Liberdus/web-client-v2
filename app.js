@@ -4644,9 +4644,11 @@ function showToast(message, duration = 2000, type = 'default', isHTML = false, d
   // Show with a slight delay to ensure rendering
   setTimeout(() => {
     toast.classList.add('show');
-    // For error toasts, keep it up until the user clicks somewhere to make it go away
-    if (type === 'error') {
-      // Add a close button to error toasts
+    
+    // Duration determines behavior: <= 0 = sticky (requires close button), > 0 = auto-dismiss
+    // Exception: loading toasts are never manually closable by user
+    if (duration <= 0 && type !== 'loading') {
+      // Sticky toast - add close button and click handler (but not for loading toasts)
       toast.style.pointerEvents = 'auto';
       const closeBtn = document.createElement('button');
       closeBtn.className = 'toast-close-btn';
@@ -4654,27 +4656,17 @@ function showToast(message, duration = 2000, type = 'default', isHTML = false, d
       closeBtn.innerHTML = '&times;';
       toast.appendChild(closeBtn);
 
-      // Make the whole toast clickable
+      // Make the whole toast clickable to close
       toast.onclick = () => {
         hideToast(toastId);
       };
-    } else if (duration <= 0) {
-      // Sticky non-error toast (e.g., info) with close button
-      toast.style.pointerEvents = 'auto';
-      const closeBtn = document.createElement('button');
-      closeBtn.className = 'toast-close-btn';
-      closeBtn.setAttribute('aria-label', 'Close');
-      closeBtn.innerHTML = '&times;';
-      toast.appendChild(closeBtn);
-
-      toast.onclick = () => {
-        hideToast(toastId);
-      };
-    } else {
+    } else if (duration > 0) {
+      // Auto-dismiss toast - no close button needed
       setTimeout(() => {
         hideToast(toastId);
       }, duration);
     }
+    // If duration <= 0 and type === 'loading', do nothing - toast stays until programmatically removed
   }, 10);
 
   return toastId;
