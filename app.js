@@ -485,7 +485,10 @@ function handleVisibilityChange() {
     // if chatModal was opened, save the last message count
     if (chatModal.isActive() && chatModal.address) {
       const contact = myData.contacts[chatModal.address];
-      chatModal.lastMessageCount = contact?.messages?.length || 0;
+      // Take a one-time snapshot for this hidden session; don't overwrite if more background events fire
+      if (chatModal.lastMessageCount === null) {
+        chatModal.lastMessageCount = contact?.messages?.length || 0;
+      }
     }
     // save state when app is put into background
     saveState();
@@ -497,9 +500,11 @@ function handleVisibilityChange() {
     if (chatModal.isActive() && chatModal.address) {
       const contact = myData.contacts[chatModal.address];
       const currentCount = contact?.messages?.length || 0;
-      if (currentCount !== chatModal.lastMessageCount) {
+      if (chatModal.lastMessageCount !== null && currentCount !== chatModal.lastMessageCount) {
         chatModal.appendChatModal(true);
       }
+      // Clear lastMessageCount at the end of a hidden session
+      chatModal.lastMessageCount = null;
     }
     // send message `GetAllPanelNotifications` to React Native when app is brought back to foreground
     if (window?.ReactNativeWebView) {
@@ -7884,7 +7889,7 @@ class ChatModal {
   constructor() {
     this.newestReceivedMessage = null;
     this.newestSentMessage = null;
-    this.lastMessageCount = 0;
+    this.lastMessageCount = null;
 
     // used by updateTollValue and updateTollRequired
     this.toll = null;
@@ -15214,7 +15219,10 @@ class ReactNativeApp {
             // if chatModal was opened, save the last message count
             if (chatModal.isActive() && chatModal.address) {
               const contact = myData.contacts[chatModal.address];
-              chatModal.lastMessageCount = contact?.messages?.length || 0;
+              // Set snapshot only once during a hidden session to avoid Android overwriting
+              if (chatModal.lastMessageCount === null) {
+                chatModal.lastMessageCount = contact?.messages?.length || 0;
+              }
             }
             saveState();
           }
