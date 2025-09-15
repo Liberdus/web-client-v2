@@ -3383,8 +3383,8 @@ async function queryNetwork(url) {
     console.log('response', data);
     return data;
   } catch (error) {
-    console.error(`queryNetwork ERROR: ${error}`);
-    showToast(`queryNetwork: error: ${error}`, 0, 'error')
+    console.error(`queryNetwork ERROR: ${error} ${url}`);
+    showToast(`queryNetwork: error: ${error} ${url}`, 0, 'error')
     return null;
   }
 }
