@@ -14,7 +14,7 @@ async function checkVersion() {
     newVersion = await response.text();
   } catch (error) {
     console.error('Version check failed:', error);
-    showToast('Version check failed. Your Internet connection may be down.', 0, 'error', false, 'version-check-failed');
+    showToast('Version check failed. Your Internet connection may be down.', 0, 'error');
     // Only trigger offline UI if it's a network error
     if (!navigator.onLine || error instanceof TypeError) {
       isOnline = false;
@@ -72,6 +72,7 @@ async function forceReload(urls) {
 // Needed to stringify and parse bigints; also deterministic stringify
 //   modified to use export
 import { stringify, parse } from './external/stringify-shardus.js';
+import blake from './external/blake2b.js';
 
 // Import crypto functions from crypto.js
 import {
@@ -904,7 +905,7 @@ class Footer {
         }
   
         // Display error toast to user
-        showToast(`Failed to switch to ${view} view`, 0, 'error', false, `switch-view-failed-${view}`);
+        showToast(`Failed to switch to ${view} view`, 0, 'error');
       }
     }
   }
@@ -1341,7 +1342,7 @@ class WalletScreen {
     }
 
     if (failedToGetBalance) {
-      showToast(`Error fetching balance. Try again later.`, 0, 'error', false, 'balance-fetch-error');
+      showToast(`Error fetching balance. Try again later.`, 0, 'error');
       console.error('Failed to get balance for some addresses');
     }
 
@@ -2461,12 +2462,12 @@ class FriendModal {
           console.log(
             `[handleFriendSubmit] update_toll_required transaction failed: ${res?.result?.reason}. Did not update contact status.`
           );
-          showToast('Failed to update friend status. Please try again.', 0, 'error', false, 'update-friend-status-failed');
+          showToast('Failed to update friend status. Please try again.', 0, 'error');
           return;
         }
       } catch (error) {
         console.error('Error sending transaction to update chat toll:', error);
-        showToast('Failed to update friend status. Please try again.', 0, 'error', false, 'update-friend-status-failed');
+        showToast('Failed to update friend status. Please try again.', 0, 'error');
         return;
       }
     }
@@ -2541,7 +2542,7 @@ class FriendModal {
         contact.friend = contact.friendOld
       } else {
         this.submitButton.disabled = true;
-        showToast('You have a pending transaction to update the friend status. Come back to this page later.', 0, 'error', false, 'pending-friend-status-tx');
+        showToast('You have a pending transaction to update the friend status. Come back to this page later.', 0, 'error');
         return;
       }
     }
@@ -3140,11 +3141,11 @@ class CallsModal {
     // Gate future calls
     if (chatModal.isFutureCall(callGroup.callTime)) {
       // have id be with call time so we don't repeat same toast for same call
-      showToast(`Call scheduled for ${chatModal.formatLocalDateTime(callGroup.callTime)}`, 2500, 'info', false, `call-scheduled-${callGroup.callTime}`);
+      showToast(`Call scheduled for ${chatModal.formatLocalDateTime(callGroup.callTime)}`, 2500, 'info');
       return;
     }
     if (!callGroup.callUrl) {
-      showToast('Call link not found', 0, 'error', false, 'call-link-not-found');
+      showToast('Call link not found', 0, 'error');
       return;
     }
     window.open(callGroup.callUrl+`${callUrlParams}"${myAccount.username}"`, '_blank');
@@ -3365,14 +3366,14 @@ async function queryNetwork(url) {
   if (!isOnline) {
     //TODO: show user we are not online
     console.warn('not online');
-    showToast('queryNetwork: not online', 0, 'error', false, 'network-not-online')
+    showToast('queryNetwork: not online', 0, 'error')
     //alert('not online')
     return null;
   }
   const selectedGateway = getGatewayForRequest();
   if (!selectedGateway) {
     console.error('No gateway available for network query');
-    showToast('queryNetwork: no gateway', 0, 'error', false, 'network-no-gateway')
+    showToast('queryNetwork: no gateway', 0, 'error')
     return null;
   }
 
@@ -4605,17 +4606,34 @@ function createDisplayInfo(contact) {
   };
 }
 
+// Helper function to generate a hash-based deduplication key from message content
+function generateMessageHash(message) {
+  try {
+    const hex = blake.blake2bHex(message, null, 8); // 8 bytes = 16 hex chars
+    return hex.slice(0, 10);
+  } catch (error) {
+    let hash = 0;
+    for (let i = 0; i < message.length; i++) {
+      const charCode = message.charCodeAt(i);
+      hash = ((hash << 5) - hash) + charCode;
+      hash |= 0; // Convert to 32-bit integer
+    }
+    return Math.abs(hash).toString(36).slice(0, 10);
+  }
+}
+
 // Add this function before the ContactInfoModal class
-function showToast(message, duration = 2000, type = 'default', isHTML = false, deduplicateKey = null) {
+function showToast(message, duration = 2000, type = 'default', isHTML = false) {
   const toastContainer = document.getElementById('toastContainer');
   
-  // Check for duplicate toasts if deduplicateKey is provided
-  if (deduplicateKey) {
-    const existingToast = document.querySelector(`[data-deduplicate-key="${deduplicateKey}"]`);
-    if (existingToast) {
-      // Toast with this key already exists, don't create another one
-      return existingToast.id;
-    }
+  // Generate deduplication key from message hash
+  const deduplicateKey = generateMessageHash(message);
+  
+  // Check for duplicate toasts using the deduplication key
+  const existingToast = document.querySelector(`[data-deduplicate-key="${deduplicateKey}"]`);
+  if (existingToast) {
+    // Toast with this key already exists, don't create another one
+    return existingToast.id;
   }
   
   const toast = document.createElement('div');
@@ -4631,10 +4649,8 @@ function showToast(message, duration = 2000, type = 'default', isHTML = false, d
   const toastId = 'toast-' + getCorrectedTimestamp() + '-' + Math.floor(Math.random() * 1000);
   toast.id = toastId;
   
-  // Add deduplication key if provided
-  if (deduplicateKey) {
-    toast.setAttribute('data-deduplicate-key', deduplicateKey);
-  }
+  // Add deduplication key (always set since we generate one if not provided)
+  toast.setAttribute('data-deduplicate-key', deduplicateKey);
 
   toastContainer.appendChild(toast);
 
@@ -4862,7 +4878,7 @@ function updateUIForConnectivity() {
 function preventOfflineSubmit(event) {
   if (!isOnline) {
     event.preventDefault();
-    showToast('This action requires an internet connection', 0, 'error', false, 'action-requires-internet');
+    showToast('This action requires an internet connection', 0, 'error');
   }
 }
 
@@ -4935,7 +4951,7 @@ function initializeGatewayConfig() {
     myData.network = parse(stringify(network))
   }
   else if (myData.network.gateway.length <= 0){
-    showToast("No gateway server available; edit network.js file", 0, "error", false, "no-gateway-server")
+    showToast("No gateway server available; edit network.js file", 0, "error")
     return;
   }
 
@@ -5190,7 +5206,7 @@ class RemoveAccountModal {
       if(myAccount && this.isActive()) {
         username = myAccount.username;
       } else {
-        showToast('No account selected for removal', 0, 'error', false, 'no-account-selected-removal');
+        showToast('No account selected for removal', 0, 'error');
         return;
       }
     }
@@ -5592,7 +5608,7 @@ class BackupAccountModal {
       this.close();
     } catch (error) {
       console.error('Encryption failed:', error);
-      showToast('Failed to encrypt data. Please try again.', 0, 'error', false, 'encrypt-data-failed');
+      showToast('Failed to encrypt data. Please try again.', 0, 'error');
       // Re-enable button so user can try again
       this.updateButtonState();
     }
@@ -5649,7 +5665,7 @@ class BackupAccountModal {
       this.close();
     } catch (error) {
       console.error('Encryption failed:', error);
-      showToast('Failed to encrypt data. Please try again.', 0, 'error', false, 'encrypt-data-failed');
+      showToast('Failed to encrypt data. Please try again.', 0, 'error');
       // Re-enable button so user can try again
       this.updateButtonState();
     }
@@ -5892,12 +5908,12 @@ class RestoreAccountModal {
     if (backupData.lock) {
       const password = this.backupAccountLock.value || '';
       if (!password) {
-        showToast('Backup password required to unlock accounts in the backup file', 0, 'error', false, 'backup-password-required');
+        showToast('Backup password required to unlock accounts in the backup file', 0, 'error');
         return false;
       }
       backupEncKey = await passwordToKey(password + 'liberdusData');
       if (!backupEncKey) {
-        showToast('Invalid backup password', 0, 'error', false, 'invalid-backup-password');
+        showToast('Invalid backup password', 0, 'error');
         return false;
       }
     }
@@ -5959,7 +5975,7 @@ class RestoreAccountModal {
         let decrypted = value;
         if (backupData.lock) {
             if (!backupEncKey) {
-              showToast('Backup Account password required to unlock accounts in the backup file', 0, 'error', false, 'backup-account-password-required');
+              showToast('Backup Account password required to unlock accounts in the backup file', 0, 'error');
               return false;
             }
           try {
@@ -5980,7 +5996,7 @@ class RestoreAccountModal {
         let finalValue = decrypted;
           if (localStorage.lock) {
           if (!lockModal?.encKey) {
-            showToast('Local lock is set but unlock state is missing. Please unlock before importing.', 0, 'error', false, 'local-lock-missing-unlock');
+            showToast('Local lock is set but unlock state is missing. Please unlock before importing.', 0, 'error');
             return false;
           }
           try {
@@ -6021,7 +6037,7 @@ class RestoreAccountModal {
       // Check if data is encrypted and decrypt if necessary
       if (!isNotEncryptedData) {
         if (!this.passwordInput.value.trim()) {
-          showToast('Password required for encrypted data', 0, 'error', false, 'password-required-encrypted-data');
+          showToast('Password required for encrypted data', 0, 'error');
           return;
         }
         fileContent = decryptData(fileContent, this.passwordInput.value.trim());
@@ -6176,7 +6192,7 @@ class TollModal {
     this.saveButton.disabled = true;
 
     if (isNaN(newTollValue) || newTollValue < 0) {
-      showToast('Invalid toll amount entered.', 0, 'error', false, 'invalid-toll-amount');
+      showToast('Invalid toll amount entered.', 0, 'error');
       return;
     }
 
@@ -6185,7 +6201,7 @@ class TollModal {
     // Check if the toll is non-zero but less than minimum
     if (newToll > 0n) {
       if (this.currentCurrency === 'LIB' && newToll < this.minToll) {
-        showToast(`Toll must be at least ${parseFloat(big2str(this.minToll, 18)).toFixed(6)} LIB or 0 LIB`, 0, 'error', false, 'toll-too-low-lib');
+        showToast(`Toll must be at least ${parseFloat(big2str(this.minToll, 18)).toFixed(6)} LIB or 0 LIB`, 0, 'error');
         return;
       }
       if (this.currentCurrency === 'USD') {
@@ -6193,7 +6209,7 @@ class TollModal {
         const newTollLIB = bigxnum2big(newToll, (1 / scalabilityFactor).toString());
         if (newTollLIB < this.minToll) {
           const minTollUSD = bigxnum2big(this.minToll, scalabilityFactor.toString());
-          showToast(`Toll must be at least ${parseFloat(big2str(minTollUSD, 18)).toFixed(4)} USD or 0 USD`, 0, 'error', false, 'toll-too-low-usd');
+          showToast(`Toll must be at least ${parseFloat(big2str(minTollUSD, 18)).toFixed(4)} USD or 0 USD`, 0, 'error');
           return;
         }
       }
@@ -6202,7 +6218,7 @@ class TollModal {
     // Add maximum toll validation
     if (this.currentCurrency === 'LIB') {
       if (newTollValue > MAX_TOLL) {
-        showToast(`Toll cannot exceed ${MAX_TOLL} LIB`, 0, 'error', false, 'toll-too-high-lib');
+        showToast(`Toll cannot exceed ${MAX_TOLL} LIB`, 0, 'error');
         return;
       }
     } else {
@@ -6210,7 +6226,7 @@ class TollModal {
       const scalabilityFactor = getStabilityFactor();
       const maxTollUSD = MAX_TOLL * scalabilityFactor;
       if (newTollValue > maxTollUSD) {
-        showToast(`Toll cannot exceed ${maxTollUSD.toFixed(2)} USD`, 0, 'error', false, 'toll-too-high-usd');
+        showToast(`Toll cannot exceed ${maxTollUSD.toFixed(2)} USD`, 0, 'error');
         return;
       }
     }
@@ -6471,7 +6487,7 @@ class InviteModal {
     const message = this.inviteMessageInput.value.trim();
 
     if (!message) {
-      showToast('Please enter a message to share', 0, 'error', false, 'message-required-to-share');
+      showToast('Please enter a message to share', 0, 'error');
       return;
     }
 
@@ -6493,7 +6509,7 @@ class InviteModal {
       await this.shareLiberdusInvite(message);
     } catch (err) {
       // shareLiberdusInvite will show its own errors; rely on cooldown to re-enable
-      showToast('Could not share invitation. Try copying manually.', 0, 'error', false, 'could-not-share-invitation');
+      showToast('Could not share invitation. Try copying manually.', 0, 'error');
     }
   }
 
@@ -6533,7 +6549,7 @@ class InviteModal {
       await navigator.clipboard.writeText(text);
       showToast("Invite copied to clipboard!", 3000, "success");
     } catch {
-      showToast("Could not copy invite link.", 0, "error", false, "could-not-copy-invite-link");
+      showToast("Could not copy invite link.", 0, "error");
     }
   }
 }
@@ -7228,7 +7244,7 @@ class ValidatorStakingModal {
     // Check if we successfully retrieved a nominee address from the DOM
     if (!nominee || nominee.length < 10) {
       // Add a basic sanity check for length
-      showToast('Could not find nominated validator.', 0, 'error', false, 'could-not-find-nominated-validator');
+      showToast('Could not find nominated validator.', 0, 'error');
       console.warn('ValidatorStakingModal: Nominee not found or invalid in DOM element #validator-nominee.');
       return;
     }
@@ -7245,7 +7261,7 @@ class ValidatorStakingModal {
     if (info) {
       const { remainingMs, remainingReason } = info;
       if (remainingReason === 'validator active') {
-        showToast(`Unstake unavailable (validator active).`, 0, 'error', false, 'unstake-unavailable-validator-active');
+        showToast(`Unstake unavailable (validator active).`, 0, 'error');
         return;
       } else if (remainingMs > 0) {
         const durationInWords = this.formatDuration(remainingMs);
@@ -7292,7 +7308,7 @@ class ValidatorStakingModal {
     } catch (error) {
       console.error('Error submitting unstake transaction:', error);
       // Provide a user-friendly error message
-      showToast('Unstake transaction failed. Network or server error.', 0, 'error', false, 'unstake-tx-failed');
+      showToast('Unstake transaction failed. Network or server error.', 0, 'error');
     } finally {
       this.unstakeButton.disabled = false;
       this.backButton.disabled = false;
@@ -7593,7 +7609,7 @@ class StakeValidatorModal {
 
     // Basic Validation
     if (!nodeAddress || !amountStr) {
-      showToast('Please fill in all fields.', 0, 'error', false, 'please-fill-all-fields');
+      showToast('Please fill in all fields.', 0, 'error');
       this.submitButton.disabled = false;
       return;
     }
@@ -7602,7 +7618,7 @@ class StakeValidatorModal {
     try {
       amount_in_wei = bigxnum2big(wei, amountStr);
     } catch (error) {
-      showToast('Invalid amount entered.', 0, 'error', false, 'invalid-amount-entered');
+      showToast('Invalid amount entered.', 0, 'error');
       this.submitButton.disabled = false;
       return;
     }
@@ -7634,7 +7650,7 @@ class StakeValidatorModal {
       }
     } catch (error) {
       console.error('Stake transaction error:', error);
-      showToast('Stake transaction failed. See console for details.', 0, 'error', false, 'stake-tx-failed');
+      showToast('Stake transaction failed. See console for details.', 0, 'error');
     } finally {
       this.submitButton.disabled = false;
       this.backButton.disabled = false;
@@ -7791,7 +7807,7 @@ class StakeValidatorModal {
       this.nodeAddressInput.dispatchEvent(new Event('input'));
     } else {
       console.error('Stake node address input field not found!');
-      showToast('Could not find stake address field.', 0, 'error', false, 'could-not-find-stake-address-field');
+      showToast('Could not find stake address field.', 0, 'error');
     }
   }
 
@@ -8099,7 +8115,7 @@ class ChatModal {
       tollContainer.style.cursor = 'pointer';
       tollContainer.addEventListener('click', () => {
         const message = this.getTollInfoMessage();
-        showToast(message, 0, 'toll', true, 'toll-info-modal');
+        showToast(message, 0, 'toll', true);
       });
     }
 
@@ -8219,7 +8235,7 @@ class ChatModal {
       
       this.sendReclaimTollTransaction(this.address);
     } else {
-      showToast('Offline: toll not processed', 0, 'error', false, 'offline-toll-not-processed');
+      showToast('Offline: toll not processed', 0, 'error');
     }
 
     // Save any unsaved draft before closing
@@ -8408,7 +8424,7 @@ class ChatModal {
 
     // if user is blocked, don't send message, show toast
     if (myData.contacts[this.address].tollRequiredToSend == 2) {
-      showToast('You are blocked by this user', 0, 'error', false, 'user-blocked');
+      showToast('You are blocked by this user', 0, 'error');
       this.sendButton.disabled = false;
       return;
     }
@@ -8432,7 +8448,7 @@ class ChatModal {
       const amount = this.tollRequiredToSend ? this.toll : 0n;
       const sufficientBalance = await validateBalance(amount);
       if (!sufficientBalance) {
-        showToast('Insufficient balance for toll and fee', 0, 'error', false, 'insufficient-balance-toll');
+        showToast('Insufficient balance for toll and fee', 0, 'error');
         this.sendButton.disabled = false;
         return;
       }
@@ -8457,7 +8473,7 @@ class ChatModal {
       // Get sender's keys from wallet
       const keys = myAccount.keys;
       if (!keys) {
-        showToast('Keys not found for sender address', 0, 'error', false, 'keys-not-found-sender');
+        showToast('Keys not found for sender address', 0, 'error');
         return;
       }
 
@@ -8694,7 +8710,7 @@ console.warn('in send message', txid)
           updateTransactionStatus(txid, currentAddress, 'failed', 'message');
           this.appendChatModal();
         } else {
-          showToast('Edit failed to send', 0, 'error', false, 'edit-failed-send');
+          showToast('Edit failed to send', 0, 'error');
           // Revert optimistic edit
           if (originalMsg && originalMsgState) {
             originalMsg.message = originalMsgState.message;
@@ -8731,7 +8747,7 @@ console.warn('in send message', txid)
       }
     } catch (error) {
       console.error('Message error:', error);
-      showToast('Failed to send message. Please try again.', 0, 'error', false, 'message-send-failed');
+      showToast('Failed to send message. Please try again.', 0, 'error');
       // Revert optimistic edit on exception
       if (isEdit && originalMsg && originalMsgState) {
         originalMsg.message = originalMsgState.message;
@@ -9214,7 +9230,7 @@ console.warn('in send message', txid)
 
     // limit to 5 files
     if (this.fileAttachments.length >= 5) {
-      showToast('You can only attach up to 5 files.', 0, 'error', false, 'too-many-files');
+      showToast('You can only attach up to 5 files.', 0, 'error');
       event.target.value = ''; // Reset file input
       return;
     }
@@ -9222,7 +9238,7 @@ console.warn('in send message', txid)
     // File size limit (e.g., 10MB)
     const maxSize = 10 * 1024 * 1024; // 10MB in bytes
     if (file.size > maxSize) {
-      showToast('File size too large. Maximum size is 10MB.', 0, 'error', false, 'file-too-large');
+      showToast('File size too large. Maximum size is 10MB.', 0, 'error');
       event.target.value = ''; // Reset file input
       return;
     }
@@ -9321,7 +9337,7 @@ console.warn('in send message', txid)
       if (error.name === 'AbortError') {
         hideToast(loadingToastId);
       } else {
-        showToast('Error processing file attachment', 0, 'error', false, 'file-processing-error');
+        showToast('Error processing file attachment', 0, 'error');
       }
       
       // Re-enable buttons
@@ -9574,7 +9590,7 @@ console.warn('in send message', txid)
       if (err.name === 'AbortError') {
         hideToast(loadingToastId);
       } else {
-        showToast(`Decryption failed.`, 0, 'error', false, 'message-decryption-failed');
+        showToast(`Decryption failed.`, 0, 'error');
       }
     }
   }
@@ -9950,7 +9966,7 @@ console.warn('in send message', txid)
       }, 300);
     } catch (error) {
       console.error('Error deleting message:', error);
-      showToast('Failed to delete message', 0, 'error', false, 'delete-message-failed');
+      showToast('Failed to delete message', 0, 'error');
     }
   }
 
@@ -9980,13 +9996,13 @@ console.warn('in send message', txid)
 
       // Check if the message was sent by the current user
       if (!message.my) {
-        return showToast('You can only delete your own messages for all', 0, 'error', false, 'can-only-delete-own-messages');
+        return showToast('You can only delete your own messages for all', 0, 'error');
       }
 
       // Create and send a "delete" message
       const keys = myAccount.keys;
       if (!keys) {
-        showToast('Keys not found', 0, 'error', false, 'keys-not-found-delete');
+        showToast('Keys not found', 0, 'error');
         return;
       }
 
@@ -9996,7 +10012,7 @@ console.warn('in send message', txid)
       const pqRecPubKey = myData.contacts[this.address]?.pqPublic;
       if (!ok || !recipientPubKey || !pqRecPubKey) {
         console.log(`No public/PQ key found for recipient ${this.address}`);
-        showToast('Failed to get recipient key', 0, 'error', false, 'failed-to-get-recipient-key-delete');
+        showToast('Failed to get recipient key', 0, 'error');
         return;
       }
 
@@ -10043,7 +10059,7 @@ console.warn('in send message', txid)
       
     } catch (error) {
       console.error('Delete for all error:', error);
-      showToast('Failed to delete message. Please try again.', 0, 'error', false, 'delete-message-retry-failed');
+      showToast('Failed to delete message. Please try again.', 0, 'error');
     }
   }
 
@@ -10237,7 +10253,7 @@ console.warn('in send message', txid)
       if (required !== 0) {
         const username = contact.username || `${this.address.slice(0, 8)}...${this.address.slice(-6)}`;
         if (required === 2) {
-          showToast('You are blocked by this user', 0, 'error', false, 'user-blocked');
+          showToast('You are blocked by this user', 0, 'error');
         } else {
           showToast(
             `You can only call people who have added you as a friend or connection. Ask ${username} to add you as a friend or connection`,
@@ -10279,7 +10295,7 @@ console.warn('in send message', txid)
       
     } catch (error) {
       console.error('Error handling call user:', error);
-      showToast('Failed to start call. Please try again.', 0, 'error', false, 'call-start-failed');
+      showToast('Failed to start call. Please try again.', 0, 'error');
     }
   }
 
@@ -10291,7 +10307,7 @@ console.warn('in send message', txid)
   async sendCallMessage(meetUrl, callTime = 0) {
     // if user is blocked, don't send message, show toast
     if (myData.contacts[this.address].tollRequiredToSend == 2) {
-      showToast('You are blocked by this user', 0, 'error', false, 'user-blocked');
+      showToast('You are blocked by this user', 0, 'error');
       return;
     }
 
@@ -10309,7 +10325,7 @@ console.warn('in send message', txid)
       // Get sender's keys from wallet
       const keys = myAccount.keys;
       if (!keys) {
-        showToast('Keys not found for sender address', 0, 'error', false, 'keys-not-found-sender');
+        showToast('Keys not found for sender address', 0, 'error');
         return;
       }
 
@@ -10319,7 +10335,7 @@ console.warn('in send message', txid)
       const pqRecPubKey = myData.contacts[currentAddress]?.pqPublic;
       if (!ok || !recipientPubKey || !pqRecPubKey) {
         console.log(`no public/PQ key found for recipient ${currentAddress}`);
-        showToast('Failed to get recipient key', 0, 'error', false, 'failed-to-get-recipient-key-call');
+        showToast('Failed to get recipient key', 0, 'error');
         return;
       }
 
@@ -10417,7 +10433,7 @@ console.warn('in send message', txid)
       
     } catch (error) {
       console.error('Call message error:', error);
-      showToast('Failed to send call invitation. Please try again.', 0, 'error', false, 'failed-to-send-call-invitation');
+      showToast('Failed to send call invitation. Please try again.', 0, 'error');
     }
   }
 
@@ -10545,7 +10561,7 @@ console.warn('in send message', txid)
     } catch (error) {
       console.error('Failed to send voice message to network:', error);
       newMessage.status = 'failed';
-      showToast('Voice message failed to send', 0, 'error', false, 'voice-message-failed-to-send');
+      showToast('Voice message failed to send', 0, 'error');
     }
 
     this.appendChatModal();
@@ -10599,7 +10615,7 @@ console.warn('in send message', txid)
     const msgIdx = voiceMessageElement.dataset.msgIdx;
 
     if (!voiceUrl) {
-      showToast('Voice message URL not found', 0, 'error', false, 'voice-message-url-not-found');
+      showToast('Voice message URL not found', 0, 'error');
       return;
     }
 
@@ -10760,7 +10776,7 @@ console.warn('in send message', txid)
       
       audio.onerror = (error) => {
         console.error('Error playing voice message:', error);
-        showToast('Error playing voice message', 0, 'error', false, 'error-playing-voice-message');
+        showToast('Error playing voice message', 0, 'error');
         buttonElement.disabled = false;
         if (seekEl) seekEl.value = 0;
         // Clean up on error
@@ -10947,7 +10963,7 @@ class CallInviteModal {
       for (const addr of addresses) {
         const keys = myAccount.keys;
         if (!keys) {
-          showToast('Keys not found', 0, 'error', false, 'keys-not-found-call-invite');
+          showToast('Keys not found', 0, 'error');
           break;
         }
 
@@ -11231,14 +11247,14 @@ class CallScheduleDateModal {
     const minuteVal = this.minuteSelect.value;
     const ampmVal = this.ampmSelect.value;
     if (!dateVal || hourVal === '' || minuteVal === '') {
-      showToast('Please pick a date and time', 0, 'error', false, 'please-pick-a-date-and-time');
+      showToast('Please pick a date and time', 0, 'error');
       return;
     }
     const parsed = this._parseDateInput(dateVal);
     const hour12 = Number(hourVal);
     const minute = Number(minuteVal);
     if (!parsed || Number.isNaN(hour12) || Number.isNaN(minute)) {
-      showToast('Invalid date/time selected', 0, 'error', false, 'invalid-date-time-selected');
+      showToast('Invalid date/time selected', 0, 'error');
       return;
     }
     const hour24 = this._convert12To24(hour12, ampmVal);
@@ -11248,7 +11264,7 @@ class CallScheduleDateModal {
     const nowCorrected = getCorrectedTimestamp();
     const minAllowed = nowCorrected - 5 * 60 * 1000;
     if (corrected < minAllowed) {
-      showToast('Please choose a date or time in the future', 0, 'error', false, 'call-schedule-date-modal-future-time');
+      showToast('Please choose a date or time in the future', 0, 'error');
       return;
     }
     this._closeWith(corrected);
@@ -11605,7 +11621,7 @@ class VoiceRecordingModal {
       
     } catch (error) {
       console.error('Error starting voice recording:', error);
-      showToast('Could not access microphone. Please check permissions.', 0, 'error', false, 'microphone-permission-error');
+      showToast('Could not access microphone. Please check permissions.', 0, 'error');
     }
   }
 
@@ -11726,14 +11742,14 @@ class VoiceRecordingModal {
       
       audio.onerror = (error) => {
         console.error('Error playing voice message:', error);
-        showToast('Error playing voice message', 0, 'error', false, 'error-playing-voice-message');
+        showToast('Error playing voice message', 0, 'error');
         URL.revokeObjectURL(audioUrl);
         this.stopListening();
       };
       
       audio.play().catch(error => {
         console.error('Error playing voice message:', error);
-        showToast('Error playing voice message', 0, 'error', false, 'error-playing-voice-message');
+        showToast('Error playing voice message', 0, 'error');
         this.stopListening();
       });
     }
@@ -12458,7 +12474,7 @@ class CreateAccountModal {
     } catch (error) {
       this.reEnableControls();
       if (waitingToastId) hideToast(waitingToastId);
-      showToast(`Failed to fetch network parameters, try again later.`, 0, 'error', false, 'failed-to-fetch-network-parameters');
+      showToast(`Failed to fetch network parameters, try again later.`, 0, 'error');
       console.error('Failed to fetch network parameters, using defaults:', error);
       return;
     }
@@ -12995,7 +13011,7 @@ class SendAssetFormModal {
 
     // Check if we have any assets
     if (!walletData.assets || walletData.assets.length === 0) {
-      showToast('No addresses available', 0, 'error', false, 'no-addresses-available');
+      showToast('No addresses available', 0, 'error');
       return;
     }
 
@@ -13201,7 +13217,7 @@ class SendAssetFormModal {
         const context = canvas.getContext('2d');
         if (!context) {
           console.error('Could not get 2d context from canvas');
-          showToast('Error processing image', 0, 'error', false, 'error-processing-image');
+          showToast('Error processing image', 0, 'error');
           event.target.value = ''; // Reset file input
           return;
         }
@@ -13224,20 +13240,20 @@ class SendAssetFormModal {
             } else {
               console.error('No valid fill function provided for QR file select');
               // Fallback or default behavior if needed, e.g., show generic error
-              showToast('Internal error handling QR data', 0, 'error', false, 'internal-error-handling-qr-data');
+              showToast('Internal error handling QR data', 0, 'error');
             }
           } else {
             // qr.decodeQR might throw an error instead of returning null/undefined
             // This else block might not be reached if errors are always thrown
             console.error('No QR code found in image (qr.js)');
-            showToast('No QR code found in image', 0, 'error', false, 'no-qr-code-found-in-image');
+            showToast('No QR code found in image', 0, 'error');
             // Clear the form fields in case of failure to find QR code
             targetModal.resetForm();
           }
         } catch (error) {
           console.error('Error processing QR code image with qr.js:', error);
           // Assume error means no QR code found or decoding failed
-          showToast('Could not read QR code from image', 0, 'error', false, 'could-not-read-qr-code-from-image');
+          showToast('Could not read QR code from image', 0, 'error');
           // Clear the form fields in case of error
           targetModal.resetForm();
 
@@ -13247,7 +13263,7 @@ class SendAssetFormModal {
       };
       img.onerror = function () {
         console.error('Error loading image');
-        showToast('Error loading image file', 0, 'error', false, 'error-loading-image-file');
+        showToast('Error loading image file', 0, 'error');
         event.target.value = ''; // Reset the file input value
         // Clear the form fields in case of image loading error
         targetModal.resetForm();
@@ -13257,7 +13273,7 @@ class SendAssetFormModal {
 
     reader.onerror = function () {
       console.error('Error reading file');
-      showToast('Error reading file', 0, 'error', false, 'error-reading-file');
+      showToast('Error reading file', 0, 'error');
       event.target.value = ''; // Reset the file input value
     };
 
@@ -13275,7 +13291,7 @@ class SendAssetFormModal {
     // Explicitly check for the required prefix
     if (!data || !data.startsWith('liberdus://')) {
       console.error("Invalid payment QR code format. Missing 'liberdus://' prefix.", data);
-      showToast('Invalid payment QR code format.', 0, 'error', false, 'invalid-payment-qr-format');
+      showToast('Invalid payment QR code format.', 0, 'error');
       // Optionally clear fields or leave them as they were
       this.usernameInput.value = '';
       this.amountInput.value = '';
@@ -13325,7 +13341,7 @@ class SendAssetFormModal {
       this.amountInput.dispatchEvent(new Event('input'));
     } catch (error) {
       console.error('Error parsing payment QR data:', error, data);
-      showToast('Failed to parse payment QR data.', 0, 'error', false, 'failed-to-parse-payment-qr-data');
+      showToast('Failed to parse payment QR data.', 0, 'error');
       // Clear fields on error
       this.usernameInput.value = '';
       this.amountInput.value = '';
@@ -13386,7 +13402,7 @@ class SendAssetConfirmModal {
     // if it's your own username disable the send button
     if (username == myAccount.username) {
       confirmButton.disabled = true;
-      showToast('You cannot send assets to yourself', 0, 'error', false, 'you-cannot-send-assets-to-yourself');
+      showToast('You cannot send assets to yourself', 0, 'error');
       return;
     }
 
@@ -13414,19 +13430,19 @@ class SendAssetConfirmModal {
       const amountStr = big2str(amount, 18).slice(0, -16);
       const feeStr = big2str(txFeeInLIB, 18).slice(0, -16);
       const balanceStr = big2str(balance, 18).slice(0, -16);
-      showToast(`Insufficient balance: ${amountStr} + ${feeStr} (fee) > ${balanceStr} LIB`, 0, 'error', false, `insufficient-balance-${amountStr}-${feeStr}-${balanceStr}`);
+      showToast(`Insufficient balance: ${amountStr} + ${feeStr} (fee) > ${balanceStr} LIB`, 0, 'error');
       cancelButton.disabled = false;
       return;
     }
 
     // Validate username - must be username; address not supported
     if (username.startsWith('0x')) {
-      showToast('Address not supported; enter username instead.', 0, 'error', false, 'address-not-supported-enter-username-instead');
+      showToast('Address not supported; enter username instead.', 0, 'error');
       cancelButton.disabled = false;
       return;
     }
     if (username.length < 3) {
-      showToast('Username too short', 0, 'error', false, 'username-too-short');
+      showToast('Username too short', 0, 'error');
       cancelButton.disabled = false;
       return;
     }
@@ -13441,14 +13457,14 @@ class SendAssetConfirmModal {
   */
       const data = await queryNetwork(`/address/${usernameHash}`);
       if (!data || !data.address) {
-        showToast('Username not found', 0, 'error', false, 'username-not-found');
+        showToast('Username not found', 0, 'error');
         cancelButton.disabled = false;
         return;
       }
       toAddress = normalizeAddress(data.address);
     } catch (error) {
       console.error('Error looking up username:', error);
-      showToast('Error looking up username', 0, 'error', false, 'error-looking-up-username');
+      showToast('Error looking up username', 0, 'error');
       cancelButton.disabled = false;
       return;
     }
@@ -14800,7 +14816,7 @@ class LockModal {
     if (newPassword !== confirmNewPassword) {
       this.lockButton.disabled = true;
       // Keep button disabled - passwords don't match
-      showToast('Passwords do not match. Please try again.', 0, 'error', false, 'passwords-do-not-match');
+      showToast('Passwords do not match. Please try again.', 0, 'error');
       return;
     }
 
@@ -14812,7 +14828,7 @@ class LockModal {
       // check if old password is empty
       if (oldPassword.length === 0) {
         if (waitingToastId) hideToast(waitingToastId);
-        showToast('Please enter your old password.', 0, 'error', false, 'please-enter-your-old-password');
+        showToast('Please enter your old password.', 0, 'error');
         return;
       }
 
@@ -14821,7 +14837,7 @@ class LockModal {
       if (!key) {
         // remove the loading toast
         if (waitingToastId) hideToast(waitingToastId);
-        showToast('Invalid password. Please try again.', 0, 'error', false, 'invalid-password');
+        showToast('Invalid password. Please try again.', 0, 'error');
         return;
       }
       if (key !== localStorage.lock) {
@@ -14829,7 +14845,7 @@ class LockModal {
         if (waitingToastId) hideToast(waitingToastId);
         // clear the old password input
         this.oldPasswordInput.value = '';
-        showToast('Invalid password. Please try again.', 0, 'error', false, 'invalid-password');
+        showToast('Invalid password. Please try again.', 0, 'error');
         return;
       }
     }
@@ -14859,7 +14875,7 @@ class LockModal {
       if (!key) {
         // remove the loading toast
         if (waitingToastId) hideToast(waitingToastId);
-        showToast('Invalid password. Please try again.', 0, 'error', false, 'invalid-password');
+        showToast('Invalid password. Please try again.', 0, 'error');
         return;
       }
 
@@ -14881,7 +14897,7 @@ class LockModal {
       this.close();
     } catch (error) {
       console.error('Encryption failed:', error);
-      showToast('Failed to encrypt password. Please try again.', 0, 'error', false, 'failed-to-encrypt-password');
+      showToast('Failed to encrypt password. Please try again.', 0, 'error');
       // remove the loading toast
       if (waitingToastId) hideToast(waitingToastId);
     }
@@ -14983,7 +14999,7 @@ class UnlockModal {
     if (!key) {
       // remove the loading toast
       if (waitingToastId) hideToast(waitingToastId);
-      showToast('Invalid password. Please try again.', 0, 'error', false, 'invalid-password');
+      showToast('Invalid password. Please try again.', 0, 'error');
       return;
     }
     if (key === localStorage.lock) {
@@ -15003,7 +15019,7 @@ class UnlockModal {
       }
     } else {
       if (waitingToastId) hideToast(waitingToastId);
-      showToast('Invalid password. Please try again.', 0, 'error', false, 'invalid-password');
+      showToast('Invalid password. Please try again.', 0, 'error');
     }
 
     // remove the loading toast
@@ -15066,7 +15082,7 @@ class LaunchModal {
     event.preventDefault();
     const url = this.urlInput.value;
     if (!url) {
-      showToast('Please enter a URL', 0, 'error', false, 'please-enter-a-url');
+      showToast('Please enter a URL', 0, 'error');
       return;
     }
     
@@ -15515,7 +15531,7 @@ class ReactNativeApp {
         const selectedGateway = getGatewayForRequest();
         if (!selectedGateway) {
           console.error('No gateway available for subscription request');
-          showToast('No gateway available', 0, 'error', false, 'no-gateway-available');
+          showToast('No gateway available', 0, 'error');
           return;
         }
 
@@ -15990,7 +16006,7 @@ async function getNetworkParams() {
         console.error(`getNetworkParams: Network ID mismatch. Network ID from network.js: ${network.netid}, Network ID from parameters: ${parameters.networkId}`);
         console.log(parameters)
         // show toast notification with the error message
-        showToast(`Network ID mismatch. Check network configuration in network.js.`, 0, 'error', false, 'network-id-mismatch');
+        showToast(`Network ID mismatch. Check network configuration in network.js.`, 0, 'error');
       }
       return;
     } else {
