@@ -9925,15 +9925,12 @@ console.warn('in send message', txid)
         return showToast('Message already deleted', 2000, 'info');
       }
       
-      try {
-        if (reactNativeApp.isReactNativeWebView && message.type === 'call') {
-          const callTimeNum = Number(message.callTime) || 0;
-          if (callTimeNum > 0) {
-            reactNativeApp.sendUnscheduledCall(contact?.username, callTimeNum);
-          }
+
+      if (reactNativeApp.isReactNativeWebView && message.type === 'call') {
+        const callTimeNum = Number(message.callTime) || 0;
+        if (callTimeNum > 0) {
+          reactNativeApp.sendUnscheduledCall(contact?.username, callTimeNum);
         }
-      } catch (err) {
-        console.warn('Failed to send UNSCHEDULE_CALL on local delete', err);
       }
 
       // Mark as deleted and clear payment info if present
