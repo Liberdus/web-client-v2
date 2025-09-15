@@ -2538,7 +2538,7 @@ class FriendModal {
     if (contact.friend !== contact.friendOld) {
       const SIXTY_SECONDS = 60 * 1000;
       // if the last change was more than 60 seconds ago, reset the friend status so user does not get stuck
-      if (this.lastChangeTimeStamp < (Date.now - SIXTY_SECONDS)) {
+      if (this.lastChangeTimeStamp < (Date.now() - SIXTY_SECONDS)) {
         contact.friend = contact.friendOld
       } else {
         this.submitButton.disabled = true;
@@ -4608,18 +4608,9 @@ function createDisplayInfo(contact) {
 
 // Helper function to generate a hash-based deduplication key from message content
 function generateMessageHash(message) {
-  try {
-    const hex = blake.blake2bHex(message, null, 8); // 8 bytes = 16 hex chars
-    return hex.slice(0, 10);
-  } catch (error) {
-    let hash = 0;
-    for (let i = 0; i < message.length; i++) {
-      const charCode = message.charCodeAt(i);
-      hash = ((hash << 5) - hash) + charCode;
-      hash |= 0; // Convert to 32-bit integer
-    }
-    return Math.abs(hash).toString(36).slice(0, 10);
-  }
+  const s = String(message ?? '');
+  const hex = hashBytes(utf82bin(s));
+  return hex.slice(0, 10);
 }
 
 // Add this function before the ContactInfoModal class
