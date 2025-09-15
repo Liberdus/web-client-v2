@@ -224,6 +224,8 @@ async function checkUsernameAvailability(username, address, foundAddressObject) 
     if (!data) {
       return 'error';
     }
+    // log username and response to logs modal for debugging
+    logsModal.log(`Checked username returned available: ${username}, response: ${JSON.stringify(data)}`);
     return 'available';
   } catch (error) {
     console.log('Error checking username:', error);
