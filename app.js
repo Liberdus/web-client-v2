@@ -1007,7 +1007,9 @@ class ChatsScreen {
         const latestItemTimestamp = latestActivity.timestamp;
 
         // Check if the latest activity is a payment/transfer message
-        if (typeof latestActivity.amount === 'bigint') {
+        if (latestActivity.deleted === 1) {
+          previewHTML = `<span><i>${latestActivity.message}</i></span>`;
+        } else if (typeof latestActivity.amount === 'bigint') {
           // Latest item is a payment/transfer
           const amountStr = parseFloat(big2str(latestActivity.amount, 18)).toFixed(6);
           const amountDisplay = `${amountStr} ${latestActivity.symbol || 'LIB'}`;
@@ -1030,9 +1032,7 @@ class ChatsScreen {
         } else {
           // Latest item is a regular message
           const messageText = escapeHtml(latestActivity.message);
-          // Add "You:" prefix for sent messages
-          const prefix = latestActivity.my ? 'You: ' : '';
-          previewHTML = `${prefix}${truncateMessage(messageText, 50)}`; // Truncate for preview
+          previewHTML = `${truncateMessage(messageText, 50)}`; // Truncate for preview
         }
 
         // Use the determined latest timestamp for display
@@ -1053,7 +1053,7 @@ class ChatsScreen {
                 </div>
                 <div class="chat-message">
                     ${contact.unread ? `<span class="chat-unread">${contact.unread}</span>` : ''}
-                    ${previewHTML}
+                    ${latestActivity.my ? 'You: ' : ''}${previewHTML}
                 </div>
             </div>
         `;
