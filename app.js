@@ -72,7 +72,6 @@ async function forceReload(urls) {
 // Needed to stringify and parse bigints; also deterministic stringify
 //   modified to use export
 import { stringify, parse } from './external/stringify-shardus.js';
-import blake from './external/blake2b.js';
 
 // Import crypto functions from crypto.js
 import {
@@ -4614,7 +4613,7 @@ function generateMessageHash(message) {
     return '';
   }
   const hex = hashBytes(message);
-  return hex.slice(0, 10);
+  return hex.slice(0, 20);
 }
 
 // Add this function before the ContactInfoModal class
