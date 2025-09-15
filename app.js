@@ -10270,7 +10270,7 @@ console.warn('in send message', txid)
       const randomHex = bin2hex(randomBytes).slice(0, 20);
 
       // Create the Meet URL
-      const callUrl = `https://meet2.liberdus.com/${randomHex}`;
+      const callUrl = `https://meet.liberdus.com/${randomHex}`;
       
       // Open immediately only if call is now
       if (chosenCallTime === 0) {
