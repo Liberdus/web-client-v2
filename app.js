@@ -4608,8 +4608,7 @@ function createDisplayInfo(contact) {
 
 // Helper function to generate a hash-based deduplication key from message content
 function generateMessageHash(message) {
-  const s = String(message ?? '');
-  const hex = hashBytes(utf82bin(s));
+  const hex = hashBytes(utf82bin(message));
   return hex.slice(0, 10);
 }
 
