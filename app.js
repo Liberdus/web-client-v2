@@ -1454,6 +1454,11 @@ class MenuModal {
       screen.classList.remove('active');
     });
 
+    // Clear notifications for this account
+    if (reactNativeApp) {
+      reactNativeApp.clearNotificationAddress(myAccount.keys.address);
+    }
+
     // Show welcome screen
     welcomeScreen.open();
 
