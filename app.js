@@ -10273,9 +10273,7 @@ console.warn('in send message', txid)
           showToast(
             `You can only call people who have added you as a friend or connection. Ask ${username} to add you as a friend or connection`,
             0,
-            'info',
-            false,
-            'call-permission-required'
+            'info'
           );
         }
         return;
@@ -11013,22 +11011,19 @@ class CallInviteModal {
         const chatId = hashBytes(sortedAddresses.join(''));
         const chatIdAccount = await queryNetwork(`/messages/${chatId}/toll`);
         const toIndex = sortedAddresses.indexOf(longAddress(addr));
-        const tollRequiredToSend = chatIdAccount.toll?.required?.[toIndex] ?? 1;
+        const tollRequiredToSend = chatIdAccount?.toll?.required?.[toIndex] ?? 1;
         let toll = 0n;
+        // 0 => no toll required (recipient added you as friend/connection)
+        // 1 => toll required (recipient has NOT added you)
+        // 2 => blocked
+        if (tollRequiredToSend === 2) {
+          showToast(`You cannot invite ${contact.username || addr} (you are blocked)`, 0, 'warning');
+          continue;
+        }
         if (tollRequiredToSend === 1) {
-          const contactData = await queryNetwork(`/account/${longAddress(addr)}`);
-          if (!contactData || !contactData.account) {
-            showToast(`Skipping ${contact.username || addr} (account not found)`, 2000, 'warning');
-            continue;
-          }
-          const tollUnit = contactData.account?.data?.tollUnit || 'LIB';
-          const factor = getStabilityFactor();
-          if (tollUnit === 'USD') {
-            // Convert toll to LIB
-            toll = bigxnum2big(contactData.account.data.toll, (1.0 / factor).toString());
-          } else {
-            toll = contactData.account.data.toll;
-          }
+          const username = (contact?.username) || `${addr.slice(0, 8)}...${addr.slice(-6)}`;
+          showToast(`You can only invite people who have added you as a friend or connection. Ask ${username} to add you as a friend or connection`, 0, 'info');
+          continue;
         }
 
         const messageObj = await chatModal.createChatMessage(addr, messagePayload, toll, keys);
