@@ -6634,20 +6634,8 @@ class AboutModal {
   }
 
   openStore() {
-    // This method only runs when user is in React Native app
-    const userAgent = navigator.userAgent.toLowerCase();
-    let storeUrl;
-
-    if (userAgent.includes('android')) {
-      storeUrl = 'https://play.google.com/store/apps/details?id=com.jairaj.liberdus';
-    } else if (userAgent.includes('iphone') || userAgent.includes('ipad') || userAgent.includes('ios')) {
-      storeUrl = 'https://testflight.apple.com/join/zSRCWyxy';
-    } else {
-      storeUrl = 'https://play.google.com/store/apps/details?id=com.jairaj.liberdus';
-    }
-
     // Show update warning modal
-    updateWarningModal.open(storeUrl);
+    updateWarningModal.open();
   }
 }
 const aboutModal = new AboutModal();
@@ -6665,11 +6653,28 @@ class UpdateWarningModal {
     this.closeButton.addEventListener('click', () => this.close());
     this.backupFirstBtn.addEventListener('click', () => backupAccountModal.open());
     this.proceedToStoreBtn.addEventListener('click', () => this.proceedToStore());
+
+    // Event delegation for dynamically created update toast button
+    document.addEventListener('click', (event) => {
+      const target = event.target;
+      if (target && (target.id === 'updateToastButton' || target.classList.contains('toast-update-button'))) {
+        event.preventDefault();
+        this.open();
+      }
+    }, { capture: true });
   }
 
-  open(storeUrl) {
-    // Store the URL for later use
-    this.storeUrl = storeUrl;
+  open() {
+    // This method only runs when user is in React Native app
+    const userAgent = navigator.userAgent.toLowerCase();
+
+    if (userAgent.includes('android')) {
+      this.storeUrl = 'https://play.google.com/store/apps/details?id=com.jairaj.liberdus';
+    } else if (userAgent.includes('iphone') || userAgent.includes('ipad') || userAgent.includes('ios')) {
+      this.storeUrl = 'https://testflight.apple.com/join/zSRCWyxy';
+    } else {
+      this.storeUrl = 'https://play.google.com/store/apps/details?id=com.jairaj.liberdus';
+    }
     this.modal.classList.add('active');
   }
 
@@ -15753,7 +15758,7 @@ class ReactNativeApp {
 
     if (isUpdateNeeded) {
       // Show toast notification on welcome page
-      this.showUpdateNotification(platform);
+      this.showUpdateNotification();
     }
   }
 
@@ -15776,24 +15781,17 @@ class ReactNativeApp {
 
   /**
    * Show update notification toast on the welcome screen
-   * @param {string} platform - 'ios' or 'android'
    */
-  showUpdateNotification(platform) {
+  showUpdateNotification() {
     // Only show notification if we're on the welcome screen
     if (!welcomeScreen.screen || welcomeScreen.screen.style.display === 'none') {
       console.warn('❌ Update toast skipped – welcome not visible');
       return;
     }
 
-    let storeUrl;
-    if (platform === 'ios') {
-      storeUrl = 'https://testflight.apple.com/join/zSRCWyxy';
-    } else {
-      storeUrl = 'https://play.google.com/store/apps/details?id=com.jairaj.liberdus';
-    }
-
-    const message = `<div style="text-align: center; line-height: 1.4; font-size: 16px; font-weight: 700; margin-bottom: 6px;">New App Update Available</div>
-<a href="${storeUrl}" target="_blank" style="display: block; margin-top: 6px; padding: 8px 12px; background: #ffffff; color: #0056b3; border-radius: 16px; text-align: center; text-decoration: none; font-weight: 600;">Update now</a>`;
+    // Use template from index.html if available; fallback to inline HTML
+    const tpl = document.getElementById('updateToastTemplate');
+    const message = tpl.innerHTML 
     showToast(message, 0, 'info', true);
   }
 }

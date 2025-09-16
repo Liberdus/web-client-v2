@@ -3037,6 +3037,27 @@ mark {
   background: rgba(0, 123, 255, 0.9);
 }
 
+/* Update available toast content */
+.toast-update-title {
+  text-align: center;
+  line-height: 1.4;
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 18px;
+}
+
+.toast-update-button {
+  display: block;
+  margin-top: 6px;
+  padding: 8px 12px;
+  background: #ffffff;
+  color: #0056b3;
+  border-radius: 16px;
+  text-align: center;
+  text-decoration: none;
+  font-weight: 600;
+}
+
 .toast.toll {
   background: rgba(0, 123, 255, 0.9);
   text-align: left;
