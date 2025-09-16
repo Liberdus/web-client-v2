@@ -693,6 +693,7 @@ class WelcomeMenuModal {
     this.restoreButton = document.getElementById('welcomeOpenRestore');
     this.removeButton = document.getElementById('welcomeOpenRemove');
     this.migrateButton = document.getElementById('welcomeOpenMigrate');
+    this.aboutButton = document.getElementById('welcomeOpenAbout');
     this.launchButton = document.getElementById('welcomeOpenLaunch');
     this.lockButton = document.getElementById('welcomeOpenLockModal');
     this.updateButton = document.getElementById('welcomeOpenUpdate');
@@ -702,6 +703,7 @@ class WelcomeMenuModal {
     this.restoreButton.addEventListener('click', () => restoreAccountModal.open());
     this.removeButton.addEventListener('click', () => removeAccountsModal.open());
     this.migrateButton.addEventListener('click', () => migrateAccountsModal.open());
+    this.aboutButton.addEventListener('click', () => aboutModal.open());
     this.lockButton.addEventListener('click', () => lockModal.open());
 
     // Show launch button if ReactNativeWebView is available
