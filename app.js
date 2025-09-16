@@ -3076,7 +3076,6 @@ class CallsModal {
     this.clockTimer.start();
     // start periodic refresh to update call button states every 5s
     this._stateInterval = setInterval(() => {
-      // Only re-render if modal still active
       if (this.modal.classList.contains('active')) {
         this.refreshCalls();
         this.render();
