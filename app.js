@@ -15271,7 +15271,9 @@ class ReactNativeApp {
             if (data?.data?.appVersion) {
               this.appVersion = data.data.appVersion || `N/A`
               // Update the welcome screen to display the app version
-              welcomeScreen.updateAppVersionDisplay(this.appVersion); 
+              welcomeScreen.updateAppVersionDisplay(this.appVersion);
+              // Check if app version needs update
+              this.checkAppVersionUpdate();
             }
             // Handle device tokens
             if (data.data.deviceToken) {
@@ -15723,6 +15725,76 @@ class ReactNativeApp {
       username,
       timestamp
     });
+  }
+
+  /**
+   * Check if the current app version needs to be updated
+   * Compares the native app version with the required version from network.js
+   */
+  checkAppVersionUpdate() {
+    if (!this.appVersion || !network?.app_version) {
+      console.warn('❌ Version check skipped – missing data');
+      return;
+    }
+
+    // Determine platform (iOS or Android)
+    const ua = navigator.userAgent.toLowerCase();
+    const platform = /android/.test(ua) ? 'android' : (/iphone|ipad|ios/.test(ua) ? 'ios' : 'android');
+
+    const requiredVersion = network.app_version[platform];
+    if (!requiredVersion) {
+      console.warn('❌ No required version for platform: ' + platform);
+      return;
+    }
+
+    // Compare versions (format: YYYY.MMDD.HHmm)
+    const currentVersion = this.appVersion;
+    const isUpdateNeeded = this.compareVersions(currentVersion, requiredVersion) < 0;
+
+    if (isUpdateNeeded) {
+      // Show toast notification on welcome page
+      this.showUpdateNotification(platform);
+    }
+  }
+
+  /**
+   * Compare two version strings in format YYYY.MMDD.HHmm
+   * @param {string} version1 - Current version
+   * @param {string} version2 - Required version
+   * @returns {number} -1 if version1 is older, 1 if newer, 0 if equal
+   */
+  compareVersions(version1, version2) {
+    // Convert version strings to comparable numbers
+    // Format: YYYY.MMDD.HHmm -> YYYYMMDDHHmm
+    const v1 = parseInt(version1.replace(/\D/g, ''));
+    const v2 = parseInt(version2.replace(/\D/g, ''));
+    
+    if (v1 < v2) return -1;  // version1 is older
+    if (v1 > v2) return 1;   // version1 is newer
+    return 0;                // versions are equal
+  }
+
+  /**
+   * Show update notification toast on the welcome screen
+   * @param {string} platform - 'ios' or 'android'
+   */
+  showUpdateNotification(platform) {
+    // Only show notification if we're on the welcome screen
+    if (!welcomeScreen.screen || welcomeScreen.screen.style.display === 'none') {
+      console.warn('❌ Update toast skipped – welcome not visible');
+      return;
+    }
+
+    let storeUrl;
+    if (platform === 'ios') {
+      storeUrl = 'https://testflight.apple.com/join/zSRCWyxy';
+    } else {
+      storeUrl = 'https://play.google.com/store/apps/details?id=com.jairaj.liberdus';
+    }
+
+    const message = `<div style="text-align: center; line-height: 1.4; font-size: 16px; font-weight: 700; margin-bottom: 6px;">New App Update Available</div>
+<a href="${storeUrl}" target="_blank" style="display: block; margin-top: 6px; padding: 8px 12px; background: #ffffff; color: #0056b3; border-radius: 16px; text-align: center; text-decoration: none; font-weight: 600;">Update now</a>`;
+    showToast(message, 0, 'info', true);
   }
 }
 
