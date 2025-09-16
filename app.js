@@ -5607,7 +5607,6 @@ class BackupAccountModal {
     const password = this.passwordInput.value || '';
     const confirmPassword = this.passwordConfirmInput.value || '';
     if (password.length > 0 && confirmPassword !== password) {
-      this.passwordConfirmWarning.style.display = 'inline';
       this.updateButtonState();
       return;
     }
