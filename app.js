@@ -3078,6 +3078,7 @@ class CallsModal {
     this._stateInterval = setInterval(() => {
       // Only re-render if modal still active
       if (this.modal.classList.contains('active')) {
+        this.refreshCalls();
         this.render();
       }
     }, 5000); 
