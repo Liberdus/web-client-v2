@@ -3074,6 +3074,13 @@ class CallsModal {
     this.render();
     this.modal.classList.add('active');
     this.clockTimer.start();
+    // start periodic refresh to update call button states every 5s
+    this._stateInterval = setInterval(() => {
+      // Only re-render if modal still active
+      if (this.modal.classList.contains('active')) {
+        this.render();
+      }
+    }, 5000); 
   }
 
   /**
@@ -3083,6 +3090,10 @@ class CallsModal {
   close() {
     this.clockTimer.stop();
     this.modal.classList.remove('active');
+    if (this._stateInterval) {
+      clearInterval(this._stateInterval);
+      this._stateInterval = null;
+    }
   }
 
   /**
@@ -3228,12 +3239,35 @@ class CallsModal {
         li.querySelector('.chat-name').textContent = participant.calling;
         li.querySelector('.call-time').textContent = when;
       }
+      // annotate scheduled time for state updates
+      li.setAttribute('data-call-time', String(callGroup.callTime));
       
       fragment.appendChild(li);
     });
     // remove previous items and append new items
     if (existingItems.length) existingItems.forEach((el) => el.remove());
     list.appendChild(fragment);
+    // After rendering, update button states
+    this.updateJoinButtonStates();
+  }
+
+  /**
+   * Updates the color of join buttons based on current time
+   */
+  updateJoinButtonStates() {
+    if (!this.list) return;
+      this.list.querySelectorAll('.chat-item').forEach(li => {
+        const callTime = Number(li.getAttribute('data-call-time'));
+        const joinBtn = li.querySelector('.call-join');
+        if (!joinBtn || !Number.isFinite(callTime)) return;
+        const isFuture = chatModal.isFutureCall(callTime);
+        joinBtn.classList.remove('call-join--future', 'call-join--active');
+        if (isFuture) {
+          joinBtn.classList.add('call-join--future');
+        } else {
+          joinBtn.classList.add('call-join--active');
+        }
+    });
   }
 }
 

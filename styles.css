@@ -782,6 +782,15 @@ body {
   color: var(--secondary-text-color);
 }
 
+#callsModal .call-join.call-message-phone-button.call-join--future {
+  background-color: var(--button-hover-background);
+  opacity: 0.85;
+}
+
+#callsModal .call-join.call-message-phone-button.call-join--active {
+  background-color: var(--success-color);
+}
+
 .chat-name {
   font-family: var(--font-primary);
   font-weight: var(--font-weight-semibold);
