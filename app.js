@@ -5603,6 +5603,15 @@ class BackupAccountModal {
   async handleSubmit(event) {
     event.preventDefault();
 
+    // Enforce confirmation match when a password is provided
+    const password = this.passwordInput.value || '';
+    const confirmPassword = this.passwordConfirmInput.value || '';
+    if (password.length > 0 && confirmPassword !== password) {
+      this.passwordConfirmWarning.style.display = 'inline';
+      this.updateButtonState();
+      return;
+    }
+
     // Determine which backup method to use
     if (myData && !this.backupAllAccountsCheckbox.checked) {
       // User is signed in and wants to backup only current account
