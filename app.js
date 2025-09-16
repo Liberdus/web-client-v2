@@ -3658,7 +3658,7 @@ async function processChats(chats, keys) {
                     }
 
                     if (reactNativeApp.isReactNativeWebView && messageToDelete.type === 'call' && Number(messageToDelete.callTime) > 0) {
-                      reactNativeApp.sendUnscheduledCall(contact?.username, Number(messageToDelete.callTime));
+                      reactNativeApp.sendCancelScheduledCall(contact?.username, Number(messageToDelete.callTime));
                     }
                     
                     if (chatModal.isActive() && chatModal.address === from) {
@@ -9940,7 +9940,7 @@ console.warn('in send message', txid)
       if (reactNativeApp.isReactNativeWebView && message.type === 'call') {
         const callTimeNum = Number(message.callTime) || 0;
         if (callTimeNum > 0) {
-          reactNativeApp.sendUnscheduledCall(contact?.username, callTimeNum);
+          reactNativeApp.sendCancelScheduledCall(contact?.username, callTimeNum);
         }
       }
 
@@ -15688,9 +15688,9 @@ class ReactNativeApp {
     });
   }
   
-  sendUnscheduledCall(username, timestamp){
+  sendCancelScheduledCall(username, timestamp){
     this.postMessage({
-      type: 'UNSCHEDULE_CALL',
+      type: 'CANCEL_SCHEDULE_CALL',
       username,
       timestamp
     });
