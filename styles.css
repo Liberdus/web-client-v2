@@ -45,6 +45,7 @@
   --icon-chat: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'%3E%3C/path%3E%3C/svg%3E");
   --icon-contacts: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'%3E%3C/path%3E%3Ccircle cx='9' cy='7' r='4'%3E%3C/circle%3E%3Cpath d='M23 21v-2a4 4 0 0 0-3-3.87'%3E%3C/path%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'%3E%3C/path%3E%3C/svg%3E");
   --icon-clock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cpolyline points='12 6 12 12 16 14'%3E%3C/polyline%3E%3C/svg%3E");
+  --icon-info: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cline x1='12' y1='16' x2='12' y2='12'%3E%3C/line%3E%3Cline x1='12' y1='8' x2='12.01' y2='8'%3E%3C/line%3E%3C/svg%3E");
 
   /* Typography tokens */
   --font-primary: 'Inter', sans-serif;
@@ -1775,6 +1776,32 @@ input[type='file'].form-control::file-selector-button {
   font-weight: 500;
   /* Or a different color to make it stand out: */
   color: var(--secondary-text-color);
+}
+
+.toll-info-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+  vertical-align: middle;
+  transform: translateY(-1px);
+}
+
+.toll-info-icon:hover {
+  opacity: 1;
+}
+
+.toll-info-icon[data-icon="info"]::before {
+  content: '';
+  width: 14px;
+  height: 14px;
+  background-image: var(--icon-info);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  display: block;
 }
 /* Wallet Styles */
 .wallet-balance {
@@ -4639,7 +4666,7 @@ small {
 }
 
 .menu-item[data-icon="info"]::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cline x1='12' y1='16' x2='12' y2='12'%3E%3C/line%3E%3Cline x1='12' y1='8' x2='12.01' y2='8'%3E%3C/line%3E%3C/svg%3E");
+  background-image: var(--icon-info);
 }
 
 .menu-item[data-icon="log-out"]::before {
