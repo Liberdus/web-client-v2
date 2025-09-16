@@ -6644,18 +6644,9 @@ class AboutModal {
     this.versionDisplay = document.getElementById('versionDisplayAbout');
     this.networkName = document.getElementById('networkNameAbout');
     this.netId = document.getElementById('netIdAbout');
-    this.checkForUpdatesBtn = document.getElementById('checkForUpdatesBtn');
 
     // Set up event listeners
     this.closeButton.addEventListener('click', () => this.close());
-
-    // Only show "Check for Updates" button if user is in React Native app
-    if (window.ReactNativeWebView) {
-      this.checkForUpdatesBtn.style.display = 'inline-block';
-      this.checkForUpdatesBtn.addEventListener('click', () => this.openStore());
-    } else {
-      this.checkForUpdatesBtn.style.display = 'none';
-    }
 
     // Set version and network information once during initialization
     this.versionDisplay.textContent = myVersion + ' ' + version;
