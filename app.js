@@ -10493,6 +10493,7 @@ console.warn('in send message', txid)
       payload.senderInfo = encryptChacha(dhkey, stringify(senderInfo));
 
       // Create and send the call message transaction
+      const tollInLib = myData.contacts[currentAddress].tollRequiredToSend == 0 ? 0n : this.toll;
       const chatMessageObj = await this.createChatMessage(currentAddress, payload, tollInLib, keys);
       // if there's a callobj.calltime is present and is 0 set callType to true to make recipient phone ring
       if (callObj?.callTime === 0) {
