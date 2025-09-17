@@ -2405,7 +2405,6 @@ const contactInfoModal = new ContactInfoModal();
 class FriendModal {
   constructor() {
     this.currentContactAddress = null;
-    this.needsContactListUpdate = false; // track if we need to update the contact list
     this.lastChangeTimeStamp = 0; // track the last time the friend status was changed
   }
 
@@ -2535,9 +2534,6 @@ class FriendModal {
               ? 'Added as Friend'
               : 'Error updating friend status'
     );
-
-    // Mark that we need to update the contact list
-    this.needsContactListUpdate = true;
 
     // Update the friend button
     this.updateFriendButton(contact, 'addFriendButtonContactInfo');
