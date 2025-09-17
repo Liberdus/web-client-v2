@@ -2510,9 +2510,14 @@ class FriendModal {
         return;
       }
     }
-    // store the old friend status
-    contact.friendOld = contact.friend;
 
+    if ([2,3].includes(contact.friend) && [2,3].includes(Number(selectedStatus))) {
+      // set friend and friendold the same since no transaction is needed
+      contact.friendOld = Number(selectedStatus);
+    } else {
+      // store the old friend status
+      contact.friendOld = contact.friend;
+    }
     // Update friend status based on selected value
     contact.friend = Number(selectedStatus);
 
@@ -16007,6 +16012,8 @@ async function checkPendingTransactions() {
             showToast(`Update contact status failed: ${failureReason}. Reverting contact to old status.`, 0, 'error');
             // revert the local myData.contacts[toAddress].friend to the old value
             myData.contacts[pendingTxInfo.to].friend = myData.contacts[pendingTxInfo.to].friendOld;
+            // update contact list since friend status was reverted
+            contactsScreen.updateContactsList();
           } else if (type === 'read') {
             showToast(`Read transaction failed: ${failureReason}`, 0, 'error');
             // revert the local myData.contacts[toAddress].timestamp to the old value
