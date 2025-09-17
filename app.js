@@ -2433,7 +2433,7 @@ class FriendModal {
     if (!contact) return;
 
     // Set the current friend status
-    const status = contact?.friend.toString();
+    const status = contact.friend.toString();
     const radio = this.friendForm.querySelector(`input[value="${status}"]`);
     if (radio) radio.checked = true;
 
@@ -3421,8 +3421,6 @@ async function updateAssetPricesIfNeeded() {
       const data = await response.json();
       if (data.pairs && data.pairs.length > 0 && data.pairs[0].priceUsd) {
         asset.price = parseFloat(data.pairs[0].priceUsd);
-        // asset.lastPriceUpdate = now;
-        // myData.wallet.assets[i] = asset; // Update the asset in the array
         myData.wallet.priceTimestamp = now;
         console.log(`Updated price of ${asset.symbol} to ${asset.price}`);
         console.log(JSON.stringify(data, null, 4));
@@ -3438,10 +3436,8 @@ async function updateAssetPricesIfNeeded() {
 async function queryNetwork(url) {
   //console.log('queryNetwork', url)
   if (!isOnline) {
-    //TODO: show user we are not online
     console.warn('not online');
     showToast('queryNetwork: not online', 0, 'error')
-    //alert('not online')
     return null;
   }
   const selectedGateway = getGatewayForRequest();
@@ -3500,7 +3496,6 @@ async function getChats(keys, retry = 1) {
     senders === undefined ? 'undefined' : JSON.stringify(senders)
   );
   if (senders && senders.chats && chatCount) {
-    // TODO check if above is working
     await processChats(senders.chats, keys);
   } else {
     console.error('getChats: no senders found')
