@@ -16546,12 +16546,12 @@ class LocalStorageMonitor {
 const localStorageMonitor = new LocalStorageMonitor();
 
 function getStabilityFactor() {
-  return parseFloat(parameters.current.stabilityFactorStr);
+  return parseFloat(parameters?.current?.stabilityFactorStr);
 }
 
 // returns transaction fee in wei
 function getTransactionFeeWei() {
-  return EthNum.toWei(EthNum.div(parameters.current.transactionFeeUsdStr, parameters.current.stabilityFactorStr)) || 1n * wei;
+  return EthNum.toWei(EthNum.div(parameters?.current?.transactionFeeUsdStr, parameters?.current?.stabilityFactorStr)) || 1n * wei;
 }
 
 
