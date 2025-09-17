@@ -8150,7 +8150,14 @@ class ChatModal {
 
     // Voice recording event listeners
     if (this.voiceRecordButton) {
-      this.voiceRecordButton.addEventListener('click', () => {
+      this.voiceRecordButton.addEventListener('click', async () => {
+        const tollInLib = myData.contacts[this.address].tollRequiredToSend == 0 ? 0n : this.toll;
+        const sufficientBalance = await validateBalance(tollInLib);
+        if (!sufficientBalance) {
+          const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}`;
+          showToast(msg, 0, 'error');
+          return;
+        }
         voiceRecordingModal.open();
       });
     }
@@ -10357,6 +10364,12 @@ console.warn('in send message', txid)
         return;
       }
 
+      const sufficientBalance = await validateBalance(0n);
+      if (!sufficientBalance) {
+        showToast('Insufficient balance for fee', 0, 'error');
+        return;
+      }
+
       // Choose call time: now or scheduled
       const chosenCallTime = await this.openCallTimeChooser();
       if (chosenCallTime === null) {
@@ -10417,15 +10430,6 @@ console.warn('in send message', txid)
       const keys = myAccount.keys;
       if (!keys) {
         showToast('Keys not found for sender address', 0, 'error');
-        return;
-      }
-
-      const tollInLib = myData.contacts[currentAddress].tollRequiredToSend == 0 ? 0n : this.toll;
-
-      const sufficientBalance = await validateBalance(tollInLib);
-      if (!sufficientBalance) {
-        const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}`;
-        showToast(msg, 0, 'error');
         return;
       }
 
@@ -10565,16 +10569,6 @@ console.warn('in send message', txid)
       duration: duration
     };
 
-    // Calculate toll
-    const tollInLib = myData.contacts[this.address].tollRequiredToSend == 0 ? 0n : this.toll;
-
-    const sufficientBalance = await validateBalance(tollInLib);
-    if (!sufficientBalance) {
-      const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}`;
-      showToast(msg, 0, 'error');
-      return;
-    }
-
     // Ensure recipient keys are available
     const ok = await ensureContactKeys(this.address);
     const recipientPubKey = myData.contacts[this.address]?.public;
@@ -10615,6 +10609,9 @@ console.warn('in send message', txid)
     }
 
     payload.senderInfo = encryptChacha(dhkey, stringify(senderInfo));
+
+    // Calculate toll
+    const tollInLib = myData.contacts[this.address].tollRequiredToSend == 0 ? 0n : this.toll;
 
     // Create and send transaction
     const chatMessageObj = await this.createChatMessage(this.address, payload, tollInLib, myAccount.keys);
