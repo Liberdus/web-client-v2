@@ -8524,7 +8524,8 @@ class ChatModal {
       const amount = this.tollRequiredToSend ? this.toll : 0n;
       const sufficientBalance = await validateBalance(amount);
       if (!sufficientBalance) {
-        showToast('Insufficient balance for toll and fee', 0, 'error');
+        const msg = `Insufficient balance for fee${amount > 0n ? ' and toll' : ''}`;
+        showToast(msg, 0, 'error');
         this.sendButton.disabled = false;
         return;
       }
@@ -10090,6 +10091,15 @@ console.warn('in send message', txid)
         return;
       }
 
+      const tollInLib = myData.contacts[this.address].tollRequiredToSend == 0 ? 0n : this.toll;
+
+      const sufficientBalance = await validateBalance(tollInLib);
+      if (!sufficientBalance) {
+        const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}`;
+        showToast(msg, 0, 'error');
+        return;
+      }
+
       // Ensure recipient keys are available
       const ok = await ensureContactKeys(this.address);
       const recipientPubKey = myData.contacts[this.address]?.public;
@@ -10123,7 +10133,6 @@ console.warn('in send message', txid)
       };
 
       // Prepare and send the delete message transaction
-      let tollInLib = myData.contacts[this.address].tollRequiredToSend == 0 ? 0n : this.toll;
       const deleteMessageObj = await this.createChatMessage(this.address, payload, tollInLib, keys);
       await signObj(deleteMessageObj, keys);
       const deleteTxid = getTxid(deleteMessageObj);
@@ -10411,6 +10420,15 @@ console.warn('in send message', txid)
         return;
       }
 
+      const tollInLib = myData.contacts[currentAddress].tollRequiredToSend == 0 ? 0n : this.toll;
+
+      const sufficientBalance = await validateBalance(tollInLib);
+      if (!sufficientBalance) {
+        const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}`;
+        showToast(msg, 0, 'error');
+        return;
+      }
+
       // Ensure recipient keys are available
       const ok = await ensureContactKeys(currentAddress);
       const recipientPubKey = myData.contacts[currentAddress]?.public;
@@ -10465,7 +10483,6 @@ console.warn('in send message', txid)
       payload.senderInfo = encryptChacha(dhkey, stringify(senderInfo));
 
       // Create and send the call message transaction
-      let tollInLib = myData.contacts[currentAddress].tollRequiredToSend == 0 ? 0n : this.toll;
       const chatMessageObj = await this.createChatMessage(currentAddress, payload, tollInLib, keys);
       // if there's a callobj.calltime is present and is 0 set callType to true to make recipient phone ring
       if (callObj?.callTime === 0) {
@@ -10548,6 +10565,16 @@ console.warn('in send message', txid)
       duration: duration
     };
 
+    // Calculate toll
+    const tollInLib = myData.contacts[this.address].tollRequiredToSend == 0 ? 0n : this.toll;
+
+    const sufficientBalance = await validateBalance(tollInLib);
+    if (!sufficientBalance) {
+      const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}`;
+      showToast(msg, 0, 'error');
+      return;
+    }
+
     // Ensure recipient keys are available
     const ok = await ensureContactKeys(this.address);
     const recipientPubKey = myData.contacts[this.address]?.public;
@@ -10588,9 +10615,6 @@ console.warn('in send message', txid)
     }
 
     payload.senderInfo = encryptChacha(dhkey, stringify(senderInfo));
-
-    // Calculate toll
-    let tollInLib = myData.contacts[this.address].tollRequiredToSend == 0 ? 0n : this.toll;
 
     // Create and send transaction
     const chatMessageObj = await this.createChatMessage(this.address, payload, tollInLib, myAccount.keys);
