@@ -3812,23 +3812,23 @@ async function processChats(chats, keys) {
           if (payload.senderInfo && !mine){
             contact.senderInfo = cleanSenderInfo(payload.senderInfo)
             delete payload.senderInfo;
-            if (!contact.username && contact.senderInfo.username) {
-              // check if the username given with the message maps to the address of this contact
-              const usernameAddress = await getUsernameAddress(contact.senderInfo.username);
-                if (usernameAddress && normalizeAddress(usernameAddress) === normalizeAddress(tx.from)) {
-                  contact.username = contact.senderInfo.username;
-                } else {
-                  // username doesn't match address so skipping this message
-                  console.error(`Username: ${contact.senderInfo.username} does not match address ${tx.from}`);
-                  continue;
+            if (!contact.username) {
+              // Only process senderInfo if it contains a username
+              if (contact.senderInfo.username) {
+                // If we don't have a username yet, validate and use the one from senderInfo
+                if (!contact.username) {
+                  const usernameAddress = await getUsernameAddress(contact.senderInfo.username);
+                  if (usernameAddress && normalizeAddress(usernameAddress) === normalizeAddress(tx.from)) {
+                    contact.username = contact.senderInfo.username;
+                  } else {
+                    console.error(`Username: ${contact.senderInfo.username} does not match address ${tx.from}`);
+                    continue;
+                  }
                 }
-            } else {
-              if(contact.username) {
-                // if we already have the username, we can use it
-                contact.senderInfo.username = contact.username;
+                // If we already have a username, keep both - don't artificially populate senderInfo
               } else {
-                console.error(`Username not provided in senderInfo.`)
-                continue
+                console.error(`Username not provided in senderInfo.`);
+                continue;
               }
             }
           }
@@ -3929,24 +3929,23 @@ async function processChats(chats, keys) {
           if (payload.senderInfo && !mine) {
             contact.senderInfo = cleanSenderInfo(payload.senderInfo);
             delete payload.senderInfo;
-            if (!contact.username && contact.senderInfo.username) {
-              // check if the username given with the message maps to the address of this contact
-              const usernameAddress = await getUsernameAddress(contact.senderInfo.username);
+            
+            // Only process senderInfo if it contains a username
+            if (contact.senderInfo.username) {
+              // If we don't have a username yet, validate and use the one from senderInfo
+              if (!contact.username) {
+                const usernameAddress = await getUsernameAddress(contact.senderInfo.username);
                 if (usernameAddress && normalizeAddress(usernameAddress) === normalizeAddress(tx.from)) {
                   contact.username = contact.senderInfo.username;
                 } else {
-                  // username doesn't match address so skipping this message
                   console.error(`Username: ${contact.senderInfo.username} does not match address ${tx.from}`);
                   continue;
                 }
-            } else {
-              if(contact.username) {
-                // if we already have the username, we can use it
-                contact.senderInfo.username = contact.username;
-              } else {
-                console.error(`Username not provided in senderInfo.`)
-                continue
               }
+              // If we already have a username, keep both - don't artificially populate senderInfo
+            } else {
+              console.error(`Username not provided in senderInfo.`);
+              continue;
             }
           }
 
@@ -16275,6 +16274,11 @@ async function getSystemNotice() {
   }
 }
 
+/**
+ * Cleans the sender info object by normalizing the username, name, phone, email, linkedin, and x
+ * @param {Object} si - The sender info object to clean
+ * @returns {Object} The cleaned sender info object
+ */
 function cleanSenderInfo(si) {
   const csi = {};
   if (si.username) {
