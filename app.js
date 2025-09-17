@@ -16176,39 +16176,52 @@ async function getNetworkParams() {
   }
 
   console.log(`getNetworkParams: Data for account ${NETWORK_ACCOUNT_ID} is stale or missing. Attempting to fetch...`);
-  try {
-    const fetchedData = await queryNetwork(`/account/${NETWORK_ACCOUNT_ID}`);
 
-    if (fetchedData !== undefined && fetchedData !== null) {
-      parameters = fetchedData.account;
-      getNetworkParams.timestamp = now;
-      // if network id from network.js is not the same as the parameters.current.networkId
-      if (network.netid !== parameters.networkId) {
-        // treat as offline
-        netIdMismatch = true;
-        updateUIForConnectivity();
-        console.error(`getNetworkParams: Network ID mismatch. Network ID from network.js: ${network.netid}, Network ID from parameters: ${parameters.networkId}`);
-        console.log(parameters)
-        // show toast notification with the error message
-        showToast(`Network ID mismatch. Check network configuration in network.js.`, 0, 'error');
+  const MAX_RETRIES = 3;
+  const BASE_DELAY_MS = 200;
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  let lastError;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const fetchedData = await queryNetwork(`/account/${NETWORK_ACCOUNT_ID}`);
+
+      if (fetchedData !== undefined && fetchedData !== null && fetchedData.account) {
+        parameters = fetchedData.account;
+        getNetworkParams.timestamp = now;
+        // if network id from network.js is not the same as the parameters.current.networkId
+        if (network.netid !== parameters.networkId) {
+          // treat as offline
+          netIdMismatch = true;
+          updateUIForConnectivity();
+          console.error(`getNetworkParams: Network ID mismatch. Network ID from network.js: ${network.netid}, Network ID from parameters: ${parameters.networkId}`);
+          console.log(parameters)
+          // show toast notification with the error message
+          showToast(`Network ID mismatch. Check network configuration in network.js.`, 0, 'error');
+        }
+        return; // success
+      } else {
+        lastError = new Error('Null or undefined response');
+        throw lastError;
       }
-      return;
-    } else {
-      isOnline = false;
-      updateUIForConnectivity();
-      console.warn(
-        `getNetworkParams: Received null or undefined data from queryNetwork for account ${NETWORK_ACCOUNT_ID}. Cached data (if any) will remain unchanged.`
-      );
+    } catch (error) {
+      lastError = error;
+      if (attempt < MAX_RETRIES) {
+        const waitMs = BASE_DELAY_MS * (2 ** (attempt - 1));
+        console.warn(`getNetworkParams: Attempt ${attempt} failed; retrying in ${waitMs}ms...`, error);
+        await delay(waitMs);
+        continue;
+      }
     }
-  } catch (error) {
-    isOnline = false;
-    updateUIForConnectivity();
-    console.error(
-      `getNetworkParams: Error fetching network account data for ${NETWORK_ACCOUNT_ID}: Cached data (if any) will remain unchanged.`,
-      error
-    );
-    // Optional: Clear data or reset timestamp to force retry on next call
   }
+
+  // All retries failed
+  isOnline = false;
+  updateUIForConnectivity();
+  console.warn(
+    `getNetworkParams: Failed to fetch network account data after ${MAX_RETRIES} attempts for ${NETWORK_ACCOUNT_ID}. Cached data (if any) will remain unchanged.`,
+    lastError
+  );
 }
 getNetworkParams.timestamp = 0;
 
