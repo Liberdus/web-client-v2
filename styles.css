@@ -871,6 +871,15 @@ body {
   opacity: 0.5;
 }
 
+#callInviteModal .empty-state {
+  display: none; /* Hidden by default */
+  padding: 0;
+}
+#callInviteModal .empty-state::before {
+  width: 0;
+  height: 0;
+}
+
 /* Chats empty state - using chat bubble SVG */
 #chatsScreen .empty-state::before {
   background-image: var(--icon-chat);

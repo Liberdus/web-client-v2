@@ -10984,6 +10984,13 @@ class CallInviteModal {
       others: allContacts.filter(c => ![2,3,0].includes(c.friend)).sort((a,b) => a.username.toLowerCase().localeCompare(b.username.toLowerCase())),
     };
 
+    if (allContacts.length === 0) {
+      this.modal.querySelector('.empty-state').style.display = 'block';
+      // initial counter update to ensure Invite button is disabled
+      this.updateCounter();
+      return;
+    }
+
     const sectionMeta = [
       { key: 'friends', label: 'Friends' },
       { key: 'acquaintances', label: 'Connections' },
