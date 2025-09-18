@@ -2933,10 +2933,13 @@ mark {
   align-items: center;
   gap: 8px;
   flex-direction: row;
+  min-width: 0; /* Allow flex items to shrink below their content size */
+  width: 100%; /* Ensure it takes full width of parent */
 }
 
 .edit-field-input {
   flex: 1;
+  min-width: 0; /* Allow input to shrink below its content size */
   font-family: var(--font-primary);
   font-size: var(--font-size-base);
   padding: 8px 12px;
