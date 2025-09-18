@@ -1415,6 +1415,10 @@ class MenuModal {
       this.launchButton = document.getElementById('openLaunchUrl');
       this.launchButton.addEventListener('click', () => launchModal.open());
       this.launchButton.style.display = 'block';
+
+      this.updateButton = document.getElementById('openUpdate');
+      this.updateButton.addEventListener('click', () => updateWarningModal.open());
+      this.updateButton.style.display = 'block';
     }
   }
 
