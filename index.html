@@ -208,15 +208,23 @@
                 <label for="recipient"
                   >Recipient <span id="chatRecipientError" style="color: #dc3545; display: none"></span
                 ></label>
-                <input
-                  type="text"
-                  id="chatRecipient"
-                  class="form-control"
-                  placeholder="Enter username"
-                  required
-                  pattern="[a-zA-Z0-9]*"
-                  inputmode="text"
-                />
+                <div style="display: flex; align-items: center; gap: 0.5rem">
+                  <input
+                    type="text"
+                    id="chatRecipient"
+                    class="form-control"
+                    placeholder="Enter username"
+                    required
+                    pattern="[a-zA-Z0-9]*"
+                    inputmode="text"
+                    style="flex: 1"
+                  />
+                  <span class="input-append-icons">
+                    <button type="button" id="newChatUploadQRButton" class="icon-button" title="Upload QR image"></button>
+                    <button type="button" id="newChatScanQRButton" class="icon-button" title="Scan QR"></button>
+                  </span>
+                  <input type="file" id="newChatQRFileInput" accept="image/*" style="display: none" />
+                </div>
               </div>
               <div class="form-actions">
                 <button type="submit" class="btn btn--primary btn--pill btn--full">Continue</button>
@@ -655,6 +663,7 @@
                 <div class="avatar" id="myInfoAvatar"></div>
                 <div class="name" id="myInfoDisplayName"></div>
                 <div class="subtitle" id="myInfoDisplayUsername"></div>
+                <div id="myInfoQR" class="myinfo-qr"></div>
               </div>
               <!-- My info fields -->
               <div class="contact-info-item">

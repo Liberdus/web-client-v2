@@ -2175,6 +2175,7 @@ class MyInfoModal {
     this.avatarDiv = this.avatarSection.querySelector('.avatar');
     this.nameDiv = this.avatarSection.querySelector('.name');
     this.subtitleDiv = this.avatarSection.querySelector('.subtitle');
+    this.qrContainer = this.modal.querySelector('#myInfoQR');
 
     this.backButton.addEventListener('click', () => this.close());
     this.editButton.addEventListener('click', () => myProfileModal.open());
@@ -2221,6 +2222,7 @@ class MyInfoModal {
       el.textContent = val;
       if (cfg.href) el.href = cfg.href(val);
     }
+    this.renderUsernameQR();
   }
 
   async open() {
@@ -2234,6 +2236,35 @@ class MyInfoModal {
 
   isActive() {
     return this.modal.classList.contains('active');
+  }
+
+  // Generate a QR code that contains ONLY the username as raw text
+  renderUsernameQR() {
+    try {
+      if (!this.qrContainer) return;
+      this.qrContainer.innerHTML = '';
+      const username = myAccount?.username || '';
+      if (!username) return;
+
+      // Build minimal payload and encode as liberdus://<base64(JSON)>
+      const payload = { u: username };
+      const jsonData = JSON.stringify(payload);
+      const base64Data = bin2base64(utf82bin(jsonData));
+      const qrText = `liberdus://${base64Data}`;
+
+      // Generate QR using the global qr library as GIF (consistent with other QRs)
+      const gifBytes = qr.encodeQR(qrText, 'gif', { scale: 4 });
+      const base64 = btoa(String.fromCharCode.apply(null, new Uint8Array(gifBytes)));
+      const dataUrl = 'data:image/gif;base64,' + base64;
+      const img = document.createElement('img');
+      img.src = dataUrl;
+      img.width = 160;
+      img.height = 160;
+      img.alt = 'Username QR code';
+      this.qrContainer.appendChild(img);
+    } catch (e) {
+      console.error('Failed to render username QR:', e);
+    }
   }
 }
 
@@ -12073,6 +12104,14 @@ class NewChatModal {
     this.closeNewChatModalButton.addEventListener('click', this.closeNewChatModal.bind(this));
     this.newChatForm.addEventListener('submit', this.handleNewChat.bind(this));
     this.recipientInput.addEventListener('input', debounce(this.handleUsernameInput.bind(this), 300));
+
+    this.scanButton = document.getElementById('newChatScanQRButton');
+    this.uploadButton = document.getElementById('newChatUploadQRButton');
+    this.hiddenFileInput = document.getElementById('newChatQRFileInput');
+
+    this.scanButton.addEventListener('click', () => this.scanUsernameFromQR());
+    this.uploadButton.addEventListener('click', () => this.hiddenFileInput.click());
+    this.hiddenFileInput.addEventListener('change', (e) => this.handleQRImageUpload(e.target.files?.[0] || null));
   }
 
   /**
@@ -12173,6 +12212,100 @@ class NewChatModal {
     // Close new chat modal and open chat modal
     this.closeNewChatModal();
     chatModal.open(recipientAddress);
+  }
+
+  // Open camera scanner and fill username from scanned QR
+  scanUsernameFromQR() {
+    try {
+      scanQRModal.fillFunction = (data) => {
+        const user = this.parseUsernameFromQRData(data);
+        if (user) {
+          this.recipientInput.value = normalizeUsername(user);
+          this.recipientInput.dispatchEvent(new Event('input', { bubbles: true }));
+        } else {
+          showToast('QR does not contain a username', 0, 'error');
+        }
+      };
+      scanQRModal.open();
+    } catch (e) {
+      console.error('Error starting QR scan:', e);
+      showToast('Unable to start camera for scanning.', 0, 'error');
+    }
+  }
+
+  // Handle uploaded image; decode QR and fill username
+  async handleQRImageUpload(file) {
+    try {
+      if (!file) return;
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = objectUrl;
+      });
+      // Draw to a temporary canvas to get pixel data
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const maxDim = 1024; // avoid huge images
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      canvas.width = Math.floor(img.width * scale);
+      canvas.height = Math.floor(img.height * scale);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      let decodedText = '';
+      try {
+        decodedText = qr.decodeQR({ data: imageData.data, width: imageData.width, height: imageData.height });
+      } catch (err) {
+        console.error('QR decode failed:', err);
+        showToast('Could not decode QR from image.', 0, 'error');
+        URL.revokeObjectURL(objectUrl);
+        this.hiddenFileInput.value = '';
+        return;
+      }
+      URL.revokeObjectURL(objectUrl);
+
+      const user = this.parseUsernameFromQRData(decodedText);
+      if (user) {
+        this.recipientInput.value = normalizeUsername(user);
+        this.recipientInput.dispatchEvent(new Event('input', { bubbles: true }));
+      } else {
+        showToast('QR does not contain a username.', 0, 'error');
+      }
+    } catch (e) {
+      console.error('Error processing uploaded QR image:', e);
+      showToast('Failed to process image.', 0, 'error');
+    } finally {
+      if (this.hiddenFileInput) this.hiddenFileInput.value = '';
+    }
+  }
+
+  // Extract username from common QR payloads
+  parseUsernameFromQRData(data) {
+    if (!data || typeof data !== 'string') return null;
+    // Expect strict format: liberdus://<base64(JSON)>
+    if (!data.startsWith('liberdus://')) return null;
+    try {
+      const b64 = data.substring('liberdus://'.length);
+      const json = bin2utf8(base642bin(b64));
+      const obj = JSON.parse(json);
+      const uname = normalizeUsername(String(obj?.u || ''));
+      return uname && uname.length >= 3 ? uname : null;
+    } catch (e) {
+      console.error('Invalid liberdus QR format:', e);
+      return null;
+    }
+  }
+
+  base64ToUtf8Safe(b64) {
+    try {
+      const bin = atob(b64);
+      const bytes = new Uint8Array(Array.prototype.map.call(bin, c => c.charCodeAt(0)));
+      const dec = new TextDecoder('utf-8');
+      return dec.decode(bytes);
+    } catch (e) {
+      return null;
+    }
   }
 
   /**

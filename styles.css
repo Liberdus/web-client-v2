@@ -496,6 +496,10 @@ body {
   background-size: var(--icon-size-20);
 }
 
+.icon-button:active {
+  transform: translateY(1px);
+}
+
 /* Shared sizing/layout for standard icon buttons used in chat/contact contexts */
 .icon-button.chat-icon,
 .icon-button.add-friend-icon,
@@ -2618,7 +2622,7 @@ button.about-link {
 
 /* Contact Info Modal Styles */
 .contact-info-list {
-  padding: 1rem;
+  padding: 0 1rem;
   overflow-y: auto;
   max-height: 100%;
   -webkit-overflow-scrolling: touch;
@@ -2687,7 +2691,6 @@ button.about-link {
   word-wrap: break-word;
   max-width: 100%;
   text-align: center;
-  padding: 0 8px;
 }
 
 .contact-info-item {
@@ -3392,6 +3395,21 @@ mark {
   display: block;
 }
 
+/* Match New Chat QR buttons to Send Asset styles */
+#newChatScanQRButton,
+#newChatUploadQRButton {
+  color: var(--info-color);
+}
+
+#newChatScanQRButton::before,
+#newChatUploadQRButton::before {
+  content: '';
+  width: 24px;
+  height: 24px;
+  background-color: currentColor;
+  display: block;
+}
+
 /* Adjust media query styles */
 @media (max-width: 400px), (max-height: 700px) {
   #receiveModal .qr-data-preview {
@@ -3600,7 +3618,44 @@ mark {
 #canvas {
   display: none;
 }
-/* end of additions by Omar */
+
+/* ========= MyInfo: Username QR ========= */
+#myInfoQR {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#myInfoQR img {
+  display: block;
+  width: 160px;
+  height: 160px;
+  image-rendering: pixelated;
+}
+
+/* ========= New Chat: QR Scan/Upload icons next to input ========= */
+.input-append-icons {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 8px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+#newChatForm #chatRecipient {
+  padding-right: 0.5rem;
+}
+
+#newChatScanQRButton::before {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M3,3 L10,3 L10,10 L3,10 Z M5,5 L5,8 L8,8 L8,5 Z M14,3 L21,3 L21,10 L14,10 Z M16,5 L16,8 L19,8 L19,5 Z M3,14 L10,14 L10,21 L3,21 Z M5,16 L5,19 L8,19 L8,16 Z M14,14 L21,14 L21,21 L14,21 Z M16,16 L16,19 L19,19 L19,16 Z M11,3 L13,3 L13,10 L11,10 Z M11,14 L13,14 L13,21 L11,21 Z M3,11 L10,11 L10,13 L3,13 Z M14,11 L21,11 L21,13 L14,13 Z'/%3E%3C/svg%3E") no-repeat center / contain;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M3,3 L10,3 L10,10 L3,10 Z M5,5 L5,8 L8,8 L8,5 Z M14,3 L21,3 L21,10 L14,10 Z M16,5 L16,8 L19,8 L19,5 Z M3,14 L10,14 L10,21 L3,21 Z M5,16 L5,19 L8,19 L8,16 Z M14,14 L21,14 L21,21 L14,21 Z M16,16 L16,19 L19,19 L19,16 Z M11,3 L13,3 L13,10 L11,10 Z M11,14 L13,14 L13,21 L11,21 Z M3,11 L10,11 L10,13 L3,13 Z M14,11 L21,11 L21,13 L14,13 Z'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+
+#newChatUploadQRButton::before {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z'/%3E%3C/svg%3E") no-repeat center / contain;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z'/%3E%3C/svg%3E") no-repeat center / contain;
+}
 
 small {
   font-size: 0.8rem;
