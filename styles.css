@@ -5079,15 +5079,33 @@ small {
   font-family: 'Courier New', monospace;
 }
 
+/* Base styles for all voice recording control containers */
 .voice-recording-controls,
-.listening-controls {
+.listening-controls,
+.recorded-controls,
+.initial-controls {
   display: flex;
   justify-content: center;
+  min-width: 0;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+/* Two-button layouts (Start Recording + Cancel, Pause/Resume + Stop) */
+.initial-controls,
+.listening-controls {
   gap: 1rem;
 }
 
-.voice-recording-controls button{
-  margin: 0 5px;
+/* Three-button layout (Cancel + Listen + Send) */
+.recorded-controls {
+  gap: 0.5rem; /* Smaller gap for three buttons */
+}
+
+.recorded-controls .voice-btn {
+  max-width: 100px; /* Smaller max-width for three buttons */
+  font-size: 0.9rem; /* Slightly smaller font for better fit */
+  padding: 10px 16px; /* Slightly smaller padding */
 }
 
 .voice-btn {
@@ -5098,13 +5116,16 @@ small {
   font-size: 1rem;
   font-weight: 600;
   transition: all 0.2s ease;
-  min-width: 100px;
+  min-width: 0; /* Allow buttons to shrink below 100px on narrow screens */
+  flex: 1; /* Allow buttons to grow/shrink equally */
+  max-width: 120px; /* Base max-width for most buttons */
+  text-align: center; /* Center text within the button */
+  display: flex; /* Use flexbox for better centering */
+  align-items: center; /* Vertical centering */
+  justify-content: center; /* Horizontal centering */
+  overflow: hidden; /* Prevent text from overflowing button */
+  text-overflow: ellipsis; /* Show ... if text is too long */
 }
-
-#pauseResumeButton {
-  min-width: 120px;
-}
-
 .voice-btn-primary {
   background: var(--primary-color);
   color: white;
