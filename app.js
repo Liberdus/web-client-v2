@@ -1211,7 +1211,7 @@ const contactsScreen = new ContactsScreen();
 
 class WalletScreen {
   constructor() {
-
+    this.firstTimeLoad = true;
   }
 
   load() {
@@ -1270,7 +1270,24 @@ class WalletScreen {
   async updateWalletView() {
     const walletData = myData.wallet;
 
-    await this.updateWalletBalances();
+    // Show loading toast if we're about to fetch fresh data
+    let loadingToastId = null;
+    // only show toast if myData.wallet.timestamp is not 0
+    if (this.firstTimeLoad && isOnline) {
+      loadingToastId = showToast('Loading wallet balance...', 0, 'loading');
+      this.firstTimeLoad = false;
+    }
+
+    try {
+      await this.updateWalletBalances();
+    } catch (error) {
+      console.error('Error updating wallet balances:', error);
+    } finally {
+      // Always hide loading toast if it was shown, regardless of success or failure
+      if (loadingToastId) {
+        hideToast(loadingToastId);
+      }
+    }
 
     // Update total networth
     this.totalBalance.textContent = (walletData.networth || 0).toFixed(2);
