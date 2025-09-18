@@ -12297,17 +12297,6 @@ class NewChatModal {
     }
   }
 
-  base64ToUtf8Safe(b64) {
-    try {
-      const bin = atob(b64);
-      const bytes = new Uint8Array(Array.prototype.map.call(bin, c => c.charCodeAt(0)));
-      const dec = new TextDecoder('utf-8');
-      return dec.decode(bytes);
-    } catch (e) {
-      return null;
-    }
-  }
-
   /**
    * Hide error message in the new chat form
    * @returns {void}
