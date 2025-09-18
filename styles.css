@@ -1586,7 +1586,6 @@ input[type='file'].form-control::file-selector-button {
 
 .message-input-row {
   display: flex;
-  gap: 8px;
   align-items: center;
   width: 100%;
 }
@@ -3310,12 +3309,13 @@ mark {
 
 /* Add attachment button */
 .icon-button.add-attachment-button {
-  width: 20px;
+  width: 44px;
   height: 48px;
   padding: 0;
   flex-shrink: 0;
   pointer-events: auto;
   opacity: 0.7;
+  min-width: 44px; /* iOS recommended minimum touch target */
 }
 
 /* Cancel edit button - appears to the left of message input when editing */
@@ -3343,6 +3343,17 @@ mark {
   background-size: var(--icon-size-24) var(--icon-size-24);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='5' x2='12' y2='19'%3E%3C/line%3E%3Cline x1='5' y1='12' x2='19' y2='12'%3E%3C/line%3E%3C/svg%3E");
 }
+
+/* .icon-button.add-attachment-button:hover {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.icon-button.add-attachment-button:active {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: scale(0.95);
+} */
 
 /* If you're not using Font Awesome, we can create a custom chevron icon */
 .chat-time-chevron {
@@ -4957,7 +4968,7 @@ small {
 
 /* Voice record button */
 .icon-button.voice-record-button {
-  width: 20px;
+  width: 32px;
   height: 48px;
   padding: 0;
   flex-shrink: 0;
