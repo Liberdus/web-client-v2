@@ -4400,7 +4400,7 @@ class SearchMessagesModal {
     this.searchResults = document.getElementById('searchResults');
 
     this.closeButton.addEventListener('click', () => {this.close();});
-      this.searchInput.addEventListener('input', (e) => {this.handleMessageSearchInput(e);});
+    this.searchInput.addEventListener('input', (e) => {this.handleMessageSearchInput(e);});
   }
 
   open() {
