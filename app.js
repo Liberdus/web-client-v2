@@ -15219,6 +15219,7 @@ class UnlockModal {
 
   open() {
     this.modal.classList.add('active');
+    setTimeout(() => this.updateButtonState(), 100);
   }
 
   close() {
