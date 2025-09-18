@@ -1612,7 +1612,9 @@ input[type='file'].form-control::file-selector-button {
   height: 48px;
   min-height: unset;
   line-height: 24px;
-  overflow-y: auto;
+  overflow: hidden; /* Hide overflow in default state */
+  text-overflow: ellipsis; /* Show ellipsis for long text */
+  white-space: nowrap; /* Prevent text wrapping in default state */
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   align-items: center;
