@@ -5142,6 +5142,18 @@ small {
   background: var(--bg-secondary);
   border-radius: 12px;
   margin: 4px 0;
+  min-width: 0; /* Allow shrinking */
+  overflow: hidden; /* Prevent overflow */
+}
+
+/* Voice message controls container */
+.voice-message-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0; /* Allow shrinking */
+  width: 100%; /* Take full width of parent */
+  overflow: hidden; /* Prevent overflow */
 }
 
 .voice-message-play-button {
@@ -5260,11 +5272,38 @@ small {
   flex-direction: column;
   align-items: flex-start;
   min-width: 0;
+  overflow: hidden; /* Prevent content from overflowing */
+  width: 100%; /* Take full available width */
+  max-width: 100%; /* Don't exceed parent width */
+}
+
+/* Voice message header row - make it wrap on small screens */
+.voice-message-info > div:first-child {
+  flex-wrap: wrap !important; /* Override inline style */
+  gap: 8px !important; /* Reduce gap when wrapping */
+  min-width: 0;
+  overflow: hidden;
+  width: 100%;
 }
 
 .voice-message-text {
   color: var(--text-color);
   margin-bottom: 4px;
+  flex: 1 1 auto; /* Allow text to grow and shrink */
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.voice-message-info > div:first-child .voice-message-time-display {
+  flex: 0 0 auto; /* Don't grow or shrink */
+  margin-top: 0; /* Remove top margin when on same line */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Make duration text white on sent messages */
@@ -5278,6 +5317,10 @@ small {
   font-family: 'Courier New', monospace;
   margin-top: 4px;
   width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Make time display white on sent messages */
