@@ -8042,6 +8042,10 @@ class ChatModal {
     // Keyboard detection properties
     this.isKeyboardVisible = false; // Track keyboard state
     this.initialViewportHeight = window.innerHeight; // Store initial viewport height
+    
+    // Track whether we've locked background/modal scroll
+    this.scrollLocked = false;
+    this._touchMoveBlocker = null; // blocks touch outside messages container
   }
 
   /**
@@ -8163,14 +8167,18 @@ class ChatModal {
       if (heightDifference > 150) { // 150px threshold for keyboard detection
         this.isKeyboardVisible = true;
         console.log('⌨️ Keyboard detected as open (viewport height decreased by', heightDifference, 'px)');
+        this.lockBackgroundScroll();
       } else if (heightDifference < 50) { // If height increased or stayed similar, keyboard is likely closed
         this.isKeyboardVisible = false;
         /* console.log('⌨️ Keyboard detected as closed (viewport height difference:', heightDifference, 'px)'); */
+        this.unlockBackgroundScroll();
       }
     });
 
     // Add focus event listener for message input to handle scrolling
     this.messageInput.addEventListener('focus', () => {
+      // Extra guard: immediately lock background/modal scroll when focusing input
+      this.lockBackgroundScroll();
       if (this.messagesContainer) {
         // Check if we're already at the bottom (within 50px threshold)
         const isAtBottom =
@@ -8184,6 +8192,11 @@ class ChatModal {
           }, 500); // Increased delay to ensure keyboard is fully shown
         }
       }
+    });
+
+    // Unlock when input loses focus (keyboard likely dismissed)
+    this.messageInput.addEventListener('blur', () => {
+      this.unlockBackgroundScroll();
     });
 
     this.chatSendMoneyButton.addEventListener('click', () => {
@@ -8372,6 +8385,8 @@ class ChatModal {
    * @returns {void}
    */
   close() {
+    // Ensure scroll is unlocked when closing
+    this.unlockBackgroundScroll();
     if (isOnline) {
       const needsToSendReadTx = this.needsToSend();
       console.log(`[close] needsToSendReadTx: ${needsToSendReadTx}`);
@@ -9750,6 +9765,52 @@ console.warn('in send message', txid)
   isKeyboardOpen() {
     // Use the tracked state from resize listener for more reliable detection
     return this.isKeyboardVisible;
+  }
+
+  /**
+   * Lock background and modal-level scrolling so only the messages container can scroll
+   */
+  lockBackgroundScroll() {
+    if (this.scrollLocked) return;
+    this.scrollLocked = true;
+    try {
+      // Prevent page/body scrolling
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+      // Prevent modal container from scrolling; keep messages container scrollable
+      if (this.modal) {
+        this.modal.dataset.prevOverflowY = this.modal.style.overflowY || '';
+        this.modal.style.overflowY = 'hidden';
+      }
+      // Allow vertical pan only within messages container; block elsewhere
+      const allowEl = this.messagesContainer;
+      this._touchMoveBlocker = (e) => {
+        if (!allowEl || !e.target.closest('.messages-container')) {
+          e.preventDefault();
+        }
+      };
+      document.addEventListener('touchmove', this._touchMoveBlocker, { passive: false });
+    } catch (_) {}
+  }
+
+  /**
+   * Unlock background and modal-level scrolling after keyboard is hidden
+   */
+  unlockBackgroundScroll() {
+    if (!this.scrollLocked) return;
+    this.scrollLocked = false;
+    try {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+      if (this.modal) {
+        this.modal.style.overflowY = this.modal.dataset.prevOverflowY || '';
+        delete this.modal.dataset.prevOverflowY;
+      }
+      if (this._touchMoveBlocker) {
+        document.removeEventListener('touchmove', this._touchMoveBlocker, { passive: false });
+        this._touchMoveBlocker = null;
+      }
+    } catch (_) {}
   }
 
   /**
