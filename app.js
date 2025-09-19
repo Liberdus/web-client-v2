@@ -16494,7 +16494,7 @@ function longPoll() {
     // if the promise is resolved, call the longPollResult function with the data
     longPollPromise.then(data => longPollResult(data));
   } catch (error) {
-    now = new Date().toLocaleTimeString();
+    const now = new Date().toLocaleTimeString();
     if(network.name != 'Testnet'){
       showToast(`chat poll error: ${error} ${now}`)
     }
