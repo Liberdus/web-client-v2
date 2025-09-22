@@ -1014,6 +1014,7 @@ class ChatsScreen {
 
         let previewHTML = ''; // Default
         const latestItemTimestamp = latestActivity.timestamp;
+        const contactName = getContactDisplayName(contact);
 
         // Check if the latest activity is a payment/transfer message
         if (latestActivity.deleted === 1) {
@@ -1031,7 +1032,20 @@ class ChatsScreen {
             previewHTML += ` <span class="memo-preview"> | ${truncateMessage(escapeHtml(latestActivity.message), 50)}</span>`;
           }
         } else if (latestActivity.type === 'call') {
-          previewHTML = `<span><i>Join call</i></span>`;
+          const callStartForPreview = Number(latestActivity.callTime || 0) > 0
+            ? Number(latestActivity.callTime)
+            : Number(latestActivity.timestamp || latestActivity.sent_timestamp || 0);
+          const isExpired = chatModal.isCallExpired(callStartForPreview);
+
+          if (isExpired) {
+            // Over 2 hours since call time: show as plain text without join button
+            const label = latestActivity.my
+              ? `You called ${escapeHtml(contactName)}`
+              : `${escapeHtml(contactName)} called you`;
+            previewHTML = `<span><i>${label}</i></span>`;
+          } else {
+            previewHTML = `<span><i>Join call</i></span>`;
+          }
         } else if (latestActivity.type === 'vm') {
           previewHTML = `<span><i>Voice message</i></span>`;
         } else if ((!latestActivity.message || String(latestActivity.message).trim() === '') && latestActivity.xattach) {
@@ -1046,7 +1060,6 @@ class ChatsScreen {
 
         // Use the determined latest timestamp for display
         const timeDisplay = formatTime(latestItemTimestamp);
-        const contactName = getContactDisplayName(contact);
 
         // Create the list item element
         const li = document.createElement('li');
@@ -3489,13 +3502,13 @@ async function queryNetwork(url) {
   //console.log('queryNetwork', url)
   if (!isOnline) {
     console.warn('not online');
-    showToast('queryNetwork: not online', 0, 'error')
+    // showToast('queryNetwork: not online', 0, 'error')
     return null;
   }
   const selectedGateway = getGatewayForRequest();
   if (!selectedGateway) {
     console.error('No gateway available for network query');
-    showToast('queryNetwork: no gateway', 0, 'error')
+    // showToast('queryNetwork: no gateway', 0, 'error')
     return null;
   }
 
@@ -3503,7 +3516,7 @@ async function queryNetwork(url) {
     const now = new Date().toLocaleTimeString();
     console.log(`${now} query`, `${selectedGateway.web}${url}`);
     if (network.name != 'Testnet'){
-      showToast(`${now} query ${selectedGateway.web}${url}`, 0, 'info')
+      // showToast(`${now} query ${selectedGateway.web}${url}`, 0, 'info')
     }
     const response = await fetch(`${selectedGateway.web}${url}`);
     const data = parse(await response.text());
@@ -3514,7 +3527,7 @@ async function queryNetwork(url) {
     const now = new Date().toLocaleTimeString();
     console.error(`${now} queryNetwork ERROR: ${error} ${url} `);
     if (network.name != 'Testnet'){
-      showToast(`queryNetwork: error: ${error} ${url} ${now}`, 0, 'error')
+      // showToast(`queryNetwork: error: ${error} ${url} ${now}`, 0, 'error')
     }
     return null;
   }
@@ -9138,21 +9151,35 @@ console.warn('in send message', txid)
           if (item.message && item.message.trim()) {
             // Check if this is a call message
             if (item.type === 'call') {
-              // Build scheduled label if in the future
-              const callTimeMs = item.callTime || 0;
-              const scheduleHTML = this.buildCallScheduleHTML(callTimeMs);
-              // Render call message with a left circular phone icon (clickable) and plain text to the right
-              // TODO - remove the href and instead have it call a function which will open the URL and at the time of opening it adds the callUrlParam and username
-              messageTextHTML = `
-                <div class="call-message">
-                  <a href='${item.message}${callUrlParams}"${myAccount.username}"' target="_blank" rel="noopener noreferrer" class="call-message-phone-button" aria-label="Join Video Call">
-                    <span class="sr-only">Join Video Call</span>
-                  </a>
-                  <div>
-                    <div class="call-message-text">Join Video Call</div>
-                    ${scheduleHTML}
-                  </div>
-                </div>`;
+              // Determine call timing and whether join should be allowed
+              const callTimeMs = Number(item.callTime || 0);
+              const callStart = callTimeMs > 0 ? callTimeMs : Number(item.timestamp || item.sent_timestamp || 0);
+              const isExpired = this.isCallExpired(callStart);
+
+              if (isExpired) {
+                // Over 2 hours since call time: show as plain text without join button
+                const theirName = getContactDisplayName(contact);
+                const label = item.my ? `You called ${escapeHtml(theirName)}` : `${escapeHtml(theirName)} called you`;
+                messageTextHTML = `
+                  <div class="call-message">
+                    <div class="call-message-text"><i>${label}</i></div>
+                  </div>`;
+              } else {
+                // Build scheduled label if in the future
+                const scheduleHTML = this.buildCallScheduleHTML(callTimeMs);
+                // Render call message with a left circular phone icon (clickable) and plain text to the right
+                // TODO - remove the href and instead have it call a function which will open the URL and at the time of opening it adds the callUrlParam and username
+                messageTextHTML = `
+                  <div class="call-message">
+                    <a href='${item.message}${callUrlParams}"${myAccount.username}"' target="_blank" rel="noopener noreferrer" class="call-message-phone-button" aria-label="Join Video Call">
+                      <span class="sr-only">Join Video Call</span>
+                    </a>
+                    <div>
+                      <div class="call-message-text">Join Video Call</div>
+                      ${scheduleHTML}
+                    </div>
+                  </div>`;
+              }
             } else {
               // Regular message rendering
               messageTextHTML = `<div class="message-content" style="white-space: pre-wrap; margin-top: ${attachmentsHTML ? '2px' : '0'};">${linkifyUrls(item.message)}</div>`;
@@ -9882,8 +9909,15 @@ console.warn('in send message', txid)
     }
     if (isCall) {
       if (copyOption) copyOption.style.display = 'none';
-      if (joinOption) joinOption.style.display = 'flex';
-      if (inviteOption) inviteOption.style.display = 'flex';
+      // Determine if join is allowed (not future, not expired > 2h)
+      const callTimeAttr = Number(messageEl.getAttribute('data-call-time') || 0);
+      const msgTs = Number(messageEl.dataset.messageTimestamp || 0);
+      const callStart = callTimeAttr > 0 ? callTimeAttr : msgTs;
+      const isExpired = this.isCallExpired(callStart);
+      const isFuture = callTimeAttr > 0 ? this.isFutureCall(callTimeAttr) : false;
+      const allowJoin = !isFuture && !isExpired;
+      if (joinOption) joinOption.style.display = allowJoin ? 'flex' : 'none';
+      if (inviteOption) inviteOption.style.display = isExpired ? 'none' : 'flex';
       if (editResendOption) editResendOption.style.display = 'none';
       if (editOption) editOption.style.display = 'none';
     } else if (isVoice) {
@@ -11029,6 +11063,16 @@ console.warn('in send message', txid)
   // ---- Call scheduling helpers ----
   isFutureCall(ts) {
     return typeof ts === 'number' && ts > getCorrectedTimestamp();
+  }
+
+  // Returns true if more than 2 hours have elapsed since the call started
+  // callStart: the effective call start time in ms (either scheduled callTime or message timestamp for immediate calls)
+  isCallExpired(callStart) {
+    const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+    const cs = Number(callStart || 0);
+    if (!(cs > 0)) return false;
+    const now = getCorrectedTimestamp();
+    return (now - cs) > TWO_HOURS_MS;
   }
 
   formatLocalDateTime(ts) {
