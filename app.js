@@ -3502,13 +3502,13 @@ async function queryNetwork(url) {
   //console.log('queryNetwork', url)
   if (!isOnline) {
     console.warn('not online');
-    // showToast('queryNetwork: not online', 0, 'error')
+    showToast('queryNetwork: not online', 0, 'error')
     return null;
   }
   const selectedGateway = getGatewayForRequest();
   if (!selectedGateway) {
     console.error('No gateway available for network query');
-    // showToast('queryNetwork: no gateway', 0, 'error')
+    showToast('queryNetwork: no gateway', 0, 'error')
     return null;
   }
 
@@ -3516,7 +3516,7 @@ async function queryNetwork(url) {
     const now = new Date().toLocaleTimeString();
     console.log(`${now} query`, `${selectedGateway.web}${url}`);
     if (network.name != 'Testnet'){
-      // showToast(`${now} query ${selectedGateway.web}${url}`, 0, 'info')
+      showToast(`${now} query ${selectedGateway.web}${url}`, 0, 'info')
     }
     const response = await fetch(`${selectedGateway.web}${url}`);
     const data = parse(await response.text());
@@ -3527,7 +3527,7 @@ async function queryNetwork(url) {
     const now = new Date().toLocaleTimeString();
     console.error(`${now} queryNetwork ERROR: ${error} ${url} `);
     if (network.name != 'Testnet'){
-      // showToast(`queryNetwork: error: ${error} ${url} ${now}`, 0, 'error')
+      showToast(`queryNetwork: error: ${error} ${url} ${now}`, 0, 'error')
     }
     return null;
   }
