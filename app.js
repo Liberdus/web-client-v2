@@ -3375,26 +3375,16 @@ const callsModal = new CallsModal();
 
 class GroupCallParticipantsModal {
   constructor() {
-    this.modal = null;
-    this.participantsList = null;
-    this.closeButton = null;
     this.currentCallGroup = null;
     this.currentListItem = null;
-    this._onParticipantClick = this._onParticipantClick.bind(this);
-    this._onJoinClick = this._onJoinClick.bind(this);
-    this._onCancel = this._onCancel.bind(this);
   }
 
   load() {
     this.modal = document.getElementById('groupCallParticipantsModal');
-    if (!this.modal) return;
     this.participantsList = document.getElementById('groupCallParticipantsList');
     this.closeButton = document.getElementById('closeGroupCallParticipantsModal');
-
-    [this.participantsList, this.closeButton]
-      .forEach((el, i) => {
-        if (el) el.addEventListener('click', [this._onParticipantClick, this._onJoinClick, this._onCancel, this._onCancel][i]);
-      });
+    this.participantsList.addEventListener('click', (e) => this.onParticipantClick(e));
+    this.closeButton.addEventListener('click', () => this.close());
   }
 
   open(callGroup, listItem) {
@@ -3428,7 +3418,7 @@ class GroupCallParticipantsModal {
     this.modal?.classList.add('active');
   }
 
-  _onParticipantClick(e) {
+  onParticipantClick(e) {
     const participantItem = e.target.closest('.participant-item');
     if (!participantItem) return;
     
@@ -3440,20 +3430,8 @@ class GroupCallParticipantsModal {
     }
   }
 
-  _onJoinClick() {
-    // Directly call the join function from callsModal
-    if (this.currentListItem) {
-      callsModal.handleJoinClick(this.currentListItem);
-    }
-    this.close();
-  }
-
-  _onCancel() {
-    this.close();
-  }
-
   close() {
-    this.modal?.classList.remove('active');
+    this.modal.classList.remove('active');
     this.currentCallGroup = null;
     this.currentListItem = null;
   }
@@ -3503,13 +3481,13 @@ async function queryNetwork(url) {
   //console.log('queryNetwork', url)
   if (!isOnline) {
     console.warn('not online');
-    showToast('queryNetwork: not online', 0, 'error')
+    // showToast('queryNetwork: not online', 0, 'error')
     return null;
   }
   const selectedGateway = getGatewayForRequest();
   if (!selectedGateway) {
     console.error('No gateway available for network query');
-    showToast('queryNetwork: no gateway', 0, 'error')
+    // showToast('queryNetwork: no gateway', 0, 'error')
     return null;
   }
 
@@ -3517,7 +3495,7 @@ async function queryNetwork(url) {
     const now = new Date().toLocaleTimeString();
     console.log(`${now} query`, `${selectedGateway.web}${url}`);
     if (network.name != 'Testnet'){
-      showToast(`${now} query ${selectedGateway.web}${url}`, 0, 'info')
+      // showToast(`${now} query ${selectedGateway.web}${url}`, 0, 'info')
     }
     const response = await fetch(`${selectedGateway.web}${url}`);
     const data = parse(await response.text());
