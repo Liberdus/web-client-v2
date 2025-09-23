@@ -11257,8 +11257,9 @@ class CallInviteModal {
   async sendInvites() {
     const selectedBoxes = Array.from(this.contactsList.querySelectorAll('.call-invite-contact-checkbox:checked'));
     const addresses = selectedBoxes.map(cb => cb.value).slice(0,10);
-    // get call link from original message
-    const msgCallLink = this.messageEl.querySelector('.call-message a')?.href;
+    // get call link from original message up to the first # so we don't duplicate callUrlParams
+    const anchorHref = this.messageEl.querySelector('.call-message a')?.href || '';
+    const msgCallLink = anchorHref.split('#')[0];
     if (!msgCallLink) return showToast('Call link not found', 2000, 'error');
     let msgCallTime = Number(this.messageEl.getAttribute('data-call-time')) || 0;
     this.inviteSendButton.disabled = true;
