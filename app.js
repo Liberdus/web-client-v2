@@ -3278,7 +3278,7 @@ class CallsModal {
     const callGroup = this.calls[idx];
     if (!callGroup) return;
 
-    groupCallParticipantsModal.open(callGroup, li);
+    groupCallParticipantsModal.open(callGroup);
   }
 
   /**
@@ -3374,10 +3374,7 @@ class CallsModal {
 const callsModal = new CallsModal();
 
 class GroupCallParticipantsModal {
-  constructor() {
-    this.currentCallGroup = null;
-    this.currentListItem = null;
-  }
+  constructor() {}
 
   load() {
     this.modal = document.getElementById('groupCallParticipantsModal');
@@ -3387,10 +3384,7 @@ class GroupCallParticipantsModal {
     this.closeButton.addEventListener('click', () => this.close());
   }
 
-  open(callGroup, listItem) {
-    this.currentCallGroup = callGroup;
-    this.currentListItem = listItem;
-    
+  open(callGroup) {
     // Clear existing participants
     if (this.participantsList) {
       this.participantsList.innerHTML = '';
@@ -3424,16 +3418,14 @@ class GroupCallParticipantsModal {
     
     const address = participantItem.getAttribute('data-address');
     if (address) {
+      this.close();
       // Directly open the chat modal for the selected participant
       chatModal.open(address);
-      this.close();
     }
   }
 
   close() {
     this.modal.classList.remove('active');
-    this.currentCallGroup = null;
-    this.currentListItem = null;
   }
 }
 
