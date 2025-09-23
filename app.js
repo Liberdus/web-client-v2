@@ -8055,6 +8055,74 @@ class StakeValidatorModal {
 }
 const stakeValidatorModal = new StakeValidatorModal();
 
+/**
+ * Manages scroll locking for keyboard interactions so only the messages container can scroll
+ */
+class KeyboardScrollLockManager {
+  constructor(doc, modal, messagesContainer) {
+    this.doc = doc;
+    this.modal = modal;
+    this.messagesContainer = messagesContainer;
+    this.scrollLocked = false;
+    this._touchMoveBlocker = null;
+  }
+
+  updateTargets(modal, messagesContainer) {
+    this.modal = modal;
+    this.messagesContainer = messagesContainer;
+  }
+
+  /**
+   * Locks the scroll
+   * @returns {void}
+   */
+  lock() {
+    if (this.scrollLocked) return;
+    this.scrollLocked = true;
+    try {
+      // Prevent page/body scrolling
+      this.doc.documentElement.style.overflow = 'hidden';
+      this.doc.body.style.overflow = 'hidden';
+      // Prevent modal container from scrolling; keep messages container scrollable
+      if (this.modal) {
+        this.modal.dataset.prevOverflowY = this.modal.style.overflowY || '';
+        this.modal.style.overflowY = 'hidden';
+      }
+      // Allow vertical pan within messages container and the message input; block elsewhere
+      const allowSelectors = ['.messages-container', '.message-input'];
+      this._touchMoveBlocker = (e) => {
+        const target = e.target;
+        const isAllowed = allowSelectors.some((sel) => target.closest(sel));
+        if (!isAllowed) {
+          e.preventDefault();
+        }
+      };
+      this.doc.addEventListener('touchmove', this._touchMoveBlocker, { passive: false });
+    } catch (_) {}
+  }
+
+  /**
+   * Unlocks the scroll
+   * @returns {void}
+   */
+  unlock() {
+    if (!this.scrollLocked) return;
+    this.scrollLocked = false;
+    try {
+      this.doc.documentElement.style.overflow = '';
+      this.doc.body.style.overflow = '';
+      if (this.modal) {
+        this.modal.style.overflowY = this.modal.dataset.prevOverflowY || '';
+        delete this.modal.dataset.prevOverflowY;
+      }
+      if (this._touchMoveBlocker) {
+        this.doc.removeEventListener('touchmove', this._touchMoveBlocker, { passive: false });
+        this._touchMoveBlocker = null;
+      }
+    } catch (_) {}
+  }
+}
+
 class ChatModal {
   constructor() {
     this.newestReceivedMessage = null;
@@ -8084,6 +8152,7 @@ class ChatModal {
     // Track whether we've locked background/modal scroll
     this.scrollLocked = false;
     this._touchMoveBlocker = null; // blocks touch outside messages container
+    this.scrollManager = null;
   }
 
   /**
@@ -8128,6 +8197,10 @@ class ChatModal {
     this.messageByteCounter = document.querySelector('.message-byte-counter');
     this.tollTemplate = document.getElementById('tollInfoMessageTemplate');
     this.messagesContainer = document.querySelector('.messages-container');
+    // Initialize keyboard scroll lock if react native webview
+    
+      this.scrollManager = new KeyboardScrollLockManager(document, this.modal, this.messagesContainer);
+    
     this.addFriendButtonChat = document.getElementById('addFriendButtonChat');
     this.addAttachmentButton = document.getElementById('addAttachmentButton');
     this.chatFileInput = document.getElementById('chatFileInput');
@@ -8232,10 +8305,11 @@ class ChatModal {
       }
     });
 
+    // should be unlocking from native post message now reason for commenting out
     // Unlock when input loses focus (keyboard likely dismissed)
-    this.messageInput.addEventListener('blur', () => {
+    /* this.messageInput.addEventListener('blur', () => {
       this.unlockBackgroundScroll();
-    });
+    }); */
 
     this.chatSendMoneyButton.addEventListener('click', () => {
       sendAssetFormModal.username = this.chatSendMoneyButton.dataset.username;
@@ -9823,46 +9897,16 @@ console.warn('in send message', txid)
    * Lock background and modal-level scrolling so only the messages container can scroll
    */
   lockBackgroundScroll() {
-    if (this.scrollLocked) return;
-    this.scrollLocked = true;
-    try {
-      // Prevent page/body scrolling
-      document.documentElement.style.overflow = 'hidden';
-      document.body.style.overflow = 'hidden';
-      // Prevent modal container from scrolling; keep messages container scrollable
-      if (this.modal) {
-        this.modal.dataset.prevOverflowY = this.modal.style.overflowY || '';
-        this.modal.style.overflowY = 'hidden';
-      }
-      // Allow vertical pan only within messages container; block elsewhere
-      const allowEl = this.messagesContainer;
-      this._touchMoveBlocker = (e) => {
-        if (!allowEl || !e.target.closest('.messages-container')) {
-          e.preventDefault();
-        }
-      };
-      document.addEventListener('touchmove', this._touchMoveBlocker, { passive: false });
-    } catch (_) {}
+    if (!this.scrollManager) return;
+    this.scrollManager.lock();
   }
 
   /**
    * Unlock background and modal-level scrolling after keyboard is hidden
    */
   unlockBackgroundScroll() {
-    if (!this.scrollLocked) return;
-    this.scrollLocked = false;
-    try {
-      document.documentElement.style.overflow = '';
-      document.body.style.overflow = '';
-      if (this.modal) {
-        this.modal.style.overflowY = this.modal.dataset.prevOverflowY || '';
-        delete this.modal.dataset.prevOverflowY;
-      }
-      if (this._touchMoveBlocker) {
-        document.removeEventListener('touchmove', this._touchMoveBlocker, { passive: false });
-        this._touchMoveBlocker = null;
-      }
-    } catch (_) {}
+    if (!this.scrollManager) return;
+    this.scrollManager.unlock();
   }
 
   /**
@@ -15586,6 +15630,8 @@ class ReactNativeApp {
 
   load() {
     if (this.isReactNativeWebView) {
+      // Add a root class so CSS can target RN webview layouts
+      try { document.documentElement.classList.add('rn-webview'); } catch (_) {}
       console.log('🌐 Initializing React Native WebView Communication');
       this.captureInitialViewportHeight();
 
@@ -15614,6 +15660,14 @@ class ReactNativeApp {
 
           if (data.type === 'KEYBOARD_SHOWN') {
             this.detectKeyboardOverlap(data.keyboardHeight);
+          }
+
+          // Native-driven scroll lock control (separate from overlap detection)
+          if (data.type === 'NATIVE_KEYBOARD_SHOWN') {
+            if (chatModal?.isActive()) chatModal.lockBackgroundScroll();
+          }
+          if (data.type === 'NATIVE_KEYBOARD_HIDDEN') {
+            if (chatModal?.isActive()) chatModal.unlockBackgroundScroll();
           }
 
           if (data.type === 'APP_PARAMS') {

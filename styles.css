@@ -372,7 +372,7 @@ body {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .welcome-screen .welcome-buttons {
@@ -1214,7 +1214,7 @@ button:disabled {
 /* Desktop modal header adjustments */
 @media (min-width: 769px) {
   .modal-header {
-    padding-top: calc(env(safe-area-inset-top) + 16px);
+    padding-top: calc(env(safe-area-inset-top) /* + 16px */);
   }
 }
 
@@ -1579,6 +1579,25 @@ input[type='file'].form-control::file-selector-button {
   height: 100%;
 }
 
+/* In React Native WebView, prefer dynamic viewport units to handle keyboard and safe areas */
+.rn-webview #chatModal {
+  height: 100dvh;
+}
+
+/* Prevent scroll chaining and overscroll bounce in RN WebView */
+.rn-webview,
+.rn-webview body {
+  overscroll-behavior: none;
+  touch-action: pan-y;
+}
+
+/* Contain scroll within chat surfaces so it doesn't bubble to the container */
+.rn-webview #chatModal,
+.rn-webview .messages-container,
+.rn-webview .message-input {
+  overscroll-behavior: contain;
+}
+
 .messages-container {
   overflow-y: auto;
   padding: 1rem 1rem 0;
@@ -1592,7 +1611,7 @@ input[type='file'].form-control::file-selector-button {
 .message-input-container {
   min-height: 80px;
   padding: 8px 14px;
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px));
   background: white;
   display: flex;
   flex-direction: column; /* Change to column layout */
@@ -3585,7 +3604,7 @@ mark {
     left: 0;
     right: 0;
     bottom: 0;
-    height: 100vh;
+    height: 100dvh;
     /* Fix for iOS 100vh issue */
     height: -webkit-fill-available;
   }
