@@ -8065,6 +8065,7 @@ class KeyboardScrollLockManager {
     this.messagesContainer = messagesContainer;
     this.scrollLocked = false;
     this._touchMoveBlocker = null;
+    this._prev = { de: {}, body: {} };
   }
 
   updateTargets(modal, messagesContainer) {
@@ -8083,6 +8084,17 @@ class KeyboardScrollLockManager {
       // Prevent page/body scrolling
       this.doc.documentElement.style.overflow = 'hidden';
       this.doc.body.style.overflow = 'hidden';
+      
+      // Save and set additional iOS-friendly scroll prevention flags
+      this._prev.de.overscrollBehavior = this.doc.documentElement.style.overscrollBehavior || '';
+      this._prev.de.touchAction = this.doc.documentElement.style.touchAction || '';
+      this._prev.body.overscrollBehavior = this.doc.body.style.overscrollBehavior || '';
+      this._prev.body.touchAction = this.doc.body.style.touchAction || '';
+      this.doc.documentElement.style.overscrollBehavior = 'none';
+      this.doc.body.style.overscrollBehavior = 'none';
+      this.doc.documentElement.style.touchAction = 'pan-y';
+      this.doc.body.style.touchAction = 'pan-y';
+      
       // Prevent modal container from scrolling; keep messages container scrollable
       if (this.modal) {
         this.modal.dataset.prevOverflowY = this.modal.style.overflowY || '';
@@ -8111,6 +8123,13 @@ class KeyboardScrollLockManager {
     try {
       this.doc.documentElement.style.overflow = '';
       this.doc.body.style.overflow = '';
+      
+      // Restore iOS-friendly scroll flags to previous values
+      this.doc.documentElement.style.overscrollBehavior = this._prev.de.overscrollBehavior;
+      this.doc.documentElement.style.touchAction = this._prev.de.touchAction;
+      this.doc.body.style.overscrollBehavior = this._prev.body.overscrollBehavior;
+      this.doc.body.style.touchAction = this._prev.body.touchAction;
+      
       if (this.modal) {
         this.modal.style.overflowY = this.modal.dataset.prevOverflowY || '';
         delete this.modal.dataset.prevOverflowY;
