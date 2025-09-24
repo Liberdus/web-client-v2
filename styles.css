@@ -846,6 +846,17 @@ body {
   margin-left: 8px;
 }
 
+/* Orange draft indicator shown when there is a saved draft and no unread messages */
+.chat-draft {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background-color: var(--warning-color);
+  border-radius: 50%;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
 .empty-state {
   text-align: center;
   padding: 2rem;

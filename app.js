@@ -1075,8 +1075,8 @@ class ChatsScreen {
                     <div class="chat-time">${timeDisplay} <span class="chat-time-chevron"></span></div>
                 </div>
                 <div class="chat-message">
-                    ${contact.unread ? `<span class="chat-unread">${contact.unread}</span>` : ''}
-                    ${latestActivity.my ? 'You: ' : ''}${previewHTML}
+                  ${contact.unread ? `<span class="chat-unread">${contact.unread}</span>` : (contact.draft && contact.draft.trim() ? `<span class="chat-draft" title="Draft"></span>` : '')}
+                  ${latestActivity.my ? 'You: ' : ''}${previewHTML}
                 </div>
             </div>
         `;
