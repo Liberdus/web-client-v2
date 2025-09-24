@@ -8364,10 +8364,6 @@ class ChatModal {
         // Clear bell icon for signed-in account
         logsModal.log('Clearing notification address for', myAccount.keys.address);
         reactNativeApp.clearNotificationAddress(myAccount.keys.address);
-        // This is required to clear the notification from the react native side
-        // without it ALL_NOTIFICATIONS_IN_PANEL gets triggered in the sign in modal and the bell icon reappears
-        // this also clears the bubble on the app icon which we don't want until there are no addresses with notifications
-        reactNativeApp.sendClearNotifications();
       }
       // 2. Check if all bell icons are cleared local storage notification addresses empty
       const notificationAddresses = reactNativeApp.getNotificationAddresses();
