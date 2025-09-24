@@ -1491,10 +1491,6 @@ class MenuModal {
       screen.classList.remove('active');
     });
 
-    // Clear notifications for this account
-    if (reactNativeApp.isReactNativeWebView) {
-      reactNativeApp.clearNotificationAddress(myAccount.keys.address);
-    }
 
     // Show welcome screen
     welcomeScreen.open();
@@ -1512,7 +1508,6 @@ class MenuModal {
     }
 
     await reactNativeApp.handleNativeAppSubscribe();
-    reactNativeApp.sendClearNotifications();
     await checkVersion();
 
     // checkVersion() may update online status
@@ -1917,7 +1912,7 @@ class SignInModal {
     const netidAccounts = signInData.netidAccounts || { usernames: {} };
 
     // Get the notified addresses and sort usernames to prioritize them
-    const notifiedAddresses = reactNativeApp ? reactNativeApp.getNotificationAddresses() : [];
+    const notifiedAddresses = reactNativeApp.isReactNativeWebView ? reactNativeApp.getNotificationAddresses() : [];
     const notifiedAddressSet = new Set(Array.isArray(notifiedAddresses) ? notifiedAddresses : []);
     let sortedUsernames = [...usernames];
     const notifiedUsernameSet = new Set();
@@ -2078,15 +2073,6 @@ class SignInModal {
     // Close modal and proceed to app
     this.close();
     welcomeScreen.close();
-    
-    // Clear notification address only if signing into account that owns the notification address and only remove that account from the array 
-    if (reactNativeApp.isReactNativeWebView) {
-      const notifiedAddresses = reactNativeApp.getNotificationAddresses();
-      if (notifiedAddresses.length > 0) {
-        // remove address if it's in the array
-        reactNativeApp.clearNotificationAddress(myAccount.keys.address);
-      }
-    }
     
     // Log storage information after successful sign-in
     try {
@@ -8368,6 +8354,27 @@ class ChatModal {
       myData.state.unread = Math.max(0, (myData.state.unread || 0) - contact.unread);
       contact.unread = 0;
       chatsScreen.updateChatList();
+    }
+
+    if(reactNativeApp.isReactNativeWebView) {
+      // --- Bell and app icon clearing logic ---
+      // 1. Check if all contacts for signed-in account have unread == 0
+      const allRead = Object.values(myData.contacts).every(c => c.unread === 0);
+      if (allRead) {
+        // Clear bell icon for signed-in account
+        logsModal.log('Clearing notification address for', myAccount.keys.address);
+        reactNativeApp.clearNotificationAddress(myAccount.keys.address);
+        // This is required to clear the notification from the react native side
+        // without it ALL_NOTIFICATIONS_IN_PANEL gets triggered in the sign in modal and the bell icon reappears
+        // this also clears the bubble on the app icon which we don't want until there are no addresses with notifications
+        reactNativeApp.sendClearNotifications();
+      }
+      // 2. Check if all bell icons are cleared local storage notification addresses empty
+      const notificationAddresses = reactNativeApp.getNotificationAddresses();
+      if (notificationAddresses.length === 0) {
+        // Clear bubble on app icon
+        reactNativeApp.sendClearNotifications();
+      }
     }
 
     // clear file attachments
