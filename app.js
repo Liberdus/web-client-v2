@@ -16759,14 +16759,19 @@ function longPoll() {
       .then(data => longPollResult(data))
       .catch(error => {
         console.error('Chat polling error:', error);
-        // Schedule next poll even on error, but with longer delay
+        // Reset polling state and schedule next poll even on error, but with longer delay
+        isLongPolling = false;
         longPollTimeoutId = setTimeout(longPoll, 5000);
       });
   } catch (error) {
     const now = new Date().toLocaleTimeString();
+    console.error('Synchronous longPoll error:', error);
     if(network.name != 'Testnet'){
       showToast(`chat poll error: ${error} ${now}`)
     }
+    // Reset polling state and schedule next poll even on synchronous error
+    isLongPolling = false;
+    longPollTimeoutId = setTimeout(longPoll, 5000);
   }
 }
 longPoll.start = 0;
