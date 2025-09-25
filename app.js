@@ -133,6 +133,8 @@ let myData = null;
 let myAccount = null; // this is set to myData.account for convience
 let timeSkew = 0;
 let useLongPolling = true;
+let longPollTimeoutId = null;
+let isLongPolling = false;
 
 let checkPendingTransactionsIntervalId = null;
 let getSystemNoticeIntervalId = null;
@@ -2061,7 +2063,7 @@ class SignInModal {
 
     /* requestNotificationPermission(); */
     if (useLongPolling) {
-      setTimeout(longPoll(), 10);
+      setTimeout(longPoll, 10);
     }
     if (!checkPendingTransactionsIntervalId) {
       checkPendingTransactionsIntervalId = setInterval(checkPendingTransactions, 5000);
@@ -4830,6 +4832,7 @@ async function handleConnectivityChange() {
     if (myAccount && myAccount.keys) {
       // restart long polling
       if (useLongPolling) {
+        stopLongPoll(); // Stop any existing polling first
         setTimeout(longPoll, 10);
       }
       try {
@@ -4853,6 +4856,8 @@ async function handleConnectivityChange() {
     // We just went offline
     updateUIForConnectivity();
     showToast("You're offline. Some features are unavailable.", 3000, 'offline');
+    // Stop long polling when going offline
+    stopLongPoll();
   }
 }
 
@@ -16710,12 +16715,25 @@ function cleanSenderInfo(si) {
   return csi;
 }
 
+function stopLongPoll() {
+  if (longPollTimeoutId) {
+    clearTimeout(longPollTimeoutId);
+    longPollTimeoutId = null;
+  }
+  isLongPolling = false;
+  console.log('LongPoll stopped');
+}
+
 function longPoll() {
   if (!useLongPolling) {
     return;
   }
   if (!isOnline) {
     console.log('Poll skipped: Not online');
+    return;
+  }
+  if (isLongPolling) {
+    console.log('LongPoll already running, skipping');
     return;
   }
 
@@ -16726,6 +16744,8 @@ function longPoll() {
     return;
   }
 
+  isLongPolling = true;
+
   try {
     longPoll.start = getCorrectedTimestamp();
     const timestamp = myAccount.chatTimestamp || 0;
@@ -16733,15 +16753,15 @@ function longPoll() {
     // call this with a promise that'll resolve with callback longPollResult function with the data
     const longPollPromise = queryNetwork(`/collector/api/poll?account=${longAddress(myAccount.keys.address)}&chatTimestamp=${timestamp}`);
     console.log(`longPoll started with account=${longAddress(myAccount.keys.address)} chatTimestamp=${timestamp}`);
-    // if there's an issue, reject the promise
-    longPollPromise.catch(error => {
-      console.error('Chat polling error:', error);
-      // reject the promise
-      longPollPromise.reject(error);
-    });
-
-    // if the promise is resolved, call the longPollResult function with the data
-    longPollPromise.then(data => longPollResult(data));
+    
+    // Handle both success and error cases properly
+    longPollPromise
+      .then(data => longPollResult(data))
+      .catch(error => {
+        console.error('Chat polling error:', error);
+        // Schedule next poll even on error, but with longer delay
+        longPollTimeoutId = setTimeout(longPoll, 5000);
+      });
   } catch (error) {
     const now = new Date().toLocaleTimeString();
     if(network.name != 'Testnet'){
@@ -16753,13 +16773,18 @@ longPoll.start = 0;
 
 async function longPollResult(data) {
   console.log('longpoll data', data)
+  
+  // Reset polling state
+  isLongPolling = false;
+  
   // calculate the time since the last poll
   let nextPoll = 4000 - (getCorrectedTimestamp() - longPoll.start)
   if (nextPoll < 0) {
     nextPoll = 0;
   }
   // schedule the next poll
-  setTimeout(longPoll, nextPoll + 1000);
+  longPollTimeoutId = setTimeout(longPoll, nextPoll + 1000);
+  
   if (data?.success){
     longPollResult.timestamp = data.chatTimestamp;
     try {
