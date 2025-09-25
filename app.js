@@ -483,6 +483,9 @@ function handleVisibilityChange() {
 
   if (document.visibilityState === 'hidden') {
     reactNativeApp.handleNativeAppSubscribe();
+    if (reactNativeApp.isReactNativeWebView) {
+      useLongPolling = false;
+    }
     // if chatModal was opened, save the last message count
     if (chatModal.isActive() && chatModal.address) {
       const contact = myData.contacts[chatModal.address];
@@ -496,6 +499,10 @@ function handleVisibilityChange() {
   } else if (document.visibilityState === 'visible') {
     if (myAccount) {
       reactNativeApp.handleNativeAppUnsubscribe();
+    }
+    if (reactNativeApp.isReactNativeWebView) {
+      useLongPolling = true;
+      setTimeout(longPoll, 10);
     }
     // if chatModal was opened, check if message count changed while hidden
     if (chatModal.isActive() && chatModal.address) {
@@ -16688,6 +16695,9 @@ function cleanSenderInfo(si) {
 }
 
 function longPoll() {
+  if (!useLongPolling) {
+    return;
+  }
   if (!isOnline) {
     console.log('Poll skipped: Not online');
     return;
