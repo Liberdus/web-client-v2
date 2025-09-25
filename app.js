@@ -8364,6 +8364,7 @@ class ChatModal {
         // Clear bell icon for signed-in account
         logsModal.log('Clearing notification address for', myAccount.keys.address);
         reactNativeApp.clearNotificationAddress(myAccount.keys.address);
+        reactNativeApp.sendClearNotifications(myAccount.keys.address);
       }
       // 2. Check if all bell icons are cleared local storage notification addresses empty
       const notificationAddresses = reactNativeApp.getNotificationAddresses();
@@ -15556,6 +15557,7 @@ class ReactNativeApp {
     this.expoPushToken = null;
     this.fcmToken = null;
     this.voipToken = null;
+    this.notificationStorageKey = 'notifications';
   }
 
   load() {
@@ -15658,9 +15660,21 @@ class ReactNativeApp {
 
           if (data.type === 'ALL_NOTIFICATIONS_IN_PANEL') {
             if (data.notifications && Array.isArray(data.notifications) && data.notifications.length > 0) {
-              let processedCount = 0;
+              const { state } = this.getNotificationState();
+              const currentTimestamp = state.timestamp || 0;
+              let highestTimestamp = currentTimestamp;
+
               data.notifications.forEach((notification, index) => {
                 try {
+                  const rawTimestamp = notification?.data?.timestamp;
+                  const parsedTimestamp = rawTimestamp ? Date.parse(rawTimestamp) : NaN;
+                  const hasValidTimestamp = Number.isFinite(parsedTimestamp);
+                  const isNewerThanStored = !hasValidTimestamp || parsedTimestamp > currentTimestamp;
+
+                  if (!isNewerThanStored) {
+                    return;
+                  }
+
                   // Extract address from notification body text
                   if (notification?.body && typeof notification.body === 'string') {
                     // Look for pattern "to 0x..." in the body
@@ -15669,19 +15683,25 @@ class ReactNativeApp {
                     if (addressMatch && addressMatch[1]) {
                       const normalizedToAddress = normalizeAddress(addressMatch[1]);
                       this.saveNotificationAddress(normalizedToAddress);
-                      processedCount++;
                     }
                   }
+
+                  if (hasValidTimestamp) {
+                    highestTimestamp = Math.max(highestTimestamp, parsedTimestamp);
+                  }
                 } catch (error) {
-                  console.warn(`📋 Error processing notification ${index}:`, error);
+                  logsModal.log(`📋 Error processing notification ${index}:`, error);
                 }
               });
+
+              if (highestTimestamp > currentTimestamp) {
+                this.updateNotificationTimestamp(highestTimestamp);
+              }
+
               // If the sign in modal is open, update the display to show new notifications
               if (signInModal.isActive()) {
                 signInModal.updateNotificationDisplay();
               }
-            } else {
-              console.log('📋 No valid notifications received');
             }
           }
         } catch (error) {
@@ -15787,6 +15807,80 @@ class ReactNativeApp {
     return myData.account.keys.address === recipientAddress;
   }
 
+
+  getNotificationStorage() {
+    let storage = {};
+
+    try {
+      const raw = localStorage.getItem(this.notificationStorageKey);
+      if (raw) {
+        const parsed = parse(raw);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          storage = parsed;
+        }
+      }
+    } catch (error) {
+      logsModal.log('⚠️ Failed to parse notification storage:', error);
+      storage = {};
+    }
+
+    return storage;
+  }
+
+  getNotificationState() {
+    const storage = this.getNotificationStorage();
+    const netid = network.netid;
+
+    if (!netid) {
+      return {
+        storage,
+        netid: null,
+        state: { timestamp: 0, addresses: [] },
+      };
+    }
+
+    const entry = storage[netid];
+    const timestamp = typeof entry?.timestamp === 'number' && Number.isFinite(entry.timestamp) ? entry.timestamp : 0;
+    const addresses = Array.isArray(entry?.addresses)
+      ? entry.addresses
+          .filter(addr => typeof addr === 'string')
+          .map(addr => addr.trim())
+          .filter(addr => addr.length > 0)
+      : [];
+
+    return {
+      storage,
+      netid,
+      state: {
+        timestamp,
+        addresses,
+      },
+    };
+  }
+
+  commitNotificationState(storage, netid, state) {
+    if (!netid) return;
+
+    const safeTimestamp = typeof state.timestamp === 'number' && Number.isFinite(state.timestamp) ? state.timestamp : 0;
+    const safeAddresses = Array.isArray(state.addresses)
+      ? state.addresses
+          .filter(addr => typeof addr === 'string')
+          .map(addr => addr.trim())
+          .filter(addr => addr.length > 0)
+      : [];
+
+    storage[netid] = {
+      timestamp: safeTimestamp,
+      addresses: safeAddresses,
+    };
+
+    try {
+      localStorage.setItem(this.notificationStorageKey, JSON.stringify(storage));
+    } catch (error) {
+      logsModal.log('❌ Error persisting notification storage:', error);
+    }
+  }
+
   /**
    * Save the notification address to localStorage array of addresses
    * @param {string} contactAddress - The address of the contact to save
@@ -15795,14 +15889,18 @@ class ReactNativeApp {
     if (!contactAddress || typeof contactAddress !== 'string') return;
     
     try {
-      const addresses = this.getNotificationAddresses();
-      if (!addresses.includes(contactAddress)) {
-        addresses.push(contactAddress);
-        localStorage.setItem('lastNotificationAddresses', JSON.stringify(addresses));
-        console.log(`✅ Saved notification address: ${contactAddress}`);
+      const { storage, netid, state } = this.getNotificationState();
+      if (!netid) return;
+
+      if (!state.addresses.includes(contactAddress)) {
+        const updatedAddresses = [...state.addresses, contactAddress];
+        this.commitNotificationState(storage, netid, {
+          timestamp: state.timestamp,
+          addresses: updatedAddresses,
+        });
       }
     } catch (error) {
-      console.error('❌ Error saving notification address:', error);
+      logsModal.log('❌ Error saving notification address:', error);
     }
   }
 
@@ -15814,15 +15912,18 @@ class ReactNativeApp {
     if (!address || typeof address !== 'string') return;
     
     try {
-      const addresses = this.getNotificationAddresses();
-      const index = addresses.indexOf(address);
-      if (index !== -1) {
-        addresses.splice(index, 1);
-        localStorage.setItem('lastNotificationAddresses', JSON.stringify(addresses));
-        console.log(`✅ Cleared notification address: ${address}`);
+      const { storage, netid, state } = this.getNotificationState();
+      if (!netid) return;
+
+      const updatedAddresses = state.addresses.filter(addr => addr !== address);
+      if (updatedAddresses.length !== state.addresses.length) {
+        this.commitNotificationState(storage, netid, {
+          timestamp: state.timestamp,
+          addresses: updatedAddresses,
+        });
       }
     } catch (error) {
-      console.error('❌ Error clearing notification address:', error);
+      logsModal.log('❌ Error clearing notification address:', error);
     }
   }
 
@@ -15835,9 +15936,10 @@ class ReactNativeApp {
   }
 
   // Send clear notifications message
-  sendClearNotifications() {
+  sendClearNotifications(address=null) {
     this.postMessage({
-      type: 'CLEAR_NOTI'
+      type: 'CLEAR_NOTI',
+      address
     });
   }
 
@@ -15847,14 +15949,31 @@ class ReactNativeApp {
    */
   getNotificationAddresses() {
     try {
-      const stored = localStorage.getItem('lastNotificationAddresses');
-      if (!stored) return [];
-      
-      const parsed = parse(stored);
-      return Array.isArray(parsed) ? parsed : [];
+      const { state } = this.getNotificationState();
+      return [...state.addresses];
     } catch (error) {
-      console.warn('⚠️ Failed to parse notification addresses:', error);
+      logsModal.log('❌ Failed to retrieve notification addresses:', error);
       return [];
+    }
+  }
+
+  updateNotificationTimestamp(newTimestamp) {
+    if (typeof newTimestamp !== 'number' || !Number.isFinite(newTimestamp)) {
+      return;
+    }
+
+    try {
+      const { storage, netid, state } = this.getNotificationState();
+      if (!netid) return;
+
+      if (newTimestamp > state.timestamp) {
+        this.commitNotificationState(storage, netid, {
+          timestamp: newTimestamp,
+          addresses: state.addresses,
+        });
+      }
+    } catch (error) {
+      logsModal.log('❌ Error updating notification timestamp:', error);
     }
   }
 
