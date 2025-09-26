@@ -3483,7 +3483,7 @@ async function queryNetwork(url, abortSignal = null) {
     const now = new Date().toLocaleTimeString();
     console.log(`${now} query`, `${selectedGateway.web}${url}`);
     if (network.name != 'Testnet'){
-      showToast(`${now} query ${selectedGateway.web}${url}`, 0, 'info')
+//      showToast(`${now} query ${selectedGateway.web}${url}`, 0, 'info')
     }
     const response = await fetch(`${selectedGateway.web}${url}`, { signal: abortSignal });
     const data = parse(await response.text());
@@ -3499,7 +3499,7 @@ async function queryNetwork(url, abortSignal = null) {
     const now = new Date().toLocaleTimeString();
     console.error(`${now} queryNetwork ERROR: ${error} ${url} `);
     if (network.name != 'Testnet'){
-      showToast(`queryNetwork: error: ${error} ${url} ${now}`, 0, 'error')
+  //    showToast(`queryNetwork: error: ${error} ${url} ${now}`, 0, 'error')
     }
     return null;
   }
@@ -16785,7 +16785,7 @@ function longPoll() {
     const now = new Date().toLocaleTimeString();
     console.error('Synchronous longPoll error:', error);
     if(network.name != 'Testnet'){
-      showToast(`chat poll error: ${error} ${now}`)
+//      showToast(`chat poll error: ${error} ${now}`)
     }
     // Reset polling state and schedule next poll even on synchronous error
     isLongPolling = false;
