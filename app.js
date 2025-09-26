@@ -8388,23 +8388,7 @@ class ChatModal {
       chatsScreen.updateChatList();
     }
 
-    if(reactNativeApp.isReactNativeWebView) {
-      // --- Bell and app icon clearing logic ---
-      // 1. Check if all contacts for signed-in account have unread == 0
-      const allRead = Object.values(myData.contacts).every(c => c.unread === 0);
-      if (allRead) {
-        // Clear bell icon for signed-in account
-        logsModal.log('Clearing notification address for', myAccount.keys.address);
-        reactNativeApp.clearNotificationAddress(myAccount.keys.address);
-        reactNativeApp.sendClearNotifications(myAccount.keys.address);
-      }
-      // 2. Check if all bell icons are cleared local storage notification addresses empty
-      const notificationAddresses = reactNativeApp.getNotificationAddresses();
-      if (notificationAddresses.length === 0) {
-        // Clear bubble on app icon
-        reactNativeApp.sendClearNotifications();
-      }
-    }
+    this.clearNotificationsIfAllRead();
 
     // clear file attachments
     this.fileAttachments = [];
@@ -8454,6 +8438,8 @@ class ChatModal {
     this.fileAttachments = [];
     this.showAttachmentPreview(); // clear listeners
 
+    this.clearNotificationsIfAllRead();
+
     this.modal.classList.remove('active');
     if (chatsScreen.isActive()) {
       chatsScreen.updateChatList();
@@ -8470,6 +8456,24 @@ class ChatModal {
     }
 
     this.address = null;
+  }
+
+  clearNotificationsIfAllRead() {
+    if (!reactNativeApp.isReactNativeWebView) {
+      return;
+    }
+
+    const allRead = Object.values(myData.contacts).every((c) => c.unread === 0);
+    if (allRead) {
+      logsModal.log('Clearing notification address for', myAccount.keys.address);
+      reactNativeApp.clearNotificationAddress(myAccount.keys.address);
+      reactNativeApp.sendClearNotifications(myAccount.keys.address);
+    }
+
+    const notificationAddresses = reactNativeApp.getNotificationAddresses();
+    if (notificationAddresses.length === 0) {
+      reactNativeApp.sendClearNotifications();
+    }
   }
 
   /**
