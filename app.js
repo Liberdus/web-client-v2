@@ -135,6 +135,7 @@ let timeSkew = 0;
 let useLongPolling = true;
 let longPollTimeoutId = null;
 let isLongPolling = false;
+let longPollAbortController = null;
 
 let checkPendingTransactionsIntervalId = null;
 let getSystemNoticeIntervalId = null;
@@ -3464,7 +3465,7 @@ async function updateAssetPricesIfNeeded() {
   }
 }
 
-async function queryNetwork(url) {
+async function queryNetwork(url, abortSignal = null) {
   //console.log('queryNetwork', url)
   if (!isOnline) {
     console.warn('not online');
@@ -3484,11 +3485,16 @@ async function queryNetwork(url) {
     if (network.name != 'Testnet'){
       showToast(`${now} query ${selectedGateway.web}${url}`, 0, 'info')
     }
-    const response = await fetch(`${selectedGateway.web}${url}`);
+    const response = await fetch(`${selectedGateway.web}${url}`, { signal: abortSignal });
     const data = parse(await response.text());
     console.log('response', data);
     return data;
   } catch (error) {
+    // Check if error is due to abort
+    if (error.name === 'AbortError') {
+      console.log('queryNetwork aborted:', url);
+      return null;
+    }
     // log local hh:mm:ss
     const now = new Date().toLocaleTimeString();
     console.error(`${now} queryNetwork ERROR: ${error} ${url} `);
@@ -16720,6 +16726,10 @@ function stopLongPoll() {
     clearTimeout(longPollTimeoutId);
     longPollTimeoutId = null;
   }
+  if (longPollAbortController) {
+    longPollAbortController.abort();
+    longPollAbortController = null;
+  }
   isLongPolling = false;
   console.log('LongPoll stopped');
 }
@@ -16750,8 +16760,11 @@ function longPoll() {
     longPoll.start = getCorrectedTimestamp();
     const timestamp = myAccount.chatTimestamp || 0;
 
+    // Create abort controller for this request
+    longPollAbortController = new AbortController();
+
     // call this with a promise that'll resolve with callback longPollResult function with the data
-    const longPollPromise = queryNetwork(`/collector/api/poll?account=${longAddress(myAccount.keys.address)}&chatTimestamp=${timestamp}`);
+    const longPollPromise = queryNetwork(`/collector/api/poll?account=${longAddress(myAccount.keys.address)}&chatTimestamp=${timestamp}`, longPollAbortController.signal);
     console.log(`longPoll started with account=${longAddress(myAccount.keys.address)} chatTimestamp=${timestamp}`);
     
     // Handle both success and error cases properly
@@ -16761,6 +16774,7 @@ function longPoll() {
         console.error('Chat polling error:', error);
         // Reset polling state and schedule next poll even on error, but with longer delay
         isLongPolling = false;
+        longPollAbortController = null;
         longPollTimeoutId = setTimeout(longPoll, 5000);
       });
   } catch (error) {
@@ -16771,6 +16785,7 @@ function longPoll() {
     }
     // Reset polling state and schedule next poll even on synchronous error
     isLongPolling = false;
+    longPollAbortController = null;
     longPollTimeoutId = setTimeout(longPoll, 5000);
   }
 }
@@ -16779,8 +16794,9 @@ longPoll.start = 0;
 async function longPollResult(data) {
   console.log('longpoll data', data)
   
-  // Reset polling state
+  // Reset polling state and clean up abort controller
   isLongPolling = false;
+  longPollAbortController = null;
   
   // calculate the time since the last poll
   let nextPoll = 4000 - (getCorrectedTimestamp() - longPoll.start)
