@@ -452,6 +452,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Remove Accounts Modal
   removeAccountsModal.load();
 
+  // Initialize mobile keyboard handling
+  mobileKeyboardHandler.load();
+
   // add event listener for back-button presses to prevent shift+tab
   document.querySelectorAll('.back-button').forEach((button) => {
     button.addEventListener('keydown', ignoreShiftTabKey);
@@ -8289,14 +8292,14 @@ class ChatModal {
     this.messageInput.addEventListener('focus', () => {
       // Extra guard: immediately lock background/modal scroll when focusing input
       this.lockBackgroundScroll();
-      if (this.messagesContainer) {
+      if (this.messagesList) {
         // Check if we're already at the bottom (within 50px threshold)
         const isAtBottom =
-          this.messagesContainer.scrollHeight - this.messagesContainer.scrollTop - this.messagesContainer.clientHeight <= 50;
+          this.messagesList.scrollHeight - this.messagesList.scrollTop - this.messagesList.clientHeight <= 50;
         if (isAtBottom) {
           // Wait for keyboard to appear and viewport to adjust
           setTimeout(() => {
-            this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+            this.messagesList.scrollTop = this.messagesList.scrollHeight;
             // removed for now since RN android causing extra scroll behavior
             /* this.messageInput.scrollIntoView({ behavior: 'smooth', block: 'center' }); // To provide smoother, more reliable scrolling on mobile. */
           }, 500); // Increased delay to ensure keyboard is fully shown
@@ -8437,7 +8440,7 @@ class ChatModal {
 
     // Scroll to bottom (initial scroll for empty list, appendChatModal will scroll later)
     setTimeout(() => {
-      this.messagesList.parentElement.scrollTop = this.messagesList.parentElement.scrollHeight;
+      this.messagesList.scrollTop = this.messagesList.scrollHeight;
     }, 100);
 
     // Add click handler for username to show contact info
@@ -8974,7 +8977,7 @@ console.warn('in send message', txid)
       if (!isEdit) this.appendChatModal(); // This should now display the 'sending' message
 
       // Scroll to bottom of chat modal
-      this.messagesList.parentElement.scrollTop = this.messagesList.parentElement.scrollHeight;
+      this.messagesList.scrollTop = this.messagesList.scrollHeight;
       // --- End Optimistic UI Update ---
 
       //console.log('payload is', payload)
@@ -9353,7 +9356,7 @@ console.warn('in send message', txid)
 
     // 6. Delayed Scrolling & Highlighting Logic (after loop)
     setTimeout(() => {
-      const messageContainer = this.messagesList.parentElement;
+      const messageContainer = this.messagesList;
 
       // Find the DOM element for the actual newest received item using its timestamp
       // Only proceed if newestReceivedItem was found and highlightNewMessage is true
@@ -9693,7 +9696,7 @@ console.warn('in send message', txid)
     preview.style.display = 'block';
     
     // Check if user was at the bottom before showing preview
-    const messageContainer = this.messagesContainer;
+    const messageContainer = this.messagesList;
     const wasAtBottom = messageContainer ? 
       messageContainer.scrollHeight - messageContainer.scrollTop - messageContainer.clientHeight <= 50 : false;
     
@@ -9928,10 +9931,13 @@ console.warn('in send message', txid)
         this.modal.dataset.prevOverflowY = this.modal.style.overflowY || '';
         this.modal.style.overflowY = 'hidden';
       }
-      // Allow vertical pan only within messages container; block elsewhere
+      // Allow vertical pan within messages container, form containers, sendMemo, and message-input; block elsewhere
       const allowEl = this.messagesContainer;
       this._touchMoveBlocker = (e) => {
-        if (!allowEl || !e.target.closest('.messages-container')) {
+        if (!allowEl || (!e.target.closest('.messages-container') && 
+                         !e.target.closest('.form-container') && 
+                         !e.target.closest('#sendMemo') && 
+                         !e.target.closest('#message-input'))) {
           e.preventDefault();
         }
       };
@@ -17236,3 +17242,139 @@ function closeTopModal(topModal){
   }
   return true; // means we closed a modal
 }
+
+/**
+ * Handles mobile virtual keyboard interactions to avoid scroll jumps.
+ * Relies on the Visual Viewport API for accurate viewport measurements.
+ */
+class MobileKeyboardHandler {
+  /**
+   * Create a new handler instance with no active input tracked yet.
+   */
+  constructor() {
+    this.activeInput = null;
+  }
+
+  /**
+   * Initialize keyboard tracking and input interception if supported.
+   * @returns {void}
+   */
+  load() {
+    if (!window.visualViewport) {
+      console.log('Visual Viewport API not supported');
+      return;
+    }
+    this.setupKeyboardTracking();
+    this.setupGlobalInputInterception();
+  }
+
+  /**
+   * Wire viewport resize/scroll handlers to detect keyboard overlap.
+   * @returns {void}
+   */
+  setupKeyboardTracking() {
+    const vv = window.visualViewport;
+    
+    const handleViewportChange = () => {
+      // Update CSS variable for keyboard height
+      const occluded = Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0));
+      document.documentElement.style.setProperty('--ime-bottom', occluded + 'px');
+      
+      // Scroll input into view if covered by keyboard
+      const activeInput = document.activeElement;
+      if (!activeInput?.matches('input, textarea, select')) return;
+      
+      const keyboardHeight = window.innerHeight - vv.height;
+      // Treat only significant viewport shrinkage as the keyboard being open
+      if (keyboardHeight > 150) {
+        const inputRect = activeInput.getBoundingClientRect();
+        if (inputRect.bottom > vv.height) {
+          this.scrollInputIntoView(activeInput, vv.height);
+        }
+      }
+    };
+
+    vv.addEventListener('resize', handleViewportChange);
+    vv.addEventListener('scroll', handleViewportChange);
+    handleViewportChange();
+  }
+
+  /**
+   * Attach listeners to existing and future inputs to control focus behavior.
+   * @returns {void}
+   */
+  setupGlobalInputInterception() {
+    // Handle existing and dynamically added inputs
+    this.attachInputHandlers(document.querySelectorAll('input, textarea, select'));
+    
+    new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const inputs = node.querySelectorAll?.('input, textarea, select') || 
+              (node.matches?.('input, textarea, select') ? [node] : []);
+            this.attachInputHandlers(inputs);
+          }
+        });
+      });
+    }).observe(document.body, { childList: true, subtree: true });
+  }
+
+  /**
+   * Ensure inputs react consistently to pointer/touch interactions.
+   * @param {NodeListOf<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | Element[]} inputs
+   * @returns {void}
+   */
+  attachInputHandlers(inputs) {
+    inputs.forEach(input => {
+      // Skip inputs we've already decorated with handlers
+      if (input.dataset.keyboardHandled) return;
+      input.dataset.keyboardHandled = 'true';
+      
+      // Prevent native focus jump for non-textarea inputs
+      if (input.tagName !== 'TEXTAREA') {
+        ['pointerdown', 'touchstart'].forEach(eventType => {
+          input.addEventListener(eventType, (e) => {
+            if (document.activeElement === input) return;
+            e.preventDefault();
+            // Wait a microtask so focus happens after the browser finishes default processing
+            setTimeout(() => {
+              input.focus({ preventScroll: true });
+              this.activeInput = input;
+            }, 0);
+          }, { capture: true, passive: false });
+        });
+      }
+    });
+  }
+
+  /**
+   * Scroll a focused input into the visible viewport above the keyboard.
+   * @param {HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement} input
+   * @param {number} availableHeight
+   * @returns {void}
+   */
+  scrollInputIntoView(input, availableHeight) {
+    // Skip for fixed chat input
+    if (input.id === 'message-input' || input.classList.contains('message-input')) return;
+    
+    const formContainer = input.closest('.form-container');
+    if (!formContainer) return;
+    
+    const inputRect = input.getBoundingClientRect();
+    // Leave a little breathing room below the field so it isn't flush with the keyboard edge
+    const targetY = availableHeight - inputRect.height - 20;
+    const scrollOffset = inputRect.top - targetY;
+    
+    if (scrollOffset > 0) {
+      // Smooth scroll keeps the layout steady while the keyboard animates
+      formContainer.scrollBy({ top: scrollOffset, behavior: 'smooth' });
+    }
+  }
+}
+
+// Create global instance
+const mobileKeyboardHandler = new MobileKeyboardHandler();
+
+// Make globally accessible
+window.mobileKeyboardHandler = mobileKeyboardHandler;
