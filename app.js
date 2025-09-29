@@ -4595,7 +4595,10 @@ class SearchContactsModal {
             this.displayContactResults(results, searchText);
           }
         },
-        (searchText) => (searchText.length === 1 ? 600 : 300)
+        (event) => {
+          const searchText = event?.target?.value ?? '';
+          return searchText.trim().length === 1 ? 600 : 300;
+        }
       )
     );
   }
