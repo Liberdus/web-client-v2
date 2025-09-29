@@ -4615,6 +4615,62 @@ class SearchContactsModal {
     return this.modal.classList.contains('active');
   }
 
+  getSearchableFields(contact) {
+    const fields = [];
+    const seenValues = new Set();
+
+    const fieldDefinitions = [
+      { key: 'username', label: 'username' },
+      { key: 'name', label: 'name' },
+      { key: 'email', label: 'email' },
+      { key: 'phone', label: 'phone' },
+      { key: 'linkedin', label: 'linkedin' },
+      { key: 'x', label: 'x' },
+    ];
+    const knownSenderInfoKeys = new Set(fieldDefinitions.map(({ key }) => key));
+    const senderInfo = contact.senderInfo || null;
+
+    const normalize = (value) =>
+      value === undefined || value === null ? '' : String(value).trim();
+
+    const addField = (fieldLabel, value) => {
+      const stringValue = normalize(value);
+      if (!stringValue) {
+        return;
+      }
+
+      const lowerValue = stringValue.toLowerCase();
+      if (seenValues.has(lowerValue)) {
+        return;
+      }
+
+      seenValues.add(lowerValue);
+      fields.push({ field: fieldLabel, value: stringValue });
+    };
+
+    fieldDefinitions.forEach(({ key, label }) => {
+      const primaryValue = normalize(contact[key]);
+      const senderValue = senderInfo ? normalize(senderInfo[key]) : '';
+
+      addField(label, primaryValue);
+
+      if (senderValue && senderValue !== primaryValue) {
+        addField(`${label}`, senderValue);
+      }
+    });
+
+    if (senderInfo) {
+      Object.entries(senderInfo).forEach(([key, value]) => {
+        if (knownSenderInfoKeys.has(key)) {
+          return;
+        }
+        addField(`${key}`, value);
+      });
+    }
+
+    return fields;
+  }
+
   searchContacts(searchText) {
     if (!searchText || !myData?.contacts) return [];
 
@@ -4624,14 +4680,8 @@ class SearchContactsModal {
     // Search through all contacts
     Object.entries(myData.contacts).forEach(([address, contact]) => {
       // Fields to search through
-      const searchFields = [
-        contact.username,
-        contact.name,
-        contact.email,
-        contact.phone,
-        contact.linkedin,
-        contact.x,
-      ].filter(Boolean); // Remove null/undefined values
+      const searchableFields = this.getSearchableFields(contact);
+      const searchFields = searchableFields.map((f) => f.value);
 
       // Check if any field matches
       const matches = searchFields.some((field) => field.toLowerCase().includes(searchLower));
@@ -4658,6 +4708,47 @@ class SearchContactsModal {
     });
   }
 
+  createMatchPreview(contact, searchText) {
+    if (!searchText) {
+      return '';
+    }
+
+    const searchLower = searchText.toLowerCase();
+    const searchableFields = this.getSearchableFields(contact);
+
+    const matchBuckets = {
+      exact: [],
+      startsWith: [],
+      includes: [],
+    };
+
+    searchableFields.forEach((field) => {
+      const valueLower = field.value.toLowerCase();
+      if (valueLower === searchLower) {
+        matchBuckets.exact.push(field);
+      } else if (valueLower.startsWith(searchLower)) {
+        matchBuckets.startsWith.push(field);
+      } else if (valueLower.includes(searchLower)) {
+        matchBuckets.includes.push(field);
+      }
+    });
+
+    const prioritizedField =
+      matchBuckets.exact[0] || matchBuckets.startsWith[0] || matchBuckets.includes[0];
+
+    if (!prioritizedField) {
+      return '';
+    }
+
+    const highlightRegex = new RegExp(escapeRegExp(searchText), 'gi');
+    const highlightedValue = prioritizedField.value.replace(
+      highlightRegex,
+      (match) => `<mark>${match}</mark>`
+    );
+
+    return `${prioritizedField.field}: ${highlightedValue}`;
+  }
+
   displayContactResults(results, searchText) {
     this.resultsContainer.innerHTML = '';
 
@@ -4668,23 +4759,8 @@ class SearchContactsModal {
       // Generate identicon for the contact
       const identicon = generateIdenticon(contact.address);
 
-      // Determine which field matched for display
-      const matchedField = [
-        { field: 'username', value: contact.username },
-        { field: 'name', value: contact.name },
-        { field: 'email', value: contact.email },
-        { field: 'phone', value: contact.phone },
-        { field: 'linkedin', value: contact.linkedin },
-        { field: 'x', value: contact.x },
-      ].find((f) => f.value && f.value.toLowerCase().includes(searchText.toLowerCase()));
-
-      // Create match preview with label and highlighted matched value
-      const matchPreview = matchedField
-        ? `${matchedField.field}: ${matchedField.value.replace(
-            new RegExp(searchText, 'gi'),
-            (match) => `<mark>${match}</mark>`
-          )}`
-        : '';
+      // Create match preview with label and highlighted matched value prioritizing exact and starts-with matches
+      const matchPreview = this.createMatchPreview(contact, searchText);
       const displayedName = getContactDisplayName(contact);
 
       contactElement.innerHTML = `
@@ -4731,6 +4807,11 @@ function createDisplayInfo(contact) {
     x: contact.senderInfo?.x || 'Not provided',
     address: contact.address,
   };
+}
+
+// Safely escape user-entered search text before building regex-based highlights.
+function escapeRegExp(string = '') {
+  return String(string).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // Helper function to generate a hash-based deduplication key from message content
