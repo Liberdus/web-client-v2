@@ -278,8 +278,8 @@ function newDataRecord(myAccount) {
     },
     settings: {
       encrypt: true,
-      toll: parameters?.current?.defaultToll || 1n * wei,
-      tollUnit: parameters?.current?.defaultTollUnit || 'LIB',
+      toll: EthNum.toWei(parameters?.current?.defaultTollUsdStr) || 1n * wei,
+      tollUnit: 'USD',
       noticets: 0,
     },
   };
@@ -6364,9 +6364,6 @@ class TollModal {
     const toll = myData.settings.toll || 0n;
     const tollUnit = myData.settings.tollUnit || 'USD';
 
-    // Fetch network parameters to get minToll
-    this.minToll = parameters?.current?.minToll || 1n * wei; // Default to 1 LIB if not set
-
     this.updateTollDisplay(toll, tollUnit);
 
     this.currentCurrency = 'USD';
@@ -6376,10 +6373,19 @@ class TollModal {
     this.warningMessageElement.classList.remove('show');
     this.saveButton.disabled = true;
 
-    // Update min toll display under input (USD)
+        // Fetch network parameters to get minToll
     const scalabilityFactor = getStabilityFactor();
-    const minTollUSD = bigxnum2big(this.minToll, scalabilityFactor.toString());
-    this.minTollDisplay.textContent = `Minimum toll: ${parseFloat(big2str(minTollUSD, 18)).toFixed(4)} USD`;
+    try {
+      const minTollUsdStr = parameters?.current?.minTollUsdStr;
+      this.minToll = EthNum.toWei(EthNum.div(minTollUsdStr, scalabilityFactor.toString()));
+      // Update min toll display under input (USD)
+      const minTollUSD = bigxnum2big(this.minToll, scalabilityFactor.toString());
+      this.minTollDisplay.textContent = `Minimum toll: ${parseFloat(big2str(minTollUSD, 18)).toFixed(4)} USD`;
+    } catch (e) {
+      this.minTollDisplay.textContent = `Minimum toll: error`;
+      console.error('Failed to fetch minToll from network parameters:', e);
+      showToast('Failed to fetch minimum toll from network.', 0, 'error');
+    }
     this.updateEquivalentLibDisplay();
   }
 
