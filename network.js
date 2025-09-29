@@ -33,7 +33,7 @@ const network = {
   "bridgeUrl": "./bridge",
   // App version requirements for native apps (format: YYYY.MMDD.HHmm)
   "app_version": {
-    "ios": "2025.0916.1621",
-    "android": "2025.0916.1621"
+    "ios": "2025.0925.1537",
+    "android": "2025.0925.1537"
   }
 }
