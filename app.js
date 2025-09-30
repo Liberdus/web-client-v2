@@ -2585,7 +2585,7 @@ class FriendModal {
     this.lastChangeTimeStamp = Date.now();
 
     // Show appropriate toast message depending value 0,1,2,3
-    showToast(
+    const toastMessage =
       contact.friend === 0
         ? 'Blocked'
         : contact.friend === 1
@@ -2594,8 +2594,9 @@ class FriendModal {
             ? 'Added as Connection'
             : contact.friend === 3
               ? 'Added as Friend'
-              : 'Error updating friend status'
-    );
+              : 'Error updating friend status';
+    const toastType = toastMessage === 'Error updating friend status' ? 'error' : 'success';
+    showToast(toastMessage, 2000, toastType);
 
     // Update the friend button
     this.updateFriendButton(contact, 'addFriendButtonContactInfo');
