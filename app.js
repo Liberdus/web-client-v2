@@ -9648,10 +9648,9 @@ console.warn('in send message', txid)
     } catch (error) {
       console.error('Error handling file attachment:', error);
       
-      // Hide loading toast if it was an abort error
-      if (error.name === 'AbortError') {
-        hideToast(loadingToastId);
-      } else {
+      hideToast(loadingToastId);
+
+      if (error.name !== 'AbortError') {
         showToast('Error processing file attachment', 0, 'error');
       }
       
@@ -9660,6 +9659,7 @@ console.warn('in send message', txid)
       this.addAttachmentButton.disabled = false;
       this.isEncrypting = false;
     } finally {
+      hideToast(loadingToastId);
       event.target.value = ''; // Reset the file input value
     }
   }
@@ -9901,10 +9901,9 @@ console.warn('in send message', txid)
     } catch (err) {
       console.error('Attachment decrypt failed:', err);
       
-      // Hide loading toast if it was an abort error
-      if (err.name === 'AbortError') {
-        hideToast(loadingToastId);
-      } else {
+      hideToast(loadingToastId);
+
+      if (err.name !== 'AbortError') {
         showToast(`Decryption failed.`, 0, 'error');
       }
     }
