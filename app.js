@@ -17252,7 +17252,9 @@ class MobileKeyboardHandler {
    * Create a new handler instance with no active input tracked yet.
    */
   constructor() {
+    console.log('🏗️ [MobileKeyboardHandler] Constructor called');
     this.activeInput = null;
+    console.log('📝 [MobileKeyboardHandler] Active input initialized to null');
   }
 
   /**
@@ -17260,12 +17262,21 @@ class MobileKeyboardHandler {
    * @returns {void}
    */
   load() {
+    console.log('🚀 [MobileKeyboardHandler] load() called');
+    
     if (!window.visualViewport) {
-      console.log('Visual Viewport API not supported');
+      console.log('❌ [MobileKeyboardHandler] Visual Viewport API not supported');
       return;
     }
+    
+    console.log('✅ [MobileKeyboardHandler] Visual Viewport API is supported');
+    console.log('🔧 [MobileKeyboardHandler] Setting up keyboard tracking...');
     this.setupKeyboardTracking();
+    
+    console.log('🔧 [MobileKeyboardHandler] Setting up global input interception...');
     this.setupGlobalInputInterception();
+    
+    console.log('✅ [MobileKeyboardHandler] Initialization complete');
   }
 
   /**
@@ -17276,26 +17287,72 @@ class MobileKeyboardHandler {
     const vv = window.visualViewport;
     
     const handleViewportChange = () => {
+      console.log('🔍 [MobileKeyboardHandler] Viewport change detected:', {
+        windowHeight: window.innerHeight,
+        viewportHeight: vv.height,
+        viewportOffsetTop: vv.offsetTop,
+        viewportOffsetLeft: vv.offsetLeft,
+        viewportScale: vv.scale
+      });
+      
       // Update CSS variable for keyboard height
       const occluded = Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0));
       document.documentElement.style.setProperty('--ime-bottom', occluded + 'px');
+      console.log('📏 [MobileKeyboardHandler] CSS variable --ime-bottom set to:', occluded + 'px');
       
       // Scroll input into view if covered by keyboard
       const activeInput = document.activeElement;
-      if (!activeInput?.matches('input, textarea, select')) return;
+      console.log('🎯 [MobileKeyboardHandler] Active element:', {
+        element: activeInput,
+        tagName: activeInput?.tagName,
+        id: activeInput?.id,
+        className: activeInput?.className,
+        isInput: activeInput?.matches('input, textarea, select')
+      });
+      
+      if (!activeInput?.matches('input, textarea, select')) {
+        console.log('❌ [MobileKeyboardHandler] No active input element, skipping scroll logic');
+        return;
+      }
       
       const keyboardHeight = window.innerHeight - vv.height;
+      console.log('⌨️ [MobileKeyboardHandler] Keyboard height calculation:', {
+        keyboardHeight,
+        threshold: 150,
+        keyboardOpen: keyboardHeight > 150
+      });
+      
       // Treat only significant viewport shrinkage as the keyboard being open
       if (keyboardHeight > 150) {
         const inputRect = activeInput.getBoundingClientRect();
+        console.log('📐 [MobileKeyboardHandler] Input rect:', {
+          top: inputRect.top,
+          bottom: inputRect.bottom,
+          left: inputRect.left,
+          right: inputRect.right,
+          height: inputRect.height,
+          width: inputRect.width
+        });
+        console.log('👁️ [MobileKeyboardHandler] Visibility check:', {
+          inputBottom: inputRect.bottom,
+          viewportHeight: vv.height,
+          isCovered: inputRect.bottom > vv.height
+        });
+        
         if (inputRect.bottom > vv.height) {
+          console.log('🚀 [MobileKeyboardHandler] Input is covered, attempting to scroll into view');
           this.scrollInputIntoView(activeInput, vv.height);
+        } else {
+          console.log('✅ [MobileKeyboardHandler] Input is visible, no scroll needed');
         }
+      } else {
+        console.log('📱 [MobileKeyboardHandler] Keyboard not detected (height < 150px)');
       }
     };
 
     vv.addEventListener('resize', handleViewportChange);
     vv.addEventListener('scroll', handleViewportChange);
+    console.log('🎧 [MobileKeyboardHandler] Event listeners attached to viewport');
     handleViewportChange();
   }
 
@@ -17304,8 +17361,12 @@ class MobileKeyboardHandler {
    * @returns {void}
    */
   setupGlobalInputInterception() {
+    console.log('🔧 [MobileKeyboardHandler] Setting up global input interception');
+    
     // Handle existing and dynamically added inputs
-    this.attachInputHandlers(document.querySelectorAll('input, textarea, select'));
+    const existingInputs = document.querySelectorAll('input, textarea, select');
+    console.log('📝 [MobileKeyboardHandler] Found existing inputs:', existingInputs.length);
+    this.attachInputHandlers(existingInputs);
     
     new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
@@ -17313,11 +17374,15 @@ class MobileKeyboardHandler {
           if (node.nodeType === Node.ELEMENT_NODE) {
             const inputs = node.querySelectorAll?.('input, textarea, select') || 
               (node.matches?.('input, textarea, select') ? [node] : []);
-            this.attachInputHandlers(inputs);
+            if (inputs.length > 0) {
+              console.log('🆕 [MobileKeyboardHandler] New inputs detected via MutationObserver:', inputs.length);
+              this.attachInputHandlers(inputs);
+            }
           }
         });
       });
     }).observe(document.body, { childList: true, subtree: true });
+    console.log('👀 [MobileKeyboardHandler] MutationObserver started for dynamic input detection');
   }
 
   /**
@@ -17326,24 +17391,53 @@ class MobileKeyboardHandler {
    * @returns {void}
    */
   attachInputHandlers(inputs) {
-    inputs.forEach(input => {
+    console.log('🎯 [MobileKeyboardHandler] Attaching handlers to inputs:', inputs.length);
+    
+    inputs.forEach((input, index) => {
       // Skip inputs we've already decorated with handlers
-      if (input.dataset.keyboardHandled) return;
+      if (input.dataset.keyboardHandled) {
+        console.log(`⏭️ [MobileKeyboardHandler] Input ${index} already has handlers, skipping`);
+        return;
+      }
       input.dataset.keyboardHandled = 'true';
+      console.log(`✅ [MobileKeyboardHandler] Input ${index} marked for handling:`, {
+        tagName: input.tagName,
+        id: input.id,
+        className: input.className,
+        type: input.type
+      });
       
       // Prevent native focus jump for non-textarea inputs
       if (input.tagName !== 'TEXTAREA') {
+        console.log(`📱 [MobileKeyboardHandler] Adding touch/pointer handlers to input ${index} (non-textarea)`);
         ['pointerdown', 'touchstart'].forEach(eventType => {
           input.addEventListener(eventType, (e) => {
-            if (document.activeElement === input) return;
+            console.log(`👆 [MobileKeyboardHandler] ${eventType} event on input:`, {
+              element: input,
+              id: input.id,
+              className: input.className,
+              currentActive: document.activeElement,
+              isAlreadyActive: document.activeElement === input
+            });
+            
+            if (document.activeElement === input) {
+              console.log('🔄 [MobileKeyboardHandler] Input already active, skipping focus');
+              return;
+            }
+            
+            console.log('🚫 [MobileKeyboardHandler] Preventing default behavior and focusing input');
             e.preventDefault();
             // Wait a microtask so focus happens after the browser finishes default processing
             setTimeout(() => {
+              console.log('🎯 [MobileKeyboardHandler] Setting focus on input after timeout');
               input.focus({ preventScroll: true });
               this.activeInput = input;
+              console.log('📝 [MobileKeyboardHandler] Active input set to:', input);
             }, 0);
           }, { capture: true, passive: false });
         });
+      } else {
+        console.log(`📝 [MobileKeyboardHandler] Skipping touch handlers for textarea ${index} (allowing native behavior)`);
       }
     });
   }
@@ -17355,20 +17449,70 @@ class MobileKeyboardHandler {
    * @returns {void}
    */
   scrollInputIntoView(input, availableHeight) {
+    console.log('🔄 [MobileKeyboardHandler] scrollInputIntoView called:', {
+      input: input,
+      id: input.id,
+      className: input.className,
+      availableHeight
+    });
+    
     // Skip for fixed chat input
-    if (input.id === 'message-input' || input.classList.contains('message-input')) return;
+    if (input.id === 'message-input' || input.classList.contains('message-input')) {
+      console.log('⏭️ [MobileKeyboardHandler] Skipping scroll for fixed chat input');
+      return;
+    }
     
     const formContainer = input.closest('.form-container');
-    if (!formContainer) return;
+    console.log('📦 [MobileKeyboardHandler] Form container found:', {
+      container: formContainer,
+      hasContainer: !!formContainer
+    });
+    
+    if (!formContainer) {
+      console.log('❌ [MobileKeyboardHandler] No form container found, cannot scroll');
+      return;
+    }
     
     const inputRect = input.getBoundingClientRect();
+    console.log('📐 [MobileKeyboardHandler] Input rect for scrolling:', {
+      top: inputRect.top,
+      bottom: inputRect.bottom,
+      height: inputRect.height,
+      width: inputRect.width
+    });
+    
     // Leave a little breathing room below the field so it isn't flush with the keyboard edge
     const targetY = availableHeight - inputRect.height - 20;
     const scrollOffset = inputRect.top - targetY;
     
+    console.log('🎯 [MobileKeyboardHandler] Scroll calculation:', {
+      availableHeight,
+      inputHeight: inputRect.height,
+      targetY,
+      inputTop: inputRect.top,
+      scrollOffset,
+      needsScroll: scrollOffset > 0
+    });
+    
     if (scrollOffset > 0) {
+      console.log('🚀 [MobileKeyboardHandler] Performing smooth scroll:', {
+        scrollBy: scrollOffset,
+        container: formContainer,
+        currentScrollTop: formContainer.scrollTop
+      });
+      
       // Smooth scroll keeps the layout steady while the keyboard animates
       formContainer.scrollBy({ top: scrollOffset, behavior: 'smooth' });
+      
+      // Log the scroll result after a brief delay
+      setTimeout(() => {
+        console.log('✅ [MobileKeyboardHandler] Scroll completed:', {
+          newScrollTop: formContainer.scrollTop,
+          inputRectAfter: input.getBoundingClientRect()
+        });
+      }, 100);
+    } else {
+      console.log('✅ [MobileKeyboardHandler] No scroll needed (input already visible)');
     }
   }
 }
