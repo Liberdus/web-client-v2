@@ -15715,7 +15715,31 @@ class ReactNativeApp {
           }
 
           if (data.type === 'KEYBOARD_SHOWN') {
+            console.log('🔍 [WebView] Received KEYBOARD_SHOWN from native app:', data.keyboardHeight);
             this.detectKeyboardOverlap(data.keyboardHeight);
+            // Also trigger MobileKeyboardHandler for web-based handling
+            if (window.mobileKeyboardHandler) {
+              console.log('🔗 [WebView] Triggering MobileKeyboardHandler for native keyboard');
+              window.mobileKeyboardHandler.handleNativeKeyboardShown(data.keyboardHeight);
+            }
+          }
+
+          if (data.type === 'NATIVE_KEYBOARD_SHOWN') {
+            console.log('📱 [WebView] Received NATIVE_KEYBOARD_SHOWN from native app');
+            // Trigger MobileKeyboardHandler for native keyboard handling
+            if (window.mobileKeyboardHandler) {
+              console.log('🔗 [WebView] Triggering MobileKeyboardHandler for native keyboard shown');
+              window.mobileKeyboardHandler.handleNativeKeyboardShown(0); // Height will be calculated from viewport
+            }
+          }
+
+          if (data.type === 'NATIVE_KEYBOARD_HIDDEN') {
+            console.log('📱 [WebView] Received NATIVE_KEYBOARD_HIDDEN from native app');
+            // Reset any keyboard-related state
+            if (window.mobileKeyboardHandler) {
+              console.log('🔗 [WebView] Resetting MobileKeyboardHandler state');
+              window.mobileKeyboardHandler.handleNativeKeyboardHidden();
+            }
           }
 
           if (data.type === 'APP_PARAMS') {
@@ -15897,8 +15921,15 @@ class ReactNativeApp {
   }
 
   detectKeyboardOverlap(keyboardHeight) {
+    console.log('🔍 [detectKeyboardOverlap] Starting keyboard overlap detection:', {
+      keyboardHeight,
+      activeElement: document.activeElement,
+      isInput: this.isInputElement(document.activeElement)
+    });
+    
     const input = document.activeElement;
     if (!this.isInputElement(input)) {
+      console.log('❌ [detectKeyboardOverlap] No active input element, skipping');
       return;
     }
 
@@ -15911,11 +15942,20 @@ class ReactNativeApp {
       const inputIsAboveKeyboard = inputBottom < keyboardTop;
       const needsManualHandling = !inputIsAboveKeyboard;
 
-      console.log('⌨️ Native keyboard detection:', {
+      console.log('⌨️ [detectKeyboardOverlap] Native keyboard detection:', {
         keyboardHeight,
         inputBottom,
         keyboardTop,
-        needsManualHandling
+        inputIsAboveKeyboard,
+        needsManualHandling,
+        inputRect: {
+          top: rect.top,
+          bottom: rect.bottom,
+          left: rect.left,
+          right: rect.right,
+          height: rect.height,
+          width: rect.width
+        }
       });
 
       this.postMessage({
@@ -15923,8 +15963,13 @@ class ReactNativeApp {
         needsManualHandling,
         keyboardHeight,
       });
+      
+      console.log('📤 [detectKeyboardOverlap] Sent KEYBOARD_DETECTION message:', {
+        needsManualHandling,
+        keyboardHeight
+      });
     } catch (error) {
-      console.warn('Error in keyboard detection:', error);
+      console.warn('❌ [detectKeyboardOverlap] Error in keyboard detection:', error);
     }
   }
 
@@ -17440,6 +17485,64 @@ class MobileKeyboardHandler {
         console.log(`📝 [MobileKeyboardHandler] Skipping touch handlers for textarea ${index} (allowing native behavior)`);
       }
     });
+  }
+
+  /**
+   * Handle keyboard hidden event from native app.
+   * @returns {void}
+   */
+  handleNativeKeyboardHidden() {
+    console.log('📱 [MobileKeyboardHandler] Native keyboard hidden');
+    // Reset any keyboard-related state
+    this.activeInput = null;
+    console.log('🔄 [MobileKeyboardHandler] Active input reset to null');
+  }
+
+  /**
+   * Handle keyboard shown event from native app.
+   * @param {number} keyboardHeight - Height of the keyboard from native app
+   * @returns {void}
+   */
+  handleNativeKeyboardShown(keyboardHeight) {
+    console.log('📱 [MobileKeyboardHandler] Native keyboard shown:', {
+      keyboardHeight,
+      activeInput: document.activeElement,
+      isInput: document.activeElement?.matches('input, textarea, select')
+    });
+    
+    const activeInput = document.activeElement;
+    if (!activeInput?.matches('input, textarea, select')) {
+      console.log('❌ [MobileKeyboardHandler] No active input for native keyboard handling');
+      return;
+    }
+    
+    // Calculate available height (screen height minus keyboard)
+    const screenHeight = window.screen.height;
+    const availableHeight = screenHeight - keyboardHeight;
+    
+    console.log('📐 [MobileKeyboardHandler] Native keyboard calculations:', {
+      screenHeight,
+      keyboardHeight,
+      availableHeight
+    });
+    
+    // Check if input is covered by keyboard
+    const inputRect = activeInput.getBoundingClientRect();
+    const inputBottom = inputRect.bottom;
+    const keyboardTop = screenHeight - keyboardHeight;
+    
+    console.log('👁️ [MobileKeyboardHandler] Input visibility check:', {
+      inputBottom,
+      keyboardTop,
+      isCovered: inputBottom > keyboardTop
+    });
+    
+    if (inputBottom > keyboardTop) {
+      console.log('🚀 [MobileKeyboardHandler] Input covered by native keyboard, scrolling into view');
+      this.scrollInputIntoView(activeInput, availableHeight);
+    } else {
+      console.log('✅ [MobileKeyboardHandler] Input visible above native keyboard');
+    }
   }
 
   /**
