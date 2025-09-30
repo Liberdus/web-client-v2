@@ -8326,14 +8326,21 @@ class ChatModal {
       const currentHeight = window.innerHeight;
       const heightDifference = this.initialViewportHeight - currentHeight;
       
+      console.log('📏 [WEB] Resize event:', {
+        currentHeight,
+        initialHeight: this.initialViewportHeight,
+        heightDifference,
+        isKeyboardVisible: this.isKeyboardVisible
+      });
+      
       // If viewport height decreased significantly, keyboard is likely open
       if (heightDifference > 150) { // 150px threshold for keyboard detection
         this.isKeyboardVisible = true;
-        console.log('⌨️ Keyboard detected as open (viewport height decreased by', heightDifference, 'px)');
+        console.log('⌨️ [WEB] Keyboard detected as open (viewport height decreased by', heightDifference, 'px)');
         this.lockBackgroundScroll();
       } else if (heightDifference < 50) { // If height increased or stayed similar, keyboard is likely closed
         this.isKeyboardVisible = false;
-        /* console.log('⌨️ Keyboard detected as closed (viewport height difference:', heightDifference, 'px)'); */
+        console.log('⌨️ [WEB] Keyboard detected as closed (viewport height difference:', heightDifference, 'px)');
         this.unlockBackgroundScroll();
       }
     });
@@ -10012,6 +10019,58 @@ console.warn('in send message', txid)
         this._touchMoveBlocker = null;
       }
     } catch (_) {}
+  }
+
+  /**
+   * Log viewport and modal dimensions for debugging keyboard issues
+   */
+  logViewportAndModalDimensions(context) {
+    console.log(`📏 [WEB] ${context}:`);
+    console.log(`  - window.innerHeight: ${window.innerHeight}`);
+    console.log(`  - window.innerWidth: ${window.innerWidth}`);
+    console.log(`  - document.documentElement.clientHeight: ${document.documentElement.clientHeight}`);
+    console.log(`  - document.body.clientHeight: ${document.body.clientHeight}`);
+    
+    if (this.modal) {
+      const modalRect = this.modal.getBoundingClientRect();
+      console.log(`  - ChatModal dimensions:`, {
+        top: modalRect.top,
+        bottom: modalRect.bottom,
+        height: modalRect.height,
+        width: modalRect.width
+      });
+    }
+    
+    if (this.messagesContainer) {
+      const messagesRect = this.messagesContainer.getBoundingClientRect();
+      console.log(`  - MessagesContainer dimensions:`, {
+        top: messagesRect.top,
+        bottom: messagesRect.bottom,
+        height: messagesRect.height,
+        scrollTop: this.messagesContainer.scrollTop,
+        scrollHeight: this.messagesContainer.scrollHeight
+      });
+    }
+    
+    if (this.messageInput) {
+      const inputRect = this.messageInput.getBoundingClientRect();
+      console.log(`  - MessageInput dimensions:`, {
+        top: inputRect.top,
+        bottom: inputRect.bottom,
+        height: inputRect.height
+      });
+    }
+    
+    // Check for any active form modals
+    const activeFormModals = document.querySelectorAll('.modal.active .form-container');
+    activeFormModals.forEach((form, index) => {
+      const formRect = form.getBoundingClientRect();
+      console.log(`  - FormModal[${index}] dimensions:`, {
+        top: formRect.top,
+        bottom: formRect.bottom,
+        height: formRect.height
+      });
+    });
   }
 
   /**
@@ -15765,6 +15824,24 @@ class ReactNativeApp {
 
           if (data.type === 'KEYBOARD_SHOWN') {
             this.detectKeyboardOverlap(data.keyboardHeight);
+          }
+
+          if (data.type === 'NATIVE_KEYBOARD_SHOWN') {
+            console.log('⌨️ [WEB] Native keyboard shown, locking background scroll');
+            this.logViewportAndModalDimensions('BEFORE keyboard shown');
+            this.lockBackgroundScroll();
+            setTimeout(() => {
+              this.logViewportAndModalDimensions('AFTER keyboard shown');
+            }, 200);
+          }
+
+          if (data.type === 'NATIVE_KEYBOARD_HIDDEN') {
+            console.log('⌨️ [WEB] Native keyboard hidden, unlocking background scroll');
+            this.logViewportAndModalDimensions('BEFORE keyboard hidden');
+            this.unlockBackgroundScroll();
+            setTimeout(() => {
+              this.logViewportAndModalDimensions('AFTER keyboard hidden');
+            }, 200);
           }
 
           if (data.type === 'APP_PARAMS') {
