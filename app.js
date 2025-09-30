@@ -5957,19 +5957,20 @@ class RestoreAccountModal {
 
     this.closeImportForm.addEventListener('click', () => this.close());
     this.importForm.addEventListener('submit', (event) => this.handleSubmit(event));
-    
+
     // Add new event listeners for developer options
-    this.developerOptionsToggle.addEventListener('change', (e) => this.toggleDeveloperOptions(e));
+    this.developerOptionsToggle.addEventListener('change', () => this.toggleDeveloperOptions());
     // setup mutual exclusion for the developer options
     this.setupMutualExclusion(this.oldStringSelect, this.oldStringCustom);
     this.setupMutualExclusion(this.newStringSelect, this.newStringCustom);
     
     // Add listeners to extract netids from selected file
     this.fileInput.addEventListener('change', () => this.extractNetidsFromFile());
-    this.passwordInput.addEventListener('input', debounce(() => this.extractNetidsFromFile(), 500));
-    
-    // Populate netid dropdowns
-    this.populateNetidDropdowns();
+    this.debouncedExtractNetidsFromFile = debounce(() => this.extractNetidsFromFile(), 500);
+    this.passwordInput.addEventListener('input', this.debouncedExtractNetidsFromFile);
+
+    // Reset form state
+    this.clearForm();
   }
 
   setupMutualExclusion(selectElement, inputElement) {
@@ -6006,8 +6007,8 @@ class RestoreAccountModal {
   }
 
   // toggle the developer options section
-  toggleDeveloperOptions(event) {
-    this.developerOptionsEnabled = event.target.checked;
+  toggleDeveloperOptions() {
+    this.developerOptionsEnabled = !!this.developerOptionsToggle?.checked;
     this.developerOptionsSection.style.display = this.developerOptionsEnabled ? 'block' : 'none';
   }
 
@@ -6304,7 +6305,6 @@ class RestoreAccountModal {
         this.close();
         clearMyData(); // since we already saved to localStore, we want to make sure beforeunload calling saveState does not also save
         window.location.reload(); // need to go through Sign In to make sure imported account exists on network
-        this.clearForm();
       }, 2000);
     } catch (error) {
       showToast(error.message || 'Import failed. Please check file and password.', 0, 'error');
@@ -6319,8 +6319,8 @@ class RestoreAccountModal {
     this.newStringCustom.value = '';
     this.oldStringSelect.value = '';
     this.newStringSelect.value = '';
-    // hide the developer options section
-    this.developerOptionsSection.style.display = 'none';
+    // hide the developer options section and sync state
+    this.toggleDeveloperOptions();
     // reset dropdowns to original state
     this.oldStringSelect.length = 1;
     this.newStringSelect.length = 1;
