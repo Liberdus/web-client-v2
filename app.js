@@ -5750,19 +5750,17 @@ class BackupAccountModal {
     // Determine which backup method to use
     if (myData && !this.backupAllAccountsCheckbox.checked) {
       // User is signed in and wants to backup only current account
-      await this.handleSubmitOne(event);
+      await this.handleSubmitOne();
     } else {
       // User wants to backup all accounts (either not signed in or checkbox checked)
-      await this.handleSubmitAll(event);
+      await this.handleSubmitAll();
     }
   }
 
   /**
    * Handle the submission of a single account backup.
-   * @param {Event} event - The event object.
    */
-  async handleSubmitOne(event) {
-    event.preventDefault();
+  async handleSubmitOne() {
     saveState();
 
     // Disable button to prevent multiple submissions
@@ -5832,10 +5830,8 @@ class BackupAccountModal {
 
   /**
    * Handle the submission of a backup for all accounts.
-   * @param {Event} event - The event object.
    */
-  async handleSubmitAll(event) {
-    event.preventDefault();
+  async handleSubmitAll() {
 
     // Disable button to prevent multiple submissions
     this.submitButton.disabled = true;
