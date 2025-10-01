@@ -732,13 +732,17 @@ class WelcomeMenuModal {
       unlockModal.open();
     } else {
       this.modal.classList.add('active');
-      enterFullscreen();
+      setTimeout(() => {
+        enterFullscreen();
+      }, 100);
     }
   }
 
   close() {
     this.modal.classList.remove('active');
-    enterFullscreen();
+    setTimeout(() => {
+      enterFullscreen();
+    }, 100);
   }
 
   isActive() {
@@ -1448,12 +1452,16 @@ class MenuModal {
 
   open() {
     this.modal.classList.add('active');
-    enterFullscreen();
+    setTimeout(() => {
+      enterFullscreen();
+    }, 100);
   }
 
   close() {
     this.modal.classList.remove('active');
-    enterFullscreen();
+    setTimeout(() => {
+      enterFullscreen();
+    }, 100);
   }
 
   isActive() {
@@ -1562,12 +1570,16 @@ class SettingsModal {
 
   open() {
     this.modal.classList.add('active');
-    enterFullscreen();
+    setTimeout(() => {
+      enterFullscreen();
+    }, 100);
   }
 
   close() {
     this.modal.classList.remove('active');
-    enterFullscreen();
+    setTimeout(() => {
+      enterFullscreen();
+    }, 100);
   }
 
   isActive() {
@@ -2023,7 +2035,9 @@ class SignInModal {
     history.pushState({state:1}, "", ".")
     window.addEventListener('popstate', handleBrowserBackButton);
     
-    enterFullscreen();
+    setTimeout(() => {
+      enterFullscreen();
+    }, 100);
     
     const username = this.usernameSelect.value;
 
@@ -6988,12 +7002,16 @@ class FarmModal {
 
   open() {
     this.modal.classList.add('active');
-    enterFullscreen();
+    setTimeout(() => {
+      enterFullscreen();
+    }, 100);
   }
 
   close() {
     this.modal.classList.remove('active');
-    enterFullscreen();
+    setTimeout(() => {
+      enterFullscreen();
+    }, 100);
   }
 
   handleContinue() {
@@ -12735,7 +12753,9 @@ class CreateAccountModal {
     }
 
     this.modal.classList.add('active');
-    enterFullscreen();
+    setTimeout(() => {
+      enterFullscreen();
+    }, 100);
   }
 
   // we still need to keep this since it can be called by other modals
