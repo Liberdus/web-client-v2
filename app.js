@@ -1326,7 +1326,7 @@ class WalletScreen {
 
     this.assetsList.innerHTML = walletData.assets
       .map((asset) => {
-        console.log('asset balance', JSON.stringify(asset), asset.balance);
+        console.log('asset balance', JSON.stringify(asset, (key, value) => typeof value === 'bigint' ? value.toString() : value), asset.balance);
         return `
               <div class="asset-item">
                   <div class="asset-logo"><img src="./media/liberdus_logo_50.png" class="asset-logo"></div>
@@ -1375,7 +1375,7 @@ class WalletScreen {
             console.error(`Error fetching balance for address ${addr.address}:`, data);
             continue;
           }
-          console.log('balance', JSON.stringify(data));
+          console.log('balance', JSON.stringify(data, (key, value) => typeof value === 'bigint' ? value.toString() : value));
           if (data?.balance !== undefined) {
             // Update address balance
             addr.balance = data.balance;
@@ -3491,7 +3491,7 @@ async function queryNetwork(url, abortSignal = null) {
     }
     const response = await fetch(`${selectedGateway.web}${url}`, { signal: abortSignal });
     const data = parse(await response.text());
-    console.log('response', JSON.stringify(data));
+    console.log('response', JSON.stringify(data, (key, value) => typeof value === 'bigint' ? value.toString() : value));
     return data;
   } catch (error) {
     // Check if error is due to abort
@@ -8331,7 +8331,7 @@ class ChatModal {
         initialHeight: this.initialViewportHeight,
         heightDifference,
         isKeyboardVisible: this.isKeyboardVisible
-      }));
+      }, (key, value) => typeof value === 'bigint' ? value.toString() : value));
       
       // If viewport height decreased significantly, keyboard is likely open
       if (heightDifference > 150) { // 150px threshold for keyboard detection
@@ -10038,7 +10038,7 @@ console.warn('in send message', txid)
         bottom: modalRect.bottom,
         height: modalRect.height,
         width: modalRect.width
-      }));
+      }, (key, value) => typeof value === 'bigint' ? value.toString() : value));
     }
     
     if (this.messagesContainer) {
@@ -10049,7 +10049,7 @@ console.warn('in send message', txid)
         height: messagesRect.height,
         scrollTop: this.messagesContainer.scrollTop,
         scrollHeight: this.messagesContainer.scrollHeight
-      }));
+      }, (key, value) => typeof value === 'bigint' ? value.toString() : value));
     }
     
     if (this.messageInput) {
@@ -10058,7 +10058,7 @@ console.warn('in send message', txid)
         top: inputRect.top,
         bottom: inputRect.bottom,
         height: inputRect.height
-      }));
+      }, (key, value) => typeof value === 'bigint' ? value.toString() : value));
     }
     
     // Check for any active form modals
@@ -10069,7 +10069,7 @@ console.warn('in send message', txid)
         top: formRect.top,
         bottom: formRect.bottom,
         height: formRect.height
-      }));
+      }, (key, value) => typeof value === 'bigint' ? value.toString() : value));
     });
   }
 
@@ -16042,7 +16042,7 @@ class ReactNativeApp {
         inputBottom,
         keyboardTop,
         needsManualHandling
-      }));
+      }, (key, value) => typeof value === 'bigint' ? value.toString() : value));
 
       this.postMessage({
         type: 'KEYBOARD_DETECTION',
