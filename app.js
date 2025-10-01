@@ -732,18 +732,13 @@ class WelcomeMenuModal {
       unlockModal.open();
     } else {
       this.modal.classList.add('active');
-      // on android 15 using chrome without delay caused issues with input field on ChatModal to be positioned below visual viewport
-      setTimeout(() => {
-        enterFullscreen();
-      }, 100);
+      enterFullscreen();
     }
   }
 
   close() {
     this.modal.classList.remove('active');
-    setTimeout(() => {
-      enterFullscreen();
-    }, 100);
+    enterFullscreen();
   }
 
   isActive() {
@@ -1453,16 +1448,12 @@ class MenuModal {
 
   open() {
     this.modal.classList.add('active');
-    setTimeout(() => {
-      enterFullscreen();
-    }, 100);
+    enterFullscreen();
   }
 
   close() {
     this.modal.classList.remove('active');
-    setTimeout(() => {
-      enterFullscreen();
-    }, 100);
+    enterFullscreen();
   }
 
   isActive() {
@@ -1571,16 +1562,12 @@ class SettingsModal {
 
   open() {
     this.modal.classList.add('active');
-    setTimeout(() => {
-      enterFullscreen();
-    }, 100);
+    enterFullscreen();
   }
 
   close() {
     this.modal.classList.remove('active');
-    setTimeout(() => {
-      enterFullscreen();
-    }, 100);
+    enterFullscreen();
   }
 
   isActive() {
@@ -2036,9 +2023,7 @@ class SignInModal {
     history.pushState({state:1}, "", ".")
     window.addEventListener('popstate', handleBrowserBackButton);
     
-    setTimeout(() => {
-      enterFullscreen();
-    }, 100);
+    enterFullscreen();
     
     const username = this.usernameSelect.value;
 
@@ -7003,16 +6988,12 @@ class FarmModal {
 
   open() {
     this.modal.classList.add('active');
-    setTimeout(() => {
-      enterFullscreen();
-    }, 100);
+    enterFullscreen();
   }
 
   close() {
     this.modal.classList.remove('active');
-    setTimeout(() => {
-      enterFullscreen();
-    }, 100);
+    enterFullscreen();
   }
 
   handleContinue() {
@@ -12754,9 +12735,7 @@ class CreateAccountModal {
     }
 
     this.modal.classList.add('active');
-    setTimeout(() => {
-      enterFullscreen();
-    }, 100);
+    enterFullscreen();
   }
 
   // we still need to keep this since it can be called by other modals
@@ -16993,7 +16972,10 @@ function enterFullscreen() {
   if (isMobile()) {
   console.log('in enterFullscreen');
     if (document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen();
+      // on android 15 using chrome without delay caused issues with input field on ChatModal to be positioned below visual viewport
+      setTimeout(() => {
+        document.documentElement.requestFullscreen();
+      }, 100);
     } 
   }
 }
