@@ -6771,12 +6771,7 @@ class InviteModal {
       this.resetInviteButton.disabled = false;
     }, 2000);
 
-    try {
-      await this.shareLiberdusInvite(message);
-    } catch (err) {
-      // shareLiberdusInvite will show its own errors; rely on cooldown to re-enable
-      showToast('Could not share invitation. Try copying manually.', 0, 'error');
-    }
+    await this.shareLiberdusInvite(message);
   }
 
   async shareLiberdusInvite(overrideText) {
