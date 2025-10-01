@@ -8357,8 +8357,8 @@ class ChatModal {
           // Wait for keyboard to appear and viewport to adjust
           setTimeout(() => {
             this.messagesList.scrollTop = this.messagesList.scrollHeight;
-            // removed for now since RN android causing extra scroll behavior
-            /* this.messageInput.scrollIntoView({ behavior: 'smooth', block: 'center' }); // To provide smoother, more reliable scrolling on mobile. */
+            // Ensure toll info and input are visible above keyboard
+            this.ensureInputAndTollVisible();
           }, 500); // Increased delay to ensure keyboard is fully shown
         }
       }
@@ -10019,6 +10019,23 @@ console.warn('in send message', txid)
         this._touchMoveBlocker = null;
       }
     } catch (_) {}
+  }
+
+  /**
+   * Ensure the input field and toll info are visible above the keyboard
+   */
+  ensureInputAndTollVisible() {
+    if (!this.messageInput || !this.messagesContainer) return;
+    
+    const inputRect = this.messageInput.getBoundingClientRect();
+    const keyboardHeight = window.innerHeight - window.visualViewport.height;
+    const availableHeight = window.visualViewport.height;
+    
+    // If input is covered by keyboard, scroll to make it visible
+    if (inputRect.bottom > availableHeight) {
+      const scrollAmount = inputRect.bottom - availableHeight + 20; // 20px padding
+      this.messagesContainer.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+    }
   }
 
   /**
@@ -17487,20 +17504,26 @@ class MobileKeyboardHandler {
    * @returns {void}
    */
   scrollInputIntoView(input, availableHeight) {
-    // Skip for fixed chat input
-    if (input.id === 'message-input' || input.classList.contains('message-input')) return;
-    
-    const formContainer = input.closest('.form-container');
-    if (!formContainer) return;
-    
     const inputRect = input.getBoundingClientRect();
     // Leave a little breathing room below the field so it isn't flush with the keyboard edge
     const targetY = availableHeight - inputRect.height - 20;
     const scrollOffset = inputRect.top - targetY;
     
     if (scrollOffset > 0) {
-      // Smooth scroll keeps the layout steady while the keyboard animates
-      formContainer.scrollBy({ top: scrollOffset, behavior: 'smooth' });
+      // Handle chat modal input differently
+      if (input.id === 'message-input' || input.classList.contains('message-input')) {
+        // For chat modal, scroll the messages container to show the input and toll info
+        const messagesContainer = document.querySelector('.messages-container');
+        if (messagesContainer) {
+          messagesContainer.scrollBy({ top: scrollOffset, behavior: 'smooth' });
+        }
+      } else {
+        // For form inputs, scroll the form container
+        const formContainer = input.closest('.form-container');
+        if (formContainer) {
+          formContainer.scrollBy({ top: scrollOffset, behavior: 'smooth' });
+        }
+      }
     }
   }
 }
