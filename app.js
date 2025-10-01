@@ -15841,6 +15841,9 @@ class ReactNativeApp {
             this.unlockBackgroundScroll();
             setTimeout(() => {
               this.logViewportAndModalDimensions('AFTER keyboard hidden');
+              // Force a resize event to trigger viewport restoration
+              console.log('🔄 [WEB] Triggering manual resize event to force viewport restoration');
+              window.dispatchEvent(new Event('resize'));
             }, 200);
           }
 
