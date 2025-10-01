@@ -6645,6 +6645,14 @@ class TollModal {
       }
     }
 
+    // Check if the new toll is the same as the current toll
+    const currentToll = myData.settings.toll;
+    const currentTollUnit = myData.settings.tollUnit;
+    
+    if (currentTollUnit === this.currentCurrency && newToll === currentToll) {
+      return 'Toll amount is the same as current toll';
+    }
+
     return null;
   }
 
@@ -6657,22 +6665,6 @@ class TollModal {
 
     // Update save button state
     this.saveButton.disabled = !isValid;
-
-    // Additional check: disable if the new toll is the same as the current toll
-    if (isValid) {
-      const newTollValue = parseFloat(this.newTollAmountInputElement.value);
-      const newTollBigInt = bigxnum2big(wei, this.newTollAmountInputElement.value);
-      const currentToll = myData.settings.toll;
-      const currentTollUnit = myData.settings.tollUnit;
-
-      if (!isNaN(newTollValue)) {
-        if (currentTollUnit === this.currentCurrency) {
-          if (newTollBigInt === currentToll) {
-            this.saveButton.disabled = true;
-          }
-        } 
-      }
-    }
 
     // Update warning message
     if (warningMessage) {
@@ -16575,7 +16567,7 @@ async function checkPendingTransactions() {
               'error'
             );
             // revert the local myData.settings.toll to the old value
-            tollModal.editMyDataToll(tollModal.oldToll);
+            tollModal.editMyDataToll(tollModal.oldToll, tollModal.currentCurrency);
             // check if the toll modal is open
             if (tollModal.isActive()) {
               // change the tollAmountLIB and tollAmountUSD to the old value
