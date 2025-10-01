@@ -1296,7 +1296,7 @@ button:disabled {
 .modal--keyboard .form-container {
   overflow-y: auto;
   max-height: 100%;
-  padding-bottom: calc(100px + var(--ime-bottom));
+  padding-bottom: calc(300px + var(--ime-bottom));
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   scroll-padding-bottom: calc(80px + var(--ime-bottom));
