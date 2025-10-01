@@ -17343,7 +17343,7 @@ class MobileKeyboardHandler {
       return;
     }
     this.setupKeyboardTracking();
-    this.setupGlobalInputInterception();
+    //this.setupGlobalInputInterception();
   }
 
   /**
@@ -17355,26 +17355,26 @@ class MobileKeyboardHandler {
     const vv = window.visualViewport;
     
     const handleViewportChange = () => {
-      // Update CSS variable for keyboard height
-      const occluded = Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0));
-      document.documentElement.style.setProperty('--ime-bottom', occluded + 'px');
+      // COMMENTED OUT: Update CSS variable for keyboard height
+      // const occluded = Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0));
+      // document.documentElement.style.setProperty('--ime-bottom', occluded + 'px');
       
-      // DEBUG: Log keyboard state and container info
-      const activeInput = document.activeElement;
-      if (activeInput?.matches('input, textarea, select')) {
-        const scrollContainer = this.getScrollContainer(activeInput);
-        console.log('🔍 KEYBOARD DEBUG:', JSON.stringify({
-          occluded: occluded + 'px',
-          keyboardHeight: (window.innerHeight - vv.height) + 'px',
-          windowHeight: window.innerHeight,
-          vvHeight: vv.height,
-          inputId: activeInput.id || activeInput.className,
-          containerScrollHeight: scrollContainer?.scrollHeight,
-          containerClientHeight: scrollContainer?.clientHeight,
-          isScrollable: scrollContainer ? scrollContainer.scrollHeight > scrollContainer.clientHeight : false,
-          containerComputedPaddingBottom: scrollContainer ? getComputedStyle(scrollContainer).paddingBottom : null
-        }));
-      }
+      // COMMENTED OUT: DEBUG: Log keyboard state and container info
+      // const activeInput = document.activeElement;
+      // if (activeInput?.matches('input, textarea, select')) {
+      //   const scrollContainer = this.getScrollContainer(activeInput);
+      //   console.log('🔍 KEYBOARD DEBUG:', JSON.stringify({
+      //     occluded: occluded + 'px',
+      //     keyboardHeight: (window.innerHeight - vv.height) + 'px',
+      //     windowHeight: window.innerHeight,
+      //     vvHeight: vv.height,
+      //     inputId: activeInput.id || activeInput.className,
+      //     containerScrollHeight: scrollContainer?.scrollHeight,
+      //     containerClientHeight: scrollContainer?.clientHeight,
+      //     isScrollable: scrollContainer ? scrollContainer.scrollHeight > scrollContainer.clientHeight : false,
+      //     containerComputedPaddingBottom: scrollContainer ? getComputedStyle(scrollContainer).paddingBottom : null
+      //   }));
+      // }
       
       // Auto-scroll active input if covered by keyboard
       this.handleActiveInputScroll(vv);
@@ -17392,17 +17392,6 @@ class MobileKeyboardHandler {
    */
   handleActiveInputScroll(viewport) {
     return;
-    const activeInput = document.activeElement;
-    if (!activeInput?.matches('input, textarea, select')) return;
-    
-    const keyboardHeight = window.innerHeight - viewport.height;
-    // Only handle significant viewport shrinkage (keyboard open)
-    if (keyboardHeight > 150) {
-      const inputRect = activeInput.getBoundingClientRect();
-      if (inputRect.bottom > viewport.height) {
-        this.scrollInputIntoView(activeInput, viewport.height);
-      }
-    }
   }
 
   /**
