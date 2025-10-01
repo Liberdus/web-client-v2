@@ -1326,7 +1326,7 @@ class WalletScreen {
 
     this.assetsList.innerHTML = walletData.assets
       .map((asset) => {
-        console.log('asset balance', JSON.stringify(asset, (key, value) => typeof value === 'bigint' ? value.toString() : value), asset.balance);
+        console.log('asset balance', asset, asset.balance);
         return `
               <div class="asset-item">
                   <div class="asset-logo"><img src="./media/liberdus_logo_50.png" class="asset-logo"></div>
@@ -1375,7 +1375,7 @@ class WalletScreen {
             console.error(`Error fetching balance for address ${addr.address}:`, data);
             continue;
           }
-          console.log('balance', JSON.stringify(data, (key, value) => typeof value === 'bigint' ? value.toString() : value));
+          console.log('balance', data);
           if (data?.balance !== undefined) {
             // Update address balance
             addr.balance = data.balance;
@@ -3491,7 +3491,7 @@ async function queryNetwork(url, abortSignal = null) {
     }
     const response = await fetch(`${selectedGateway.web}${url}`, { signal: abortSignal });
     const data = parse(await response.text());
-    console.log('response', JSON.stringify(data, (key, value) => typeof value === 'bigint' ? value.toString() : value));
+    console.log('response', data);
     return data;
   } catch (error) {
     // Check if error is due to abort
@@ -8326,25 +8326,14 @@ class ChatModal {
       const currentHeight = window.innerHeight;
       const heightDifference = this.initialViewportHeight - currentHeight;
       
-      console.log('📏 [WEB] Resize event:', JSON.stringify({
-        currentHeight,
-        initialHeight: this.initialViewportHeight,
-        heightDifference,
-        isKeyboardVisible: this.isKeyboardVisible
-      }, (key, value) => typeof value === 'bigint' ? value.toString() : value));
-      
       // If viewport height decreased significantly, keyboard is likely open
       if (heightDifference > 150) { // 150px threshold for keyboard detection
         this.isKeyboardVisible = true;
-        console.log('⌨️ [WEB] Keyboard detected as open (viewport height decreased by', heightDifference, 'px)');
+        console.log('⌨️ Keyboard detected as open (viewport height decreased by', heightDifference, 'px)');
         this.lockBackgroundScroll();
-        // Ensure input and toll are visible when keyboard appears
-        setTimeout(() => {
-          this.ensureInputAndTollVisible();
-        }, 300);
       } else if (heightDifference < 50) { // If height increased or stayed similar, keyboard is likely closed
         this.isKeyboardVisible = false;
-        console.log('⌨️ [WEB] Keyboard detected as closed (viewport height difference:', heightDifference, 'px)');
+        /* console.log('⌨️ Keyboard detected as closed (viewport height difference:', heightDifference, 'px)'); */
         this.unlockBackgroundScroll();
       }
     });
@@ -8361,8 +8350,6 @@ class ChatModal {
           // Wait for keyboard to appear and viewport to adjust
           setTimeout(() => {
             this.messagesList.scrollTop = this.messagesList.scrollHeight;
-            // Ensure toll info and input are visible above keyboard
-            this.ensureInputAndTollVisible();
           }, 500); // Increased delay to ensure keyboard is fully shown
         }
       }
@@ -10023,90 +10010,6 @@ console.warn('in send message', txid)
         this._touchMoveBlocker = null;
       }
     } catch (_) {}
-  }
-
-  /**
-   * Ensure the input field and toll info are visible above the keyboard
-   */
-  ensureInputAndTollVisible() {
-    if (!this.messageInput || !this.messagesContainer) return;
-    
-    const inputRect = this.messageInput.getBoundingClientRect();
-    const availableHeight = window.visualViewport.height;
-    
-    // Find the toll info element (usually below the input)
-    const tollInfo = this.modal.querySelector('.toll-container');
-    const tollRect = tollInfo ? tollInfo.getBoundingClientRect() : null;
-    
-    // Calculate how much space we need for both input and toll info
-    let bottomElement = inputRect.bottom;
-    if (tollRect && tollRect.bottom > inputRect.bottom) {
-      bottomElement = tollRect.bottom;
-    }
-    
-    // If the bottom element (input or toll) is covered by keyboard, scroll to make it visible
-    if (bottomElement > availableHeight) {
-      const scrollAmount = bottomElement - availableHeight + 40; // 40px padding for toll info
-      console.log('📏 [WEB] Scrolling to show input and toll:', {
-        inputBottom: inputRect.bottom,
-        tollBottom: tollRect ? tollRect.bottom : 'none',
-        availableHeight,
-        scrollAmount
-      });
-      this.messagesContainer.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-    }
-  }
-
-  /**
-   * Log viewport and modal dimensions for debugging keyboard issues
-   */
-  logViewportAndModalDimensions(context) {
-    console.log(`📏 [WEB] ${context}:`);
-    console.log(`  - window.innerHeight: ${window.innerHeight}`);
-    console.log(`  - window.innerWidth: ${window.innerWidth}`);
-    console.log(`  - document.documentElement.clientHeight: ${document.documentElement.clientHeight}`);
-    console.log(`  - document.body.clientHeight: ${document.body.clientHeight}`);
-    
-    if (this.modal) {
-      const modalRect = this.modal.getBoundingClientRect();
-      console.log(`  - ChatModal dimensions:`, JSON.stringify({
-        top: modalRect.top,
-        bottom: modalRect.bottom,
-        height: modalRect.height,
-        width: modalRect.width
-      }, (key, value) => typeof value === 'bigint' ? value.toString() : value));
-    }
-    
-    if (this.messagesContainer) {
-      const messagesRect = this.messagesContainer.getBoundingClientRect();
-      console.log(`  - MessagesContainer dimensions:`, JSON.stringify({
-        top: messagesRect.top,
-        bottom: messagesRect.bottom,
-        height: messagesRect.height,
-        scrollTop: this.messagesContainer.scrollTop,
-        scrollHeight: this.messagesContainer.scrollHeight
-      }, (key, value) => typeof value === 'bigint' ? value.toString() : value));
-    }
-    
-    if (this.messageInput) {
-      const inputRect = this.messageInput.getBoundingClientRect();
-      console.log(`  - MessageInput dimensions:`, JSON.stringify({
-        top: inputRect.top,
-        bottom: inputRect.bottom,
-        height: inputRect.height
-      }, (key, value) => typeof value === 'bigint' ? value.toString() : value));
-    }
-    
-    // Check for any active form modals
-    const activeFormModals = document.querySelectorAll('.modal.active .form-container');
-    activeFormModals.forEach((form, index) => {
-      const formRect = form.getBoundingClientRect();
-      console.log(`  - FormModal[${index}] dimensions:`, JSON.stringify({
-        top: formRect.top,
-        bottom: formRect.bottom,
-        height: formRect.height
-      }, (key, value) => typeof value === 'bigint' ? value.toString() : value));
-    });
   }
 
   /**
@@ -15863,26 +15766,11 @@ class ReactNativeApp {
           }
 
           if (data.type === 'NATIVE_KEYBOARD_SHOWN') {
-            console.log('⌨️ [WEB] Native keyboard shown, locking background scroll');
-            this.logViewportAndModalDimensions('BEFORE keyboard shown');
-            this.lockBackgroundScroll();
-            setTimeout(() => {
-              this.logViewportAndModalDimensions('AFTER keyboard shown');
-              // Ensure input and toll are visible after keyboard appears
-              this.ensureInputAndTollVisible();
-            }, 200);
+            this.handleNativeKeyboardShown();
           }
 
           if (data.type === 'NATIVE_KEYBOARD_HIDDEN') {
-            console.log('⌨️ [WEB] Native keyboard hidden, unlocking background scroll');
-            this.logViewportAndModalDimensions('BEFORE keyboard hidden');
-            this.unlockBackgroundScroll();
-            setTimeout(() => {
-              this.logViewportAndModalDimensions('AFTER keyboard hidden');
-              // Force a resize event to trigger viewport restoration
-              console.log('🔄 [WEB] Triggering manual resize event to force viewport restoration');
-              window.dispatchEvent(new Event('resize'));
-            }, 200);
+            this.handleNativeKeyboardHidden();
           }
 
           if (data.type === 'APP_PARAMS') {
@@ -16063,6 +15951,24 @@ class ReactNativeApp {
       element.getAttribute('role') === 'textbox';
   }
 
+  /**
+   * Handles native keyboard shown event from React Native.
+   * Locks background scroll
+   * @returns {void}
+   */
+  handleNativeKeyboardShown() {
+    this.lockBackgroundScroll();
+  }
+
+  /**
+   * Handles native keyboard hidden event from React Native.
+   * Unlocks background scroll
+   * @returns {void}
+   */
+  handleNativeKeyboardHidden() {
+    this.unlockBackgroundScroll();
+  }
+
   detectKeyboardOverlap(keyboardHeight) {
     const input = document.activeElement;
     if (!this.isInputElement(input)) {
@@ -16078,12 +15984,12 @@ class ReactNativeApp {
       const inputIsAboveKeyboard = inputBottom < keyboardTop;
       const needsManualHandling = !inputIsAboveKeyboard;
 
-      console.log('⌨️ Native keyboard detection:', JSON.stringify({
+      console.log('⌨️ Native keyboard detection:', {
         keyboardHeight,
         inputBottom,
         keyboardTop,
         needsManualHandling
-      }, (key, value) => typeof value === 'bigint' ? value.toString() : value));
+      });
 
       this.postMessage({
         type: 'KEYBOARD_DETECTION',
@@ -17414,24 +17320,26 @@ function closeTopModal(topModal){
 }
 
 /**
- * Handles mobile virtual keyboard interactions to avoid scroll jumps.
- * Relies on the Visual Viewport API for accurate viewport measurements.
+ * Handles mobile virtual keyboard interactions to prevent scroll jumps.
+ * Uses the Visual Viewport API for accurate viewport measurements and provides fallback behavior.
+ * @class MobileKeyboardHandler
  */
 class MobileKeyboardHandler {
   /**
-   * Create a new handler instance with no active input tracked yet.
+   * Creates a new mobile keyboard handler instance.
+   * @constructor
    */
   constructor() {
+    /** @type {HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null} */
     this.activeInput = null;
   }
 
   /**
-   * Initialize keyboard tracking and input interception if supported.
+   * Initializes keyboard tracking and input interception if Visual Viewport API is supported.
    * @returns {void}
    */
   load() {
     if (!window.visualViewport) {
-      console.log('Visual Viewport API not supported');
       return;
     }
     this.setupKeyboardTracking();
@@ -17439,7 +17347,8 @@ class MobileKeyboardHandler {
   }
 
   /**
-   * Wire viewport resize/scroll handlers to detect keyboard overlap.
+   * Sets up viewport change listeners to detect keyboard appearance and update CSS variables.
+   * Also handles automatic scrolling of covered inputs.
    * @returns {void}
    */
   setupKeyboardTracking() {
@@ -17450,18 +17359,8 @@ class MobileKeyboardHandler {
       const occluded = Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0));
       document.documentElement.style.setProperty('--ime-bottom', occluded + 'px');
       
-      // Scroll input into view if covered by keyboard
-      const activeInput = document.activeElement;
-      if (!activeInput?.matches('input, textarea, select')) return;
-      
-      const keyboardHeight = window.innerHeight - vv.height;
-      // Treat only significant viewport shrinkage as the keyboard being open
-      if (keyboardHeight > 150) {
-        const inputRect = activeInput.getBoundingClientRect();
-        if (inputRect.bottom > vv.height) {
-          this.scrollInputIntoView(activeInput, vv.height);
-        }
-      }
+      // Auto-scroll active input if covered by keyboard
+      this.handleActiveInputScroll(vv);
     };
 
     vv.addEventListener('resize', handleViewportChange);
@@ -17470,13 +17369,34 @@ class MobileKeyboardHandler {
   }
 
   /**
-   * Attach listeners to existing and future inputs to control focus behavior.
+   * Handles scrolling of the currently active input if it's covered by the keyboard.
+   * @param {VisualViewport} viewport - The visual viewport object
+   * @returns {void}
+   */
+  handleActiveInputScroll(viewport) {
+    const activeInput = document.activeElement;
+    if (!activeInput?.matches('input, textarea, select')) return;
+    
+    const keyboardHeight = window.innerHeight - viewport.height;
+    // Only handle significant viewport shrinkage (keyboard open)
+    if (keyboardHeight > 150) {
+      const inputRect = activeInput.getBoundingClientRect();
+      if (inputRect.bottom > viewport.height) {
+        this.scrollInputIntoView(activeInput, viewport.height);
+      }
+    }
+  }
+
+  /**
+   * Sets up global input interception for existing and dynamically added inputs.
+   * Uses MutationObserver to handle new inputs added to the DOM.
    * @returns {void}
    */
   setupGlobalInputInterception() {
-    // Handle existing and dynamically added inputs
+    // Handle existing inputs
     this.attachInputHandlers(document.querySelectorAll('input, textarea, select'));
     
+    // Watch for new inputs added to the DOM
     new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
@@ -17491,13 +17411,14 @@ class MobileKeyboardHandler {
   }
 
   /**
-   * Ensure inputs react consistently to pointer/touch interactions.
-   * @param {NodeListOf<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | Element[]} inputs
+   * Attaches keyboard handling event listeners to input elements.
+   * Prevents native focus jumping for non-textarea inputs on mobile.
+   * @param {NodeListOf<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | Element[]} inputs - Input elements to attach handlers to
    * @returns {void}
    */
   attachInputHandlers(inputs) {
     inputs.forEach(input => {
-      // Skip inputs we've already decorated with handlers
+      // Skip inputs that already have handlers attached
       if (input.dataset.keyboardHandled) return;
       input.dataset.keyboardHandled = 'true';
       
@@ -17507,7 +17428,7 @@ class MobileKeyboardHandler {
           input.addEventListener(eventType, (e) => {
             if (document.activeElement === input) return;
             e.preventDefault();
-            // Wait a microtask so focus happens after the browser finishes default processing
+            // Defer focus to avoid conflicts with browser default behavior
             setTimeout(() => {
               input.focus({ preventScroll: true });
               this.activeInput = input;
@@ -17519,33 +17440,39 @@ class MobileKeyboardHandler {
   }
 
   /**
-   * Scroll a focused input into the visible viewport above the keyboard.
-   * @param {HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement} input
-   * @param {number} availableHeight
+   * Scrolls a focused input into the visible viewport above the keyboard.
+   * Handles different input types (chat vs form) with appropriate scroll containers.
+   * @param {HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement} input - The input element to scroll into view
+   * @param {number} availableHeight - Available viewport height above keyboard
    * @returns {void}
    */
   scrollInputIntoView(input, availableHeight) {
     const inputRect = input.getBoundingClientRect();
-    // Leave a little breathing room below the field so it isn't flush with the keyboard edge
+    // Add breathing room below the input to avoid flush positioning with keyboard
     const targetY = availableHeight - inputRect.height - 20;
     const scrollOffset = inputRect.top - targetY;
     
     if (scrollOffset > 0) {
-      // Handle chat modal input differently
-      if (input.id === 'message-input' || input.classList.contains('message-input')) {
-        // For chat modal, scroll the messages container to show the input and toll info
-        const messagesContainer = document.querySelector('.messages-container');
-        if (messagesContainer) {
-          messagesContainer.scrollBy({ top: scrollOffset, behavior: 'smooth' });
-        }
-      } else {
-        // For form inputs, scroll the form container
-        const formContainer = input.closest('.form-container');
-        if (formContainer) {
-          formContainer.scrollBy({ top: scrollOffset, behavior: 'smooth' });
-        }
+      const scrollContainer = this.getScrollContainer(input);
+      if (scrollContainer) {
+        scrollContainer.scrollBy({ top: scrollOffset, behavior: 'smooth' });
       }
     }
+  }
+
+  /**
+   * Determines the appropriate scroll container for the given input element.
+   * @param {HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement} input - The input element
+   * @returns {HTMLElement | null} The scroll container element
+   */
+  getScrollContainer(input) {
+    // Handle chat modal input
+    if (input.id === 'message-input' || input.classList.contains('message-input')) {
+      return document.querySelector('.messages-container');
+    }
+    
+    // Handle form inputs
+    return input.closest('.form-container');
   }
 }
 
