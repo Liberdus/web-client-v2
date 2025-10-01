@@ -1364,6 +1364,7 @@ button:disabled {
   padding: 16px;
   width: 100%;
   box-sizing: border-box;
+  padding-bottom: 400px;
 }
 
 .modal-content {

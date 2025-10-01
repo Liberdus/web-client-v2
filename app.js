@@ -9973,7 +9973,7 @@ console.warn('in send message', txid)
       // Allow vertical pan only within messages container and message input; block elsewhere
       const allowEl = this.messagesContainer;
       this._touchMoveBlocker = (e) => {
-        if (!allowEl || (!e.target.closest('.messages-container') && !e.target.closest('.message-input'))) {
+        if (!allowEl || (!e.target.closest('.messages-container') && !e.target.closest('.message-input') && !e.target.closest('.form-container'))) {
           e.preventDefault();
         }
       };
