@@ -8338,6 +8338,10 @@ class ChatModal {
         this.isKeyboardVisible = true;
         console.log('⌨️ [WEB] Keyboard detected as open (viewport height decreased by', heightDifference, 'px)');
         this.lockBackgroundScroll();
+        // Ensure input and toll are visible when keyboard appears
+        setTimeout(() => {
+          this.ensureInputAndTollVisible();
+        }, 300);
       } else if (heightDifference < 50) { // If height increased or stayed similar, keyboard is likely closed
         this.isKeyboardVisible = false;
         console.log('⌨️ [WEB] Keyboard detected as closed (viewport height difference:', heightDifference, 'px)');
@@ -10028,12 +10032,27 @@ console.warn('in send message', txid)
     if (!this.messageInput || !this.messagesContainer) return;
     
     const inputRect = this.messageInput.getBoundingClientRect();
-    const keyboardHeight = window.innerHeight - window.visualViewport.height;
     const availableHeight = window.visualViewport.height;
     
-    // If input is covered by keyboard, scroll to make it visible
-    if (inputRect.bottom > availableHeight) {
-      const scrollAmount = inputRect.bottom - availableHeight + 20; // 20px padding
+    // Find the toll info element (usually below the input)
+    const tollInfo = this.modal.querySelector('.toll-container');
+    const tollRect = tollInfo ? tollInfo.getBoundingClientRect() : null;
+    
+    // Calculate how much space we need for both input and toll info
+    let bottomElement = inputRect.bottom;
+    if (tollRect && tollRect.bottom > inputRect.bottom) {
+      bottomElement = tollRect.bottom;
+    }
+    
+    // If the bottom element (input or toll) is covered by keyboard, scroll to make it visible
+    if (bottomElement > availableHeight) {
+      const scrollAmount = bottomElement - availableHeight + 40; // 40px padding for toll info
+      console.log('📏 [WEB] Scrolling to show input and toll:', {
+        inputBottom: inputRect.bottom,
+        tollBottom: tollRect ? tollRect.bottom : 'none',
+        availableHeight,
+        scrollAmount
+      });
       this.messagesContainer.scrollBy({ top: scrollAmount, behavior: 'smooth' });
     }
   }
@@ -15849,6 +15868,8 @@ class ReactNativeApp {
             this.lockBackgroundScroll();
             setTimeout(() => {
               this.logViewportAndModalDimensions('AFTER keyboard shown');
+              // Ensure input and toll are visible after keyboard appears
+              this.ensureInputAndTollVisible();
             }, 200);
           }
 
