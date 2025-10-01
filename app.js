@@ -732,6 +732,7 @@ class WelcomeMenuModal {
       unlockModal.open();
     } else {
       this.modal.classList.add('active');
+      // on android 15 using chrome without delay caused issues with input field on ChatModal to be positioned below visual viewport
       setTimeout(() => {
         enterFullscreen();
       }, 100);
