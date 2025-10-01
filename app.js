@@ -17359,6 +17359,23 @@ class MobileKeyboardHandler {
       const occluded = Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0));
       document.documentElement.style.setProperty('--ime-bottom', occluded + 'px');
       
+      // DEBUG: Log keyboard state and container info
+      const activeInput = document.activeElement;
+      if (activeInput?.matches('input, textarea, select')) {
+        const scrollContainer = this.getScrollContainer(activeInput);
+        console.log('🔍 KEYBOARD DEBUG:', JSON.stringify({
+          occluded: occluded + 'px',
+          keyboardHeight: (window.innerHeight - vv.height) + 'px',
+          windowHeight: window.innerHeight,
+          vvHeight: vv.height,
+          inputId: activeInput.id || activeInput.className,
+          containerScrollHeight: scrollContainer?.scrollHeight,
+          containerClientHeight: scrollContainer?.clientHeight,
+          isScrollable: scrollContainer ? scrollContainer.scrollHeight > scrollContainer.clientHeight : false,
+          containerComputedPaddingBottom: scrollContainer ? getComputedStyle(scrollContainer).paddingBottom : null
+        }));
+      }
+      
       // Auto-scroll active input if covered by keyboard
       this.handleActiveInputScroll(vv);
     };
@@ -17380,14 +17397,6 @@ class MobileKeyboardHandler {
     const keyboardHeight = window.innerHeight - viewport.height;
     // Only handle significant viewport shrinkage (keyboard open)
     if (keyboardHeight > 150) {
-      const scrollContainer = this.getScrollContainer(activeInput);
-      
-      // Always trigger a tiny scroll to activate touch scrolling in WebView
-      // This is needed for React Native WebView to enable touch scroll gestures
-      if (scrollContainer) {
-        scrollContainer.scrollBy({ top: 0, behavior: 'instant' });
-      }
-      
       const inputRect = activeInput.getBoundingClientRect();
       if (inputRect.bottom > viewport.height) {
         this.scrollInputIntoView(activeInput, viewport.height);
