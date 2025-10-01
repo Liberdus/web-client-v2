@@ -9978,10 +9978,10 @@ console.warn('in send message', txid)
         this.modal.dataset.prevOverflowY = this.modal.style.overflowY || '';
         this.modal.style.overflowY = 'hidden';
       }
-      // Allow vertical pan only within messages container; block elsewhere
+      // Allow vertical pan only within messages container and message input; block elsewhere
       const allowEl = this.messagesContainer;
       this._touchMoveBlocker = (e) => {
-        if (!allowEl || !e.target.closest('.messages-container')) {
+        if (!allowEl || (!e.target.closest('.messages-container') && !e.target.closest('.message-input'))) {
           e.preventDefault();
         }
       };
