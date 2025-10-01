@@ -4425,7 +4425,17 @@ class SearchMessagesModal {
         if (message.message.toLowerCase().includes(searchLower)) {
           // Highlight matching text
           const messageText = escapeHtml(message.message);
-          const highlightedText = messageText.replace(new RegExp(searchText, 'gi'), (match) => `<mark>${match}</mark>`);
+          // Escape search text for safe regex usage
+          const escapedSearch = escapeRegExp(searchText);
+          const highlightedText = messageText.replace(new RegExp(escapedSearch, 'gi'), (match) => `<mark>${match}</mark>`);
+          
+          const maxDisplayLength = 100;
+          
+          // Adjust maxLength to account for <mark> tags (add 13 chars per highlight)
+          // This ensures truncateMessage gets enough characters to display ~100 chars of actual text
+          const highlightCount = (highlightedText.match(/<mark>/g) || []).length;
+          const adjustedMaxLength = maxDisplayLength + (highlightCount * 13); // <mark> + </mark> = 13 chars
+          
           const displayedName = getContactDisplayName(contact);
           results.push({
             contactAddress: address,
@@ -4433,7 +4443,7 @@ class SearchMessagesModal {
             messageId: message.txid,
             message: message, // Pass the entire message object
             timestamp: message.timestamp,
-            preview: truncateMessage(highlightedText, 100),
+            preview: truncateMessage(highlightedText, adjustedMaxLength),
             my: message.my, // Include the my property
           });
         }
@@ -4536,21 +4546,22 @@ class SearchMessagesModal {
     if (!this._debouncedSearch) {
       this._debouncedSearch = debounce(
         (searchText) => {
-          const trimmedText = (searchText || '').trim();
+          // Only trim leading whitespace; preserve trailing spaces for exact matches
+          const processedText = (searchText || '').trimStart();
 
           // If input is empty, clear results
-          if (!trimmedText) {
+          if (!processedText) {
             this.searchResults.innerHTML = '';
             return;
           }
 
           // Guard against stale callbacks after further typing or modal close
-          const currentText = (this.searchInput?.value || '').trim();
-          if (!this.isActive() || currentText !== trimmedText) {
+          const currentText = (this.searchInput?.value || '').trimStart();
+          if (!this.isActive() || currentText !== processedText) {
             return;
           }
 
-          const results = this.searchMessages(trimmedText);
+          const results = this.searchMessages(processedText);
           if (results.length === 0) {
             this.displayEmptyState('searchResults', 'No messages found');
           } else {

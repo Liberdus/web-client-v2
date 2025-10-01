@@ -322,6 +322,19 @@ export function truncateMessage(message, maxLength = 100) {
     }
     // --- End Adjustment ---
 
+    // --- Ensure we don't cut through HTML tags ---
+    // Check if we're cutting through a tag at the end
+    if (endIndex < message.length && message.lastIndexOf('<', endIndex) > message.lastIndexOf('>', endIndex)) {
+        endIndex = message.lastIndexOf('<', endIndex);
+    }
+    // Check if we're starting inside a tag
+    if (startIndex > 0) {
+        const nextClose = message.indexOf('>', startIndex);
+        const nextOpen = message.indexOf('<', startIndex);
+        if (nextClose !== -1 && (nextOpen === -1 || nextClose < nextOpen)) {
+            startIndex = nextClose + 1;
+        }
+    }
 
     // Extract the substring
     let preview = message.substring(startIndex, endIndex);
