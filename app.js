@@ -6780,15 +6780,13 @@ class InviteModal {
   }
 
   async shareLiberdusInvite(overrideText) {
-    const url = "https://liberdus.com/download";
     const title = "Join me on Liberdus";
-    const defaultText = `Message ${myAccount.username} on Liberdus! ${this.inviteURL}`;
-    const text = (typeof overrideText === 'string' && overrideText.trim().length) ? overrideText.trim() : defaultText;
+    const text = (typeof overrideText === 'string' && overrideText.trim().length) ? overrideText.trim() : this.getDefaultInviteText();
 
     // 1) Check if running in React Native WebView
     if (reactNativeApp.isReactNativeWebView) {
       try {
-        reactNativeApp.shareInvite(url, text, title);
+        reactNativeApp.shareInvite(this.inviteURL, text, title);
         return; // success
       } catch (err) {
         // fall through to native share or clipboard on errors
@@ -6798,7 +6796,7 @@ class InviteModal {
     // 2) Try native share sheet
     if (navigator.share) {
       try {
-        await navigator.share({ url, text, title });
+        await navigator.share({ url: this.inviteURL, text, title });
         return; // success
       } catch (err) {
         // iOS Safari/WKWebView: cancel → AbortError / "Share canceled"
@@ -6812,7 +6810,9 @@ class InviteModal {
 
     // 3) Clipboard fallback (no mailto)
     try {
-      await navigator.clipboard.writeText(text);
+      // Ensure URL is in the text
+      const clipboardText = text.includes(this.inviteURL) ? text : `${text} ${this.inviteURL}`;
+      await navigator.clipboard.writeText(clipboardText);
       showToast("Invite copied to clipboard!", 3000, "success");
     } catch {
       showToast("Could not copy invite link.", 0, "error");
