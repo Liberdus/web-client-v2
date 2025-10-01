@@ -8251,6 +8251,7 @@ class ChatModal {
     this.messageByteCounter = document.querySelector('.message-byte-counter');
     this.tollTemplate = document.getElementById('tollInfoMessageTemplate');
     this.messagesContainer = document.querySelector('.messages-container');
+    this.messageInputContainer = document.querySelector('.message-input-container');
     this.addFriendButtonChat = document.getElementById('addFriendButtonChat');
     this.addAttachmentButton = document.getElementById('addAttachmentButton');
     this.chatFileInput = document.getElementById('chatFileInput');
@@ -8329,10 +8330,18 @@ class ChatModal {
         this.isKeyboardVisible = true;
         console.log('⌨️ Keyboard detected as open (viewport height decreased by', heightDifference, 'px)');
         this.lockBackgroundScroll();
+        // Add class to remove safe-area padding when keyboard is visible
+        if (this.messageInputContainer) {
+          this.messageInputContainer.classList.add('keyboard-visible');
+        }
       } else if (heightDifference < 50) { // If height increased or stayed similar, keyboard is likely closed
         this.isKeyboardVisible = false;
         /* console.log('⌨️ Keyboard detected as closed (viewport height difference:', heightDifference, 'px)'); */
         this.unlockBackgroundScroll();
+        // Remove class to restore safe-area padding when keyboard is hidden
+        if (this.messageInputContainer) {
+          this.messageInputContainer.classList.remove('keyboard-visible');
+        }
       }
     });
 
@@ -8340,6 +8349,10 @@ class ChatModal {
     this.messageInput.addEventListener('focus', () => {
       // Extra guard: immediately lock background/modal scroll when focusing input
       this.lockBackgroundScroll();
+      // Add keyboard-visible class when input is focused (keyboard will likely appear)
+      if (this.messageInputContainer) {
+        this.messageInputContainer.classList.add('keyboard-visible');
+      }
       if (this.messagesContainer) {
         // Check if we're already at the bottom (within 50px threshold)
         const isAtBottom =
@@ -8358,6 +8371,10 @@ class ChatModal {
     // Unlock when input loses focus (keyboard likely dismissed)
     this.messageInput.addEventListener('blur', () => {
       this.unlockBackgroundScroll();
+      // Remove keyboard-visible class when input loses focus
+      if (this.messageInputContainer) {
+        this.messageInputContainer.classList.remove('keyboard-visible');
+      }
     });
 
     this.chatSendMoneyButton.addEventListener('click', () => {

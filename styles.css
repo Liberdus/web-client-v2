@@ -1611,6 +1611,11 @@ input[type='file'].form-control::file-selector-button {
   pointer-events: none; /* Make the container itself non-interactive */
 }
 
+/* Remove safe-area padding when keyboard is visible */
+.message-input-container.keyboard-visible {
+  padding-bottom: 18px;
+}
+
 .message-input-row {
   display: flex;
   align-items: flex-end;
