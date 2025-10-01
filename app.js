@@ -1326,7 +1326,7 @@ class WalletScreen {
 
     this.assetsList.innerHTML = walletData.assets
       .map((asset) => {
-        console.log('asset balance', asset, asset.balance);
+        console.log('asset balance', JSON.stringify(asset), asset.balance);
         return `
               <div class="asset-item">
                   <div class="asset-logo"><img src="./media/liberdus_logo_50.png" class="asset-logo"></div>
@@ -1375,7 +1375,7 @@ class WalletScreen {
             console.error(`Error fetching balance for address ${addr.address}:`, data);
             continue;
           }
-          console.log('balance', data);
+          console.log('balance', JSON.stringify(data));
           if (data?.balance !== undefined) {
             // Update address balance
             addr.balance = data.balance;
@@ -3491,7 +3491,7 @@ async function queryNetwork(url, abortSignal = null) {
     }
     const response = await fetch(`${selectedGateway.web}${url}`, { signal: abortSignal });
     const data = parse(await response.text());
-    console.log('response', data);
+    console.log('response', JSON.stringify(data));
     return data;
   } catch (error) {
     // Check if error is due to abort
@@ -8326,12 +8326,12 @@ class ChatModal {
       const currentHeight = window.innerHeight;
       const heightDifference = this.initialViewportHeight - currentHeight;
       
-      console.log('📏 [WEB] Resize event:', {
+      console.log('📏 [WEB] Resize event:', JSON.stringify({
         currentHeight,
         initialHeight: this.initialViewportHeight,
         heightDifference,
         isKeyboardVisible: this.isKeyboardVisible
-      });
+      }));
       
       // If viewport height decreased significantly, keyboard is likely open
       if (heightDifference > 150) { // 150px threshold for keyboard detection
@@ -10033,43 +10033,43 @@ console.warn('in send message', txid)
     
     if (this.modal) {
       const modalRect = this.modal.getBoundingClientRect();
-      console.log(`  - ChatModal dimensions:`, {
+      console.log(`  - ChatModal dimensions:`, JSON.stringify({
         top: modalRect.top,
         bottom: modalRect.bottom,
         height: modalRect.height,
         width: modalRect.width
-      });
+      }));
     }
     
     if (this.messagesContainer) {
       const messagesRect = this.messagesContainer.getBoundingClientRect();
-      console.log(`  - MessagesContainer dimensions:`, {
+      console.log(`  - MessagesContainer dimensions:`, JSON.stringify({
         top: messagesRect.top,
         bottom: messagesRect.bottom,
         height: messagesRect.height,
         scrollTop: this.messagesContainer.scrollTop,
         scrollHeight: this.messagesContainer.scrollHeight
-      });
+      }));
     }
     
     if (this.messageInput) {
       const inputRect = this.messageInput.getBoundingClientRect();
-      console.log(`  - MessageInput dimensions:`, {
+      console.log(`  - MessageInput dimensions:`, JSON.stringify({
         top: inputRect.top,
         bottom: inputRect.bottom,
         height: inputRect.height
-      });
+      }));
     }
     
     // Check for any active form modals
     const activeFormModals = document.querySelectorAll('.modal.active .form-container');
     activeFormModals.forEach((form, index) => {
       const formRect = form.getBoundingClientRect();
-      console.log(`  - FormModal[${index}] dimensions:`, {
+      console.log(`  - FormModal[${index}] dimensions:`, JSON.stringify({
         top: formRect.top,
         bottom: formRect.bottom,
         height: formRect.height
-      });
+      }));
     });
   }
 
@@ -16037,12 +16037,12 @@ class ReactNativeApp {
       const inputIsAboveKeyboard = inputBottom < keyboardTop;
       const needsManualHandling = !inputIsAboveKeyboard;
 
-      console.log('⌨️ Native keyboard detection:', {
+      console.log('⌨️ Native keyboard detection:', JSON.stringify({
         keyboardHeight,
         inputBottom,
         keyboardTop,
         needsManualHandling
-      });
+      }));
 
       this.postMessage({
         type: 'KEYBOARD_DETECTION',
