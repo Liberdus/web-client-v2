@@ -5761,10 +5761,10 @@ class BackupAccountModal {
    * Handle the submission of a single account backup.
    */
   async handleSubmitOne() {
-    saveState();
-
     // Disable button to prevent multiple submissions
     this.submitButton.disabled = true;
+
+    saveState();
 
     const password = this.passwordInput.value;
     // Build new structured backup object
@@ -5792,7 +5792,6 @@ class BackupAccountModal {
 
       // Create and trigger download
       const blob = new Blob([finalData], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
       const filename = this.generateBackupFilename(myAccount.username);
       // Detect if running inside React Native WebView
       if (window.ReactNativeWebView?.postMessage) {
@@ -5809,6 +5808,7 @@ class BackupAccountModal {
         reader.readAsDataURL(blob);
       } else {
         // Regular browser download
+        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = filename;
