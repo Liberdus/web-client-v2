@@ -17391,6 +17391,7 @@ class MobileKeyboardHandler {
    * @returns {void}
    */
   handleActiveInputScroll(viewport) {
+    return;
     const activeInput = document.activeElement;
     if (!activeInput?.matches('input, textarea, select')) return;
     
