@@ -17380,6 +17380,14 @@ class MobileKeyboardHandler {
     const keyboardHeight = window.innerHeight - viewport.height;
     // Only handle significant viewport shrinkage (keyboard open)
     if (keyboardHeight > 150) {
+      const scrollContainer = this.getScrollContainer(activeInput);
+      
+      // Always trigger a tiny scroll to activate touch scrolling in WebView
+      // This is needed for React Native WebView to enable touch scroll gestures
+      if (scrollContainer) {
+        scrollContainer.scrollBy({ top: 0, behavior: 'instant' });
+      }
+      
       const inputRect = activeInput.getBoundingClientRect();
       if (inputRect.bottom > viewport.height) {
         this.scrollInputIntoView(activeInput, viewport.height);
