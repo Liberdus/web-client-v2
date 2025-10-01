@@ -4441,7 +4441,6 @@ small {
 .amount-container .form-control {
   flex: 1; /* Allows the input to take available space */
   min-width: 0; /* Important for flex item shrinkage */
-  border-right: 1px solid #ccc; /* Restore right border */
   /* width: auto; /* Overrides the default form-control width: 100% */
 }
 
