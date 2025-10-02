@@ -5003,7 +5003,6 @@ function markConnectivityDependentElements() {
     '#addFriendButton',
 
     // Profile related
-    '#accountForm button[type="submit"]',
     '#createAccountForm button[type="submit"]',
     '#importForm button[type="submit"]',
 
