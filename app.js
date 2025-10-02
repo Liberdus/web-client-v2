@@ -5555,10 +5555,6 @@ class RemoveAccountsModal {
       // Validate username and netid
       if (!username || !netid) continue;
       
-      // Check if this account is already in our result list
-      const already = result.find(r => r.username === username && r.netid === netid);
-      if (already) continue;
-      
       // Check if this account is registered in the accounts object
       const isRegistered = accountsObj.netids[netid]?.usernames?.[username];
       if (isRegistered) continue;
