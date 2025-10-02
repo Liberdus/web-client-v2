@@ -361,6 +361,12 @@ body {
   }
 }
 
+/* Prevent touch bubbling up to document */
+html,
+body {
+  touch-action: none; /* Prevent touch scroll gestures on document */
+}
+
 .welcome-screen {
   flex: 1;
   display: flex;
