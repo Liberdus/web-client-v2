@@ -677,7 +677,7 @@ class WelcomeScreen {
     }
 
     // Show the toast
-    const message = '📱 <strong>Important:</strong> Apple will delete your data if you don\'t visit this site for a week. Please backup your account data regularly.';
+    const message = '<strong>Important:</strong> Apple will delete your data if you don\'t visit this site for a week. Please backup your account data regularly.';
     showToast(message, 0, 'warning', true);
   }
 
