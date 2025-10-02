@@ -2635,39 +2635,6 @@ class FriendModal {
     button.classList.add(`status-${contact.friend}`);
   }
 
-  /**
-   * Check if there's a pending transaction for the current contact and handle timeouts
-   * @returns {boolean} 
-   */
-  hasPendingTransactionForContact() {
-    const contact = myData?.contacts?.[this.currentContactAddress];
-    if (!contact) return false;
-
-    const PENDING_TIMEOUT_MS = 60 * 1000; // 60 seconds
-    const normalizedAddress = normalizeAddress(this.currentContactAddress);
-
-    // Check if there's a pending transaction in the pending array
-    const hasPendingTx = myData?.pending?.some(pendingTx => 
-      pendingTx.type === 'update_toll_required' && 
-      pendingTx.to === normalizedAddress
-    );
-
-    // Check local state and handle timeout
-    if (contact.friend !== contact.friendOld) {
-      const isTimedOut = this.lastChangeTimeStamp < (Date.now() - PENDING_TIMEOUT_MS);
-      
-      if (isTimedOut) {
-        // Reset the contact state (network cleanup should have already removed from pending)
-        contact.friend = contact.friendOld;
-        return false; // No longer pending after reset
-      } else {
-        return true; // Still pending, not timed out
-      }
-    }
-
-    return hasPendingTx; //return true if there is a pending transaction, false otherwise
-  }
-
   // Update the submit button's enabled state based on current and selected status
   updateSubmitButtonState() {
     const contact = myData?.contacts?.[this.currentContactAddress];
@@ -2676,11 +2643,17 @@ class FriendModal {
       return;
     }
 
-    // Check for pending transactions and handle timeouts
-    if (this.hasPendingTransactionForContact()) {
-      this.submitButton.disabled = true;
-      showToast('You have a pending transaction to update the friend status for this contact. Come back to this page later.', 0, 'error');
-      return;
+    // If there's already a pending tx (friend != friendOld) keep disabled
+    if (contact.friend !== contact.friendOld) {
+      const SIXTY_SECONDS = 60 * 1000;
+      // if the last change was more than 60 seconds ago, reset the friend status so user does not get stuck
+      if (this.lastChangeTimeStamp < (Date.now() - SIXTY_SECONDS)) {
+        contact.friend = contact.friendOld
+      } else {
+        this.submitButton.disabled = true;
+        showToast('You have a pending transaction to update the friend status. Come back to this page later.', 0, 'error');
+        return;
+      }
     }
 
     const selectedStatus = this.friendForm.querySelector('input[name="friendStatus"]:checked')?.value;
