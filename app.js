@@ -2235,23 +2235,29 @@ class MyInfoModal {
       Object.values(fields).map(({ id }) => [id, document.getElementById(id)])
     );
 
-    for (const [key, cfg] of Object.entries(fields)) {
-      const el = elements[cfg.id];
-      if (!el) continue; // skip if element not found
+    // Iterate through each profile field to populate or hide it based on whether data exists
+    // For fields with values: display the container, set the text content, and set href if applicable
+    // For fields without values: hide the container
+    for (const [fieldKey, fieldConfig] of Object.entries(fields)) {
+      const element = elements[fieldConfig.id];
+      if (!element) continue; // skip if element not found in DOM
+      
+      // For clickable links (email, linkedin, x), the element is nested deeper in the DOM
       const container =
-        key === 'email' || key === 'linkedin' || key === 'x'
-          ? el.parentElement.parentElement // label + anchor live two levels up
-          : el.parentElement;
+        fieldKey === 'email' || fieldKey === 'linkedin' || fieldKey === 'x'
+          ? element.parentElement.parentElement // label + anchor live two levels up
+          : element.parentElement;
 
-      const val = account[key] ?? ''; // empty string if undefined / null
-      const empty = !val;
+      const value = account[fieldKey] ?? ''; // empty string if undefined / null
+      const isEmpty = !value;
 
       // Show / hide container with inline style (per your constraint)
-      container.style.display = empty ? 'none' : 'block';
-      if (empty) continue;
+      container.style.display = isEmpty ? 'none' : 'block';
+      if (isEmpty) continue;
 
-      el.textContent = val;
-      if (cfg.href) el.href = cfg.href(val);
+      // Populate the field with data
+      element.textContent = value;
+      if (fieldConfig.href) element.href = fieldConfig.href(value);
     }
     this.renderUsernameQR();
   }
