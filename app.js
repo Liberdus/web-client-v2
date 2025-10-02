@@ -638,6 +638,11 @@ class WelcomeScreen {
     });
 
     this.orderButtons();
+
+    // Show Apple Safari backup reminder toast after welcome screen has rendered
+    setTimeout(() => {
+      this.showAppleSafariBackupToast();
+    }, 500);
   }
 
   open() {
@@ -648,6 +653,32 @@ class WelcomeScreen {
 
   close() {
     this.screen.style.display = 'none';
+  }
+
+  /**
+   * Detect if user is on Apple device using Safari browser
+   */
+  isAppleSafari() {
+    const userAgent = navigator.userAgent;
+    const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent) && !/Chromium/.test(userAgent);
+    const isAppleDevice = /iPhone|iPad|iPod|Macintosh/.test(userAgent);
+    const result = isSafari && isAppleDevice;
+    
+    return result;
+  }
+
+  /**
+   * Show backup reminder toast for Apple Safari users
+   */
+  showAppleSafariBackupToast() {
+    // Only show if user is on Apple Safari
+    if (!this.isAppleSafari()) {
+      return;
+    }
+
+    // Show the toast
+    const message = '📱 <strong>Important:</strong> Apple will delete your data if you don\'t visit this site for a week. Please backup your account data regularly.';
+    showToast(message, 0, 'warning', true);
   }
 
   isActive() {
