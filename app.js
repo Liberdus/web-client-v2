@@ -5492,6 +5492,32 @@ class RemoveAccountsModal {
     return this.modal?.classList.contains('active'); 
   }
 
+  /**
+   * Helper function to count contacts and messages from an account state.
+   * Returns { contactsCount, messagesCount } or { contactsCount: -1, messagesCount: -1 } on error.
+   */
+  getContactsAndMessagesCount(state, contextKey) {
+    let contactsCount = 0;
+    let messagesCount = 0;
+    
+    if (state) {
+      try {
+        contactsCount = Object.keys(state.contacts || {}).length;
+        // Sum messages arrays lengths per contact
+        if (state.contacts) {
+          for (const addr in state.contacts) {
+            messagesCount += (state.contacts[addr].messages?.length || 0);
+          }
+        }
+      } catch (e) {
+        console.warn('Error counting contacts/messages for', contextKey, e);
+        return { contactsCount: -1, messagesCount: -1 };
+      }
+    }
+    
+    return { contactsCount, messagesCount };
+  }
+
   getAllAccountsData() {
     const accountsObj = parse(localStorage.getItem('accounts') || '{"netids":{}}');
     const result = [];
@@ -5501,21 +5527,16 @@ class RemoveAccountsModal {
       for (const username in usernamesObj) {
         const key = `${username}_${netid}`;
         const state = loadState(key); // decrypted & parsed
-        let contactsCount = 0;
-        let messagesCount = 0;
-        if (state) {
-          try {
-            contactsCount = Object.keys(state.contacts || {}).length;
-            // Sum messages arrays lengths per contact
-            if (state.contacts) {
-              for (const addr in state.contacts) {
-                messagesCount += (state.contacts[addr].messages?.length || 0);
-              }
-            }
-          } catch (e) {
-            console.warn('Error counting contacts/messages for', key, e);
-          }
+        
+        // Check if account data exists in storage
+        const hasStorageData = localStorage.getItem(key) !== null;
+        
+        // If storage data exists but state is null, it means decryption failed
+        if (hasStorageData && !state) {
+          console.warn('Decryption failed for account', key, '- data exists but could not be decrypted');
         }
+        
+        const { contactsCount, messagesCount } = this.getContactsAndMessagesCount(state, key);
         result.push({ username, netid, contactsCount, messagesCount });
       }
     }
@@ -5542,27 +5563,20 @@ class RemoveAccountsModal {
       const isRegistered = accountsObj.netids[netid]?.usernames?.[username];
       if (isRegistered) continue;
       let state = null;
-      try{
+      try {
         state = loadState(storageKey);
+        
+        // If loadState returned null, it could be decryption failure
+        if (!state) {
+          console.warn('Failed to load orphaned account', storageKey, '- likely decryption failure');
+        }
       } catch (e) {
-        console.warn('Error loading orphan account', storageKey, e);
+        console.warn('Error loading orphaned account', storageKey, e);
         result.push({ username, netid, contactsCount: -1, messagesCount: -1, orphan: true });
         continue;
       }
-      let contactsCount = 0; let messagesCount = 0;
-      if (state) {
-        try {
-          contactsCount = Object.keys(state.contacts || {}).length;
-          // Sum messages arrays lengths per contact
-          if (state.contacts) {
-            for (const addr in state.contacts) {
-              messagesCount += (state.contacts[addr].messages?.length || 0);
-            }
-          }
-        } catch (e) {
-          console.warn('Error counting orphan account', storageKey, e);
-        }
-      }
+      
+      const { contactsCount, messagesCount } = this.getContactsAndMessagesCount(state, storageKey);
       result.push({ username, netid, contactsCount, messagesCount, orphan: true });
     }
     return result;
@@ -5612,10 +5626,21 @@ class RemoveAccountsModal {
       accountsForNet.forEach(acc => {
         const label = document.createElement('label');
         label.className = 'remove-account-row';
+        
+        // Handle display of account stats
+        let statsText;
+        if (acc.contactsCount === -1 || acc.messagesCount === -1) {
+          // Error loading/decrypting account data
+          statsText = 'unable to load data';
+        } else {
+          statsText = `${acc.contactsCount} contacts, ${acc.messagesCount} messages`;
+        }
+        statsText += acc.orphan ? ' (orphan)' : '';
+        
         label.innerHTML = `
           <input type="checkbox" data-username="${acc.username}" data-netid="${acc.netid}" />
           <span class="remove-account-username">${acc.username}</span>
-          <span class="remove-account-stats">${acc.contactsCount} contacts, ${acc.messagesCount} messages${acc.orphan ? ' (orphan)' : ''}</span>
+          <span class="remove-account-stats">${statsText}</span>
         `;
         list.appendChild(label);
       });
