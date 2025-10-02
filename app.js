@@ -5513,6 +5513,9 @@ class RemoveAccountsModal {
         console.warn('Error counting contacts/messages for', contextKey, e);
         return { contactsCount: -1, messagesCount: -1 };
       }
+    } else {
+      // State is null - could be decryption failure or no data
+      return { contactsCount: -1, messagesCount: -1 };
     }
     
     return { contactsCount, messagesCount };
@@ -5526,14 +5529,21 @@ class RemoveAccountsModal {
       const usernamesObj = accountsObj.netids[netid]?.usernames || {};
       for (const username in usernamesObj) {
         const key = `${username}_${netid}`;
-        const state = loadState(key); // decrypted & parsed
         
         // Check if account data exists in storage
         const hasStorageData = localStorage.getItem(key) !== null;
         
-        // If storage data exists but state is null, it means decryption failed
-        if (hasStorageData && !state) {
-          console.warn('Decryption failed for account', key, '- data exists but could not be decrypted');
+        let state = null;
+        try {
+          state = loadState(key); // decrypted & parsed
+          
+          // If loadState returned null, it could be decryption failure
+          if (hasStorageData && !state) {
+            console.warn('Decryption failed for account', key, '- data exists but could not be decrypted');
+          }
+        } catch (e) {
+          console.warn('Error loading account', key, e);
+          // Continue processing - we'll still add it to the list with error counts
         }
         
         const { contactsCount, messagesCount } = this.getContactsAndMessagesCount(state, key);
