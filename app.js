@@ -5546,8 +5546,8 @@ class RemoveAccountsModal {
       const storageKey = localStorage.key(i);
       if (!storageKey) continue;
       
-  // Use regex to extract username and netid from storage key: username_<64-hex>
-  const match = storageKey.match(/^([^_]+)_([0-9a-fA-F]{64})$/);
+      // Use regex to extract username and netid from storage key: username_<64-hex>
+      const match = storageKey.match(/^([^_]+)_([0-9a-fA-F]{64})$/);
       if (!match) continue;
       
       const [, username, netid] = match;
