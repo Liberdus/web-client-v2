@@ -2679,7 +2679,7 @@ class FriendModal {
     // Check for pending transactions and handle timeouts
     if (this.hasPendingTransactionForContact()) {
       this.submitButton.disabled = true;
-      showToast('You have a pending transaction to update the friend status for this contact. Please wait for it to complete.', 0, 'error');
+      showToast('You have a pending transaction to update the friend status for this contact. Come back to this page later.', 0, 'error');
       return;
     }
 
