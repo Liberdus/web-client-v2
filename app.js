@@ -466,7 +466,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.addEventListener('visibilitychange', handleVisibilityChange); // Keep as document
 
   // Add global keyboard listener for fullscreen toggling
-  window.addEventListener('resize', handleKeyboardFullscreenToggle);
+  window.addEventListener('resize', setTimeout(handleKeyboardFullscreenToggle, 300));
 
   getNetworkParams();
 
@@ -17076,13 +17076,13 @@ function handleKeyboardFullscreenToggle() {
     if (isInFullscreen()) {
       setTimeout(() => {
         exitFullscreen();
-      }, 300);
+      }, 0);
     }
   } else if (heightDifference < 50) { // If height increased or stayed similar, keyboard is likely closed
     if (!isInFullscreen()) {
       setTimeout(() => {
         enterFullscreen();
-      }, 100);
+      }, 0);
     }
   }
 }
