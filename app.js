@@ -17074,13 +17074,13 @@ function handleKeyboardFullscreenToggle() {
   // If viewport height decreased significantly, keyboard is likely open
   if (heightDifference > 150) { // 150px threshold for keyboard detection
     if (isInFullscreen()) {
-      setTimeout(() => {
-        exitFullscreen();
-      }, 300);
+      exitFullscreen();
     }
   } else if (heightDifference < 50) { // If height increased or stayed similar, keyboard is likely closed
     if (!isInFullscreen()) {
-      enterFullscreen();
+      setTimeout(() => {
+        enterFullscreen();
+      }, 300);
     }
   }
 }
