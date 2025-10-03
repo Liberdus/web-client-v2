@@ -141,6 +141,9 @@ let checkPendingTransactionsIntervalId = null;
 let getSystemNoticeIntervalId = null;
 //let checkConnectivityIntervalId = null;
 
+let isFullScreen = false;
+let initialViewportHeight = window.innerHeight;
+
 // parameters to add to the call URL when opening the page
 const callUrlParams = `#config.toolbarButtons=["camera","microphone","desktop","hangup"]&config.disableDeepLinking=true&config.prejoinPageEnabled=false&config.startWithAudioMuted=false&startWithVideoMuted=false&userInfo.displayName=`
 
@@ -462,6 +465,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.addEventListener('visibilitychange', handleVisibilityChange); // Keep as document
+
+  // Add global keyboard listener for fullscreen toggling
+  window.addEventListener('resize', handleKeyboardFullscreenToggle);
 
   getNetworkParams();
 
@@ -17041,8 +17047,57 @@ function enterFullscreen() {
       // on android 15 using chrome without delay caused issues with input field on ChatModal to be positioned below visual viewport
       setTimeout(() => {
         document.documentElement.requestFullscreen();
+        isFullScreen = true;
       }, 100);
     } 
+  }
+}
+
+function exitFullscreen() {
+  if (isMobile()) {
+    console.log('in exitFullscreen');
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    }
+
+    isFullScreen = false;
+  }
+}
+
+function isInFullscreen() {
+  // Method 1: Check our custom flag
+  if (isFullScreen !== undefined) {
+    return isFullScreen;
+  }
+  
+  // Method 2: Check browser fullscreen API
+  if (document.fullscreenElement) {
+    return true;
+  } 
+  
+  // Method 3: Check if any element is in fullscreen
+  return !!document.fullscreenElement;
+}
+
+function handleKeyboardFullscreenToggle() {
+  if (!isMobile()) {
+    return; // Only handle on mobile devices
+  }
+
+  const currentHeight = window.innerHeight;
+  const heightDifference = initialViewportHeight - currentHeight;
+  
+  // If viewport height decreased significantly, keyboard is likely open
+  if (heightDifference > 150) { // 150px threshold for keyboard detection
+    if (isInFullscreen()) {
+      exitFullscreen();
+    }
+  } else if (heightDifference < 50) { // If height increased or stayed similar, keyboard is likely closed
+    if (!isInFullscreen()) {
+      setTimeout(() => {
+        exitFullscreen();
+      }, 300);
+    }
   }
 }
 
