@@ -1707,14 +1707,14 @@ input[type='file'].form-control::file-selector-button {
 .message.received {
   align-self: flex-start;
   background-color: var(--surface-muted);
-  border-bottom-left-radius: 0.25rem;
+  border-bottom-left-radius: 0rem;
 }
 
 .message.sent {
   align-self: flex-end;
   background-color: var(--primary-color);
   color: var(--background-color);
-  border-bottom-right-radius: 0.25rem;
+  border-bottom-right-radius: 0rem;
 }
 
 /* Make links white in sent messages for contrast */
