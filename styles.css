@@ -1714,6 +1714,7 @@ input[type='file'].form-control::file-selector-button {
   align-self: flex-end;
   background-color: var(--primary-color);
   color: var(--background-color);
+  border-bottom-right-radius: 0.25rem;
 }
 
 /* Make links white in sent messages for contrast */
