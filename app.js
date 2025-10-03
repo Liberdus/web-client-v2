@@ -141,7 +141,6 @@ let checkPendingTransactionsIntervalId = null;
 let getSystemNoticeIntervalId = null;
 //let checkConnectivityIntervalId = null;
 
-let isFullScreen = false;
 let initialViewportHeight = window.innerHeight;
 
 // parameters to add to the call URL when opening the page
@@ -17047,7 +17046,6 @@ function enterFullscreen() {
       // on android 15 using chrome without delay caused issues with input field on ChatModal to be positioned below visual viewport
       setTimeout(() => {
         document.documentElement.requestFullscreen();
-        isFullScreen = true;
       }, 100);
     } 
   }
@@ -17055,27 +17053,13 @@ function enterFullscreen() {
 
 function exitFullscreen() {
   if (isMobile()) {
-    console.log('in exitFullscreen');
     if (document.exitFullscreen) {
       document.exitFullscreen();
     }
-
-    isFullScreen = false;
   }
 }
 
 function isInFullscreen() {
-  // Method 1: Check our custom flag
-  if (isFullScreen !== undefined) {
-    return isFullScreen;
-  }
-  
-  // Method 2: Check browser fullscreen API
-  if (document.fullscreenElement) {
-    return true;
-  } 
-  
-  // Method 3: Check if any element is in fullscreen
   return !!document.fullscreenElement;
 }
 
