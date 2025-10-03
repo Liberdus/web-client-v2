@@ -466,7 +466,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.addEventListener('visibilitychange', handleVisibilityChange); // Keep as document
 
   // Add global keyboard listener for fullscreen toggling
-  window.addEventListener('resize', setTimeout(handleKeyboardFullscreenToggle(), 300));
+  window.addEventListener('resize', () => setTimeout(handleKeyboardFullscreenToggle(), 300));
 
   getNetworkParams();
 
