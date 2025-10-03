@@ -1687,6 +1687,7 @@ input[type='file'].form-control::file-selector-button {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  padding-top:1000px; /* keeps message list scrollable */
 }
 
 .message {
