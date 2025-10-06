@@ -2674,7 +2674,8 @@ class FriendModal {
   // Update the submit button's enabled state based on current and selected status
   updateSubmitButtonState() {
     const contact = myData?.contacts?.[this.currentContactAddress];
-    if (!contact) {
+    // return early if contact is not found or offline
+    if (!contact || !isOnline) {
       this.submitButton.disabled = true;
       return;
     }
@@ -5037,6 +5038,7 @@ function markConnectivityDependentElements() {
 
     // Add friend related
     '#friendForm button[type="submit"]',
+    '#friendForm input[name="friendStatus"]',
 
     // Contact related
     '#chatRecipient',
