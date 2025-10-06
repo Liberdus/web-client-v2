@@ -20,6 +20,12 @@
     <link rel="apple-touch-icon" href="./media/liberdus_logo_512.png" />
     <meta name="apple-mobile-web-app-title" content="Liberdus" />
 
+    <!-- Cache control meta tags for offline functionality -->
+    <!-- set for a year -->
+    <meta http-equiv="Cache-Control" content="public, max-age=31536000">
+    <!-- fallback for when max-age is not supported -->
+    <meta http-equiv="Expires" content="Wed, 06 Oct 2026 23:59:00 GMT">
+
     <!-- Add splash screen images for different iPhone sizes -->
     <link
       rel="apple-touch-startup-image"
@@ -692,7 +698,9 @@
               <!-- My info fields -->
               <div class="contact-info-item" style="display: none">
                 <div class="contact-info-label">Name</div>
-                <div class="contact-info-value" id="myInfoName"></div>
+                <div class="contact-info-value-container">
+                  <div class="contact-info-value" id="myInfoName"></div>
+                </div>
               </div>
               <div class="contact-info-item" style="display: none">
                 <div class="contact-info-label">Email</div>
