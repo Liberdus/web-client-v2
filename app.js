@@ -6501,12 +6501,12 @@ class TollModal {
     this.saveButton.disabled = true;
 
         // Fetch network parameters to get minToll
-    const scalabilityFactor = getStabilityFactor();
+    const stabilityFactor = getStabilityFactor();
     try {
       const minTollUsdStr = parameters?.current?.minTollUsdStr;
-      this.minToll = EthNum.toWei(EthNum.div(minTollUsdStr, scalabilityFactor.toString()));
+      this.minToll = EthNum.toWei(EthNum.div(minTollUsdStr, stabilityFactor.toString()));
       // Update min toll display under input (USD)
-      const minTollUSD = bigxnum2big(this.minToll, scalabilityFactor.toString());
+      const minTollUSD = bigxnum2big(this.minToll, stabilityFactor.toString());
       this.minTollDisplay.textContent = `Minimum toll: ${parseFloat(big2str(minTollUSD, 18)).toFixed(4)} USD`;
     } catch (e) {
       this.minTollDisplay.textContent = `Minimum toll: error`;
@@ -6550,10 +6550,10 @@ class TollModal {
         return;
       }
       if (this.currentCurrency === 'USD') {
-        const scalabilityFactor = getStabilityFactor();
-        const newTollLIB = bigxnum2big(newToll, (1 / scalabilityFactor).toString());
+        const stabilityFactor = getStabilityFactor();
+        const newTollLIB = bigxnum2big(newToll, (1 / stabilityFactor).toString());
         if (newTollLIB < this.minToll) {
-          const minTollUSD = bigxnum2big(this.minToll, scalabilityFactor.toString());
+          const minTollUSD = bigxnum2big(this.minToll, stabilityFactor.toString());
           showToast(`Toll must be at least ${parseFloat(big2str(minTollUSD, 18)).toFixed(4)} USD or 0 USD`, 0, 'error');
           return;
         }
@@ -6568,8 +6568,8 @@ class TollModal {
       }
     } else {
       // For USD, convert the max toll to USD for comparison
-      const scalabilityFactor = getStabilityFactor();
-      const maxTollUSD = MAX_TOLL * scalabilityFactor;
+      const stabilityFactor = getStabilityFactor();
+      const maxTollUSD = MAX_TOLL * stabilityFactor;
       if (newTollValue > maxTollUSD) {
         showToast(`Toll cannot exceed ${maxTollUSD.toFixed(2)} USD`, 0, 'error');
         return;
@@ -6599,22 +6599,22 @@ class TollModal {
    * @returns {void}
    */
   updateTollDisplay(toll, tollUnit) {
-    const scalabilityFactor = getStabilityFactor();
+    const stabilityFactor = getStabilityFactor();
     let tollValueUSD = '';
     let tollValueLIB = '';
 
     if (tollUnit == 'LIB') {
       const libFloat = parseFloat(big2str(toll, 18));
-      tollValueUSD = (libFloat * scalabilityFactor).toString();
+      tollValueUSD = (libFloat * stabilityFactor).toString();
       tollValueLIB = libFloat.toString();
     } else {
       const usdFloat = parseFloat(big2str(toll, 18));
       tollValueUSD = usdFloat.toString();
-      tollValueLIB = (usdFloat / scalabilityFactor).toString();
+      tollValueLIB = (usdFloat / stabilityFactor).toString();
     }
 
     const usdDisplay = parseFloat(tollValueUSD).toFixed(6);
-    const libDisplay = scalabilityFactor > 0 ? parseFloat(tollValueLIB).toFixed(6) : 'N/A';
+    const libDisplay = stabilityFactor > 0 ? parseFloat(tollValueLIB).toFixed(6) : 'N/A';
 
     // USD-only UI
     document.getElementById('tollAmountUSD').textContent = `${usdDisplay} USD (≈ ${libDisplay} LIB)`;
@@ -6716,10 +6716,10 @@ class TollModal {
         return `Toll must be at least ${parseFloat(big2str(this.minToll, 18)).toFixed(6)} LIB or 0 LIB`;
       }
     } else {
-      const scalabilityFactor = getStabilityFactor();
-      const newTollLIB = bigxnum2big(newToll, (1 / scalabilityFactor).toString());
+      const stabilityFactor = getStabilityFactor();
+      const newTollLIB = bigxnum2big(newToll, (1 / stabilityFactor).toString());
       if (newTollLIB < this.minToll) {
-        const minTollUSD = bigxnum2big(this.minToll, scalabilityFactor.toString());
+        const minTollUSD = bigxnum2big(this.minToll, stabilityFactor.toString());
         return `Toll must be at least ${parseFloat(big2str(minTollUSD, 18)).toFixed(4)} USD or 0 USD`;
       }
     }
@@ -13499,7 +13499,7 @@ class SendAssetFormModal {
     const cancelButton = sendAssetConfirmModal.cancelButton;
 
     await getNetworkParams();
-    const scalabilityFactor = getStabilityFactor();
+    const stabilityFactor = getStabilityFactor();
 
     // get `usdAmount` and `libAmount`
     let usdAmount;
@@ -13507,9 +13507,9 @@ class SendAssetFormModal {
     const isLib = this.balanceSymbol.textContent === 'LIB';
     if (!isLib) {
       usdAmount = this.amountInput.value;
-      libAmount = amount / scalabilityFactor;
+      libAmount = amount / stabilityFactor;
     } else {
-      usdAmount = amount * scalabilityFactor;
+      usdAmount = amount * stabilityFactor;
       libAmount = amount;
     }
 
@@ -13549,8 +13549,8 @@ class SendAssetFormModal {
 
     if (isUSD) {
       // Convert to USD before displaying
-      const scalabilityFactor = getStabilityFactor();
-      this.amountInput.value = (parseFloat(maxAmountStr) * scalabilityFactor).toString();
+      const stabilityFactor = getStabilityFactor();
+      this.amountInput.value = (parseFloat(maxAmountStr) * stabilityFactor).toString();
     } else {
       // Display in LIB
       this.amountInput.value = maxAmountStr;
@@ -13593,7 +13593,7 @@ class SendAssetFormModal {
 
     await getNetworkParams();
     const txFeeInLIB = getTransactionFeeWei();
-    const scalabilityFactor = getStabilityFactor();
+    const stabilityFactor = getStabilityFactor();
 
     // Preserve the current toggle state (LIB/USD) instead of overwriting it
     const currentSymbol = this.balanceSymbol.textContent;
@@ -13607,7 +13607,7 @@ class SendAssetFormModal {
     const balanceInLIB = big2str(BigInt(asset.balance), 18).slice(0, -12);
     const feeInLIB = big2str(txFeeInLIB, 18).slice(0, -16);
 
-    this.updateBalanceAndFeeDisplay(balanceInLIB, feeInLIB, isCurrentlyUSD, scalabilityFactor);
+    this.updateBalanceAndFeeDisplay(balanceInLIB, feeInLIB, isCurrentlyUSD, stabilityFactor);
   }
 
   /**
@@ -13653,8 +13653,8 @@ class SendAssetFormModal {
     let amountForValidation = amount;
     if (isUSD && amount) {
       await getNetworkParams();
-      const scalabilityFactor = getStabilityFactor();
-      amountForValidation = parseFloat(amount) / scalabilityFactor;
+      const stabilityFactor = getStabilityFactor();
+      amountForValidation = parseFloat(amount) / stabilityFactor;
     }
 
     // convert amount to bigint
@@ -13722,7 +13722,7 @@ class SendAssetFormModal {
 
     // get the scalability factor for LIB/USD conversion
     await getNetworkParams();
-    const scalabilityFactor = getStabilityFactor();
+    const stabilityFactor = getStabilityFactor();
 
     // Get the raw values in LIB format
     const asset = myData.wallet.assets[this.assetSelectDropdown.value];
@@ -13732,12 +13732,12 @@ class SendAssetFormModal {
 
     // if isLib is false, convert the sendAmount to USD
     if (!isLib) {
-      this.amountInput.value = this.amountInput.value * scalabilityFactor;
+      this.amountInput.value = this.amountInput.value * stabilityFactor;
     } else {
-      this.amountInput.value = this.amountInput.value / scalabilityFactor;
+      this.amountInput.value = this.amountInput.value / stabilityFactor;
     }
 
-    this.updateBalanceAndFeeDisplay(balanceInLIB, feeInLIB, !isLib, scalabilityFactor);
+    this.updateBalanceAndFeeDisplay(balanceInLIB, feeInLIB, !isLib, stabilityFactor);
   }
 
   /**
@@ -13761,12 +13761,12 @@ class SendAssetFormModal {
    * @param {string} balanceInLIB - The balance amount in LIB
    * @param {string} feeInLIB - The fee amount in LIB
    * @param {boolean} isUSD - Whether to display in USD format
-   * @param {number} scalabilityFactor - The factor to convert between LIB and USD
+   * @param {number} stabilityFactor - The factor to convert between LIB and USD
    */
-  updateBalanceAndFeeDisplay(balanceInLIB, feeInLIB, isUSD, scalabilityFactor) {
+  updateBalanceAndFeeDisplay(balanceInLIB, feeInLIB, isUSD, stabilityFactor) {
     if (isUSD) {
-      this.balanceAmount.textContent = '$' + (parseFloat(balanceInLIB) * scalabilityFactor).toPrecision(6);
-      this.transactionFee.textContent = '$' + (parseFloat(feeInLIB) * scalabilityFactor).toPrecision(2);
+      this.balanceAmount.textContent = '$' + (parseFloat(balanceInLIB) * stabilityFactor).toPrecision(6);
+      this.transactionFee.textContent = '$' + (parseFloat(feeInLIB) * stabilityFactor).toPrecision(2);
     } else {
       this.balanceAmount.textContent = balanceInLIB + ' LIB';
       this.transactionFee.textContent = feeInLIB + ' LIB';
@@ -14527,17 +14527,17 @@ class ReceiveModal {
       const isLib = this.receiveBalanceSymbol.textContent === 'LIB';
 
       await getNetworkParams();
-      const scalabilityFactor = getStabilityFactor();
+      const stabilityFactor = getStabilityFactor();
 
       if (this.amountInput && this.amountInput.value.trim() !== '') {
         const currentValue = parseFloat(this.amountInput.value);
         if (!isNaN(currentValue)) {
           if (!isLib) {
             // now showing USD, convert LIB -> USD
-            this.amountInput.value = (currentValue * scalabilityFactor).toString();
+            this.amountInput.value = (currentValue * stabilityFactor).toString();
           } else {
             // now showing LIB, convert USD -> LIB
-            this.amountInput.value = (currentValue / scalabilityFactor).toString();
+            this.amountInput.value = (currentValue / stabilityFactor).toString();
           }
         }
       }
