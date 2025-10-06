@@ -126,13 +126,6 @@ export function normalizeXTwitterUsername(username, final = false) {
     normalized = normalized.replace(/[^a-zA-Z0-9_]/g, '');
     // Step 4: Truncate to maximum length (15 characters)
     normalized = normalized.substring(0, 15);
-    // Step 5: If final is true, apply strict validation rules
-    if (final) {
-        // Ensure it's not only numbers
-        if (normalized && /^\d+$/.test(normalized)) {
-            normalized = ''
-        }
-    }
     // Ensure minimum length of 1 character
     if (normalized.length < 1) {
         normalized = '';
