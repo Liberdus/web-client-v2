@@ -8838,6 +8838,12 @@ class ChatModal {
   async handleSendMessage() {
     this.sendButton.disabled = true; // Disable the button
 
+    // Check if user is offline - prevent sending messages when offline
+    if (!isOnline) {
+      showToast('You are offline. Please check your internet connection.', 3000, 'error');
+      return;
+    }
+
     // if user is blocked, don't send message, show toast
     if (myData.contacts[this.address].tollRequiredToSend == 2) {
       showToast('You are blocked by this user', 0, 'error');
@@ -9639,12 +9645,13 @@ console.warn('in send message', txid)
       } else if (validation.percentage >= 90) {
         this.messageByteCounter.style.color = '#ffa726';
         this.messageByteCounter.textContent = `${validation.remainingBytes} bytes - left`;
-        this.sendButton.disabled = false;
+        if (isOnline) this.sendButton.disabled = false;
       }
       this.messageByteCounter.style.display = 'block';
     } else {
       this.messageByteCounter.style.display = 'none';
-      this.sendButton.disabled = false;
+      // Only enable if online
+      if (isOnline) this.sendButton.disabled = false;
     }
   }
 
