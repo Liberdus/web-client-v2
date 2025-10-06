@@ -6499,20 +6499,54 @@ class TollModal {
     this.warningMessageElement.classList.remove('show');
     this.saveButton.disabled = true;
 
-        // Fetch network parameters to get minToll
+    // Handle offline scenario
+    if (!isOnline) {
+      this.handleOfflineMode();
+    } else {
+      this.handleOnlineMode();
+    }
+    
+    this.updateEquivalentLibDisplay();
+  }
+
+  handleOfflineMode() {
+    // Use cached minimum toll from localStorage
+    const cachedMinToll = localStorage.getItem('cachedMinTollUsd');
+    if (cachedMinToll) {
+      try {
+        const stabilityFactor = getStabilityFactor();
+        this.minToll = EthNum.toWei(EthNum.div(cachedMinToll, stabilityFactor.toString()));
+        const minTollUSD = bigxnum2big(this.minToll, stabilityFactor.toString());
+        this.minTollDisplay.textContent = `Minimum toll: ${parseFloat(big2str(minTollUSD, 18)).toFixed(4)} USD (offline)`;
+      } catch (e) {
+        this.minTollDisplay.textContent = `Minimum toll: offline (cached data unavailable)`;
+      }
+    } else {
+      this.minTollDisplay.textContent = `Minimum toll: offline (no cached data)`;
+    }
+  }
+
+  handleOnlineMode() {
+    // Fetch network parameters to get minToll
     const stabilityFactor = getStabilityFactor();
     try {
       const minTollUsdStr = parameters?.current?.minTollUsdStr;
-      this.minToll = EthNum.toWei(EthNum.div(minTollUsdStr, stabilityFactor.toString()));
-      // Update min toll display under input (USD)
-      const minTollUSD = bigxnum2big(this.minToll, stabilityFactor.toString());
-      this.minTollDisplay.textContent = `Minimum toll: ${parseFloat(big2str(minTollUSD, 18)).toFixed(4)} USD`;
+      if (minTollUsdStr) {
+        this.minToll = EthNum.toWei(EthNum.div(minTollUsdStr, stabilityFactor.toString()));
+        // Update min toll display under input (USD)
+        const minTollUSD = bigxnum2big(this.minToll, stabilityFactor.toString());
+        this.minTollDisplay.textContent = `Minimum toll: ${parseFloat(big2str(minTollUSD, 18)).toFixed(4)} USD`;
+        
+        // Cache the minimum toll for offline use
+        localStorage.setItem('cachedMinTollUsd', minTollUsdStr);
+      } else {
+        this.minTollDisplay.textContent = `Minimum toll: error`;
+      }
     } catch (e) {
       this.minTollDisplay.textContent = `Minimum toll: error`;
       console.error('Failed to fetch minToll from network parameters:', e);
       showToast('Failed to fetch minimum toll from network.', 0, 'error');
     }
-    this.updateEquivalentLibDisplay();
   }
 
   close() {
@@ -6601,6 +6635,12 @@ class TollModal {
     const stabilityFactor = getStabilityFactor();
     let tollValueUSD = '';
     let tollValueLIB = '';
+    let offlineIndicator = '';
+
+    // Add offline indicator if we're offline
+    if (!isOnline) {
+      offlineIndicator = ' (offline)';
+    }
 
     if (tollUnit == 'LIB') {
       const libFloat = parseFloat(big2str(toll, 18));
@@ -6615,8 +6655,8 @@ class TollModal {
     const usdDisplay = parseFloat(tollValueUSD).toFixed(6);
     const libDisplay = stabilityFactor > 0 ? parseFloat(tollValueLIB).toFixed(6) : 'N/A';
 
-    // USD-only UI
-    document.getElementById('tollAmountUSD').textContent = `${usdDisplay} USD (≈ ${libDisplay} LIB)`;
+    // USD-only UI with offline indicator
+    document.getElementById('tollAmountUSD').textContent = `${usdDisplay} USD (≈ ${libDisplay} LIB)${offlineIndicator}`;
   }
 
   /**
@@ -16812,6 +16852,15 @@ async function getNetworkParams() {
     if (fetchedData !== undefined && fetchedData !== null) {
       parameters = fetchedData.account;
       getNetworkParams.timestamp = now;
+      
+      // Cache network parameters for offline use
+      if (parameters?.current?.stabilityFactorStr) {
+        localStorage.setItem('cachedStabilityFactor', parameters.current.stabilityFactorStr);
+      }
+      if (parameters?.current?.minTollUsdStr) {
+        localStorage.setItem('cachedMinTollUsd', parameters.current.minTollUsdStr);
+      }
+      
       // if network id from network.js is not the same as the parameters.current.networkId
       if (network.netid !== parameters.networkId) {
         // treat as offline
@@ -17256,7 +17305,25 @@ class LocalStorageMonitor {
 const localStorageMonitor = new LocalStorageMonitor();
 
 function getStabilityFactor() {
-  return parseFloat(parameters.current.stabilityFactorStr);
+  // Try to get from current parameters first
+  if (parameters?.current?.stabilityFactorStr) {
+    const factor = parseFloat(parameters.current.stabilityFactorStr);
+    if (!isNaN(factor) && factor > 0) {
+      return factor;
+    }
+  }
+  
+  // Fallback to localStorage if available
+  const cachedFactor = localStorage.getItem('cachedStabilityFactor');
+  if (cachedFactor) {
+    const factor = parseFloat(cachedFactor);
+    if (!isNaN(factor) && factor > 0) {
+      return factor;
+    }
+  }
+  
+  // Final fallback to default value
+  return 1.0;
 }
 
 // returns transaction fee in wei
