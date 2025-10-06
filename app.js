@@ -8630,7 +8630,7 @@ class ChatModal {
       
       this.sendReclaimTollTransaction(this.address);
     } else {
-      showToast('Offline: toll not processed', 0, 'error');
+      console.warn('Offline: toll not processed');
     }
 
     // Save any unsaved draft before closing
