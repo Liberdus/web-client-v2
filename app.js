@@ -16805,6 +16805,22 @@ async function getNetworkParams() {
     return;
   }
 
+  // If offline, try to use cached parameters
+  if (!isOnline) {
+    const cachedParams = localStorage.getItem('cachedNetworkParams');
+    if (cachedParams) {
+      try {
+        parameters = parse(cachedParams);
+        console.log('Using cached network parameters (offline)');
+        return;
+      } catch (e) {
+        console.warn('Failed to parse cached network parameters:', e);
+      }
+    }
+    console.log('No cached network parameters available (offline)');
+    return;
+  }
+
   console.log(`getNetworkParams: Data for account ${NETWORK_ACCOUNT_ID} is stale or missing. Attempting to fetch...`);
   try {
     const fetchedData = await queryNetwork(`/account/${NETWORK_ACCOUNT_ID}`);
@@ -16812,6 +16828,10 @@ async function getNetworkParams() {
     if (fetchedData !== undefined && fetchedData !== null) {
       parameters = fetchedData.account;
       getNetworkParams.timestamp = now;
+      
+      // Cache all network parameters for offline use
+      localStorage.setItem('cachedNetworkParams', stringify(parameters));
+      
       // if network id from network.js is not the same as the parameters.current.networkId
       if (network.netid !== parameters.networkId) {
         // treat as offline
