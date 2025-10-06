@@ -18,8 +18,8 @@ async function checkVersion() {
     // Only trigger offline UI if it's a network error
     if (!navigator.onLine || error instanceof TypeError) {
       isOnline = false;
-      updateUIForConnectivity();
       markConnectivityDependentElements();
+      updateUIForConnectivity();
       console.log(`DEBUG: about to invoke showToast in checkVersion`);
     }
     newVersion = myVersion; // Allow continuing with the old version
