@@ -18,7 +18,6 @@ async function checkVersion() {
     // Only trigger offline UI if it's a network error
     if (!navigator.onLine || error instanceof TypeError) {
       isOnline = false;
-      markConnectivityDependentElements();
       updateUIForConnectivity();
       console.log(`DEBUG: about to invoke showToast in checkVersion`);
     }
@@ -300,6 +299,7 @@ function clearMyData() {
 
 // Load saved account data and update chat list on page load
 document.addEventListener('DOMContentLoaded', async () => {
+  markConnectivityDependentElements();
   await checkVersion(); // version needs to be checked before anything else happens
   timeDifference(); // Calculate and log time difference early
 
