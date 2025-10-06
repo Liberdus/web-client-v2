@@ -3511,8 +3511,7 @@ async function updateAssetPricesIfNeeded() {
 async function queryNetwork(url, abortSignal = null) {
   //console.log('queryNetwork', url)
   if (!isOnline) {
-    console.warn('not online');
-    showToast('queryNetwork: not online', 0, 'error')
+    console.warn('QueryNetwork: not online');
     return null;
   }
   const selectedGateway = getGatewayForRequest();
