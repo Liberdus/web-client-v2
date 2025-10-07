@@ -5071,6 +5071,9 @@ function markConnectivityDependentElements() {
     '#validator-learn-more',
     '#submitUnstake',
 
+    //farmModal
+    '#continueToFarm',
+
     // Call schedule modals
     '#callScheduleNowBtn',
     '#openCallScheduleDateBtn',
