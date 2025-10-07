@@ -1453,9 +1453,9 @@ class MenuModal {
     this.inviteButton = document.getElementById('openInvite');
     this.inviteButton.addEventListener('click', () => inviteModal.open());
     this.explorerButton = document.getElementById('openExplorer');
-    this.explorerButton.addEventListener('click', () => {window.open('./explorer', '_blank');});
+    this.explorerButton.addEventListener('click', () => this.handleExternalClick('./explorer', 'explorer'));
     this.networkButton = document.getElementById('openMonitor');
-    this.networkButton.addEventListener('click', () => {window.open('./network', '_blank');});
+    this.networkButton.addEventListener('click', () => this.handleExternalClick('./network', 'network'));
     this.helpButton = document.getElementById('openHelp');
     this.helpButton.addEventListener('click', () => helpModal.open());
     this.aboutButton = document.getElementById('openAbout');
@@ -1494,6 +1494,14 @@ class MenuModal {
 
   isActive() {
     return this.modal.classList.contains('active');
+  }
+
+  handleExternalClick(url, pageName) {
+    if (!isOnline) {
+      showToast(`Require internet connection to access the ${pageName} page`, 0, 'warning');
+      return;
+    }
+    window.open(url, '_blank');
   }
   
   async handleSignOut() {
