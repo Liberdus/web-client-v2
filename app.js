@@ -5090,7 +5090,6 @@ function markConnectivityDependentElements() {
     '#submitFeedback',
 
     // updateWarningModal
-    '#backupFirstBtn',
     '#proceedToStoreBtn',
 
     // launchModal
