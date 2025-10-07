@@ -5159,6 +5159,10 @@ async function checkConnectivity() {
   const wasOnline = isOnline;
   isOnline = navigator.onLine;
 
+  if (netIdMismatch) {
+    isOnline = false;
+  }
+
   if (isOnline !== wasOnline) {
     // Only trigger change handler if state actually changed
     await handleConnectivityChange();
