@@ -6740,6 +6740,12 @@ class TollModal {
    * Updates the save button state and warning message based on input validation
    */
   updateSaveButtonState() {
+    // If offline, keep button disabled
+    if (!isOnline || netIdMismatch) {
+      this.saveButton.disabled = true;
+      return;
+    }
+
     const warningMessage = this.getWarningMessage();
     const isValid = !warningMessage;
 
