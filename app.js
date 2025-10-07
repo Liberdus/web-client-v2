@@ -5067,7 +5067,11 @@ function markConnectivityDependentElements() {
     // tollModal
     '#saveNewTollButton',
 
-    //unstakeModal
+    //inviteModal
+    '#inviteForm button[type="submit"]',
+
+    //validatorModal
+    '#validator-learn-more',
     '#submitUnstake',
 
     // Call schedule modals
