@@ -8078,6 +8078,11 @@ class StakeValidatorModal {
     // Disable faucet button by default
     this.faucetButton.disabled = true;
 
+    // Check 0: If offline, keep button disabled
+    if (!isOnline || netIdMismatch) {
+      return;
+    }
+
     // Check 1: Empty Fields
     if (!nodeAddress) {
       return;
