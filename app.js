@@ -6741,7 +6741,7 @@ class TollModal {
    */
   updateSaveButtonState() {
     // If offline, keep button disabled
-    if (!isOnline || netIdMismatch) {
+    if (!isOnline) {
       this.saveButton.disabled = true;
       return;
     }
