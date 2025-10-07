@@ -5062,7 +5062,8 @@ function markConnectivityDependentElements() {
     //inviteModal
     '#inviteForm button[type="submit"]',
 
-    //unstakeModal
+    //validatorModal
+    '#validator-learn-more',
     '#submitUnstake',
 
     // Call schedule modals
