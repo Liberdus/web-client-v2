@@ -5059,9 +5059,6 @@ function markConnectivityDependentElements() {
     // tollModal
     '#saveNewTollButton',
 
-    //inviteModal
-    '#inviteForm button[type="submit"]',
-
     //unstakeModal
     '#submitUnstake',
 
