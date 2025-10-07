@@ -5085,6 +5085,16 @@ function markConnectivityDependentElements() {
 
       // Add aria label for accessibility
       element.setAttribute('aria-disabled', !isOnline);
+
+      // Add click handler once that checks connectivity state
+      element.addEventListener('click', (e) => {
+        if (!isOnline || netIdMismatch) {
+          e.preventDefault();
+          e.stopPropagation();
+          showToast('Requires internet connection', 0, 'warning');
+        }
+        // Otherwise, let the default action happen
+      }, true);
     });
   });
 }
