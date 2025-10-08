@@ -2357,6 +2357,7 @@ class ContactInfoModal {
   constructor() {
     this.currentContactAddress = null;
     this.needsContactListUpdate = false; // track if we need to update the contact list
+    this.currentSnapshot = null;
   }
 
   // Initialize event listeners that only need to be set up once
@@ -2372,6 +2373,8 @@ class ContactInfoModal {
     this.nameDiv = this.avatarSection.querySelector('.name');
     this.subtitleDiv = this.avatarSection.querySelector('.subtitle');
     this.usernameDiv = document.getElementById('contactInfoUsername');
+    this.providedNameElement = document.getElementById('contactInfoProvidedName');
+    this.nameFieldElement = document.getElementById('contactInfoName');
 
     // Back button
     this.backButton.addEventListener('click', () => this.close());
@@ -2456,6 +2459,8 @@ class ContactInfoModal {
         element.textContent = value;
       }
     });
+
+    this.currentSnapshot = this.createSnapshot(displayInfo);
   }
 
   // Set up chat button functionality
@@ -2486,6 +2491,7 @@ class ContactInfoModal {
   // Close the modal
   close() {
     this.currentContactAddress = null;
+    this.currentSnapshot = null;
     this.modal.classList.remove('active');
 
     // If we made changes that affect the contact list, update it
@@ -2501,6 +2507,54 @@ class ContactInfoModal {
    */
   isActive() {
     return this.modal?.classList.contains('active') || false;
+  }
+
+  createSnapshot(displayInfo) {
+    const providedNameText = this.providedNameElement?.textContent?.trim() || '';
+    const normalizedProvidedName = providedNameText === 'Not provided' ? '' : providedNameText;
+    const originalNameTextRaw = this.nameFieldElement?.textContent?.trim() || '';
+    const normalizedOriginalName = originalNameTextRaw === 'Not Entered' ? '' : originalNameTextRaw;
+    return {
+      address: displayInfo.address,
+      displayName: this.nameDiv?.textContent || '',
+      subtitle: this.subtitleDiv?.textContent || '',
+      providedName: normalizedProvidedName,
+      originalName: normalizedOriginalName,
+      username: this.usernameDiv?.textContent || ''
+    };
+  }
+
+  getCurrentSnapshot() {
+    if (!this.currentSnapshot) {
+      return null;
+    }
+    return { ...this.currentSnapshot };
+  }
+
+  getCurrentContactAddress() {
+    return this.currentContactAddress || null;
+  }
+
+  applyNameUpdate(address, newName) {
+    const contact = myData?.contacts?.[address];
+    if (!contact) {
+      return null;
+    }
+
+    contact.name = newName;
+    this.needsContactListUpdate = true;
+    const isCurrentContact = this.currentContactAddress === address;
+
+    if (isCurrentContact) {
+      const displayInfo = createDisplayInfo(contact);
+      if (this.isActive()) {
+        this.updateContactInfo(displayInfo);
+      } else {
+        this.currentSnapshot = this.createSnapshot(displayInfo);
+      }
+    }
+
+    return contact;
   }
 }
 
@@ -2723,6 +2777,8 @@ const friendModal = new FriendModal();
 class EditContactModal {
   constructor() {
     this.currentContactAddress = null;
+    this.cachedProvidedName = '';
+    this.originalNameValue = '';
   }
 
   load() {
@@ -2730,7 +2786,12 @@ class EditContactModal {
     this.nameInput = document.getElementById('editContactNameInput');
     this.nameActionButton = this.nameInput.parentElement.querySelector('.field-action-button');
     this.providedNameContainer = document.getElementById('editContactProvidedNameContainer');
+    this.providedNameValueElement = this.providedNameContainer.querySelector('.contact-info-value');
     this.backButton = document.getElementById('closeEditContactModal');
+    this.avatarSection = this.modal.querySelector('.contact-avatar-section');
+    this.avatarDiv = this.avatarSection.querySelector('.avatar');
+    this.nameDiv = this.avatarSection.querySelector('.name');
+    this.subtitleDiv = this.avatarSection.querySelector('.subtitle');
 
     // Setup event listeners
     this.nameInput.addEventListener('input', (e) => this.handleNameInput(e));
@@ -2742,46 +2803,35 @@ class EditContactModal {
   }
 
   open() {
-    // Get the avatar section elements
-    const avatarSection = document.querySelector('#editContactModal .contact-avatar-section');
-    const avatarDiv = avatarSection.querySelector('.avatar');
-    const nameDiv = avatarSection.querySelector('.name');
-    const subtitleDiv = avatarSection.querySelector('.subtitle');
-    const identicon = document.getElementById('contactInfoAvatar').innerHTML;
+    const snapshot = contactInfoModal.getCurrentSnapshot();
+    if (!snapshot) {
+      console.error('No contact info snapshot available');
+      return;
+    }
 
-    // Update the avatar section
-    avatarDiv.innerHTML = identicon;
-    // update the name and subtitle
-    nameDiv.textContent = contactInfoModal.usernameDiv.textContent;
-    subtitleDiv.textContent = contactInfoModal.subtitleDiv.textContent;
+    // Refresh avatar, display name, and subtitle from snapshot
+    this.avatarDiv.innerHTML = generateIdenticon(snapshot.address, 96);
+    this.nameDiv.textContent = snapshot.displayName;
+    this.subtitleDiv.textContent = snapshot.subtitle;
 
-    // update the provided name
-    const providedNameDiv = this.providedNameContainer.querySelector('.contact-info-value');
-
-    // if the textContent is 'Not provided', set it to an empty string
-    const providedName = document.getElementById('contactInfoProvidedName').textContent;
-    if (providedName === 'Not provided' || !providedName || providedName.trim() === '') {
-      this.providedNameContainer.style.display = 'none';
-    } else {
-      providedNameDiv.textContent = providedName;
+    // Update the provided name block if available
+    this.cachedProvidedName = snapshot.providedName || '';
+    if (this.cachedProvidedName) {
+      this.providedNameValueElement.textContent = this.cachedProvidedName;
       this.providedNameContainer.style.display = 'block';
+    } else {
+      this.providedNameValueElement.textContent = '';
+      this.providedNameContainer.style.display = 'none';
     }
 
-    // Get the original name from the contact info display
-    const contactNameDisplay = document.getElementById('contactInfoName');
-    let originalName = contactNameDisplay.textContent;
-    if (originalName === 'Not Entered') {
-      originalName = '';
-    }
+    this.originalNameValue = snapshot.originalName || '';
+    this.nameInput.value = this.originalNameValue;
 
-    // Set up the input field with the original name
-    this.nameInput.value = originalName;
+    // initialize button state based on current name
+    this.setActionButtonMode(this.originalNameValue ? 'clear' : 'add');
 
-    // field-action-button should be clear
-    this.nameActionButton.className = 'field-action-button clear';
-
-    // Get the current contact info from the contact info modal
-    this.currentContactAddress = contactInfoModal.currentContactAddress;
+    // Sync the current contact address against the source modal
+    this.currentContactAddress = contactInfoModal.getCurrentContactAddress();
     if (!this.currentContactAddress || !myData.contacts[this.currentContactAddress]) {
       console.error('No current contact found');
       return;
@@ -2808,13 +2858,17 @@ class EditContactModal {
   close() {
     this.modal.classList.remove('active');
     this.currentContactAddress = null;
+    this.cachedProvidedName = '';
+    this.originalNameValue = '';
   }
 
   handleProvidedNameClick() {
-    const providedNameValue = this.providedNameContainer.querySelector('.contact-info-value').textContent;
-    
+    if (!this.cachedProvidedName) {
+      return;
+    }
+
     // Fill the input with the provided name
-    this.nameInput.value = providedNameValue;
+    this.nameInput.value = this.cachedProvidedName;
     
     // Focus on the input and set cursor to end
     this.nameInput.focus();
@@ -2829,27 +2883,26 @@ class EditContactModal {
     const normalizedName = normalizeName(this.nameInput.value);
     this.nameInput.value = normalizedName;
 
-    // if already 'add' class, return early
-    if (this.nameActionButton.classList.contains('add')) {
-      return;
-    }
-
-    this.nameActionButton.className = 'field-action-button add';
-    this.nameActionButton.setAttribute('aria-label', 'Save');
+    this.setActionButtonMode('add');
   }
 
   handleNameBlur() {
     // normalize the input using normalizeName
     const normalizedName = normalizeName(this.nameInput.value, true);
     this.nameInput.value = normalizedName;
+    if (!normalizedName) {
+      this.setActionButtonMode('add');
+    }
   }
 
   handleNameButton() {
     if (this.nameActionButton.classList.contains('clear')) {
+      const hadValue = Boolean(this.nameInput.value);
       this.nameInput.value = '';
-      // Always show save button after clearing
-      this.nameActionButton.className = 'field-action-button add';
-      this.nameActionButton.setAttribute('aria-label', 'Save');
+      this.nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+      if (hadValue) {
+        this.handleSave({ closeModal: false });
+      }
       this.nameInput.focus();
     } else {
       this.handleSave();
@@ -2863,29 +2916,36 @@ class EditContactModal {
     }
   }
 
-  handleSave() {
+  handleSave(options = {}) {
+    const { closeModal = true } = options;
     // Save changes - if input is empty/spaces, it will become undefined
     const newName = this.nameInput.value.trim() || null;
-    const contact = myData.contacts[this.currentContactAddress];
+    const address = contactInfoModal.getCurrentContactAddress() || this.currentContactAddress;
+    if (!address) {
+      console.error('No contact address available for save');
+      return;
+    }
+    this.currentContactAddress = address;
+
+    const contact = contactInfoModal.applyNameUpdate(address, newName);
     if (contact) {
-      contact.name = newName;
-      contactInfoModal.needsContactListUpdate = true;
+      chatModal.handleContactNameUpdate(contact);
     }
 
-    // update title if chatModal is open and if contact.name is '' fallback to contact.username
-    if (chatModal.isActive() && chatModal.address === this.currentContactAddress) {
-      chatModal.modalTitle.textContent = getContactDisplayName(contact);
-    }
+    this.originalNameValue = newName || '';
+    this.setActionButtonMode(this.originalNameValue ? 'clear' : 'add');
 
-    // Safely update the contact info modal if it exists and is open
-    if (contactInfoModal.currentContactAddress) {
-      if (contactInfoModal.isActive()) {
-        contactInfoModal.updateContactInfo(createDisplayInfo(myData.contacts[this.currentContactAddress]));
-      }
+    if (closeModal) {
+      // Safely close the edit modal
+      this.close();
     }
+  }
 
-    // Safely close the edit modal
-    this.close();
+  setActionButtonMode(mode) {
+    const targetClass = mode === 'clear' ? 'clear' : 'add';
+    const ariaLabel = mode === 'clear' ? 'Clear' : 'Save';
+    this.nameActionButton.className = `field-action-button ${targetClass}`;
+    this.nameActionButton.setAttribute('aria-label', ariaLabel);
   }
 }
 
@@ -8653,6 +8713,16 @@ class ChatModal {
    */
   isActive() {
     return this.modal?.classList.contains('active') || false;
+  }
+
+  handleContactNameUpdate(contact) {
+    if (!contact) {
+      return;
+    }
+    if (!this.isActive() || this.address !== contact.address) {
+      return;
+    }
+    this.modalTitle.textContent = getContactDisplayName(contact);
   }
 
   /**
