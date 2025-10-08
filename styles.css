@@ -3293,22 +3293,6 @@ mark {
   border-radius: inherit; /* Match the target element's radius (works for circles and rectangles) */
 }
 
-.offline-disabled:hover::after {
-  content: 'Requires internet connection';
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.8); /* keep literal for high contrast overlay */
-  color: white;
-  padding: 8px 12px;
-  border-radius: 28px;
-  font-size: 12px;
-  white-space: nowrap;
-  /* z-index: 1000; */
-  pointer-events: none;
-}
-
 /* Add friend icon button in chat modal */
 .icon-button.add-friend-icon {
   color: var(--success-color);

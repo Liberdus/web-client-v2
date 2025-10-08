@@ -5064,8 +5064,6 @@ function markConnectivityDependentElements() {
     // tollModal
     '#saveNewTollButton',
 
-    //inviteModal
-    '#inviteForm button[type="submit"]',
 
     //validatorModal
     '#validator-learn-more',
