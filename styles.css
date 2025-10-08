@@ -5238,11 +5238,25 @@ small {
 /* Voice message controls container */
 .voice-message-controls {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+.voice-message-top-row {
+  display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 0; /* Allow shrinking */
-  width: 100%; /* Take full width of parent */
-  overflow: hidden; /* Prevent overflow */
+  width: 100%;
+}
+
+.voice-message-bottom-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
 }
 
 .voice-message-play-button {
@@ -5272,6 +5286,47 @@ small {
   width: 16px;
   height: 16px;
   fill: white;
+}
+
+.voice-message-speed-button {
+  width: 30px;
+  height: 30px;
+  background: var(--primary-color);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+}
+
+.voice-message-speed-button.active {
+  background: var(--primary-color);
+  border: 2px solid var(--border-color);
+}
+
+.message.sent .voice-message-speed-button {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.message.sent .voice-message-speed-button.active {
+  border-color: var(--accent-bright-blue);
+  background: white;
+  color: var(--primary-color);
+}
+
+.message.received .voice-message-speed-button:hover {
+  background: var(--accent-bright-blue);
+}
+
+.message.received .voice-message-speed-button.active {
+  border-color: var(--accent-bright-blue);
+  background: white;
+  color: var(--primary-color);
 }
 
 .call-message {
@@ -5355,40 +5410,10 @@ small {
   border: 0;
 }
 
-.voice-message-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  min-width: 0;
-  overflow: hidden; /* Prevent content from overflowing */
-  width: 100%; /* Take full available width */
-  max-width: 100%; /* Don't exceed parent width */
-}
-
-/* Voice message header row - make it wrap on small screens */
-.voice-message-info > div:first-child {
-  flex-wrap: wrap !important; /* Override inline style */
-  gap: 8px !important; /* Reduce gap when wrapping */
-  min-width: 0;
-  overflow: hidden;
-  width: 100%;
-}
-
 .voice-message-text {
   color: var(--text-color);
-  margin-bottom: 4px;
-  flex: 1 1 auto; /* Allow text to grow and shrink */
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.voice-message-info > div:first-child .voice-message-time-display {
-  flex: 0 0 auto; /* Don't grow or shrink */
-  margin-top: 0; /* Remove top margin when on same line */
+  font-weight: 500;
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5398,6 +5423,12 @@ small {
 /* Make duration text white on sent messages */
 .message.sent .voice-message-text {
   color: white;
+}
+
+.voice-message-seek {
+  flex: 1;
+  cursor: pointer;
+  min-width: 0;
 }
 
 .voice-message-time-display {

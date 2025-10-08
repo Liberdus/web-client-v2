@@ -8531,6 +8531,15 @@ class ChatModal {
       }
     });
 
+    // Voice message speed button event delegation
+    this.messagesList.addEventListener('click', (e) => {
+      const speedButton = e.target.closest('.voice-message-speed-button');
+      if (speedButton) {
+        e.preventDefault();
+        this.togglePlaybackSpeed(speedButton);
+      }
+    });
+
 
     // Make toll info clickable: show sticky info toast and refresh toll in background
     const tollContainer = this.modal.querySelector('.toll-container');
@@ -9472,18 +9481,19 @@ console.warn('in send message', txid)
             const audioSelfKey = item.audioSelfKey || item.selfKey || '';
             messageTextHTML = `
               <div class="voice-message" data-voice-url="${item.url || ''}" data-pqEncSharedKey="${audioEncKey}" data-selfKey="${audioSelfKey}" data-msg-idx="${i}" data-duration="${item.duration || 0}">
-                <div class="voice-message-controls" style="display:flex;align-items:center;gap:10px;">
-                  <button class="voice-message-play-button" aria-label="Play voice message" style="flex:0 0 auto;">
-                    <svg viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z"/>
-                    </svg>
-                  </button>
-                  <div class="voice-message-info" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-                      <div class="voice-message-text" style="font-weight:500;">Voice message</div>
-                      <div class="voice-message-time-display" style="font-size:0.85em;white-space:nowrap;">0:00 / ${duration}</div>
-                    </div>
-                    <input type="range" class="voice-message-seek" min="0" max="${item.duration || 0}" value="0" step="1" aria-label="Seek voice message" style="width:100%;cursor:pointer;">
+                <div class="voice-message-controls">
+                  <div class="voice-message-top-row">
+                    <button class="voice-message-play-button" aria-label="Play voice message">
+                      <svg viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </button>
+                    <div class="voice-message-text">Voice message</div>
+                    <div class="voice-message-time-display">0:00 / ${duration}</div>
+                  </div>
+                  <div class="voice-message-bottom-row">
+                    <input type="range" class="voice-message-seek" min="0" max="${item.duration || 0}" value="0" step="1" aria-label="Seek voice message">
+                    <button class="voice-message-speed-button" aria-label="Toggle playback speed" data-speed="1">1x</button>
                   </div>
                 </div>
               </div>`;
@@ -10125,6 +10135,7 @@ console.warn('in send message', txid)
   handleMessageClick(e) {
     if (e.target.closest('.attachment-row')) return;
     if (e.target.closest('.voice-message-play-button')) return;
+    if (e.target.closest('.voice-message-speed-button')) return;
     if (e.target.closest('.voice-message-seek')) return;
 
     // Check if keyboard is open - if so, don't show context menu
@@ -11208,6 +11219,13 @@ console.warn('in send message', txid)
       // Store audio element reference for pause/resume functionality
       voiceMessageElement.audioElement = audio;
       voiceMessageElement.audioUrl = audioUrl;
+      
+      // Set initial playback speed based on button state
+      const speedButton = voiceMessageElement.querySelector('.voice-message-speed-button');
+      if (speedButton) {
+        const speed = parseFloat(speedButton.dataset.speed || '1');
+        audio.playbackRate = speed;
+      }
       const seekEl = voiceMessageElement.querySelector('.voice-message-seek');
       const timeDisplayElement = voiceMessageElement.querySelector('.voice-message-time-display');
       const totalDurationSeconds = message.duration || Math.floor(audio.duration) || 0;
@@ -11335,6 +11353,35 @@ console.warn('in send message', txid)
       console.error('Error playing voice message:', error);
       showToast(`Error playing voice message: ${error.message}`, 0, 'error');
       buttonElement.disabled = false;
+    }
+  }
+
+  /**
+   * Toggle playback speed between 1x and 2x
+   * @param {HTMLElement} speedButton - Speed button element
+   * @returns {void}
+   */
+  togglePlaybackSpeed(speedButton) {
+    const voiceMessageElement = speedButton.closest('.voice-message');
+    if (!voiceMessageElement) return;
+
+    const currentSpeed = parseFloat(speedButton.dataset.speed || '1');
+    const newSpeed = currentSpeed === 1 ? 2 : 1;
+    
+    speedButton.dataset.speed = newSpeed.toString();
+    speedButton.textContent = `${newSpeed}x`;
+    
+    // Update button appearance
+    if (newSpeed === 2) {
+      speedButton.classList.add('active');
+    } else {
+      speedButton.classList.remove('active');
+    }
+    
+    // Update audio playback speed if audio is playing
+    const audio = voiceMessageElement.audioElement;
+    if (audio) {
+      audio.playbackRate = newSpeed;
     }
   }
 
