@@ -10180,7 +10180,8 @@ console.warn('in send message', txid)
     const isMine = messageEl.classList.contains('sent');
     const deleteForAllOption = this.contextMenu.querySelector('[data-action="delete-for-all"]');
     if (deleteForAllOption) {
-      deleteForAllOption.style.display = isMine ? 'flex' : 'none';
+      const canDeleteForAll = isMine && myData.contacts[this.address]?.tollRequiredToSend == 0;
+      deleteForAllOption.style.display = canDeleteForAll ? 'flex' : 'none';
     }
 
     // If this is a call message, show call-specific options and hide copy
