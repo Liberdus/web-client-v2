@@ -11239,16 +11239,23 @@ console.warn('in send message', txid)
       }
       const seekEl = voiceMessageElement.querySelector('.voice-message-seek');
       const timeDisplayElement = voiceMessageElement.querySelector('.voice-message-time-display');
-      const totalDurationSeconds = message.duration || Math.floor(audio.duration) || 0;
+      // Prefer message.duration when finite; avoid Infinity/NaN
+      const totalDurationSeconds = (Number.isFinite(message.duration) && message.duration > 0)
+        ? Math.floor(message.duration)
+        : 0; // will refine after metadata
       if (seekEl) {
-        // Ensure max reflects known duration; fall back to audio.metadata once loaded
-        seekEl.max = totalDurationSeconds;
+        // Clamp to a finite value to avoid Infinity in DOM
+        seekEl.max = totalDurationSeconds || 0;
       }
       // If user set a seek position before playback, honor it after metadata loads
       audio.addEventListener('loadedmetadata', () => {
-        const metaDuration = Math.floor(audio.duration) || totalDurationSeconds;
+        // Use audio.duration if it's a finite, positive number
+        const metaDuration = (Number.isFinite(audio.duration) && audio.duration > 0)
+          ? Math.floor(audio.duration)
+          : totalDurationSeconds;
         if (seekEl) {
-          seekEl.max = metaDuration;
+          // Clamp again to ensure DOM never shows Infinity
+          seekEl.max = metaDuration || 0;
           const preVal = Number(seekEl.value || 0);
           if (preVal > 0 && preVal < metaDuration) {
             try { audio.currentTime = preVal; } catch (e) { /* ignore */ }
