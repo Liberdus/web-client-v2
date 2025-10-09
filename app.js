@@ -10232,6 +10232,14 @@ console.warn('in send message', txid)
       }
     }
     
+    // Hide copy and edit for attachment/payment without text content
+    const hasTextContent = messageEl.querySelector('.message-content')?.textContent.trim() || 
+                           messageEl.querySelector('.payment-memo')?.textContent.trim();
+    if ((messageEl.querySelector('.attachment-row') || messageEl.classList.contains('payment-info')) && !hasTextContent) {
+      if (copyOption) copyOption.style.display = 'none';
+      if (editOption) editOption.style.display = 'none';
+    }
+    
     this.positionContextMenu(this.contextMenu, messageEl);
     this.contextMenu.style.display = 'block';
   }
