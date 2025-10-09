@@ -10152,6 +10152,8 @@ console.warn('in send message', txid)
 
     if (messageEl.classList.contains('deleted-message')) return;
 
+    if (messageEl.querySelector('.voice-message')) return;
+
     if (messageEl.dataset.status === 'failed') {
       const isPayment = messageEl.classList.contains('payment-info');
       if (isPayment) {
