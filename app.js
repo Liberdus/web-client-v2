@@ -1107,7 +1107,7 @@ class ChatsScreen {
         }
 
         // Use the determined latest timestamp for display
-        const timeDisplay = formatTime(latestItemTimestamp);
+        const timeDisplay = formatTime(latestItemTimestamp, false);
 
         // Create the list item element
         const li = document.createElement('li');

@@ -185,12 +185,19 @@ export function generateIdenticon(address, size = 50) {
 }
 
 // Format timestamp to relative time
-export function formatTime(timestamp) {
+export function formatTime(timestamp, includeTimeForOld = true) {
     if (!timestamp || timestamp == 0){ return ''}
     const date = new Date(timestamp);
     const now = new Date();
     const diff = now - date;
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+    // Format time for display
+    const formattedTime = date.toLocaleTimeString([], {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+    });
 
     if (days > 7) {
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -198,19 +205,15 @@ export function formatTime(timestamp) {
         const day = date.getDate();
         const year = date.getFullYear();
         const currentYear = now.getFullYear();
-
-        return currentYear === year ?
-            `${month} ${day}` :
-            `${month} ${day} ${year}`;
+        
+        const dateStr = currentYear === year ? `${month} ${day}` : `${month} ${day} ${year}`;
+        return includeTimeForOld ? `${dateStr}, ${formattedTime}` : dateStr;
     } else if (days > 0) {
-        return days === 1 ? 'Yesterday' : `${days} days ago`;
+        const relativeDay = days === 1 ? 'Yesterday' : `${days} days ago`;
+        return includeTimeForOld ? `${relativeDay}, ${formattedTime}` : relativeDay;
     } else {
-        // Use hour12: true to get 12-hour format and remove leading zeros
-        return date.toLocaleTimeString([], {
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
+        // Messages less than 24 hours old: always show time
+        return formattedTime;
     }
 }
 
