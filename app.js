@@ -8422,6 +8422,16 @@ class ChatModal {
       this.debouncedSaveDraft(e.target.value);
     });
 
+    // allow ctlr+enter or cmd+enter to send message
+    this.messageInput.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (!this.sendButton.disabled) {
+          this.handleSendMessage();
+        }
+      }
+    });
+
     // Add viewport resize listener for keyboard detection
     window.addEventListener('resize', () => {
       const currentHeight = window.innerHeight;
