@@ -10212,6 +10212,8 @@ console.warn('in send message', txid)
       if (editOption) editOption.style.display = 'none';
     } else if (isVoice) {
       if (copyOption) copyOption.style.display = 'none';
+      if (inviteOption) inviteOption.style.display = 'none';
+      if (joinOption) joinOption.style.display = 'none';
     } else {
       if (copyOption) copyOption.style.display = 'flex';
       if (joinOption) joinOption.style.display = 'none';
