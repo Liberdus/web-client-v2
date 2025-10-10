@@ -11377,13 +11377,17 @@ console.warn('in send message', txid)
     if (!voiceMessageElement) return;
 
     const currentSpeed = parseFloat(speedButton.dataset.speed || '1');
-    const newSpeed = currentSpeed === 1 ? 2 : 1;
+    const speedOptions = [1, 1.5, 2];
+    const currentIndex = speedOptions.indexOf(currentSpeed);
+    const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % speedOptions.length;
+    const newSpeed = speedOptions[nextIndex];
     
     speedButton.dataset.speed = newSpeed.toString();
-    speedButton.textContent = `${newSpeed}x`;
+    const displaySpeed = Number.isInteger(newSpeed) ? newSpeed.toString() : newSpeed.toFixed(1);
+    speedButton.textContent = `${displaySpeed}x`;
     
     // Update button appearance
-    if (newSpeed === 2) {
+    if (newSpeed > 1) {
       speedButton.classList.add('active');
     } else {
       speedButton.classList.remove('active');
