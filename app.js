@@ -8634,6 +8634,70 @@ class ChatModal {
     };
 
   /**
+   * Set voice message button icon (play or pause)
+   * @param {HTMLElement} voiceMessageElement - Voice message element
+   * @param {boolean} isPlaying - True for pause icon, false for play icon
+   */
+  setVoiceMessageButton(voiceMessageElement, isPlaying) {
+    const button = voiceMessageElement?.querySelector('.voice-message-play-button');
+    if (!button) return;
+    button.disabled = false;
+    button.innerHTML = isPlaying 
+      ? '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>'
+      : '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+  }
+
+  /**
+   * Reset voice message UI to initial state
+   */
+  resetVoiceMessageUI(voiceMessageElement) {
+    if (!voiceMessageElement) return;
+    this.setVoiceMessageButton(voiceMessageElement, false);
+    const seekEl = voiceMessageElement.querySelector('.voice-message-seek');
+    const timeDisplay = voiceMessageElement.querySelector('.voice-message-time-display');
+    if (seekEl) seekEl.value = 0;
+    if (timeDisplay && voiceMessageElement.dataset.duration) {
+      const duration = this.formatDuration(Number(voiceMessageElement.dataset.duration) || 0);
+      timeDisplay.textContent = `0:00 / ${duration}`;
+    }
+  }
+
+  /**
+   * Clean up voice message audio resources
+   */
+  cleanupVoiceMessageResources(voiceMessageElement) {
+    if (!voiceMessageElement) return;
+    if (voiceMessageElement.audioUrl) URL.revokeObjectURL(voiceMessageElement.audioUrl);
+    delete voiceMessageElement.audioElement;
+    delete voiceMessageElement.audioUrl;
+    delete voiceMessageElement.pendingSeekTime;
+    delete voiceMessageElement.isScrubbing;
+    delete voiceMessageElement.seekSetup;
+  }
+
+  /**
+   * Pause voice message without cleanup (keeps audio cached for quick resume)
+   */
+  pauseVoiceMessage(voiceMessageElement) {
+    if (!voiceMessageElement) return;
+    const audio = voiceMessageElement.audioElement;
+    if (audio && !audio.paused) {
+      audio.pause();
+      this.setVoiceMessageButton(voiceMessageElement, false);
+    }
+  }
+
+  /**
+   * Stop and cleanup a voice message (frees all resources)
+   */
+  stopVoiceMessage(voiceMessageElement) {
+    if (!voiceMessageElement) return;
+    if (voiceMessageElement.audioElement) voiceMessageElement.audioElement.pause();
+    this.resetVoiceMessageUI(voiceMessageElement);
+    this.cleanupVoiceMessageResources(voiceMessageElement);
+  }
+
+  /**
    * Opens the chat modal for the given address.
    * @param {string} address - The address of the contact to open the chat modal for.
    * @returns {Promise<void>}
@@ -8673,6 +8737,12 @@ class ChatModal {
     this.sendMoneyButton.dataset.username = contact.username || address;
 
     this.modalAvatar.innerHTML = generateIdenticon(contact.address, 40);
+
+    // Stop and cleanup all voice messages from previous conversation
+    const oldVoiceMessages = this.messagesList?.querySelectorAll('.voice-message');
+    if (oldVoiceMessages) {
+      oldVoiceMessages.forEach(vm => this.stopVoiceMessage(vm));
+    }
 
     // Clear previous messages from the UI
     this.messagesList.innerHTML = '';
@@ -8759,6 +8829,12 @@ class ChatModal {
 
     // Cancel all ongoing file operations
     this.cancelAllOperations();
+
+    // Stop all playing voice messages
+    const playingVoiceMessages = this.messagesList?.querySelectorAll('.voice-message');
+    if (playingVoiceMessages) {
+      playingVoiceMessages.forEach(vm => this.stopVoiceMessage(vm));
+    }
 
     // clear file attachments
     this.fileAttachments = [];
@@ -11221,6 +11297,16 @@ console.warn('in send message', txid)
     const voiceMessageElement = buttonElement.closest('.voice-message');
     if (!voiceMessageElement) return;
 
+    // Pause all other playing voice messages (keeps audio cached for quick resume)
+    const allVoiceMessages = this.messagesList?.querySelectorAll('.voice-message');
+    if (allVoiceMessages) {
+      allVoiceMessages.forEach(vm => {
+        if (vm !== voiceMessageElement) {
+          this.pauseVoiceMessage(vm);
+        }
+      });
+    }
+
     // Check if audio is already playing/paused
     const existingAudio = voiceMessageElement.audioElement;
     
@@ -11235,19 +11321,11 @@ console.warn('in send message', txid)
           }
         }
         existingAudio.play();
-        buttonElement.innerHTML = `
-          <svg viewBox="0 0 24 24">
-            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-          </svg>
-        `;
+        this.setVoiceMessageButton(voiceMessageElement, true);
       } else {
         // Pause playback
         existingAudio.pause();
-        buttonElement.innerHTML = `
-          <svg viewBox="0 0 24 24">
-            <path d="M8 5v14l11-7z"/>
-          </svg>
-        `;
+        this.setVoiceMessageButton(voiceMessageElement, false);
       }
       return;
     }
@@ -11339,12 +11417,7 @@ console.warn('in send message', txid)
       }, { once: true });
       
       // Update UI to show playing state and enable button for pause functionality
-      buttonElement.innerHTML = `
-        <svg viewBox="0 0 24 24">
-          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-        </svg>
-      `;
-      buttonElement.disabled = false; // Enable button for pause functionality
+      this.setVoiceMessageButton(voiceMessageElement, true);
       
       // Time & progress tracking
       audio.ontimeupdate = () => {
@@ -11396,36 +11469,15 @@ console.warn('in send message', txid)
       }
       
       audio.onended = () => {
-        // Reset UI
-        buttonElement.innerHTML = `
-          <svg viewBox="0 0 24 24">
-            <path d="M8 5v14l11-7z"/>
-          </svg>
-        `;
-        buttonElement.disabled = false;
-        if (timeDisplayElement) {
-          // Get the original duration from the voice message data
-          const originalDuration = this.formatDuration(totalDurationSeconds);
-          timeDisplayElement.textContent = `0:00 / ${originalDuration}`;
-        }
-        if (seekEl) seekEl.value = 0;
-        // Clean up audio element and URL
-        delete voiceMessageElement.audioElement;
-        URL.revokeObjectURL(voiceMessageElement.audioUrl);
-        delete voiceMessageElement.audioUrl;
+        this.resetVoiceMessageUI(voiceMessageElement);
+        this.cleanupVoiceMessageResources(voiceMessageElement);
       };
       
       audio.onerror = (error) => {
         console.error('Error playing voice message:', error);
         showToast('Error playing voice message', 0, 'error');
-        buttonElement.disabled = false;
-        if (seekEl) seekEl.value = 0;
-        // Clean up on error
-        delete voiceMessageElement.audioElement;
-        if (voiceMessageElement.audioUrl) {
-          URL.revokeObjectURL(voiceMessageElement.audioUrl);
-          delete voiceMessageElement.audioUrl;
-        }
+        this.resetVoiceMessageUI(voiceMessageElement);
+        this.cleanupVoiceMessageResources(voiceMessageElement);
       };
       
       // Start playing
