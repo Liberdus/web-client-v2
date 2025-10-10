@@ -8617,19 +8617,19 @@ class ChatModal {
     updateVmTimeFromSeek (seekEl) {
       const voiceMessageElement = seekEl.closest('.voice-message');
       if (!voiceMessageElement) return;
-    
+
       const timeDisplayElement = voiceMessageElement.querySelector('.voice-message-time-display');
 
       const newTime = Number(seekEl.value || 0);
 
       const totalSeconds = Math.floor(Number(seekEl.max) || Number(voiceMessageElement.dataset.duration) || 0);
-
+      // updates the on-screen "current / total" label
       if (timeDisplayElement) {
         const currentTime = this.formatDuration(newTime);
         const totalTime = this.formatDuration(totalSeconds);
         timeDisplayElement.textContent = `${currentTime} / ${totalTime}`;
       }
-
+      // ensures playback starts at the chosen position when audio is ready
       voiceMessageElement.pendingSeekTime = newTime;
     };
 
