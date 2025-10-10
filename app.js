@@ -8588,6 +8588,48 @@ class ChatModal {
       }
     });
 
+    // Voice message seek slider live time display (works even before playback)
+    const updateVmTimeFromSeek = (seekEl) => {
+      const voiceMessageElement = seekEl.closest('.voice-message');
+      if (!voiceMessageElement) return;
+    
+      const timeDisplayElement = voiceMessageElement.querySelector('.voice-message-time-display');
+    
+      // 1) Current position the user selected (seconds)
+      const newTime = Number(seekEl.value || 0);
+    
+      // 2) Total duration (seconds)
+      //    Prefer the slider's max (finite), else fallback to the element's data-duration
+      const maxAttr = Number(seekEl.max);
+      const totalSeconds = Number.isFinite(maxAttr) && maxAttr > 0
+        ? Math.floor(maxAttr)
+        : ((Number.isFinite(Number(voiceMessageElement.dataset.duration)) && Number(voiceMessageElement.dataset.duration) > 0)
+            ? Math.floor(Number(voiceMessageElement.dataset.duration))
+            : 0);
+    
+      // 3) Update the on-screen "current / total" label
+      if (timeDisplayElement) {
+        const currentTime = this.formatDuration(newTime);
+        const totalTime = this.formatDuration(totalSeconds);
+        timeDisplayElement.textContent = `${currentTime} / ${totalTime}`;
+      }
+    
+      // 4) Remember the chosen position so playback starts there when audio is ready
+      voiceMessageElement.pendingSeekTime = newTime;
+    };
+
+    // live updates while dragging the slider thumb
+    this.messagesList.addEventListener('input', (e) => {
+      const seekEl = e.target.closest('.voice-message-seek');
+      if (seekEl) updateVmTimeFromSeek(seekEl);
+    });
+
+    // ensures click-to-seek updates on mouse/touch release
+    this.messagesList.addEventListener('change', (e) => {
+      const seekEl = e.target.closest('.voice-message-seek');
+      if (seekEl) updateVmTimeFromSeek(seekEl);
+    });
+
 
     // Make toll info clickable: show sticky info toast and refresh toll in background
     const tollContainer = this.modal.querySelector('.toll-container');
