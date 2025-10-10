@@ -8667,7 +8667,17 @@ class ChatModal {
    */
   cleanupVoiceMessageResources(voiceMessageElement) {
     if (!voiceMessageElement) return;
+    // Revoke blob URL to prevent memory leak (critical - blobs aren't auto-cleaned)
     if (voiceMessageElement.audioUrl) URL.revokeObjectURL(voiceMessageElement.audioUrl);
+    
+    // Remove event listeners from seekEl by cloning (removes all listeners at once)
+    const seekEl = voiceMessageElement.querySelector('.voice-message-seek');
+    if (seekEl && voiceMessageElement.seekSetup) {
+      const newSeekEl = seekEl.cloneNode(true);
+      seekEl.parentNode?.replaceChild(newSeekEl, seekEl);
+    }
+    
+    // Delete references to help GC
     delete voiceMessageElement.audioElement;
     delete voiceMessageElement.audioUrl;
     delete voiceMessageElement.pendingSeekTime;
