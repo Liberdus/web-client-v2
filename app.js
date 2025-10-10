@@ -8619,18 +8619,17 @@ class ChatModal {
       if (!voiceMessageElement) return;
     
       const timeDisplayElement = voiceMessageElement.querySelector('.voice-message-time-display');
-    
-      // 1) Current position the user selected (seconds)
+
       const newTime = Number(seekEl.value || 0);
-      // 2) Total duration (seconds): prefer slider max, else data-duration, else 0
+
       const totalSeconds = Math.floor(Number(seekEl.max) || Number(voiceMessageElement.dataset.duration) || 0);
-      // 3) Update the on-screen "current / total" label
+
       if (timeDisplayElement) {
         const currentTime = this.formatDuration(newTime);
         const totalTime = this.formatDuration(totalSeconds);
         timeDisplayElement.textContent = `${currentTime} / ${totalTime}`;
       }
-      // 4) Remember the chosen position so playback starts there when audio is ready
+
       voiceMessageElement.pendingSeekTime = newTime;
     };
 
