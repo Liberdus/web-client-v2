@@ -8588,8 +8588,33 @@ class ChatModal {
       }
     });
 
+    // live updates while dragging the slider thumb
+    this.messagesList.addEventListener('input', (e) => {
+      const seekEl = e.target.closest('.voice-message-seek');
+      if (seekEl) this.updateVmTimeFromSeek(seekEl);
+    });
+
+    // ensures click-to-seek updates on mouse/touch release
+    this.messagesList.addEventListener('change', (e) => {
+      const seekEl = e.target.closest('.voice-message-seek');
+      if (seekEl) this.updateVmTimeFromSeek(seekEl);
+    });
+
+
+    // Make toll info clickable: show sticky info toast and refresh toll in background
+    const tollContainer = this.modal.querySelector('.toll-container');
+    if (tollContainer) {
+      tollContainer.style.cursor = 'pointer';
+      tollContainer.addEventListener('click', () => {
+        const message = this.getTollInfoMessage();
+        showToast(message, 0, 'toll', true);
+      });
+    }
+
+  }
+
     // Voice message seek slider live time display (works even before playback)
-    const updateVmTimeFromSeek = (seekEl) => {
+    updateVmTimeFromSeek (seekEl) {
       const voiceMessageElement = seekEl.closest('.voice-message');
       if (!voiceMessageElement) return;
     
@@ -8608,31 +8633,6 @@ class ChatModal {
       // 4) Remember the chosen position so playback starts there when audio is ready
       voiceMessageElement.pendingSeekTime = newTime;
     };
-
-    // live updates while dragging the slider thumb
-    this.messagesList.addEventListener('input', (e) => {
-      const seekEl = e.target.closest('.voice-message-seek');
-      if (seekEl) updateVmTimeFromSeek(seekEl);
-    });
-
-    // ensures click-to-seek updates on mouse/touch release
-    this.messagesList.addEventListener('change', (e) => {
-      const seekEl = e.target.closest('.voice-message-seek');
-      if (seekEl) updateVmTimeFromSeek(seekEl);
-    });
-
-
-    // Make toll info clickable: show sticky info toast and refresh toll in background
-    const tollContainer = this.modal.querySelector('.toll-container');
-    if (tollContainer) {
-      tollContainer.style.cursor = 'pointer';
-      tollContainer.addEventListener('click', () => {
-        const message = this.getTollInfoMessage();
-        showToast(message, 0, 'toll', true);
-      });
-    }
-
-  }
 
   /**
    * Opens the chat modal for the given address.
