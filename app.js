@@ -8597,23 +8597,14 @@ class ChatModal {
     
       // 1) Current position the user selected (seconds)
       const newTime = Number(seekEl.value || 0);
-    
-      // 2) Total duration (seconds)
-      //    Prefer the slider's max (finite), else fallback to the element's data-duration
-      const maxAttr = Number(seekEl.max);
-      const totalSeconds = Number.isFinite(maxAttr) && maxAttr > 0
-        ? Math.floor(maxAttr)
-        : ((Number.isFinite(Number(voiceMessageElement.dataset.duration)) && Number(voiceMessageElement.dataset.duration) > 0)
-            ? Math.floor(Number(voiceMessageElement.dataset.duration))
-            : 0);
-    
+      // 2) Total duration (seconds): prefer slider max, else data-duration, else 0
+      const totalSeconds = Math.floor(Number(seekEl.max) || Number(voiceMessageElement.dataset.duration) || 0);
       // 3) Update the on-screen "current / total" label
       if (timeDisplayElement) {
         const currentTime = this.formatDuration(newTime);
         const totalTime = this.formatDuration(totalSeconds);
         timeDisplayElement.textContent = `${currentTime} / ${totalTime}`;
       }
-    
       // 4) Remember the chosen position so playback starts there when audio is ready
       voiceMessageElement.pendingSeekTime = newTime;
     };
@@ -11437,11 +11428,6 @@ console.warn('in send message', txid)
           delete voiceMessageElement.audioUrl;
         }
       };
-      
-      // Check if user moved slider before playing and apply seek
-      if (seekEl && Number(seekEl.value) > 0) {
-        voiceMessageElement.pendingSeekTime = Number(seekEl.value);
-      }
       
       // Start playing
       await audio.play();
