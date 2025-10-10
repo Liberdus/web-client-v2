@@ -11375,12 +11375,6 @@ console.warn('in send message', txid)
         voiceMessageElement.seekSetup = true;
         const updateFromSeekValue = (commit) => {
           const newTime = Number(seekEl.value || 0);
-          // Always update time display when slider changes
-          if (timeDisplayElement) {
-            const currentTime = this.formatDuration(newTime);
-            const totalTime = this.formatDuration(totalDurationSeconds);
-            timeDisplayElement.textContent = `${currentTime} / ${totalTime}`;
-          }
           if (audio && !isNaN(newTime)) {
             // If metadata not yet loaded, store pending seek
             if (audio.readyState < 1) { // HAVE_METADATA
