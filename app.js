@@ -8669,6 +8669,7 @@ class ChatModal {
     if (!voiceMessageElement) return;
     // Revoke blob URL to prevent memory leak (critical - blobs aren't auto-cleaned)
     if (voiceMessageElement.audioUrl) URL.revokeObjectURL(voiceMessageElement.audioUrl);
+    // TODO: delete these when we set up listeners properly since we don't have to remove them manually and will be set up during load()
     // Remove event listeners from seekEl by cloning (removes all listeners at once)
     const seekEl = voiceMessageElement.querySelector('.voice-message-seek');
     if (seekEl && voiceMessageElement.seekSetup) {
