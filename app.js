@@ -8669,14 +8669,12 @@ class ChatModal {
     if (!voiceMessageElement) return;
     // Revoke blob URL to prevent memory leak (critical - blobs aren't auto-cleaned)
     if (voiceMessageElement.audioUrl) URL.revokeObjectURL(voiceMessageElement.audioUrl);
-    
     // Remove event listeners from seekEl by cloning (removes all listeners at once)
     const seekEl = voiceMessageElement.querySelector('.voice-message-seek');
     if (seekEl && voiceMessageElement.seekSetup) {
       const newSeekEl = seekEl.cloneNode(true);
       seekEl.parentNode?.replaceChild(newSeekEl, seekEl);
     }
-    
     // Delete references to help GC
     delete voiceMessageElement.audioElement;
     delete voiceMessageElement.audioUrl;
@@ -8749,10 +8747,7 @@ class ChatModal {
     this.modalAvatar.innerHTML = generateIdenticon(contact.address, 40);
 
     // Stop and cleanup all voice messages from previous conversation
-    const oldVoiceMessages = this.messagesList?.querySelectorAll('.voice-message');
-    if (oldVoiceMessages) {
-      oldVoiceMessages.forEach(vm => this.stopVoiceMessage(vm));
-    }
+    this.messagesList?.querySelectorAll('.voice-message').forEach(vm => this.stopVoiceMessage(vm));
 
     // Clear previous messages from the UI
     this.messagesList.innerHTML = '';
@@ -8841,10 +8836,7 @@ class ChatModal {
     this.cancelAllOperations();
 
     // Stop all playing voice messages
-    const playingVoiceMessages = this.messagesList?.querySelectorAll('.voice-message');
-    if (playingVoiceMessages) {
-      playingVoiceMessages.forEach(vm => this.stopVoiceMessage(vm));
-    }
+    this.messagesList?.querySelectorAll('.voice-message').forEach(vm => this.stopVoiceMessage(vm));
 
     // clear file attachments
     this.fileAttachments = [];
@@ -11308,14 +11300,9 @@ console.warn('in send message', txid)
     if (!voiceMessageElement) return;
 
     // Pause all other playing voice messages (keeps audio cached for quick resume)
-    const allVoiceMessages = this.messagesList?.querySelectorAll('.voice-message');
-    if (allVoiceMessages) {
-      allVoiceMessages.forEach(vm => {
-        if (vm !== voiceMessageElement) {
-          this.pauseVoiceMessage(vm);
-        }
-      });
-    }
+    this.messagesList?.querySelectorAll('.voice-message').forEach(vm => {
+      if (vm !== voiceMessageElement) this.pauseVoiceMessage(vm);
+    });
 
     // Check if audio is already playing/paused
     const existingAudio = voiceMessageElement.audioElement;
