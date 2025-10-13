@@ -8510,16 +8510,24 @@ class ChatModal {
       this.unlockBackgroundScroll();
     });
 
+    // Pause voice messages when clicking any header action button
+    const pauseVoiceMessages = () => {
+      this.messagesList?.querySelectorAll('.voice-message').forEach(vm => this.pauseVoiceMessage(vm));
+    };
+
     this.chatSendMoneyButton.addEventListener('click', () => {
+      pauseVoiceMessages();
       sendAssetFormModal.username = this.chatSendMoneyButton.dataset.username;
       sendAssetFormModal.open();
     });
 
     this.callButton.addEventListener('click', () => {
+      pauseVoiceMessages();
       this.handleCallUser();
     });
 
     this.addFriendButtonChat.addEventListener('click', () => {
+      pauseVoiceMessages();
       if (!friendModal.getCurrentContactAddress()) return;
       friendModal.open();
     });
@@ -8762,6 +8770,7 @@ class ChatModal {
     // TODO: create event listener instead of onclick here
     const userInfo = this.modal.querySelector('.chat-user-info');
     userInfo.onclick = () => {
+      this.messagesList?.querySelectorAll('.voice-message').forEach(vm => this.pauseVoiceMessage(vm));
       const contact = myData.contacts[address];
       if (contact) {
         contactInfoModal.open(createDisplayInfo(contact));
@@ -8771,6 +8780,7 @@ class ChatModal {
     // Add click handler for edit button
     // TODO: create event listener instead of onclick here
     this.editButton.onclick = () => {
+      this.messagesList?.querySelectorAll('.voice-message').forEach(vm => this.pauseVoiceMessage(vm));
       const contact = myData.contacts[address];
       if (contact) {
         contactInfoModal.open(createDisplayInfo(contact));
