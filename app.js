@@ -8699,6 +8699,11 @@ class ChatModal {
     }
   }
 
+  // Pause voice messages when clicking any header action button
+  pauseVoiceMessages() {
+    this.messagesList?.querySelectorAll('.voice-message').forEach(vm => this.pauseVoiceMessage(vm));
+  }
+
   /**
    * Stop and cleanup a voice message (frees all resources)
    */
@@ -11524,11 +11529,6 @@ console.warn('in send message', txid)
     if (audio) {
       audio.playbackRate = newSpeed;
     }
-  }
-
-  // Pause voice messages when clicking any header action button
-  pauseVoiceMessages() {
-    this.messagesList?.querySelectorAll('.voice-message').forEach(vm => this.pauseVoiceMessage(vm));
   }
 
   // ---- Call scheduling helpers ----
