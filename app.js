@@ -8699,7 +8699,9 @@ class ChatModal {
     }
   }
 
-  // Pause voice messages when clicking any header action button
+  /**
+   * Pause voice messages when clicking any header action button
+   */
   pauseVoiceMessages() {
     this.messagesList?.querySelectorAll('.voice-message').forEach(vm => this.pauseVoiceMessage(vm));
   }
