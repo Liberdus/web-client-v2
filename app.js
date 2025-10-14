@@ -11328,9 +11328,6 @@ console.warn('in send message', txid)
     
     if (existingAudio) {
       if (existingAudio.paused) {
-        // Pause all other playing voice messages before resuming this one
-        this.pauseVoiceMessages();
-        
         // Resume playback
         const existingSeek = buttonElement.closest('.voice-message')?.querySelector('.voice-message-seek');
         if (existingSeek) {
