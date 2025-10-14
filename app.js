@@ -11322,6 +11322,10 @@ console.warn('in send message', txid)
   async playVoiceMessage(buttonElement) {
     const voiceMessageElement = buttonElement.closest('.voice-message');
     if (!voiceMessageElement) return;
+    // Pause only if playing a different voice message
+    if (this.playingVoiceMessageElement !== voiceMessageElement) {
+      this.pauseVoiceMessages();
+    }
 
     // Check if audio is already playing/paused
     const existingAudio = voiceMessageElement.audioElement;
@@ -11347,9 +11351,6 @@ console.warn('in send message', txid)
       }
       return;
     }
-
-    // Pause all other playing voice messages before starting new playback
-    this.pauseVoiceMessages();
 
     const voiceUrl = voiceMessageElement.dataset.voiceUrl;
     const pqEncSharedKey = voiceMessageElement.dataset.pqencsharedkey;
