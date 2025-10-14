@@ -8510,24 +8510,19 @@ class ChatModal {
       this.unlockBackgroundScroll();
     });
 
-    // Pause voice messages when clicking any header action button
-    const pauseVoiceMessages = () => {
-      this.messagesList?.querySelectorAll('.voice-message').forEach(vm => this.pauseVoiceMessage(vm));
-    };
-
     this.chatSendMoneyButton.addEventListener('click', () => {
-      pauseVoiceMessages();
+      this.pauseVoiceMessages();
       sendAssetFormModal.username = this.chatSendMoneyButton.dataset.username;
       sendAssetFormModal.open();
     });
 
     this.callButton.addEventListener('click', () => {
-      pauseVoiceMessages();
+      this.pauseVoiceMessages();
       this.handleCallUser();
     });
 
     this.addFriendButtonChat.addEventListener('click', () => {
-      pauseVoiceMessages();
+      this.pauseVoiceMessages();
       if (!friendModal.getCurrentContactAddress()) return;
       friendModal.open();
     });
@@ -11529,6 +11524,11 @@ console.warn('in send message', txid)
     if (audio) {
       audio.playbackRate = newSpeed;
     }
+  }
+
+  // Pause voice messages when clicking any header action button
+  pauseVoiceMessages() {
+    this.messagesList?.querySelectorAll('.voice-message').forEach(vm => this.pauseVoiceMessage(vm));
   }
 
   // ---- Call scheduling helpers ----
