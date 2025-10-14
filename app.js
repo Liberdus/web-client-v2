@@ -8772,7 +8772,7 @@ class ChatModal {
     // TODO: create event listener instead of onclick here
     const userInfo = this.modal.querySelector('.chat-user-info');
     userInfo.onclick = () => {
-      this.messagesList?.querySelectorAll('.voice-message').forEach(vm => this.pauseVoiceMessage(vm));
+      this.pauseVoiceMessages();
       const contact = myData.contacts[address];
       if (contact) {
         contactInfoModal.open(createDisplayInfo(contact));
@@ -8782,7 +8782,7 @@ class ChatModal {
     // Add click handler for edit button
     // TODO: create event listener instead of onclick here
     this.editButton.onclick = () => {
-      this.messagesList?.querySelectorAll('.voice-message').forEach(vm => this.pauseVoiceMessage(vm));
+      this.pauseVoiceMessages();
       const contact = myData.contacts[address];
       if (contact) {
         contactInfoModal.open(createDisplayInfo(contact));
@@ -11313,9 +11313,7 @@ console.warn('in send message', txid)
     if (!voiceMessageElement) return;
 
     // Pause all other playing voice messages (keeps audio cached for quick resume)
-    this.messagesList?.querySelectorAll('.voice-message').forEach(vm => {
-      if (vm !== voiceMessageElement) this.pauseVoiceMessage(vm);
-    });
+    this.pauseVoiceMessages();
 
     // Check if audio is already playing/paused
     const existingAudio = voiceMessageElement.audioElement;
