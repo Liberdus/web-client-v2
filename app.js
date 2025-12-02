@@ -1322,9 +1322,19 @@ class WalletScreen {
         bridgeModal.open();
       } else {
         // Not mainnet: open faucet URL with account address
-        if (myAccount && myAccount.keys && myAccount.keys.address) {
-          const address = longAddress(myAccount.keys.address);
-          window.open(`https://liberdus.com/faucet?address=${address}`, '_blank');
+        if (myAccount?.keys?.address) {
+          try {
+            const address = longAddress(myAccount.keys.address);
+            const encodedAddress = encodeURIComponent(address);
+            const faucetUrl = `https://liberdus.com/faucet?address=${encodedAddress}`;
+            const newWindow = window.open(faucetUrl, '_blank');
+            if (!newWindow) {
+              showToast('Please allow popups to open the faucet page', 0, 'error');
+            }
+          } catch (error) {
+            console.error('Error opening faucet URL:', error);
+            showToast('Error opening faucet page', 0, 'error');
+          }
         } else {
           console.error('Account address not available');
           showToast('Account address not available', 0, 'error');
