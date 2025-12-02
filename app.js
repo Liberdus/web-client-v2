@@ -1329,12 +1329,13 @@ class WalletScreen {
         // Mainnet: open bridge modal
         bridgeModal.open();
       } else {
-        // Not mainnet: open faucet URL with account address
+        // Not mainnet: open faucet URL with account address and network
         if (myAccount?.keys?.address) {
           try {
             const address = longAddress(myAccount.keys.address);
             const encodedAddress = encodeURIComponent(address);
-            const faucetUrl = `https://liberdus.com/faucet?address=${encodedAddress}`;
+            const encodedNetwork = encodeURIComponent(network?.name || '');
+            const faucetUrl = `https://liberdus.com/faucet?address=${encodedAddress}&network=${encodedNetwork}`;
             const newWindow = window.open(faucetUrl, '_blank');
             if (!newWindow) {
               showToast('Please allow popups to open the faucet page', 0, 'error');
