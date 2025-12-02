@@ -1550,12 +1550,11 @@ input[type='file'].form-control::file-selector-button {
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  background-color: var(--primary-color);
-  color: var(--background-color);
+  background-color: var(--primary-tint-20);
+  color: var(--text-color);
   font-size: 24px;
   font-weight: 400;
   border: none;
-  box-shadow: var(--shadow-primary);
   cursor: pointer;
   display: none;
   align-items: center;
@@ -1577,8 +1576,8 @@ input[type='file'].form-control::file-selector-button {
 }
 
 .floating-button:hover {
-  background-color: var(--primary-hover);
-  transform: scale(1.05);
+  opacity: 0.9;
+  transition: all 0.2s ease;
 }
 
 @media (min-width: 769px) {
