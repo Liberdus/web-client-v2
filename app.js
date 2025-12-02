@@ -1315,6 +1315,23 @@ class WalletScreen {
       window.open('https://liberdus.com/sell', '_blank');
     });
 
+    // Faucet/Bridge button handler
+    this.openFaucetBridgeButton.addEventListener('click', () => {
+      if (this.isMainnet()) {
+        // Mainnet: open bridge modal
+        bridgeModal.open();
+      } else {
+        // Not mainnet: open faucet URL with account address
+        if (myAccount && myAccount.keys && myAccount.keys.address) {
+          const address = longAddress(myAccount.keys.address);
+          window.open(`https://liberdus.com/faucet?address=${address}`, '_blank');
+        } else {
+          console.error('Account address not available');
+          showToast('Account address not available', 0, 'error');
+        }
+      }
+    });
+
     // Add refresh balance button handler
     this.refreshBalanceButton.addEventListener('click', async () => {
       
