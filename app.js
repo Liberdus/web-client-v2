@@ -1287,6 +1287,9 @@ class WalletScreen {
     this.openSendAssetFormModalButton = document.getElementById('openSendAssetFormModal');
     this.openReceiveModalButton = document.getElementById('openReceiveModal');
     this.openHistoryModalButton = document.getElementById('openHistoryModal');
+    this.openBuyButton = document.getElementById('openBuyButton');
+    this.openSellButton = document.getElementById('openSellButton');
+    this.openFaucetBridgeButton = document.getElementById('openFaucetBridgeButton');
 
     this.openSendAssetFormModalButton.addEventListener('click', () => {
       sendAssetFormModal.open();
@@ -1296,6 +1299,20 @@ class WalletScreen {
     });
     this.openHistoryModalButton.addEventListener('click', () => {
       historyModal.open();
+    });
+
+    // dynamic Faucet/Bridge button label based on mainnet status
+    const faucetBridgeLabel = this.openFaucetBridgeButton.querySelector('.action-label');
+    if (faucetBridgeLabel) {
+      faucetBridgeLabel.textContent = this.isMainnet() ? 'Bridge' : 'Faucet';
+    }
+
+    this.openBuyButton.addEventListener('click', () => {
+      window.open('https://liberdus.com/buy', '_blank');
+    });
+
+    this.openSellButton.addEventListener('click', () => {
+      window.open('https://liberdus.com/sell', '_blank');
     });
 
     // Add refresh balance button handler
@@ -1325,6 +1342,12 @@ class WalletScreen {
 
   isActive() {
     return this.screen.classList.contains('active');
+  }
+
+  // Check if the current launch URL is mainnet
+  isMainnet() {
+    return window.location.pathname.includes('/mainnet') || 
+           window.location.href.includes('liberdus.com/mainnet');
   }
 
   // Update wallet view; refresh wallet
