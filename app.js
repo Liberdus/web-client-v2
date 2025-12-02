@@ -1301,10 +1301,18 @@ class WalletScreen {
       historyModal.open();
     });
 
-    // dynamic Faucet/Bridge button label based on mainnet status
+    // dynamic Faucet/Bridge button label and icon based on mainnet status
     const faucetBridgeLabel = this.openFaucetBridgeButton.querySelector('.action-label');
+    const isMainnet = this.isMainnet();
+
     if (faucetBridgeLabel) {
-      faucetBridgeLabel.textContent = this.isMainnet() ? 'Bridge' : 'Faucet';
+      faucetBridgeLabel.textContent = isMainnet ? 'Bridge' : 'Faucet';
+    }
+    // Update icon: add/remove bridge-mode class
+    if (isMainnet) {
+      this.openFaucetBridgeButton.classList.add('bridge-mode');
+    } else {
+      this.openFaucetBridgeButton.classList.remove('bridge-mode');
     }
 
     this.openBuyButton.addEventListener('click', () => {
@@ -1371,10 +1379,9 @@ class WalletScreen {
     return this.screen.classList.contains('active');
   }
 
-  // Check if the current launch URL is mainnet
+  // Check if the current network is mainnet
   isMainnet() {
-    return window.location.pathname.includes('/mainnet') || 
-           window.location.href.includes('liberdus.com/mainnet');
+    return network?.name === 'Mainnet';
   }
 
   // Update wallet view; refresh wallet
