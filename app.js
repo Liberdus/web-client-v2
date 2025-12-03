@@ -13395,10 +13395,6 @@ class CreateAccountModal {
       myData = loadState(storedKey)
       if (myData && myData.account) {
         myAccount = myData.account;
-        // Preserve private flag if account already exists, otherwise use checkbox value
-        if (myAccount.private === undefined) {
-          myAccount.private = isPrivateAccount;
-        }
       } else {
         // Create new account entry
         myAccount = {
