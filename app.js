@@ -1273,6 +1273,7 @@ const contactsScreen = new ContactsScreen();
 class WalletScreen {
   constructor() {
     this.firstTimeLoad = true;
+    this.isFaucetRequestInProgress = false;
   }
 
   load() {
@@ -1324,30 +1325,13 @@ class WalletScreen {
     });
 
     // Faucet/Bridge button handler
-    this.openFaucetBridgeButton.addEventListener('click', () => {
+    this.openFaucetBridgeButton.addEventListener('click', async () => {
       if (this.isMainnet()) {
         // Mainnet: open bridge modal
         bridgeModal.open();
       } else {
-        // Not mainnet: open faucet URL with account address and network
-        if (myAccount?.keys?.address) {
-          try {
-            const address = longAddress(myAccount.keys.address);
-            const encodedAddress = encodeURIComponent(address);
-            const encodedNetwork = encodeURIComponent(network?.name || '');
-            const faucetUrl = `https://liberdus.com/faucet?address=${encodedAddress}&network=${encodedNetwork}`;
-            const newWindow = window.open(faucetUrl, '_blank');
-            if (!newWindow) {
-              showToast('Please allow popups to open the faucet page', 0, 'error');
-            }
-          } catch (error) {
-            console.error('Error opening faucet URL:', error);
-            showToast('Error opening faucet page', 0, 'error');
-          }
-        } else {
-          console.error('Account address not available');
-          showToast('Account address not available', 0, 'error');
-        }
+        // Not mainnet: request from faucet API
+        await this.requestFromFaucet();
       }
     });
 
@@ -1493,6 +1477,67 @@ class WalletScreen {
     // Update total wallet balance
     myData.wallet.networth = totalWalletNetworth;
     myData.wallet.timestamp = now;
+  }
+
+  /**
+   * Request funds from the faucet for normal users
+   * @returns {Promise<void>}
+   */
+  async requestFromFaucet() {
+    if (this.isFaucetRequestInProgress) {
+      return;
+    }
+
+    if (!myAccount?.keys?.address) {
+      console.error('Account address not available');
+      showToast('Account address not available', 0, 'error');
+      return;
+    }
+
+    if (!isOnline) {
+      showToast('You must be online to request from faucet', 0, 'error');
+      return;
+    }
+
+    const toastId = showToast('Requesting from faucet...', 0, 'loading');
+    try {
+      this.isFaucetRequestInProgress = true;
+      this.openFaucetBridgeButton.disabled = true;
+      
+      const payload = {
+        username: myAccount.username,
+        userAddress: longAddress(myAccount.keys.address),
+        networkId: network.netid,
+      };
+      await signObj(payload, myAccount.keys);
+      
+      const faucetUrl = network.faucetUrl || 'https://dev.liberdus.com:3355/faucet';
+      
+      const response = await fetch(faucetUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        showToast('Faucet request successful! The LIB will be sent to your wallet.', 5000, 'success');
+      } else {
+        const errorMessage = result.message || result.error || `HTTP ${response.status}: ${response.statusText}`;
+        showToast(`Faucet error: ${errorMessage}`, 0, 'error');
+      }
+      
+    } catch (error) {
+      console.error('Faucet request error:', error);
+      showToast(`Faucet request failed: ${error.message}`, 0, 'error');
+    } finally {
+      hideToast(toastId);
+      this.isFaucetRequestInProgress = false;
+      this.openFaucetBridgeButton.disabled = false;
+    }
   }
 }
 
@@ -8340,9 +8385,10 @@ class StakeValidatorModal {
       this.faucetButton.disabled = true;
       
       const payload = {
-        nodeAddress: this.nodeAddressInput.value.trim(),
-        userAddress: longAddress(myAccount.keys.address),
         username: myAccount.username,
+        userAddress: longAddress(myAccount.keys.address),
+        networkId: network.netid,
+        nodeAddress: this.nodeAddressInput.value.trim(),
       };
       await signObj(payload, myAccount.keys);
       
