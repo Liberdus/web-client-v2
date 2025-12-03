@@ -4357,7 +4357,7 @@ async function postRegisterAlias(alias, keys, isPrivate = false) {
     pqPublicKey: pqPublicKey,
     timestamp: getCorrectedTimestamp(),
     networkId: network.netid,
-    private: isPrivate,
+    ...(isPrivate && { private: true }),
   };
   const txid = await signObj(tx, keys);
   const res = await injectTx(tx, txid);
@@ -13108,7 +13108,9 @@ class CreateAccountModal {
     });
 
     // Add listener for the private account help button
-    this.privateAccountHelpButton.addEventListener('click', () => {
+    this.privateAccountHelpButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       const message = this.getPrivateAccountHelpMessage();
       showToast(message, 0, 'info', true);
     });
@@ -13165,7 +13167,7 @@ class CreateAccountModal {
    */
   getPrivateAccountHelpMessage() {
     return this.privateAccountTemplate?.innerHTML || 
-      '<strong>What is a Private Account?</strong><br><br>A private account restricts communication and payments to only other private accounts. Public accounts cannot send or receive messages or payments from private accounts, and vice versa.';
+      '<strong>What is a Private Account?</strong><br>Private accounts can only interact with other private accounts.';
   }
 
   /**
@@ -13288,6 +13290,7 @@ class CreateAccountModal {
     this.usernameInput.disabled = true;
     this.privateKeyInput.disabled = true;
     this.backButton.disabled = true;
+    this.privateAccountCheckbox.disabled = true;
 
     event.preventDefault();
     
@@ -13495,6 +13498,7 @@ class CreateAccountModal {
     this.privateKeyInput.disabled = false;
     this.backButton.disabled = false;
     this.migrateAccountsButton.disabled = false;
+    this.privateAccountCheckbox.disabled = false;
   }
 }
 // Initialize the create account modal
