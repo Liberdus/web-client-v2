@@ -1388,6 +1388,18 @@ button:disabled {
   margin-bottom: 0;
 }
 
+.form-group--checkbox {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.form-group--checkbox label {
+  display: inline;
+  margin: 0;
+  flex: 1;
+}
+
 .form-control {
   width: 100%;
   height: 56px;
@@ -3176,6 +3188,7 @@ mark {
 .toll-info-message p {
   margin: 0 0 12px 0;
   color: white;
+  text-align: left;
 }
 
 .toll-info-message ul {
@@ -3187,6 +3200,7 @@ mark {
 .toll-info-message li {
   margin: 4px 0;
   color: white;
+  text-align: left;
 }
 
 .toll-info-message strong {

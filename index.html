@@ -608,9 +608,16 @@
               </div>
               
               <div id="moreOptionsSection" style="display: none;">
-                <div class="form-group">
+                <div class="form-group form-group--checkbox">
+                  <input type="checkbox" id="togglePrivateAccount" />
+                  <label for="togglePrivateAccount">
+                    Make this a private account
+                    <span class="toll-info-icon private-account-help" data-icon="info" id="privateAccountHelpButton"></span>
+                  </label>
+                </div>
+                <div class="form-group form-group--checkbox">
                   <input type="checkbox" id="togglePrivateKeyInput" />
-                  <label for="togglePrivateKeyInput" style="display: inline; margin-left: 5px">
+                  <label for="togglePrivateKeyInput">
                     Use my own private key (Advanced)
                   </label>
                 </div>
@@ -1189,6 +1196,22 @@
             <li>Any toll that was not given to the recipient can be reclaimed</li>
             <li>To reclaim the toll you must not send more messages to the recipient for 7 days</li>
             <li>After 7 days just open and close the chat session with the recipient to reclaim any remaining toll</li>
+          </ul>
+        </div>
+      </template>
+
+      <!-- Template for private account help message -->
+      <template id="privateAccountHelpMessageTemplate">
+        <div class="toll-info-message">
+          <h4>What is a Private Account?</h4>
+          <p>A private account restricts communication and payments to only other private accounts. Public accounts cannot send or receive messages or payments from private accounts, and vice versa.</p>
+          
+          <h5>Important:</h5>
+          <ul>
+            <li>Private accounts can only interact with other private accounts</li>
+            <li>Public accounts can only interact with other public accounts</li>
+            <li>This setting cannot be changed after account creation</li>
+            <li>Choose this option if you want to limit your account to private communications only</li>
           </ul>
         </div>
       </template>

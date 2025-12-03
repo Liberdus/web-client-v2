@@ -4343,7 +4343,7 @@ async function postAssetTransfer(to, amount, memo, keys) {
 }
 
 // TODO - backend - when account is being registered, ensure that loserCase(alias)=alias and hash(alias)==aliasHash
-async function postRegisterAlias(alias, keys) {
+async function postRegisterAlias(alias, keys, isPrivate = false) {
   const aliasBytes = utf82bin(alias);
   const aliasHash = hashBytes(aliasBytes);
   const { publicKey } = generatePQKeys(keys.pqSeed);
@@ -4357,6 +4357,7 @@ async function postRegisterAlias(alias, keys) {
     pqPublicKey: pqPublicKey,
     timestamp: getCorrectedTimestamp(),
     networkId: network.netid,
+    private: isPrivate,
   };
   const txid = await signObj(tx, keys);
   const res = await injectTx(tx, txid);
@@ -13086,6 +13087,9 @@ class CreateAccountModal {
     this.migrateAccountsButton = document.getElementById('migrateAccountsButton');
     this.toggleMoreOptions = document.getElementById('toggleMoreOptions');
     this.moreOptionsSection = document.getElementById('moreOptionsSection');
+    this.privateAccountCheckbox = document.getElementById('togglePrivateAccount');
+    this.privateAccountHelpButton = document.getElementById('privateAccountHelpButton');
+    this.privateAccountTemplate = document.getElementById('privateAccountHelpMessageTemplate');
 
     // Setup event listeners
     this.form.addEventListener('submit', (e) => this.handleSubmit(e));
@@ -13101,6 +13105,12 @@ class CreateAccountModal {
       this.privateKeyInput.setAttribute('type', type);
       // Toggle the visual state class on the button
       this.togglePrivateKeyVisibility.classList.toggle('toggled-visible');
+    });
+
+    // Add listener for the private account help button
+    this.privateAccountHelpButton.addEventListener('click', () => {
+      const message = this.getPrivateAccountHelpMessage();
+      showToast(message, 0, 'info', true);
     });
 
     this.migrateAccountsButton.addEventListener('click', async () => await migrateAccountsModal.open());
@@ -13143,9 +13153,19 @@ class CreateAccountModal {
     this.moreOptionsSection.style.display = 'none';
     this.toggleButton.checked = false;
     this.privateKeySection.style.display = 'none';
+    this.privateAccountCheckbox.checked = false;
     
     // Open the modal
     this.open();
+  }
+
+  /**
+   * Get the private account help message HTML
+   * @returns {string}
+   */
+  getPrivateAccountHelpMessage() {
+    return this.privateAccountTemplate?.innerHTML || 
+      '<strong>What is a Private Account?</strong><br><br>A private account restricts communication and payments to only other private accounts. Public accounts cannot send or receive messages or payments from private accounts, and vice versa.';
   }
 
   /**
@@ -13387,7 +13407,8 @@ class CreateAccountModal {
         // create new data record if it doesn't exist
         myData = newDataRecord(myAccount);
       }
-      res = await postRegisterAlias(username, myAccount.keys);
+      const isPrivateAccount = this.privateAccountCheckbox.checked;
+      res = await postRegisterAlias(username, myAccount.keys, isPrivateAccount);
     } catch (error) {
       this.reEnableControls();
       if (waitingToastId) hideToast(waitingToastId);
