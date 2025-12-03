@@ -13385,10 +13385,12 @@ class CreateAccountModal {
     }
 
     // Create new account entry
+    const isPrivateAccount = this.privateAccountCheckbox.checked;
     myAccount = {
       netid,
       username,
       chatTimestamp: 0,
+      private: isPrivateAccount,
       keys: {
         address: addressHex,
         public: publicKeyHex,
@@ -13406,12 +13408,15 @@ class CreateAccountModal {
       myData = loadState(storedKey)
       if (myData) {
         myAccount = myData.account;
+        // Preserve private flag if account already exists, otherwise use checkbox value
+        if (myAccount.private === undefined) {
+          myAccount.private = isPrivateAccount;
+        }
       } else {
         // create new data record if it doesn't exist
         myData = newDataRecord(myAccount);
       }
-      const isPrivateAccount = this.privateAccountCheckbox.checked;
-      res = await postRegisterAlias(username, myAccount.keys, isPrivateAccount);
+      res = await postRegisterAlias(username, myAccount.keys, myAccount.private || false);
     } catch (error) {
       this.reEnableControls();
       if (waitingToastId) hideToast(waitingToastId);
@@ -15405,7 +15410,8 @@ class MigrateAccountsModal {
       } else if (section === 'available') {
         myData = loadState(username+'_'+netid)
         if (myData){ 
-          const res = await postRegisterAlias(username, myData.account.keys)
+          const isPrivate = myData.account?.private || false;
+          const res = await postRegisterAlias(username, myData.account.keys, isPrivate)
           if (res !== null){
             res.submittedts = getCorrectedTimestamp()
             res.netid = netid
