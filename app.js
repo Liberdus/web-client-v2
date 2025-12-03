@@ -4357,7 +4357,7 @@ async function postRegisterAlias(alias, keys, isPrivate = false) {
     pqPublicKey: pqPublicKey,
     timestamp: getCorrectedTimestamp(),
     networkId: network.netid,
-    ...(isPrivate && { private: true }),
+    private: isPrivate,
   };
   const txid = await signObj(tx, keys);
   const res = await injectTx(tx, txid);
@@ -13384,21 +13384,8 @@ class CreateAccountModal {
       }
     }
 
-    // Create new account entry
+    // Get or create account entry
     const isPrivateAccount = this.privateAccountCheckbox.checked;
-    myAccount = {
-      netid,
-      username,
-      chatTimestamp: 0,
-      private: isPrivateAccount,
-      keys: {
-        address: addressHex,
-        public: publicKeyHex,
-        secret: privateKeyHex,
-        type: 'secp256k1',
-        pqSeed: pqSeed, // store only the 64 byte seed instead of 32,000 byte public and secret keys
-      },
-    };
     let waitingToastId = showToast('Creating account...', 0, 'loading');
     let res;
 
@@ -13406,13 +13393,27 @@ class CreateAccountModal {
       await getNetworkParams();
       const storedKey = `${username}_${netid}`;
       myData = loadState(storedKey)
-      if (myData) {
+      if (myData && myData.account) {
         myAccount = myData.account;
         // Preserve private flag if account already exists, otherwise use checkbox value
         if (myAccount.private === undefined) {
           myAccount.private = isPrivateAccount;
         }
       } else {
+        // Create new account entry
+        myAccount = {
+          netid,
+          username,
+          chatTimestamp: 0,
+          private: isPrivateAccount,
+          keys: {
+            address: addressHex,
+            public: publicKeyHex,
+            secret: privateKeyHex,
+            type: 'secp256k1',
+            pqSeed: pqSeed, // store only the 64 byte seed instead of 32,000 byte public and secret keys
+          },
+        };
         // create new data record if it doesn't exist
         myData = newDataRecord(myAccount);
       }
