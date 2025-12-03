@@ -13445,7 +13445,7 @@ class CreateAccountModal {
         }
         await new Promise((resolve) => setTimeout(resolve, 1000));
         if (waitingToastId) hideToast(waitingToastId);
-        // showToast('Account created successfully!', 3000, 'success');
+//        showToast('Account created successfully!', 3000, 'success');
         this.reEnableControls();
         this.close();
         welcomeScreen.close();
