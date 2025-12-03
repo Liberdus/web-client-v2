@@ -1535,7 +1535,7 @@ class WalletScreen {
       const result = await response.json();
       
       if (response.ok) {
-        showToast('Faucet request successful! The LIB will be sent to your wallet.', 5000, 'success');
+        showToast('Faucet request successful! The LIB will be sent to your wallet. Refresh your balance in 10 seconds.', 5000, 'success');
       } else {
         const errorMessage = result.message || result.error || `HTTP ${response.status}: ${response.statusText}`;
         showToast(`Faucet error: ${errorMessage}`, 0, 'error');
