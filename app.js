@@ -1499,6 +1499,17 @@ class WalletScreen {
       return;
     }
 
+    // Check LIB balance - faucet only works if balance is less than 100 LIB
+    const libAsset = myData.wallet.assets.find((asset) => asset.symbol === 'LIB');
+    if (libAsset) {
+      const balanceInWei = BigInt(libAsset.balance);
+      const minBalanceForFaucet = 100n * wei; // 100 LIB in wei
+      if (balanceInWei >= minBalanceForFaucet) {
+        showToast('Balance exceeds 100 LIB, so you cannot claim more tokens from the faucet.', 0, 'warning');
+        return;
+      }
+    }
+
     const toastId = showToast('Requesting from faucet...', 0, 'loading');
     try {
       this.isFaucetRequestInProgress = true;
