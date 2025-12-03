@@ -1532,7 +1532,7 @@ class WalletScreen {
       
     } catch (error) {
       console.error('Faucet request error:', error);
-      showToast(`Faucet request failed: ${error.message}`, 0, 'error');
+      showToast(`Faucet request failed: ${error.message || 'Unknown error'}`, 0, 'error');
     } finally {
       hideToast(toastId);
       this.isFaucetRequestInProgress = false;
