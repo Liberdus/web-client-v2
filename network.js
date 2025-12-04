@@ -28,6 +28,7 @@ const network = {
     },
   ],
   "faucetUrl": "https://dev.liberdus.com:3355/faucet",
+  "faucetAddress": "38dbd8eb569658b2a13cef9d159e54e302da8f17",
   "farmUrl": "https://liberdus.com/farm",
   "validatorUrl": "https://liberdus.com/validator",
   "bridgeUrl": "./bridge",

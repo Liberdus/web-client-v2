@@ -1049,6 +1049,11 @@ class ChatsScreen {
 
     const chatElements =
       chats.map((chat) => {
+        // Skip faucet address chats
+        if (isFaucetAddress(chat.address)) {
+          return null;
+        }
+        
         const identicon = generateIdenticon(chat.address);
         const contact = contacts[chat.address];
 
@@ -1183,8 +1188,10 @@ class ContactsScreen {
       return;
     }
 
-    // Convert contacts object to array and sort
-    const contactsArray = Object.values(contacts);
+    // Convert contacts object to array, filter out faucet address, and sort
+    const contactsArray = Object.values(contacts).filter(
+      (contact) => !isFaucetAddress(contact.address)
+    );
 
     // Split into status groups in a single pass
     const statusGroups = contactsArray.reduce(
@@ -1750,7 +1757,10 @@ function createNewContact(addr, username, friendStatus = 1) {
   } // already exists
   const c = (myData.contacts[address] = {});
   c.address = address;
-  if (username) {
+  // Set username to "Liberdus Faucet" if this is the faucet address
+  if (isFaucetAddress(address)) {
+    c.username = 'Liberdus Faucet';
+  } else if (username) {
     c.username = normalizeUsername(username);
   }
   c.messages = [];
@@ -3189,6 +3199,10 @@ class HistoryModal {
     }
     
     const address = item.dataset.address;
+    // Don't open chat modal for faucet address
+    if (address && isFaucetAddress(address)) {
+      return;
+    }
     if (address && myData.contacts[address]) {
       // Close contact info modal if open
       if (contactInfoModal.isActive()) {
@@ -3797,6 +3811,10 @@ async function processChats(chats, keys) {
         createNewContact(from);
       }
       const contact = myData.contacts[from];
+      // Set username to "Liberdus Faucet" if there is no username for the faucet address contact
+      if (isFaucetAddress(from) && !contact.username) {
+        contact.username = 'Liberdus Faucet';
+      }
       //            contact.address = from        // not needed since createNewContact does this
       let added = 0;
       let hasNewTransfer = false;
@@ -4257,10 +4275,9 @@ async function processChats(chats, keys) {
 
         // Add bubble to chats tab if we are not on it
         // Only suppress notification if we're ACTIVELY viewing this chat and if not a transfer
-        if (!inActiveChatWithSender) {
-          if (!chatsScreen.isActive()) {
-            footer.chatButton.classList.add('has-notification');
-          }
+        // Don't add notification for faucet address
+        if (!inActiveChatWithSender && !chatsScreen.isActive() && !isFaucetAddress(from)) {
+          footer.chatButton.classList.add('has-notification');
         }
       }
 
@@ -4280,7 +4297,8 @@ async function processChats(chats, keys) {
         if (!inActiveChatWithSender) {
           contact.unread = (contact.unread || 0) + editIncrements;
           // Add notification bubble if chats screen not active
-          if (!chatsScreen.isActive()) {
+          // Don't add notification for faucet address
+          if (!chatsScreen.isActive() && !isFaucetAddress(from)) {
             footer.chatButton.classList.add('has-notification');
           }
           // Refresh list if user is currently viewing chat list so unread counts update
@@ -17459,6 +17477,13 @@ function getContactDisplayName(contact) {
   return contact?.name || 
          contact?.username || 
          `${contact?.address?.slice(0, 8)}…${contact?.address?.slice(-6)}`;
+}
+
+function isFaucetAddress(address) {
+  if (!address || !network.faucetAddress) {
+    return false;
+  }
+  return normalizeAddress(address) === normalizeAddress(network.faucetAddress);
 }
 
 function isMobile() {
