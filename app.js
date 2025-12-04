@@ -17786,6 +17786,9 @@ class LocalStorageMonitor {
   }
 }
 
+// Create localStorage monitor instance
+const localStorageMonitor = new LocalStorageMonitor();
+
 /**
  * ThumbnailCache - Handles IndexedDB storage for image thumbnails
  */
@@ -18005,9 +18008,6 @@ class ThumbnailCache {
     });
   }
 }
-
-// Create localStorage monitor instance
-const localStorageMonitor = new LocalStorageMonitor();
 
 // Create thumbnail cache instance
 const thumbnailCache = new ThumbnailCache();
