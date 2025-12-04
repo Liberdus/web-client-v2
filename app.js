@@ -12537,6 +12537,7 @@ class VoiceRecordingModal {
    */
   close() {
     this.modal.style.display = 'none';
+    this.cleanup();
   }
 
   /**
@@ -17797,7 +17798,6 @@ class ThumbnailCache {
     this.storeName = 'thumbnails';
     this.dbVersion = 1;
     this.db = null;
-    this.maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
     this.maxCacheSize = 50 * 1024 * 1024; // 50MB in bytes
   }
 
