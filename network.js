@@ -35,5 +35,12 @@ const network = {
   "app_version": {
     "ios": "2025.0916.1621",
     "android": "2025.0916.1621"
+  },
+  // Google Drive OAuth config for backup
+  "googleDrive": {
+    "clientId": "957085667316-v7510p36q3eog9vgqmiicbtd920u472j.apps.googleusercontent.com",
+    "redirectUri": window.location.origin + window.location.pathname,
+    "scope": "https://www.googleapis.com/auth/drive.file",
+    "backupFolder": "Liberdus_backup"
   }
 }
