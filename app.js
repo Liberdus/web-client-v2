@@ -9746,7 +9746,6 @@ console.warn('in send message', txid)
           let attachmentsHTML = '';
           if (item.xattach && Array.isArray(item.xattach) && item.xattach.length > 0) {
             attachmentsHTML = item.xattach.map(att => {
-              const emoji = this.getFileEmoji(att.type || '', att.name || '');
               const fileUrl = att.url || '#';
               const fileName = att.name || 'Attachment';
               const fileSize = att.size ? this.formatFileSize(att.size) : '';
@@ -10262,6 +10261,40 @@ console.warn('in send message', txid)
   }
 
   /**
+   * Update an attachment row with a thumbnail image
+   * @param {HTMLElement} attachmentRow - The attachment row element
+   * @param {Blob} thumbnailBlob - The thumbnail blob to display
+   * @returns {boolean} True if update was successful, false otherwise
+   */
+  updateThumbnailInPlace(attachmentRow, thumbnailBlob) {
+    if (!attachmentRow || !attachmentRow.parentNode || !thumbnailBlob) {
+      return false;
+    }
+
+    const thumbnailUrl = URL.createObjectURL(thumbnailBlob);
+    const iconContainer = attachmentRow.querySelector('.attachment-icon-container');
+    
+    if (iconContainer && iconContainer.parentNode) {
+      // Clean up old thumbnail blob URL if it exists
+      const oldThumbnailUrl = attachmentRow.dataset.thumbnailUrl;
+      if (oldThumbnailUrl) {
+        URL.revokeObjectURL(oldThumbnailUrl);
+      }
+      
+      // Replace icon with thumbnail image
+      iconContainer.innerHTML = `<img src="${thumbnailUrl}" alt="Thumbnail" class="attachment-thumbnail">`;
+      
+      // Store blob URL for cleanup
+      attachmentRow.dataset.thumbnailUrl = thumbnailUrl;
+      return true;
+    } else {
+      // Element was removed, revoke the blob URL
+      URL.revokeObjectURL(thumbnailUrl);
+      return false;
+    }
+  }
+
+  /**
    * Load thumbnails for image attachments asynchronously
    * @returns {void}
    */
@@ -10275,22 +10308,7 @@ console.warn('in send message', txid)
       try {
         const thumbnailBlob = await thumbnailCache.get(url);
         if (thumbnailBlob) {
-          // Check if element still exists in DOM
-          if (!attachmentRow.parentNode) continue;
-          
-          const thumbnailUrl = URL.createObjectURL(thumbnailBlob);
-          const iconContainer = attachmentRow.querySelector('.attachment-icon-container');
-          
-          if (iconContainer && iconContainer.parentNode) {
-            // Replace emoji with thumbnail image
-            iconContainer.innerHTML = `<img src="${thumbnailUrl}" alt="Thumbnail" class="attachment-thumbnail">`;
-            
-            // Store blob URL for cleanup
-            attachmentRow.dataset.thumbnailUrl = thumbnailUrl;
-          } else {
-            // Element was removed, revoke the blob URL
-            URL.revokeObjectURL(thumbnailUrl);
-          }
+          this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
         }
       } catch (error) {
         console.warn('Failed to load thumbnail for', url, error);
@@ -10415,20 +10433,10 @@ console.warn('in send message', txid)
           return thumbnailCache.save(attachmentUrl, thumbnail, blob.type);
         }).then(async () => {
           // Update thumbnail in place
-          if (attachmentRow && attachmentRow.parentNode) {
+          if (attachmentRow) {
             const thumbnailBlob = await thumbnailCache.get(attachmentUrl);
             if (thumbnailBlob) {
-              const thumbnailUrl = URL.createObjectURL(thumbnailBlob);
-              const iconContainer = attachmentRow.querySelector('.attachment-icon-container');
-              
-              if (iconContainer && iconContainer.parentNode) {
-                // Replace emoji with thumbnail image
-                iconContainer.innerHTML = `<img src="${thumbnailUrl}" alt="Thumbnail" class="attachment-thumbnail">`;
-                // Store blob URL for cleanup
-                attachmentRow.dataset.thumbnailUrl = thumbnailUrl;
-              } else {
-                URL.revokeObjectURL(thumbnailUrl);
-              }
+              this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
             }
           }
         }).catch(err => {
@@ -17855,8 +17863,8 @@ class ThumbnailCache {
   /**
    * Generate a thumbnail from an image blob
    * @param {Blob} imageBlob - The image blob to create thumbnail from
-   * @param {number} maxSize - Maximum dimension in pixels (default: 300)
-   * @param {number} quality - JPEG quality 0-1 (default: 0.92)
+   * @param {number} maxSize - Maximum dimension in pixels (default: 500)
+   * @param {number} quality - JPEG quality 0-1 (default: 0.96)
    * @returns {Promise<Blob>} The thumbnail blob
    */
   async generateThumbnail(imageBlob, maxSize = 500, quality = 0.96) {
@@ -17973,20 +17981,6 @@ class ThumbnailCache {
         reject(request.error);
       };
     });
-  }
-
-  /**
-   * Check if a thumbnail exists in cache
-   * @param {string} attachmentUrl - The attachment URL
-   * @returns {Promise<boolean>} True if thumbnail exists
-   */
-  async has(attachmentUrl) {
-    try {
-      const thumbnail = await this.get(attachmentUrl);
-      return thumbnail !== null;
-    } catch (error) {
-      return false;
-    }
   }
 
   /**
