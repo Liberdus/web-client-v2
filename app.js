@@ -17479,6 +17479,11 @@ function getContactDisplayName(contact) {
          `${contact?.address?.slice(0, 8)}…${contact?.address?.slice(-6)}`;
 }
 
+/**
+ * Checks if an address matches the network's faucet address
+ * @param {string} address - The address to check
+ * @returns {boolean} - True if the address matches the faucet address
+ */
 function isFaucetAddress(address) {
   if (!address || !network.faucetAddress) {
     return false;
