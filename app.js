@@ -10079,7 +10079,6 @@ console.warn('in send message', txid)
         thumbnailBlob = await thumbnailCache.generateThumbnail(file);
       } catch (error) {
         console.warn('Failed to generate thumbnail for attached image:', error);
-        // Continue without thumbnail - not critical
       }
     }
     
@@ -10139,7 +10138,6 @@ console.warn('in send message', txid)
             if (thumbnailBlob && isImage) {
               thumbnailCache.save(attachmentUrl, thumbnailBlob, file.type).catch(err => {
                 console.warn('Failed to cache thumbnail for attached image:', err);
-                // Non-critical - continue anyway
               });
             }
             
