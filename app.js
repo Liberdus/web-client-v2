@@ -9774,10 +9774,10 @@ console.warn('in send message', txid)
                   ${isImage ? 'data-image-attachment="true"' : ''}
                 >
                   <div class="attachment-icon-container" style="${isImage ? 'margin-bottom: 10px;' : 'margin-right: 14px; flex-shrink: 0;'}">
-                    <span class="attachment-icon" style="font-size: 2.2em;">${emoji}</span>
+                    <div class="attachment-icon"></div>
                   </div>
-                  <div style="min-width:0; overflow: hidden;">
-                    <span class="attachment-label" style="font-weight:500;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;">
+                  <div style="min-width:0; overflow: visible;">
+                    <span class="attachment-label" style="font-weight:500;color:#222;font-size:0.7em;white-space:nowrap;display:block;">
                       ${fileName}
                     </span><br>
                     <span style="font-size: 0.93em; color: #888;">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
