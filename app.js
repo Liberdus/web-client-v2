@@ -4888,6 +4888,11 @@ class SearchContactsModal {
 
     // Search through all contacts
     Object.entries(myData.contacts).forEach(([address, contact]) => {
+      // Skip faucet address
+      if (isFaucetAddress(address)) {
+        return;
+      }
+      
       // Fields to search through
       const searchableFields = this.getSearchableFields(contact);
       const searchFields = searchableFields.map((f) => f.value);
