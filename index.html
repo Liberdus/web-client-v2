@@ -1659,10 +1659,10 @@
           <div class="form-container">
             <!-- have description of what this is -->
             <p>
-              This will download a file that contains your account data. You can use this file to restore your account on another device.
+              This will save a file that contains your account data. You can use this file to restore your account on another device.
             </p>
             <p>
-              If you are signed in you can choose to backup all accounts or just the signed in account.If you are not signed in, this will save all accounts.
+              If you are signed in you can choose to backup all accounts or just the signed in account. If you are not signed in, this will save all accounts.
             </p>
             <form id="backupForm" class="form--narrow">
               <div class="form-group" id="backupAllAccountsGroup" style="display: none;">
@@ -1673,9 +1673,17 @@
                 </label>
               </div>
               <div class="form-group">
+                <label for="backupStorageLocation">Storage Location</label>
+                <select id="backupStorageLocation" class="form-control">
+                  <option value="local" selected>Local</option>
+                  <option value="google-drive">Google Drive</option>
+                </select>
+              </div>
+              <div class="form-group">
                 <label for="backupPassword">
                   Password
                   <span id="backupPasswordWarning" style="color: #dc3545; display: none">too short</span>
+                  <span id="backupPasswordRequired" style="color: #dc3545; display: none">required</span>
                 </label>
                 <input
                   type="password"
@@ -1697,7 +1705,7 @@
                 />
               </div>
               <div class="form-actions">
-                <button type="submit" class="btn btn--primary btn--pill btn--full">Download Data</button>
+                <button type="submit" class="btn btn--primary btn--pill btn--full">Save Data</button>
               </div>
             </form>
           </div>

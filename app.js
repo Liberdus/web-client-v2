@@ -5934,11 +5934,13 @@ class BackupAccountModal {
     this.modal = document.getElementById('backupModal');
     this.passwordInput = document.getElementById('backupPassword');
     this.passwordWarning = document.getElementById('backupPasswordWarning');
+    this.passwordRequired = document.getElementById('backupPasswordRequired');
     this.passwordConfirmInput = document.getElementById('backupPasswordConfirm');
     this.passwordConfirmWarning = document.getElementById('backupPasswordConfirmWarning');
     this.submitButton = document.getElementById('backupForm').querySelector('button[type="submit"]');
     this.backupAllAccountsCheckbox = document.getElementById('backupAllAccounts');
     this.backupAllAccountsGroup = document.getElementById('backupAllAccountsGroup');
+    this.storageLocationSelect = document.getElementById('backupStorageLocation');
     
     document.getElementById('closeBackupForm').addEventListener('click', () => this.close());
     document.getElementById('backupForm').addEventListener('submit', (event) => {
@@ -5947,6 +5949,7 @@ class BackupAccountModal {
 
     this.passwordInput.addEventListener('input', () => this.updateButtonState());
     this.passwordConfirmInput.addEventListener('input', () => this.updateButtonState());
+    this.storageLocationSelect.addEventListener('change', () => this.handleStorageLocationChange());
   }
 
   open() {
@@ -5975,6 +5978,9 @@ class BackupAccountModal {
     this.passwordConfirmInput.value = '';
     // Reset checkbox
     this.backupAllAccountsCheckbox.checked = false;
+    // Reset storage location to default
+    this.storageLocationSelect.value = 'local';
+    this.handleStorageLocationChange();
   }
 
   /**
@@ -6162,16 +6168,24 @@ class BackupAccountModal {
   updateButtonState() {
     const password = this.passwordInput.value;
     const confirmPassword = this.passwordConfirmInput.value;
+    const isGoogleDrive = this.storageLocationSelect.value === 'google-drive';
     
-    // Password is optional, but if provided, it must be at least 4 characters
+    // Password is required for Google Drive, optional for local
     let isValid = true;
     
-    // Validate password length
-    if (password.length > 0 && password.length < 4) {
+    // Check if password is required (Google Drive)
+    if (isGoogleDrive && password.length === 0) {
+      isValid = false;
+      this.passwordRequired.style.display = 'inline';
+      this.passwordWarning.style.display = 'none';
+    } else if (password.length > 0 && password.length < 4) {
+      // Validate password length
       isValid = false;
       this.passwordWarning.style.display = 'inline';
+      this.passwordRequired.style.display = 'none';
     } else {
       this.passwordWarning.style.display = 'none';
+      this.passwordRequired.style.display = 'none';
     }
     
     // Validate password confirmation
@@ -6191,6 +6205,20 @@ class BackupAccountModal {
     
     // Update button state
     this.submitButton.disabled = !isValid;
+  }
+
+  handleStorageLocationChange() {
+    const isGoogleDrive = this.storageLocationSelect.value === 'google-drive';
+    
+    // Update placeholder text based on storage location
+    if (isGoogleDrive) {
+      this.passwordInput.placeholder = 'Password required for Google Drive';
+    } else {
+      this.passwordInput.placeholder = 'Leave empty for unencrypted backup';
+    }
+    
+    // Re-validate form
+    this.updateButtonState();
   }
 }
 const backupAccountModal = new BackupAccountModal();
