@@ -442,18 +442,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   localStorageMonitor.load();
 
   // Thumbnail Cache
-  thumbnailCache.init().then(() => {
-    // Cleanup old thumbnails on startup
-    thumbnailCache.cleanup().then(deletedCount => {
-      if (deletedCount > 0) {
-        console.log(`Cleaned up ${deletedCount} old thumbnail(s)`);
-      }
-    }).catch(err => {
-      console.warn('Failed to cleanup old thumbnails:', err);
-    });
-  }).catch(err => {
-    console.warn('Failed to initialize thumbnail cache:', err);
-  });
+  thumbnailCache.load();
 
   // Voice Recording Modal
   voiceRecordingModal.load();
@@ -17814,6 +17803,23 @@ class ThumbnailCache {
     this.dbVersion = 1;
     this.db = null;
     this.maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
+  }
+
+  /**
+   * Load and initialize the thumbnail cache
+   * @returns {Promise<void>}
+   */
+  async load() {
+    try {
+      await this.init();
+      // Cleanup old thumbnails on startup
+      const deletedCount = await this.cleanup();
+      if (deletedCount > 0) {
+        console.log(`Cleaned up ${deletedCount} old thumbnail(s)`);
+      }
+    } catch (err) {
+      console.warn('Failed to load thumbnail cache:', err);
+    }
   }
 
   /**
