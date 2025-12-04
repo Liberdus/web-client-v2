@@ -10417,32 +10417,30 @@ console.warn('in send message', txid)
       const blobUrl = URL.createObjectURL(blob);
       const filename = decodeURIComponent(linkEl.dataset.name || 'download');
 
-      // Generate and cache thumbnail for images, then reload modal to show preview
+      // Generate and cache thumbnail for images, then update in place
       if (blob.type.startsWith('image/')) {
-        // Save current scroll position and address for restoration
-        const currentAddress = this.address;
-        const messagesContainer = this.messagesList?.parentElement;
-        const savedScrollTop = messagesContainer ? messagesContainer.scrollTop : 0;
         const attachmentUrl = linkEl.dataset.url;
+        const attachmentRow = linkEl.closest('.attachment-row') || linkEl.closest('[data-image-attachment="true"]');
         
         thumbnailCache.generateThumbnail(blob).then(thumbnail => {
           return thumbnailCache.save(attachmentUrl, thumbnail, blob.type);
-        }).then(() => {
-          // Thumbnail saved, reload modal to show preview
-          if (this.isActive() && this.address === currentAddress) {
-            // Close and reopen to refresh with thumbnail
-            this.close();
-            // Small delay to ensure close completes
-            setTimeout(() => {
-              this.open(currentAddress);
-              // Restore scroll position after messages render and thumbnails load
-              setTimeout(() => {
-                const newMessagesContainer = this.messagesList?.parentElement;
-                if (newMessagesContainer) {
-                  newMessagesContainer.scrollTop = savedScrollTop;
-                }
-              }, 200); // Give time for thumbnails to load
-            }, 50);
+        }).then(async () => {
+          // Update thumbnail in place
+          if (attachmentRow && attachmentRow.parentNode) {
+            const thumbnailBlob = await thumbnailCache.get(attachmentUrl);
+            if (thumbnailBlob) {
+              const thumbnailUrl = URL.createObjectURL(thumbnailBlob);
+              const iconContainer = attachmentRow.querySelector('.attachment-icon-container');
+              
+              if (iconContainer && iconContainer.parentNode) {
+                // Replace emoji with thumbnail image
+                iconContainer.innerHTML = `<img src="${thumbnailUrl}" alt="Thumbnail" class="attachment-thumbnail">`;
+                // Store blob URL for cleanup
+                attachmentRow.dataset.thumbnailUrl = thumbnailUrl;
+              } else {
+                URL.revokeObjectURL(thumbnailUrl);
+              }
+            }
           }
         }).catch(err => {
           console.warn('Failed to generate or cache thumbnail:', err);
