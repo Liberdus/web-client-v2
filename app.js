@@ -10317,21 +10317,6 @@ console.warn('in send message', txid)
   }
 
   /**
-   * Returns an appropriate emoji based on file type and name
-   * @param {string} type - MIME type of the file
-   * @param {string} name - Name of the file
-   * @returns {string} Emoji representing the file type
-   */
-  getFileEmoji(type, name) {
-    if (type && type.startsWith('image/')) return '🖼️';
-    if (type && type.startsWith('audio/')) return '🎵';
-    if (type && type.startsWith('video/')) return '🎬';
-    if ((type === 'application/pdf') || (name && name.toLowerCase().endsWith('.pdf'))) return '📄';
-    if (type && type.startsWith('text/')) return '📄';
-    return '📎';
-  }
-
-  /**
    * Formats file size in bytes to human-readable format
    * @param {number} bytes - File size in bytes
    * @returns {string} Formatted file size string
