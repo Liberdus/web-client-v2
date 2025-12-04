@@ -12537,7 +12537,6 @@ class VoiceRecordingModal {
    */
   close() {
     this.modal.style.display = 'none';
-    this.cleanup();
   }
 
   /**
@@ -17799,6 +17798,7 @@ class ThumbnailCache {
     this.dbVersion = 1;
     this.db = null;
     this.maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
+    this.maxCacheSize = 50 * 1024 * 1024; // 50MB in bytes
   }
 
   /**
@@ -17808,10 +17808,10 @@ class ThumbnailCache {
   async load() {
     try {
       await this.init();
-      // Cleanup old thumbnails on startup
-      const deletedCount = await this.cleanup();
-      if (deletedCount > 0) {
-        console.log(`Cleaned up ${deletedCount} old thumbnail(s)`);
+      // Cleanup by size if cache is too large
+      const sizeDeletedCount = await this.cleanupBySize();
+      if (sizeDeletedCount > 0) {
+        console.log(`Cleaned up ${sizeDeletedCount} thumbnail(s) by size limit`);
       }
     } catch (err) {
       console.warn('Failed to load thumbnail cache:', err);
@@ -17905,6 +17905,85 @@ class ThumbnailCache {
   }
 
   /**
+   * Get the current total size of all cached thumbnails
+   * @returns {Promise<number>} Total size in bytes
+   */
+  async getCacheSize() {
+    if (!this.db) {
+      await this.init();
+    }
+
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction([this.storeName], 'readonly');
+      const store = tx.objectStore(this.storeName);
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        const results = request.result;
+        const totalSize = results.reduce((sum, item) => {
+          return sum + (item.thumbnail ? item.thumbnail.size : 0);
+        }, 0);
+        resolve(totalSize);
+      };
+
+      request.onerror = () => {
+        console.warn('Failed to get cache size:', request.error);
+        reject(request.error);
+      };
+    });
+  }
+
+  /**
+   * Remove oldest thumbnails until cache size is under limit
+   * @returns {Promise<number>} Number of thumbnails removed
+   */
+  async cleanupBySize() {
+    if (!this.db) {
+      await this.init();
+    }
+
+    const currentSize = await this.getCacheSize();
+    // Target 90% of max to leave headroom and avoid frequent cleanups
+    const targetSize = this.maxCacheSize * 0.9;
+    
+    if (currentSize <= targetSize) {
+      return 0;
+    }
+
+    const sizeToRemove = currentSize - targetSize;
+
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction([this.storeName], 'readwrite');
+      const store = tx.objectStore(this.storeName);
+      const index = store.index('cachedAt');
+      const request = index.openCursor(null, 'next'); // Oldest first
+
+      let deletedCount = 0;
+      let removedSize = 0;
+
+      request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor && removedSize < sizeToRemove) {
+          const item = cursor.value;
+          const itemSize = item.thumbnail ? item.thumbnail.size : 0;
+          
+          cursor.delete();
+          deletedCount++;
+          removedSize += itemSize;
+          cursor.continue();
+        } else {
+          resolve(deletedCount);
+        }
+      };
+
+      request.onerror = () => {
+        console.warn('Failed to cleanup thumbnails by size:', request.error);
+        reject(request.error);
+      };
+    });
+  }
+
+  /**
    * Save a thumbnail to IndexedDB
    * @param {string} attachmentUrl - The attachment URL (used as key)
    * @param {Blob} thumbnailBlob - The thumbnail blob to store
@@ -17914,6 +17993,15 @@ class ThumbnailCache {
   async save(attachmentUrl, thumbnailBlob, originalType) {
     if (!this.db) {
       await this.init();
+    }
+
+    // Check if adding this thumbnail would exceed size limit
+    const currentSize = await this.getCacheSize();
+    const newThumbnailSize = thumbnailBlob.size;
+    
+    // If adding this thumbnail would exceed limit, cleanup first
+    if (currentSize + newThumbnailSize > this.maxCacheSize) {
+      await this.cleanupBySize();
     }
 
     return new Promise((resolve, reject) => {
@@ -17966,43 +18054,6 @@ class ThumbnailCache {
 
       request.onerror = () => {
         console.warn('Failed to get thumbnail:', request.error);
-        reject(request.error);
-      };
-    });
-  }
-
-  /**
-   * Remove thumbnails older than maxAge
-   * @returns {Promise<number>} Number of thumbnails removed
-   */
-  async cleanup() {
-    if (!this.db) {
-      await this.init();
-    }
-
-    return new Promise((resolve, reject) => {
-      const tx = this.db.transaction([this.storeName], 'readwrite');
-      const store = tx.objectStore(this.storeName);
-      const index = store.index('cachedAt');
-      const cutoffTime = Date.now() - this.maxAge;
-      const range = IDBKeyRange.upperBound(cutoffTime);
-      const request = index.openCursor(range);
-
-      let deletedCount = 0;
-
-      request.onsuccess = (event) => {
-        const cursor = event.target.result;
-        if (cursor) {
-          cursor.delete();
-          deletedCount++;
-          cursor.continue();
-        } else {
-          resolve(deletedCount);
-        }
-      };
-
-      request.onerror = () => {
-        console.warn('Failed to cleanup thumbnails:', request.error);
         reject(request.error);
       };
     });
