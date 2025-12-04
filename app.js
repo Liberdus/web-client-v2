@@ -9751,8 +9751,10 @@ console.warn('in send message', txid)
               const fileSize = att.size ? this.formatFileSize(att.size) : '';
               const fileType = att.type ? att.type.split('/').pop().toUpperCase() : '';
               const isImage = att.type && att.type.startsWith('image/');
+              const fileTypeIcon = this.getFileTypeForIcon(att.type || '', fileName);
+              const paddingStyle = isImage ? 'padding: 5px 5px;' : 'padding: 10px 12px;';
               return `
-                <div class="attachment-row" style="display: flex; ${isImage ? 'flex-direction: column;' : 'align-items: center;'} background: #f5f5f7; border-radius: 12px; padding: 5px 5px; margin-bottom: 6px;"
+                <div class="attachment-row" style="display: flex; ${isImage ? 'flex-direction: column;' : 'align-items: center;'} background: #f5f5f7; border-radius: 12px; ${paddingStyle} margin-bottom: 6px;"
                   data-url="${fileUrl}"
                   data-name="${encodeURIComponent(fileName)}"
                   data-type="${att.type || ''}"
@@ -9762,10 +9764,10 @@ console.warn('in send message', txid)
                   ${isImage ? 'data-image-attachment="true"' : ''}
                 >
                   <div class="attachment-icon-container" style="${isImage ? 'margin-bottom: 10px;' : 'margin-right: 14px; flex-shrink: 0;'}">
-                    <div class="attachment-icon"></div>
+                    <div class="attachment-icon" data-file-type="${fileTypeIcon}"></div>
                   </div>
-                  <div style="min-width:0; overflow: visible;">
-                    <span class="attachment-label" style="font-weight:500;color:#222;font-size:0.7em;white-space:nowrap;display:block;">
+                  <div style="min-width:0;">
+                    <span class="attachment-label" style="font-weight:500;color:#222;font-size:0.7em;display:block;word-wrap:break-word;">
                       ${fileName}
                     </span><br>
                     <span style="font-size: 0.93em; color: #888;">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
@@ -10258,6 +10260,21 @@ console.warn('in send message', txid)
     }
     const recipient = myData.contacts[recipientAddress];
     return dhkeyCombined(myAccount.keys.secret, recipient.public, recipient.pqPublic);
+  }
+
+  /**
+   * Get the file type for icon display
+   * @param {string} type - MIME type of the file
+   * @param {string} name - Name of the file
+   * @returns {string} File type identifier for icon
+   */
+  getFileTypeForIcon(type, name) {
+    if (type && type.startsWith('image/')) return 'image';
+    if (type && type.startsWith('audio/')) return 'audio';
+    if (type && type.startsWith('video/')) return 'video';
+    if ((type === 'application/pdf') || (name && name.toLowerCase().endsWith('.pdf'))) return 'pdf';
+    if (type && type.startsWith('text/')) return 'text';
+    return 'file';
   }
 
   /**
