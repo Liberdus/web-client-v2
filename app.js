@@ -6050,9 +6050,13 @@ class BackupAccountModal {
   buildGoogleAuthUrl() {
     const config = network.googleDrive;
     const state = crypto.randomUUID();
+    // Use different redirect URI for React Native WebView
+    const redirectUri = reactNativeApp.isReactNativeWebView 
+      ? config.redirectUriNative 
+      : config.redirectUri;
     const params = new URLSearchParams({
       client_id: config.clientId,
-      redirect_uri: config.redirectUri,
+      redirect_uri: redirectUri,
       response_type: 'token', // implicit flow
       scope: config.scope,
       include_granted_scopes: 'true',
@@ -16897,6 +16901,12 @@ class ReactNativeApp {
               }
             }
           }
+
+          if (data.type === 'oauth') {
+            // Handle OAuth callback from React Native
+            // The queryString contains the OAuth response (e.g., "access_token=...&token_type=...&expires_in=...")
+            this.handleOAuthCallback(data.queryString);
+          }
         } catch (error) {
           logsModal.error('Error parsing message from React Native:', error);
         }
@@ -17134,6 +17144,55 @@ class ReactNativeApp {
       type: 'CLEAR_NOTI',
       address
     });
+  }
+
+  /**
+   * Handle OAuth callback from React Native
+   * Parses the query string and stores the Google token in localStorage
+   * @param {string} queryString - The OAuth response query string (e.g., "access_token=...&token_type=...&expires_in=...")
+   */
+  handleOAuthCallback(queryString) {
+    if (!queryString) {
+      console.warn('OAuth callback received with empty query string');
+      return;
+    }
+
+    try {
+      const params = new URLSearchParams(queryString);
+      const accessToken = params.get('access_token');
+      const tokenType = params.get('token_type');
+      const expiresIn = params.get('expires_in');
+      const error = params.get('error');
+
+      if (error) {
+        console.error('OAuth error from Google:', error);
+        showToast('Google Drive authentication failed: ' + error, 5000, 'error');
+        return;
+      }
+
+      if (!accessToken) {
+        console.warn('OAuth callback missing access_token');
+        showToast('Google Drive authentication failed: No access token received', 5000, 'error');
+        return;
+      }
+
+      const now = Date.now();
+      const expiresAt = now + parseInt(expiresIn || '3600', 10) * 1000;
+
+      const tokenData = {
+        accessToken,
+        tokenType: tokenType || 'Bearer',
+        expiresAt
+      };
+
+      // Store the token using BackupAccountModal's storage method
+      backupAccountModal.storeGoogleToken(tokenData);
+      console.log('🔐 Google OAuth token stored successfully from React Native');
+      showToast('Google Drive connected successfully!', 3000, 'success');
+    } catch (error) {
+      console.error('Error processing OAuth callback:', error);
+      showToast('Failed to process Google authentication', 5000, 'error');
+    }
   }
 
   /**

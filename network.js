@@ -41,6 +41,7 @@ const network = {
   "googleDrive": {
     "clientId": "957085667316-v7510p36q3eog9vgqmiicbtd920u472j.apps.googleusercontent.com",
     "redirectUri": window.location.origin + window.location.pathname,
+    "redirectUriNative": "https://liberdus.com/oauth/mobile-bridge", // for React Native WebView
     "scope": "https://www.googleapis.com/auth/drive.file",
     "backupFolder": "Liberdus_backup"
   }
