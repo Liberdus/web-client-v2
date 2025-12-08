@@ -4028,6 +4028,15 @@ async function processChats(chats, keys) {
                 } else if (parsedMessage.type === 'message') {
                   // Regular message format processing
                   payload.message = parsedMessage.message;
+                  if (parsedMessage.replyId) {
+                    payload.replyId = parsedMessage.replyId;
+                  }
+                  if (parsedMessage.replyMessage) {
+                    payload.replyMessage = parsedMessage.replyMessage;
+                  }
+                  if (typeof parsedMessage.replyOwnerIsMine !== 'undefined') {
+                    payload.replyOwnerIsMine = parsedMessage.replyOwnerIsMine;
+                  }
                   
                   // Handle attachments field (replacing xattach)
                   if (parsedMessage.attachments) {
@@ -4672,18 +4681,8 @@ class SearchMessagesModal {
       chatModal.open(result.contactAddress);
 
       // Scroll to and highlight the message
-      // could move this into chat modal class as scrollToMessage
       setTimeout(() => {
-        const messageSelector = `[data-txid="${result.messageId}"]`;
-        const messageElement = document.querySelector(messageSelector);
-        if (messageElement) {
-          messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          messageElement.classList.add('highlighted');
-          setTimeout(() => messageElement.classList.remove('highlighted'), 2000);
-        } else {
-          console.error('Message element not found for selector:', messageSelector);
-          // Could add a toast notification here
-        }
+        chatModal.scrollToMessage(result.messageId);
       }, 300);
     } catch (error) {
       console.error('Error handling search result:', error);
@@ -8940,6 +8939,13 @@ class ChatModal {
     this.sendMoneyButton = document.getElementById('chatSendMoneyButton');
     this.retryOfTxId = document.getElementById('retryOfTxId');
     this.messageInput = document.querySelector('.message-input');
+    this.replyPreview = document.getElementById('replyPreview');
+    this.replyPreviewContent = document.querySelector('#replyPreview .reply-preview-content');
+    this.replyPreviewText = document.querySelector('#replyPreview .reply-preview-text');
+    this.replyPreviewClose = document.getElementById('replyPreviewClose');
+    this.replyToTxId = document.getElementById('replyToTxId');
+    this.replyToMessage = document.getElementById('replyToMessage');
+    this.replyOwnerIsMine = document.getElementById('replyOwnerIsMine');
     this.chatSendMoneyButton = document.getElementById('chatSendMoneyButton');
     this.messageByteCounter = document.querySelector('.message-byte-counter');
     this.tollTemplate = document.getElementById('tollInfoMessageTemplate');
@@ -9080,6 +9086,17 @@ class ChatModal {
       friendModal.open();
     });
 
+    if (this.replyPreviewClose) {
+      this.replyPreviewClose.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.cancelReply();
+      });
+    }
+
+    if (this.replyPreview) {
+      this.replyPreview.addEventListener('click', (e) => this.handleReplyPreviewClick(e));
+    }
+
     if (this.addAttachmentButton) {
       this.addAttachmentButton.addEventListener('click', () => {
         this.triggerFileSelection();
@@ -9132,6 +9149,19 @@ class ChatModal {
       if (playButton) {
         e.preventDefault();
         this.playVoiceMessage(playButton);
+      }
+    });
+
+    // Reply quote click delegation
+    this.messagesList.addEventListener('click', (e) => {
+      const replyQuote = e.target.closest('.reply-quote');
+      if (replyQuote) {
+        const targetTxid = replyQuote.dataset.replyTxid;
+        if (targetTxid) {
+          e.preventDefault();
+          e.stopPropagation();
+          this.scrollToMessage(targetTxid);
+        }
       }
     });
 
@@ -9733,11 +9763,19 @@ class ChatModal {
             text: message
         };
       } else {
+        const replyIdVal = this.replyToTxId?.value?.trim?.() || '';
+        const replyMsgVal = this.replyToMessage?.value?.trim?.() || '';
+        const replyOwnerIsMineVal = this.replyOwnerIsMine?.value === '1';
         // Convert message to new JSON format with type and optional attachments
         messageObj = {
           type: 'message',
           message: message
         };
+        if (replyIdVal) {
+          messageObj.replyId = replyIdVal;
+          messageObj.replyMessage = replyMsgVal || '';
+          messageObj.replyOwnerIsMine = replyOwnerIsMineVal;
+        }
       }
 
       // Handle attachments - add them to the JSON structure instead of using xattach
@@ -9844,6 +9882,11 @@ console.warn('in send message', txid)
           status: 'sent',
           ...(this.fileAttachments && this.fileAttachments.length > 0 && { xattach: this.fileAttachments }), // Only include if there are attachments
         };
+        if (messageObj.replyId) {
+          newMessage.replyId = messageObj.replyId;
+          newMessage.replyMessage = messageObj.replyMessage;
+          newMessage.replyOwnerIsMine = messageObj.replyOwnerIsMine;
+        }
         insertSorted(chatsData.contacts[currentAddress].messages, newMessage, 'timestamp');
       }
 
@@ -9852,6 +9895,9 @@ console.warn('in send message', txid)
         this.fileAttachments = [];
         this.showAttachmentPreview();
       }
+
+      // Clear reply state after sending
+      this.cancelReply();
 
       // Update or add to chats list, maintaining chronological order
       const chatUpdate = {
@@ -10134,6 +10180,9 @@ console.warn('in send message', txid)
         // --- Render Chat Message ---
         const messageClass = item.my ? 'sent' : 'received'; // Use item.my directly
         
+        // Initialize replyHTML at this scope so it's always defined
+        let replyHTML = '';
+        
         // Check if message was deleted
         if (item?.deleted > 0) {
           // Render deleted message with special styling
@@ -10144,6 +10193,30 @@ console.warn('in send message', txid)
                     </div>
                 `;
         } else {
+          // --- Render Reply Quote if present ---
+          if (item.replyId) {
+              const replyText = escapeHtml(item.replyMessage || 'View original message');
+              // Determine owner label: "You" if the referenced message is ours, else contact name
+              const ownerIsMineHint = item.replyOwnerIsMine;
+              const hasHint = typeof ownerIsMineHint !== 'undefined';
+              let isOwnerMine = false;
+              if (hasHint) {
+                isOwnerMine = ownerIsMineHint === true || ownerIsMineHint === '1';
+              } else {
+                const targetMsg = contact.messages?.find((m) => m.txid === item.replyId);
+                isOwnerMine = !!(targetMsg && targetMsg.my);
+              }
+              const ownerText = isOwnerMine ? 'You' : (getContactDisplayName(contact) || 'Contact');
+              const ownerClass = isOwnerMine ? 'reply-owner-me' : 'reply-owner-contact';
+              const replyOwnerLabel = `<span class="reply-quote-label ${ownerClass}">${escapeHtml(ownerText)}</span>`;
+
+              replyHTML = `
+                <div class="reply-quote ${ownerClass}" data-reply-txid="${escapeHtml(item.replyId)}">
+                  ${replyOwnerLabel}
+                  <div class="reply-quote-text">${replyText}</div>
+                </div>
+              `;
+          }
           // --- Render Attachments if present ---
           let attachmentsHTML = '';
           if (item.xattach && Array.isArray(item.xattach) && item.xattach.length > 0) {
@@ -10249,6 +10322,7 @@ console.warn('in send message', txid)
       const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !item.deleted;
       messageHTML = `
             <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute} ${callTimeAttribute}>
+              ${replyHTML}
               ${attachmentsHTML}
               ${messageTextHTML}
               <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
@@ -10986,6 +11060,7 @@ console.warn('in send message', txid)
     if (e.target.closest('.voice-message-play-button')) return;
     if (e.target.closest('.voice-message-speed-button')) return;
     if (e.target.closest('.voice-message-seek')) return;
+    if (e.target.closest('.reply-quote')) return;
 
     // Check if keyboard is open - if so, don't show context menu
     if (this.isKeyboardOpen()) {
@@ -11021,6 +11096,9 @@ console.warn('in send message', txid)
   showMessageContextMenu(e, messageEl) {
     e.preventDefault();
     e.stopPropagation();
+
+    // Do not open context menu when clicking on reply quote
+    if (e.target.closest('.reply-quote')) return;
     
     this.currentContextMessage = messageEl;
     
@@ -11038,6 +11116,7 @@ console.warn('in send message', txid)
     const copyOption = this.contextMenu.querySelector('[data-action="copy"]');
     const joinOption = this.contextMenu.querySelector('[data-action="join"]');
     const inviteOption = this.contextMenu.querySelector('[data-action="call-invite"]');
+    const replyOption = this.contextMenu.querySelector('[data-action="reply"]');
     const editResendOption = this.contextMenu.querySelector('[data-action="edit-resend"]');
     const editOption = this.contextMenu.querySelector('[data-action="edit"]');
     const isFailedPayment = messageEl.dataset.status === 'failed' && messageEl.classList.contains('payment-info');
@@ -11059,14 +11138,17 @@ console.warn('in send message', txid)
       if (inviteOption) inviteOption.style.display = isExpired ? 'none' : 'flex';
       if (editResendOption) editResendOption.style.display = 'none';
       if (editOption) editOption.style.display = 'none';
+      if (replyOption) replyOption.style.display = isFuture ? 'flex' : 'none';
     } else if (isVoice) {
       if (copyOption) copyOption.style.display = 'none';
       if (inviteOption) inviteOption.style.display = 'none';
       if (joinOption) joinOption.style.display = 'none';
+      if (replyOption) replyOption.style.display = 'flex';
     } else {
       if (copyOption) copyOption.style.display = 'flex';
       if (joinOption) joinOption.style.display = 'none';
       if (inviteOption) inviteOption.style.display = 'none';
+      if (replyOption) replyOption.style.display = 'flex';
       if (editResendOption) editResendOption.style.display = isFailedPayment ? 'flex' : 'none';
       // Determine if edit should be shown
       if (editOption) {
@@ -11150,6 +11232,9 @@ console.warn('in send message', txid)
         this.closeContextMenu();
         callInviteModal.open(messageEl);
         break;
+      case 'reply':
+        this.startReplyToMessage(messageEl);
+        break;
       case 'delete':
         if (messageEl.dataset.status === 'failed' && messageEl.classList.contains('payment-info')) {
           this.deleteFailedPayment(messageEl);
@@ -11177,6 +11262,7 @@ console.warn('in send message', txid)
    */
   startEditMessage(messageEl) {
     try {
+      this.cancelReply();
       const txid = messageEl.dataset.txid;
       const timestamp = parseInt(messageEl.dataset.messageTimestamp || '0', 10);
       if (!txid) return;
@@ -11203,6 +11289,151 @@ console.warn('in send message', txid)
     } catch (err) {
       console.error('startEditMessage error', err);
     }
+  }
+
+  /**
+   * Starts reply flow: shows preview bar and stores reply metadata
+   * @param {HTMLElement} messageEl
+   */
+  startReplyToMessage(messageEl) {
+    if (!messageEl) return;
+    const txid = messageEl.dataset.txid;
+    if (!txid) {
+      return showToast('Cannot reply: missing message id', 2000, 'error');
+    }
+
+    const previewText = this.truncateReplyText(this.getMessageTextForReply(messageEl));
+    if (!previewText) {
+      return showToast('Cannot reply to an empty message', 2000, 'error');
+    }
+
+    this.replyToTxId.value = txid;
+    this.replyToMessage.value = previewText;
+    this.replyOwnerIsMine.value = messageEl.classList.contains('sent') ? '1' : '0';
+
+    if (this.replyPreviewText) this.replyPreviewText.textContent = previewText;
+    if (this.replyPreview) this.replyPreview.style.display = '';
+
+    // focus input
+    this.messageInput.focus();
+    this.messageInput.selectionStart = this.messageInput.selectionEnd = this.messageInput.value.length;
+  }
+
+  /**
+   * Clears reply state and hides the preview bar
+   * Note: Hidden input elements are guaranteed to exist in the DOM
+   */
+  cancelReply() {
+    if (this.replyToTxId) this.replyToTxId.value = '';
+    if (this.replyToMessage) this.replyToMessage.value = '';
+    if (this.replyOwnerIsMine) this.replyOwnerIsMine.value = '';
+    if (this.replyPreview) this.replyPreview.style.display = 'none';
+    if (this.replyPreviewText) this.replyPreviewText.textContent = '';
+  }
+
+  /**
+   * Returns cleaned text for reply preview from a message element
+   * @param {HTMLElement} messageEl
+   * @returns {string}
+   */
+  getMessageTextForReply(messageEl) {
+    if (!messageEl) return '';
+    const voice = messageEl.querySelector('.voice-message');
+    if (voice) {
+      const ts = parseInt(messageEl.dataset.messageTimestamp || '', 10);
+      const tsLabel = Number.isFinite(ts) ? formatTime(ts, true) : '';
+      return tsLabel ? `Voice message · ${tsLabel}` : 'Voice message';
+    }
+    const call = messageEl.querySelector('.call-message-text');
+    if (call) {
+      const callTimeAttr = Number(messageEl.getAttribute('data-call-time') || 0);
+      if (callTimeAttr > 0) {
+        const schedDate = new Date(callTimeAttr);
+        const dateStr = schedDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        const timeStr = schedDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        return `Call at ${timeStr}, ${dateStr}`;
+      }
+      const baseText = (call.textContent || '').trim() || 'Call';
+      return baseText;
+    }
+    const isPayment = messageEl.classList.contains('payment-info');
+    const paymentMemoEl = messageEl.querySelector('.payment-memo');
+    if (isPayment && !paymentMemoEl) {
+      const dir = (messageEl.querySelector('.payment-direction')?.textContent || '').trim();
+      const amount = (messageEl.querySelector('.payment-amount')?.textContent || '').trim();
+      const ts = parseInt(messageEl.dataset.messageTimestamp || '', 10);
+      const dateStr = Number.isFinite(ts) ? new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+      const timeStr = Number.isFinite(ts) ? new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+      if (dir && amount) {
+        if (dateStr && timeStr) return `${dir}${amount} · ${timeStr}, ${dateStr}`;
+        return `${dir}${amount}`;
+      }
+    }
+    const memo = messageEl.querySelector('.payment-memo');
+    if (memo) return memo.textContent || '';
+    const content = messageEl.querySelector('.message-content');
+    if (content) return content.textContent || '';
+    return messageEl.textContent || '';
+  }
+
+  /**
+   * Truncates reply text to 40 chars with ellipsis
+   * @param {string} text
+   * @returns {string}
+   */
+  truncateReplyText(text) {
+    const clean = (text || '').replace(/\s+/g, ' ').trim();
+    if (clean.length <= 40) return clean;
+    return clean.slice(0, 40) + '...';
+  }
+
+  /**
+   * Handles click on reply preview bar to scroll to the original message
+   * @param {Event} e - Click event
+   */
+  handleReplyPreviewClick(e) {
+    // Don't scroll if clicking the close button (it has stopPropagation)
+    if (e.target === this.replyPreviewClose || e.target.closest('.reply-preview-close')) {
+      return;
+    }
+    
+    const replyTxid = this.replyToTxId?.value?.trim();
+    if (replyTxid) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.scrollToMessage(replyTxid);
+    }
+  }
+
+  /**
+   * Scroll to a message by txid and highlight it
+   * @param {string} txid
+   */
+  scrollToMessage(txid) {
+    if (!txid || !this.messagesList) return;
+    const target = this.messagesList.querySelector(`[data-txid="${txid}"]`);
+    if (!target) {
+      showToast('Message not found', 2000, 'info');
+      return;
+    }
+
+    const container = this.messagesContainer;
+    if (container) {
+      const rect = target.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const fullyVisible = rect.top >= containerRect.top && rect.bottom <= containerRect.bottom;
+      if (!fullyVisible) {
+        const scrollTarget = Math.max(0, target.offsetTop - container.clientHeight / 3);
+        if (typeof container.scrollTo === 'function') {
+          container.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+        } else {
+          container.scrollTop = scrollTarget;
+        }
+      }
+    }
+
+    target.classList.add('highlighted');
+    setTimeout(() => target.classList.remove('highlighted'), 2000);
   }
 
   /**

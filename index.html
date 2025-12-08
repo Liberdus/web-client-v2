@@ -969,6 +969,13 @@
           <div class="attachment-preview" id="attachmentPreview" style="display: none;">
             <!-- Will be populated by JavaScript -->
           </div>
+          <div class="reply-preview" id="replyPreview" style="display: none;">
+            <div class="reply-preview-content">
+              <div class="reply-preview-label">Replying to:</div>
+              <div class="reply-preview-text"></div>
+            </div>
+            <button class="reply-preview-close" id="replyPreviewClose" aria-label="Cancel reply" type="button"></button>
+          </div>
           <div class="message-input-row">
             <button class="icon-button add-attachment-button" id="addAttachmentButton" aria-label="Add attachment"></button>
             <!-- Cancel Edit button (shown only when editing a message) -->
@@ -983,6 +990,9 @@
             </div>
             <input type="hidden" id="retryOfTxId" />
             <input type="hidden" id="editOfTxId" />
+            <input type="hidden" id="replyToTxId" />
+            <input type="hidden" id="replyToMessage" />
+            <input type="hidden" id="replyOwnerIsMine" />
             <!-- Add hidden file input for chat attachments -->
             <input type="file" id="chatFileInput" style="display:none;">
             <button class="icon-button voice-record-button" id="voiceRecordButton" aria-label="Record voice message"></button>
@@ -1107,6 +1117,10 @@
 
       <!-- Message Context Menu -->
       <div class="message-context-menu" id="messageContextMenu" style="display: none;">
+        <div class="context-menu-option" data-action="reply" data-icon="reply">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text">Reply</span>
+        </div>
         <div class="context-menu-option" data-action="copy" data-icon="copy">
           <span class="context-menu-icon"></span>
           <span class="context-menu-text">Copy</span>
