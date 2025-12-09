@@ -10806,13 +10806,16 @@ console.warn('in send message', txid)
       return;
     }
   
-    const attachmentItems = this.fileAttachments.map((attachment, index) => `
+    const attachmentItems = this.fileAttachments.map((attachment, index) => {
+      const fileTypeIcon = this.getFileTypeForIcon(attachment.type || '', attachment.name);
+      return `
       <div class="attachment-item">
-        <span class="attachment-icon">📎</span>
+        <div class="attachment-icon" data-file-type="${fileTypeIcon}"></div>
         <span class="attachment-name">${attachment.name}</span>
         <button class="remove-attachment" data-index="${index}">×</button>
       </div>
-    `).join('');
+    `;
+    }).join('');
   
     preview.innerHTML = attachmentItems;
     
