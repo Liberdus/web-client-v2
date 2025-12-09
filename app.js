@@ -6045,139 +6045,145 @@ class BackupAccountModal {
   }
 
   // ======================================
-  // GOOGLE OAUTH FLOW (Popup-based)
+  // GOOGLE OAUTH FLOW (via OAuth Server with PKCE)
   // ======================================
-  buildGoogleAuthUrl() {
+  buildOAuthServerUrl(sessionId) {
     const config = network.googleDrive;
-    const state = crypto.randomUUID();
     const params = new URLSearchParams({
-      client_id: config.clientId,
-      redirect_uri: config.redirectUri,
-      response_type: 'token', // implicit flow
-      scope: config.scope,
-      include_granted_scopes: 'true',
-      state
+      sessionId,
+      provider: 'google',
+      flow: 'code' // Use PKCE flow (server-side)
     });
-    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    return `${config.oauthServerUrl}/auth?${params.toString()}`;
   }
 
   /**
-   * Start Google Drive authentication in a popup window.
+   * Start Google Drive authentication via OAuth server with PKCE flow.
    * Returns a promise that resolves with the token data or rejects on error/cancel.
    */
-  startGoogleDriveAuth() {
-    return new Promise((resolve, reject) => {
-      const url = this.buildGoogleAuthUrl();
-      console.log('Opening Google OAuth popup...');
-      
-      // Calculate popup position (centered)
-      const width = 500;
-      const height = 600;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
-      
-      // Open popup
-      const popup = window.open(
-        url,
-        'google_oauth_popup',
-        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
-      );
-      
-      if (!popup) {
-        reject(new Error('Popup blocked. Please allow popups for this site.'));
-        return;
+  async startGoogleDriveAuth() {
+    const sessionId = crypto.randomUUID();
+    const url = this.buildOAuthServerUrl(sessionId);
+    const isReactNative = reactNativeApp.isReactNativeWebView;
+    
+    console.log('Opening Google OAuth via OAuth server...', { sessionId, isReactNative });
+    
+    // Calculate popup position (centered)
+    const width = 500;
+    const height = 600;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+    
+    // Open popup to OAuth server
+    const popup = window.open(
+      url,
+      'google_oauth_popup',
+      `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+    );
+    
+    // In regular browser, check if popup was blocked
+    if (!isReactNative && !popup) {
+      throw new Error('Popup blocked. Please allow popups for this site.');
+    }
+
+    // Poll the OAuth server for the token
+    const config = network.googleDrive;
+    const maxRetries = 10;
+    let popupClosed = false;
+
+    // Monitor popup closure (only for regular browser where we have a valid popup reference)
+    let popupCheckInterval = null;
+    if (popup && !isReactNative) {
+      popupCheckInterval = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(popupCheckInterval);
+          popupCheckInterval = null;
+          popupClosed = true;
+        }
+      }, 500);
+    }
+
+    // In React Native, wait a bit before polling to give Safari time to open and create the session
+    if (isReactNative) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
+    try {
+      for (let i = 0; i < maxRetries; i++) {
+        // Only check for cancellation in regular browser mode where we can track popup
+        if (!isReactNative && popupClosed) {
+          throw new Error('Authentication cancelled.');
+        }
+
+        try {
+          console.log('Polling OAuth server for token...', { attempt: i + 1, sessionId });
+          const response = await fetch(
+            `${config.oauthServerUrl}/auth/poll?sessionId=${sessionId}`
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            
+            if (data.success && data.token) {
+              if (popupCheckInterval) {
+                clearInterval(popupCheckInterval);
+              }
+              if (popup && !popup.closed) {
+                popup.close();
+              }
+              
+              // Store token with expiration (assume 1 hour if not provided)
+              const now = Date.now();
+              const tokenData = {
+                accessToken: data.token,
+                tokenType: 'Bearer',
+                expiresAt: now + 3600 * 1000 // 1 hour expiration
+              };
+              
+              this.storeGoogleToken(tokenData);
+              console.log('Received access token from OAuth server.');
+              return tokenData;
+            }
+          } else if (response.status === 408) {
+            // Timeout from server, retry
+            console.log('Poll timeout, retrying...', { attempt: i + 1 });
+            continue;
+          } else {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `Poll failed: ${response.status}`);
+          }
+        } catch (fetchError) {
+          // Network error, retry unless it's the last attempt
+          if (i === maxRetries - 1) {
+            throw fetchError;
+          }
+          console.log('Poll fetch error, retrying...', fetchError.message);
+        }
       }
 
-      // Poll the popup for the OAuth response
-      const pollInterval = setInterval(() => {
-        try {
-          // Check if popup is closed
-          if (popup.closed) {
-            clearInterval(pollInterval);
-            reject(new Error('Authentication cancelled.'));
-            return;
-          }
-          
-          // Try to read the popup's URL (will throw if cross-origin)
-          const popupUrl = popup.location.href;
-          
-          // Check if we're back on our origin with a hash containing the token
-          if (popupUrl.startsWith(network.googleDrive.redirectUri)) {
-            const hash = popup.location.hash;
-            
-            // If hash is empty, the page might still be loading - keep polling
-            if (!hash || hash.length <= 1) {
-              // Check if token was stored by the popup's own callback handler
-              const storedToken = this.getStoredGoogleToken();
-              if (storedToken) {
-                clearInterval(pollInterval);
-                popup.close();
-                console.log('Token found in storage (stored by popup callback).');
-                resolve(storedToken);
-                return;
-              }
-              // Otherwise keep polling - page might still be loading
-              return;
-            }
-            
-            clearInterval(pollInterval);
-            popup.close();
-            
-            const hashParams = new URLSearchParams(hash.substring(1));
-            const accessToken = hashParams.get('access_token');
-            const tokenType = hashParams.get('token_type');
-            const expiresIn = hashParams.get('expires_in');
-            const error = hashParams.get('error');
-            
-            if (error) {
-              reject(new Error('Google authentication failed: ' + error));
-              return;
-            }
-            
-            if (!accessToken) {
-              // One more check - token might have been stored by popup
-              const storedToken = this.getStoredGoogleToken();
-              if (storedToken) {
-                console.log('Token found in storage after redirect.');
-                resolve(storedToken);
-                return;
-              }
-              reject(new Error('No access token received.'));
-              return;
-            }
-            
-            const now = Date.now();
-            const expiresAt = now + parseInt(expiresIn || '3600', 10) * 1000;
-            
-            const tokenData = {
-              accessToken,
-              tokenType: tokenType || 'Bearer',
-              expiresAt
-            };
-            
-            this.storeGoogleToken(tokenData);
-            console.log('Received access token from Google.');
-            resolve(tokenData);
-          }
-        } catch (e) {
-          // Cross-origin error - popup is still on Google's domain, keep polling
-        }
-      }, 200);
-      
-      // Timeout after 5 minutes
-      setTimeout(() => {
-        clearInterval(pollInterval);
-        if (!popup.closed) {
-          popup.close();
-        }
-        reject(new Error('Authentication timed out.'));
-      }, 5 * 60 * 1000);
-    });
+      // Max retries exhausted
+      if (popupCheckInterval) {
+        clearInterval(popupCheckInterval);
+      }
+      if (popup && !popup.closed) {
+        popup.close();
+      }
+      throw new Error('Failed to get token after max retries. Please try again.');
+    } catch (error) {
+      if (popupCheckInterval) {
+        clearInterval(popupCheckInterval);
+      }
+      if (popup && !popup.closed) {
+        popup.close();
+      }
+      throw error;
+    }
   }
 
   handleGoogleOAuthCallback() {
-    // This is now handled by the popup polling, but we keep this for backwards compatibility
-    // in case someone lands on the page with an OAuth hash (e.g., from a previous redirect flow)
+    // Legacy OAuth callback handler - kept for backwards compatibility
+    // The new PKCE flow uses the OAuth server, so this is only needed
+    // if someone lands on the page with an old OAuth hash
     if (!window.location.hash || window.location.hash.length <= 1) return;
 
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
@@ -6529,7 +6535,7 @@ class BackupAccountModal {
     try {
       showToast('Uploading backup to Google Drive...', 3000, 'info');
       await this.uploadToGoogleDrive(data, filename, tokenData);
-      showToast('Backup uploaded to Google Drive successfully!', 3000, 'success');
+      showToast('Backup uploaded to Google Drive successfully!', 5000, 'success');
       this.close();
     } catch (error) {
       console.error('Google Drive upload failed:', error);
@@ -6542,7 +6548,7 @@ class BackupAccountModal {
           tokenData = await this.startGoogleDriveAuth();
           showToast('Uploading backup to Google Drive...', 3000, 'info');
           await this.uploadToGoogleDrive(data, filename, tokenData);
-          showToast('Backup uploaded to Google Drive successfully!', 3000, 'success');
+          showToast('Backup uploaded to Google Drive successfully!', 5000, 'success');
           this.close();
         } catch (retryError) {
           console.error('Retry failed:', retryError);
