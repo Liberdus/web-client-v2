@@ -1120,6 +1120,12 @@ class ChatsScreen {
         // Determine what to show in the preview
         let displayPreview = previewHTML;
         let displayPrefix = latestActivity.my ? 'You: ' : '';
+        let hasDraftAttachment = false;
+        
+        // Check for draft attachments
+        if (contact.draftAttachments && Array.isArray(contact.draftAttachments) && contact.draftAttachments.length > 0) {
+          hasDraftAttachment = true;
+        }
         
         // If there's draft text, show that (prioritize draft text over reply preview)
         if (contact.draft && contact.draft.trim() !== '') {
@@ -1136,6 +1142,13 @@ class ChatsScreen {
             displayPreview = '[message]';
           }
           displayPrefix = 'Replying to: ';
+        } else if (hasDraftAttachment && !contact.draft) {
+          // If there's only attachment draft (no text, no reply), show attachment indicator
+          const attachmentCount = contact.draftAttachments.length;
+          displayPreview = attachmentCount === 1 
+            ? '📎 Attachment' 
+            : `📎 ${attachmentCount} attachments`;
+          displayPrefix = 'You: ';
         }
 
         // Create the list item element
@@ -1151,7 +1164,7 @@ class ChatsScreen {
                     <div class="chat-time">${timeDisplay} <span class="chat-time-chevron"></span></div>
                 </div>
                 <div class="chat-message">
-                  ${contact.unread ? `<span class="chat-unread">${contact.unread}</span>` : ((contact.draft || contact.draftReplyTxid) ? `<span class="chat-draft" title="Draft"></span>` : '')}
+                  ${contact.unread ? `<span class="chat-unread">${contact.unread}</span>` : ((contact.draft || contact.draftReplyTxid || hasDraftAttachment) ? `<span class="chat-draft" title="Draft"></span>` : '')}
                   ${displayPrefix}${displayPreview}
                 </div>
             </div>
@@ -9416,10 +9429,6 @@ class ChatModal {
 
     this.clearNotificationsIfAllRead();
 
-    // clear file attachments
-    this.fileAttachments = [];
-    this.showAttachmentPreview(); // Hide preview
-
     // Setup state for appendChatModal and perform initial render
     this.address = address;
 
@@ -9947,6 +9956,8 @@ console.warn('in send message', txid)
       contact.draft = '';
       // Clear reply draft state
       this.clearReplyState(contact);
+      // Clear attachment draft state
+      this.clearAttachmentState(contact);
 
       // Update the chat modal UI immediately
       if (!isEdit) this.appendChatModal(); // This should now display the 'sending' message
@@ -10488,6 +10499,26 @@ console.warn('in send message', txid)
   }
 
   /**
+   * Saves attachment state to a contact object
+   * @param {Object} contact - The contact object to save attachment state to
+   */
+  saveAttachmentState(contact) {
+    if (this.fileAttachments && this.fileAttachments.length > 0) {
+      contact.draftAttachments = JSON.parse(JSON.stringify(this.fileAttachments));
+    } else {
+      this.clearAttachmentState(contact);
+    }
+  }
+
+  /**
+   * Clears attachment state from a contact object
+   * @param {Object} contact - The contact object to clear attachment state from
+   */
+  clearAttachmentState(contact) {
+    delete contact.draftAttachments;
+  }
+
+  /**
    * Saves a draft message for the current contact
    * @param {string} text - The draft message text to save
    */
@@ -10499,6 +10530,9 @@ console.warn('in send message', txid)
       
       // Save or clear reply state
       this.saveReplyState(myData.contacts[this.address]);
+      
+      // Save or clear attachment state
+      this.saveAttachmentState(myData.contacts[this.address]);
     }
   }
 
@@ -10512,6 +10546,10 @@ console.warn('in send message', txid)
     
     // Clear any existing reply state
     this.cancelReply();
+    
+    // Clear any existing attachments
+    this.fileAttachments = [];
+    this.showAttachmentPreview();
 
     // Load draft if exists
     const contact = myData.contacts[address];
@@ -10536,6 +10574,12 @@ console.warn('in send message', txid)
       if (this.replyPreview) {
         this.replyPreview.style.display = '';
       }
+    }
+    
+    // Restore attachment state if it exists
+    if (contact?.draftAttachments && Array.isArray(contact.draftAttachments) && contact.draftAttachments.length > 0) {
+      this.fileAttachments = JSON.parse(JSON.stringify(contact.draftAttachments));
+      this.showAttachmentPreview();
     }
   }
 
@@ -10690,6 +10734,11 @@ console.warn('in send message', txid)
             
             hideToast(loadingToastId);
             this.showAttachmentPreview(file);
+
+            if (this.address && myData.contacts[this.address]) {
+              this.saveAttachmentState(myData.contacts[this.address]);
+            }
+            
             this.sendButton.disabled = false; // Re-enable send button
             this.addAttachmentButton.disabled = false;
             showToast(`File "${file.name}" attached successfully`, 2000, 'success');
@@ -10803,6 +10852,10 @@ console.warn('in send message', txid)
       const removedFile = this.fileAttachments.splice(index, 1)[0];
       this.showAttachmentPreview(); // Refresh the preview
       showToast(`"${removedFile.name}" removed`, 2000, 'info');
+
+      if (this.address && myData.contacts[this.address]) {
+        this.saveAttachmentState(myData.contacts[this.address]);
+      }
     }
   }
 
