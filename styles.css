@@ -4897,6 +4897,9 @@ small {
 /* File type specific icons */
 .attachment-icon[data-file-type="image"] {
   background-image: var(--icon-file-image);
+  width: 144px;
+  height: 144px;
+  background-size: 144px;
 }
 
 /* Image icons in message display (not preview) */
