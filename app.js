@@ -1117,6 +1117,27 @@ class ChatsScreen {
         // Use the determined latest timestamp for display
         const timeDisplay = formatTime(latestItemTimestamp, false);
 
+        // Determine what to show in the preview
+        let displayPreview = previewHTML;
+        let displayPrefix = latestActivity.my ? 'You: ' : '';
+        
+        // If there's draft text, show that (prioritize draft text over reply preview)
+        if (contact.draft && contact.draft.trim() !== '') {
+          displayPreview = truncateMessage(escapeHtml(contact.draft), 50);
+          displayPrefix = 'You: ';
+        } else if (contact.draftReplyTxid) {
+          // If there's only reply content (no text), show "Replying to: [message]"
+          const replyMessage = contact.draftReplyMessage || '';
+          if (replyMessage.trim()) {
+            // Always escape on display for defense in depth
+            displayPreview = `${truncateMessage(escapeHtml(replyMessage), 40)}`;
+          } else {
+            // Fallback: shouldn't happen, but handle gracefully
+            displayPreview = '[message]';
+          }
+          displayPrefix = 'Replying to: ';
+        }
+
         // Create the list item element
         const li = document.createElement('li');
         li.classList.add('chat-item');
@@ -1130,8 +1151,8 @@ class ChatsScreen {
                     <div class="chat-time">${timeDisplay} <span class="chat-time-chevron"></span></div>
                 </div>
                 <div class="chat-message">
-                  ${contact.unread ? `<span class="chat-unread">${contact.unread}</span>` : (contact.draft ? `<span class="chat-draft" title="Draft"></span>` : '')}
-                  ${latestActivity.my ? 'You: ' : ''}${previewHTML}
+                  ${contact.unread ? `<span class="chat-unread">${contact.unread}</span>` : ((contact.draft || contact.draftReplyTxid) ? `<span class="chat-draft" title="Draft"></span>` : '')}
+                  ${displayPrefix}${displayPreview}
                 </div>
             </div>
         `;
@@ -9433,8 +9454,8 @@ class ChatModal {
       console.warn('Offline: toll not processed');
     }
 
-    // Save any unsaved draft before closing
-    this.debouncedSaveDraft(this.messageInput.value);
+    // Save any unsaved draft before closing (save immediately, not debounced)
+    this.saveDraft(this.messageInput.value);
 
     // Cancel all ongoing file operations
     this.cancelAllOperations();
@@ -9924,6 +9945,8 @@ console.warn('in send message', txid)
       // Call debounced save directly with empty string
       this.debouncedSaveDraft('');
       contact.draft = '';
+      // Clear reply draft state
+      this.clearReplyState(contact);
 
       // Update the chat modal UI immediately
       if (!isEdit) this.appendChatModal(); // This should now display the 'sending' message
@@ -10440,6 +10463,31 @@ console.warn('in send message', txid)
   }
 
   /**
+   * Saves reply state to a contact object
+   * @param {Object} contact - The contact object to save reply state to
+   */
+  saveReplyState(contact) {
+    const replyTxid = this.replyToTxId.value.trim();
+    if (replyTxid) {
+      contact.draftReplyTxid = replyTxid;
+      contact.draftReplyMessage = this.replyToMessage.value.trim();
+      contact.draftReplyOwnerIsMine = this.replyOwnerIsMine.value;
+    } else {
+      this.clearReplyState(contact);
+    }
+  }
+
+  /**
+   * Clears reply state from a contact object
+   * @param {Object} contact - The contact object to clear reply state from
+   */
+  clearReplyState(contact) {
+    delete contact.draftReplyTxid;
+    delete contact.draftReplyMessage;
+    delete contact.draftReplyOwnerIsMine;
+  }
+
+  /**
    * Saves a draft message for the current contact
    * @param {string} text - The draft message text to save
    */
@@ -10448,6 +10496,9 @@ console.warn('in send message', txid)
       // Sanitize the text before saving
       const sanitizedText = escapeHtml(text);
       myData.contacts[this.address].draft = sanitizedText;
+      
+      // Save or clear reply state
+      this.saveReplyState(myData.contacts[this.address]);
     }
   }
 
@@ -10458,6 +10509,9 @@ console.warn('in send message', txid)
     // Always clear the input first
     this.messageInput.value = '';
     this.messageInput.style.height = '48px';
+    
+    // Clear any existing reply state
+    this.cancelReply();
 
     // Load draft if exists
     const contact = myData.contacts[address];
@@ -10467,6 +10521,21 @@ console.warn('in send message', txid)
       this.messageInput.style.height = Math.min(this.messageInput.scrollHeight, 120) + 'px';
       // trigger input event to update the byte counter
       this.messageInput.dispatchEvent(new Event('input'));
+    }
+    
+    // Restore reply state if it exists
+    if (contact?.draftReplyTxid) {
+      this.replyToTxId.value = contact.draftReplyTxid;
+      this.replyToMessage.value = contact.draftReplyMessage || '';
+      this.replyOwnerIsMine.value = contact.draftReplyOwnerIsMine || '';
+      
+      // Show the reply preview
+      if (this.replyPreviewText) {
+        this.replyPreviewText.textContent = contact.draftReplyMessage || '';
+      }
+      if (this.replyPreview) {
+        this.replyPreview.style.display = '';
+      }
     }
   }
 
@@ -11314,6 +11383,8 @@ console.warn('in send message', txid)
     if (this.replyPreviewText) this.replyPreviewText.textContent = previewText;
     if (this.replyPreview) this.replyPreview.style.display = '';
 
+    this.debouncedSaveDraft(this.messageInput.value);
+
     // focus input
     this.messageInput.focus();
     this.messageInput.selectionStart = this.messageInput.selectionEnd = this.messageInput.value.length;
@@ -11329,6 +11400,8 @@ console.warn('in send message', txid)
     if (this.replyOwnerIsMine) this.replyOwnerIsMine.value = '';
     if (this.replyPreview) this.replyPreview.style.display = 'none';
     if (this.replyPreviewText) this.replyPreviewText.textContent = '';
+
+    this.debouncedSaveDraft(this.messageInput.value);
   }
 
   /**
