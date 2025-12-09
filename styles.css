@@ -5165,7 +5165,6 @@ small {
 .reply-quote-label {
   font-size: 11px;
   font-weight: 600;
-  text-transform: uppercase;
   letter-spacing: 0.2px;
   color: var(--muted-text-color, #9aa0a6);
   white-space: nowrap;
