@@ -441,6 +441,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // LocalStorage Monitor
   localStorageMonitor.load();
 
+  // Contact Avatar Cache
+  contactAvatarCache.load();
+
   // Thumbnail Cache
   thumbnailCache.load();
 
@@ -1803,6 +1806,7 @@ function createNewContact(addr, username, friendStatus = 1) {
   c.messages = [];
   c.timestamp = 0;
   c.unread = 0;
+  c.hasAvatar = false;
   c.toll = 0n;
   c.tollRequiredToReceive = 1;
   c.tollRequiredToSend = 1;
@@ -18646,6 +18650,230 @@ class LocalStorageMonitor {
 const localStorageMonitor = new LocalStorageMonitor();
 
 /**
+ * ContactAvatarCache - Handles IndexedDB storage for contact avatar thumbnails
+ */
+class ContactAvatarCache {
+  constructor() {
+    this.dbName = 'liberdus_contact_avatars';
+    this.storeName = 'avatars';
+    this.dbVersion = 1;
+    this.db = null;
+    this.blobUrlCache = new Map();
+  }
+
+  /**
+   * Load and initialize the contact avatar cache
+   * @returns {Promise<void>}
+   */
+  async load() {
+    try {
+      await this.init();
+    } catch (err) {
+      console.warn('Failed to load contact avatar cache:', err);
+    }
+  }
+
+  /**
+   * Initialize IndexedDB database connection
+   * @returns {Promise<void>}
+   */
+  async init() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, this.dbVersion);
+
+      request.onerror = () => {
+        console.error('Failed to open contact avatar database:', request.error);
+        reject(request.error);
+      };
+
+      request.onsuccess = () => {
+        this.db = request.result;
+        console.log('Contact avatar cache initialized');
+        resolve();
+      };
+
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains(this.storeName)) {
+          const store = db.createObjectStore(this.storeName, { keyPath: 'address' });
+          store.createIndex('savedAt', 'savedAt', { unique: false });
+        }
+      };
+    });
+  }
+
+  /**
+   * Generate a thumbnail from an image blob (optimized for avatars)
+   * @param {Blob} imageBlob - The image blob to create thumbnail from
+   * @param {number} maxSize - Maximum dimension in pixels (default: 128)
+   * @param {number} quality - JPEG quality 0-1 (default: 0.85)
+   * @returns {Promise<Blob>} The thumbnail blob
+   */
+  async generateThumbnail(imageBlob, maxSize = 128, quality = 0.85) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const blobUrl = URL.createObjectURL(imageBlob);
+
+      img.onload = () => {
+        URL.revokeObjectURL(blobUrl);
+
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const width = Math.floor(img.width * scale);
+        const height = Math.floor(img.height * scale);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const outputType = imageBlob.type === 'image/png' ? 'image/png' : 'image/jpeg';
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Failed to create avatar thumbnail blob'));
+            }
+          },
+          outputType,
+          outputType === 'image/jpeg' ? quality : undefined
+        );
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(blobUrl);
+        reject(new Error('Failed to load image for avatar thumbnail generation'));
+      };
+
+      img.src = blobUrl;
+    });
+  }
+
+  /**
+   * Save a contact avatar to IndexedDB
+   * @param {string} address - The contact's address (used as key)
+   * @param {Blob} avatarBlob - The avatar blob to store
+   * @returns {Promise<void>}
+   */
+  async save(address, avatarBlob) {
+    if (!this.db) {
+      await this.init();
+    }
+
+    if (this.blobUrlCache.has(address)) {
+      URL.revokeObjectURL(this.blobUrlCache.get(address));
+      this.blobUrlCache.delete(address);
+    }
+
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction([this.storeName], 'readwrite');
+      const store = tx.objectStore(this.storeName);
+
+      const data = {
+        address,
+        avatar: avatarBlob,
+        savedAt: Date.now(),
+      };
+
+      const request = store.put(data);
+
+      request.onsuccess = () => {
+        resolve();
+      };
+
+      request.onerror = () => {
+        console.warn('Failed to save contact avatar:', request.error);
+        reject(request.error);
+      };
+    });
+  }
+
+  /**
+   * Retrieve a contact avatar blob from IndexedDB
+   * @param {string} address - The contact's address
+   * @returns {Promise<Blob|null>} The avatar blob or null if not found
+   */
+  async get(address) {
+    if (!this.db) {
+      await this.init();
+    }
+
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction([this.storeName], 'readonly');
+      const store = tx.objectStore(this.storeName);
+      const request = store.get(address);
+
+      request.onsuccess = () => {
+        const result = request.result;
+        if (result && result.avatar) {
+          resolve(result.avatar);
+        } else {
+          resolve(null);
+        }
+      };
+
+      request.onerror = () => {
+        console.warn('Failed to get contact avatar:', request.error);
+        reject(request.error);
+      };
+    });
+  }
+
+  /**
+   * Get a blob URL for a contact avatar
+   * @param {string} address - The contact's address
+   * @returns {Promise<string|null>} Blob URL or null if not found
+   */
+  async getBlobUrl(address) {
+    if (this.blobUrlCache.has(address)) {
+      return this.blobUrlCache.get(address);
+    }
+
+    const blob = await this.get(address);
+    if (blob) {
+      const blobUrl = URL.createObjectURL(blob);
+      this.blobUrlCache.set(address, blobUrl);
+      return blobUrl;
+    }
+
+    return null;
+  }
+
+  /**
+   * Delete a contact avatar from IndexedDB
+   * @param {string} address - The contact's address
+   * @returns {Promise<void>}
+   */
+  async delete(address) {
+    if (!this.db) {
+      await this.init();
+    }
+
+    if (this.blobUrlCache.has(address)) {
+      URL.revokeObjectURL(this.blobUrlCache.get(address));
+      this.blobUrlCache.delete(address);
+    }
+
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction([this.storeName], 'readwrite');
+      const store = tx.objectStore(this.storeName);
+      const request = store.delete(address);
+
+      request.onsuccess = () => resolve();
+
+      request.onerror = () => {
+        console.warn('Failed to delete contact avatar:', request.error);
+        reject(request.error);
+      };
+    });
+  }
+}
+
+/**
  * ThumbnailCache - Handles IndexedDB storage for image thumbnails
  */
 class ThumbnailCache {
@@ -18916,7 +19144,8 @@ class ThumbnailCache {
   }
 }
 
-// Create thumbnail cache instance
+// Create caches instances
+const contactAvatarCache = new ContactAvatarCache();
 const thumbnailCache = new ThumbnailCache();
 
 function getStabilityFactor() {
