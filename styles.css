@@ -98,6 +98,7 @@
   --primary-tint-20: rgba(61, 61, 206, 0.2);
   --primary-tint-04: rgba(61, 61, 206, 0.04);
   --primary-tint-40: rgba(61, 61, 206, 0.4);
+  --primary-tint-60: rgba(61, 61, 206, 0.6);
   --scrollbar-thumb: rgba(0, 0, 0, 0.3);
   --scrollbar-track: rgba(0, 0, 0, 0.05);
   --elev-3: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -1570,7 +1571,7 @@ input[type='file'].form-control::file-selector-button {
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  background-color: var(--primary-tint-20);
+  background-color: var(--primary-tint-60);
   color: var(--text-color);
   font-size: 24px;
   font-weight: 400;
@@ -1583,6 +1584,7 @@ input[type='file'].form-control::file-selector-button {
     transform 0.2s,
     background-color 0.2s;
   padding: 0;
+  box-shadow: var(--shadow-primary);
 }
 
 .floating-button.visible {
