@@ -6218,6 +6218,10 @@ class BackupAccountModal {
             // Timeout from server, retry
             console.log('Poll timeout, retrying...', { attempt: i + 1 });
             continue;
+          } else if (response.status === 404) {
+            // Session not found, retry
+            console.log('Session not found, retrying...', { attempt: i + 1 });
+            continue;
           } else {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || `Poll failed: ${response.status}`);
