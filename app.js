@@ -9714,7 +9714,7 @@ class ChatModal {
         return;
       }
 
-      const amount = this.tollRequiredToSend ? this.toll : 0n;
+      const amount = myData.contacts[this.address].tollRequiredToSend == 1 ? this.toll : 0n;
       const sufficientBalance = await validateBalance(amount);
       if (!sufficientBalance) {
         const msg = `Insufficient balance for fee${amount > 0n ? ' and toll' : ''}`;
