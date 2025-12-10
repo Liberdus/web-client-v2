@@ -11493,9 +11493,14 @@ console.warn('in send message', txid)
       text = `${usdValue.toFixed(6)} USD (≈ ${libValue.toFixed(6)} LIB)`;
     }
 
+    // Calculate libWei using BigInt arithmetic to preserve precision
     let libWei;
-    if (tollUnit === 'USD' && factorValid && !isNaN(usdValue)) {
-      libWei = bigxnum2big(wei, (usdValue / factor).toString());
+    if (tollUnit === 'USD' && factorValid) {
+      // Convert USD wei to LIB wei by dividing by factor using scaled BigInt math
+      // libWei = safeToll / factor, but we use: libWei = (safeToll * PRECISION) / scaledFactor
+      const PRECISION = 10n ** 18n;
+      const scaledFactor = BigInt(Math.round(factor * 1e18));
+      libWei = (safeToll * PRECISION) / scaledFactor;
     } else if (tollUnit === 'LIB') {
       libWei = safeToll;
     } else {
