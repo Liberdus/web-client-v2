@@ -6050,9 +6050,10 @@ class BackupAccountModal {
   // ======================================
   // GOOGLE DRIVE TOKEN MANAGEMENT
   // ======================================
-  storeGoogleToken(tokenData) {
+  // Not using below because we are requiring user to confirm account to use each time
+  /* storeGoogleToken(tokenData) {
     localStorage.setItem(this.GOOGLE_TOKEN_STORAGE_KEY, JSON.stringify(tokenData));
-  }
+  } */
 
   getStoredGoogleToken() {
     const raw = localStorage.getItem(this.GOOGLE_TOKEN_STORAGE_KEY);
@@ -6210,7 +6211,7 @@ class BackupAccountModal {
                 expiresAt: now + 3600 * 1000 // 1 hour expiration
               };
               
-              this.storeGoogleToken(tokenData);
+              //this.storeGoogleToken(tokenData);
               console.log('Received access token from OAuth server.');
               return tokenData;
             }
@@ -6285,7 +6286,7 @@ class BackupAccountModal {
       tokenType: tokenType || 'Bearer',
       expiresAt
     };
-    this.storeGoogleToken(tokenData);
+    //this.storeGoogleToken(tokenData);
     console.log('Received access token from Google (legacy redirect).');
 
     // Clean the URL
