@@ -6156,10 +6156,8 @@ class BackupAccountModal {
       }, 500);
     }
 
-    // In React Native, wait a bit before polling to give in-app browser time to open and create the session
-    if (isReactNative) {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    }
+    // Wait a bit before polling to give OAuth server time to create the session
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     try {
       for (let i = 0; i < maxRetries; i++) {
