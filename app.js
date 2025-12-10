@@ -441,6 +441,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // LocalStorage Monitor
   localStorageMonitor.load();
 
+  // Avatar Edit Modal
+  avatarEditModal.load();
+
   // Contact Avatar Cache
   contactAvatarCache.load();
 
@@ -1039,7 +1042,7 @@ class ChatsScreen {
   }
 
   // Update chat list UI
-  updateChatList() {
+  async updateChatList() {
     const chatList = this.chatList;
     const contacts = myData.contacts;
     const chats = myData.chats;
@@ -1053,138 +1056,115 @@ class ChatsScreen {
     // Clear existing chat items before adding new ones
     chatList.innerHTML = '';
 
-    const chatElements =
-      chats.map((chat) => {
-        // Skip faucet address chats
-        if (isFaucetAddress(chat.address)) {
-          return null;
-        }
-        
-        const identicon = generateIdenticon(chat.address);
-        const contact = contacts[chat.address];
-
-        // If contact doesn't exist, skip this chat item
-        if (!contact) return null;
-
-        const latestActivity = contact.messages && contact.messages.length > 0 ? contact.messages[0] : null;
-
-        // If there's no latest activity (no messages), skip this chat item
-        if (!latestActivity) return null;
-
-        let previewHTML = ''; // Default
-        const latestItemTimestamp = latestActivity.timestamp;
-        const contactName = getContactDisplayName(contact);
-
-        // Check if the latest activity is a payment/transfer message
-        if (latestActivity.deleted === 1) {
-          previewHTML = `<span><i>${latestActivity.message}</i></span>`;
-        } else if (typeof latestActivity.amount === 'bigint') {
-          // Latest item is a payment/transfer
-          const amountStr = parseFloat(big2str(latestActivity.amount, 18)).toFixed(6);
-          const amountDisplay = `${amountStr} ${latestActivity.symbol || 'LIB'}`;
-          const directionText = latestActivity.my ? '-' : '+';
-          // Create payment preview text
-          previewHTML = `<span class="payment-preview">${directionText} ${amountDisplay}</span>`;
-          // Optionally add memo preview
-          if (latestActivity.message) {
-            // Memo is stored in the 'message' field for transfers
-            previewHTML += ` <span class="memo-preview"> | ${truncateMessage(escapeHtml(latestActivity.message), 50)}</span>`;
-          }
-        } else if (latestActivity.type === 'call') {
-          const callStartForPreview = Number(latestActivity.callTime || 0) > 0
-            ? Number(latestActivity.callTime)
-            : Number(latestActivity.timestamp || latestActivity.sent_timestamp || 0);
-          const isExpired = chatModal.isCallExpired(callStartForPreview);
-
-          if (isExpired) {
-            // Over 2 hours since call time: show as plain text without join button
-            const label = latestActivity.my
-              ? `You called ${escapeHtml(contactName)}`
-              : `${escapeHtml(contactName)} called you`;
-            previewHTML = `<span><i>${label}</i></span>`;
-          } else {
-            previewHTML = `<span><i>Join call</i></span>`;
-          }
-        } else if (latestActivity.type === 'vm') {
-          previewHTML = `<span><i>Voice message</i></span>`;
-        } else if ((!latestActivity.message || String(latestActivity.message).trim() === '') && latestActivity.xattach) {
-          previewHTML = `<span><i>Attachment</i></span>`;
-        } else if (latestActivity.xattach && latestActivity.message && String(latestActivity.message).trim() !== '') {
-          previewHTML = `<span><i>Attachment</i></span> <span class="memo-preview"> | ${truncateMessage(escapeHtml(latestActivity.message), 40)}</span>`;
-        } else {
-          // Latest item is a regular message
-          const messageText = escapeHtml(latestActivity.message);
-          previewHTML = `${truncateMessage(messageText, 50)}`; // Truncate for preview
-        }
-
-        // Use the determined latest timestamp for display
-        const timeDisplay = formatTime(latestItemTimestamp, false);
-
-        // Determine what to show in the preview
-        let displayPreview = previewHTML;
-        let displayPrefix = latestActivity.my ? 'You: ' : '';
-        let hasDraftAttachment = false;
-        
-        // Check for draft attachments
-        if (contact.draftAttachments && Array.isArray(contact.draftAttachments) && contact.draftAttachments.length > 0) {
-          hasDraftAttachment = true;
-        }
-        
-        // If there's draft text, show that (prioritize draft text over reply preview)
-        if (contact.draft && contact.draft.trim() !== '') {
-          displayPreview = truncateMessage(escapeHtml(contact.draft), 50);
-          displayPrefix = 'You: ';
-        } else if (contact.draftReplyTxid) {
-          // If there's only reply content (no text), show "Replying to: [message]"
-          const replyMessage = contact.draftReplyMessage || '';
-          if (replyMessage.trim()) {
-            // Always escape on display for defense in depth
-            displayPreview = `${truncateMessage(escapeHtml(replyMessage), 40)}`;
-          } else {
-            // Fallback: shouldn't happen, but handle gracefully
-            displayPreview = '[message]';
-          }
-          displayPrefix = 'Replying to: ';
-        } else if (hasDraftAttachment && !contact.draft) {
-          // If there's only attachment draft (no text, no reply), show attachment indicator
-          const attachmentCount = contact.draftAttachments.length;
-          displayPreview = attachmentCount === 1 
-            ? '📎 Attachment' 
-            : `📎 ${attachmentCount} attachments`;
-          displayPrefix = 'You: ';
-        }
-
-        // Create the list item element
-        const li = document.createElement('li');
-        li.classList.add('chat-item');
-
-        // Set its inner HTML
-        li.innerHTML = `
-            <div class="chat-avatar">${identicon}</div>
-            <div class="chat-content">
-                <div class="chat-header">
-                    <div class="chat-name">${escapeHtml(contactName)}</div>
-                    <div class="chat-time">${timeDisplay} <span class="chat-time-chevron"></span></div>
-                </div>
-                <div class="chat-message">
-                  ${contact.unread ? `<span class="chat-unread">${contact.unread}</span>` : ((contact.draft || contact.draftReplyTxid || hasDraftAttachment) ? `<span class="chat-draft" title="Draft"></span>` : '')}
-                  ${displayPrefix}${displayPreview}
-                </div>
-            </div>
-        `;
-
-        // Add the onclick handler directly to the element
-        li.onclick = () => chatModal.open(chat.address);
-
-        return li; // Return the created DOM element
-      })
-
-    // Append the created (and non-null) list item elements to the chatList
-    chatElements.forEach((element) => {
-      if (element) {
-        // Only append if the element is not null
-        chatList.appendChild(element);
+    const chatItems = [];
+    for (const chat of chats) {
+      if (isFaucetAddress(chat.address)) {
+        continue;
       }
+      
+      const contact = contacts[chat.address];
+      if (!contact) continue;
+
+      const latestActivity = contact.messages && contact.messages.length > 0 ? contact.messages[0] : null;
+      if (!latestActivity) continue;
+
+      chatItems.push({ chat, contact, latestActivity });
+    }
+
+    const avatarHtmlList = await Promise.all(
+      chatItems.map(({ contact }) => getContactAvatarHtml(contact))
+    );
+
+    chatItems.forEach(({ chat, contact, latestActivity }, index) => {
+      const avatarHtml = avatarHtmlList[index];
+      const latestItemTimestamp = latestActivity.timestamp;
+      const contactName = getContactDisplayName(contact);
+
+      let previewHTML = '';
+      if (latestActivity.deleted === 1) {
+        previewHTML = `<span><i>${latestActivity.message}</i></span>`;
+      } else if (typeof latestActivity.amount === 'bigint') {
+        const amountStr = parseFloat(big2str(latestActivity.amount, 18)).toFixed(6);
+        const amountDisplay = `${amountStr} ${latestActivity.symbol || 'LIB'}`;
+        const directionText = latestActivity.my ? '-' : '+';
+        previewHTML = `<span class="payment-preview">${directionText} ${amountDisplay}</span>`;
+        if (latestActivity.message) {
+          previewHTML += ` <span class="memo-preview"> | ${truncateMessage(escapeHtml(latestActivity.message), 50)}</span>`;
+        }
+      } else if (latestActivity.type === 'call') {
+        const callStartForPreview = Number(latestActivity.callTime || 0) > 0
+          ? Number(latestActivity.callTime)
+          : Number(latestActivity.timestamp || latestActivity.sent_timestamp || 0);
+        const isExpired = chatModal.isCallExpired(callStartForPreview);
+
+        if (isExpired) {
+          const label = latestActivity.my
+            ? `You called ${escapeHtml(contactName)}`
+            : `${escapeHtml(contactName)} called you`;
+          previewHTML = `<span><i>${label}</i></span>`;
+        } else {
+          previewHTML = `<span><i>Join call</i></span>`;
+        }
+      } else if (latestActivity.type === 'vm') {
+        previewHTML = `<span><i>Voice message</i></span>`;
+      } else if ((!latestActivity.message || String(latestActivity.message).trim() === '') && latestActivity.xattach) {
+        previewHTML = `<span><i>Attachment</i></span>`;
+      } else if (latestActivity.xattach && latestActivity.message && String(latestActivity.message).trim() !== '') {
+        previewHTML = `<span><i>Attachment</i></span> <span class="memo-preview"> | ${truncateMessage(escapeHtml(latestActivity.message), 40)}</span>`;
+      } else {
+        const messageText = escapeHtml(latestActivity.message);
+        previewHTML = `${truncateMessage(messageText, 50)}`;
+      }
+
+      const timeDisplay = formatTime(latestItemTimestamp, false);
+
+      let displayPreview = previewHTML;
+      let displayPrefix = latestActivity.my ? 'You: ' : '';
+      let hasDraftAttachment = false;
+      
+      if (contact.draftAttachments && Array.isArray(contact.draftAttachments) && contact.draftAttachments.length > 0) {
+        hasDraftAttachment = true;
+      }
+      
+      if (contact.draft && contact.draft.trim() !== '') {
+        displayPreview = truncateMessage(escapeHtml(contact.draft), 50);
+        displayPrefix = 'You: ';
+      } else if (contact.draftReplyTxid) {
+        const replyMessage = contact.draftReplyMessage || '';
+        if (replyMessage.trim()) {
+          displayPreview = `${truncateMessage(escapeHtml(replyMessage), 40)}`;
+        } else {
+          displayPreview = '[message]';
+        }
+        displayPrefix = 'Replying to: ';
+      } else if (hasDraftAttachment && !contact.draft) {
+        const attachmentCount = contact.draftAttachments.length;
+        displayPreview = attachmentCount === 1 
+          ? '📎 Attachment' 
+          : `📎 ${attachmentCount} attachments`;
+        displayPrefix = 'You: ';
+      }
+
+      const li = document.createElement('li');
+      li.classList.add('chat-item');
+
+      li.innerHTML = `
+          <div class="chat-avatar">${avatarHtml}</div>
+          <div class="chat-content">
+              <div class="chat-header">
+                  <div class="chat-name">${escapeHtml(contactName)}</div>
+                  <div class="chat-time">${timeDisplay} <span class="chat-time-chevron"></span></div>
+              </div>
+              <div class="chat-message">
+                ${contact.unread ? `<span class="chat-unread">${contact.unread}</span>` : ((contact.draft || contact.draftReplyTxid || hasDraftAttachment) ? `<span class="chat-draft" title="Draft"></span>` : '')}
+                ${displayPrefix}${displayPreview}
+              </div>
+          </div>
+      `;
+
+      li.onclick = () => chatModal.open(chat.address);
+
+      chatList.appendChild(li);
     });
   }
 }
@@ -1273,11 +1253,11 @@ class ContactsScreen {
 
     // Helper to render a contact item
     const renderContactItem = async (contact, itemClass) => {
-      const identicon = generateIdenticon(contact.address);
+      const avatarHtml = await getContactAvatarHtml(contact);
       const contactName = getContactDisplayName(contact);
       return `
             <li class="${itemClass}">
-                <div class="chat-avatar">${identicon}</div>
+                <div class="chat-avatar">${avatarHtml}</div>
                 <div class="chat-content">
                     <div class="chat-header">
                         <div class="chat-name">${contactName}</div>
@@ -2537,6 +2517,9 @@ class ContactInfoModal {
     this.nameDiv = this.avatarSection.querySelector('.name');
     this.subtitleDiv = this.avatarSection.querySelector('.subtitle');
     this.usernameDiv = document.getElementById('contactInfoUsername');
+    this.avatarEditButton = document.createElement('button');
+    this.avatarEditButton.className = 'icon-button edit-icon avatar-edit-button';
+    this.avatarEditButton.setAttribute('aria-label', 'Edit photo');
 
     // Back button
     this.backButton.addEventListener('click', () => this.close());
@@ -2564,15 +2547,25 @@ class ContactInfoModal {
       if (!this.currentContactAddress) return;
       friendModal.open();
     });
+
+    // Avatar edit button
+    this.avatarEditButton.addEventListener('click', () => {
+      if (!this.currentContactAddress) return;
+      avatarEditModal.open(this.currentContactAddress);
+    });
+
+    // Attach edit button to the avatar section (top-right)
+    if (!this.avatarSection.contains(this.avatarEditButton)) {
+      this.avatarSection.appendChild(this.avatarEditButton);
+    }
   }
 
   // Update contact info values
   async updateContactInfo(displayInfo) {
-    // Generate identicon for the contact
-    const identicon = generateIdenticon(displayInfo.address, 96);
+    const avatarHtml = await getContactAvatarHtml(displayInfo, 96);
 
     // Update the avatar section
-    this.avatarDiv.innerHTML = identicon;
+    this.avatarDiv.innerHTML = avatarHtml;
     this.nameDiv.textContent = displayInfo.name !== 'Not Entered' ? displayInfo.name : displayInfo.username;
     this.subtitleDiv.textContent = displayInfo.address;
 
@@ -4737,8 +4730,7 @@ class SearchMessagesModal {
       const resultElement = document.createElement('li');
       resultElement.className = 'chat-item search-result-item';
 
-      // Generate identicon for the contact
-      const identicon = generateIdenticon(result.contactAddress);
+      const avatarHtml = await getContactAvatarHtml(result.contactAddress);
 
       // Format message preview with "You:" prefix if it's a sent message
       // make this textContent?
@@ -4746,7 +4738,7 @@ class SearchMessagesModal {
 
       resultElement.innerHTML = `
               <div class="chat-avatar">
-                  ${identicon}
+                  ${avatarHtml}
               </div>
               <div class="chat-content">
                   <div class="chat-header">
@@ -5010,8 +5002,7 @@ class SearchContactsModal {
       const contactElement = document.createElement('div');
       contactElement.className = 'chat-item contact-item';
 
-      // Generate identicon for the contact
-      const identicon = generateIdenticon(contact.address);
+      const avatarHtml = await getContactAvatarHtml(contact);
 
       // Create match preview with label and highlighted matched value prioritizing exact and starts-with matches
       const matchPreview = this.createMatchPreview(contact, searchText);
@@ -5019,7 +5010,7 @@ class SearchContactsModal {
 
       contactElement.innerHTML = `
               <div class="chat-avatar">
-                  ${identicon}
+                  ${avatarHtml}
               </div>
               <div class="chat-content">
                   <div class="chat-header">
@@ -5060,8 +5051,590 @@ function createDisplayInfo(contact) {
     linkedin: contact.senderInfo?.linkedin || 'Not provided',
     x: contact.senderInfo?.x || 'Not provided',
     address: contact.address,
+    hasAvatar: !!contact.hasAvatar,
   };
 }
+
+/**
+ * AvatarEditModal manages the upload/edit/delete flow for contact avatars,
+ * including pan/zoom preview, cropping, and persistence hooks.
+ */
+class AvatarEditModal {
+  constructor() {
+    this.modal = null;
+    this.backButton = null;
+    this.saveButton = null;
+    this.uploadButton = null;
+    this.deleteButton = null;
+    this.fileInput = null;
+    this.previewContainer = null;
+    this.previewSquare = null;
+    this.previewBg = null;
+    this.foregroundImg = null;
+    this.currentAddress = null;
+    this.previewUrl = null;
+    this.pendingBlob = null;
+    this.pendingDelete = false;
+    this.activeImageBlob = null;
+    this.imageNaturalWidth = 0;
+    this.imageNaturalHeight = 0;
+    this.baseScale = 1;
+    this.zoom = 1;
+    this.minZoom = 1;
+    this.maxZoom = 3;
+    this.offsetX = 0;
+    this.offsetY = 0;
+    this.dragging = false;
+    this.dragStartX = 0;
+    this.dragStartY = 0;
+    this.initialOffsetX = 0;
+    this.initialOffsetY = 0;
+    this.zoomRange = null;
+    this.circleSize = 180;
+    this.squareSize = 220;
+    this.enableTransform = false;
+    this.coverOverscan = 16; // extra pixels to ensure circle is always fully covered
+  }
+
+  load() {
+    this.modal = document.getElementById('avatarEditModal');
+    this.backButton = document.getElementById('closeAvatarEditModal');
+    this.saveButton = document.getElementById('saveAvatarEditButton');
+    this.uploadButton = document.getElementById('avatarEditUploadButton');
+    this.deleteButton = document.getElementById('avatarEditDeleteButton');
+    this.fileInput = document.getElementById('avatarEditFileInput');
+    this.previewContainer = document.getElementById('avatarEditPreview');
+    this.previewSquare = document.getElementById('avatarEditSquare');
+    this.zoomRange = document.getElementById('avatarZoomRange');
+
+    if (!this.modal || !this.backButton || !this.saveButton || !this.uploadButton || !this.deleteButton || !this.fileInput || !this.previewContainer || !this.previewSquare || !this.zoomRange) {
+      console.warn('AvatarEditModal elements not found');
+      return;
+    }
+
+    // Ensure background img layer exists
+    this.previewBg = document.createElement('img');
+    this.previewBg.className = 'avatar-edit-bg-img';
+    this.previewBg.setAttribute('aria-hidden', 'true');
+    this.previewBg.draggable = false;
+    this.previewSquare.prepend(this.previewBg);
+
+    // Ensure foreground img element exists
+    this.foregroundImg = document.createElement('img');
+    this.foregroundImg.className = 'avatar-edit-img';
+    this.foregroundImg.setAttribute('alt', '');
+    this.foregroundImg.draggable = false;
+    this.previewContainer.innerHTML = '';
+    this.previewContainer.appendChild(this.foregroundImg);
+
+    this.backButton.addEventListener('click', () => this.close());
+    this.saveButton.addEventListener('click', () => this.handleSave());
+    this.uploadButton.addEventListener('click', () => this.fileInput.click());
+    this.deleteButton.addEventListener('click', () => this.handleDelete());
+    this.fileInput.addEventListener('change', (e) => this.handleFileSelected(e));
+
+    this.zoomRange.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      if (this.enableTransform) {
+        this.setZoom(val);
+      }
+    });
+
+    // Pointer events for panning
+    const startDrag = (clientX, clientY) => {
+      if (!this.enableTransform) return;
+      this.dragging = true;
+      this.dragStartX = clientX;
+      this.dragStartY = clientY;
+      this.initialOffsetX = this.offsetX;
+      this.initialOffsetY = this.offsetY;
+    };
+
+    const moveDrag = (clientX, clientY) => {
+      if (!this.dragging) return;
+      const dx = clientX - this.dragStartX;
+      const dy = clientY - this.dragStartY;
+      this.setOffsets(this.initialOffsetX + dx, this.initialOffsetY + dy);
+    };
+
+    const endDrag = () => {
+      this.dragging = false;
+    };
+
+    this.previewSquare.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      startDrag(e.clientX, e.clientY);
+    });
+
+    window.addEventListener('mousemove', (e) => moveDrag(e.clientX, e.clientY));
+    window.addEventListener('mouseup', endDrag);
+
+    this.previewSquare.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      startDrag(t.clientX, t.clientY);
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      moveDrag(t.clientX, t.clientY);
+    }, { passive: true });
+
+    window.addEventListener('touchend', endDrag);
+  }
+
+  open(address) {
+    this.currentAddress = normalizeAddress(address);
+    this.pendingBlob = null;
+    this.pendingDelete = false;
+    this.activeImageBlob = null;
+    this.enableTransform = false;
+    this.refreshPreview();
+    this.updateDeleteVisibility();
+    this.modal.classList.add('active');
+    enterFullscreen();
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+    this.clearPreviewUrl();
+    this.pendingBlob = null;
+    this.pendingDelete = false;
+    this.activeImageBlob = null;
+    this.enableTransform = false;
+    this.imageNaturalWidth = 0;
+    this.imageNaturalHeight = 0;
+    this.offsetX = 0;
+    this.offsetY = 0;
+    this.dragging = false;
+    this.fileInput.value = '';
+    enterFullscreen();
+  }
+
+  /**
+   * Revoke the current preview object URL, if any.
+   */
+  revokePreviewUrl() {
+    if (this.previewUrl) {
+      URL.revokeObjectURL(this.previewUrl);
+      this.previewUrl = null;
+    }
+  }
+
+  /**
+   * Clear preview URLs and hide image elements when not editing.
+   */
+  clearPreviewUrl() {
+    this.revokePreviewUrl();
+    // Clear sources to release memory when not editing
+    if (!this.enableTransform) {
+      if (this.foregroundImg) {
+        this.foregroundImg.src = '';
+        this.foregroundImg.style.display = 'none';
+      }
+      if (this.previewBg) {
+        this.previewBg.src = '';
+        this.previewBg.style.display = 'none';
+      }
+    }
+  }
+
+  /**
+   * Refresh the preview based on pending state, cached avatar, or identicon fallback.
+   */
+  async refreshPreview() {
+    this.clearPreviewUrl();
+    const contact = myData?.contacts?.[this.currentAddress];
+    const displayInfo = contact ? createDisplayInfo(contact) : { address: this.currentAddress, hasAvatar: false };
+
+    if (this.pendingDelete) {
+      this.previewContainer.innerHTML = generateIdenticon(this.currentAddress, 180);
+      this.enableTransform = false;
+      this.updateZoomUI();
+      if (this.previewBg) this.previewBg.style.display = 'none';
+      if (this.foregroundImg) this.foregroundImg.style.display = 'none';
+      return;
+    }
+
+    if (this.pendingBlob) {
+      await this.setImageFromBlob(this.pendingBlob, true);
+      return;
+    }
+
+    // Try to get avatar blob from cache
+    let avatarBlob = null;
+    try {
+      avatarBlob = await contactAvatarCache.get(this.currentAddress);
+    } catch (e) {
+      avatarBlob = null;
+    }
+
+    if (avatarBlob) {
+      await this.setImageFromBlob(avatarBlob, false);
+      return;
+    }
+
+    // Fallback to identicon if no avatar blob
+    const avatarHtml = await getContactAvatarHtml(displayInfo, 180);
+    this.previewContainer.innerHTML = avatarHtml;
+    this.enableTransform = false;
+    this.updateZoomUI();
+    if (this.previewBg) this.previewBg.style.display = 'none';
+    if (this.foregroundImg) this.foregroundImg.style.display = 'none';
+  }
+
+  /**
+   * Toggle delete button based on existing avatar or staged upload/delete.
+   */
+  updateDeleteVisibility() {
+    const contact = myData?.contacts?.[this.currentAddress];
+    const hasAvatar = !!contact?.hasAvatar;
+    const hasLocalImage = !!(this.pendingBlob || this.activeImageBlob);
+    this.deleteButton.style.display = (hasAvatar || hasLocalImage) ? 'inline-flex' : 'none';
+  }
+
+  /**
+   * Handle file chooser selection for avatar upload.
+   * @param {Event} event Input change event
+   */
+  handleFileSelected(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type || !file.type.startsWith('image/')) {
+      showToast('Please select an image file.', 2000, 'error');
+      return;
+    }
+    this.pendingBlob = file;
+    this.pendingDelete = false;
+    // Allow selecting the same file again after delete by clearing input value post-read
+    if (this.fileInput) {
+      this.fileInput.value = '';
+    }
+    this.setImageFromBlob(file, true);
+  }
+
+  /**
+   * Stage deletion of the current avatar and reset preview/transform state.
+   */
+  handleDelete() {
+    // Clear any loaded blobs and revoke object URLs
+    this.pendingBlob = null;
+    this.activeImageBlob = null;
+    this.pendingDelete = true;
+    if (this.fileInput) {
+      this.fileInput.value = '';
+    }
+    this.clearPreviewUrl();
+
+    // Clear image sources so the browser can release them
+    if (this.foregroundImg) {
+      this.foregroundImg.src = '';
+    }
+    if (this.previewBg) {
+      this.previewBg.src = '';
+    }
+
+    // Reset transforms
+    this.imageNaturalWidth = 0;
+    this.imageNaturalHeight = 0;
+    this.baseScale = 1;
+    this.zoom = 1;
+    this.offsetX = 0;
+    this.offsetY = 0;
+    this.updateZoomUI();
+
+    this.refreshPreview();
+  }
+
+  /**
+   * Load a blob into the preview, enabling transforms only for user uploads.
+   * @param {Blob} blob Image blob
+   * @param {boolean} isUserUpload Whether this is a new user upload
+   */
+  async setImageFromBlob(blob, isUserUpload = false) {
+    try {
+      this.revokePreviewUrl();
+      const blobUrl = URL.createObjectURL(blob);
+      const img = await this.loadImage(blobUrl);
+      // Ensure foreground container is clean (remove any identicon innerHTML)
+      if (this.previewContainer) {
+        this.previewContainer.innerHTML = '';
+        this.previewContainer.appendChild(this.foregroundImg);
+      }
+
+      this.activeImageBlob = blob;
+      this.previewUrl = blobUrl;
+      this.imageNaturalWidth = img.naturalWidth;
+      this.imageNaturalHeight = img.naturalHeight;
+      this.enableTransform = !!isUserUpload;
+      this.resetTransform();
+      this.applyImageSources(blobUrl);
+
+      // If user uploaded, allow pan/zoom with background overlay
+      if (this.enableTransform) {
+        if (this.previewBg) this.previewBg.style.display = 'block';
+        if (this.foregroundImg) this.foregroundImg.style.display = 'block';
+        this.applyTransform();
+      } else {
+        // Existing avatar preview: fit image to circle, hide background overlay
+        if (this.previewBg) {
+          this.previewBg.style.display = 'none';
+        }
+        if (this.foregroundImg) {
+          this.foregroundImg.style.display = 'block';
+          this.foregroundImg.style.width = '100%';
+          this.foregroundImg.style.height = '100%';
+          this.foregroundImg.style.left = '50%';
+          this.foregroundImg.style.top = '50%';
+          this.foregroundImg.style.transform = 'translate(-50%, -50%)';
+        }
+      }
+      this.updateDeleteVisibility();
+    } catch (e) {
+      console.warn('Failed to load image for avatar editing:', e);
+      showToast('Could not load image', 2000, 'error');
+    }
+  }
+
+  /**
+   * Load an image and resolve when ready.
+   * @param {string} url Object URL to load
+   * @returns {Promise<HTMLImageElement>}
+   */
+  loadImage(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = url;
+    });
+  }
+
+  resetTransform() {
+    // Fit to cover the square
+    if (!this.imageNaturalWidth || !this.imageNaturalHeight) {
+      this.baseScale = 1;
+    } else {
+      // ensure at least covers the circle with overscan
+      const minW = this.circleSize + this.coverOverscan * 2;
+      const minH = this.circleSize + this.coverOverscan * 2;
+      this.baseScale = Math.max(minW / this.imageNaturalWidth, minH / this.imageNaturalHeight);
+      // also cap to cover square if image is tiny
+      const squareScale = Math.max(this.squareSize / this.imageNaturalWidth, this.squareSize / this.imageNaturalHeight);
+      this.baseScale = Math.max(this.baseScale, squareScale);
+    }
+    this.minZoom = this.baseScale;
+    this.maxZoom = this.baseScale * 3;
+    this.zoom = this.baseScale;
+    this.offsetX = 0;
+    this.offsetY = 0;
+    this.updateZoomUI();
+  }
+
+  /**
+   * Update zoom slider bounds/state and disable when transform is off.
+   */
+  updateZoomUI() {
+    if (this.zoomRange) {
+      this.zoomRange.min = this.minZoom.toFixed(2);
+      this.zoomRange.max = this.maxZoom.toFixed(2);
+      this.zoomRange.value = this.zoom.toFixed(2);
+      this.zoomRange.disabled = !this.enableTransform;
+    }
+  }
+
+  /**
+   * Set zoom level and re-apply transform.
+   * @param {number} value Requested zoom
+   */
+  setZoom(value) {
+    const clamped = Math.min(this.maxZoom, Math.max(this.minZoom, value));
+    this.zoom = clamped;
+    this.applyTransform();
+    this.updateZoomUI();
+  }
+
+  /**
+   * Set pan offsets and re-apply transform.
+   * @param {number} x Offset in px
+   * @param {number} y Offset in px
+   */
+  setOffsets(x, y) {
+    this.offsetX = x;
+    this.offsetY = y;
+    this.applyTransform();
+  }
+
+  /**
+   * Clamp offsets so the circle stays covered (with overscan).
+   * @param {number} displayWidth Rendered image width
+   * @param {number} displayHeight Rendered image height
+   */
+  clampOffsets(displayWidth, displayHeight) {
+    const overscan = this.coverOverscan;
+    const circleRadius = this.circleSize / 2 + overscan;
+    const halfW = displayWidth / 2;
+    const halfH = displayHeight / 2;
+
+    const maxOffsetX = Math.max(0, halfW - circleRadius);
+    const maxOffsetY = Math.max(0, halfH - circleRadius);
+
+    this.offsetX = Math.min(Math.max(this.offsetX, -maxOffsetX), maxOffsetX);
+    this.offsetY = Math.min(Math.max(this.offsetY, -maxOffsetY), maxOffsetY);
+  }
+
+  /**
+   * Apply current zoom/offset transforms to the preview images.
+   */
+  applyTransform() {
+    if (!this.enableTransform) return;
+    if (!this.imageNaturalWidth || !this.imageNaturalHeight) return;
+
+    const displayWidth = this.imageNaturalWidth * this.zoom;
+    const displayHeight = this.imageNaturalHeight * this.zoom;
+
+    this.clampOffsets(displayWidth, displayHeight);
+
+    const translateX = `calc(-50% + ${this.offsetX}px)`;
+    const translateY = `calc(-50% + ${this.offsetY}px)`;
+
+    if (this.foregroundImg) {
+      this.foregroundImg.style.width = `${displayWidth}px`;
+      this.foregroundImg.style.height = `${displayHeight}px`;
+      this.foregroundImg.style.left = '50%';
+      this.foregroundImg.style.top = '50%';
+      this.foregroundImg.style.transform = `translate(${translateX}, ${translateY})`;
+    }
+
+    if (this.previewBg) {
+      this.previewBg.style.width = `${displayWidth}px`;
+      this.previewBg.style.height = `${displayHeight}px`;
+      this.previewBg.style.left = '50%';
+      this.previewBg.style.top = '50%';
+      this.previewBg.style.transform = `translate(${translateX}, ${translateY})`;
+    }
+  }
+
+  /**
+   * Set src attributes for both background and foreground layers.
+   * @param {string} url Object URL for the image
+   */
+  applyImageSources(url) {
+    if (this.previewBg) {
+      this.previewBg.src = url;
+    }
+    if (this.foregroundImg) {
+      this.foregroundImg.src = url;
+    }
+  }
+
+  /**
+   * Save current avatar state: delete, or export cropped thumbnail and persist.
+   */
+  async handleSave() {
+    if (!this.currentAddress) {
+      this.close();
+      return;
+    }
+
+    const contact = myData?.contacts?.[this.currentAddress];
+    if (!contact) {
+      this.close();
+      return;
+    }
+
+    try {
+      if (this.pendingDelete) {
+        await contactAvatarCache.delete(this.currentAddress);
+        contact.hasAvatar = false;
+        saveState();
+        contactInfoModal.updateContactInfo(createDisplayInfo(contact));
+        contactInfoModal.needsContactListUpdate = true;
+        if (chatModal.isActive() && chatModal.address === this.currentAddress) {
+          chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
+        }
+        this.close();
+        return;
+      }
+
+      // Need an image source to save
+      if (this.pendingBlob || this.activeImageBlob) {
+        const sourceBlob = this.pendingBlob || this.activeImageBlob;
+        const thumbnail = await this.exportCroppedThumbnail(sourceBlob);
+        await contactAvatarCache.save(this.currentAddress, thumbnail);
+        contact.hasAvatar = true;
+        saveState();
+        contactInfoModal.updateContactInfo(createDisplayInfo(contact));
+        contactInfoModal.needsContactListUpdate = true;
+        if (chatModal.isActive() && chatModal.address === this.currentAddress) {
+          chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to save avatar:', err);
+      showToast('Failed to save avatar', 2000, 'error');
+    } finally {
+      this.close();
+    }
+  }
+
+  /**
+   * Export the current view as a circular thumbnail blob.
+   * Falls back to basic thumbnail generation if dimensions are unavailable.
+   * @param {Blob} sourceBlob Original image blob
+   * @returns {Promise<Blob>}
+   */
+  async exportCroppedThumbnail(sourceBlob) {
+    // Ensure image is loaded
+    if (!this.imageNaturalWidth || !this.imageNaturalHeight) {
+      return contactAvatarCache.generateThumbnail(sourceBlob);
+    }
+
+    const canvasSize = this.circleSize; // 180
+    const canvas = document.createElement('canvas');
+    canvas.width = canvasSize;
+    canvas.height = canvasSize;
+    const ctx = canvas.getContext('2d');
+
+    // Clip to circle
+    ctx.beginPath();
+    ctx.arc(canvasSize / 2, canvasSize / 2, canvasSize / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+
+    const displayWidth = this.imageNaturalWidth * this.zoom;
+    const displayHeight = this.imageNaturalHeight * this.zoom;
+    const squareCenter = this.squareSize / 2; // 110
+    const imgDrawX = (squareCenter + this.offsetX) - (displayWidth / 2);
+    const imgDrawY = (squareCenter + this.offsetY) - (displayHeight / 2);
+    const circleLeft = (this.squareSize - this.circleSize) / 2; // 20
+    const circleTop = (this.squareSize - this.circleSize) / 2; // 20
+
+    // Draw using the loaded image element
+    const imageForDraw = await this.loadImage(this.previewUrl || URL.createObjectURL(sourceBlob));
+
+    ctx.drawImage(
+      imageForDraw,
+      imgDrawX - circleLeft,
+      imgDrawY - circleTop,
+      displayWidth,
+      displayHeight
+    );
+
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject(new Error('Failed to export avatar thumbnail'));
+        }
+      }, 'image/jpeg', 0.9);
+    });
+  }
+}
+
+const avatarEditModal = new AvatarEditModal();
 
 // Safely escape user-entered search text before building regex-based highlights.
 function escapeRegExp(string = '') {
@@ -6161,8 +6734,10 @@ class BackupAccountModal {
       }, 500);
     }
 
-    // Wait a bit before polling to give OAuth server time to create the session
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // In React Native, wait a bit before polling to give Safari time to open and create the session
+    if (isReactNative) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
 
     try {
       for (let i = 0; i < maxRetries; i++) {
@@ -9432,7 +10007,7 @@ class ChatModal {
     // Add data attributes to store the username and address
     this.sendMoneyButton.dataset.username = contact.username || address;
 
-    this.modalAvatar.innerHTML = generateIdenticon(contact.address, 40);
+    this.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
 
     // Stop and cleanup all voice messages from previous conversation
     this.messagesList?.querySelectorAll('.voice-message').forEach(vm => this.stopVoiceMessage(vm));
@@ -18649,6 +19224,10 @@ class LocalStorageMonitor {
 // Create localStorage monitor instance
 const localStorageMonitor = new LocalStorageMonitor();
 
+// Contact avatar thumbnail sizing defaults
+const CONTACT_AVATAR_MAX_THUMB_SIZE = 128;
+const CONTACT_AVATAR_JPEG_QUALITY = 0.85;
+
 /**
  * ContactAvatarCache - Handles IndexedDB storage for contact avatar thumbnails
  */
@@ -18705,11 +19284,11 @@ class ContactAvatarCache {
   /**
    * Generate a thumbnail from an image blob (optimized for avatars)
    * @param {Blob} imageBlob - The image blob to create thumbnail from
-   * @param {number} maxSize - Maximum dimension in pixels (default: 128)
-   * @param {number} quality - JPEG quality 0-1 (default: 0.85)
+   * @param {number} maxSize - Maximum dimension in pixels (default: CONTACT_AVATAR_MAX_THUMB_SIZE)
+   * @param {number} quality - JPEG quality 0-1 (default: CONTACT_AVATAR_JPEG_QUALITY)
    * @returns {Promise<Blob>} The thumbnail blob
    */
-  async generateThumbnail(imageBlob, maxSize = 128, quality = 0.85) {
+  async generateThumbnail(imageBlob, maxSize = CONTACT_AVATAR_MAX_THUMB_SIZE, quality = CONTACT_AVATAR_JPEG_QUALITY) {
     return new Promise((resolve, reject) => {
       const img = new Image();
       const blobUrl = URL.createObjectURL(imageBlob);
@@ -18776,7 +19355,6 @@ class ContactAvatarCache {
       const data = {
         address,
         avatar: avatarBlob,
-        savedAt: Date.now(),
       };
 
       const request = store.put(data);
@@ -19147,6 +19725,40 @@ class ThumbnailCache {
 // Create caches instances
 const contactAvatarCache = new ContactAvatarCache();
 const thumbnailCache = new ThumbnailCache();
+
+/**
+ * Get HTML for a contact avatar (cached blob if available, otherwise identicon)
+ * @param {object|string} contactOrAddress - Contact object or address string
+ * @param {number} size - Desired avatar size
+ * @returns {Promise<string>} HTML string for avatar image/svg
+ */
+async function getContactAvatarHtml(contactOrAddress, size = 50) {
+  const address = typeof contactOrAddress === 'string'
+    ? normalizeAddress(contactOrAddress)
+    : normalizeAddress(contactOrAddress?.address);
+
+  const hasAvatar =
+    typeof contactOrAddress === 'object' && contactOrAddress !== null && 'hasAvatar' in contactOrAddress
+      ? contactOrAddress.hasAvatar
+      : myData?.contacts?.[address]?.hasAvatar;
+
+  if (address && hasAvatar) {
+    try {
+      const blobUrl = await contactAvatarCache.getBlobUrl(address);
+      if (blobUrl) {
+        return `<img src="${blobUrl}" class="contact-avatar-img" width="${size}" height="${size}" alt="">`;
+      }
+    } catch (err) {
+      console.warn('Failed to load contact avatar, falling back to identicon:', err);
+    }
+  }
+
+  if (address) {
+    return generateIdenticon(address, size);
+  }
+
+  return generateIdenticon('', size);
+}
 
 function getStabilityFactor() {
   return parseFloat(parameters.current.stabilityFactorStr);

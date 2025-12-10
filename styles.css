@@ -520,7 +520,8 @@ body {
 .icon-button.add-friend-icon,
 .icon-button.send-money-icon,
 .icon-button.edit-icon,
-.icon-button.phone-icon {
+.icon-button.phone-icon,
+.icon-button.save-icon {
   width: var(--icon-button-width);
   height: var(--icon-button-height);
   padding: 8px;
@@ -2736,6 +2737,7 @@ button.about-link {
   margin-bottom: 1rem;
   background-color: var(--hover-background-purple);
   border-radius: 16px;
+  position: relative;
 }
 
 .contact-avatar-section .avatar {
@@ -2748,6 +2750,130 @@ button.about-link {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+}
+
+.contact-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 50%;
+}
+
+.avatar-edit-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: var(--icon-button-width);
+  height: var(--icon-button-height);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  z-index: 2;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: var(--icon-size-20);
+}
+
+.avatar-edit-button .icon-pencil {
+  width: 16px;
+  height: 16px;
+}
+
+.avatar-edit-preview {
+  display: flex;
+  justify-content: center;
+  margin: 1rem 0;
+}
+
+.avatar-edit-square {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  border-radius: 12px;
+  background: var(--hover-background-purple);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.avatar-edit-square::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--hover-background-purple);
+  z-index: 0;
+}
+
+.avatar-edit-circle {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: transparent;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.avatar-edit-circle img,
+.avatar-edit-circle svg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+}
+
+.avatar-edit-img {
+  z-index: 1;
+  pointer-events: none;
+}
+
+.avatar-edit-bg-img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.18;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.avatar-edit-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.avatar-edit-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.avatar-edit-controls label {
+  font-size: 0.9rem;
+  color: var(--text-color);
+}
+
+.avatar-edit-controls input[type='range'] {
+  width: 180px;
 }
 
 .contact-avatar-section .name {
@@ -3818,6 +3944,13 @@ small {
   color: var(--text-color);
   opacity: 0.7;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7'%3E%3C/path%3E%3Cpath d='M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z'%3E%3C/path%3E%3C/svg%3E");
+}
+
+.icon-button.save-icon {
+  color: var(--text-color);
+  opacity: 0.7;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7z'%3E%3C/path%3E%3Cpath d='M17 3v4H7V3'%3E%3C/path%3E%3Cpath d='M7 13h10v8H7z'%3E%3C/path%3E%3C/svg%3E");
+  background-size: var(--icon-size-24);
 }
 
 .contact-info-value-container {

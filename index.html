@@ -1319,6 +1319,36 @@
         <a class="last-item" href="#"> </a>
       </div>
 
+      <!-- Avatar Edit Modal -->
+      <div class="modal fixed-header" id="avatarEditModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeAvatarEditModal"></button>
+          <div class="modal-title">Edit Photo</div>
+          <div class="header-actions">
+            <button class="icon-button save-icon" id="saveAvatarEditButton" aria-label="Save avatar"></button>
+          </div>
+        </div>
+        <div class="modal-content">
+          <div class="form-container">
+            <div class="avatar-edit-preview">
+              <div class="avatar-edit-square" id="avatarEditSquare">
+                <div class="avatar-edit-circle" id="avatarEditPreview"></div>
+              </div>
+            </div>
+            <div class="avatar-edit-controls">
+              <label for="avatarZoomRange">Zoom</label>
+              <input type="range" id="avatarZoomRange" min="1" max="3" step="0.01" value="1" />
+            </div>
+            <div class="avatar-edit-actions">
+              <input type="file" id="avatarEditFileInput" accept="image/*" style="display:none" />
+              <button class="primary-button" id="avatarEditUploadButton">Upload</button>
+              <button class="secondary-button danger-button" id="avatarEditDeleteButton">Delete</button>
+            </div>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
       <!-- Friend Modal -->
       <div class="modal fixed-header" id="friendModal">
         <div class="modal-header">
