@@ -6756,7 +6756,8 @@ class BackupAccountModal {
       for (let i = 0; i < maxRetries; i++) {
         // Only check for cancellation in regular browser mode where we can track popup
         if (!isReactNative && popupClosed) {
-          throw new Error('Authentication cancelled.');
+          console.warning('Authentication cancelled, exiting loop.');
+          break;
         }
 
         try {
