@@ -6685,7 +6685,11 @@ class BackupAccountModal {
 
   /**
    * Start Google Drive authentication via OAuth server with PKCE flow.
-   * Returns a promise that resolves with the token data or rejects on error/cancel.
+   * Opens a popup (or delegates to React Native), polls the OAuth server for a token,
+   * and resolves with token data or rejects on cancel/deny/timeout/error.
+   *
+   * @returns {Promise<{accessToken: string, tokenType: string, expiresAt: number}>}
+   *          Resolves with token data on success; rejects with Error on cancel/deny/timeout/error.
    */
   async startGoogleDriveAuth() {
     const sessionId = crypto.randomUUID();
@@ -6695,6 +6699,8 @@ class BackupAccountModal {
     console.log('Opening Google OAuth via OAuth server...', { sessionId, isReactNative });
     
     let popup = null;
+    let waitingToastId = null;
+    let currentAbortController = null;
     
     // In React Native, send message to native app to open in-app browser
     if (isReactNative) {
@@ -6734,36 +6740,121 @@ class BackupAccountModal {
 
     // Poll the OAuth server for the token
     const config = network.googleDrive;
-    const maxRetries = 10;
+    const deadline = Date.now() + 120_000; // 120s overall timeout
     let popupClosed = false;
+
+    // Wait ~2s before first poll, but abort early if popup closes.
+    const waitInitialDelay = async () => {
+      await Promise.race([
+        new Promise(resolve => setTimeout(resolve, 2000)),
+        new Promise(resolve => {
+          const earlyInterval = setInterval(() => {
+            if (popupClosed) {
+              clearInterval(earlyInterval);
+              resolve();
+            }
+          }, 100);
+        })
+      ]);
+    };
+
+    // Detect terminal (non-retryable) auth errors surfaced from the server.
+    const shouldStopRetry = (err) =>
+      err?.message && (
+        err.message.includes('Authentication was cancelled') ||
+        err.message.startsWith('Authentication failed:')
+      );
+
+    // Watch the popup for closure; on close, mark state and abort in-flight poll.
+    const startPopupWatcher = () => {
+      if (popup && !isReactNative) {
+        popupCheckInterval = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(popupCheckInterval);
+            popupCheckInterval = null;
+            popupClosed = true;
+            if (currentAbortController) {
+              currentAbortController.abort();
+            }
+          }
+        }, 500);
+      }
+    };
+
+    // Single poll request with AbortController and attempt logging.
+    const fetchPollResponse = async (attempt) => {
+      currentAbortController = new AbortController();
+      console.log('Polling OAuth server for token...', { attempt, sessionId });
+      const response = await fetch(
+        `${config.oauthServerUrl}/auth/poll?sessionId=${sessionId}`,
+        { signal: currentAbortController.signal }
+      );
+      currentAbortController = null;
+      return response;
+    };
 
     // Monitor popup closure (only for regular browser where we have a valid popup reference)
     let popupCheckInterval = null;
-    if (popup && !isReactNative) {
-      popupCheckInterval = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(popupCheckInterval);
-          popupCheckInterval = null;
-          popupClosed = true;
-        }
-      }, 500);
-    }
+    startPopupWatcher();
 
-    // Wait a bit before polling to give OAuth server time to create the session
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Wait a bit before polling, but allow early exit on close/cancel
+    await waitInitialDelay();
+
+    const cleanup = () => {
+      if (popupCheckInterval) {
+        clearInterval(popupCheckInterval);
+      }
+      if (waitingToastId) {
+        hideToast(waitingToastId);
+      }
+      if (popup && !popup.closed) {
+        popup.close();
+      }
+    };
+
+    const finalPollIfNeeded = async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const response = await fetch(
+          `${config.oauthServerUrl}/auth/poll?sessionId=${sessionId}`,
+          { signal: controller.signal }
+        );
+        clearTimeout(timeoutId);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.token && !(typeof data.token === 'string' && data.token.startsWith('error:'))) {
+            const now = Date.now();
+            const tokenData = {
+              accessToken: data.token,
+              tokenType: 'Bearer',
+              expiresAt: now + 3600 * 1000
+            };
+            cleanup();
+            return tokenData;
+          }
+        }
+      } catch (e) {
+        // ignore final poll errors; fall through to cancellation
+      }
+      return null;
+    };
 
     try {
-      for (let i = 0; i < maxRetries; i++) {
-        // Only check for cancellation in regular browser mode where we can track popup
+      let attempt = 0;
+      while (Date.now() < deadline) {
+        attempt += 1;
+        // Check for cancellation/closure before polling
         if (!isReactNative && popupClosed) {
+          const maybeToken = await finalPollIfNeeded();
+          if (maybeToken) {
+            return maybeToken;
+          }
           throw new Error('Authentication cancelled.');
         }
 
         try {
-          console.log('Polling OAuth server for token...', { attempt: i + 1, sessionId });
-          const response = await fetch(
-            `${config.oauthServerUrl}/auth/poll?sessionId=${sessionId}`
-          );
+          const response = await fetchPollResponse(attempt);
 
           if (response.ok) {
             const data = await response.json();
@@ -6777,22 +6868,9 @@ class BackupAccountModal {
                   ? 'Authentication was cancelled or denied. Please try again if you want to connect Google Drive.'
                   : `Authentication failed: ${errorMessage}`;
                 
-                if (popupCheckInterval) {
-                  clearInterval(popupCheckInterval);
-                }
-                if (popup && !popup.closed) {
-                  popup.close();
-                }
-                
                 console.log('OAuth error received from server:', errorMessage);
+                cleanup();
                 throw new Error(userFriendlyMessage);
-              }
-              
-              if (popupCheckInterval) {
-                clearInterval(popupCheckInterval);
-              }
-              if (popup && !popup.closed) {
-                popup.close();
               }
               
               // Store token with expiration (assume 1 hour if not provided)
@@ -6805,44 +6883,47 @@ class BackupAccountModal {
               
               //this.storeGoogleToken(tokenData);
               console.log('Received access token from OAuth server.');
+              cleanup();
               return tokenData;
             }
           } else if (response.status === 408) {
             // Timeout from server, retry
-            console.log('Poll timeout, retrying...', { attempt: i + 1 });
+            console.log('Poll timeout, retrying...', { attempt });
             continue;
           } else if (response.status === 404) {
             // Session not found, retry
-            console.log('Session not found, retrying...', { attempt: i + 1 });
+            console.log('Session not found, retrying...', { attempt });
             continue;
           } else {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || `Poll failed: ${response.status}`);
           }
         } catch (fetchError) {
-          // Network error, retry unless it's the last attempt
-          if (i === maxRetries - 1) {
+          // If user closed/cancelled during fetch, surface immediately
+          if (!isReactNative && popupClosed) {
+            const maybeToken = await finalPollIfNeeded();
+            if (maybeToken) {
+              return maybeToken;
+            }
+            throw new Error('Authentication cancelled.');
+          }
+          // If server indicated cancel/denied, stop retrying
+          if (shouldStopRetry(fetchError)) {
             throw fetchError;
+          }
+          // Abort -> just retry until deadline
+          if (fetchError?.name === 'AbortError') {
+            continue;
           }
           console.log('Poll fetch error, retrying...', fetchError.message);
         }
       }
 
-      // Max retries exhausted
-      if (popupCheckInterval) {
-        clearInterval(popupCheckInterval);
-      }
-      if (popup && !popup.closed) {
-        popup.close();
-      }
-      throw new Error('Failed to get token after max retries. Please try again.');
+      // Deadline exhausted
+      cleanup();
+      throw new Error('Failed to get token before timeout. Please try again.');
     } catch (error) {
-      if (popupCheckInterval) {
-        clearInterval(popupCheckInterval);
-      }
-      if (popup && !popup.closed) {
-        popup.close();
-      }
+      cleanup();
       throw error;
     }
   }
@@ -7188,7 +7269,7 @@ class BackupAccountModal {
     // If no valid token, authenticate first via popup
     if (!tokenData) {
       try {
-        showToast('Please authenticate with Google Drive...', 3000, 'info');
+        showToast('Approve Drive access in the Google window.', 3000, 'info');
         tokenData = await this.startGoogleDriveAuth();
       } catch (error) {
         console.error('Google Drive authentication failed:', error);
