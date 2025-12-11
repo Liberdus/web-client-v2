@@ -1066,6 +1066,7 @@ class ChatsScreen {
       if (!contact) continue;
 
       const latestActivity = contact.messages && contact.messages.length > 0 ? contact.messages[0] : null;
+      // If there's no latest activity (no messages), skip this chat item
       if (!latestActivity) continue;
 
       chatItems.push({ chat, contact, latestActivity });
@@ -1081,14 +1082,19 @@ class ChatsScreen {
       const contactName = getContactDisplayName(contact);
 
       let previewHTML = '';
+      // Check if the latest activity is a payment/transfer message
       if (latestActivity.deleted === 1) {
         previewHTML = `<span><i>${latestActivity.message}</i></span>`;
       } else if (typeof latestActivity.amount === 'bigint') {
+        // Latest item is a payment/transfer
         const amountStr = parseFloat(big2str(latestActivity.amount, 18)).toFixed(6);
         const amountDisplay = `${amountStr} ${latestActivity.symbol || 'LIB'}`;
         const directionText = latestActivity.my ? '-' : '+';
+        // Create payment preview text
         previewHTML = `<span class="payment-preview">${directionText} ${amountDisplay}</span>`;
+        // Optionally add memo preview
         if (latestActivity.message) {
+          // Memo is stored in the 'message' field for transfers
           previewHTML += ` <span class="memo-preview"> | ${truncateMessage(escapeHtml(latestActivity.message), 50)}</span>`;
         }
       } else if (latestActivity.type === 'call') {
@@ -1098,6 +1104,7 @@ class ChatsScreen {
         const isExpired = chatModal.isCallExpired(callStartForPreview);
 
         if (isExpired) {
+          // Over 2 hours since call time: show as plain text without join button
           const label = latestActivity.my
             ? `You called ${escapeHtml(contactName)}`
             : `${escapeHtml(contactName)} called you`;
@@ -1112,42 +1119,50 @@ class ChatsScreen {
       } else if (latestActivity.xattach && latestActivity.message && String(latestActivity.message).trim() !== '') {
         previewHTML = `<span><i>Attachment</i></span> <span class="memo-preview"> | ${truncateMessage(escapeHtml(latestActivity.message), 40)}</span>`;
       } else {
+        // Latest item is a regular message
         const messageText = escapeHtml(latestActivity.message);
         previewHTML = `${truncateMessage(messageText, 50)}`;
       }
-
+      // Use the determined latest timestamp for display
       const timeDisplay = formatTime(latestItemTimestamp, false);
+      // Determine what to show in the preview
 
       let displayPreview = previewHTML;
       let displayPrefix = latestActivity.my ? 'You: ' : '';
       let hasDraftAttachment = false;
-      
+
+      // Check for draft attachments
       if (contact.draftAttachments && Array.isArray(contact.draftAttachments) && contact.draftAttachments.length > 0) {
         hasDraftAttachment = true;
       }
       
+      // If there's draft text, show that (prioritize draft text over reply preview)
       if (contact.draft && contact.draft.trim() !== '') {
         displayPreview = truncateMessage(escapeHtml(contact.draft), 50);
         displayPrefix = 'You: ';
       } else if (contact.draftReplyTxid) {
+        // If there's only reply content (no text), show "Replying to: [message]"
         const replyMessage = contact.draftReplyMessage || '';
         if (replyMessage.trim()) {
+          // Always escape on display for defense in depth
           displayPreview = `${truncateMessage(escapeHtml(replyMessage), 40)}`;
         } else {
+          // Fallback: shouldn't happen, but handle gracefully
           displayPreview = '[message]';
         }
         displayPrefix = 'Replying to: ';
       } else if (hasDraftAttachment && !contact.draft) {
+        // If there's only attachment draft (no text, no reply), show attachment indicator
         const attachmentCount = contact.draftAttachments.length;
         displayPreview = attachmentCount === 1 
           ? '📎 Attachment' 
           : `📎 ${attachmentCount} attachments`;
         displayPrefix = 'You: ';
       }
-
+      // Create the list item element
       const li = document.createElement('li');
       li.classList.add('chat-item');
-
+      // Set its inner HTML
       li.innerHTML = `
           <div class="chat-avatar">${avatarHtml}</div>
           <div class="chat-content">
@@ -1161,7 +1176,7 @@ class ChatsScreen {
               </div>
           </div>
       `;
-
+      // Set click handler to open chat modal
       li.onclick = () => chatModal.open(chat.address);
 
       chatList.appendChild(li);
