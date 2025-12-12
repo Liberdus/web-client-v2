@@ -13018,6 +13018,13 @@ console.warn('in send message', txid)
     await signObj(chatMessageObj, myAccount.keys);
     const txid = getTxid(chatMessageObj);
 
+    // If retrying a failed message, remove the old failed tx from local stores
+    const retryTxId = this.retryOfTxId?.value;
+    if (retryTxId) {
+      removeFailedTx(retryTxId, this.address);
+      this.retryOfTxId.value = '';
+    }
+
     // Optimistic UI update
     const newMessage = {
       message: '', // Voice messages don't have text
@@ -13959,16 +13966,47 @@ class FailedMessageMenu {
    * @returns {void}
    */
   handleFailedMessageRetry(messageEl) {
-    const messageContent = messageEl.querySelector('.message-content')?.textContent;
     const txid = messageEl.dataset.txid;
+    const voiceEl = messageEl.querySelector('.voice-message');
 
+    // Voice message retry: resend the same voice message (no re-upload)
+    if (voiceEl) {
+      const voiceUrl = voiceEl.dataset.voiceUrl || '';
+      const duration = Number(voiceEl.dataset.duration || 0);
+      const pqEncSharedKeyB64 = voiceEl.dataset.pqencsharedkey || '';
+      const selfKey = voiceEl.dataset.selfkey || '';
+
+      if (!txid || !voiceUrl || !duration || !pqEncSharedKeyB64 || !selfKey) {
+        console.error('Error preparing voice message retry: Necessary elements or data missing.');
+        return;
+      }
+
+      try {
+        chatModal.retryOfTxId.value = txid;
+        const pqEncSharedKey = base642bin(pqEncSharedKeyB64);
+        void chatModal
+          .sendVoiceMessageTx(voiceUrl, duration, pqEncSharedKey, selfKey)
+          .catch((err) => {
+            console.error('Voice message retry failed:', err);
+            showToast('Failed to retry voice message', 0, 'error');
+          });
+      } catch (err) {
+        console.error('Voice message retry failed:', err);
+        showToast('Failed to retry voice message', 0, 'error');
+      }
+      return;
+    }
+
+    // Text message retry: prefill input and store txid so next send removes failed tx
+    const messageContent = messageEl.querySelector('.message-content')?.textContent;
     if (chatModal.messageInput && chatModal.retryOfTxId && messageContent && txid) {
       chatModal.messageInput.value = messageContent;
       chatModal.retryOfTxId.value = txid;
       chatModal.messageInput.focus();
-    } else {
-      console.error('Error preparing message retry: Necessary elements or data missing.');
+      return;
     }
+
+    console.error('Error preparing message retry: Necessary elements or data missing.');
   }
 
   /**
