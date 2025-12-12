@@ -5414,13 +5414,13 @@ class AvatarEditModal {
       this.resetTransform();
       this.applyImageSources(blobUrl);
 
-      // If user uploaded, allow pan/zoom with background overlay
+      // If user uploaded, enable pan/zoom with background context image
       if (this.enableTransform) {
         if (this.previewBg) this.previewBg.style.display = 'block';
         if (this.foregroundImg) this.foregroundImg.style.display = 'block';
         this.applyTransform();
       } else {
-        // Existing avatar preview: fit image to circle, hide background overlay
+        // Existing avatar preview: fit image to circle, hide background
         if (this.previewBg) {
           this.previewBg.style.display = 'none';
         }
@@ -5455,15 +5455,14 @@ class AvatarEditModal {
   }
 
   resetTransform() {
-    // Fit to cover the square
+    // Calculate base scale to ensure circle is covered with overscan
     if (!this.imageNaturalWidth || !this.imageNaturalHeight) {
       this.baseScale = 1;
     } else {
-      // ensure at least covers the circle with overscan
       const minW = this.circleSize + this.coverOverscan * 2;
       const minH = this.circleSize + this.coverOverscan * 2;
       this.baseScale = Math.max(minW / this.imageNaturalWidth, minH / this.imageNaturalHeight);
-      // also cap to cover square if image is tiny
+      // Ensure tiny images at least cover the square
       const squareScale = Math.max(this.squareSize / this.imageNaturalWidth, this.squareSize / this.imageNaturalHeight);
       this.baseScale = Math.max(this.baseScale, squareScale);
     }
@@ -5514,13 +5513,12 @@ class AvatarEditModal {
   }
 
   /**
-   * Clamp offsets so the circle stays covered (with overscan).
+   * Clamp offsets to ensure circle stays covered when panning.
    * @param {number} displayWidth Rendered image width
    * @param {number} displayHeight Rendered image height
    */
   clampOffsets(displayWidth, displayHeight) {
-    const overscan = this.coverOverscan;
-    const circleRadius = this.circleSize / 2 + overscan;
+    const circleRadius = this.circleSize / 2 + this.coverOverscan;
     const halfW = displayWidth / 2;
     const halfH = displayHeight / 2;
 
