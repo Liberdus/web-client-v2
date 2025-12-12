@@ -5113,7 +5113,7 @@ class AvatarEditModal {
     this.initialOffsetX = 0;
     this.initialOffsetY = 0;
     this.zoomRange = null;
-    this.circleSize = 180;
+    this.circleSize = 218;
     this.squareSize = 220;
     this.enableTransform = false;
     this.coverOverscan = 16; // extra pixels to ensure circle is always fully covered
@@ -5272,7 +5272,7 @@ class AvatarEditModal {
     const displayInfo = contact ? createDisplayInfo(contact) : { address: this.currentAddress, hasAvatar: false };
 
     if (this.pendingDelete) {
-      this.previewContainer.innerHTML = generateIdenticon(this.currentAddress, 180);
+      this.previewContainer.innerHTML = generateIdenticon(this.currentAddress, 218);
       this.enableTransform = false;
       this.updateZoomUI();
       if (this.previewBg) this.previewBg.style.display = 'none';
@@ -5299,7 +5299,7 @@ class AvatarEditModal {
     }
 
     // Fallback to identicon if no avatar blob
-    const avatarHtml = await getContactAvatarHtml(displayInfo, 180);
+    const avatarHtml = await getContactAvatarHtml(displayInfo, 218);
     this.previewContainer.innerHTML = avatarHtml;
     this.enableTransform = false;
     this.updateZoomUI();

@@ -2812,10 +2812,10 @@ button.about-link {
 
 .avatar-edit-circle {
   position: relative;
-  width: 180px;
-  height: 180px;
-  min-width: 180px;
-  min-height: 180px;
+  width: 218px;
+  height: 218px;
+  min-width: 218px;
+  min-height: 218px;
   border-radius: 50%;
   background: transparent;
   border: 2px solid rgba(255, 255, 255, 0.8);
