@@ -13057,13 +13057,27 @@ console.warn('in send message', txid)
       }
     }
 
-    // Send to network
+    // Send to network (injectTx may either throw OR return { result: { success:false } })
     try {
-      await injectTx(chatMessageObj, txid);
-      newMessage.status = 'sent';
+      const response = await injectTx(chatMessageObj, txid);
+
+      if (!response || !response.result || !response.result.success) {
+        console.log('voice message failed to send', response);
+
+        const reason = response?.result?.reason || '';
+        if (/toll/i.test(reason)) {
+          await this.reopen();
+        }
+
+        newMessage.status = 'failed';
+        updateTransactionStatus(txid, this.address, 'failed', 'message');
+      } else {
+        newMessage.status = 'sent';
+      }
     } catch (error) {
       console.error('Failed to send voice message to network:', error);
       newMessage.status = 'failed';
+      updateTransactionStatus(txid, this.address, 'failed', 'message');
       showToast('Voice message failed to send', 0, 'error');
     }
 
