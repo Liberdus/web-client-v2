@@ -14675,7 +14675,7 @@ class NewChatModal {
       const recipientIsPrivate = recipientAccountRes?.account?.private === true;
 
       if (recipientIsPrivate !== myIsPrivate) {
-        showToast('Private accounts can only chat with other private accounts.', 0, 'error');
+        showToast(`${myIsPrivate ? 'Private' : 'Public'} accounts can only chat with other ${myIsPrivate ? 'private' : 'public'} accounts.`, 0, 'error');
         return;
       }
     } catch (error) {
