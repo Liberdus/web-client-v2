@@ -488,6 +488,10 @@ body {
   cursor: pointer;
 }
 
+.app-name.is-private {
+  color: var(--danger-color);
+}
+
 .header-icons {
   display: flex;
   gap: 16px;
@@ -1434,6 +1438,11 @@ select.form-control {
   background-position: right 15px center;
   background-size: 16px;
   padding-right: 45px;
+}
+
+select.form-control.is-private {
+  color: var(--danger-color);
+  border-color: var(--danger-color);
 }
 
 textarea.form-control {

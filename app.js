@@ -907,9 +907,12 @@ class Footer {
       // Update header with username if signed in
       const appName = document.querySelector('.app-name');
       if (myAccount && myAccount.username) {
+        const isPrivateAccount = myAccount?.private === true || myData?.account?.private === true;
         appName.textContent = `${myAccount.username}`;
+        appName.classList.toggle('is-private', isPrivateAccount);
       } else {
         appName.textContent = '';
+        appName.classList.remove('is-private');
       }
   
       // Show/hide new chat button
@@ -2133,6 +2136,7 @@ class SignInModal {
     const signInData = signInModal.getSignInUsernames() || {};
     const usernames = Array.isArray(signInData.usernames) ? signInData.usernames : [];
     const netidAccounts = signInData.netidAccounts || { usernames: {} };
+    const { netid } = network;
 
     // Get the notified addresses and sort usernames to prioritize them
     const notifiedAddresses = reactNativeApp.isReactNativeWebView ? reactNativeApp.getNotificationAddresses() : [];
@@ -2157,13 +2161,25 @@ class SignInModal {
       sortedUsernames = [...notifiedUsernames, ...otherUsernames];
     }
 
-    // Populate select with sorted usernames and add an emoji to the username if it owns a notified address
+    // Populate select with sorted usernames
     this.usernameSelect.innerHTML = `
       <option value="" disabled selected hidden>Select an account</option>
       ${sortedUsernames.map((username) => {
         const isNotifiedAccount = notifiedUsernameSet.has(username);
         const dotIndicator = isNotifiedAccount ? ' 🔔' : '';
-        return `<option value="${username}">${username}${dotIndicator}</option>`;
+
+        // Private accounts are stored in per-account state (${username}_${netid}).
+        let isPrivateAccount = false;
+        try {
+          const localState = loadState(`${username}_${netid}`);
+          isPrivateAccount = localState?.account?.private === true;
+        } catch (e) {
+          isPrivateAccount = false;
+        }
+
+        // Explicitly style each <option> to avoid color inheritance quirks.
+        const optionColor = isPrivateAccount ? 'var(--danger-color)' : 'var(--text-color)';
+        return `<option value="${username}" style="color: ${optionColor};">${username}${dotIndicator}</option>`;
       }).join('')}
     `;
 
@@ -2172,7 +2188,27 @@ class SignInModal {
       this.usernameSelect.value = selectedUsername;
     }
 
+    // Update selected styling (so chosen private account shows red when the dropdown is closed)
+    this.updateSelectedAccountPrivateIndicator(netid);
+
     return { usernames, netidAccounts, sortedUsernames };
+  }
+
+  updateSelectedAccountPrivateIndicator(netid) {
+    const username = this.usernameSelect.value;
+    if (!username) {
+      this.usernameSelect.classList.remove('is-private');
+      return;
+    }
+
+    let isPrivateAccount = false;
+    try {
+      const localState = loadState(`${username}_${netid}`);
+      isPrivateAccount = localState?.account?.private === true;
+    } catch (e) {
+      isPrivateAccount = false;
+    }
+    this.usernameSelect.classList.toggle('is-private', isPrivateAccount);
   }
 
   async open(preselectedUsername_) {
@@ -2322,6 +2358,9 @@ class SignInModal {
       this.notFoundMessage.style.display = 'none';
       return;
     }
+
+    // Update selected styling
+    this.updateSelectedAccountPrivateIndicator(netid);
     //        const address = netidAccounts.usernames[username].keys.address;
     const address = netidAccounts.usernames[username].address;
     let availability = await checkUsernameAvailability(username, address);
