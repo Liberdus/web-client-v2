@@ -14546,6 +14546,13 @@ class NewChatModal {
     this.usernameInputCheckTimeout = null;
   }
 
+  // Backend canonical shape: { account: { private: boolean } }
+  // If the field is missing entirely (older accounts), default to public (false).
+  getIsPrivateFromAccountResponse(accountRes) {
+    const isPrivate = accountRes?.account?.private;
+    return typeof isPrivate === 'boolean' ? isPrivate : false;
+  }
+
   /**
    * Loads the new chat modal event listeners
    * @returns {void}
@@ -14653,6 +14660,28 @@ class NewChatModal {
         this.showRecipientError('Error looking up username');
         return;
       }
+    }
+
+    // Prevent starting chats between private/public account types.
+    // Note: username lookup may succeed regardless of type; enforce on submit.
+    try {
+      const myIsPrivate = !!myData?.account?.private;
+      const recipientAccountRes = await queryNetwork(`/account/${longAddress(recipientAddress)}`);
+
+      if (!recipientAccountRes?.account) {
+        showToast('Account not found, try again.', 0, 'error');
+        return;
+      }
+      const recipientIsPrivate = recipientAccountRes?.account?.private === true;
+
+      if (recipientIsPrivate !== myIsPrivate) {
+        showToast('Private accounts can only chat with other private accounts.', 0, 'error');
+        return;
+      }
+    } catch (error) {
+      console.log('Error checking account type:', error);
+      showToast('Error checking account type', 0, 'error');
+      return;
     }
 
     // Get or create chat data
