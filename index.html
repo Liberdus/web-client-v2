@@ -1324,9 +1324,6 @@
         <div class="modal-header">
           <button class="back-button" id="closeAvatarEditModal"></button>
           <div class="modal-title">Edit Photo</div>
-          <div class="header-actions">
-            <button class="icon-button save-icon" id="saveAvatarEditButton" aria-label="Save avatar"></button>
-          </div>
         </div>
         <div class="modal-content">
           <div class="form-container">
@@ -1343,6 +1340,8 @@
               <input type="file" id="avatarEditFileInput" accept="image/*" style="display:none" />
               <button class="primary-button" id="avatarEditUploadButton">Upload</button>
               <button class="secondary-button danger-button" id="avatarEditDeleteButton">Delete</button>
+              <button class="btn btn--primary" id="avatarEditSaveButton" style="display: none;">Save</button>
+              <button class="btn btn--secondary btn--danger" id="avatarEditCancelButton" style="display: none;">Cancel</button>
             </div>
           </div>
         </div>

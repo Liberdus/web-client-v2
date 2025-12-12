@@ -5086,7 +5086,6 @@ class AvatarEditModal {
   constructor() {
     this.modal = null;
     this.backButton = null;
-    this.saveButton = null;
     this.uploadButton = null;
     this.deleteButton = null;
     this.fileInput = null;
@@ -5097,7 +5096,6 @@ class AvatarEditModal {
     this.currentAddress = null;
     this.previewUrl = null;
     this.pendingBlob = null;
-    this.pendingDelete = false;
     this.activeImageBlob = null;
     this.imageNaturalWidth = 0;
     this.imageNaturalHeight = 0;
@@ -5122,15 +5120,17 @@ class AvatarEditModal {
   load() {
     this.modal = document.getElementById('avatarEditModal');
     this.backButton = document.getElementById('closeAvatarEditModal');
-    this.saveButton = document.getElementById('saveAvatarEditButton');
     this.uploadButton = document.getElementById('avatarEditUploadButton');
     this.deleteButton = document.getElementById('avatarEditDeleteButton');
+    this.saveActionButton = document.getElementById('avatarEditSaveButton');
+    this.cancelButton = document.getElementById('avatarEditCancelButton');
     this.fileInput = document.getElementById('avatarEditFileInput');
     this.previewContainer = document.getElementById('avatarEditPreview');
     this.previewSquare = document.getElementById('avatarEditSquare');
     this.zoomRange = document.getElementById('avatarZoomRange');
+    this.zoomControls = document.querySelector('.avatar-edit-controls');
 
-    if (!this.modal || !this.backButton || !this.saveButton || !this.uploadButton || !this.deleteButton || !this.fileInput || !this.previewContainer || !this.previewSquare || !this.zoomRange) {
+    if (!this.modal || !this.backButton || !this.uploadButton || !this.deleteButton || !this.saveActionButton || !this.cancelButton || !this.fileInput || !this.previewContainer || !this.previewSquare || !this.zoomRange) {
       console.warn('AvatarEditModal elements not found');
       return;
     }
@@ -5151,9 +5151,10 @@ class AvatarEditModal {
     this.previewContainer.appendChild(this.foregroundImg);
 
     this.backButton.addEventListener('click', () => this.close());
-    this.saveButton.addEventListener('click', () => this.handleSave());
     this.uploadButton.addEventListener('click', () => this.fileInput.click());
     this.deleteButton.addEventListener('click', () => this.handleDelete());
+    this.saveActionButton.addEventListener('click', () => this.handleSave());
+    this.cancelButton.addEventListener('click', () => this.handleCancel());
     this.fileInput.addEventListener('change', (e) => this.handleFileSelected(e));
 
     this.zoomRange.addEventListener('input', (e) => {
@@ -5207,14 +5208,12 @@ class AvatarEditModal {
     window.addEventListener('touchend', endDrag);
   }
 
-  open(address) {
+  async open(address) {
     this.currentAddress = normalizeAddress(address);
     this.pendingBlob = null;
-    this.pendingDelete = false;
     this.activeImageBlob = null;
     this.enableTransform = false;
-    this.refreshPreview();
-    this.updateDeleteVisibility();
+    await this.refreshPreview();
     this.modal.classList.add('active');
     enterFullscreen();
   }
@@ -5223,7 +5222,6 @@ class AvatarEditModal {
     this.modal.classList.remove('active');
     this.clearPreviewUrl();
     this.pendingBlob = null;
-    this.pendingDelete = false;
     this.activeImageBlob = null;
     this.enableTransform = false;
     this.imageNaturalWidth = 0;
@@ -5271,15 +5269,6 @@ class AvatarEditModal {
     const contact = myData?.contacts?.[this.currentAddress];
     const displayInfo = contact ? createDisplayInfo(contact) : { address: this.currentAddress, hasAvatar: false };
 
-    if (this.pendingDelete) {
-      this.previewContainer.innerHTML = generateIdenticon(this.currentAddress, 218);
-      this.enableTransform = false;
-      this.updateZoomUI();
-      if (this.previewBg) this.previewBg.style.display = 'none';
-      if (this.foregroundImg) this.foregroundImg.style.display = 'none';
-      return;
-    }
-
     if (this.pendingBlob) {
       await this.setImageFromBlob(this.pendingBlob, true);
       return;
@@ -5305,16 +5294,31 @@ class AvatarEditModal {
     this.updateZoomUI();
     if (this.previewBg) this.previewBg.style.display = 'none';
     if (this.foregroundImg) this.foregroundImg.style.display = 'none';
+    this.updateButtonVisibility();
   }
 
   /**
-   * Toggle delete button based on existing avatar or staged upload/delete.
+   * Update button visibility based on whether a new image is uploaded.
+   * Only shows Save/Cancel when user uploads a new photo, not when viewing existing avatar.
    */
-  updateDeleteVisibility() {
-    const contact = myData?.contacts?.[this.currentAddress];
-    const hasAvatar = !!contact?.hasAvatar;
-    const hasLocalImage = !!(this.pendingBlob || this.activeImageBlob);
-    this.deleteButton.style.display = (hasAvatar || hasLocalImage) ? 'inline-flex' : 'none';
+  updateButtonVisibility() {
+    const hasNewUpload = !!this.pendingBlob; // Only true when user uploads a new photo
+    
+    if (hasNewUpload) {
+      // Show Save/Cancel buttons, hide Upload/Delete buttons
+      this.uploadButton.style.display = 'none';
+      this.deleteButton.style.display = 'none';
+      this.saveActionButton.style.display = 'inline-flex';
+      this.cancelButton.style.display = 'inline-flex';
+    } else {
+      // Show Upload/Delete buttons, hide Save/Cancel buttons
+      this.uploadButton.style.display = 'inline-flex';
+      const contact = myData?.contacts?.[this.currentAddress];
+      const hasAvatar = !!contact?.hasAvatar;
+      this.deleteButton.style.display = hasAvatar ? 'inline-flex' : 'none';
+      this.saveActionButton.style.display = 'none';
+      this.cancelButton.style.display = 'none';
+    }
   }
 
   /**
@@ -5329,45 +5333,61 @@ class AvatarEditModal {
       return;
     }
     this.pendingBlob = file;
-    this.pendingDelete = false;
     // Allow selecting the same file again after delete by clearing input value post-read
     if (this.fileInput) {
       this.fileInput.value = '';
     }
     this.setImageFromBlob(file, true);
+    this.updateButtonVisibility();
   }
 
   /**
-   * Stage deletion of the current avatar and reset preview/transform state.
+   * Handle cancel - discard uploaded image and revert to original state.
    */
-  handleDelete() {
-    // Clear any loaded blobs and revoke object URLs
+  async handleCancel() {
+    // Clear any pending uploads but keep existing avatar
     this.pendingBlob = null;
-    this.activeImageBlob = null;
-    this.pendingDelete = true;
     if (this.fileInput) {
       this.fileInput.value = '';
     }
-    this.clearPreviewUrl();
+    // Refresh to show original state
+    await this.refreshPreview();
+  }
 
-    // Clear image sources so the browser can release them
-    if (this.foregroundImg) {
-      this.foregroundImg.src = '';
+  /**
+   * Delete the current avatar immediately and save.
+   */
+  async handleDelete() {
+    if (!this.currentAddress) {
+      this.close();
+      return;
     }
-    if (this.previewBg) {
-      this.previewBg.src = '';
+
+    const contact = myData?.contacts?.[this.currentAddress];
+    if (!contact) {
+      this.close();
+      return;
     }
 
-    // Reset transforms
-    this.imageNaturalWidth = 0;
-    this.imageNaturalHeight = 0;
-    this.baseScale = 1;
-    this.zoom = 1;
-    this.offsetX = 0;
-    this.offsetY = 0;
-    this.updateZoomUI();
+    try {
+      // Delete avatar from cache
+      await contactAvatarCache.delete(this.currentAddress);
+      contact.hasAvatar = false;
+      saveState();
 
-    this.refreshPreview();
+      // Update UI
+      contactInfoModal.updateContactInfo(createDisplayInfo(contact));
+      contactInfoModal.needsContactListUpdate = true;
+      if (chatModal.isActive() && chatModal.address === this.currentAddress) {
+        chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
+      }
+
+      // Update preview in the modal to show identicon
+      await this.refreshPreview();
+    } catch (err) {
+      console.warn('Failed to delete avatar:', err);
+      showToast('Failed to delete avatar', 2000, 'error');
+    }
   }
 
   /**
@@ -5413,7 +5433,7 @@ class AvatarEditModal {
           this.foregroundImg.style.transform = 'translate(-50%, -50%)';
         }
       }
-      this.updateDeleteVisibility();
+      this.updateButtonVisibility();
     } catch (e) {
       console.warn('Failed to load image for avatar editing:', e);
       showToast('Could not load image', 2000, 'error');
@@ -5464,6 +5484,10 @@ class AvatarEditModal {
       this.zoomRange.max = this.maxZoom.toFixed(2);
       this.zoomRange.value = this.zoom.toFixed(2);
       this.zoomRange.disabled = !this.enableTransform;
+    }
+    // Show/hide zoom controls based on whether transform is enabled
+    if (this.zoomControls) {
+      this.zoomControls.style.display = this.enableTransform ? 'flex' : 'none';
     }
   }
 
@@ -5568,19 +5592,6 @@ class AvatarEditModal {
     }
 
     try {
-      if (this.pendingDelete) {
-        await contactAvatarCache.delete(this.currentAddress);
-        contact.hasAvatar = false;
-        saveState();
-        contactInfoModal.updateContactInfo(createDisplayInfo(contact));
-        contactInfoModal.needsContactListUpdate = true;
-        if (chatModal.isActive() && chatModal.address === this.currentAddress) {
-          chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
-        }
-        this.close();
-        return;
-      }
-
       // Need an image source to save
       if (this.pendingBlob || this.activeImageBlob) {
         const sourceBlob = this.pendingBlob || this.activeImageBlob;
