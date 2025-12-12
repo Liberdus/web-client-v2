@@ -2764,6 +2764,8 @@ button.about-link {
   position: absolute;
   top: 10px;
   right: 10px;
+  left: auto;
+  bottom: auto;
   width: var(--icon-button-width);
   height: var(--icon-button-height);
   border-radius: 50%;
@@ -2812,8 +2814,12 @@ button.about-link {
   position: relative;
   width: 180px;
   height: 180px;
+  min-width: 180px;
+  min-height: 180px;
   border-radius: 50%;
   background: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -2831,11 +2837,15 @@ button.about-link {
   left: 50%;
   transform: translate(-50%, -50%);
   border-radius: 50%;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .avatar-edit-img {
   z-index: 1;
   pointer-events: none;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .avatar-edit-bg-img {
@@ -2849,6 +2859,8 @@ button.about-link {
   opacity: 0.18;
   z-index: 0;
   pointer-events: none;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .avatar-edit-actions {
@@ -3951,6 +3963,8 @@ small {
   opacity: 0.7;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7z'%3E%3C/path%3E%3Cpath d='M17 3v4H7V3'%3E%3C/path%3E%3Cpath d='M7 13h10v8H7z'%3E%3C/path%3E%3C/svg%3E");
   background-size: var(--icon-size-24);
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .contact-info-value-container {
