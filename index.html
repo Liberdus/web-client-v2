@@ -798,11 +798,29 @@
           <div class="form-container">
             <form id="importForm" class="form--narrow">
               <div class="form-group">
+                <label for="restoreSourceLocation">Source Location</label>
+                <select id="restoreSourceLocation" class="form-control">
+                  <option value="local" selected>Local</option>
+                  <option value="google-drive">Google Drive</option>
+                </select>
+              </div>
+              <div class="form-group" id="localFileGroup">
                 <label for="importFile">Select File</label>
-                <input type="file" id="importFile" class="form-control" required accept=".json,application/json" />
+                <input type="file" id="importFile" class="form-control" accept=".json,application/json" />
+              </div>
+              <div class="form-group" id="googleDriveFileGroup" style="display: none;">
+                <label>Google Drive File</label>
+                <button type="button" id="pickGoogleDriveFile" class="btn btn--secondary btn--full" style="margin: 0; width: 100%;">Pick File from Google Drive</button>
+                <div id="selectedGoogleDriveFile" class="u-mt-5" style="display: none;">
+                  <span class="selected-file-name"></span>
+                  <button type="button" id="clearGoogleDriveFile" class="btn btn--text">Clear</button>
+                </div>
               </div>
               <div class="form-group">
-                <label for="importPassword">Password (if encrypted)</label>
+                <label for="importPassword">
+                  Password
+                  <span id="importPasswordRequired" style="color: #dc3545; display: none;">required</span>
+                </label>
                 <input
                   type="password"
                   id="importPassword"
@@ -827,7 +845,7 @@
                 />
               </div>
               <div class="form-actions">
-                <button type="submit" class="btn btn--primary btn--pill btn--full">Load Account</button>
+                <button type="submit" id="restoreSubmitButton" class="btn btn--primary btn--pill btn--full" disabled>Load Account</button>
               </div>
               <div class="form-group">
                 <label>
@@ -856,6 +874,31 @@
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Google Drive File Picker Modal -->
+      <div class="modal fixed-header" id="googleDrivePickerModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeGoogleDrivePicker"></button>
+          <div class="modal-title">Select Backup File</div>
+        </div>
+        <div class="modal-content">
+          <div class="form-container">
+            <div id="googleDrivePickerLoading" class="empty-state">
+              <div></div>
+              <div>Loading files...</div>
+            </div>
+            <ul class="chat-list" id="googleDriveFileList" style="display: none;">
+              <!-- Files will be populated here -->
+            </ul>
+            <div id="googleDrivePickerEmpty" class="empty-state" style="display: none;">
+              <div></div>
+              <div>No Backup Files Found</div>
+              <div>No backup files were found in your Liberdus Backups folder</div>
+            </div>
           </div>
         </div>
         <a class="last-item" href="#"> </a>

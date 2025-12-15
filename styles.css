@@ -1060,6 +1060,40 @@ button:disabled {
   border-radius: 24px;
 }
 
+/* Text-style button (link-like) */
+.btn--text {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.btn--text:hover {
+  text-decoration: underline;
+}
+
+/* Selected file display for restore modal */
+#selectedGoogleDriveFile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--hover-background);
+  border-radius: 8px;
+  font-size: var(--font-size-sm);
+}
+
+#selectedGoogleDriveFile .selected-file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-color);
+}
+
 .btn.btn--primary:disabled,
 .btn.btn--secondary:disabled,
 .btn.btn--danger:disabled {

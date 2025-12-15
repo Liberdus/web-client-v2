@@ -7437,6 +7437,8 @@ class RestoreAccountModal {
   constructor() {
     this.developerOptionsEnabled = false;
     this.netids = []; // Will be populated from network.js
+    this.selectedGoogleDriveFile = null; // Store selected Google Drive file info
+    this.googleDriveFileContent = null; // Store downloaded file content
   }
 
   load() {
@@ -7451,10 +7453,27 @@ class RestoreAccountModal {
     this.importForm = document.getElementById('importForm');
     this.fileInput = document.getElementById('importFile');
     this.passwordInput = document.getElementById('importPassword');
+    this.passwordRequired = document.getElementById('importPasswordRequired');
     this.overwriteAccountsCheckbox = document.getElementById('overwriteAccountsCheckbox');
     this.backupAccountLockGroup = document.getElementById('backupAccountLockGroup');
     this.backupAccountLock = document.getElementById('backupAccountLock');
     this.developerOptionsSection = document.getElementById('developerOptionsSection');
+    this.submitButton = document.getElementById('restoreSubmitButton');
+
+    // Google Drive elements
+    this.sourceLocationSelect = document.getElementById('restoreSourceLocation');
+    this.localFileGroup = document.getElementById('localFileGroup');
+    this.googleDriveFileGroup = document.getElementById('googleDriveFileGroup');
+    this.pickGoogleDriveFileBtn = document.getElementById('pickGoogleDriveFile');
+    this.selectedGoogleDriveFileDisplay = document.getElementById('selectedGoogleDriveFile');
+    this.clearGoogleDriveFileBtn = document.getElementById('clearGoogleDriveFile');
+
+    // Google Drive picker modal elements
+    this.pickerModal = document.getElementById('googleDrivePickerModal');
+    this.closePickerBtn = document.getElementById('closeGoogleDrivePicker');
+    this.pickerLoading = document.getElementById('googleDrivePickerLoading');
+    this.pickerFileList = document.getElementById('googleDriveFileList');
+    this.pickerEmpty = document.getElementById('googleDrivePickerEmpty');
 
     this.closeImportForm.addEventListener('click', () => this.close());
     this.importForm.addEventListener('submit', (event) => this.handleSubmit(event));
@@ -7466,9 +7485,21 @@ class RestoreAccountModal {
     this.setupMutualExclusion(this.newStringSelect, this.newStringCustom);
     
     // Add listeners to extract netids from selected file
-    this.fileInput.addEventListener('change', () => this.extractNetidsFromFile());
+    this.fileInput.addEventListener('change', () => {
+      this.extractNetidsFromFile();
+      this.updateButtonState();
+    });
     this.debouncedExtractNetidsFromFile = debounce(() => this.extractNetidsFromFile(), 500);
-    this.passwordInput.addEventListener('input', this.debouncedExtractNetidsFromFile);
+    this.passwordInput.addEventListener('input', () => {
+      this.debouncedExtractNetidsFromFile();
+      this.updateButtonState();
+    });
+
+    // Google Drive event listeners
+    this.sourceLocationSelect.addEventListener('change', () => this.handleSourceLocationChange());
+    this.pickGoogleDriveFileBtn.addEventListener('click', () => this.openGoogleDrivePicker());
+    this.clearGoogleDriveFileBtn.addEventListener('click', () => this.clearSelectedGoogleDriveFile());
+    this.closePickerBtn.addEventListener('click', () => this.closeGoogleDrivePicker());
 
     // Reset form state
     this.clearForm();
@@ -7510,6 +7541,292 @@ class RestoreAccountModal {
   toggleDeveloperOptions() {
     this.developerOptionsEnabled = !!this.developerOptionsToggle?.checked;
     this.developerOptionsSection.style.display = this.developerOptionsEnabled ? 'block' : 'none';
+  }
+
+  // Handle source location change (Local vs Google Drive)
+  handleSourceLocationChange() {
+    const isGoogleDrive = this.sourceLocationSelect.value === 'google-drive';
+    
+    // Toggle visibility of file selection groups
+    this.localFileGroup.style.display = isGoogleDrive ? 'none' : 'block';
+    this.googleDriveFileGroup.style.display = isGoogleDrive ? 'block' : 'none';
+    
+    // Clear selections when switching
+    if (isGoogleDrive) {
+      this.fileInput.value = '';
+    } else {
+      this.clearSelectedGoogleDriveFile();
+    }
+    
+    // Update password required indicator
+    if (this.passwordRequired) {
+      this.passwordRequired.style.display = isGoogleDrive ? 'inline' : 'none';
+    }
+    
+    this.updateButtonState();
+  }
+
+  // Update the submit button state based on form validity
+  updateButtonState() {
+    const isGoogleDrive = this.sourceLocationSelect.value === 'google-drive';
+    let isValid = false;
+    
+    if (isGoogleDrive) {
+      // Google Drive: require file selection and password
+      const hasFile = this.selectedGoogleDriveFile !== null;
+      const hasPassword = this.passwordInput.value.trim().length > 0;
+      isValid = hasFile && hasPassword;
+    } else {
+      // Local: require file selection, password optional
+      isValid = this.fileInput.files && this.fileInput.files.length > 0;
+    }
+    
+    this.submitButton.disabled = !isValid;
+  }
+
+  // Open Google Drive file picker
+  async openGoogleDrivePicker() {
+    try {
+      // Start OAuth flow using the backup modal's auth method
+      showToast('Approve Drive access in the Google window.', 3000, 'info');
+      const tokenData = await backupAccountModal.startGoogleDriveAuth();
+      
+      // Show picker modal and load files
+      this.pickerModal.classList.add('active');
+      this.pickerLoading.style.display = 'block';
+      this.pickerFileList.style.display = 'none';
+      this.pickerEmpty.style.display = 'none';
+      
+      // List files from backup folder
+      await this.loadGoogleDriveFiles(tokenData);
+    } catch (error) {
+      console.error('Google Drive authentication failed:', error);
+      showToast(error.message || 'Authentication failed.', 0, 'error');
+    }
+  }
+
+  // Load files from Google Drive backup folder
+  async loadGoogleDriveFiles(tokenData) {
+    try {
+      const folderName = network.googleDrive.backupFolder;
+      
+      // First, find the backup folder
+      const folderQuery = new URLSearchParams({
+        q: `name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false and 'root' in parents`,
+        fields: 'files(id, name)'
+      });
+      
+      const folderRes = await fetch(
+        'https://www.googleapis.com/drive/v3/files?' + folderQuery.toString(),
+        {
+          headers: {
+            Authorization: `${tokenData.tokenType} ${tokenData.accessToken}`
+          }
+        }
+      );
+      
+      if (!folderRes.ok) {
+        throw new Error(`Failed to search for backup folder: ${folderRes.status}`);
+      }
+      
+      const folderData = await folderRes.json();
+      
+      if (!folderData.files || folderData.files.length === 0) {
+        // No backup folder found
+        this.pickerLoading.style.display = 'none';
+        this.pickerEmpty.style.display = 'block';
+        return;
+      }
+      
+      const folderId = folderData.files[0].id;
+      
+      // List JSON files in the backup folder
+      const filesQuery = new URLSearchParams({
+        q: `'${folderId}' in parents and trashed = false and (mimeType = 'application/json' or name contains '.json')`,
+        fields: 'files(id, name, modifiedTime, size)',
+        orderBy: 'modifiedTime desc'
+      });
+      
+      const filesRes = await fetch(
+        'https://www.googleapis.com/drive/v3/files?' + filesQuery.toString(),
+        {
+          headers: {
+            Authorization: `${tokenData.tokenType} ${tokenData.accessToken}`
+          }
+        }
+      );
+      
+      if (!filesRes.ok) {
+        throw new Error(`Failed to list files: ${filesRes.status}`);
+      }
+      
+      const filesData = await filesRes.json();
+      
+      this.pickerLoading.style.display = 'none';
+      
+      if (!filesData.files || filesData.files.length === 0) {
+        this.pickerEmpty.style.display = 'block';
+        return;
+      }
+      
+      // Render file list
+      this.renderGoogleDriveFileList(filesData.files, tokenData);
+      this.pickerFileList.style.display = 'block';
+      
+    } catch (error) {
+      console.error('Failed to load Google Drive files:', error);
+      showToast('Failed to load files from Google Drive.', 0, 'error');
+      this.closeGoogleDrivePicker();
+    }
+  }
+
+  // Render the list of files from Google Drive
+  renderGoogleDriveFileList(files, tokenData) {
+    this.pickerFileList.innerHTML = '';
+    
+    files.forEach(file => {
+      const li = document.createElement('li');
+      li.className = 'chat-item';
+      li.style.cursor = 'pointer';
+      
+      const modifiedDate = new Date(file.modifiedTime);
+      const dateStr = modifiedDate.toLocaleDateString() + ' ' + modifiedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
+      li.innerHTML = `
+        <div class="chat-content" style="padding-left: 16px;">
+          <div class="chat-name" style="white-space: normal; word-break: break-word;">${file.name}</div>
+          <div class="chat-time" style="position: static; margin-top: 4px;">${dateStr}</div>
+        </div>
+      `;
+      
+      li.addEventListener('click', () => this.selectGoogleDriveFile(file, tokenData));
+      this.pickerFileList.appendChild(li);
+    });
+  }
+
+  // Select a file from Google Drive
+  async selectGoogleDriveFile(file, tokenData) {
+    try {
+      showToast('Downloading backup file...', 2000, 'info');
+      
+      // Download the file content
+      const downloadRes = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
+        {
+          headers: {
+            Authorization: `${tokenData.tokenType} ${tokenData.accessToken}`
+          }
+        }
+      );
+      
+      if (!downloadRes.ok) {
+        throw new Error(`Failed to download file: ${downloadRes.status}`);
+      }
+      
+      const fileContent = await downloadRes.text();
+      
+      // Store file info and content
+      this.selectedGoogleDriveFile = file;
+      this.googleDriveFileContent = fileContent;
+      
+      // Update UI
+      this.selectedGoogleDriveFileDisplay.style.display = 'flex';
+      this.selectedGoogleDriveFileDisplay.querySelector('.selected-file-name').textContent = file.name;
+      
+      // Close picker and update button state
+      this.closeGoogleDrivePicker();
+      this.updateButtonState();
+      
+      // Try to extract netids from the downloaded content
+      this.extractNetidsFromGoogleDriveContent();
+      
+      showToast('Backup file selected.', 2000, 'success');
+    } catch (error) {
+      console.error('Failed to download file:', error);
+      showToast('Failed to download file from Google Drive.', 0, 'error');
+    }
+  }
+
+  // Extract netids from Google Drive file content
+  extractNetidsFromGoogleDriveContent() {
+    if (!this.googleDriveFileContent) return;
+    
+    try {
+      let content = this.googleDriveFileContent;
+      
+      // Try to decrypt if encrypted
+      if (!content.match('{')) {
+        const password = this.passwordInput.value.trim();
+        if (!password) {
+          this.resetBackupLockPrompt();
+          return;
+        }
+        try {
+          content = decryptData(content, password);
+        } catch (error) {
+          this.resetBackupLockPrompt();
+          return;
+        }
+      }
+      
+      const data = parse(content);
+      
+      // Check if backup requires password
+      const requiresBackupPassword = data.lock && !(localStorage.lock && data.lock === localStorage.lock);
+      if (requiresBackupPassword) {
+        this.backupAccountLockGroup.style.display = 'block';
+      } else {
+        this.resetBackupLockPrompt();
+      }
+      
+      const netids = new Set();
+      
+      Object.keys(data).forEach(key => {
+        if (key.includes('_') && key !== 'accounts' && key !== 'version') {
+          const parts = key.split('_');
+          if (parts.length >= 2) {
+            const possibleNetid = parts[parts.length - 1];
+            if (possibleNetid.length === 64 && /^[a-f0-9]+$/.test(possibleNetid)) {
+              netids.add(possibleNetid);
+            }
+          }
+        }
+      });
+      
+      // Add new netids to dropdowns
+      this.removeFileInjectedNetids();
+      const existing = Array.from(this.oldStringSelect.options).map(opt => opt.value);
+      [...netids].filter(netid => !existing.includes(netid)).forEach(netid => {
+        const label = `${netid} (from file)`;
+        const oldOption = new Option(label, netid);
+        oldOption.dataset.source = 'file';
+        this.oldStringSelect.add(oldOption);
+        const newOption = new Option(label, netid);
+        newOption.dataset.source = 'file';
+        this.newStringSelect.add(newOption);
+      });
+      
+      if (netids.size > 0) console.log(`Found ${netids.size} netids from Google Drive file`);
+    } catch (error) {
+      this.resetBackupLockPrompt();
+    }
+  }
+
+  // Clear selected Google Drive file
+  clearSelectedGoogleDriveFile() {
+    this.selectedGoogleDriveFile = null;
+    this.googleDriveFileContent = null;
+    this.selectedGoogleDriveFileDisplay.style.display = 'none';
+    this.selectedGoogleDriveFileDisplay.querySelector('.selected-file-name').textContent = '';
+    this.removeFileInjectedNetids();
+    this.resetBackupLockPrompt();
+    this.updateButtonState();
+  }
+
+  // Close the Google Drive picker modal
+  closeGoogleDrivePicker() {
+    this.pickerModal.classList.remove('active');
+    this.pickerFileList.innerHTML = '';
   }
 
   // populate the netid dropdowns
@@ -7746,10 +8063,28 @@ class RestoreAccountModal {
   async handleSubmit(event) {
     event.preventDefault();
 
+    const isGoogleDrive = this.sourceLocationSelect.value === 'google-drive';
+
     try {
-      // Read the file
-      const file = this.fileInput.files[0];
-      let fileContent = await file.text();
+      let fileContent;
+      
+      if (isGoogleDrive) {
+        // Use downloaded Google Drive file content
+        if (!this.googleDriveFileContent) {
+          showToast('Please select a file from Google Drive', 0, 'error');
+          return;
+        }
+        fileContent = this.googleDriveFileContent;
+      } else {
+        // Read the local file
+        const file = this.fileInput.files[0];
+        if (!file) {
+          showToast('Please select a file', 0, 'error');
+          return;
+        }
+        fileContent = await file.text();
+      }
+      
       const isNotEncryptedData = fileContent.match('{');
 
       // Check if data is encrypted and decrypt if necessary
@@ -7827,6 +8162,11 @@ class RestoreAccountModal {
     this.newStringSelect.length = 1;
     this.populateNetidDropdowns();
     this.resetBackupLockPrompt();
+    
+    // Reset Google Drive state
+    this.sourceLocationSelect.value = 'local';
+    this.clearSelectedGoogleDriveFile();
+    this.handleSourceLocationChange();
   }
 
   resetBackupLockPrompt() {
