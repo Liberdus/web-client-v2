@@ -10059,6 +10059,9 @@ class ChatModal {
 
     // Initialize context menu
     this.contextMenu = document.getElementById('messageContextMenu');
+    // Initialize image attachment context menu
+    this.imageAttachmentContextMenu = document.getElementById('imageAttachmentContextMenu');
+    this.currentImageAttachmentRow = null;
     
     // Add event delegation for message clicks (since messages are created dynamically)
     this.messagesList.addEventListener('click', this.handleMessageClick.bind(this));
@@ -10083,11 +10086,23 @@ class ChatModal {
         this.handleContextMenuAction(action);
       }
     });
+    // Add image attachment context menu option listeners
+    if (this.imageAttachmentContextMenu) {
+      this.imageAttachmentContextMenu.addEventListener('click', (e) => {
+        const option = e.target.closest('.context-menu-option');
+        if (!option) return;
+        const action = option.dataset.action;
+        this.handleImageAttachmentContextMenuAction(action);
+      });
+    }
     
     // Close context menu when clicking outside
     document.addEventListener('click', (e) => {
       if (this.contextMenu && !this.contextMenu.contains(e.target)) {
         this.closeContextMenu();
+      }
+      if (this.imageAttachmentContextMenu && !this.imageAttachmentContextMenu.contains(e.target)) {
+        this.closeImageAttachmentContextMenu();
       }
     });
     this.sendButton.addEventListener('click', this.handleSendMessage.bind(this));
@@ -10217,26 +10232,6 @@ class ChatModal {
         voiceRecordingModal.open();
       });
     }
-
-    this.messagesList.addEventListener('click', async (e) => {
-      const row = e.target.closest('.attachment-row');
-      if (!row) return;
-      e.preventDefault();
-
-      // Concurent download prevention
-      if (this.attachmentDownloadInProgress) return;
-
-      this.attachmentDownloadInProgress = true;
-
-      const idx  = Number(row.dataset.msgIdx);
-      const item = myData.contacts[this.address].messages[idx];
-
-      try {
-        await this.handleAttachmentDownload(item, row);
-      } finally {
-        this.attachmentDownloadInProgress = false;
-      }
-    });
 
     // Voice message play button event delegation
     this.messagesList.addEventListener('click', (e) => {
@@ -11340,7 +11335,7 @@ console.warn('in send message', txid)
                 >
                   <div class="attachment-icon-container" style="${isImage ? 'margin-bottom: 10px; flex-direction: column;' : 'margin-right: 14px; flex-shrink: 0;'}">
                     <div class="attachment-icon" data-file-type="${fileTypeIcon}"></div>
-                    ${isImage ? '<div class="attachment-preview-hint">Click to preview</div>' : ''}
+                    ${isImage ? '<div class="attachment-preview-hint">Click for options</div>' : ''}
                   </div>
                   <div style="min-width:0;">
                     <span class="attachment-label" style="font-weight:500;color:#222;font-size:0.7em;display:block;word-wrap:break-word;">
@@ -12075,46 +12070,58 @@ console.warn('in send message', txid)
     showToast(`${filename} downloaded`, 3000, 'success');
   }
 
+  /**
+   * Decrypts an attachment URL into a Blob using the message encryption metadata.
+   * Shared by download (Save) and Preview thumbnail generation.
+   * @param {Object} item - message object from myData.contacts[address].messages[idx]
+   * @param {HTMLElement} linkEl - attachment row element with data-* fields
+   * @returns {Promise<Blob>}
+   */
+  async decryptAttachmentToBlob(item, linkEl) {
+    if (!item || !linkEl) throw new Error('Missing item or attachment element');
+
+    // 1) Derive dhkey
+    let dhkey;
+    if (item.my) {
+      const selfKey = linkEl.dataset.selfkey;
+      const password = myAccount.keys.secret + myAccount.keys.pqSeed;
+      dhkey = hex2bin(decryptData(selfKey, password, true));
+    } else {
+      const ok = await ensureContactKeys(this.address);
+      const senderPublicKey = myData.contacts[this.address]?.public;
+      if (!ok || !senderPublicKey) throw new Error(`No public key found for sender ${this.address}`);
+      const pqEncSharedKey = linkEl.dataset.pqencsharedkey;
+      dhkey = dhkeyCombined(
+        myAccount.keys.secret,
+        senderPublicKey,
+        myAccount.keys.pqSeed,
+        pqEncSharedKey
+      ).dhkey;
+    }
+
+    const url = linkEl.dataset.url;
+    if (!url || url === '#') throw new Error('Missing attachment url');
+
+    // 2) Download encrypted bytes
+    const res = await fetch(url, { signal: this.abortController.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const cipherBin = new Uint8Array(await res.arrayBuffer());
+
+    // 3) Decrypt
+    const cipherB64 = bin2base64(cipherBin);
+    const plainB64 = decryptChacha(dhkey, cipherB64);
+    if (!plainB64) throw new Error('decryptChacha returned null');
+    const clearBin = base642bin(plainB64);
+
+    // 4) Blob
+    return new Blob([clearBin], { type: linkEl.dataset.type || 'application/octet-stream' });
+  }
+
   async handleAttachmentDownload(item, linkEl) {
     let loadingToastId;
     try {
       loadingToastId = showToast(`Decrypting attachment...`, 0, 'loading');
-      // 1. Derive a fresh 32‑byte dhkey
-      let dhkey;
-      if (item.my) {
-        // you were the sender ⇒ run encapsulation side again
-        const selfKey = linkEl.dataset.selfkey;
-        const password = myAccount.keys.secret + myAccount.keys.pqSeed;
-        dhkey = hex2bin(decryptData(selfKey, password, true));
-      } else {
-        // you are the receiver ⇒ use fields stashed on the item
-        const ok = await ensureContactKeys(this.address);
-        const senderPublicKey = myData.contacts[this.address]?.public;
-        if (!ok || !senderPublicKey) throw new Error(`No public key found for sender ${this.address}`);
-        const pqEncSharedKey = linkEl.dataset.pqencsharedkey;
-        dhkey = dhkeyCombined(
-          myAccount.keys.secret,
-          senderPublicKey,
-          myAccount.keys.pqSeed,
-          pqEncSharedKey
-        ).dhkey;
-      }
-
-      // 2. Download encrypted bytes
-      const res = await fetch(linkEl.dataset.url, {
-        signal: this.abortController.signal
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const cipherBin = new Uint8Array(await res.arrayBuffer());
-
-      // 3. bin → base64 → decrypt → clear Uint8Array
-      const cipherB64 = bin2base64(cipherBin);
-      const plainB64  = decryptChacha(dhkey, cipherB64);
-      if (!plainB64) throw new Error('decryptChacha returned null');
-      const clearBin  = base642bin(plainB64);
-
-      // 4. Blob + download
-      const blob    = new Blob([clearBin], { type: linkEl.dataset.type || 'application/octet-stream' });
+      const blob = await this.decryptAttachmentToBlob(item, linkEl);
       const blobUrl = URL.createObjectURL(blob);
       const filename = decodeURIComponent(linkEl.dataset.name || 'download');
 
@@ -12247,8 +12254,30 @@ console.warn('in send message', txid)
    * Handles message click events
    * @param {Event} e - Click event
    */
-  handleMessageClick(e) {
-    if (e.target.closest('.attachment-row')) return;
+  async handleMessageClick(e) {
+    const attachmentRow = e.target.closest('.attachment-row');
+    if (attachmentRow) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Image attachments open context menu instead of downloading immediately
+      if (attachmentRow.dataset.imageAttachment === 'true') {
+        await this.showImageAttachmentContextMenu(e, attachmentRow);
+        return;
+      }
+
+      // Concurent download prevention
+      if (this.attachmentDownloadInProgress) return;
+      this.attachmentDownloadInProgress = true;
+
+      const { item } = this.getAttachmentContextFromRow(attachmentRow);
+      try {
+        if (item) await this.handleAttachmentDownload(item, attachmentRow);
+      } finally {
+        this.attachmentDownloadInProgress = false;
+      }
+      return;
+    }
     if (e.target.closest('.voice-message-play-button')) return;
     if (e.target.closest('.voice-message-speed-button')) return;
     if (e.target.closest('.voice-message-seek')) return;
@@ -12291,14 +12320,16 @@ console.warn('in send message', txid)
 
     // Do not open context menu when clicking on reply quote
     if (e.target.closest('.reply-quote')) return;
+
+    // Ensure only one context menu is open at a time
+    this.closeAllContextMenus();
     
     this.currentContextMessage = messageEl;
     
     // Show/hide "Delete for all" option based on whether the message is from the current user
-    const isMine = messageEl.classList.contains('sent');
     const deleteForAllOption = this.contextMenu.querySelector('[data-action="delete-for-all"]');
     if (deleteForAllOption) {
-      const canDeleteForAll = isMine && myData.contacts[this.address]?.tollRequiredToSend == 0;
+      const canDeleteForAll = this.canDeleteMessageForAll(messageEl);
       deleteForAllOption.style.display = canDeleteForAll ? 'flex' : 'none';
     }
 
@@ -12345,6 +12376,7 @@ console.warn('in send message', txid)
       // Determine if edit should be shown
       if (editOption) {
         // Conditions: own plain message OR own payment with memo text, not deleted/failed/voice, within 15 minutes
+        const isMine = messageEl.classList.contains('sent');
         const createdTs = parseInt(messageEl.dataset.messageTimestamp || messageEl.dataset.timestamp || '0', 10);
         const ageOk = createdTs && (Date.now() - createdTs) < EDIT_WINDOW_MS;
         const isDeleted = messageEl.classList.contains('deleted-message');
@@ -12403,6 +12435,185 @@ console.warn('in send message', txid)
     if (!this.contextMenu) return;
     this.contextMenu.style.display = 'none';
     this.currentContextMessage = null;
+  }
+
+  closeAllContextMenus() {
+    this.closeContextMenu();
+    this.closeImageAttachmentContextMenu();
+  }
+
+  /**
+   * Returns whether "Delete for all" should be available for a given message element.
+   * Mirrors the gating used in the message context menu.
+   * @param {HTMLElement} messageEl
+   * @returns {boolean}
+   */
+  canDeleteMessageForAll(messageEl) {
+    const isMine = !!messageEl?.classList?.contains('sent');
+    return isMine && myData.contacts[this.address]?.tollRequiredToSend == 0;
+  }
+
+  /**
+   * Resolve common attachment context fields from an attachment row.
+   * @param {HTMLElement} attachmentRow
+   * @returns {{ attachmentRow: HTMLElement, messageEl: HTMLElement | null, idx: number, item: any, url: string }}
+   */
+  getAttachmentContextFromRow(attachmentRow) {
+    const idx = Number(attachmentRow?.dataset?.msgIdx);
+    const item = Number.isFinite(idx) ? myData.contacts[this.address]?.messages?.[idx] : null;
+    return {
+      attachmentRow,
+      messageEl: attachmentRow?.closest?.('.message') || null,
+      idx,
+      item,
+      url: attachmentRow?.dataset?.url || ''
+    };
+  }
+
+  closeImageAttachmentContextMenu() {
+    if (!this.imageAttachmentContextMenu) return;
+    this.imageAttachmentContextMenu.style.display = 'none';
+    this.currentImageAttachmentRow = null;
+    delete this.imageAttachmentContextMenu.dataset.previewMode;
+  }
+
+  /**
+   * Shows context menu for an image attachment row
+   * - "Preview" when no thumbnail exists in IndexedDB (decrypt + generate thumbnail)
+   * - "Save" when a thumbnail already exists (use normal download flow)
+   * @param {Event} e
+   * @param {HTMLElement} attachmentRow
+   */
+  async showImageAttachmentContextMenu(e, attachmentRow) {
+    if (!this.imageAttachmentContextMenu || !attachmentRow) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Close other menus
+    this.closeAllContextMenus();
+
+    this.currentImageAttachmentRow = attachmentRow;
+
+    // Toggle delete-for-all visibility similar to regular message context menu gating
+    const { messageEl, url } = this.getAttachmentContextFromRow(attachmentRow);
+
+    // Show copy only if parent message has actual message text
+    const copyOption = this.imageAttachmentContextMenu.querySelector('[data-action="copy"]');
+    if (copyOption) {
+      const text = messageEl?.querySelector?.('.message-content')?.textContent?.trim() || '';
+      copyOption.style.display = text ? 'flex' : 'none';
+    }
+
+    const deleteForAllOption = this.imageAttachmentContextMenu.querySelector('[data-action="delete-for-all"]');
+    if (deleteForAllOption) {
+      const canDeleteForAll = this.canDeleteMessageForAll(messageEl);
+      deleteForAllOption.style.display = canDeleteForAll ? 'flex' : 'none';
+    }
+
+    // Decide Preview vs Save based on whether thumbnail is cached
+    let hasThumb = false;
+    if (url && url !== '#') {
+      try {
+        const thumb = await thumbnailCache.get(url);
+        hasThumb = !!thumb;
+      } catch (_) {
+        hasThumb = false;
+      }
+    }
+
+    const previewOptText = this.imageAttachmentContextMenu.querySelector(
+      '[data-action="preview-or-save"] .context-menu-text'
+    );
+    if (previewOptText) previewOptText.textContent = hasThumb ? 'Save' : 'Preview';
+    this.imageAttachmentContextMenu.dataset.previewMode = hasThumb ? 'save' : 'preview';
+
+    this.positionContextMenu(this.imageAttachmentContextMenu, attachmentRow);
+    this.imageAttachmentContextMenu.style.display = 'block';
+  }
+
+  handleImageAttachmentContextMenuAction(action) {
+    const row = this.currentImageAttachmentRow;
+    if (!row) return;
+
+    const { messageEl } = this.getAttachmentContextFromRow(row);
+    switch (action) {
+      case 'preview-or-save': {
+        const mode = this.imageAttachmentContextMenu?.dataset?.previewMode;
+        if (mode === 'save') {
+          void this.saveImageAttachment(row);
+        } else {
+          void this.previewImageAttachment(row);
+        }
+        break;
+      }
+      case 'reply':
+        if (messageEl) this.startReplyToMessage(messageEl);
+        break;
+      case 'copy':
+        if (messageEl) void this.copyMessageContent(messageEl);
+        break;
+      case 'delete':
+        if (messageEl) this.deleteMessage(messageEl);
+        break;
+      case 'delete-for-all':
+        if (messageEl) void this.deleteMessageForAll(messageEl);
+        break;
+    }
+
+    this.closeImageAttachmentContextMenu();
+  }
+
+  /**
+   * Preview an image attachment: decrypt + generate thumbnail + cache thumbnail in IndexedDB.
+   * Does NOT trigger download.
+   * @param {HTMLElement} attachmentRow
+   */
+  async previewImageAttachment(attachmentRow) {
+    let loadingToastId;
+    try {
+      const { item, url } = this.getAttachmentContextFromRow(attachmentRow);
+      if (!item) return;
+
+      if (!url || url === '#') return;
+
+      loadingToastId = showToast(`Decrypting attachment...`, 0, 'loading');
+
+      const blob = await this.decryptAttachmentToBlob(item, attachmentRow);
+      if (!blob.type.startsWith('image/')) {
+        hideToast(loadingToastId);
+        return showToast('Not an image attachment', 2000, 'info');
+      }
+
+      // 5. Generate + cache thumbnail
+      const thumbnail = await thumbnailCache.generateThumbnail(blob);
+      await thumbnailCache.save(url, thumbnail, blob.type);
+      this.updateThumbnailInPlace(attachmentRow, thumbnail);
+
+      hideToast(loadingToastId);
+    } catch (err) {
+      console.error('Preview decrypt/thumbnail failed:', err);
+      hideToast(loadingToastId);
+      if (err?.name !== 'AbortError') showToast('Preview failed.', 0, 'error');
+    }
+  }
+
+  /**
+   * Save an image attachment using the existing download/decrypt flow.
+   * @param {HTMLElement} attachmentRow
+   */
+  async saveImageAttachment(attachmentRow) {
+    // Reuse normal attachment download flow (decrypt + download)
+    const { item } = this.getAttachmentContextFromRow(attachmentRow);
+    if (!item) return;
+
+    // Concurent download prevention
+    if (this.attachmentDownloadInProgress) return;
+    this.attachmentDownloadInProgress = true;
+    try {
+      await this.handleAttachmentDownload(item, attachmentRow);
+    } finally {
+      this.attachmentDownloadInProgress = false;
+    }
   }
 
   /**

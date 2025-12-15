@@ -5283,6 +5283,10 @@ small {
   background-image: var(--icon-reply, url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 19l-7-7 7-7"/><path d="M3 12h11a4 4 0 1 0 0-8"/></svg>'));
 }
 
+.context-menu-option[data-icon="download"] .context-menu-icon {
+  background-image: var(--icon-download);
+}
+
 @keyframes contextMenuAppear {
   from {
     opacity: 0;
