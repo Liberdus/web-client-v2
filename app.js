@@ -7206,6 +7206,26 @@ class BackupAccountModal {
       backupObj.lock = lockVal;
     }
 
+    // Include contact avatars from IndexedDB
+    try {
+      const avatars = await contactAvatarCache.exportAll();
+      if (avatars && Object.keys(avatars).length > 0) {
+        backupObj._avatars = avatars;
+      }
+    } catch (e) {
+      console.warn('Failed to export avatars for backup:', e);
+    }
+
+    // Include message thumbnails from IndexedDB
+    try {
+      const thumbnails = await thumbnailCache.exportAll();
+      if (thumbnails && Object.keys(thumbnails).length > 0) {
+        backupObj._thumbnails = thumbnails;
+      }
+    } catch (e) {
+      console.warn('Failed to export thumbnails for backup:', e);
+    }
+
     const jsonData = stringify(backupObj, null, 2);
 
     try {
@@ -7265,7 +7285,27 @@ class BackupAccountModal {
 
     const password = this.passwordInput.value;
     const myLocalStore = this.copyLocalStorageToObject();
-//    console.log(myLocalStore);
+
+    // Include contact avatars from IndexedDB
+    try {
+      const avatars = await contactAvatarCache.exportAll();
+      if (avatars && Object.keys(avatars).length > 0) {
+        myLocalStore._avatars = avatars;
+      }
+    } catch (e) {
+      console.warn('Failed to export avatars for backup:', e);
+    }
+
+    // Include message thumbnails from IndexedDB
+    try {
+      const thumbnails = await thumbnailCache.exportAll();
+      if (thumbnails && Object.keys(thumbnails).length > 0) {
+        myLocalStore._thumbnails = thumbnails;
+      }
+    } catch (e) {
+      console.warn('Failed to export thumbnails for backup:', e);
+    }
+
     const jsonData = stringify(myLocalStore, null, 2);
 
     try {
@@ -7995,6 +8035,24 @@ class RestoreAccountModal {
 
       if (decryptedAccount) {
         this.updateAccountRegistryAddress(netid, username, decryptedAccount);
+      }
+    }
+
+    // Import contact avatars if present in backup
+    if (backupData._avatars && typeof backupData._avatars === 'object') {
+      try {
+        await contactAvatarCache.importAll(backupData._avatars, overwrite);
+      } catch (e) {
+        console.warn('Failed to import avatars from backup:', e);
+      }
+    }
+
+    // Import message thumbnails if present in backup
+    if (backupData._thumbnails && typeof backupData._thumbnails === 'object') {
+      try {
+        await thumbnailCache.importAll(backupData._thumbnails, overwrite);
+      } catch (e) {
+        console.warn('Failed to import thumbnails from backup:', e);
       }
     }
 
@@ -20188,6 +20246,122 @@ class ContactAvatarCache {
       };
     });
   }
+
+  /**
+   * Export all avatars as an object with base64-encoded data
+   * @returns {Promise<Object>} Object mapping address to { data: base64, type: mimeType }
+   */
+  async exportAll() {
+    if (!this.db) {
+      await this.init();
+    }
+
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction([this.storeName], 'readonly');
+      const store = tx.objectStore(this.storeName);
+      const request = store.getAll();
+
+      request.onsuccess = async () => {
+        const results = request.result;
+        const avatars = {};
+
+        for (const item of results) {
+          if (item.address && item.avatar) {
+            try {
+              // Convert blob to base64
+              const base64 = await this.blobToBase64(item.avatar);
+              avatars[item.address] = {
+                data: base64,
+                type: item.avatar.type || 'image/jpeg'
+              };
+            } catch (e) {
+              console.warn(`Failed to export avatar for ${item.address}:`, e);
+            }
+          }
+        }
+
+        resolve(avatars);
+      };
+
+      request.onerror = () => {
+        console.warn('Failed to export avatars:', request.error);
+        reject(request.error);
+      };
+    });
+  }
+
+  /**
+   * Import avatars from exported data
+   * @param {Object} avatarsData - Object mapping address to { data: base64, type: mimeType }
+   * @param {boolean} overwrite - Whether to overwrite existing avatars
+   * @returns {Promise<number>} Number of avatars imported
+   */
+  async importAll(avatarsData, overwrite = false) {
+    if (!this.db) {
+      await this.init();
+    }
+
+    if (!avatarsData || typeof avatarsData !== 'object') {
+      return 0;
+    }
+
+    let importedCount = 0;
+
+    for (const [address, avatarInfo] of Object.entries(avatarsData)) {
+      if (!avatarInfo || !avatarInfo.data) continue;
+
+      try {
+        // Check if avatar already exists
+        if (!overwrite) {
+          const existing = await this.get(address);
+          if (existing) continue;
+        }
+
+        // Convert base64 back to blob
+        const blob = this.base64ToBlob(avatarInfo.data, avatarInfo.type || 'image/jpeg');
+        await this.save(address, blob);
+        importedCount++;
+      } catch (e) {
+        console.warn(`Failed to import avatar for ${address}:`, e);
+      }
+    }
+
+    return importedCount;
+  }
+
+  /**
+   * Convert a Blob to base64 string
+   * @param {Blob} blob - The blob to convert
+   * @returns {Promise<string>} Base64 encoded string
+   */
+  blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        // Remove the data URL prefix (e.g., "data:image/jpeg;base64,")
+        const base64 = reader.result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  /**
+   * Convert a base64 string back to Blob
+   * @param {string} base64 - Base64 encoded string
+   * @param {string} mimeType - MIME type of the blob
+   * @returns {Blob} The resulting blob
+   */
+  base64ToBlob(base64, mimeType = 'image/jpeg') {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
+  }
 }
 
 /**
@@ -20458,6 +20632,123 @@ class ThumbnailCache {
         reject(request.error);
       };
     });
+  }
+
+  /**
+   * Export all thumbnails as an object with base64-encoded data
+   * @returns {Promise<Object>} Object mapping url to { data: base64, type: mimeType, originalType: string }
+   */
+  async exportAll() {
+    if (!this.db) {
+      await this.init();
+    }
+
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction([this.storeName], 'readonly');
+      const store = tx.objectStore(this.storeName);
+      const request = store.getAll();
+
+      request.onsuccess = async () => {
+        const results = request.result;
+        const thumbnails = {};
+
+        for (const item of results) {
+          if (item.url && item.thumbnail) {
+            try {
+              // Convert blob to base64
+              const base64 = await this.blobToBase64(item.thumbnail);
+              thumbnails[item.url] = {
+                data: base64,
+                type: item.thumbnail.type || 'image/jpeg',
+                originalType: item.originalType || 'image/jpeg'
+              };
+            } catch (e) {
+              console.warn(`Failed to export thumbnail for ${item.url}:`, e);
+            }
+          }
+        }
+
+        resolve(thumbnails);
+      };
+
+      request.onerror = () => {
+        console.warn('Failed to export thumbnails:', request.error);
+        reject(request.error);
+      };
+    });
+  }
+
+  /**
+   * Import thumbnails from exported data
+   * @param {Object} thumbnailsData - Object mapping url to { data: base64, type: mimeType, originalType: string }
+   * @param {boolean} overwrite - Whether to overwrite existing thumbnails
+   * @returns {Promise<number>} Number of thumbnails imported
+   */
+  async importAll(thumbnailsData, overwrite = false) {
+    if (!this.db) {
+      await this.init();
+    }
+
+    if (!thumbnailsData || typeof thumbnailsData !== 'object') {
+      return 0;
+    }
+
+    let importedCount = 0;
+
+    for (const [url, thumbInfo] of Object.entries(thumbnailsData)) {
+      if (!thumbInfo || !thumbInfo.data) continue;
+
+      try {
+        // Check if thumbnail already exists
+        if (!overwrite) {
+          const existing = await this.get(url);
+          if (existing) continue;
+        }
+
+        // Convert base64 back to blob
+        const blob = this.base64ToBlob(thumbInfo.data, thumbInfo.type || 'image/jpeg');
+        await this.save(url, blob, thumbInfo.originalType || thumbInfo.type || 'image/jpeg');
+        importedCount++;
+      } catch (e) {
+        console.warn(`Failed to import thumbnail for ${url}:`, e);
+      }
+    }
+
+    return importedCount;
+  }
+
+  /**
+   * Convert a Blob to base64 string
+   * @param {Blob} blob - The blob to convert
+   * @returns {Promise<string>} Base64 encoded string
+   */
+  blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        // Remove the data URL prefix (e.g., "data:image/jpeg;base64,")
+        const base64 = reader.result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  /**
+   * Convert a base64 string back to Blob
+   * @param {string} base64 - Base64 encoded string
+   * @param {string} mimeType - MIME type of the blob
+   * @returns {Blob} The resulting blob
+   */
+  base64ToBlob(base64, mimeType = 'image/jpeg') {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
   }
 }
 
