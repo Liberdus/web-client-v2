@@ -12317,23 +12317,7 @@ console.warn('in send message', txid)
     if (attachmentRow) {
       e.preventDefault();
       e.stopPropagation();
-
-      // Image attachments open context menu instead of downloading immediately
-      if (attachmentRow.dataset.imageAttachment === 'true') {
-        await this.showImageAttachmentContextMenu(e, attachmentRow);
-        return;
-      }
-
-      // Concurent download prevention
-      if (this.attachmentDownloadInProgress) return;
-      this.attachmentDownloadInProgress = true;
-
-      const { item } = this.getAttachmentContextFromRow(attachmentRow);
-      try {
-        if (item) await this.handleAttachmentDownload(item, attachmentRow);
-      } finally {
-        this.attachmentDownloadInProgress = false;
-      }
+      await this.showAttachmentContextMenu(e, attachmentRow);
       return;
     }
     if (e.target.closest('.voice-message-play-button')) return;
@@ -12536,13 +12520,13 @@ console.warn('in send message', txid)
   }
 
   /**
-   * Shows context menu for an image attachment row
-   * - "Preview" when no thumbnail exists in IndexedDB (decrypt + generate thumbnail)
-   * - "Save" when a thumbnail already exists (use normal download flow)
+   * Shows context menu for an attachment row.
+   * - Images: "Preview" when no thumbnail exists in IndexedDB; "Save" when it exists
+   * - Non-images: always "Save"
    * @param {Event} e
    * @param {HTMLElement} attachmentRow
    */
-  async showImageAttachmentContextMenu(e, attachmentRow) {
+  async showAttachmentContextMenu(e, attachmentRow) {
     if (!this.imageAttachmentContextMenu || !attachmentRow) return;
     e.preventDefault();
     e.stopPropagation();
@@ -12568,14 +12552,21 @@ console.warn('in send message', txid)
       deleteForAllOption.style.display = canDeleteForAll ? 'flex' : 'none';
     }
 
-    // Decide Preview vs Save based on whether thumbnail is cached
-    let hasThumb = false;
-    if (url && url !== '#') {
-      try {
-        const thumb = await thumbnailCache.get(url);
-        hasThumb = !!thumb;
-      } catch (_) {
-        hasThumb = false;
+    const isImageAttachment = attachmentRow.dataset.imageAttachment === 'true';
+
+    // Decide Preview vs Save:
+    // - Images: Preview when no thumbnail exists in IndexedDB; Save when it exists
+    // - Non-images: always Save (no thumbnail concept)
+    let hasThumb = true;
+    if (isImageAttachment) {
+      hasThumb = false;
+      if (url && url !== '#') {
+        try {
+          const thumb = await thumbnailCache.get(url);
+          hasThumb = !!thumb;
+        } catch (_) {
+          hasThumb = false;
+        }
       }
     }
 
