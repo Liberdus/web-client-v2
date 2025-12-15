@@ -11054,8 +11054,9 @@ console.warn('in send message', txid)
                   data-msg-idx="${i}"
                   ${isImage ? 'data-image-attachment="true"' : ''}
                 >
-                  <div class="attachment-icon-container" style="${isImage ? 'margin-bottom: 10px;' : 'margin-right: 14px; flex-shrink: 0;'}">
+                  <div class="attachment-icon-container" style="${isImage ? 'margin-bottom: 10px; flex-direction: column;' : 'margin-right: 14px; flex-shrink: 0;'}">
                     <div class="attachment-icon" data-file-type="${fileTypeIcon}"></div>
+                    ${isImage ? '<div class="attachment-preview-hint">Click to preview</div>' : ''}
                   </div>
                   <div style="min-width:0;">
                     <span class="attachment-label" style="font-weight:500;color:#222;font-size:0.7em;display:block;word-wrap:break-word;">
