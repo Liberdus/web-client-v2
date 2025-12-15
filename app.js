@@ -7486,12 +7486,12 @@ class RestoreAccountModal {
     
     // Add listeners to extract netids from selected file
     this.fileInput.addEventListener('change', () => {
-      this.extractNetidsFromFile();
+      this.extractNetids();
       this.updateButtonState();
     });
-    this.debouncedExtractNetidsFromFile = debounce(() => this.extractNetidsFromFile(), 500);
+    this.debouncedExtractNetids = debounce(() => this.extractNetids(), 500);
     this.passwordInput.addEventListener('input', () => {
-      this.debouncedExtractNetidsFromFile();
+      this.debouncedExtractNetids();
       this.updateButtonState();
     });
 
@@ -7738,7 +7738,7 @@ class RestoreAccountModal {
       this.updateButtonState();
       
       // Try to extract netids from the downloaded content
-      this.extractNetidsFromGoogleDriveContent();
+      this.extractNetids();
       
       showToast('Backup file selected.', 2000, 'success');
     } catch (error) {
@@ -7747,13 +7747,23 @@ class RestoreAccountModal {
     }
   }
 
-  // Extract netids from Google Drive file content
-  extractNetidsFromGoogleDriveContent() {
-    if (!this.googleDriveFileContent) return;
+  // Extract netids from file content and add to dropdowns
+  async extractNetids() {
+    // Get content from Google Drive or local file
+    let content;
+    if (this.googleDriveFileContent) {
+      content = this.googleDriveFileContent;
+    } else {
+      const file = this.fileInput.files[0];
+      if (!file) {
+        this.resetBackupLockPrompt();
+        this.removeFileInjectedNetids();
+        return;
+      }
+      content = await file.text();
+    }
     
     try {
-      let content = this.googleDriveFileContent;
-      
       // Try to decrypt if encrypted
       if (!content.match('{')) {
         const password = this.passwordInput.value.trim();
@@ -7781,6 +7791,7 @@ class RestoreAccountModal {
       
       const netids = new Set();
       
+      // Extract netids from localStorage keys (username_netid format)
       Object.keys(data).forEach(key => {
         if (key.includes('_') && key !== 'accounts' && key !== 'version') {
           const parts = key.split('_');
@@ -7806,7 +7817,7 @@ class RestoreAccountModal {
         this.newStringSelect.add(newOption);
       });
       
-      if (netids.size > 0) console.log(`Found ${netids.size} netids from Google Drive file`);
+      if (netids.size > 0) console.log(`Found ${netids.size} netids from file`);
     } catch (error) {
       this.resetBackupLockPrompt();
     }
@@ -7853,79 +7864,6 @@ class RestoreAccountModal {
     }
     
     return null;
-  }
-
-  // extract netids from selected file and add to dropdowns
-  async extractNetidsFromFile() {
-    const file = this.fileInput.files[0];
-    if (!file) {
-      this.resetBackupLockPrompt();
-      this.removeFileInjectedNetids();
-      return;
-    }
-
-    console.log('extractNetidsFromFile');
-
-    try {
-      let content = await file.text();
-      // Try to decrypt if encrypted
-      if (!content.match('{')) {
-        console.log('decrypting file');
-        const password = this.passwordInput.value.trim();
-        if (!password) {
-          this.resetBackupLockPrompt();
-          return;
-        }
-        try {
-          content = decryptData(content, password);
-        } catch (error) {
-          this.resetBackupLockPrompt();
-          return; // Invalid password, skip silently
-        }
-      }
-
-      const data = parse(content);
-      // If the backup file contains a top-level lock field (accounts were locked in backup)
-      const requiresBackupPassword = data.lock && !(localStorage.lock && data.lock === localStorage.lock);
-      if (requiresBackupPassword) {
-        // Show password input so user can provide password needed to unlock accounts
-        this.backupAccountLockGroup.style.display = 'block';
-      } else {
-        this.resetBackupLockPrompt();
-      }
-      const netids = new Set();
-
-      // Extract netids only from localStorage keys (username_netid format)
-      Object.keys(data).forEach(key => {
-        if (key.includes('_') && key !== 'accounts' && key !== 'version') {
-          const parts = key.split('_');
-          if (parts.length >= 2) {
-            const possibleNetid = parts[parts.length - 1]; // Get part after last underscore
-            if (possibleNetid.length === 64 && /^[a-f0-9]+$/.test(possibleNetid)) {
-              netids.add(possibleNetid);
-            }
-          }
-        }
-      });
-
-      // Add new netids to dropdowns
-      this.removeFileInjectedNetids();
-      const existing = Array.from(this.oldStringSelect.options).map(opt => opt.value);
-      [...netids].filter(netid => !existing.includes(netid)).forEach(netid => {
-        const label = `${netid} (from file)`;
-        const oldOption = new Option(label, netid);
-        oldOption.dataset.source = 'file';
-        this.oldStringSelect.add(oldOption);
-        const newOption = new Option(label, netid);
-        newOption.dataset.source = 'file';
-        this.newStringSelect.add(newOption);
-      });
-
-      if (netids.size > 0) console.log(`Found ${netids.size} netids from file`);
-    } catch (error) {
-      this.resetBackupLockPrompt();
-      // Ignore file/parse errors silently
-    }
   }
 
   /**
