@@ -7765,7 +7765,10 @@ class RestoreAccountModal {
     
     try {
       // Try to decrypt if encrypted
-      if (!content.match('{')) {
+      // manual scan using regex: find first non-whitespace char
+      const m = /\S/.exec(content);
+      const firstNonWs = m ? m[0] : '';
+      if (firstNonWs !== '{') {
         const password = this.passwordInput.value.trim();
         if (!password) {
           this.resetBackupLockPrompt();
@@ -8023,7 +8026,10 @@ class RestoreAccountModal {
         fileContent = await file.text();
       }
       
-      const isNotEncryptedData = fileContent.match('{');
+      // Manual scan using regex: find first non-whitespace char
+      const m = /\S/.exec(fileContent);
+      const firstNonWs = m ? m[0] : '';
+      const isNotEncryptedData = firstNonWs === '{';
 
       // Check if data is encrypted and decrypt if necessary
       if (!isNotEncryptedData) {
