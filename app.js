@@ -2761,9 +2761,45 @@ class FriendModal {
   }
 
   // Open the friend modal
-  open() {
+  async open() {
     const contact = myData.contacts[this.currentContactAddress];
     if (!contact) return;
+
+    // Query network for current toll required status
+    try {
+      const myAddr = longAddress(myAccount.keys.address);
+      const contactAddr = longAddress(this.currentContactAddress);
+      const sortedAddresses = [myAddr, contactAddr].sort();
+      const chatId = hashBytes(sortedAddresses.join(''));
+      const myIndex = sortedAddresses.indexOf(myAddr);
+
+      const tollInfo = await queryNetwork(`/messages/${chatId}/toll`);
+      const networkRequired = tollInfo?.toll?.required?.[myIndex];
+
+      if (networkRequired !== undefined) {
+        // Map backend required value to frontend friend status
+        // Backend: 1 = toll required, 0 = toll not required, 2 = blocked
+        // Frontend: 0 = blocked, 1 = Other, 2 = Acquaintance, 3 = Friend
+        let networkFriendStatus;
+        if (networkRequired === 2) {
+          networkFriendStatus = 0; // blocked
+        } else if (networkRequired === 1) {
+          networkFriendStatus = 1; // Other (toll required)
+        } else if (networkRequired === 0) {
+          // toll not required - could be Acquaintance (2) or Friend (3)
+          // Use the local contact.friend if it's 2 or 3, otherwise default to 2
+          networkFriendStatus = (contact.friend === 2 || contact.friend === 3) ? contact.friend : 2;
+        }
+
+        // Update contact's friend status if it differs from network
+        if (networkFriendStatus !== undefined && networkFriendStatus !== contact.friend) {
+          contact.friend = networkFriendStatus;
+          contact.friendOld = networkFriendStatus;
+        }
+      }
+    } catch (error) {
+      console.error('Error querying toll required status:', error);
+    }
 
     // Set the current friend status
     const status = contact.friend.toString();
