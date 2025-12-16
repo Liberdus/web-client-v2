@@ -2795,6 +2795,9 @@ class FriendModal {
         if (networkFriendStatus !== undefined && networkFriendStatus !== contact.friend) {
           contact.friend = networkFriendStatus;
           contact.friendOld = networkFriendStatus;
+          // Update the friend button color
+          this.updateFriendButton(contact, 'addFriendButtonContactInfo');
+          this.updateFriendButton(contact, 'addFriendButtonChat');
         }
       }
     } catch (error) {
