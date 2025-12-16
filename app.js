@@ -3997,9 +3997,14 @@ async function processChats(chats, keys) {
                       // This is a message received from sender, who is now deleting it - valid
                       console.log(`Deleting message ${txidToDelete} as requested by sender`);
                       
+                      // Purge cached thumbnails for image attachments, if any
+                      chatModal.purgeThumbnail(messageToDelete.xattach);
+
                       // Mark the message as deleted
                       messageToDelete.deleted = 1;
                       messageToDelete.message = "Deleted by sender";
+                      // Remove attachments so we don't keep references around
+                      delete messageToDelete.xattach;
                       
                       // Remove payment-specific fields if present
                       if (messageToDelete.amount) {
@@ -4023,9 +4028,14 @@ async function processChats(chats, keys) {
                       // This is our own message, and we're deleting it - valid
                       console.log(`Deleting our message ${txidToDelete} as requested by us`);
                       
+                      // Purge cached thumbnails for image attachments, if any
+                      chatModal.purgeThumbnail(messageToDelete.xattach);
+
                       // Mark the message as deleted
                       messageToDelete.deleted = 1;
                       messageToDelete.message = "Deleted for all";
+                      // Remove attachments so we don't keep references around
+                      delete messageToDelete.xattach;
                       
                       // Remove payment-specific fields if present - same logic as above
                       if (messageToDelete.amount) {
@@ -12496,6 +12506,24 @@ console.warn('in send message', txid)
   }
 
   /**
+   * Removes cached thumbnails for any image attachments in an xattach array.
+   * Safe to call even if thumbnails don't exist.
+   * @param {any} xattach
+   */
+  purgeThumbnail(xattach) {
+    if (!Array.isArray(xattach) || !xattach.length) return;
+    for (const att of xattach) {
+      const url = att?.url;
+      const type = att?.type || '';
+      if (!url || url === '#') continue;
+      if (typeof type === 'string' && type.startsWith('image/')) {
+        // Fire-and-forget; deletion errors shouldn't block UI actions
+        void thumbnailCache.delete(url).catch((e) => console.warn('Failed to delete thumbnail:', e));
+      }
+    }
+  }
+
+  /**
    * Resolve common attachment context fields from an attachment row.
    * @param {HTMLElement} attachmentRow
    * @returns {{ attachmentRow: HTMLElement, messageEl: HTMLElement | null, idx: number, item: any, url: string }}
@@ -13039,7 +13067,8 @@ console.warn('in send message', txid)
           delete myData.wallet.history[txIndex].address;
         }
       }
-      // Remove attachments if any
+      // Remove cached thumbnails for image attachments, then remove attachments
+      this.purgeThumbnail(message.xattach);
       delete message.xattach;
       
       this.appendChatModal();
@@ -20620,6 +20649,31 @@ class ThumbnailCache {
 
       request.onerror = () => {
         console.warn('Failed to get thumbnail:', request.error);
+        reject(request.error);
+      };
+    });
+  }
+
+  /**
+   * Delete a cached thumbnail from IndexedDB
+   * @param {string} attachmentUrl - The attachment URL (key)
+   * @returns {Promise<void>}
+   */
+  async delete(attachmentUrl) {
+    if (!attachmentUrl) return;
+    if (!this.db) {
+      await this.init();
+    }
+
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction([this.storeName], 'readwrite');
+      const store = tx.objectStore(this.storeName);
+      const request = store.delete(attachmentUrl);
+
+      request.onsuccess = () => resolve();
+
+      request.onerror = () => {
+        console.warn('Failed to delete thumbnail:', request.error);
         reject(request.error);
       };
     });
