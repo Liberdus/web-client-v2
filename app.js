@@ -2584,6 +2584,12 @@ class ContactInfoModal {
     this.needsContactListUpdate = false; // track if we need to update the contact list
   }
 
+  // Helper method to open avatar edit modal
+  openAvatarEdit() {
+    if (!this.currentContactAddress) return;
+    avatarEditModal.open(this.currentContactAddress);
+  }
+
   // Initialize event listeners that only need to be set up once
   load() {
     this.modal = document.getElementById('contactInfoModal');
@@ -2629,9 +2635,15 @@ class ContactInfoModal {
     });
 
     // Avatar edit button
-    this.avatarEditButton.addEventListener('click', () => {
-      if (!this.currentContactAddress) return;
-      avatarEditModal.open(this.currentContactAddress);
+    this.avatarEditButton.addEventListener('click', (e) => {
+      e.stopPropagation(); // Prevent triggering avatar click
+      this.openAvatarEdit();
+    });
+
+    // Make the avatar itself clickable
+    this.avatarDiv.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.openAvatarEdit();
     });
 
     // Attach edit button to the avatar section (top-right)

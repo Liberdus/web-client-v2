@@ -2792,6 +2792,12 @@ button.about-link {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.contact-avatar-section .avatar:hover {
+  opacity: 0.8;
 }
 
 .contact-avatar-img {
