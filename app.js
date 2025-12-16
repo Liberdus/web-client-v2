@@ -936,6 +936,11 @@ class Footer {
       } else if (view === 'wallet') {
         this.walletButton.classList.remove('has-notification');
         await walletScreen.updateWalletView();
+        
+        // Update last viewed timestamp so we know user has seen the wallet
+        if (myData?.wallet) {
+          myData.wallet.lastWalletViewTimestamp = getCorrectedTimestamp();
+        }
       }
     } catch (error) {
       console.error(`Error switching to ${view} view:`, error);
@@ -2140,17 +2145,17 @@ class SignInModal {
 
     // Get the notified addresses and sort usernames to prioritize them
     const notifiedAddresses = reactNativeApp.isReactNativeWebView ? reactNativeApp.getNotificationAddresses() : [];
-    const notifiedAddressSet = new Set(Array.isArray(notifiedAddresses) ? notifiedAddresses : []);
     let sortedUsernames = [...usernames];
     const notifiedUsernameSet = new Set();
     
     // if there are notified addresses, partition the usernames (stable) so notified come first
     if (notifiedAddresses.length > 0) {
+      const normalizedNotifiedSet = new Set(notifiedAddresses.map(addr => normalizeAddress(addr)));
       const notifiedUsernames = [];
       const otherUsernames = [];
       for (const username of sortedUsernames) {
         const address = netidAccounts?.usernames?.[username]?.address;
-        const isNotified = Boolean(address && notifiedAddressSet.has(address));
+        const isNotified = address && normalizedNotifiedSet.has(normalizeAddress(address));
         if (isNotified) {
           notifiedUsernames.push(username);
           notifiedUsernameSet.add(username);
@@ -2311,6 +2316,14 @@ class SignInModal {
     myAccount = myData.account;
     logsModal.log(`SignIn as ${username}_${netid}`)
 
+    // Clear notification address for this account when signing in
+    // Notification storage is only for accounts the user is NOT signed in to
+    if (reactNativeApp.isReactNativeWebView && myAccount?.keys?.address) {
+      const addressToClear = myAccount.keys.address;
+      reactNativeApp.clearNotificationAddress(addressToClear);
+      reactNativeApp.sendClearNotifications(addressToClear);
+    }
+
     /* requestNotificationPermission(); */
     if (useLongPolling) {
       setTimeout(longPoll, 10);
@@ -2342,6 +2355,11 @@ class SignInModal {
     }
     
     await footer.switchView('chats'); // Default view
+    
+    // Restore wallet/history notification dots if there are unread transfers
+    if (myData?.wallet?.history && Array.isArray(myData.wallet.history) && myData.wallet.history.length > 0) {
+      restoreWalletNotificationDots();
+    }
   }
 
   async handleUsernameChange() {
@@ -3177,12 +3195,17 @@ class HistoryModal {
     this.modal.classList.add('active');
     this.populateAssets();
     this.updateTransactionHistory();
+    
+    // Update last viewed timestamp when user opens history modal
+    // This clears the history button dot, but wallet dot remains if user hasn't viewed wallet screen
+    if (myData?.wallet) {
+      myData.wallet.lastHistoryViewTimestamp = getCorrectedTimestamp();
+      walletScreen.openHistoryModalButton.classList.remove('has-notification');
+    }
   }
 
   close() {
     this.modal.classList.remove('active');
-    walletScreen.openHistoryModalButton.classList.remove('has-notification');
-    footer.walletButton.classList.remove('has-notification');
   }
 
   populateAssets() {
@@ -4478,6 +4501,41 @@ async function processChats(chats, keys) {
     // Update the timestamp
     myAccount.chatTimestamp = newTimestamp;
     console.log('Updated global chat timestamp to', newTimestamp);
+  }
+}
+
+/**
+ * Restore wallet/history notification dots based on whether there are transfers
+ * newer than when the user last viewed those screens
+ */
+function restoreWalletNotificationDots() {
+  if (!myData?.wallet?.history || !Array.isArray(myData.wallet.history) || myData.wallet.history.length === 0) {
+    return;
+  }
+  
+  // Get the most recent transfer timestamp
+  const mostRecentTransfer = myData.wallet.history[0];
+  if (!mostRecentTransfer || !mostRecentTransfer.timestamp) {
+    return;
+  }
+  
+  const mostRecentTransferTimestamp = mostRecentTransfer.timestamp;
+  const lastWalletViewTimestamp = myData.wallet.lastWalletViewTimestamp || 0;
+  const lastHistoryViewTimestamp = myData.wallet.lastHistoryViewTimestamp || 0;
+  
+  // Only show dots for received transfers (sign === 1)
+  const isReceivedTransfer = mostRecentTransfer.sign === 1;
+  
+  // Show wallet tab dot if there's a newer received transfer and wallet screen is not active
+  // This dot is cleared when user switches to wallet screen
+  if (isReceivedTransfer && mostRecentTransferTimestamp > lastWalletViewTimestamp && !walletScreen.isActive()) {
+    footer.walletButton.classList.add('has-notification');
+  }
+  
+  // Show history button dot if there's a newer received transfer than when user last opened history modal
+  // This dot is cleared when user opens the history modal (not when they open wallet screen)
+  if (isReceivedTransfer && mostRecentTransferTimestamp > lastHistoryViewTimestamp) {
+    walletScreen.openHistoryModalButton.classList.add('has-notification');
   }
 }
 
@@ -10671,10 +10729,12 @@ class ChatModal {
     }
 
     const allRead = Object.values(myData.contacts).every((c) => c.unread === 0);
+    const currentAddress = myAccount?.keys?.address;
+    
     if (allRead) {
-      logsModal.log('Clearing notification address for', myAccount.keys.address);
-      reactNativeApp.clearNotificationAddress(myAccount.keys.address);
-      reactNativeApp.sendClearNotifications(myAccount.keys.address);
+      logsModal.log('Clearing notification address for account', currentAddress);
+      reactNativeApp.clearNotificationAddress(currentAddress);
+      reactNativeApp.sendClearNotifications(currentAddress);
     }
 
     const notificationAddresses = reactNativeApp.getNotificationAddresses();
@@ -18690,30 +18750,39 @@ class ReactNativeApp {
           }
 
           if (data.type === 'ALL_NOTIFICATIONS_IN_PANEL') {
+            // Clear notifications for current user when app returns from background
+            const currentUserAddress = myAccount?.keys?.address;
+            if (currentUserAddress) {
+              this.clearNotificationAddress(currentUserAddress);
+              this.sendClearNotifications(currentUserAddress);
+            }
+            
             if (data.notifications && Array.isArray(data.notifications) && data.notifications.length > 0) {
               const { state } = this.getNotificationState();
               const currentTimestamp = state.timestamp || 0;
               let highestTimestamp = currentTimestamp;
+              const normalizedCurrentUser = currentUserAddress ? normalizeAddress(currentUserAddress) : null;
 
               data.notifications.forEach((notification, index) => {
                 try {
                   const rawTimestamp = notification?.data?.timestamp;
                   const parsedTimestamp = rawTimestamp ? Date.parse(rawTimestamp) : NaN;
                   const hasValidTimestamp = Number.isFinite(parsedTimestamp);
-                  const isNewerThanStored = !hasValidTimestamp || parsedTimestamp > currentTimestamp;
-
-                  if (!isNewerThanStored) {
-                    return;
+                  // Skip already-processed notifications if they are older than the current timestamp
+                  if (hasValidTimestamp && parsedTimestamp <= currentTimestamp) {
+                    return; // Skip already-processed notifications
                   }
 
-                  // Extract address from notification body text
+                  // Extract address from notification body (pattern: "to 0x...")
                   if (notification?.body && typeof notification.body === 'string') {
-                    // Look for pattern "to 0x..." in the body
-                    // expecting to just return one address
                     const addressMatch = notification.body.match(/to\s+(\S+)/);
                     if (addressMatch && addressMatch[1]) {
                       const normalizedToAddress = normalizeAddress(addressMatch[1]);
-                      this.saveNotificationAddress(normalizedToAddress);
+                      
+                      // Save notification for other accounts user owns (skip current user, already cleared above)
+                      if (normalizedToAddress !== normalizedCurrentUser) {
+                        this.saveNotificationAddress(normalizedToAddress);
+                      }
                     }
                   }
 
@@ -18919,6 +18988,15 @@ class ReactNativeApp {
   saveNotificationAddress(contactAddress) {
     if (!contactAddress || typeof contactAddress !== 'string') return;
     
+    // Don't save the current user's own address if they're already signed in
+    // Notification storage is only for prioritizing accounts in the sign-in modal when user is NOT signed in
+    // When user is signed in, they can see notifications in the wallet/chats UI, so no need to store it
+    if (this.isCurrentAccount(contactAddress)) {
+      // Also clear it if it already exists in storage (cleanup for cases where it was saved before this fix)
+      this.clearNotificationAddress(contactAddress);
+      return;
+    }
+    
     try {
       const { storage, netid, state } = this.getNotificationState();
       if (!netid) return;
@@ -18967,6 +19045,7 @@ class ReactNativeApp {
   }
 
   // Send clear notifications message
+  // NOTE: This only clears native app badge notifications, NOT UI notification dots
   sendClearNotifications(address=null) {
     this.postMessage({
       type: 'CLEAR_NOTI',
