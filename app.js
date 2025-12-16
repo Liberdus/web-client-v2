@@ -13512,17 +13512,16 @@ console.warn('in send message', txid)
       // Create the Meet URL
       const callUrl = `https://meet.liberdus.com/${randomHex}`;
       
-      // Open immediately only if call is now
-      if (chosenCallTime === 0) {
-        window.open(callUrl+`${callUrlParams}"${myAccount.username}"`, '_blank');
-      }
-      
       // Send a call message to the contact with callTime (0 or future timestamp)
-      await this.sendCallMessage(callUrl, chosenCallTime);
+      const success = await this.sendCallMessage(callUrl, chosenCallTime);
       
-      if (chosenCallTime && chosenCallTime > 0) {
-        const when = new Date(chosenCallTime - timeSkew); // convert back to local wall-clock for display
-        showToast(`Call scheduled for ${when.toLocaleString()}`, 3000, 'success');
+      if (success) {
+        if (chosenCallTime === 0) {
+          window.open(callUrl + `${callUrlParams}"${myAccount.username}"`, '_blank');
+        } else {
+          const when = new Date(chosenCallTime - timeSkew); // convert back to local wall-clock for display
+          showToast(`Call scheduled for ${when.toLocaleString()}`, 3000, 'success');
+        }
       }
       
     } catch (error) {
@@ -13540,25 +13539,25 @@ console.warn('in send message', txid)
     // if user is blocked, don't send message, show toast
     if (myData.contacts[this.address].tollRequiredToSend == 2) {
       showToast('You are blocked by this user', 0, 'error');
-      return;
+      return false;
     }
 
     try {
       // Get current chat data
       const chatsData = myData;
       const currentAddress = this.address;
-      if (!currentAddress) return;
+      if (!currentAddress) return false;
 
       // Check if trying to message self
       if (currentAddress === myAccount.address) {
-        return;
+        return false;
       }
 
       // Get sender's keys from wallet
       const keys = myAccount.keys;
       if (!keys) {
         showToast('Keys not found for sender address', 0, 'error');
-        return;
+        return false;
       }
 
       // Ensure recipient keys are available
@@ -13568,7 +13567,7 @@ console.warn('in send message', txid)
       if (!ok || !recipientPubKey || !pqRecPubKey) {
         console.log(`no public/PQ key found for recipient ${currentAddress}`);
         showToast('Failed to get recipient key', 0, 'error');
-        return;
+        return false;
       }
 
       const {dhkey, cipherText} = dhkeyCombined(keys.secret, recipientPubKey, pqRecPubKey)
@@ -13661,11 +13660,15 @@ console.warn('in send message', txid)
         console.log('call message failed to send', response);
         updateTransactionStatus(txid, currentAddress, 'failed', 'message');
         this.appendChatModal();
+        return false;
       }
+
+      return true;
       
     } catch (error) {
       console.error('Call message error:', error);
       showToast('Failed to send call invitation. Please try again.', 0, 'error');
+      return false;
     }
   }
 
