@@ -2791,9 +2791,9 @@ button.about-link {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
   cursor: pointer;
   transition: opacity 0.2s ease;
+  position: relative;
 }
 
 .contact-avatar-section .avatar:hover {
@@ -2825,6 +2825,12 @@ button.about-link {
   background-repeat: no-repeat;
   background-position: center;
   background-size: var(--icon-size-20);
+}
+
+.avatar-edit-button-outside {
+  top: auto;
+  bottom: -16px;
+  right: -16px;
 }
 
 .avatar-edit-button .icon-pencil {

@@ -2482,7 +2482,7 @@ class MyInfoModal {
 
     // Create avatar edit button
     this.avatarEditButton = document.createElement('button');
-    this.avatarEditButton.className = 'icon-button edit-icon avatar-edit-button';
+    this.avatarEditButton.className = 'icon-button edit-icon avatar-edit-button avatar-edit-button-outside';
     this.avatarEditButton.setAttribute('aria-label', 'Edit photo');
 
     this.backButton.addEventListener('click', () => this.close());
@@ -2500,9 +2500,9 @@ class MyInfoModal {
       this.openAvatarEdit();
     });
 
-    // Attach edit button to the avatar section
-    if (!this.avatarSection.contains(this.avatarEditButton)) {
-      this.avatarSection.appendChild(this.avatarEditButton);
+    // Attach edit button to the avatar div
+    if (!this.avatarDiv.contains(this.avatarEditButton)) {
+      this.avatarDiv.appendChild(this.avatarEditButton);
     }
   }
 
@@ -2531,6 +2531,11 @@ class MyInfoModal {
       }
     } else {
       this.avatarDiv.innerHTML = generateIdenticon(myAccount.keys.address, 96);
+    }
+
+    // Re-append the avatar edit button after setting the avatar content
+    if (!this.avatarDiv.contains(this.avatarEditButton)) {
+      this.avatarDiv.appendChild(this.avatarEditButton);
     }
 
     this.nameDiv.textContent = myAccount.username;
@@ -2649,7 +2654,7 @@ class ContactInfoModal {
     this.subtitleDiv = this.avatarSection.querySelector('.subtitle');
     this.usernameDiv = document.getElementById('contactInfoUsername');
     this.avatarEditButton = document.createElement('button');
-    this.avatarEditButton.className = 'icon-button edit-icon avatar-edit-button';
+    this.avatarEditButton.className = 'icon-button edit-icon avatar-edit-button avatar-edit-button-outside';
     this.avatarEditButton.setAttribute('aria-label', 'Edit photo');
 
     // Back button
@@ -2691,9 +2696,9 @@ class ContactInfoModal {
       this.openAvatarEdit();
     });
 
-    // Attach edit button to the avatar section (top-right)
-    if (!this.avatarSection.contains(this.avatarEditButton)) {
-      this.avatarSection.appendChild(this.avatarEditButton);
+    // Attach edit button to the avatar div
+    if (!this.avatarDiv.contains(this.avatarEditButton)) {
+      this.avatarDiv.appendChild(this.avatarEditButton);
     }
   }
 
@@ -2703,6 +2708,11 @@ class ContactInfoModal {
 
     // Update the avatar section
     this.avatarDiv.innerHTML = avatarHtml;
+
+    // Re-append the avatar edit button after setting the avatar content
+    if (!this.avatarDiv.contains(this.avatarEditButton)) {
+      this.avatarDiv.appendChild(this.avatarEditButton);
+    }
     this.nameDiv.textContent = displayInfo.name !== 'Not Entered' ? displayInfo.name : displayInfo.username;
     this.subtitleDiv.textContent = displayInfo.address;
 
