@@ -12750,7 +12750,6 @@ console.warn('in send message', txid)
     if (!this.imageAttachmentContextMenu) return;
     this.imageAttachmentContextMenu.style.display = 'none';
     this.currentImageAttachmentRow = null;
-    delete this.imageAttachmentContextMenu.dataset.previewMode;
   }
 
   /**
@@ -12788,8 +12787,8 @@ console.warn('in send message', txid)
 
     const isImageAttachment = attachmentRow.dataset.imageAttachment === 'true';
 
-    // Decide Preview vs Save:
-    // - Images: Preview when no thumbnail exists in IndexedDB; Save when it exists
+    // Decide Preview/Save vs Save:
+    // - Images: Show both Preview and Save when no thumbnail exists; Show only Save when it exists
     // - Non-images: always Save (no thumbnail concept)
     let hasThumb = true;
     if (isImageAttachment) {
@@ -12804,11 +12803,9 @@ console.warn('in send message', txid)
       }
     }
 
-    const previewOptText = this.imageAttachmentContextMenu.querySelector(
-      '[data-action="preview-or-save"] .context-menu-text'
-    );
-    if (previewOptText) previewOptText.textContent = hasThumb ? 'Save' : 'Preview';
-    this.imageAttachmentContextMenu.dataset.previewMode = hasThumb ? 'save' : 'preview';
+    // Show Preview only for images without a thumbnail; Save is always visible
+    const previewOpt = this.imageAttachmentContextMenu.querySelector('[data-action="preview"]');
+    if (previewOpt) previewOpt.style.display = (isImageAttachment && !hasThumb) ? '' : 'none';
 
     this.positionContextMenu(this.imageAttachmentContextMenu, attachmentRow);
     this.imageAttachmentContextMenu.style.display = 'block';
@@ -12820,15 +12817,12 @@ console.warn('in send message', txid)
 
     const { messageEl } = this.getAttachmentContextFromRow(row);
     switch (action) {
-      case 'preview-or-save': {
-        const mode = this.imageAttachmentContextMenu?.dataset?.previewMode;
-        if (mode === 'save') {
-          void this.saveImageAttachment(row);
-        } else {
-          void this.previewImageAttachment(row);
-        }
+      case 'preview':
+        void this.previewImageAttachment(row);
         break;
-      }
+      case 'save':
+        void this.saveImageAttachment(row);
+        break;
       case 'reply':
         if (messageEl) this.startReplyToMessage(messageEl);
         break;
