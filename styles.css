@@ -2858,6 +2858,7 @@ button.about-link {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  touch-action: none;
 }
 
 .avatar-edit-square::before {
