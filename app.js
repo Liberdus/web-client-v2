@@ -2466,9 +2466,7 @@ const signInModal = new SignInModal();
 
 // Contact Info Modal Management
 class MyInfoModal {
-  constructor() {
-    this.needsAvatarUpdate = false; // track if we need to update displays after avatar change
-  }
+  constructor() {}
 
   load() {
     this.modal = document.getElementById('myInfoModal');
@@ -2515,23 +2513,12 @@ class MyInfoModal {
   async updateMyInfo() {
     if (!myAccount) return;
 
-    // Check if user has a custom avatar
-    const hasAvatar = myData?.account?.hasAvatar;
-    if (hasAvatar) {
-      try {
-        const blobUrl = await contactAvatarCache.getBlobUrl(myAccount.keys.address);
-        if (blobUrl) {
-          this.avatarDiv.innerHTML = `<img src="${blobUrl}" class="contact-avatar-img" width="96" height="96" alt="">`;
-        } else {
-          this.avatarDiv.innerHTML = generateIdenticon(myAccount.keys.address, 96);
-        }
-      } catch (err) {
-        console.warn('Failed to load own avatar, falling back to identicon:', err);
-        this.avatarDiv.innerHTML = generateIdenticon(myAccount.keys.address, 96);
-      }
-    } else {
-      this.avatarDiv.innerHTML = generateIdenticon(myAccount.keys.address, 96);
-    }
+    // Use getContactAvatarHtml for consistent avatar rendering
+    const avatarHtml = await getContactAvatarHtml(
+      { address: myAccount.keys.address, hasAvatar: myData?.account?.hasAvatar },
+      96
+    );
+    this.avatarDiv.innerHTML = avatarHtml;
 
     // Re-append the avatar edit button after setting the avatar content
     if (!this.avatarDiv.contains(this.avatarEditButton)) {
@@ -5602,7 +5589,6 @@ class AvatarEditModal {
         }
         // Update My Info modal UI
         myInfoModal.updateMyInfo();
-        myInfoModal.needsAvatarUpdate = true;
       } else {
         const contact = myData?.contacts?.[this.currentAddress];
         if (!contact) {
@@ -5836,7 +5822,6 @@ class AvatarEditModal {
           }
           // Update My Info modal UI
           myInfoModal.updateMyInfo();
-          myInfoModal.needsAvatarUpdate = true;
         } else {
           const contact = myData?.contacts?.[this.currentAddress];
           if (!contact) {
@@ -21045,10 +21030,10 @@ async function getContactAvatarHtml(contactOrAddress, size = 50) {
     try {
       const blobUrl = await contactAvatarCache.getBlobUrl(address);
       if (blobUrl) {
-        return `<img src="${blobUrl}" class="contact-avatar-img" width="${size}" height="${size}" alt="">`;
+        return `<img src="${blobUrl}" class="contact-avatar-img" width="${size}" height="${size}" alt="avatar">`;
       }
     } catch (err) {
-      console.warn('Failed to load contact avatar, falling back to identicon:', err);
+      console.warn('Failed to load avatar, falling back to identicon:', err);
     }
   }
 
