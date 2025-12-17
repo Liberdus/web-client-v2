@@ -2832,8 +2832,8 @@ button.about-link {
 }
 
 .avatar-edit-button-outside {
-  top: auto;
-  bottom: -16px;
+  top: -16px;
+  bottom: auto;
   right: -16px;
 }
 
