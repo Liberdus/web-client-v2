@@ -1054,15 +1054,18 @@ class ChatsScreen {
     const chatList = this.chatList;
     const contacts = myData.contacts;
     const chats = myData.chats;
-    if (chats.length === 0) {
-      chatList.querySelector('.empty-state').style.display = 'block';
+    const emptyStateEl = chatList.querySelector('.empty-state');
+    // Remove existing rendered chat items without destroying the built-in empty state node
+    chatList.querySelectorAll('li.chat-item').forEach((el) => el.remove());
+
+    if (!Array.isArray(chats) || chats.length === 0) {
+      if (emptyStateEl) emptyStateEl.style.display = 'block';
       return;
     }
 
-    console.log('chats.length', JSON.stringify(chats.length));
+    if (emptyStateEl) emptyStateEl.style.display = 'none';
 
-    // Clear existing chat items before adding new ones
-    chatList.innerHTML = '';
+    console.log('chats.length', JSON.stringify(chats.length));
 
     const chatItems = [];
     for (const chat of chats) {
@@ -1072,12 +1075,20 @@ class ChatsScreen {
       
       const contact = contacts[chat.address];
       if (!contact) continue;
+      // In chat list don't show people that are blocked
+      if (Number(contact?.friend) === 0) continue;
 
       const latestActivity = contact.messages && contact.messages.length > 0 ? contact.messages[0] : null;
       // If there's no latest activity (no messages), skip this chat item
       if (!latestActivity) continue;
 
       chatItems.push({ chat, contact, latestActivity });
+    }
+
+    // If everything was filtered out (e.g. all chats are blocked), show empty state
+    if (chatItems.length === 0) {
+      if (emptyStateEl) emptyStateEl.style.display = 'block';
+      return;
     }
 
     const avatarHtmlList = await Promise.all(
@@ -2884,6 +2895,7 @@ class FriendModal {
     this.submitButton.disabled = true;
     const contact = myData.contacts[this.currentContactAddress];
     const selectedStatus = this.friendForm.querySelector('input[name="friendStatus"]:checked')?.value;
+    const prevFriendStatus = Number(contact?.friend);
 
     if (selectedStatus == null || Number(selectedStatus) === contact.friend) {
       this.submitButton.disabled = true;
@@ -2944,6 +2956,11 @@ class FriendModal {
 
     // Update the contact list
     await contactsScreen.updateContactsList();
+    // Only refresh chats list if the change enters or exits "blocked"
+    const nextFriendStatus = Number(selectedStatus);
+    if (prevFriendStatus === 0 || nextFriendStatus === 0) {
+      await chatsScreen.updateChatList();
+    }
 
     // Close the friend modal
     this.closeFriendModal();
@@ -19540,10 +19557,16 @@ async function checkPendingTransactions() {
             }
           } else if (type === 'update_toll_required') {
             showToast(`Update contact status failed: ${failureReason}. Reverting contact to old status.`, 0, 'error');
+            const currentFriendStatus = Number(myData.contacts?.[pendingTxInfo.to]?.friend);
+            const previousFriendStatus = Number(myData.contacts?.[pendingTxInfo.to]?.friendOld);
             // revert the local myData.contacts[toAddress].friend to the old value
             myData.contacts[pendingTxInfo.to].friend = myData.contacts[pendingTxInfo.to].friendOld;
             // update contact list since friend status was reverted
-            contactsScreen.updateContactsList();
+            await contactsScreen.updateContactsList();
+            // Only refresh chats list if the revert enters or exits "blocked"
+            if (currentFriendStatus === 0 || previousFriendStatus === 0) {
+              await chatsScreen.updateChatList();
+            }
           } else if (type === 'read') {
             showToast(`Read transaction failed: ${failureReason}`, 0, 'error');
             // revert the local myData.contacts[toAddress].timestamp to the old value
