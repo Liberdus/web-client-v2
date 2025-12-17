@@ -4252,7 +4252,9 @@ async function processChats(chats, keys) {
                   if (payload.callTime && reactNativeApp.isReactNativeWebView) {
                     // Send it to the native app to display the scheduled call notification
                     if (!chatModal.isCallExpired(payload.callTime) || chatModal.isFutureCall(payload.callTime)) {
-                      reactNativeApp.sendScheduledCall(contact.username, payload.callTime);
+                      // Pass the current account address so we can show bell in sign-in modal
+                      const accountAddress = myAccount?.keys?.address;
+                      reactNativeApp.sendScheduledCall(contact.username, payload.callTime, accountAddress);
                     }
                   }
                 } else if (parsedMessage.type === 'vm') {
@@ -18884,17 +18886,26 @@ class ReactNativeApp {
                     return; // Skip already-processed notifications
                   }
 
+                  // Handle scheduled call notifications - extract address from data.to
+                  if (notification?.data?.type === 'SCHEDULE_CALL' && notification?.data?.to) {
+                    const normalizedToAddress = normalizeAddress(notification.data.to);
+                    // Save notification address to show bell in sign-in modal for accounts with notifications
+                    if (normalizedToAddress !== normalizedCurrentUser) {
+                      this.saveNotificationAddress(normalizedToAddress);
+                    }
+                  } else {
                   // Extract address from notification body (pattern: "to 0x...")
                   if (notification?.body && typeof notification.body === 'string') {
                     const addressMatch = notification.body.match(/to\s+(\S+)/);
                     if (addressMatch && addressMatch[1]) {
                       const normalizedToAddress = normalizeAddress(addressMatch[1]);
                       
-                      // Save notification for other accounts user owns (skip current user, already cleared above)
+                      // Save notification address to show bell in sign-in modal for accounts with notifications
                       if (normalizedToAddress !== normalizedCurrentUser) {
                         this.saveNotificationAddress(normalizedToAddress);
                       }
                     }
+                  }
                   }
 
                   if (hasValidTimestamp) {
@@ -19375,11 +19386,12 @@ class ReactNativeApp {
     });
   }
 
-  sendScheduledCall(username, timestamp){
+  sendScheduledCall(username, timestamp, address){
     this.postMessage({
       type: 'SCHEDULE_CALL',
       username,
-      timestamp
+      timestamp,
+      address
     });
   }
   
