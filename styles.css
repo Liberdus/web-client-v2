@@ -5139,6 +5139,10 @@ small {
   background: #f0f0f0;
   display: block;
   margin: 0 auto;
+  /* Disable long press context menus on iOS and Android */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .attachment-icon-container {
