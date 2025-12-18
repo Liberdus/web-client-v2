@@ -10464,6 +10464,8 @@ class ChatModal {
     this.addFriendButtonChat = document.getElementById('addFriendButtonChat');
     this.addAttachmentButton = document.getElementById('addAttachmentButton');
     this.chatFileInput = document.getElementById('chatFileInput');
+    this.chatPhotoLibraryInput = document.getElementById('chatPhotoLibraryInput');
+    this.chatFilesInput = document.getElementById('chatFilesInput');
 
     // Voice recording elements
     this.voiceRecordButton = document.getElementById('voiceRecordButton');
@@ -10477,6 +10479,8 @@ class ChatModal {
     this.contextMenu = document.getElementById('messageContextMenu');
     // Initialize image attachment context menu
     this.imageAttachmentContextMenu = document.getElementById('imageAttachmentContextMenu');
+    // Initialize attachment options context menu
+    this.attachmentOptionsContextMenu = document.getElementById('attachmentOptionsContextMenu');
     this.currentImageAttachmentRow = null;
     
     // Add event delegation for message clicks (since messages are created dynamically)
@@ -10511,6 +10515,15 @@ class ChatModal {
         this.handleImageAttachmentContextMenuAction(action);
       });
     }
+    // Add attachment options context menu option listeners
+    if (this.attachmentOptionsContextMenu) {
+      this.attachmentOptionsContextMenu.addEventListener('click', (e) => {
+        const option = e.target.closest('.context-menu-option');
+        if (!option) return;
+        const action = option.dataset.action;
+        this.handleAttachmentOptionsContextMenuAction(action);
+      });
+    }
     
     // Close context menu when clicking outside
     document.addEventListener('click', (e) => {
@@ -10519,6 +10532,9 @@ class ChatModal {
       }
       if (this.imageAttachmentContextMenu && !this.imageAttachmentContextMenu.contains(e.target)) {
         this.closeImageAttachmentContextMenu();
+      }
+      if (this.attachmentOptionsContextMenu && !this.attachmentOptionsContextMenu.contains(e.target) && !this.addAttachmentButton.contains(e.target)) {
+        this.closeAttachmentOptionsContextMenu();
       }
     });
     this.sendButton.addEventListener('click', this.handleSendMessage.bind(this));
@@ -10624,13 +10640,34 @@ class ChatModal {
     }
 
     if (this.addAttachmentButton) {
-      this.addAttachmentButton.addEventListener('click', () => {
-        this.triggerFileSelection();
+      this.addAttachmentButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // On iOS, directly trigger file input to use native iOS picker
+        // On Android, show our custom context menu
+        if (isIOS()) {
+          // iOS will show its native picker with Camera, Photo Library, and Files options
+          if (this.chatFileInput) {
+            this.chatFileInput.click();
+          }
+        } else {
+          // Android: show our custom context menu
+          this.showAttachmentOptionsContextMenu(e);
+        }
       });
     }
 
     if (this.chatFileInput) {
       this.chatFileInput.addEventListener('change', (e) => {
+        this.handleFileAttachment(e);
+      });
+    }
+    if (this.chatPhotoLibraryInput) {
+      this.chatPhotoLibraryInput.addEventListener('change', (e) => {
+        this.handleFileAttachment(e);
+      });
+    }
+    if (this.chatFilesInput) {
+      this.chatFilesInput.addEventListener('change', (e) => {
         this.handleFileAttachment(e);
       });
     }
@@ -12847,6 +12884,7 @@ console.warn('in send message', txid)
   closeAllContextMenus() {
     this.closeContextMenu();
     this.closeImageAttachmentContextMenu();
+    this.closeAttachmentOptionsContextMenu();
   }
 
   /**
@@ -12900,6 +12938,308 @@ console.warn('in send message', txid)
     this.imageAttachmentContextMenu.style.display = 'none';
     this.currentImageAttachmentRow = null;
   }
+
+  /**
+   * Shows the attachment options context menu
+   * @param {Event} e - The click event
+   */
+  showAttachmentOptionsContextMenu(e) {
+    if (!this.attachmentOptionsContextMenu) return;
+    
+    this.closeAllContextMenus();
+    
+    const menu = this.attachmentOptionsContextMenu;
+    const buttonRect = this.addAttachmentButton.getBoundingClientRect();
+    
+    // Show menu first to get its dimensions
+    menu.style.display = 'block';
+    const menuRect = menu.getBoundingClientRect();
+    
+    // Position menu above the button by default (since button is at bottom)
+    let top = buttonRect.top - menuRect.height - 8;
+    
+    // If menu would go off top of screen, position it below instead
+    if (top < 10) {
+      top = buttonRect.bottom + 8;
+    }
+    
+    // Ensure menu doesn't go off left or right of screen
+    let left = buttonRect.left;
+    if (left + menuRect.width > window.innerWidth - 10) {
+      left = window.innerWidth - menuRect.width - 10;
+    }
+    if (left < 10) {
+      left = 10;
+    }
+    
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+  }
+
+  /**
+   * Closes the attachment options context menu
+   */
+  closeAttachmentOptionsContextMenu() {
+    if (!this.attachmentOptionsContextMenu) return;
+    this.attachmentOptionsContextMenu.style.display = 'none';
+  }
+
+  /**
+   * Handles attachment options context menu actions
+   * @param {string} action - The action to perform
+   */
+  handleAttachmentOptionsContextMenuAction(action) {
+    this.closeAttachmentOptionsContextMenu();
+    
+    // Small delay to ensure context menu is fully closed before triggering input
+    setTimeout(() => {
+      switch (action) {
+        case 'camera':
+          void this.capturePhotoFromCamera();
+          break;
+        case 'photo-library':
+          if (this.chatPhotoLibraryInput) {
+            this.chatPhotoLibraryInput.value = '';
+            this.chatPhotoLibraryInput.click();
+          }
+          break;
+        case 'files':
+          if (this.chatFilesInput) {
+            this.chatFilesInput.value = '';
+            this.chatFilesInput.click();
+          }
+          break;
+      }
+    }, 100);
+  }
+
+  /**
+   * Opens a full-screen camera overlay, lets the user capture a photo, and attaches it.
+   * Cleanup is guaranteed via try/finally so DOM nodes + media tracks never leak.
+   * @returns {Promise<void>}
+   */
+  async capturePhotoFromCamera() {
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      showToast('Camera is not supported on this device.', 0, 'error');
+      return;
+    }
+
+    // Prevent opening multiple overlays.
+    if (document.querySelector('.camera-capture-overlay')) return;
+
+    const prevFocusedEl = document.activeElement;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+
+    /** @type {MediaStream|null} */
+    let stream = null;
+    /** @type {HTMLDivElement|null} */
+    let overlayEl = null;
+    /** @type {HTMLDivElement|null} */
+    let dialogEl = null;
+    /** @type {HTMLVideoElement|null} */
+    let videoEl = null;
+    /** @type {HTMLButtonElement|null} */
+    let captureBtn = null;
+    /** @type {HTMLButtonElement|null} */
+    let cancelBtn = null;
+
+    let done = false;
+
+    const lockPageScroll = () => {
+      try {
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+      } catch (_) {
+        // ignore
+      }
+    };
+
+    const unlockPageScroll = () => {
+      try {
+        document.documentElement.style.overflow = prevHtmlOverflow;
+        document.body.style.overflow = prevBodyOverflow;
+      } catch (_) {
+        // ignore
+      }
+    };
+
+    const stopStream = () => {
+      try {
+        if (stream) stream.getTracks().forEach((t) => t.stop());
+      } catch (_) {
+        // ignore
+      } finally {
+        stream = null;
+      }
+    };
+
+    /** @type {(e: KeyboardEvent) => void} */
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (!done) cancelBtn?.click();
+        return;
+      }
+
+      // Minimal focus trap: keep Tab within our two buttons.
+      if (e.key === 'Tab' && overlayEl) {
+        const focusables = [cancelBtn, captureBtn].filter(Boolean);
+        if (focusables.length === 0) return;
+        const currentIdx = focusables.indexOf(document.activeElement);
+        const nextIdx = e.shiftKey
+          ? (currentIdx <= 0 ? focusables.length - 1 : currentIdx - 1)
+          : (currentIdx >= focusables.length - 1 ? 0 : currentIdx + 1);
+        e.preventDefault();
+        focusables[nextIdx]?.focus?.();
+      }
+    };
+
+    const cleanup = () => {
+      if (done) return;
+      done = true;
+
+      document.removeEventListener('keydown', onKeyDown, true);
+
+      try {
+        if (overlayEl && overlayEl.parentNode) overlayEl.remove();
+      } catch (_) {
+        // ignore
+      }
+
+      stopStream();
+      unlockPageScroll();
+
+      try {
+        if (prevFocusedEl && typeof prevFocusedEl.focus === 'function') prevFocusedEl.focus();
+      } catch (_) {
+        // ignore
+      }
+    };
+
+    // Build overlay UI first; if anything throws after this, finally { cleanup } will remove it.
+    overlayEl = document.createElement('div');
+    overlayEl.className = 'camera-capture-overlay';
+    overlayEl.setAttribute('role', 'dialog');
+    overlayEl.setAttribute('aria-modal', 'true');
+    overlayEl.setAttribute('aria-label', 'Camera');
+    overlayEl.tabIndex = -1;
+
+    dialogEl = document.createElement('div');
+    dialogEl.className = 'camera-capture-dialog';
+    dialogEl.addEventListener('click', (e) => e.stopPropagation());
+
+    videoEl = document.createElement('video');
+    videoEl.className = 'camera-capture-video';
+    videoEl.setAttribute('playsinline', '');
+    videoEl.muted = true;
+    videoEl.autoplay = true;
+
+    const controlsEl = document.createElement('div');
+    controlsEl.className = 'camera-capture-controls';
+
+    cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'btn btn--secondary btn--pill';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.setAttribute('aria-label', 'Cancel camera');
+
+    captureBtn = document.createElement('button');
+    captureBtn.type = 'button';
+    captureBtn.className = 'btn btn--primary btn--pill';
+    captureBtn.textContent = 'Capture';
+    captureBtn.setAttribute('aria-label', 'Capture photo');
+
+    controlsEl.appendChild(cancelBtn);
+    controlsEl.appendChild(captureBtn);
+
+    dialogEl.appendChild(videoEl);
+    dialogEl.appendChild(controlsEl);
+    overlayEl.appendChild(dialogEl);
+
+    // Click outside the dialog cancels.
+    overlayEl.addEventListener('click', () => cancelBtn?.click());
+
+    document.body.appendChild(overlayEl);
+    document.addEventListener('keydown', onKeyDown, true);
+    lockPageScroll();
+    overlayEl.focus();
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false
+      });
+
+      videoEl.srcObject = stream;
+      try {
+        await videoEl.play();
+      } catch (err) {
+        // Autoplay restrictions / transient failures: user can still press Capture.
+        console.warn('Camera video.play() failed:', err);
+      }
+
+      captureBtn.focus();
+
+      const waitForAction = () =>
+        new Promise((resolve) => {
+          cancelBtn.addEventListener(
+            'click',
+            () => resolve({ type: 'cancel' }),
+            { once: true }
+          );
+          captureBtn.addEventListener(
+            'click',
+            () => resolve({ type: 'capture' }),
+            { once: true }
+          );
+        });
+
+      const action = await waitForAction();
+      if (action.type !== 'capture') return;
+
+      const vw = videoEl.videoWidth || stream.getVideoTracks?.()?.[0]?.getSettings?.()?.width || 0;
+      const vh = videoEl.videoHeight || stream.getVideoTracks?.()?.[0]?.getSettings?.()?.height || 0;
+      if (!vw || !vh) {
+        showToast('Camera not ready yet. Please try again.', 0, 'error');
+        return;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = vw;
+      canvas.height = vh;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        showToast('Unable to capture photo.', 0, 'error');
+        return;
+      }
+
+      ctx.drawImage(videoEl, 0, 0, vw, vh);
+
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+      if (!blob) {
+        showToast('Unable to capture photo.', 0, 'error');
+        return;
+      }
+
+      const fileName = `camera_${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`;
+      const file = new File([blob], fileName, { type: 'image/jpeg' });
+
+      // Feed into the existing attachment pipeline. (handleFileAttachment only reads files[0])
+      cleanup(); // remove overlay + stop camera before heavy work starts
+      await this.handleFileAttachment({ target: { files: [file], value: '' } });
+    } catch (err) {
+      console.error('Camera capture failed:', err);
+      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+        showToast('Camera permission denied.', 0, 'error');
+      } else {
+        showToast('Unable to access camera.', 0, 'error');
+      }
+    } finally {
+      cleanup();
+    }
+  }
+
 
   /**
    * Shows context menu for an attachment row.
@@ -20232,6 +20572,16 @@ function isFaucetAddress(address) {
 
 function isMobile() {
   return /Android|webOS|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+/**
+ * Detect if the user is on an iOS device (iPhone or iPad)
+ * @returns {boolean}
+ */
+function isIOS() {
+  const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+  return /iPad|iPhone|iPod/.test(userAgent) || 
+         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS 13+
 }
 
 function enterFullscreen() {
