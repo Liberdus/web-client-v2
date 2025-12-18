@@ -12950,6 +12950,16 @@ console.warn('in send message', txid)
     
     const menu = this.attachmentOptionsContextMenu;
     const buttonRect = this.addAttachmentButton.getBoundingClientRect();
+
+    // Desktop: only show "Camera" + "Files" (hide "Photo Library")
+    // Heuristic: devices with a fine pointer + hover are typically desktop/laptop.
+    try {
+      const isDesktopLike = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+      const photoLibraryOpt = menu.querySelector('.context-menu-option[data-action="photo-library"]');
+      if (photoLibraryOpt) photoLibraryOpt.style.display = isDesktopLike ? 'none' : '';
+    } catch (_) {
+      // ignore
+    }
     
     // Show menu first to get its dimensions
     menu.style.display = 'block';
@@ -12990,27 +13000,26 @@ console.warn('in send message', txid)
    */
   handleAttachmentOptionsContextMenuAction(action) {
     this.closeAttachmentOptionsContextMenu();
-    
-    // Small delay to ensure context menu is fully closed before triggering input
-    setTimeout(() => {
-      switch (action) {
-        case 'camera':
-          void this.capturePhotoFromCamera();
-          break;
-        case 'photo-library':
-          if (this.chatPhotoLibraryInput) {
-            this.chatPhotoLibraryInput.value = '';
-            this.chatPhotoLibraryInput.click();
-          }
-          break;
-        case 'files':
-          if (this.chatFilesInput) {
-            this.chatFilesInput.value = '';
-            this.chatFilesInput.click();
-          }
-          break;
-      }
-    }, 100);
+
+    // Important: keep this synchronous to preserve the user gesture required by some browsers
+    // (notably Android Chrome) to open native file pickers via input.click().
+    switch (action) {
+      case 'camera':
+        void this.capturePhotoFromCamera();
+        break;
+      case 'photo-library':
+        if (this.chatPhotoLibraryInput) {
+          this.chatPhotoLibraryInput.value = '';
+          this.chatPhotoLibraryInput.click();
+        }
+        break;
+      case 'files':
+        if (this.chatFilesInput) {
+          this.chatFilesInput.value = '';
+          this.chatFilesInput.click();
+        }
+        break;
+    }
   }
 
   /**
