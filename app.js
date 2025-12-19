@@ -10640,18 +10640,24 @@ class ChatModal {
     }
 
     if (this.addAttachmentButton) {
-      this.addAttachmentButton.addEventListener('click', (e) => {
+      this.addAttachmentButton.addEventListener('click', async (e) => {
         e.stopPropagation();
         // On iOS, directly trigger file input to use native iOS picker
-        // On Android, show our custom context menu
+        // On Android, check/request camera permission then open file picker directly
         if (isIOS()) {
           // iOS will show its native picker with Camera, Photo Library, and Files options
           if (this.chatFileInput) {
             this.chatFileInput.click();
           }
         } else {
-          // Android: show our custom context menu
-          this.showAttachmentOptionsContextMenu(e);
+          // Android: ensure camera permission is requested, then open file picker if granted
+          const shouldOpenFilePicker = await this.ensureCameraPermission();
+          // Only open file picker if permission was granted (or already granted)
+          // If denied, the toast will handle opening the file picker when dismissed
+          if (shouldOpenFilePicker && this.chatFilesInput) {
+            this.chatFilesInput.value = '';
+            this.chatFilesInput.click();
+          }
         }
       });
     }
@@ -12937,6 +12943,120 @@ console.warn('in send message', txid)
     if (!this.imageAttachmentContextMenu) return;
     this.imageAttachmentContextMenu.style.display = 'none';
     this.currentImageAttachmentRow = null;
+  }
+
+  /**
+   * Ensures camera permission is requested if not already granted.
+   * Requests permission for 'prompt', 'unknown', or 'denied' status.
+   * Immediately stops the camera stream so it doesn't show visually.
+   * @returns {Promise<void>}
+   */
+  /**
+   * Ensures camera permission is requested if not already granted.
+   * @returns {Promise<boolean>} Returns true if permission is granted (or was already granted), false if denied
+   */
+  async ensureCameraPermission() {
+    try {
+      let permissionStatus = 'unknown';
+      
+      // Check current permission status
+      if (navigator.permissions && navigator.permissions.query) {
+        const result = await navigator.permissions.query({ name: 'camera' });
+        permissionStatus = result.state;
+      }
+      
+      // If already granted, return true immediately
+      if (permissionStatus === 'granted') {
+        return true;
+      }
+      
+      // Request permission if not granted
+      if (permissionStatus === 'prompt' || permissionStatus === 'unknown' || permissionStatus === 'denied') {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          // Immediately stop the stream (don't show camera)
+          stream.getTracks().forEach(track => track.stop());
+          showToast('Camera permission granted', 3000, 'default');
+          return true; // Permission granted
+        } catch (err) {
+          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            // Permission denied - show persistent warning toast with dismiss button
+            this.showCameraPermissionDeniedToast();
+            return false; // Permission denied - don't open file picker yet
+          } else {
+            showToast('Unable to request camera permission', 3000, 'error');
+            return true; // Other error - proceed anyway
+          }
+        }
+      }
+      
+      // Default: proceed (for unknown cases)
+      return true;
+    } catch (err) {
+      // Permissions API not supported or other error
+      console.warn('Camera permission check failed:', err);
+      return true; // On error, proceed anyway
+    }
+  }
+
+  /**
+   * Shows a persistent warning toast when camera permission is denied.
+   * Includes a "Dismiss" button that opens the file picker.
+   * Also opens file picker when toast is closed.
+   */
+  showCameraPermissionDeniedToast() {
+    const message = 'Provide camera permission to use the native camera. You can still select files.';
+    
+    // Create HTML with dismiss button centered
+    const toastHTML = `
+      <span>${message}</span>
+      <div class="toast-button-container">
+        <button class="toast-dismiss-button">Dismiss</button>
+      </div>
+    `;
+    
+    // Show persistent warning toast (duration <= 0 makes it sticky)
+    const toastId = showToast(toastHTML, 0, 'warning', true);
+    
+    // Get the toast element
+    const toast = document.getElementById(toastId);
+    if (!toast) return;
+    
+    // Handler function to open file picker and close toast
+    const handleToastClick = (e) => {
+      e.preventDefault();
+      e.stopImmediatePropagation(); // Stop all other handlers including showToast's onclick
+      
+      // Click file input immediately (synchronously) to preserve user gesture chain for Android Chrome
+      if (this.chatFilesInput) {
+        this.chatFilesInput.value = '';
+        try {
+          this.chatFilesInput.click();
+          console.log('File input clicked');
+        } catch (err) {
+          console.error('Error clicking file input:', err);
+        }
+      } else {
+        console.warn('chatFilesInput not found');
+      }
+      
+      hideToast(toastId);
+    };
+    
+    // Add listener in capture phase so it runs before showToast's onclick handler
+    // This preserves the user gesture chain (synchronous with user click)
+    toast.addEventListener('click', handleToastClick, { capture: true, once: false });
+    
+    // Also override onclick after showToast sets it (showToast uses setTimeout(10ms))
+    // This is a backup in case the event listener doesn't catch it
+    // Note: This setTimeout breaks gesture chain, but it's a fallback
+    setTimeout(() => {
+      const originalOnClick = toast.onclick;
+      toast.onclick = (e) => {
+        if (originalOnClick) originalOnClick.call(toast, e);
+        handleToastClick(e);
+      };
+    }, 20);
   }
 
   /**
