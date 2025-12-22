@@ -5632,6 +5632,34 @@ class AvatarEditModal {
   }
 
   /**
+   * Attempt to delete an avatar from the attachment server.
+   * Accepts an avatarId and optional secret; for backwards compatibility
+   * the secret may be omitted.
+   * @param {string} id Avatar id
+   * @param {string?} secret Avatar secret
+   */
+  async deleteAvatarFromServer(id, secret) {
+    if (!id) return false;
+    try {
+      const idParam = encodeURIComponent(secret ? `${id}-${secret}` : id);
+      try {
+        const delRes = await fetch(`https://inv.liberdus.com:2083/delete/${idParam}`, { method: 'DELETE' });
+        if (!delRes.ok) {
+          console.warn('Avatar delete request failed on server:', delRes.status, await delRes.text().catch(() => ''));
+          return false;
+        }
+        return true;
+      } catch (e) {
+        console.warn('Failed to call avatar delete endpoint:', e);
+        return false;
+      }
+    } catch (e) {
+      console.warn('Error while attempting avatar server delete:', e);
+      return false;
+    }
+  }
+
+  /**
    * Delete the current avatar immediately and save.
    */
   async handleDelete() {
@@ -5641,16 +5669,30 @@ class AvatarEditModal {
     }
 
     try {
-      // Delete avatar from cache
-      await contactAvatarCache.delete(this.currentAddress);
-
       if (this.isOwnAvatar) {
         // Update own avatar state
         if (myData?.account) {
-          myData.account.hasAvatar = false;
-          delete myData.account.avatarId;
-          delete myData.account.avatarKey;
-          saveState();
+          // Attempt to delete avatar on attachment server if we have id (secret optional)
+          let deletedOnServer = true;
+          try {
+            const aid = myData.account.avatarId;
+            const secret = null;
+            if (aid) deletedOnServer = await this.deleteAvatarFromServer(aid, secret);
+          } catch (e) {
+            console.warn('Error while attempting avatar server delete:', e);
+            deletedOnServer = false;
+          }
+
+          if (deletedOnServer) {
+            await contactAvatarCache.delete(this.currentAddress);
+            myData.account.hasAvatar = false;
+            delete myData.account.avatarId;
+            delete myData.account.avatarKey;
+            delete myData.account.avatarSecret;
+            saveState();
+          } else {
+            showToast('Failed to delete avatar', 3000, 'error');
+          }
         }
         // Update My Info modal UI
         myInfoModal.updateMyInfo();
@@ -5881,13 +5923,25 @@ class AvatarEditModal {
         await contactAvatarCache.save(this.currentAddress, thumbnail);
 
         if (this.isOwnAvatar) {
-          // Generate random key and encrypt thumbnail
+          // If we already have an avatar on the server, try to delete it first
+          try {
+            const oldId = myData?.account?.avatarId;
+            const oldSecret = myData?.account?.avatarSecret;
+            if (oldId) await this.deleteAvatarFromServer(oldId, oldSecret);
+          } catch (e) {
+            console.warn('Failed to delete existing avatar before upload:', e);
+          }
+
+          // Generate random key and secret, encrypt thumbnail
           const avatarKey = generateRandomBytes(32);
+          const secretBytes = generateRandomBytes(32);
+          const secret = bin2hex(secretBytes);
           const encryptedBlob = await encryptBlob(thumbnail, avatarKey);
 
           // Upload encrypted blob to attachment server
           const formData = new FormData();
           formData.append('file', encryptedBlob);
+          formData.append('secret', secret);
           const response = await fetch('https://inv.liberdus.com:2083/post', {
             method: 'POST',
             body: formData
@@ -5898,9 +5952,10 @@ class AvatarEditModal {
           const result = await response.json();
           const avatarId = result.id;
 
-          // Save id and key in account
+          // Save id, key and secret in account
           myData.account.avatarId = avatarId;
           myData.account.avatarKey = bin2base64(avatarKey);
+          myData.account.avatarSecret = secret;
           myData.account.hasAvatar = true;
           saveState();
 
