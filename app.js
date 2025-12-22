@@ -5645,6 +5645,10 @@ class AvatarEditModal {
       try {
         const delRes = await fetch(`https://inv.liberdus.com:2083/delete/${idParam}`, { method: 'DELETE' });
         if (!delRes.ok) {
+          if (delRes.status === 404) {
+            // Missing resource on server -> treat as already-deleted (success)
+            return true;
+          }
           console.warn('Avatar delete request failed on server:', delRes.status, await delRes.text().catch(() => ''));
           return false;
         }
@@ -5676,7 +5680,7 @@ class AvatarEditModal {
           let deletedOnServer = true;
           try {
             const aid = myData.account.avatarId;
-            const secret = null;
+            const secret = myData.account.avatarSecret;
             if (aid) deletedOnServer = await this.deleteAvatarFromServer(aid, secret);
           } catch (e) {
             console.warn('Error while attempting avatar server delete:', e);
@@ -5704,6 +5708,7 @@ class AvatarEditModal {
         }
         contact.hasAvatar = false;
         delete contact.avatarId;
+        await contactAvatarCache.delete(this.currentAddress);
         saveState();
 
         // Update UI
@@ -5920,22 +5925,27 @@ class AvatarEditModal {
       if (this.pendingBlob || this.activeImageBlob) {
         const sourceBlob = this.pendingBlob || this.activeImageBlob;
         const thumbnail = await this.exportCroppedThumbnail(sourceBlob);
-        await contactAvatarCache.save(this.currentAddress, thumbnail);
 
         if (this.isOwnAvatar) {
           // If we already have an avatar on the server, try to delete it first
+          let deletedOld = true;
           try {
             const oldId = myData?.account?.avatarId;
             const oldSecret = myData?.account?.avatarSecret;
-            if (oldId) await this.deleteAvatarFromServer(oldId, oldSecret);
+            if (oldId) deletedOld = await this.deleteAvatarFromServer(oldId, oldSecret);
           } catch (e) {
             console.warn('Failed to delete existing avatar before upload:', e);
+            deletedOld = false;
+          }
+
+          if (!deletedOld) {
+            showToast('Upload failed: could not delete existing avatar from server', 3000, 'error');
+            return;
           }
 
           // Generate random key and secret, encrypt thumbnail
           const avatarKey = generateRandomBytes(32);
-          const secretBytes = generateRandomBytes(32);
-          const secret = bin2hex(secretBytes);
+          const secret = bin2hex(generateRandomBytes(32));
           const encryptedBlob = await encryptBlob(thumbnail, avatarKey);
 
           // Upload encrypted blob to attachment server
@@ -5947,10 +5957,14 @@ class AvatarEditModal {
             body: formData
           });
           if (!response.ok) {
-            throw new Error('Failed to upload avatar');
+            showToast('Failed to upload avatar', 3000, 'error');
+            return;
           }
           const result = await response.json();
           const avatarId = result.id;
+
+          // Save thumbnail to cache now that server operations succeeded
+          await contactAvatarCache.save(this.currentAddress, thumbnail);
 
           // Save id, key and secret in account
           myData.account.avatarId = avatarId;
@@ -5969,6 +5983,7 @@ class AvatarEditModal {
           }
           contact.hasAvatar = true;
           delete contact.avatarId;
+          await contactAvatarCache.save(this.currentAddress, thumbnail);
           saveState();
           contactInfoModal.updateContactInfo(createDisplayInfo(contact));
           contactInfoModal.needsContactListUpdate = true;
