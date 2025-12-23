@@ -5582,6 +5582,18 @@ class AvatarEditModal {
     const contactUrl = await contactAvatarCache.getBlobUrl(address, 'contact');
     const userUrl = await contactAvatarCache.getBlobUrl(address, 'mine');
 
+    // If there are no uploaded avatars for this contact (neither contact-sent nor user's uploaded),
+    // do not show the avatar options UI at all.
+    if (!contactUrl && !userUrl) {
+      if (container) container.style.display = 'none';
+      if (actions) actions.style.display = 'none';
+      // ensure use button disabled
+      if (useBtn) useBtn.disabled = true;
+      // hide delete button as there's nothing for the user to delete
+      if (this.deleteButton) this.deleteButton.style.display = 'none';
+      return;
+    }
+
     if (contactUrl) {
       contactThumb.innerHTML = `<img src="${contactUrl}" width="64" height="64" style="border-radius:50%">`;
     } else {
@@ -5604,6 +5616,41 @@ class AvatarEditModal {
     // show container and actions
     container.style.display = 'block';
     actions.style.display = 'block';
+
+    // Show Delete button only when appropriate:
+    // - If editing own avatar: show when account hasAvatar
+    // - If editing a contact: show when the user's uploaded ('mine') avatar exists
+    try {
+      if (this.deleteButton) {
+        if (this.isOwnAvatar) {
+          this.deleteButton.style.display = myData?.account?.hasAvatar ? 'inline-flex' : 'none';
+        } else {
+          this.deleteButton.style.display = userUrl ? 'inline-flex' : 'none';
+        }
+      }
+    } catch (e) {}
+
+    // Ensure any avatar images inside this modal's header/controls show the user's uploaded
+    // avatar (`mine`) or the identicon — never the contact-sent avatar. This prevents the
+    // edit-icon area from displaying the contact avatar when editing.
+    try {
+      const headerImgs = this.modal.querySelectorAll('.contact-avatar-img');
+      if (headerImgs && headerImgs.length) {
+        for (const imgEl of headerImgs) {
+          if (userUrl) {
+            imgEl.src = userUrl;
+          } else {
+            // Replace the <img> with the identicon SVG
+            const sizeAttr = parseInt(imgEl.getAttribute('width')) || 40;
+            const wrapper = document.createElement('span');
+            wrapper.innerHTML = generateIdenticon(address, sizeAttr);
+            imgEl.replaceWith(wrapper.firstChild);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to update modal header avatar images:', e);
+    }
 
     // attach click handlers (re-attach to ensure latest)
 
@@ -5706,30 +5753,34 @@ class AvatarEditModal {
       return;
     }
 
-    // Respect per-contact useAvatar preference when deciding what to show
-    let avatarBlob = null;
-    try {
-      const pref = myData?.contacts?.[this.currentAddress]?.useAvatar || null;
-      if (pref === 'identicon') {
-        // show identicon explicitly
-        const avatarHtml = await getContactAvatarHtml(displayInfo, 218);
-        this.previewContainer.innerHTML = avatarHtml;
-        this.enableTransform = false;
-        this.updateZoomUI();
-        if (this.previewBg) this.previewBg.style.display = 'none';
-        if (this.foregroundImg) this.foregroundImg.style.display = 'none';
-        this.updateButtonVisibility();
-        return;
+    // For contact avatar editing: show only the user's uploaded avatar ('mine') if present,
+    // otherwise fall back to identicon. We intentionally ignore the contact-sent avatar here.
+    if (!this.isOwnAvatar) {
+      try {
+        const mineBlob = await contactAvatarCache.get(this.currentAddress, 'mine');
+        if (mineBlob) {
+          await this.setImageFromBlob(mineBlob, false);
+          return;
+        }
+      } catch (e) {
+        // ignore and fall through to identicon
       }
 
-      if (pref === 'mine') {
-        avatarBlob = await contactAvatarCache.get(this.currentAddress, 'mine');
-      } else if (pref === 'contact') {
-        avatarBlob = await contactAvatarCache.get(this.currentAddress, 'contact');
-      } else {
-        // no explicit preference: fall back to cache default behavior
-        avatarBlob = await contactAvatarCache.get(this.currentAddress);
-      }
+      // No user-uploaded avatar -> show identicon (never show contact avatar here)
+      const avatarHtml = generateIdenticon(this.currentAddress, 218);
+      this.previewContainer.innerHTML = avatarHtml;
+      this.enableTransform = false;
+      this.updateZoomUI();
+      if (this.previewBg) this.previewBg.style.display = 'none';
+      if (this.foregroundImg) this.foregroundImg.style.display = 'none';
+      this.updateButtonVisibility();
+      return;
+    }
+
+    // For own avatar, keep existing behavior (account-based)
+    let avatarBlob = null;
+    try {
+      avatarBlob = await contactAvatarCache.get(this.currentAddress);
     } catch (e) {
       avatarBlob = null;
     }
@@ -5739,7 +5790,7 @@ class AvatarEditModal {
       return;
     }
 
-    // Fallback to identicon if no avatar blob
+    // Fallback to identicon if no avatar blob for own avatar
     const avatarHtml = await getContactAvatarHtml(displayInfo, 218);
     this.previewContainer.innerHTML = avatarHtml;
     this.enableTransform = false;
@@ -5763,16 +5814,14 @@ class AvatarEditModal {
       this.saveActionButton.style.display = 'inline-flex';
       this.cancelButton.style.display = 'inline-flex';
     } else {
-      // Show Upload/Delete buttons, hide Save/Cancel buttons
+      // Show Upload button and Save/Cancel hidden. Delete visibility for contacts is
+      // controlled by `populateOptions()` (which has async knowledge of cache). Only
+      // set Delete visibility here for own-avatar context.
       this.uploadButton.style.display = 'inline-flex';
-      let hasAvatar;
       if (this.isOwnAvatar) {
-        hasAvatar = !!myData?.account?.hasAvatar;
-      } else {
-        const contact = myData?.contacts?.[this.currentAddress];
-        hasAvatar = !!contact?.hasAvatar;
+        const hasAvatar = !!myData?.account?.hasAvatar;
+        this.deleteButton.style.display = hasAvatar ? 'inline-flex' : 'none';
       }
-      this.deleteButton.style.display = hasAvatar ? 'inline-flex' : 'none';
       this.saveActionButton.style.display = 'none';
       this.cancelButton.style.display = 'none';
     }
@@ -5886,14 +5935,38 @@ class AvatarEditModal {
           this.close();
           return;
         }
-        contact.hasAvatar = false;
-        delete contact.avatarId;
-        await contactAvatarCache.delete(this.currentAddress);
-        saveState();
 
-        // Update UI
+        // Delete only the user's uploaded avatar slot ('mine'). Do not remove contact-sent avatar.
+        await contactAvatarCache.delete(this.currentAddress, 'mine');
+
+        // Check whether a contact-sent avatar still exists
+        let contactExists = false;
+        try {
+          const contactBlob = await contactAvatarCache.get(this.currentAddress, 'contact');
+          contactExists = !!contactBlob;
+        } catch (e) {
+          contactExists = false;
+        }
+
+        // Update contact.hasAvatar to reflect any remaining avatar
+        contact.hasAvatar = contactExists;
+
+        // Set per-contact preference only if the user previously preferred their uploaded avatar.
+        // If the current preference is not 'mine', leave it unchanged.
+        myData.contacts ??= {};
+        myData.contacts[this.currentAddress] ??= { address: this.currentAddress };
+        const currentPref = myData.contacts[this.currentAddress].useAvatar ?? null;
+        if (currentPref === 'mine') {
+          myData.contacts[this.currentAddress].useAvatar = contactExists ? 'contact' : 'identicon';
+          saveState();
+        }
+
+        // Update UI and refresh options so modal reflects the deletion
         contactInfoModal.updateContactInfo(createDisplayInfo(contact));
         contactInfoModal.needsContactListUpdate = true;
+        try {
+          await this.populateOptions();
+        } catch (e) {}
         if (chatModal.isActive() && chatModal.address === this.currentAddress) {
           chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
         }
