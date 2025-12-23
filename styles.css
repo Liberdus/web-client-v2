@@ -2941,7 +2941,8 @@ button.about-link {
 }
 
 .avatar-edit-actions #avatarEditUploadButton,
-.avatar-edit-actions #avatarEditSaveButton {
+.avatar-edit-actions #avatarEditSaveButton,
+#avatarUseButton {
   background-color: var(--success-color);
   color: var(--background-color);
   padding: 12px 20px;
@@ -2961,7 +2962,8 @@ button.about-link {
   justify-content: center;
 }
 
-.avatar-edit-actions #avatarEditUploadButton {
+.avatar-edit-actions #avatarEditUploadButton,
+#avatarUseButton {
   background-color: var(--primary-color);
 }
 
@@ -3018,6 +3020,45 @@ button.about-link {
 
 .avatar-edit-controls input[type='range'] {
   width: 180px;
+}
+
+/* Avatar options (moved from inline styles in index.html) */
+.avatar-options {
+  margin-top: 12px;
+  display: none; /* toggled by JS */
+}
+.avatar-options-list {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  justify-content: center; /* center the three thumbnails */
+}
+.avatar-option {
+  cursor: pointer;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.avatar-thumb {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f0f0;
+}
+.avatar-options-actions {
+  margin-top: 10px;
+  display: none; /* toggled by JS */
+  text-align: center;
+}
+
+/* Ensure the Use button centers within the avatar options actions container */
+.avatar-options-actions #avatarUseButton {
+  margin: 0 auto;
 }
 
 .contact-avatar-section .name {

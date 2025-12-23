@@ -1415,6 +1415,27 @@
               <button class="btn btn--primary" id="avatarEditSaveButton" style="display: none;">Save</button>
               <button class="btn btn--secondary btn--danger" id="avatarEditCancelButton" style="display: none;">Cancel</button>
             </div>
+            <!-- Avatar selection options: contact-sent, mine (local), identicon -->
+            <div class="avatar-options" id="avatarOptionsContainer">
+              <div class="avatar-options-label">Choose avatar to use:</div>
+              <div class="avatar-options-list">
+                <div class="avatar-option" data-value="contact" id="avatarOptionContact">
+                  <div class="avatar-thumb" id="avatarThumbContact"></div>
+                  <div class="avatar-option-label">Contact</div>
+                </div>
+                <div class="avatar-option" data-value="mine" id="avatarOptionUploaded">
+                  <div class="avatar-thumb" id="avatarThumbUploaded"></div>
+                  <div class="avatar-option-label">Mine</div>
+                </div>
+                <div class="avatar-option" data-value="identicon" id="avatarOptionIdenticon">
+                  <div class="avatar-thumb" id="avatarThumbIdenticon"></div>
+                  <div class="avatar-option-label">Identicon</div>
+                </div>
+              </div>
+            </div>
+            <div class="avatar-options-actions" id="avatarOptionsActions">
+              <button class="btn btn--primary" id="avatarUseButton" disabled>Use</button>
+            </div>
           </div>
         </div>
         <a class="last-item" href="#"> </a>
