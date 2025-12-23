@@ -3441,32 +3441,6 @@ mark {
   font-weight: 600;
 }
 
-/* Toast button container for centering */
-.toast-button-container {
-  display: flex;
-  justify-content: center;
-  margin-top: 12px;
-}
-
-/* Toast dismiss button using system design variables */
-.toast-dismiss-button {
-  background-color: var(--button-background);
-  color: var(--button-text);
-  border: none;
-  border-radius: var(--overlay-border-radius);
-  padding: 10px 24px;
-  font-family: var(--font-primary);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  transition: background-color 0.2s;
-  min-width: 120px;
-}
-
-.toast-dismiss-button:hover {
-  background-color: var(--button-hover-background);
-}
-
 .toast.toll {
   background: rgba(0, 123, 255, 0.9);
   text-align: left;
