@@ -1902,7 +1902,7 @@ class ScanQRModal {
           case 'NotAllowedError':
             this.close();
             throw new Error(
-              'Camera access was denied. Please check your browser settings and grant permission to use the camera.'
+              'Camera access was denied. Please check your device settings and grant permission to use the camera.'
             );
           case 'NotFoundError':
             throw new Error('No camera device was found on your system.');
