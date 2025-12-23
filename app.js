@@ -13058,7 +13058,7 @@ console.warn('in send message', txid)
       
       if (permissionStatus === 'denied') {
         // Permission already denied - show toast
-        showToast('Camera permission denied', 0, 'error');
+        showToast('Camera permission required. Please enable it in your device settings.', 0, 'error');
         return;
       }
       
@@ -13076,7 +13076,7 @@ console.warn('in send message', txid)
       } catch (err) {
         if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
           // User denied permission - show toast
-          showToast('Camera permission denied', 0, 'error');
+          showToast('Camera permission required. Please enable it in your device settings.', 0, 'error');
         } else {
           showToast('Unable to access camera', 0, 'error');
         }
@@ -13299,7 +13299,7 @@ console.warn('in send message', txid)
     } catch (err) {
       console.error('Camera capture failed:', err);
       if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
-        showToast('Camera permission denied.', 0, 'error');
+        showToast('Camera permission required. Please enable it in your device settings.', 0, 'error');
       } else {
         showToast('Unable to access camera.', 0, 'error');
       }
