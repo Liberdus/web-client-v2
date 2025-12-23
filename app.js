@@ -13240,6 +13240,23 @@ console.warn('in send message', txid)
       });
 
       this.cameraCaptureVideo.srcObject = stream;
+      
+      // Ensure video is properly constrained to dialog size
+      // Wait for metadata to ensure video dimensions are available
+      await new Promise((resolve) => {
+        if (this.cameraCaptureVideo.readyState >= 1) {
+          resolve();
+        } else {
+          this.cameraCaptureVideo.addEventListener('loadedmetadata', resolve, { once: true });
+        }
+      });
+      
+      // Explicitly constrain video to dialog bounds
+      this.cameraCaptureVideo.style.width = '100%';
+      this.cameraCaptureVideo.style.height = '100%';
+      this.cameraCaptureVideo.style.maxWidth = '100%';
+      this.cameraCaptureVideo.style.maxHeight = '100%';
+      
       try {
         await this.cameraCaptureVideo.play();
       } catch (err) {
@@ -13266,23 +13283,54 @@ console.warn('in send message', txid)
       const action = await waitForAction();
       if (action.type !== 'capture') return;
 
-      const vw = this.cameraCaptureVideo.videoWidth || stream.getVideoTracks?.()?.[0]?.getSettings?.()?.width || 0;
-      const vh = this.cameraCaptureVideo.videoHeight || stream.getVideoTracks?.()?.[0]?.getSettings?.()?.height || 0;
-      if (!vw || !vh) {
+      // Get the actual displayed size of the video element (what user sees)
+      const videoRect = this.cameraCaptureVideo.getBoundingClientRect();
+      const displayedWidth = Math.round(videoRect.width);
+      const displayedHeight = Math.round(videoRect.height);
+      
+      // Get the camera's native resolution for aspect ratio calculation
+      const nativeWidth = this.cameraCaptureVideo.videoWidth || stream.getVideoTracks?.()?.[0]?.getSettings?.()?.width || 0;
+      const nativeHeight = this.cameraCaptureVideo.videoHeight || stream.getVideoTracks?.()?.[0]?.getSettings?.()?.height || 0;
+      
+      if (!nativeWidth || !nativeHeight || !displayedWidth || !displayedHeight) {
         showToast('Camera not ready yet. Please try again.', 0, 'error');
         return;
       }
 
+      // Calculate the source crop to match what's visible in the preview
+      // The video uses object-fit: cover, so we need to calculate the visible portion
+      const videoAspect = nativeWidth / nativeHeight;
+      const displayAspect = displayedWidth / displayedHeight;
+      
+      let sourceWidth, sourceHeight, sourceX = 0, sourceY = 0;
+      
+      if (videoAspect > displayAspect) {
+        // Video is wider - crop left/right
+        sourceHeight = nativeHeight;
+        sourceWidth = nativeHeight * displayAspect;
+        sourceX = (nativeWidth - sourceWidth) / 2;
+      } else {
+        // Video is taller - crop top/bottom
+        sourceWidth = nativeWidth;
+        sourceHeight = nativeWidth / displayAspect;
+        sourceY = (nativeHeight - sourceHeight) / 2;
+      }
+
       const canvas = document.createElement('canvas');
-      canvas.width = vw;
-      canvas.height = vh;
+      canvas.width = displayedWidth;
+      canvas.height = displayedHeight;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         showToast('Unable to capture photo.', 0, 'error');
         return;
       }
 
-      ctx.drawImage(this.cameraCaptureVideo, 0, 0, vw, vh);
+      // Draw the visible portion of the video at the displayed size
+      ctx.drawImage(
+        this.cameraCaptureVideo,
+        sourceX, sourceY, sourceWidth, sourceHeight,  // Source crop
+        0, 0, displayedWidth, displayedHeight          // Destination size
+      );
 
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
       if (!blob) {
