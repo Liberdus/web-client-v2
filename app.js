@@ -12396,6 +12396,36 @@ console.warn('in send message', txid)
   }
 
   /**
+   * Best effort delete of files from attachment server
+   * @param {string|Array<{url: string}>} urlsOrAttachments - Single URL string or array of attachment objects with url property
+   * @returns {void}
+   */
+  deleteAttachmentsFromServer(urlsOrAttachments) {
+    if (!urlsOrAttachments) return;
+    
+    const uploadUrl = 'https://inv.liberdus.com:2083';
+    const urls = Array.isArray(urlsOrAttachments) 
+      ? urlsOrAttachments.map(att => att?.url).filter(Boolean)
+      : [urlsOrAttachments];
+    
+    urls.forEach(url => {
+      if (typeof url !== 'string') return;
+      
+      // Extract ID from URL format: https://inv.liberdus.com:2083/get/{id}
+      const urlMatch = url.match(/\/get\/([^\/]+)$/);
+      if (urlMatch && urlMatch[1]) {
+        const fileId = urlMatch[1];
+        fetch(`${uploadUrl}/delete/${fileId}`, {
+          method: 'DELETE'
+        }).catch(err => {
+          // Silently ignore errors - best effort delete
+          console.warn('Failed to delete attachment from server:', err);
+        });
+      }
+    });
+  }
+
+  /**
    * Removes a specific attached file
    * @param {number} index - Index of file to remove
    * @returns {void}
@@ -12410,21 +12440,8 @@ console.warn('in send message', txid)
         this.saveAttachmentState(myData.contacts[this.address]);
       }
 
-      // Best effort delete from server - extract ID from URL and delete
-      if (removedFile.url) {
-        // Extract ID from URL format: https://inv.liberdus.com:2083/get/{id}
-        const urlMatch = removedFile.url.match(/\/get\/([^\/]+)$/);
-        if (urlMatch && urlMatch[1]) {
-          const fileId = urlMatch[1];
-          const uploadUrl = 'https://inv.liberdus.com:2083';
-          fetch(`${uploadUrl}/delete/${fileId}`, {
-            method: 'DELETE'
-          }).catch(err => {
-            // Silently ignore errors - best effort delete
-            console.warn('Failed to delete attachment from server:', err);
-          });
-        }
-      }
+      // Best effort delete from server
+      this.deleteAttachmentsFromServer(removedFile.url);
     }
   }
 
@@ -14018,6 +14035,15 @@ console.warn('in send message', txid)
       }
 
       showToast('Delete request sent', 3000, 'success');
+      
+      // Best effort delete attachments from server
+      if (message.xattach && Array.isArray(message.xattach)) {
+        this.deleteAttachmentsFromServer(message.xattach);
+      }
+      // Also handle voice messages which have url directly
+      if (message.url && message.type === 'vm') {
+        this.deleteAttachmentsFromServer(message.url);
+      }
       
       // Note: We don't do optimistic UI updates for delete-for-all
       // The message will be deleted when we process the delete tx from the network
