@@ -10565,7 +10565,6 @@ class ChatModal {
 
       // Save draft (text is already limited to 2000 chars by maxlength attribute)
       this.debouncedSaveDraft(e.target.value);
-      // trigger input event to update the byte counter
       this.toggleSendButtonVisibility();
     });
 
