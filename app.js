@@ -15540,7 +15540,6 @@ class FailedMessageMenu {
     if (voiceEl) {
       const voiceUrl = voiceEl.dataset.url || '';
       const duration = Number(voiceEl.dataset.duration || 0);
-      const timestamp = parseInt(messageEl.dataset.messageTimestamp || '0', 10);
 
       if (!txid || !voiceUrl || !duration) {
         console.error('Error preparing voice message retry: Necessary elements or data missing.');
@@ -15553,9 +15552,7 @@ class FailedMessageMenu {
         console.error('Error preparing voice message retry: Contact/messages not found.');
         return;
       }
-      const messageIndex = contact.messages.findIndex(msg => 
-        msg.timestamp == timestamp || msg.txid === txid
-      );
+      const messageIndex = contact.messages.findIndex(msg => msg.txid === txid);
       
       if (messageIndex < 0) {
         console.error('Error preparing voice message retry: Message not found.');
