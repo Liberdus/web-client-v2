@@ -1036,8 +1036,10 @@
             <input type="hidden" id="replyToTxId" />
             <input type="hidden" id="replyToMessage" />
             <input type="hidden" id="replyOwnerIsMine" />
-            <!-- Add hidden file input for chat attachments -->
+            <!-- Add hidden file inputs for chat attachments -->
             <input type="file" id="chatFileInput" style="display:none;">
+            <input type="file" id="chatPhotoLibraryInput" accept="image/*" style="display:none;">
+            <input type="file" id="chatFilesInput" style="display:none;">
             <button class="icon-button voice-record-button" id="voiceRecordButton" aria-label="Record voice message"></button>
             <button class="send-button" id="handleSendMessage">
               <svg viewBox="0 0 24 24">
@@ -1226,6 +1228,34 @@
           <span class="context-menu-text">Delete for all</span>
         </div>
         <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Attachment Options Context Menu -->
+      <div class="message-context-menu" id="attachmentOptionsContextMenu" style="display: none;">
+        <div class="context-menu-option" data-action="camera" data-icon="camera">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text">Camera</span>
+        </div>
+        <div class="context-menu-option" data-action="photo-library" data-icon="image">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text">Photo Library</span>
+        </div>
+        <div class="context-menu-option" data-action="files" data-icon="file">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text">Files</span>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Camera Capture Modal -->
+      <div class="camera-capture-overlay" id="cameraCaptureOverlay" style="display: none;" role="dialog" aria-modal="true" aria-label="Camera" tabindex="-1">
+        <div class="camera-capture-dialog" id="cameraCaptureDialog">
+          <video class="camera-capture-video" id="cameraCaptureVideo" playsinline muted autoplay></video>
+          <div class="camera-capture-controls">
+            <button type="button" class="btn btn--secondary btn--pill" id="cameraCancelButton" aria-label="Cancel camera">Cancel</button>
+            <button type="button" class="btn btn--primary btn--pill" id="cameraCaptureButton" aria-label="Capture photo">Capture</button>
+          </div>
+        </div>
       </div>
 
       <!-- Call Invite Modal -->

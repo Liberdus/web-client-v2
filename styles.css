@@ -54,6 +54,7 @@
   --icon-file-pdf: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'%3E%3C/path%3E%3Cpolyline points='14,2 14,8 20,8'%3E%3C/polyline%3E%3Cline x1='16' y1='13' x2='8' y2='13'%3E%3C/line%3E%3Cline x1='16' y1='17' x2='8' y2='17'%3E%3C/line%3E%3Cpolyline points='10,9 9,9 8,9'%3E%3C/polyline%3E%3C/svg%3E");
   --icon-file-text: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'%3E%3C/path%3E%3Cpolyline points='14,2 14,8 20,8'%3E%3C/polyline%3E%3Cline x1='16' y1='13' x2='8' y2='13'%3E%3C/line%3E%3Cline x1='16' y1='17' x2='8' y2='17'%3E%3C/line%3E%3Cline x1='10' y1='9' x2='8' y2='9'%3E%3C/line%3E%3C/svg%3E");
   --icon-file: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z'%3E%3C/path%3E%3Cpolyline points='13,2 13,9 20,9'%3E%3C/polyline%3E%3C/svg%3E");
+  --icon-camera: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z'%3E%3C/path%3E%3Ccircle cx='12' cy='13' r='4'%3E%3C/circle%3E%3C/svg%3E");
 
   /* Typography tokens */
   --font-primary: 'Inter', sans-serif;
@@ -5320,6 +5321,19 @@ small {
   text-overflow: ellipsis;
 }
 
+/* Attachment options context menu icons */
+.context-menu-option[data-icon="camera"] .context-menu-icon {
+  background-image: var(--icon-camera);
+}
+
+.context-menu-option[data-icon="image"] .context-menu-icon {
+  background-image: var(--icon-file-image);
+}
+
+.context-menu-option[data-icon="file"] .context-menu-icon {
+  background-image: var(--icon-file);
+}
+
 /* Shared delete icon styling - used by both regular and failed message context menus */
 .context-menu-option[data-icon="delete"] .context-menu-icon,
 .failed-message-context-menu .context-menu-option[data-icon="delete"] .context-menu-icon {
@@ -5343,6 +5357,57 @@ small {
     opacity: 1;
     transform: scale(1);
   }
+}
+
+/* Camera capture overlay (used by ChatModal.capturePhotoFromCamera) */
+.camera-capture-overlay {
+  position: fixed;
+  inset: 0;
+  display: none; /* Hidden by default, shown via JavaScript */
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay-backdrop-color);
+  z-index: var(--overlay-z-index-high);
+  padding: 0;
+}
+
+.camera-capture-dialog {
+  width: 100vw;
+  height: 100vh;
+  max-height: none;
+  background: #000;
+  border-radius: 0;
+  overflow: hidden;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+}
+
+/* When dialog is positioned to match container */
+.camera-capture-dialog[style*="position"] {
+  margin: 0;
+}
+
+.camera-capture-video {
+  width: 100%;
+  height: 100%;
+  background: #000;
+  object-fit: cover;
+  flex: 1 1 auto;
+}
+
+.camera-capture-controls {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  padding-left: calc(16px + env(safe-area-inset-left));
+  padding-right: calc(16px + env(safe-area-inset-right));
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  background: var(--background-color);
+}
+
+.camera-capture-controls .btn {
+  flex: 1 1 0;
 }
 
 /* Deleted message styling */

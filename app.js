@@ -10464,6 +10464,15 @@ class ChatModal {
     this.addFriendButtonChat = document.getElementById('addFriendButtonChat');
     this.addAttachmentButton = document.getElementById('addAttachmentButton');
     this.chatFileInput = document.getElementById('chatFileInput');
+    this.chatPhotoLibraryInput = document.getElementById('chatPhotoLibraryInput');
+    this.chatFilesInput = document.getElementById('chatFilesInput');
+    
+    // Camera capture modal elements
+    this.cameraCaptureOverlay = document.getElementById('cameraCaptureOverlay');
+    this.cameraCaptureDialog = document.getElementById('cameraCaptureDialog');
+    this.cameraCaptureVideo = document.getElementById('cameraCaptureVideo');
+    this.cameraCancelButton = document.getElementById('cameraCancelButton');
+    this.cameraCaptureButton = document.getElementById('cameraCaptureButton');
 
     // Voice recording elements
     this.voiceRecordButton = document.getElementById('voiceRecordButton');
@@ -10477,6 +10486,8 @@ class ChatModal {
     this.contextMenu = document.getElementById('messageContextMenu');
     // Initialize image attachment context menu
     this.imageAttachmentContextMenu = document.getElementById('imageAttachmentContextMenu');
+    // Initialize attachment options context menu
+    this.attachmentOptionsContextMenu = document.getElementById('attachmentOptionsContextMenu');
     this.currentImageAttachmentRow = null;
     
     // Add event delegation for message clicks (since messages are created dynamically)
@@ -10511,6 +10522,15 @@ class ChatModal {
         this.handleImageAttachmentContextMenuAction(action);
       });
     }
+    // Add attachment options context menu option listeners
+    if (this.attachmentOptionsContextMenu) {
+      this.attachmentOptionsContextMenu.addEventListener('click', (e) => {
+        const option = e.target.closest('.context-menu-option');
+        if (!option) return;
+        const action = option.dataset.action;
+        this.handleAttachmentOptionsContextMenuAction(action);
+      });
+    }
     
     // Close context menu when clicking outside
     document.addEventListener('click', (e) => {
@@ -10519,6 +10539,9 @@ class ChatModal {
       }
       if (this.imageAttachmentContextMenu && !this.imageAttachmentContextMenu.contains(e.target)) {
         this.closeImageAttachmentContextMenu();
+      }
+      if (this.attachmentOptionsContextMenu && !this.attachmentOptionsContextMenu.contains(e.target) && !this.addAttachmentButton.contains(e.target)) {
+        this.closeAttachmentOptionsContextMenu();
       }
     });
     this.sendButton.addEventListener('click', this.handleSendMessage.bind(this));
@@ -10624,30 +10647,34 @@ class ChatModal {
     }
 
     if (this.addAttachmentButton) {
-      this.addAttachmentButton.addEventListener('click', async (e) => {
+      this.addAttachmentButton.addEventListener('click', (e) => {
         e.stopPropagation();
         // On iOS, directly trigger file input to use native iOS picker
-        // On Android, check/request camera permission then open file picker directly
+        // On Android, show our custom context menu
         if (isIOS()) {
           // iOS will show its native picker with Camera, Photo Library, and Files options
           if (this.chatFileInput) {
             this.chatFileInput.click();
           }
         } else {
-          // Android: ensure camera permission is requested, then open file picker if granted
-          const shouldOpenFilePicker = await this.ensureCameraPermission();
-          // Only open file picker if permission was granted (or already granted)
-          // If denied, the toast will handle opening the file picker when dismissed
-          if (shouldOpenFilePicker && this.chatFileInput) {
-            this.chatFileInput.value = '';
-            this.chatFileInput.click();
-          }
+          // Android: show our custom context menu
+          this.showAttachmentOptionsContextMenu(e);
         }
       });
     }
 
     if (this.chatFileInput) {
       this.chatFileInput.addEventListener('change', (e) => {
+        this.handleFileAttachment(e);
+      });
+    }
+    if (this.chatPhotoLibraryInput) {
+      this.chatPhotoLibraryInput.addEventListener('change', (e) => {
+        this.handleFileAttachment(e);
+      });
+    }
+    if (this.chatFilesInput) {
+      this.chatFilesInput.addEventListener('change', (e) => {
         this.handleFileAttachment(e);
       });
     }
@@ -12864,6 +12891,7 @@ console.warn('in send message', txid)
   closeAllContextMenus() {
     this.closeContextMenu();
     this.closeImageAttachmentContextMenu();
+    this.closeAttachmentOptionsContextMenu();
   }
 
   /**
@@ -12916,6 +12944,95 @@ console.warn('in send message', txid)
     if (!this.imageAttachmentContextMenu) return;
     this.imageAttachmentContextMenu.style.display = 'none';
     this.currentImageAttachmentRow = null;
+  }
+
+  /**
+   * Shows the attachment options context menu
+   * @param {Event} e - The click event
+   */
+  showAttachmentOptionsContextMenu(e) {
+    if (!this.attachmentOptionsContextMenu) return;
+    
+    this.closeAllContextMenus();
+    
+    const menu = this.attachmentOptionsContextMenu;
+    const buttonRect = this.addAttachmentButton.getBoundingClientRect();
+
+    // Desktop: only show "Camera" + "Files" (hide "Photo Library")
+    // Heuristic: devices with a fine pointer + hover are typically desktop/laptop.
+    try {
+      const isDesktopLike = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+      const photoLibraryOpt = menu.querySelector('.context-menu-option[data-action="photo-library"]');
+      if (photoLibraryOpt) photoLibraryOpt.style.display = isDesktopLike ? 'none' : '';
+    } catch (_) {
+      // ignore
+    }
+    
+    // Show menu first to get its dimensions
+    menu.style.display = 'block';
+    const menuRect = menu.getBoundingClientRect();
+    
+    // Position menu above the button by default (since button is at bottom)
+    let top = buttonRect.top - menuRect.height - 8;
+    
+    // If menu would go off top of screen, position it below instead
+    if (top < 10) {
+      top = buttonRect.bottom + 8;
+    }
+    
+    // Ensure menu doesn't go off left or right of screen
+    let left = buttonRect.left;
+    if (left + menuRect.width > window.innerWidth - 10) {
+      left = window.innerWidth - menuRect.width - 10;
+    }
+    if (left < 10) {
+      left = 10;
+    }
+    
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+  }
+
+  /**
+   * Closes the attachment options context menu
+   */
+  closeAttachmentOptionsContextMenu() {
+    if (!this.attachmentOptionsContextMenu) return;
+    this.attachmentOptionsContextMenu.style.display = 'none';
+  }
+
+  /**
+   * Handles attachment options context menu actions
+   * @param {string} action - The action to perform
+   */
+  handleAttachmentOptionsContextMenuAction(action) {
+    this.closeAttachmentOptionsContextMenu();
+
+    // Important: keep this synchronous to preserve the user gesture required by some browsers
+    // (notably Android Chrome) to open native file pickers via input.click().
+    switch (action) {
+      case 'camera':
+        if (isAndroidLikeMobileUA()) {
+          // Android: check/request permission, then open file picker or toast
+          void this.handleAndroidCameraAction();
+        } else {
+          // Desktop: use full camera overlay
+          void this.capturePhotoFromCamera();
+        }
+        break;
+      case 'photo-library':
+        if (this.chatPhotoLibraryInput) {
+          this.chatPhotoLibraryInput.value = '';
+          this.chatPhotoLibraryInput.click();
+        }
+        break;
+      case 'files':
+        if (this.chatFilesInput) {
+          this.chatFilesInput.value = '';
+          this.chatFilesInput.click();
+        }
+        break;
+    }
   }
 
   /**
@@ -13030,6 +13147,279 @@ console.warn('in send message', txid)
         handleToastClick(e);
       };
     }, 20);
+  }
+
+  /**
+   * Handles Android camera action: checks/requests permission, then opens file picker or shows toast
+   * @returns {Promise<void>}
+   */
+  async handleAndroidCameraAction() {
+    try {
+      let permissionStatus = 'unknown';
+      if (navigator.permissions?.query) {
+        const result = await navigator.permissions.query({ name: 'camera' });
+        permissionStatus = result.state;
+      }
+      
+      if (permissionStatus === 'granted') {
+        // Already granted - open file picker
+        if (this.chatFilesInput) {
+          this.chatFilesInput.value = '';
+          this.chatFilesInput.click();
+        }
+        return;
+      }
+      
+      if (permissionStatus === 'denied') {
+        // Permission already denied - show toast
+        showToast('Camera permission denied', 0, 'error');
+        return;
+      }
+      
+      // Permission is 'prompt' or 'unknown' - request permission via getUserMedia
+      // This will trigger the permission prompt
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        // Immediately stop the stream (don't show camera)
+        stream.getTracks().forEach(track => track.stop());
+        // Permission granted - open file picker
+        if (this.chatFilesInput) {
+          this.chatFilesInput.value = '';
+          this.chatFilesInput.click();
+        }
+      } catch (err) {
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          // User denied permission - show toast
+          showToast('Camera permission denied', 0, 'error');
+        } else {
+          showToast('Unable to access camera', 0, 'error');
+        }
+      }
+    } catch (err) {
+      console.warn('Camera permission check failed:', err);
+    }
+  }
+
+  /**
+   * Opens a camera overlay, lets the user capture a photo, and attaches it.
+   * Cleanup is guaranteed via try/finally so media tracks never leak.
+   * @returns {Promise<void>}
+   */
+  async capturePhotoFromCamera() {
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      showToast('Camera is not supported on this device.', 0, 'error');
+      return;
+    }
+
+    if (!this.cameraCaptureOverlay || !this.cameraCaptureDialog || !this.cameraCaptureVideo) {
+      showToast('Camera modal elements not found.', 0, 'error');
+      return;
+    }
+
+    // Prevent opening multiple overlays.
+    if (this.cameraCaptureOverlay.style.display !== 'none') return;
+
+    const prevFocusedEl = document.activeElement;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+
+    /** @type {MediaStream|null} */
+    let stream = null;
+    let done = false;
+
+    const lockPageScroll = () => {
+      try {
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+      } catch (_) {
+        // ignore
+      }
+    };
+
+    const unlockPageScroll = () => {
+      try {
+        document.documentElement.style.overflow = prevHtmlOverflow;
+        document.body.style.overflow = prevBodyOverflow;
+      } catch (_) {
+        // ignore
+      }
+    };
+
+    const stopStream = () => {
+      try {
+        if (stream) stream.getTracks().forEach((t) => t.stop());
+      } catch (_) {
+        // ignore
+      } finally {
+        stream = null;
+      }
+    };
+
+    /** @type {(e: KeyboardEvent) => void} */
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (!done) this.cameraCancelButton?.click();
+        return;
+      }
+
+      // Minimal focus trap: keep Tab within our two buttons.
+      if (e.key === 'Tab' && this.cameraCaptureOverlay) {
+        const focusables = [this.cameraCancelButton, this.cameraCaptureButton].filter(Boolean);
+        if (focusables.length === 0) return;
+        const currentIdx = focusables.indexOf(document.activeElement);
+        const nextIdx = e.shiftKey
+          ? (currentIdx <= 0 ? focusables.length - 1 : currentIdx - 1)
+          : (currentIdx >= focusables.length - 1 ? 0 : currentIdx + 1);
+        e.preventDefault();
+        focusables[nextIdx]?.focus?.();
+      }
+    };
+
+    /** @type {() => void} */
+    const onOverlayClick = () => {
+      this.cameraCancelButton?.click();
+    };
+
+    const cleanup = () => {
+      if (done) return;
+      done = true;
+
+      document.removeEventListener('keydown', onKeyDown, true);
+      this.cameraCaptureOverlay.removeEventListener('click', onOverlayClick);
+
+      try {
+        this.cameraCaptureOverlay.style.display = 'none';
+        // Reset dialog styles
+        this.cameraCaptureDialog.style.width = '';
+        this.cameraCaptureDialog.style.height = '';
+        this.cameraCaptureDialog.style.position = '';
+        this.cameraCaptureDialog.style.top = '';
+        this.cameraCaptureDialog.style.left = '';
+        this.cameraCaptureDialog.style.borderRadius = '';
+        this.cameraCaptureDialog.style.margin = '';
+        this.cameraCaptureOverlay.style.alignItems = '';
+        this.cameraCaptureOverlay.style.justifyContent = '';
+      } catch (_) {
+        // ignore
+      }
+
+      stopStream();
+      unlockPageScroll();
+
+      try {
+        if (prevFocusedEl && typeof prevFocusedEl.focus === 'function') prevFocusedEl.focus();
+      } catch (_) {
+        // ignore
+      }
+    };
+
+    // Get container dimensions to match dialog size
+    const containerEl = document.querySelector('.container');
+    let containerRect = null;
+    if (containerEl) {
+      containerRect = containerEl.getBoundingClientRect();
+    }
+
+    // Size and position dialog to match container if it exists
+    if (containerRect) {
+      this.cameraCaptureDialog.style.width = `${containerRect.width}px`;
+      this.cameraCaptureDialog.style.height = `${containerRect.height}px`;
+      this.cameraCaptureDialog.style.maxWidth = 'none';
+      this.cameraCaptureDialog.style.maxHeight = 'none';
+      this.cameraCaptureDialog.style.position = 'fixed';
+      this.cameraCaptureDialog.style.top = `${containerRect.top}px`;
+      this.cameraCaptureDialog.style.left = `${containerRect.left}px`;
+      this.cameraCaptureDialog.style.borderRadius = '8px';
+      this.cameraCaptureDialog.style.margin = '0';
+      // Remove flexbox centering from overlay when dialog is positioned
+      this.cameraCaptureOverlay.style.alignItems = 'flex-start';
+      this.cameraCaptureOverlay.style.justifyContent = 'flex-start';
+    }
+
+    // Click outside the dialog cancels.
+    this.cameraCaptureOverlay.addEventListener('click', onOverlayClick);
+    this.cameraCaptureDialog.addEventListener('click', (e) => e.stopPropagation());
+
+    // Show overlay
+    this.cameraCaptureOverlay.style.display = 'flex';
+    document.addEventListener('keydown', onKeyDown, true);
+    lockPageScroll();
+    this.cameraCaptureOverlay.focus();
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false
+      });
+
+      this.cameraCaptureVideo.srcObject = stream;
+      try {
+        await this.cameraCaptureVideo.play();
+      } catch (err) {
+        // Autoplay restrictions / transient failures: user can still press Capture.
+        console.warn('Camera video.play() failed:', err);
+      }
+
+      this.cameraCaptureButton.focus();
+
+      const waitForAction = () =>
+        new Promise((resolve) => {
+          this.cameraCancelButton.addEventListener(
+            'click',
+            () => resolve({ type: 'cancel' }),
+            { once: true }
+          );
+          this.cameraCaptureButton.addEventListener(
+            'click',
+            () => resolve({ type: 'capture' }),
+            { once: true }
+          );
+        });
+
+      const action = await waitForAction();
+      if (action.type !== 'capture') return;
+
+      const vw = this.cameraCaptureVideo.videoWidth || stream.getVideoTracks?.()?.[0]?.getSettings?.()?.width || 0;
+      const vh = this.cameraCaptureVideo.videoHeight || stream.getVideoTracks?.()?.[0]?.getSettings?.()?.height || 0;
+      if (!vw || !vh) {
+        showToast('Camera not ready yet. Please try again.', 0, 'error');
+        return;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = vw;
+      canvas.height = vh;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        showToast('Unable to capture photo.', 0, 'error');
+        return;
+      }
+
+      ctx.drawImage(this.cameraCaptureVideo, 0, 0, vw, vh);
+
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+      if (!blob) {
+        showToast('Unable to capture photo.', 0, 'error');
+        return;
+      }
+
+      const fileName = `camera_${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`;
+      const file = new File([blob], fileName, { type: 'image/jpeg' });
+
+      // Feed into the existing attachment pipeline. (handleFileAttachment only reads files[0])
+      cleanup(); // hide overlay + stop camera before heavy work starts
+      await this.handleFileAttachment({ target: { files: [file], value: '' } });
+    } catch (err) {
+      console.error('Camera capture failed:', err);
+      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+        showToast('Camera permission denied.', 0, 'error');
+      } else {
+        showToast('Unable to access camera.', 0, 'error');
+      }
+    } finally {
+      cleanup();
+    }
   }
 
   /**
@@ -20363,6 +20753,14 @@ function isFaucetAddress(address) {
 
 function isMobile() {
   return /Android|webOS|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+/**
+ * Detect if the user is on an Android-like mobile device (excludes iOS)
+ * @returns {boolean}
+ */
+function isAndroidLikeMobileUA() {
+  return /Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
 /**
