@@ -10565,6 +10565,8 @@ class ChatModal {
 
       // Save draft (text is already limited to 2000 chars by maxlength attribute)
       this.debouncedSaveDraft(e.target.value);
+      // trigger input event to update the byte counter
+      this.toggleSendButtonVisibility();
     });
 
     // allow ctlr+enter or cmd+enter to send message
@@ -10747,6 +10749,7 @@ class ChatModal {
       });
     }
 
+    this.toggleSendButtonVisibility();
   }
 
     // Voice message seek slider live time display (works even before playback)
@@ -10858,6 +10861,17 @@ class ChatModal {
   }
 
   /**
+   * Toggles visibility of send button and microphone button based on input content
+   */
+  toggleSendButtonVisibility() {
+    const hasText = this.messageInput.value.trim().length > 0 || (this.fileAttachments && this.fileAttachments.length > 0);
+    this.sendButton.style.display = hasText ? 'flex' : 'none';
+    if (this.voiceRecordButton) {
+      this.voiceRecordButton.style.display = hasText ? 'none' : 'flex';
+    }
+  }
+
+  /**
    * Opens the chat modal for the given address.
    * @param {string} address - The address of the contact to open the chat modal for.
    * @returns {Promise<void>}
@@ -10867,6 +10881,7 @@ class ChatModal {
     this.messageInput.value = '';
     this.messageInput.style.height = '48px';
     this.messageByteCounter.style.display = 'none';
+    this.toggleSendButtonVisibility();
     // clear any edit state and hide cancel button
     const editInputInit = document.getElementById('editOfTxId');
     editInputInit.value = '';
@@ -11472,7 +11487,9 @@ console.warn('in send message', txid)
       this.messageInput.style.height = '48px'; // original height
 
       // Hide byte counter
-      this.messageByteCounter.style.display = 'none'; 
+      this.messageByteCounter.style.display = 'none';
+      // Toggle button visibility (should show microphone when empty)
+      this.toggleSendButtonVisibility(); 
 
       // Call debounced save directly with empty string
       this.debouncedSaveDraft('');
@@ -11590,6 +11607,8 @@ console.warn('in send message', txid)
       }
       // Hide cancel button
       this.cancelEditButton.style.display = 'none';
+      // Toggle button visibility (should show microphone when empty)
+      this.toggleSendButtonVisibility();
       // Re-enable attachments on cancel
       this.addAttachmentButton.disabled = false;
       // Give feedback
@@ -12089,6 +12108,7 @@ console.warn('in send message', txid)
       // trigger input event to update the byte counter
       this.messageInput.dispatchEvent(new Event('input'));
     }
+    this.toggleSendButtonVisibility();
     
     // Restore reply state if it exists
     if (contact?.draftReplyTxid) {
@@ -12332,6 +12352,7 @@ console.warn('in send message', txid)
     if (!this.fileAttachments || this.fileAttachments.length === 0) {
       preview.innerHTML = '';
       preview.style.display = 'none';
+      this.toggleSendButtonVisibility();
       return;
     }
   
@@ -12358,7 +12379,8 @@ console.warn('in send message', txid)
     });
 
     preview.style.display = 'block';
-    
+    // Toggle button visibility when attachments are added
+    this.toggleSendButtonVisibility();
     // Check if user was at the bottom before showing preview
     const messageContainer = this.messagesContainer;
     const wasAtBottom = messageContainer ? 

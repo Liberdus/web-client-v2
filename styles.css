@@ -1700,7 +1700,7 @@ input[type='file'].form-control::file-selector-button {
 
 .message-input {
   width: 100%;
-  padding: 12px 16px;
+  padding: 12px 56px 12px 16px; /* Right padding for buttons */
   border: 1px solid var(--border-color);
   border-radius: 24px;
   font-size: var(--font-size-base);
@@ -1714,6 +1714,7 @@ input[type='file'].form-control::file-selector-button {
   scrollbar-width: none;
   align-items: center;
   scrollbar-width: none; /* Hide scrollbar for Firefox */
+  box-sizing: border-box; /* Ensure padding is included in width */
 }
 
 .message-input::-webkit-scrollbar {
@@ -1730,16 +1731,20 @@ input[type='file'].form-control::file-selector-button {
   background: var(--primary-color);
   color: var(--background-color);
   border: none;
-  width: 48px; /* Changed from 45px to match message-input height */
-  height: 48px; /* Changed from 45px to match message-input height */
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  display: flex;
+  display: none; /* Hidden by default, shown when input has content */
   align-items: center;
   justify-content: center;
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
   pointer-events: auto; /* Ensure the button is interactive */
+  position: absolute;
+  bottom: 4px;
+  right: 8px;
+  z-index: 1;
 }
 
 .send-button svg {
@@ -1837,11 +1842,11 @@ input[type='file'].form-control::file-selector-button {
 
 /* Wrapper for the send button and the toll information */
 .message-input-wrapper {
-  position: relative; /* For absolute positioning of .toll-container */
-  flex: 1; /* Allows wrapper to grow */
-  display: flex; /* Make wrapper a flex container */
-  align-items: center; /* Vertically center its children (the textarea) */
-  pointer-events: auto; /* Make this wrapper (and its children by default) interactive */
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  pointer-events: auto;
 }
 
 .toll-container {
@@ -5652,6 +5657,31 @@ small {
   flex-shrink: 0;
   pointer-events: auto;
   opacity: 0.7;
+  position: absolute;
+  bottom: 0;
+  right: 8px;
+  z-index: 1;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.icon-button.voice-record-button:hover {
+  background-color: transparent;
+  color: var(--primary-color);
+  opacity: 1;
+}
+
+.icon-button.voice-record-button:hover::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--hover-background-purple);
+  z-index: -1;
 }
 
 .icon-button.voice-record-button::before {
