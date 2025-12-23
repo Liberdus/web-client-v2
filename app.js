@@ -20655,8 +20655,10 @@ function isAndroidLikeMobileUA() {
  */
 function isIOS() {
   const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-  return /iPad|iPhone|iPod/.test(userAgent) || 
-         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS 13+
+  // Check for iOS devices in user agent, or iPadOS 13+ (reports as Mac with touch)
+  const isIOSDevice = /iPad|iPhone|iPod/.test(userAgent);
+  const isIPadOS = /Macintosh/.test(userAgent) && navigator.maxTouchPoints > 1;
+  return isIOSDevice || isIPadOS;
 }
 
 function enterFullscreen() {
