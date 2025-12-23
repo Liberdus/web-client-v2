@@ -11880,7 +11880,7 @@ console.warn('in send message', txid)
             const audioEncKey = item.audioPqEncSharedKey || item.pqEncSharedKey || '';
             const audioSelfKey = item.audioSelfKey || item.selfKey || '';
             messageTextHTML = `
-              <div class="voice-message" data-voice-url="${item.url || ''}" data-pqEncSharedKey="${audioEncKey}" data-selfKey="${audioSelfKey}" data-msg-idx="${i}" data-duration="${item.duration || 0}">
+              <div class="voice-message" data-url="${item.url || ''}" data-name="voice-message" data-type="audio/webm" data-pqEncSharedKey="${audioEncKey}" data-selfKey="${audioSelfKey}" data-msg-idx="${i}" data-duration="${item.duration || 0}">
                 <div class="voice-message-controls">
                   <div class="voice-message-top-row">
                     <button class="voice-message-play-button" aria-label="Play voice message">
@@ -12847,7 +12847,10 @@ console.warn('in send message', txid)
     const replyOption = this.contextMenu.querySelector('[data-action="reply"]');
     const editResendOption = this.contextMenu.querySelector('[data-action="edit-resend"]');
     const editOption = this.contextMenu.querySelector('[data-action="edit"]');
+    const saveOption = this.contextMenu.querySelector('[data-action="save"]');
     const isFailedPayment = messageEl.dataset.status === 'failed' && messageEl.classList.contains('payment-info');
+    // Show save option only for voice messages
+    if (saveOption) saveOption.style.display = isVoice ? 'flex' : 'none';
     // For failed payment messages, hide copy and delete-for-all regardless of sender
     if (isFailedPayment) {
       if (copyOption) copyOption.style.display = 'none';
@@ -13560,6 +13563,9 @@ console.warn('in send message', txid)
     if (!messageEl) return;
     
     switch (action) {
+      case 'save':
+        void this.saveVoiceMessage(messageEl);
+        break;
       case 'copy':
         this.copyMessageContent(messageEl);
         break;
@@ -14641,7 +14647,7 @@ console.warn('in send message', txid)
       return;
     }
 
-    const voiceUrl = voiceMessageElement.dataset.voiceUrl;
+    const voiceUrl = voiceMessageElement.dataset.url;
     const pqEncSharedKey = voiceMessageElement.dataset.pqencsharedkey;
     const selfKey = voiceMessageElement.dataset.selfkey;
     const msgIdx = voiceMessageElement.dataset.msgIdx;
@@ -14803,6 +14809,37 @@ console.warn('in send message', txid)
       console.error('Error playing voice message:', error);
       showToast(`Error playing voice message: ${error.message}`, 0, 'error');
       buttonElement.disabled = false;
+    }
+  }
+
+  /**
+   * Save a voice message by downloading, decrypting, and saving it as a file
+   * Reuses the existing attachment download flow
+   * @param {HTMLElement} messageEl - The message element containing the voice message
+   */
+  async saveVoiceMessage(messageEl) {
+    const voiceEl = messageEl.querySelector('.voice-message');
+    const msgIdx = voiceEl?.dataset?.msgIdx;
+    const item = msgIdx !== undefined ? myData.contacts[this.address]?.messages?.[msgIdx] : null;
+    
+    if (!voiceEl || !item || item.type !== 'vm') {
+      showToast('Voice message not found', 2000, 'error');
+      return;
+    }
+
+    if (this.attachmentDownloadInProgress) return;
+    this.attachmentDownloadInProgress = true;
+
+    try {
+      // Generate filename with timestamp if not already set
+      if (!voiceEl.dataset.name || voiceEl.dataset.name === 'voice-message') {
+        const ts = parseInt(messageEl.dataset.messageTimestamp || Date.now(), 10);
+        voiceEl.dataset.name = `voice-message-${new Date(ts).toISOString().replace(/[:.]/g, '-').slice(0, -5)}.webm`;
+      }
+      
+      await this.handleAttachmentDownload(item, voiceEl);
+    } finally {
+      this.attachmentDownloadInProgress = false;
     }
   }
 
@@ -15481,7 +15518,7 @@ class FailedMessageMenu {
 
     // Voice message retry: resend the same voice message (no re-upload)
     if (voiceEl) {
-      const voiceUrl = voiceEl.dataset.voiceUrl || '';
+      const voiceUrl = voiceEl.dataset.url || '';
       const duration = Number(voiceEl.dataset.duration || 0);
       const pqEncSharedKeyB64 = voiceEl.dataset.pqencsharedkey || '';
       const selfKey = voiceEl.dataset.selfkey || '';
