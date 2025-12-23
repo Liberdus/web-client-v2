@@ -11813,8 +11813,6 @@ console.warn('in send message', txid)
                   data-url="${fileUrl}"
                   data-name="${encodeURIComponent(fileName)}"
                   data-type="${att.type || ''}"
-                  data-pqEncSharedKey="${att.pqEncSharedKey || ''}"
-                  data-selfKey="${att.selfKey || ''}"
                   data-msg-idx="${i}"
                   ${isImage ? 'data-image-attachment="true"' : ''}
                 >
@@ -11877,10 +11875,8 @@ console.warn('in send message', txid)
           if (item.type === 'vm') {
             const duration = this.formatDuration(item.duration);
             // Use audio encryption keys for playback, fall back to message encryption keys if not available
-            const audioEncKey = item.audioPqEncSharedKey || item.pqEncSharedKey || '';
-            const audioSelfKey = item.audioSelfKey || item.selfKey || '';
             messageTextHTML = `
-              <div class="voice-message" data-url="${item.url || ''}" data-name="voice-message" data-type="audio/webm" data-pqEncSharedKey="${audioEncKey}" data-selfKey="${audioSelfKey}" data-msg-idx="${i}" data-duration="${item.duration || 0}">
+              <div class="voice-message" data-url="${item.url || ''}" data-name="voice-message" data-type="audio/webm" data-msg-idx="${i}" data-duration="${item.duration || 0}">
                 <div class="voice-message-controls">
                   <div class="voice-message-top-row">
                     <button class="voice-message-play-button" aria-label="Play voice message">
@@ -12595,33 +12591,52 @@ console.warn('in send message', txid)
    * Decrypts an attachment URL into a Blob using the message encryption metadata.
    * Shared by download (Save) and Preview thumbnail generation.
    * @param {Object} item - message object from myData.contacts[address].messages[idx]
-   * @param {HTMLElement} linkEl - attachment row element with data-* fields
+   * @param {HTMLElement} linkEl - element with data-* fields (attachment row or voice message element)
    * @returns {Promise<Blob>}
    */
   async decryptAttachmentToBlob(item, linkEl) {
     if (!item || !linkEl) throw new Error('Missing item or attachment element');
 
     // 1) Derive dhkey
+    // - Attachments: use per-attachment keys from item.xattach (not stored in DOM)
+    // - Voice messages: use audio keys from the message item
+    let selfKey;
+    let pqEncSharedKey;
+
+    const url = linkEl.dataset.url;
+    if (!url || url === '#') throw new Error('Missing attachment url');
+
+    const isVoice = item.type === 'vm';
+    if (isVoice) {
+      // Voice message: audio keys (fallback to message keys)
+      selfKey = item.audioSelfKey || item.selfKey;
+      pqEncSharedKey = item.audioPqEncSharedKey || item.pqEncSharedKey;
+    } else {
+      // Attachment: look up attachment entry by url
+      const att = Array.isArray(item.xattach) ? item.xattach.find((a) => a?.url === url) : null;
+      selfKey = att?.selfKey;
+      pqEncSharedKey = att?.pqEncSharedKey;
+    }
+
     let dhkey;
     if (item.my) {
-      const selfKey = linkEl.dataset.selfkey;
+      if (!selfKey) throw new Error('Missing selfKey for decrypt');
       const password = myAccount.keys.secret + myAccount.keys.pqSeed;
       dhkey = hex2bin(decryptData(selfKey, password, true));
     } else {
+      if (!pqEncSharedKey) throw new Error('Missing pqEncSharedKey for decrypt');
       const ok = await ensureContactKeys(this.address);
       const senderPublicKey = myData.contacts[this.address]?.public;
       if (!ok || !senderPublicKey) throw new Error(`No public key found for sender ${this.address}`);
-      const pqEncSharedKey = linkEl.dataset.pqencsharedkey;
+      // dhkeyCombined/pqSharedKey expect ciphertext bytes; accept base64 strings too by converting here.
+      const pqCipher = (typeof pqEncSharedKey === 'string') ? base642bin(pqEncSharedKey) : pqEncSharedKey;
       dhkey = dhkeyCombined(
         myAccount.keys.secret,
         senderPublicKey,
         myAccount.keys.pqSeed,
-        pqEncSharedKey
+        pqCipher
       ).dhkey;
     }
-
-    const url = linkEl.dataset.url;
-    if (!url || url === '#') throw new Error('Missing attachment url');
 
     // 2) Download encrypted bytes
     const res = await fetch(url, { signal: this.abortController.signal });
@@ -14648,8 +14663,6 @@ console.warn('in send message', txid)
     }
 
     const voiceUrl = voiceMessageElement.dataset.url;
-    const pqEncSharedKey = voiceMessageElement.dataset.pqencsharedkey;
-    const selfKey = voiceMessageElement.dataset.selfkey;
     const msgIdx = voiceMessageElement.dataset.msgIdx;
 
     if (!voiceUrl) {
@@ -14660,7 +14673,14 @@ console.warn('in send message', txid)
     try {
       // Check if it's our own message or received message
       const message = myData.contacts[this.address].messages[msgIdx];
+      if (!message) {
+        throw new Error('Message not found');
+      }
       const isMyMessage = message.my;
+      
+      // Get keys from message item (voice messages use audio-specific keys with fallback)
+      const pqEncSharedKey = message.audioPqEncSharedKey || message.pqEncSharedKey;
+      const selfKey = message.audioSelfKey || message.selfKey;
 
       buttonElement.disabled = true;
       
@@ -15520,19 +15540,42 @@ class FailedMessageMenu {
     if (voiceEl) {
       const voiceUrl = voiceEl.dataset.url || '';
       const duration = Number(voiceEl.dataset.duration || 0);
-      const pqEncSharedKeyB64 = voiceEl.dataset.pqencsharedkey || '';
-      const selfKey = voiceEl.dataset.selfkey || '';
+      const timestamp = parseInt(messageEl.dataset.messageTimestamp || '0', 10);
 
-      if (!txid || !voiceUrl || !duration || !pqEncSharedKeyB64 || !selfKey) {
+      if (!txid || !voiceUrl || !duration) {
         console.error('Error preparing voice message retry: Necessary elements or data missing.');
+        return;
+      }
+
+      // Get message item to retrieve encryption keys
+      const contact = myData.contacts[chatModal.address];
+      if (!contact || !Array.isArray(contact.messages)) {
+        console.error('Error preparing voice message retry: Contact/messages not found.');
+        return;
+      }
+      const messageIndex = contact.messages.findIndex(msg => 
+        msg.timestamp == timestamp || msg.txid === txid
+      );
+      
+      if (messageIndex < 0) {
+        console.error('Error preparing voice message retry: Message not found.');
+        return;
+      }
+
+      const message = contact.messages[messageIndex];
+      const pqEncSharedKey = message.audioPqEncSharedKey || message.pqEncSharedKey;
+      const selfKey = message.audioSelfKey || message.selfKey;
+
+      if (!pqEncSharedKey || !selfKey) {
+        console.error('Error preparing voice message retry: Encryption keys not found.');
         return;
       }
 
       try {
         chatModal.retryOfTxId.value = txid;
-        const pqEncSharedKey = base642bin(pqEncSharedKeyB64);
+        const pqEncSharedKeyBin = base642bin(pqEncSharedKey);
         void chatModal
-          .sendVoiceMessageTx(voiceUrl, duration, pqEncSharedKey, selfKey)
+          .sendVoiceMessageTx(voiceUrl, duration, pqEncSharedKeyBin, selfKey)
           .catch((err) => {
             console.error('Voice message retry failed:', err);
             showToast('Failed to retry voice message', 0, 'error');
