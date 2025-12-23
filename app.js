@@ -5945,7 +5945,7 @@ class AvatarEditModal {
 
           // Generate random key and secret, encrypt thumbnail
           const avatarKey = generateRandomBytes(32);
-          const secret = bin2hex(generateRandomBytes(32));
+          const secret = bin2hex(generateRandomBytes(16));
           const encryptedBlob = await encryptBlob(thumbnail, avatarKey);
 
           // Upload encrypted blob to attachment server
