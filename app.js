@@ -12409,6 +12409,22 @@ console.warn('in send message', txid)
       if (this.address && myData.contacts[this.address]) {
         this.saveAttachmentState(myData.contacts[this.address]);
       }
+
+      // Best effort delete from server - extract ID from URL and delete
+      if (removedFile.url) {
+        // Extract ID from URL format: https://inv.liberdus.com:2083/get/{id}
+        const urlMatch = removedFile.url.match(/\/get\/([^\/]+)$/);
+        if (urlMatch && urlMatch[1]) {
+          const fileId = urlMatch[1];
+          const uploadUrl = 'https://inv.liberdus.com:2083';
+          fetch(`${uploadUrl}/delete/${fileId}`, {
+            method: 'DELETE'
+          }).catch(err => {
+            // Silently ignore errors - best effort delete
+            console.warn('Failed to delete attachment from server:', err);
+          });
+        }
+      }
     }
   }
 
