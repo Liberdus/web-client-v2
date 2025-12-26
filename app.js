@@ -13788,6 +13788,8 @@ console.warn('in send message', txid)
       this.cancelEditButton.style.display = '';
       // Disable attachments while editing
       this.addAttachmentButton.disabled = true;
+      // Toggle button visibility to show send button since input has content
+      this.toggleSendButtonVisibility();
       // Focus input and move caret to end
       this.messageInput.focus();
       this.messageInput.selectionStart = this.messageInput.selectionEnd = this.messageInput.value.length;
@@ -15735,6 +15737,7 @@ class FailedMessageMenu {
     if (chatModal.messageInput && chatModal.retryOfTxId && messageContent && txid) {
       chatModal.messageInput.value = messageContent;
       chatModal.retryOfTxId.value = txid;
+      chatModal.toggleSendButtonVisibility();
       chatModal.messageInput.focus();
       return;
     }
