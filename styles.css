@@ -1753,6 +1753,11 @@ input[type='file'].form-control::file-selector-button {
   fill: currentColor;
 }
 
+/* Exception for send button - don't apply position:relative from offline-disabled */
+.send-button.offline-disabled {
+  position: absolute; /* Keep the original positioning */
+}
+
 .messages-list {
   display: flex;
   flex-direction: column;
