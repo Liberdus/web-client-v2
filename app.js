@@ -2611,8 +2611,10 @@ class MyInfoModal {
     this.avatarSection = this.modal.querySelector('.contact-avatar-section');
     this.avatarDiv = this.avatarSection.querySelector('.avatar');
     this.nameDiv = this.avatarSection.querySelector('.name');
-    this.subtitleDiv = this.avatarSection.querySelector('.subtitle');
+    this.addressDiv = document.getElementById('myInfoDisplayUsername');
+    this.copyButton = document.getElementById('myInfoCopyAddress');
     this.qrContainer = this.modal.querySelector('#myInfoQR');
+    this.fullAddress = null; // Store full address for copying
 
     // Create avatar edit button
     this.avatarEditButton = document.createElement('button');
@@ -2621,6 +2623,10 @@ class MyInfoModal {
 
     this.backButton.addEventListener('click', () => this.close());
     this.editButton.addEventListener('click', () => myProfileModal.open());
+
+    // Copy address functionality
+    this.copyButton.addEventListener('click', () => this.copyAddress());
+    this.addressDiv.addEventListener('click', () => this.copyAddress());
 
     // Avatar edit button click
     this.avatarEditButton.addEventListener('click', (e) => {
@@ -2662,7 +2668,14 @@ class MyInfoModal {
     }
 
     this.nameDiv.textContent = myAccount.username;
-    this.subtitleDiv.textContent = myAccount.keys.address;
+    const address = myAccount.keys.address;
+    const addressWithPrefix = address.startsWith('0x') ? address : `0x${address}`;
+    
+    // Store full address for copying
+    this.fullAddress = addressWithPrefix;
+    
+    // Display full address (address is always shown, so no need to check display)
+    this.addressDiv.textContent = addressWithPrefix;
 
     const { account = {} } = myData ?? {};
     const fields = {
@@ -2744,6 +2757,22 @@ class MyInfoModal {
       this.qrContainer.appendChild(img);
     } catch (e) {
       console.error('Failed to render username QR:', e);
+    }
+  }
+
+  async copyAddress() {
+    // Copy the full address, not the displayed truncated version and toast 
+    const address = this.fullAddress || this.addressDiv.textContent;
+    try {
+      await navigator.clipboard.writeText(address);
+      showToast('Address copied to clipboard', 2000, 'success');
+      this.copyButton.classList.add('success');
+      setTimeout(() => {
+        this.copyButton.classList.remove('success');
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      showToast('Failed to copy address', 0, 'error');
     }
   }
 }
@@ -18129,6 +18158,7 @@ class ReceiveModal {
     this.copyButton = document.getElementById('copyAddress');
     this.toggleReceiveBalanceButton = document.getElementById('toggleReceiveBalance');
     this.receiveBalanceSymbol = document.getElementById('receiveBalanceSymbol');
+    this.fullAddress = null; // Store full address for copying
 
     // Create debounced function
     this.debouncedUpdateQRCode = debounce(() => this.updateQRCode(), 300);
@@ -18136,8 +18166,9 @@ class ReceiveModal {
     // Modal close
     document.getElementById('closeReceiveModal').addEventListener('click', () => this.close());
     
-    // Copy address
+    // Copy address functionality
     this.copyButton.addEventListener('click', () => this.copyAddress());
+    this.displayAddress.addEventListener('click', () => this.copyAddress());
     
     // QR code updates
     this.assetSelect.addEventListener('change', () => this.updateQRCode());
@@ -18201,7 +18232,13 @@ class ReceiveModal {
     this.qrcodeContainer.innerHTML = '';
 
     const address = myAccount.keys.address;
-    this.displayAddress.textContent = '0x' + address;
+    const addressWithPrefix = address.startsWith('0x') ? address : `0x${address}`;
+    
+    // Store full address for copying
+    this.fullAddress = addressWithPrefix;
+    
+    // Display full address
+    this.displayAddress.textContent = addressWithPrefix;
 
     // Generate QR code with payment data
     try {
@@ -18374,15 +18411,18 @@ class ReceiveModal {
   }
 
   async copyAddress() {
-    const address = this.displayAddress.textContent;
+    // Copy the full address, not the displayed truncated version and toast
+    const address = this.fullAddress || this.displayAddress.textContent;
     try {
       await navigator.clipboard.writeText(address);
+      showToast('Address copied to clipboard', 2000, 'success');
       this.copyButton.classList.add('success');
       setTimeout(() => {
         this.copyButton.classList.remove('success');
       }, 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+      showToast('Failed to copy address', 0, 'error');
     }
   }
 }

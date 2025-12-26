@@ -714,10 +714,25 @@
               <div class="contact-avatar-section">
                 <div class="avatar" id="myInfoAvatar"></div>
                 <div class="name" id="myInfoDisplayName"></div>
-                <div class="subtitle" id="myInfoDisplayUsername"></div>
                 <div id="myInfoQR" class="myinfo-qr"></div>
               </div>
               <!-- My info fields -->
+              <div class="contact-info-item" style="display: block;">
+                <div class="contact-info-label">Address</div>
+                <div class="contact-info-value">
+                  <div class="address-container">
+                    <div
+                      id="myInfoDisplayUsername"
+                      class="form-control address-display"
+                    ></div>
+                    <button
+                      id="myInfoCopyAddress"
+                      class="icon-button address-copy-button"
+                      aria-label="Copy address"
+                    ></button>
+                  </div>
+                </div>
+              </div>
               <div class="contact-info-item" style="display: none">
                 <div class="contact-info-label">Name</div>
                   <div class="contact-info-value" id="myInfoName"></div>
@@ -1512,24 +1527,14 @@
           <div class="form-container">
             <div class="form-group">
               <label>Your Address</label>
-              <div style="display: flex; align-items: flex-start; gap: 0.5rem">
+              <div class="address-container">
                 <div
                   id="displayAddress"
-                  class="form-control"
-                  style="
-                    flex: 1;
-                    font-size: 0.875rem;
-                    padding: 8px 12px;
-                    word-break: break-all;
-                    line-height: 1.4;
-                    background-color: #f8f9fa;
-                    cursor: default;
-                  "
+                  class="form-control address-display"
                 ></div>
                 <button
                   id="copyAddress"
-                  class="icon-button"
-                  style="color: #007bff; margin-top: 4px; flex-shrink: 0"
+                  class="icon-button address-copy-button"
                 ></button>
               </div>
               <div id="qrcode"></div>
