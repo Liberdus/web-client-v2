@@ -2539,7 +2539,6 @@ class MyInfoModal {
         address: myAccount.keys.address,
         hasAvatar: myData?.account?.hasAvatar,
         avatarId: myData?.account?.avatarId,
-        useAvatar: myData?.account?.useAvatar,
       },
       96
     );
@@ -5608,8 +5607,16 @@ class AvatarEditModal {
     let contactBlob = null;
     let userBlob = null;
     if (this.isOwnAvatar) {
-      // own avatar is stored under account.avatarId
-      try { userBlob = await contactAvatarCache.get(myData?.account?.avatarId); } catch (e) { userBlob = null; }
+      // When editing own avatar we do not show preference options —
+      // only allow upload/delete. Hide options UI and show delete/upload as appropriate.
+      container.style.display = 'none';
+      actions.style.display = 'none';
+      // Clear any stale option handlers and disable use button since options are hidden.
+      try { useBtn.onclick = null; } catch (e) {}
+      useBtn.disabled = true;
+      this.deleteButton.style.display = myData?.account?.hasAvatar ? 'inline-flex' : 'none';
+      // Early return: remaining option population is contact-specific and not needed for own avatar.
+      return;
     } else {
       const contactObj = myData?.contacts?.[address] || null;
       try { contactBlob = contactObj?.avatarId ? await contactAvatarCache.get(contactObj.avatarId) : null; } catch (e) { contactBlob = null; }
@@ -5662,11 +5669,7 @@ class AvatarEditModal {
     // - If editing a contact: show when the user's uploaded ('mine') avatar exists
     try {
       if (this.deleteButton) {
-        if (this.isOwnAvatar) {
-          this.deleteButton.style.display = myData?.account?.hasAvatar ? 'inline-flex' : 'none';
-        } else {
-          this.deleteButton.style.display = userUrl ? 'inline-flex' : 'none';
-        }
+        this.deleteButton.style.display = userUrl ? 'inline-flex' : 'none';
       }
     } catch (e) {}
 
@@ -5702,22 +5705,9 @@ class AvatarEditModal {
     };
 
     // Pre-select the current useAvatar preference if set (only if that option is visible).
-    // Use account-level preference when editing own avatar; otherwise use per-contact.
-    let currentPref = null;
-    if (this.isOwnAvatar) {
-      currentPref = myData?.account?.useAvatar ?? null;
-    } else {
-      currentPref = myData?.contacts?.[address]?.useAvatar ?? null;
-    }
-
-    // Default to identicon when no explicit preference exists. For own-avatar
-    // editing, prefer 'mine' if account has an avatar, otherwise identicon.
-    let effectivePref;
-    if (this.isOwnAvatar) {
-      effectivePref = currentPref ?? (myData?.account?.hasAvatar ? 'mine' : 'identicon');
-    } else {
-      effectivePref = currentPref ?? 'identicon';
-    }
+    // For contacts, prefer stored per-contact preference; default to identicon.
+    const currentPref = myData?.contacts?.[address]?.useAvatar ?? null;
+    const effectivePref = currentPref ?? 'identicon';
 
     if (effectivePref) {
       if (effectivePref === 'contact' && this.avatarOptionContact && this.avatarOptionContact.style.display !== 'none') selectOption('contact', this.avatarOptionContact);
@@ -5731,16 +5721,14 @@ class AvatarEditModal {
     useBtn.onclick = async () => {
       if (!this._avatarEditSelected || !address) return;
       if (this.isOwnAvatar) {
-        // persist preference on account
-        myData.account ??= {};
-        myData.account.useAvatar = this._avatarEditSelected;
-        saveState();
+        // Own-avatar options are not shown; do not persist an account-level preference.
+        // Just refresh the My Info UI in case nothing changed.
         try {
           if (myInfoModal && typeof myInfoModal.updateMyInfo === 'function') {
             myInfoModal.updateMyInfo();
           }
         } catch (e) {
-          console.warn('Failed to refresh My Info UI after selecting account useAvatar:', e);
+          console.warn('Failed to refresh My Info UI after avatar option selection (own avatar):', e);
         }
       } else {
         // persist preference on contact
@@ -5994,12 +5982,6 @@ class AvatarEditModal {
             delete myData.account.avatarId;
             delete myData.account.avatarKey;
             delete myData.account.avatarSecret;
-            // If the user previously preferred their uploaded avatar, switch
-            // preference to identicon. Otherwise leave their preference unchanged.
-            const acctPref = myData.account.useAvatar ?? null;
-            if (acctPref === 'mine') {
-              myData.account.useAvatar = 'identicon';
-            }
             saveState();
           } else {
             showToast('Failed to delete avatar', 3000, 'error');
@@ -6317,8 +6299,6 @@ class AvatarEditModal {
           myData.account.avatarKey = bin2base64(avatarKey);
           myData.account.avatarSecret = secret;
           myData.account.hasAvatar = true;
-          // Prefer user's uploaded avatar for display by default
-          myData.account.useAvatar = 'mine';
           saveState();
 
           // Update My Info modal UI
@@ -21587,15 +21567,31 @@ async function getContactAvatarHtml(contactOrAddress, size = 50) {
     ? normalizeAddress(contactOrAddress)
     : normalizeAddress(contactOrAddress?.address);
 
+  // Helper to return img HTML when blobUrl available
+  const makeImg = (url) => `<img src="${url}" class="contact-avatar-img" width="${size}" height="${size}" alt="avatar">`;
+  
   const contactObj = typeof contactOrAddress === 'object' && contactOrAddress !== null
     ? contactOrAddress
     : myData?.contacts?.[address] || {};
 
+  // If the requested avatar is for the current user, always return the
+  // account avatar if present, otherwise identicon. We do not consult or
+  // persist a `useAvatar` preference for the account anymore.
+  if (address && myAccount?.keys?.address && normalizeAddress(myAccount.keys.address) === address) {
+    try {
+      const aid = myData?.account?.avatarId;
+      if (aid) {
+        const url = await contactAvatarCache.getBlobUrl(aid);
+        if (url) return makeImg(url);
+      }
+    } catch (e) {
+      console.warn('Failed to load account avatar, falling back to identicon:', e);
+    }
+    return generateIdenticon(address, size);
+  }
+
   // useAvatar preference: 'contact' | 'mine' | 'identicon'
   const usePref = contactObj.useAvatar || myData?.contacts?.[address]?.useAvatar || null;
-
-  // Helper to return img HTML when blobUrl available
-  const makeImg = (url) => `<img src="${url}" class="contact-avatar-img" width="${size}" height="${size}" alt="avatar">`;
 
   if (address) {
     try {
