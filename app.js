@@ -5422,8 +5422,6 @@ class AvatarEditModal {
     this.previewSquare = document.getElementById('avatarEditSquare');
     this.zoomRange = document.getElementById('avatarZoomRange');
     this.zoomControls = document.querySelector('.avatar-edit-controls');
-
-    // avatar option elements (cached for reuse)
     this.avatarOptionsContainer = document.getElementById('avatarOptionsContainer');
     this.avatarOptionsActions = document.getElementById('avatarOptionsActions');
     this.avatarThumbContact = document.getElementById('avatarThumbContact');
