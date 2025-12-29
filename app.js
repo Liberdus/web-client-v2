@@ -20911,18 +20911,11 @@ class ContactAvatarCache {
   }
 
   /**
-   * Save a contact avatar to IndexedDB
-   * @param {string} address - The contact's address (used as key)
-   * @param {Blob} avatarBlob - The avatar blob to store
+   * Save an avatar blob to the avatars store keyed by avatar id.
+   * @param {string} id - Avatar id (server-provided or locally-generated)
+   * @param {Blob} avatarBlob - The avatar image blob to store
    * @returns {Promise<void>}
    */
-  /**
-   * Save an avatar blob for an address. `type` may be 'contact' (avatar sent by contact)
-   * or 'mine' (avatar uploaded by local user). Default is 'contact' to remain
-   * backwards-compatible with existing callers that pass only (address, blob).
-   */
-  // Save a blob under a server-provided avatar id (or generated id).
-  // `id` is the avatar identifier returned by the server (or a generated UUID for local-only images).
   async save(id, avatarBlob) {
     if (!id) throw new Error('avatar id required');
     if (!this.db) await this.init();
@@ -20955,15 +20948,10 @@ class ContactAvatarCache {
   }
 
   /**
-   * Retrieve a contact avatar blob from IndexedDB
-   * @param {string} address - The contact's address
+   * Get avatar blob by avatar id.
+   * @param {string} id - Avatar id (server-provided or locally-generated)
    * @returns {Promise<Blob|null>} The avatar blob or null if not found
    */
-  /**
-   * Get avatar blob. If `type` is provided use that ('contact'|'mine'), otherwise
-   * return the contact avatar if present, else the mine avatar.
-   */
-  // Get blob by avatar id
   async get(id) {
     if (!id) return null;
     if (!this.db) await this.init();
@@ -20987,14 +20975,10 @@ class ContactAvatarCache {
   }
 
   /**
-   * Get a blob URL for a contact avatar
-   * @param {string} address - The contact's address
+   * Get a blob URL for an avatar id (cached).
+   * @param {string} id - Avatar id (server-provided or locally-generated)
    * @returns {Promise<string|null>} Blob URL or null if not found
    */
-  /**
-   * Get a blob URL for a contact avatar. If `type` is provided, use that.
-   */
-  // Get a blob URL for an avatar id (cached)
   async getBlobUrl(id) {
     if (!id) return null;
     if (this.blobUrlCache.has(id)) return this.blobUrlCache.get(id);
@@ -21008,12 +20992,10 @@ class ContactAvatarCache {
   }
 
   /**
-   * Delete avatars. If `type` is 'contact' or 'mine' only delete that slot,
-   * otherwise delete the full record for the address.
-   * @param {string} address - The contact's address
+   * Delete an avatar record by id.
+   * @param {string} id - Avatar id to delete
    * @returns {Promise<void>}
    */
-  // Delete a single avatar record by id
   async delete(id) {
     if (!id) return;
     if (!this.db) await this.init();
@@ -21035,9 +21017,8 @@ class ContactAvatarCache {
 
   /**
    * Export all avatars as an object with base64-encoded data
-   * @returns {Promise<Object>} Object mapping address to { data: base64, type: mimeType }
+   * @returns {Promise<Object>} Object mapping id to { data: base64, type: mimeType, size }
    */
-  // Export all avatars as mapping id -> { data: base64, type, size }
   async exportAll() {
     if (!this.db) await this.init();
 
@@ -21074,11 +21055,10 @@ class ContactAvatarCache {
 
   /**
    * Import avatars from exported data
-   * @param {Object} avatarsData - Object mapping address to { data: base64, type: mimeType }
+   * @param {Object} avatarsData - Object mapping avatar id to { data: base64, type: mimeType }
    * @param {boolean} overwrite - Whether to overwrite existing avatars
    * @returns {Promise<number>} Number of avatars imported
    */
-  // Import avatarsData as mapping id -> { data: base64, type }
   async importAll(avatarsData, overwrite = false) {
     if (!this.db) await this.init();
     if (!avatarsData || typeof avatarsData !== 'object') return 0;
