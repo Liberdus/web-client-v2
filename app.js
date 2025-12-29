@@ -6374,6 +6374,8 @@ function markConnectivityDependentElements() {
   const networkDependentElements = [
     // Chat related
     '#handleSendMessage',
+    '#voiceRecordButton',
+    '#newChatForm button[type="submit"]',
 
     // Wallet related
     '#refreshBalance',

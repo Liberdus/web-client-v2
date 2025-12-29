@@ -1758,6 +1758,22 @@ input[type='file'].form-control::file-selector-button {
   position: absolute; /* Keep the original positioning */
 }
 
+/* Exception for voice record button - don't apply position:relative from offline-disabled */
+.icon-button.voice-record-button.offline-disabled {
+  position: absolute; /* Keep the original positioning */
+}
+
+/* Voice record button has circular hover area, so make overlay match that shape */
+.icon-button.voice-record-button.offline-disabled::after {
+  /* Override to match the circular hover area instead of button's rectangular shape */
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%; /* Circular shape to match hover state */
+  inset: auto; /* Override inset: 0 from base rule */
+}
+
 .messages-list {
   display: flex;
   flex-direction: column;
@@ -3654,7 +3670,7 @@ mark {
   }
 }
 
-.offline-disabled::before {
+.offline-disabled::after {
   content: '';
   position: absolute;
   top: 0;
