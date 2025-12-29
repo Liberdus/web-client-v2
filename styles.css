@@ -3600,6 +3600,7 @@ mark {
   opacity: 0.6;
   cursor: not-allowed !important;
   position: relative;
+  pointer-events: none; /* Prevent clicks on non-form elements (like div.context-menu-option) */
 }
 
 /* Offline indicator in header */
