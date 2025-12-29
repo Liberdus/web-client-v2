@@ -6377,8 +6377,6 @@ function markConnectivityDependentElements() {
 
     // Wallet related
     '#refreshBalance',
-    '#openBuyButton',
-    '#openSellButton',
     '#openFaucetBridgeButton',
     '#sendForm button[type="submit"]',
 
