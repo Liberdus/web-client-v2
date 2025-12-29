@@ -2533,8 +2533,14 @@ class MyInfoModal {
     if (!myAccount) return;
 
     // Use getContactAvatarHtml for consistent avatar rendering
+    // Include account avatar fields so user preference (`useAvatar`) is respected
     const avatarHtml = await getContactAvatarHtml(
-      { address: myAccount.keys.address, hasAvatar: myData?.account?.hasAvatar },
+      {
+        address: myAccount.keys.address,
+        hasAvatar: myData?.account?.hasAvatar,
+        avatarId: myData?.account?.avatarId,
+        useAvatar: myData?.account?.useAvatar,
+      },
       96
     );
     this.avatarDiv.innerHTML = avatarHtml;
@@ -4304,8 +4310,9 @@ async function processChats(chats, keys) {
             if (contact.senderInfo.avatarId && contact.senderInfo.avatarKey && contact.avatarId !== contact.senderInfo.avatarId) {
               downloadAndDecryptAvatar(`https://inv.liberdus.com:2083/get/${contact.senderInfo.avatarId}`, contact.senderInfo.avatarKey)
                 .then(async (blob) => {
-                    try {
-                    await contactAvatarCache.save(contact.address, blob);
+                  try {
+                    // Save blob under the server-provided avatar id
+                    await contactAvatarCache.save(contact.senderInfo.avatarId, blob);
                     contact.avatarId = contact.senderInfo.avatarId;
                     contact.hasAvatar = true;
                     // If contact provided a new avatar, prefer their sent avatar
@@ -4452,7 +4459,7 @@ async function processChats(chats, keys) {
               downloadAndDecryptAvatar(`https://inv.liberdus.com:2083/get/${contact.senderInfo.avatarId}`, contact.senderInfo.avatarKey)
                 .then(async (blob) => {
                   try {
-                    await contactAvatarCache.save(contact.address, blob);
+                    await contactAvatarCache.save(contact.senderInfo.avatarId, blob);
                     contact.avatarId = contact.senderInfo.avatarId;
                     contact.hasAvatar = true;
                     // If contact provided a new avatar, prefer their sent avatar
@@ -5354,6 +5361,9 @@ function createDisplayInfo(contact) {
     x: contact.senderInfo?.x || 'Not provided',
     address: contact.address,
     hasAvatar: !!contact.hasAvatar,
+    avatarId: contact.avatarId,
+    mineAvatarId: contact.mineAvatarId,
+    useAvatar: contact.useAvatar,
   };
 }
 
@@ -5598,10 +5608,12 @@ class AvatarEditModal {
     let contactBlob = null;
     let userBlob = null;
     if (this.isOwnAvatar) {
-      try { userBlob = await contactAvatarCache.get(address); } catch (e) { userBlob = null; }
+      // own avatar is stored under account.avatarId
+      try { userBlob = await contactAvatarCache.get(myData?.account?.avatarId); } catch (e) { userBlob = null; }
     } else {
-      try { contactBlob = await contactAvatarCache.get(address, 'contact'); } catch (e) { contactBlob = null; }
-      try { userBlob = await contactAvatarCache.get(address, 'mine'); } catch (e) { userBlob = null; }
+      const contactObj = myData?.contacts?.[address] || null;
+      try { contactBlob = contactObj?.avatarId ? await contactAvatarCache.get(contactObj.avatarId) : null; } catch (e) { contactBlob = null; }
+      try { userBlob = contactObj?.mineAvatarId ? await contactAvatarCache.get(contactObj.mineAvatarId) : null; } catch (e) { userBlob = null; }
     }
 
     const contactUrl = contactBlob ? URL.createObjectURL(contactBlob) : null;
@@ -5815,7 +5827,8 @@ class AvatarEditModal {
     // otherwise fall back to identicon. We intentionally ignore the contact-sent avatar here.
     if (!this.isOwnAvatar) {
       try {
-        const mineBlob = await contactAvatarCache.get(this.currentAddress, 'mine');
+        const contactObj = myData?.contacts?.[this.currentAddress] || null;
+        const mineBlob = contactObj?.mineAvatarId ? await contactAvatarCache.get(contactObj.mineAvatarId) : null;
         if (mineBlob) {
           await this.setImageFromBlob(mineBlob, false);
           return;
@@ -5838,7 +5851,7 @@ class AvatarEditModal {
     // For own avatar, keep existing behavior (account-based)
     let avatarBlob = null;
     try {
-      avatarBlob = await contactAvatarCache.get(this.currentAddress);
+      avatarBlob = await contactAvatarCache.get(myData?.account?.avatarId);
     } catch (e) {
       avatarBlob = null;
     }
@@ -5975,7 +5988,8 @@ class AvatarEditModal {
           }
 
           if (deletedOnServer) {
-            await contactAvatarCache.delete(this.currentAddress);
+            // delete account avatar by id
+            await contactAvatarCache.delete(myData?.account?.avatarId);
             myData.account.hasAvatar = false;
             delete myData.account.avatarId;
             delete myData.account.avatarKey;
@@ -6001,12 +6015,15 @@ class AvatarEditModal {
         }
 
         // Delete only the user's uploaded avatar slot ('mine'). Do not remove contact-sent avatar.
-        await contactAvatarCache.delete(this.currentAddress, 'mine');
+        if (contact.mineAvatarId) {
+          await contactAvatarCache.delete(contact.mineAvatarId);
+          delete contact.mineAvatarId;
+        }
 
         // Check whether a contact-sent avatar still exists
         let contactExists = false;
         try {
-          const contactBlob = await contactAvatarCache.get(this.currentAddress, 'contact');
+          const contactBlob = contact.avatarId ? await contactAvatarCache.get(contact.avatarId) : null;
           contactExists = !!contactBlob;
         } catch (e) {
           contactExists = false;
@@ -6292,8 +6309,8 @@ class AvatarEditModal {
           const result = await response.json();
           const avatarId = result.id;
 
-          // Save thumbnail to cache now that server operations succeeded
-          await contactAvatarCache.save(this.currentAddress, thumbnail, 'mine');
+          // Save thumbnail to cache now that server operations succeeded (keyed by avatarId)
+          await contactAvatarCache.save(avatarId, thumbnail);
 
           // Save id, key and secret in account
           myData.account.avatarId = avatarId;
@@ -6313,8 +6330,10 @@ class AvatarEditModal {
             return;
           }
           contact.hasAvatar = true;
-          delete contact.avatarId;
-          await contactAvatarCache.save(this.currentAddress, thumbnail, 'mine');
+          // Save user's uploaded avatar under a generated id and reference it on the contact
+          const mineId = bin2hex(generateRandomBytes(16));
+          await contactAvatarCache.save(mineId, thumbnail);
+          contact.mineAvatarId = mineId;
           // Prefer the user's uploaded avatar for this contact
           myData.contacts ??= {};
           myData.contacts[this.currentAddress] ??= { address: this.currentAddress };
@@ -7433,7 +7452,7 @@ class BackupAccountModal {
    *          Resolves with token data on success; rejects with Error on cancel/deny/timeout/error.
    */
   async startGoogleDriveAuth() {
-    const sessionId = crypto.randomUUID();
+    const sessionId = bin2hex(generateRandomBytes(16));
     const url = this.buildOAuthServerUrl(sessionId);
     const isReactNative = reactNativeApp.isReactNativeWebView;
     
@@ -20805,7 +20824,8 @@ class ContactAvatarCache {
   constructor() {
     this.dbName = 'liberdus_contact_avatars';
     this.storeName = 'avatars';
-    this.dbVersion = 1;
+    // Bump version to force onupgradeneeded for existing installations
+    this.dbVersion = 2;
     this.db = null;
     this.blobUrlCache = new Map();
   }
@@ -20843,10 +20863,18 @@ class ContactAvatarCache {
 
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
-        if (!db.objectStoreNames.contains(this.storeName)) {
-          const store = db.createObjectStore(this.storeName, { keyPath: 'address' });
-          store.createIndex('savedAt', 'savedAt', { unique: false });
+        // If an old store exists (keyPath=address) remove it and recreate under 'id'.
+        if (db.objectStoreNames.contains(this.storeName)) {
+          try {
+            db.deleteObjectStore(this.storeName);
+            console.log('Deleted old avatars object store to recreate with id keyPath');
+          } catch (e) {
+            console.warn('Failed to delete existing avatars object store during upgrade:', e);
+          }
         }
+        // Use avatar id as the primary key for one-image-per-id storage
+        const store = db.createObjectStore(this.storeName, { keyPath: 'id' });
+        store.createIndex('savedAt', 'savedAt', { unique: false });
       };
     });
   }
@@ -20913,43 +20941,35 @@ class ContactAvatarCache {
    * or 'mine' (avatar uploaded by local user). Default is 'contact' to remain
    * backwards-compatible with existing callers that pass only (address, blob).
    */
-  async save(address, avatarBlob, type = 'contact') {
-    if (!this.db) {
-      await this.init();
-    }
+  // Save a blob under a server-provided avatar id (or generated id).
+  // `id` is the avatar identifier returned by the server (or a generated UUID for local-only images).
+  async save(id, avatarBlob) {
+    if (!id) throw new Error('avatar id required');
+    if (!this.db) await this.init();
 
-    // Revoke any cached object URLs for this address (contact, mine, default)
-    const keysToRevoke = [`${address}:contact`, `${address}:mine`, `${address}:default`];
-    for (const k of keysToRevoke) {
-      if (this.blobUrlCache.has(k)) {
-        try { URL.revokeObjectURL(this.blobUrlCache.get(k)); } catch (e) {}
-        this.blobUrlCache.delete(k);
-      }
+    // Revoke any cached object URL for this id
+    if (this.blobUrlCache.has(id)) {
+      try { URL.revokeObjectURL(this.blobUrlCache.get(id)); } catch (e) {}
+      this.blobUrlCache.delete(id);
     }
 
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction([this.storeName], 'readwrite');
       const store = tx.objectStore(this.storeName);
 
-      const getReq = store.get(address);
-      getReq.onsuccess = () => {
-        const existing = getReq.result || { address };
-        if (type === 'contact') existing.contactAvatar = avatarBlob;
-        else existing.mineAvatar = avatarBlob;
-        // Remove legacy single `avatar` field to avoid stale leftovers
-        if (existing.avatar) delete existing.avatar;
-        existing.savedAt = Date.now();
-
-        const putReq = store.put(existing);
-        putReq.onsuccess = () => resolve();
-        putReq.onerror = () => {
-          console.warn('Failed to save contact avatar:', putReq.error);
-          reject(putReq.error);
-        };
+      const record = {
+        id,
+        blob: avatarBlob,
+        type: avatarBlob?.type || 'image/jpeg',
+        size: avatarBlob?.size || 0,
+        savedAt: Date.now(),
       };
-      getReq.onerror = () => {
-        console.warn('Failed to open existing avatar record:', getReq.error);
-        reject(getReq.error);
+
+      const putReq = store.put(record);
+      putReq.onsuccess = () => resolve();
+      putReq.onerror = () => {
+        console.warn('Failed to save avatar blob:', putReq.error);
+        reject(putReq.error);
       };
     });
   }
@@ -20963,28 +20983,24 @@ class ContactAvatarCache {
    * Get avatar blob. If `type` is provided use that ('contact'|'mine'), otherwise
    * return the contact avatar if present, else the mine avatar.
    */
-  async get(address, type = null) {
-    if (!this.db) {
-      await this.init();
-    }
+  // Get blob by avatar id
+  async get(id) {
+    if (!id) return null;
+    if (!this.db) await this.init();
 
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction([this.storeName], 'readonly');
       const store = tx.objectStore(this.storeName);
-      const request = store.get(address);
+      const request = store.get(id);
 
       request.onsuccess = () => {
         const result = request.result;
         if (!result) return resolve(null);
-        // Backwards compatibility: some entries may use legacy `avatar` field
-        if (type === 'contact') return resolve(result.contactAvatar || result.avatar || null);
-        if (type === 'mine') return resolve(result.mineAvatar || result.avatar || null);
-        // default: prefer contact avatar, then legacy avatar, then mine avatar
-        return resolve(result.contactAvatar || result.avatar || result.mineAvatar || null);
+        return resolve(result.blob || null);
       };
 
       request.onerror = () => {
-        console.warn('Failed to get contact avatar:', request.error);
+        console.warn('Failed to get avatar blob:', request.error);
         reject(request.error);
       };
     });
@@ -20998,19 +21014,16 @@ class ContactAvatarCache {
   /**
    * Get a blob URL for a contact avatar. If `type` is provided, use that.
    */
-  async getBlobUrl(address, type = null) {
-    const cacheKey = `${address}:${type || 'default'}`;
-    if (this.blobUrlCache.has(cacheKey)) {
-      return this.blobUrlCache.get(cacheKey);
-    }
-
-    const blob = await this.get(address, type);
+  // Get a blob URL for an avatar id (cached)
+  async getBlobUrl(id) {
+    if (!id) return null;
+    if (this.blobUrlCache.has(id)) return this.blobUrlCache.get(id);
+    const blob = await this.get(id);
     if (blob) {
       const blobUrl = URL.createObjectURL(blob);
-      this.blobUrlCache.set(cacheKey, blobUrl);
+      this.blobUrlCache.set(id, blobUrl);
       return blobUrl;
     }
-
     return null;
   }
 
@@ -21020,42 +21033,23 @@ class ContactAvatarCache {
    * @param {string} address - The contact's address
    * @returns {Promise<void>}
    */
-  async delete(address, type = null) {
-    if (!this.db) {
-      await this.init();
-    }
+  // Delete a single avatar record by id
+  async delete(id) {
+    if (!id) return;
+    if (!this.db) await this.init();
 
-    // Revoke all per-address cache keys so UI re-queries DB for fresh blobs
-    const keysToRevoke = [`${address}:contact`, `${address}:mine`, `${address}:default`];
-    for (const k of keysToRevoke) {
-      if (this.blobUrlCache.has(k)) {
-        URL.revokeObjectURL(this.blobUrlCache.get(k));
-        this.blobUrlCache.delete(k);
-      }
+    // Revoke cached URL for this id
+    if (this.blobUrlCache.has(id)) {
+      try { URL.revokeObjectURL(this.blobUrlCache.get(id)); } catch (e) {}
+      this.blobUrlCache.delete(id);
     }
 
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction([this.storeName], 'readwrite');
       const store = tx.objectStore(this.storeName);
-      if (type) {
-        const getReq = store.get(address);
-        getReq.onsuccess = () => {
-          const existing = getReq.result;
-          if (!existing) return resolve();
-          if (type === 'contact') delete existing.contactAvatar;
-          else delete existing.mineAvatar;
-          // Also clear legacy single `avatar` if present, since it may be shown in UI
-          if (existing.avatar) delete existing.avatar;
-          const putReq = store.put(existing);
-          putReq.onsuccess = () => resolve();
-          putReq.onerror = () => reject(putReq.error);
-        };
-        getReq.onerror = () => reject(getReq.error);
-      } else {
-        const request = store.delete(address);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      }
+      const request = store.delete(id);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
     });
   }
 
@@ -21063,10 +21057,9 @@ class ContactAvatarCache {
    * Export all avatars as an object with base64-encoded data
    * @returns {Promise<Object>} Object mapping address to { data: base64, type: mimeType }
    */
+  // Export all avatars as mapping id -> { data: base64, type, size }
   async exportAll() {
-    if (!this.db) {
-      await this.init();
-    }
+    if (!this.db) await this.init();
 
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction([this.storeName], 'readonly');
@@ -21074,39 +21067,21 @@ class ContactAvatarCache {
       const request = store.getAll();
 
       request.onsuccess = async () => {
-        const results = request.result;
+        const results = request.result || [];
         const avatars = {};
-
         for (const item of results) {
-          if (item.address) {
+          if (item && item.id && item.blob) {
             try {
-              const entry = {};
-              if (item.contactAvatar) {
-                entry.contact = {
-                  data: await this.blobToBase64(item.contactAvatar),
-                  type: item.contactAvatar.type || 'image/jpeg'
-                };
-              }
-              // legacy single avatar field
-              if (!entry.contact && item.avatar) {
-                entry.contact = {
-                  data: await this.blobToBase64(item.avatar),
-                  type: item.avatar.type || 'image/jpeg'
-                };
-              }
-              if (item.mineAvatar) {
-                entry.mine = {
-                  data: await this.blobToBase64(item.mineAvatar),
-                  type: item.mineAvatar.type || 'image/jpeg'
-                };
-              }
-              avatars[item.address] = entry;
+              avatars[item.id] = {
+                data: await this.blobToBase64(item.blob),
+                type: item.type || 'image/jpeg',
+                size: item.size || 0,
+              };
             } catch (e) {
-              console.warn(`Failed to export avatar for ${item.address}:`, e);
+              console.warn(`Failed to export avatar id ${item.id}:`, e);
             }
           }
         }
-
         resolve(avatars);
       };
 
@@ -21123,59 +21098,26 @@ class ContactAvatarCache {
    * @param {boolean} overwrite - Whether to overwrite existing avatars
    * @returns {Promise<number>} Number of avatars imported
    */
+  // Import avatarsData as mapping id -> { data: base64, type }
   async importAll(avatarsData, overwrite = false) {
-    if (!this.db) {
-      await this.init();
-    }
-
-    if (!avatarsData || typeof avatarsData !== 'object') {
-      return 0;
-    }
+    if (!this.db) await this.init();
+    if (!avatarsData || typeof avatarsData !== 'object') return 0;
 
     let importedCount = 0;
-
-    for (const [address, avatarInfo] of Object.entries(avatarsData)) {
+    for (const [id, avatarInfo] of Object.entries(avatarsData)) {
       if (!avatarInfo) continue;
       try {
-        // avatarInfo may be { contact: {data,type}, mine: {data,type} } (new)
-        // or legacy { data, type } (treat as contact)
-
-        // Check existence when not overwriting
         if (!overwrite) {
-          const existing = await this.get(address);
-          if (existing) {
-            // existing holds either contact or user blob - skip only if both sides exist
-            // we'll still try to import missing sides
-          }
+          const existing = await this.get(id);
+          if (existing) continue;
         }
-
-        if (avatarInfo.contact && avatarInfo.contact.data) {
-          const blob = this.base64ToBlob(avatarInfo.contact.data, avatarInfo.contact.type || 'image/jpeg');
-          await this.save(address, blob, 'contact');
-          importedCount++;
-        }
-
-        if (avatarInfo.mine && avatarInfo.mine.data) {
-          const blob = this.base64ToBlob(avatarInfo.mine.data, avatarInfo.mine.type || 'image/jpeg');
-          await this.save(address, blob, 'mine');
-          importedCount++;
-        }
-
-        // Accept legacy 'user' field as alias for 'mine'
-        if (avatarInfo.user && avatarInfo.user.data) {
-          const blob = this.base64ToBlob(avatarInfo.user.data, avatarInfo.user.type || 'image/jpeg');
-          await this.save(address, blob, 'mine');
-          importedCount++;
-        }
-
-        // legacy single entry
-        if (!avatarInfo.contact && !avatarInfo.mine && avatarInfo.data) {
+        if (avatarInfo.data) {
           const blob = this.base64ToBlob(avatarInfo.data, avatarInfo.type || 'image/jpeg');
-          await this.save(address, blob, 'contact');
+          await this.save(id, blob);
           importedCount++;
         }
       } catch (e) {
-        console.warn(`Failed to import avatar for ${address}:`, e);
+        console.warn(`Failed to import avatar id ${id}:`, e);
       }
     }
 
@@ -21657,21 +21599,44 @@ async function getContactAvatarHtml(contactOrAddress, size = 50) {
 
   if (address) {
     try {
-      if (usePref === 'identicon') {
-        return generateIdenticon(address, size);
-      }
+      if (usePref === 'identicon') return generateIdenticon(address, size);
+
+      // Determine available avatar ids from contact or account
+      const contact = typeof contactOrAddress === 'object' && contactOrAddress !== null
+        ? contactOrAddress
+        : myData?.contacts?.[address] || null;
+
       if (usePref === 'mine') {
-        const url = await contactAvatarCache.getBlobUrl(address, 'mine');
-        if (url) return makeImg(url);
+        // Prefer the user's uploaded avatar for this contact; fall back to contact avatar.
+        // Only use the account avatar when the contact is the current user.
+        let id = contact?.mineAvatarId || contact?.avatarId;
+        if (!id && address && myData?.account?.address && normalizeAddress(myData.account.address) === address) {
+          id = myData?.account?.avatarId;
+        }
+        if (id) {
+          const url = await contactAvatarCache.getBlobUrl(id);
+          if (url) return makeImg(url);
+        }
       } else if (usePref === 'contact') {
-        const url = await contactAvatarCache.getBlobUrl(address, 'contact');
-        if (url) return makeImg(url);
+        const id = contact?.avatarId || null;
+        if (id) {
+          const url = await contactAvatarCache.getBlobUrl(id);
+          if (url) return makeImg(url);
+        }
       } else {
-        // no explicit preference: prefer contact avatar, then user avatar
-        let url = await contactAvatarCache.getBlobUrl(address, 'contact');
-        if (url) return makeImg(url);
-        url = await contactAvatarCache.getBlobUrl(address, 'mine');
-        if (url) return makeImg(url);
+        // No explicit preference: prefer contact avatar, then user-uploaded avatar.
+        // Do NOT fall back to the account's avatar here — that previously caused
+        // unrelated contacts with no images to show the user's own avatar.
+        let id = contact?.avatarId;
+        if (id) {
+          let url = await contactAvatarCache.getBlobUrl(id);
+          if (url) return makeImg(url);
+        }
+        id = contact?.mineAvatarId;
+        if (id) {
+          let url = await contactAvatarCache.getBlobUrl(id);
+          if (url) return makeImg(url);
+        }
       }
     } catch (err) {
       console.warn('Failed to load avatar, falling back to identicon:', err);
