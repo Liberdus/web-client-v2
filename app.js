@@ -5406,6 +5406,8 @@ class AvatarEditModal {
     this.avatarOptionUploaded = null;
     this.avatarOptionIdenticon = null;
     this.avatarUseButton = null;
+    // Track object URLs created for option thumbnails so we can revoke them
+    this._optionBlobUrls = [];
   }
 
   load() {
@@ -5551,6 +5553,13 @@ class AvatarEditModal {
       [o1,o2,o3].forEach(o => { if (o) o.style.outline = 'none'; });
       const useBtn = document.getElementById('avatarUseButton');
       if (useBtn) useBtn.disabled = true;
+      // Revoke any object URLs created for option thumbnails
+      if (this._optionBlobUrls && this._optionBlobUrls.length) {
+        for (const u of this._optionBlobUrls) {
+          try { URL.revokeObjectURL(u); } catch (e) {}
+        }
+        this._optionBlobUrls = [];
+      }
     } catch (e) {}
     enterFullscreen();
   }
@@ -5561,7 +5570,6 @@ class AvatarEditModal {
    */
   async populateOptions() {
     const address = this.currentAddress;
-    const contact = myData?.contacts?.[address] || {};
     const contactThumb = this.avatarThumbContact;
     const uploadedThumb = this.avatarThumbUploaded;
     const identiconThumb = this.avatarThumbIdenticon;
@@ -5578,12 +5586,34 @@ class AvatarEditModal {
     this._avatarEditSelected = null;
     useBtn.disabled = true;
 
-    // fetch blob urls (may be null)
-    const contactUrl = await contactAvatarCache.getBlobUrl(address, 'contact');
-    const userUrl = await contactAvatarCache.getBlobUrl(address, 'mine');
+    // Revoke any previously-created option object URLs to avoid showing stale
+    // thumbnails after deletes and to avoid leaking object URLs.
+    if (this._optionBlobUrls && this._optionBlobUrls.length) {
+      for (const u of this._optionBlobUrls) {
+        try { URL.revokeObjectURL(u); } catch (e) {}
+      }
+      this._optionBlobUrls = [];
+    }
+
+    // fetch blobs (may be null). Use `get()` (blob) rather than cached blob URLs
+    // so we can detect actual existence after deletes.
+    let contactBlob = null;
+    let userBlob = null;
+    if (this.isOwnAvatar) {
+      try { userBlob = await contactAvatarCache.get(address); } catch (e) { userBlob = null; }
+    } else {
+      try { contactBlob = await contactAvatarCache.get(address, 'contact'); } catch (e) { contactBlob = null; }
+      try { userBlob = await contactAvatarCache.get(address, 'mine'); } catch (e) { userBlob = null; }
+    }
+
+    const contactUrl = contactBlob ? URL.createObjectURL(contactBlob) : null;
+    const userUrl = userBlob ? URL.createObjectURL(userBlob) : null;
+    if (contactUrl) this._optionBlobUrls.push(contactUrl);
+    if (userUrl) this._optionBlobUrls.push(userUrl);
 
     // If there are no uploaded avatars for this contact (neither contact-sent nor user's uploaded),
-    // do not show the avatar options UI at all.
+    // do not show the avatar options UI at all. For own-avatar editing we hide the options when
+    // there is no account avatar available.
     if (!contactUrl && !userUrl) {
       if (container) container.style.display = 'none';
       if (actions) actions.style.display = 'none';
@@ -5661,12 +5691,28 @@ class AvatarEditModal {
       if (el) el.style.outline = '3px solid #007acc';
     };
 
-    // Pre-select the current useAvatar preference if set (only if that option is visible)
-    const currentPref = myData?.contacts?.[address]?.useAvatar ?? null;
-    if (currentPref) {
-      if (currentPref === 'contact' && this.avatarOptionContact && this.avatarOptionContact.style.display !== 'none') selectOption('contact', this.avatarOptionContact);
-      else if (currentPref === 'mine' && this.avatarOptionUploaded && this.avatarOptionUploaded.style.display !== 'none') selectOption('mine', this.avatarOptionUploaded);
-      else if (currentPref === 'identicon' && this.avatarOptionIdenticon && this.avatarOptionIdenticon.style.display !== 'none') selectOption('identicon', this.avatarOptionIdenticon);
+    // Pre-select the current useAvatar preference if set (only if that option is visible).
+    // Use account-level preference when editing own avatar; otherwise use per-contact.
+    let currentPref = null;
+    if (this.isOwnAvatar) {
+      currentPref = myData?.account?.useAvatar ?? null;
+    } else {
+      currentPref = myData?.contacts?.[address]?.useAvatar ?? null;
+    }
+
+    // Default to identicon when no explicit preference exists. For own-avatar
+    // editing, prefer 'mine' if account has an avatar, otherwise identicon.
+    let effectivePref;
+    if (this.isOwnAvatar) {
+      effectivePref = currentPref ?? (myData?.account?.hasAvatar ? 'mine' : 'identicon');
+    } else {
+      effectivePref = currentPref ?? 'identicon';
+    }
+
+    if (effectivePref) {
+      if (effectivePref === 'contact' && this.avatarOptionContact && this.avatarOptionContact.style.display !== 'none') selectOption('contact', this.avatarOptionContact);
+      else if (effectivePref === 'mine' && this.avatarOptionUploaded && this.avatarOptionUploaded.style.display !== 'none') selectOption('mine', this.avatarOptionUploaded);
+      else if (effectivePref === 'identicon' && this.avatarOptionIdenticon && this.avatarOptionIdenticon.style.display !== 'none') selectOption('identicon', this.avatarOptionIdenticon);
     }
     if (this.avatarOptionContact) this.avatarOptionContact.onclick = () => selectOption('contact', this.avatarOptionContact);
     if (this.avatarOptionUploaded) this.avatarOptionUploaded.onclick = () => selectOption('mine', this.avatarOptionUploaded);
@@ -5674,23 +5720,37 @@ class AvatarEditModal {
 
     useBtn.onclick = async () => {
       if (!this._avatarEditSelected || !address) return;
-      // persist preference on contact
-      myData.contacts ??= {};
-      myData.contacts[address] ??= { address };
-      myData.contacts[address].useAvatar = this._avatarEditSelected;
-      saveState();
-      // Update UI where appropriate so the change is visible immediately
-      try {
-        const contact = myData.contacts[address];
-        if (contactInfoModal && typeof contactInfoModal.updateContactInfo === 'function') {
-          contactInfoModal.updateContactInfo(createDisplayInfo(contact));
-          contactInfoModal.needsContactListUpdate = true;
+      if (this.isOwnAvatar) {
+        // persist preference on account
+        myData.account ??= {};
+        myData.account.useAvatar = this._avatarEditSelected;
+        saveState();
+        try {
+          if (myInfoModal && typeof myInfoModal.updateMyInfo === 'function') {
+            myInfoModal.updateMyInfo();
+          }
+        } catch (e) {
+          console.warn('Failed to refresh My Info UI after selecting account useAvatar:', e);
         }
-        if (chatModal && chatModal.isActive && chatModal.isActive() && chatModal.address === address) {
-          chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
+      } else {
+        // persist preference on contact
+        myData.contacts ??= {};
+        myData.contacts[address] ??= { address };
+        myData.contacts[address].useAvatar = this._avatarEditSelected;
+        saveState();
+        // Update UI where appropriate so the change is visible immediately
+        try {
+          const contact = myData.contacts[address];
+          if (contactInfoModal && typeof contactInfoModal.updateContactInfo === 'function') {
+            contactInfoModal.updateContactInfo(createDisplayInfo(contact));
+            contactInfoModal.needsContactListUpdate = true;
+          }
+          if (chatModal && chatModal.isActive && chatModal.isActive() && chatModal.address === address) {
+            chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
+          }
+        } catch (e) {
+          console.warn('Failed to refresh avatar UI after selecting useAvatar:', e);
         }
-      } catch (e) {
-        console.warn('Failed to refresh avatar UI after selecting useAvatar:', e);
       }
       // Close modal
       this.close();
@@ -5922,6 +5982,12 @@ class AvatarEditModal {
             delete myData.account.avatarId;
             delete myData.account.avatarKey;
             delete myData.account.avatarSecret;
+            // If the user previously preferred their uploaded avatar, switch
+            // preference to identicon. Otherwise leave their preference unchanged.
+            const acctPref = myData.account.useAvatar ?? null;
+            if (acctPref === 'mine') {
+              myData.account.useAvatar = 'identicon';
+            }
             saveState();
           } else {
             showToast('Failed to delete avatar', 3000, 'error');
@@ -5961,15 +6027,27 @@ class AvatarEditModal {
           saveState();
         }
 
-        // Update UI and refresh options so modal reflects the deletion
+        // Update UI so contact info reflects deletion
         contactInfoModal.updateContactInfo(createDisplayInfo(contact));
         contactInfoModal.needsContactListUpdate = true;
-        try {
-          await this.populateOptions();
-        } catch (e) {}
         if (chatModal.isActive() && chatModal.address === this.currentAddress) {
           chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
         }
+      }
+
+      // Revoke any option thumbnails in this modal to avoid showing stale URLs
+      if (this._optionBlobUrls && this._optionBlobUrls.length) {
+        for (const u of this._optionBlobUrls) {
+          try { URL.revokeObjectURL(u); } catch (e) {}
+        }
+        this._optionBlobUrls = [];
+      }
+
+      // Refresh the option list once so the modal immediately reflects the deletion
+      try {
+        await this.populateOptions();
+      } catch (e) {
+        console.warn('Failed to repopulate avatar options after delete:', e);
       }
 
       // Update preview in the modal to show identicon
@@ -6224,6 +6302,8 @@ class AvatarEditModal {
           myData.account.avatarKey = bin2base64(avatarKey);
           myData.account.avatarSecret = secret;
           myData.account.hasAvatar = true;
+          // Prefer user's uploaded avatar for display by default
+          myData.account.useAvatar = 'mine';
           saveState();
 
           // Update My Info modal UI
@@ -10713,6 +10793,15 @@ class ChatModal {
     this.addFriendButtonChat = document.getElementById('addFriendButtonChat');
     this.addAttachmentButton = document.getElementById('addAttachmentButton');
     this.chatFileInput = document.getElementById('chatFileInput');
+    this.chatPhotoLibraryInput = document.getElementById('chatPhotoLibraryInput');
+    this.chatFilesInput = document.getElementById('chatFilesInput');
+    
+    // Camera capture modal elements
+    this.cameraCaptureOverlay = document.getElementById('cameraCaptureOverlay');
+    this.cameraCaptureDialog = document.getElementById('cameraCaptureDialog');
+    this.cameraCaptureVideo = document.getElementById('cameraCaptureVideo');
+    this.cameraCancelButton = document.getElementById('cameraCancelButton');
+    this.cameraCaptureButton = document.getElementById('cameraCaptureButton');
 
     // Voice recording elements
     this.voiceRecordButton = document.getElementById('voiceRecordButton');
@@ -10726,6 +10815,8 @@ class ChatModal {
     this.contextMenu = document.getElementById('messageContextMenu');
     // Initialize image attachment context menu
     this.imageAttachmentContextMenu = document.getElementById('imageAttachmentContextMenu');
+    // Initialize attachment options context menu
+    this.attachmentOptionsContextMenu = document.getElementById('attachmentOptionsContextMenu');
     this.currentImageAttachmentRow = null;
     
     // Add event delegation for message clicks (since messages are created dynamically)
@@ -10760,6 +10851,15 @@ class ChatModal {
         this.handleImageAttachmentContextMenuAction(action);
       });
     }
+    // Add attachment options context menu option listeners
+    if (this.attachmentOptionsContextMenu) {
+      this.attachmentOptionsContextMenu.addEventListener('click', (e) => {
+        const option = e.target.closest('.context-menu-option');
+        if (!option) return;
+        const action = option.dataset.action;
+        this.handleAttachmentOptionsContextMenuAction(action);
+      });
+    }
     
     // Close context menu when clicking outside
     document.addEventListener('click', (e) => {
@@ -10768,6 +10868,9 @@ class ChatModal {
       }
       if (this.imageAttachmentContextMenu && !this.imageAttachmentContextMenu.contains(e.target)) {
         this.closeImageAttachmentContextMenu();
+      }
+      if (this.attachmentOptionsContextMenu && !this.attachmentOptionsContextMenu.contains(e.target) && !this.addAttachmentButton.contains(e.target)) {
+        this.closeAttachmentOptionsContextMenu();
       }
     });
     this.sendButton.addEventListener('click', this.handleSendMessage.bind(this));
@@ -20744,7 +20847,6 @@ class ContactAvatarCache {
         const db = event.target.result;
         if (!db.objectStoreNames.contains(this.storeName)) {
           const store = db.createObjectStore(this.storeName, { keyPath: 'address' });
-          // store object will hold { address, contactAvatar, mineAvatar, savedAt }
           store.createIndex('savedAt', 'savedAt', { unique: false });
         }
       };
@@ -20818,10 +20920,13 @@ class ContactAvatarCache {
       await this.init();
     }
 
-    const cacheKey = `${address}:${type}`;
-    if (this.blobUrlCache.has(cacheKey)) {
-      URL.revokeObjectURL(this.blobUrlCache.get(cacheKey));
-      this.blobUrlCache.delete(cacheKey);
+    // Revoke any cached object URLs for this address (contact, mine, default)
+    const keysToRevoke = [`${address}:contact`, `${address}:mine`, `${address}:default`];
+    for (const k of keysToRevoke) {
+      if (this.blobUrlCache.has(k)) {
+        try { URL.revokeObjectURL(this.blobUrlCache.get(k)); } catch (e) {}
+        this.blobUrlCache.delete(k);
+      }
     }
 
     return new Promise((resolve, reject) => {
@@ -20833,6 +20938,8 @@ class ContactAvatarCache {
         const existing = getReq.result || { address };
         if (type === 'contact') existing.contactAvatar = avatarBlob;
         else existing.mineAvatar = avatarBlob;
+        // Remove legacy single `avatar` field to avoid stale leftovers
+        if (existing.avatar) delete existing.avatar;
         existing.savedAt = Date.now();
 
         const putReq = store.put(existing);
@@ -20910,24 +21017,18 @@ class ContactAvatarCache {
   }
 
   /**
-   * Delete a contact avatar from IndexedDB
-   * @param {string} address - The contact's address
-   * @returns {Promise<void>}
-   */
-  /**
    * Delete avatars. If `type` is 'contact' or 'mine' only delete that slot,
    * otherwise delete the full record for the address.
+   * @param {string} address - The contact's address
+   * @returns {Promise<void>}
    */
   async delete(address, type = null) {
     if (!this.db) {
       await this.init();
     }
 
-    const keysToRevoke = [];
-    if (type) keysToRevoke.push(`${address}:${type}`);
-    else {
-    keysToRevoke.push(`${address}:contact`, `${address}:mine`, `${address}:default`);
-    }
+    // Revoke all per-address cache keys so UI re-queries DB for fresh blobs
+    const keysToRevoke = [`${address}:contact`, `${address}:mine`, `${address}:default`];
     for (const k of keysToRevoke) {
       if (this.blobUrlCache.has(k)) {
         URL.revokeObjectURL(this.blobUrlCache.get(k));
@@ -20945,6 +21046,8 @@ class ContactAvatarCache {
           if (!existing) return resolve();
           if (type === 'contact') delete existing.contactAvatar;
           else delete existing.mineAvatar;
+          // Also clear legacy single `avatar` if present, since it may be shown in UI
+          if (existing.avatar) delete existing.avatar;
           const putReq = store.put(existing);
           putReq.onsuccess = () => resolve();
           putReq.onerror = () => reject(putReq.error);
