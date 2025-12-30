@@ -1436,6 +1436,13 @@
                   <a href="#" id="contactInfoX" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
                 </div>
               </div>
+              <div class="contact-info-item">
+                <div class="contact-info-label">Notes</div>
+                <div class="contact-info-value-container">
+                  <div class="contact-info-value" id="contactInfoNotes"></div>
+                  <button class="icon-button edit-icon" id="notesEditButton" aria-label="Edit notes"></button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -2014,7 +2021,7 @@
                       id="editContactNameInput"
                       placeholder="Enter contact name"
                     />
-                    <button class="field-action-button clear" aria-label="Add"></button>
+                    <button class="field-action-button clear" id="nameClearButton" aria-label="Clear"></button>
                   </div>
                 </div>
               </div>
@@ -2037,6 +2044,18 @@
               <div class="contact-info-item" style="display: none">
                 <div class="contact-info-label">X-Twitter</div>
                 <div class="contact-info-value" id="editContactX"></div>
+              </div>
+              <div class="contact-info-item">
+                <div class="contact-info-label">Notes</div>
+                <div class="contact-info-value-container">
+                  <div class="contact-info-value editing">
+                    <textarea id="editContactNotesInput" class="form-control" rows="4" placeholder="Enter notes about this contact"></textarea>
+                    <button class="field-action-button clear" id="notesClearButton" aria-label="Clear"></button>
+                  </div>
+                </div>
+              </div>
+              <div class="form-actions" style="padding: 1rem;">
+                <button id="saveEditContactButton" class="btn btn--primary btn--pill btn--full">Save</button>
               </div>
             </div>
           </div>

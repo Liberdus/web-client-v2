@@ -2817,6 +2817,8 @@ class ContactInfoModal {
     this.avatarEditButton = document.createElement('button');
     this.avatarEditButton.className = 'icon-button edit-icon avatar-edit-button avatar-edit-button-outside';
     this.avatarEditButton.setAttribute('aria-label', 'Edit photo');
+    this.notesElement = document.getElementById('contactInfoNotes');
+    this.notesEditButton = document.getElementById('notesEditButton');
 
     // Back button
     this.backButton.addEventListener('click', () => this.close());
@@ -2849,6 +2851,12 @@ class ContactInfoModal {
     this.avatarEditButton.addEventListener('click', (e) => {
       e.stopPropagation(); // Prevent triggering avatar click
       this.openAvatarEdit();
+    });
+
+    // Notes edit button
+    this.notesEditButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      editContactModal.open();
     });
 
     // Make the avatar itself clickable
@@ -2922,6 +2930,10 @@ class ContactInfoModal {
         element.textContent = value;
       }
     });
+
+    // Notes
+    const notesRaw = displayInfo.notes ?? (displayInfo.address && myData.contacts?.[displayInfo.address]?.notes);
+    this.notesElement.textContent = notesRaw || 'Not Entered';
   }
 
   // Set up chat button functionality
@@ -3243,15 +3255,20 @@ class EditContactModal {
   load() {
     this.modal = document.getElementById('editContactModal');
     this.nameInput = document.getElementById('editContactNameInput');
-    this.nameActionButton = this.nameInput.parentElement.querySelector('.field-action-button');
+    this.nameClearButton = document.getElementById('nameClearButton');
     this.providedNameContainer = document.getElementById('editContactProvidedNameContainer');
+    this.notesInput = document.getElementById('editContactNotesInput');
+    this.notesClearButton = document.getElementById('notesClearButton');
+    this.saveButton = document.getElementById('saveEditContactButton');
     this.backButton = document.getElementById('closeEditContactModal');
 
     // Setup event listeners
     this.nameInput.addEventListener('input', (e) => this.handleNameInput(e));
     this.nameInput.addEventListener('blur', () => this.handleNameBlur());
     this.nameInput.addEventListener('keydown', (e) => this.handleNameKeydown(e));
-    this.nameActionButton.addEventListener('click', () => this.handleNameButton());
+    this.nameClearButton.addEventListener('click', () => this.handleNameClear());
+    this.notesClearButton.addEventListener('click', () => this.handleNotesClear());
+    this.saveButton.addEventListener('click', () => this.handleSave());
     this.providedNameContainer.addEventListener('click', () => this.handleProvidedNameClick());
     this.backButton.addEventListener('click', () => this.close());
   }
@@ -3292,8 +3309,6 @@ class EditContactModal {
     // Set up the input field with the original name
     this.nameInput.value = originalName;
 
-    // field-action-button should be clear
-    this.nameActionButton.className = 'field-action-button clear';
 
     // Get the current contact info from the contact info modal
     this.currentContactAddress = contactInfoModal.currentContactAddress;
@@ -3301,6 +3316,10 @@ class EditContactModal {
       console.error('No current contact found');
       return;
     }
+
+    // Populate notes field
+    const contactNotes = myData.contacts[this.currentContactAddress]?.notes || '';
+    this.notesInput.value = contactNotes;
 
     // Show the edit contact modal
     this.modal.classList.add('active');
@@ -3343,14 +3362,6 @@ class EditContactModal {
     // normalize the input using normalizeName
     const normalizedName = normalizeName(this.nameInput.value);
     this.nameInput.value = normalizedName;
-
-    // if already 'add' class, return early
-    if (this.nameActionButton.classList.contains('add')) {
-      return;
-    }
-
-    this.nameActionButton.className = 'field-action-button add';
-    this.nameActionButton.setAttribute('aria-label', 'Save');
   }
 
   handleNameBlur() {
@@ -3359,16 +3370,16 @@ class EditContactModal {
     this.nameInput.value = normalizedName;
   }
 
-  handleNameButton() {
-    if (this.nameActionButton.classList.contains('clear')) {
-      this.nameInput.value = '';
-      // Always show save button after clearing
-      this.nameActionButton.className = 'field-action-button add';
-      this.nameActionButton.setAttribute('aria-label', 'Save');
-      this.nameInput.focus();
-    } else {
-      this.handleSave();
-    }
+  handleNameClear() {
+    // Clear the name field
+    this.nameInput.value = '';
+    this.nameInput.focus();
+  }
+
+  handleNotesClear() {
+    // Clear the notes field
+    this.notesInput.value = '';
+    this.notesInput.focus();
   }
 
   handleNameKeydown(e) {
@@ -3381,9 +3392,11 @@ class EditContactModal {
   handleSave() {
     // Save changes - if input is empty/spaces, it will become undefined
     const newName = this.nameInput.value.trim() || null;
+    const newNotes = this.notesInput.value.trim() || null;
     const contact = myData.contacts[this.currentContactAddress];
     if (contact) {
       contact.name = newName;
+      contact.notes = newNotes;
       contactInfoModal.needsContactListUpdate = true;
     }
 
