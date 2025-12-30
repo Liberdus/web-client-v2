@@ -11380,15 +11380,21 @@ class ChatModal {
    * @param {string} displayName - The name to display
    */
   setTitleWithChevron(displayName) {
-    this.modalTitle.textContent = displayName;
-    // Remove existing chevron if any
-    const existingChevron = this.modalTitle.querySelector('.modal-title-chevron');
-    if (existingChevron) {
-      existingChevron.remove();
-    }
+    // Clear existing content
+    this.modalTitle.innerHTML = '';
+    
+    // Create text wrapper span that will ellipsis
+    const textSpan = document.createElement('span');
+    textSpan.className = 'modal-title-text';
+    textSpan.textContent = displayName;
+    
+    // Create chevron that will always be visible
     const chevron = document.createElement('span');
     chevron.className = 'modal-title-chevron';
     chevron.textContent = '>';
+    
+    // Append both
+    this.modalTitle.appendChild(textSpan);
     this.modalTitle.appendChild(chevron);
   }
 
