@@ -3402,7 +3402,17 @@ class EditContactModal {
 
     // update title if chatModal is open and if contact.name is '' fallback to contact.username
     if (chatModal.isActive() && chatModal.address === this.currentContactAddress) {
-      chatModal.modalTitle.textContent = getContactDisplayName(contact);
+      const displayName = getContactDisplayName(contact);
+      chatModal.modalTitle.textContent = displayName;
+      // Remove existing chevron if any
+      const existingChevron = chatModal.modalTitle.querySelector('.modal-title-chevron');
+      if (existingChevron) {
+        existingChevron.remove();
+      }
+      const chevron = document.createElement('span');
+      chevron.className = 'modal-title-chevron';
+      chevron.textContent = ' >';
+      chatModal.modalTitle.appendChild(chevron);
     }
 
     // Safely update the contact info modal if it exists and is open
@@ -10943,7 +10953,6 @@ class ChatModal {
     this.cancelEditButton = document.getElementById('cancelEditButton');
     this.modalAvatar = this.modal.querySelector('.modal-avatar');
     this.modalTitle = this.modal.querySelector('.modal-title');
-    this.editButton = document.getElementById('chatEditButton');
     this.callButton = document.getElementById('chatCallButton');
     this.sendMoneyButton = document.getElementById('chatSendMoneyButton');
     this.retryOfTxId = document.getElementById('retryOfTxId');
@@ -11390,7 +11399,12 @@ class ChatModal {
     const contact = myData.contacts[address];
     friendModal.updateFriendButton(contact, 'addFriendButtonChat');
     // Set user info
-    this.modalTitle.textContent = getContactDisplayName(contact);
+    const displayName = getContactDisplayName(contact);
+    this.modalTitle.textContent = displayName;
+    const chevron = document.createElement('span');
+    chevron.className = 'modal-title-chevron';
+    chevron.textContent = ' >';
+    this.modalTitle.appendChild(chevron);
 
     walletScreen.updateWalletBalances();
 
@@ -11432,15 +11446,6 @@ class ChatModal {
       }
     };
 
-    // Add click handler for edit button
-    // TODO: create event listener instead of onclick here
-    this.editButton.onclick = () => {
-      this.pauseVoiceMessages();
-      const contact = myData.contacts[address];
-      if (contact) {
-        contactInfoModal.open(createDisplayInfo(contact));
-      }
-    };
 
     // Load any draft message
     this.loadDraft(address);

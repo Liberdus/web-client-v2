@@ -1311,19 +1311,17 @@ button:disabled {
   display: flex;
   align-items: center;
   margin-left: 56px;
-  margin-right: 140px; /* Reserve space for header actions */
-  gap: 12px;
+  margin-right: auto; /* Push header actions to the right */
+  gap: 8px;
   cursor: pointer;
-  flex: 1;
-  min-width: 180px; /* Minimum width for the container */
-  max-width: calc(100vw - 200px); /* Responsive max width */
+  flex-shrink: 0; /* Don't shrink, but don't grow either */
+  overflow: visible; /* Ensure chevron is visible */
 }
 
 /* Responsive adjustments for smaller screens */
 @media (max-width: 480px) {
   .chat-user-info {
-    min-width: 120px; /* Smaller minimum on mobile */
-    margin-right: 100px; /* Less margin on smaller screens */
+    margin-right: auto; /* Keep auto margin on mobile */
   }
 }
 
@@ -1362,6 +1360,29 @@ button:disabled {
   white-space: nowrap;
   min-width: 0; /* Allow flex item to shrink below content size */
   max-width: 100%; /* Allow full width when possible */
+}
+
+/* Chat modal title specific styling - left aligned with chevron */
+.chat-user-info .modal-title {
+  text-align: left;
+  margin: 0;
+  flex-shrink: 0; /* Don't shrink, size to content */
+  white-space: nowrap; /* Keep text and chevron on one line */
+  overflow: visible !important; /* Allow chevron to be visible, override base styles */
+  text-overflow: clip; /* Don't use ellipsis */
+  display: inline-block; /* Make it size to content */
+  max-width: none; /* Remove max-width restriction */
+  min-width: auto; /* Remove min-width restriction */
+}
+
+.chat-user-info .modal-title .modal-title-chevron {
+  color: var(--text-color);
+  opacity: 0.6;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-normal);
+  margin-left: 4px;
+  display: inline-block; /* Ensure it's visible */
+  visibility: visible !important; /* Force visibility */
 }
 
 /* Current time display in modal headers */
