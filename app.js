@@ -1937,9 +1937,10 @@ const secretModal = new SecretModal();
  * @param {string} addr - the address of the contact
  * @param {string} username - the username of the contact
  * @param {number = 1} friendStatus - the friend status of the contact, default is 1
+ * @param {boolean = true} tolledDepositToastShown - if false, ChatModal may show a one-time toast about the sender's toll deposit
  * @returns {void}
  */
-function createNewContact(addr, username, friendStatus = 1) {
+function createNewContact(addr, username, friendStatus = 1, tolledDepositToastShown = true) {
   const address = normalizeAddress(addr);
   if (myData.contacts[address]) {
     return;
@@ -1961,6 +1962,7 @@ function createNewContact(addr, username, friendStatus = 1) {
   c.tollRequiredToSend = 1;
   c.friend = friendStatus;
   c.friendOld = friendStatus;
+  c.tolledDepositToastShown = tolledDepositToastShown;
 }
 
 class ScanQRModal {
@@ -4198,7 +4200,8 @@ async function processChats(chats, keys) {
     if (res && res.messages) {
       const from = normalizeAddress(sender);
       if (!myData.contacts[from]) {
-        createNewContact(from);
+        // New inbound chat (not previously in contacts): create as tolled + allow one-time tolled deposit toast
+        createNewContact(from, undefined, 1, false);
       }
       const contact = myData.contacts[from];
       // Set username to "Liberdus Faucet" if there is no username for the faucet address contact
@@ -11444,7 +11447,83 @@ class ChatModal {
     // Setup state for appendChatModal and perform initial render
     this.address = address;
 
+    // One-time tolled deposit toast (only if explicitly enabled on the contact)
+    this.maybeShowTolledDepositToast(address);
+
     this.appendChatModal(false); // Call appendChatModal to render messages, ensure highlight=false
+  }
+
+  /**
+   * Show a one-time toast when opening a chat where the other party is tolled and has deposited a toll.
+   * This is opt-in via contact.tolledDepositToastShown === false (older accounts may not have this field).
+   * @param {string} address
+   * @returns {Promise<void>}
+   */
+  async maybeShowTolledDepositToast(address) {
+    try {
+      const contact = myData?.contacts?.[address];
+      if (!contact) return;
+
+      // Only show if explicitly marked as not-yet-shown.
+      if (contact.tolledDepositToastShown !== false) return;
+
+      // Only for tolled contacts
+      if (Number(contact.friend) !== 1) return;
+
+      // Need network to confirm there is an actual deposited toll on this chat
+      if (!isOnline) return;
+
+      const depositInfo = await this.hasIncomingTolledDeposit(address);
+      const hasDeposit = !!depositInfo?.hasDeposit;
+      if (!hasDeposit) return;
+
+      // User may have navigated away while we were awaiting network
+      if (!this.isActive() || this.address !== address) return;
+
+      showToast(
+        '<strong>This user has deposited a toll to message you.</strong><ul style="margin: 8px 0 0 0; padding-left: 20px; text-align: center;"><li style="text-align: center;">Change their status to a connection or friend to refund the toll</li><li style="text-align: center;">Reply to collect the full toll</li><li style="text-align: center;">Ignore to collect half the toll</li></ul>',
+        0,
+        'info',
+        true
+      );
+
+      contact.tolledDepositToastShown = true;
+      saveState();
+    } catch (e) {
+      console.warn('maybeShowTolledDepositToast failed', e);
+    }
+  }
+
+  /**
+   * Returns true if the other party has an outstanding toll deposit for us on this chat (payOnRead only).
+   * @param {string} address
+   * @returns {Promise<{hasDeposit: boolean, payOnRead: bigint}>}
+   */
+  async hasIncomingTolledDeposit(address) {
+    try {
+      if (!myAccount?.keys?.address) return { hasDeposit: false, payOnRead: 0n };
+      const myAddr = longAddress(myAccount.keys.address);
+      const contactAddr = longAddress(address);
+      const sortedAddresses = [myAddr, contactAddr].sort();
+      const chatId = hashBytes(sortedAddresses.join(''));
+      const myIndex = sortedAddresses.indexOf(myAddr);
+
+      const chatIdAccount = await queryNetwork(`/messages/${chatId}/toll`);
+      if (!chatIdAccount || chatIdAccount?.error || !chatIdAccount?.toll) {
+        return { hasDeposit: false, payOnRead: 0n };
+      }
+
+      const payOnReadRaw = chatIdAccount.toll?.payOnRead?.[myIndex];
+
+      const payOnRead =
+        typeof payOnReadRaw === 'bigint' ? payOnReadRaw : BigInt(payOnReadRaw || 0);
+
+      // Only consider payOnRead for triggering the toast (per product decision).
+      return { hasDeposit: payOnRead !== 0n, payOnRead };
+    } catch (e) {
+      console.warn('hasIncomingTolledDeposit failed', e);
+      return { hasDeposit: false, payOnRead: 0n };
+    }
   }
 
   /**
