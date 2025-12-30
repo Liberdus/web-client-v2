@@ -268,3 +268,21 @@ export function generateRandomBytes(length) {
 export function generateAddress(publicKey) {
     return keccak256(publicKey.slice(1)).slice(-20);
 }
+
+export function generateUUIDv4() {
+    const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+
+    // RFC 4122 version & variant bits
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
+
+    const hex = bin2hex(bytes);
+
+    return (
+        hex.slice(0, 8) + '-' +
+        hex.slice(8, 12) + '-' +
+        hex.slice(12, 16) + '-' +
+        hex.slice(16, 20) + '-' +
+        hex.slice(20)
+    );
+}

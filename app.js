@@ -91,6 +91,7 @@ import {
   passwordToKey,
   dhkeyCombined,
   decryptChacha,
+  generateUUIDv4,
 } from './crypto.js';
 
 // Put standalone conversion function in lib.js
@@ -7591,7 +7592,7 @@ class BackupAccountModal {
    *          Resolves with token data on success; rejects with Error on cancel/deny/timeout/error.
    */
   async startGoogleDriveAuth() {
-    const sessionId = crypto.randomUUID();
+    const sessionId = generateUUIDv4();
     const url = this.buildOAuthServerUrl(sessionId);
     const isReactNative = reactNativeApp.isReactNativeWebView;
     
