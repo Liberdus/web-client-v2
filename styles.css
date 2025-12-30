@@ -1366,9 +1366,6 @@ button:disabled {
 .chat-user-info .modal-title {
   text-align: left;
   margin: 0;
-  flex-shrink: 0; /* Don't shrink, size to content */
-  white-space: nowrap; /* Keep text and chevron on one line */
-  overflow: visible !important; /* Allow chevron to be visible, override base styles */
   text-overflow: clip; /* Don't use ellipsis */
   display: inline-block; /* Make it size to content */
   max-width: none; /* Remove max-width restriction */
@@ -1376,13 +1373,10 @@ button:disabled {
 }
 
 .chat-user-info .modal-title .modal-title-chevron {
-  color: var(--text-color);
   opacity: 0.6;
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-normal);
-  margin-left: 4px;
-  display: inline-block; /* Ensure it's visible */
-  visibility: visible !important; /* Force visibility */
+  margin-left: 2px;
 }
 
 /* Current time display in modal headers */

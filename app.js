@@ -3402,17 +3402,7 @@ class EditContactModal {
 
     // update title if chatModal is open and if contact.name is '' fallback to contact.username
     if (chatModal.isActive() && chatModal.address === this.currentContactAddress) {
-      const displayName = getContactDisplayName(contact);
-      chatModal.modalTitle.textContent = displayName;
-      // Remove existing chevron if any
-      const existingChevron = chatModal.modalTitle.querySelector('.modal-title-chevron');
-      if (existingChevron) {
-        existingChevron.remove();
-      }
-      const chevron = document.createElement('span');
-      chevron.className = 'modal-title-chevron';
-      chevron.textContent = ' >';
-      chatModal.modalTitle.appendChild(chevron);
+      chatModal.setTitleWithChevron(getContactDisplayName(contact));
     }
 
     // Safely update the contact info modal if it exists and is open
@@ -11378,6 +11368,23 @@ class ChatModal {
   }
 
   /**
+   * Sets the modal title with a chevron indicator
+   * @param {string} displayName - The name to display
+   */
+  setTitleWithChevron(displayName) {
+    this.modalTitle.textContent = displayName;
+    // Remove existing chevron if any
+    const existingChevron = this.modalTitle.querySelector('.modal-title-chevron');
+    if (existingChevron) {
+      existingChevron.remove();
+    }
+    const chevron = document.createElement('span');
+    chevron.className = 'modal-title-chevron';
+    chevron.textContent = '>';
+    this.modalTitle.appendChild(chevron);
+  }
+
+  /**
    * Opens the chat modal for the given address.
    * @param {string} address - The address of the contact to open the chat modal for.
    * @returns {Promise<void>}
@@ -11399,12 +11406,7 @@ class ChatModal {
     const contact = myData.contacts[address];
     friendModal.updateFriendButton(contact, 'addFriendButtonChat');
     // Set user info
-    const displayName = getContactDisplayName(contact);
-    this.modalTitle.textContent = displayName;
-    const chevron = document.createElement('span');
-    chevron.className = 'modal-title-chevron';
-    chevron.textContent = ' >';
-    this.modalTitle.appendChild(chevron);
+    this.setTitleWithChevron(getContactDisplayName(contact));
 
     walletScreen.updateWalletBalances();
 
