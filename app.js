@@ -10943,8 +10943,8 @@ class ChatModal {
     this.cancelEditButton = document.getElementById('cancelEditButton');
     this.modalAvatar = this.modal.querySelector('.modal-avatar');
     this.modalTitle = this.modal.querySelector('.modal-title');
-    this.callButton = document.getElementById('chatCallButton');
-    this.sendMoneyButton = document.getElementById('chatSendMoneyButton');
+    this.headerMenuButton = document.getElementById('chatHeaderMenuButton');
+    this.headerContextMenu = document.getElementById('chatHeaderContextMenu');
     this.retryOfTxId = document.getElementById('retryOfTxId');
     this.messageInput = document.querySelector('.message-input');
     this.replyPreview = document.getElementById('replyPreview');
@@ -10954,7 +10954,6 @@ class ChatModal {
     this.replyToTxId = document.getElementById('replyToTxId');
     this.replyToMessage = document.getElementById('replyToMessage');
     this.replyOwnerIsMine = document.getElementById('replyOwnerIsMine');
-    this.chatSendMoneyButton = document.getElementById('chatSendMoneyButton');
     this.messageByteCounter = document.querySelector('.message-byte-counter');
     this.tollTemplate = document.getElementById('tollInfoMessageTemplate');
     this.messagesContainer = document.querySelector('.messages-container');
@@ -11040,6 +11039,9 @@ class ChatModal {
       if (this.attachmentOptionsContextMenu && !this.attachmentOptionsContextMenu.contains(e.target) && !this.addAttachmentButton.contains(e.target)) {
         this.closeAttachmentOptionsContextMenu();
       }
+      if (this.headerContextMenu && !this.headerContextMenu.contains(e.target) && this.headerMenuButton && !this.headerMenuButton.contains(e.target)) {
+        this.closeHeaderContextMenu();
+      }
     });
     this.sendButton.addEventListener('click', this.handleSendMessage.bind(this));
     this.cancelEditButton.addEventListener('click', () => this.cancelEdit());
@@ -11116,16 +11118,22 @@ class ChatModal {
       this.unlockBackgroundScroll();
     });
 
-    this.chatSendMoneyButton.addEventListener('click', () => {
-      this.pauseVoiceMessages();
-      sendAssetFormModal.username = this.chatSendMoneyButton.dataset.username;
-      sendAssetFormModal.open();
-    });
+    // Header context menu handlers
+    if (this.headerMenuButton) {
+      this.headerMenuButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.showHeaderContextMenu(e);
+      });
+    }
 
-    this.callButton.addEventListener('click', () => {
-      this.pauseVoiceMessages();
-      this.handleCallUser();
-    });
+    if (this.headerContextMenu) {
+      this.headerContextMenu.addEventListener('click', (e) => {
+        const option = e.target.closest('.context-menu-option');
+        if (!option) return;
+        const action = option.dataset.action;
+        this.handleHeaderContextMenuAction(action);
+      });
+    }
 
     this.addFriendButtonChat.addEventListener('click', () => {
       this.pauseVoiceMessages();
@@ -11421,8 +11429,13 @@ class ChatModal {
 
     this.updateTollAmountUI(address);
 
-    // Add data attributes to store the username and address
-    this.sendMoneyButton.dataset.username = contact.username || address;
+    // Store username for context menu pay action
+    if (this.headerContextMenu) {
+      const payOption = this.headerContextMenu.querySelector('[data-action="pay"]');
+      if (payOption) {
+        payOption.dataset.username = contact.username || address;
+      }
+    }
 
     this.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
 
@@ -13567,6 +13580,78 @@ console.warn('in send message', txid)
     this.closeContextMenu();
     this.closeImageAttachmentContextMenu();
     this.closeAttachmentOptionsContextMenu();
+    this.closeHeaderContextMenu();
+  }
+
+  /**
+   * Shows the header context menu
+   * @param {Event} e - Click event
+   */
+  showHeaderContextMenu(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Ensure only one context menu is open at a time
+    this.closeAllContextMenus();
+
+    if (!this.headerContextMenu || !this.headerMenuButton) return;
+
+    const buttonRect = this.headerMenuButton.getBoundingClientRect();
+    const menuWidth = 200;
+    const menuHeight = 150; // Approximate height for 3 options
+
+    // Position menu below and aligned to the right of the button
+    let left = buttonRect.right - menuWidth;
+    let top = buttonRect.bottom + 8;
+
+    // Adjust if menu would go off screen
+    if (left < 10) {
+      left = 10;
+    }
+    if (top + menuHeight > window.innerHeight - 10) {
+      top = buttonRect.top - menuHeight - 8;
+    }
+
+    Object.assign(this.headerContextMenu.style, {
+      left: `${left}px`,
+      top: `${top}px`,
+      display: 'block'
+    });
+  }
+
+  /**
+   * Closes the header context menu
+   */
+  closeHeaderContextMenu() {
+    if (!this.headerContextMenu) return;
+    this.headerContextMenu.style.display = 'none';
+  }
+
+  /**
+   * Handles header context menu actions
+   * @param {string} action - The action to perform
+   */
+  handleHeaderContextMenuAction(action) {
+    this.closeHeaderContextMenu();
+    this.pauseVoiceMessages();
+
+    const contact = myData.contacts[this.address];
+    if (!contact) return;
+
+    switch (action) {
+      case 'call':
+        this.handleCallUser();
+        break;
+      case 'info':
+        contactInfoModal.open(createDisplayInfo(contact));
+        break;
+      case 'pay':
+        const payOption = this.headerContextMenu.querySelector('[data-action="pay"]');
+        const username = payOption?.dataset.username || contact.username || this.address;
+        sendAssetFormModal.username = username;
+        sendAssetFormModal.open();
+        break;
+    }
   }
 
   /**
