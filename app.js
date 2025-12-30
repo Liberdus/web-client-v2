@@ -11481,9 +11481,9 @@ class ChatModal {
       if (!this.isActive() || this.address !== address) return;
 
       showToast(
-        '<strong>This user has deposited a toll to message you.</strong><ul style="margin: 8px 0 0 0; padding-left: 20px; text-align: center;"><li style="text-align: center;">Change their status to a connection or friend to refund the toll</li><li style="text-align: center;">Reply to collect the full toll</li><li style="text-align: center;">Ignore to collect half the toll</li></ul>',
+        '<strong>This user has deposited a toll to message you.</strong><ul style="margin: 8px 0 0 0; padding-left: 20px;"><li>Change their status to a connection or friend to refund the toll</li><li>Reply to collect the full toll</li><li>Ignore to collect half the toll</li></ul>',
         0,
-        'info',
+        'toll',
         true
       );
 
