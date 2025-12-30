@@ -7588,7 +7588,7 @@ class BackupAccountModal {
    *          Resolves with token data on success; rejects with Error on cancel/deny/timeout/error.
    */
   async startGoogleDriveAuth() {
-    const sessionId = bin2hex(generateRandomBytes(16));
+    const sessionId = crypto.randomUUID();
     const url = this.buildOAuthServerUrl(sessionId);
     const isReactNative = reactNativeApp.isReactNativeWebView;
     
