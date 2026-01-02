@@ -17898,7 +17898,33 @@ class SendAssetFormModal {
     const confirmButton = sendAssetConfirmModal.confirmSendButton;
     const cancelButton = sendAssetConfirmModal.cancelButton;
 
-    await getNetworkParams();
+    // Ensure recipient account type matches sender (public/private).
+    try {
+      const recipientRaw = this.foundAddressObject?.address;
+      if (!recipientRaw) {
+        showToast('Recipient address not resolved; enter a valid username', 0, 'error');
+        return;
+      }
+      const recipientAddress = normalizeAddress(recipientRaw);
+
+      await getNetworkParams();
+      const myIsPrivate = !!myData?.account?.private;
+      const recipientAccountRes = await queryNetwork(`/account/${longAddress(recipientAddress)}`);
+      if (!recipientAccountRes?.account) {
+        showToast('Account not found, try again.', 0, 'error');
+        return;
+      }
+      const recipientIsPrivate = recipientAccountRes?.account?.private === true;
+      if (recipientIsPrivate !== myIsPrivate) {
+        showToast(`${myIsPrivate ? 'Private' : 'Public'} accounts can only send to other ${myIsPrivate ? 'private' : 'public'} accounts.`, 0, 'error');
+        return;
+      }
+    } catch (error) {
+      console.log('Error checking account type:', error);
+      showToast('Error checking account type', 0, 'error');
+      return;
+    }
+
     const stabilityFactor = getStabilityFactor();
 
     // get `usdAmount` and `libAmount`
