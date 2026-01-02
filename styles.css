@@ -1452,9 +1452,14 @@ button:disabled {
   box-sizing: border-box;
 }
 
+.search-modal .form-container {
+  padding-top: 0px;
+}
+
 .modal-content {
   flex: 1;
   overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .form-group {
@@ -3224,6 +3229,8 @@ button.about-link {
 .search-bar-container {
   padding: 8px 16px;
   background: var(--background-color);
+  position: sticky;
+  top: env(safe-area-inset-top, 0);
 }
 
 /* Search Bar - Common styles for all search bars */
@@ -3280,11 +3287,6 @@ button.about-link {
   background-position: center;
   background-repeat: no-repeat;
   background-size: contain;
-}
-
-/* Modal specific search bar container */
-.modal .form-container .search-bar {
-  margin-bottom: 16px;
 }
 
 /* Search Modal */
