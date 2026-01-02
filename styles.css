@@ -3129,16 +3129,16 @@ button.about-link {
   width: 180px;
 }
 
-/* Avatar options (moved from inline styles in index.html) */
+/* Avatar options */
 .avatar-options {
-  margin-top: 12px;
+  margin-top: 75px;
   display: none; /* toggled by JS */
 }
 .avatar-options-list {
   display: flex;
   gap: 12px;
   margin-top: 8px;
-  justify-content: center; /* center the three thumbnails */
+  justify-content: center;
 }
 .avatar-option {
   cursor: pointer;
