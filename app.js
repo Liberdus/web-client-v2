@@ -5637,7 +5637,7 @@ class AvatarEditModal {
     this.previewContainer.appendChild(this.foregroundImg);
 
     this.backButton.addEventListener('click', () => this.close());
-    this.uploadButton.addEventListener('click', () => this.fileInput.click());
+    this.uploadButton.addEventListener('click', () => this.handleUploadButton());
     this.deleteButton.addEventListener('click', () => this.handleDelete());
     this.saveActionButton.addEventListener('click', () => this.handleSave());
     this.cancelButton.addEventListener('click', () => this.handleCancel());
@@ -6126,10 +6126,23 @@ class AvatarEditModal {
     }
   }
 
+  handleUploadButton(){
+    if (!isOnline && this.isOwnAvatar) {
+      showToast('You are offline. Please try again when connected.', 3000, 'error');
+      return;
+    }
+    this.fileInput.click(); 
+  }
+
   /**
    * Delete the current avatar immediately and save.
    */
   async handleDelete() {
+    if (!isOnline && this.isOwnAvatar) {
+      showToast('You are offline. Please try again when connected.', 3000, 'error');
+      return;
+    }
+
     if (!this.currentAddress) {
       this.close();
       return;
@@ -6791,11 +6804,7 @@ function markConnectivityDependentElements() {
     '#proceedToStoreBtn',
 
     // launchModal
-    '#launchForm button[type="submit"]',    
-
-    // avatar editing
-    '#avatarEditUploadButton',
-    '#avatarEditDeleteButton'
+    '#launchForm button[type="submit"]'    
 
   ];
 
