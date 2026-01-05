@@ -5200,7 +5200,7 @@ class SearchMessagesModal {
       // Scroll to and highlight the message
       setTimeout(() => {
         chatModal.scrollToMessage(result.messageId);
-      }, 300);
+      }, 350); // Slightly longer than appendChatModal's 300ms to ensure DOM is ready
     } catch (error) {
       console.error('Error handling search result:', error);
       // Could add error notification here
