@@ -6792,6 +6792,11 @@ function markConnectivityDependentElements() {
 
     // launchModal
     '#launchForm button[type="submit"]',    
+
+    // avatar editing
+    '#avatarEditUploadButton',
+    '#avatarEditDeleteButton'
+
   ];
 
   // Add data attribute to all network-dependent elements
