@@ -5142,6 +5142,9 @@ class SearchMessagesModal {
 
       contact.messages.forEach((message) => {
         if (!message.message) return; // some messages like calls have no message field
+        // Skip deleted messages and call messages
+        if (message.deleted > 0) return;
+        if (message.type === 'call') return;
         if (message.message.toLowerCase().includes(searchLower)) {
           // Highlight matching text
           const messageText = escapeHtml(message.message);
@@ -5183,7 +5186,7 @@ class SearchMessagesModal {
       `;
   }
 
-  handleSearchResultClick(result) {
+  async handleSearchResultClick(result) {
     try {
       // Close search modal
       this.close();
@@ -5191,8 +5194,8 @@ class SearchMessagesModal {
       // Switch to chats view if not already there
       footer.switchView('chats');
 
-      // Open the chat with this contact
-      chatModal.open(result.contactAddress);
+      // Open the chat with this contact, skip auto-scroll since we'll scroll to specific message
+      await chatModal.open(result.contactAddress, true);
 
       // Scroll to and highlight the message
       setTimeout(() => {
@@ -5234,12 +5237,12 @@ class SearchMessagesModal {
               </div>
           `;
 
-      resultElement.addEventListener('click', (event) => {
+      resultElement.addEventListener('click', async (event) => {
         event.stopImmediatePropagation(); // Stop all other listeners and bubbling immediately
         // clear search input and clear results
         document.getElementById('messageSearch').value = '';
         document.getElementById('searchResults').innerHTML = '';
-        this.handleSearchResultClick(result);
+        await this.handleSearchResultClick(result);
       });
 
       resultsList.appendChild(resultElement);
@@ -11402,9 +11405,10 @@ class ChatModal {
   /**
    * Opens the chat modal for the given address.
    * @param {string} address - The address of the contact to open the chat modal for.
+   * @param {boolean} skipAutoScroll - Whether to skip auto-scrolling to bottom (used when scrolling to a specific message)
    * @returns {Promise<void>}
    */
-  async open(address) {
+  async open(address, skipAutoScroll = false) {
     // clear message input
     this.messageInput.value = '';
     this.messageInput.style.height = '48px';
@@ -11453,9 +11457,12 @@ class ChatModal {
     this.messagesList.innerHTML = '';
 
     // Scroll to bottom (initial scroll for empty list, appendChatModal will scroll later)
-    setTimeout(() => {
-      this.messagesList.parentElement.scrollTop = this.messagesList.parentElement.scrollHeight;
-    }, 100);
+    // Skip if we're going to scroll to a specific message
+    if (!skipAutoScroll) {
+      setTimeout(() => {
+        this.messagesList.parentElement.scrollTop = this.messagesList.parentElement.scrollHeight;
+      }, 100);
+    }
 
     // Add click handler for username to show contact info
     // TODO: create event listener instead of onclick here
@@ -11490,7 +11497,7 @@ class ChatModal {
     // One-time tolled deposit toast (only if explicitly enabled on the contact)
     this.maybeShowTolledDepositToast(address);
 
-    this.appendChatModal(false); // Call appendChatModal to render messages, ensure highlight=false
+    this.appendChatModal(false, skipAutoScroll); // Call appendChatModal to render messages, ensure highlight=false
   }
 
   /**
@@ -12280,9 +12287,10 @@ console.warn('in send message', txid)
   /**
    * Appends the chat modal to the DOM
    * @param {boolean} highlightNewMessage - Whether to highlight the newest message
+   * @param {boolean} skipAutoScroll - Whether to skip auto-scrolling to bottom (used when scrolling to a specific message)
    * @returns {void}
    */
-  appendChatModal(highlightNewMessage = false) {
+  appendChatModal(highlightNewMessage = false, skipAutoScroll = false) {
     const currentAddress = this.address; // Use a local constant
     console.log('appendChatModal running for address:', currentAddress, 'Highlight:', highlightNewMessage);
     if (!currentAddress) {
@@ -12523,6 +12531,9 @@ console.warn('in send message', txid)
 
     // 6. Delayed Scrolling & Highlighting Logic (after loop)
     setTimeout(() => {
+      // Skip auto-scrolling if we're going to scroll to a specific message
+      if (skipAutoScroll) return;
+
       const messageContainer = this.messagesList.parentElement;
 
       // Find the DOM element for the actual newest received item using its timestamp
