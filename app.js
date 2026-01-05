@@ -6804,8 +6804,7 @@ function markConnectivityDependentElements() {
     '#proceedToStoreBtn',
 
     // launchModal
-    '#launchForm button[type="submit"]'    
-
+    '#launchForm button[type="submit"]',
   ];
 
   // Add data attribute to all network-dependent elements
