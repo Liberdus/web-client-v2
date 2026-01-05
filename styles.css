@@ -1280,11 +1280,6 @@ button:disabled {
   flex-shrink: 0; /* Prevent header from shrinking */
 }
 
-/* Android fullscreen mode - add minimum top margin when safe-area is 0 */
-:fullscreen .modal-header {
-  margin-top: 16px;
-}
-
 /* Desktop modal header adjustments */
 @media (min-width: 769px) {
   .modal-header {
