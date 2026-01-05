@@ -5197,10 +5197,10 @@ class SearchMessagesModal {
       // Open the chat with this contact, skip auto-scroll since we'll scroll to specific message
       await chatModal.open(result.contactAddress, true);
 
-      // Scroll to and highlight the message
-      setTimeout(() => {
+      // Messages are already in DOM after await, use requestAnimationFrame for layout
+      requestAnimationFrame(() => {
         chatModal.scrollToMessage(result.messageId);
-      }, 350); // Slightly longer than appendChatModal's 300ms to ensure DOM is ready
+      });
     } catch (error) {
       console.error('Error handling search result:', error);
       // Could add error notification here
