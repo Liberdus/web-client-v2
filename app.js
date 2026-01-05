@@ -14494,7 +14494,7 @@ console.warn('in send message', txid)
     requestAnimationFrame(() => {
       const elementTop = target.offsetTop;
       const containerHeight = container.clientHeight;
-      const inputContainerHeight = this.modal?.querySelector('.message-input-container')?.offsetHeight || 100;
+      const inputContainerHeight = this.modal?.querySelector('.message-input-container')?.offsetHeight || 80;
       const availableHeight = containerHeight - inputContainerHeight - 20;
       const scrollTarget = Math.max(0, elementTop - (availableHeight / 4));
       
