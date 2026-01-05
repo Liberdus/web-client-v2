@@ -592,20 +592,13 @@ body {
 #searchResults {
   padding: 0;
   margin: 0;
+  padding-bottom: 1000px;
 }
 
 /* Search Results List */
 #searchResults .chat-list {
   padding: 0;
   margin: 0;
-}
-
-/* Search result items */
-#searchResults .chat-list .chat-item {
-  display: flex;
-  padding: 12px 16px;
-  background: var(--background-color);
-  cursor: pointer;
 }
 
 /* Hover effects for both */
@@ -1430,10 +1423,9 @@ button:disabled {
   padding: 16px;
   width: 100%;
   box-sizing: border-box;
-}
-
-.search-modal .form-container {
-  padding-top: 0px;
+  overscroll-behavior: contain;
+  -webkit-overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 .modal-content {
@@ -3368,18 +3360,6 @@ mark {
 
 .chat-list .search-result-item:hover {
   background: var(--hover-background);
-}
-
-/* Search Results Container */
-#searchResults {
-  padding: 0;
-  margin: 0;
-}
-
-/* Search Results List */
-#searchResults .chat-list {
-  padding: 0;
-  margin: 0;
 }
 
 /* Header actions container */
