@@ -3403,7 +3403,7 @@ class EditContactModal {
 
     // update title if chatModal is open and if contact.name is '' fallback to contact.username
     if (chatModal.isActive() && chatModal.address === this.currentContactAddress) {
-      chatModal.setTitleWithChevron(getContactDisplayName(contact));
+      chatModal.modalTitle.textContent = getContactDisplayName(contact);
     }
 
     // Safely update the contact info modal if it exists and is open
@@ -11400,29 +11400,6 @@ class ChatModal {
   }
 
   /**
-   * Sets the modal title with a chevron indicator
-   * @param {string} displayName - The name to display
-   */
-  setTitleWithChevron(displayName) {
-    // Clear existing content
-    this.modalTitle.innerHTML = '';
-    
-    // Create text wrapper span that will ellipsis
-    const textSpan = document.createElement('span');
-    textSpan.className = 'modal-title-text';
-    textSpan.textContent = displayName;
-    
-    // Create chevron that will always be visible
-    const chevron = document.createElement('span');
-    chevron.className = 'modal-title-chevron';
-    chevron.textContent = '>';
-    
-    // Append both
-    this.modalTitle.appendChild(textSpan);
-    this.modalTitle.appendChild(chevron);
-  }
-
-  /**
    * Opens the chat modal for the given address.
    * @param {string} address - The address of the contact to open the chat modal for.
    * @returns {Promise<void>}
@@ -11444,7 +11421,7 @@ class ChatModal {
     const contact = myData.contacts[address];
     friendModal.updateFriendButton(contact, 'addFriendButtonChat');
     // Set user info
-    this.setTitleWithChevron(getContactDisplayName(contact));
+    this.modalTitle.textContent = getContactDisplayName(contact);
 
     walletScreen.updateWalletBalances();
 

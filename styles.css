@@ -1271,18 +1271,24 @@ button:disabled {
 /* Base modal header styles */
 .modal-header {
   height: 56px;
+  margin-top: env(safe-area-inset-top, 0px); /* Push header down by safe area */
+  margin-bottom: 8px; /* Space between header and content */
   display: flex;
-  align-items: center;
-  padding-top: calc(env(safe-area-inset-top));
-  margin-bottom: 8px;
+  align-items: center; /* Center children vertically */
   background-color: var(--background-color);
   position: relative;
+  flex-shrink: 0; /* Prevent header from shrinking */
+}
+
+/* Android fullscreen mode - add minimum top margin when safe-area is 0 */
+:fullscreen .modal-header {
+  margin-top: 16px;
 }
 
 /* Desktop modal header adjustments */
 @media (min-width: 769px) {
   .modal-header {
-    padding-top: calc(env(safe-area-inset-top) + 16px);
+    margin-top: calc(env(safe-area-inset-top, 0px) + 16px);
   }
 }
 
@@ -1312,22 +1318,16 @@ button:disabled {
 .chat-user-info {
   display: flex;
   align-items: center;
-  margin-left: 56px;
-  margin-right: auto; /* Push header actions to the right */
+  justify-content: center; /* Center the content within available space */
+  position: absolute;
+  left: 56px; /* Start after back button (16px left + 40px button width) */
+  right: 100px; /* End before header actions (reserve space for 2 buttons + gap) */
   gap: 8px;
   cursor: pointer;
-  flex: 1;
-  min-width: 0; /* Allow flex item to shrink */
-  overflow: hidden; /* Contain ellipsis */
-  max-width: calc(90% - 100px); /* Reserve space for header actions */
+  pointer-events: none; /* Allow clicks to pass through to underlying elements */
+  z-index: 0; /* Place behind header actions */
 }
 
-/* Responsive adjustments for smaller screens */
-@media (max-width: 480px) {
-  .chat-user-info {
-    margin-right: auto; /* Keep auto margin on mobile */
-  }
-}
 
 .chat-user-info:hover {
   opacity: 0.8;
@@ -1336,14 +1336,14 @@ button:disabled {
 .modal-avatar {
   width: 40px;
   height: 40px;
+  flex-shrink: 0; /* Prevent avatar from shrinking */
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   overflow: hidden;
   background-color: var(--light-color);
-  /* shift slight to the right */
-  margin-left: 4px;
+  pointer-events: auto; /* Make avatar clickable */
 }
 
 .modal-avatar svg {
@@ -1366,33 +1366,18 @@ button:disabled {
   max-width: 100%; /* Allow full width when possible */
 }
 
-/* Chat modal title specific styling - left aligned with chevron */
+/* Chat modal title specific styling - centered */
 .chat-user-info .modal-title {
-  text-align: left;
+  text-align: center;
   margin: 0;
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 0; /* Allow text to shrink in flex container */
-  max-width: 100%; /* Constrain to parent width */
-  gap:1px;
-}
-
-/* Text content that will ellipsis */
-.chat-user-info .modal-title .modal-title-text {
+  font-size: var(--font-size-lg); /* Use larger font like other modal headers */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex: 0 1 auto; /* Don't grow, can shrink, use natural width */
-  min-width: 0; /* Allow text to shrink when constrained */
-}
-
-.chat-user-info .modal-title .modal-title-chevron {
-  opacity: 0.6;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-normal);
-  flex-shrink: 0; /* Never shrink the chevron */
-  display: inline-block; /* Keep as block for proper spacing */
+  flex: 1;
+  min-width: 0; /* Allow text to shrink and ellipsis */
+  max-width: 100%; /* Constrain to parent width */
+  pointer-events: auto; /* Re-enable pointer events for the title */
 }
 
 /* Current time display in modal headers */
@@ -3409,6 +3394,8 @@ mark {
   gap: 8px; /* Standard mobile spacing for touch targets */
   position: absolute;
   right: 16px;
+  z-index: 2; /* Ensure header actions are above chat-user-info */
+  pointer-events: auto; /* Ensure header actions are clickable */
 }
 
 /* Icon button styles (for chat button) */
