@@ -3230,7 +3230,7 @@ button.about-link {
   padding: 8px 16px;
   background: var(--background-color);
   position: sticky;
-  top: env(safe-area-inset-top, 0);
+  top: 0; /* Header handles safe-area-inset-top */
 }
 
 /* Search Bar - Common styles for all search bars */
