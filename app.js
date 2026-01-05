@@ -14491,30 +14491,14 @@ console.warn('in send message', txid)
     const container = this.messagesContainer;
     if (!container) return;
 
-    // Use requestAnimationFrame to ensure layout is complete
     requestAnimationFrame(() => {
-      // Get the element's position relative to messagesList
       const elementTop = target.offsetTop;
       const containerHeight = container.clientHeight;
-      const messageHeight = target.offsetHeight;
-
-      // Get the actual height of the message input container to account for it
-      const messageInputContainer = this.modal?.querySelector('.message-input-container');
-      const inputContainerHeight = messageInputContainer ? messageInputContainer.offsetHeight : 100;
-
-      // Calculate available viewport height (excluding input container)
-      const availableHeight = containerHeight - inputContainerHeight - 20; // Subtract input height + padding
-
-      // Position at 1/4 from top of available area for good visibility
+      const inputContainerHeight = this.modal?.querySelector('.message-input-container')?.offsetHeight || 100;
+      const availableHeight = containerHeight - inputContainerHeight - 20;
       const scrollTarget = Math.max(0, elementTop - (availableHeight / 4));
       
-      if (typeof container.scrollTo === 'function') {
-        container.scrollTo({ top: scrollTarget, behavior: 'smooth' });
-      } else {
-        container.scrollTop = scrollTarget;
-      }
-      
-      // Highlight after scroll starts
+      container.scrollTo?.({ top: scrollTarget, behavior: 'smooth' }) || (container.scrollTop = scrollTarget);
       target.classList.add('highlighted');
       setTimeout(() => target.classList.remove('highlighted'), 2000);
     });
