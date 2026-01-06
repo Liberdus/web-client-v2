@@ -4189,7 +4189,6 @@ async function queryNetwork(url, abortSignal = null) {
     }
     const response = await fetch(`${selectedGateway.web}${url}`, { signal: abortSignal });
     const data = parse(await response.text());
-    console.log('response', data);
     return data;
   } catch (error) {
     // Check if error is due to abort
