@@ -502,8 +502,6 @@ function handleBeforeUnload(e) {
 
 // This is for installed apps where we can't stop the back button; just save the state
 function handleVisibilityChange() {
-  console.log('in handleVisibilityChange', document.visibilityState);
-
   if (document.visibilityState === 'hidden') {
     reactNativeApp.handleNativeAppSubscribe();
     if (reactNativeApp.isReactNativeWebView) {
