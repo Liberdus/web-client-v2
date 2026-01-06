@@ -21930,7 +21930,6 @@ class LocalStorageMonitor {
    * Initialize the localStorage monitor
    */
   load() {
-    console.log('🔧 Loading localStorage monitor...');
     this.checkStorageOnStartup();
   }
 
@@ -21958,8 +21957,6 @@ class LocalStorageMonitor {
         const warningMessage = `⚠️ Storage Warning: Only ${(info.availableBytes / 1024).toFixed(1)}KB remaining! Consider clearing old data.`;
         console.warn(warningMessage);
         showToast(warningMessage, 8000, 'warning');
-      } else {
-        console.log(`✅ Storage OK: ${(info.availableBytes / 1024).toFixed(1)}KB available`);
       }
     } catch (error) {
       console.error('Error checking localStorage on startup:', error);
@@ -21993,17 +21990,14 @@ class LocalStorageMonitor {
   getCachedOrCalculateCapacity() {
     const storedCapacity = localStorage.getItem(this.CAPACITY_KEY);
     if (storedCapacity) {
-      console.log('✅ Using stored localStorage capacity:', storedCapacity);
       return parseInt(storedCapacity);
     }
     
-    console.log('🔄 Calculating localStorage capacity for first time...');
     const usage = this.getLocalStorageUsage();
     const available = this.findLocalStorageAvailable(); // Only runs once!
     const totalCapacity = usage + available;
     
     localStorage.setItem(this.CAPACITY_KEY, totalCapacity.toString());
-    console.log('💾 Stored localStorage capacity for future use:', totalCapacity);
     
     return totalCapacity;
   }
