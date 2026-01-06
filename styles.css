@@ -592,6 +592,12 @@ body {
 #searchResults {
   padding: 0;
   margin: 0;
+  padding-bottom: 1000px;
+}
+
+/* Contact Search Results Container */
+#contactSearchResults {
+  padding-bottom: 1000px;
 }
 
 /* Search Results List */
