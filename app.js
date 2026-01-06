@@ -14501,11 +14501,8 @@ console.warn('in send message', txid)
     requestAnimationFrame(() => {
       const elementTop = target.offsetTop;
       const containerHeight = container.clientHeight;
-      const inputContainerHeight = this.modal?.querySelector('.message-input-container')?.offsetHeight || 80;
-      const topPadding = 10; // Space to keep message below header
-      const bottomPadding = 20; // Space above input
-      const availableHeight = containerHeight - inputContainerHeight - topPadding - bottomPadding;
-      const scrollTarget = Math.max(0, elementTop - (availableHeight / 3) - topPadding);
+      const elementHeight = target.offsetHeight;
+      const scrollTarget = Math.max(0, elementTop - (containerHeight / 2) + (elementHeight / 2));
       
       container.scrollTo?.({ top: scrollTarget, behavior: 'smooth' }) || (container.scrollTop = scrollTarget);
       target.classList.add('highlighted');
