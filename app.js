@@ -5179,6 +5179,8 @@ class SearchMessagesModal {
   // this is also used by contact search 
   displayEmptyState(containerId, message = 'No results found') {
     const resultsContainer = document.getElementById(containerId);
+    // Scroll to top before rendering
+    resultsContainer.closest('.modal-content')?.scrollTo(0, 0);
     resultsContainer.innerHTML = `
           <div class="empty-state" style="display: block">
               <div class="empty-state-message">${message}</div>
@@ -5208,6 +5210,9 @@ class SearchMessagesModal {
   }
 
   displaySearchResults(results) {
+    // Scroll to top before rendering new results
+    this.searchResults.closest('.modal-content')?.scrollTo(0, 0);
+
     // Create a ul element to properly contain the list items
     const resultsList = document.createElement('ul');
     resultsList.className = 'chat-list';
@@ -5482,6 +5487,8 @@ class SearchContactsModal {
   }
 
   displayContactResults(results, searchText) {
+    // Scroll to top before rendering new results
+    this.resultsContainer.closest('.modal-content')?.scrollTo(0, 0);
     this.resultsContainer.innerHTML = '';
 
     results.forEach(async (contact) => {

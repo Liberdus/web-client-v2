@@ -592,7 +592,6 @@ body {
 #searchResults {
   padding: 0;
   margin: 0;
-  padding-bottom: 1000px;
 }
 
 /* Search Results List */
@@ -1238,8 +1237,9 @@ button:disabled {
   pointer-events: none;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  overscroll-behavior: contain; /* prevent scroll chaining to parent when keyboard pushes */
+  overflow: hidden; /* modal itself doesn't scroll, content does */
+  overscroll-behavior: none; /* completely block overscroll */
+  touch-action: none; /* block touch gestures at modal level */
 }
 
 .modal.fixed-header {
@@ -1432,6 +1432,9 @@ button:disabled {
   flex: 1;
   overflow-y: auto;
   scrollbar-width: thin;
+  overscroll-behavior: none; /* completely block overscroll from escaping */
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y; /* re-enable vertical panning only within this element */
 }
 
 .form-group {
