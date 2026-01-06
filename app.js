@@ -14495,8 +14495,10 @@ console.warn('in send message', txid)
       const elementTop = target.offsetTop;
       const containerHeight = container.clientHeight;
       const inputContainerHeight = this.modal?.querySelector('.message-input-container')?.offsetHeight || 80;
-      const availableHeight = containerHeight - inputContainerHeight - 20;
-      const scrollTarget = Math.max(0, elementTop - (availableHeight / 4));
+      const topPadding = 10; // Space to keep message below header
+      const bottomPadding = 20; // Space above input
+      const availableHeight = containerHeight - inputContainerHeight - topPadding - bottomPadding;
+      const scrollTarget = Math.max(0, elementTop - (availableHeight / 3) - topPadding);
       
       container.scrollTo?.({ top: scrollTarget, behavior: 'smooth' }) || (container.scrollTop = scrollTarget);
       target.classList.add('highlighted');
