@@ -3421,7 +3421,8 @@ class EditContactModal {
   handleSave() {
     // Save changes - if input is empty/spaces, it will become undefined
     const newName = this.nameInput.value.trim() || null;
-    const newNotes = this.notesInput.value.trim() || null;
+    const newNotes = this.notesInput.value.trim().substring(0, 1000) || null;
+
     const contact = myData.contacts[this.currentContactAddress];
     if (contact) {
       contact.name = newName;
