@@ -1737,6 +1737,7 @@ class MenuModal {
       clearInterval(getSystemNoticeIntervalId);
       getSystemNoticeIntervalId = null;
     }
+    callsModal.stopPeriodicRefresh();
     // Stop camera if it's running
     if (typeof scanQRModal !== 'undefined' && scanQRModal.camera.scanInterval) {
       scanQRModal.stopCamera();
