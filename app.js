@@ -21,7 +21,6 @@ async function checkVersion() {
     if (!navigator.onLine || error instanceof TypeError) {
       isOnline = false;
       updateUIForConnectivity();
-      console.log(`DEBUG: about to invoke showToast in checkVersion`);
     }
     newVersion = myVersion; // Allow continuing with the old version
   }
@@ -177,7 +176,6 @@ async function checkUsernameAvailability(username, address, foundAddressObject) 
   }
   // First check if we're offline
   if (!isOnline) {
-    console.log('Checking username availability offline');
     // When offline, check local storage only
     const { netid } = network;
     const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
@@ -189,13 +187,11 @@ async function checkUsernameAvailability(username, address, foundAddressObject) 
       netidAccounts.usernames[username] &&
       normalizeAddress(netidAccounts.usernames[username].address) === normalizeAddress(address)
     ) {
-      console.log('Username found locally and matches address');
       return 'mine';
     }
 
     // If we have the username but address doesn't match
     if (netidAccounts?.usernames && netidAccounts.usernames[username]) {
-      console.log('Username found locally but address does not match');
       if (foundAddressObject) {
         foundAddressObject.address = netidAccounts.usernames[username].address;
       }
@@ -203,7 +199,6 @@ async function checkUsernameAvailability(username, address, foundAddressObject) 
     }
 
     // Username not found locally
-    console.log('Username not found locally');
     return 'available';
   }
 
@@ -235,7 +230,7 @@ async function checkUsernameAvailability(username, address, foundAddressObject) 
     logsModal.log(`Checked username returned available: ${username}, response: ${JSON.stringify(data)}`);
     return 'available';
   } catch (error) {
-    console.log('Error checking username:', error);
+    console.error('Error checking username:', error);
     return 'error2';
   }
 }
