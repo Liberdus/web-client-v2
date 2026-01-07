@@ -12931,7 +12931,10 @@ console.warn('in send message', txid)
         if (e.data.error) {
           hideToast(loadingToastId);
           showToast(e.data.error, 0, 'error');
-          this.sendButton.disabled = false; // Re-enable send button
+          
+          const messageValidation = this.validateMessageSize(this.messageInput.value);
+          this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
+          
           this.addAttachmentButton.disabled = false;
         } else {
           // Encryption successful
@@ -12982,7 +12985,10 @@ console.warn('in send message', txid)
               this.saveAttachmentState(myData.contacts[this.address]);
             }
             
-            this.sendButton.disabled = false; // Re-enable send button
+            const messageValidation = this.validateMessageSize(this.messageInput.value);
+            this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
+            this.toggleSendButtonVisibility();
+            
             this.addAttachmentButton.disabled = false;
             showToast(`File "${file.name}" attached successfully`, 2000, 'success');
           } catch (fetchError) {
@@ -12993,7 +12999,10 @@ console.warn('in send message', txid)
               hideToast(loadingToastId);
               showToast(`Upload failed: ${fetchError.message}`, 0, 'error');
             }
-            this.sendButton.disabled = false;
+            
+            const messageValidation = this.validateMessageSize(this.messageInput.value);
+            this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
+            
             this.addAttachmentButton.disabled = false;
             this.isEncrypting = false;
           }
@@ -13005,7 +13014,10 @@ console.warn('in send message', txid)
         hideToast(loadingToastId);
         showToast(`File encryption failed: ${err.message}`, 0, 'error');
         this.isEncrypting = false;
-        this.sendButton.disabled = false; // Re-enable send button
+        
+        const messageValidation = this.validateMessageSize(this.messageInput.value);
+        this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
+        
         this.addAttachmentButton.disabled = false;
         worker.terminate();
       };
@@ -13027,7 +13039,9 @@ console.warn('in send message', txid)
       }
       
       // Re-enable buttons
-      this.sendButton.disabled = false;
+      const messageValidation = this.validateMessageSize(this.messageInput.value);
+      this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
+      
       this.addAttachmentButton.disabled = false;
       this.isEncrypting = false;
     } finally {
