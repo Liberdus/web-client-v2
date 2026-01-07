@@ -6194,6 +6194,8 @@ small {
 .call-message-text {
   color: var(--text-color);
   overflow-wrap: break-word;
+  -webkit-hyphens: auto; /* Add hyphens at line breaks (Chrome/Safari) */
+  hyphens: auto; /* Add hyphens at line breaks */
   white-space: normal; /* Allow text to wrap */
 }
 
