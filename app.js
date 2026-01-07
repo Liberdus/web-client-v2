@@ -12915,8 +12915,11 @@ console.warn('in send message', txid)
     let loadingToastId;
     let thumbnailBlob = null;
     
+    // Normalize file type (fallback to extension detection for missing MIME types)
+    const normalizedType = this.getMimeTypeFromFilename(file.name, file.type);
+    
     // Generate thumbnail for images before encryption
-    const isImage = file.type && file.type.startsWith('image/');
+    const isImage = normalizedType.startsWith('image/');
     if (isImage) {
       try {
         thumbnailBlob = await thumbnailCache.generateThumbnail(file);
@@ -12926,7 +12929,7 @@ console.warn('in send message', txid)
     }
 
     // Generate thumbnail for videos before encryption
-    const isVideo = file.type && file.type.startsWith('video/');
+    const isVideo = normalizedType.startsWith('video/');
     if (isVideo && !thumbnailBlob) {
       try {
         thumbnailBlob = await thumbnailCache.extractVideoThumbnail(file);
@@ -12987,7 +12990,7 @@ console.warn('in send message', txid)
               url: attachmentUrl,
               name: file.name,
               size: file.size,
-              type: file.type,
+              type: normalizedType,
               pqEncSharedKey: bin2base64(pqEncSharedKey),
               selfKey
             });
@@ -13197,6 +13200,51 @@ console.warn('in send message', txid)
     }
     const recipient = myData.contacts[recipientAddress];
     return dhkeyCombined(myAccount.keys.secret, recipient.public, recipient.pqPublic);
+  }
+
+  /**
+   * Get MIME type from filename extension with fallback
+   * @param {string} filename - The filename
+   * @param {string} existingType - Existing MIME type from file.type
+   * @returns {string} Normalized MIME type
+   */
+  getMimeTypeFromFilename(filename, existingType) {
+    // If we already have a valid MIME type, use it
+    if (existingType && existingType !== '' && existingType !== 'application/octet-stream') {
+      return existingType;
+    }
+    
+    // Fallback: detect from file extension
+    const ext = filename.toLowerCase().split('.').pop();
+    const mimeTypes = {
+      // Video formats
+      'mov': 'video/quicktime',
+      'mp4': 'video/mp4',
+      'avi': 'video/x-msvideo',
+      'webm': 'video/webm',
+      'mkv': 'video/x-matroska',
+      'm4v': 'video/x-m4v',
+      '3gp': 'video/3gpp',
+      'flv': 'video/x-flv',
+      'ogv': 'video/ogg',
+      // Image formats
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'bmp': 'image/bmp',
+      'svg': 'image/svg+xml',
+      // Audio formats
+      'mp3': 'audio/mpeg',
+      'wav': 'audio/wav',
+      'ogg': 'audio/ogg',
+      'm4a': 'audio/mp4',
+      'aac': 'audio/aac',
+      'flac': 'audio/flac',
+    };
+    
+    return mimeTypes[ext] || existingType || 'application/octet-stream';
   }
 
   /**
