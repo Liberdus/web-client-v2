@@ -1737,7 +1737,7 @@ class MenuModal {
       clearInterval(getSystemNoticeIntervalId);
       getSystemNoticeIntervalId = null;
     }
-    callsModal.stopPeriodicRefresh();
+    callsModal.stopPeriodicCallsRefresh();
     // Stop camera if it's running
     if (typeof scanQRModal !== 'undefined' && scanQRModal.camera.scanInterval) {
       scanQRModal.stopCamera();
@@ -2528,7 +2528,7 @@ class SignInModal {
     // Initialize upcoming calls icon and start periodic refresh
     callsModal.refreshCalls();
     header.updateCallsIcon();
-    callsModal.startPeriodicRefresh();
+    callsModal.startPeriodicCallsRefresh();
   }
 
   async handleUsernameChange() {
@@ -4018,7 +4018,7 @@ class CallsModal {
   /**
    * Starts the periodic refresh interval (every minute)
    */
-  startPeriodicRefresh() {
+  startPeriodicCallsRefresh() {
     if (this._periodicRefreshInterval) return;
     this._periodicRefreshInterval = setInterval(() => {
       this.refreshCalls();
@@ -4029,7 +4029,7 @@ class CallsModal {
   /**
    * Stops the periodic refresh interval
    */
-  stopPeriodicRefresh() {
+  stopPeriodicCallsRefresh() {
     if (this._periodicRefreshInterval) {
       clearInterval(this._periodicRefreshInterval);
       this._periodicRefreshInterval = null;
