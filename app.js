@@ -13253,26 +13253,11 @@ console.warn('in send message', txid)
    * @returns {void}
    */
   async loadThumbnailsForAttachments() {
-    const imageAttachments = this.messagesList.querySelectorAll('[data-image-attachment="true"]');
-    const videoAttachments = this.messagesList.querySelectorAll('[data-video-attachment="true"]');
+    const thumbnailAttachments = this.messagesList.querySelectorAll(
+      '[data-image-attachment="true"], [data-video-attachment="true"]'
+    );
     
-    // Load thumbnails for images
-    for (const attachmentRow of imageAttachments) {
-      const url = attachmentRow.dataset.url;
-      if (!url || url === '#') continue;
-
-      try {
-        const thumbnailBlob = await thumbnailCache.get(url);
-        if (thumbnailBlob) {
-          this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
-        }
-      } catch (error) {
-        console.warn('Failed to load thumbnail for', url, error);
-      }
-    }
-
-    // Load thumbnails for videos
-    for (const attachmentRow of videoAttachments) {
+    for (const attachmentRow of thumbnailAttachments) {
       const url = attachmentRow.dataset.url;
       if (!url || url === '#') continue;
 
@@ -13437,40 +13422,30 @@ console.warn('in send message', txid)
       const filename = decodeURIComponent(linkEl.dataset.name || 'download');
 
       // Generate and cache thumbnail for images and videos, then update in place
-      if (blob.type.startsWith('image/')) {
+      if (blob.type.startsWith('image/') || blob.type.startsWith('video/')) {
         const attachmentUrl = linkEl.dataset.url;
-        const attachmentRow = linkEl.closest('.attachment-row') || linkEl.closest('[data-image-attachment="true"]');
+        const attachmentRow = linkEl.closest('.attachment-row') || 
+          linkEl.closest('[data-image-attachment="true"]') ||
+          linkEl.closest('[data-video-attachment="true"]');
         
-        thumbnailCache.generateThumbnail(blob).then(thumbnail => {
-          return thumbnailCache.save(attachmentUrl, thumbnail, blob.type);
-        }).then(async () => {
-          // Update thumbnail in place
-          if (attachmentRow) {
-            const thumbnailBlob = await thumbnailCache.get(attachmentUrl);
-            if (thumbnailBlob) {
-              this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
-            }
-          }
-        }).catch(err => {
-          console.warn('Failed to generate or cache thumbnail:', err);
-        });
-      } else if (blob.type.startsWith('video/')) {
-        const attachmentUrl = linkEl.dataset.url;
-        const attachmentRow = linkEl.closest('.attachment-row') || linkEl.closest('[data-video-attachment="true"]');
+        const thumbnailPromise = blob.type.startsWith('image/')
+          ? thumbnailCache.generateThumbnail(blob)
+          : thumbnailCache.extractVideoThumbnail(blob);
         
-        thumbnailCache.extractVideoThumbnail(blob).then(thumbnail => {
-          return thumbnailCache.save(attachmentUrl, thumbnail, blob.type);
-        }).then(async () => {
-          // Update thumbnail in place
-          if (attachmentRow) {
-            const thumbnailBlob = await thumbnailCache.get(attachmentUrl);
-            if (thumbnailBlob) {
-              this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
+        thumbnailPromise
+          .then(thumbnail => thumbnailCache.save(attachmentUrl, thumbnail, blob.type))
+          .then(async () => {
+            // Update thumbnail in place
+            if (attachmentRow) {
+              const thumbnailBlob = await thumbnailCache.get(attachmentUrl);
+              if (thumbnailBlob) {
+                this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
+              }
             }
-          }
-        }).catch(err => {
-          console.warn('Failed to extract or cache video thumbnail:', err);
-        });
+          })
+          .catch(err => {
+            console.warn('Failed to generate or cache thumbnail:', err);
+          });
       }
 
       hideToast(loadingToastId);
@@ -14358,12 +14333,7 @@ console.warn('in send message', txid)
     const { messageEl } = this.getAttachmentContextFromRow(row);
     switch (action) {
       case 'preview':
-        const isVideo = row.dataset.videoAttachment === 'true';
-        if (isVideo) {
-          void this.previewVideoAttachment(row);
-        } else {
-          void this.previewImageAttachment(row);
-        }
+        void this.previewMediaAttachment(row);
         break;
       case 'save':
         void this.saveImageAttachment(row);
@@ -14386,62 +14356,32 @@ console.warn('in send message', txid)
   }
 
   /**
-   * Preview an image attachment: decrypt + generate thumbnail + cache thumbnail in IndexedDB.
+   * Preview a media attachment (image or video): decrypt + generate/extract thumbnail + cache thumbnail in IndexedDB.
    * Does NOT trigger download.
    * @param {HTMLElement} attachmentRow
    */
-  async previewImageAttachment(attachmentRow) {
+  async previewMediaAttachment(attachmentRow) {
     let loadingToastId;
     try {
       const { item, url } = this.getAttachmentContextFromRow(attachmentRow);
-      if (!item) return;
-
-      if (!url || url === '#') return;
+      if (!item || !url || url === '#') return;
 
       loadingToastId = showToast(`Decrypting attachment...`, 0, 'loading');
 
       const blob = await this.decryptAttachmentToBlob(item, attachmentRow);
-      if (!blob.type.startsWith('image/')) {
+      const isImage = blob.type.startsWith('image/');
+      const isVideo = blob.type.startsWith('video/');
+
+      if (!isImage && !isVideo) {
         hideToast(loadingToastId);
-        return showToast('Not an image attachment', 2000, 'info');
+        return showToast('Not a supported media attachment', 2000, 'info');
       }
 
-      // 5. Generate + cache thumbnail
-      const thumbnail = await thumbnailCache.generateThumbnail(blob);
-      await thumbnailCache.save(url, thumbnail, blob.type);
-      this.updateThumbnailInPlace(attachmentRow, thumbnail);
-
-      hideToast(loadingToastId);
-    } catch (err) {
-      console.error('Preview decrypt/thumbnail failed:', err);
-      hideToast(loadingToastId);
-      this.handleAttachmentError(err, 'Preview failed.');
-    }
-  }
-
-  /**
-   * Preview a video attachment: decrypt + extract thumbnail frame + cache thumbnail in IndexedDB.
-   * Does NOT trigger download.
-   * @param {HTMLElement} attachmentRow
-   */
-  async previewVideoAttachment(attachmentRow) {
-    let loadingToastId;
-    try {
-      const { item, url } = this.getAttachmentContextFromRow(attachmentRow);
-      if (!item) return;
-
-      if (!url || url === '#') return;
-
-      loadingToastId = showToast(`Decrypting attachment...`, 0, 'loading');
-
-      const blob = await this.decryptAttachmentToBlob(item, attachmentRow);
-      if (!blob.type.startsWith('video/')) {
-        hideToast(loadingToastId);
-        return showToast('Not a video attachment', 2000, 'info');
-      }
-
-      // Extract thumbnail frame + cache
-      const thumbnail = await thumbnailCache.extractVideoThumbnail(blob);
+      // Generate thumbnail based on media type
+      const thumbnail = isImage
+        ? await thumbnailCache.generateThumbnail(blob)
+        : await thumbnailCache.extractVideoThumbnail(blob);
+      
       await thumbnailCache.save(url, thumbnail, blob.type);
       this.updateThumbnailInPlace(attachmentRow, thumbnail);
 
