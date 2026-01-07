@@ -5365,8 +5365,9 @@ small {
   background-image: var(--icon-file-image);
 }
 
-/* Image icons in message display (not preview) */
-.attachment-row .attachment-icon[data-file-type="image"] {
+/* Image and video icons in message display (not preview) */
+.attachment-row .attachment-icon[data-file-type="image"],
+.attachment-row .attachment-icon[data-file-type="video"] {
   width: 144px;
   height: 144px;
   background-size: 144px;
