@@ -2333,8 +2333,6 @@ class SignInModal {
     // Populate select with sorted usernames.
     // Build a map of privacy flags to avoid multiple loadState calls and
     // render options via a small helper to reduce duplication.
-    const publicUsernames = [];
-    const privateUsernames = [];
     const isPrivateMap = Object.create(null);
     for (const username of sortedUsernames) {
       let isPrivateAccount = false;
@@ -2345,27 +2343,38 @@ class SignInModal {
         isPrivateAccount = false;
       }
       isPrivateMap[username] = isPrivateAccount;
-      if (isPrivateAccount) privateUsernames.push(username);
-      else publicUsernames.push(username);
     }
+
+    // Keep notified accounts (any privacy) at the very top, in the order
+    // they appear in sortedUsernames. Then render remaining public accounts,
+    // and finally remaining private accounts grouped under a disabled label.
+    const notifiedTop = sortedUsernames.filter(u => notifiedUsernameSet.has(u));
+    const remaining = sortedUsernames.filter(u => !notifiedUsernameSet.has(u));
+    const publicRemaining = remaining.filter(u => !isPrivateMap[u]);
+    const privateRemaining = remaining.filter(u => isPrivateMap[u]);
 
     const renderOption = (username) => {
       const isNotifiedAccount = notifiedUsernameSet.has(username);
       const dotIndicator = isNotifiedAccount ? ' 🔔' : '';
       const optionColor = isPrivateMap[username] ? 'var(--danger-color)' : 'var(--text-color)';
-      return `<option value="${username}" style="color: ${optionColor};">${username}${dotIndicator}</option>`;
+      const displayName = isPrivateMap[username] ? `- ${username}` : username;
+      return `<option value="${username}" style="color: ${optionColor};">${displayName}${dotIndicator}</option>`;
     };
 
     let html = `<option value="" disabled selected hidden>Select an account</option>`;
 
-    if (publicUsernames.length > 0) {
-      html += publicUsernames.map(renderOption).join('');
+    if (notifiedTop.length > 0) {
+      html += notifiedTop.map(renderOption).join('');
+    }
+
+    if (publicRemaining.length > 0) {
+      html += publicRemaining.map(renderOption).join('');
     }
 
     // Private accounts grouped with a disabled label (avoids optgroup indentation)
-    if (privateUsernames.length > 0) {
+    if (privateRemaining.length > 0) {
       html += `<option value="" disabled style="font-weight:600; color:var(--danger-color);">Private accounts</option>`;
-      html += privateUsernames.map(renderOption).join('');
+      html += privateRemaining.map(renderOption).join('');
     }
 
     this.usernameSelect.innerHTML = html;
