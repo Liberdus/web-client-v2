@@ -809,10 +809,12 @@ class Header {
     this.logoLink = this.header.querySelector('.logo-link');
     this.menuButton = document.getElementById('toggleMenu');
     this.settingsButton = document.getElementById('toggleSettings');
+    this.upcomingCallsBtn = document.getElementById('upcomingCallsBtn');
 
     this.logoLink.addEventListener('keydown', ignoreShiftTabKey); // add event listener for first-item to prevent shift+tab
     this.menuButton.addEventListener('click', () => menuModal.open());
     this.settingsButton.addEventListener('click', () => settingsModal.open());
+    this.upcomingCallsBtn.addEventListener('click', () => callsModal.open());
     
     // Add click event for username display to open myInfoModal
     this.text.addEventListener('click', () => {
@@ -836,6 +838,26 @@ class Header {
 
   setText(newText) {
     this.text.textContent = newText;
+  }
+
+  /**
+   * Updates the upcoming calls icon visibility and glow state
+   */
+  updateCallsIcon() {
+    if (!this.upcomingCallsBtn) return;
+    
+    const hasUpcoming = callsModal.hasUpcomingCalls();
+    const hasImminent = callsModal.hasImminentCalls();
+    
+    // Show/hide icon based on upcoming calls
+    this.upcomingCallsBtn.style.display = hasUpcoming ? '' : 'none';
+    
+    // Add/remove glow class based on imminent calls
+    if (hasImminent) {
+      this.upcomingCallsBtn.classList.add('upcoming-calls-glow');
+    } else {
+      this.upcomingCallsBtn.classList.remove('upcoming-calls-glow');
+    }
   }
 
 }
@@ -2501,6 +2523,11 @@ class SignInModal {
     if (myData?.wallet?.history && Array.isArray(myData.wallet.history) && myData.wallet.history.length > 0) {
       restoreWalletNotificationDots();
     }
+    
+    // Initialize upcoming calls icon and start periodic refresh
+    callsModal.refreshCalls();
+    header.updateCallsIcon();
+    callsModal.startPeriodicRefresh();
   }
 
   async handleUsernameChange() {
@@ -3955,6 +3982,57 @@ class CallsModal {
           joinBtn.classList.add('call-join--active');
         }
     });
+  }
+
+  /**
+   * Returns true if there are any calls within the last 1 hour or next hour
+   * @returns {boolean}
+   */
+  hasUpcomingCalls() {
+    const now = getCorrectedTimestamp();
+    const oneHourMs = 60 * 60 * 1000;
+    const oneHourAgo = now - oneHourMs;
+    const oneHourFromNow = now + oneHourMs;
+    return this.calls.some(callGroup => {
+      const callTime = Number(callGroup.callTime);
+      return Number.isFinite(callTime) && callTime >= oneHourAgo && callTime <= oneHourFromNow;
+    });
+  }
+
+  /**
+   * Returns true if there are any calls within 15 minutes before or after now
+   * @returns {boolean}
+   */
+  hasImminentCalls() {
+    const now = getCorrectedTimestamp();
+    const fifteenMinMs = 15 * 60 * 1000;
+    const windowStart = now - fifteenMinMs;
+    const windowEnd = now + fifteenMinMs;
+    return this.calls.some(callGroup => {
+      const callTime = Number(callGroup.callTime);
+      return Number.isFinite(callTime) && callTime >= windowStart && callTime <= windowEnd;
+    });
+  }
+
+  /**
+   * Starts the periodic refresh interval (every minute)
+   */
+  startPeriodicRefresh() {
+    if (this._periodicRefreshInterval) return;
+    this._periodicRefreshInterval = setInterval(() => {
+      this.refreshCalls();
+      header.updateCallsIcon();
+    }, 60000);
+  }
+
+  /**
+   * Stops the periodic refresh interval
+   */
+  stopPeriodicRefresh() {
+    if (this._periodicRefreshInterval) {
+      clearInterval(this._periodicRefreshInterval);
+      this._periodicRefreshInterval = null;
+    }
   }
 }
 
