@@ -2324,6 +2324,11 @@ input[type='file'].form-control {
   font-size: 0.875rem;
   padding: 8px 12px;
   word-break: break-all;
+  overflow-wrap: break-word; /* Ensure proper wrapping */
+  white-space: normal; /* Allow text to wrap */
+  min-width: 0; /* Allow flex item to shrink below content size */
+  height: auto; /* Override fixed height from .form-control to allow multi-line wrapping */
+  min-height: 56px; /* Maintain minimum height */
   line-height: 1.4;
   background-color: #f8f9fa;
   cursor: default;
@@ -2438,6 +2443,7 @@ input[type='file'].form-control {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
+  min-width: 0; /* Allow flex container to shrink */
 }
 
 /* QR code container */
