@@ -2330,27 +2330,45 @@ class SignInModal {
       sortedUsernames = [...notifiedUsernames, ...otherUsernames];
     }
 
-    // Populate select with sorted usernames
-    this.usernameSelect.innerHTML = `
-      <option value="" disabled selected hidden>Select an account</option>
-      ${sortedUsernames.map((username) => {
-        const isNotifiedAccount = notifiedUsernameSet.has(username);
-        const dotIndicator = isNotifiedAccount ? ' 🔔' : '';
+    // Populate select with sorted usernames.
+    // Build a map of privacy flags to avoid multiple loadState calls and
+    // render options via a small helper to reduce duplication.
+    const publicUsernames = [];
+    const privateUsernames = [];
+    const isPrivateMap = Object.create(null);
+    for (const username of sortedUsernames) {
+      let isPrivateAccount = false;
+      try {
+        const localState = loadState(`${username}_${netid}`);
+        isPrivateAccount = localState?.account?.private === true;
+      } catch (e) {
+        isPrivateAccount = false;
+      }
+      isPrivateMap[username] = isPrivateAccount;
+      if (isPrivateAccount) privateUsernames.push(username);
+      else publicUsernames.push(username);
+    }
 
-        // Private accounts are stored in per-account state (${username}_${netid}).
-        let isPrivateAccount = false;
-        try {
-          const localState = loadState(`${username}_${netid}`);
-          isPrivateAccount = localState?.account?.private === true;
-        } catch (e) {
-          isPrivateAccount = false;
-        }
+    const renderOption = (username) => {
+      const isNotifiedAccount = notifiedUsernameSet.has(username);
+      const dotIndicator = isNotifiedAccount ? ' 🔔' : '';
+      const optionColor = isPrivateMap[username] ? 'var(--danger-color)' : 'var(--text-color)';
+      return `<option value="${username}" style="color: ${optionColor};">${username}${dotIndicator}</option>`;
+    };
 
-        // Explicitly style each <option> to avoid color inheritance quirks.
-        const optionColor = isPrivateAccount ? 'var(--danger-color)' : 'var(--text-color)';
-        return `<option value="${username}" style="color: ${optionColor};">${username}${dotIndicator}</option>`;
-      }).join('')}
-    `;
+    let html = `<option value="" disabled selected hidden>Select an account</option>`;
+
+    if (publicUsernames.length > 0) {
+      html += publicUsernames.map(renderOption).join('');
+    }
+
+    // Private accounts grouped with a disabled label (avoids optgroup indentation)
+    if (privateUsernames.length > 0) {
+      html += `<option value="" disabled style="font-weight:600; color:var(--danger-color);">Private accounts</option>`;
+      html += privateUsernames.map(renderOption).join('');
+    }
+
+    this.usernameSelect.innerHTML = html;
 
     // Restore the previously selected username if it exists
     if (selectedUsername && usernames.includes(selectedUsername)) {
