@@ -2384,11 +2384,9 @@ class SignInModal {
     this.preselectedUsername = preselectedUsername_;
 
     // Update username select and get usernames BEFORE opening modal
-    // This prevents DOM manipulation during modal transition which can cause half-modal issues
     const { usernames } = this.updateUsernameSelect();
 
     // Wait for browser to process DOM changes before starting modal transition
-    // This ensures layout is stable and prevents half-modal issues
     requestAnimationFrame(async () => {
       this.modal.classList.add('active');
 
