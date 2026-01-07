@@ -1901,7 +1901,11 @@ input[type='file'].form-control::file-selector-button {
 .message-content {
   overflow-wrap: break-word;
   word-wrap: break-word;
-  word-break: break-word;
+  word-break: normal; /* Use normal word breaking to allow hyphens to work */
+  white-space: normal; /* Ensure text can wrap */
+  -webkit-hyphens: auto; /* Add hyphens at line breaks (Chrome/Safari) */
+  -moz-hyphens: auto; /* Add hyphens at line breaks (Firefox) */
+  hyphens: auto; /* Add hyphens at line breaks */
 }
 
 /* Wrapper for the send button and the toll information */
@@ -6200,9 +6204,10 @@ small {
 .call-message-text {
   color: var(--text-color);
   overflow-wrap: break-word;
-  -webkit-hyphens: auto; /* Add hyphens at line breaks (Chrome/Safari) */
-  hyphens: auto; /* Add hyphens at line breaks */
   white-space: normal; /* Allow text to wrap */
+  -webkit-hyphens: auto; /* Add hyphens at line breaks (Chrome/Safari) */
+  -moz-hyphens: auto; /* Add hyphens at line breaks (Firefox) */
+  hyphens: auto; /* Add hyphens at line breaks */
 }
 
 /* Allow call-message div children (wrapper divs and direct call-message-text) to shrink */
