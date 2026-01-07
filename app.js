@@ -16074,6 +16074,7 @@ class CallScheduleDateModal {
     this.closeBtn = null;
     this.onDone = null; // function(timestamp|null)
     this.DEFAULT_OFFSET_MINUTES = 0;
+    this.maxDaysOut = 400;
     this.clockTimer = new ClockTimer('callScheduleCurrentTime');
     this._onSubmit = this._onSubmit.bind(this);
     this._onSubmitBtn = this._onSubmitBtn.bind(this);
@@ -16152,6 +16153,10 @@ class CallScheduleDateModal {
     }
     // Set local date input
     if (this.dateInput) {
+      const max = new Date();
+      max.setDate(max.getDate() + this.maxDaysOut);
+      this.dateInput.max = this._formatDateInput(max);
+
       this.dateInput.value = this._formatDateInput(defaultDate);
     }
     this.modal?.classList.add('active');
@@ -16193,8 +16198,18 @@ class CallScheduleDateModal {
     const corrected = localMs + timeSkew;
     const nowCorrected = getCorrectedTimestamp();
     const minAllowed = nowCorrected - 5 * 60 * 1000;
+
+    // Max 400 days out
+    const d = new Date(nowCorrected);
+    d.setDate(d.getDate() + this.maxDaysOut);
+    const maxAllowed = d.getTime();
+
     if (corrected < minAllowed) {
       showToast('Please choose a date or time in the future', 0, 'error');
+      return;
+    }
+    if (corrected > maxAllowed) {
+      showToast(`Please choose a date within the next ${this.maxDaysOut} days`, 0, 'error');
       return;
     }
     this._closeWith(corrected);
