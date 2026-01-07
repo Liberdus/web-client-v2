@@ -2383,45 +2383,49 @@ class SignInModal {
   async open(preselectedUsername_) {
     this.preselectedUsername = preselectedUsername_;
 
-    // First show the modal so we can properly close it if needed
-    this.modal.classList.add('active');
-
-    // Update username select and get usernames
+    // Update username select and get usernames BEFORE opening modal
+    // This prevents DOM manipulation during modal transition which can cause half-modal issues
     const { usernames } = this.updateUsernameSelect();
 
-    // If no accounts exist, close modal and open Create Account modal
-    if (usernames.length === 0) {
-      this.close();
-      createAccountModal.open();
-      return;
-    }
+    // Wait for browser to process DOM changes before starting modal transition
+    // This ensures layout is stable and prevents half-modal issues
+    requestAnimationFrame(async () => {
+      this.modal.classList.add('active');
 
-    // If a username should be auto-selected (either preselect or only one account), do it
-    if ((preselectedUsername_ && usernames.includes(preselectedUsername_))) {
-      this.usernameSelect.value = this.preselectedUsername;
-      await this.handleUsernameChange();
-      // happens when autoselect parameter is given since new account was just created and network may not have propagated account
-      if (this.notFoundMessage.textContent === 'not found') {
-        this.applyAutoSelectNotFoundOverride();
-        this.handleSignIn();
+      // If no accounts exist, close modal and open Create Account modal
+      if (usernames.length === 0) {
+        this.close();
+        createAccountModal.open();
+        return;
       }
-      return;
-    }
 
-    // If only one account exists, select it and trigger change event
-    if (usernames.length === 1) {
-      this.usernameSelect.value = usernames[0];
-      this.usernameSelect.dispatchEvent(new Event('change'));
-      return;
-    }
+      // If a username should be auto-selected (either preselect or only one account), do it
+      if ((preselectedUsername_ && usernames.includes(preselectedUsername_))) {
+        this.usernameSelect.value = this.preselectedUsername;
+        await this.handleUsernameChange();
+        // happens when autoselect parameter is given since new account was just created and network may not have propagated account
+        if (this.notFoundMessage.textContent === 'not found') {
+          this.applyAutoSelectNotFoundOverride();
+          this.handleSignIn();
+        }
+        return;
+      }
 
-    // Multiple accounts exist, show modal with select dropdown
-    this.setUiDisabledSignIn();
+      // If only one account exists, select it and trigger change event
+      if (usernames.length === 1) {
+        this.usernameSelect.value = usernames[0];
+        this.usernameSelect.dispatchEvent(new Event('change'));
+        return;
+      }
 
-    // set timeout to focus on the last item so shift+tab and tab prevention works
-    setTimeout(() => {
-      this.signInModalLastItem.focus();
-    }, 100);
+      // Multiple accounts exist, show modal with select dropdown
+      this.setUiDisabledSignIn();
+
+      // set timeout to focus on the last item so shift+tab and tab prevention works
+      setTimeout(() => {
+        this.signInModalLastItem.focus();
+      }, 100);
+    });
   }
 
   close() {
