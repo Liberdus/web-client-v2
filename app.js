@@ -14459,6 +14459,17 @@ class ChatModal {
       if (timestamp && (Date.now() - timestamp) > EDIT_WINDOW_MS) {
         return showToast('Edit window expired', 3000, 'info');
       }
+
+      // One-time toast
+      if (myData?.account) {
+        myData.account.firstTimeTips = myData.account.firstTimeTips || {};
+        if (myData.account.firstTimeTips.editMessageFee1 !== true) {
+          showToast('Editing a message costs the same transaction fee as sending a new message.', 0, 'info');
+          myData.account.firstTimeTips.editMessageFee1 = true;
+          saveState();
+        }
+      }
+
       // If this is a payment, edit the memo; else edit plain message content
       const contentEl = messageEl.classList.contains('payment-info')
         ? messageEl.querySelector('.payment-memo')
