@@ -12912,34 +12912,21 @@ class ChatModal {
           const bytes = new Uint8Array(e.data.cipherBin);
           const blob = new Blob([bytes], { type: 'application/octet-stream' });
 
-          const form = new FormData();
-          form.append('file', blob, file.name);
-
-          // TODO: move to network.js
-          const uploadUrl = 'https://inv.liberdus.com:2083';
-
           try {
-            const response = await fetch(`${uploadUrl}/post`, {
-              method: 'POST',
-              body: form,
-              signal: this.abortController.signal
-            });
-            if (!response.ok) throw new Error(`upload failed ${response.status}`);
-
-            const { id } = await response.json();
-            if (!id) throw new Error('No file ID returned from upload');
-
-            const attachmentUrl = `${uploadUrl}/get/${id}`;
+            // Upload main file
+            const attachmentUrl = await this.uploadEncryptedFile(blob, file.name);
             
             // NEW: Encrypt and upload thumbnail ONLY if main file upload succeeded
             let previewUrl = null;
             if (capturedThumbnailBlob) {
               try {
-                // Encrypt and upload thumbnail using same dhkey as main file
-                previewUrl = await this.uploadThumbnail(capturedThumbnailBlob, file.name, dhkey);
+                // Encrypt thumbnail using same dhkey as main file
+                const encryptedThumbnailBlob = await encryptBlob(capturedThumbnailBlob, dhkey);
+                // Upload encrypted thumbnail
+                previewUrl = await this.uploadEncryptedFile(encryptedThumbnailBlob, file.name);
               } catch (error) {
-                console.warn('Failed to upload thumbnail:', error);
-                // Continue without previewUrl
+                console.warn('Failed to upload thumbnail (will use local cache):', error);
+                // Continue without previewUrl - recipient can use local cache or decrypt full file
               }
             }
             
@@ -13032,44 +13019,35 @@ class ChatModal {
   }
 
   /**
-   * Encrypt and upload thumbnail to attachment server
-   * @param {Blob} thumbnailBlob - The thumbnail blob (JPEG)
-   * @param {string} originalFileName - Original file name (for metadata)
-   * @param {Uint8Array} dhkey - Shared DH key for encryption (same as main file)
-   * @returns {Promise<string>} Preview URL
+   * Upload encrypted file to attachment server
+   * @param {Blob} encryptedBlob - The encrypted blob to upload
+   * @param {string} fileName - File name for the upload
+   * @returns {Promise<string>} File URL
    */
-  async uploadThumbnail(thumbnailBlob, originalFileName, dhkey) {
-    try {
-      // Encrypt thumbnail using same dhkey as main file
-      const encryptedBlob = await encryptBlob(thumbnailBlob, dhkey);
+  async uploadEncryptedFile(encryptedBlob, fileName) {
+    const form = new FormData();
+    form.append('file', encryptedBlob, fileName);
 
-      // Upload encrypted thumbnail blob
-      const form = new FormData();
-      form.append('file', encryptedBlob, originalFileName);
+    // TODO: move to network.js
+    const uploadUrl = 'https://inv.liberdus.com:2083';
+    const response = await fetch(`${uploadUrl}/post`, {
+      method: 'POST',
+      body: form,
+      signal: this.abortController.signal
+    });
 
-      const uploadUrl = 'https://inv.liberdus.com:2083';
-      const response = await fetch(`${uploadUrl}/post`, {
-        method: 'POST',
-        body: form,
-        signal: this.abortController.signal
-      });
-
-      if (!response.ok) {
-        throw new Error(`thumbnail upload failed ${response.status}`);
-      }
-
-      const { id } = await response.json();
-      if (!id) {
-        throw new Error('No thumbnail ID returned from upload');
-      }
-
-      // Construct and return preview URL
-      const previewUrl = `${uploadUrl}/get/${id}`;
-      return previewUrl;
-    } catch (error) {
-      console.warn('Failed to upload thumbnail:', error);
-      throw error; // Re-throw so caller can handle gracefully
+    if (!response.ok) {
+      throw new Error(`upload failed ${response.status}`);
     }
+
+    const { id } = await response.json();
+    if (!id) {
+      throw new Error('No file ID returned from upload');
+    }
+
+    // Construct and return file URL
+    const fileUrl = `${uploadUrl}/get/${id}`;
+    return fileUrl;
   }
 
   /**
