@@ -14918,7 +14918,7 @@ class ChatModal {
         return showToast('Failed to delete message: ' + (response?.result?.reason || 'Unknown error'), 0, 'error');
       }
 
-      showToast('Delete request sent', 3000, 'success');
+      showToast('Delete request sent', 5000, 'loading');
       
       // Best effort delete attachments from server
       if (message.xattach && Array.isArray(message.xattach)) {
