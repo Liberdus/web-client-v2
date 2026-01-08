@@ -544,16 +544,13 @@ async function encryptAllAccounts(oldPassword, newPassword) {
   const accountsObj = parse(localStorage.getItem('accounts') || 'null');
   if (!accountsObj?.netids) return;
 
-  console.log('looping through all netids')
   for (const netid in accountsObj.netids) {
     const usernamesObj = accountsObj.netids[netid]?.usernames;
     if (!usernamesObj) continue;
-    console.log('looping through all accounts for '+netid)
     for (const username in usernamesObj) {
       const key = `${username}_${netid}`;
       let data = localStorage.getItem(key);
       if (!data) continue;
-      console.log('about to reencrypt '+key)
 
       // If oldEncKey is set, decrypt; otherwise, treat as plaintext
       if (oldEncKey) {
