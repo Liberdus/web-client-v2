@@ -12931,13 +12931,27 @@ class ChatModal {
 
             const attachmentUrl = `${uploadUrl}/get/${id}`;
             
+            // NEW: Encrypt and upload thumbnail ONLY if main file upload succeeded
+            let previewUrl = null;
+            if (capturedThumbnailBlob && (isImage || isVideo)) {
+              try {
+                // Encrypt and upload thumbnail using same dhkey as main file
+                // Note: dhkey, pqEncSharedKey, and selfKey are already available from main file encryption
+                previewUrl = await this.uploadThumbnail(capturedThumbnailBlob, file.name, dhkey);
+              } catch (error) {
+                console.warn('Failed to upload thumbnail (will use local cache):', error);
+                // Continue without previewUrl - recipient can use local cache or decrypt full file
+              }
+            }
+            
             this.fileAttachments.push({
               url: attachmentUrl,
+              pUrl: previewUrl,  // NEW FIELD (undefined if upload failed)
               name: file.name,
               size: file.size,
               type: normalizedType,
-              pqEncSharedKey: bin2base64(pqEncSharedKey),
-              selfKey
+              pqEncSharedKey: bin2base64(pqEncSharedKey),  // Same key for main file AND thumbnail
+              selfKey  // Same key for main file AND thumbnail
             });
             
             // Cache thumbnail if we generated one - use captured variable
@@ -13015,6 +13029,47 @@ class ChatModal {
       this.isEncrypting = false;
     } finally {
       event.target.value = ''; // Reset the file input value
+    }
+  }
+
+  /**
+   * Encrypt and upload thumbnail to attachment server
+   * @param {Blob} thumbnailBlob - The thumbnail blob (JPEG)
+   * @param {string} originalFileName - Original file name (for metadata)
+   * @param {Uint8Array} dhkey - Shared DH key for encryption (same as main file)
+   * @returns {Promise<string>} Preview URL
+   */
+  async uploadThumbnail(thumbnailBlob, originalFileName, dhkey) {
+    try {
+      // Encrypt thumbnail using same dhkey as main file
+      const encryptedBlob = await encryptBlob(thumbnailBlob, dhkey);
+
+      // Upload encrypted thumbnail blob
+      const form = new FormData();
+      form.append('file', encryptedBlob, originalFileName);
+
+      const uploadUrl = 'https://inv.liberdus.com:2083';
+      const response = await fetch(`${uploadUrl}/post`, {
+        method: 'POST',
+        body: form,
+        signal: this.abortController.signal
+      });
+
+      if (!response.ok) {
+        throw new Error(`thumbnail upload failed ${response.status}`);
+      }
+
+      const { id } = await response.json();
+      if (!id) {
+        throw new Error('No thumbnail ID returned from upload');
+      }
+
+      // Construct and return preview URL
+      const previewUrl = `${uploadUrl}/get/${id}`;
+      return previewUrl;
+    } catch (error) {
+      console.warn('Failed to upload thumbnail:', error);
+      throw error; // Re-throw so caller can handle gracefully
     }
   }
 
