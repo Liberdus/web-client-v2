@@ -2270,6 +2270,7 @@ class SignInModal {
     this.removeButton.style.display = 'none';
     this.notFoundMessage.textContent = 'network error';
     this.notFoundMessage.style.display = 'inline';
+    showToast('The gateway server is down, please try again later.', 5000, 'warning');
   }
 
   // When auto-selecting after account creation, the network may not have propagated
