@@ -582,7 +582,6 @@ async function encryptAllAccounts(oldPassword, newPassword) {
 
 function saveState() {
   if (myData && myAccount && myAccount.username && myAccount.netid) {
-    console.log('saving state');
     let data = stringify(myData)
     if (localStorage.lock && lockModal.encKey){  // Consider what happens if localStorage.lock was manually deleted
       data = encryptData(data, lockModal.encKey, true)
@@ -4185,7 +4184,6 @@ async function queryNetwork(url, abortSignal = null) {
 
 async function getChats(keys, retry = 1) {
   // needs to return the number of chats that need to be processed
-  console.log(`getChats retry ${retry}`);
   //console.log('keys', keys)
   if (!keys) {
     console.warn('no keys in getChats');
