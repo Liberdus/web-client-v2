@@ -4574,7 +4574,7 @@ async function processChats(chats, keys) {
             contact.senderInfo = cleanSenderInfo(payload.senderInfo)
             delete payload.senderInfo;
             if (contact.senderInfo.avatarId && contact.senderInfo.avatarKey && contact.avatarId !== contact.senderInfo.avatarId) {
-              downloadAndDecryptAvatar(`https://inv.liberdus.com:2083/get/${contact.senderInfo.avatarId}`, contact.senderInfo.avatarKey)
+              downloadAndDecryptAvatar(`${network.attachmentServerUrl}/get/${contact.senderInfo.avatarId}`, contact.senderInfo.avatarKey)
                 .then(async (blob) => {
                   try {
                     // Save blob under the server-provided avatar id
@@ -4722,7 +4722,7 @@ async function processChats(chats, keys) {
             contact.senderInfo = cleanSenderInfo(payload.senderInfo);
             delete payload.senderInfo;
             if (contact.senderInfo.avatarId && contact.senderInfo.avatarKey && contact.avatarId !== contact.senderInfo.avatarId) {
-              downloadAndDecryptAvatar(`https://inv.liberdus.com:2083/get/${contact.senderInfo.avatarId}`, contact.senderInfo.avatarKey)
+              downloadAndDecryptAvatar(`${network.attachmentServerUrl}/get/${contact.senderInfo.avatarId}`, contact.senderInfo.avatarKey)
                 .then(async (blob) => {
                   try {
                     await contactAvatarCache.save(contact.senderInfo.avatarId, blob);
@@ -6205,7 +6205,7 @@ class AvatarEditModal {
     try {
       const idParam = encodeURIComponent(secret ? `${id}-${secret}` : id);
       try {
-        const delRes = await fetch(`https://inv.liberdus.com:2083/delete/${idParam}`, { method: 'DELETE' });
+        const delRes = await fetch(`${network.attachmentServerUrl}/delete/${idParam}`, { method: 'DELETE' });
         if (!delRes.ok) {
           if (delRes.status === 404) {
             // Missing resource on server -> treat as already-deleted (success)
@@ -6567,7 +6567,7 @@ class AvatarEditModal {
           const formData = new FormData();
           formData.append('file', encryptedBlob);
           formData.append('secret', secret);
-          const response = await fetch('https://inv.liberdus.com:2083/post', {
+          const response = await fetch(`${network.attachmentServerUrl}/post`, {
             method: 'POST',
             body: formData
           });
@@ -13045,8 +13045,7 @@ class ChatModal {
     const form = new FormData();
     form.append('file', encryptedBlob, fileName);
 
-    // TODO: move to network.js
-    const uploadUrl = 'https://inv.liberdus.com:2083';
+    const uploadUrl = network.attachmentServerUrl;
     const response = await fetch(`${uploadUrl}/post`, {
       method: 'POST',
       body: form,
@@ -13129,7 +13128,7 @@ class ChatModal {
   deleteAttachmentsFromServer(urlsOrAttachments) {
     if (!urlsOrAttachments) return;
     
-    const uploadUrl = 'https://inv.liberdus.com:2083';
+    const uploadUrl = network.attachmentServerUrl;
     const urls = Array.isArray(urlsOrAttachments) 
       ? urlsOrAttachments.map(att => att?.url).filter(Boolean)
       : [urlsOrAttachments];
@@ -13137,7 +13136,7 @@ class ChatModal {
     urls.forEach(url => {
       if (typeof url !== 'string') return;
       
-      // Extract ID from URL format: https://inv.liberdus.com:2083/get/{id}
+      // Extract ID from URL format: {attachmentServerUrl}/get/{id}
       const urlMatch = url.match(/\/get\/([^\/]+)$/);
       if (urlMatch && urlMatch[1]) {
         const fileId = urlMatch[1];
@@ -16964,7 +16963,7 @@ class VoiceRecordingModal {
       const form = new FormData();
       form.append('file', blob, `voice_message_${Date.now()}.webm`);
 
-      const uploadUrl = 'https://inv.liberdus.com:2083';
+      const uploadUrl = network.attachmentServerUrl;
       const response = await fetch(`${uploadUrl}/post`, {
         method: 'POST',
         body: form
