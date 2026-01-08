@@ -14478,11 +14478,9 @@ class ChatModal {
       }
 
       // One-time toast
-      if (myData?.account) {
-        if (!checkFirstTimeTip('editMessageFee')) {
-          showToast('Editing a message costs the same transaction fee as sending a new message.', 0, 'info');
-          setFirstTimeTipShown('editMessageFee');
-        }
+      if (!checkFirstTimeTip('editMessageFee')) {
+        showToast('Editing a message costs the same transaction fee as sending a new message.', 0, 'info');
+        setFirstTimeTipShown('editMessageFee');
       }
 
       // If this is a payment, edit the memo; else edit plain message content
