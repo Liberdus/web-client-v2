@@ -14463,9 +14463,9 @@ class ChatModal {
       // One-time toast
       if (myData?.account) {
         myData.account.firstTimeTips = myData.account.firstTimeTips || {};
-        if (myData.account.firstTimeTips.editMessageFee1 !== true) {
+        if (myData.account.firstTimeTips.editMessageFee !== true) {
           showToast('Editing a message costs the same transaction fee as sending a new message.', 0, 'info');
-          myData.account.firstTimeTips.editMessageFee1 = true;
+          myData.account.firstTimeTips.editMessageFee = true;
           saveState();
         }
       }
