@@ -2371,9 +2371,8 @@ class SignInModal {
       html += publicRemaining.map(renderOption).join('');
     }
 
-    // Private accounts grouped with a disabled label (avoids optgroup indentation)
+    // Private accounts
     if (privateRemaining.length > 0) {
-      html += `<option value="" disabled style="font-weight:600; color:var(--danger-color);">Private accounts</option>`;
       html += privateRemaining.map(renderOption).join('');
     }
 
