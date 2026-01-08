@@ -12932,51 +12932,62 @@ class ChatModal {
           try {
             // Upload main file
             const attachmentUrl = await this.uploadEncryptedFile(blob, file.name);
+            let mainFileUploaded = true;  // Track that main file was successfully uploaded
             
-            // NEW: Encrypt and upload thumbnail ONLY if main file upload succeeded
-            let previewUrl = null;
-            if (capturedThumbnailBlob) {
-              try {
-                // Encrypt thumbnail using same dhkey as main file
-                const encryptedThumbnailBlob = await encryptBlob(capturedThumbnailBlob, dhkey);
-                // Upload encrypted thumbnail
-                previewUrl = await this.uploadEncryptedFile(encryptedThumbnailBlob, file.name);
-              } catch (error) {
-                console.warn('Failed to upload thumbnail (will use local cache):', error);
-                // Continue without previewUrl - recipient can use local cache or decrypt full file
+            try {
+              // NEW: Encrypt and upload thumbnail ONLY if main file upload succeeded
+              let previewUrl = null;
+              if (capturedThumbnailBlob) {
+                try {
+                  // Encrypt thumbnail using same dhkey as main file
+                  const encryptedThumbnailBlob = await encryptBlob(capturedThumbnailBlob, dhkey);
+                  // Upload encrypted thumbnail
+                  previewUrl = await this.uploadEncryptedFile(encryptedThumbnailBlob, file.name);
+                } catch (error) {
+                  console.warn('Failed to upload thumbnail:', error);
+                  // If thumbnail upload fails, delete the successfully uploaded main file
+                  this.deleteAttachmentsFromServer(attachmentUrl);
+                  throw error;  // Re-throw to trigger cleanup
+                }
               }
-            }
-            
-            this.fileAttachments.push({
-              url: attachmentUrl,
-              pUrl: previewUrl,  // NEW FIELD (undefined if upload failed)
-              name: file.name,
-              size: file.size,
-              type: normalizedType,
-              pqEncSharedKey: bin2base64(pqEncSharedKey),  // Same key for main file AND thumbnail
-              selfKey  // Same key for main file AND thumbnail
-            });
-            
-            // Cache thumbnail if we generated one - use captured variable
-            if (capturedThumbnailBlob && (isImage || isVideo)) {
-              thumbnailCache.save(attachmentUrl, capturedThumbnailBlob, file.type).catch(err => {
-                console.warn('Failed to cache thumbnail for attached file:', err);
+              
+              this.fileAttachments.push({
+                url: attachmentUrl,
+                pUrl: previewUrl,  // NEW FIELD (undefined if upload failed)
+                name: file.name,
+                size: file.size,
+                type: normalizedType,
+                pqEncSharedKey: bin2base64(pqEncSharedKey),  // Same key for main file AND thumbnail
+                selfKey  // Same key for main file AND thumbnail
               });
-            }
-            
-            hideToast(loadingToastId);
-            this.showAttachmentPreview(file);
+              
+              // Cache thumbnail if we generated one - use captured variable
+              if (capturedThumbnailBlob && (isImage || isVideo)) {
+                thumbnailCache.save(attachmentUrl, capturedThumbnailBlob, file.type).catch(err => {
+                  console.warn('Failed to cache thumbnail for attached file:', err);
+                });
+              }
+              
+              hideToast(loadingToastId);
+              this.showAttachmentPreview(file);
 
-            if (this.address && myData.contacts[this.address]) {
-              this.saveAttachmentState(myData.contacts[this.address]);
+              if (this.address && myData.contacts[this.address]) {
+                this.saveAttachmentState(myData.contacts[this.address]);
+              }
+              
+              const messageValidation = this.validateMessageSize(this.messageInput.value);
+              this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
+              this.toggleSendButtonVisibility();
+              
+              this.addAttachmentButton.disabled = false;
+              showToast(`File "${file.name}" attached successfully`, 2000, 'success');
+            } catch (error) {
+              // If any error occurs after main file upload, delete the uploaded main file
+              if (mainFileUploaded) {
+                this.deleteAttachmentsFromServer(attachmentUrl);
+              }
+              throw error;
             }
-            
-            const messageValidation = this.validateMessageSize(this.messageInput.value);
-            this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
-            this.toggleSendButtonVisibility();
-            
-            this.addAttachmentButton.disabled = false;
-            showToast(`File "${file.name}" attached successfully`, 2000, 'success');
           } catch (fetchError) {
             // Handle fetch errors (including AbortError) inside the worker callback
             if (fetchError.name === 'AbortError') {
