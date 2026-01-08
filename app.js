@@ -12933,14 +12933,13 @@ class ChatModal {
             
             // NEW: Encrypt and upload thumbnail ONLY if main file upload succeeded
             let previewUrl = null;
-            if (capturedThumbnailBlob && (isImage || isVideo)) {
+            if (capturedThumbnailBlob) {
               try {
                 // Encrypt and upload thumbnail using same dhkey as main file
-                // Note: dhkey, pqEncSharedKey, and selfKey are already available from main file encryption
                 previewUrl = await this.uploadThumbnail(capturedThumbnailBlob, file.name, dhkey);
               } catch (error) {
-                console.warn('Failed to upload thumbnail (will use local cache):', error);
-                // Continue without previewUrl - recipient can use local cache or decrypt full file
+                console.warn('Failed to upload thumbnail:', error);
+                // Continue without previewUrl
               }
             }
             
