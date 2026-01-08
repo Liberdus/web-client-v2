@@ -600,6 +600,23 @@ function loadState(account, noparse=false){
   return parse(data);
 }
 
+function checkFirstTimeTip(tipName) {
+  if (!myData?.account) return false;
+  if (typeof tipName !== 'string' || !tipName) return false;
+  const existing = myData.account.firstTimeTips;
+  if (!existing || typeof existing !== 'object') return false;
+  return existing[tipName] === true;
+}
+
+function setFirstTimeTipShown(tipName) {
+  if (!myData?.account) return;
+  if (typeof tipName !== 'string' || !tipName) return;
+  const existing = myData.account.firstTimeTips;
+  myData.account.firstTimeTips = existing && typeof existing === 'object' ? existing : {};
+  myData.account.firstTimeTips[tipName] = true;
+  saveState();
+}
+
 class WelcomeScreen {
   constructor() {}
 
@@ -14462,11 +14479,9 @@ class ChatModal {
 
       // One-time toast
       if (myData?.account) {
-        myData.account.firstTimeTips = myData.account.firstTimeTips || {};
-        if (myData.account.firstTimeTips.editMessageFee !== true) {
+        if (!checkFirstTimeTip('editMessageFee')) {
           showToast('Editing a message costs the same transaction fee as sending a new message.', 0, 'info');
-          myData.account.firstTimeTips.editMessageFee = true;
-          saveState();
+          setFirstTimeTipShown('editMessageFee');
         }
       }
 
