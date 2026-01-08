@@ -4323,7 +4323,6 @@ async function processChats(chats, keys) {
 
         newTimestamp = tx.timestamp > newTimestamp ? tx.timestamp : newTimestamp;
         mine = tx.from == longAddress(keys.address) ? true : false;
-        if (mine) console.warn('txid in processChats is', txidHex)
         // timestamp-skew check for incoming messages/transfers (ensures we don't use out of range sent_timestamp)
         if (!mine && (tx.type === 'message' || tx.type === 'transfer')) {
           const sentTs = Number(((tx.type === 'message' ? tx.xmessage : tx.xmemo) || {}).sent_timestamp || 0);
@@ -4340,7 +4339,7 @@ async function processChats(chats, keys) {
             payload.sent_timestamp = tx.timestamp;
           }
           if (mine){
-            console.warn('my message tx', tx)
+            // console.warn('my message tx', tx)
           }
           else if (payload.encrypted) {
             await ensureContactKeys(from);
@@ -4676,7 +4675,7 @@ async function processChats(chats, keys) {
           }
           if (mine) {
             const txx = parse(stringify(tx))
-            console.warn('my transfer tx', txx)
+            // console.warn('my transfer tx', txx)
           }
           else if (payload.encrypted) {
             await ensureContactKeys(from);
@@ -5165,7 +5164,6 @@ function getTxid(tx){
   if (typeof(tx) !== "string"){
     txo = stringify(tx)
   }
-console.warn('tx is', txo)
   txo = parse(txo)
   delete txo.sign;
   const jstr = stringify(txo);
@@ -12054,7 +12052,6 @@ class ChatModal {
       const chatMessageObj = await this.createChatMessage(currentAddress, payload, tollInLib, keys);
       await signObj(chatMessageObj, keys);
       const txid = getTxid(chatMessageObj)
-console.warn('in send message', txid)
 
       // if there a hidden txid input, get the value to be used to delete that txid from relevant data stores
       const retryTxId = this.retryOfTxId.value;
