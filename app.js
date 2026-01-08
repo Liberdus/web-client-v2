@@ -581,7 +581,6 @@ async function encryptAllAccounts(oldPassword, newPassword) {
 }
 
 function saveState() {
-  console.log('in saveState');
   if (myData && myAccount && myAccount.username && myAccount.netid) {
     console.log('saving state');
     let data = stringify(myData)
