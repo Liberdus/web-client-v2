@@ -14411,7 +14411,7 @@ class ChatModal {
       
       // Get pUrl from data attributes
       const pUrl = attachmentRow.dataset.pUrl;
-      if (!pUrl || pUrl === '' || pUrl === 'undefined') {
+      if (!pUrl) {
         showToast('Preview not available for this attachment', 2000, 'info');
         return;
       }
