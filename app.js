@@ -13125,31 +13125,42 @@ class ChatModal {
 
   /**
    * Best effort delete of files from attachment server
-   * @param {string|Array<{url: string}>} urlsOrAttachments - Single URL string or array of attachment objects with url property
+   * @param {string|Array<string>|Array<{url?: string, pUrl?: string}>} urlsOrAttachments - Single URL string, array of URLs, or array of attachment objects with url/pUrl
    * @returns {void}
    */
   deleteAttachmentsFromServer(urlsOrAttachments) {
     if (!urlsOrAttachments) return;
     
     const uploadUrl = network.attachmentServerUrl;
-    const urls = Array.isArray(urlsOrAttachments) 
-      ? urlsOrAttachments.map(att => att?.url).filter(Boolean)
-      : [urlsOrAttachments];
-    
-    urls.forEach(url => {
-      if (typeof url !== 'string') return;
-      
+    if (!uploadUrl) return;
+
+    const extractFileId = (url) => {
+      if (typeof url !== 'string') return null;
       // Extract ID from URL format: {attachmentServerUrl}/get/{id}
-      const urlMatch = url.match(/\/get\/([^\/]+)$/);
-      if (urlMatch && urlMatch[1]) {
-        const fileId = urlMatch[1];
-        fetch(`${uploadUrl}/delete/${fileId}`, {
-          method: 'DELETE'
-        }).catch(err => {
-          // Silently ignore errors - best effort delete
-          console.warn('Failed to delete attachment from server:', err);
-        });
-      }
+      // Be tolerant of query/hash suffixes.
+      const match = url.match(/\/get\/([^/?#]+)(?:[/?#]|$)/);
+      return match && match[1] ? match[1] : null;
+    };
+
+    const urls = Array.isArray(urlsOrAttachments)
+      ? urlsOrAttachments.flatMap((item) => {
+          if (typeof item === 'string') return [item];
+          if (item && typeof item === 'object') return [item.url, item.pUrl].filter(Boolean);
+          return [];
+        })
+      : [urlsOrAttachments];
+
+    // De-dupe to avoid double-deleting the same id.
+    const uniqueUrls = Array.from(new Set(urls.filter(u => typeof u === 'string')));
+
+    uniqueUrls.forEach((url) => {
+      const fileId = extractFileId(url);
+      if (!fileId) return;
+
+      fetch(`${uploadUrl}/delete/${fileId}`, { method: 'DELETE' }).catch((err) => {
+        // Silently ignore errors - best effort delete
+        console.warn('Failed to delete attachment from server:', err);
+      });
     });
   }
 
