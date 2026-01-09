@@ -12487,6 +12487,7 @@ class ChatModal {
               return `
                 <div class="attachment-row" style="display: flex; ${hasThumbnail ? 'flex-direction: column;' : 'align-items: center;'} background: #f5f5f7; border-radius: 12px; ${paddingStyle} margin-bottom: 6px;"
                   data-url="${fileUrl}"
+                  data-p-url="${att.pUrl || ''}"
                   data-name="${encodeURIComponent(fileName)}"
                   data-type="${att.type || ''}"
                   data-msg-idx="${i}"
@@ -13293,6 +13294,7 @@ class ChatModal {
 
   /**
    * Load thumbnails for image and video attachments asynchronously
+   * Only loads from local IndexedDB cache - pUrl downloads happen on user action (Preview)
    * @returns {void}
    */
   async loadThumbnailsForAttachments() {
@@ -13370,9 +13372,10 @@ class ChatModal {
    * Shared by download (Save) and Preview thumbnail generation.
    * @param {Object} item - message object from myData.contacts[address].messages[idx]
    * @param {HTMLElement} linkEl - element with data-* fields (attachment row or voice message element)
+   * @param {string} [urlOverride] - optional URL to fetch instead of linkEl.dataset.url (used for pUrl thumbnails)
    * @returns {Promise<Blob>}
    */
-  async decryptAttachmentToBlob(item, linkEl) {
+  async decryptAttachmentToBlob(item, linkEl, urlOverride = null) {
     if (!item || !linkEl) throw new Error('Missing item or attachment element');
 
     // 1) Derive dhkey
@@ -13381,8 +13384,10 @@ class ChatModal {
     let selfKey;
     let pqEncSharedKey;
 
-    const url = linkEl.dataset.url;
-    if (!url || url === '#') throw new Error('Missing attachment url');
+    // Use urlOverride if provided, otherwise use the main attachment URL
+    const mainUrl = linkEl.dataset.url;
+    const fetchUrl = urlOverride || mainUrl;
+    if (!mainUrl || mainUrl === '#') throw new Error('Missing attachment url');
 
     const isVoice = item.type === 'vm';
     if (isVoice) {
@@ -13390,8 +13395,8 @@ class ChatModal {
       selfKey = item.audioSelfKey || item.selfKey;
       pqEncSharedKey = item.audioPqEncSharedKey || item.pqEncSharedKey;
     } else {
-      // Attachment: look up attachment entry by url
-      const att = Array.isArray(item.xattach) ? item.xattach.find((a) => a?.url === url) : null;
+      // Attachment: look up attachment entry by main url (keys are stored there)
+      const att = Array.isArray(item.xattach) ? item.xattach.find((a) => a?.url === mainUrl) : null;
       selfKey = att?.selfKey;
       pqEncSharedKey = att?.pqEncSharedKey;
     }
@@ -13416,8 +13421,8 @@ class ChatModal {
       ).dhkey;
     }
 
-    // 2) Download encrypted bytes
-    const res = await fetch(url, { signal: this.abortController.signal });
+    // 2) Download encrypted bytes (use fetchUrl which may be pUrl or main url)
+    const res = await fetch(fetchUrl, { signal: this.abortController.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const cipherBin = new Uint8Array(await res.arrayBuffer());
 
@@ -13427,8 +13432,9 @@ class ChatModal {
     if (!plainB64) throw new Error('decryptChacha returned null');
     const clearBin = base642bin(plainB64);
 
-    // 4) Blob
-    return new Blob([clearBin], { type: linkEl.dataset.type || 'application/octet-stream' });
+    // 4) Blob - use image/jpeg for thumbnails (urlOverride), otherwise use original type
+    const blobType = urlOverride ? 'image/jpeg' : (linkEl.dataset.type || 'application/octet-stream');
+    return new Blob([clearBin], { type: blobType });
   }
 
   /**
@@ -14393,8 +14399,8 @@ class ChatModal {
   }
 
   /**
-   * Preview a media attachment (image or video): decrypt + generate/extract thumbnail + cache thumbnail in IndexedDB.
-   * Does NOT trigger download.
+   * Preview a media attachment (image or video): download + decrypt thumbnail from pUrl + cache in IndexedDB.
+   * Does NOT trigger full file download - uses the pre-generated thumbnail from server.
    * @param {HTMLElement} attachmentRow
    */
   async previewMediaAttachment(attachmentRow) {
@@ -14402,29 +14408,26 @@ class ChatModal {
     try {
       const { item, url } = this.getAttachmentContextFromRow(attachmentRow);
       if (!item || !url || url === '#') return;
-
-      loadingToastId = showToast(`Decrypting attachment...`, 0, 'loading');
-
-      const blob = await this.decryptAttachmentToBlob(item, attachmentRow);
-      const isImage = blob.type.startsWith('image/');
-      const isVideo = blob.type.startsWith('video/');
-
-      if (!isImage && !isVideo) {
-        hideToast(loadingToastId);
-        return showToast('Not a supported media attachment', 2000, 'info');
-      }
-
-      // Generate thumbnail based on media type
-      const thumbnail = isImage
-        ? await thumbnailCache.generateThumbnail(blob)
-        : await thumbnailCache.extractVideoThumbnail(blob);
       
-      await thumbnailCache.save(url, thumbnail, blob.type);
-      this.updateThumbnailInPlace(attachmentRow, thumbnail);
-
+      // Get pUrl from data attributes
+      const pUrl = attachmentRow.dataset.pUrl;
+      if (!pUrl || pUrl === '' || pUrl === 'undefined') {
+        showToast('Preview not available for this attachment', 2000, 'info');
+        return;
+      }
+      
+      loadingToastId = showToast(`Loading preview...`, 0, 'loading');
+      
+      // Decrypt thumbnail using pUrl (reuses same key derivation as main file)
+      const thumbnailBlob = await this.decryptAttachmentToBlob(item, attachmentRow, pUrl);
+      
+      // Cache and display thumbnail
+      await thumbnailCache.save(url, thumbnailBlob, 'image/jpeg');
+      this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
+      
       hideToast(loadingToastId);
     } catch (err) {
-      console.error('Preview decrypt/thumbnail failed:', err);
+      console.error('Preview failed:', err);
       hideToast(loadingToastId);
       this.handleAttachmentError(err, 'Preview failed.');
     }
