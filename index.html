@@ -75,7 +75,10 @@
             ><img src="./media/liberdus_logo_50.png"
           /></a>
         </div>
-        <div class="app-name">Liberdus</div>
+        <div class="app-name-container">
+          <div class="app-name-avatar"></div>
+          <div class="app-name">Liberdus</div>
+        </div>
         <div class="header-icons">
           <div class="offline-indicator" id="offlineIndicator">Offline</div>
           <button class="icon-button" id="upcomingCallsBtn" style="display: none;"></button>
@@ -704,10 +707,6 @@
         <div class="modal-header">
           <button class="back-button" id="closeMyInfoModal"></button>
           <div class="modal-title">My Info</div>
-          <!-- Add header actions container for the edit button -->
-          <div class="header-actions">
-            <button class="icon-button edit-icon" id="myInfoEditButton" aria-label="Edit profile"></button>
-          </div>
         </div>
         <div class="modal-content">
           <div class="form-container">
@@ -732,10 +731,14 @@
                 </div>
               </div>
               <!-- My info fields -->
-              <div class="contact-info-item" style="display: none">
+              <div class="contact-info-item" style="display: block">
                 <div class="contact-info-label">Name</div>
+                <div class="contact-info-value-container">
                   <div class="contact-info-value" id="myInfoName"></div>
+                  <button class="icon-button edit-icon" id="myInfoEditButton" aria-label="Edit profile"></button>
+                </div>
               </div>
+              <!-- Email and Phone fields hidden - may want to restore later
               <div class="contact-info-item" style="display: none">
                 <div class="contact-info-label">Email</div>
                 <div class="contact-info-value">
@@ -746,6 +749,7 @@
                 <div class="contact-info-label">Phone</div>
                 <div class="contact-info-value" id="myInfoPhone"></div>
               </div>
+              -->
               <div class="contact-info-item" style="display: none">
                 <div class="contact-info-label">LinkedIn</div>
                 <div class="contact-info-value">
@@ -778,6 +782,7 @@
                 <label for="name">Name</label>
                 <input type="text" id="name" class="form-control" required />
               </div>
+              <!-- Email and Phone fields hidden - may want to restore later
               <div class="form-group">
                 <label for="email">Email</label>
                 <input type="email" id="email" class="form-control" />
@@ -786,6 +791,7 @@
                 <label for="phone">Phone</label>
                 <input type="tel" id="phone" class="form-control" />
               </div>
+              -->
               <div class="form-group">
                 <label for="linkedin">LinkedIn</label>
                 <input type="text" id="linkedin" placeholder="username" class="form-control" />
@@ -1076,6 +1082,7 @@
               <p class="modal-summary">Choose to call now or schedule a future time.</p>
               <div class="form--narrow">
                 <div class="form-actions">
+                  <div class="contact-time" id="callScheduleChoiceRecipientTime" aria-label="Recipient current time"></div>
                   <button type="button" id="callScheduleNowBtn" class="btn btn--primary btn--pill btn--full">Call Now</button>
                   <button type="button" id="openCallScheduleDateBtn" class="btn btn--primary btn--pill btn--full">Schedule</button>
                   <button type="button" id="cancelCallScheduleChoice" class="btn btn--secondary btn--pill btn--full">Cancel</button>
@@ -1113,6 +1120,7 @@
                   </div>
                 </div>
                 <div class="form-actions">
+                  <div class="contact-time" id="callScheduleConvertedTime" aria-label="Recipient time"></div>
                   <button type="submit" id="confirmCallSchedule" class="btn btn--primary btn--pill btn--full">Submit</button>
                   <button type="button" id="cancelCallScheduleDate" class="btn btn--secondary btn--pill btn--full">Cancel</button>
                 </div>
@@ -1428,6 +1436,7 @@
                 <div class="contact-info-label">Provided Name</div>
                 <div class="contact-info-value" id="contactInfoProvidedName"></div>
               </div>
+              <!-- Email and Phone fields hidden - may want to restore later
               <div class="contact-info-item" style="display: none">
                 <div class="contact-info-label">Email</div>
                 <div class="contact-info-value">
@@ -1438,6 +1447,7 @@
                 <div class="contact-info-label">Phone</div>
                 <div class="contact-info-value" id="contactInfoPhone"></div>
               </div>
+              -->
               <div class="contact-info-item" style="display: none">
                 <div class="contact-info-label">LinkedIn</div>
                 <div class="contact-info-value">
@@ -2048,6 +2058,7 @@
                 <div class="contact-info-label">Provided Name</div>
                 <div class="contact-info-value" id="editContactProvidedName"></div>
               </div>
+              <!-- Email and Phone fields hidden - may want to restore later
               <div class="contact-info-item" style="display: none">
                 <div class="contact-info-label">Email</div>
                 <div class="contact-info-value" id="editContactEmail"></div>
@@ -2056,6 +2067,7 @@
                 <div class="contact-info-label">Phone</div>
                 <div class="contact-info-value" id="editContactPhone"></div>
               </div>
+              -->
               <div class="contact-info-item" style="display: none">
                 <div class="contact-info-label">LinkedIn</div>
                 <div class="contact-info-value" id="editContactLinkedin"></div>
