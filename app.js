@@ -6307,6 +6307,8 @@ class AvatarEditModal {
         }
         // Update My Info modal UI
         myInfoModal.updateMyInfo();
+        // Update header avatar
+        header.updateAvatar();
       } else {
         const contact = myData?.contacts?.[this.currentAddress];
         if (!contact) {
@@ -6621,6 +6623,8 @@ class AvatarEditModal {
 
           // Update My Info modal UI
           myInfoModal.updateMyInfo();
+          // Update header avatar
+          header.updateAvatar();
         } else {
           const contact = myData?.contacts?.[this.currentAddress];
           if (!contact) {
