@@ -2982,8 +2982,9 @@ class ContactInfoModal {
       Username: 'contactInfoUsername',
       Name: 'contactInfoName',
       ProvidedName: 'contactInfoProvidedName',
-      Email: 'contactInfoEmail',
-      Phone: 'contactInfoPhone',
+      // Email and Phone fields hidden - may want to restore later
+      // Email: 'contactInfoEmail',
+      // Phone: 'contactInfoPhone',
       LinkedIn: 'contactInfoLinkedin',
       X: 'contactInfoX',
     };
