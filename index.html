@@ -716,24 +716,22 @@
                 <div class="avatar" id="myInfoAvatar"></div>
                 <div class="name" id="myInfoDisplayName"></div>
                 <div id="myInfoQR" class="myinfo-qr"></div>
-              </div>
-              <!-- My info fields -->
-              <div class="contact-info-item" style="display: block;">
-                <div class="contact-info-label">Address</div>
-                <div class="contact-info-value">
-                  <div class="address-container">
-                    <div
-                      id="myInfoDisplayUsername"
-                      class="form-control address-display"
-                    ></div>
-                    <button
-                      id="myInfoCopyAddress"
-                      class="icon-button address-copy-button"
-                      aria-label="Copy address"
-                    ></button>
-                  </div>
+                <div class="myinfo-address-row">
+                  <div
+                    id="myInfoDisplayUsername"
+                    class="form-control address-display myinfo-address-display"
+                    role="button"
+                    tabindex="0"
+                    aria-label="My address"
+                  ></div>
+                  <button
+                    id="myInfoCopyAddress"
+                    class="icon-button address-copy-button"
+                    aria-label="Copy address"
+                  ></button>
                 </div>
               </div>
+              <!-- My info fields -->
               <div class="contact-info-item" style="display: none">
                 <div class="contact-info-label">Name</div>
                   <div class="contact-info-value" id="myInfoName"></div>

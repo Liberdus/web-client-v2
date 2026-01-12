@@ -2430,6 +2430,25 @@ input[type='file'].form-control {
   align-items: center;
 }
 
+/* My Info: address display under QR (no border/background) */
+.myinfo-address-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.address-display.myinfo-address-display {
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 0;
+  padding: 0 !important;
+  box-shadow: none !important;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
 
 /* Secret Modal Styles */
 #secretModal .form-group p {
