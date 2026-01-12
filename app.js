@@ -3032,12 +3032,20 @@ class ContactInfoModal {
         element.href = `https://x.com/${value}`;
       } else {
         element.textContent = value;
+        // Add empty class only if the stored value is actually empty
+        if (field === 'Name') {
+          const storedName = displayInfo.address && myData.contacts?.[displayInfo.address]?.name;
+          element.classList.toggle('contact-info-value--empty', value === 'Not Entered' && !storedName);
+        } else {
+          element.classList.toggle('contact-info-value--empty', value === 'Not Entered');
+        }
       }
     });
 
     // Notes
     const notesRaw = displayInfo.notes ?? (displayInfo.address && myData.contacts?.[displayInfo.address]?.notes);
     this.notesElement.textContent = notesRaw || 'Not Entered';
+    this.notesElement.classList.toggle('contact-info-value--empty', !notesRaw);
   }
 
   // Set up chat button functionality
