@@ -707,10 +707,6 @@
         <div class="modal-header">
           <button class="back-button" id="closeMyInfoModal"></button>
           <div class="modal-title">My Info</div>
-          <!-- Add header actions container for the edit button -->
-          <div class="header-actions">
-            <button class="icon-button edit-icon" id="myInfoEditButton" aria-label="Edit profile"></button>
-          </div>
         </div>
         <div class="modal-content">
           <div class="form-container">
@@ -739,7 +735,10 @@
               </div>
               <div class="contact-info-item" style="display: block">
                 <div class="contact-info-label">Name</div>
+                <div class="contact-info-value-container">
                   <div class="contact-info-value" id="myInfoName"></div>
+                  <button class="icon-button edit-icon" id="myInfoEditButton" aria-label="Edit profile"></button>
+                </div>
               </div>
               <div class="contact-info-item" style="display: none">
                 <div class="contact-info-label">Email</div>
