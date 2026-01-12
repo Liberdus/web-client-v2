@@ -1206,7 +1206,7 @@ class ChatsScreen {
         displayPreview = attachmentCount === 1 
           ? '📎 Attachment' 
           : `📎 ${attachmentCount} attachments`;
-        displayPrefix = '<';
+        displayPrefix = '< ';
       }
       // Create the list item element
       const li = document.createElement('li');
