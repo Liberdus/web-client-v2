@@ -1415,6 +1415,22 @@ button:disabled {
   text-overflow: ellipsis;
 }
 
+.contact-time {
+  position: relative;
+  right: auto;
+  font-family: var(--font-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--secondary-text-color);
+  white-space: nowrap;
+  user-select: none;
+  width: 100%;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0 0 8px 0;
+}
+
 .menu-list {
   list-style: none;
   padding: 0;
