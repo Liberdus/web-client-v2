@@ -811,6 +811,8 @@ class Header {
   load() {
     this.header = document.getElementById('header');
     this.text = this.header.querySelector('.app-name');
+    this.avatarContainer = this.header.querySelector('.app-name-avatar');
+    this.nameContainer = this.header.querySelector('.app-name-container');
     this.logoLink = this.header.querySelector('.logo-link');
     this.menuButton = document.getElementById('toggleMenu');
     this.settingsButton = document.getElementById('toggleSettings');
@@ -821,8 +823,8 @@ class Header {
     this.settingsButton.addEventListener('click', () => settingsModal.open());
     this.upcomingCallsBtn.addEventListener('click', () => callsModal.open());
     
-    // Add click event for username display to open myInfoModal
-    this.text.addEventListener('click', () => {
+    // Add click event for whole name container
+    this.nameContainer.addEventListener('click', () => {
       if (myData && myData.account) {
         myInfoModal.open();
       }
@@ -843,6 +845,25 @@ class Header {
 
   setText(newText) {
     this.text.textContent = newText;
+  }
+
+  /**
+   * Updates the header avatar for the current user
+   */
+  async updateAvatar() {
+    try {
+      const avatarHtml = await getContactAvatarHtml(
+        {
+          address: myAccount.keys.address,
+          hasAvatar: myData?.account?.hasAvatar,
+          avatarId: myData?.account?.avatarId,
+        },
+        28 // Small size for header
+      );
+      this.avatarContainer.innerHTML = avatarHtml;
+    } catch (e) {
+      console.warn('Failed to update header avatar:', e);
+    }
   }
 
   /**
@@ -943,9 +964,15 @@ class Footer {
         const isPrivateAccount = myAccount?.private === true || myData?.account?.private === true;
         appName.textContent = `${myAccount.username}`;
         appName.classList.toggle('is-private', isPrivateAccount);
+        // Update avatar
+        await header.updateAvatar();
       } else {
         appName.textContent = '';
         appName.classList.remove('is-private');
+        // Clear avatar when not signed in
+        if (header.avatarContainer) {
+          header.avatarContainer.innerHTML = '';
+        }
       }
   
       // Show/hide new chat button
@@ -1760,6 +1787,10 @@ class MenuModal {
 
     // Reset header text
     header.setText('Liberdus');
+    // Clear avatar on sign out
+    if (header.avatarContainer) {
+      header.avatarContainer.innerHTML = '';
+    }
 
     // Hide all app screens
     document.querySelectorAll('.app-screen').forEach((screen) => {
