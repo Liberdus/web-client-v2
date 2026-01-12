@@ -2776,8 +2776,9 @@ class MyInfoModal {
     const { account = {} } = myData ?? {};
     const fields = {
       name:      { id: 'myInfoName',      label: 'Name' },
-      email:     { id: 'myInfoEmail',     label: 'Email',    href: v => `mailto:${v}` },
-      phone:     { id: 'myInfoPhone',     label: 'Phone' },
+      // Email and Phone fields hidden - may want to restore later
+      // email:     { id: 'myInfoEmail',     label: 'Email',    href: v => `mailto:${v}` },
+      // phone:     { id: 'myInfoPhone',     label: 'Phone' },
       linkedin:  { id: 'myInfoLinkedin',  label: 'LinkedIn', href: v => `https://linkedin.com/in/${v}` },
       x:         { id: 'myInfoX',         label: 'X',        href: v => `https://x.com/${v}` },
     };
@@ -9908,8 +9909,9 @@ class MyProfileModal {
     this.modal = document.getElementById('accountModal');
     this.closeButton = document.getElementById('closeAccountForm');
     this.name = document.getElementById('name');
-    this.email = document.getElementById('email');
-    this.phone = document.getElementById('phone');
+    // Email and Phone fields hidden - may want to restore later
+    // this.email = document.getElementById('email');
+    // this.phone = document.getElementById('phone');
     this.linkedin = document.getElementById('linkedin');
     this.x = document.getElementById('x');
     this.accountForm = document.getElementById('accountForm');
@@ -9922,9 +9924,10 @@ class MyProfileModal {
     // Add input event listeners for validation
     this.name.addEventListener('input', (e) => this.handleNameInput(e));
     this.name.addEventListener('blur', (e) => this.handleNameBlur(e));
-    this.phone.addEventListener('input', (e) => this.handlePhoneInput(e));
-    this.phone.addEventListener('blur', (e) => this.handlePhoneBlur(e));
-    this.email.addEventListener('input', (e) => this.handleEmailInput(e));
+    // Email and Phone event listeners hidden - may want to restore later
+    // this.phone.addEventListener('input', (e) => this.handlePhoneInput(e));
+    // this.phone.addEventListener('blur', (e) => this.handlePhoneBlur(e));
+    // this.email.addEventListener('input', (e) => this.handleEmailInput(e));
     this.linkedin.addEventListener('input', (e) => this.handleLinkedInInput(e));
     this.linkedin.addEventListener('blur', (e) => this.handleLinkedInBlur(e));
     this.x.addEventListener('input', (e) => this.handleXTwitterInput(e));
@@ -9944,22 +9947,23 @@ class MyProfileModal {
     e.target.value = normalized;
   }
 
-  handlePhoneInput(e) {
-    // Allow only numbers, spaces, dashes, and parentheses
-//    const normalized = e.target.value.replace(/[^\d\s\-()]/g, '');
-    const normalized = normalizePhone(e.target.value);
-    e.target.value = normalized;
-  }
+  // Email and Phone handler methods hidden - may want to restore later
+  // handlePhoneInput(e) {
+  //   // Allow only numbers, spaces, dashes, and parentheses
+  // //    const normalized = e.target.value.replace(/[^\d\s\-()]/g, '');
+  //   const normalized = normalizePhone(e.target.value);
+  //   e.target.value = normalized;
+  // }
 
-  handleEmailInput(e) {
-    const normalized = normalizeEmail(e.target.value);
-    e.target.value = normalized;
-  }
+  // handleEmailInput(e) {
+  //   const normalized = normalizeEmail(e.target.value);
+  //   e.target.value = normalized;
+  // }
 
-  handlePhoneBlur(e) {
-    const normalized = normalizePhone(e.target.value, true);
-    e.target.value = normalized;
-  }
+  // handlePhoneBlur(e) {
+  //   const normalized = normalizePhone(e.target.value, true);
+  //   e.target.value = normalized;
+  // }
 
   handleLinkedInInput(e) {
     // Allow letters, numbers, dashes, and underscores
@@ -9994,8 +9998,9 @@ class MyProfileModal {
     this.modal.classList.add('active');
     if (myData && myData.account) {
       this.name.value = myData.account.name || '';
-      this.email.value = myData.account.email || '';
-      this.phone.value = myData.account.phone || '';
+      // Email and Phone fields hidden - may want to restore later
+      // this.email.value = myData.account.email || '';
+      // this.phone.value = myData.account.phone || '';
       this.linkedin.value = myData.account.linkedin || '';
       this.x.value = myData.account.x || '';
     }
@@ -10012,8 +10017,9 @@ class MyProfileModal {
     // Get and sanitize form data
     const formData = {
       name: this.name.value.trim(),
-      email: this.email.value.trim(),
-      phone: this.phone.value.trim(),
+      // Email and Phone fields hidden - may want to restore later
+      // email: this.email.value.trim(),
+      // phone: this.phone.value.trim(),
       linkedin: this.linkedin.value.trim(),
       x: this.x.value.trim(),
     };
