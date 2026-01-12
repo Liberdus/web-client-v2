@@ -858,6 +858,7 @@ body {
   font-size: var(--font-size-sm);
   color: var(--secondary-text-color);
   white-space: nowrap;
+  text-align: right;
 }
 
 #searchResults .chat-message {

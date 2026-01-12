@@ -1217,7 +1217,7 @@ class ChatsScreen {
           <div class="chat-content">
               <div class="chat-header">
                   <div class="chat-name">${escapeHtml(contactName)}</div>
-                  <div class="chat-time">${timeDisplay} <span class="chat-time-chevron"></span></div>
+                  <div class="chat-time">${timeDisplay}</div>
               </div>
               <div class="chat-message">
                 ${contact.unread ? `<span class="chat-unread">${contact.unread}</span>` : ((contact.draft || contact.draftReplyTxid || hasDraftAttachment) ? `<span class="chat-draft" title="Draft"></span>` : '')}
