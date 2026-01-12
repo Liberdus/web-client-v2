@@ -3260,6 +3260,10 @@ button.about-link {
   overflow-wrap: break-word;
   max-width: 100%;
 }
+
+.contact-info-value--empty {
+  color: var(--secondary-text-color);
+}
 /* Logs Textarea Styles */
 #logsTextarea {
   width: 100%;

@@ -2800,16 +2800,21 @@ class MyInfoModal {
           ? element.parentElement.parentElement // label + anchor live two levels up
           : element.parentElement;
 
-      const value = account[fieldKey] ?? ''; // empty string if undefined / null
+      const value = account[fieldKey] ?? '';
       const isEmpty = !value;
 
-      // Show / hide container with inline style (per your constraint)
-      container.style.display = isEmpty ? 'none' : 'block';
-      if (isEmpty) continue;
+      // Always show the Name field, hide others when empty
+      container.style.display = (fieldKey === 'name' || !isEmpty) ? 'block' : 'none';
+      if (isEmpty && fieldKey !== 'name') continue;
 
       // Populate the field with data
-      element.textContent = value;
-      if (fieldConfig.href) element.href = fieldConfig.href(value);
+      if (fieldKey === 'name') {
+        element.textContent = isEmpty ? 'Not Entered' : value;
+        element.classList.toggle('contact-info-value--empty', isEmpty);
+      } else {
+        element.textContent = value;
+        if (fieldConfig.href) element.href = fieldConfig.href(value);
+      }
     }
     this.renderUsernameQR();
   }
