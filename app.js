@@ -1177,7 +1177,7 @@ class ChatsScreen {
       // Determine what to show in the preview
 
       let displayPreview = previewHTML;
-      let displayPrefix = latestActivity.my ? 'You: ' : '';
+      let displayPrefix = latestActivity.my ? '< ' : '> ';
       let hasDraftAttachment = false;
 
       // Check for draft attachments
@@ -1188,7 +1188,7 @@ class ChatsScreen {
       // If there's draft text, show that (prioritize draft text over reply preview)
       if (contact.draft && contact.draft.trim() !== '') {
         displayPreview = truncateMessage(escapeHtml(contact.draft), 50);
-        displayPrefix = 'You: ';
+        displayPrefix = '< ';
       } else if (contact.draftReplyTxid) {
         // If there's only reply content (no text), show "Replying to: [message]"
         const replyMessage = contact.draftReplyMessage || '';
@@ -1206,7 +1206,7 @@ class ChatsScreen {
         displayPreview = attachmentCount === 1 
           ? '📎 Attachment' 
           : `📎 ${attachmentCount} attachments`;
-        displayPrefix = 'You: ';
+        displayPrefix = '<';
       }
       // Create the list item element
       const li = document.createElement('li');
@@ -5312,9 +5312,9 @@ class SearchMessagesModal {
 
       const avatarHtml = await getContactAvatarHtml(result.contactAddress);
 
-      // Format message preview with "You:" prefix if it's a sent message
+      // Format message preview with "<" for user messages and ">" for contact messages
       // make this textContent?
-      const messagePreview = result.my ? `You: ${result.preview}` : `${result.preview}`;
+      const messagePreview = result.my ? `< ${result.preview}` : `> ${result.preview}`;
 
       resultElement.innerHTML = `
               <div class="chat-avatar">
