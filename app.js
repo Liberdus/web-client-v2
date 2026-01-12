@@ -16140,6 +16140,33 @@ class CallInviteModal {
 
 const callInviteModal = new CallInviteModal();
 
+// ---- Call scheduling shared helpers (display-only) ----
+function getActiveChatContactTimeZone() {
+  const addr = chatModal?.address;
+  if (!addr) return '';
+  const tz = myData?.contacts?.[addr]?.senderInfo?.timezone;
+  return typeof tz === 'string' ? tz : '';
+}
+
+function roundToMinuteMs(ms) {
+  return Math.round(ms / 60000) * 60000;
+}
+
+function formatTimeInTimeZone(ms, tz) {
+  if (!tz || !ms) return '';
+  try {
+    const fmt = new Intl.DateTimeFormat(undefined, {
+      timeZone: tz,
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZoneName: 'short'
+    });
+    return fmt.format(new Date(ms));
+  } catch (e) {
+    return '';
+  }
+}
+
 /**
  * Call Schedule Choice Modal
  * Presents: Call Now | Schedule | Cancel
@@ -16151,6 +16178,8 @@ class CallScheduleChoiceModal {
     this.scheduleBtn = null;
     this.cancelBtn = null;
     this.closeBtn = null;
+    this.recipientTime = null;
+    this._recipientTimeInterval = null;
     this.onSelect = null; // function(choice)
   }
 
@@ -16161,6 +16190,7 @@ class CallScheduleChoiceModal {
     this.scheduleBtn = document.getElementById('openCallScheduleDateBtn');
     this.cancelBtn = document.getElementById('cancelCallScheduleChoice');
     this.closeBtn = document.getElementById('closeCallScheduleChoiceModal');
+    this.recipientTime = document.getElementById('callScheduleChoiceRecipientTime');
 
     const onNow = () => this._select('now');
     const onSchedule = () => this._select('schedule');
@@ -16175,13 +16205,53 @@ class CallScheduleChoiceModal {
   open(onSelect) {
     this.onSelect = onSelect;
     this.modal?.classList.add('active');
+    this._startRecipientTimeUpdates();
   }
 
   _select(value) {
     if (this.modal) this.modal.classList.remove('active');
+    this._stopRecipientTimeUpdates();
     const cb = this.onSelect;
     this.onSelect = null;
     if (cb) cb(value);
+  }
+
+  _startRecipientTimeUpdates() {
+    this._stopRecipientTimeUpdates();
+    this._updateRecipientTimeNow();
+    this._recipientTimeInterval = setInterval(() => this._updateRecipientTimeNow(), 30000);
+  }
+
+  _stopRecipientTimeUpdates() {
+    if (this._recipientTimeInterval) {
+      clearInterval(this._recipientTimeInterval);
+      this._recipientTimeInterval = null;
+    }
+    if (this.recipientTime) {
+      this.recipientTime.textContent = '';
+      this.recipientTime.style.display = 'none';
+    }
+  }
+
+  _updateRecipientTimeNow() {
+    if (!this.recipientTime) return;
+    const tz = getActiveChatContactTimeZone();
+    if (!tz) {
+      this.recipientTime.textContent = '';
+      this.recipientTime.style.display = 'none';
+      return;
+    }
+
+    const now = roundToMinuteMs(getCorrectedTimestamp());
+    const s = formatTimeInTimeZone(now, tz);
+    if (!s) {
+      this.recipientTime.textContent = '';
+      this.recipientTime.style.display = 'none';
+      return;
+    }
+
+    this.recipientTime.textContent = `Recipient time: ${s}`;
+    this.recipientTime.style.display = '';
   }
 }
 
@@ -16316,10 +16386,6 @@ class CallScheduleDateModal {
     this._updateConvertedTimePreview();
   }
 
-  _roundToMinute(ms) {
-    return Math.round(ms / 60000) * 60000;
-  }
-
   _getSelectedCorrectedTimestamp() {
     if (!this.dateInput || !this.hourSelect || !this.minuteSelect || !this.ampmSelect) return 0;
     const dateVal = this.dateInput.value;
@@ -16339,20 +16405,13 @@ class CallScheduleDateModal {
     return localMs + timeSkew;
   }
 
-  _getActiveContactTimeZone() {
-    const addr = chatModal?.address;
-    if (!addr) return '';
-    const tz = myData?.contacts?.[addr]?.senderInfo?.timezone;
-    return typeof tz === 'string' ? tz : '';
-  }
-
   _updateConvertedTimePreview() {
     if (!this.recipientTime) return;
 
-    const tz = this._getActiveContactTimeZone();
+    const tz = getActiveChatContactTimeZone();
     const tsRaw = this._getSelectedCorrectedTimestamp();
     // Display-only: stabilize at the chosen minute even if timeSkew includes seconds.
-    const ts = tsRaw ? this._roundToMinute(tsRaw) : 0;
+    const ts = tsRaw ? roundToMinuteMs(tsRaw) : 0;
 
     if (!tz || !ts) {
       this.recipientTime.textContent = '';
@@ -16360,24 +16419,32 @@ class CallScheduleDateModal {
       return;
     }
 
-    try {
-      const fmt = new Intl.DateTimeFormat(undefined, {
-        timeZone: tz,
-        year: 'numeric',
-        month: 'short',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZoneName: 'short'
-      });
-      const s = fmt.format(new Date(ts));
-      this.recipientTime.textContent = `Recipient time: ${s}`;
-      this.recipientTime.style.display = '';
-    } catch (e) {
-      // Invalid / unsupported timezone
+    const s = (() => {
+      if (!tz || !ts) return '';
+      try {
+        const fmt = new Intl.DateTimeFormat(undefined, {
+          timeZone: tz,
+          year: 'numeric',
+          month: 'short',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZoneName: 'short'
+        });
+        return fmt.format(new Date(ts));
+      } catch (e) {
+        return '';
+      }
+    })();
+
+    if (!s) {
       this.recipientTime.textContent = '';
       this.recipientTime.style.display = 'none';
+      return;
     }
+
+    this.recipientTime.textContent = `Recipient time: ${s}`;
+    this.recipientTime.style.display = '';
   }
 
   _submitValue() {
