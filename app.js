@@ -2886,6 +2886,7 @@ class ContactInfoModal {
   constructor() {
     this.currentContactAddress = null;
     this.needsContactListUpdate = false; // track if we need to update the contact list
+    this.fullAddress = null; // Store full address for copying
   }
 
   // Helper method to open avatar edit modal
@@ -2905,7 +2906,8 @@ class ContactInfoModal {
     this.avatarSection = this.modal.querySelector('.contact-avatar-section');
     this.avatarDiv = this.avatarSection.querySelector('.avatar');
     this.nameDiv = this.avatarSection.querySelector('.name');
-    this.subtitleDiv = this.avatarSection.querySelector('.subtitle');
+    this.subtitleDiv = document.getElementById('contactInfoDisplayAddress');
+    this.copyButton = document.getElementById('contactInfoCopyAddress');
     this.usernameDiv = document.getElementById('contactInfoUsername');
     this.avatarEditButton = document.createElement('button');
     this.avatarEditButton.className = 'icon-button edit-icon avatar-edit-button avatar-edit-button-outside';
@@ -2962,6 +2964,10 @@ class ContactInfoModal {
     if (!this.avatarDiv.contains(this.avatarEditButton)) {
       this.avatarDiv.appendChild(this.avatarEditButton);
     }
+
+    // Copy address functionality
+    this.copyButton.addEventListener('click', () => this.copyAddress());
+    this.subtitleDiv.addEventListener('click', () => this.copyAddress());
   }
 
   // Update contact info values
@@ -2976,7 +2982,11 @@ class ContactInfoModal {
       this.avatarDiv.appendChild(this.avatarEditButton);
     }
     this.nameDiv.textContent = displayInfo.name !== 'Not Entered' ? displayInfo.name : displayInfo.username;
-    this.subtitleDiv.textContent = displayInfo.address;
+    
+    // Store and display address
+    const addressWithPrefix = displayInfo.address?.startsWith('0x') ? displayInfo.address : `0x${displayInfo.address || ''}`;
+    this.fullAddress = addressWithPrefix;
+    this.subtitleDiv.textContent = addressWithPrefix;
 
     const fields = {
       Username: 'contactInfoUsername',
@@ -3036,6 +3046,22 @@ class ContactInfoModal {
       this.chatButton.style.display = 'block';
     } else {
       this.chatButton.style.display = 'none';
+    }
+  }
+
+  async copyAddress() {
+    // Copy the full address, not the displayed truncated version and toast
+    const address = this.fullAddress || this.subtitleDiv.textContent;
+    try {
+      await navigator.clipboard.writeText(address);
+      showToast('Address copied to clipboard', 2000, 'success');
+      this.copyButton.classList.add('success');
+      setTimeout(() => {
+        this.copyButton.classList.remove('success');
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      showToast('Failed to copy address', 0, 'error');
     }
   }
 

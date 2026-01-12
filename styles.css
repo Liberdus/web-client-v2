@@ -3252,6 +3252,18 @@ button.about-link {
   text-align: center;
 }
 
+.contact-avatar-section .address-container {
+  width: 100%;
+  min-width: 0;
+}
+
+.contact-avatar-section .address-container .subtitle {
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+}
+
 .contact-info-item {
   padding: 0.2rem;
 }
