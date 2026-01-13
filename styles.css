@@ -456,7 +456,6 @@ body {
 #logo img {
   width: 40px;
   height: 40px;
-  padding: 1px;
   object-fit: contain;
 }
 
@@ -490,8 +489,8 @@ body {
 }
 
 .app-name-avatar {
-  width: 28px;
-  height: 28px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   flex-shrink: 0;
   overflow: hidden;
