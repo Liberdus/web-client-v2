@@ -1364,7 +1364,7 @@ button:disabled {
 .chat-user-info {
   display: flex;
   align-items: center;
-  justify-content: center; /* Center the content within available space */
+  justify-content: center; /* Center the avatar+username group in the header */
   position: absolute;
   left: 56px; /* Start after back button (16px left + 40px button width) */
   right: 100px; /* End before header actions (reserve space for 2 buttons + gap) */
@@ -1372,6 +1372,8 @@ button:disabled {
   cursor: pointer;
   pointer-events: none; /* Allow clicks to pass through to underlying elements */
   z-index: 0; /* Place behind header actions */
+  top: 50%;
+  transform: translateY(-50%); /* Vertically center the container */
 }
 
 
@@ -1412,15 +1414,15 @@ button:disabled {
   max-width: 100%; /* Allow full width when possible */
 }
 
-/* Chat modal title specific styling - centered */
+/* Chat modal title specific styling - left-aligned like header */
 .chat-user-info .modal-title {
-  text-align: center;
+  text-align: left;
   margin: 0;
   font-size: var(--font-size-lg); /* Use larger font like other modal headers */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex: 1;
+  flex: 0 1 auto; /* Don't grow, allow shrink, auto basis - match header behavior */
   min-width: 0; /* Allow text to shrink and ellipsis */
   max-width: 100%; /* Constrain to parent width */
   pointer-events: auto; /* Re-enable pointer events for the title */
