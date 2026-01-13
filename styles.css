@@ -524,8 +524,17 @@ body {
 
 .header-icons {
   display: flex;
-  gap: 16px;
+  gap: 8px; /* Match chat modal header actions spacing */
   align-items: center;
+}
+
+/* Make main header icon buttons match chat modal sizing (30x40 touch targets) */
+.header-icons .icon-button {
+  width: var(--icon-button-width);
+  height: var(--icon-button-height);
+  min-width: var(--icon-button-width);
+  min-height: var(--icon-button-height);
+  padding: 5px; /* Prevent `::before` icons (e.g. settings/menu) from being clipped */
 }
 
 .icon-button {
