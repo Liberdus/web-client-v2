@@ -409,6 +409,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Menu Modal
   menuModal.load();
 
+  // DAO Modals
+  daoModal.load();
+  addProposalModal.load();
+  proposalInfoModal.load();
+
   // Settings Modal
   settingsModal.load();
 
@@ -1710,6 +1715,10 @@ class MenuModal {
     this.closeButton.addEventListener('click', () => this.close());
     this.validatorButton = document.getElementById('openValidator');
     this.validatorButton.addEventListener('click', () => validatorStakingModal.open());
+    this.daoButton = document.getElementById('openDao');
+    if (this.daoButton) {
+      this.daoButton.addEventListener('click', () => daoModal.open());
+    }
     this.inviteButton = document.getElementById('openInvite');
     this.inviteButton.addEventListener('click', () => inviteModal.open());
     this.explorerButton = document.getElementById('openExplorer');
@@ -1838,6 +1847,978 @@ class MenuModal {
 }
 
 const menuModal = new MenuModal();
+
+// =====================
+// DAO / Proposals
+// =====================
+
+const DAO_STORAGE_KEY = 'daoProposals.v1';
+const DAO_ARCHIVE_AFTER_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+const DAO_TYPE_OPTIONS = [
+  { key: 'treasury_project', label: 'Project', group: 'Treasury' },
+  { key: 'treasury_mint', label: 'Mint coins (fund projects)', group: 'Treasury' },
+  { key: 'params_governance', label: 'Governance', group: 'Parameters' },
+  { key: 'params_economic', label: 'Economic', group: 'Parameters' },
+  { key: 'params_protocol', label: 'Protocol', group: 'Parameters' },
+];
+
+const DAO_STATES = [
+  { key: 'discussion', label: 'Discussion' },
+  { key: 'withheld', label: 'Withheld' },
+  { key: 'voting', label: 'Voting' },
+  { key: 'rejected', label: 'Rejected' },
+  { key: 'accepted', label: 'Accepted' },
+  { key: 'applied', label: 'Applied' },
+  { key: 'executing', label: 'Executing' },
+  { key: 'terminated', label: 'Terminated' },
+  { key: 'completed', label: 'Completed' },
+  { key: 'archived', label: 'Archived' },
+];
+
+function getDaoStorageKey() {
+  // If account is available, scope proposals per account address.
+  const addr = myAccount?.address || myData?.account?.address || '';
+  return addr ? `${DAO_STORAGE_KEY}:${addr}` : DAO_STORAGE_KEY;
+}
+
+function getDaoVoterId() {
+  return myAccount?.address || myData?.account?.address || myAccount?.username || myData?.account?.username || 'anon';
+}
+
+function createEmptyDaoStore() {
+  return {
+    meta: { count: 0, active: 0, archived: 0 },
+    activeProposals: [],
+    archivedProposals: [],
+    proposals: {},
+  };
+}
+
+function daoProposalId(number, nonce) {
+  return `${number}_${nonce}`;
+}
+
+function getDaoTypeLabel(typeKey) {
+  return DAO_TYPE_OPTIONS.find((t) => t.key === typeKey)?.label || typeKey || '';
+}
+
+function migrateLegacyDaoArrayToStore(list) {
+  const store = createEmptyDaoStore();
+  const sorted = Array.isArray(list) ? list : [];
+
+  for (const p of sorted) {
+    const number = ++store.meta.count;
+    const nonce = p?.nonce || Math.random().toString(16).slice(2);
+    const id = daoProposalId(number, nonce);
+    const created = Number(p?.createdAt || Date.now());
+    const state = p?.state || 'discussion';
+    const state_changed = Number(p?.stateEnteredAt || created);
+
+    store.activeProposals.push({
+      number,
+      title: p?.title || 'Untitled Proposal',
+      state,
+      state_changed,
+      type: p?.type || 'params_governance',
+      nonce,
+    });
+
+    store.proposals[id] = {
+      number,
+      title: p?.title || 'Untitled Proposal',
+      summary: p?.summary || '',
+      type: p?.type || 'params_governance',
+      state,
+      state_changed,
+      nonce,
+      created,
+      createdBy: p?.createdBy || 'unknown',
+      fields: p?.fields || {},
+      votes: p?.votes || { yes: 0, no: 0, by: {} },
+    };
+  }
+
+  store.meta.active = store.activeProposals.length;
+  store.meta.archived = store.archivedProposals.length;
+  return store;
+}
+
+function normalizeDaoStore(store) {
+  const safe = store && typeof store === 'object' ? store : createEmptyDaoStore();
+  safe.meta = safe.meta && typeof safe.meta === 'object' ? safe.meta : { count: 0, active: 0, archived: 0 };
+  safe.activeProposals = Array.isArray(safe.activeProposals) ? safe.activeProposals : [];
+  safe.archivedProposals = Array.isArray(safe.archivedProposals) ? safe.archivedProposals : [];
+  safe.proposals = safe.proposals && typeof safe.proposals === 'object' ? safe.proposals : {};
+
+  // If store is missing count, reconstruct from proposals.
+  if (!Number.isFinite(Number(safe.meta.count))) {
+    const nums = Object.values(safe.proposals)
+      .map((p) => Number(p?.number || 0))
+      .filter((n) => n > 0);
+    safe.meta.count = nums.length ? Math.max(...nums) : 0;
+  }
+
+  // Auto-archive proposals that have been in certain states for > 30 days.
+  const now = Date.now();
+  const activeNext = [];
+  const archivedIds = new Set(safe.archivedProposals.map((m) => daoProposalId(m.number, m.nonce)));
+
+  for (const meta of safe.activeProposals) {
+    const id = daoProposalId(meta.number, meta.nonce);
+    const full = safe.proposals[id];
+    if (!full) {
+      // Drop dangling meta entries.
+      continue;
+    }
+
+    const state = full.state || meta.state || 'discussion';
+    const enteredAt = Number(full.state_changed || meta.state_changed || full.created || 0);
+    const isArchivable = ['withheld', 'rejected', 'applied', 'terminated', 'completed'].includes(state);
+
+    if (isArchivable && enteredAt && now - enteredAt >= DAO_ARCHIVE_AFTER_MS) {
+      const archivedAt = Number(full.archivedAt || (enteredAt + DAO_ARCHIVE_AFTER_MS));
+      full.archivedAt = archivedAt;
+      full.state = 'archived';
+      full.state_changed = archivedAt;
+      if (!archivedIds.has(id)) {
+        safe.archivedProposals.push({
+          number: meta.number,
+          title: meta.title,
+          state: 'archived',
+          state_changed: archivedAt,
+          type: meta.type,
+          nonce: meta.nonce,
+        });
+        archivedIds.add(id);
+      }
+      continue;
+    }
+
+    activeNext.push(meta);
+  }
+
+  safe.activeProposals = activeNext;
+
+  // Remove archived metas whose full proposal no longer exists.
+  safe.archivedProposals = safe.archivedProposals.filter((m) => {
+    const id = daoProposalId(m.number, m.nonce);
+    return Boolean(safe.proposals[id]);
+  });
+
+  safe.meta.active = safe.activeProposals.length;
+  safe.meta.archived = safe.archivedProposals.length;
+  safe.meta.count = Math.max(
+    Number(safe.meta.count || 0),
+    ...safe.activeProposals.map((m) => Number(m.number || 0)),
+    ...safe.archivedProposals.map((m) => Number(m.number || 0))
+  );
+
+  return safe;
+}
+
+function loadDaoStore() {
+  try {
+    const raw = localStorage.getItem(getDaoStorageKey());
+    if (!raw) return createEmptyDaoStore();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return normalizeDaoStore(migrateLegacyDaoArrayToStore(parsed));
+    return normalizeDaoStore(parsed);
+  } catch (e) {
+    console.warn('Failed to load DAO proposals store:', e);
+    return createEmptyDaoStore();
+  }
+}
+
+function saveDaoStore(store) {
+  try {
+    localStorage.setItem(getDaoStorageKey(), JSON.stringify(store || createEmptyDaoStore()));
+  } catch (e) {
+    console.warn('Failed to save DAO proposals store:', e);
+  }
+}
+
+function getDaoProposalById(proposalId) {
+  const store = loadDaoStore();
+  return store.proposals?.[proposalId] || null;
+}
+
+function getDaoProposalsForUi() {
+  const store = loadDaoStore();
+  const allMetas = [...store.activeProposals, ...store.archivedProposals];
+  return allMetas
+    .map((m) => {
+      const id = daoProposalId(m.number, m.nonce);
+      const p = store.proposals?.[id];
+      if (!p) return null;
+      return {
+        id,
+        number: p.number,
+        nonce: p.nonce,
+        title: p.title,
+        summary: p.summary,
+        type: p.type,
+        createdAt: p.created,
+        state: p.state,
+        stateEnteredAt: p.state_changed,
+        createdBy: p.createdBy,
+        fields: p.fields || {},
+        votes: p.votes || { yes: 0, no: 0, by: {} },
+      };
+    })
+    .filter(Boolean);
+}
+
+function seedDaoMockProposalsIfEmpty() {
+  const existing = loadDaoStore();
+  if ((existing?.meta?.count || 0) > 0 || Object.keys(existing?.proposals || {}).length > 0) return;
+
+  const now = Date.now();
+  const hours = (n) => n * 60 * 60 * 1000;
+  const days = (n) => n * 24 * 60 * 60 * 1000;
+
+  const store = createEmptyDaoStore();
+
+  const addMock = ({ title, summary, state, enteredAt, createdAt, createdBy, type, fields, votes }) => {
+    const number = ++store.meta.count;
+    const nonce = Math.random().toString(16).slice(2);
+    const id = daoProposalId(number, nonce);
+
+    const created = Number(createdAt || enteredAt || now);
+    const state_changed = Number(enteredAt || created);
+
+    store.activeProposals.push({
+      number,
+      title,
+      state,
+      state_changed,
+      type,
+      nonce,
+    });
+
+    store.proposals[id] = {
+      number,
+      title,
+      summary,
+      type,
+      state,
+      state_changed,
+      nonce,
+      created,
+      createdBy,
+      fields: fields || {},
+      votes: votes || { yes: 0, no: 0, by: {} },
+    };
+  };
+
+  // Exact counts per your plan:
+  // Discussion 2, Withheld 7, Voting 1, Rejected 1, Accepted 2, Applied 3,
+  // Executing 1, Terminated 0, Completed 5, Archived 14 (auto-archived from specific states after 30 days).
+
+  // Discussion (2)
+  addMock({
+    title: 'Add community grants working group',
+    summary: 'Create a lightweight working group to evaluate community grants and publish monthly reports.',
+    state: 'discussion',
+    enteredAt: now - hours(3),
+    createdBy: 'alice',
+    type: 'params_governance',
+    fields: { votingThreshold: '60%' },
+  });
+  addMock({
+    title: 'Proposal format v2 (standard sections)',
+    summary: 'Adopt a standard proposal template: Summary, Motivation, Specification, Risks, Alternatives, Timeline.',
+    state: 'discussion',
+    enteredAt: now - hours(18),
+    createdBy: 'bob',
+    type: 'params_governance',
+    fields: { votingEligibility: 'validators + stakers' },
+  });
+
+  // Voting (1) (default selected)
+  addMock({
+    title: 'Adjust minimum transaction fee',
+    summary: 'Change the minimum transaction fee to better match network load (Yes/No).',
+    state: 'voting',
+    enteredAt: now - hours(9),
+    createdAt: now - days(2),
+    createdBy: 'carol',
+    type: 'params_economic',
+    fields: { minTxFee: '0.001', nodeRewards: 'unchanged' },
+    votes: { yes: 12, no: 4, by: {} },
+  });
+
+  // Withheld (7)
+  for (let i = 0; i < 7; i += 1) {
+    addMock({
+      title: `Withheld: parameter review backlog #${i + 1}`,
+      summary: 'Withheld pending additional data and reviewer availability.',
+      state: 'withheld',
+      enteredAt: now - days(2 + i),
+      createdAt: now - days(3 + i),
+      createdBy: ['dave', 'eve', 'frank', 'gina'][i % 4],
+      type: i % 2 === 0 ? 'params_protocol' : 'params_governance',
+      fields: i % 2 === 0 ? { minActiveNodes: 100, maxActiveNodes: 250 } : { votingThreshold: '55%' },
+    });
+  }
+
+  // Rejected (1)
+  addMock({
+    title: 'Remove toll feature',
+    summary: 'Rejected due to spam-prevention needs and lack of alternatives.',
+    state: 'rejected',
+    enteredAt: now - days(6),
+    createdAt: now - days(7),
+    createdBy: 'henry',
+    type: 'params_economic',
+    fields: { rationale: 'anti-spam' },
+  });
+
+  // Accepted (2)
+  addMock({
+    title: 'Publish weekly transparency report',
+    summary: 'Accepted: publish weekly uptime + incident report. Process-only.',
+    state: 'accepted',
+    enteredAt: now - days(2),
+    createdAt: now - days(10),
+    createdBy: 'ivy',
+    type: 'params_governance',
+    fields: { cadence: 'weekly' },
+  });
+  addMock({
+    title: 'Treasury: fund documentation sprint',
+    summary: 'Accepted: fund 2-week docs sprint from treasury.',
+    state: 'accepted',
+    enteredAt: now - days(4),
+    createdAt: now - days(11),
+    createdBy: 'jordan',
+    type: 'treasury_project',
+    fields: { amount: '2500', address: 'lib1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' },
+  });
+
+  // Applied (3)
+  for (let i = 0; i < 3; i += 1) {
+    addMock({
+      title: `Applied: economic parameter tweak #${i + 1}`,
+      summary: 'Applied: parameter changes landed on-chain.',
+      state: 'applied',
+      enteredAt: now - days(3 + i),
+      createdAt: now - days(15 + i),
+      createdBy: ['kate', 'louis', 'mia'][i % 3],
+      type: 'params_economic',
+      fields: { stakeAmount: `${1000 + i * 250}`, validatorPenalty: `${50 + i * 10}` },
+    });
+  }
+
+  // Executing (1)
+  addMock({
+    title: 'Implement DAO proposal indexer service',
+    summary: 'Executing: build an indexer to expose proposal metadata + voting status to clients.',
+    state: 'executing',
+    enteredAt: now - days(1),
+    createdAt: now - days(20),
+    createdBy: 'nina',
+    type: 'treasury_project',
+    fields: { milestone: 'MVP API', budget: '5000' },
+  });
+
+  // Completed (5)
+  for (let i = 0; i < 5; i += 1) {
+    addMock({
+      title: `Completed: project milestone #${i + 1}`,
+      summary: 'Completed: deliverable shipped and verified.',
+      state: 'completed',
+      enteredAt: now - days(5 + i),
+      createdAt: now - days(30 + i),
+      createdBy: ['oscar', 'pat', 'quinn', 'riley'][i % 4],
+      type: 'treasury_project',
+      fields: { result: 'done' },
+    });
+  }
+
+  // Archived (14) - seed as archivable states older than 30 days so normalization moves them to Archived.
+  // Keep them out of the active state counts above.
+  const archivedSeedStates = ['withheld', 'rejected', 'applied', 'terminated', 'completed'];
+  for (let i = 0; i < 14; i += 1) {
+    const s = archivedSeedStates[i % archivedSeedStates.length];
+    addMock({
+      title: `Archived: historic ${s} proposal #${i + 1}`,
+      summary: 'Archived after aging out (kept for reference).',
+      state: s,
+      // Ensure >30 days in the state
+      enteredAt: now - days(45 + i),
+      createdAt: now - days(60 + i),
+      createdBy: ['sam', 'taylor', 'uma', 'vic'][i % 4],
+      type: i % 2 === 0 ? 'params_protocol' : 'params_economic',
+      fields: { note: 'archived by age rule' },
+    });
+  }
+
+  saveDaoStore(normalizeDaoStore(store));
+}
+
+function getDaoStateLabel(key) {
+  return DAO_STATES.find((s) => s.key === key)?.label || key;
+}
+
+function getEffectiveDaoState(proposal) {
+  const state = proposal?.state || 'discussion';
+  const enteredAt = Number(proposal?.stateEnteredAt || proposal?.state_changed || proposal?.createdAt || proposal?.created || 0);
+  const isArchivable = ['withheld', 'rejected', 'applied', 'terminated', 'completed'].includes(state);
+  if (isArchivable && enteredAt && Date.now() - enteredAt >= DAO_ARCHIVE_AFTER_MS) return 'archived';
+  return state;
+}
+
+function formatDaoTimestamp(ts) {
+  const n = Number(ts || 0);
+  if (!n) return '';
+  try {
+    return new Date(n).toLocaleString();
+  } catch {
+    return '';
+  }
+}
+
+class DaoModal {
+  constructor() {
+    this.selectedStateKey = 'voting';
+    this._outsideClickHandler = null;
+  }
+
+  load() {
+    this.modal = document.getElementById('daoModal');
+    this.closeButton = document.getElementById('closeDaoModal');
+    this.titleEl = document.getElementById('daoModalTitle');
+    this.statusMenuButton = document.getElementById('daoFilterButton');
+    this.statusMenu = document.getElementById('daoStatusContextMenu');
+    this.list = document.getElementById('daoProposalList');
+    this.emptyState = document.getElementById('daoProposalEmptyState');
+    this.addButton = document.getElementById('daoAddProposalButton');
+
+    if (this.closeButton) this.closeButton.addEventListener('click', () => this.close());
+    if (this.addButton) this.addButton.addEventListener('click', () => addProposalModal.open());
+
+    if (this.statusMenuButton) {
+      this.statusMenuButton.addEventListener('click', (e) => this.toggleStatusMenu(e));
+    }
+
+    if (this.statusMenu) {
+      this.statusMenu.addEventListener('click', (e) => {
+        const option = e.target.closest('.context-menu-option');
+        if (!option) return;
+        const key = option.dataset.stateKey;
+        if (!key) return;
+        this.setStateFilter(key);
+      });
+    }
+
+    // Close the DAO menu on outside click
+    this._outsideClickHandler = (e) => {
+      if (!this.statusMenu || this.statusMenu.style.display !== 'block') return;
+      if (this.statusMenu.contains(e.target)) return;
+      if (this.statusMenuButton && this.statusMenuButton.contains(e.target)) return;
+      this.closeStatusMenu();
+    };
+    document.addEventListener('click', this._outsideClickHandler);
+  }
+
+  open() {
+    seedDaoMockProposalsIfEmpty();
+
+    // Close the main menu if opened from it
+    if (menuModal?.isActive?.()) menuModal.close();
+    footer?.closeNewChatButton?.();
+
+    this.modal.classList.add('active');
+    enterFullscreen();
+
+    // Default filter is Voting
+    this.selectedStateKey = this.selectedStateKey || 'voting';
+    this.render();
+  }
+
+  close() {
+    this.closeStatusMenu();
+    this.modal.classList.remove('active');
+    enterFullscreen();
+
+    if (this.addButton) {
+      this.addButton.classList.remove('visible');
+    }
+
+    // Restore new chat button if user is on chats/contacts
+    const activeScreenId = document.querySelector('.app-screen.active')?.id;
+    if (activeScreenId === 'chatsScreen' || activeScreenId === 'contactsScreen') {
+      footer?.openNewChatButton?.();
+    }
+  }
+
+  isActive() {
+    return this.modal.classList.contains('active');
+  }
+
+  toggleStatusMenu(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!this.statusMenu) return;
+    if (this.statusMenu.style.display === 'block') {
+      this.closeStatusMenu();
+      return;
+    }
+    this.showStatusMenu();
+  }
+
+  showStatusMenu() {
+    if (!this.statusMenu || !this.statusMenuButton) return;
+    const buttonRect = this.statusMenuButton.getBoundingClientRect();
+    const menuWidth = 200;
+    const approxMenuHeight = 8 + 10 * 44; // padding + 10 items
+
+    let left = buttonRect.right - menuWidth;
+    let top = buttonRect.bottom + 8;
+
+    if (left < 10) left = 10;
+    if (top + approxMenuHeight > window.innerHeight - 10) {
+      top = buttonRect.top - approxMenuHeight - 8;
+    }
+
+    Object.assign(this.statusMenu.style, {
+      left: `${left}px`,
+      top: `${top}px`,
+      display: 'block',
+    });
+  }
+
+  closeStatusMenu() {
+    if (!this.statusMenu) return;
+    this.statusMenu.style.display = 'none';
+  }
+
+  setStateFilter(key) {
+    this.selectedStateKey = key;
+    this.closeStatusMenu();
+    this.render();
+  }
+
+  getProposals() {
+    return getDaoProposalsForUi();
+  }
+
+  render() {
+    const proposals = this.getProposals();
+
+    // Update counts by effective state
+    const counts = Object.fromEntries(DAO_STATES.map((s) => [s.key, 0]));
+    for (const p of proposals) {
+      const eff = getEffectiveDaoState(p);
+      if (counts[eff] !== undefined) counts[eff] += 1;
+    }
+
+    // Update header title
+    const label = getDaoStateLabel(this.selectedStateKey);
+    if (this.titleEl) this.titleEl.textContent = `DAO · ${label}`;
+
+    // Update menu option labels with counts
+    if (this.statusMenu) {
+      for (const s of DAO_STATES) {
+        const el = document.getElementById(`daoStatusOption${s.label.replace(/\s+/g, '')}`);
+        if (el) el.textContent = `${s.label} ${counts[s.key] || 0}`;
+      }
+    }
+
+    // Filter + sort (newest entered into state first)
+    const filtered = proposals
+      .filter((p) => getEffectiveDaoState(p) === this.selectedStateKey)
+      .sort((a, b) => Number(b.stateEnteredAt || b.createdAt || 0) - Number(a.stateEnteredAt || a.createdAt || 0));
+
+    // Clear old list items
+    if (this.list) {
+      this.list.querySelectorAll('li.chat-item').forEach((el) => el.remove());
+    }
+
+    const hasAny = filtered.length > 0;
+    if (this.emptyState) this.emptyState.style.display = hasAny ? 'none' : 'block';
+
+    if (!this.list) return;
+
+    for (const p of filtered) {
+      const li = document.createElement('li');
+      li.classList.add('chat-item');
+
+      const title = escapeHtml(p.title || 'Untitled Proposal');
+      const summary = escapeHtml((p.summary || '').trim());
+      const time = formatDaoTimestamp(p.stateEnteredAt || p.createdAt);
+
+      const numberPrefix = p.number ? `#${p.number} ` : '';
+
+      li.innerHTML = `
+        <div class="chat-avatar">📄</div>
+        <div class="chat-content">
+          <div class="chat-header">
+            <div class="chat-name">${escapeHtml(numberPrefix)}${title}</div>
+            <div class="chat-time">${escapeHtml(time)}</div>
+          </div>
+          <div class="chat-message">${truncateMessage(summary || '—', 70)}</div>
+        </div>
+      `;
+      li.onclick = () => proposalInfoModal.open(p.id);
+      this.list.appendChild(li);
+    }
+
+    // Show + button when modal is active
+    if (this.addButton) {
+      this.addButton.classList.toggle('visible', this.isActive());
+    }
+  }
+}
+
+const daoModal = new DaoModal();
+
+class AddProposalModal {
+  load() {
+    this.modal = document.getElementById('addProposalModal');
+    this.closeButton = document.getElementById('closeAddProposalModal');
+    this.cancelButton = document.getElementById('cancelAddProposal');
+    this.form = document.getElementById('addProposalForm');
+    this.titleInput = document.getElementById('addProposalTitle');
+    this.typeSelect = document.getElementById('addProposalType');
+    this.summaryInput = document.getElementById('addProposalSummary');
+    this.typeFieldsContainer = document.getElementById('addProposalTypeFields');
+
+    if (this.closeButton) this.closeButton.addEventListener('click', () => this.close());
+    if (this.cancelButton) this.cancelButton.addEventListener('click', () => this.close());
+
+    if (this.form) {
+      this.form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        this.handleCreate();
+      });
+    }
+
+    if (this.typeSelect) {
+      this.typeSelect.addEventListener('change', () => {
+        this.renderTypeFields();
+      });
+    }
+  }
+
+  open() {
+    this.modal.classList.add('active');
+    enterFullscreen();
+    if (this.titleInput) this.titleInput.value = '';
+    if (this.typeSelect) this.typeSelect.value = 'treasury_project';
+    if (this.summaryInput) this.summaryInput.value = '';
+    this.renderTypeFields();
+    this.titleInput?.focus?.();
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+    enterFullscreen();
+  }
+
+  isActive() {
+    return this.modal.classList.contains('active');
+  }
+
+  renderTypeFields() {
+    if (!this.typeFieldsContainer) return;
+    const typeKey = this.typeSelect?.value || 'treasury_project';
+
+    // Minimal, mock-only dynamic fields.
+    if (typeKey === 'treasury_project' || typeKey === 'treasury_mint') {
+      this.typeFieldsContainer.innerHTML = `
+        <div class="form-group">
+          <label for="addProposalAddress">Address</label>
+          <input id="addProposalAddress" class="form-control" type="text" maxlength="128" placeholder="Destination address" />
+        </div>
+        <div class="form-group">
+          <label for="addProposalAmount">Amount</label>
+          <input id="addProposalAmount" class="form-control" type="number" min="0" step="0.0001" placeholder="0" />
+        </div>
+      `;
+      return;
+    }
+
+    if (typeKey === 'params_governance') {
+      this.typeFieldsContainer.innerHTML = `
+        <div class="form-group">
+          <label for="addProposalVotingThreshold">Voting Threshold</label>
+          <input id="addProposalVotingThreshold" class="form-control" type="text" maxlength="20" placeholder="e.g. 60%" />
+        </div>
+        <div class="form-group">
+          <label for="addProposalVotingEligibility">Voting Eligibility</label>
+          <input id="addProposalVotingEligibility" class="form-control" type="text" maxlength="120" placeholder="e.g. validators + stakers" />
+        </div>
+      `;
+      return;
+    }
+
+    if (typeKey === 'params_economic') {
+      this.typeFieldsContainer.innerHTML = `
+        <div class="form-group">
+          <label for="addProposalMinTxFee">Min Tx Fee</label>
+          <input id="addProposalMinTxFee" class="form-control" type="text" maxlength="24" placeholder="e.g. 0.001" />
+        </div>
+        <div class="form-group">
+          <label for="addProposalNodeRewards">Node Rewards</label>
+          <input id="addProposalNodeRewards" class="form-control" type="text" maxlength="24" placeholder="e.g. unchanged" />
+        </div>
+        <div class="form-group">
+          <label for="addProposalValidatorPenalty">Validator Penalty</label>
+          <input id="addProposalValidatorPenalty" class="form-control" type="text" maxlength="24" placeholder="e.g. 50" />
+        </div>
+      `;
+      return;
+    }
+
+    // params_protocol
+    this.typeFieldsContainer.innerHTML = `
+      <div class="form-group">
+        <label for="addProposalMinActiveNodes">Min Active Nodes</label>
+        <input id="addProposalMinActiveNodes" class="form-control" type="number" min="0" step="1" placeholder="e.g. 100" />
+      </div>
+      <div class="form-group">
+        <label for="addProposalMaxActiveNodes">Max Active Nodes</label>
+        <input id="addProposalMaxActiveNodes" class="form-control" type="number" min="0" step="1" placeholder="e.g. 250" />
+      </div>
+      <div class="form-group">
+        <label for="addProposalMinValidatorVersion">Min Validator Version</label>
+        <input id="addProposalMinValidatorVersion" class="form-control" type="text" maxlength="40" placeholder="e.g. 1.2.3" />
+      </div>
+    `;
+  }
+
+  handleCreate() {
+    const title = (this.titleInput?.value || '').trim();
+    const summary = (this.summaryInput?.value || '').trim();
+    const typeKey = (this.typeSelect?.value || '').trim();
+
+    if (!title) {
+      showToast('Please enter a title', 2000, 'warning');
+      return;
+    }
+    if (!summary) {
+      showToast('Please enter a summary', 2000, 'warning');
+      return;
+    }
+
+    if (!typeKey) {
+      showToast('Please select a type', 2000, 'warning');
+      return;
+    }
+
+    const now = Date.now();
+
+    const fields = {};
+    // Collect dynamic fields if present.
+    const addrEl = document.getElementById('addProposalAddress');
+    const amtEl = document.getElementById('addProposalAmount');
+    const thrEl = document.getElementById('addProposalVotingThreshold');
+    const eligEl = document.getElementById('addProposalVotingEligibility');
+    const feeEl = document.getElementById('addProposalMinTxFee');
+    const rewardsEl = document.getElementById('addProposalNodeRewards');
+    const penEl = document.getElementById('addProposalValidatorPenalty');
+    const minNodesEl = document.getElementById('addProposalMinActiveNodes');
+    const maxNodesEl = document.getElementById('addProposalMaxActiveNodes');
+    const minVerEl = document.getElementById('addProposalMinValidatorVersion');
+
+    if (addrEl?.value) fields.address = addrEl.value.trim();
+    if (amtEl?.value) fields.amount = amtEl.value;
+    if (thrEl?.value) fields.votingThreshold = thrEl.value.trim();
+    if (eligEl?.value) fields.votingEligibility = eligEl.value.trim();
+    if (feeEl?.value) fields.minTxFee = feeEl.value.trim();
+    if (rewardsEl?.value) fields.nodeRewards = rewardsEl.value.trim();
+    if (penEl?.value) fields.validatorPenalty = penEl.value.trim();
+    if (minNodesEl?.value) fields.minActiveNodes = Number(minNodesEl.value);
+    if (maxNodesEl?.value) fields.maxActiveNodes = Number(maxNodesEl.value);
+    if (minVerEl?.value) fields.minValidatorVersion = minVerEl.value.trim();
+
+    const store = loadDaoStore();
+    const number = Number(store.meta?.count || 0) + 1;
+    const nonce = Math.random().toString(16).slice(2);
+    const id = daoProposalId(number, nonce);
+
+    store.meta.count = number;
+    store.activeProposals.push({
+      number,
+      title,
+      state: 'discussion',
+      state_changed: now,
+      type: typeKey,
+      nonce,
+    });
+    store.proposals[id] = {
+      number,
+      title,
+      summary,
+      type: typeKey,
+      state: 'discussion',
+      state_changed: now,
+      nonce,
+      created: now,
+      createdBy: myAccount?.username || myAccount?.address || 'unknown',
+      fields,
+      votes: { yes: 0, no: 0, by: {} },
+    };
+
+    saveDaoStore(normalizeDaoStore(store));
+
+    this.close();
+    // Ensure DAO modal shows the new proposal (Discussion by default for new proposals)
+    daoModal.selectedStateKey = 'discussion';
+    if (!daoModal.isActive()) daoModal.open();
+    else daoModal.render();
+
+    showToast('Proposal submitted (Discussion)', 2000, 'success');
+  }
+}
+
+const addProposalModal = new AddProposalModal();
+
+class ProposalInfoModal {
+  load() {
+    this.modal = document.getElementById('proposalInfoModal');
+    this.closeButton = document.getElementById('closeProposalInfoModal');
+    this.numberEl = document.getElementById('proposalInfoNumber');
+    this.titleEl = document.getElementById('proposalInfoTitle');
+    this.typeEl = document.getElementById('proposalInfoType');
+    this.metaEl = document.getElementById('proposalInfoMeta');
+    this.summaryEl = document.getElementById('proposalInfoSummary');
+    this.fieldsEl = document.getElementById('proposalInfoFields');
+    this.voteSection = document.getElementById('proposalVoteSection');
+    this.voteYesBtn = document.getElementById('proposalVoteYes');
+    this.voteNoBtn = document.getElementById('proposalVoteNo');
+    this.voteCountsEl = document.getElementById('proposalVoteCounts');
+
+    this._currentProposalId = null;
+
+    if (this.closeButton) this.closeButton.addEventListener('click', () => this.close());
+
+    if (this.voteYesBtn) this.voteYesBtn.addEventListener('click', () => this.castVote('yes'));
+    if (this.voteNoBtn) this.voteNoBtn.addEventListener('click', () => this.castVote('no'));
+  }
+
+  open(proposalId) {
+    const p = getDaoProposalById(proposalId);
+    this._currentProposalId = proposalId;
+
+    this.modal.classList.add('active');
+    enterFullscreen();
+
+    if (!p) {
+      if (this.numberEl) this.numberEl.textContent = '';
+      if (this.titleEl) this.titleEl.textContent = 'Proposal not found';
+      if (this.typeEl) this.typeEl.textContent = '';
+      if (this.metaEl) this.metaEl.textContent = '';
+      if (this.summaryEl) this.summaryEl.textContent = '';
+      if (this.fieldsEl) this.fieldsEl.innerHTML = '';
+      if (this.voteSection) this.voteSection.style.display = 'none';
+      return;
+    }
+
+    const uiState = getDaoStateLabel(getEffectiveDaoState({ state: p.state, stateEnteredAt: p.state_changed, createdAt: p.created }));
+    const entered = formatDaoTimestamp(p.state_changed || p.created);
+    const createdBy = p.createdBy ? ` · by ${p.createdBy}` : '';
+    const typeLabel = getDaoTypeLabel(p.type);
+
+    if (this.numberEl) this.numberEl.textContent = p.number ? `Proposal #${p.number}` : 'Proposal';
+    if (this.titleEl) this.titleEl.textContent = p.title || 'Untitled Proposal';
+    if (this.typeEl) this.typeEl.textContent = typeLabel ? `Type: ${typeLabel}` : '';
+    if (this.metaEl) this.metaEl.textContent = `${uiState} · ${entered}${createdBy}`;
+    if (this.summaryEl) this.summaryEl.textContent = p.summary || '';
+
+    if (this.fieldsEl) {
+      const entries = Object.entries(p.fields || {}).filter(([, v]) => v !== undefined && v !== null && String(v).length > 0);
+      if (entries.length === 0) {
+        this.fieldsEl.innerHTML = '';
+      } else {
+        this.fieldsEl.innerHTML = entries
+          .map(([k, v]) => {
+            const key = escapeHtml(String(k));
+            const val = escapeHtml(String(v));
+            return `<div><span style="color: var(--secondary-text-color)">${key}</span>: ${val}</div>`;
+          })
+          .join('');
+      }
+    }
+
+    this.renderVotingSection(p);
+  }
+
+  renderVotingSection(p) {
+    if (!this.voteSection) return;
+    const effective = getEffectiveDaoState({ state: p.state, stateEnteredAt: p.state_changed, createdAt: p.created });
+    const showVoting = effective === 'voting';
+    this.voteSection.style.display = showVoting ? 'block' : 'none';
+    if (!showVoting) return;
+
+    const voterId = getDaoVoterId();
+    const votes = p.votes || { yes: 0, no: 0, by: {} };
+    const myVote = votes.by?.[voterId] || '';
+
+    if (this.voteCountsEl) this.voteCountsEl.textContent = `Yes: ${votes.yes || 0} · No: ${votes.no || 0}`;
+
+    if (this.voteYesBtn) {
+      this.voteYesBtn.classList.toggle('btn--primary', myVote === 'yes');
+      this.voteYesBtn.classList.toggle('btn--secondary', myVote !== 'yes');
+    }
+    if (this.voteNoBtn) {
+      this.voteNoBtn.classList.toggle('btn--primary', myVote === 'no');
+      this.voteNoBtn.classList.toggle('btn--secondary', myVote !== 'no');
+    }
+  }
+
+  castVote(choice) {
+    if (!this._currentProposalId) return;
+    const store = loadDaoStore();
+    const p = store.proposals?.[this._currentProposalId];
+    if (!p) return;
+
+    const effective = getEffectiveDaoState({ state: p.state, stateEnteredAt: p.state_changed, createdAt: p.created });
+    if (effective !== 'voting') {
+      showToast('Voting is not available for this proposal', 2000, 'warning');
+      return;
+    }
+
+    p.votes = p.votes || { yes: 0, no: 0, by: {} };
+    p.votes.by = p.votes.by || {};
+
+    const voterId = getDaoVoterId();
+    const prev = p.votes.by[voterId];
+
+    if (prev === choice) {
+      // Toggle off
+      delete p.votes.by[voterId];
+      if (choice === 'yes') p.votes.yes = Math.max(0, Number(p.votes.yes || 0) - 1);
+      if (choice === 'no') p.votes.no = Math.max(0, Number(p.votes.no || 0) - 1);
+    } else {
+      // Switch vote
+      if (prev === 'yes') p.votes.yes = Math.max(0, Number(p.votes.yes || 0) - 1);
+      if (prev === 'no') p.votes.no = Math.max(0, Number(p.votes.no || 0) - 1);
+      p.votes.by[voterId] = choice;
+      if (choice === 'yes') p.votes.yes = Number(p.votes.yes || 0) + 1;
+      if (choice === 'no') p.votes.no = Number(p.votes.no || 0) + 1;
+    }
+
+    saveDaoStore(normalizeDaoStore(store));
+
+    // Re-render this modal and the list counts (in case you want to show anything derived).
+    this.open(this._currentProposalId);
+    if (daoModal?.isActive?.()) daoModal.render();
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+    enterFullscreen();
+  }
+
+  isActive() {
+    return this.modal.classList.contains('active');
+  }
+}
+
+const proposalInfoModal = new ProposalInfoModal();
 
 class SettingsModal {
   constructor() { }
@@ -23270,6 +24251,15 @@ function closeTopModal(topModal){
       break;
     case 'menuModal':
       menuModal.close();
+      break;
+    case 'daoModal':
+      daoModal.close();
+      break;
+    case 'addProposalModal':
+      addProposalModal.close();
+      break;
+    case 'proposalInfoModal':
+      proposalInfoModal.close();
       break;
     case 'settingsModal':
       settingsModal.close();

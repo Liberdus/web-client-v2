@@ -269,6 +269,7 @@
             <li class="menu-item" id="openInvite" data-icon="mail">Invite</li>
             <li class="menu-item" id="openFarm" data-icon="trending-up">Farm</li>
             <li class="menu-item" id="openValidator" data-icon="shield">Validator</li>
+            <li class="menu-item" id="openDao" data-icon="dao">DAO</li>
             <li class="menu-item" id="openBridge" data-icon="arrow-right-arrow-left">Bridge</li>
             <li class="menu-item" id="openExplorer" data-icon="search">Explorer</li>
             <li class="menu-item" id="openMonitor" data-icon="globe">Network</li>
@@ -278,6 +279,144 @@
             <li class="menu-item" id="openAbout" data-icon="info">About</li>
             <li class="menu-item sign-out" id="handleSignOut" data-icon="log-out">Sign Out</li>
           </ul>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- DAO Modal -->
+      <div class="modal fixed-header" id="daoModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeDaoModal"></button>
+          <div class="modal-title" id="daoModalTitle">DAO</div>
+          <button class="icon-button filter-icon" id="daoFilterButton" aria-label="Filter"></button>
+        </div>
+        <div class="modal-content">
+          <ul class="chat-list" id="daoProposalList">
+            <div class="empty-state" id="daoProposalEmptyState">
+              <div></div>
+              <div>No proposals found</div>
+              <div>Use + to create a proposal</div>
+            </div>
+          </ul>
+          <button class="floating-button" id="daoAddProposalButton" aria-label="Add proposal">+</button>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- DAO Status Context Menu -->
+      <div class="message-context-menu" id="daoStatusContextMenu" style="display: none;">
+        <div class="context-menu-option" data-state-key="discussion" data-icon="file">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text" id="daoStatusOptionDiscussion">Discussion</span>
+        </div>
+        <div class="context-menu-option" data-state-key="withheld" data-icon="file">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text" id="daoStatusOptionWithheld">Withheld</span>
+        </div>
+        <div class="context-menu-option" data-state-key="voting" data-icon="file">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text" id="daoStatusOptionVoting">Voting</span>
+        </div>
+        <div class="context-menu-option" data-state-key="rejected" data-icon="file">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text" id="daoStatusOptionRejected">Rejected</span>
+        </div>
+        <div class="context-menu-option" data-state-key="accepted" data-icon="file">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text" id="daoStatusOptionAccepted">Accepted</span>
+        </div>
+        <div class="context-menu-option" data-state-key="applied" data-icon="file">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text" id="daoStatusOptionApplied">Applied</span>
+        </div>
+        <div class="context-menu-option" data-state-key="executing" data-icon="file">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text" id="daoStatusOptionExecuting">Executing</span>
+        </div>
+        <div class="context-menu-option" data-state-key="terminated" data-icon="file">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text" id="daoStatusOptionTerminated">Terminated</span>
+        </div>
+        <div class="context-menu-option" data-state-key="completed" data-icon="file">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text" id="daoStatusOptionCompleted">Completed</span>
+        </div>
+        <div class="context-menu-option" data-state-key="archived" data-icon="file">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text" id="daoStatusOptionArchived">Archived</span>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Add Proposal Modal -->
+      <div class="modal fixed-header" id="addProposalModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeAddProposalModal"></button>
+          <div class="modal-title">Add Proposal</div>
+        </div>
+        <div class="modal-content">
+          <div class="form-container">
+            <form id="addProposalForm" class="form--narrow">
+              <div class="form-group">
+                <label for="addProposalTitle">Title</label>
+                <input id="addProposalTitle" class="form-control" type="text" maxlength="120" required />
+              </div>
+              <div class="form-group">
+                <label for="addProposalType">Type</label>
+                <select id="addProposalType" class="form-control" required>
+                  <optgroup label="Treasury">
+                    <option value="treasury_project">Project</option>
+                    <option value="treasury_mint">Mint coins (fund projects)</option>
+                  </optgroup>
+                  <optgroup label="Parameters">
+                    <option value="params_governance">Governance</option>
+                    <option value="params_economic">Economic</option>
+                    <option value="params_protocol">Protocol</option>
+                  </optgroup>
+                </select>
+              </div>
+              <div id="addProposalTypeFields"></div>
+              <div class="form-group">
+                <label for="addProposalSummary">Summary</label>
+                <textarea id="addProposalSummary" class="form-control" rows="6" maxlength="2000" placeholder="Describe the proposal" required></textarea>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn--primary btn--pill btn--full">Submit</button>
+                <button type="button" id="cancelAddProposal" class="btn btn--secondary btn--pill btn--full">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Proposal Info Modal -->
+      <div class="modal fixed-header" id="proposalInfoModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeProposalInfoModal"></button>
+          <div class="modal-title">Proposal</div>
+        </div>
+        <div class="modal-content">
+          <div class="form-container">
+            <div style="padding: 1rem">
+              <div style="color: var(--secondary-text-color); font-size: 0.9rem; margin-bottom: 6px" id="proposalInfoNumber"></div>
+              <div style="font-weight: 600; margin-bottom: 6px" id="proposalInfoTitle"></div>
+              <div style="color: var(--secondary-text-color); font-size: 0.9rem; margin-bottom: 10px" id="proposalInfoType"></div>
+              <div style="color: var(--secondary-text-color); font-size: 0.9rem; margin-bottom: 10px" id="proposalInfoMeta"></div>
+              <div style="white-space: pre-wrap" id="proposalInfoSummary"></div>
+
+              <div id="proposalInfoFields" style="margin-top: 12px"></div>
+
+              <div id="proposalVoteSection" style="margin-top: 16px; display: none">
+                <div style="font-weight: 600; margin-bottom: 8px">Vote</div>
+                <div class="form-actions" style="gap: 10px">
+                  <button type="button" id="proposalVoteYes" class="btn btn--secondary btn--pill btn--full">Yes</button>
+                  <button type="button" id="proposalVoteNo" class="btn btn--secondary btn--pill btn--full">No</button>
+                </div>
+                <div style="color: var(--secondary-text-color); font-size: 0.9rem; margin-top: 8px" id="proposalVoteCounts"></div>
+              </div>
+            </div>
+          </div>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
