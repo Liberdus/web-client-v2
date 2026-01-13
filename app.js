@@ -2509,7 +2509,9 @@ class AddProposalModal {
     if (this.typeSelect) this.typeSelect.value = 'treasury_project';
     if (this.summaryInput) this.summaryInput.value = '';
     this.renderTypeFields();
-    this.titleInput?.focus?.();
+    setTimeout(() => {
+      this.titleInput.focus();
+    }, 325);
   }
 
   close() {
