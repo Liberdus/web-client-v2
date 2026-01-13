@@ -3309,6 +3309,7 @@ button.about-link {
 
 .contact-info-value--empty {
   color: var(--secondary-text-color);
+  font-style: italic;
 }
 /* Logs Textarea Styles */
 #logsTextarea {
