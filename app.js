@@ -1114,6 +1114,11 @@ class ChatsScreen {
     const contacts = myData.contacts;
     const chats = myData.chats;
     const emptyStateEl = chatList.querySelector('.empty-state');
+    
+    // Save scroll position before DOM manipulation to preserve user's scroll position
+    const scrollContainer = this.screen;
+    const savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+    
     // Remove existing rendered chat items without destroying the built-in empty state node
     chatList.querySelectorAll('li.chat-item').forEach((el) => el.remove());
 
@@ -1257,6 +1262,14 @@ class ChatsScreen {
 
       chatList.appendChild(li);
     });
+    
+    // Restore scroll position after DOM manipulation to preserve user's scroll position
+    if (scrollContainer && savedScrollTop > 0) {
+      // Use requestAnimationFrame to ensure DOM has been updated
+      requestAnimationFrame(() => {
+        scrollContainer.scrollTop = savedScrollTop;
+      });
+    }
   }
 }
 
