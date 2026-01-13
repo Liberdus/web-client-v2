@@ -33,6 +33,8 @@ const network = {
   "validatorUrl": "https://liberdus.com/validator",
   "attachmentServerUrl": "https://inv.liberdus.com:2083",
   "bridgeUrl": "./bridge",
+  "explorerUrl": "https://exp-test.liberdus.com/",
+  "monitorUrl": "https://test.liberdus.com/monitor/",
   // App version requirements for native apps (format: YYYY.MMDD.HHmm)
   "app_version": {
     "ios": "2025.1211.1145",
