@@ -2931,7 +2931,7 @@ class ContactInfoModal {
     // Back button
     this.backButton.addEventListener('click', () => this.close());
 
-    this.nameEditButton.addEventListener('click', () => editContactModal.open());
+    this.nameEditButton.addEventListener('click', () => editContactModal.open('name'));
 
     // Add chat button handler for contact info modal
     this.chatButton.addEventListener('click', () => {
@@ -2964,7 +2964,7 @@ class ContactInfoModal {
     // Notes edit button
     this.notesEditButton.addEventListener('click', (e) => {
       e.stopPropagation();
-      editContactModal.open();
+      editContactModal.open('notes');
     });
 
     // Make the avatar itself clickable
@@ -3413,7 +3413,7 @@ class EditContactModal {
     this.backButton.addEventListener('click', () => this.close());
   }
 
-  open() {
+  open(focusField = 'name') {
     // Get the avatar section elements
     const avatarSection = document.querySelector('#editContactModal .contact-avatar-section');
     const avatarDiv = avatarSection.querySelector('.avatar');
@@ -3465,9 +3465,10 @@ class EditContactModal {
     this.modal.classList.add('active');
     // Delay focus to ensure transition completes (modal transition is 300ms)
     setTimeout(() => {
-      this.nameInput.focus();
+      const inputToFocus = focusField === 'notes' ? this.notesInput : this.nameInput;
+      inputToFocus.focus();
       // Set cursor position to the end of the input content
-      this.nameInput.setSelectionRange(this.nameInput.value.length, this.nameInput.value.length);
+      inputToFocus.setSelectionRange(inputToFocus.value.length, inputToFocus.value.length);
     }, 325);
   }
 
