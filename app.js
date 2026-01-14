@@ -3401,6 +3401,8 @@ class EditContactModal {
     this.notesClearButton = document.getElementById('notesClearButton');
     this.saveButton = document.getElementById('saveEditContactButton');
     this.backButton = document.getElementById('closeEditContactModal');
+    this.avatarSection = this.modal.querySelector('#editContactModal .contact-avatar-section');
+    this.avatarDiv = this.avatarSection.querySelector('.avatar');
 
     // Setup event listeners
     this.nameInput.addEventListener('input', (e) => this.handleNameInput(e));
@@ -3411,18 +3413,16 @@ class EditContactModal {
     this.saveButton.addEventListener('click', () => this.handleSave());
     this.providedNameContainer.addEventListener('click', () => this.handleProvidedNameClick());
     this.backButton.addEventListener('click', () => this.close());
+    this.avatarDiv.addEventListener('click', (e) => this.handleAvatarEdit(e));
   }
 
   open(focusField = 'name') {
     // Get the avatar section elements
-    const avatarSection = document.querySelector('#editContactModal .contact-avatar-section');
-    const avatarDiv = avatarSection.querySelector('.avatar');
-    const nameDiv = avatarSection.querySelector('.name');
-    const subtitleDiv = avatarSection.querySelector('.subtitle');
-    const identicon = document.getElementById('contactInfoAvatar').innerHTML;
+    const nameDiv = this.avatarSection.querySelector('.name');
+    const subtitleDiv = this.avatarSection.querySelector('.subtitle');
 
     // Update the avatar section
-    avatarDiv.innerHTML = identicon;
+    this.avatarDiv.innerHTML = document.getElementById('contactInfoAvatar').innerHTML;
     // update the name and subtitle
     nameDiv.textContent = contactInfoModal.usernameDiv.textContent;
     subtitleDiv.textContent = contactInfoModal.subtitleDiv.textContent;
@@ -3475,6 +3475,26 @@ class EditContactModal {
   close() {
     this.modal.classList.remove('active');
     this.currentContactAddress = null;
+  }
+
+  isActive() {
+    return this.modal.classList.contains('active');
+  }
+
+  async updateAvatar(contact) {
+    const avatarHtml = await getContactAvatarHtml(contact, 96);
+    this.avatarDiv.innerHTML = avatarHtml;
+  }
+
+  handleAvatarEdit(e) {
+    // Open avatar edit modal when clicking anywhere in the avatar div (button or image)
+    e.stopPropagation();
+    this.openAvatarEdit();
+  }
+
+  openAvatarEdit() {
+    if (!this.currentContactAddress) return;
+    avatarEditModal.open(this.currentContactAddress);
   }
 
   handleProvidedNameClick() {
@@ -6098,11 +6118,15 @@ class AvatarEditModal {
         try {
           const contact = myData.contacts[address];
           if (contactInfoModal && typeof contactInfoModal.updateContactInfo === 'function') {
-            contactInfoModal.updateContactInfo(createDisplayInfo(contact));
+            await contactInfoModal.updateContactInfo(createDisplayInfo(contact));
             contactInfoModal.needsContactListUpdate = true;
           }
           if (chatModal && chatModal.isActive && chatModal.isActive() && chatModal.address === address) {
             chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
+          }
+          // Update EditContactModal avatar if it's active and showing this contact
+          if (editContactModal.isActive() && editContactModal.currentContactAddress === address) {
+            await editContactModal.updateAvatar(contact);
           }
         } catch (e) {
           console.warn('Failed to refresh avatar UI after selecting useAvatar:', e);
@@ -6694,10 +6718,14 @@ class AvatarEditModal {
           myData.contacts[this.currentAddress] ??= { address: this.currentAddress };
           myData.contacts[this.currentAddress].useAvatar = 'mine';
           saveState();
-          contactInfoModal.updateContactInfo(createDisplayInfo(contact));
+          await contactInfoModal.updateContactInfo(createDisplayInfo(contact));
           contactInfoModal.needsContactListUpdate = true;
           if (chatModal.isActive() && chatModal.address === this.currentAddress) {
             chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
+          }
+          // Update EditContactModal avatar if it's active and showing this contact
+          if (editContactModal.isActive() && editContactModal.currentContactAddress === this.currentAddress ) {
+            await editContactModal.updateAvatar(contact);
           }
         }
       }
