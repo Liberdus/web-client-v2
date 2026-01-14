@@ -36,6 +36,8 @@ async function checkVersion() {
       newUrl,
       'styles.css',
       'app.js',
+      'dao.repo.js',
+      'dao.mock-data.js',
       'lib.js',
       'network.js',
       'crypto.js',
@@ -72,6 +74,14 @@ async function forceReload(urls) {
 // Needed to stringify and parse bigints; also deterministic stringify
 //   modified to use export
 import { stringify, parse } from './external/stringify-shardus.js';
+
+import {
+  daoRepo,
+  DAO_STATES,
+  getDaoStateLabel,
+  getDaoTypeLabel,
+  getEffectiveDaoState,
+} from './dao.repo.js';
 
 // Import crypto functions from crypto.js
 import {
@@ -1852,440 +1862,10 @@ const menuModal = new MenuModal();
 // DAO / Proposals
 // =====================
 
-const DAO_STORAGE_KEY = 'daoProposals.v1';
-const DAO_ARCHIVE_AFTER_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-
-const DAO_TYPE_OPTIONS = [
-  { key: 'treasury_project', label: 'Project', group: 'Treasury' },
-  { key: 'treasury_mint', label: 'Mint coins (fund projects)', group: 'Treasury' },
-  { key: 'params_governance', label: 'Governance', group: 'Parameters' },
-  { key: 'params_economic', label: 'Economic', group: 'Parameters' },
-  { key: 'params_protocol', label: 'Protocol', group: 'Parameters' },
-];
-
-const DAO_STATES = [
-  { key: 'discussion', label: 'Discussion' },
-  { key: 'withheld', label: 'Withheld' },
-  { key: 'voting', label: 'Voting' },
-  { key: 'rejected', label: 'Rejected' },
-  { key: 'accepted', label: 'Accepted' },
-  { key: 'applied', label: 'Applied' },
-  { key: 'executing', label: 'Executing' },
-  { key: 'terminated', label: 'Terminated' },
-  { key: 'completed', label: 'Completed' },
-];
-
-function getDaoStorageKey() {
-  // If account is available, scope proposals per account address.
-  const addr = myAccount?.address || myData?.account?.address || '';
-  return addr ? `${DAO_STORAGE_KEY}:${addr}` : DAO_STORAGE_KEY;
-}
+// DAO proposals are loaded via `daoRepo` and kept in memory (no localStorage persistence).
 
 function getDaoVoterId() {
   return myAccount?.address || myData?.account?.address || myAccount?.username || myData?.account?.username || 'anon';
-}
-
-function createEmptyDaoStore() {
-  return {
-    meta: { count: 0, active: 0, archived: 0 },
-    activeProposals: [],
-    archivedProposals: [],
-    proposals: {},
-  };
-}
-
-function daoProposalId(number, nonce) {
-  return `${number}_${nonce}`;
-}
-
-function getDaoTypeLabel(typeKey) {
-  return DAO_TYPE_OPTIONS.find((t) => t.key === typeKey)?.label || typeKey || '';
-}
-
-function migrateLegacyDaoArrayToStore(list) {
-  const store = createEmptyDaoStore();
-  const sorted = Array.isArray(list) ? list : [];
-
-  for (const p of sorted) {
-    const number = ++store.meta.count;
-    const nonce = p?.nonce || Math.random().toString(16).slice(2);
-    const id = daoProposalId(number, nonce);
-    const created = Number(p?.createdAt || Date.now());
-    const state = p?.state || 'discussion';
-    const state_changed = Number(p?.stateEnteredAt || created);
-
-    store.activeProposals.push({
-      number,
-      title: p?.title || 'Untitled Proposal',
-      state,
-      state_changed,
-      type: p?.type || 'params_governance',
-      nonce,
-    });
-
-    store.proposals[id] = {
-      number,
-      title: p?.title || 'Untitled Proposal',
-      summary: p?.summary || '',
-      type: p?.type || 'params_governance',
-      state,
-      state_changed,
-      nonce,
-      created,
-      createdBy: p?.createdBy || 'unknown',
-      fields: p?.fields || {},
-      votes: p?.votes || { yes: 0, no: 0, by: {} },
-    };
-  }
-
-  store.meta.active = store.activeProposals.length;
-  store.meta.archived = store.archivedProposals.length;
-  return store;
-}
-
-function normalizeDaoStore(store) {
-  const safe = store && typeof store === 'object' ? store : createEmptyDaoStore();
-  safe.meta = safe.meta && typeof safe.meta === 'object' ? safe.meta : { count: 0, active: 0, archived: 0 };
-  safe.activeProposals = Array.isArray(safe.activeProposals) ? safe.activeProposals : [];
-  safe.archivedProposals = Array.isArray(safe.archivedProposals) ? safe.archivedProposals : [];
-  safe.proposals = safe.proposals && typeof safe.proposals === 'object' ? safe.proposals : {};
-
-  // If store is missing count, reconstruct from proposals.
-  if (!Number.isFinite(Number(safe.meta.count))) {
-    const nums = Object.values(safe.proposals)
-      .map((p) => Number(p?.number || 0))
-      .filter((n) => n > 0);
-    safe.meta.count = nums.length ? Math.max(...nums) : 0;
-  }
-
-  // Auto-archive proposals that have been in certain terminal-ish states for > 30 days.
-  // Archived is a *category* (group), not a proposal state.
-  const now = Date.now();
-  const activeNext = [];
-  const archivedIds = new Set(safe.archivedProposals.map((m) => daoProposalId(m.number, m.nonce)));
-
-  for (const meta of safe.activeProposals) {
-    const id = daoProposalId(meta.number, meta.nonce);
-    const full = safe.proposals[id];
-    if (!full) {
-      // Drop dangling meta entries.
-      continue;
-    }
-
-    // Migration: older versions wrote a synthetic `state: 'archived'`.
-    // We cannot reliably recover the original state; map to 'completed' to keep it visible.
-    if ((full.state || meta.state) === 'archived') {
-      full.state = full.archivedFromState || 'completed';
-      meta.state = meta.archivedFromState || full.state;
-    }
-
-    const state = full.state || meta.state || 'discussion';
-    const enteredAt = Number(full.state_changed || meta.state_changed || full.created || 0);
-    const isArchivable = ['withheld', 'rejected', 'applied', 'terminated', 'completed'].includes(state);
-
-    if (isArchivable && enteredAt && now - enteredAt >= DAO_ARCHIVE_AFTER_MS) {
-      const archivedAt = Number(full.archivedAt || (enteredAt + DAO_ARCHIVE_AFTER_MS));
-      full.archivedAt = archivedAt;
-      if (!archivedIds.has(id)) {
-        safe.archivedProposals.push({
-          number: meta.number,
-          title: meta.title,
-          state: state,
-          state_changed: enteredAt,
-          type: meta.type,
-          nonce: meta.nonce,
-        });
-        archivedIds.add(id);
-      }
-      continue;
-    }
-
-    activeNext.push(meta);
-  }
-
-  safe.activeProposals = activeNext;
-
-  // Remove archived metas whose full proposal no longer exists.
-  safe.archivedProposals = safe.archivedProposals.filter((m) => {
-    const id = daoProposalId(m.number, m.nonce);
-    return Boolean(safe.proposals[id]);
-  });
-
-  // Migration: older versions stored `state: 'archived'` for archived items.
-  // Normalize them to a real state so they can be filtered by the same status set.
-  for (const meta of safe.archivedProposals) {
-    const id = daoProposalId(meta.number, meta.nonce);
-    const full = safe.proposals[id];
-    if (!full) continue;
-    if ((full.state || meta.state) === 'archived') {
-      full.state = full.archivedFromState || 'completed';
-      meta.state = meta.archivedFromState || full.state;
-    }
-  }
-
-  safe.meta.active = safe.activeProposals.length;
-  safe.meta.archived = safe.archivedProposals.length;
-  safe.meta.count = Math.max(
-    Number(safe.meta.count || 0),
-    ...safe.activeProposals.map((m) => Number(m.number || 0)),
-    ...safe.archivedProposals.map((m) => Number(m.number || 0))
-  );
-
-  return safe;
-}
-
-function loadDaoStore() {
-  try {
-    const raw = localStorage.getItem(getDaoStorageKey());
-    if (!raw) return createEmptyDaoStore();
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return normalizeDaoStore(migrateLegacyDaoArrayToStore(parsed));
-    return normalizeDaoStore(parsed);
-  } catch (e) {
-    console.warn('Failed to load DAO proposals store:', e);
-    return createEmptyDaoStore();
-  }
-}
-
-function saveDaoStore(store) {
-  try {
-    localStorage.setItem(getDaoStorageKey(), JSON.stringify(store || createEmptyDaoStore()));
-  } catch (e) {
-    console.warn('Failed to save DAO proposals store:', e);
-  }
-}
-
-function getDaoProposalById(proposalId) {
-  const store = loadDaoStore();
-  return store.proposals?.[proposalId] || null;
-}
-
-function getDaoProposalsForUiFromStore(store, groupKey) {
-  const safe = store || createEmptyDaoStore();
-  const metas = groupKey === 'archived' ? safe.archivedProposals : safe.activeProposals;
-  return metas
-    .map((m) => {
-      const id = daoProposalId(m.number, m.nonce);
-      const p = safe.proposals?.[id];
-      if (!p) return null;
-      return {
-        id,
-        number: p.number,
-        nonce: p.nonce,
-        title: p.title,
-        summary: p.summary,
-        type: p.type,
-        createdAt: p.created,
-        state: p.state,
-        stateEnteredAt: p.state_changed,
-        createdBy: p.createdBy,
-        fields: p.fields || {},
-        votes: p.votes || { yes: 0, no: 0, by: {} },
-        archivedAt: p.archivedAt || 0,
-      };
-    })
-    .filter(Boolean);
-}
-
-function getDaoProposalsForUi(groupKey) {
-  const store = loadDaoStore();
-  return getDaoProposalsForUiFromStore(store, groupKey || 'active');
-}
-
-function seedDaoMockProposalsIfEmpty() {
-  const existing = loadDaoStore();
-  if ((existing?.meta?.count || 0) > 0 || Object.keys(existing?.proposals || {}).length > 0) return;
-
-  const now = Date.now();
-  const hours = (n) => n * 60 * 60 * 1000;
-  const days = (n) => n * 24 * 60 * 60 * 1000;
-
-  const store = createEmptyDaoStore();
-
-  const addMock = ({ title, summary, state, enteredAt, createdAt, createdBy, type, fields, votes }) => {
-    const number = ++store.meta.count;
-    const nonce = Math.random().toString(16).slice(2);
-    const id = daoProposalId(number, nonce);
-
-    const created = Number(createdAt || enteredAt || now);
-    const state_changed = Number(enteredAt || created);
-
-    store.activeProposals.push({
-      number,
-      title,
-      state,
-      state_changed,
-      type,
-      nonce,
-    });
-
-    store.proposals[id] = {
-      number,
-      title,
-      summary,
-      type,
-      state,
-      state_changed,
-      nonce,
-      created,
-      createdBy,
-      fields: fields || {},
-      votes: votes || { yes: 0, no: 0, by: {} },
-    };
-  };
-
-  // Exact counts per your plan:
-  // Discussion 2, Withheld 7, Voting 1, Rejected 1, Accepted 2, Applied 3,
-  // Executing 1, Terminated 0, Completed 5, Archived 14 (auto-archived from specific states after 30 days).
-
-  // Discussion (2)
-  addMock({
-    title: 'Add community grants working group',
-    summary: 'Create a lightweight working group to evaluate community grants and publish monthly reports.',
-    state: 'discussion',
-    enteredAt: now - hours(3),
-    createdBy: 'alice',
-    type: 'params_governance',
-    fields: { votingThreshold: '60%' },
-  });
-  addMock({
-    title: 'Proposal format v2 (standard sections)',
-    summary: 'Adopt a standard proposal template: Summary, Motivation, Specification, Risks, Alternatives, Timeline.',
-    state: 'discussion',
-    enteredAt: now - hours(18),
-    createdBy: 'bob',
-    type: 'params_governance',
-    fields: { votingEligibility: 'validators + stakers' },
-  });
-
-  // Voting (1) (default selected)
-  addMock({
-    title: 'Adjust minimum transaction fee',
-    summary: 'Change the minimum transaction fee to better match network load (Yes/No).',
-    state: 'voting',
-    enteredAt: now - hours(9),
-    createdAt: now - days(2),
-    createdBy: 'carol',
-    type: 'params_economic',
-    fields: { minTxFee: '0.001', nodeRewards: 'unchanged' },
-    votes: { yes: 12, no: 4, by: {} },
-  });
-
-  // Withheld (7)
-  for (let i = 0; i < 7; i += 1) {
-    addMock({
-      title: `Withheld: parameter review backlog #${i + 1}`,
-      summary: 'Withheld pending additional data and reviewer availability.',
-      state: 'withheld',
-      enteredAt: now - days(2 + i),
-      createdAt: now - days(3 + i),
-      createdBy: ['dave', 'eve', 'frank', 'gina'][i % 4],
-      type: i % 2 === 0 ? 'params_protocol' : 'params_governance',
-      fields: i % 2 === 0 ? { minActiveNodes: 100, maxActiveNodes: 250 } : { votingThreshold: '55%' },
-    });
-  }
-
-  // Rejected (1)
-  addMock({
-    title: 'Remove toll feature',
-    summary: 'Rejected due to spam-prevention needs and lack of alternatives.',
-    state: 'rejected',
-    enteredAt: now - days(6),
-    createdAt: now - days(7),
-    createdBy: 'henry',
-    type: 'params_economic',
-    fields: { rationale: 'anti-spam' },
-  });
-
-  // Accepted (2)
-  addMock({
-    title: 'Publish weekly transparency report',
-    summary: 'Accepted: publish weekly uptime + incident report. Process-only.',
-    state: 'accepted',
-    enteredAt: now - days(2),
-    createdAt: now - days(10),
-    createdBy: 'ivy',
-    type: 'params_governance',
-    fields: { cadence: 'weekly' },
-  });
-  addMock({
-    title: 'Treasury: fund documentation sprint',
-    summary: 'Accepted: fund 2-week docs sprint from treasury.',
-    state: 'accepted',
-    enteredAt: now - days(4),
-    createdAt: now - days(11),
-    createdBy: 'jordan',
-    type: 'treasury_project',
-    fields: { amount: '2500', address: 'lib1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' },
-  });
-
-  // Applied (3)
-  for (let i = 0; i < 3; i += 1) {
-    addMock({
-      title: `Applied: economic parameter tweak #${i + 1}`,
-      summary: 'Applied: parameter changes landed on-chain.',
-      state: 'applied',
-      enteredAt: now - days(3 + i),
-      createdAt: now - days(15 + i),
-      createdBy: ['kate', 'louis', 'mia'][i % 3],
-      type: 'params_economic',
-      fields: { stakeAmount: `${1000 + i * 250}`, validatorPenalty: `${50 + i * 10}` },
-    });
-  }
-
-  // Executing (1)
-  addMock({
-    title: 'Implement DAO proposal indexer service',
-    summary: 'Executing: build an indexer to expose proposal metadata + voting status to clients.',
-    state: 'executing',
-    enteredAt: now - days(1),
-    createdAt: now - days(20),
-    createdBy: 'nina',
-    type: 'treasury_project',
-    fields: { milestone: 'MVP API', budget: '5000' },
-  });
-
-  // Completed (5)
-  for (let i = 0; i < 5; i += 1) {
-    addMock({
-      title: `Completed: project milestone #${i + 1}`,
-      summary: 'Completed: deliverable shipped and verified.',
-      state: 'completed',
-      enteredAt: now - days(5 + i),
-      createdAt: now - days(30 + i),
-      createdBy: ['oscar', 'pat', 'quinn', 'riley'][i % 4],
-      type: 'treasury_project',
-      fields: { result: 'done' },
-    });
-  }
-
-  // Archived (14) - seed as archivable states older than 30 days so normalization moves them to the Archived group.
-  // Keep them out of the active state counts above.
-  const archivedSeedStates = ['withheld', 'rejected', 'applied', 'terminated', 'completed'];
-  for (let i = 0; i < 14; i += 1) {
-    const s = archivedSeedStates[i % archivedSeedStates.length];
-    addMock({
-      title: `Archived: historic ${s} proposal #${i + 1}`,
-      summary: 'Archived after aging out (kept for reference).',
-      state: s,
-      // Ensure >30 days in the state
-      enteredAt: now - days(45 + i),
-      createdAt: now - days(60 + i),
-      createdBy: ['sam', 'taylor', 'uma', 'vic'][i % 4],
-      type: i % 2 === 0 ? 'params_protocol' : 'params_economic',
-      fields: { note: 'archived by age rule' },
-    });
-  }
-
-  saveDaoStore(normalizeDaoStore(store));
-}
-
-function getDaoStateLabel(key) {
-  return DAO_STATES.find((s) => s.key === key)?.label || key;
-}
-
-function getEffectiveDaoState(proposal) {
-  return proposal?.state || 'discussion';
 }
 
 function formatDaoTimestamp(ts) {
@@ -2303,6 +1883,7 @@ class DaoModal {
     this.selectedGroupKey = 'active';
     this.selectedStateKey = 'voting';
     this._outsideClickHandler = null;
+    this.isLoading = false;
   }
 
   load() {
@@ -2356,7 +1937,11 @@ class DaoModal {
   }
 
   open() {
-    seedDaoMockProposalsIfEmpty();
+    this._open();
+  }
+
+  async _open() {
+    this.isLoading = true;
 
     // Close the main menu if opened from it
     if (menuModal?.isActive?.()) menuModal.close();
@@ -2369,6 +1954,16 @@ class DaoModal {
     this.selectedStateKey = this.selectedStateKey || 'voting';
     this.selectedGroupKey = this.selectedGroupKey || 'active';
     this.render();
+
+    try {
+      await daoRepo.refresh({ force: true });
+    } catch (e) {
+      console.warn('Failed to refresh DAO proposals:', e);
+      showToast('Failed to load proposals', 2500, 'error');
+    } finally {
+      this.isLoading = false;
+      this.render();
+    }
   }
 
   close() {
@@ -2440,13 +2035,12 @@ class DaoModal {
   }
 
   getProposals() {
-    return getDaoProposalsForUi(this.selectedGroupKey);
+    return daoRepo.getProposalsForUi(this.selectedGroupKey);
   }
 
   render() {
-    const store = loadDaoStore();
-    const proposalsActive = getDaoProposalsForUiFromStore(store, 'active');
-    const proposalsArchived = getDaoProposalsForUiFromStore(store, 'archived');
+    const proposalsActive = daoRepo.getProposalsForUi('active');
+    const proposalsArchived = daoRepo.getProposalsForUi('archived');
 
     const proposals = this.selectedGroupKey === 'archived' ? proposalsArchived : proposalsActive;
 
@@ -2498,11 +2092,16 @@ class DaoModal {
       const sublineEl = lines[2] || null;
       const isArchived = this.selectedGroupKey === 'archived';
 
-      if (headlineEl) headlineEl.textContent = isArchived ? 'No archived proposals found' : 'No proposals found';
-      if (sublineEl) {
-        sublineEl.textContent = isArchived
-          ? 'Archived proposals appear here after they age out'
-          : 'Use + to create a proposal';
+      if (this.isLoading) {
+        if (headlineEl) headlineEl.textContent = 'Loading proposals…';
+        if (sublineEl) sublineEl.textContent = 'Please wait';
+      } else {
+        if (headlineEl) headlineEl.textContent = isArchived ? 'No archived proposals found' : 'No proposals found';
+        if (sublineEl) {
+          sublineEl.textContent = isArchived
+            ? 'Archived proposals appear here after they age out'
+            : 'Use + to create a proposal';
+        }
       }
     }
 
@@ -2657,7 +2256,7 @@ class AddProposalModal {
     `;
   }
 
-  handleCreate() {
+  async handleCreate() {
     const title = (this.titleInput?.value || '').trim();
     const summary = (this.summaryInput?.value || '').trim();
     const typeKey = (this.typeSelect?.value || '').trim();
@@ -2675,8 +2274,6 @@ class AddProposalModal {
       showToast('Please select a type', 2000, 'warning');
       return;
     }
-
-    const now = Date.now();
 
     const fields = {};
     // Collect dynamic fields if present.
@@ -2702,35 +2299,19 @@ class AddProposalModal {
     if (maxNodesEl?.value) fields.maxActiveNodes = Number(maxNodesEl.value);
     if (minVerEl?.value) fields.minValidatorVersion = minVerEl.value.trim();
 
-    const store = loadDaoStore();
-    const number = Number(store.meta?.count || 0) + 1;
-    const nonce = Math.random().toString(16).slice(2);
-    const id = daoProposalId(number, nonce);
-
-    store.meta.count = number;
-    store.activeProposals.push({
-      number,
-      title,
-      state: 'discussion',
-      state_changed: now,
-      type: typeKey,
-      nonce,
-    });
-    store.proposals[id] = {
-      number,
-      title,
-      summary,
-      type: typeKey,
-      state: 'discussion',
-      state_changed: now,
-      nonce,
-      created: now,
-      createdBy: myAccount?.username || myAccount?.address || 'unknown',
-      fields,
-      votes: { yes: 0, no: 0, by: {} },
-    };
-
-    saveDaoStore(normalizeDaoStore(store));
+    try {
+      await daoRepo.createProposal({
+        title,
+        summary,
+        type: typeKey,
+        fields,
+        createdBy: myAccount?.username || myAccount?.address || 'unknown',
+      });
+    } catch (e) {
+      console.warn('Failed to create proposal:', e);
+      showToast(e?.message || 'Failed to create proposal', 2500, 'error');
+      return;
+    }
 
     this.close();
     // Ensure DAO modal shows the new proposal (Discussion by default for new proposals)
@@ -2769,11 +2350,22 @@ class ProposalInfoModal {
   }
 
   open(proposalId) {
-    const p = getDaoProposalById(proposalId);
+    this._open(proposalId);
+  }
+
+  async _open(proposalId) {
     this._currentProposalId = proposalId;
 
     this.modal.classList.add('active');
     enterFullscreen();
+
+    let p = null;
+    try {
+      await daoRepo.ensureLoaded();
+      p = daoRepo.getProposalById(proposalId);
+    } catch (e) {
+      console.warn('Failed to load proposal:', e);
+    }
 
     if (!p) {
       if (this.numberEl) this.numberEl.textContent = '';
@@ -2838,41 +2430,22 @@ class ProposalInfoModal {
     }
   }
 
-  castVote(choice) {
+  async castVote(choice) {
     if (!this._currentProposalId) return;
-    const store = loadDaoStore();
-    const p = store.proposals?.[this._currentProposalId];
-    if (!p) return;
 
-    const effective = getEffectiveDaoState({ state: p.state, stateEnteredAt: p.state_changed, createdAt: p.created });
-    if (effective !== 'voting') {
-      showToast('Voting is not available for this proposal', 2000, 'warning');
+    const voterId = getDaoVoterId();
+    const result = await daoRepo.castVote({
+      proposalId: this._currentProposalId,
+      voterId,
+      choice,
+    });
+
+    if (!result?.ok) {
+      showToast(result?.error || 'Failed to vote', 2000, 'warning');
       return;
     }
 
-    p.votes = p.votes || { yes: 0, no: 0, by: {} };
-    p.votes.by = p.votes.by || {};
-
-    const voterId = getDaoVoterId();
-    const prev = p.votes.by[voterId];
-
-    if (prev === choice) {
-      // Toggle off
-      delete p.votes.by[voterId];
-      if (choice === 'yes') p.votes.yes = Math.max(0, Number(p.votes.yes || 0) - 1);
-      if (choice === 'no') p.votes.no = Math.max(0, Number(p.votes.no || 0) - 1);
-    } else {
-      // Switch vote
-      if (prev === 'yes') p.votes.yes = Math.max(0, Number(p.votes.yes || 0) - 1);
-      if (prev === 'no') p.votes.no = Math.max(0, Number(p.votes.no || 0) - 1);
-      p.votes.by[voterId] = choice;
-      if (choice === 'yes') p.votes.yes = Number(p.votes.yes || 0) + 1;
-      if (choice === 'no') p.votes.no = Number(p.votes.no || 0) + 1;
-    }
-
-    saveDaoStore(normalizeDaoStore(store));
-
-    // Re-render this modal and the list counts (in case you want to show anything derived).
+    // Re-render this modal and the list counts.
     this.open(this._currentProposalId);
     if (daoModal?.isActive?.()) daoModal.render();
   }
