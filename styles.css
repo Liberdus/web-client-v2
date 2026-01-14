@@ -5408,7 +5408,7 @@ small {
 
 /* DAO modal: Active/Archived toggle */
 #daoModal .dao-toolbar {
-  padding: 8px 16px 10px;
+  padding: 0px 16px 10px;
   position: sticky;
   top: 0;
   z-index: 2;

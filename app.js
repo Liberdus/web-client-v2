@@ -2490,6 +2490,22 @@ class DaoModal {
     const hasAny = filtered.length > 0;
     if (this.emptyState) this.emptyState.style.display = hasAny ? 'none' : 'block';
 
+    // Update empty state copy based on group.
+    if (this.emptyState && !hasAny) {
+      const lines = Array.from(this.emptyState.querySelectorAll('div'));
+      // Structure is: [0]=spacer, [1]=headline, [2]=subline, [3]=optional third line.
+      const headlineEl = lines[1] || null;
+      const sublineEl = lines[2] || null;
+      const isArchived = this.selectedGroupKey === 'archived';
+
+      if (headlineEl) headlineEl.textContent = isArchived ? 'No archived proposals found' : 'No proposals found';
+      if (sublineEl) {
+        sublineEl.textContent = isArchived
+          ? 'Archived proposals appear here after they age out'
+          : 'Use + to create a proposal';
+      }
+    }
+
     if (!this.list) return;
 
     for (const p of filtered) {
