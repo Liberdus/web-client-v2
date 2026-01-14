@@ -3463,20 +3463,12 @@ class EditContactModal {
 
     // Show the edit contact modal
     this.modal.classList.add('active');
-
-    // Create a handler function to focus the input after the modal transition
-    const editContactFocusHandler = () => {
-      // add slight delay and focus on the the very right of the input
-      setTimeout(() => {
-        this.nameInput.focus();
-        // Set cursor position to the end of the input content
-        this.nameInput.setSelectionRange(this.nameInput.value.length, this.nameInput.value.length);
-      }, 325);
-      this.modal.removeEventListener('transitionend', editContactFocusHandler);
-    };
-
-    // Add the event listener
-    this.modal.addEventListener('transitionend', editContactFocusHandler);
+    // Delay focus to ensure transition completes (modal transition is 300ms)
+    setTimeout(() => {
+      this.nameInput.focus();
+      // Set cursor position to the end of the input content
+      this.nameInput.setSelectionRange(this.nameInput.value.length, this.nameInput.value.length);
+    }, 325);
   }
 
   close() {
@@ -5291,7 +5283,10 @@ class SearchMessagesModal {
 
   open() {
     this.modal.classList.add('active');
-    this.searchInput.focus();
+    // Delay focus to ensure transition completes (modal transition is 300ms)
+    setTimeout(() => {
+      this.searchInput.focus();
+    }, 325);
   }
 
   close() {
@@ -5508,7 +5503,10 @@ class SearchContactsModal {
 
   open() {
     this.modal.classList.add('active');
-    this.searchInput.focus();
+    // Delay focus to ensure transition completes (modal transition is 300ms)
+    setTimeout(() => {
+      this.searchInput.focus();
+    }, 325);
   }
 
   close() {
@@ -17395,16 +17393,10 @@ class NewChatModal {
     footer.closeNewChatButton();
     this.usernameAvailable.style.display = 'none';
     this.submitButton.disabled = true;
-
-    // Create the handler function
-    const focusHandler = () => {
+    // Delay focus to ensure transition completes (modal transition is 300ms)
+    setTimeout(() => {
       this.recipientInput.focus();
-      this.modal.removeEventListener('transitionend', focusHandler);
-    };
-
-    // Add the event listener
-    // TODO: move focusHandler out and move event listener to load()
-    this.modal.addEventListener('transitionend', focusHandler);
+    }, 325);
   }
 
   /**
@@ -17722,6 +17714,10 @@ class CreateAccountModal {
 
     this.modal.classList.add('active');
     enterFullscreen();
+    // Delay focus to ensure transition completes (modal transition is 300ms)
+    setTimeout(() => {
+      this.usernameInput.focus();
+    }, 325);
   }
 
   // we still need to keep this since it can be called by other modals
