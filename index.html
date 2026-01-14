@@ -291,6 +291,12 @@
           <button class="icon-button filter-icon" id="daoFilterButton" aria-label="Filter"></button>
         </div>
         <div class="modal-content">
+          <div class="dao-toolbar">
+            <div class="dao-group-toggle" role="tablist" aria-label="Proposal group">
+              <button class="dao-group-toggle-button" id="daoGroupActiveButton" type="button">Active</button>
+              <button class="dao-group-toggle-button" id="daoGroupArchivedButton" type="button">Archived</button>
+            </div>
+          </div>
           <ul class="chat-list" id="daoProposalList">
             <div class="empty-state" id="daoProposalEmptyState">
               <div></div>
@@ -305,45 +311,32 @@
 
       <!-- DAO Status Context Menu -->
       <div class="message-context-menu" id="daoStatusContextMenu" style="display: none;">
-        <div class="context-menu-option" data-state-key="discussion" data-icon="file">
-          <span class="context-menu-icon"></span>
+        <div class="context-menu-option" data-state-key="discussion">
           <span class="context-menu-text" id="daoStatusOptionDiscussion">Discussion</span>
         </div>
-        <div class="context-menu-option" data-state-key="withheld" data-icon="file">
-          <span class="context-menu-icon"></span>
+        <div class="context-menu-option" data-state-key="withheld">
           <span class="context-menu-text" id="daoStatusOptionWithheld">Withheld</span>
         </div>
-        <div class="context-menu-option" data-state-key="voting" data-icon="file">
-          <span class="context-menu-icon"></span>
+        <div class="context-menu-option" data-state-key="voting">
           <span class="context-menu-text" id="daoStatusOptionVoting">Voting</span>
         </div>
-        <div class="context-menu-option" data-state-key="rejected" data-icon="file">
-          <span class="context-menu-icon"></span>
+        <div class="context-menu-option" data-state-key="rejected">
           <span class="context-menu-text" id="daoStatusOptionRejected">Rejected</span>
         </div>
-        <div class="context-menu-option" data-state-key="accepted" data-icon="file">
-          <span class="context-menu-icon"></span>
+        <div class="context-menu-option" data-state-key="accepted">
           <span class="context-menu-text" id="daoStatusOptionAccepted">Accepted</span>
         </div>
-        <div class="context-menu-option" data-state-key="applied" data-icon="file">
-          <span class="context-menu-icon"></span>
+        <div class="context-menu-option" data-state-key="applied">
           <span class="context-menu-text" id="daoStatusOptionApplied">Applied</span>
         </div>
-        <div class="context-menu-option" data-state-key="executing" data-icon="file">
-          <span class="context-menu-icon"></span>
+        <div class="context-menu-option" data-state-key="executing">
           <span class="context-menu-text" id="daoStatusOptionExecuting">Executing</span>
         </div>
-        <div class="context-menu-option" data-state-key="terminated" data-icon="file">
-          <span class="context-menu-icon"></span>
+        <div class="context-menu-option" data-state-key="terminated">
           <span class="context-menu-text" id="daoStatusOptionTerminated">Terminated</span>
         </div>
-        <div class="context-menu-option" data-state-key="completed" data-icon="file">
-          <span class="context-menu-icon"></span>
+        <div class="context-menu-option" data-state-key="completed">
           <span class="context-menu-text" id="daoStatusOptionCompleted">Completed</span>
-        </div>
-        <div class="context-menu-option" data-state-key="archived" data-icon="file">
-          <span class="context-menu-icon"></span>
-          <span class="context-menu-text" id="daoStatusOptionArchived">Archived</span>
         </div>
         <a class="last-item" href="#"> </a>
       </div>

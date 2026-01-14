@@ -5406,6 +5406,48 @@ small {
   padding-bottom: 120px;
 }
 
+/* DAO modal: Active/Archived toggle */
+#daoModal .dao-toolbar {
+  padding: 8px 16px 10px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--background-color);
+}
+
+#daoModal .dao-group-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--border-color, rgba(0,0,0,0.12));
+  border-radius: 14px;
+  background: var(--hover-background-purple);
+}
+
+#daoModal .dao-group-toggle-button {
+  appearance: none;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 10px;
+  font-family: var(--font-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  background: transparent;
+  color: var(--text-color);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+#daoModal .dao-group-toggle-button:hover {
+  background: var(--hover-background-dark);
+}
+
+#daoModal .dao-group-toggle-button.active {
+  background: var(--button-background);
+  color: var(--button-text);
+}
+
 #lockModal p {
   font-family: var(--font-primary);
   font-size: var(--font-size-base);

@@ -1873,7 +1873,6 @@ const DAO_STATES = [
   { key: 'executing', label: 'Executing' },
   { key: 'terminated', label: 'Terminated' },
   { key: 'completed', label: 'Completed' },
-  { key: 'archived', label: 'Archived' },
 ];
 
 function getDaoStorageKey() {
@@ -1959,7 +1958,8 @@ function normalizeDaoStore(store) {
     safe.meta.count = nums.length ? Math.max(...nums) : 0;
   }
 
-  // Auto-archive proposals that have been in certain states for > 30 days.
+  // Auto-archive proposals that have been in certain terminal-ish states for > 30 days.
+  // Archived is a *category* (group), not a proposal state.
   const now = Date.now();
   const activeNext = [];
   const archivedIds = new Set(safe.archivedProposals.map((m) => daoProposalId(m.number, m.nonce)));
@@ -1972,6 +1972,13 @@ function normalizeDaoStore(store) {
       continue;
     }
 
+    // Migration: older versions wrote a synthetic `state: 'archived'`.
+    // We cannot reliably recover the original state; map to 'completed' to keep it visible.
+    if ((full.state || meta.state) === 'archived') {
+      full.state = full.archivedFromState || 'completed';
+      meta.state = meta.archivedFromState || full.state;
+    }
+
     const state = full.state || meta.state || 'discussion';
     const enteredAt = Number(full.state_changed || meta.state_changed || full.created || 0);
     const isArchivable = ['withheld', 'rejected', 'applied', 'terminated', 'completed'].includes(state);
@@ -1979,14 +1986,12 @@ function normalizeDaoStore(store) {
     if (isArchivable && enteredAt && now - enteredAt >= DAO_ARCHIVE_AFTER_MS) {
       const archivedAt = Number(full.archivedAt || (enteredAt + DAO_ARCHIVE_AFTER_MS));
       full.archivedAt = archivedAt;
-      full.state = 'archived';
-      full.state_changed = archivedAt;
       if (!archivedIds.has(id)) {
         safe.archivedProposals.push({
           number: meta.number,
           title: meta.title,
-          state: 'archived',
-          state_changed: archivedAt,
+          state: state,
+          state_changed: enteredAt,
           type: meta.type,
           nonce: meta.nonce,
         });
@@ -2005,6 +2010,18 @@ function normalizeDaoStore(store) {
     const id = daoProposalId(m.number, m.nonce);
     return Boolean(safe.proposals[id]);
   });
+
+  // Migration: older versions stored `state: 'archived'` for archived items.
+  // Normalize them to a real state so they can be filtered by the same status set.
+  for (const meta of safe.archivedProposals) {
+    const id = daoProposalId(meta.number, meta.nonce);
+    const full = safe.proposals[id];
+    if (!full) continue;
+    if ((full.state || meta.state) === 'archived') {
+      full.state = full.archivedFromState || 'completed';
+      meta.state = meta.archivedFromState || full.state;
+    }
+  }
 
   safe.meta.active = safe.activeProposals.length;
   safe.meta.archived = safe.archivedProposals.length;
@@ -2043,13 +2060,13 @@ function getDaoProposalById(proposalId) {
   return store.proposals?.[proposalId] || null;
 }
 
-function getDaoProposalsForUi() {
-  const store = loadDaoStore();
-  const allMetas = [...store.activeProposals, ...store.archivedProposals];
-  return allMetas
+function getDaoProposalsForUiFromStore(store, groupKey) {
+  const safe = store || createEmptyDaoStore();
+  const metas = groupKey === 'archived' ? safe.archivedProposals : safe.activeProposals;
+  return metas
     .map((m) => {
       const id = daoProposalId(m.number, m.nonce);
-      const p = store.proposals?.[id];
+      const p = safe.proposals?.[id];
       if (!p) return null;
       return {
         id,
@@ -2064,9 +2081,15 @@ function getDaoProposalsForUi() {
         createdBy: p.createdBy,
         fields: p.fields || {},
         votes: p.votes || { yes: 0, no: 0, by: {} },
+        archivedAt: p.archivedAt || 0,
       };
     })
     .filter(Boolean);
+}
+
+function getDaoProposalsForUi(groupKey) {
+  const store = loadDaoStore();
+  return getDaoProposalsForUiFromStore(store, groupKey || 'active');
 }
 
 function seedDaoMockProposalsIfEmpty() {
@@ -2236,7 +2259,7 @@ function seedDaoMockProposalsIfEmpty() {
     });
   }
 
-  // Archived (14) - seed as archivable states older than 30 days so normalization moves them to Archived.
+  // Archived (14) - seed as archivable states older than 30 days so normalization moves them to the Archived group.
   // Keep them out of the active state counts above.
   const archivedSeedStates = ['withheld', 'rejected', 'applied', 'terminated', 'completed'];
   for (let i = 0; i < 14; i += 1) {
@@ -2262,11 +2285,7 @@ function getDaoStateLabel(key) {
 }
 
 function getEffectiveDaoState(proposal) {
-  const state = proposal?.state || 'discussion';
-  const enteredAt = Number(proposal?.stateEnteredAt || proposal?.state_changed || proposal?.createdAt || proposal?.created || 0);
-  const isArchivable = ['withheld', 'rejected', 'applied', 'terminated', 'completed'].includes(state);
-  if (isArchivable && enteredAt && Date.now() - enteredAt >= DAO_ARCHIVE_AFTER_MS) return 'archived';
-  return state;
+  return proposal?.state || 'discussion';
 }
 
 function formatDaoTimestamp(ts) {
@@ -2281,6 +2300,7 @@ function formatDaoTimestamp(ts) {
 
 class DaoModal {
   constructor() {
+    this.selectedGroupKey = 'active';
     this.selectedStateKey = 'voting';
     this._outsideClickHandler = null;
   }
@@ -2291,6 +2311,8 @@ class DaoModal {
     this.titleEl = document.getElementById('daoModalTitle');
     this.statusMenuButton = document.getElementById('daoFilterButton');
     this.statusMenu = document.getElementById('daoStatusContextMenu');
+    this.groupActiveButton = document.getElementById('daoGroupActiveButton');
+    this.groupArchivedButton = document.getElementById('daoGroupArchivedButton');
     this.list = document.getElementById('daoProposalList');
     this.emptyState = document.getElementById('daoProposalEmptyState');
     this.addButton = document.getElementById('daoAddProposalButton');
@@ -2300,6 +2322,17 @@ class DaoModal {
 
     if (this.statusMenuButton) {
       this.statusMenuButton.addEventListener('click', (e) => this.toggleStatusMenu(e));
+    }
+
+    if (this.groupActiveButton) {
+      this.groupActiveButton.addEventListener('click', () => {
+        this.setGroupFilter('active');
+      });
+    }
+    if (this.groupArchivedButton) {
+      this.groupArchivedButton.addEventListener('click', () => {
+        this.setGroupFilter('archived');
+      });
     }
 
     if (this.statusMenu) {
@@ -2334,6 +2367,7 @@ class DaoModal {
 
     // Default filter is Voting
     this.selectedStateKey = this.selectedStateKey || 'voting';
+    this.selectedGroupKey = this.selectedGroupKey || 'active';
     this.render();
   }
 
@@ -2372,7 +2406,7 @@ class DaoModal {
     if (!this.statusMenu || !this.statusMenuButton) return;
     const buttonRect = this.statusMenuButton.getBoundingClientRect();
     const menuWidth = 200;
-    const approxMenuHeight = 8 + 10 * 44; // padding + 10 items
+    const approxMenuHeight = 8 + DAO_STATES.length * 44; // padding + items
 
     let left = buttonRect.right - menuWidth;
     let top = buttonRect.bottom + 8;
@@ -2400,30 +2434,47 @@ class DaoModal {
     this.render();
   }
 
+  setGroupFilter(key) {
+    this.selectedGroupKey = key;
+    this.render();
+  }
+
   getProposals() {
-    return getDaoProposalsForUi();
+    return getDaoProposalsForUi(this.selectedGroupKey);
   }
 
   render() {
-    const proposals = this.getProposals();
+    const store = loadDaoStore();
+    const proposalsActive = getDaoProposalsForUiFromStore(store, 'active');
+    const proposalsArchived = getDaoProposalsForUiFromStore(store, 'archived');
 
-    // Update counts by effective state
+    const proposals = this.selectedGroupKey === 'archived' ? proposalsArchived : proposalsActive;
+
+    // Update counts by state (within selected group)
     const counts = Object.fromEntries(DAO_STATES.map((s) => [s.key, 0]));
     for (const p of proposals) {
-      const eff = getEffectiveDaoState(p);
-      if (counts[eff] !== undefined) counts[eff] += 1;
+      const state = getEffectiveDaoState(p);
+      if (counts[state] !== undefined) counts[state] += 1;
     }
 
     // Update header title
+    const groupLabel = this.selectedGroupKey === 'archived' ? 'Archived' : 'Active';
     const label = getDaoStateLabel(this.selectedStateKey);
-    if (this.titleEl) this.titleEl.textContent = `DAO · ${label}`;
+    if (this.titleEl) this.titleEl.textContent = `DAO · ${groupLabel} · ${label}`;
 
-    // Update menu option labels with counts
-    if (this.statusMenu) {
-      for (const s of DAO_STATES) {
-        const el = document.getElementById(`daoStatusOption${s.label.replace(/\s+/g, '')}`);
-        if (el) el.textContent = `${s.label} ${counts[s.key] || 0}`;
-      }
+    // Update group toggle labels + selection
+    if (this.groupActiveButton) {
+      this.groupActiveButton.textContent = `Active ${proposalsActive.length}`;
+      this.groupActiveButton.classList.toggle('active', this.selectedGroupKey !== 'archived');
+    }
+    if (this.groupArchivedButton) {
+      this.groupArchivedButton.textContent = `Archived ${proposalsArchived.length}`;
+      this.groupArchivedButton.classList.toggle('active', this.selectedGroupKey === 'archived');
+    }
+
+    for (const s of DAO_STATES) {
+      const el = document.getElementById(`daoStatusOption${s.label.replace(/\s+/g, '')}`);
+      if (el) el.textContent = `${s.label} ${counts[s.key] || 0}`;
     }
 
     // Filter + sort (newest entered into state first)
@@ -2452,7 +2503,6 @@ class DaoModal {
       const numberPrefix = p.number ? `#${p.number} ` : '';
 
       li.innerHTML = `
-        <div class="chat-avatar">📄</div>
         <div class="chat-content">
           <div class="chat-header">
             <div class="chat-name">${escapeHtml(numberPrefix)}${title}</div>
@@ -2669,6 +2719,7 @@ class AddProposalModal {
     this.close();
     // Ensure DAO modal shows the new proposal (Discussion by default for new proposals)
     daoModal.selectedStateKey = 'discussion';
+    daoModal.selectedGroupKey = 'active';
     if (!daoModal.isActive()) daoModal.open();
     else daoModal.render();
 
