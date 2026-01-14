@@ -2492,7 +2492,7 @@ class SignInModal {
       // set timeout to focus on the last item so shift+tab and tab prevention works
       setTimeout(() => {
         this.signInModalLastItem.focus();
-      }, 100);
+      }, 325);
     });
   }
 
@@ -3471,7 +3471,7 @@ class EditContactModal {
         this.nameInput.focus();
         // Set cursor position to the end of the input content
         this.nameInput.setSelectionRange(this.nameInput.value.length, this.nameInput.value.length);
-      }, 200);
+      }, 325);
       this.modal.removeEventListener('transitionend', editContactFocusHandler);
     };
 
