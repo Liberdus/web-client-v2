@@ -16546,7 +16546,7 @@ class ShareContactsModal {
     vcards.push([
       'BEGIN:VCARD',
       'VERSION:3.0',
-      `X-LIBERDUS-NETID:${network.netId || ''}`,
+      `X-LIBERDUS-NETID:${network.netid || ''}`,
       'END:VCARD'
     ].join('\r\n'));
 
