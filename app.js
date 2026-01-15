@@ -17425,17 +17425,16 @@ class ImportContactsModal {
       // Download and decrypt the VCF file
       const vcfContent = await this.downloadAndDecryptVcf(attachment);
       
-      // Parse VCF content
-      const { netId, contacts } = this.parseVcfContent(vcfContent);
-
-      // Validate network ID
+      // Extract and validate network ID from first vCard before parsing all contacts
+      const netId = this.extractNetId(vcfContent);
       if (netId && netId !== network.netid) {
         showToast('Network ID mismatch - contacts are from a different network', 3000, 'error');
         this.close();
         return;
       }
 
-      this.parsedContacts = contacts;
+      // Parse contacts
+      this.parsedContacts = this.parseVcfContacts(vcfContent);
 
       // Hide loading
       this.loadingState.style.display = 'none';
@@ -17505,13 +17504,22 @@ class ImportContactsModal {
   }
 
   /**
+   * Extracts network ID from the first vCard in VCF content
+   * @param {string} vcfContent - Raw VCF file content
+   * @returns {string|null} Network ID or null if not found
+   */
+  extractNetId(vcfContent) {
+    const match = vcfContent.match(/X-LIBERDUS-NETID:(.+)/i);
+    return match ? match[1].trim() : null;
+  }
+
+  /**
    * Parses VCF content into contact objects
    * @param {string} vcfContent - Raw VCF file content
-   * @returns {Object} Object with netId and contacts array
+   * @returns {Array} Array of contact objects
    */
-  parseVcfContent(vcfContent) {
+  parseVcfContacts(vcfContent) {
     const vcards = vcfContent.split(/(?=BEGIN:VCARD)/i).filter(v => v.trim());
-    let netId = null;
     const contacts = [];
 
     for (const vcard of vcards) {
@@ -17519,9 +17527,7 @@ class ImportContactsModal {
       const lines = vcard.split(/\r?\n/);
 
       for (const line of lines) {
-        if (line.startsWith('X-LIBERDUS-NETID:')) {
-          netId = line.substring('X-LIBERDUS-NETID:'.length).trim();
-        } else if (line.startsWith('X-LIBERDUS-ADDRESS:')) {
+        if (line.startsWith('X-LIBERDUS-ADDRESS:')) {
           contact.address = line.substring('X-LIBERDUS-ADDRESS:'.length).trim();
         } else if (line.startsWith('X-LIBERDUS-USERNAME:')) {
           contact.username = line.substring('X-LIBERDUS-USERNAME:'.length).trim();
@@ -17545,7 +17551,7 @@ class ImportContactsModal {
       }
     }
 
-    return { netId, contacts };
+    return contacts;
   }
 
   /**
