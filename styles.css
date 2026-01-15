@@ -5577,6 +5577,10 @@ small {
   background-image: var(--icon-file);
 }
 
+.context-menu-option[data-icon="contacts"] .context-menu-icon {
+  background-image: var(--icon-contacts);
+}
+
 /* Shared delete icon styling - used by both regular and failed message context menus */
 .context-menu-option[data-icon="delete"] .context-menu-icon,
 .failed-message-context-menu .context-menu-option[data-icon="delete"] .context-menu-icon {

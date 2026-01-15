@@ -14124,6 +14124,9 @@ class ChatModal {
           this.chatFilesInput.click();
         }
         break;
+      case 'contacts':
+        shareContactsModal.open();
+        break;
     }
   }
 
