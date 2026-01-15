@@ -11209,6 +11209,13 @@ class ChatModal {
     this.imageAttachmentContextMenu = document.getElementById('imageAttachmentContextMenu');
     // Initialize attachment options context menu
     this.attachmentOptionsContextMenu = document.getElementById('attachmentOptionsContextMenu');
+    // Cache attachment options context menu option elements
+    this.cameraOpt = this.attachmentOptionsContextMenu?.querySelector('.context-menu-option[data-action="camera"]');
+    this.photoLibraryOpt = this.attachmentOptionsContextMenu?.querySelector('.context-menu-option[data-action="photo-library"]');
+    this.filesOpt = this.attachmentOptionsContextMenu?.querySelector('.context-menu-option[data-action="files"]');
+    this.cameraFileOpt = this.attachmentOptionsContextMenu?.querySelector('.context-menu-option[data-action="camera-file"]');
+    this.contactsOpt = this.attachmentOptionsContextMenu?.querySelector('.context-menu-option[data-action="contacts"]');
+    
     this.currentImageAttachmentRow = null;
     
     // Add event delegation for message clicks (since messages are created dynamically)
@@ -14045,29 +14052,22 @@ class ChatModal {
     const menu = this.attachmentOptionsContextMenu;
     const buttonRect = this.addAttachmentButton.getBoundingClientRect();
 
-    // Get all menu options
-    const cameraOpt = menu.querySelector('.context-menu-option[data-action="camera"]');
-    const photoLibraryOpt = menu.querySelector('.context-menu-option[data-action="photo-library"]');
-    const filesOpt = menu.querySelector('.context-menu-option[data-action="files"]');
-    const cameraFileOpt = menu.querySelector('.context-menu-option[data-action="camera-file"]');
-    const contactsOpt = menu.querySelector('.context-menu-option[data-action="contacts"]');
-
     if (isIOS()) {
       // iOS: Only show "Camera/File" and "Contacts"
-      if (cameraOpt) cameraOpt.style.display = 'none';
-      if (photoLibraryOpt) photoLibraryOpt.style.display = 'none';
-      if (filesOpt) filesOpt.style.display = 'none';
-      if (cameraFileOpt) cameraFileOpt.style.display = '';
-      if (contactsOpt) contactsOpt.style.display = '';
+      if (this.cameraOpt) this.cameraOpt.style.display = 'none';
+      if (this.photoLibraryOpt) this.photoLibraryOpt.style.display = 'none';
+      if (this.filesOpt) this.filesOpt.style.display = 'none';
+      if (this.cameraFileOpt) this.cameraFileOpt.style.display = '';
+      if (this.contactsOpt) this.contactsOpt.style.display = '';
     } else {
       // Non-iOS: Hide "Camera/File", show others
-      if (cameraFileOpt) cameraFileOpt.style.display = 'none';
+      if (this.cameraFileOpt) this.cameraFileOpt.style.display = 'none';
       
       // Desktop: only show "Camera" + "Files" (hide "Photo Library")
       // Heuristic: devices with a fine pointer + hover are typically desktop/laptop.
       try {
         const isDesktopLike = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-        if (photoLibraryOpt) photoLibraryOpt.style.display = isDesktopLike ? 'none' : '';
+        if (this.photoLibraryOpt) this.photoLibraryOpt.style.display = isDesktopLike ? 'none' : '';
       } catch (_) {
         // ignore
       }
