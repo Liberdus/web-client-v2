@@ -19132,9 +19132,19 @@ class NewChatModal {
 
     // Check if contact exists
     if (!chatsData.contacts[recipientAddress]) {
+      // Default to 2 (Acquaintance) so recipient does not need to pay toll.
+      // Only create the local contact if the network inject succeeds.
+      try {
+        const res = await friendModal.postUpdateTollRequired(recipientAddress, 2);
+        if (res?.result?.success !== true) {
+          return;
+        }
+      } catch (error) {
+        console.error('Error updating toll in create when creating new contact:', error);
+        return;
+      }
+
       createNewContact(recipientAddress, username, 2);
-      // default to 2 (Acquaintance) so recipient does not need to pay toll
-      friendModal.postUpdateTollRequired(recipientAddress, 2);
     }
     chatsData.contacts[recipientAddress].username = username;
 
