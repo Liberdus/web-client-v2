@@ -5183,7 +5183,7 @@ async function injectTx(tx, txid) {
         showToast(
           'Add more LIB before you run out. On the Wallet page click the Faucet button.',
           0,
-          'info'
+          'warning'
         );
       }
     } catch (e) {
@@ -6859,7 +6859,7 @@ function showToast(message, duration = 2000, type = 'default', isHTML = false) {
     // Exception: loading toasts are never manually closable by user
     if (duration <= 0 && type !== 'loading') {
       // Sticky toast - add close button and click handler (but not for loading toasts)
-      toast.style.pointerEvents = 'auto';
+      toast.classList.add('sticky');
       const closeBtn = document.createElement('button');
       closeBtn.className = 'toast-close-btn';
       closeBtn.setAttribute('aria-label', 'Close');
@@ -11418,7 +11418,7 @@ class ChatModal {
         const tollInLib = myData.contacts[this.address].tollRequiredToSend == 0 ? 0n : this.toll;
         const sufficientBalance = await validateBalance(tollInLib);
         if (!sufficientBalance) {
-          const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}`;
+          const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}. Go to the wallet to add more LIB.`;
           showToast(msg, 0, 'error');
           return;
         }
@@ -12045,7 +12045,7 @@ class ChatModal {
       const amount = myData.contacts[this.address].tollRequiredToSend == 1 ? this.toll : 0n;
       const sufficientBalance = await validateBalance(amount);
       if (!sufficientBalance) {
-        const msg = `Insufficient balance for fee${amount > 0n ? ' and toll' : ''}`;
+        const msg = `Insufficient balance for fee${amount > 0n ? ' and toll' : ''}. Go to the wallet to add more LIB.`;
         showToast(msg, 0, 'error');
         this.sendButton.disabled = false;
         return;
@@ -15050,7 +15050,7 @@ class ChatModal {
 
       const sufficientBalance = await validateBalance(tollInLib);
       if (!sufficientBalance) {
-        const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}`;
+        const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}. Go to the wallet to add more LIB.`;
         showToast(msg, 0, 'error');
         return;
       }
@@ -15326,7 +15326,7 @@ class ChatModal {
 
       const sufficientBalance = await validateBalance(0n);
       if (!sufficientBalance) {
-        showToast('Insufficient balance for fee', 0, 'error');
+        showToast('Insufficient balance for fee. Go to the wallet to add more LIB.', 0, 'error');
         return;
       }
 
@@ -19023,7 +19023,7 @@ class SendAssetConfirmModal {
       const amountStr = big2str(amount, 18).slice(0, -16);
       const feeStr = big2str(txFeeInLIB, 18).slice(0, -16);
       const balanceStr = big2str(balance, 18).slice(0, -16);
-      showToast(`Insufficient balance: ${amountStr} + ${feeStr} (fee) > ${balanceStr} LIB`, 0, 'error');
+      showToast(`Insufficient balance: ${amountStr} + ${feeStr} (fee) > ${balanceStr} LIB. Go to the wallet to add more LIB`, 0, 'error');
       cancelButton.disabled = false;
       return;
     }
