@@ -1376,16 +1376,22 @@ class ContactsScreen {
       { key: 'blocked', label: 'Blocked', itemClass: 'chat-item blocked' },
     ];
 
+    // Helper to check if contact is incomplete (missing public keys)
+    const isContactIncomplete = (contact) => !contact.public;
+
     // Helper to render a contact item
     const renderContactItem = async (contact, itemClass) => {
       const avatarHtml = await getContactAvatarHtml(contact);
       const contactName = getContactDisplayName(contact);
+      const incompleteIndicator = isContactIncomplete(contact) 
+        ? '<span class="contact-incomplete" title="Incomplete contact"></span>' 
+        : '';
       return `
             <li class="${itemClass}">
                 <div class="chat-avatar">${avatarHtml}</div>
                 <div class="chat-content">
                     <div class="chat-header">
-                        <div class="chat-name">${contactName}</div>
+                        <div class="chat-name">${incompleteIndicator}${contactName}</div>
                     </div>
                     <div class="contact-list-info">
                         ${contact.email || contact.x || contact.phone || `${contact.address.slice(0, 8)}…${contact.address.slice(-6)}`}
@@ -17857,7 +17863,7 @@ class ImportContactsModal {
       saveState();
       
       // Refresh contacts screen if visible
-      contactsScreen.updateContactList();
+      contactsScreen.updateContactsList();
       
 
       showToast(`Imported ${importedCount} contact${importedCount !== 1 ? 's' : ''}`, 2000, 'success');
