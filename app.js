@@ -16510,7 +16510,101 @@ class ShareContactsModal {
   }
 
   /**
-   * Handles the Done button click - placeholder for Phase 7-8
+   * Gets avatar blob for a contact with priority: contact's provided avatar → user-selected avatar → null
+   * @param {Object} contact - Contact object
+   * @returns {Promise<Blob|null>} Avatar blob or null if not available
+   */
+  async getContactAvatarBlobForShare(contact) {
+    try {
+      // Priority 1: Contact's provided avatar
+      if (contact?.avatarId) {
+        const blob = await contactAvatarCache.get(contact.avatarId);
+        if (blob) return blob;
+      }
+
+      // Priority 2: User-selected avatar for this contact
+      if (contact?.mineAvatarId) {
+        const blob = await contactAvatarCache.get(contact.mineAvatarId);
+        if (blob) return blob;
+      }
+    } catch (err) {
+      console.warn('Failed to get avatar blob for VCF:', err);
+    }
+
+    // No avatar available
+    return null;
+  }
+
+  /**
+   * Generates VCF content for selected contacts
+   * @returns {Promise<string>} VCF file content
+   */
+  async generateVcfContent() {
+    const vcards = [];
+
+    // First card contains X-LIBERDUS-NETID
+    vcards.push([
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      `X-LIBERDUS-NETID:${network.netId || ''}`,
+      'END:VCARD'
+    ].join('\r\n'));
+
+    // Generate vCard for each selected contact
+    for (const address of this.selectedContacts) {
+      const contact = myData.contacts[address];
+      if (!contact) continue;
+
+      const lines = [
+        'BEGIN:VCARD',
+        'VERSION:3.0',
+        `X-LIBERDUS-NETID:${network.netId || ''}`,
+        `X-LIBERDUS-ADDRESS:${contact.address || ''}`,
+        `X-LIBERDUS-USERNAME:${contact.username || ''}`
+      ];
+
+      // FN - use contact's provided name, then user-assigned name
+      const displayName = contact?.senderInfo?.name || contact?.name;
+      if (displayName) {
+        lines.push(`FN:${displayName}`);
+      }
+
+      // PHOTO - base64 of avatar blob
+      const avatarBlob = await this.getContactAvatarBlobForShare(contact);
+      if (avatarBlob) {
+        const base64 = await contactAvatarCache.blobToBase64(avatarBlob);
+        if (base64) {
+          // Determine image type from blob MIME type
+          const imageType = avatarBlob.type === 'image/png' ? 'PNG' : 'JPEG';
+          lines.push(`PHOTO;ENCODING=b;TYPE=${imageType}:${base64}`);
+        }
+      }
+
+      lines.push('END:VCARD');
+      vcards.push(lines.join('\r\n'));
+    }
+
+    return vcards.join('\r\n');
+  }
+
+  /**
+   * Generates a filename for the VCF file
+   * @returns {string} Filename in format username-YYMMDD-HHMM.vcf
+   */
+  generateVcfFilename() {
+    const now = new Date();
+    const yy = String(now.getFullYear()).slice(-2);
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    
+    const username = myAccount?.username || 'user';
+    return `${username}-${yy}${mm}${dd}-${hh}${min}.vcf`;
+  }
+
+  /**
+   * Handles the Done button click - generates VCF and uploads
    */
   async handleDone() {
     if (this.selectedContacts.size === 0) {
@@ -16518,9 +16612,33 @@ class ShareContactsModal {
       return;
     }
 
-    // TODO: Phase 7-8 will implement VCF generation and upload
-    showToast(`${this.selectedContacts.size} contact(s) selected - VCF generation coming soon`, 2000, 'info');
-    this.close();
+    if (this.isUploading) return;
+    this.isUploading = true;
+    this.doneButton.classList.add('loading');
+    this.doneButton.disabled = true;
+
+    try {
+      // Generate VCF content
+      const vcfContent = await this.generateVcfContent();
+      const vcfFilename = this.generateVcfFilename();
+      
+      // Create blob from VCF content
+      const vcfBlob = new Blob([vcfContent], { type: 'text/vcard' });
+
+      // TODO: Phase 8 will implement encryption and upload
+      showToast(`Generated ${vcfFilename} (${this.selectedContacts.size} contacts)`, 2000, 'info');
+      console.log('VCF content:', vcfContent);
+      console.log('VCF blob:', vcfBlob);
+      
+      this.close();
+    } catch (err) {
+      console.error('Failed to generate VCF:', err);
+      showToast('Failed to generate contacts file', 3000, 'error');
+    } finally {
+      this.isUploading = false;
+      this.doneButton.classList.remove('loading');
+      this.doneButton.disabled = false;
+    }
   }
 }
 
