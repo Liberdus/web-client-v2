@@ -11379,17 +11379,8 @@ class ChatModal {
     if (this.addAttachmentButton) {
       this.addAttachmentButton.addEventListener('click', (e) => {
         e.stopPropagation();
-        // On iOS, directly trigger file input to use native iOS picker
-        // On Android, show our custom context menu
-        if (isIOS()) {
-          // iOS will show its native picker with Camera, Photo Library, and Files options
-          if (this.chatFileInput) {
-            this.chatFileInput.click();
-          }
-        } else {
-          // Android: show our custom context menu
-          this.showAttachmentOptionsContextMenu(e);
-        }
+        // Always show our custom context menu (includes Camera, Photo Library, Files, Contacts)
+        this.showAttachmentOptionsContextMenu(e);
       });
     }
 
@@ -14054,14 +14045,32 @@ class ChatModal {
     const menu = this.attachmentOptionsContextMenu;
     const buttonRect = this.addAttachmentButton.getBoundingClientRect();
 
-    // Desktop: only show "Camera" + "Files" (hide "Photo Library")
-    // Heuristic: devices with a fine pointer + hover are typically desktop/laptop.
-    try {
-      const isDesktopLike = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-      const photoLibraryOpt = menu.querySelector('.context-menu-option[data-action="photo-library"]');
-      if (photoLibraryOpt) photoLibraryOpt.style.display = isDesktopLike ? 'none' : '';
-    } catch (_) {
-      // ignore
+    // Get all menu options
+    const cameraOpt = menu.querySelector('.context-menu-option[data-action="camera"]');
+    const photoLibraryOpt = menu.querySelector('.context-menu-option[data-action="photo-library"]');
+    const filesOpt = menu.querySelector('.context-menu-option[data-action="files"]');
+    const cameraFileOpt = menu.querySelector('.context-menu-option[data-action="camera-file"]');
+    const contactsOpt = menu.querySelector('.context-menu-option[data-action="contacts"]');
+
+    if (isIOS()) {
+      // iOS: Only show "Camera/File" and "Contacts"
+      if (cameraOpt) cameraOpt.style.display = 'none';
+      if (photoLibraryOpt) photoLibraryOpt.style.display = 'none';
+      if (filesOpt) filesOpt.style.display = 'none';
+      if (cameraFileOpt) cameraFileOpt.style.display = '';
+      if (contactsOpt) contactsOpt.style.display = '';
+    } else {
+      // Non-iOS: Hide "Camera/File", show others
+      if (cameraFileOpt) cameraFileOpt.style.display = 'none';
+      
+      // Desktop: only show "Camera" + "Files" (hide "Photo Library")
+      // Heuristic: devices with a fine pointer + hover are typically desktop/laptop.
+      try {
+        const isDesktopLike = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+        if (photoLibraryOpt) photoLibraryOpt.style.display = isDesktopLike ? 'none' : '';
+      } catch (_) {
+        // ignore
+      }
     }
     
     // Show menu first to get its dimensions
@@ -14108,7 +14117,13 @@ class ChatModal {
     // (notably Android Chrome) to open native file pickers via input.click().
     switch (action) {
       case 'camera':
-        if (isAndroidLikeMobileUA()) {
+        if (isIOS()) {
+          // iOS: use photo library picker which includes camera option
+          if (this.chatPhotoLibraryInput) {
+            this.chatPhotoLibraryInput.value = '';
+            this.chatPhotoLibraryInput.click();
+          }
+        } else if (isAndroidLikeMobileUA()) {
           // Android: check/request permission, then open file picker or toast
           void this.handleAndroidCameraAction();
         } else {
@@ -14126,6 +14141,13 @@ class ChatModal {
         if (this.chatFilesInput) {
           this.chatFilesInput.value = '';
           this.chatFilesInput.click();
+        }
+        break;
+      case 'camera-file':
+        // iOS: open file input which includes Camera, Photo Library, and Files options
+        if (this.chatFileInput) {
+          this.chatFileInput.value = '';
+          this.chatFileInput.click();
         }
         break;
       case 'contacts':
