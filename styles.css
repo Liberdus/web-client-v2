@@ -5641,6 +5641,10 @@ small {
   background-image: var(--icon-file-text);
 }
 
+.attachment-icon[data-file-type="contacts"] {
+  background-image: var(--icon-contacts);
+}
+
 .attachment-icon[data-file-type="file"] {
   background-image: var(--icon-file);
 }

@@ -13397,6 +13397,7 @@ class ChatModal {
     if (type && type.startsWith('audio/')) return 'audio';
     if (type && type.startsWith('video/')) return 'video';
     if ((type === 'application/pdf') || (name && name.toLowerCase().endsWith('.pdf'))) return 'pdf';
+    if ((type === 'text/vcard') || (name && name.toLowerCase().endsWith('.vcf'))) return 'contacts';
     if (type && type.startsWith('text/')) return 'text';
     return 'file';
   }
@@ -16603,7 +16604,7 @@ class ShareContactsModal {
   }
 
   /**
-   * Handles the Done button click - generates VCF and uploads
+   * Handles the Done button click - generates VCF, encrypts, and uploads
    */
   async handleDone() {
     if (this.selectedContacts.size === 0) {
@@ -16624,15 +16625,34 @@ class ShareContactsModal {
       // Create blob from VCF content
       const vcfBlob = new Blob([vcfContent], { type: 'text/vcard' });
 
-      // TODO: Phase 8 will implement encryption and upload
-      showToast(`Generated ${vcfFilename} (${this.selectedContacts.size} contacts)`, 2000, 'info');
-      console.log('VCF content:', vcfContent);
-      console.log('VCF blob:', vcfBlob);
-      
+      // Get recipient's DH key for encryption
+      const { dhkey, cipherText: pqEncSharedKey } = await chatModal.getRecipientDhKey(chatModal.address);
+      const password = myAccount.keys.secret + myAccount.keys.pqSeed;
+      const selfKey = encryptData(bin2hex(dhkey), password, true);
+
+      // Encrypt the VCF blob
+      const encryptedBlob = await encryptBlob(vcfBlob, dhkey);
+
+      // Upload encrypted file
+      const attachmentUrl = await chatModal.uploadEncryptedFile(encryptedBlob, vcfFilename);
+
+      // Add to chatModal's file attachments
+      chatModal.fileAttachments.push({
+        url: attachmentUrl,
+        name: vcfFilename,
+        size: vcfBlob.size,
+        type: 'text/vcard',
+        pqEncSharedKey: bin2base64(pqEncSharedKey),
+        selfKey
+      });
+
+      // Update attachment preview in chat modal
+      chatModal.showAttachmentPreview();
+
       this.close();
     } catch (err) {
-      console.error('Failed to generate VCF:', err);
-      showToast('Failed to generate contacts file', 3000, 'error');
+      console.error('Failed to generate/upload VCF:', err);
+      showToast('Failed to share contacts', 3000, 'error');
     } finally {
       this.isUploading = false;
       this.doneButton.classList.remove('loading');
