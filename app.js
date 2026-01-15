@@ -16312,10 +16312,10 @@ class ShareContactsModal {
     const allContacts = Object.values(myData.contacts || {});
     const friends = allContacts
       .filter(c => c.friend === 3)
-      .sort((a, b) => getContactDisplayName(a).toLowerCase().localeCompare(getContactDisplayName(b).toLowerCase()));
+      .sort((a, b) => this.getContactDisplayNameForShare(a).toLowerCase().localeCompare(this.getContactDisplayNameForShare(b).toLowerCase()));
     const connections = allContacts
       .filter(c => c.friend === 2)
-      .sort((a, b) => getContactDisplayName(a).toLowerCase().localeCompare(getContactDisplayName(b).toLowerCase()));
+      .sort((a, b) => this.getContactDisplayNameForShare(a).toLowerCase().localeCompare(this.getContactDisplayNameForShare(b).toLowerCase()));
 
     const hasContacts = friends.length > 0 || connections.length > 0;
 
@@ -16340,6 +16340,51 @@ class ShareContactsModal {
   }
 
   /**
+   * Gets display name for a contact with priority: contact's provided name → user-assigned name → username
+   * @param {Object} contact - Contact object
+   * @returns {string} Display name
+   */
+  getContactDisplayNameForShare(contact) {
+    return contact?.senderInfo?.name || 
+           contact?.name || 
+           contact?.username || 
+           `${contact?.address?.slice(0, 8)}…${contact?.address?.slice(-6)}`;
+  }
+
+  /**
+   * Gets avatar HTML for a contact with priority: contact's provided avatar → user-selected avatar → identicon
+   * Ignores useAvatar preference to always use the correct priority for sharing
+   * @param {Object} contact - Contact object
+   * @param {number} size - Avatar size in pixels
+   * @returns {Promise<string>} Avatar HTML
+   */
+  async getContactAvatarHtmlForShare(contact, size = 40) {
+    const address = contact?.address;
+    if (!address) return generateIdenticon('', size);
+
+    const makeImg = (url) => `<img src="${url}" class="contact-avatar-img" width="${size}" height="${size}" alt="avatar">`;
+
+    try {
+      // Priority 1: Contact's provided avatar
+      if (contact?.avatarId) {
+        const url = await contactAvatarCache.getBlobUrl(contact.avatarId);
+        if (url) return makeImg(url);
+      }
+
+      // Priority 2: User-selected avatar for this contact
+      if (contact?.mineAvatarId) {
+        const url = await contactAvatarCache.getBlobUrl(contact.mineAvatarId);
+        if (url) return makeImg(url);
+      }
+    } catch (err) {
+      console.warn('Failed to load avatar, falling back to identicon:', err);
+    }
+
+    // Priority 3: Identicon fallback
+    return generateIdenticon(address, size);
+  }
+
+  /**
    * Renders a section of contacts with a header
    * @param {string} label - Section label
    * @param {Array} contacts - Array of contact objects
@@ -16352,7 +16397,8 @@ class ShareContactsModal {
     this.contactsList.appendChild(header);
 
     // Batch avatar generation for better performance
-    const avatarPromises = contacts.map(contact => getContactAvatarHtml(contact, 40));
+    // Use custom function that follows correct priority: contact avatar → user-selected → identicon
+    const avatarPromises = contacts.map(contact => this.getContactAvatarHtmlForShare(contact, 40));
     const avatarHtmlList = await Promise.all(avatarPromises);
 
     // Render each contact
@@ -16362,7 +16408,7 @@ class ShareContactsModal {
       row.dataset.address = contact.address;
 
       const avatarHtml = avatarHtmlList[index];
-      const displayName = getContactDisplayName(contact);
+      const displayName = this.getContactDisplayNameForShare(contact);
 
       row.innerHTML = `
         <div class="share-contact-avatar">${avatarHtml}</div>
