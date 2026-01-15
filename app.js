@@ -17832,9 +17832,16 @@ class ImportContactsModal {
         const contactRecord = {
           address: address,
           username: parsedContact.username || '',
-          friend: 3, // Friend status
           messages: [],
+          timestamp: 0,
           unread: 0,
+          hasAvatar: false,
+          toll: 0n,
+          tollRequiredToReceive: 1,
+          tollRequiredToSend: 1,
+          friend: 3, // Friend status
+          friendOld: 3,
+          tolledDepositToastShown: true,
         };
 
         // Store name in senderInfo since it came from the contact
@@ -17850,6 +17857,7 @@ class ImportContactsModal {
             const avatarId = `imported_${address}_${Date.now()}`;
             await contactAvatarCache.save(avatarId, avatarBlob);
             contactRecord.avatarId = avatarId;
+            contactRecord.hasAvatar = true;
           } catch (err) {
             console.warn('Failed to save imported avatar:', err);
           }
