@@ -15219,14 +15219,14 @@ class ChatModal {
     const contact = myData.contacts[this.address];
     const message = contact?.messages?.[msgIdx];
     if (!message?.xattach) {
-      showToast('Could not find attachment data', 3000, 'error');
+      showToast('Could not find attachment data', 0, 'error');
       return;
     }
 
     // Find the attachment in xattach array
     const attachment = message.xattach.find(att => att.url === url);
     if (!attachment) {
-      showToast('Could not find attachment data', 3000, 'error');
+      showToast('Could not find attachment data', 0, 'error');
       return;
     }
 
@@ -17356,7 +17356,7 @@ class ShareContactsModal {
       this.close();
     } catch (err) {
       console.error('Failed to generate/upload VCF:', err);
-      showToast('Failed to share contacts', 3000, 'error');
+      showToast('Failed to share contacts', 0, 'error');
     } finally {
       this.isUploading = false;
       this.doneButton.classList.remove('loading');
@@ -17428,7 +17428,7 @@ class ImportContactsModal {
       // Extract and validate network ID from first vCard before parsing all contacts
       const netId = this.extractNetId(vcfContent);
       if (netId && netId !== network.netid) {
-        showToast('Network ID mismatch - contacts are from a different network', 3000, 'error');
+        showToast('Network ID mismatch - contacts are from a different network', 0, 'error');
         this.close();
         return;
       }
@@ -17444,7 +17444,7 @@ class ImportContactsModal {
 
     } catch (err) {
       console.error('Failed to load VCF:', err);
-      showToast('Failed to load contacts file', 3000, 'error');
+      showToast('Failed to load contacts file', 0, 'error');
       this.close();
     }
   }
@@ -17832,7 +17832,7 @@ class ImportContactsModal {
 
     } catch (err) {
       console.error('Failed to import contacts:', err);
-      showToast('Failed to import contacts', 3000, 'error');
+      showToast('Failed to import contacts', 0, 'error');
     } finally {
       this.isImporting = false;
       this.doneButton.classList.remove('loading');
