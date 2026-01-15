@@ -14512,6 +14512,15 @@ class ChatModal {
     const previewOpt = this.imageAttachmentContextMenu.querySelector('[data-action="preview"]');
     if (previewOpt) previewOpt.style.display = (hasThumbnailSupport && !hasThumb) ? '' : 'none';
 
+    // Show Import Contacts option for VCF files
+    const importContactsOpt = this.imageAttachmentContextMenu.querySelector('[data-action="import-contacts"]');
+    if (importContactsOpt) {
+      const fileName = attachmentRow.dataset.name ? decodeURIComponent(attachmentRow.dataset.name) : '';
+      const fileType = attachmentRow.dataset.type || '';
+      const isVcf = fileType === 'text/vcard' || fileName.toLowerCase().endsWith('.vcf');
+      importContactsOpt.style.display = isVcf ? '' : 'none';
+    }
+
     this.positionContextMenu(this.imageAttachmentContextMenu, attachmentRow);
     this.imageAttachmentContextMenu.style.display = 'block';
   }
@@ -14522,6 +14531,9 @@ class ChatModal {
 
     const { messageEl } = this.getAttachmentContextFromRow(row);
     switch (action) {
+      case 'import-contacts':
+        void this.openImportContactsModal(row);
+        break;
       case 'preview':
         void this.previewMediaAttachment(row);
         break;
@@ -14543,6 +14555,42 @@ class ChatModal {
     }
 
     this.closeImageAttachmentContextMenu();
+  }
+
+  /**
+   * Opens the Import Contacts modal for a VCF attachment
+   * @param {HTMLElement} attachmentRow - The attachment row element
+   */
+  async openImportContactsModal(attachmentRow) {
+    const url = attachmentRow.dataset.url;
+    const pUrl = attachmentRow.dataset.pUrl;
+    const name = attachmentRow.dataset.name ? decodeURIComponent(attachmentRow.dataset.name) : 'contacts.vcf';
+    const type = attachmentRow.dataset.type || 'text/vcard';
+    const msgIdx = attachmentRow.dataset.msgIdx;
+
+    // Get encryption keys from the message
+    const contact = myData.contacts[this.address];
+    const message = contact?.messages?.[msgIdx];
+    if (!message?.xattach) {
+      showToast('Could not find attachment data', 3000, 'error');
+      return;
+    }
+
+    // Find the attachment in xattach array
+    const attachment = message.xattach.find(att => att.url === url);
+    if (!attachment) {
+      showToast('Could not find attachment data', 3000, 'error');
+      return;
+    }
+
+    // Open the import contacts modal with attachment data
+    importContactsModal.open({
+      url: attachment.url,
+      name,
+      type,
+      pqEncSharedKey: attachment.pqEncSharedKey,
+      selfKey: attachment.selfKey
+    });
   }
 
   /**
