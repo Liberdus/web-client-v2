@@ -475,6 +475,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Share Contacts Modal
   shareContactsModal.load();
 
+  // Import Contacts Modal
+  importContactsModal.load();
+
   // Call Schedule Modals
   callScheduleChoiceModal.load();
   callScheduleDateModal.load();
@@ -15233,7 +15236,9 @@ class ChatModal {
       name,
       type,
       pqEncSharedKey: attachment.pqEncSharedKey,
-      selfKey: attachment.selfKey
+      selfKey: attachment.selfKey,
+      my: message.my,
+      senderAddress: this.address
     });
   }
 
@@ -16996,7 +17001,8 @@ class ShareContactsModal {
     this.isUploading = false;
     this.doneButton.classList.remove('loading');
     this.doneButton.disabled = false;
-    this.allNoneButton.textContent = 'Select all';
+    this.allNoneButton.classList.remove('all-selected');
+    this.allNoneButton.setAttribute('aria-label', 'Select all');
 
     // Clear existing list
     this.contactsList.innerHTML = '';
@@ -17143,12 +17149,18 @@ class ShareContactsModal {
   }
 
   /**
-   * Updates the All/None button text based on selection state
+   * Updates the All/None button icon based on selection state
    */
   updateAllNoneButton() {
     const checkboxes = this.contactsList.querySelectorAll('.share-contact-checkbox');
     const allSelected = Array.from(checkboxes).every(cb => cb.checked);
-    this.allNoneButton.textContent = allSelected && checkboxes.length > 0 ? 'Clear' : 'Select all';
+    if (allSelected && checkboxes.length > 0) {
+      this.allNoneButton.classList.add('all-selected');
+      this.allNoneButton.setAttribute('aria-label', 'Clear');
+    } else {
+      this.allNoneButton.classList.remove('all-selected');
+      this.allNoneButton.setAttribute('aria-label', 'Select all');
+    }
   }
 
   /**
@@ -17354,6 +17366,476 @@ class ShareContactsModal {
 }
 
 const shareContactsModal = new ShareContactsModal();
+
+/**
+ * Import Contacts Modal
+ * Allows users to import contacts from a shared VCF file attachment
+ */
+class ImportContactsModal {
+  constructor() {
+    this.selectedContacts = new Set();
+    this.warningShown = false;
+    this.isImporting = false;
+    this.parsedContacts = [];
+    this.currentAttachment = null;
+  }
+
+  load() {
+    this.modal = document.getElementById('importContactsModal');
+    this.contactsList = document.getElementById('importContactsList');
+    this.emptyState = document.getElementById('importContactsEmptyState');
+    this.loadingState = document.getElementById('importContactsLoading');
+    this.allNoneButton = document.getElementById('importContactsAllNoneBtn');
+    this.doneButton = document.getElementById('importContactsDoneBtn');
+    this.closeButton = document.getElementById('closeImportContactsModal');
+
+    // Event listeners
+    this.closeButton.addEventListener('click', () => this.handleClose());
+    this.allNoneButton.addEventListener('click', () => this.toggleAllNone());
+    this.doneButton.addEventListener('click', () => this.handleDone());
+    this.contactsList.addEventListener('click', (e) => this.handleContactClick(e));
+  }
+
+  /**
+   * Opens the import contacts modal with an attachment
+   * @param {Object} attachment - The VCF attachment object with url, pqEncSharedKey, selfKey
+   */
+  async open(attachment) {
+    // Reset state
+    this.selectedContacts.clear();
+    this.warningShown = false;
+    this.isImporting = false;
+    this.parsedContacts = [];
+    this.currentAttachment = attachment;
+    this.doneButton.classList.remove('loading');
+    this.doneButton.disabled = true;
+    this.allNoneButton.classList.remove('all-selected');
+    this.allNoneButton.setAttribute('aria-label', 'Select all');
+
+    // Clear existing list and show loading
+    this.contactsList.innerHTML = '';
+    this.emptyState.style.display = 'none';
+    this.loadingState.style.display = 'flex';
+    this.contactsList.style.display = 'none';
+
+    // Show modal
+    this.modal.classList.add('active');
+
+    try {
+      // Download and decrypt the VCF file
+      const vcfContent = await this.downloadAndDecryptVcf(attachment);
+      
+      // Parse VCF content
+      const { netId, contacts } = this.parseVcfContent(vcfContent);
+
+      // Validate network ID
+      if (netId && netId !== network.netid) {
+        showToast('Network ID mismatch - contacts are from a different network', 3000, 'error');
+        this.close();
+        return;
+      }
+
+      this.parsedContacts = contacts;
+
+      // Hide loading
+      this.loadingState.style.display = 'none';
+
+      // Render contacts
+      await this.renderContactList();
+
+    } catch (err) {
+      console.error('Failed to load VCF:', err);
+      showToast('Failed to load contacts file', 3000, 'error');
+      this.close();
+    }
+  }
+
+  /**
+   * Downloads and decrypts the VCF file
+   * @param {Object} attachment - The attachment object
+   * @returns {Promise<string>} Decrypted VCF content
+   */
+  async downloadAndDecryptVcf(attachment) {
+    // Download encrypted file
+    const response = await fetch(attachment.url);
+    if (!response.ok) {
+      throw new Error(`Download failed: ${response.status}`);
+    }
+
+    const encryptedData = new Uint8Array(await response.arrayBuffer());
+
+    // Determine which key to use for decryption (same logic as decryptAttachmentToBlob)
+    let dhkey;
+    if (attachment.my) {
+      // We sent this file - decrypt with selfKey
+      if (!attachment.selfKey) throw new Error('Missing selfKey for decrypt');
+      const password = myAccount.keys.secret + myAccount.keys.pqSeed;
+      const dhkeyHex = decryptData(attachment.selfKey, password, true);
+      if (!dhkeyHex) throw new Error('Failed to decrypt selfKey');
+      dhkey = hex2bin(dhkeyHex);
+    } else {
+      // Someone else sent this - decrypt with pqEncSharedKey
+      if (!attachment.pqEncSharedKey) throw new Error('Missing pqEncSharedKey for decrypt');
+      const ok = await ensureContactKeys(attachment.senderAddress);
+      const senderPublicKey = myData.contacts[attachment.senderAddress]?.public;
+      if (!ok || !senderPublicKey) throw new Error(`No public key found for sender ${attachment.senderAddress}`);
+      
+      const pqCipher = (typeof attachment.pqEncSharedKey === 'string') 
+        ? base642bin(attachment.pqEncSharedKey) 
+        : attachment.pqEncSharedKey;
+      dhkey = dhkeyCombined(
+        myAccount.keys.secret,
+        senderPublicKey,
+        myAccount.keys.pqSeed,
+        pqCipher
+      ).dhkey;
+    }
+
+    // Decrypt the file
+    const cipherB64 = bin2base64(encryptedData);
+    const plainB64 = decryptChacha(dhkey, cipherB64);
+    if (!plainB64) {
+      throw new Error('Decryption failed');
+    }
+
+    // Convert base64 to string
+    const plainBin = base642bin(plainB64);
+    const decoder = new TextDecoder('utf-8');
+    return decoder.decode(plainBin);
+  }
+
+  /**
+   * Parses VCF content into contact objects
+   * @param {string} vcfContent - Raw VCF file content
+   * @returns {Object} Object with netId and contacts array
+   */
+  parseVcfContent(vcfContent) {
+    const vcards = vcfContent.split(/(?=BEGIN:VCARD)/i).filter(v => v.trim());
+    let netId = null;
+    const contacts = [];
+
+    for (const vcard of vcards) {
+      const contact = {};
+      const lines = vcard.split(/\r?\n/);
+
+      for (const line of lines) {
+        if (line.startsWith('X-LIBERDUS-NETID:')) {
+          netId = line.substring('X-LIBERDUS-NETID:'.length).trim();
+        } else if (line.startsWith('X-LIBERDUS-ADDRESS:')) {
+          contact.address = line.substring('X-LIBERDUS-ADDRESS:'.length).trim();
+        } else if (line.startsWith('X-LIBERDUS-USERNAME:')) {
+          contact.username = line.substring('X-LIBERDUS-USERNAME:'.length).trim();
+        } else if (line.startsWith('FN:')) {
+          contact.name = line.substring('FN:'.length).trim();
+        } else if (line.startsWith('PHOTO;')) {
+          // Parse PHOTO field: PHOTO;ENCODING=b;TYPE=JPEG:base64data
+          const photoMatch = line.match(/PHOTO;.*:(.+)/i);
+          if (photoMatch) {
+            contact.photoBase64 = photoMatch[1];
+            // Extract type
+            const typeMatch = line.match(/TYPE=(\w+)/i);
+            contact.photoType = typeMatch ? typeMatch[1].toLowerCase() : 'jpeg';
+          }
+        }
+      }
+
+      // Only add if we have an address (skip the header card with just netId)
+      if (contact.address) {
+        contacts.push(contact);
+      }
+    }
+
+    return { netId, contacts };
+  }
+
+  /**
+   * Renders the contact list
+   */
+  async renderContactList() {
+    const myAddress = normalizeAddress(myAccount?.keys?.address || '');
+
+    // Filter out self
+    const filteredContacts = this.parsedContacts.filter(c => 
+      normalizeAddress(c.address) !== myAddress
+    );
+
+    if (filteredContacts.length === 0) {
+      this.emptyState.style.display = 'block';
+      this.contactsList.style.display = 'none';
+      this.doneButton.disabled = true;
+      return;
+    }
+
+    // Separate new and existing contacts
+    const newContacts = [];
+    const existingContacts = [];
+
+    for (const contact of filteredContacts) {
+      const normalizedAddr = normalizeAddress(contact.address);
+      if (myData.contacts[normalizedAddr]) {
+        existingContacts.push({ ...contact, address: normalizedAddr, isExisting: true });
+      } else {
+        newContacts.push({ ...contact, address: normalizedAddr, isExisting: false });
+      }
+    }
+
+    // Sort each group by name
+    const sortByName = (a, b) => {
+      const nameA = (a.name || a.username || a.address).toLowerCase();
+      const nameB = (b.name || b.username || b.address).toLowerCase();
+      return nameA.localeCompare(nameB);
+    };
+    newContacts.sort(sortByName);
+    existingContacts.sort(sortByName);
+
+    // Combine: new contacts first, then existing
+    const sortedContacts = [...newContacts, ...existingContacts];
+
+    // Generate avatars in parallel
+    const avatarPromises = sortedContacts.map(contact => this.getAvatarHtml(contact, 40));
+    const avatarHtmlList = await Promise.all(avatarPromises);
+
+    // Render contacts
+    this.contactsList.innerHTML = '';
+    
+    // Add section headers
+    if (newContacts.length > 0) {
+      const header = document.createElement('div');
+      header.className = 'share-contacts-section-header';
+      header.textContent = 'New Contacts';
+      this.contactsList.appendChild(header);
+    }
+
+    let existingHeaderAdded = false;
+
+    sortedContacts.forEach((contact, index) => {
+      // Add existing contacts header when we reach them
+      if (contact.isExisting && !existingHeaderAdded && existingContacts.length > 0) {
+        const header = document.createElement('div');
+        header.className = 'share-contacts-section-header';
+        header.textContent = 'Already Added';
+        this.contactsList.appendChild(header);
+        existingHeaderAdded = true;
+      }
+
+      const row = document.createElement('div');
+      row.className = 'share-contact-row' + (contact.isExisting ? ' existing' : '');
+      row.dataset.address = contact.address;
+
+      const avatarHtml = avatarHtmlList[index];
+      const displayName = contact.name || contact.username || `${contact.address.slice(0, 8)}…${contact.address.slice(-6)}`;
+
+      row.innerHTML = `
+        <div class="share-contact-avatar">${avatarHtml}</div>
+        <div class="share-contact-info">
+          <div class="share-contact-name">${escapeHtml(displayName)}</div>
+        </div>
+        ${contact.isExisting 
+          ? '<span class="existing-label">Already added</span>' 
+          : '<input type="checkbox" class="share-contact-checkbox" />'}
+      `;
+
+      this.contactsList.appendChild(row);
+    });
+
+    this.contactsList.style.display = 'block';
+    this.doneButton.disabled = newContacts.length === 0;
+  }
+
+  /**
+   * Gets avatar HTML for a parsed contact
+   * @param {Object} contact - Parsed contact object
+   * @param {number} size - Avatar size
+   * @returns {Promise<string>} Avatar HTML
+   */
+  async getAvatarHtml(contact, size = 40) {
+    const makeImg = (url) => `<img src="${url}" class="contact-avatar-img" width="${size}" height="${size}" alt="avatar">`;
+
+    // If contact has photo data from VCF
+    if (contact.photoBase64) {
+      try {
+        const mimeType = contact.photoType === 'png' ? 'image/png' : 'image/jpeg';
+        const blob = contactAvatarCache.base64ToBlob(contact.photoBase64, mimeType);
+        const url = URL.createObjectURL(blob);
+        return makeImg(url);
+      } catch (err) {
+        console.warn('Failed to create avatar from VCF photo:', err);
+      }
+    }
+
+    // Fallback to identicon
+    return generateIdenticon(contact.address || '', size);
+  }
+
+  /**
+   * Handles click on a contact row to toggle selection
+   * @param {Event} e - Click event
+   */
+  handleContactClick(e) {
+    const row = e.target.closest('.share-contact-row');
+    if (!row || row.classList.contains('existing')) return;
+
+    const checkbox = row.querySelector('.share-contact-checkbox');
+    if (!checkbox) return;
+
+    const address = row.dataset.address;
+
+    // Toggle checkbox (unless clicking directly on checkbox)
+    if (e.target !== checkbox) {
+      checkbox.checked = !checkbox.checked;
+    }
+
+    // Update selected contacts set
+    if (checkbox.checked) {
+      this.selectedContacts.add(address);
+    } else {
+      this.selectedContacts.delete(address);
+    }
+
+    this.updateAllNoneButton();
+  }
+
+  /**
+   * Updates the All/None button icon based on selection state
+   */
+  updateAllNoneButton() {
+    const checkboxes = this.contactsList.querySelectorAll('.share-contact-row:not(.existing) .share-contact-checkbox');
+    const allSelected = checkboxes.length > 0 && Array.from(checkboxes).every(cb => cb.checked);
+    if (allSelected) {
+      this.allNoneButton.classList.add('all-selected');
+      this.allNoneButton.setAttribute('aria-label', 'Clear');
+    } else {
+      this.allNoneButton.classList.remove('all-selected');
+      this.allNoneButton.setAttribute('aria-label', 'Select all');
+    }
+  }
+
+  /**
+   * Toggles between selecting all and none
+   */
+  toggleAllNone() {
+    const checkboxes = this.contactsList.querySelectorAll('.share-contact-row:not(.existing) .share-contact-checkbox');
+    const allSelected = checkboxes.length > 0 && Array.from(checkboxes).every(cb => cb.checked);
+
+    checkboxes.forEach(cb => {
+      const row = cb.closest('.share-contact-row');
+      const address = row?.dataset.address;
+      if (allSelected) {
+        cb.checked = false;
+        if (address) this.selectedContacts.delete(address);
+      } else {
+        cb.checked = true;
+        if (address) this.selectedContacts.add(address);
+      }
+    });
+
+    this.updateAllNoneButton();
+  }
+
+  /**
+   * Handles back/close button click with warning if contacts are selected
+   */
+  handleClose() {
+    if (this.selectedContacts.size > 0 && !this.warningShown) {
+      this.warningShown = true;
+      showToast('You have contacts selected. Click back again to discard.', 3000, 'warning');
+      return;
+    }
+    this.close();
+  }
+
+  /**
+   * Closes the modal
+   */
+  close() {
+    this.modal.classList.remove('active');
+    this.warningShown = false;
+    this.parsedContacts = [];
+    this.currentAttachment = null;
+  }
+
+  /**
+   * Checks if the modal is active
+   * @returns {boolean}
+   */
+  isActive() {
+    return this.modal?.classList.contains('active') || false;
+  }
+
+  /**
+   * Handles the Done button click - imports selected contacts
+   */
+  async handleDone() {
+    if (this.selectedContacts.size === 0) {
+      showToast('Please select at least one contact', 2000, 'info');
+      return;
+    }
+
+    if (this.isImporting) return;
+    this.isImporting = true;
+    this.doneButton.classList.add('loading');
+    this.doneButton.disabled = true;
+
+    try {
+      let importedCount = 0;
+
+      for (const address of this.selectedContacts) {
+        const parsedContact = this.parsedContacts.find(c => normalizeAddress(c.address) === address);
+        if (!parsedContact) continue;
+
+        // Create contact record (incomplete - missing public keys)
+        const contactRecord = {
+          address: address,
+          username: parsedContact.username || '',
+          friend: 3, // Friend status
+          messages: [],
+          unread: 0,
+        };
+
+        // Store name in senderInfo since it came from the contact
+        if (parsedContact.name) {
+          contactRecord.senderInfo = { name: parsedContact.name };
+        }
+
+        // Save avatar if present
+        if (parsedContact.photoBase64) {
+          try {
+            const mimeType = parsedContact.photoType === 'png' ? 'image/png' : 'image/jpeg';
+            const avatarBlob = contactAvatarCache.base64ToBlob(parsedContact.photoBase64, mimeType);
+            const avatarId = `imported_${address}_${Date.now()}`;
+            await contactAvatarCache.save(avatarId, avatarBlob);
+            contactRecord.avatarId = avatarId;
+          } catch (err) {
+            console.warn('Failed to save imported avatar:', err);
+          }
+        }
+
+        // Add to contacts
+        myData.contacts[address] = contactRecord;
+        importedCount++;
+      }
+
+      saveState();
+      
+      // Refresh contacts screen if visible
+      contactsScreen.updateContactList();
+      
+
+      showToast(`Imported ${importedCount} contact${importedCount !== 1 ? 's' : ''}`, 2000, 'success');
+      this.close();
+
+    } catch (err) {
+      console.error('Failed to import contacts:', err);
+      showToast('Failed to import contacts', 3000, 'error');
+    } finally {
+      this.isImporting = false;
+      this.doneButton.classList.remove('loading');
+      this.doneButton.disabled = false;
+    }
+  }
+}
+
+const importContactsModal = new ImportContactsModal();
 
 // ---- Call scheduling shared helpers (display-only) ----
 function getActiveChatContactTimeZone() {

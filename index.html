@@ -1483,13 +1483,46 @@
         <a class="last-item" href="#"> </a>
       </div>
 
+      <!-- Import Contacts Modal -->
+      <div class="modal fixed-header" id="importContactsModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeImportContactsModal"></button>
+          <div class="modal-title">Import Contacts</div>
+          <div class="header-actions">
+            <button class="icon-button checkbox-select-all-icon" id="importContactsAllNoneBtn" aria-label="Select all"></button>
+          </div>
+        </div>
+        <div class="modal-content">
+          <div class="form-container share-contacts-modal-container">
+            <div class="share-contacts-scroll">
+              <div class="empty-state" id="importContactsEmptyState" style="display: none;">
+                <div></div>
+                <div>No Contacts to Import</div>
+                <div>The file contains no valid contacts</div>
+              </div>
+              <div class="import-contacts-loading" id="importContactsLoading" style="display: none;">
+                <div class="spinner"></div>
+                <div>Loading contacts...</div>
+              </div>
+              <div class="contacts-list" id="importContactsList">
+                <!-- Contacts will be populated here -->
+              </div>
+            </div>
+            <div class="share-contacts-modal-footer">
+              <button class="btn btn--primary btn--pill" id="importContactsDoneBtn">Done</button>
+            </div>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
       <!-- Share Contacts Modal -->
       <div class="modal fixed-header" id="shareContactsModal">
         <div class="modal-header">
           <button class="back-button" id="closeShareContactsModal"></button>
           <div class="modal-title">Contacts to share</div>
-          <div class="modal-header-actions">
-            <button class="btn btn--text btn--small" id="shareContactsAllNoneBtn">Select all</button>
+          <div class="header-actions">
+            <button class="icon-button checkbox-select-all-icon" id="shareContactsAllNoneBtn" aria-label="Select all"></button>
           </div>
         </div>
         <div class="modal-content">
