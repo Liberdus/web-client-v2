@@ -5162,6 +5162,36 @@ async function injectTx(tx, txid) {
     return null;
   }
 
+  function maybeShowLowLibToast() {
+    try {
+      // Keep this simple: check locally cached wallet values only.
+      const LOW_LIB_USD_THRESHOLD = 0.02;
+      if (!myData?.wallet?.assets || !Array.isArray(myData.wallet.assets)) return;
+      const libAsset = myData.wallet.assets.find((asset) => asset?.symbol === 'LIB');
+      if (!libAsset) return;
+
+      let usd = Number(libAsset.networth);
+      if (!Number.isFinite(usd)) {
+        // Fallback: estimate from cached balance + price.
+        const balance = libAsset.balance ?? 0n;
+        const price = Number(libAsset.price);
+        if (!Number.isFinite(price) || typeof wei === 'undefined') return;
+        usd = (price * Number(balance)) / Number(wei);
+      }
+
+      if (Number.isFinite(usd) && usd < LOW_LIB_USD_THRESHOLD) {
+        showToast(
+          'Add more LIB before you run out. On the Wallet page click the Faucet button.',
+          0,
+          'info'
+        );
+      }
+    } catch (e) {
+      // Never block the transaction flow on toast logic.
+      console.warn('Low-LIB toast check failed:', e);
+    }
+  }
+
   try {
     const timestamp = getCorrectedTimestamp();
     // initialize pending array if it doesn't exist
@@ -5203,6 +5233,9 @@ async function injectTx(tx, txid) {
         pendingTxData.to = tx.nominee; // Store 64-character address as-is for stake transactions
       }
       myData.pending.push(pendingTxData);
+
+      // After submitting a transaction, warn if user is low on LIB.
+      maybeShowLowLibToast();
     } else {
       let toastMessage = 'Error injecting transaction: ' + data?.result?.reason;
       console.error('Error injecting transaction:', data?.result?.reason);
