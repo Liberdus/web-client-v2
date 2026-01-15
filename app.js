@@ -457,6 +457,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Call Invite Modal
   callInviteModal.load();
 
+  // Share Contacts Modal
+  shareContactsModal.load();
+
   // Call Schedule Modals
   callScheduleChoiceModal.load();
   callScheduleDateModal.load();
@@ -16263,6 +16266,219 @@ class CallInviteModal {
 }
 
 const callInviteModal = new CallInviteModal();
+
+/**
+ * Share Contacts Modal
+ * Allows users to select contacts (Friends and Connections) to share as a VCF file attachment
+ */
+class ShareContactsModal {
+  constructor() {
+    this.selectedContacts = new Set();
+    this.warningShown = false;
+    this.isUploading = false;
+  }
+
+  load() {
+    this.modal = document.getElementById('shareContactsModal');
+    this.contactsList = document.getElementById('shareContactsList');
+    this.emptyState = document.getElementById('shareContactsEmptyState');
+    this.allNoneButton = document.getElementById('shareContactsAllNoneBtn');
+    this.doneButton = document.getElementById('shareContactsDoneBtn');
+    this.closeButton = document.getElementById('closeShareContactsModal');
+
+    // Event listeners
+    this.closeButton.addEventListener('click', () => this.handleClose());
+    this.allNoneButton.addEventListener('click', () => this.toggleAllNone());
+    this.doneButton.addEventListener('click', () => this.handleDone());
+    this.contactsList.addEventListener('click', (e) => this.handleContactClick(e));
+  }
+
+  /**
+   * Opens the share contacts modal and populates the contact list
+   */
+  async open() {
+    // Reset state
+    this.selectedContacts.clear();
+    this.warningShown = false;
+    this.isUploading = false;
+    this.doneButton.classList.remove('loading');
+    this.doneButton.disabled = false;
+    this.allNoneButton.textContent = 'Select all';
+
+    // Clear existing list
+    this.contactsList.innerHTML = '';
+
+    // Get Friends (friend === 3) and Connections (friend === 2)
+    const allContacts = Object.values(myData.contacts || {});
+    const friends = allContacts
+      .filter(c => c.friend === 3)
+      .sort((a, b) => getContactDisplayName(a).toLowerCase().localeCompare(getContactDisplayName(b).toLowerCase()));
+    const connections = allContacts
+      .filter(c => c.friend === 2)
+      .sort((a, b) => getContactDisplayName(a).toLowerCase().localeCompare(getContactDisplayName(b).toLowerCase()));
+
+    const hasContacts = friends.length > 0 || connections.length > 0;
+
+    // Show/hide empty state
+    this.emptyState.style.display = hasContacts ? 'none' : 'block';
+    this.contactsList.style.display = hasContacts ? 'block' : 'none';
+    this.doneButton.disabled = !hasContacts;
+
+    if (hasContacts) {
+      // Render Friends section
+      if (friends.length > 0) {
+        await this.renderSection('Friends', friends);
+      }
+      // Render Connections section
+      if (connections.length > 0) {
+        await this.renderSection('Connections', connections);
+      }
+    }
+
+    // Show modal
+    this.modal.classList.add('active');
+  }
+
+  /**
+   * Renders a section of contacts with a header
+   * @param {string} label - Section label
+   * @param {Array} contacts - Array of contact objects
+   */
+  async renderSection(label, contacts) {
+    // Add section header
+    const header = document.createElement('div');
+    header.className = 'share-contacts-section-header';
+    header.textContent = label;
+    this.contactsList.appendChild(header);
+
+    // Batch avatar generation for better performance
+    const avatarPromises = contacts.map(contact => getContactAvatarHtml(contact, 40));
+    const avatarHtmlList = await Promise.all(avatarPromises);
+
+    // Render each contact
+    contacts.forEach((contact, index) => {
+      const row = document.createElement('div');
+      row.className = 'share-contact-row';
+      row.dataset.address = contact.address;
+
+      const avatarHtml = avatarHtmlList[index];
+      const displayName = getContactDisplayName(contact);
+
+      row.innerHTML = `
+        <div class="share-contact-avatar">${avatarHtml}</div>
+        <div class="share-contact-info">
+          <div class="share-contact-name">${escapeHtml(displayName)}</div>
+        </div>
+        <input type="checkbox" class="share-contact-checkbox" />
+      `;
+
+      this.contactsList.appendChild(row);
+    });
+  }
+
+  /**
+   * Handles click on a contact row to toggle selection
+   * @param {Event} e - Click event
+   */
+  handleContactClick(e) {
+    const row = e.target.closest('.share-contact-row');
+    if (!row) return;
+
+    const checkbox = row.querySelector('.share-contact-checkbox');
+    const address = row.dataset.address;
+
+    // Toggle checkbox (unless clicking directly on checkbox, which toggles itself)
+    if (e.target !== checkbox) {
+      checkbox.checked = !checkbox.checked;
+    }
+
+    // Update selected contacts set
+    if (checkbox.checked) {
+      this.selectedContacts.add(address);
+    } else {
+      this.selectedContacts.delete(address);
+    }
+
+    // Update All/None button text
+    this.updateAllNoneButton();
+  }
+
+  /**
+   * Updates the All/None button text based on selection state
+   */
+  updateAllNoneButton() {
+    const checkboxes = this.contactsList.querySelectorAll('.share-contact-checkbox');
+    const allSelected = Array.from(checkboxes).every(cb => cb.checked);
+    this.allNoneButton.textContent = allSelected && checkboxes.length > 0 ? 'Clear' : 'Select all';
+  }
+
+  /**
+   * Toggles between selecting all and none
+   */
+  toggleAllNone() {
+    const checkboxes = this.contactsList.querySelectorAll('.share-contact-checkbox');
+    const allSelected = Array.from(checkboxes).every(cb => cb.checked);
+
+    checkboxes.forEach(cb => {
+      const row = cb.closest('.share-contact-row');
+      const address = row?.dataset.address;
+      if (allSelected) {
+        cb.checked = false;
+        if (address) this.selectedContacts.delete(address);
+      } else {
+        cb.checked = true;
+        if (address) this.selectedContacts.add(address);
+      }
+    });
+
+    this.updateAllNoneButton();
+  }
+
+  /**
+   * Handles back/close button click with warning if contacts are selected
+   */
+  handleClose() {
+    if (this.selectedContacts.size > 0 && !this.warningShown) {
+      this.warningShown = true;
+      showToast('You have contacts selected. Click back again to discard.', 3000, 'warning');
+      return;
+    }
+    this.close();
+  }
+
+  /**
+   * Closes the modal
+   */
+  close() {
+    this.modal.classList.remove('active');
+    // Reset warning state so it can be shown again on next open
+    this.warningShown = false;
+  }
+
+  /**
+   * Checks if the modal is active
+   * @returns {boolean}
+   */
+  isActive() {
+    return this.modal?.classList.contains('active') || false;
+  }
+
+  /**
+   * Handles the Done button click - placeholder for Phase 7-8
+   */
+  async handleDone() {
+    if (this.selectedContacts.size === 0) {
+      showToast('Please select at least one contact', 2000, 'info');
+      return;
+    }
+
+    // TODO: Phase 7-8 will implement VCF generation and upload
+    showToast(`${this.selectedContacts.size} contact(s) selected - VCF generation coming soon`, 2000, 'info');
+    this.close();
+  }
+}
+
+const shareContactsModal = new ShareContactsModal();
 
 // ---- Call scheduling shared helpers (display-only) ----
 function getActiveChatContactTimeZone() {

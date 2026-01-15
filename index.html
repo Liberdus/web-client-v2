@@ -1343,6 +1343,35 @@
         <a class="last-item" href="#"> </a>
       </div>
 
+      <!-- Share Contacts Modal -->
+      <div class="modal fixed-header" id="shareContactsModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeShareContactsModal"></button>
+          <div class="modal-title">Contacts to share</div>
+          <div class="modal-header-actions">
+            <button class="btn btn--text btn--small" id="shareContactsAllNoneBtn">Select all</button>
+          </div>
+        </div>
+        <div class="modal-content">
+          <div class="form-container share-contacts-modal-container">
+            <div class="share-contacts-scroll">
+              <div class="empty-state" id="shareContactsEmptyState" style="display: none;">
+                <div></div>
+                <div>No Contacts to Share</div>
+                <div>Add friends or connections first</div>
+              </div>
+              <div class="contacts-list" id="shareContactsList">
+                <!-- Contacts will be populated here -->
+              </div>
+            </div>
+            <div class="share-contacts-modal-footer">
+              <button class="btn btn--primary btn--pill" id="shareContactsDoneBtn">Done</button>
+            </div>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
       <!-- Template for toll info message -->
       <template id="tollInfoMessageTemplate">
         <div class="toll-info-message">
