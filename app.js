@@ -17545,8 +17545,8 @@ class ImportContactsModal {
         }
       }
 
-      // Only add if we have an address (skip the header card with just netId)
-      if (contact.address) {
+      // Only add if we have an address and username (skip the header card with just netId)
+      if (contact.address && contact.username) {
         contacts.push(contact);
       }
     }
