@@ -16558,7 +16558,6 @@ class ShareContactsModal {
       const lines = [
         'BEGIN:VCARD',
         'VERSION:3.0',
-        `X-LIBERDUS-NETID:${network.netId || ''}`,
         `X-LIBERDUS-ADDRESS:${contact.address || ''}`,
         `X-LIBERDUS-USERNAME:${contact.username || ''}`
       ];
