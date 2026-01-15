@@ -14563,7 +14563,6 @@ class ChatModal {
    */
   async openImportContactsModal(attachmentRow) {
     const url = attachmentRow.dataset.url;
-    const pUrl = attachmentRow.dataset.pUrl;
     const name = attachmentRow.dataset.name ? decodeURIComponent(attachmentRow.dataset.name) : 'contacts.vcf';
     const type = attachmentRow.dataset.type || 'text/vcard';
     const msgIdx = attachmentRow.dataset.msgIdx;
