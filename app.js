@@ -739,8 +739,8 @@ class WelcomeScreen {
     }
 
     const now = getCorrectedTimestamp();
-    const lastBackup = getGDriveBackupTs();
-    const lastReminder = getGDriveReminderTs();
+    const lastBackup = backupAccountModal.getGDriveBackupTs();
+    const lastReminder = backupAccountModal.getGDriveReminderTs();
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
     const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
 
@@ -754,7 +754,7 @@ class WelcomeScreen {
 
     const message = 'Click "Menu" and "Backup" to Google drive. You can restore if anything happens to this device.';
     showToast(message, 0, 'warning');
-    setGDriveReminderTs(now);
+    backupAccountModal.setGDriveReminderTs(now);
   }
 
   isActive() {
@@ -8081,31 +8081,6 @@ function getCorrectedTimestamp() {
   return correctedTime;
 }
 
-const GDRIVE_BACKUP_TS_KEY = 'googleDriveBackupTimestamp';
-const GDRIVE_REMINDER_TS_KEY = 'googleDriveReminderTimestamp';
-
-function getStoredTimestamp(key) {
-  const rawValue = localStorage.getItem(key);
-  const parsed = Number(rawValue);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function getGDriveBackupTs() {
-  return getStoredTimestamp(GDRIVE_BACKUP_TS_KEY);
-}
-
-function setGDriveBackupTs(timestamp = getCorrectedTimestamp()) {
-  localStorage.setItem(GDRIVE_BACKUP_TS_KEY, String(timestamp));
-}
-
-function getGDriveReminderTs() {
-  return getStoredTimestamp(GDRIVE_REMINDER_TS_KEY);
-}
-
-function setGDriveReminderTs(timestamp = getCorrectedTimestamp()) {
-  localStorage.setItem(GDRIVE_REMINDER_TS_KEY, String(timestamp));
-}
-
 // Validator Modals
 
 // fetching market price by invoking `updateAssetPricesIfNeeded` and extracting from myData.assetPrices
@@ -8475,6 +8450,8 @@ const removeAccountsModal = new RemoveAccountsModal();
 class BackupAccountModal {
   constructor() {
     this.GOOGLE_TOKEN_STORAGE_KEY = 'google_drive_token';
+    this.GDRIVE_BACKUP_TS_KEY = 'googleDriveBackupTimestamp';
+    this.GDRIVE_REMINDER_TS_KEY = 'googleDriveReminderTimestamp';
   }
 
   load() {
@@ -8562,6 +8539,31 @@ class BackupAccountModal {
 
   clearGoogleToken() {
     localStorage.removeItem(this.GOOGLE_TOKEN_STORAGE_KEY);
+  }
+
+  // ======================================
+  // GOOGLE DRIVE BACKUP TIMESTAMP MANAGEMENT
+  // ======================================
+  _getStoredTimestamp(key) {
+    const rawValue = localStorage.getItem(key);
+    const parsed = Number(rawValue);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  getGDriveBackupTs() {
+    return this._getStoredTimestamp(this.GDRIVE_BACKUP_TS_KEY);
+  }
+
+  setGDriveBackupTs(timestamp = getCorrectedTimestamp()) {
+    localStorage.setItem(this.GDRIVE_BACKUP_TS_KEY, String(timestamp));
+  }
+
+  getGDriveReminderTs() {
+    return this._getStoredTimestamp(this.GDRIVE_REMINDER_TS_KEY);
+  }
+
+  setGDriveReminderTs(timestamp = getCorrectedTimestamp()) {
+    localStorage.setItem(this.GDRIVE_REMINDER_TS_KEY, String(timestamp));
   }
 
   // ======================================
@@ -9203,7 +9205,7 @@ class BackupAccountModal {
       showToast('Uploading backup to Google Drive...', 3000, 'info');
       await this.uploadToGoogleDrive(data, filename, tokenData);
       showToast('Backup uploaded to Google Drive successfully!', 5000, 'success');
-      setGDriveBackupTs();
+      this.setGDriveBackupTs();
       this.close();
     } catch (error) {
       console.error('Google Drive upload failed:', error);
@@ -9217,7 +9219,7 @@ class BackupAccountModal {
           showToast('Uploading backup to Google Drive...', 3000, 'info');
           await this.uploadToGoogleDrive(data, filename, tokenData);
           showToast('Backup uploaded to Google Drive successfully!', 5000, 'success');
-          setGDriveBackupTs();
+          this.setGDriveBackupTs();
           this.close();
         } catch (retryError) {
           console.error('Retry failed:', retryError);
