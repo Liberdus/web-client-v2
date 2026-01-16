@@ -19181,6 +19181,9 @@ class NewChatModal {
       }
 
       createNewContact(recipientAddress, username, 2);
+      // If the backend ultimately rejects this tx, the pending-tx failure handler
+      // reverts `friend` back to `friendOld` so initializing fieldOld to toll required (1).
+      chatsData.contacts[recipientAddress].friendOld = 1;
     }
     chatsData.contacts[recipientAddress].username = username;
 
