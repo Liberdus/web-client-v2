@@ -5876,8 +5876,10 @@ async function injectTx(tx, txid) {
       }
       myData.pending.push(pendingTxData);
 
-      // After submitting a transaction, warn if user is low on LIB.
-      maybeShowLowLibToast();
+      if (tx.type !== 'register') {
+        // After submitting a transaction, warn if user is low on LIB.
+        maybeShowLowLibToast();
+      }
     } else {
       let toastMessage = 'Error injecting transaction: ' + data?.result?.reason;
       console.error('Error injecting transaction:', data?.result?.reason);
