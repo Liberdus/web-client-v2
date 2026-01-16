@@ -688,6 +688,7 @@ class WelcomeScreen {
     // Show Apple Safari backup reminder toast after welcome screen has rendered
     setTimeout(() => {
       this.showAppleSafariBackupToast();
+      this.showGDriveBackupReminder();
     }, 500);
   }
 
@@ -725,6 +726,35 @@ class WelcomeScreen {
     // Show the toast
     const message = '<strong>Important:</strong> Apple will delete your data if you don\'t visit this site for a week. Please backup your account data regularly.';
     showToast(message, 0, 'warning', true);
+  }
+
+  /**
+   * Show Google Drive backup reminder toast when overdue and not recently reminded.
+   */
+  showGDriveBackupReminder() {
+    // Don't show reminder if user has no accounts to back up
+    const { usernames } = signInModal.getSignInUsernames() || { usernames: [] };
+    if (!usernames?.length) {
+      return;
+    }
+
+    const now = getCorrectedTimestamp();
+    const lastBackup = getGDriveBackupTs();
+    const lastReminder = getGDriveReminderTs();
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+
+    if (now - lastBackup <= sevenDaysMs) {
+      return;
+    }
+
+    if (now - lastReminder <= threeDaysMs) {
+      return;
+    }
+
+    const message = 'Click Menu and Backup to Google drive. You can Restore if anything happens to this device.';
+    showToast(message, 0, 'warning');
+    setGDriveReminderTs(now);
   }
 
   isActive() {
@@ -8051,6 +8081,31 @@ function getCorrectedTimestamp() {
   return correctedTime;
 }
 
+const GDRIVE_BACKUP_TS_KEY = 'googleDriveBackupTimestamp';
+const GDRIVE_REMINDER_TS_KEY = 'googleDriveReminderTimestamp';
+
+function getStoredTimestamp(key) {
+  const rawValue = localStorage.getItem(key);
+  const parsed = Number(rawValue);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getGDriveBackupTs() {
+  return getStoredTimestamp(GDRIVE_BACKUP_TS_KEY);
+}
+
+function setGDriveBackupTs(timestamp = getCorrectedTimestamp()) {
+  localStorage.setItem(GDRIVE_BACKUP_TS_KEY, String(timestamp));
+}
+
+function getGDriveReminderTs() {
+  return getStoredTimestamp(GDRIVE_REMINDER_TS_KEY);
+}
+
+function setGDriveReminderTs(timestamp = getCorrectedTimestamp()) {
+  localStorage.setItem(GDRIVE_REMINDER_TS_KEY, String(timestamp));
+}
+
 // Validator Modals
 
 // fetching market price by invoking `updateAssetPricesIfNeeded` and extracting from myData.assetPrices
@@ -9148,6 +9203,7 @@ class BackupAccountModal {
       showToast('Uploading backup to Google Drive...', 3000, 'info');
       await this.uploadToGoogleDrive(data, filename, tokenData);
       showToast('Backup uploaded to Google Drive successfully!', 5000, 'success');
+      setGDriveBackupTs();
       this.close();
     } catch (error) {
       console.error('Google Drive upload failed:', error);
@@ -9161,6 +9217,7 @@ class BackupAccountModal {
           showToast('Uploading backup to Google Drive...', 3000, 'info');
           await this.uploadToGoogleDrive(data, filename, tokenData);
           showToast('Backup uploaded to Google Drive successfully!', 5000, 'success');
+          setGDriveBackupTs();
           this.close();
         } catch (retryError) {
           console.error('Retry failed:', retryError);
