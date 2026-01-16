@@ -752,7 +752,7 @@ class WelcomeScreen {
       return;
     }
 
-    const message = 'Click Menu and Backup to Google drive. You can Restore if anything happens to this device.';
+    const message = 'Click "Menu" and "Backup" to Google drive. You can restore if anything happens to this device.';
     showToast(message, 0, 'warning');
     setGDriveReminderTs(now);
   }
