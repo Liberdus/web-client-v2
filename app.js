@@ -8559,7 +8559,13 @@ class BackupAccountModal {
   }
 
   getGDriveReminderTs() {
-    return this._getStoredTimestamp(this.GDRIVE_REMINDER_TS_KEY);
+    // If this returns null, set timestamp to 3 days from now
+    const ts = this._getStoredTimestamp(this.GDRIVE_REMINDER_TS_KEY);
+    if (!ts) {
+      this.setGDriveReminderTs(getCorrectedTimestamp() + 3 * 24 * 60 * 60 * 1000);
+      return getCorrectedTimestamp() + 3 * 24 * 60 * 60 * 1000;
+    }
+    return ts;
   }
 
   setGDriveReminderTs(timestamp = getCorrectedTimestamp()) {
