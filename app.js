@@ -3773,6 +3773,8 @@ class FriendModal {
   constructor() {
     this.currentContactAddress = null;
     this.lastChangeTimeStamp = 0; // track the last time the friend status was changed
+    this.initialFriendStatus = null; // track the initial friend status when modal opens
+    this.warningShown = false; // track if warning has been shown
   }
 
   load() {
@@ -3791,7 +3793,7 @@ class FriendModal {
     });
 
     // Friend modal close button
-    this.modal.querySelector('.back-button').addEventListener('click', () => this.closeFriendModal());
+    this.modal.querySelector('.back-button').addEventListener('click', () => this.close());
   }
 
   // Open the friend modal
@@ -3843,15 +3845,33 @@ class FriendModal {
     const radio = this.friendForm.querySelector(`input[value="${status}"]`);
     if (radio) radio.checked = true;
 
+    // Store initial friend status for change detection
+    this.initialFriendStatus = contact.friend;
+    this.warningShown = false;
+
     // Initialize submit button state
     this.updateSubmitButtonState();
 
     this.modal.classList.add('active');
   }
 
-  // Close the friend modal
-  closeFriendModal() {
+  /**
+   * Closes the friend modal with optional warning if friend status has changed
+   * @param {boolean} skipWarning - If true, skip the warning check (e.g., when submitting form)
+   */
+  close(skipWarning = false) {
+    if (!skipWarning && this.initialFriendStatus != null) {
+      const currentStatus = Number(this.friendForm.querySelector('input[name="friendStatus"]:checked')?.value);
+      if (!isNaN(currentStatus) && currentStatus !== this.initialFriendStatus && !this.warningShown) {
+        this.warningShown = true;
+        showToast('You have changed the friend status. Press back again to discard changes.', 3000, 'warning');
+        return;
+      }
+    }
+
     this.modal.classList.remove('active');
+    this.initialFriendStatus = null;
+    this.warningShown = false;
   }
 
   async postUpdateTollRequired(address, friend) {
@@ -3954,8 +3974,8 @@ class FriendModal {
       await chatsScreen.updateChatList();
     }
 
-    // Close the friend modal
-    this.closeFriendModal();
+    // Close the friend modal (skip warning since form was submitted)
+    this.close(true);
     this.submitButton.disabled = false;
   }
 
