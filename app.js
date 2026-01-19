@@ -17104,7 +17104,6 @@ class CallInviteModal {
         }
         await signObj(messageObj, keys);
         const txid = getTxid(messageObj);
-        await injectTx(messageObj, txid);
 
         // Create new message object for local display immediately
         const newMessage = {
