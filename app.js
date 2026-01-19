@@ -17968,15 +17968,17 @@ class ImportContactsModal {
           contactRecord.name = parsedContact.name;
         }
 
-        // Save avatar if present
+        // Save avatar as user-uploaded so it can be changed or deleted locally
         if (parsedContact.photoBase64) {
           try {
             const mimeType = parsedContact.photoType === 'png' ? 'image/png' : 'image/jpeg';
             const avatarBlob = contactAvatarCache.base64ToBlob(parsedContact.photoBase64, mimeType);
-            const avatarId = `imported_${address}_${Date.now()}`;
-            await contactAvatarCache.save(avatarId, avatarBlob);
-            contactRecord.avatarId = avatarId;
+            // Generate ID like user-uploaded avatars for consistency
+            const mineId = bin2hex(generateRandomBytes(16));
+            await contactAvatarCache.save(mineId, avatarBlob);
+            contactRecord.mineAvatarId = mineId;
             contactRecord.hasAvatar = true;
+            contactRecord.useAvatar = 'mine';
           } catch (err) {
             console.warn('Failed to save imported avatar:', err);
           }
