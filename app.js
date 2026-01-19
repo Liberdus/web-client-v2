@@ -305,6 +305,14 @@ function clearMyData() {
   myAccount = null;
 }
 
+/**
+ * Checks if the current account is private
+ * @returns {boolean} True if the account is private, false otherwise
+ */
+function isPrivateAccount() {
+  return myAccount?.private === true || myData?.account?.private === true;
+}
+
 // Load saved account data and update chat list on page load
 document.addEventListener('DOMContentLoaded', async () => {
   markConnectivityDependentElements();
@@ -1012,9 +1020,9 @@ class Footer {
       // Update header with username if signed in
       const appName = document.querySelector('.app-name');
       if (myAccount && myAccount.username) {
-        const isPrivateAccount = myAccount?.private === true || myData?.account?.private === true;
+        const accountIsPrivate = isPrivateAccount();
         appName.textContent = `${myAccount.username}`;
-        appName.classList.toggle('is-private', isPrivateAccount);
+        appName.classList.toggle('is-private', accountIsPrivate);
         // Update avatar
         await header.updateAvatar();
       } else {
@@ -17198,13 +17206,33 @@ class ShareContactsModal {
     this.warningShown = false;
     this.isUploading = false;
     this.doneButton.classList.remove('loading');
-    this.doneButton.disabled = false;
+    this.doneButton.disabled = true;
     this.allNoneButton.classList.remove('all-selected');
     this.allNoneButton.setAttribute('aria-label', 'Select all');
+    this.allNoneButton.disabled = false;
 
     // Clear existing list
     this.contactsList.innerHTML = '';
+    this.contactsList.style.display = 'none';
 
+    // Show modal
+    this.modal.classList.add('active');
+
+    // Check if account is private - show restriction message if so
+    if (isPrivateAccount()) {
+      // Update empty state message for private account restriction
+      const emptyStateChildren = this.emptyState.children;
+      if (emptyStateChildren.length >= 3) {
+        emptyStateChildren[1].textContent = 'Private accounts cannot share contacts';
+        emptyStateChildren[2].textContent = 'Only public accounts can share contacts';
+      }
+      this.emptyState.style.display = 'block';
+      this.doneButton.disabled = true;
+      this.allNoneButton.disabled = true;
+      return;
+    }
+
+    // For public accounts, proceed with contact list population
     // Get Friends (friend === 3) and Connections (friend === 2)
     const allContacts = Object.values(myData.contacts || {});
     const friends = allContacts
@@ -17220,6 +17248,7 @@ class ShareContactsModal {
     this.emptyState.style.display = hasContacts ? 'none' : 'block';
     this.contactsList.style.display = hasContacts ? 'block' : 'none';
     this.doneButton.disabled = !hasContacts;
+    this.allNoneButton.disabled = !hasContacts;
 
     if (hasContacts) {
       // Render Friends section
@@ -17231,9 +17260,6 @@ class ShareContactsModal {
         await this.renderSection('Connections', connections);
       }
     }
-
-    // Show modal
-    this.modal.classList.add('active');
   }
 
   /**
@@ -17509,6 +17535,12 @@ class ShareContactsModal {
    * Handles the Done button click - generates VCF, encrypts, and uploads
    */
   async handleDone() {
+    // Safety check: prevent sharing for private accounts
+    if (isPrivateAccount()) {
+      showToast('Private accounts cannot share contacts', 2000, 'error');
+      return;
+    }
+
     if (this.selectedContacts.size === 0) {
       showToast('Please select at least one contact', 2000, 'info');
       return;
@@ -17610,14 +17642,30 @@ class ImportContactsModal {
     this.allNoneButton.classList.remove('all-selected');
     this.allNoneButton.setAttribute('aria-label', 'Select all');
 
-    // Clear existing list and show loading
+    // Clear existing list
     this.contactsList.innerHTML = '';
-    this.emptyState.style.display = 'none';
-    this.loadingState.style.display = 'flex';
     this.contactsList.style.display = 'none';
+    this.loadingState.style.display = 'none';
 
     // Show modal
     this.modal.classList.add('active');
+
+    // Check if account is private - show restriction message if so
+    if (isPrivateAccount()) {
+      // Update empty state message for private account restriction
+      const emptyStateChildren = this.emptyState.children;
+      if (emptyStateChildren.length >= 3) {
+        emptyStateChildren[1].textContent = 'Private accounts cannot import contacts';
+        emptyStateChildren[2].textContent = 'Only public accounts can import contacts';
+      }
+      this.emptyState.style.display = 'block';
+      this.doneButton.disabled = true;
+      return;
+    }
+
+    // For public accounts, proceed with VCF processing
+    this.emptyState.style.display = 'none';
+    this.loadingState.style.display = 'flex';
 
     try {
       // Download and decrypt the VCF file
