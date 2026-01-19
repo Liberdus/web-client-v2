@@ -17393,10 +17393,23 @@ class ShareContactsModal {
         `X-LIBERDUS-USERNAME:${contact.username || ''}`
       ];
 
-      // FN - use contact's provided name, then user-assigned name
-      const displayName = contact?.senderInfo?.name || contact?.name;
+      // FN - prioritize provider name (senderInfo.name), fallback to user-assigned name (contact.name)
+      let displayName = null;
+      let nameSource = null;
+
+      if (contact?.senderInfo?.name) {
+        displayName = contact.senderInfo.name;
+        nameSource = 'provider';
+      } else if (contact?.name) {
+        displayName = contact.name;
+        nameSource = 'user';
+      }
+
       if (displayName) {
         lines.push(`FN:${displayName}`);
+        if (nameSource) {
+          lines.push(`X-LIBERDUS-NAME-SOURCE:${nameSource}`);
+        }
       }
 
       // PHOTO - base64 of avatar blob
@@ -17659,6 +17672,8 @@ class ImportContactsModal {
           contact.username = line.substring('X-LIBERDUS-USERNAME:'.length).trim();
         } else if (line.startsWith('FN:')) {
           contact.name = line.substring('FN:'.length).trim();
+        } else if (line.startsWith('X-LIBERDUS-NAME-SOURCE:')) {
+          contact.nameSource = line.substring('X-LIBERDUS-NAME-SOURCE:'.length).trim();
         } else if (line.startsWith('PHOTO;')) {
           // Parse PHOTO field: PHOTO;ENCODING=b;TYPE=JPEG:base64data
           const photoMatch = line.match(/PHOTO;.*:(.+)/i);
@@ -17931,9 +17946,15 @@ class ImportContactsModal {
           tolledDepositToastShown: true,
         };
 
-        // Store name in senderInfo since it came from the contact
+        // Store imported name based on source
         if (parsedContact.name) {
-          contactRecord.senderInfo = { name: parsedContact.name };
+          if (parsedContact.nameSource === 'provider') {
+            // Provider name goes in senderInfo
+            contactRecord.senderInfo = { name: parsedContact.name };
+          } else {
+            // User-assigned name goes in contact.name (default for backwards compatibility)
+            contactRecord.name = parsedContact.name;
+          }
         }
 
         // Save avatar if present
