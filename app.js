@@ -17233,11 +17233,18 @@ class ShareContactsModal {
 
     // For public accounts, proceed with contact list population
     // Get Friends (friend === 3) and Connections (friend === 2)
+    const myAddress = normalizeAddress(myAccount?.keys?.address || '');
     const allContacts = Object.values(myData.contacts || {});
-    const friends = allContacts
+    
+    // Filter out self (same as ImportContactsModal)
+    const filteredContacts = allContacts.filter(c => 
+      normalizeAddress(c.address) !== myAddress
+    );
+    
+    const friends = filteredContacts
       .filter(c => c.friend === 3)
       .sort((a, b) => this.getContactDisplayNameForShare(a).toLowerCase().localeCompare(this.getContactDisplayNameForShare(b).toLowerCase()));
-    const connections = allContacts
+    const connections = filteredContacts
       .filter(c => c.friend === 2)
       .sort((a, b) => this.getContactDisplayNameForShare(a).toLowerCase().localeCompare(this.getContactDisplayNameForShare(b).toLowerCase()));
 
