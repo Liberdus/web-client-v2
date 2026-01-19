@@ -3859,8 +3859,12 @@ class FriendModal {
 
         // Update contact's friend status if it differs from network
         if (networkFriendStatus !== undefined && networkFriendStatus !== contact.friend) {
+          const previousFriendStatus = contact.friend;
           contact.friend = networkFriendStatus;
           contact.friendOld = networkFriendStatus;
+          if (networkFriendStatus === 0 && previousFriendStatus !== 0) {
+            await this.clearContactAvatar(contact);
+          }
           // Update the friend button color
           this.updateFriendButton(contact, 'addFriendButtonContactInfo');
           this.updateFriendButton(contact, 'addFriendButtonChat');
@@ -3975,6 +3979,9 @@ class FriendModal {
     }
     // Update friend status based on selected value
     contact.friend = Number(selectedStatus);
+    if (contact.friend === 0 && prevFriendStatus !== 0) {
+      await this.clearContactAvatar(contact);
+    }
 
     this.lastChangeTimeStamp = Date.now();
 
@@ -4026,6 +4033,39 @@ class FriendModal {
     button.classList.remove('status-0', 'status-1', 'status-2', 'status-3');
     // Add the current status class
     button.classList.add(`status-${contact.friend}`);
+  }
+
+  async clearContactAvatar(contact) {
+    if (!contact) return;
+
+    const avatarId = contact.avatarId || contact?.senderInfo?.avatarId;
+    if (avatarId) {
+      try {
+        await contactAvatarCache.delete(avatarId);
+      } catch (e) {
+        console.warn('Failed to delete contact avatar:', e);
+      }
+    }
+
+    contact.avatarId = null;
+    contact.hasAvatar = false;
+    if (contact.senderInfo) {
+      delete contact.senderInfo.avatarId;
+      delete contact.senderInfo.avatarKey;
+    }
+    if (contact.useAvatar === 'contact') {
+      delete contact.useAvatar;
+    }
+
+    saveState();
+
+    if (chatModal.isActive() && chatModal.address === contact.address) {
+      chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
+      chatModal.appendChatModal(true);
+    }
+    if (typeof chatsScreen !== 'undefined') {
+      chatsScreen.updateChatList();
+    }
   }
 
   // Update the submit button's enabled state based on current and selected status
