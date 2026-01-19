@@ -17233,13 +17233,16 @@ class ShareContactsModal {
 
     // For public accounts, proceed with contact list population
     // Get Friends (friend === 3) and Connections (friend === 2)
-    const myAddress = normalizeAddress(myAccount?.keys?.address || '');
     const allContacts = Object.values(myData.contacts || {});
     
-    // Filter out self (same as ImportContactsModal)
-    const filteredContacts = allContacts.filter(c => 
-      normalizeAddress(c.address) !== myAddress
-    );
+    // Filter out the current chat contact (the person you're chatting with)
+    const currentChatAddress = chatModal.isActive() && chatModal.address 
+      ? normalizeAddress(chatModal.address) 
+      : null;
+    
+    const filteredContacts = currentChatAddress
+      ? allContacts.filter(c => normalizeAddress(c.address) !== currentChatAddress)
+      : allContacts;
     
     const friends = filteredContacts
       .filter(c => c.friend === 3)
