@@ -12587,7 +12587,7 @@ class ChatModal {
       if (!this.isActive() || this.address !== address) return;
 
       showToast(
-        '<strong>This user has deposited a toll to message you.</strong><ul style="margin: 8px 0 0 0; padding-left: 20px;"><li>Change their status to a connection or friend to refund the toll</li><li>Reply to collect the full toll</li><li>Ignore to collect half the toll</li></ul>',
+        '<strong>This user has deposited a toll to message you.</strong><ul style="margin: 8px 0 0 0; padding-left: 20px;"><li>Change their status to a connection to refund the toll</li><li>Reply to collect the full toll</li><li>Ignore to collect half the toll</li></ul>',
         0,
         'toll',
         true
@@ -16252,7 +16252,7 @@ class ChatModal {
           showToast('You are blocked by this user', 0, 'error');
         } else {
           showToast(
-            `You can only call people who have added you as a friend or connection. Ask ${username} to add you as a friend or connection`,
+            `You can only call people who have added you as a connection. Ask ${username} to add you as a connection`,
             0,
             'info'
           );
@@ -17133,7 +17133,7 @@ class CallInviteModal {
         }
         if (tollRequiredToSend === 1) {
           const username = (contact?.username) || `${addr.slice(0, 8)}...${addr.slice(-6)}`;
-          showToast(`You can only invite people who have added you as a friend or connection. Ask ${username} to add you as a friend or connection`, 0, 'info');
+          showToast(`You can only invite people who have added you as a connection. Ask ${username} to add you as a connection`, 0, 'info');
           continue;
         }
 
@@ -18087,8 +18087,8 @@ class ImportContactsModal {
           toll: 0n,
           tollRequiredToReceive: 1,
           tollRequiredToSend: 1,
-          friend: 3, // Friend status
-          friendOld: 3,
+          friend: 2, // Friend status
+          friendOld: 2,
           tolledDepositToastShown: true,
         };
 
