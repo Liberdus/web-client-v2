@@ -13027,9 +13027,9 @@ class ChatModal {
         username: myAccount.username,
       };
 
-      // Add additional info only if recipient is a friend
-      if (contact && contact?.friend && contact?.friend >= 3) {
-        // Add more personal details for friends
+      // Add additional info only if recipient is a connection
+      if (contact && contact?.friend && contact?.friend >= 2) {
+        // Add more personal details for connections
         senderInfo.name = myData.account.name;
         senderInfo.email = myData.account.email;
         senderInfo.phone = myData.account.phone;
@@ -13040,10 +13040,7 @@ class ChatModal {
           senderInfo.avatarId = myData.account.avatarId;
           senderInfo.avatarKey = myData.account.avatarKey;
         }
-      }
-
-      // Add timezone for friends and connections
-      if (Number(contact?.friend) >= 2) {
+        // Add timezone if available
         const tz = getLocalTimeZone();
         if (tz) {
           senderInfo.timezone = tz;
@@ -16369,8 +16366,8 @@ class ChatModal {
         username: myAccount.username,
       };
 
-      // Add additional info only if recipient is a friend
-      if (contact && contact?.friend && contact?.friend >= 3) {
+      // Add additional info only if recipient is a connection
+      if (contact && contact?.friend && contact?.friend >= 2) {
         senderInfo.name = myData.account.name;
         senderInfo.email = myData.account.email;
         senderInfo.phone = myData.account.phone;
@@ -16381,10 +16378,7 @@ class ChatModal {
           senderInfo.avatarId = myData.account.avatarId;
           senderInfo.avatarKey = myData.account.avatarKey;
         }
-      }
-
-      // Add timezone for friends and connections
-      if (Number(contact?.friend) >= 2) {
+        // Add timezone if available
         const tz = getLocalTimeZone();
         if (tz) {
           senderInfo.timezone = tz;
@@ -16520,21 +16514,18 @@ class ChatModal {
       username: myAccount.username,
     };
 
-    if (contact && contact?.friend && contact?.friend >= 3) {
+    if (contact && contact?.friend && contact?.friend >= 2) {
       senderInfo.name = myData.account.name;
       senderInfo.email = myData.account.email;
       senderInfo.phone = myData.account.phone;
       senderInfo.linkedin = myData.account.linkedin;
       senderInfo.x = myData.account.x;
       // Add avatar info if available
-        if (myData.account.avatarId && myData.account.avatarKey) {
-          senderInfo.avatarId = myData.account.avatarId;
-          senderInfo.avatarKey = myData.account.avatarKey;
-        }
-    }
-
-    // Add timezone for friends and connections
-    if (Number(contact?.friend) >= 2) {
+      if (myData.account.avatarId && myData.account.avatarKey) {
+        senderInfo.avatarId = myData.account.avatarId;
+        senderInfo.avatarKey = myData.account.avatarKey;
+      }
+      // Add timezone if available
       const tz = getLocalTimeZone();
       if (tz) {
         senderInfo.timezone = tz;
@@ -21004,21 +20995,18 @@ class SendAssetConfirmModal {
         username: myAccount.username,
       };
 
-      if (friendLevel === 3) {
+      if (friendLevel === 2) {
         senderInfo.name = myData.account.name;
         senderInfo.email = myData.account.email;
         senderInfo.phone = myData.account.phone;
         senderInfo.linkedin = myData.account.linkedin;
         senderInfo.x = myData.account.x;
-      }
-
-      // Add timezone for friends and connections
-      if (friendLevel >= 2) {
         const tz = getLocalTimeZone();
         if (tz) {
           senderInfo.timezone = tz;
         }
       }
+
       encSenderInfo = encryptChacha(dhkey, stringify(senderInfo));
     } else {
       senderInfo = { username: myAccount.address };
