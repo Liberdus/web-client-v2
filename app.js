@@ -1418,8 +1418,8 @@ class ContactsScreen {
           case 0:
             acc.blocked.push(contact);
             break;
-          case 2:
           case 3: // legacy friend status treated as connection
+          case 2:
             acc.acquaintances.push(contact);
             break;
           default:
