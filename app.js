@@ -306,6 +306,40 @@ function clearMyData() {
 }
 
 /**
+ * One-time migration: convert legacy friend status (3) to connection (2)
+ * @param {Object} data
+ * @returns {boolean} True if migration flag was applied
+ */
+function migrateFriendStatusToConnection(data) {
+  if (!data?.account) return false;
+
+  const migrations =
+    data.account.migrations && typeof data.account.migrations === 'object'
+      ? data.account.migrations
+      : null;
+
+  if (migrations?.friendStatusToConnection === true) {
+    return false;
+  }
+
+  if (data.contacts && typeof data.contacts === 'object') {
+    for (const contact of Object.values(data.contacts)) {
+      if (!contact || typeof contact !== 'object') continue;
+      if (contact.friend === 3) {
+        contact.friend = 2;
+      }
+      if (contact.friendOld === 3) {
+        contact.friendOld = 2;
+      }
+    }
+  }
+
+  data.account.migrations = migrations && typeof migrations === 'object' ? migrations : {};
+  data.account.migrations.friendStatusToConnection = true;
+  return true;
+}
+
+/**
  * Checks if the current account is private
  * @returns {boolean} True if the account is private, false otherwise
  */
@@ -3256,6 +3290,11 @@ class SignInModal {
     }
     myAccount = myData.account;
     logsModal.log(`SignIn as ${username}_${netid}`)
+
+    // One-time migration: convert legacy friend status to connection
+    if (migrateFriendStatusToConnection(myData)) {
+      saveState();
+    }
 
     // Clear notification address for this account when signing in
     // Notification storage is only for accounts the user is NOT signed in to
