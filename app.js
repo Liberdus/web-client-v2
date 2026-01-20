@@ -21001,6 +21001,12 @@ class SendAssetConfirmModal {
         senderInfo.phone = myData.account.phone;
         senderInfo.linkedin = myData.account.linkedin;
         senderInfo.x = myData.account.x;
+        // Add avatar info if available
+        if (myData.account.avatarId && myData.account.avatarKey) {
+          senderInfo.avatarId = myData.account.avatarId;
+          senderInfo.avatarKey = myData.account.avatarKey;
+        }
+        // Add timezone if available
         const tz = getLocalTimeZone();
         if (tz) {
           senderInfo.timezone = tz;
