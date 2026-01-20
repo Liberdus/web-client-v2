@@ -15399,7 +15399,9 @@ class ChatModal {
       const fileName = attachmentRow.dataset.name ? decodeURIComponent(attachmentRow.dataset.name) : '';
       const fileType = attachmentRow.dataset.type || '';
       const isVcf = fileType === 'text/vcard' || fileName.toLowerCase().endsWith('.vcf');
-      importContactsOpt.style.display = isVcf ? '' : 'none';
+      const contact = this.address ? myData?.contacts?.[this.address] : null;
+      const isConnection = contact?.friend === 2;
+      importContactsOpt.style.display = (isVcf && isConnection) ? '' : 'none';
     }
 
     this.positionContextMenu(this.imageAttachmentContextMenu, attachmentRow);
