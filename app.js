@@ -17833,6 +17833,52 @@ class ImportContactsModal {
   }
 
   /**
+   * Validates a contact on the network by username lookup
+   * @param {Object} parsedContact - Contact object with username
+   * @returns {Promise<Object>} { success: boolean, networkAddress?: string, error?: string }
+   */
+  async validateContactOnNetwork(parsedContact) {
+    if (!parsedContact.username) {
+      return { success: false, error: 'No username provided' };
+    }
+
+    try {
+      const username = normalizeUsername(parsedContact.username);
+      const usernameBytes = utf82bin(username);
+      const usernameHash = hashBytes(usernameBytes);
+
+      // Query network for username
+      const addressData = await queryNetwork(`/address/${usernameHash}`);
+      
+      if (!addressData || !addressData.address) {
+        return { success: false, error: 'Username not found on network' };
+      }
+
+      const networkAddress = normalizeAddress(addressData.address);
+
+      // Verify account exists and ensure it's a public account
+      const accountData = await queryNetwork(`/account/${longAddress(networkAddress)}`);
+      if (!accountData || !accountData.account) {
+        return { success: false, error: 'Account not found on network' };
+      }
+
+      // Only public accounts can import, so reject private contacts
+      const contactIsPrivate = accountData.account.private === true;
+      if (contactIsPrivate) {
+        return { 
+          success: false, 
+          error: 'Cannot import private account' 
+        };
+      }
+
+      return { success: true, networkAddress, username };
+    } catch (error) {
+      console.error('Error validating contact on network:', error);
+      return { success: false, error: 'Network error during validation' };
+    }
+  }
+
+  /**
    * Renders the contact list
    */
   async renderContactList() {
@@ -18062,15 +18108,52 @@ class ImportContactsModal {
 
     try {
       let importedCount = 0;
+      let failedCount = 0;
+      const failedContacts = [];
+      const importedContacts = [];
 
-      for (const address of this.selectedContacts) {
+      // Parallel validation of all selected contacts
+      const validationPromises = Array.from(this.selectedContacts).map(async (address) => {
         const parsedContact = this.parsedContacts.find(c => normalizeAddress(c.address) === address);
-        if (!parsedContact) continue;
+        if (!parsedContact) return { parsedContact: null, validation: null };
+        
+        const validation = await this.validateContactOnNetwork(parsedContact);
+        return { parsedContact, validation };
+      });
+
+      const results = await Promise.allSettled(validationPromises);
+
+      // Process validation results and create contacts
+      for (const result of results) {
+        if (result.status === 'rejected') {
+          console.error('Validation promise rejected:', result.reason);
+          failedCount++;
+          continue;
+        }
+
+        const { parsedContact, validation } = result.value;
+        if (!parsedContact || !validation) continue;
+
+        if (!validation.success) {
+          console.warn(`Failed to validate contact ${parsedContact.username}:`, validation.error);
+          failedContacts.push({ username: parsedContact.username, error: validation.error });
+          failedCount++;
+          continue;
+        }
+
+        // Use the network address instead of the VCF address
+        const networkAddress = validation.networkAddress;
+
+        // Check if contact already exists
+        if (myData.contacts[networkAddress]) {
+          console.log(`Contact ${parsedContact.username} already exists, skipping`);
+          continue;
+        }
 
         // Create contact record (incomplete - missing public keys)
         const contactRecord = {
-          address: address,
-          username: parsedContact.username || '',
+          address: networkAddress,
+          username: validation.username,
           messages: [],
           timestamp: 0,
           unread: 0,
@@ -18104,8 +18187,9 @@ class ImportContactsModal {
           }
         }
 
-        // Add to contacts
-        myData.contacts[address] = contactRecord;
+        // Add to contacts using network address
+        myData.contacts[networkAddress] = contactRecord;
+        importedContacts.push(parsedContact.username);
         importedCount++;
       }
 
@@ -18114,8 +18198,19 @@ class ImportContactsModal {
       // Refresh contacts screen if visible
       contactsScreen.updateContactsList();
       
+      // Show appropriate success/error message with usernames
+      if (importedCount > 0 && failedCount === 0) {
+        const successList = importedContacts.join(', ');
+        showToast(`Successfully imported: ${successList}`, 3000, 'success');
+      } else if (importedCount > 0 && failedCount > 0) {
+        const successList = importedContacts.join(', ');
+        const failedList = failedContacts.map(c => c.username).join(', ');
+        showToast(`Imported: ${successList}\n\nFailed: ${failedList}`, 0, 'warning');
+      } else if (failedCount > 0) {
+        const failedList = failedContacts.map(c => c.username).join(', ');
+        showToast(`Failed to import: ${failedList}`, 0, 'error');
+      }
 
-      showToast(`Imported ${importedCount} contact${importedCount !== 1 ? 's' : ''}`, 2000, 'success');
       this.close();
 
     } catch (err) {
