@@ -3973,7 +3973,7 @@ class FriendModal {
       const currentStatus = Number(this.friendForm.querySelector('input[name="friendStatus"]:checked')?.value);
       if (!isNaN(currentStatus) && currentStatus !== this.initialFriendStatus && !this.warningShown) {
         this.warningShown = true;
-        showToast('You have changed the friend status. Press back again to discard changes.', 3000, 'warning');
+        showToast('Press back again to discard changes.', 5000, 'warning');
         return;
       }
     }
