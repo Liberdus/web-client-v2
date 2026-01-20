@@ -1808,7 +1808,7 @@ class MenuModal {
     this.validatorButton.addEventListener('click', () => validatorStakingModal.open());
     this.daoButton = document.getElementById('openDao');
     if (network.name === 'Devnet') {
-      this.daoButton.style.display = '';
+      this.daoButton.style.display = 'block';
       this.daoButton.addEventListener('click', () => daoModal.open());
     }
     this.inviteButton = document.getElementById('openInvite');
