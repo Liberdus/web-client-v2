@@ -1413,23 +1413,21 @@ class ContactsScreen {
     // Split into status groups in a single pass
     const statusGroups = contactsArray.reduce(
       (acc, contact) => {
-        // 0 = blocked, 1 = Other, 2 = Acquaintance, 3 = Friend
+        // 0 = blocked, 1 = Other, 2 = Connection
         switch (contact.friend) {
           case 0:
             acc.blocked.push(contact);
             break;
           case 2:
+          case 3: // legacy friend status treated as connection
             acc.acquaintances.push(contact);
-            break;
-          case 3:
-            acc.friends.push(contact);
             break;
           default:
             acc.others.push(contact);
         }
         return acc;
       },
-      { others: [], acquaintances: [], friends: [], blocked: [] }
+      { others: [], acquaintances: [], blocked: [] }
     );
 
     // Sort each group by name first, then by username if name is not available
@@ -1442,7 +1440,6 @@ class ContactsScreen {
 
     // Group metadata for rendering
     const groupMeta = [
-      { key: 'friends', label: 'Friends', itemClass: 'chat-item' },
       { key: 'acquaintances', label: 'Connections', itemClass: 'chat-item' },
       { key: 'others', label: 'Tolled', itemClass: 'chat-item' },
       { key: 'blocked', label: 'Blocked', itemClass: 'chat-item blocked' },
