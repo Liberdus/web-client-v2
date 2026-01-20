@@ -3869,7 +3869,7 @@ const contactInfoModal = new ContactInfoModal();
 
 /**
  * Friend Modal
- * Frontend: 0 = blocked, 1 = Other, 2 = Acquaintance, 3 = Friend
+ * Frontend: 0 = blocked, 1 = Other, 2 = Connection
  * Backend: 1 = toll required, 0 = toll not required, 2 = blocked
  * 
  * @description Modal for setting the friend status for a contact
@@ -3919,18 +3919,17 @@ class FriendModal {
       const networkRequired = tollInfo?.toll?.required?.[myIndex];
 
       if (networkRequired !== undefined) {
-        // Map backend required value to frontend friend status
+        // Map backend required value to frontend status
         // Backend: 1 = toll required, 0 = toll not required, 2 = blocked
-        // Frontend: 0 = blocked, 1 = Other, 2 = Acquaintance, 3 = Friend
+        // Frontend: 0 = blocked, 1 = Other, 2 = Connection
         let networkFriendStatus;
         if (networkRequired === 2) {
           networkFriendStatus = 0; // blocked
         } else if (networkRequired === 1) {
           networkFriendStatus = 1; // Other (toll required)
         } else if (networkRequired === 0) {
-          // toll not required - could be Acquaintance (2) or Friend (3)
-          // Use the local contact.friend if it's 2 or 3, otherwise default to 2
-          networkFriendStatus = (contact.friend === 2 || contact.friend === 3) ? contact.friend : 2;
+          // toll not required - connection
+          networkFriendStatus = 2;
         }
 
         // Update contact's friend status if it differs from network
@@ -3985,9 +3984,9 @@ class FriendModal {
   }
 
   async postUpdateTollRequired(address, friend) {
-    // 0 = blocked, 1 = Other, 2 = Acquaintance, 3 = Friend
+    // 0 = blocked, 1 = Other, 2 = Connection
     // required = 1 if toll required, 0 if not and 2 to block other party
-    const requiredNum = friend === 3 || friend === 2 ? 0 : friend === 1 ? 1 : friend === 0 ? 2 : 1;
+    const requiredNum = friend === 2 ? 0 : friend === 1 ? 1 : friend === 0 ? 2 : 1;
     const fromAddr = longAddress(myAccount.keys.address);
     const toAddr = longAddress(address);
     const chatId_ = hashBytes([fromAddr, toAddr].sort().join(''));
@@ -4007,8 +4006,8 @@ class FriendModal {
   }
 
   /**
-   * Handle friend form submission
-   * 0 = blocked, 1 = Other, 2 = Acquaintance, 3 = Friend
+  * Handle friend form submission
+  * 0 = blocked, 1 = Other, 2 = Connection
    * @param {Event} event
    * @returns {Promise<void>}
    */
@@ -4025,10 +4024,9 @@ class FriendModal {
       return;
     }
 
-    if ([2,3].includes(contact.friend) && [2,3].includes(Number(selectedStatus))){
+    if (Number(contact.friend) === 2 && Number(selectedStatus) === 2) {
       console.log('no need to post a change to the network since toll required would be 0 for both cases')
-    }
-    else{
+    } else {
       try {
         // send transaction to update chat toll
         const res = await this.postUpdateTollRequired(this.currentContactAddress, Number(selectedStatus));
@@ -4046,7 +4044,7 @@ class FriendModal {
       }
     }
 
-    if ([2,3].includes(contact.friend) && [2,3].includes(Number(selectedStatus))) {
+    if (Number(contact.friend) === 2 && Number(selectedStatus) === 2) {
       // set friend and friendold the same since no transaction is needed
       contact.friendOld = Number(selectedStatus);
     } else {
@@ -4061,7 +4059,7 @@ class FriendModal {
 
     this.lastChangeTimeStamp = Date.now();
 
-    // Show appropriate toast message depending value 0,1,2,3
+    // Show appropriate toast message depending value 0,1,2
     const toastMessage =
       contact.friend === 0
         ? 'Blocked'
@@ -4069,9 +4067,7 @@ class FriendModal {
           ? 'Added as Tolled'
           : contact.friend === 2
             ? 'Added as Connection'
-            : contact.friend === 3
-              ? 'Added as Friend'
-              : 'Error updating friend status';
+            : 'Error updating friend status';
     const toastType = toastMessage === 'Error updating friend status' ? 'error' : 'success';
     showToast(toastMessage, 2000, toastType);
 
@@ -4106,7 +4102,7 @@ class FriendModal {
   updateFriendButton(contact, buttonId) {
     const button = document.getElementById(buttonId);
     // Remove all status classes
-    button.classList.remove('status-0', 'status-1', 'status-2', 'status-3');
+    button.classList.remove('status-0', 'status-1', 'status-2');
     // Add the current status class
     button.classList.add(`status-${contact.friend}`);
   }
