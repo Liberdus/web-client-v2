@@ -17710,17 +17710,17 @@ class ImportContactsModal {
 
       // Deduplicate by username (keep first occurrence of each normalized username)
       const seenUsernames = new Set();
-      this.parsedContacts = [];
-      
-      for (const contact of parsedContacts) {
-        if (!contact.username) continue;
+      this.parsedContacts = parsedContacts.filter(contact => {
+        if (!contact.username) return false;
         
         const normalizedUsername = normalizeUsername(contact.username);
-        if (!seenUsernames.has(normalizedUsername)) {
-          seenUsernames.add(normalizedUsername);
-          this.parsedContacts.push(contact);
+        if (seenUsernames.has(normalizedUsername)) {
+          return false; // Skip duplicate
         }
-      }
+        
+        seenUsernames.add(normalizedUsername);
+        return true; // Keep first occurrence
+      });
 
       // Hide loading
       this.loadingState.style.display = 'none';
