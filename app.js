@@ -17447,7 +17447,7 @@ class ShareContactsModal {
   handleClose() {
     if (this.selectedContacts.size > 0 && !this.warningShown) {
       this.warningShown = true;
-      showToast('You have contacts selected. Click back again to discard.', 3000, 'warning');
+      showToast('You have contacts selected. Click back again to discard.', 0, 'warning');
       return;
     }
     this.close();
@@ -18068,7 +18068,7 @@ class ImportContactsModal {
   handleClose() {
     if (this.selectedContacts.size > 0 && !this.warningShown) {
       this.warningShown = true;
-      showToast('You have contacts selected. Click back again to discard.', 3000, 'warning');
+      showToast('You have contacts selected. Click back again to discard.', 0, 'warning');
       return;
     }
     this.close();
