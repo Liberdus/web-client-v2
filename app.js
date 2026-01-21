@@ -15400,9 +15400,7 @@ class ChatModal {
       const fileName = attachmentRow.dataset.name ? decodeURIComponent(attachmentRow.dataset.name) : '';
       const fileType = attachmentRow.dataset.type || '';
       const isVcf = fileType === 'text/vcard' || fileName.toLowerCase().endsWith('.vcf');
-      const contact = this.address ? myData?.contacts?.[this.address] : null;
-      const isConnection = contact?.friend === 2;
-      importContactsOpt.style.display = (isVcf && isConnection) ? '' : 'none';
+      importContactsOpt.style.display = isVcf ? '' : 'none';
     }
 
     this.positionContextMenu(this.imageAttachmentContextMenu, attachmentRow);
@@ -17689,6 +17687,7 @@ class ImportContactsModal {
     this.isImporting = false;
     this.parsedContacts = [];
     this.currentAttachment = null;
+    this.senderAddress = null;
   }
 
   load() {
@@ -17696,6 +17695,7 @@ class ImportContactsModal {
     this.contactsList = document.getElementById('importContactsList');
     this.emptyState = document.getElementById('importContactsEmptyState');
     this.loadingState = document.getElementById('importContactsLoading');
+    this.actionButton = document.getElementById('importContactsActionBtn');
     this.allNoneButton = document.getElementById('importContactsAllNoneBtn');
     this.doneButton = document.getElementById('importContactsDoneBtn');
     this.closeButton = document.getElementById('closeImportContactsModal');
@@ -17705,6 +17705,13 @@ class ImportContactsModal {
     this.allNoneButton.addEventListener('click', () => this.toggleAllNone());
     this.doneButton.addEventListener('click', () => this.handleDone());
     this.contactsList.addEventListener('click', (e) => this.handleContactClick(e));
+    this.actionButton.addEventListener('click', () => {
+      if (this.senderAddress) {
+        this.close();
+        friendModal.setAddress(this.senderAddress);
+        friendModal.open();
+      }
+    });
   }
 
   /**
@@ -17718,6 +17725,7 @@ class ImportContactsModal {
     this.isImporting = false;
     this.parsedContacts = [];
     this.currentAttachment = attachment;
+    this.senderAddress = attachment?.senderAddress || null;
     this.doneButton.classList.remove('loading');
     this.doneButton.disabled = true;
     this.allNoneButton.classList.remove('all-selected');
@@ -17727,6 +17735,9 @@ class ImportContactsModal {
     this.contactsList.innerHTML = '';
     this.contactsList.style.display = 'none';
     this.loadingState.style.display = 'none';
+
+    // Hide action button by default
+    this.actionButton.style.display = 'none';
 
     // Show modal
     this.modal.classList.add('active');
@@ -17742,6 +17753,26 @@ class ImportContactsModal {
       this.emptyState.style.display = 'block';
       this.doneButton.disabled = true;
       return;
+    }
+
+    // Check connection status if sender address is provided
+    if (this.senderAddress) {
+      const sender = myData.contacts[this.senderAddress];
+      if (sender && sender.friend !== 2) {
+        // Sender is not a connection - show warning
+        const emptyStateChildren = this.emptyState.children;
+        if (emptyStateChildren.length >= 3) {
+          emptyStateChildren[1].textContent = 'Cannot import contacts';
+          emptyStateChildren[2].textContent = 'Contacts should only be imported from people you trust. If you trust this user add them as a connection before importing contacts.';
+        }
+        this.emptyState.style.display = 'block';
+        this.doneButton.disabled = true;
+        this.allNoneButton.disabled = true;
+        // Show button to open Connection Status modal
+        this.actionButton.textContent = 'Change Connection Status';
+        this.actionButton.style.display = 'block';
+        return;
+      }
     }
 
     // For public accounts, proceed with VCF processing

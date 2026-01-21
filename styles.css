@@ -4637,7 +4637,8 @@ small {
 }
 
 /* Share Contacts Modal Styles */
-#shareContactsModal .modal-content {
+#shareContactsModal .modal-content,
+#importContactsModal .modal-content {
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -4650,6 +4651,17 @@ small {
 
 /* Share contacts action button styling */
 #shareContactsActionBtn {
+  display: none;
+  margin: 1rem auto 0;
+}
+
+/* Import contacts: left-align warning text in empty state (only the longer message, not the title) */
+#importContactsEmptyState > div:nth-child(3) {
+  text-align: left;
+}
+
+/* Import contacts action button styling */
+#importContactsActionBtn {
   display: none;
   margin: 1rem auto 0;
 }
