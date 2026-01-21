@@ -4648,6 +4648,12 @@ small {
   text-align: left;
 }
 
+/* Share contacts action button styling */
+#shareContactsActionBtn {
+  display: none;
+  margin: 1rem auto 0;
+}
+
 .share-contacts-modal-container {
   min-height: 250px;
   display: flex;
