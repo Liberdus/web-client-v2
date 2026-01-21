@@ -14340,7 +14340,13 @@ class ChatModal {
    */
   isViewableInBrowser(mimeType) {
     if (!mimeType) return false;
-    
+
+    const normalizedMime = mimeType.toLowerCase().trim();
+
+    // Exclude vCard types (VCF). Many servers report vcf as a text/* subtype
+    // but vCard files shouldn't be opened inline in the browser here.
+    if (normalizedMime.includes('vcard')) return false;
+
     const viewableTypes = [
       'image/',           // All images
       'text/',            // Text files
@@ -14351,8 +14357,8 @@ class ChatModal {
       'application/xml',  // XML
       'text/xml'          // XML (alternative)
     ];
-    
-    return viewableTypes.some(type => mimeType.startsWith(type));
+
+    return viewableTypes.some(type => normalizedMime.startsWith(type));
   }
 
   /**
