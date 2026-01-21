@@ -61,6 +61,7 @@
   --icon-send-money: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='1' x2='12' y2='23'%3E%3C/line%3E%3Cpath d='M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'%3E%3C/path%3E%3C/svg%3E");
   --icon-checkbox-empty: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3C/svg%3E");
   --icon-checkbox-checked: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Cpolyline points='9 12 11 14 15 10'%3E%3C/polyline%3E%3C/svg%3E");
+  --icon-sign-out: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23dc3545' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'%3E%3C/path%3E%3Cpolyline points='16,17 21,12 16,7'%3E%3C/polyline%3E%3Cline x1='21' y1='12' x2='9' y2='12'%3E%3C/line%3E%3C/svg%3E");
 
   /* Typography tokens */
   --font-primary: 'Inter', sans-serif;
@@ -545,7 +546,7 @@ body {
   color: var(--muted-text-color);
   font-size: var(--font-size-lg);
   cursor: pointer;
-  padding: 8px;
+  padding: 5px;
   border-radius: var(--icon-button-radius);
   transition: all 0.2s ease;
   display: flex;
@@ -568,7 +569,7 @@ body {
 .icon-button.phone-icon {
   width: var(--icon-button-width);
   height: var(--icon-button-height);
-  padding: 8px;
+  padding: 5px;
   border-radius: var(--icon-button-radius);
   opacity: var(--icon-opacity-default);
 }
@@ -1441,8 +1442,8 @@ button:disabled {
   background: none;
   border: none;
   cursor: pointer;
-  color: #ef4444; /* Red color */
-  padding: 0.5rem;
+  color: var(--danger-color);
+  padding: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1450,6 +1451,10 @@ button:disabled {
   pointer-events: none; /* Disabled by default, enabled after delay */
   opacity: 0.5; /* Visual indicator that it's not yet active */
   transition: opacity 0.2s ease;
+  width: var(--icon-button-width);
+  height: var(--icon-button-height);
+  min-width: var(--icon-button-width);
+  min-height: var(--icon-button-height);
 }
 
 .sign-out-header-button.active {
@@ -1461,9 +1466,11 @@ button:disabled {
   content: '';
   width: var(--icon-size-24);
   height: var(--icon-size-24);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'%3E%3C/path%3E%3Cpolyline points='16,17 21,12 16,7'%3E%3C/polyline%3E%3Cline x1='21' y1='12' x2='9' y2='12'%3E%3C/line%3E%3C/svg%3E");
+  display: block;
   background-position: center;
   background-repeat: no-repeat;
+  background-size: 19px 19px;
+  background-image: var(--icon-sign-out);
 }
 
 .sign-out-header-button:hover {
@@ -4470,7 +4477,7 @@ small {
   background-image: var(--icon-menu);
   width: var(--icon-button-width);
   height: var(--icon-button-height);
-  padding: 8px;
+  padding: 5px;
   min-width: var(--icon-button-width);
   min-height: var(--icon-button-height);
 }
@@ -4490,7 +4497,7 @@ small {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 3H2l8 9v7l4 2v-9l8-9z'/%3E%3C/svg%3E");
   width: var(--icon-button-width);
   height: var(--icon-button-height);
-  padding: 8px;
+  padding: 5px;
   min-width: var(--icon-button-width);
   min-height: var(--icon-button-height);
 }
