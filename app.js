@@ -4760,6 +4760,8 @@ class CallsModal {
         if (msg?.type !== 'call') continue;
         // Skip deleted messages
         if (msg?.deleted === 1) continue;
+        // Skip messages that failed to send
+        if (msg?.status === 'failed') continue;
         const callTime = Number(msg.callTime);
         // Only include valid scheduled calls: positive timestamp within last 2h or in future
         if (!Number.isFinite(callTime) || callTime <= 0) continue;
