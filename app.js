@@ -15011,7 +15011,7 @@ class ChatModal {
         }
         break;
       case 'contacts':
-        shareContactsModal.open();
+        shareContactsModal.open(chatModal.address);
         break;
     }
   }
@@ -17199,12 +17199,14 @@ class ShareContactsModal {
     this.selectedContacts = new Set();
     this.warningShown = false;
     this.isUploading = false;
+    this.recipientAddress = null;
   }
 
   load() {
     this.modal = document.getElementById('shareContactsModal');
     this.contactsList = document.getElementById('shareContactsList');
     this.emptyState = document.getElementById('shareContactsEmptyState');
+    this.actionButton = document.getElementById('shareContactsActionBtn');
     this.allNoneButton = document.getElementById('shareContactsAllNoneBtn');
     this.doneButton = document.getElementById('shareContactsDoneBtn');
     this.closeButton = document.getElementById('closeShareContactsModal');
@@ -17214,16 +17216,25 @@ class ShareContactsModal {
     this.allNoneButton.addEventListener('click', () => this.toggleAllNone());
     this.doneButton.addEventListener('click', () => this.handleDone());
     this.contactsList.addEventListener('click', (e) => this.handleContactClick(e));
+    this.actionButton.addEventListener('click', () => {
+      if (this.recipientAddress) {
+        this.close();
+        friendModal.setAddress(this.recipientAddress);
+        friendModal.open();
+      }
+    });
   }
 
   /**
    * Opens the share contacts modal and populates the contact list
+   * @param {string|null} recipientAddress - The address of the recipient (from chatModal)
    */
-  async open() {
+  async open(recipientAddress = null) {
     // Reset state
     this.selectedContacts.clear();
     this.warningShown = false;
     this.isUploading = false;
+    this.recipientAddress = recipientAddress;
     this.doneButton.classList.remove('loading');
     this.doneButton.disabled = true;
     this.allNoneButton.classList.remove('all-selected');
@@ -17233,6 +17244,9 @@ class ShareContactsModal {
     // Clear existing list
     this.contactsList.innerHTML = '';
     this.contactsList.style.display = 'none';
+
+    // Hide action button by default
+    this.actionButton.style.display = 'none';
 
     // Show modal
     this.modal.classList.add('active');
@@ -17249,6 +17263,43 @@ class ShareContactsModal {
       this.doneButton.disabled = true;
       this.allNoneButton.disabled = true;
       return;
+    }
+
+    // Check connection status if recipient address is provided
+    if (recipientAddress) {
+      const recipient = myData.contacts[recipientAddress];
+      if (recipient) {
+        const tollRequiredToSend = recipient.tollRequiredToSend;
+
+        // Check if user hasn't added recipient as connection (contact.friend !== 2)
+        if (recipient.friend !== 2) {
+          const emptyStateChildren = this.emptyState.children;
+          if (emptyStateChildren.length >= 3) {
+            emptyStateChildren[1].textContent = 'Cannot share contacts';
+            emptyStateChildren[2].textContent = 'You need to add the recipient as a connection before you can share contacts with them';
+          }
+          this.emptyState.style.display = 'block';
+          this.doneButton.disabled = true;
+          this.allNoneButton.disabled = true;
+          // Show button to open Connection Status modal
+          this.actionButton.textContent = 'Change Connection Status';
+          this.actionButton.style.display = 'block';
+          return;
+        }
+
+        // Check if recipient hasn't added user as connection (tollRequiredToSend !== 0)
+        if (tollRequiredToSend !== 0) {
+          const emptyStateChildren = this.emptyState.children;
+          if (emptyStateChildren.length >= 3) {
+            emptyStateChildren[1].textContent = 'Cannot share contacts';
+            emptyStateChildren[2].textContent = 'The recipient must add you as a connection before you can share contacts with them. Ask them to add you as a connection';
+          }
+          this.emptyState.style.display = 'block';
+          this.doneButton.disabled = true;
+          this.allNoneButton.disabled = true;
+          return;
+        }
+      }
     }
 
     // For public accounts, proceed with contact list population

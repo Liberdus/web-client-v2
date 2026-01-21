@@ -4643,6 +4643,11 @@ small {
   overflow: hidden;
 }
 
+/* Share contacts: left-align warning text in empty state (only the longer message, not the title) */
+#shareContactsEmptyState > div:nth-child(3) {
+  text-align: left;
+}
+
 .share-contacts-modal-container {
   min-height: 250px;
   display: flex;
