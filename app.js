@@ -19500,6 +19500,7 @@ class NewChatModal {
     footer.closeNewChatButton();
     this.usernameAvailable.style.display = 'none';
     this.submitButton.disabled = true;
+    walletScreen.updateWalletBalances();
     // Delay focus to ensure transition completes (modal transition is 300ms)
     setTimeout(() => {
       this.recipientInput.focus();
