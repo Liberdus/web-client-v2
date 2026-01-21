@@ -18214,8 +18214,14 @@ class ImportContactsModal {
       const failedContacts = [];
       const importedContacts = [];
 
-      // Parallel validation of all selected contacts
-      const validationPromises = Array.from(this.selectedContacts).map(async (address) => {
+      // Limit to 20 contacts maximum
+      const selectedContactsArray = Array.from(this.selectedContacts);
+      const totalSelected = selectedContactsArray.length;
+      const contactsToProcess = selectedContactsArray.slice(0, 20);
+      const hasMoreThan20 = totalSelected > 20;
+
+      // Parallel validation of selected contacts (limited to 20)
+      const validationPromises = contactsToProcess.map(async (address) => {
         const parsedContact = this.parsedContacts.find(c => normalizeAddress(c.address) === address);
         if (!parsedContact) return { parsedContact: null, validation: null };
         
@@ -18225,7 +18231,7 @@ class ImportContactsModal {
 
       const results = await Promise.allSettled(validationPromises);
 
-      // Process validation results and create contacts
+      // Process validation results and create contacts (limited to 20)
       for (const result of results) {
         if (result.status === 'rejected') {
           console.error('Validation promise rejected:', result.reason);
@@ -18311,6 +18317,11 @@ class ImportContactsModal {
       } else if (failedCount > 0) {
         const failedList = failedContacts.map(c => c.username).join(', ');
         showToast(`Failed to import: ${failedList}`, 0, 'error');
+      }
+
+      // Show warning if more than 20 contacts were selected
+      if (hasMoreThan20) {
+        showToast('Only 20 contacts can be imported at a time. Please import the remaining contacts in another batch.', 0, 'warning');
       }
 
       this.close();
