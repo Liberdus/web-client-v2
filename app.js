@@ -5975,7 +5975,7 @@ async function injectTx(tx, txid) {
   function maybeShowLowLibToast() {
     try {
       // Keep this simple: check locally cached wallet values only.
-      const LOW_LIB_USD_THRESHOLD = 0.02;
+      const LOW_LIB_USD_THRESHOLD = 0.2;
       if (!myData?.wallet?.assets || !Array.isArray(myData.wallet.assets)) return;
       const libAsset = myData.wallet.assets.find((asset) => asset?.symbol === 'LIB');
       if (!libAsset) return;
