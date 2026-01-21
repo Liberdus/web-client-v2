@@ -17687,7 +17687,7 @@ class ImportContactsModal {
     this.isImporting = false;
     this.parsedContacts = [];
     this.currentAttachment = null;
-    this.senderAddress = null;
+    this.recipientAddress = null;
   }
 
   load() {
@@ -17706,9 +17706,9 @@ class ImportContactsModal {
     this.doneButton.addEventListener('click', () => this.handleDone());
     this.contactsList.addEventListener('click', (e) => this.handleContactClick(e));
     this.actionButton.addEventListener('click', () => {
-      if (this.senderAddress) {
+      if (this.recipientAddress) {
         this.close();
-        friendModal.setAddress(this.senderAddress);
+        friendModal.setAddress(this.recipientAddress);
         friendModal.open();
       }
     });
@@ -17725,7 +17725,7 @@ class ImportContactsModal {
     this.isImporting = false;
     this.parsedContacts = [];
     this.currentAttachment = attachment;
-    this.senderAddress = attachment?.senderAddress || null;
+    this.recipientAddress = attachment?.senderAddress || null;
     this.doneButton.classList.remove('loading');
     this.doneButton.disabled = true;
     this.allNoneButton.classList.remove('all-selected');
@@ -17755,11 +17755,11 @@ class ImportContactsModal {
       return;
     }
 
-    // Check connection status if sender address is provided
-    if (this.senderAddress) {
-      const sender = myData.contacts[this.senderAddress];
-      if (sender && sender.friend !== 2) {
-        // Sender is not a connection - show warning
+    // Check connection status if recipient address is provided
+    if (this.recipientAddress) {
+      const recipient = myData.contacts[this.recipientAddress];
+      if (recipient && recipient.friend !== 2) {
+        // Recipient is not a connection - show warning
         const emptyStateChildren = this.emptyState.children;
         if (emptyStateChildren.length >= 3) {
           emptyStateChildren[1].textContent = 'Cannot import contacts';
