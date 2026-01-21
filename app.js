@@ -13859,10 +13859,10 @@ class ChatModal {
       return;
     }
 
-    // File size limit (e.g., 10MB)
-    const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+    // File size limit (e.g., 100MB)
+    const maxSize = 100 * 1024 * 1024; // 100MB in bytes
     if (file.size > maxSize) {
-      showToast('File size too large. Maximum size is 10MB.', 0, 'error');
+      showToast('File size too large. Maximum size is 100MB.', 0, 'error');
       event.target.value = ''; // Reset file input
       return;
     }
