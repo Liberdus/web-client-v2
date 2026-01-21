@@ -17269,7 +17269,8 @@ class ShareContactsModal {
     if (recipientAddress) {
       const recipient = myData.contacts[recipientAddress];
       if (recipient) {
-        const tollRequiredToSend = recipient.tollRequiredToSend;
+        // if undefined fallback to value 1 (toll required) so user cannot share contacts
+        const tollRequiredToSend = recipient.tollRequiredToSend ?? 1;
 
         // Check if user hasn't added recipient as connection (contact.friend !== 2)
         if (recipient.friend !== 2) {
