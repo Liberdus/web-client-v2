@@ -1392,6 +1392,10 @@
           <span class="context-menu-icon"></span>
           <span class="context-menu-text">Save</span>
         </div>
+        <div class="context-menu-option" data-action="share" data-icon="share">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text">Share</span>
+        </div>
         <div class="context-menu-option" data-action="reply" data-icon="reply">
           <span class="context-menu-icon"></span>
           <span class="context-menu-text">Reply</span>
@@ -1478,6 +1482,44 @@
               <div class="call-invite-footer-actions">
                 <button id="callInviteCancelBtn" class="btn btn--secondary btn--pill">Cancel</button>
                 <button id="callInviteSendBtn" class="btn btn--primary btn--pill">Invite</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Share Attachment Modal -->
+      <div class="modal fixed-header" id="shareAttachmentModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeShareAttachmentModal"></button>
+          <div class="modal-title">Share Attachment</div>
+        </div>
+        <div class="modal-content">
+          <div class="form-container call-invite-modal-container">
+            <div class="call-invite-contacts-scroll">
+                <div class="empty-state">
+                  <div></div>
+                  <div>No Contacts Found</div>
+                  <div>Add contacts to share with them</div>
+                </div>
+              <div class="contacts-list" id="shareAttachmentContactsList">
+                <!-- Contacts will be populated here -->
+              </div>
+            </div>
+            <template id="shareAttachmentContactTemplate">
+              <div class="call-invite-contact-row" data-address="">
+                <label class="call-invite-contact-label">
+                  <input type="checkbox" class="call-invite-contact-checkbox" value="" />
+                  <span class="call-invite-contact-name"></span>
+                </label>
+              </div>
+            </template>
+            <div class="call-invite-modal-footer">
+              <div id="shareAttachmentCounter" class="call-invite-counter">0 selected (max 10)</div>
+              <div class="call-invite-footer-actions">
+                <button id="shareAttachmentCancelBtn" class="btn btn--secondary btn--pill">Cancel</button>
+                <button id="shareAttachmentSendBtn" class="btn btn--primary btn--pill">Share</button>
               </div>
             </div>
           </div>
