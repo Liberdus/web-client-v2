@@ -340,6 +340,93 @@ function migrateFriendStatusToConnection(data) {
 }
 
 /**
+ * One-time migration: extract DH-derived encryption keys to random encKey field
+ * This decouples attachment encryption from recipient keys for easier sharing
+ * @param {Object} data
+ * @returns {Promise<boolean>} True if migration flag was applied
+ */
+async function migrateAttachmentKeysToEncKey(data) {
+  if (!data?.account) return false;
+
+  const migrations =
+    data.account.migrations && typeof data.account.migrations === 'object'
+      ? data.account.migrations
+      : null;
+
+  if (migrations?.attachmentKeysToEncKey === true) {
+    return false;
+  }
+
+  if (data.contacts && typeof data.contacts === 'object') {
+    for (const [address, contact] of Object.entries(data.contacts)) {
+      if (!contact || typeof contact !== 'object') continue;
+      if (!Array.isArray(contact.messages)) continue;
+
+      for (const message of contact.messages) {
+        if (!message || typeof message !== 'object') continue;
+        if (!Array.isArray(message.xattach)) continue;
+
+        for (const attachment of message.xattach) {
+          if (!attachment || typeof attachment !== 'object') continue;
+          
+          // Skip if already has encKey
+          if (attachment.encKey) continue;
+
+          let dhkey;
+          
+          if (message.my) {
+            // Sent message: decrypt selfKey to get dhkey
+            if (!attachment.selfKey) continue;
+            try {
+              const password = data.account.keys.secret + data.account.keys.pqSeed;
+              dhkey = hex2bin(decryptData(attachment.selfKey, password, true));
+            } catch (e) {
+              console.warn('Failed to decrypt attachment selfKey during migration:', e);
+              continue;
+            }
+          } else {
+            // Received message: decrypt pqEncSharedKey to get dhkey
+            if (!attachment.pqEncSharedKey) continue;
+            try {
+              // Ensure contact keys are available
+              await ensureContactKeys(address);
+              const senderPublicKey = data.contacts[address]?.public;
+              if (!senderPublicKey) {
+                console.warn('No public key found for sender during migration:', address);
+                continue;
+              }
+              
+              const pqCipher = (typeof attachment.pqEncSharedKey === 'string') 
+                ? base642bin(attachment.pqEncSharedKey) 
+                : attachment.pqEncSharedKey;
+              
+              dhkey = dhkeyCombined(
+                data.account.keys.secret,
+                senderPublicKey,
+                data.account.keys.pqSeed,
+                pqCipher
+              ).dhkey;
+            } catch (e) {
+              console.warn('Failed to decrypt attachment pqEncSharedKey during migration:', e);
+              continue;
+            }
+          }
+
+          // Store the dhkey as encKey
+          if (dhkey) {
+            attachment.encKey = bin2base64(dhkey);
+          }
+        }
+      }
+    }
+  }
+
+  data.account.migrations = migrations && typeof migrations === 'object' ? migrations : {};
+  data.account.migrations.attachmentKeysToEncKey = true;
+  return true;
+}
+
+/**
  * Checks if the current account is private
  * @returns {boolean} True if the account is private, false otherwise
  */
@@ -3291,6 +3378,12 @@ class SignInModal {
 
     // One-time migration: convert legacy friend status to connection
     if (migrateFriendStatusToConnection(myData)) {
+      saveState();
+    }
+
+
+    // One-time migration: extract attachment encryption keys to encKey field
+    if (await migrateAttachmentKeysToEncKey(myData)) {
       saveState();
     }
 
