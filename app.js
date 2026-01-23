@@ -13900,9 +13900,9 @@ class ChatModal {
       this.sendButton.disabled = true; // Disable send button during encryption
       this.addAttachmentButton.disabled = true;
       loadingToastId = showToast(`Attaching file...`, 0, 'loading');
-      const { dhkey, cipherText: pqEncSharedKey } = await this.getRecipientDhKey(this.address);
-      const password = myAccount.keys.secret + myAccount.keys.pqSeed;
-      const selfKey = encryptData(bin2hex(dhkey), password, true)
+      
+      // Generate random encryption key for this attachment
+      const encKey = generateRandomBytes(32);
 
       const worker = new Worker('encryption.worker.js', { type: 'module' });
       worker.onmessage = async (e) => {
@@ -13930,8 +13930,8 @@ class ChatModal {
             let previewUrl = null;
             if (capturedThumbnailBlob) {
               try {
-                // Encrypt thumbnail using same dhkey as main file
-                const encryptedThumbnailBlob = await encryptBlob(capturedThumbnailBlob, dhkey);
+                // Encrypt thumbnail using same random key as main file
+                const encryptedThumbnailBlob = await encryptBlob(capturedThumbnailBlob, encKey);
                 // Upload encrypted thumbnail
                 previewUrl = await this.uploadEncryptedFile(encryptedThumbnailBlob, file.name);
               } catch (error) {
@@ -13944,12 +13944,11 @@ class ChatModal {
             
             this.fileAttachments.push({
               url: attachmentUrl,
-              pUrl: previewUrl,  // NEW FIELD (undefined if upload failed)
+              pUrl: previewUrl,
               name: file.name,
               size: file.size,
               type: normalizedType,
-              pqEncSharedKey: bin2base64(pqEncSharedKey),  // Same key for main file AND thumbnail
-              selfKey  // Same key for main file AND thumbnail
+              encKey: bin2base64(encKey)  // Store random encryption key directly
             });
             
             // Cache thumbnail if we generated one - use captured variable
@@ -14006,7 +14005,7 @@ class ChatModal {
       // read the file and send it to the worker for encryption
       const reader = new FileReader();
       reader.onload = async (e) => {
-        worker.postMessage({ fileBuffer: e.target.result, dhkey }, [e.target.result]);
+        worker.postMessage({ fileBuffer: e.target.result, dhkey: encKey }, [e.target.result]);
       };
       reader.readAsArrayBuffer(file);
       
