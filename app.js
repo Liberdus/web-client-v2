@@ -13948,7 +13948,7 @@ class ChatModal {
               name: file.name,
               size: file.size,
               type: normalizedType,
-              encKey: bin2base64(encKey)  // Store random encryption key directly
+              encKey: bin2base64(encKey)
             });
             
             // Cache thumbnail if we generated one - use captured variable
@@ -14397,7 +14397,7 @@ class ChatModal {
     
     // 1) Get encryption key
     if (isVoice) {
-      // Voice message: use audio keys from the message item (no encKey for voice messages yet)
+      // Voice message: use audio keys from the message item (no encKey for voice messages)
       const selfKey = item.audioSelfKey || item.selfKey;
       const pqEncSharedKey = item.audioPqEncSharedKey || item.pqEncSharedKey;
       
@@ -14465,7 +14465,6 @@ class ChatModal {
     const blobType = urlOverride ? 'image/jpeg' : (linkEl.dataset.type || 'application/octet-stream');
     return new Blob([clearBin], { type: blobType });
   }
-
 
   /**
    * Handles attachment errors, showing appropriate toast messages.
