@@ -17456,7 +17456,6 @@ class ShareAttachmentModal {
     const name = attachmentRow.dataset.name;
     const type = attachmentRow.dataset.type;
     const msgIdx = attachmentRow.dataset.msgIdx;
-    const isMine = messageEl.classList.contains('sent');
 
     if (!url) return null;
 
@@ -17477,26 +17476,13 @@ class ShareAttachmentModal {
 
     const attachmentData = messageData.xattach[0];
 
-    console.log('Extracting attachment data:', {
-      url: attachmentData.url ? 'present' : 'missing',
-      pUrl: attachmentData.pUrl ? 'present' : 'missing',
-      name: attachmentData.name,
-      size: attachmentData.size,
-      type: attachmentData.type,
-      pqEncSharedKey: attachmentData.pqEncSharedKey ? `${attachmentData.pqEncSharedKey.substring(0, 20)}...` : 'missing',
-      selfKey: attachmentData.selfKey ? `${attachmentData.selfKey.substring(0, 20)}...` : 'missing',
-      isMine
-    });
-
     return {
       url: attachmentData.url,
       pUrl: attachmentData.pUrl || null,
       name: attachmentData.name || name || 'attachment',
       size: attachmentData.size || 0,
       type: attachmentData.type || type || 'application/octet-stream',
-      pqEncSharedKey: attachmentData.pqEncSharedKey,
-      selfKey: attachmentData.selfKey,
-      isMine
+      encKey: attachmentData.encKey
     };
   }
 
@@ -17519,64 +17505,12 @@ class ShareAttachmentModal {
         return;
       }
 
-      // Determine the original file's encryption key (dhkey)
-      let originalDhkey;
-      
-      console.log('Attempting to share attachment. isMine:', this.attachmentData.isMine);
-      
-      if (this.attachmentData.isMine) {
-        // This is our own sent attachment - decrypt the selfKey to get the original dhkey
-        if (!this.attachmentData.selfKey) {
-          console.error('selfKey is missing from sent attachment');
-          showToast('Missing encryption key for sent attachment', 0, 'error');
-          return;
-        }
-        
-        console.log('Decrypting selfKey for sent attachment...');
-        const password = keys.secret + keys.pqSeed;
-        try {
-          const originalDhkeyHex = decryptData(this.attachmentData.selfKey, password, true);
-          if (!originalDhkeyHex) {
-            console.error('decryptData returned falsy value');
-            showToast('Failed to decrypt original file key', 0, 'error');
-            return;
-          }
-          originalDhkey = hex2bin(originalDhkeyHex);
-          console.log('Successfully decrypted selfKey');
-        } catch (err) {
-          console.error('Error decrypting selfKey:', err);
-          console.error('selfKey value:', this.attachmentData.selfKey);
-          showToast('Failed to decrypt original file key: ' + err.message, 0, 'error');
-          return;
-        }
-      } else {
-        // This is a received attachment - derive the dhkey from the original sender
-        if (!this.attachmentData.pqEncSharedKey) {
-          showToast('Missing encryption data for received attachment', 0, 'error');
-          return;
-        }
-        
-        // Get the original sender's address (the person who sent us this attachment)
-        const originalSenderAddress = chatModal.address;
-        const ok = await ensureContactKeys(originalSenderAddress);
-        const senderPublicKey = myData.contacts[originalSenderAddress]?.public;
-        if (!ok || !senderPublicKey) {
-          showToast('Cannot get sender public key', 0, 'error');
-          return;
-        }
-        
-        // Derive the dhkey that was used to encrypt the file
-        const pqCipher = base642bin(this.attachmentData.pqEncSharedKey);
-        originalDhkey = dhkeyCombined(
-          keys.secret,
-          senderPublicKey,
-          keys.pqSeed,
-          pqCipher
-        ).dhkey;
+      // Get the file's encryption key (migration ensures all attachments have encKey)
+      const encKey = this.attachmentData.encKey;
+      if (!encKey) {
+        showToast('Missing encryption key for attachment', 0, 'error');
+        return;
       }
-
-      const originalDhkeyHex = bin2hex(originalDhkey);
-      const password = keys.secret + keys.pqSeed;
 
       for (const addr of addresses) {
         const contact = myData.contacts[addr];
@@ -17591,35 +17525,29 @@ class ShareAttachmentModal {
         
         // Create new dhkey for sharing recipient
         const {dhkey: recipientDhkey, cipherText} = dhkeyCombined(keys.secret, recipientPubKey, pqRecPubKey);
-        
-        // Re-encrypt the ORIGINAL file's dhkey for the new recipient
-        // This allows them to decrypt the file that's already on the server
-        const reEncryptedOriginalKey = encryptChacha(recipientDhkey, originalDhkeyHex);
-        
-        // Also encrypt it for ourselves (selfKey) so we can share it again later
-        const selfKey = encryptData(originalDhkeyHex, password, true);
 
-        // Create new attachment object with re-encrypted keys
-        const reEncryptedAttachment = {
+        // Create attachment object - encKey will be encrypted in the message envelope
+        const sharedAttachment = {
           url: this.attachmentData.url,
           pUrl: this.attachmentData.pUrl,
           name: this.attachmentData.name,
           size: this.attachmentData.size,
           type: this.attachmentData.type,
-          pqEncSharedKey: bin2base64(cipherText),
-          selfKey: selfKey,
-          // Store the re-encrypted original key so recipient can decrypt the file
-          reEncryptedKey: reEncryptedOriginalKey
+          encKey: encKey  // File encryption key (will be encrypted with message)
         };
 
         // Build message with attachment
         const messageObj = {
           type: 'message',
           message: '',  // Empty message text
-          attachments: [reEncryptedAttachment]
+          attachments: [sharedAttachment]
         };
 
         const encMessage = encryptChacha(recipientDhkey, stringify(messageObj));
+        
+        // For ourselves: re-encrypt encKey with our password for local storage
+        const password = keys.secret + keys.pqSeed;
+        const selfKey = encryptData(bin2hex(base642bin(encKey)), password, true);
 
         const messagePayload = {
           message: encMessage,
@@ -17657,7 +17585,7 @@ class ShareAttachmentModal {
         await signObj(chatMessageObj, keys);
         const txid = getTxid(chatMessageObj);
 
-        // Create new message object for local display
+        // Create new message object for local display (with encKey in plaintext for our use)
         const newMessage = {
           message: '',
           timestamp: messagePayload.sent_timestamp,
@@ -17665,7 +17593,14 @@ class ShareAttachmentModal {
           my: true,
           txid: txid,
           status: 'sent',
-          xattach: [reEncryptedAttachment]
+          xattach: [{
+            url: this.attachmentData.url,
+            pUrl: this.attachmentData.pUrl,
+            name: this.attachmentData.name,
+            size: this.attachmentData.size,
+            type: this.attachmentData.type,
+            encKey: encKey  // Store in plaintext locally
+          }]
         };
         insertSorted(contact.messages, newMessage, 'timestamp');
 
@@ -17696,8 +17631,10 @@ class ShareAttachmentModal {
           if (chatModal.isActive() && chatModal.address === addr) {
             chatModal.appendChatModal();
           }
+          showToast(`Failed to share with ${contact?.username || addr}`, 3000, 'error');
+        } else {
+          showToast(`Attachment shared with ${contact?.username || addr}`, 3000, 'success');
         }
-        showToast(`Attachment shared with ${contact?.username || addr}`, 3000, 'success');
       }
 
     } catch (err) {
