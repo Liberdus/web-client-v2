@@ -5385,82 +5385,83 @@ async function processChats(chats, keys) {
                   
                   // Verify that the sender is the same who sent the message they're trying to delete
                   const messageToDelete = contact.messages.find(msg => msg.txid === txidToDelete);
-                  
-                  if (messageToDelete) {
-                    // Only allow deletion if the sender of this delete tx is the same who sent the original message
-                    // (normalize addresses for comparison)
-                    const originalSender = normalizeAddress(tx.from);
-                    
-                    if (!messageToDelete.my && originalSender === from) {
-                      // This is a message received from sender, who is now deleting it - valid
-                      // Purge cached thumbnails for image attachments, if any
-                      chatModal.purgeThumbnail(messageToDelete.xattach);
-
-                      // Mark the message as deleted
-                      messageToDelete.deleted = 1;
-                      messageToDelete.message = "Deleted by sender";
-                      // Remove attachments so we don't keep references around
-                      delete messageToDelete.xattach;
-                      
-                      // Remove payment-specific fields if present
-                      if (messageToDelete.amount) {
-                        if (messageToDelete.payment) delete messageToDelete.payment;
-                        if (messageToDelete.memo) messageToDelete.memo = "Deleted by sender";
-                        if (messageToDelete.amount) delete messageToDelete.amount;
-                        if (messageToDelete.symbol) delete messageToDelete.symbol;
-                        
-                        // Update corresponding transaction in wallet history
-                        const txIndex = myData.wallet.history.findIndex((tx) => tx.txid === messageToDelete.txid);
-                        if (txIndex !== -1) {
-                          Object.assign(myData.wallet.history[txIndex], { deleted: 1, memo: 'Deleted by sender' });
-                          delete myData.wallet.history[txIndex].amount;
-                          delete myData.wallet.history[txIndex].symbol;
-                          delete myData.wallet.history[txIndex].payment;
-                          delete myData.wallet.history[txIndex].sign;
-                          delete myData.wallet.history[txIndex].address;
-                        }
-                      }
-                    } else if (messageToDelete.my && normalizeAddress(keys.address) === normalizeAddress(tx.from)) {
-                      // This is our own message, and we're deleting it - valid
-                      // Purge cached thumbnails for image attachments, if any
-                      chatModal.purgeThumbnail(messageToDelete.xattach);
-
-                      // Mark the message as deleted
-                      messageToDelete.deleted = 1;
-                      messageToDelete.message = "Deleted for all";
-                      // Remove attachments so we don't keep references around
-                      delete messageToDelete.xattach;
-                      
-                      // Remove payment-specific fields if present - same logic as above
-                      if (messageToDelete.amount) {
-                        if (messageToDelete.payment) delete messageToDelete.payment;
-                        if (messageToDelete.memo) messageToDelete.memo = "Deleted for all";
-                        if (messageToDelete.amount) delete messageToDelete.amount;
-                        if (messageToDelete.symbol) delete messageToDelete.symbol;
-                        
-                        // Update corresponding transaction in wallet history
-                        const txIndex = myData.wallet.history.findIndex((tx) => tx.txid === messageToDelete.txid);
-                        if (txIndex !== -1) {
-                          Object.assign(myData.wallet.history[txIndex], { deleted: 1, memo: 'Deleted for all' });
-                          delete myData.wallet.history[txIndex].amount;
-                          delete myData.wallet.history[txIndex].symbol;
-                          delete myData.wallet.history[txIndex].payment;
-                          delete myData.wallet.history[txIndex].sign;
-                          delete myData.wallet.history[txIndex].address;
-                        }
-                      }
-                    }
-
-                    if (reactNativeApp.isReactNativeWebView && messageToDelete.type === 'call' && Number(messageToDelete.callTime) > 0) {
-                      reactNativeApp.sendCancelScheduledCall(contact?.username, Number(messageToDelete.callTime));
-                    }
-                    
-                    if (chatModal.isActive() && chatModal.address === from) {
-                      chatModal.appendChatModal();
-                    }
-                    // Don't process this message further - it's just a control message
-                    continue;
+                  if (!messageToDelete) {
+                    continue; // ignore delete control messages for missing txid
                   }
+                  
+                  // Only allow deletion if the sender of this delete tx is the same who sent the original message
+                  // (normalize addresses for comparison)
+                  const originalSender = normalizeAddress(tx.from);
+                  
+                  if (!messageToDelete.my && originalSender === from) {
+                    // This is a message received from sender, who is now deleting it - valid
+                    // Purge cached thumbnails for image attachments, if any
+                    chatModal.purgeThumbnail(messageToDelete.xattach);
+
+                    // Mark the message as deleted
+                    messageToDelete.deleted = 1;
+                    messageToDelete.message = "Deleted by sender";
+                    // Remove attachments so we don't keep references around
+                    delete messageToDelete.xattach;
+                    
+                    // Remove payment-specific fields if present
+                    if (messageToDelete.amount) {
+                      if (messageToDelete.payment) delete messageToDelete.payment;
+                      if (messageToDelete.memo) messageToDelete.memo = "Deleted by sender";
+                      if (messageToDelete.amount) delete messageToDelete.amount;
+                      if (messageToDelete.symbol) delete messageToDelete.symbol;
+                      
+                      // Update corresponding transaction in wallet history
+                      const txIndex = myData.wallet.history.findIndex((tx) => tx.txid === messageToDelete.txid);
+                      if (txIndex !== -1) {
+                        Object.assign(myData.wallet.history[txIndex], { deleted: 1, memo: 'Deleted by sender' });
+                        delete myData.wallet.history[txIndex].amount;
+                        delete myData.wallet.history[txIndex].symbol;
+                        delete myData.wallet.history[txIndex].payment;
+                        delete myData.wallet.history[txIndex].sign;
+                        delete myData.wallet.history[txIndex].address;
+                      }
+                    }
+                  } else if (messageToDelete.my && normalizeAddress(keys.address) === normalizeAddress(tx.from)) {
+                    // This is our own message, and we're deleting it - valid
+                    // Purge cached thumbnails for image attachments, if any
+                    chatModal.purgeThumbnail(messageToDelete.xattach);
+
+                    // Mark the message as deleted
+                    messageToDelete.deleted = 1;
+                    messageToDelete.message = "Deleted for all";
+                    // Remove attachments so we don't keep references around
+                    delete messageToDelete.xattach;
+                    
+                    // Remove payment-specific fields if present - same logic as above
+                    if (messageToDelete.amount) {
+                      if (messageToDelete.payment) delete messageToDelete.payment;
+                      if (messageToDelete.memo) messageToDelete.memo = "Deleted for all";
+                      if (messageToDelete.amount) delete messageToDelete.amount;
+                      if (messageToDelete.symbol) delete messageToDelete.symbol;
+                      
+                      // Update corresponding transaction in wallet history
+                      const txIndex = myData.wallet.history.findIndex((tx) => tx.txid === messageToDelete.txid);
+                      if (txIndex !== -1) {
+                        Object.assign(myData.wallet.history[txIndex], { deleted: 1, memo: 'Deleted for all' });
+                        delete myData.wallet.history[txIndex].amount;
+                        delete myData.wallet.history[txIndex].symbol;
+                        delete myData.wallet.history[txIndex].payment;
+                        delete myData.wallet.history[txIndex].sign;
+                        delete myData.wallet.history[txIndex].address;
+                      }
+                    }
+                  }
+
+                  if (reactNativeApp.isReactNativeWebView && messageToDelete.type === 'call' && Number(messageToDelete.callTime) > 0) {
+                    reactNativeApp.sendCancelScheduledCall(contact?.username, Number(messageToDelete.callTime));
+                  }
+                  
+                  if (chatModal.isActive() && chatModal.address === from) {
+                    chatModal.appendChatModal();
+                  }
+                  // Don't process this message further - it's just a control message
+                  continue;
                 } else if (parsedMessage.type === 'edit') {
                   const txidToEdit = parsedMessage.txid;
                   const newText = parsedMessage.text;
