@@ -4579,13 +4579,23 @@ small {
 /* Call Invite Modal Styles */
 .call-invite-modal-container {
   min-height: 250px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+#shareAttachmentModal .modal-content,
+#callInviteModal .modal-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .call-invite-contacts-scroll {
-  overflow: auto;
+  overflow-y: auto;
   flex: 1 1 auto;
   padding: 8px 0;
-  max-height: calc(72vh - 120px);
+  min-height: 0;
 }
 
 .call-invite-section-header {
@@ -4629,9 +4639,7 @@ small {
   justify-content: space-between;
   gap: 12px;
   background: var(--modal-footer-bg, #fff);
-  /* pin to bottom of modal content */
-  position: sticky;
-  bottom: 0;
+  flex-shrink: 0;
 }
 
 .call-invite-counter {
