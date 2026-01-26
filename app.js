@@ -17358,9 +17358,10 @@ class ShareAttachmentModal {
     this.contactsList.innerHTML = '';
     this.modal.classList.add('active');
 
-    // Build contacts list (exclude self) and group by status
+    // Build contacts list (exclude self and current chat contact) and group by status
+    const currentChatAddress = chatModal.address;
     const allContacts = Object.values(myData.contacts || {})
-      .filter(c => c.address !== myAccount.address)
+      .filter(c => c.address !== myAccount.address && c.address !== currentChatAddress)
       .map(c => ({
         address: c.address,
         username: c.username || c.address,
