@@ -17570,8 +17570,8 @@ class ShareAttachmentModal {
           continue;
         }
         
-        // Calculate toll amount: 0 for friends/connections, chatModal.toll for others
-        let tollInLib = tollRequiredToSend === 0 ? 0n : chatModal.toll;
+        // Calculate toll amount: 0 for connections, recipient's required toll for others
+        let tollInLib = tollRequiredToSend === 0 ? 0n : (contact.toll || 0n);
         
         // Add network fee to the toll amount
         tollInLib = tollInLib + getTransactionFeeWei();
