@@ -16235,7 +16235,6 @@ class ChatModal {
     if (isOffline && (contact.toll === undefined || contact.toll === null)) {
       tollLabel.textContent = 'Toll:';
       tollValue.textContent = 'offline';
-      tollValue.style.color = '';
       this.toll = 0n;
       this.tollUnit = 'LIB';
       return;
@@ -16252,7 +16251,12 @@ class ChatModal {
       // Toll is required - show as "Toll cost:" with amount in red
       tollLabel.textContent = 'Toll cost:';
       display = usdString;
-      tollValue.classList.add('toll-cost');
+      // if the value of toll is 0, use toll-free class instead
+      if(contact.toll == 0n) {  
+        tollValue.classList.add('toll-free');
+      } else {
+        tollValue.classList.add('toll-cost');
+      }
     } else if (contact.tollRequiredToSend == 2) {
       // User is blocked - show as "Toll cost:" with "blocked" in red
       tollLabel.textContent = 'Toll cost:';
@@ -16265,7 +16269,6 @@ class ChatModal {
       tollValue.classList.add('toll-free');
     }
     tollValue.textContent = display;
-    tollValue.style.color = ''; // Clear inline style to use CSS classes
 
     // Store the toll in LIB format for message creation (chat messages expect LIB wei)
     this.toll = typeof libWei === 'bigint' ? libWei : 0n;
