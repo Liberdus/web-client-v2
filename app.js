@@ -20370,11 +20370,10 @@ class NewChatModal {
 
   /**
    * Invoked when the user clicks the Invite button
-   * It will close the new chat modal and open the invite modal
+   * It will open the invite modal without closing newChatModal
    * @returns {void}
    */
   handleInviteClick() {
-    this.closeNewChatModal();
     inviteModal.open();
   }
 }
