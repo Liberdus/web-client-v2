@@ -1171,6 +1171,47 @@ button:disabled {
   color: var(--text-color);
 }
 
+/* Selected file display (generic) */
+.selected-file-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--hover-background);
+  border-radius: 12px;
+  font-size: var(--font-size-sm);
+}
+
+.selected-file-display .selected-file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-color);
+}
+
+.selected-file-display .clear-file-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: var(--hover-background-dark);
+  color: var(--secondary-text-color);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  transition: background-color 0.2s ease;
+}
+
+.selected-file-display .clear-file-btn:hover {
+  background: var(--hover-background-dark);
+  color: var(--text-color);
+}
+
 .btn.btn--primary:disabled,
 .btn.btn--secondary:disabled,
 .btn.btn--danger:disabled {
@@ -5690,6 +5731,11 @@ small {
 /* Calls icon for settings menu - reuse existing phone icon */
 .menu-item[data-icon="call"]::before {
   background-image: var(--icon-phone);
+}
+
+/* Contacts icon for settings menu - reuse existing contacts icon */
+.menu-item[data-icon="contacts"]::before {
+  background-image: var(--icon-contacts);
 }
 
 .menu-item[data-icon="arrow-right-arrow-left"]::before {

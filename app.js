@@ -556,6 +556,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Settings Modal
   settingsModal.load();
 
+  // Manage Contacts Modal
+  manageContactsModal.load();
+
   // Secret Modal
   secretModal.load();
 
@@ -2658,6 +2661,9 @@ class SettingsModal {
     this.callsButton = document.getElementById('openCallsModal');
     this.callsButton.addEventListener('click', () => callsModal.open());
     
+    this.contactsButton = document.getElementById('openManageContactsModal');
+    this.contactsButton.addEventListener('click', () => manageContactsModal.open());
+    
     this.profileButton = document.getElementById('openAccountForm');
     this.profileButton.addEventListener('click', () => myProfileModal.open());
     
@@ -2712,6 +2718,124 @@ class SettingsModal {
 }
 
 const settingsModal = new SettingsModal();
+
+/**
+ * Manage Contacts Modal
+ * Allows users to import contacts from a VCF file
+ */
+class ManageContactsModal {
+  constructor() {
+    this.selectedFile = null;
+  }
+
+  load() {
+    this.modal = document.getElementById('manageContactsModal');
+    this.closeButton = document.getElementById('closeManageContactsModal');
+    this.fileInput = document.getElementById('manageContactsFileInput');
+    this.selectedFileDisplay = document.getElementById('manageContactsSelectedFile');
+    this.clearFileBtn = document.getElementById('manageContactsClearFile');
+    this.importBtn = document.getElementById('manageContactsImportBtn');
+
+    // Event listeners
+    this.closeButton.addEventListener('click', () => this.close());
+    this.fileInput.addEventListener('change', (e) => this.handleFileSelected(e));
+    this.clearFileBtn.addEventListener('click', () => this.clearFile());
+    this.importBtn.addEventListener('click', () => this.handleImport());
+  }
+
+  /**
+   * Opens the manage contacts modal
+   */
+  open() {
+    this.clearFile();
+    this.modal.classList.add('active');
+    enterFullscreen();
+  }
+
+  /**
+   * Closes the modal
+   */
+  close() {
+    this.modal.classList.remove('active');
+    this.clearFile();
+    enterFullscreen();
+  }
+
+  /**
+   * Checks if the modal is active
+   * @returns {boolean}
+   */
+  isActive() {
+    return this.modal?.classList.contains('active') || false;
+  }
+
+  /**
+   * Handles file selection
+   * @param {Event} e - Change event
+   */
+  handleFileSelected(e) {
+    const file = e.target.files?.[0];
+    if (!file) {
+      this.clearFile();
+      return;
+    }
+
+    // Validate file type
+    const isVcf = file.name.toLowerCase().endsWith('.vcf') || 
+                  file.type === 'text/vcard' || 
+                  file.type === 'text/x-vcard';
+    if (!isVcf) {
+      showToast('Please select a VCF file', 2000, 'error');
+      this.clearFile();
+      return;
+    }
+
+    this.selectedFile = file;
+    this.selectedFileDisplay.style.display = 'flex';
+    this.selectedFileDisplay.querySelector('.selected-file-name').textContent = file.name;
+    this.fileInput.style.display = 'none';
+    this.importBtn.disabled = false;
+  }
+
+  /**
+   * Clears the selected file
+   */
+  clearFile() {
+    this.selectedFile = null;
+    this.fileInput.value = '';
+    this.fileInput.style.display = 'block';
+    this.selectedFileDisplay.style.display = 'none';
+    this.importBtn.disabled = true;
+  }
+
+  /**
+   * Handles the import button click
+   */
+  async handleImport() {
+    if (!this.selectedFile) {
+      showToast('Please select a VCF file first', 2000, 'error');
+      return;
+    }
+
+    try {
+      // Read the file content
+      const vcfContent = await this.selectedFile.text();
+
+      // Close this modal
+      this.close();
+
+      // Open the import contacts modal with local VCF content
+      // The import modal handles network ID validation and parsing
+      importContactsModal.open({ vcfContent, isLocal: true });
+
+    } catch (err) {
+      console.error('Failed to read VCF file:', err);
+      showToast('Failed to read the VCF file', 0, 'error');
+    }
+  }
+}
+
+const manageContactsModal = new ManageContactsModal();
 
 class SecretModal {
   constructor() { }
@@ -18177,21 +18301,25 @@ class ImportContactsModal {
   }
 
   /**
-   * Opens the import contacts modal with an attachment
+   * Opens the import contacts modal with an attachment or local VCF file
    * @param {Object} attachment - The VCF attachment object with url, pqEncSharedKey, selfKey
+   *                              OR { vcfContent: string, isLocal: true } for local file uploads
    */
   async open(attachment) {
+    const isLocalUpload = attachment?.isLocal === true;
+
     // Reset state
     this.selectedContacts.clear();
     this.warningShown = false;
     this.isImporting = false;
     this.parsedContacts = [];
-    this.currentAttachment = attachment;
-    this.recipientAddress = attachment?.senderAddress || null;
+    this.currentAttachment = isLocalUpload ? null : attachment;
+    this.recipientAddress = isLocalUpload ? null : (attachment?.senderAddress || null);
     this.doneButton.classList.remove('loading');
     this.doneButton.disabled = true;
     this.allNoneButton.classList.remove('all-selected');
     this.allNoneButton.setAttribute('aria-label', 'Select all');
+    this.allNoneButton.disabled = false;
 
     // Clear existing list
     this.contactsList.innerHTML = '';
@@ -18217,8 +18345,8 @@ class ImportContactsModal {
       return;
     }
 
-    // Check contact status if recipient address is provided
-    if (this.recipientAddress) {
+    // Check contact status if recipient address is provided (skip for local uploads - user explicitly chose the file)
+    if (!isLocalUpload && this.recipientAddress) {
       const recipient = myData.contacts[this.recipientAddress];
       if (recipient && recipient.friend !== 2) {
         // Recipient is not a connection - show warning
@@ -18242,8 +18370,8 @@ class ImportContactsModal {
     this.loadingState.style.display = 'flex';
 
     try {
-      // Download and decrypt the VCF file
-      const vcfContent = await this.downloadAndDecryptVcf(attachment);
+      // Get VCF content - either from local file or download/decrypt from attachment
+      const vcfContent = isLocalUpload ? attachment.vcfContent : await this.downloadAndDecryptVcf(attachment);
       
       // Extract and validate network ID from first vCard before parsing all contacts
       const netId = this.extractNetId(vcfContent);
