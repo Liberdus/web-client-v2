@@ -3661,7 +3661,8 @@ mark {
 /* Toast Notification Styles */
 .toast-container {
   position: fixed;
-  top: 25%;
+  /* Position just below header (56px) + safe-area + small gap */
+  top: calc(env(safe-area-inset-top, 0px) + 70px);
   left: 50%;
   transform: translate(-50%, 0);
   z-index: 2000;
@@ -3846,6 +3847,9 @@ mark {
 @media (min-width: 769px) {
   .toast-container {
     position: absolute;
+    /* Container is 800px tall and vertically centered, so top of container is at (50vh - 400px).
+       Header has 16px margin-top + 56px height = 72px, plus ~14px gap = 86px from container top */
+    top: calc(50vh - 400px + 86px);
   }
 }
 
