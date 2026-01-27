@@ -2072,6 +2072,14 @@ input[type='file'].form-control::file-selector-button {
   color: var(--secondary-text-color);
 }
 
+.toll-value.toll-cost {
+  color: var(--danger-color);
+}
+
+.toll-value.toll-free {
+  color: var(--success-color);
+}
+
 .toll-info-icon {
   display: inline-flex;
   align-items: center;
