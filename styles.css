@@ -3822,6 +3822,33 @@ mark {
   background: rgba(239, 108, 0, 0.9);
 }
 
+.toast-list-content {
+  text-align: left;
+}
+
+.toast-list-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.toast-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.toast-list li {
+  margin: 4px 0;
+}
+
+.toast-sublist {
+  margin: 6px 0 0 0;
+  padding-left: 18px;
+}
+
+.toast-sublist li {
+  margin: 4px 0;
+}
+
 .toast.info {
   background: rgba(0, 123, 255, 0.9);
 }

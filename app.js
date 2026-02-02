@@ -17392,10 +17392,20 @@ class CallInviteModal {
     this.inviteSendButton.textContent = 'Sending...';
 
     try {
+      const successMessages = [];
+      const failureGroups = new Map();
+      const addFailure = (reason, name) => {
+        if (!failureGroups.has(reason)) {
+          failureGroups.set(reason, new Set());
+        }
+        if (name) {
+          failureGroups.get(reason).add(name);
+        }
+      };
       for (const addr of addresses) {
         const keys = myAccount.keys;
         if (!keys) {
-          showToast('Keys not found', 0, 'error');
+          addFailure('keysMissing');
           break;
         }
 
@@ -17405,7 +17415,7 @@ class CallInviteModal {
         const contact = myData.contacts[addr];
         const ok = await ensureContactKeys(addr);
         if (!ok) {
-          showToast(`Skipping ${contact.username || addr} (cannot get public key)`, 2000, 'warning');
+          addFailure('noPublicKey', contact.username || addr);
           continue;
         }
         const recipientPubKey = myData.contacts[addr].public;
@@ -17435,12 +17445,12 @@ class CallInviteModal {
         // 1 => toll required (recipient has NOT added you)
         // 2 => blocked
         if (tollRequiredToSend === 2) {
-          showToast(`You cannot invite ${contact.username || addr} (you are blocked)`, 0, 'warning');
+          addFailure('blocked', contact.username || addr);
           continue;
         }
         if (tollRequiredToSend === 1) {
           const username = (contact?.username) || `${addr.slice(0, 8)}...${addr.slice(-6)}`;
-          showToast(`You can only invite people who have added you as a connection. Ask ${username} to add you as a connection`, 0, 'info');
+          addFailure('notConnection', username);
           continue;
         }
 
@@ -17492,8 +17502,75 @@ class CallInviteModal {
           if (chatModal.isActive() && chatModal.address === addr) {
             chatModal.appendChatModal();
           }
+          addFailure('sendFailed', contact.username || addr);
+        } else {
+          successMessages.push(`Call invite sent to ${contact.username || addr}`);
         }
-        showToast(`Call invite sent to ${contact.username || addr}`, 3000, 'success');
+      }
+
+      if (successMessages.length > 0) {
+        const successNames = successMessages.map(message => {
+          const match = message.match(/^Call invite sent to (.+)$/);
+          return match ? match[1] : message;
+        });
+        const successHtml = [
+          '<div class="toast-list-content">',
+          '<div class="toast-list-title">Invite sent:</div>',
+          '<ul class="toast-list">',
+          ...successNames.map(name => `<li><strong>${escapeHtml(name)}</strong></li>`),
+          '</ul>',
+          '</div>'
+        ].join('');
+        showToast(successHtml, 3000, 'success', true);
+      }
+      if (failureGroups.size > 0) {
+        const failureItems = [];
+        for (const [reason, names] of failureGroups.entries()) {
+          const nameList = Array.from(names);
+          switch (reason) {
+            case 'keysMissing':
+              failureItems.push({ text: 'Keys not found' });
+              break;
+            case 'noPublicKey':
+              failureItems.push({
+                text: 'Cannot get public key for:',
+                sublist: nameList
+              });
+              break;
+            case 'blocked':
+              failureItems.push({
+                text: 'You cannot invite these contacts (you are blocked):',
+                sublist: nameList
+              });
+              break;
+            case 'notConnection':
+              failureItems.push({
+                text: 'You can only invite people who have added you as a connection. Ask the listed contacts to add you as a connection.',
+                sublist: nameList
+              });
+              break;
+            case 'sendFailed':
+              failureItems.push({
+                text: 'Call invite failed to send to:',
+                sublist: nameList
+              });
+              break;
+          }
+        }
+        const failureHtml = [
+          '<div class="toast-list-content">',
+          '<div class="toast-list-title">Invite not sent:</div>',
+          '<ul class="toast-list">',
+          ...failureItems.map(item => {
+            const sublist = Array.isArray(item.sublist) && item.sublist.length > 0
+              ? `<ul class="toast-sublist">${item.sublist.map(name => `<li><strong>${escapeHtml(name)}</strong></li>`).join('')}</ul>`
+              : '';
+            return `<li>${item.text}${sublist}</li>`;
+          }),
+          '</ul>',
+          '</div>'
+        ].join('');
+        showToast(failureHtml, 0, 'warning', true);
       }
 
     } catch (err) {
