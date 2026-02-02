@@ -4665,39 +4665,6 @@ small {
   min-height: 0;
 }
 
-.call-invite-section-header {
-  padding: 8px 12px;
-  font-weight: var(--font-weight-bold);
-  color: var(--primary-text-color);
-  background: transparent;
-  border-top: 1px solid rgba(0,0,0,0.04);
-}
-
-.call-invite-contact-row {
-  padding: 8px 12px;
-  display: flex;
-  align-items: center;
-}
-
-.call-invite-contact-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  cursor: pointer;
-}
-
-.call-invite-contact-checkbox {
-  width: 18px;
-  height: 18px;
-}
-
-.call-invite-contact-name {
-  flex: 1 1 auto;
-  text-align: left;
-  font-size: var(--font-size-base);
-}
-
 .call-invite-modal-footer {
   border-top: 1px solid rgba(0,0,0,0.06);
   padding: 10px 8px;
