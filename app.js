@@ -3777,7 +3777,7 @@ class MyInfoModal {
       const isEmpty = !value;
 
       // Always show the Name field, hide others when empty
-      container.style.display = (fieldKey === 'name' || !isEmpty) ? 'block' : 'none';
+      container.style.display = (fieldKey === 'name' || !isEmpty) ? 'flex' : 'none';
       if (isEmpty && fieldKey !== 'name') continue;
 
       // Populate the field with data
@@ -3990,8 +3990,8 @@ class ContactInfoModal {
         return;
       }
 
-      // Show the container and set the value
-      container.style.display = 'block';
+      // Show the container and set the value (use flex to maintain side-by-side layout)
+      container.style.display = 'flex';
       
       if (field === 'Email') {
         element.textContent = value;
@@ -4451,7 +4451,7 @@ class EditContactModal {
       this.providedNameContainer.style.display = 'none';
     } else {
       providedNameDiv.textContent = providedName;
-      this.providedNameContainer.style.display = 'block';
+      this.providedNameContainer.style.display = 'flex';
     }
 
     // Get the original name from the contact info display

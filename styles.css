@@ -3413,7 +3413,13 @@ button.about-link {
 }
 
 .contact-info-item {
-  padding: 0.2rem;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border-color);
+  gap: 1rem;
+  text-align: left;
 }
 
 .contact-info-item:last-child {
@@ -3424,7 +3430,10 @@ button.about-link {
   font-family: var(--font-primary);
   font-size: var(--font-size-sm);
   color: var(--secondary-text-color);
-  margin-bottom: 4px;
+  min-width: 100px;
+  flex-shrink: 0;
+  padding-top: 2px;
+  text-align: left;
 }
 
 .contact-info-value {
@@ -3433,13 +3442,34 @@ button.about-link {
   color: var(--text-color);
   word-break: break-word;
   overflow-wrap: break-word;
-  max-width: 100%;
+  flex: 1;
+  min-width: 0;
 }
 
 .contact-info-value--empty {
   color: var(--secondary-text-color);
   font-style: italic;
 }
+
+/* Edit Contact Modal - Override to stack label above field for more input space */
+#editContactModal .contact-info-item {
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+#editContactModal .contact-info-label {
+  min-width: unset;
+  padding-top: 0;
+}
+
+#editContactModal .contact-info-value-container {
+  width: 100%;
+}
+
+#editContactModal .contact-info-value.editing {
+  width: 100%;
+}
+
 /* Logs Textarea Styles */
 #logsTextarea {
   width: 100%;
@@ -4475,14 +4505,15 @@ small {
 .contact-info-value-container {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px; /* space between value and icon */
-  width: 100%;
-  position: relative;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
 .contact-info-value-container .contact-info-value {
-  text-align: center;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
 }
 
 .contact-info-value-container .icon-button {
@@ -4491,9 +4522,7 @@ small {
   padding: 4px;
   opacity: 0.7;
   transition: opacity 0.2s;
-  position: absolute;
-  left: calc(50% + 30px);
-  top: -25px; /* Move the icon up slightly */
+  flex-shrink: 0;
 }
 
 .contact-info-value-container .icon-button:hover {
