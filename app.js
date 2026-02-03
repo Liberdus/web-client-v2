@@ -5465,8 +5465,14 @@ async function processChats(chats, keys) {
           }
         }
         if (tx.type == 'message') {
-          const payload = tx.xmessage; // changed to use .message
-          if (useTxTimestamp){ 
+          // Handle messages without xmessage (same as transfer handling)
+          // Ensure payload is always an object, even if xmessage is null/undefined
+          let payload = tx.xmessage;
+          if (!payload || typeof payload !== 'object') {
+            payload = {};
+          }
+          // Set sent_timestamp - use tx.timestamp if useTxTimestamp is true, otherwise use payload.sent_timestamp or tx.timestamp
+          if (useTxTimestamp || !payload.sent_timestamp) {
             payload.sent_timestamp = tx.timestamp;
           }
           if (mine){
