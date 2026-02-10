@@ -18556,6 +18556,7 @@ class ImportContactsModal {
 
     } catch (err) {
       console.error('Failed to load VCF:', err);
+      logsModal.log('❌ Failed to load VCF:', err?.message || String(err));
       showToast('Failed to load contacts file', 0, 'error');
       this.close();
     }
