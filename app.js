@@ -14991,25 +14991,75 @@ class ChatModal {
    * @param {HTMLElement} messageEl - The message element to position relative to
    */
   positionContextMenu(menu, messageEl) {
+    if (!menu || !messageEl) return;
+
     const rect = messageEl.getBoundingClientRect();
     const container = messageEl.closest('.messages-container');
-    const containerRect = container?.getBoundingClientRect() || { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight };
-    
-    const menuWidth = 200;
-    const menuHeight = 100;
-    
-    // Center horizontally, clamp to container
-    let left = Math.max(containerRect.left + 10, 
-                        Math.min(containerRect.right - menuWidth - 10, 
-                                 rect.left + rect.width/2 - menuWidth/2));
-    
-    // Prefer below, fallback to above, clamp to container
-    let top = rect.bottom + 10;
-    if (top + menuHeight > containerRect.bottom) {
-      top = Math.max(containerRect.top + 10, rect.top - menuHeight - 10);
+    const containerRect = container?.getBoundingClientRect() || {
+      left: 0,
+      top: 0,
+      right: window.innerWidth,
+      bottom: window.innerHeight
+    };
+
+    const margin = 10;
+    const wasHidden = window.getComputedStyle(menu).display === 'none';
+    const prevDisplay = menu.style.display;
+    const prevVisibility = menu.style.visibility;
+
+    // Temporarily render hidden so we can measure the real size after option toggles.
+    if (wasHidden) {
+      menu.style.visibility = 'hidden';
+      menu.style.display = 'block';
     }
-    
-    Object.assign(menu.style, { left: `${left}px`, top: `${top}px` });
+
+    let menuRect = menu.getBoundingClientRect();
+    let menuWidth = menuRect.width || 200;
+    let menuHeight = menuRect.height || 100;
+
+    // Keep long menus usable in small viewports by making them internally scrollable.
+    const availableHeight = Math.max(80, containerRect.bottom - containerRect.top - margin * 2);
+    if (menuHeight > availableHeight) {
+      menu.style.maxHeight = `${Math.floor(availableHeight)}px`;
+      menu.style.overflowY = 'auto';
+      menuRect = menu.getBoundingClientRect();
+      menuWidth = menuRect.width || menuWidth;
+      menuHeight = menuRect.height || availableHeight;
+    } else {
+      menu.style.maxHeight = '';
+      menu.style.overflowY = '';
+    }
+
+    // Center horizontally, then clamp to container bounds.
+    const minLeft = containerRect.left + margin;
+    const maxLeft = containerRect.right - menuWidth - margin;
+    let left = rect.left + rect.width / 2 - menuWidth / 2;
+    left = maxLeft < minLeft ? minLeft : Math.max(minLeft, Math.min(maxLeft, left));
+
+    // Prefer below, otherwise above; finally clamp to bounds.
+    const minTop = containerRect.top + margin;
+    const maxTop = containerRect.bottom - menuHeight - margin;
+    const belowTop = rect.bottom + margin;
+    const aboveTop = rect.top - menuHeight - margin;
+    let top;
+
+    if (belowTop <= maxTop) {
+      top = belowTop;
+    } else if (aboveTop >= minTop) {
+      top = aboveTop;
+    } else {
+      top = Math.max(minTop, Math.min(maxTop, belowTop));
+    }
+
+    Object.assign(menu.style, {
+      left: `${Math.round(left)}px`,
+      top: `${Math.round(top)}px`
+    });
+
+    if (wasHidden) {
+      menu.style.display = prevDisplay;
+      menu.style.visibility = prevVisibility;
+    }
   }
 
   /**
