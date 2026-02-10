@@ -17238,29 +17238,7 @@ class CallInviteModal {
    * @returns {Promise<string>} Avatar HTML
    */
   async getContactAvatarHtmlForInvite(contact, size = 40) {
-    const address = contact?.address;
-    if (!address) return generateIdenticon('', size);
-
-    const makeImg = (url) => `<img src="${url}" class="contact-avatar-img" width="${size}" height="${size}" alt="avatar">`;
-
-    try {
-      // Priority 1: User-selected avatar for this contact
-      if (contact?.mineAvatarId) {
-        const url = await contactAvatarCache.getBlobUrl(contact.mineAvatarId);
-        if (url) return makeImg(url);
-      }
-
-      // Priority 2: Contact's provided avatar
-      if (contact?.avatarId) {
-        const url = await contactAvatarCache.getBlobUrl(contact.avatarId);
-        if (url) return makeImg(url);
-      }
-    } catch (err) {
-      console.warn('Failed to load avatar, falling back to identicon:', err);
-    }
-
-    // Priority 3: Identicon fallback
-    return generateIdenticon(address, size);
+    return getContactAvatarHtml(contact, size);
   }
 
   /**
@@ -17605,13 +17583,14 @@ class ShareAttachmentModal {
   load() {
     this.modal = document.getElementById('shareAttachmentModal');
     this.contactsList = document.getElementById('shareAttachmentContactsList');
-    this.template = document.getElementById('shareAttachmentContactTemplate');
+    this.emptyState = this.modal.querySelector('.empty-state');
     this.counter = document.getElementById('shareAttachmentCounter');
     this.sendButton = document.getElementById('shareAttachmentSendBtn');
     this.cancelButton = document.getElementById('shareAttachmentCancelBtn');
     this.closeButton = document.getElementById('closeShareAttachmentModal');
 
     this.contactsList.addEventListener('change', this.updateCounter.bind(this));
+    this.contactsList.addEventListener('click', this.handleContactClick.bind(this));
     this.sendButton.addEventListener('click', this.sendAttachments.bind(this));
     this.cancelButton.addEventListener('click', () => {
       this.close();
@@ -17623,7 +17602,7 @@ class ShareAttachmentModal {
    * Opens the share modal and populates contact list.
    * @param {HTMLElement} messageEl - The message element containing the attachment
    */
-  open(messageEl) {
+  async open(messageEl) {
     this.messageEl = messageEl;
     this.attachmentData = this.extractAttachmentData(messageEl);
 
@@ -17633,27 +17612,34 @@ class ShareAttachmentModal {
     }
 
     this.contactsList.innerHTML = '';
+    this.emptyState.style.display = 'none';
     this.modal.classList.add('active');
 
     // Build contacts list (exclude self and current chat contact) and group by status
     const currentChatAddress = chatModal.address;
     const allContacts = Object.values(myData.contacts || {})
       .filter(c => c.address !== myAccount.address && c.address !== currentChatAddress)
-      .map(c => ({
-        address: c.address,
-        username: c.username || c.address,
-        friend: c.friend || 1
-      }));
+      .map(c => {
+        const displayName = getContactDisplayName(c);
+        return {
+          address: c.address,
+          friend: c.friend || 1,
+          avatarId: c.avatarId,
+          mineAvatarId: c.mineAvatarId,
+          displayName,
+          displayNameLower: (displayName || '').toLowerCase()
+        };
+      });
 
     // Group contacts by friend status
     const groups = {
-      friends: allContacts.filter(c => c.friend === 3).sort((a,b) => a.username.toLowerCase().localeCompare(b.username.toLowerCase())),
-      acquaintances: allContacts.filter(c => c.friend === 2).sort((a,b) => a.username.toLowerCase().localeCompare(b.username.toLowerCase())),
-      others: allContacts.filter(c => ![2,3,0].includes(c.friend)).sort((a,b) => a.username.toLowerCase().localeCompare(b.username.toLowerCase())),
+      friends: allContacts.filter(c => c.friend === 3).sort((a,b) => a.displayNameLower.localeCompare(b.displayNameLower)),
+      acquaintances: allContacts.filter(c => c.friend === 2).sort((a,b) => a.displayNameLower.localeCompare(b.displayNameLower)),
+      others: allContacts.filter(c => ![2,3,0].includes(c.friend)).sort((a,b) => a.displayNameLower.localeCompare(b.displayNameLower)),
     };
 
     if (allContacts.length === 0) {
-      this.modal.querySelector('.empty-state').style.display = 'block';
+      this.emptyState.style.display = 'block';
       this.updateCounter();
       return;
     }
@@ -17667,37 +17653,50 @@ class ShareAttachmentModal {
     for (const { key, label } of sectionMeta) {
       const list = groups[key];
       if (!list || list.length === 0) continue;
-      const header = document.createElement('div');
-      header.className = 'call-invite-section-header';
-      header.textContent = label;
-      this.contactsList.appendChild(header);
-
-      for (const contact of list) {
-        const clone = this.template.content ? this.template.content.cloneNode(true) : null;
-        if (!clone) continue;
-        const row = clone.querySelector('.call-invite-contact-row');
-        const checkbox = clone.querySelector('.call-invite-contact-checkbox');
-        const nameSpan = clone.querySelector('.call-invite-contact-name');
-        if (row) row.dataset.address = contact.address || '';
-        if (checkbox) {
-          checkbox.value = contact.address || '';
-          checkbox.id = `share_cb_${(contact.address||'').replace(/[^a-zA-Z0-9]/g,'')}`;
-        }
-        if (nameSpan) nameSpan.textContent = contact.username || contact.address || 'Unknown';
-        const labelEl = clone.querySelector('.call-invite-contact-label');
-        if (labelEl && checkbox) {
-          labelEl.addEventListener('click', (ev) => {
-            if (checkbox.disabled) return;
-            if (ev.target === checkbox) return;
-            ev.preventDefault();
-            checkbox.checked = !checkbox.checked;
-            this.updateCounter();
-          });
-        }
-        this.contactsList.appendChild(clone);
-      }
+      await this.renderSection(label, list);
     }
 
+    this.updateCounter();
+  }
+
+  async renderSection(label, contacts) {
+    const header = document.createElement('div');
+    header.className = 'share-contacts-section-header';
+    header.textContent = label;
+    this.contactsList.appendChild(header);
+
+    const avatarPromises = contacts.map(contact => getContactAvatarHtml(contact, 40));
+    const avatarHtmlList = await Promise.all(avatarPromises);
+
+    contacts.forEach((contact, index) => {
+      const row = document.createElement('div');
+      row.className = 'share-contact-row';
+      row.dataset.address = contact.address;
+
+      const avatarHtml = avatarHtmlList[index];
+      const displayName = contact.displayName || contact.address || 'Unknown';
+
+      row.innerHTML = `
+        <div class="share-contact-avatar">${avatarHtml}</div>
+        <div class="share-contact-info">
+          <div class="share-contact-name">${escapeHtml(displayName)}</div>
+        </div>
+        <input type="checkbox" class="share-contact-checkbox call-invite-checkbox" value="${escapeHtml(contact.address || '')}" />
+      `;
+
+      this.contactsList.appendChild(row);
+    });
+  }
+
+  handleContactClick(e) {
+    const row = e.target.closest('.share-contact-row');
+    if (!row) return;
+    const checkbox = row.querySelector('.call-invite-checkbox');
+    if (!checkbox) return;
+    if (checkbox.disabled && !checkbox.checked) return;
+    if (e.target !== checkbox) {
+      checkbox.checked = !checkbox.checked;
+    }
     this.updateCounter();
   }
 
@@ -17710,10 +17709,10 @@ class ShareAttachmentModal {
   }
 
   updateCounter() {
-    const selected = this.contactsList.querySelectorAll('.call-invite-contact-checkbox:checked').length;
+    const selected = this.contactsList.querySelectorAll('.call-invite-checkbox:checked').length;
     this.counter.textContent = `${selected} selected (max 10)`;
     this.sendButton.disabled = selected === 0;
-    const unchecked = Array.from(this.contactsList.querySelectorAll('.call-invite-contact-checkbox:not(:checked)'));
+    const unchecked = Array.from(this.contactsList.querySelectorAll('.call-invite-checkbox:not(:checked)'));
     if (selected >= 10) {
       unchecked.forEach(cb => cb.disabled = true);
     } else {
@@ -17765,7 +17764,7 @@ class ShareAttachmentModal {
   }
 
   async sendAttachments() {
-    const selectedBoxes = Array.from(this.contactsList.querySelectorAll('.call-invite-contact-checkbox:checked'));
+    const selectedBoxes = Array.from(this.contactsList.querySelectorAll('.call-invite-checkbox:checked'));
     const addresses = selectedBoxes.map(cb => cb.value).slice(0, 10);
     
     if (!this.attachmentData) {
