@@ -15718,16 +15718,15 @@ class ChatModal {
       return;
     }
 
-    // Open the import contacts modal with attachment data
-    importContactsModal.open({
-      url: attachment.url,
+    // Open the import contacts modal with the full attachment object so
+    // fields like `encKey` (new flow) are preserved for backwards compatibility.
+    const importAttachment = Object.assign({}, attachment, {
       name,
       type,
-      pqEncSharedKey: attachment.pqEncSharedKey,
-      selfKey: attachment.selfKey,
       my: message.my,
       senderAddress: this.address
     });
+    importContactsModal.open(importAttachment);
   }
 
   /**
@@ -18575,17 +18574,20 @@ class ImportContactsModal {
 
     const encryptedData = new Uint8Array(await response.arrayBuffer());
 
-    // Determine which key to use for decryption (same logic as decryptAttachmentToBlob)
+    // Determine which key to use for decryption.
+    // New flow: prefer `encKey` (random key, base64). Fall back to legacy fields for backwards compatibility.
     let dhkey;
-    if (attachment.my) {
-      // We sent this file - decrypt with selfKey
+    if (attachment.encKey) {
+      dhkey = typeof attachment.encKey === 'string' ? base642bin(attachment.encKey) : attachment.encKey;
+    } else if (attachment.my) {
+      // We sent this file - decrypt with selfKey (legacy)
       if (!attachment.selfKey) throw new Error('Missing selfKey for decrypt');
       const password = myAccount.keys.secret + myAccount.keys.pqSeed;
       const dhkeyHex = decryptData(attachment.selfKey, password, true);
       if (!dhkeyHex) throw new Error('Failed to decrypt selfKey');
       dhkey = hex2bin(dhkeyHex);
     } else {
-      // Someone else sent this - decrypt with pqEncSharedKey
+      // Someone else sent this - decrypt with pqEncSharedKey (legacy)
       if (!attachment.pqEncSharedKey) throw new Error('Missing pqEncSharedKey for decrypt');
       const ok = await ensureContactKeys(attachment.senderAddress);
       const senderPublicKey = myData.contacts[attachment.senderAddress]?.public;
