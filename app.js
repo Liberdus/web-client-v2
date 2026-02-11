@@ -4995,13 +4995,12 @@ class CallsModal {
             });
           }
 
-          const normalizedAddress = address;
           const group = callGroups.get(groupKey);
-          if (!normalizedAddress || group.participantAddresses.has(normalizedAddress)) continue;
+          if (!address || group.participantAddresses.has(address)) continue;
 
-          group.participantAddresses.add(normalizedAddress);
+          group.participantAddresses.add(address);
           group.participants.push({
-            address: normalizedAddress,
+            address,
             calling: displayName,
             txid: msg.txid || ''
           });
