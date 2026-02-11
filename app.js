@@ -17768,6 +17768,7 @@ class ShareAttachmentModal {
     const currentChatAddress = chatModal.address;
     const allContacts = Object.values(myData.contacts || {})
       .filter(c => c.address !== myAccount.address && c.address !== currentChatAddress)
+      .filter(c => !isFaucetAddress(c.address))
       .map(c => {
         const displayName = getContactDisplayName(c);
         return {
@@ -18199,8 +18200,8 @@ class ShareContactsModal {
       : null;
     
     const filteredContacts = currentChatAddress
-      ? allContacts.filter(c => normalizeAddress(c.address) !== currentChatAddress)
-      : allContacts;
+      ? allContacts.filter(c => !isFaucetAddress(c.address) && normalizeAddress(c.address) !== currentChatAddress)
+      : allContacts.filter(c => !isFaucetAddress(c.address));
     
     const sortByShareDisplayName = (a, b) =>
       this.getContactDisplayNameForShare(a)
