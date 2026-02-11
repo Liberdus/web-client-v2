@@ -164,6 +164,13 @@ const MAX_TOLL = 1_000_000; // 1M limit
 
 const EDIT_WINDOW_MS = 15 * 60 * 1000; // 15 minute limit for editing messages
 
+// Migration for attachment encryption keys.
+// Set this numeric timestamp (YYYYMMDDHHMM) to force re-running the
+// `migrateAttachmentKeysToEncKey` migration for existing users.
+// Use YYYYMMDDHHMM (year, month, day, hour, minute) so migrations
+// can be re-run multiple times per day by bumping this value.
+const MIGRATION_ATTACHMENT_KEYS_TO_ENC_KEY_TS = 202602010000;
+
 let parameters = {
   current: {
     transactionFee: 1n * wei,
@@ -353,7 +360,20 @@ async function migrateAttachmentKeysToEncKey(data) {
       ? data.account.migrations
       : null;
 
-  if (migrations?.attachmentKeysToEncKey === true) {
+  // Determine whether this migration has already been applied.
+  // Previously this flag was a boolean; now we store a numeric timestamp.
+  // Legacy boolean `true` is treated as NOT applied so the migration
+  // will run for those accounts (we set appliedTs to 0).
+  const appliedTsRaw = migrations?.attachmentKeysToEncKey;
+  let appliedTs = 0;
+  if (typeof appliedTsRaw === 'number') {
+    appliedTs = appliedTsRaw;
+  } else if (appliedTsRaw === true) {
+    appliedTs = 0;
+  }
+
+  // If the migration timestamp stored is >= current migration ts, skip running.
+  if (appliedTs >= MIGRATION_ATTACHMENT_KEYS_TO_ENC_KEY_TS) {
     return false;
   }
 
@@ -422,7 +442,8 @@ async function migrateAttachmentKeysToEncKey(data) {
   }
 
   data.account.migrations = migrations && typeof migrations === 'object' ? migrations : {};
-  data.account.migrations.attachmentKeysToEncKey = true;
+  // Record the migration application timestamp so future runs can be gated.
+  data.account.migrations.attachmentKeysToEncKey = MIGRATION_ATTACHMENT_KEYS_TO_ENC_KEY_TS;
   return true;
 }
 
