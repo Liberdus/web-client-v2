@@ -18064,7 +18064,7 @@ const shareAttachmentModal = new ShareAttachmentModal();
 
 /**
  * Share Contacts Modal
- * Allows users to select contacts (Friends and Connections) to share as a VCF file attachment
+ * Allows users to select contacts to share as a VCF file attachment
  */
 class ShareContactsModal {
   constructor() {
@@ -18176,7 +18176,7 @@ class ShareContactsModal {
     }
 
     // For public accounts, proceed with contact list population
-    // Get Friends (friend === 3) and Connections (friend === 2)
+    // Get Friends (friend === 3), Connections (friend === 2), and Tolled (friend === 1)
     const allContacts = Object.values(myData.contacts || {});
     
     // Filter out the current chat contact (the person you're chatting with)
@@ -18188,14 +18188,22 @@ class ShareContactsModal {
       ? allContacts.filter(c => normalizeAddress(c.address) !== currentChatAddress)
       : allContacts;
     
+    const sortByShareDisplayName = (a, b) =>
+      this.getContactDisplayNameForShare(a)
+        .toLowerCase()
+        .localeCompare(this.getContactDisplayNameForShare(b).toLowerCase());
+
     const friends = filteredContacts
       .filter(c => c.friend === 3)
-      .sort((a, b) => this.getContactDisplayNameForShare(a).toLowerCase().localeCompare(this.getContactDisplayNameForShare(b).toLowerCase()));
+      .sort(sortByShareDisplayName);
     const connections = filteredContacts
       .filter(c => c.friend === 2)
-      .sort((a, b) => this.getContactDisplayNameForShare(a).toLowerCase().localeCompare(this.getContactDisplayNameForShare(b).toLowerCase()));
+      .sort(sortByShareDisplayName);
+    const tolled = filteredContacts
+      .filter(c => c.friend === 1)
+      .sort(sortByShareDisplayName);
 
-    const hasContacts = friends.length > 0 || connections.length > 0;
+    const hasContacts = friends.length > 0 || connections.length > 0 || tolled.length > 0;
 
     // Show/hide empty state
     this.emptyState.style.display = hasContacts ? 'none' : 'block';
@@ -18211,6 +18219,10 @@ class ShareContactsModal {
       // Render Connections section
       if (connections.length > 0) {
         await this.renderSection('Connections', connections);
+      }
+      // Render Tolled section
+      if (tolled.length > 0) {
+        await this.renderSection('Tolled', tolled);
       }
     }
   }
