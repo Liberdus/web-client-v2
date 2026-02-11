@@ -4995,14 +4995,7 @@ class CallsModal {
             });
           }
 
-          let normalizedAddress;
-          try {
-            normalizedAddress = normalizeAddress(address);
-          } catch (_) {
-            console.error(`Failed to normalize address: ${address}`);
-            LogsModal.log(`Failed to normalize address: ${address}`)
-            continue;
-          }
+          const normalizedAddress = address;
           const group = callGroups.get(groupKey);
           if (!normalizedAddress || group.participantAddresses.has(normalizedAddress)) continue;
 
@@ -5223,12 +5216,7 @@ class GroupCallParticipantsModal {
       if (template) {
         const renderedAddresses = new Set();
         callGroup.participants.forEach(participant => {
-          let participantAddress;
-          try {
-            participantAddress = normalizeAddress(participant?.address || '');
-          } catch (_) {
-            return;
-          }
+          const participantAddress = participant?.address || '';
           if (!participantAddress || renderedAddresses.has(participantAddress)) return;
           renderedAddresses.add(participantAddress);
 
