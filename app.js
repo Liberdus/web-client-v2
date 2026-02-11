@@ -17335,9 +17335,9 @@ class CallInviteModal {
     this.emptyState.style.display = 'none';
     this.modal.classList.add('active');
 
-    // Build contacts list (exclude the current chat participant and self) and group by status
+    // Build contacts list (exclude the current chat participant, self, and faucet) and group by status
     const allContacts = Object.values(myData.contacts || {})
-      .filter(c => c.address !== chatModal.address && c.address !== myAccount.address)
+      .filter(c => c.address !== chatModal.address && c.address !== myAccount.address && !isFaucetAddress(c.address))
       .map(c => {
         const displayName = getContactDisplayName(c);
         return {
