@@ -4990,12 +4990,25 @@ class CallsModal {
             callGroups.set(groupKey, {
               callTime,
               callUrl,
-              participants: []
+              participants: [],
+              participantAddresses: new Set()
             });
           }
-          
-          callGroups.get(groupKey).participants.push({
-            address,
+
+          let normalizedAddress;
+          try {
+            normalizedAddress = normalizeAddress(address);
+          } catch (_) {
+            console.error(`Failed to normalize address: ${address}`);
+            LogsModal.log(`Failed to normalize address: ${address}`)
+            continue;
+          }
+          const group = callGroups.get(groupKey);
+          if (!normalizedAddress || group.participantAddresses.has(normalizedAddress)) continue;
+
+          group.participantAddresses.add(normalizedAddress);
+          group.participants.push({
+            address: normalizedAddress,
             calling: displayName,
             txid: msg.txid || ''
           });
@@ -5004,7 +5017,9 @@ class CallsModal {
     }
     
     // Convert grouped calls to array and sort by call time
-    this.calls = Array.from(callGroups.values()).sort((a, b) => (a.callTime || 0) - (b.callTime || 0));
+    this.calls = Array.from(callGroups.values())
+      .map(({ participantAddresses, ...callGroup }) => callGroup)
+      .sort((a, b) => (a.callTime || 0) - (b.callTime || 0));
   }
 
   /** 
@@ -5206,15 +5221,25 @@ class GroupCallParticipantsModal {
     if (callGroup?.participants) {
       const template = document.getElementById('groupCallParticipantTemplate');
       if (template) {
+        const renderedAddresses = new Set();
         callGroup.participants.forEach(participant => {
+          let participantAddress;
+          try {
+            participantAddress = normalizeAddress(participant?.address || '');
+          } catch (_) {
+            return;
+          }
+          if (!participantAddress || renderedAddresses.has(participantAddress)) return;
+          renderedAddresses.add(participantAddress);
+
           const participantEl = template.content.cloneNode(true).querySelector('.participant-item');
-          participantEl.setAttribute('data-address', participant.address);
+          participantEl.setAttribute('data-address', participantAddress);
           
           const avatar = participantEl.querySelector('.participant-avatar');
           const name = participantEl.querySelector('.participant-name');
           
-          if (avatar) avatar.innerHTML = generateIdenticon(participant.address);
-          if (name) name.textContent = participant.calling;
+          if (avatar) avatar.innerHTML = generateIdenticon(participantAddress);
+          if (name) name.textContent = participant.calling || participantAddress;
           
           this.participantsList.appendChild(participantEl);
         });
