@@ -14144,6 +14144,14 @@ class ChatModal {
       return; // No file selected
     }
 
+    // Lock this upload to the chat that started it so completion always lands in that draft.
+    const uploadContactAddress = this.address;
+    if (!uploadContactAddress || !myData.contacts?.[uploadContactAddress]) {
+      showToast('Unable to attach file: no active chat found.', 0, 'error');
+      event.target.value = '';
+      return;
+    }
+
     // limit to 5 files
     if (this.fileAttachments.length >= 5) {
       showToast('You can only attach up to 5 files.', 0, 'error');
@@ -14233,47 +14241,54 @@ class ChatModal {
                 throw error;  // Re-throw to trigger cleanup
               }
             }
+            
+            const newAttachment = {
+              url: attachmentUrl,
+              pUrl: previewUrl,
+              name: file.name,
+              size: file.size,
+              type: normalizedType,
+              encKey: bin2base64(encKey)
+            };
 
-            if (this.isEditingMessage()) {
-              // User switched to edit mode while upload was in-flight.
-              // Do not stage attachments for edit messages; delete uploaded files immediately.
-              this.deleteAttachmentsFromServer([{ url: attachmentUrl, pUrl: previewUrl }]);
-              hideToast(loadingToastId);
-              const messageValidation = this.validateMessageSize(this.messageInput.value);
-              this.updateMessageByteCounter(messageValidation);
-              this.toggleSendButtonVisibility();
-              this.addAttachmentButton.disabled = true;
-              showToast('Attachment removed while editing a message', 2000, 'info');
+            const activeChatMatchesUpload = this.isActive() && this.address === uploadContactAddress;
+            if (activeChatMatchesUpload) {
+              this.fileAttachments.push(newAttachment);
             } else {
-              this.fileAttachments.push({
-                url: attachmentUrl,
-                pUrl: previewUrl,
-                name: file.name,
-                size: file.size,
-                type: normalizedType,
-                encKey: bin2base64(encKey)
+              const uploadContact = myData.contacts?.[uploadContactAddress];
+              if (!uploadContact) {
+                throw new Error('Original chat no longer exists for this upload');
+              }
+              const existingDraftAttachments = Array.isArray(uploadContact.draftAttachments)
+                ? uploadContact.draftAttachments
+                : [];
+              uploadContact.draftAttachments = [...existingDraftAttachments, newAttachment];
+            }
+            
+            // Cache thumbnail if we generated one - use captured variable
+            if (capturedThumbnailBlob && (isImage || isVideo)) {
+              thumbnailCache.save(attachmentUrl, capturedThumbnailBlob, file.type).catch(err => {
+                console.warn('Failed to cache thumbnail for attached file:', err);
               });
-
-              // Cache thumbnail if we generated one - use captured variable
-              if (capturedThumbnailBlob && (isImage || isVideo)) {
-                thumbnailCache.save(attachmentUrl, capturedThumbnailBlob, file.type).catch(err => {
-                  console.warn('Failed to cache thumbnail for attached file:', err);
-                });
-              }
-
-              hideToast(loadingToastId);
+            }
+            
+            hideToast(loadingToastId);
+            if (activeChatMatchesUpload) {
               this.showAttachmentPreview(file);
-
-              if (this.address && myData.contacts[this.address]) {
-                this.saveAttachmentState(myData.contacts[this.address]);
+              if (myData.contacts[uploadContactAddress]) {
+                this.saveAttachmentState(myData.contacts[uploadContactAddress]);
               }
-
-              const messageValidation = this.validateMessageSize(this.messageInput.value);
-              this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
-              this.toggleSendButtonVisibility();
-
-              this.addAttachmentButton.disabled = this.isEditingMessage();
+            }
+            
+            const messageValidation = this.validateMessageSize(this.messageInput.value);
+            this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
+            this.toggleSendButtonVisibility();
+            
+            this.addAttachmentButton.disabled = false;
+            if (activeChatMatchesUpload) {
               showToast(`File "${file.name}" attached successfully`, 2000, 'success');
+            } else {
+              showToast(`File "${file.name}" saved to the original chat draft`, 2000, 'success');
             }
           } catch (fetchError) {
             // Handle fetch errors (including AbortError) inside the worker callback
@@ -14346,8 +14361,7 @@ class ChatModal {
     const uploadUrl = network.attachmentServerUrl;
     const response = await fetch(`${uploadUrl}/post`, {
       method: 'POST',
-      body: form,
-      signal: this.abortController.signal
+      body: form
     });
 
     if (!response.ok) {
