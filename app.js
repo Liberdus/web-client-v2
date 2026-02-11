@@ -7903,17 +7903,21 @@ function generateMessageHash(message) {
 }
 
 // Add this function before the ContactInfoModal class
-function showToast(message, duration = 2000, type = 'default', isHTML = false) {
+function showToast(message, duration = 2000, type = 'default', isHTML = false, options = {}) {
   const toastContainer = document.getElementById('toastContainer');
   
+  const dedupeEnabled = options?.dedupe !== false;
+
   // Generate deduplication key from message hash
-  const deduplicateKey = generateMessageHash(message);
+  const deduplicateKey = dedupeEnabled ? generateMessageHash(message) : null;
   
   // Check for duplicate toasts using the deduplication key
-  const existingToast = document.querySelector(`[data-deduplicate-key="${deduplicateKey}"]`);
-  if (existingToast) {
-    // Toast with this key already exists, don't create another one
-    return existingToast.id;
+  if (dedupeEnabled) {
+    const existingToast = document.querySelector(`[data-deduplicate-key="${deduplicateKey}"]`);
+    if (existingToast) {
+      // Toast with this key already exists, don't create another one
+      return existingToast.id;
+    }
   }
   
   const toast = document.createElement('div');
@@ -7929,8 +7933,10 @@ function showToast(message, duration = 2000, type = 'default', isHTML = false) {
   const toastId = 'toast-' + getCorrectedTimestamp() + '-' + Math.floor(Math.random() * 1000);
   toast.id = toastId;
   
-  // Add deduplication key (always set since we generate one if not provided)
-  toast.setAttribute('data-deduplicate-key', deduplicateKey);
+  // Add deduplication key only when dedupe is enabled for this toast
+  if (dedupeEnabled && deduplicateKey) {
+    toast.setAttribute('data-deduplicate-key', deduplicateKey);
+  }
 
   toastContainer.appendChild(toast);
 
@@ -12257,6 +12263,9 @@ class ChatModal {
 
     // Track which voice message element is playing
     this.playingVoiceMessageElement = null;
+
+    // Track active attachment loading toasts by contact so closing a chat can hide only its loading toasts.
+    this.attachmentLoadingToastsByContact = new Map();
   }
 
   /**
@@ -12278,6 +12287,51 @@ class ChatModal {
   cancelAllOperations() {
     this.abortController.abort();
     this.abortController = new AbortController();
+  }
+
+  /**
+   * Track an attachment loading toast for a specific contact
+   * @param {string} contactAddress
+   * @param {string} toastId
+   * @returns {void}
+   */
+  trackAttachmentLoadingToast(contactAddress, toastId) {
+    if (!contactAddress || !toastId) return;
+    let toastSet = this.attachmentLoadingToastsByContact.get(contactAddress);
+    if (!toastSet) {
+      toastSet = new Set();
+      this.attachmentLoadingToastsByContact.set(contactAddress, toastSet);
+    }
+    toastSet.add(toastId);
+  }
+
+  /**
+   * Untrack an attachment loading toast for a specific contact
+   * @param {string} contactAddress
+   * @param {string} toastId
+   * @returns {void}
+   */
+  untrackAttachmentLoadingToast(contactAddress, toastId) {
+    if (!contactAddress || !toastId) return;
+    const toastSet = this.attachmentLoadingToastsByContact.get(contactAddress);
+    if (!toastSet) return;
+    toastSet.delete(toastId);
+    if (toastSet.size === 0) {
+      this.attachmentLoadingToastsByContact.delete(contactAddress);
+    }
+  }
+
+  /**
+   * Hide all active attachment loading toasts for a contact
+   * @param {string} contactAddress
+   * @returns {void}
+   */
+  hideAttachmentLoadingToastsForContact(contactAddress) {
+    if (!contactAddress) return;
+    const toastSet = this.attachmentLoadingToastsByContact.get(contactAddress);
+    if (!toastSet || toastSet.size === 0) return;
+    toastSet.forEach((toastId) => hideToast(toastId));
+    this.attachmentLoadingToastsByContact.delete(contactAddress);
   }
 
   /**
@@ -12936,6 +12990,9 @@ class ChatModal {
    * @returns {void}
    */
   close() {
+    const closingAddress = this.address;
+    this.hideAttachmentLoadingToastsForContact(closingAddress);
+
     // Ensure scroll is unlocked when closing
     this.unlockBackgroundScroll();
     if (isOnline) {
@@ -14151,6 +14208,8 @@ class ChatModal {
       event.target.value = '';
       return;
     }
+    const uploadContact = myData.contacts[uploadContactAddress];
+    const uploadContactName = getContactDisplayName(uploadContact) || uploadContactAddress.slice(0, 8);
 
     // limit to 5 files
     if (this.fileAttachments.length >= 5) {
@@ -14194,12 +14253,30 @@ class ChatModal {
     }
 
     const capturedThumbnailBlob = thumbnailBlob;
+    const clearLoadingToast = () => {
+      if (!loadingToastId) return;
+      hideToast(loadingToastId);
+      this.untrackAttachmentLoadingToast(uploadContactAddress, loadingToastId);
+      loadingToastId = null;
+    };
+    const refreshChatsScreenIfActive = () => {
+      if (chatsScreen?.isActive?.()) {
+        chatsScreen.updateChatList();
+      }
+    };
     
     try {
       this.isEncrypting = true;
       this.sendButton.disabled = true; // Disable send button during encryption
       this.addAttachmentButton.disabled = true;
-      loadingToastId = showToast(`Attaching file...`, 0, 'loading');
+      loadingToastId = showToast(
+        `Attaching "${file.name}" to ${uploadContactName}...`,
+        0,
+        'loading',
+        false,
+        { dedupe: false }
+      );
+      this.trackAttachmentLoadingToast(uploadContactAddress, loadingToastId);
       
       // Generate random encryption key for this attachment
       const encKey = generateRandomBytes(32);
@@ -14208,8 +14285,15 @@ class ChatModal {
       worker.onmessage = async (e) => {
         this.isEncrypting = false;
         if (e.data.error) {
-          hideToast(loadingToastId);
-          showToast(e.data.error, 0, 'error');
+          clearLoadingToast();
+          showToast(
+            `Attachment failed for ${uploadContactName}: ${e.data.error}`,
+            0,
+            'error',
+            false,
+            { dedupe: false }
+          );
+          refreshChatsScreenIfActive();
           
           const messageValidation = this.validateMessageSize(this.messageInput.value);
           this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
@@ -14272,7 +14356,7 @@ class ChatModal {
               });
             }
             
-            hideToast(loadingToastId);
+            clearLoadingToast();
             if (activeChatMatchesUpload) {
               this.showAttachmentPreview(file);
               if (myData.contacts[uploadContactAddress]) {
@@ -14286,17 +14370,37 @@ class ChatModal {
             
             this.addAttachmentButton.disabled = false;
             if (activeChatMatchesUpload) {
-              showToast(`File "${file.name}" attached successfully`, 2000, 'success');
+              showToast(
+                `Attached "${file.name}" to ${uploadContactName}`,
+                3000,
+                'success',
+                false,
+                { dedupe: false }
+              );
             } else {
-              showToast(`File "${file.name}" saved to the original chat draft`, 2000, 'success');
+              showToast(
+                `Uploaded "${file.name}" for ${uploadContactName}; saved to that draft`,
+                3000,
+                'success',
+                false,
+                { dedupe: false }
+              );
             }
+            refreshChatsScreenIfActive();
           } catch (fetchError) {
             // Handle fetch errors (including AbortError) inside the worker callback
             if (fetchError.name === 'AbortError') {
-              hideToast(loadingToastId);
+              clearLoadingToast();
             } else {
-              hideToast(loadingToastId);
-              showToast(`Upload failed: ${fetchError.message}`, 0, 'error');
+              clearLoadingToast();
+              showToast(
+                `Upload failed for ${uploadContactName} ("${file.name}"): ${fetchError.message}`,
+                0,
+                'error',
+                false,
+                { dedupe: false }
+              );
+              refreshChatsScreenIfActive();
             }
             
             const messageValidation = this.validateMessageSize(this.messageInput.value);
@@ -14310,8 +14414,15 @@ class ChatModal {
       };
 
       worker.onerror = (err) => {
-        hideToast(loadingToastId);
-        showToast(`File encryption failed: ${err.message}`, 0, 'error');
+        clearLoadingToast();
+        showToast(
+          `File encryption failed for ${uploadContactName} ("${file.name}"): ${err.message}`,
+          0,
+          'error',
+          false,
+          { dedupe: false }
+        );
+        refreshChatsScreenIfActive();
         this.isEncrypting = false;
         
         const messageValidation = this.validateMessageSize(this.messageInput.value);
@@ -14331,10 +14442,17 @@ class ChatModal {
     } catch (error) {
       console.error('Error handling file attachment:', error);
       
-      hideToast(loadingToastId);
+      clearLoadingToast();
 
       if (error.name !== 'AbortError') {
-        showToast('Error processing file attachment', 0, 'error');
+        showToast(
+          `Error processing attachment for ${uploadContactName} ("${file.name}")`,
+          0,
+          'error',
+          false,
+          { dedupe: false }
+        );
+        refreshChatsScreenIfActive();
       }
       
       // Re-enable buttons
