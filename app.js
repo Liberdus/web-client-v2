@@ -12689,6 +12689,37 @@ class ChatModal {
   }
 
   /**
+   * Returns whether the composer is currently in edit mode.
+   * @returns {boolean}
+   */
+  isEditingMessage() {
+    const editInput = document.getElementById('editOfTxId');
+    return !!(editInput?.value?.trim?.());
+  }
+
+  /**
+   * Clears all staged composer attachments.
+   * @param {{ deleteFromServer?: boolean }} options
+   * @returns {void}
+   */
+  clearComposerAttachments({ deleteFromServer = false } = {}) {
+    if (!Array.isArray(this.fileAttachments) || this.fileAttachments.length === 0) return;
+
+    const removedAttachments = this.fileAttachments.splice(0, this.fileAttachments.length);
+    this.purgeThumbnail(removedAttachments);
+
+    if (deleteFromServer) {
+      this.deleteAttachmentsFromServer(removedAttachments);
+    }
+
+    this.showAttachmentPreview();
+
+    if (this.address && myData.contacts[this.address]) {
+      this.saveAttachmentState(myData.contacts[this.address]);
+    }
+  }
+
+  /**
    * Opens the chat modal for the given address.
    * @param {string} address - The address of the contact to open the chat modal for.
    * @param {boolean} skipAutoScroll - Whether to skip auto-scrolling to bottom (used when scrolling to a specific message)
@@ -13207,6 +13238,10 @@ class ChatModal {
       }
 
       if (isEdit) {
+        // Edit sends are text-only. Drop any stale attachments and clean them up from server.
+        if (this.fileAttachments?.length) {
+          this.clearComposerAttachments({ deleteFromServer: true });
+        }
         messageObj = {
           type: 'edit',
             txid: editTargetTxId,
@@ -13229,7 +13264,7 @@ class ChatModal {
       }
 
       // Handle attachments - add them to the JSON structure instead of using xattach
-      if (this.fileAttachments && this.fileAttachments.length > 0) {
+      if (!isEdit && this.fileAttachments && this.fileAttachments.length > 0) {
         messageObj.attachments = this.fileAttachments;
       }
 
@@ -14138,7 +14173,7 @@ class ChatModal {
           const messageValidation = this.validateMessageSize(this.messageInput.value);
           this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
           
-          this.addAttachmentButton.disabled = false;
+          this.addAttachmentButton.disabled = this.isEditingMessage();
         } else {
           // Encryption successful
           // upload to get url here 
@@ -14165,36 +14200,48 @@ class ChatModal {
                 throw error;  // Re-throw to trigger cleanup
               }
             }
-            
-            this.fileAttachments.push({
-              url: attachmentUrl,
-              pUrl: previewUrl,
-              name: file.name,
-              size: file.size,
-              type: normalizedType,
-              encKey: bin2base64(encKey)
-            });
-            
-            // Cache thumbnail if we generated one - use captured variable
-            if (capturedThumbnailBlob && (isImage || isVideo)) {
-              thumbnailCache.save(attachmentUrl, capturedThumbnailBlob, file.type).catch(err => {
-                console.warn('Failed to cache thumbnail for attached file:', err);
-              });
-            }
-            
-            hideToast(loadingToastId);
-            this.showAttachmentPreview(file);
 
-            if (this.address && myData.contacts[this.address]) {
-              this.saveAttachmentState(myData.contacts[this.address]);
+            if (this.isEditingMessage()) {
+              // User switched to edit mode while upload was in-flight.
+              // Do not stage attachments for edit messages; delete uploaded files immediately.
+              this.deleteAttachmentsFromServer([{ url: attachmentUrl, pUrl: previewUrl }]);
+              hideToast(loadingToastId);
+              const messageValidation = this.validateMessageSize(this.messageInput.value);
+              this.updateMessageByteCounter(messageValidation);
+              this.toggleSendButtonVisibility();
+              this.addAttachmentButton.disabled = true;
+              showToast('Attachment removed while editing a message', 2000, 'info');
+            } else {
+              this.fileAttachments.push({
+                url: attachmentUrl,
+                pUrl: previewUrl,
+                name: file.name,
+                size: file.size,
+                type: normalizedType,
+                encKey: bin2base64(encKey)
+              });
+
+              // Cache thumbnail if we generated one - use captured variable
+              if (capturedThumbnailBlob && (isImage || isVideo)) {
+                thumbnailCache.save(attachmentUrl, capturedThumbnailBlob, file.type).catch(err => {
+                  console.warn('Failed to cache thumbnail for attached file:', err);
+                });
+              }
+
+              hideToast(loadingToastId);
+              this.showAttachmentPreview(file);
+
+              if (this.address && myData.contacts[this.address]) {
+                this.saveAttachmentState(myData.contacts[this.address]);
+              }
+
+              const messageValidation = this.validateMessageSize(this.messageInput.value);
+              this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
+              this.toggleSendButtonVisibility();
+
+              this.addAttachmentButton.disabled = this.isEditingMessage();
+              showToast(`File "${file.name}" attached successfully`, 2000, 'success');
             }
-            
-            const messageValidation = this.validateMessageSize(this.messageInput.value);
-            this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
-            this.toggleSendButtonVisibility();
-            
-            this.addAttachmentButton.disabled = false;
-            showToast(`File "${file.name}" attached successfully`, 2000, 'success');
           } catch (fetchError) {
             // Handle fetch errors (including AbortError) inside the worker callback
             if (fetchError.name === 'AbortError') {
@@ -14207,7 +14254,7 @@ class ChatModal {
             const messageValidation = this.validateMessageSize(this.messageInput.value);
             this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
             
-            this.addAttachmentButton.disabled = false;
+            this.addAttachmentButton.disabled = this.isEditingMessage();
             this.isEncrypting = false;
           }
         }
@@ -14222,7 +14269,7 @@ class ChatModal {
         const messageValidation = this.validateMessageSize(this.messageInput.value);
         this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
         
-        this.addAttachmentButton.disabled = false;
+        this.addAttachmentButton.disabled = this.isEditingMessage();
         worker.terminate();
       };
       
@@ -14246,7 +14293,7 @@ class ChatModal {
       const messageValidation = this.validateMessageSize(this.messageInput.value);
       this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
       
-      this.addAttachmentButton.disabled = false;
+      this.addAttachmentButton.disabled = this.isEditingMessage();
       this.isEncrypting = false;
     } finally {
       event.target.value = ''; // Reset the file input value
@@ -14387,6 +14434,7 @@ class ChatModal {
   removeAttachment(index) {
     if (this.fileAttachments && index >= 0 && index < this.fileAttachments.length) {
       const removedFile = this.fileAttachments.splice(index, 1)[0];
+      this.purgeThumbnail([removedFile]);
       this.showAttachmentPreview(); // Refresh the preview
       showToast(`"${removedFile.name}" removed`, 2000, 'info');
 
@@ -14395,7 +14443,7 @@ class ChatModal {
       }
 
       // Best effort delete from server
-      this.deleteAttachmentsFromServer(removedFile.url);
+      this.deleteAttachmentsFromServer(removedFile);
     }
   }
 
@@ -15905,6 +15953,11 @@ class ChatModal {
         ? messageEl.querySelector('.payment-memo')
         : messageEl.querySelector('.message-content');
       if (!contentEl) return;
+      // Editing does not support attachments; abort in-flight uploads and clear staged files.
+      this.cancelAllOperations();
+      if (this.fileAttachments?.length) {
+        this.clearComposerAttachments({ deleteFromServer: true });
+      }
       const text = contentEl.textContent || '';
       this.messageInput.value = text;
       const editInput = document.getElementById('editOfTxId');
