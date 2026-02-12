@@ -3831,6 +3831,10 @@ mark {
   margin-bottom: 6px;
 }
 
+.toast-list-title-centered {
+  text-align: center;
+}
+
 .toast-list {
   margin: 0;
   padding-left: 18px;
@@ -3847,6 +3851,12 @@ mark {
 
 .toast-sublist li {
   margin: 4px 0;
+}
+
+.toast-list-note {
+  margin-top: 8px;
+  text-align: left;
+  font-size: var(--font-size-xs);
 }
 
 .toast.info {
