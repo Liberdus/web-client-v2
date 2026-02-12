@@ -19416,14 +19416,14 @@ class ImportContactsModal {
       // Show appropriate success/error message with usernames
       if (importedCount > 0 && failedCount === 0) {
         const successList = importedContacts.join(', ');
-        showToast(`Successfully imported/updated: ${successList}`, 3000, 'success');
+        showToast(`Successfully imported: ${successList}`, 3000, 'success');
       } else if (importedCount > 0 && failedCount > 0) {
         const successList = importedContacts.join(', ');
         const failedList = failedContacts.map(c => c.username).join(', ');
-        showToast(`Imported/updated: ${successList}\n\nFailed: ${failedList}`, 0, 'warning');
+        showToast(`Imported: ${successList}\n\nFailed: ${failedList}`, 0, 'warning');
       } else if (failedCount > 0) {
         const failedList = failedContacts.map(c => c.username).join(', ');
-        showToast(`Failed to import/update: ${failedList}`, 0, 'error');
+        showToast(`Failed to import: ${failedList}`, 0, 'error');
       }
 
       // Show warning if more than 20 contacts were selected
