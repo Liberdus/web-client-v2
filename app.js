@@ -12242,6 +12242,9 @@ class ChatModal {
     this.tollUnit = null;
     this.address = null;
 
+    // True when the active chat recipient has blocked me (tollRequiredToSend === 2)
+    this.blockedByRecipient = false;
+
     // file attachments
     this.fileAttachments = [];
     // context menu properties
@@ -12827,6 +12830,9 @@ class ChatModal {
     friendModal.setAddress(address);
     footer.closeNewChatButton();
     const contact = myData.contacts[address];
+    // Cache whether the contact has me blocked, and disable attachments accordingly
+    this.blockedByRecipient = Number(contact?.tollRequiredToSend) === 2;
+    this.addAttachmentButton.disabled = this.blockedByRecipient;
     friendModal.updateFriendButton(contact, 'addFriendButtonChat');
     // Set user info
     this.modalTitle.textContent = getContactDisplayName(contact);
@@ -13452,8 +13458,8 @@ class ChatModal {
         // Clear edit marker only after capturing state and hide cancel button
         editInput.value = '';
         this.cancelEditButton.style.display = 'none';
-        // Leaving edit mode optimistically; re-enable attachments
-        this.addAttachmentButton.disabled = false;
+        // Leaving edit mode optimistically; re-enable attachments unless blocked
+        this.addAttachmentButton.disabled = this.blockedByRecipient;
       } else {
         newMessage = {
           message,
@@ -13580,7 +13586,7 @@ class ChatModal {
         // Success: for normal message nothing extra; for edit we already updated locally
         if (isEdit) {
           showToast('Message edited', 2000, 'success');
-          this.addAttachmentButton.disabled = false;
+          this.addAttachmentButton.disabled = this.blockedByRecipient;
         }
       }
     } catch (error) {
@@ -13625,7 +13631,7 @@ class ChatModal {
       // Toggle button visibility (should show microphone when empty)
       this.toggleSendButtonVisibility();
       // Re-enable attachments on cancel
-      this.addAttachmentButton.disabled = false;
+      this.addAttachmentButton.disabled = this.blockedByRecipient;
       // Give feedback
       showToast('Edit cancelled', 1500, 'info');
     } catch (e) {
@@ -14297,8 +14303,8 @@ class ChatModal {
           
           const messageValidation = this.validateMessageSize(this.messageInput.value);
           this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
-          
-          this.addAttachmentButton.disabled = this.isEditingMessage();
+
+          this.addAttachmentButton.disabled = this.isEditingMessage() || this.blockedByRecipient;
         } else {
           // Encryption successful
           // upload to get url here 
@@ -14367,8 +14373,8 @@ class ChatModal {
             const messageValidation = this.validateMessageSize(this.messageInput.value);
             this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
             this.toggleSendButtonVisibility();
-            
-            this.addAttachmentButton.disabled = false;
+
+            this.addAttachmentButton.disabled = this.isEditingMessage() || this.blockedByRecipient;
             if (activeChatMatchesUpload) {
               showToast(
                 `Attached "${file.name}" to ${uploadContactName}`,
@@ -14405,9 +14411,9 @@ class ChatModal {
             
             const messageValidation = this.validateMessageSize(this.messageInput.value);
             this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
-            
-            this.addAttachmentButton.disabled = this.isEditingMessage();
             this.isEncrypting = false;
+
+            this.addAttachmentButton.disabled = this.isEditingMessage() || this.blockedByRecipient;
           }
         }
         worker.terminate();
@@ -14427,8 +14433,8 @@ class ChatModal {
         
         const messageValidation = this.validateMessageSize(this.messageInput.value);
         this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
-        
-        this.addAttachmentButton.disabled = this.isEditingMessage();
+
+            this.addAttachmentButton.disabled = this.isEditingMessage() || this.blockedByRecipient;
         worker.terminate();
       };
       
@@ -14458,9 +14464,9 @@ class ChatModal {
       // Re-enable buttons
       const messageValidation = this.validateMessageSize(this.messageInput.value);
       this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
-      
-      this.addAttachmentButton.disabled = this.isEditingMessage();
       this.isEncrypting = false;
+
+      this.addAttachmentButton.disabled = this.isEditingMessage() || this.blockedByRecipient;
     } finally {
       event.target.value = ''; // Reset the file input value
     }
@@ -16703,8 +16709,14 @@ class ChatModal {
       localContact.tollRequiredToSend = contactAccountData.toll.required[toIndex];
       localContact.tollRequiredToReceive = contactAccountData.toll.required[myIndex];
 
+      // Keep a cached flag for the currently open chat
+      if (this.address === address) {
+        this.blockedByRecipient = Number(localContact?.tollRequiredToSend) === 2;
+      }
+
       if (this.isActive() && this.address === address) {
         this.updateTollAmountUI(address);
+        this.addAttachmentButton.disabled = this.isEncrypting || this.isEditingMessage() || this.blockedByRecipient;
       }
 
       // console.log(`localContact.tollRequiredToSend: ${localContact.tollRequiredToSend}`);
