@@ -18962,6 +18962,27 @@ class ImportContactsModal {
     return contacts;
   }
 
+  hasLocalAvatar(contact) {
+    if (!contact) return false;
+    return !!contact.mineAvatarId;
+  }
+
+  getExistingContactUpdateEligibility(existingContact, parsedContact) {
+    const hasImportedName = !!(parsedContact?.name && parsedContact.name.trim());
+    const hasLocalName = !!(existingContact?.name && existingContact.name.trim());
+    const canUpdateName = !hasLocalName && hasImportedName;
+
+    const hasImportedAvatar = !!parsedContact?.photoBase64;
+    const hasLocalAvatar = this.hasLocalAvatar(existingContact);
+    const canUpdateAvatar = !hasLocalAvatar && hasImportedAvatar;
+
+    return {
+      canUpdateName,
+      canUpdateAvatar,
+      canUpdate: canUpdateName || canUpdateAvatar,
+    };
+  }
+
   /**
    * Validates a contact on the network by username lookup
    * Also verifies that VCF address matches network-resolved address.
@@ -19040,11 +19061,20 @@ class ImportContactsModal {
     // Separate new and existing contacts
     const newContacts = [];
     const existingContacts = [];
+    let updatableExistingCount = 0;
 
     for (const contact of filteredContacts) {
       const normalizedAddr = normalizeAddress(contact.address);
-      if (myData.contacts[normalizedAddr]) {
-        existingContacts.push({ ...contact, address: normalizedAddr, isExisting: true });
+      const existingContact = myData.contacts[normalizedAddr];
+      if (existingContact) {
+        const updateEligibility = this.getExistingContactUpdateEligibility(existingContact, contact);
+        if (updateEligibility.canUpdate) updatableExistingCount++;
+        existingContacts.push({
+          ...contact,
+          address: normalizedAddr,
+          isExisting: true,
+          canUpdateExisting: updateEligibility.canUpdate,
+        });
       } else {
         newContacts.push({ ...contact, address: normalizedAddr, isExisting: false });
       }
@@ -19090,18 +19120,23 @@ class ImportContactsModal {
       }
 
       const row = document.createElement('div');
-      row.className = 'share-contact-row' + (contact.isExisting ? ' existing' : '');
+      const shouldDisableExisting = contact.isExisting && !contact.canUpdateExisting;
+      row.className = 'share-contact-row' + (shouldDisableExisting ? ' existing' : '');
       row.dataset.address = contact.address;
 
       const avatarHtml = avatarHtmlList[index];
       const displayName = contact.name || contact.username || `${contact.address.slice(0, 8)}…${contact.address.slice(-6)}`;
+      const usernameSubtitle = (contact.name && contact.username)
+        ? `<div class="share-contact-username">${escapeHtml(contact.username)}</div>`
+        : '';
 
       row.innerHTML = `
         <div class="share-contact-avatar">${avatarHtml}</div>
         <div class="share-contact-info">
           <div class="share-contact-name">${escapeHtml(displayName)}</div>
+          ${usernameSubtitle}
         </div>
-        ${contact.isExisting 
+        ${(contact.isExisting && !contact.canUpdateExisting)
           ? '<span class="existing-label">Already added</span>' 
           : '<input type="checkbox" class="share-contact-checkbox" />'}
       `;
@@ -19110,7 +19145,7 @@ class ImportContactsModal {
     });
 
     this.contactsList.style.display = 'block';
-    this.doneButton.disabled = newContacts.length === 0;
+    this.doneButton.disabled = (newContacts.length + updatableExistingCount) === 0;
   }
 
   /**
@@ -19144,7 +19179,7 @@ class ImportContactsModal {
    */
   handleContactClick(e) {
     const row = e.target.closest('.share-contact-row');
-    if (!row || row.classList.contains('existing')) return;
+    if (!row) return;
 
     const checkbox = row.querySelector('.share-contact-checkbox');
     if (!checkbox) return;
@@ -19170,7 +19205,7 @@ class ImportContactsModal {
    * Updates the All/None button icon based on selection state
    */
   updateAllNoneButton() {
-    const checkboxes = this.contactsList.querySelectorAll('.share-contact-row:not(.existing) .share-contact-checkbox');
+    const checkboxes = this.contactsList.querySelectorAll('.share-contact-checkbox');
     const allSelected = checkboxes.length > 0 && Array.from(checkboxes).every(cb => cb.checked);
     if (allSelected) {
       this.allNoneButton.classList.add('all-selected');
@@ -19185,7 +19220,7 @@ class ImportContactsModal {
    * Toggles between selecting all and none
    */
   toggleAllNone() {
-    const checkboxes = this.contactsList.querySelectorAll('.share-contact-row:not(.existing) .share-contact-checkbox');
+    const checkboxes = this.contactsList.querySelectorAll('.share-contact-checkbox');
     const allSelected = checkboxes.length > 0 && Array.from(checkboxes).every(cb => cb.checked);
 
     checkboxes.forEach(cb => {
@@ -19295,8 +19330,38 @@ class ImportContactsModal {
 
         // Check if contact already exists
         if (myData.contacts[networkAddress]) {
-          console.log(`Contact ${parsedContact.username} already exists, skipping`);
-          logsModal.log(`ℹ️ Contact ${parsedContact.username} already exists, skipping`);
+          const existingContact = myData.contacts[networkAddress];
+          const updateEligibility = this.getExistingContactUpdateEligibility(existingContact, parsedContact);
+          let updated = false;
+
+          if (updateEligibility.canUpdateName) {
+            existingContact.name = parsedContact.name.trim();
+            updated = true;
+          }
+
+          if (updateEligibility.canUpdateAvatar) {
+            try {
+              const mimeType = parsedContact.photoType === 'png' ? 'image/png' : 'image/jpeg';
+              const avatarBlob = contactAvatarCache.base64ToBlob(parsedContact.photoBase64, mimeType);
+              const mineId = bin2hex(generateRandomBytes(16));
+              await contactAvatarCache.save(mineId, avatarBlob);
+              existingContact.mineAvatarId = mineId;
+              existingContact.hasAvatar = true;
+              existingContact.useAvatar = 'mine';
+              updated = true;
+            } catch (err) {
+              console.warn('Failed to save imported avatar for existing contact:', err);
+              logsModal.log('⚠️ Failed to save imported avatar for existing contact:', err?.message || String(err));
+            }
+          }
+
+          if (updated) {
+            importedContacts.push(validation.username || parsedContact.username);
+            importedCount++;
+          } else {
+            console.log(`Contact ${parsedContact.username} already exists, skipping`);
+            logsModal.log(`ℹ️ Contact ${parsedContact.username} already exists, skipping`);
+          }
           continue;
         }
 
@@ -19351,14 +19416,14 @@ class ImportContactsModal {
       // Show appropriate success/error message with usernames
       if (importedCount > 0 && failedCount === 0) {
         const successList = importedContacts.join(', ');
-        showToast(`Successfully imported: ${successList}`, 3000, 'success');
+        showToast(`Successfully imported/updated: ${successList}`, 3000, 'success');
       } else if (importedCount > 0 && failedCount > 0) {
         const successList = importedContacts.join(', ');
         const failedList = failedContacts.map(c => c.username).join(', ');
-        showToast(`Imported: ${successList}\n\nFailed: ${failedList}`, 0, 'warning');
+        showToast(`Imported/updated: ${successList}\n\nFailed: ${failedList}`, 0, 'warning');
       } else if (failedCount > 0) {
         const failedList = failedContacts.map(c => c.username).join(', ');
-        showToast(`Failed to import: ${failedList}`, 0, 'error');
+        showToast(`Failed to import/update: ${failedList}`, 0, 'error');
       }
 
       // Show warning if more than 20 contacts were selected

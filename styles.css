@@ -4847,6 +4847,16 @@ small {
   text-align: left;
 }
 
+.share-contact-username {
+  font-size: 0.75rem;
+  color: var(--secondary-text-color);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
 .share-contact-checkbox {
   width: 20px;
   height: 20px;
