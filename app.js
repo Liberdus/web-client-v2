@@ -7902,6 +7902,31 @@ function generateMessageHash(message) {
   return hex.slice(0, 20);
 }
 
+function normalizeFailureReason(error) {
+  if (!error) return 'Unknown reason';
+  if (typeof error === 'string') return error;
+  if (error?.message) return error.message;
+  try {
+    return JSON.stringify(error);
+  } catch (jsonError) {
+    return String(error);
+  }
+}
+
+function buildUserListToastHtml(title, usernames) {
+  const listItems = usernames
+    .filter(Boolean)
+    .map(name => `<li><strong>${escapeHtml(name)}</strong></li>`)
+    .join('');
+
+  return [
+    '<div class="toast-list-content">',
+    `<div class="toast-list-title toast-list-title-centered">${escapeHtml(title)}</div>`,
+    `<ul class="toast-list">${listItems}</ul>`,
+    '</div>'
+  ].join('');
+}
+
 // Add this function before the ContactInfoModal class
 function showToast(message, duration = 2000, type = 'default', isHTML = false, options = {}) {
   const toastContainer = document.getElementById('toastContainer');
@@ -19362,28 +19387,6 @@ class ImportContactsModal {
       let failedCount = 0;
       const failedContacts = [];
       const importedContacts = [];
-      const normalizeFailureReason = (error) => {
-        if (!error) return 'Unknown reason';
-        if (typeof error === 'string') return error;
-        if (error?.message) return error.message;
-        try {
-          return JSON.stringify(error);
-        } catch (jsonError) {
-          return String(error);
-        }
-      };
-      const buildUserListToastHtml = (title, usernames) => {
-        const listItems = usernames
-          .filter(Boolean)
-          .map(name => `<li><strong>${escapeHtml(name)}</strong></li>`)
-          .join('');
-        return [
-          '<div class="toast-list-content">',
-          `<div class="toast-list-title toast-list-title-centered">${escapeHtml(title)}</div>`,
-          `<ul class="toast-list">${listItems}</ul>`,
-          '</div>'
-        ].join('');
-      };
 
       // Limit to 20 contacts maximum
       const selectedContactsArray = Array.from(this.selectedContacts);
