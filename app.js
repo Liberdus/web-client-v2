@@ -12816,6 +12816,9 @@ class ChatModal {
    * @returns {Promise<void>}
    */
   async open(address, skipAutoScroll = false) {
+    // Set active chat address early so async refreshes target the correct chat.
+    this.address = address;
+
     // clear message input
     this.messageInput.value = '';
     this.messageInput.style.height = '48px';
@@ -12900,9 +12903,6 @@ class ChatModal {
     }
 
     this.clearNotificationsIfAllRead();
-
-    // Setup state for appendChatModal and perform initial render
-    this.address = address;
 
     // One-time tolled deposit toast (only if explicitly enabled on the contact)
     this.maybeShowTolledDepositToast(address);
