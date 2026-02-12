@@ -3853,12 +3853,6 @@ mark {
   margin: 4px 0;
 }
 
-.toast-list-note {
-  margin-top: 8px;
-  text-align: left;
-  font-size: var(--font-size-xs);
-}
-
 .toast.info {
   background: rgba(0, 123, 255, 0.9);
 }
@@ -3873,7 +3867,8 @@ mark {
   margin-bottom: 18px;
 }
 
-.toast-update-button {
+.toast-update-button,
+.toast-open-logs-button {
   display: block;
   margin-top: 6px;
   padding: 8px 12px;
@@ -3885,7 +3880,8 @@ mark {
   font-weight: 600;
 }
 
-.toast-launch-backup-button {
+.toast-launch-backup-button,
+.toast-open-logs-button {
   width: fit-content;
   margin-left: auto;
   margin-right: auto;

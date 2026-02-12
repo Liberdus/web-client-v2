@@ -11096,6 +11096,20 @@ class LogsModal {
     if (this.clearButton) {
       this.clearButton.addEventListener('click', () => this.clear());
     }
+
+    // Event delegation for dynamically created toast button.
+    document.addEventListener('click', (event) => {
+      const target = event.target;
+      if (target && target.classList.contains('toast-open-logs-button')) {
+        event.preventDefault();
+        event.stopPropagation();
+        const toastElement = target.closest('.toast');
+        if (toastElement && toastElement.id) {
+          hideToast(toastElement.id);
+        }
+        this.open();
+      }
+    }, { capture: true });
   }
 
   open() {
@@ -19530,12 +19544,11 @@ class ImportContactsModal {
 
       if (failedCount > 0) {
         const failedLabel = failedCount === 1 ? 'contact' : 'contacts';
-        const failureToastType = importedCount > 0 ? 'warning' : 'error';
         const failedHtml = [
           buildUserListToastHtml(`Failed to import ${failedCount} ${failedLabel}`, failedContacts.map(c => c.username)),
-          '<div class="toast-list-note">See Logs for details.</div>'
+          '<button type="button" class="toast-open-logs-button">Open Logs</button>'
         ].join('');
-        showToast(failedHtml, 0, failureToastType, true);
+        showToast(failedHtml, 0, 'error', true);
       }
 
       // Show warning if more than 20 contacts were selected
