@@ -23857,7 +23857,7 @@ const unlockModal = new UnlockModal();
 
 class LaunchModal {
   constructor() {
-
+    this.hasShownBackupReminderThisOpen = false;
   }
 
   load() {
@@ -23871,15 +23871,30 @@ class LaunchModal {
     this.launchForm.addEventListener('submit', async (event) => await this.handleSubmit(event));
     this.urlInput.addEventListener('input', () => this.updateButtonState());
     this.backupButton.addEventListener('click', () => backupAccountModal.open());
+
+    document.addEventListener('click', (event) => {
+      const target = event.target;
+      if (target && target.classList.contains('toast-launch-backup-button')) {
+        event.preventDefault();
+        event.stopPropagation();
+        const toastElement = target.closest('.toast');
+        if (toastElement && toastElement.id) {
+          hideToast(toastElement.id);
+        }
+        backupAccountModal.open();
+      }
+    }, { capture: true });
   }
 
   open() {
     this.modal.classList.add('active');
+    this.hasShownBackupReminderThisOpen = false;
     this.urlInput.value = window.location.href.split('?')[0];
     this.updateButtonState();
   }
 
   close() {
+    this.hasShownBackupReminderThisOpen = false;
     this.urlInput.value = '';
     this.modal.classList.remove('active');
   }
@@ -23889,6 +23904,12 @@ class LaunchModal {
     const url = this.urlInput.value;
     if (!url) {
       showToast('Please enter a URL', 0, 'error');
+      return;
+    }
+
+    if (!this.hasShownBackupReminderThisOpen) {
+      this.hasShownBackupReminderThisOpen = true;
+      this.showBackupReminderToast();
       return;
     }
     
@@ -23971,6 +23992,16 @@ class LaunchModal {
       this.launchButton.disabled = false;
       this.launchButton.textContent = 'Launch';
     }
+  }
+
+  showBackupReminderToast() {
+    showToast(
+      '<div class="toast-update-title">Backup before launching a new network</div><button type="button" class="toast-update-button toast-launch-backup-button">Open Backup</button>',
+      0,
+      'warning',
+      true,
+      { dedupe: false },
+    );
   }
 
   updateButtonState() {

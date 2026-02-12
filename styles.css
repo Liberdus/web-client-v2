@@ -3875,6 +3875,12 @@ mark {
   font-weight: 600;
 }
 
+.toast-launch-backup-button {
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .toast.toll {
   background: rgba(0, 123, 255, 0.9);
   text-align: left;
