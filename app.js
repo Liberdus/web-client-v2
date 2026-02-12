@@ -17521,6 +17521,99 @@ class CallInviteModal {
   }
 
   /**
+   * Returns a call URL in comparable form by removing hash params.
+   * @param {string} callUrl
+   * @returns {string}
+   */
+  getComparableCallUrl(callUrl) {
+    const raw = (callUrl || '').trim();
+    if (!raw) return '';
+    return raw.split('#')[0];
+  }
+
+  /**
+   * Extracts the call URL from a call message element in comparable form.
+   * @param {HTMLElement} messageEl
+   * @returns {string}
+   */
+  getInviteCallUrl(messageEl) {
+    const anchorHref = messageEl?.querySelector('.call-message a')?.href || '';
+    return this.getComparableCallUrl(anchorHref);
+  }
+
+  /**
+   * Checks whether a contact already has this call URL in their call messages.
+   * @param {Object} contact
+   * @param {string} comparableCallUrl
+   * @returns {boolean}
+   */
+  contactHasCallUrl(contact, comparableCallUrl) {
+    if (!comparableCallUrl) return false;
+    return (contact?.messages || []).some((message) => {
+      if (!message || message.type !== 'call') return false;
+      if (message.deleted === 1 || message.status === 'failed') return false;
+      return this.getComparableCallUrl(message.message) === comparableCallUrl;
+    });
+  }
+
+  /**
+   * Maps a contact record to the display model used by the invite list.
+   * @param {Object} contact
+   * @returns {Object}
+   */
+  buildInviteContact(contact) {
+    const displayName = getContactDisplayName(contact);
+    return {
+      address: contact.address,
+      friend: contact.friend || 1,
+      avatarId: contact.avatarId,
+      mineAvatarId: contact.mineAvatarId,
+      displayName,
+      displayNameLower: (displayName || '').toLowerCase()
+    };
+  }
+
+  /**
+   * Builds invite groups while filtering out ineligible contacts.
+   * @param {string} currentChatAddress
+   * @param {string} myAddress
+   * @param {string} comparableCallUrl
+   * @returns {{groups: {friends: Object[], acquaintances: Object[], others: Object[]}, total: number}}
+   */
+  buildInviteGroups(currentChatAddress, myAddress, comparableCallUrl) {
+    const groups = {
+      friends: [],
+      acquaintances: [],
+      others: [],
+    };
+
+    for (const contact of Object.values(myData.contacts || {})) {
+      const address = contact?.address || '';
+      if (!address) continue;
+      if (address === currentChatAddress) continue;
+      if (address === myAddress) continue;
+      if (isFaucetAddress(address)) continue;
+      if (this.contactHasCallUrl(contact, comparableCallUrl)) continue;
+
+      const preparedContact = this.buildInviteContact(contact);
+      if (preparedContact.friend === 3) {
+        groups.friends.push(preparedContact);
+      } else if (preparedContact.friend === 2) {
+        groups.acquaintances.push(preparedContact);
+      } else if (preparedContact.friend !== 0) {
+        groups.others.push(preparedContact);
+      }
+    }
+
+    groups.friends.sort((a,b) => a.displayNameLower.localeCompare(b.displayNameLower));
+    groups.acquaintances.sort((a,b) => a.displayNameLower.localeCompare(b.displayNameLower));
+    groups.others.sort((a,b) => a.displayNameLower.localeCompare(b.displayNameLower));
+
+    const total = groups.friends.length + groups.acquaintances.length + groups.others.length;
+    return { groups, total };
+  }
+
+  /**
    * Renders a section of contacts with a header
    * @param {string} label - Section label
    * @param {Array} contacts - Array of contact objects
@@ -17565,29 +17658,11 @@ class CallInviteModal {
     this.emptyState.style.display = 'none';
     this.modal.classList.add('active');
 
-    // Build contacts list (exclude the current chat participant, self, and faucet) and group by status
-    const allContacts = Object.values(myData.contacts || {})
-      .filter(c => c.address !== chatModal.address && c.address !== myAccount.address && !isFaucetAddress(c.address))
-      .map(c => {
-        const displayName = getContactDisplayName(c);
-        return {
-          address: c.address,
-          friend: c.friend || 1,
-          avatarId: c.avatarId,
-          mineAvatarId: c.mineAvatarId,
-          displayName,
-          displayNameLower: (displayName || '').toLowerCase()
-        };
-      });
-
-    // Group contacts by friend status: friends (3), acquaintances (2), others (1), blocked (0)
-    const groups = {
-      friends: allContacts.filter(c => c.friend === 3).sort((a,b) => a.displayNameLower.localeCompare(b.displayNameLower)),
-      acquaintances: allContacts.filter(c => c.friend === 2).sort((a,b) => a.displayNameLower.localeCompare(b.displayNameLower)),
-      others: allContacts.filter(c => ![2, 3, 0].includes(c.friend)).sort((a,b) => a.displayNameLower.localeCompare(b.displayNameLower)),
-    };
-
-    if (allContacts.length === 0) {
+    const currentChatAddress = chatModal.address || '';
+    const myAddress = myAccount?.keys?.address || '';
+    const comparableCallUrl = this.getInviteCallUrl(messageEl);
+    const { groups, total: totalContacts } = this.buildInviteGroups(currentChatAddress, myAddress, comparableCallUrl);
+    if (totalContacts === 0) {
       this.emptyState.style.display = 'block';
       // initial counter update to ensure Invite button is disabled
       this.updateCounter();
