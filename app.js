@@ -127,6 +127,8 @@ import {
   linkifyUrls,
   escapeHtml,
   debounce,
+  withButtonCooldown,
+  BUTTON_COOLDOWN_MS,
   truncateMessage,
   normalizeUnsignedFloat,
   EthNum,
@@ -10784,7 +10786,15 @@ class InviteModal {
     this.resetInviteButton = document.getElementById('resetInviteMessage');
 
     this.closeButton.addEventListener('click', () => this.close());
-    this.inviteForm.addEventListener('submit', (event) => this.handleSubmit(event));
+    this.inviteForm.addEventListener('submit', withButtonCooldown(
+      [this.submitButton, this.resetInviteButton],
+      BUTTON_COOLDOWN_MS,
+      () => {
+        this.validateInputs();
+        this.resetInviteButton.disabled = false;
+      },
+      (event) => this.handleSubmit(event)
+    ));
 
     // input listener for editable message
     this.inviteMessageInput.addEventListener('input', () => this.validateInputs());
@@ -10843,18 +10853,9 @@ class InviteModal {
       saveState();
     }
 
-    // 2-second cooldown on Share button
-    this.submitButton.disabled = true;
-    this.resetInviteButton.disabled = true;
-    setTimeout(() => {
-      this.validateInputs();
-      this.resetInviteButton.disabled = false;
-    }, 2000);
-
     try {
       await this.shareLiberdusInvite(message);
     } catch (err) {
-      // shareLiberdusInvite will show its own errors; rely on cooldown to re-enable
       showToast('Could not share invitation. Try copying manually.', 0, 'error');
     }
   }
@@ -11170,8 +11171,16 @@ class MyProfileModal {
     this.submitButton = document.querySelector('#accountForm .btn.btn--primary');
 
     this.closeButton.addEventListener('click', () => this.close());
-    this.accountForm.addEventListener('submit', (event) => this.handleSubmit(event));
-    
+    this.accountForm.addEventListener('submit', withButtonCooldown(
+      [this.closeButton, this.submitButton],
+      BUTTON_COOLDOWN_MS,
+      () => {
+        this.close();
+        this.closeButton.disabled = false;
+        this.submitButton.disabled = false;
+      },
+      (event) => this.handleSubmit(event)
+    ));
 
     // Add input event listeners for validation
     this.name.addEventListener('input', (e) => this.handleNameInput(e));
@@ -11280,22 +11289,11 @@ class MyProfileModal {
     myData.account = { ...myData.account, ...formData };
 
     showToast('Profile updated successfully', 2000, 'success');
-    // disable the close button and submit button
-    this.closeButton.disabled = true;
-    this.submitButton.disabled = true;
 
     // if myInfo modal is open update the info
     if (myInfoModal && myInfoModal.isActive()) {
       myInfoModal.updateMyInfo();
     }
-
-    // Hide success message after 2 seconds
-    setTimeout(() => {
-      this.close();
-      // enable the close button and submit button
-      this.closeButton.disabled = false;
-      this.submitButton.disabled = false;
-    }, 2000);
   }
 }
 const myProfileModal = new MyProfileModal();

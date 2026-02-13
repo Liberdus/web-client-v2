@@ -270,6 +270,56 @@ export function escapeHtml(str) {
     return div.innerHTML;
 }
 
+export const BUTTON_COOLDOWN_MS = 2000;
+
+/**
+ * Wraps an async handler so the given buttons are disabled for a minimum cooldown (ms).
+ * If the handler takes longer than ms, cooldown lifts as soon as the handler finishes.
+ * When cooldown ends: calls revalidateFn() if provided, otherwise sets disabled = false on the buttons.
+ * @param {HTMLButtonElement|HTMLButtonElement[]} buttons - Button(s) to disable during cooldown
+ * @param {number} ms - Minimum cooldown in milliseconds
+ * @param {(() => void)|null|undefined} revalidateFn - Optional; called when cooldown ends to refresh button state
+ * @param {(event: Event) => Promise<void>} handler - The async handler to run
+ * @returns {(event: Event) => Promise<void>} Wrapped handler to use as the listener
+ */
+export function withButtonCooldown(buttons, ms, revalidateFn, handler) {
+    const list = Array.isArray(buttons) ? buttons : [buttons];
+    let inProgress = false;
+    let liftDone = false;
+    let timeoutId = null;
+
+    function lift() {
+        if (liftDone) return;
+        liftDone = true;
+        inProgress = false;
+        if (typeof revalidateFn === 'function') {
+            revalidateFn();
+        } else {
+            list.forEach((b) => { if (b) b.disabled = false; });
+        }
+    }
+
+    return async function wrappedHandler(event) {
+        if (inProgress) return;
+        inProgress = true;
+        liftDone = false;
+        list.forEach((b) => { if (b) b.disabled = true; });
+        const startTime = Date.now();
+        timeoutId = setTimeout(() => {
+            timeoutId = null;
+            lift();
+        }, ms);
+        try {
+            await handler(event);
+        } finally {
+            if (Date.now() - startTime >= ms) {
+                if (timeoutId !== null) clearTimeout(timeoutId);
+                lift();
+            }
+        }
+    };
+}
+
 export function debounce(func, waitFn) {
     let timeout;
     return function executedFunction(...args) {
