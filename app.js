@@ -15118,6 +15118,18 @@ class ChatModal {
     if (attachmentRow) {
       e.preventDefault();
       e.stopPropagation();
+
+      const messageEl = attachmentRow.closest('.message');
+      if (messageEl?.dataset?.status === 'failed') {
+        const isPayment = messageEl.classList.contains('payment-info');
+        if (isPayment) {
+          this.showMessageContextMenu(e, messageEl);
+          return;
+        }
+        failedMessageMenu.open(e, messageEl);
+        return;
+      }
+
       await this.showAttachmentContextMenu(e, attachmentRow);
       return;
     }
@@ -15187,7 +15199,6 @@ class ChatModal {
     const editOption = this.contextMenu.querySelector('[data-action="edit"]');
     const saveOption = this.contextMenu.querySelector('[data-action="save"]');
     const isFailedPayment = messageEl.dataset.status === 'failed' && messageEl.classList.contains('payment-info');
-    const isFailed = messageEl.dataset.status === 'failed';
     // Show save option only for voice messages
     if (saveOption) saveOption.style.display = isVoice ? 'flex' : 'none';
     // For failed payment messages, hide copy and delete-for-all regardless of sender
@@ -15208,18 +15219,18 @@ class ChatModal {
       if (inviteOption) inviteOption.style.display = isExpired ? 'none' : 'flex';
       if (editResendOption) editResendOption.style.display = 'none';
       if (editOption) editOption.style.display = 'none';
-      if (replyOption) replyOption.style.display = isFailed ? 'none' : 'flex';
+      if (replyOption) replyOption.style.display = 'flex';
     } else if (isVoice) {
       if (copyOption) copyOption.style.display = 'none';
       if (inviteOption) inviteOption.style.display = 'none';
       if (joinOption) joinOption.style.display = 'none';
-      if (replyOption) replyOption.style.display = isFailed ? 'none' : 'flex';
+      if (replyOption) replyOption.style.display = 'flex';
       if (editOption) editOption.style.display = 'none';
     } else {
       if (copyOption) copyOption.style.display = 'flex';
       if (joinOption) joinOption.style.display = 'none';
       if (inviteOption) inviteOption.style.display = 'none';
-      if (replyOption) replyOption.style.display = isFailed ? 'none' : 'flex';
+      if (replyOption) replyOption.style.display = 'flex';
       if (editResendOption) editResendOption.style.display = isFailedPayment ? 'flex' : 'none';
       // Determine if edit should be shown
       if (editOption) {
