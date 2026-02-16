@@ -17967,6 +17967,8 @@ class CallInviteModal {
         const response = await injectTx(messageObj, txid);
 
         if (!response || !response.result || !response.result.success) {
+          // Refund local reservation when tx broadcast/injection fails.
+          availableBalanceWei += totalRequired;
           console.error('call message failed to send', response);
           updateTransactionStatus(txid, addr, 'failed', 'message');
           if (chatModal.isActive() && chatModal.address === addr) {
@@ -18408,6 +18410,8 @@ class ShareAttachmentModal {
         const response = await injectTx(chatMessageObj, txid);
 
         if (!response || !response.result || !response.result.success) {
+          // Refund local reservation when tx broadcast/injection fails.
+          availableBalanceWei += totalRequired;
           console.error('attachment share message failed to send', response);
           updateTransactionStatus(txid, addr, 'failed', 'message');
           if (chatModal.isActive() && chatModal.address === addr) {
