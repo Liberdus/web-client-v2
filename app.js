@@ -12880,6 +12880,7 @@ class ChatModal {
     // Cache whether the contact has me blocked, and disable attachments accordingly
     this.blockedByRecipient = Number(contact?.tollRequiredToSend) === 2;
     this.addAttachmentButton.disabled = this.blockedByRecipient;
+    this.voiceRecordButton.disabled = this.blockedByRecipient;
     friendModal.updateFriendButton(contact, 'addFriendButtonChat');
     // Set user info
     this.modalTitle.textContent = getContactDisplayName(contact);
