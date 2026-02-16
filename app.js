@@ -5214,6 +5214,28 @@ class CallsModal {
 
 const callsModal = new CallsModal();
 
+/**
+ * Recomputes scheduled calls and updates the global header calls icon state.
+ * @returns {void}
+ */
+function refreshUpcomingCallsUi() {
+  callsModal.refreshCalls();
+  header.updateCallsIcon();
+}
+
+/**
+ * Returns whether deleting a scheduled call could affect the header calls icon state.
+ * Mirrors CallsModal refresh eligibility: valid positive callTime within last 2 hours or in the future.
+ * @param {number|string} callTime - Scheduled call timestamp in ms since epoch.
+ * @returns {boolean}
+ */
+function shouldRefreshUpcomingCallsUiForCallTime(callTime) {
+  const callTimeNum = Number(callTime);
+  if (!Number.isFinite(callTimeNum) || callTimeNum <= 0) return false;
+  const twoHoursMs = 2 * 60 * 60 * 1000;
+  return callTimeNum >= (getCorrectedTimestamp() - twoHoursMs);
+}
+
 class GroupCallParticipantsModal {
   constructor() {}
 
@@ -5552,6 +5574,7 @@ async function processChats(chats, keys) {
                   if (!messageToDelete) {
                     continue; // ignore delete control messages for missing txid
                   }
+                  let didDeleteMessage = false;
                   
                   // Only allow deletion if the sender of this delete tx is the same who sent the original message
                   // (normalize addresses for comparison)
@@ -5565,6 +5588,7 @@ async function processChats(chats, keys) {
                     // Mark the message as deleted
                     messageToDelete.deleted = 1;
                     messageToDelete.message = "Deleted by sender";
+                    didDeleteMessage = true;
                     // Remove attachments so we don't keep references around
                     delete messageToDelete.xattach;
                     
@@ -5594,6 +5618,7 @@ async function processChats(chats, keys) {
                     // Mark the message as deleted
                     messageToDelete.deleted = 1;
                     messageToDelete.message = "Deleted for all";
+                    didDeleteMessage = true;
                     // Remove attachments so we don't keep references around
                     delete messageToDelete.xattach;
                     
@@ -5619,6 +5644,9 @@ async function processChats(chats, keys) {
 
                   if (reactNativeApp.isReactNativeWebView && messageToDelete.type === 'call' && Number(messageToDelete.callTime) > 0) {
                     reactNativeApp.sendCancelScheduledCall(contact?.username, Number(messageToDelete.callTime));
+                  }
+                  if (didDeleteMessage && messageToDelete.type === 'call' && shouldRefreshUpcomingCallsUiForCallTime(messageToDelete.callTime)) {
+                    refreshUpcomingCallsUi();
                   }
                   
                   if (chatModal.isActive() && chatModal.address === from) {
@@ -16458,6 +16486,7 @@ class ChatModal {
       if (messageIndex === -1) return;
       
       const message = contact.messages[messageIndex];
+      const shouldRefreshCallsUi = message.type === 'call' && shouldRefreshUpcomingCallsUiForCallTime(message.callTime);
       
       if (message.deleted) {
         return showToast('Message already deleted', 2000, 'info');
@@ -16499,6 +16528,9 @@ class ChatModal {
       delete message.xattach;
       
       this.appendChatModal();
+      if (shouldRefreshCallsUi) {
+        refreshUpcomingCallsUi();
+      }
       showToast('Message deleted', 2000, 'success');
       setTimeout(() => {
         const selector = `[data-message-timestamp="${timestamp}"]`;
