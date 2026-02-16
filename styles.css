@@ -4869,6 +4869,22 @@ small {
   text-align: left;
 }
 
+.share-contact-update-summary {
+  font-size: 0.75rem;
+  color: var(--secondary-text-color);
+  margin-top: 2px;
+  text-align: right;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.share-contact-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-left: 8px;
+}
+
 .share-contact-checkbox {
   width: 20px;
   height: 20px;

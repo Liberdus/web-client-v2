@@ -19188,11 +19188,17 @@ class ImportContactsModal {
       if (existingContact) {
         const updateEligibility = this.getExistingContactUpdateEligibility(existingContact, contact);
         if (updateEligibility.canUpdate) updatableExistingCount++;
+        const updateParts = [];
+        if (updateEligibility.canUpdateAvatar) updateParts.push('photo');
+        if (updateEligibility.canUpdateName) updateParts.push('name');
+        const updateSummary = updateParts.length > 0 ? `import ${updateParts.join(' & ')}` : '';
+
         existingContacts.push({
           ...contact,
           address: normalizedAddr,
           isExisting: true,
           canUpdateExisting: updateEligibility.canUpdate,
+          updateSummary,
         });
       } else {
         newContacts.push({ ...contact, address: normalizedAddr, isExisting: false });
@@ -19248,6 +19254,9 @@ class ImportContactsModal {
       const usernameSubtitle = (contact.name && contact.username)
         ? `<div class="share-contact-username">${escapeHtml(contact.username)}</div>`
         : '';
+      const updateSummaryHtml = (contact.isExisting && contact.canUpdateExisting && contact.updateSummary)
+        ? `<div class="share-contact-update-summary">${escapeHtml(contact.updateSummary)}</div>`
+        : '';
 
       row.innerHTML = `
         <div class="share-contact-avatar">${avatarHtml}</div>
@@ -19257,7 +19266,7 @@ class ImportContactsModal {
         </div>
         ${(contact.isExisting && !contact.canUpdateExisting)
           ? '<span class="existing-label">Already added</span>' 
-          : '<input type="checkbox" class="share-contact-checkbox" />'}
+          : `<div class="share-contact-action"><input type="checkbox" class="share-contact-checkbox" />${updateSummaryHtml}</div>`}
       `;
 
       this.contactsList.appendChild(row);
