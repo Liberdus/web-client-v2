@@ -5475,6 +5475,7 @@ async function processChats(chats, keys) {
   const timestamp = myAccount.chatTimestamp || 0;
   const messageQueryTimestamp = Math.max(0, timestamp+1);
   let hasAnyTransfer = false;
+  let needsUpcomingCallsUiRefresh = false;
 
   for (let sender in chats) {
     // Fetch messages using the adjusted timestamp
@@ -5646,7 +5647,7 @@ async function processChats(chats, keys) {
                     reactNativeApp.sendCancelScheduledCall(contact?.username, Number(messageToDelete.callTime));
                   }
                   if (didDeleteMessage && messageToDelete.type === 'call' && shouldRefreshUpcomingCallsUiForCallTime(messageToDelete.callTime)) {
-                    refreshUpcomingCallsUi();
+                    needsUpcomingCallsUiRefresh = true;
                   }
                   
                   if (chatModal.isActive() && chatModal.address === from) {
@@ -5853,7 +5854,7 @@ async function processChats(chats, keys) {
           
           insertSorted(contact.messages, payload, 'timestamp');
           if (payload.type === 'call' && shouldRefreshUpcomingCallsUiForCallTime(payload.callTime)) {
-            refreshUpcomingCallsUi();
+            needsUpcomingCallsUiRefresh = true;
           }
           // if we are not in the chatModal of who sent it, playChatSound or if device visibility is hidden play sound
           if (!inActiveChatWithSender || document.visibilityState === 'hidden') {
@@ -6090,6 +6091,10 @@ async function processChats(chats, keys) {
     if (historyModal.isActive()) historyModal.refresh();
     // Update wallet view if it's active
     if (walletScreen.isActive()) walletScreen.updateWalletView();
+  }
+
+  if (needsUpcomingCallsUiRefresh) {
+    refreshUpcomingCallsUi();
   }
 
   // Update the global timestamp AFTER processing all senders
