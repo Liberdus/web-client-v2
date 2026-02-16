@@ -17848,10 +17848,7 @@ class CallInviteModal {
     this.inviteSendButton.textContent = 'Sending...';
 
     try {
-      await walletScreen.updateWalletBalances();
-      const libAsset = (myData?.wallet?.assets || []).find((asset) => asset?.symbol === 'LIB') || myData?.wallet?.assets?.[0];
-      let availableBalanceWei = BigInt(libAsset?.balance ?? 0n);
-      await getNetworkParams();
+      let availableBalanceWei = getLibBalanceWei();
       const feeInWei = getTransactionFeeWei({ allowNull: true });
       if (feeInWei === null) {
         showToast('Network error: Cannot determine transaction fee', 0, 'error');
@@ -18272,10 +18269,7 @@ class ShareAttachmentModal {
     this.sendButton.textContent = 'Sending...';
 
     try {
-      await walletScreen.updateWalletBalances();
-      const libAsset = (myData?.wallet?.assets || []).find((asset) => asset?.symbol === 'LIB') || myData?.wallet?.assets?.[0];
-      let availableBalanceWei = BigInt(libAsset?.balance ?? 0n);
-      await getNetworkParams();
+      let availableBalanceWei = getLibBalanceWei();
       const feeInWei = getTransactionFeeWei({ allowNull: true });
       if (feeInWei === null) {
         showToast('Network error: Cannot determine transaction fee', 0, 'error');
@@ -26750,6 +26744,16 @@ function getTransactionFeeWei(options = {}) {
     return allowNull ? null : 1n * wei;
   }
   return EthNum.toWei(EthNum.div(parameters.current.transactionFeeUsdStr, parameters.current.stabilityFactorStr)) || 1n * wei;
+}
+
+/**
+ * Returns current LIB balance from local wallet state.
+ * Falls back to first asset for compatibility with existing wallet structure.
+ * @returns {bigint}
+ */
+function getLibBalanceWei() {
+  const libAsset = (myData?.wallet?.assets || []).find((asset) => asset?.symbol === 'LIB') || myData?.wallet?.assets?.[0];
+  return BigInt(libAsset?.balance ?? 0n);
 }
 
 
