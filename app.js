@@ -177,6 +177,8 @@ const MIGRATION_ATTACHMENT_KEYS_TO_ENC_KEY_TS = 202602010000;
 let parameters = {
   current: {
     transactionFee: 1n * wei,
+    transactionFeeUsdStr: '',
+    stabilityFactorStr: '',
   },
 };
 
@@ -3183,7 +3185,7 @@ async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
   const asset = myData.wallet.assets[assetIndex];
   
   // Check if transaction fee is available from network parameters
-  if (!parameters.current || !parameters.current.transactionFeeUsdStr) {
+  if (!parameters.current || !parameters.current.transactionFeeUsdStr || !parameters.current.stabilityFactorStr) {
     console.error('Transaction fee not available from network parameters');
     if (balanceWarning) {
       balanceWarning.textContent = 'Network error: Cannot determine transaction fee';
@@ -17126,6 +17128,14 @@ class ChatModal {
    * @returns {Promise<void>}
    */
   async sendVoiceMessageTx(voiceMessageUrl, duration, audioPqEncSharedKey, audioSelfKey, replyInfo = null) {
+    const tollInLib = myData.contacts[this.address].tollRequiredToSend == 0 ? 0n : this.toll;
+    const sufficientBalance = await validateBalance(tollInLib);
+    if (!sufficientBalance) {
+      throw new Error(
+        `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}. Go to the wallet to add more LIB.`
+      );
+    }
+
     // Create voice message object
     const messageObj = {
       type: 'vm',
@@ -17188,9 +17198,6 @@ class ChatModal {
     }
 
     payload.senderInfo = encryptChacha(dhkey, stringify(senderInfo));
-
-    // Calculate toll
-    const tollInLib = myData.contacts[this.address].tollRequiredToSend == 0 ? 0n : this.toll;
 
     // Create and send transaction
     const chatMessageObj = await this.createChatMessage(this.address, payload, tollInLib, myAccount.keys);
@@ -17841,6 +17848,15 @@ class CallInviteModal {
     this.inviteSendButton.textContent = 'Sending...';
 
     try {
+      await walletScreen.updateWalletBalances();
+      const libAsset = (myData?.wallet?.assets || []).find((asset) => asset?.symbol === 'LIB') || myData?.wallet?.assets?.[0];
+      let availableBalanceWei = BigInt(libAsset?.balance ?? 0n);
+      await getNetworkParams();
+      const feeInWei = getTransactionFeeWei({ allowNull: true });
+      if (feeInWei === null) {
+        showToast('Network error: Cannot determine transaction fee', 0, 'error');
+        return;
+      }
       const successMessages = [];
       const failureGroups = new Map();
       const addFailure = (reason, name) => {
@@ -17902,6 +17918,14 @@ class CallInviteModal {
           addFailure('notConnection', username);
           continue;
         }
+
+        const totalRequired = toll + feeInWei;
+        if (availableBalanceWei < totalRequired) {
+          addFailure('insufficientBalance', contact.username || addr);
+          continue;
+        }
+        // Reserve balance locally to prevent over-attempting within this batch.
+        availableBalanceWei -= totalRequired;
 
         const messageObj = await chatModal.createChatMessage(addr, messagePayload, toll, keys);
         // set callType to true if callTime is within 5 minutes of now or after callTime
@@ -18001,6 +18025,12 @@ class CallInviteModal {
             case 'sendFailed':
               failureItems.push({
                 text: 'Call invite failed to send to:',
+                sublist: nameList
+              });
+              break;
+            case 'insufficientBalance':
+              failureItems.push({
+                text: 'Insufficient LIB balance to invite:',
                 sublist: nameList
               });
               break;
@@ -18242,6 +18272,15 @@ class ShareAttachmentModal {
     this.sendButton.textContent = 'Sending...';
 
     try {
+      await walletScreen.updateWalletBalances();
+      const libAsset = (myData?.wallet?.assets || []).find((asset) => asset?.symbol === 'LIB') || myData?.wallet?.assets?.[0];
+      let availableBalanceWei = BigInt(libAsset?.balance ?? 0n);
+      await getNetworkParams();
+      const feeInWei = getTransactionFeeWei({ allowNull: true });
+      if (feeInWei === null) {
+        showToast('Network error: Cannot determine transaction fee', 0, 'error');
+        return;
+      }
       const keys = myAccount.keys;
       if (!keys) {
         showToast('Keys not found', 0, 'error');
@@ -18315,9 +18354,15 @@ class ShareAttachmentModal {
         
         // Calculate toll amount: 0 for connections, recipient's required toll for others
         let tollInLib = tollRequiredToSend === 0 ? 0n : (contact.toll || 0n);
-        
-        // Add network fee to the toll amount
-        tollInLib = tollInLib + getTransactionFeeWei();
+
+        const totalRequired = tollInLib + feeInWei;
+        if (availableBalanceWei < totalRequired) {
+          showToast(`Insufficient LIB balance to share with ${contact?.username || addr}`, 3000, 'warning');
+          continue;
+        }
+        // Reserve balance locally to prevent over-attempting within this batch.
+        availableBalanceWei -= totalRequired;
+
         // if (tollRequiredToSend === 1) {
         //   const username = (contact?.username) || `${addr.slice(0, 8)}...${addr.slice(-6)}`;
         //   showToast(`You can only share with people who have added you as a connection. Ask ${username} to add you as a connection`, 0, 'info');
@@ -20188,11 +20233,11 @@ class FailedMessageMenu {
           .sendVoiceMessageTx(voiceUrl, duration, pqEncSharedKeyBin, selfKey)
           .catch((err) => {
             console.error('Voice message retry failed:', err);
-            showToast('Failed to retry voice message', 0, 'error');
+            showToast(err?.message || 'Failed to retry voice message', 0, 'error');
           });
       } catch (err) {
         console.error('Voice message retry failed:', err);
-        showToast('Failed to retry voice message', 0, 'error');
+        showToast(err?.message || 'Failed to retry voice message', 0, 'error');
       }
       return;
     }
@@ -26698,7 +26743,12 @@ function getStabilityFactor() {
 }
 
 // returns transaction fee in wei
-function getTransactionFeeWei() {
+// pass { allowNull: true } to return null when fee params are unavailable
+function getTransactionFeeWei(options = {}) {
+  const { allowNull = false } = options;
+  if (!parameters?.current?.transactionFeeUsdStr || !parameters?.current?.stabilityFactorStr) {
+    return allowNull ? null : 1n * wei;
+  }
   return EthNum.toWei(EthNum.div(parameters.current.transactionFeeUsdStr, parameters.current.stabilityFactorStr)) || 1n * wei;
 }
 
