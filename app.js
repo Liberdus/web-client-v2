@@ -15187,6 +15187,8 @@ class ChatModal {
     const editOption = this.contextMenu.querySelector('[data-action="edit"]');
     const saveOption = this.contextMenu.querySelector('[data-action="save"]');
     const isFailedPayment = messageEl.dataset.status === 'failed' && messageEl.classList.contains('payment-info');
+    // Treat any message with status 'failed' as failed for reply gating
+    const isFailed = messageEl.dataset.status === 'failed';
     // Show save option only for voice messages
     if (saveOption) saveOption.style.display = isVoice ? 'flex' : 'none';
     // For failed payment messages, hide copy and delete-for-all regardless of sender
@@ -15207,18 +15209,18 @@ class ChatModal {
       if (inviteOption) inviteOption.style.display = isExpired ? 'none' : 'flex';
       if (editResendOption) editResendOption.style.display = 'none';
       if (editOption) editOption.style.display = 'none';
-      if (replyOption) replyOption.style.display = isFuture ? 'flex' : 'none';
+      if (replyOption) replyOption.style.display = (isFuture && !isFailed) ? 'flex' : 'none';
     } else if (isVoice) {
       if (copyOption) copyOption.style.display = 'none';
       if (inviteOption) inviteOption.style.display = 'none';
       if (joinOption) joinOption.style.display = 'none';
-      if (replyOption) replyOption.style.display = 'flex';
+      if (replyOption) replyOption.style.display = isFailed ? 'none' : 'flex';
       if (editOption) editOption.style.display = 'none';
     } else {
       if (copyOption) copyOption.style.display = 'flex';
       if (joinOption) joinOption.style.display = 'none';
       if (inviteOption) inviteOption.style.display = 'none';
-      if (replyOption) replyOption.style.display = 'flex';
+      if (replyOption) replyOption.style.display = isFailed ? 'none' : 'flex';
       if (editResendOption) editResendOption.style.display = isFailedPayment ? 'flex' : 'none';
       // Determine if edit should be shown
       if (editOption) {
