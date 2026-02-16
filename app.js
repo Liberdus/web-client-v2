@@ -12873,6 +12873,7 @@ class ChatModal {
     editInputInit.value = '';
     this.cancelEditButton.style.display = 'none';
     this.addAttachmentButton.disabled = false;
+    if (this.voiceRecordButton) this.voiceRecordButton.disabled = !isOnline;
 
     friendModal.setAddress(address);
     footer.closeNewChatButton();
@@ -12880,7 +12881,7 @@ class ChatModal {
     // Cache whether the contact has me blocked, and disable attachments accordingly
     this.blockedByRecipient = Number(contact?.tollRequiredToSend) === 2;
     this.addAttachmentButton.disabled = this.blockedByRecipient;
-    this.voiceRecordButton.disabled = this.blockedByRecipient;
+    if (this.voiceRecordButton) this.voiceRecordButton.disabled = this.blockedByRecipient || !isOnline;
     friendModal.updateFriendButton(contact, 'addFriendButtonChat');
     // Set user info
     this.modalTitle.textContent = getContactDisplayName(contact);
