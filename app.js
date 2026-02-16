@@ -15187,7 +15187,6 @@ class ChatModal {
     const editOption = this.contextMenu.querySelector('[data-action="edit"]');
     const saveOption = this.contextMenu.querySelector('[data-action="save"]');
     const isFailedPayment = messageEl.dataset.status === 'failed' && messageEl.classList.contains('payment-info');
-    // Treat any message with status 'failed' as failed for reply gating
     const isFailed = messageEl.dataset.status === 'failed';
     // Show save option only for voice messages
     if (saveOption) saveOption.style.display = isVoice ? 'flex' : 'none';
@@ -15209,7 +15208,7 @@ class ChatModal {
       if (inviteOption) inviteOption.style.display = isExpired ? 'none' : 'flex';
       if (editResendOption) editResendOption.style.display = 'none';
       if (editOption) editOption.style.display = 'none';
-      if (replyOption) replyOption.style.display = (isFuture && !isFailed) ? 'flex' : 'none';
+      if (replyOption) replyOption.style.display = isFailed ? 'none' : 'flex';
     } else if (isVoice) {
       if (copyOption) copyOption.style.display = 'none';
       if (inviteOption) inviteOption.style.display = 'none';
