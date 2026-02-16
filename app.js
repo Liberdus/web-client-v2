@@ -5852,6 +5852,9 @@ async function processChats(chats, keys) {
           }
           
           insertSorted(contact.messages, payload, 'timestamp');
+          if (payload.type === 'call' && shouldRefreshUpcomingCallsUiForCallTime(payload.callTime)) {
+            refreshUpcomingCallsUi();
+          }
           // if we are not in the chatModal of who sent it, playChatSound or if device visibility is hidden play sound
           if (!inActiveChatWithSender || document.visibilityState === 'hidden') {
             playChatSound();
@@ -17058,6 +17061,10 @@ class ChatModal {
         updateTransactionStatus(txid, currentAddress, 'failed', 'message');
         this.appendChatModal();
         return false;
+      }
+
+      if (shouldRefreshUpcomingCallsUiForCallTime(normalizedCallTime)) {
+        refreshUpcomingCallsUi();
       }
 
       return true;
