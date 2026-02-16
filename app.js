@@ -18282,6 +18282,16 @@ class ShareAttachmentModal {
         showToast('Keys not found', 0, 'error');
         return;
       }
+      const successMessages = [];
+      const failureGroups = new Map();
+      const addFailure = (reason, name) => {
+        if (!failureGroups.has(reason)) {
+          failureGroups.set(reason, new Set());
+        }
+        if (name) {
+          failureGroups.get(reason).add(name);
+        }
+      };
 
       // Get the file's encryption key (migration ensures all attachments have encKey)
       const encKey = this.attachmentData.encKey;
@@ -18292,9 +18302,10 @@ class ShareAttachmentModal {
 
       for (const addr of addresses) {
         const contact = myData.contacts[addr];
+        const contactName = contact?.username || addr;
         const ok = await ensureContactKeys(addr);
         if (!ok) {
-          showToast(`Skipping ${contact?.username || addr} (cannot get public key)`, 2000, 'warning');
+          addFailure('noPublicKey', contactName);
           continue;
         }
 
@@ -18344,7 +18355,7 @@ class ShareAttachmentModal {
         const tollRequiredToSend = chatIdAccount?.toll?.required?.[toIndex] ?? 1;
 
         if (tollRequiredToSend === 2) {
-          showToast(`You cannot share with ${contact?.username || addr} (you are blocked)`, 0, 'warning');
+          addFailure('blocked', contactName);
           continue;
         }
         
@@ -18353,7 +18364,7 @@ class ShareAttachmentModal {
 
         const totalRequired = tollInLib + feeInWei;
         if (availableBalanceWei < totalRequired) {
-          showToast(`Insufficient LIB balance to share with ${contact?.username || addr}`, 3000, 'warning');
+          addFailure('insufficientBalance', contactName);
           continue;
         }
         // Reserve balance locally to prevent over-attempting within this batch.
@@ -18417,10 +18428,73 @@ class ShareAttachmentModal {
           if (chatModal.isActive() && chatModal.address === addr) {
             chatModal.appendChatModal();
           }
-          showToast(`Failed to share with ${contact?.username || addr}`, 3000, 'error');
+          addFailure('sendFailed', contactName);
         } else {
-          showToast(`Attachment shared with ${contact?.username || addr}`, 3000, 'success');
+          successMessages.push(`Attachment shared with ${contactName}`);
         }
+      }
+
+      if (successMessages.length > 0) {
+        const successNames = successMessages.map((message) => {
+          const match = message.match(/^Attachment shared with (.+)$/);
+          return match ? match[1] : message;
+        });
+        const successHtml = [
+          '<div class="toast-list-content">',
+          '<div class="toast-list-title">Attachment(s) shared with:</div>',
+          '<ul class="toast-list">',
+          ...successNames.map((name) => `<li><strong>${escapeHtml(name)}</strong></li>`),
+          '</ul>',
+          '</div>'
+        ].join('');
+        showToast(successHtml, 3000, 'success', true);
+      }
+
+      if (failureGroups.size > 0) {
+        const failureItems = [];
+        for (const [reason, names] of failureGroups.entries()) {
+          const nameList = Array.from(names);
+          switch (reason) {
+            case 'noPublicKey':
+              failureItems.push({
+                text: 'Cannot get public key for:',
+                sublist: nameList
+              });
+              break;
+            case 'blocked':
+              failureItems.push({
+                text: 'You cannot share with these contacts (you are blocked):',
+                sublist: nameList
+              });
+              break;
+            case 'insufficientBalance':
+              failureItems.push({
+                text: 'Insufficient LIB balance to share with:',
+                sublist: nameList
+              });
+              break;
+            case 'sendFailed':
+              failureItems.push({
+                text: 'Attachment share failed for:',
+                sublist: nameList
+              });
+              break;
+          }
+        }
+        const failureHtml = [
+          '<div class="toast-list-content">',
+          '<div class="toast-list-title">Attachment not shared:</div>',
+          '<ul class="toast-list">',
+          ...failureItems.map((item) => {
+            const sublist = Array.isArray(item.sublist) && item.sublist.length > 0
+              ? `<ul class="toast-sublist">${item.sublist.map((name) => `<li><strong>${escapeHtml(name)}</strong></li>`).join('')}</ul>`
+              : '';
+            return `<li>${item.text}${sublist}</li>`;
+          }),
+          '</ul>',
+          '</div>'
+        ].join('');
+        showToast(failureHtml, 0, 'warning', true);
       }
 
     } catch (err) {
