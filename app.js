@@ -4338,7 +4338,9 @@ class FriendModal {
           console.log(
             `[handleFriendSubmit] update_toll_required transaction failed: ${res?.result?.reason}. Did not update contact status.`
           );
-          if (res?.result?.reason !== 'insufficient_balance') {
+          const reason = res?.result?.reason;
+          const isFeeCheckFailure = ['insufficient_balance', 'wallet_unavailable', 'network_error', 'fee_check_failed'].includes(reason);
+          if (!isFeeCheckFailure) {
             showToast('Failed to update friend status. Please try again.', 0, 'error');
           }
           return;
