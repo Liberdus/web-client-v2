@@ -3246,29 +3246,51 @@ async function getFeeBalanceStatus() {
 }
 
 /**
- * Check whether the wallet can cover a fee-only transaction.
- * @param {{toastOnFailure?: boolean, returnDetails?: boolean}} options
- * @returns {Promise<boolean | {success: boolean, reason: ('insufficient_balance'|'network_error'|'wallet_unavailable'|null)}>}
+ * Show a standard fee-balance failure toast.
+ * @param {'insufficient_balance'|'network_error'|'wallet_unavailable'|null} reason
+ * @returns {void}
  */
-async function hasSufficientFeeBalance(options = {}) {
-  const { toastOnFailure = true, returnDetails = false } = options;
-  const feeBalanceStatus = await getFeeBalanceStatus();
+function showFeeBalanceFailureToast(reason) {
+  if (reason === 'insufficient_balance') {
+    showToast('Insufficient balance for fee. Go to the wallet to add more LIB.', 0, 'error');
+  } else if (reason === 'wallet_unavailable') {
+    showToast('Wallet balance is unavailable right now. Please reopen the wallet and try again.', 0, 'error');
+  } else {
+    showToast('Network error: cannot determine transaction fee. Please try again.', 0, 'error');
+  }
+}
 
-  if (!feeBalanceStatus.success && toastOnFailure) {
-    if (feeBalanceStatus.reason === 'insufficient_balance') {
-      showToast('Insufficient balance for fee. Go to the wallet to add more LIB.', 0, 'error');
-    } else if (feeBalanceStatus.reason === 'wallet_unavailable') {
-      showToast('Wallet balance is unavailable right now. Please reopen the wallet and try again.', 0, 'error');
+/**
+ * Show a close-flow fee warning toast once per close action.
+ * @param {'insufficient_balance'|'network_error'|'wallet_unavailable'|null} reason
+ * @param {'claim_fee'|'send_read'} action
+ * @param {boolean} alreadyShown
+ * @returns {boolean}
+ */
+function showCloseFeeFailureWarningOnce(reason, action, alreadyShown = false) {
+  if (alreadyShown) {
+    return true;
+  }
+
+  if (action === 'claim_fee') {
+    if (reason === 'insufficient_balance') {
+      showToast('Cannot claim fee: insufficient LIB balance for network fee.', 0, 'warning');
+    } else if (reason === 'wallet_unavailable') {
+      showToast('Cannot claim fee because wallet balance data is unavailable.', 0, 'warning');
     } else {
-      showToast('Network error: cannot determine transaction fee. Please try again.', 0, 'error');
+      showToast('Cannot claim fee due to a network fee lookup error.', 0, 'warning');
+    }
+  } else {
+    if (reason === 'insufficient_balance') {
+      showToast('Cannot send read transaction: insufficient LIB balance for network fee.', 0, 'warning');
+    } else if (reason === 'wallet_unavailable') {
+      showToast('Cannot send read transaction because wallet balance data is unavailable right now.', 0, 'warning');
+    } else {
+      showToast('Cannot send read transaction right now due to a network fee lookup error.', 0, 'warning');
     }
   }
 
-  if (returnDetails) {
-    return feeBalanceStatus;
-  }
-
-  return feeBalanceStatus.success;
+  return true;
 }
 
 // Sign In Modal Management
@@ -4285,8 +4307,9 @@ class FriendModal {
   }
 
   async postUpdateTollRequired(address, friend) {
-    const feeBalanceStatus = await hasSufficientFeeBalance({ returnDetails: true });
+    const feeBalanceStatus = await getFeeBalanceStatus();
     if (!feeBalanceStatus.success) {
+      showFeeBalanceFailureToast(feeBalanceStatus.reason);
       return { result: { success: false, reason: feeBalanceStatus.reason || 'fee_check_failed' } };
     }
 
@@ -10782,8 +10805,9 @@ class TollModal {
    * @returns {Promise<Object>} - The response from the network
    */
   async postToll(toll, tollUnit) {
-    const feeBalanceStatus = await hasSufficientFeeBalance({ returnDetails: true });
+    const feeBalanceStatus = await getFeeBalanceStatus();
     if (!feeBalanceStatus.success) {
+      showFeeBalanceFailureToast(feeBalanceStatus.reason);
       return { result: { success: false, reason: feeBalanceStatus.reason || 'fee_check_failed' } };
     }
 
@@ -11831,8 +11855,9 @@ class ValidatorStakingModal {
   }
 
   async postUnstake(nodeAddress) {
-    const feeBalanceStatus = await hasSufficientFeeBalance({ returnDetails: true });
+    const feeBalanceStatus = await getFeeBalanceStatus();
     if (!feeBalanceStatus.success) {
+      showFeeBalanceFailureToast(feeBalanceStatus.reason);
       return { result: { success: false, reason: feeBalanceStatus.reason || 'fee_check_failed' } };
     }
 
@@ -12433,6 +12458,8 @@ class ChatModal {
 
     // Track active attachment loading toasts by contact so closing a chat can hide only its loading toasts.
     this.attachmentLoadingToastsByContact = new Map();
+    // Prevent multiple fee-failure warnings when close triggers read + reclaim checks.
+    this.closeFeeFailureToastShown = false;
   }
 
   /**
@@ -13172,6 +13199,8 @@ class ChatModal {
     this.unlockBackgroundScroll();
     if (isOnline) {
       const needsToSendReadTx = this.needsToSend();
+      // Reset close-scoped fee warning dedupe flag.
+      this.closeFeeFailureToastShown = false;
       // if newestRecevied message does not have an amount property and user has not responded, then send a read transaction
       if (needsToSendReadTx) {
         this.sendReadTransaction(this.address);
@@ -13307,15 +13336,13 @@ class ChatModal {
       // );
       return;
     }
-    const feeBalanceStatus = await hasSufficientFeeBalance({ toastOnFailure: false, returnDetails: true });
+    const feeBalanceStatus = await getFeeBalanceStatus();
     if (!feeBalanceStatus.success) {
-      if (feeBalanceStatus.reason === 'insufficient_balance') {
-        showToast('Cannot claim fee: insufficient LIB balance for network fee.', 0, 'warning');
-      } else if (feeBalanceStatus.reason === 'wallet_unavailable') {
-        showToast('Cannot claim fee because wallet balance data is unavailable.', 0, 'warning');
-      } else {
-        showToast('Cannot claim fee due to a network fee lookup error.', 0, 'warning');
-      }
+      this.closeFeeFailureToastShown = showCloseFeeFailureWarningOnce(
+        feeBalanceStatus.reason,
+        'claim_fee',
+        this.closeFeeFailureToastShown
+      );
       return;
     }
 
@@ -13367,15 +13394,13 @@ class ChatModal {
    */
   async sendReadTransaction(contactAddress) {
     const contact = myData.contacts[contactAddress];
-    const feeBalanceStatus = await hasSufficientFeeBalance({ toastOnFailure: false, returnDetails: true });
+    const feeBalanceStatus = await getFeeBalanceStatus();
     if (!feeBalanceStatus.success) {
-      if (feeBalanceStatus.reason === 'insufficient_balance') {
-        showToast('Cannot send read transaction: insufficient LIB balance for network fee.', 0, 'warning');
-      } else if (feeBalanceStatus.reason === 'wallet_unavailable') {
-        showToast('Cannot send read transaction because wallet balance data is unavailable right now.', 0, 'warning');
-      } else {
-        showToast('Cannot send read transaction right now due to a network fee lookup error.', 0, 'warning');
-      }
+      this.closeFeeFailureToastShown = showCloseFeeFailureWarningOnce(
+        feeBalanceStatus.reason,
+        'send_read',
+        this.closeFeeFailureToastShown
+      );
       return;
     }
 
@@ -17051,7 +17076,9 @@ class ChatModal {
         return;
       }
 
-      if (!(await hasSufficientFeeBalance())) {
+      const feeBalanceStatus = await getFeeBalanceStatus();
+      if (!feeBalanceStatus.success) {
+        showFeeBalanceFailureToast(feeBalanceStatus.reason);
         return;
       }
 
