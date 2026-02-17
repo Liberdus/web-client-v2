@@ -13605,6 +13605,8 @@ class ChatModal {
       this.clearReplyState(contact);
       // Clear attachment draft state
       this.clearAttachmentState(contact);
+      // Clear retry draft state
+      this.clearRetryState(contact);
 
       // Update the chat modal UI immediately
       if (!isEdit) this.appendChatModal(); // This should now display the 'sending' message
@@ -14149,6 +14151,27 @@ class ChatModal {
   }
 
   /**
+   * Saves retry state to a contact object
+   * @param {Object} contact - The contact object to save retry state to
+   */
+  saveRetryState(contact) {
+    const retryTxid = this.retryOfTxId?.value?.trim?.() || '';
+    if (retryTxid) {
+      contact.draftRetryTxid = retryTxid;
+    } else {
+      this.clearRetryState(contact);
+    }
+  }
+
+  /**
+   * Clears retry state from a contact object
+   * @param {Object} contact - The contact object to clear retry state from
+   */
+  clearRetryState(contact) {
+    delete contact.draftRetryTxid;
+  }
+
+  /**
    * Saves attachment state to a contact object
    * @param {Object} contact - The contact object to save attachment state to
    */
@@ -14183,6 +14206,9 @@ class ChatModal {
       
       // Save or clear attachment state
       this.saveAttachmentState(myData.contacts[this.address]);
+
+      // Save or clear retry state
+      this.saveRetryState(myData.contacts[this.address]);
     }
   }
 
@@ -14200,6 +14226,9 @@ class ChatModal {
     // Clear any existing attachments
     this.fileAttachments = [];
     this.showAttachmentPreview();
+
+    // Clear retry state in composer; restored below if contact has one
+    if (this.retryOfTxId) this.retryOfTxId.value = '';
 
     // Load draft if exists
     const contact = myData.contacts[address];
@@ -14231,6 +14260,11 @@ class ChatModal {
     if (contact?.draftAttachments && Array.isArray(contact.draftAttachments) && contact.draftAttachments.length > 0) {
       this.fileAttachments = JSON.parse(JSON.stringify(contact.draftAttachments));
       this.showAttachmentPreview();
+    }
+
+    // Restore retry state if it exists
+    if (contact?.draftRetryTxid && this.retryOfTxId) {
+      this.retryOfTxId.value = contact.draftRetryTxid;
     }
   }
 
@@ -20224,8 +20258,31 @@ class FailedMessageMenu {
 
     if (chatModal.messageInput && chatModal.retryOfTxId && hasRetryableContent) {
       // Replace current staged attachments with failed message attachments (if any)
+      // Delete only unsent uploads that are NOT part of the currently staged failed message.
+      // This avoids deleting server files still referenced by failed-message retries.
+      const previousRetryTxId = chatModal.retryOfTxId?.value?.trim?.() || '';
+      let safeUrlsFromPreviousFailedMessage = new Set();
+      if (previousRetryTxId && contact && Array.isArray(contact.messages)) {
+        const previousRetryMessage = contact.messages.find((msg) => msg.txid === previousRetryTxId);
+        const previousRetryAttachments = Array.isArray(previousRetryMessage?.xattach) ? previousRetryMessage.xattach : [];
+        safeUrlsFromPreviousFailedMessage = new Set(
+          previousRetryAttachments.flatMap((att) => [att?.url, att?.pUrl]).filter(Boolean)
+        );
+      }
+
+      const composerAttachments = Array.isArray(chatModal.fileAttachments) ? chatModal.fileAttachments : [];
+      const attachmentsToDeleteFromServer = composerAttachments.filter((att) => {
+        const url = att?.url;
+        const pUrl = att?.pUrl;
+        if (!url && !pUrl) return false;
+        return !(safeUrlsFromPreviousFailedMessage.has(url) || safeUrlsFromPreviousFailedMessage.has(pUrl));
+      });
+
       chatModal.cancelAllOperations();
-      chatModal.clearComposerAttachments({ deleteFromServer: true });
+      chatModal.clearComposerAttachments({ deleteFromServer: false });
+      if (attachmentsToDeleteFromServer.length > 0) {
+        chatModal.deleteAttachmentsFromServer(attachmentsToDeleteFromServer);
+      }
       chatModal.fileAttachments = messageAttachments.length > 0
         ? JSON.parse(JSON.stringify(messageAttachments))
         : [];
