@@ -4232,6 +4232,12 @@ class FriendModal {
   }
 
   async postUpdateTollRequired(address, friend) {
+    const sufficientBalance = await validateBalance(0n);
+    if (!sufficientBalance) {
+      showToast('Insufficient balance for fee. Go to the wallet to add more LIB.', 0, 'error');
+      return { result: { success: false, reason: 'insufficient_balance' } };
+    }
+
     // 0 = blocked, 1 = Other, 2 = Connection
     // required = 1 if toll required, 0 if not and 2 to block other party
     const requiredNum = friend === 2 ? 0 : friend === 1 ? 1 : friend === 0 ? 2 : 1;
@@ -4280,7 +4286,9 @@ class FriendModal {
           console.log(
             `[handleFriendSubmit] update_toll_required transaction failed: ${res?.result?.reason}. Did not update contact status.`
           );
-          showToast('Failed to update friend status. Please try again.', 0, 'error');
+          if (res?.result?.reason !== 'insufficient_balance') {
+            showToast('Failed to update friend status. Please try again.', 0, 'error');
+          }
           return;
         }
       } catch (error) {
