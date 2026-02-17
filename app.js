@@ -20241,16 +20241,8 @@ class FailedMessageMenu {
     }
 
     // Message/attachment retry: prefill text and restore attachments so next send removes failed tx
-    const messageContent = messageEl.querySelector('.message-content')?.textContent
-      ?? (typeof message?.message === 'string' ? message.message : '');
-    const messageAttachments = Array.isArray(message?.xattach)
-      ? message.xattach
-      : Array.from(messageEl.querySelectorAll('.attachment-row')).map((row) => ({
-          url: row.dataset.url || '',
-          pUrl: row.dataset.pUrl || '',
-          name: row.dataset.name ? decodeURIComponent(row.dataset.name) : 'Attachment',
-          type: row.dataset.type || ''
-        })).filter(att => !!att.url);
+    const messageContent = typeof message?.message === 'string' ? message.message : '';
+    const messageAttachments = Array.isArray(message?.xattach) ? message.xattach : [];
     const hasRetryableContent = !!txid && (
       messageAttachments.length > 0
       || (typeof messageContent === 'string' && messageContent.trim().length > 0)
