@@ -4363,7 +4363,9 @@ class FriendModal {
           );
           const reason = res?.result?.reason;
           const isFeeCheckFailure = ['insufficient_balance', 'wallet_unavailable', 'network_error', 'fee_check_failed'].includes(reason);
-          if (!isFeeCheckFailure) {
+          // injectTx already surfaces non-fee failures that include a reason.
+          const hasDetailedFailureReason = typeof reason === 'string' && reason.length > 0;
+          if (!isFeeCheckFailure && !hasDetailedFailureReason) {
             showToast('Failed to update friend status. Please try again.', 0, 'error');
           }
           return;
