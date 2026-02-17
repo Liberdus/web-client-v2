@@ -3218,6 +3218,20 @@ async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
   return !hasInsufficientBalance;
 }
 
+/**
+ * Check whether the wallet can cover a fee-only transaction.
+ * @param {{toastOnFailure?: boolean}} options
+ * @returns {Promise<boolean>}
+ */
+async function hasSufficientFeeBalance(options = {}) {
+  const { toastOnFailure = true } = options;
+  const sufficientBalance = await validateBalance(0n);
+  if (!sufficientBalance && toastOnFailure) {
+    showToast('Insufficient balance for fee. Go to the wallet to add more LIB.', 0, 'error');
+  }
+  return sufficientBalance;
+}
+
 // Sign In Modal Management
 class SignInModal {
   constructor() {
@@ -4232,9 +4246,7 @@ class FriendModal {
   }
 
   async postUpdateTollRequired(address, friend) {
-    const sufficientBalance = await validateBalance(0n);
-    if (!sufficientBalance) {
-      showToast('Insufficient balance for fee. Go to the wallet to add more LIB.', 0, 'error');
+    if (!(await hasSufficientFeeBalance())) {
       return { result: { success: false, reason: 'insufficient_balance' } };
     }
 
@@ -6247,6 +6259,8 @@ async function postAssetTransfer(to, amount, memo, keys) {
 
 // TODO - backend - when account is being registered, ensure that loserCase(alias)=alias and hash(alias)==aliasHash
 async function postRegisterAlias(alias, keys, isPrivate = false) {
+  // no need for sufficient balance check due to `register` transaction
+
   const aliasBytes = utf82bin(alias);
   const aliasHash = hashBytes(aliasBytes);
   const { publicKey } = generatePQKeys(keys.pqSeed);
@@ -10726,6 +10740,10 @@ class TollModal {
    * @returns {Promise<Object>} - The response from the network
    */
   async postToll(toll, tollUnit) {
+    if (!(await hasSufficientFeeBalance())) {
+      return { result: { success: false, reason: 'insufficient_balance' } };
+    }
+
     const tollTx = {
       from: longAddress(myAccount.keys.address),
       toll: toll,
@@ -11770,6 +11788,10 @@ class ValidatorStakingModal {
   }
 
   async postUnstake(nodeAddress) {
+    if (!(await hasSufficientFeeBalance())) {
+      return { result: { success: false, reason: 'insufficient_balance' } };
+    }
+
     // TODO: need to query network for the correct nominator address
     const unstakeTx = {
       type: 'withdraw_stake',
@@ -13241,6 +13263,10 @@ class ChatModal {
       // );
       return;
     }
+    if (!(await hasSufficientFeeBalance({ toastOnFailure: false }))) {
+      showToast('Cannot claim fee: insufficient LIB balance for network fee.', 0, 'warning');
+      return;
+    }
 
     const tx = {
       type: 'reclaim_toll',
@@ -13290,6 +13316,10 @@ class ChatModal {
    */
   async sendReadTransaction(contactAddress) {
     const contact = myData.contacts[contactAddress];
+    if (!(await hasSufficientFeeBalance({ toastOnFailure: false }))) {
+      showToast('Cannot send read transaction: insufficient LIB balance for network fee.', 0, 'warning');
+      return;
+    }
 
     const readTransaction = await this.createReadTransaction(contactAddress);
     const txid = await signObj(readTransaction, myAccount.keys);
@@ -16963,9 +16993,7 @@ class ChatModal {
         return;
       }
 
-      const sufficientBalance = await validateBalance(0n);
-      if (!sufficientBalance) {
-        showToast('Insufficient balance for fee. Go to the wallet to add more LIB.', 0, 'error');
+      if (!(await hasSufficientFeeBalance())) {
         return;
       }
 
