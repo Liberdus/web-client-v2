@@ -3257,6 +3257,8 @@ async function hasSufficientFeeBalance(options = {}) {
   if (!feeBalanceStatus.success && toastOnFailure) {
     if (feeBalanceStatus.reason === 'insufficient_balance') {
       showToast('Insufficient balance for fee. Go to the wallet to add more LIB.', 0, 'error');
+    } else if (feeBalanceStatus.reason === 'wallet_unavailable') {
+      showToast('Wallet balance is unavailable right now. Please reopen the wallet and try again.', 0, 'error');
     } else {
       showToast('Network error: cannot determine transaction fee. Please try again.', 0, 'error');
     }
@@ -13307,8 +13309,10 @@ class ChatModal {
     if (!feeBalanceStatus.success) {
       if (feeBalanceStatus.reason === 'insufficient_balance') {
         showToast('Cannot claim fee: insufficient LIB balance for network fee.', 0, 'warning');
+      } else if (feeBalanceStatus.reason === 'wallet_unavailable') {
+        showToast('Cannot claim fee because wallet balance data is unavailable.', 0, 'warning');
       } else {
-        showToast('Cannot claim fee right now due to a network fee lookup error.', 0, 'warning');
+        showToast('Cannot claim fee due to a network fee lookup error.', 0, 'warning');
       }
       return;
     }
@@ -13365,6 +13369,8 @@ class ChatModal {
     if (!feeBalanceStatus.success) {
       if (feeBalanceStatus.reason === 'insufficient_balance') {
         showToast('Cannot send read transaction: insufficient LIB balance for network fee.', 0, 'warning');
+      } else if (feeBalanceStatus.reason === 'wallet_unavailable') {
+        showToast('Cannot send read transaction because wallet balance data is unavailable right now.', 0, 'warning');
       } else {
         showToast('Cannot send read transaction right now due to a network fee lookup error.', 0, 'warning');
       }
