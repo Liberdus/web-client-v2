@@ -8284,6 +8284,7 @@ function revalidateButtonStates() {
 
   // re-validate chat modal buttons
   if (typeof chatModal !== 'undefined' && chatModal.isActive() && chatModal.address) {
+    chatModal.revalidateSendButtonState();
     if (chatModal.voiceRecordButton) {
       chatModal.voiceRecordButton.disabled = chatModal.blockedByRecipient || !isOnline;
     }
@@ -12566,12 +12567,10 @@ class ChatModal {
       this.messageInput.style.height = Math.min(this.messageInput.scrollHeight, 120) + 'px';
 
       const messageText = e.target.value;
-      const messageValidation = this.validateMessageSize(messageText);
-      this.updateMessageByteCounter(messageValidation);
+      this.revalidateSendButtonState();
 
       // Save draft (text is already limited to 2000 chars by maxlength attribute)
-      this.debouncedSaveDraft(e.target.value);
-      this.toggleSendButtonVisibility();
+      this.debouncedSaveDraft(messageText);
     });
 
     // allow ctlr+enter or cmd+enter to send message
@@ -14438,8 +14437,7 @@ class ChatModal {
           );
           refreshChatsScreenIfActive();
           
-          const messageValidation = this.validateMessageSize(this.messageInput.value);
-          this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
+          this.revalidateSendButtonState();
 
           this.addAttachmentButton.disabled = this.isEditingMessage() || this.blockedByRecipient;
         } else {
@@ -14507,9 +14505,7 @@ class ChatModal {
               }
             }
             
-            const messageValidation = this.validateMessageSize(this.messageInput.value);
-            this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
-            this.toggleSendButtonVisibility();
+            this.revalidateSendButtonState();
 
             this.addAttachmentButton.disabled = this.isEditingMessage() || this.blockedByRecipient;
             if (activeChatMatchesUpload) {
@@ -14546,8 +14542,7 @@ class ChatModal {
               refreshChatsScreenIfActive();
             }
             
-            const messageValidation = this.validateMessageSize(this.messageInput.value);
-            this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
+            this.revalidateSendButtonState();
             this.isEncrypting = false;
 
             this.addAttachmentButton.disabled = this.isEditingMessage() || this.blockedByRecipient;
@@ -14568,8 +14563,7 @@ class ChatModal {
         refreshChatsScreenIfActive();
         this.isEncrypting = false;
         
-        const messageValidation = this.validateMessageSize(this.messageInput.value);
-        this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
+        this.revalidateSendButtonState();
 
             this.addAttachmentButton.disabled = this.isEditingMessage() || this.blockedByRecipient;
         worker.terminate();
@@ -14599,8 +14593,7 @@ class ChatModal {
       }
       
       // Re-enable buttons
-      const messageValidation = this.validateMessageSize(this.messageInput.value);
-      this.updateMessageByteCounter(messageValidation); // Re-enable send button if message size is valid
+      this.revalidateSendButtonState();
       this.isEncrypting = false;
 
       this.addAttachmentButton.disabled = this.isEditingMessage() || this.blockedByRecipient;
