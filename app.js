@@ -3230,7 +3230,9 @@ async function getFeeBalanceStatus() {
     return { success: false, reason: 'network_error' };
   }
 
-  const asset = myData?.wallet?.assets?.[0];
+  const asset =
+    (myData?.wallet?.assets || []).find((walletAsset) => walletAsset?.symbol === 'LIB') ||
+    myData?.wallet?.assets?.[0];
   if (!asset || asset.balance == null) {
     console.error('Wallet asset unavailable while checking fee balance');
     return { success: false, reason: 'wallet_unavailable' };
@@ -6356,9 +6358,31 @@ async function postRegisterAlias(alias, keys, isPrivate = false) {
 
 const TX_FEE_TOO_LOW_REGEX = /insufficient funds for transaction fee/i;
 const TX_FEE_RETRY_MESSAGE = 'Please retry your transaction.';
+const TX_ACCOUNT_INSUFFICIENT_FUNDS_REGEX = /from account does not have sufficient funds/i;
 
 function isTxFeeTooLowFailure(reason) {
   return typeof reason === 'string' && TX_FEE_TOO_LOW_REGEX.test(reason);
+}
+
+function isTxAccountInsufficientFundsFailure(reason) {
+  return typeof reason === 'string' && TX_ACCOUNT_INSUFFICIENT_FUNDS_REGEX.test(reason);
+}
+
+function getInsufficientFundsFailureMessage(reason) {
+  if (typeof reason === 'string' && /toll\s*\(\s*0\s*\)/i.test(reason)) {
+    return 'Insufficient balance for fee. Go to the wallet to add more LIB.';
+  }
+  return 'Insufficient balance for fee and toll. Go to the wallet to add more LIB.';
+}
+
+function getUserFacingTxFailureReason(reason, isFeeMismatch = false) {
+  if (isFeeMismatch || isTxFeeTooLowFailure(reason)) {
+    return TX_FEE_RETRY_MESSAGE;
+  }
+  if (isTxAccountInsufficientFundsFailure(reason)) {
+    return getInsufficientFundsFailureMessage(reason);
+  }
+  return typeof reason === 'string' && reason.length > 0 ? reason : 'Transaction failed';
 }
 
 async function refreshNetworkParamsOnTxFeeMismatch(reason) {
@@ -6483,9 +6507,10 @@ async function injectTx(tx, txid) {
     } else {
       const failureReason = normalizedReason;
       const isFeeMismatch = await refreshNetworkParamsOnTxFeeMismatch(failureReason);
-      let toastMessage = isFeeMismatch
-        ? TX_FEE_RETRY_MESSAGE
-        : 'Error injecting transaction: ' + failureReason;
+      const userFailureReason = getUserFacingTxFailureReason(failureReason, isFeeMismatch);
+      let toastMessage = userFailureReason === failureReason
+        ? 'Error injecting transaction: ' + failureReason
+        : userFailureReason;
       console.error('Error injecting transaction:', failureReason);
       logsModal.log('Error injecting transaction:', failureReason);
       if (!isFeeMismatch && failureReason?.includes('timestamp out of range')) {
@@ -6504,7 +6529,12 @@ async function injectTx(tx, txid) {
       showToast('Error injecting transaction: ' + error, 0, 'error');
     }
     console.error('Error injecting transaction:', error);
-    return null;
+    const errorReason = typeof error === 'string' ? error : (error?.message || String(error) || 'inject_failed');
+    return {
+      result: { success: false, reason: errorReason },
+      txid,
+      toastAlreadyShown: true,
+    };
   } finally {
     setTimeout(() => {
       saveState();
@@ -25421,7 +25451,7 @@ async function checkPendingTransactions() {
         // Check for failure reason in the transaction receipt
         const failureReason = res?.transaction?.reason || 'Transaction failed';
         const isFeeMismatch = await refreshNetworkParamsOnTxFeeMismatch(failureReason);
-        const userFailureReason = isFeeMismatch ? TX_FEE_RETRY_MESSAGE : failureReason;
+        const userFailureReason = getUserFacingTxFailureReason(failureReason, isFeeMismatch);
         console.log(`DEBUG: failure reason: ${failureReason}`);
 
         if (type === 'register') {
