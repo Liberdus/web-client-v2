@@ -4310,7 +4310,7 @@ class FriendModal {
     const feeBalanceStatus = await getFeeBalanceStatus();
     if (!feeBalanceStatus.success) {
       showFeeBalanceFailureToast(feeBalanceStatus.reason);
-      return { result: { success: false, reason: feeBalanceStatus.reason || 'fee_check_failed' } };
+      return { result: { success: false, reason: feeBalanceStatus.reason || 'fee_check_failed' }, toastAlreadyShown: true };
     }
 
     // 0 = blocked, 1 = Other, 2 = Connection
@@ -4331,6 +4331,15 @@ class FriendModal {
     };
     const txid = await signObj(tx, myAccount.keys);
     const res = await injectTx(tx, txid);
+    if (res?.result?.success !== true) {
+      // injectTx surfaces API/network failures when it can. Add fallback for silent null responses.
+      const reason = res?.result?.reason || 'inject_failed';
+      const injectToastShown = !!res;
+      if (!injectToastShown) {
+        showToast('Failed to update friend status. Please try again.', 0, 'error');
+      }
+      return { result: { success: false, reason }, toastAlreadyShown: true };
+    }
     return res;
   }
 
@@ -4361,11 +4370,8 @@ class FriendModal {
           console.log(
             `[handleFriendSubmit] update_toll_required transaction failed: ${res?.result?.reason}. Did not update contact status.`
           );
-          const reason = res?.result?.reason;
-          const isFeeCheckFailure = ['insufficient_balance', 'wallet_unavailable', 'network_error', 'fee_check_failed'].includes(reason);
-          // injectTx already surfaces non-fee failures that include a reason.
-          const hasDetailedFailureReason = typeof reason === 'string' && reason.length > 0;
-          if (!isFeeCheckFailure && !hasDetailedFailureReason) {
+          const toastAlreadyShown = res?.toastAlreadyShown === true;
+          if (!toastAlreadyShown) {
             showToast('Failed to update friend status. Please try again.', 0, 'error');
           }
           return;
