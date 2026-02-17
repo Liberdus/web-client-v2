@@ -6383,6 +6383,7 @@ async function postRegisterAlias(alias, keys, isPrivate = false) {
 
 const TX_FEE_TOO_LOW_REGEX = /insufficient funds for transaction fee/i;
 const TX_FEE_RETRY_MESSAGE = 'Please retry your transaction.';
+const TX_FEE_REFRESH_FAILED_MESSAGE = 'Transaction fee changed on the network. Please try again in a moment.';
 const TX_ACCOUNT_INSUFFICIENT_FUNDS_REGEX = /from account does not have sufficient funds/i;
 
 function isTxFeeTooLowFailure(reason) {
@@ -6394,15 +6395,23 @@ function isTxAccountInsufficientFundsFailure(reason) {
 }
 
 function getInsufficientFundsFailureMessage(reason) {
-  if (typeof reason === 'string' && /toll\s*\(\s*0\s*\)/i.test(reason)) {
+  if (typeof reason !== 'string') {
     return 'Insufficient balance for fee. Go to the wallet to add more LIB.';
   }
-  return 'Insufficient balance for fee and toll. Go to the wallet to add more LIB.';
+
+  const tollMatch = reason.match(/toll\s*\(\s*([0-9]+)\s*\)/i);
+  if (!tollMatch) {
+    return 'Insufficient balance for fee. Go to the wallet to add more LIB.';
+  }
+
+  return tollMatch[1] === '0'
+    ? 'Insufficient balance for fee. Go to the wallet to add more LIB.'
+    : 'Insufficient balance for fee and toll. Go to the wallet to add more LIB.';
 }
 
-function getUserFacingTxFailureReason(reason, isFeeMismatch = false) {
-  if (isFeeMismatch || isTxFeeTooLowFailure(reason)) {
-    return TX_FEE_RETRY_MESSAGE;
+function getUserFacingTxFailureReason(reason, feeMismatchStatus = null) {
+  if (feeMismatchStatus?.detected) {
+    return feeMismatchStatus.refreshed ? TX_FEE_RETRY_MESSAGE : TX_FEE_REFRESH_FAILED_MESSAGE;
   }
   if (isTxAccountInsufficientFundsFailure(reason)) {
     return getInsufficientFundsFailureMessage(reason);
@@ -6410,16 +6419,22 @@ function getUserFacingTxFailureReason(reason, isFeeMismatch = false) {
   return typeof reason === 'string' && reason.length > 0 ? reason : 'Transaction failed';
 }
 
+/**
+ * Attempts to refresh network params when a tx fails due to fee mismatch.
+ * @param {string} reason
+ * @returns {Promise<{detected: boolean, refreshed: boolean}>}
+ */
 async function refreshNetworkParamsOnTxFeeMismatch(reason) {
   if (!isTxFeeTooLowFailure(reason)) {
-    return false;
+    return { detected: false, refreshed: false };
   }
   try {
-    await getNetworkParams(true);
+    const refreshed = await getNetworkParams(true);
+    return { detected: true, refreshed: refreshed === true };
   } catch (error) {
     console.warn('Failed to refresh network params after fee mismatch:', error);
+    return { detected: true, refreshed: false };
   }
-  return true;
 }
 
 /**
@@ -6531,19 +6546,19 @@ async function injectTx(tx, txid) {
       }
     } else {
       const failureReason = normalizedReason;
-      const isFeeMismatch = await refreshNetworkParamsOnTxFeeMismatch(failureReason);
-      const userFailureReason = getUserFacingTxFailureReason(failureReason, isFeeMismatch);
+      const feeMismatchStatus = await refreshNetworkParamsOnTxFeeMismatch(failureReason);
+      const userFailureReason = getUserFacingTxFailureReason(failureReason, feeMismatchStatus);
       let toastMessage = userFailureReason === failureReason
         ? 'Error injecting transaction: ' + failureReason
         : userFailureReason;
       console.error('Error injecting transaction:', failureReason);
       logsModal.log('Error injecting transaction:', failureReason);
-      if (!isFeeMismatch && failureReason?.includes('timestamp out of range')) {
+      if (!feeMismatchStatus.detected && failureReason?.includes('timestamp out of range')) {
         console.error('Timestamp out of range, updating timestamp');
         timeDifference()
         toastMessage += ' (Please try again)';
       }
-      showToast(toastMessage, 0, isFeeMismatch ? 'warning' : 'error');
+      showToast(toastMessage, 0, feeMismatchStatus.detected ? 'warning' : 'error');
     }
     return data;
   } catch (error) {
@@ -25475,8 +25490,8 @@ async function checkPendingTransactions() {
         console.log(`DEBUG: txid ${txid} failed, removing completely`);
         // Check for failure reason in the transaction receipt
         const failureReason = res?.transaction?.reason || 'Transaction failed';
-        const isFeeMismatch = await refreshNetworkParamsOnTxFeeMismatch(failureReason);
-        const userFailureReason = getUserFacingTxFailureReason(failureReason, isFeeMismatch);
+        const feeMismatchStatus = await refreshNetworkParamsOnTxFeeMismatch(failureReason);
+        const userFailureReason = getUserFacingTxFailureReason(failureReason, feeMismatchStatus);
         console.log(`DEBUG: failure reason: ${failureReason}`);
 
         if (type === 'register') {
@@ -25650,14 +25665,14 @@ function ignoreShiftTabKey(e) {
 /**
  * Fetches and caches network account data if it's stale or not yet fetched.
  * @param {boolean} forceRefresh - If true, bypass staleness interval and fetch immediately.
- * @returns {Promise<void>} - Resolves when the network account data is updated or not needed
+ * @returns {Promise<boolean>} - True when params are usable (fresh/cache/fetched), false otherwise
  */
 async function getNetworkParams(forceRefresh = false) {
   const now = getCorrectedTimestamp();
 
   // Check if data is fresh; (this.networkAccountTimeStamp || 0) handles initial undefined state
   if (!forceRefresh && now - (getNetworkParams.timestamp || 0) < NETWORK_ACCOUNT_UPDATE_INTERVAL_MS) {
-    return;
+    return true;
   }
 
   // If offline, try to use cached parameters
@@ -25666,13 +25681,13 @@ async function getNetworkParams(forceRefresh = false) {
     if (cachedParams) {
       try {
         parameters = parse(cachedParams);
-        return;
+        return true;
       } catch (e) {
         console.warn('Failed to parse cached network parameters:', e);
       }
     }
     console.warn('No cached network parameters available (offline)');
-    return;
+    return false;
   }
 
   console.log(`getNetworkParams: Data for account ${NETWORK_ACCOUNT_ID} is stale or missing. Attempting to fetch...`);
@@ -25696,14 +25711,16 @@ async function getNetworkParams(forceRefresh = false) {
         console.log(parameters)
         // show toast notification with the error message
         showToast(`Network ID mismatch. Check network configuration in network.js.`, 0, 'error');
+        return false;
       }
-      return;
+      return true;
     } else {
       isOnline = false;
       updateUIForConnectivity();
       console.warn(
         `getNetworkParams: Received null or undefined data from queryNetwork for account ${NETWORK_ACCOUNT_ID}. Cached data (if any) will remain unchanged.`
       );
+      return false;
     }
   } catch (error) {
     isOnline = false;
@@ -25713,6 +25730,7 @@ async function getNetworkParams(forceRefresh = false) {
       error
     );
     // Optional: Clear data or reset timestamp to force retry on next call
+    return false;
   }
 }
 getNetworkParams.timestamp = 0;
