@@ -6323,25 +6323,6 @@ async function postRegisterAlias(alias, keys, isPrivate = false) {
   return res;
 }
 
-const TX_FEE_TOO_LOW_REGEX = /insufficient funds for transaction fee/i;
-const TX_FEE_RETRY_MESSAGE = 'Please retry your transaction.';
-
-function isTxFeeTooLowFailure(reason) {
-  return typeof reason === 'string' && TX_FEE_TOO_LOW_REGEX.test(reason);
-}
-
-async function refreshNetworkParamsOnTxFeeMismatch(reason) {
-  if (!isTxFeeTooLowFailure(reason)) {
-    return false;
-  }
-  try {
-    await getNetworkParams(true);
-  } catch (error) {
-    console.warn('Failed to refresh network params after fee mismatch:', error);
-  }
-  return true;
-}
-
 /**
  * Inject a transaction
  * @param {Object} tx - The transaction object
@@ -6435,19 +6416,14 @@ async function injectTx(tx, txid) {
         maybeShowLowLibToast();
       }
     } else {
-      const failureReason = data?.result?.reason || '';
-      const isFeeMismatch = await refreshNetworkParamsOnTxFeeMismatch(failureReason);
-      let toastMessage = isFeeMismatch
-        ? TX_FEE_RETRY_MESSAGE
-        : 'Error injecting transaction: ' + failureReason;
-      console.error('Error injecting transaction:', failureReason);
-      logsModal.log('Error injecting transaction:', failureReason);
-      if (!isFeeMismatch && failureReason?.includes('timestamp out of range')) {
+      let toastMessage = 'Error injecting transaction: ' + data?.result?.reason;
+      console.error('Error injecting transaction:', data?.result?.reason);
+      if (data?.result?.reason?.includes('timestamp out of range')) {
         console.error('Timestamp out of range, updating timestamp');
         timeDifference()
         toastMessage += ' (Please try again)';
       }
-      showToast(toastMessage, 0, isFeeMismatch ? 'warning' : 'error');
+      showToast(toastMessage, 0, 'error');
     }
     return data;
   } catch (error) {
@@ -25378,18 +25354,16 @@ async function checkPendingTransactions() {
         console.log(`DEBUG: txid ${txid} failed, removing completely`);
         // Check for failure reason in the transaction receipt
         const failureReason = res?.transaction?.reason || 'Transaction failed';
-        const isFeeMismatch = await refreshNetworkParamsOnTxFeeMismatch(failureReason);
-        const userFailureReason = isFeeMismatch ? TX_FEE_RETRY_MESSAGE : failureReason;
         console.log(`DEBUG: failure reason: ${failureReason}`);
 
         if (type === 'register') {
-          pendingPromiseService.reject(txid, new Error(userFailureReason));
+          pendingPromiseService.reject(txid, new Error(failureReason));
         } else {
           // Show toast notification with the failure reason
           if (type === 'withdraw_stake') {
-            showToast(`Unstake failed: ${userFailureReason}`, 0, 'error');
+            showToast(`Unstake failed: ${failureReason}`, 0, 'error');
           } else if (type === 'deposit_stake') {
-            showToast(`Stake failed: ${userFailureReason}`, 0, 'error');
+            showToast(`Stake failed: ${failureReason}`, 0, 'error');
           } else if (type === 'message') {
             if (chatModal.isActive()) {
               await chatModal.reopen();
@@ -25401,7 +25375,7 @@ async function checkPendingTransactions() {
           }
           else if (type === 'toll') {
             showToast(
-              `Toll submission failed! Reverting to old toll: ${tollModal.oldToll}. Failure reason: ${userFailureReason}. `,
+              `Toll submission failed! Reverting to old toll: ${tollModal.oldToll}. Failure reason: ${failureReason}. `,
               0,
               'error'
             );
@@ -25414,7 +25388,7 @@ async function checkPendingTransactions() {
               tollModal.tollAmountUSD = tollModal.oldToll;
             }
           } else if (type === 'update_toll_required') {
-            showToast(`Update contact status failed: ${userFailureReason}. Reverting contact to old status.`, 0, 'error');
+            showToast(`Update contact status failed: ${failureReason}. Reverting contact to old status.`, 0, 'error');
             const currentFriendStatus = Number(myData.contacts?.[pendingTxInfo.to]?.friend);
             const previousFriendStatus = Number(myData.contacts?.[pendingTxInfo.to]?.friendOld);
             // revert the local myData.contacts[toAddress].friend to the old value
@@ -25426,16 +25400,16 @@ async function checkPendingTransactions() {
               await chatsScreen.updateChatList();
             }
           } else if (type === 'read') {
-            showToast(`Read transaction failed: ${userFailureReason}`, 0, 'error');
+            showToast(`Read transaction failed: ${failureReason}`, 0, 'error');
             // revert the local myData.contacts[toAddress].timestamp to the old value
             myData.contacts[pendingTxInfo.to].timestamp = pendingTxInfo.oldContactTimestamp;
           } else if (type === 'reclaim_toll') {
             if (failureReason !== 'user is trying to reclaim toll but the toll pool is empty') {
-              showToast(`Reclaim toll failed: ${userFailureReason}`, 0, 'error');
+              showToast(`Reclaim toll failed: ${failureReason}`, 0, 'error');
             }
           } else {
             // for messages, transfer etc.
-            showToast(userFailureReason, 0, 'error');
+            showToast(failureReason, 0, 'error');
           }
 
           const toAddress = pendingTxInfo.to;
@@ -25552,14 +25526,13 @@ function ignoreShiftTabKey(e) {
 
 /**
  * Fetches and caches network account data if it's stale or not yet fetched.
- * @param {boolean} forceRefresh - If true, bypass staleness interval and fetch immediately.
  * @returns {Promise<void>} - Resolves when the network account data is updated or not needed
  */
-async function getNetworkParams(forceRefresh = false) {
+async function getNetworkParams() {
   const now = getCorrectedTimestamp();
 
   // Check if data is fresh; (this.networkAccountTimeStamp || 0) handles initial undefined state
-  if (!forceRefresh && now - (getNetworkParams.timestamp || 0) < NETWORK_ACCOUNT_UPDATE_INTERVAL_MS) {
+  if (now - (getNetworkParams.timestamp || 0) < NETWORK_ACCOUNT_UPDATE_INTERVAL_MS) {
     return;
   }
 
