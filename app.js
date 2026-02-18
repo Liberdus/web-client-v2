@@ -26923,6 +26923,10 @@ function getNetworkMinTollLibWei() {
 
 function getEffectiveTollLibWei(tollWei) {
   const safeToll = typeof tollWei === 'bigint' ? tollWei : 0n;
+  if (safeToll === 0n) {
+    return 0n;
+  }
+
   const minTollInLib = getNetworkMinTollLibWei();
   return safeToll < minTollInLib ? minTollInLib : safeToll;
 }
