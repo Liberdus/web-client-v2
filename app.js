@@ -3638,6 +3638,14 @@ class SignInModal {
     reactNativeApp.handleNativeAppUnsubscribe();
     reactNativeApp.sendNavigationBarVisibility(false);
 
+    // Refresh wallet balance on sign-in so fee-dependent flows (e.g. Toll modal) have fresh data.
+    try {
+      myData.wallet.timestamp = 0;
+      await walletScreen.updateWalletBalances();
+    } catch (error) {
+      console.error('Failed to refresh wallet balances after sign-in:', error);
+    }
+
     // Close modal and proceed to app
     this.close();
     welcomeScreen.close();
@@ -21827,6 +21835,15 @@ class CreateAccountModal {
         existingAccounts.netids[netid].usernames[username] = { address: myAccount.keys.address };
         localStorage.setItem('accounts', stringify(existingAccounts));
         saveState();
+
+        // Refresh wallet balance immediately after account creation for fee-dependent screens.
+        try {
+          myData.wallet.timestamp = 0;
+          await walletScreen.updateWalletBalances();
+        } catch (error) {
+          console.error('Failed to refresh wallet balances after account creation:', error);
+        }
+
         // handleNativeAppSubscription();
 
         signInModal.open(username);
