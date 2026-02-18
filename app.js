@@ -18402,7 +18402,7 @@ class ShareAttachmentModal {
         }
         
         // Calculate toll amount: 0 for connections, recipient's required toll for others
-        let tollInLib = tollRequiredToSend === 0 ? 0n : getEffectiveTollLibWei(contact.toll || 0n);
+        let tollInLib = tollRequiredToSend === 0 ? 0n : getEffectiveTollLibWei(normalizeTollToLibWei(contact.toll || 0n, contact.tollUnit || 'LIB'));
 
         const totalRequired = tollInLib + feeInWei;
         if (availableBalanceWei < totalRequired) {
@@ -22029,7 +22029,8 @@ class SendAssetFormModal {
     this.tollMemoSpan.style.color = 'black';
     const toll = this.tollInfo.toll || 0n;
     const factor = getStabilityFactor();
-    const effectiveTollLibWei = getEffectiveTollLibWei(toll);
+    const tollInLibWei = normalizeTollToLibWei(toll, this.tollInfo.tollUnit);
+    const effectiveTollLibWei = getEffectiveTollLibWei(tollInLibWei);
     const effectiveTollUsd = parseFloat(big2str(effectiveTollLibWei, 18)) * factor;
     const usdString = `${effectiveTollUsd.toFixed(6)} USD (≈ ${parseFloat(big2str(effectiveTollLibWei, 18)).toFixed(6)} LIB)`;
     let display;
@@ -22295,7 +22296,7 @@ class SendAssetFormModal {
     if (this.tollInfo.required == 1) {
       if (this.memoInput.value.trim() != '') {
         let amountInLIB = amount;
-        const tollInLIB = getEffectiveTollLibWei(this.tollInfo.toll);
+        const tollInLIB = getEffectiveTollLibWei(normalizeTollToLibWei(this.tollInfo.toll, this.tollInfo.tollUnit));
         if (tollInLIB > amountInLIB) {
           this.balanceWarning.textContent = 'less than toll for memo';
           this.balanceWarning.style.display = 'inline';
@@ -26919,6 +26920,24 @@ function getNetworkMinTollLibWei() {
   }
 
   return EthNum.toWei(EthNum.div(parameters.current.minTollUsdStr, parameters.current.stabilityFactorStr)) || 0n;
+}
+
+function normalizeTollToLibWei(tollWei, tollUnit = 'LIB') {
+  const safeToll = typeof tollWei === 'bigint' ? tollWei : 0n;
+  if (safeToll === 0n) {
+    return 0n;
+  }
+
+  if (tollUnit !== 'USD') {
+    return safeToll;
+  }
+
+  const factor = getStabilityFactor();
+  if (!Number.isFinite(factor) || factor <= 0) {
+    return safeToll;
+  }
+
+  return bigxnum2big(safeToll, (1 / factor).toString());
 }
 
 function getEffectiveTollLibWei(tollWei) {
