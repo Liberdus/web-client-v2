@@ -6385,13 +6385,70 @@ const TX_FEE_TOO_LOW_REGEX = /insufficient funds for transaction fee/i;
 const TX_FEE_RETRY_MESSAGE = 'Please retry your transaction.';
 const TX_FEE_REFRESH_FAILED_MESSAGE = 'Transaction fee changed on the network. Please try again in a moment.';
 const TX_ACCOUNT_INSUFFICIENT_FUNDS_REGEX = /from account does not have sufficient funds/i;
+const TX_REASON_TRANSACTION_FEE_WEI_REGEX = /transaction fee(?:\s*:\s*|\s*\(\s*)(\d+)/i;
 
+/**
+ * Returns true when the backend reason explicitly indicates transaction-fee insufficiency.
+ * @param {string} reason
+ * @returns {boolean}
+ */
 function isTxFeeTooLowFailure(reason) {
   return typeof reason === 'string' && TX_FEE_TOO_LOW_REGEX.test(reason);
 }
 
+/**
+ * Returns true when the backend reason indicates generic account insufficient funds.
+ * @param {string} reason
+ * @returns {boolean}
+ */
 function isTxAccountInsufficientFundsFailure(reason) {
   return typeof reason === 'string' && TX_ACCOUNT_INSUFFICIENT_FUNDS_REGEX.test(reason);
+}
+
+/**
+ * Extract backend-reported transaction fee (wei) from a failure reason string.
+ * @param {string} reason
+ * @returns {bigint|null}
+ */
+function getBackendTransactionFeeWeiFromReason(reason) {
+  if (typeof reason !== 'string') {
+    return null;
+  }
+  const match = reason.match(TX_REASON_TRANSACTION_FEE_WEI_REGEX);
+  if (!match?.[1]) {
+    return null;
+  }
+  try {
+    return BigInt(match[1]);
+  } catch (_error) {
+    return null;
+  }
+}
+
+/**
+ * Detects whether a tx failure likely came from stale fee params (fee mismatch).
+ * A mismatch is assumed when backend-reported fee is greater than cached fee.
+ * @param {string} reason
+ * @returns {boolean}
+ */
+function isTxFeeMismatchFailure(reason) {
+  const potentialFeeReason = isTxFeeTooLowFailure(reason) || isTxAccountInsufficientFundsFailure(reason);
+  if (!potentialFeeReason) {
+    return false;
+  }
+
+  const backendFeeWei = getBackendTransactionFeeWeiFromReason(reason);
+  if (backendFeeWei == null) {
+    // Backends may omit the fee amount; keep legacy behavior for explicit fee-too-low text.
+    return isTxFeeTooLowFailure(reason);
+  }
+
+  const cachedFeeWei = getTransactionFeeWei({ allowNull: true });
+  if (cachedFeeWei == null) {
+    return true;
+  }
+
+  return backendFeeWei > cachedFeeWei;
 }
 
 function getInsufficientFundsFailureMessage(reason) {
@@ -6425,7 +6482,7 @@ function getUserFacingTxFailureReason(reason, feeMismatchStatus = null) {
  * @returns {Promise<{detected: boolean, refreshed: boolean}>}
  */
 async function refreshNetworkParamsOnTxFeeMismatch(reason) {
-  if (!isTxFeeTooLowFailure(reason)) {
+  if (!isTxFeeMismatchFailure(reason)) {
     return { detected: false, refreshed: false };
   }
   try {
