@@ -16794,14 +16794,19 @@ class ChatModal {
       contact.toll,
       contact.tollUnit
     );
+    const effectiveTollLibWei = getEffectiveTollLibWei(libWei);
+    const { text: effectiveUsdString } = this.formatTollDisplay(effectiveTollLibWei, 'LIB');
 
     let display;
     if (contact.tollRequiredToSend == 1) {
       // Toll is required - show as "Toll cost:" with amount in red
       tollLabel.textContent = 'Toll cost:';
-      display = usdString;
-      // if the value of toll is 0, use toll-free class instead
-      if(contact.toll == 0n) {  
+      display = effectiveUsdString;
+      if (effectiveTollLibWei > libWei) {
+        display += ' (network minimum applied)';
+      }
+      // if the effective toll is 0, use toll-free class instead
+      if (effectiveTollLibWei == 0n) {
         tollValue.classList.add('toll-free');
       } else {
         tollValue.classList.add('toll-cost');
@@ -22025,17 +22030,17 @@ class SendAssetFormModal {
    */
   updateMemoTollUI() {
     this.tollMemoSpan.style.color = 'black';
-    let toll = this.tollInfo.toll || 0n;
-    const tollUnit = this.tollInfo.tollUnit || 'LIB';
-    const decimals = 18;
+    const toll = this.tollInfo.toll || 0n;
     const factor = getStabilityFactor();
-    const mainValue = parseFloat(big2str(toll, decimals));
-    const usd = tollUnit === 'USD' ? mainValue : (mainValue * factor);
-    const lib = factor > 0 ? (usd / factor) : NaN;
-    const usdString = lib ? `${usd.toFixed(6)} USD (≈ ${lib.toFixed(6)} LIB)` : `${usd.toFixed(6)} USD`;
+    const effectiveTollLibWei = getEffectiveTollLibWei(toll);
+    const effectiveTollUsd = parseFloat(big2str(effectiveTollLibWei, 18)) * factor;
+    const usdString = `${effectiveTollUsd.toFixed(6)} USD (≈ ${parseFloat(big2str(effectiveTollLibWei, 18)).toFixed(6)} LIB)`;
     let display;
     if (this.tollInfo.required == 1) {
       display = `${usdString}`;
+      if (effectiveTollLibWei > toll) {
+        display += ` (network minimum applied)`;
+      }
       if (this.memoInput.value.trim() == '') {
         display = '';
       }
