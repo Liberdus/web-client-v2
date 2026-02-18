@@ -1,0 +1,187 @@
+name: Manual Client E2E (localhost)
+
+on:
+  workflow_dispatch:
+    inputs:
+      web_client_ref:
+        description: web-client-v2 ref to test (branch, tag, or SHA)
+        required: true
+        default: main
+        type: string
+      client_testing_ref:
+        description: client-testing ref to use for tests
+        required: true
+        default: main
+        type: string
+      browser:
+        description: Playwright browser project
+        required: true
+        default: chromium
+        type: choice
+        options:
+          - chromium
+          - firefox
+          - webkit
+      test_path:
+        description: Test file/glob to run
+        required: true
+        default: tests/smoke.e2e.test.js
+        type: string
+      workers:
+        description: Number of Playwright workers
+        required: true
+        default: "4"
+        type: string
+      port:
+        description: Localhost port to serve web-client-v2
+        required: true
+        default: "4173"
+        type: string
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CI: "true"
+
+    steps:
+      - name: Checkout web-client-v2
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.web_client_ref }}
+
+      - name: Show selected refs
+        run: |
+          echo "web-client-v2 ref: ${{ inputs.web_client_ref }}"
+          echo "client-testing ref: ${{ inputs.client_testing_ref }}"
+
+      - name: Serve web-client-v2 on localhost
+        run: |
+          set -euo pipefail
+          python3 -m http.server "${{ inputs.port }}" --bind 127.0.0.1 > /tmp/web-client-server.log 2>&1 &
+          echo $! > /tmp/web-client-server.pid
+          for i in $(seq 1 60); do
+            if curl -sf "http://127.0.0.1:${{ inputs.port }}/" > /dev/null; then
+              echo "Local server is up on http://127.0.0.1:${{ inputs.port }}/"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server failed to start within timeout"
+          exit 1
+
+      - name: Checkout client-testing
+        uses: actions/checkout@v4
+        with:
+          repository: Liberdus/client-testing
+          ref: ${{ inputs.client_testing_ref }}
+          token: ${{ secrets.CLIENT_TESTING_REPO_TOKEN != '' && secrets.CLIENT_TESTING_REPO_TOKEN || github.token }}
+          path: client-testing
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: client-testing/playwright-tests/package-lock.json
+
+      - name: Install test dependencies
+        working-directory: client-testing/playwright-tests
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ inputs.browser }}-${{ hashFiles('client-testing/playwright-tests/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-${{ inputs.browser }}-
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright browser
+        working-directory: client-testing/playwright-tests
+        run: npx playwright install ${{ inputs.browser }}
+
+      - name: Write local Playwright config override
+        working-directory: client-testing/playwright-tests
+        run: |
+          cat > playwright.ci.local.config.ts <<'EOF'
+          import { defineConfig } from '@playwright/test';
+          import baseConfig from './playwright.config';
+
+          export default defineConfig({
+            ...baseConfig,
+            use: {
+              ...baseConfig.use,
+              baseURL: process.env.BASE_URL || baseConfig.use?.baseURL,
+            },
+            workers: Number(process.env.PW_WORKERS || baseConfig.workers || 1),
+          });
+          EOF
+
+      - name: Run Playwright tests
+        working-directory: client-testing/playwright-tests
+        env:
+          BASE_URL: http://127.0.0.1:${{ inputs.port }}
+          PW_WORKERS: ${{ inputs.workers }}
+        run: |
+          npx playwright test \
+            --config=playwright.ci.local.config.ts \
+            --project=${{ inputs.browser }} \
+            ${{ inputs.test_path }} \
+            --reporter=github,html
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: client-testing/playwright-tests/playwright-report/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload Playwright raw results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results-${{ github.run_id }}
+          path: client-testing/playwright-tests/test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload localhost server log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-client-server-log-${{ github.run_id }}
+          path: /tmp/web-client-server.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Stop localhost server
+        if: always()
+        run: |
+          if [ -f /tmp/web-client-server.pid ]; then
+            kill "$(cat /tmp/web-client-server.pid)" || true
+          fi
+
+      - name: Job summary
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            RESULT="PASS"
+          else
+            RESULT="FAIL"
+          fi
+          {
+            echo "## Manual Client E2E Result: ${RESULT}"
+            echo ""
+            echo "- web-client-v2 ref: \`${{ inputs.web_client_ref }}\`"
+            echo "- client-testing ref: \`${{ inputs.client_testing_ref }}\`"
+            echo "- Base URL under test: \`http://127.0.0.1:${{ inputs.port }}/\`"
+            echo "- Browser: \`${{ inputs.browser }}\`"
+            echo "- Workers: \`${{ inputs.workers }}\`"
+            echo "- Test path: \`${{ inputs.test_path }}\`"
+            echo "- Artifacts: Playwright HTML report, raw test results, localhost server log."
+          } >> "$GITHUB_STEP_SUMMARY"
