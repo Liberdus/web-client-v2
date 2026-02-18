@@ -16802,9 +16802,6 @@ class ChatModal {
       // Toll is required - show as "Toll cost:" with amount in red
       tollLabel.textContent = 'Toll cost:';
       display = effectiveUsdString;
-      if (effectiveTollLibWei > libWei) {
-        display += ' (network minimum applied)';
-      }
       // if the effective toll is 0, use toll-free class instead
       if (effectiveTollLibWei == 0n) {
         tollValue.classList.add('toll-free');
@@ -22038,9 +22035,6 @@ class SendAssetFormModal {
     let display;
     if (this.tollInfo.required == 1) {
       display = `${usdString}`;
-      if (effectiveTollLibWei > toll) {
-        display += ` (network minimum applied)`;
-      }
       if (this.memoInput.value.trim() == '') {
         display = '';
       }
