@@ -6348,7 +6348,7 @@ async function postAssetTransfer(to, amount, memo, keys) {
     // memo: stringify(memo),
     xmemo: memo,
     timestamp: getTransactionTimestamp(),
-    fee: getTransactionFeeWei(), // This is not used by the backend
+    fee: getTransactionFeeWei(),
     networkId: network.netid,
   };
 
@@ -6385,6 +6385,7 @@ const TX_FEE_TOO_LOW_REGEX = /insufficient funds for transaction fee/i;
 const TX_FEE_RETRY_MESSAGE = 'Please retry your transaction.';
 const TX_FEE_REFRESH_FAILED_MESSAGE = 'Transaction fee changed on the network. Please try again in a moment.';
 const TX_ACCOUNT_INSUFFICIENT_FUNDS_REGEX = /from account does not have sufficient funds/i;
+const TX_NETWORK_FEE_GREATER_THAN_PROVIDED_REGEX = /network transaction fee.*greater than the transaction fee provided/i;
 const TX_REASON_TRANSACTION_FEE_WEI_REGEX = /transaction fee(?:\s*:\s*|\s*\(\s*)(\d+)/i;
 
 /**
@@ -6403,6 +6404,15 @@ function isTxFeeTooLowFailure(reason) {
  */
 function isTxAccountInsufficientFundsFailure(reason) {
   return typeof reason === 'string' && TX_ACCOUNT_INSUFFICIENT_FUNDS_REGEX.test(reason);
+}
+
+/**
+ * Returns true when the backend reason indicates cached tx fee is lower than network fee.
+ * @param {string} reason
+ * @returns {boolean}
+ */
+function isTxNetworkFeeGreaterThanProvidedFailure(reason) {
+  return typeof reason === 'string' && TX_NETWORK_FEE_GREATER_THAN_PROVIDED_REGEX.test(reason);
 }
 
 /**
@@ -6432,15 +6442,18 @@ function getBackendTransactionFeeWeiFromReason(reason) {
  * @returns {boolean}
  */
 function isTxFeeMismatchFailure(reason) {
-  const potentialFeeReason = isTxFeeTooLowFailure(reason) || isTxAccountInsufficientFundsFailure(reason);
+  const potentialFeeReason =
+    isTxFeeTooLowFailure(reason) ||
+    isTxAccountInsufficientFundsFailure(reason) ||
+    isTxNetworkFeeGreaterThanProvidedFailure(reason);
   if (!potentialFeeReason) {
     return false;
   }
 
   const backendFeeWei = getBackendTransactionFeeWeiFromReason(reason);
   if (backendFeeWei == null) {
-    // Backends may omit the fee amount; keep legacy behavior for explicit fee-too-low text.
-    return isTxFeeTooLowFailure(reason);
+    // Backends may omit the fee amount; keep behavior for explicit fee mismatch reasons.
+    return isTxFeeTooLowFailure(reason) || isTxNetworkFeeGreaterThanProvidedFailure(reason);
   }
 
   const cachedFeeWei = getTransactionFeeWei({ allowNull: true });
@@ -14085,7 +14098,7 @@ class ChatModal {
       message: 'x',
       xmessage: payload,
       timestamp: getTransactionTimestamp(),
-      fee: getTransactionFeeWei(), // This is not used by the backend
+      fee: getTransactionFeeWei(),
       networkId: network.netid,
     };
     return tx;
