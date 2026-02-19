@@ -18479,7 +18479,7 @@ class ShareAttachmentModal {
     const currentChatAddress = chatModal.address;
     const allContacts = Object.values(myData.contacts || {})
       .filter(c => c.address !== myAccount.address && c.address !== currentChatAddress)
-      .filter(c => !isFaucetAddress(c.address))
+      .filter(c => !isFaucetAddress(c.address) && !isBridgeContact(c))
       .map(c => {
         const displayName = getContactDisplayName(c);
         return {
@@ -18999,8 +18999,8 @@ class ShareContactsModal {
       : null;
     
     const filteredContacts = currentChatAddress
-      ? allContacts.filter(c => !isFaucetAddress(c.address) && normalizeAddress(c.address) !== currentChatAddress)
-      : allContacts.filter(c => !isFaucetAddress(c.address));
+      ? allContacts.filter(c => !isFaucetAddress(c.address) && !isBridgeContact(c) && normalizeAddress(c.address) !== currentChatAddress)
+      : allContacts.filter(c => !isFaucetAddress(c.address) && !isBridgeContact(c));
     
     const sortByShareDisplayName = (a, b) =>
       this.getContactDisplayNameForShare(a)
@@ -26053,6 +26053,28 @@ function isFaucetAddress(address) {
   return faucetAddresses.some(faucetAddr => 
     normalizeAddress(faucetAddr) === normalizedAddress
   );
+}
+
+/**
+ * Checks whether a contact is one of the configured network bridge accounts.
+ * Bridge identities are defined by username in network.bridges.
+ * @param {Object} contact - Contact object
+ * @returns {boolean} - True if contact username matches a bridge username
+ */
+function isBridgeContact(contact) {
+  if (!contact || !Array.isArray(network.bridges) || network.bridges.length === 0) {
+    return false;
+  }
+
+  const username = normalizeUsername(contact.username || '');
+  if (!username) {
+    return false;
+  }
+
+  return network.bridges.some((bridge) => {
+    const bridgeUsername = normalizeUsername(bridge?.username || '');
+    return bridgeUsername && bridgeUsername === username;
+  });
 }
 
 function isMobile() {
