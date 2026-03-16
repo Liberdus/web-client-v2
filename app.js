@@ -15770,7 +15770,14 @@ class ChatModal {
     const messageEl = e.target.closest('.message');
     if (!messageEl) return;
 
-    if (messageEl.classList.contains('deleted-message')) return;
+    const messageRecord = this.getMessageRecordFromElement(messageEl);
+    if (messageEl.classList.contains('deleted-message')) {
+      const allowDeletedLocalMenu =
+        isDeletedForMeOnly(messageRecord) && this.canDeleteMessageForAll(messageEl, messageRecord);
+      if (!allowDeletedLocalMenu) return;
+      this.showMessageContextMenu(e, messageEl);
+      return;
+    }
 
     if (messageEl.dataset.status === 'failed') {
       const isPayment = messageEl.classList.contains('payment-info');
@@ -15801,11 +15808,17 @@ class ChatModal {
     this.closeAllContextMenus();
     
     this.currentContextMessage = messageEl;
+    const messageRecord = this.getMessageRecordFromElement(messageEl);
+    const isDeletedLocalOnly =
+      messageEl.classList.contains('deleted-message') && isDeletedForMeOnly(messageRecord);
     
+    const deleteOption = this.contextMenu.querySelector('[data-action="delete"]');
+    if (deleteOption) deleteOption.style.display = 'flex';
+
     // Show/hide "Delete for all" option based on whether the message is from the current user
     const deleteForAllOption = this.contextMenu.querySelector('[data-action="delete-for-all"]');
+    const canDeleteForAll = this.canDeleteMessageForAll(messageEl, messageRecord);
     if (deleteForAllOption) {
-      const canDeleteForAll = this.canDeleteMessageForAll(messageEl);
       deleteForAllOption.style.display = canDeleteForAll ? 'flex' : 'none';
     }
 
@@ -15820,6 +15833,26 @@ class ChatModal {
     const editOption = this.contextMenu.querySelector('[data-action="edit"]');
     const saveOption = this.contextMenu.querySelector('[data-action="save"]');
     const isFailedPayment = messageEl.dataset.status === 'failed' && messageEl.classList.contains('payment-info');
+
+    if (isDeletedLocalOnly) {
+      if (!canDeleteForAll) {
+        this.currentContextMessage = null;
+        return;
+      }
+      if (saveOption) saveOption.style.display = 'none';
+      if (replyOption) replyOption.style.display = 'none';
+      if (copyOption) copyOption.style.display = 'none';
+      if (editOption) editOption.style.display = 'none';
+      if (joinOption) joinOption.style.display = 'none';
+      if (inviteOption) inviteOption.style.display = 'none';
+      if (editResendOption) editResendOption.style.display = 'none';
+      if (deleteOption) deleteOption.style.display = 'none';
+
+      this.positionContextMenu(this.contextMenu, messageEl);
+      this.contextMenu.style.display = 'block';
+      return;
+    }
+
     // Show save option only for voice messages
     if (saveOption) saveOption.style.display = isVoice ? 'flex' : 'none';
     // For failed payment messages, hide copy and delete-for-all regardless of sender
@@ -15975,6 +16008,24 @@ class ChatModal {
   }
 
   /**
+   * Resolves the backing message record for a rendered message element.
+   * @param {HTMLElement} messageEl
+   * @returns {Object|null}
+   */
+  getMessageRecordFromElement(messageEl) {
+    if (!messageEl) return null;
+
+    const { txid, messageTimestamp: timestamp } = messageEl.dataset || {};
+    const contact = myData.contacts[this.address];
+    if (!contact?.messages?.length) return null;
+
+    const messageIndex = contact.messages.findIndex((msg) =>
+      msg && (msg.txid === txid || msg.timestamp == timestamp)
+    );
+    return messageIndex === -1 ? null : contact.messages[messageIndex];
+  }
+
+  /**
    * Shows the header context menu
    * @param {Event} e - Click event
    */
@@ -16049,11 +16100,21 @@ class ChatModal {
    * Returns whether "Delete for all" should be available for a given message element.
    * Mirrors the gating used in the message context menu.
    * @param {HTMLElement} messageEl
+   * @param {Object|null} messageRecord
    * @returns {boolean}
    */
-  canDeleteMessageForAll(messageEl) {
+  canDeleteMessageForAll(messageEl, messageRecord = null) {
     const isMine = !!messageEl?.classList?.contains('sent');
-    return isMine && myData.contacts[this.address]?.tollRequiredToSend == 0;
+    if (!isMine || myData.contacts[this.address]?.tollRequiredToSend != 0) {
+      return false;
+    }
+
+    const message = messageRecord || this.getMessageRecordFromElement(messageEl);
+    if (message && isDeletedForAll(message)) {
+      return false;
+    }
+
+    return true;
   }
 
   /**
