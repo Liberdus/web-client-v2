@@ -13047,6 +13047,11 @@ class ChatModal {
   handleAttachmentDragEnter(e) {
     e.preventDefault();
     e.stopPropagation();
+    if (this.isEditingMessage()) {
+      this.dragCounter = 0;
+      this.hideDropOverlay();
+      return;
+    }
     this.dragCounter++;
     if (e.dataTransfer.types.includes('Files')) {
       this.showDropOverlay();
@@ -13061,6 +13066,9 @@ class ChatModal {
   handleAttachmentDragOver(e) {
     e.preventDefault();
     e.stopPropagation();
+    if (this.isEditingMessage()) {
+      return;
+    }
   }
 
   /**
@@ -13071,6 +13079,11 @@ class ChatModal {
   handleAttachmentDragLeave(e) {
     e.preventDefault();
     e.stopPropagation();
+    if (this.isEditingMessage()) {
+      this.dragCounter = 0;
+      this.hideDropOverlay();
+      return;
+    }
     this.dragCounter--;
     if (this.dragCounter === 0) {
       this.hideDropOverlay();
@@ -13087,6 +13100,7 @@ class ChatModal {
     e.stopPropagation();
     this.dragCounter = 0;
     this.hideDropOverlay();
+    if (this.isEditingMessage()) return;
 
     const files = e.dataTransfer?.files;
     if (!files || files.length === 0) return;
