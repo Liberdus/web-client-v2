@@ -13083,7 +13083,7 @@ class ChatModal {
 
     // Filter for image files
     const imageFiles = Array.from(files).filter(file => {
-      const type = file.type || this.getMimeTypeFromFilename(file.name, file.type);
+      const type = this.getMimeTypeFromFilename(file.name, file.type);
       return type.startsWith('image/');
     });
 
@@ -15111,24 +15111,27 @@ class ChatModal {
       }
     };
     
-    try {
-      this.isEncrypting = true;
-      this.sendButton.disabled = true; // Disable send button during encryption
-      this.addAttachmentButton.disabled = true;
-      loadingToastId = showToast(
-        `Attaching "${file.name}" to ${uploadContactName}...`,
-        0,
-        'loading',
-        false,
-        { dedupe: false }
-      );
-      this.trackAttachmentLoadingToast(uploadContactAddress, loadingToastId);
-      
-      // Generate random encryption key for this attachment
-      const encKey = generateRandomBytes(32);
+    // Return a Promise that resolves when the worker completes
+    // This ensures processIncomingAttachmentFiles can properly await each upload
+    return new Promise((resolve, reject) => {
+      try {
+        this.isEncrypting = true;
+        this.sendButton.disabled = true; // Disable send button during encryption
+        this.addAttachmentButton.disabled = true;
+        loadingToastId = showToast(
+          `Attaching "${file.name}" to ${uploadContactName}...`,
+          0,
+          'loading',
+          false,
+          { dedupe: false }
+        );
+        this.trackAttachmentLoadingToast(uploadContactAddress, loadingToastId);
+        
+        // Generate random encryption key for this attachment
+        const encKey = generateRandomBytes(32);
 
-      const worker = new Worker('encryption.worker.js', { type: 'module' });
-      worker.onmessage = async (e) => {
+        const worker = new Worker('encryption.worker.js', { type: 'module' });
+        worker.onmessage = async (e) => {
         this.isEncrypting = false;
         if (e.data.error) {
           clearLoadingToast();
@@ -15230,6 +15233,7 @@ class ChatModal {
               );
             }
             refreshChatsScreenIfActive();
+            resolve(); // Successfully completed upload
           } catch (fetchError) {
             // Handle fetch errors (including AbortError) inside the worker callback
             if (fetchError.name === 'AbortError') {
@@ -15250,6 +15254,7 @@ class ChatModal {
             this.isEncrypting = false;
 
             this.addAttachmentButton.disabled = this.isEditingMessage() || this.blockedByRecipient;
+            reject(fetchError); // Upload failed
           }
         }
         worker.terminate();
@@ -15271,6 +15276,7 @@ class ChatModal {
 
             this.addAttachmentButton.disabled = this.isEditingMessage() || this.blockedByRecipient;
         worker.terminate();
+        reject(err); // Worker error
       };
       
       // read the file and send it to the worker for encryption
@@ -15301,9 +15307,11 @@ class ChatModal {
       this.isEncrypting = false;
 
       this.addAttachmentButton.disabled = this.isEditingMessage() || this.blockedByRecipient;
+      reject(error); // Outer error
     } finally {
       event.target.value = ''; // Reset the file input value
     }
+    }); // End of Promise wrapper
   }
 
   /**

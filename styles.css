@@ -6971,8 +6971,14 @@ small {
 }
 
 .drop-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 1rem;
+  background-image: var(--icon-camera);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.9;
 }
 
 .drop-text {
