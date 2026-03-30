@@ -22476,6 +22476,12 @@ class SendAssetFormModal {
     this.submitButton.disabled = true;
     const rawInput = e.target.value.trim();
 
+    // Cancel any queued lookup before handling a new recipient value.
+    if (this.sendAssetFormModalCheckTimeout) {
+      clearTimeout(this.sendAssetFormModalCheckTimeout);
+      this.sendAssetFormModalCheckTimeout = null;
+    }
+
     if (isValidEthereumAddress(rawInput)) {
       this.clearFormInfo();
       this.foundAddressObject.address = null;
@@ -22490,11 +22496,6 @@ class SendAssetFormModal {
     const username = normalizeUsername(e.target.value);
     e.target.value = username;
     const usernameAvailable = this.usernameAvailable;
-
-    // Clear previous timeout
-    if (this.sendAssetFormModalCheckTimeout) {
-      clearTimeout(this.sendAssetFormModalCheckTimeout);
-    }
 
     this.clearFormInfo();
     this.foundAddressObject.address = null;
