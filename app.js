@@ -22671,16 +22671,28 @@ class SendAssetFormModal {
    */
   async handleSendToAddressInput(e) {
     this.submitButton.disabled = true;
+    const rawInput = e.target.value.trim();
+
+    // Cancel any queued lookup before handling a new recipient value.
+    if (this.sendAssetFormModalCheckTimeout) {
+      clearTimeout(this.sendAssetFormModalCheckTimeout);
+      this.sendAssetFormModalCheckTimeout = null;
+    }
+
+    if (isValidEthereumAddress(rawInput)) {
+      this.clearFormInfo();
+      this.foundAddressObject.address = null;
+      this.usernameAvailable.textContent = 'address not supported';
+      this.usernameAvailable.style.color = '#dc3545';
+      this.usernameAvailable.style.display = 'inline';
+      await this.refreshSendButtonDisabledState();
+      return;
+    }
 
     // Check availability on input changes
     const username = normalizeUsername(e.target.value);
     e.target.value = username;
     const usernameAvailable = this.usernameAvailable;
-
-    // Clear previous timeout
-    if (this.sendAssetFormModalCheckTimeout) {
-      clearTimeout(this.sendAssetFormModalCheckTimeout);
-    }
 
     this.clearFormInfo();
     this.foundAddressObject.address = null;
@@ -23380,7 +23392,12 @@ class SendAssetConfirmModal {
    */
   async handleSendAsset(event) {
     event.preventDefault();
-    const username = normalizeUsername(sendAssetFormModal.usernameInput.value);
+    const rawInput = sendAssetFormModal.usernameInput.value.trim();
+    if (isValidEthereumAddress(rawInput)) {
+      showToast('Address not supported; enter username instead.', 0, 'error');
+      return;
+    }
+    const username = normalizeUsername(rawInput);
 
     if (username == myAccount.username) {
       showToast('You cannot send assets to yourself', 0, 'error');
@@ -23407,11 +23424,7 @@ class SendAssetConfirmModal {
       return;
     }
 
-    // Validate username - must be username; address not supported
-    if (username.startsWith('0x')) {
-      showToast('Address not supported; enter username instead.', 0, 'error');
-      return;
-    }
+    // Validate normalized username input
     if (username.length < 3) {
       showToast('Username too short', 0, 'error');
       return;
