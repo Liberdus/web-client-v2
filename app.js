@@ -12968,6 +12968,11 @@ class ChatModal {
    * @returns {Promise<void>}
    */
   async processIncomingAttachmentFiles(files) {
+    // Short-circuit if in edit mode - edit flow is text-only
+    if (this.isEditingMessage()) {
+      return;
+    }
+
     for (const file of files) {
       if (this.fileAttachments.length >= 5) {
         showToast('You can only attach up to 5 files.', 0, 'error');
@@ -12975,7 +12980,12 @@ class ChatModal {
       }
       // Create synthetic event for handleFileAttachment
       const syntheticEvent = { target: { files: [file], value: '' } };
-      await this.handleFileAttachment(syntheticEvent);
+      try {
+        await this.handleFileAttachment(syntheticEvent);
+      } catch (error) {
+        console.error('Failed to process attachment:', file.name, error);
+        // Continue processing remaining files even if one fails
+      }
     }
   }
 
