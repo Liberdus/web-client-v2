@@ -21646,12 +21646,8 @@ class NewChatModal {
 
     this.hideRecipientError();
 
-    // Check if input is an Ethereum address
-    if (input.startsWith('0x')) {
-      if (!isValidEthereumAddress(input)) {
-        this.showRecipientError('Invalid Ethereum address format');
-        return;
-      }
+    // Treat as an address only when the full input is a valid Ethereum address.
+    if (isValidEthereumAddress(input)) {
       // Input is valid Ethereum address, normalize it
       recipientAddress = normalizeAddress(input);
     } else {
