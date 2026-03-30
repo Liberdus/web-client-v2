@@ -10173,18 +10173,31 @@ class BackupAccountModal {
       }
     }
 
+    // Shared loading toast ID for both upload attempts
+    let loadingToastId = null;
+
+    // Helper to show loading toast
+    const showLoadingToast = () => {
+      loadingToastId = showToast('Uploading backup to Google Drive... Please stay on this page. Closing or signing out may interrupt the backup.', 0, 'loading');
+    };
+
+    // Helper to hide loading toast
+    const hideLoadingToast = () => {
+      if (loadingToastId !== null) {
+        hideToast(loadingToastId);
+        loadingToastId = null;
+      }
+    };
+
     // Now upload with the token
     try {
       this.isUploading = true;
-      const loadingToastId = showToast('Uploading backup to Google Drive... Please stay on this page. Closing or signing out may interrupt the backup.', 0, 'loading');
+      showLoadingToast();
       await this.uploadToGoogleDrive(data, filename, tokenData);
-      hideToast(loadingToastId);
-      this.isUploading = false;
       showToast('Backup uploaded to Google Drive successfully!', 5000, 'success');
       this.setGDriveBackupTs();
       this.close();
     } catch (error) {
-      this.isUploading = false;
       console.error('Google Drive upload failed:', error);
       // Token might be invalid, clear it and retry auth
       if (error.message.includes('401') || error.message.includes('403')) {
@@ -10194,15 +10207,12 @@ class BackupAccountModal {
         try {
           tokenData = await this.startGoogleDriveAuth();
           this.isUploading = true;
-          const loadingToastId = showToast('Uploading backup to Google Drive... Please stay on this page. Closing or signing out may interrupt the backup.', 0, 'loading');
+          showLoadingToast();
           await this.uploadToGoogleDrive(data, filename, tokenData);
-          hideToast(loadingToastId);
-          this.isUploading = false;
           showToast('Backup uploaded to Google Drive successfully!', 5000, 'success');
           this.setGDriveBackupTs();
           this.close();
         } catch (retryError) {
-          this.isUploading = false;
           console.error('Retry failed:', retryError);
           showToast(retryError.message || 'Upload failed.', 0, 'error');
           this.updateButtonState();
@@ -10211,6 +10221,9 @@ class BackupAccountModal {
         showToast('Failed to upload to Google Drive: ' + error.message, 5000, 'error');
         this.updateButtonState();
       }
+    } finally {
+      hideLoadingToast();
+      this.isUploading = false;
     }
   }
 
