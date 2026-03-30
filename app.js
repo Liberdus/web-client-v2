@@ -13105,19 +13105,8 @@ class ChatModal {
     const files = e.dataTransfer?.files;
     if (!files || files.length === 0) return;
 
-    // Filter for image files
-    const imageFiles = Array.from(files).filter(file => {
-      const type = this.getMimeTypeFromFilename(file.name, file.type);
-      return type.startsWith('image/');
-    });
-
-    if (imageFiles.length === 0) {
-      showToast('Only image files can be dropped.', 0, 'error');
-      return;
-    }
-
-    // Process each image file
-    await this.processIncomingAttachmentFiles(imageFiles);
+    // Process all files (no type restriction - app handles all supported types)
+    await this.processIncomingAttachmentFiles(Array.from(files));
   }
 
   /**
