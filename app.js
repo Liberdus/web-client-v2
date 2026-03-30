@@ -21847,8 +21847,12 @@ class NewChatModal {
 
     this.hideRecipientError();
 
-    // Treat as an address only when the full input is a valid Ethereum address.
-    if (isValidEthereumAddress(input)) {
+    // Check if input is an Ethereum address
+    if (input.startsWith('0x')) {
+      if (!isValidEthereumAddress(input)) {
+        this.showRecipientError('Invalid Ethereum address format');
+        return;
+      }
       // Input is valid Ethereum address, normalize it
       recipientAddress = normalizeAddress(input);
     } else {
@@ -22671,28 +22675,16 @@ class SendAssetFormModal {
    */
   async handleSendToAddressInput(e) {
     this.submitButton.disabled = true;
-    const rawInput = e.target.value.trim();
-
-    // Cancel any queued lookup before handling a new recipient value.
-    if (this.sendAssetFormModalCheckTimeout) {
-      clearTimeout(this.sendAssetFormModalCheckTimeout);
-      this.sendAssetFormModalCheckTimeout = null;
-    }
-
-    if (isValidEthereumAddress(rawInput)) {
-      this.clearFormInfo();
-      this.foundAddressObject.address = null;
-      this.usernameAvailable.textContent = 'address not supported';
-      this.usernameAvailable.style.color = '#dc3545';
-      this.usernameAvailable.style.display = 'inline';
-      await this.refreshSendButtonDisabledState();
-      return;
-    }
 
     // Check availability on input changes
     const username = normalizeUsername(e.target.value);
     e.target.value = username;
     const usernameAvailable = this.usernameAvailable;
+
+    // Clear previous timeout
+    if (this.sendAssetFormModalCheckTimeout) {
+      clearTimeout(this.sendAssetFormModalCheckTimeout);
+    }
 
     this.clearFormInfo();
     this.foundAddressObject.address = null;
@@ -23392,12 +23384,7 @@ class SendAssetConfirmModal {
    */
   async handleSendAsset(event) {
     event.preventDefault();
-    const rawInput = sendAssetFormModal.usernameInput.value.trim();
-    if (isValidEthereumAddress(rawInput)) {
-      showToast('Address not supported; enter username instead.', 0, 'error');
-      return;
-    }
-    const username = normalizeUsername(rawInput);
+    const username = normalizeUsername(sendAssetFormModal.usernameInput.value);
 
     if (username == myAccount.username) {
       showToast('You cannot send assets to yourself', 0, 'error');
@@ -23424,7 +23411,11 @@ class SendAssetConfirmModal {
       return;
     }
 
-    // Validate normalized username input
+    // Validate username - must be username; address not supported
+    if (username.startsWith('0x')) {
+      showToast('Address not supported; enter username instead.', 0, 'error');
+      return;
+    }
     if (username.length < 3) {
       showToast('Username too short', 0, 'error');
       return;
