@@ -6948,3 +6948,33 @@ small {
 .call-schedule-time-select {
   width: 90px;
 }
+
+/* Drop overlay for drag and drop image attachments */
+.drop-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.drop-overlay-content {
+  text-align: center;
+  color: white;
+  font-size: 1.5rem;
+}
+
+.drop-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.drop-text {
+  font-size: 1.5rem;
+}

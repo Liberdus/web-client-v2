@@ -12872,6 +12872,10 @@ class ChatModal {
     this.attachmentLoadingToastsByContact = new Map();
     // Prevent multiple fee-failure warnings when close triggers read + reclaim checks.
     this.closeFeeFailureToastShown = false;
+    
+    // Drag and drop state
+    this.dragCounter = 0;
+    this.dropOverlay = null;
   }
 
   /**
@@ -12938,6 +12942,158 @@ class ChatModal {
     if (!toastSet || toastSet.size === 0) return;
     toastSet.forEach((toastId) => hideToast(toastId));
     this.attachmentLoadingToastsByContact.delete(contactAddress);
+  }
+
+  /**
+   * Extract image files from clipboard items
+   * @param {DataTransferItemList} items - Clipboard items
+   * @returns {File[]} Array of image files
+   */
+  getImageFilesFromClipboard(items) {
+    const imageFiles = [];
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          imageFiles.push(file);
+        }
+      }
+    }
+    return imageFiles;
+  }
+
+  /**
+   * Process multiple image files for attachment
+   * @param {File[]} files - Array of image files to process
+   * @returns {Promise<void>}
+   */
+  async processIncomingAttachmentFiles(files) {
+    for (const file of files) {
+      if (this.fileAttachments.length >= 5) {
+        showToast('You can only attach up to 5 files.', 0, 'error');
+        break;
+      }
+      // Create synthetic event for handleFileAttachment
+      const syntheticEvent = { target: { files: [file], value: '' } };
+      await this.handleFileAttachment(syntheticEvent);
+    }
+  }
+
+  /**
+   * Handle paste event on message input
+   * @param {ClipboardEvent} e - Paste event
+   * @returns {Promise<void>}
+   */
+  async handleMessageInputPaste(e) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    // Find image items in clipboard
+    const imageFiles = this.getImageFilesFromClipboard(items);
+
+    // If images found, process them
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      await this.processIncomingAttachmentFiles(imageFiles);
+    }
+  }
+
+  /**
+   * Create drop overlay element
+   * @returns {HTMLElement} The drop overlay element
+   */
+  createDropOverlay() {
+    // Use the HTML-defined overlay instead of creating dynamically
+    this.dropOverlay = document.getElementById('dropOverlay');
+    return this.dropOverlay;
+  }
+
+  /**
+   * Show the drop overlay
+   * @returns {void}
+   */
+  showDropOverlay() {
+    if (!this.dropOverlay) this.createDropOverlay();
+    if (this.dropOverlay) {
+      this.dropOverlay.style.display = 'flex';
+    }
+  }
+
+  /**
+   * Hide the drop overlay
+   * @returns {void}
+   */
+  hideDropOverlay() {
+    if (this.dropOverlay) {
+      this.dropOverlay.style.display = 'none';
+    }
+  }
+
+  /**
+   * Handle drag enter event for attachments
+   * @param {DragEvent} e - Drag event
+   * @returns {void}
+   */
+  handleAttachmentDragEnter(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    this.dragCounter++;
+    if (e.dataTransfer.types.includes('Files')) {
+      this.showDropOverlay();
+    }
+  }
+
+  /**
+   * Handle drag over event for attachments
+   * @param {DragEvent} e - Drag event
+   * @returns {void}
+   */
+  handleAttachmentDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  /**
+   * Handle drag leave event for attachments
+   * @param {DragEvent} e - Drag event
+   * @returns {void}
+   */
+  handleAttachmentDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    this.dragCounter--;
+    if (this.dragCounter === 0) {
+      this.hideDropOverlay();
+    }
+  }
+
+  /**
+   * Handle drop event for attachments
+   * @param {DragEvent} e - Drop event
+   * @returns {Promise<void>}
+   */
+  async handleAttachmentDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    this.dragCounter = 0;
+    this.hideDropOverlay();
+
+    const files = e.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+
+    // Filter for image files
+    const imageFiles = Array.from(files).filter(file => {
+      const type = file.type || this.getMimeTypeFromFilename(file.name, file.type);
+      return type.startsWith('image/');
+    });
+
+    if (imageFiles.length === 0) {
+      showToast('Only image files can be dropped.', 0, 'error');
+      return;
+    }
+
+    // Process each image file
+    await this.processIncomingAttachmentFiles(imageFiles);
   }
 
   /**
@@ -13196,145 +13352,15 @@ class ChatModal {
 
     // Paste image from clipboard (PC and mobile)
     if (this.messageInput) {
-      this.messageInput.addEventListener('paste', async (e) => {
-        const items = e.clipboardData?.items;
-        if (!items) return;
-
-        // Find image items in clipboard
-        const imageFiles = [];
-        for (const item of items) {
-          if (item.type.startsWith('image/')) {
-            const file = item.getAsFile();
-            if (file) {
-              imageFiles.push(file);
-            }
-          }
-        }
-
-        // If images found, process them
-        if (imageFiles.length > 0) {
-          e.preventDefault();
-          // Process each image file
-          for (const file of imageFiles) {
-            if (this.fileAttachments.length >= 5) {
-              showToast('You can only attach up to 5 files.', 0, 'error');
-              break;
-            }
-            // Create synthetic event for handleFileAttachment
-            const syntheticEvent = { target: { files: [file], value: '' } };
-            await this.handleFileAttachment(syntheticEvent);
-          }
-        }
-      });
+      this.messageInput.addEventListener('paste', (e) => this.handleMessageInputPaste(e));
     }
 
-    // Drag and drop image support (PC only)
-    if (this.messagesContainer) {
-      let dragCounter = 0;
-      let dropOverlay = null;
-
-      const createDropOverlay = () => {
-        if (dropOverlay) return dropOverlay;
-        dropOverlay = document.createElement('div');
-        dropOverlay.className = 'drop-overlay';
-        dropOverlay.innerHTML = `
-          <div class="drop-overlay-content">
-            <div class="drop-icon">📷</div>
-            <div class="drop-text">Drop image here</div>
-          </div>
-        `;
-        dropOverlay.style.cssText = `
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.7);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-          pointer-events: none;
-        `;
-        const content = dropOverlay.querySelector('.drop-overlay-content');
-        content.style.cssText = `
-          text-align: center;
-          color: white;
-          font-size: 1.5rem;
-        `;
-        const icon = dropOverlay.querySelector('.drop-icon');
-        icon.style.cssText = `font-size: 3rem; margin-bottom: 1rem;`;
-        return dropOverlay;
-      };
-
-      const showDropOverlay = () => {
-        if (!dropOverlay) createDropOverlay();
-        if (!this.messagesContainer.contains(dropOverlay)) {
-          this.messagesContainer.style.position = 'relative';
-          this.messagesContainer.appendChild(dropOverlay);
-        }
-      };
-
-      const hideDropOverlay = () => {
-        if (dropOverlay && dropOverlay.parentNode) {
-          dropOverlay.parentNode.removeChild(dropOverlay);
-        }
-      };
-
-      this.messagesContainer.addEventListener('dragenter', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dragCounter++;
-        if (e.dataTransfer.types.includes('Files')) {
-          showDropOverlay();
-        }
-      });
-
-      this.messagesContainer.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      });
-
-      this.messagesContainer.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dragCounter--;
-        if (dragCounter === 0) {
-          hideDropOverlay();
-        }
-      });
-
-      this.messagesContainer.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dragCounter = 0;
-        hideDropOverlay();
-
-        const files = e.dataTransfer?.files;
-        if (!files || files.length === 0) return;
-
-        // Filter for image files
-        const imageFiles = Array.from(files).filter(file => {
-          const type = file.type || this.getMimeTypeFromFilename(file.name, file.type);
-          return type.startsWith('image/');
-        });
-
-        if (imageFiles.length === 0) {
-          showToast('Only image files can be dropped.', 0, 'error');
-          return;
-        }
-
-        // Process each image file
-        for (const file of imageFiles) {
-          if (this.fileAttachments.length >= 5) {
-            showToast('You can only attach up to 5 files.', 0, 'error');
-            break;
-          }
-          // Create synthetic event for handleFileAttachment
-          const syntheticEvent = { target: { files: [file], value: '' } };
-          await this.handleFileAttachment(syntheticEvent);
-        }
-      });
+    // Drag and drop image support (PC only) - attach to modal for broader drop area
+    if (this.modal) {
+      this.modal.addEventListener('dragenter', (e) => this.handleAttachmentDragEnter(e));
+      this.modal.addEventListener('dragover', (e) => this.handleAttachmentDragOver(e));
+      this.modal.addEventListener('dragleave', (e) => this.handleAttachmentDragLeave(e));
+      this.modal.addEventListener('drop', (e) => this.handleAttachmentDrop(e));
     }
 
     // Voice recording event listeners
