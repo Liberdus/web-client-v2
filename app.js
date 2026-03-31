@@ -10189,6 +10189,9 @@ class BackupAccountModal {
       }
     };
 
+    // Track whether to close modal after cleanup
+    let shouldClose = false;
+
     // Now upload with the token
     try {
       this.isUploading = true;
@@ -10196,7 +10199,7 @@ class BackupAccountModal {
       await this.uploadToGoogleDrive(data, filename, tokenData);
       showToast('Backup uploaded to Google Drive successfully!', 5000, 'success');
       this.setGDriveBackupTs();
-      this.close();
+      shouldClose = true;
     } catch (error) {
       console.error('Google Drive upload failed:', error);
       // Token might be invalid, clear it and retry auth
@@ -10211,7 +10214,7 @@ class BackupAccountModal {
           await this.uploadToGoogleDrive(data, filename, tokenData);
           showToast('Backup uploaded to Google Drive successfully!', 5000, 'success');
           this.setGDriveBackupTs();
-          this.close();
+          shouldClose = true;
         } catch (retryError) {
           console.error('Retry failed:', retryError);
           showToast(retryError.message || 'Upload failed.', 0, 'error');
@@ -10224,6 +10227,9 @@ class BackupAccountModal {
     } finally {
       hideLoadingToast();
       this.isUploading = false;
+      if (shouldClose) {
+        this.close();
+      }
     }
   }
 
