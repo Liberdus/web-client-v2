@@ -6051,9 +6051,9 @@ small {
 }
 
 #messageContextMenu {
-  width: 248px;
-  min-width: 248px;
-  max-width: 248px;
+  width: 256px;
+  min-width: 256px;
+  max-width: 256px;
 }
 
 .message-context-reactions {
