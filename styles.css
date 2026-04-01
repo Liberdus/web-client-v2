@@ -6050,7 +6050,8 @@ small {
   animation: contextMenuAppear 0.2s ease-out;
 }
 
-#messageContextMenu {
+#messageContextMenu,
+#imageAttachmentContextMenu {
   width: 256px;
   min-width: 256px;
   max-width: 256px;

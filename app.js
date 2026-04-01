@@ -13250,6 +13250,12 @@ class ChatModal {
     // Add image attachment context menu option listeners
     if (this.imageAttachmentContextMenu) {
       this.imageAttachmentContextMenu.addEventListener('click', (e) => {
+        const reactionButton = e.target.closest('.message-context-reaction-button');
+        if (reactionButton) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
         const option = e.target.closest('.context-menu-option');
         if (!option) return;
         const action = option.dataset.action;
