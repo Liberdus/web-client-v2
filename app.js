@@ -13204,11 +13204,9 @@ class ChatModal {
 
     // Initialize context menu
     this.contextMenu = document.getElementById('messageContextMenu');
+    this.contextMenuReactions = document.getElementById('messageContextReactions');
     // Initialize image attachment context menu
     this.imageAttachmentContextMenu = document.getElementById('imageAttachmentContextMenu');
-    this.populateContextMenuReactions(this.contextMenu, { preserveId: 'messageContextReactions' });
-    this.populateContextMenuReactions(this.imageAttachmentContextMenu);
-    this.contextMenuReactions = document.getElementById('messageContextReactions');
     // Initialize attachment options context menu
     this.attachmentOptionsContextMenu = document.getElementById('attachmentOptionsContextMenu');
     // Cache attachment options context menu option elements
@@ -16041,28 +16039,6 @@ class ChatModal {
     }
 
     this.showMessageContextMenu(e, messageEl);
-  }
-
-  /**
-   * Clones the shared reaction tray template into a context menu.
-   * @param {HTMLElement|null} menu
-   * @param {{preserveId?: string}} [options]
-   */
-  populateContextMenuReactions(menu, options = {}) {
-    if (!menu) return;
-
-    const placeholder = menu.querySelector('.message-context-reactions');
-    const template = document.getElementById('messageContextReactionsTemplate');
-    if (!placeholder || !(template instanceof HTMLTemplateElement)) return;
-
-    const tray = template.content.firstElementChild?.cloneNode(true);
-    if (!(tray instanceof HTMLElement)) return;
-
-    if (options.preserveId) {
-      tray.id = options.preserveId;
-    }
-
-    placeholder.replaceWith(tray);
   }
 
   /**

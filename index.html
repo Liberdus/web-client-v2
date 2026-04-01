@@ -1335,17 +1335,6 @@
         </div>
       </div>
 
-      <template id="messageContextReactionsTemplate">
-        <div class="message-context-reactions" aria-label="Quick reactions">
-          <button class="message-context-reaction-button" type="button" data-emoji="👍" aria-label="React with thumbs up">👍</button>
-          <button class="message-context-reaction-button" type="button" data-emoji="❤️" aria-label="React with heart">❤️</button>
-          <button class="message-context-reaction-button" type="button" data-emoji="😂" aria-label="React with tears of joy">😂</button>
-          <button class="message-context-reaction-button" type="button" data-emoji="😮" aria-label="React with surprised face">😮</button>
-          <button class="message-context-reaction-button" type="button" data-emoji="👎" aria-label="React with thumbs down">👎</button>
-          <button class="message-context-reaction-button message-context-reaction-button-more" type="button" data-reaction-picker-trigger="true" aria-label="Add reaction">+</button>
-        </div>
-      </template>
-
       <!-- Chat Header Context Menu -->
       <div class="message-context-menu" id="chatHeaderContextMenu" style="display: none;">
         <div class="context-menu-option" data-action="call" data-icon="call">
@@ -1365,7 +1354,14 @@
 
       <!-- Message Context Menu -->
       <div class="message-context-menu" id="messageContextMenu" style="display: none;">
-        <div class="message-context-reactions" id="messageContextReactions" aria-label="Quick reactions"></div>
+        <div class="message-context-reactions" id="messageContextReactions" aria-label="Quick reactions">
+          <button class="message-context-reaction-button" type="button" data-emoji="👍" aria-label="React with thumbs up">👍</button>
+          <button class="message-context-reaction-button" type="button" data-emoji="❤️" aria-label="React with heart">❤️</button>
+          <button class="message-context-reaction-button" type="button" data-emoji="😂" aria-label="React with tears of joy">😂</button>
+          <button class="message-context-reaction-button" type="button" data-emoji="😮" aria-label="React with surprised face">😮</button>
+          <button class="message-context-reaction-button" type="button" data-emoji="👎" aria-label="React with thumbs down">👎</button>
+          <button class="message-context-reaction-button message-context-reaction-button-more" type="button" data-reaction-picker-trigger="true" aria-label="Add reaction">+</button>
+        </div>
         <!-- Voice message specific action: Save -->
         <div class="context-menu-option" data-action="save" data-icon="download" style="display: none;">
           <span class="context-menu-icon"></span>
@@ -1412,7 +1408,14 @@
 
       <!-- Image Attachment Context Menu -->
       <div class="message-context-menu" id="imageAttachmentContextMenu" style="display: none;">
-        <div class="message-context-reactions" aria-label="Quick reactions"></div>
+        <div class="message-context-reactions" aria-label="Quick reactions">
+          <button class="message-context-reaction-button" type="button" data-emoji="👍" aria-label="React with thumbs up">👍</button>
+          <button class="message-context-reaction-button" type="button" data-emoji="❤️" aria-label="React with heart">❤️</button>
+          <button class="message-context-reaction-button" type="button" data-emoji="😂" aria-label="React with tears of joy">😂</button>
+          <button class="message-context-reaction-button" type="button" data-emoji="😮" aria-label="React with surprised face">😮</button>
+          <button class="message-context-reaction-button" type="button" data-emoji="👎" aria-label="React with thumbs down">👎</button>
+          <button class="message-context-reaction-button message-context-reaction-button-more" type="button" data-reaction-picker-trigger="true" aria-label="Add reaction">+</button>
+        </div>
         <div class="context-menu-option" data-action="import-contacts" data-icon="contacts" style="display: none;">
           <span class="context-menu-icon"></span>
           <span class="context-menu-text">Import Contacts</span>
