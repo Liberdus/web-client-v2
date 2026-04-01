@@ -13204,6 +13204,7 @@ class ChatModal {
 
     // Initialize context menu
     this.contextMenu = document.getElementById('messageContextMenu');
+    this.contextMenuReactions = document.getElementById('messageContextReactions');
     // Initialize image attachment context menu
     this.imageAttachmentContextMenu = document.getElementById('imageAttachmentContextMenu');
     // Initialize attachment options context menu
@@ -13235,6 +13236,12 @@ class ChatModal {
     
     // Add context menu option listeners
     this.contextMenu.addEventListener('click', (e) => {
+      const reactionButton = e.target.closest('.message-context-reaction-button');
+      if (reactionButton) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       if (e.target.closest('.context-menu-option')) {
         const action = e.target.closest('.context-menu-option').dataset.action;
         this.handleContextMenuAction(action);
@@ -16069,6 +16076,11 @@ class ChatModal {
     const editOption = this.contextMenu.querySelector('[data-action="edit"]');
     const saveOption = this.contextMenu.querySelector('[data-action="save"]');
     const isFailedPayment = messageEl.dataset.status === 'failed' && messageEl.classList.contains('payment-info');
+    const canShowReactionRow = !isDeletedLocalOnly && !isFailedPayment;
+
+    if (this.contextMenuReactions) {
+      this.contextMenuReactions.style.display = canShowReactionRow ? 'flex' : 'none';
+    }
 
     if (isDeletedLocalOnly) {
       if (!canDeleteForAll) {
@@ -16233,6 +16245,7 @@ class ChatModal {
   closeContextMenu() {
     if (!this.contextMenu) return;
     this.contextMenu.style.display = 'none';
+    if (this.contextMenuReactions) this.contextMenuReactions.style.display = '';
     this.currentContextMessage = null;
   }
 
