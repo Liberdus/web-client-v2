@@ -6077,6 +6077,10 @@ async function processChats(chats, keys) {
                     payload.replyOwnerIsMine = parsedMessage.replyOwnerIsMine;
                   }
                 } else if (parsedMessage.type === 'message') {
+                  if (parsedMessage.reactId) {
+                    console.log('Reaction message received', parsedMessage, stringify(parsedMessage));
+                    continue; // recognize reaction control messages without adding them to chat history yet
+                  }
                   // Regular message format processing
                   payload.message = parsedMessage.message;
                   if (parsedMessage.replyId) {
@@ -13240,7 +13244,7 @@ class ChatModal {
       if (reactionButton) {
         e.preventDefault();
         e.stopPropagation();
-        this.handleReactionPickerClick(reactionButton);
+        void this.handleReactionPickerClick(reactionButton);
         return;
       }
       if (e.target.closest('.context-menu-option')) {
@@ -13255,7 +13259,7 @@ class ChatModal {
         if (reactionButton) {
           e.preventDefault();
           e.stopPropagation();
-          this.handleImageAttachmentReactionPickerClick(reactionButton);
+          void this.handleImageAttachmentReactionPickerClick(reactionButton);
           return;
         }
         const option = e.target.closest('.context-menu-option');
@@ -17175,37 +17179,132 @@ class ChatModal {
    * Handles quick reaction row clicks for the main message context menu.
    * @param {HTMLElement} reactionButton
    */
-  handleReactionPickerClick(reactionButton) {
+  async handleReactionPickerClick(reactionButton) {
     const messageEl = this.currentContextMessage;
-    this.logReactionPickerSelection(reactionButton, messageEl);
+    await this.handleReactionPickerSelection(reactionButton, messageEl, () => this.closeContextMenu());
   }
 
   /**
    * Handles quick reaction row clicks for the image attachment context menu.
    * @param {HTMLElement} reactionButton
    */
-  handleImageAttachmentReactionPickerClick(reactionButton) {
+  async handleImageAttachmentReactionPickerClick(reactionButton) {
     const row = this.currentImageAttachmentRow;
     const { messageEl } = row ? this.getAttachmentContextFromRow(row) : { messageEl: null };
-    this.logReactionPickerSelection(reactionButton, messageEl);
+    await this.handleReactionPickerSelection(reactionButton, messageEl, () => this.closeImageAttachmentContextMenu());
   }
 
   /**
-   * Logs the quick reaction selection against the current target message.
+   * Resolves a quick reaction picker press into a target txid and a minimal send flow.
    * @param {HTMLElement} reactionButton
    * @param {HTMLElement | null} messageEl
+   * @param {Function} closeMenu
    */
-  logReactionPickerSelection(reactionButton, messageEl) {
+  async handleReactionPickerSelection(reactionButton, messageEl, closeMenu = () => {}) {
     if (!reactionButton) return;
     const txid = messageEl?.dataset?.txid || '';
-    const selectedReaction = reactionButton.dataset.reactionPickerTrigger === 'true'
+    const isMorePickerTrigger = reactionButton.dataset.reactionPickerTrigger === 'true';
+    const selectedReaction = isMorePickerTrigger
       ? '+'
       : (reactionButton.dataset.emoji || reactionButton.textContent || '').trim();
 
+    if (!txid) {
+      console.warn('Reaction picker press ignored: missing message txid', { reaction: selectedReaction });
+      return;
+    }
     console.log('Reaction picker pressed', {
       reaction: selectedReaction,
       txid
     });
+
+    if (isMorePickerTrigger) {
+      return;
+    }
+
+    closeMenu();
+    await this.sendReactionMessage({
+      reactId: txid,
+      reactMessage: selectedReaction,
+      reactAction: 'set'
+    });
+  }
+
+  /**
+   * Sends a reaction control message.
+   * @param {{reactId: string, reactMessage: string, reactAction: string}} reaction
+   * @returns {Promise<boolean>}
+   */
+  async sendReactionMessage(reaction) {
+    if (!reaction?.reactId || !reaction?.reactMessage || !reaction?.reactAction) {
+      return false;
+    }
+
+    if (!isOnline) {
+      console.warn('Reaction send skipped while offline', reaction);
+      return false;
+    }
+
+    const currentAddress = this.address;
+    if (!currentAddress || currentAddress === myAccount.address) {
+      return false;
+    }
+
+    const contact = myData.contacts[currentAddress];
+    if (!contact) {
+      return false;
+    }
+
+    if (contact.tollRequiredToSend == 2) {
+      console.warn('Reaction send skipped because sender is blocked by recipient');
+      return false;
+    }
+
+    const tollInLib = contact.tollRequiredToSend == 0 ? 0n : getEffectiveTollLibWei(this.toll);
+    const sufficientBalance = await validateBalance(tollInLib);
+    if (!sufficientBalance) {
+      console.warn('Reaction send skipped due to insufficient balance', reaction);
+      return false;
+    }
+
+    const keys = myAccount.keys;
+    if (!keys) {
+      console.warn('Reaction send skipped: sender keys missing');
+      return false;
+    }
+
+    let chatMessageObj;
+    let txid;
+    try {
+      ({ chatMessageObj, txid } = await this.buildEncryptedStructuredChatTx(
+        currentAddress,
+        {
+          type: 'message',
+          reactId: reaction.reactId,
+          reactMessage: reaction.reactMessage,
+          reactAction: reaction.reactAction
+        },
+        tollInLib,
+        keys
+      ));
+    } catch (error) {
+      console.warn('Reaction send skipped: failed to build encrypted chat tx', error);
+      return false;
+    }
+
+    console.log('Sending reaction message', {
+      txid,
+      reactId: reaction.reactId,
+      reactMessage: reaction.reactMessage,
+      reactAction: reaction.reactAction
+    });
+
+    const response = await injectTx(chatMessageObj, txid);
+    if (!response?.result?.success) {
+      console.error('reaction message failed to send', response);
+      return false;
+    }
+
+    return true;
   }
 
   /**
