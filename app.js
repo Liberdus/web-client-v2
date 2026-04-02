@@ -17102,7 +17102,6 @@ class ChatModal {
 
   /**
    * Handles quick reaction row clicks for the main message context menu.
-   * Phase 2 Part 1 only logs the selected reaction and target txid.
    * @param {HTMLElement} reactionButton
    */
   handleReactionPickerClick(reactionButton) {
@@ -17112,7 +17111,6 @@ class ChatModal {
 
   /**
    * Handles quick reaction row clicks for the image attachment context menu.
-   * Phase 2 Part 1 only logs the selected reaction and target txid.
    * @param {HTMLElement} reactionButton
    */
   handleImageAttachmentReactionPickerClick(reactionButton) {
@@ -17122,7 +17120,7 @@ class ChatModal {
   }
 
   /**
-   * Logs the quick reaction selection against the current target message. Will get removed next phase.
+   * Logs the quick reaction selection against the current target message.
    * @param {HTMLElement} reactionButton
    * @param {HTMLElement | null} messageEl
    */
