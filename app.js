@@ -13240,6 +13240,7 @@ class ChatModal {
       if (reactionButton) {
         e.preventDefault();
         e.stopPropagation();
+        this.handleReactionPickerClick(reactionButton);
         return;
       }
       if (e.target.closest('.context-menu-option')) {
@@ -13254,6 +13255,7 @@ class ChatModal {
         if (reactionButton) {
           e.preventDefault();
           e.stopPropagation();
+          this.handleImageAttachmentReactionPickerClick(reactionButton);
           return;
         }
         const option = e.target.closest('.context-menu-option');
@@ -17096,6 +17098,45 @@ class ChatModal {
     }
     
     this.closeContextMenu();
+  }
+
+  /**
+   * Handles quick reaction row clicks for the main message context menu.
+   * Phase 2 Part 1 only logs the selected reaction and target txid.
+   * @param {HTMLElement} reactionButton
+   */
+  handleReactionPickerClick(reactionButton) {
+    const messageEl = this.currentContextMessage;
+    this.logReactionPickerSelection(reactionButton, messageEl);
+  }
+
+  /**
+   * Handles quick reaction row clicks for the image attachment context menu.
+   * Phase 2 Part 1 only logs the selected reaction and target txid.
+   * @param {HTMLElement} reactionButton
+   */
+  handleImageAttachmentReactionPickerClick(reactionButton) {
+    const row = this.currentImageAttachmentRow;
+    const { messageEl } = row ? this.getAttachmentContextFromRow(row) : { messageEl: null };
+    this.logReactionPickerSelection(reactionButton, messageEl);
+  }
+
+  /**
+   * Logs the quick reaction selection against the current target message. Will get removed next phase.
+   * @param {HTMLElement} reactionButton
+   * @param {HTMLElement | null} messageEl
+   */
+  logReactionPickerSelection(reactionButton, messageEl) {
+    if (!reactionButton) return;
+    const txid = messageEl?.dataset?.txid || '';
+    const selectedReaction = reactionButton.dataset.reactionPickerTrigger === 'true'
+      ? '+'
+      : (reactionButton.dataset.emoji || reactionButton.textContent || '').trim();
+
+    console.log('Reaction picker pressed', {
+      reaction: selectedReaction,
+      txid
+    });
   }
 
   /**
