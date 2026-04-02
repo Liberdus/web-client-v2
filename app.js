@@ -14226,7 +14226,7 @@ class ChatModal {
       const tollInLib =
         myData.contacts[currentAddress].tollRequiredToSend == 0
           ? 0n
-          : getEffectiveTollLibWei(this.toll);
+          : getEffectiveTollLibWei(this.toll)
 
       let payload, chatMessageObj, txid;
       try {
