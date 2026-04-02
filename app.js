@@ -14141,6 +14141,7 @@ class ChatModal {
             */
       const currentAddress = this.address;
       if (!currentAddress) return;
+      const contact = chatsData.contacts[currentAddress];
 
       // Check if trying to message self
       if (currentAddress === myAccount.address) {
