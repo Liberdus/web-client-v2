@@ -14154,6 +14154,17 @@ class ChatModal {
         return;
       }
 
+      let chatCryptoContext;
+      try {
+        chatCryptoContext = await this.prepareEncryptedChatContext(currentAddress, keys);
+      } catch (error) {
+        if (error?.code === 'CHAT_CRYPTO_PREPARATION') {
+          console.warn(error.message);
+          return;
+        }
+        throw error;
+      }
+
       // Determine if this is an edit of an existing message
       editInput = document.getElementById('editOfTxId');
       editTargetTxId = editInput ? editInput.value.trim() : '';
@@ -14223,10 +14234,11 @@ class ChatModal {
           currentAddress,
           messageObj,
           tollInLib,
-          keys
+          keys,
+          chatCryptoContext
         ));
       } catch (error) {
-        if (/Contact not found|No public\/PQ key found/.test(error?.message || '')) {
+        if (error?.code === 'CHAT_CRYPTO_PREPARATION') {
           console.warn(error.message);
           return;
         }
@@ -14524,18 +14536,22 @@ class ChatModal {
    * @returns {Object}
    */
   buildChatSenderInfo(contact) {
+    // Create basic sender info with just username
     const senderInfo = {
       username: myAccount.username,
     };
 
     if (contact?.friend >= 2) {
+      // Add more personal details for connections
       senderInfo.name = myData.account.name;
       senderInfo.linkedin = myData.account.linkedin;
       senderInfo.x = myData.account.x;
+      // Add avatar info if available
       if (myData.account.avatarId && myData.account.avatarKey) {
         senderInfo.avatarId = myData.account.avatarId;
         senderInfo.avatarKey = myData.account.avatarKey;
       }
+      // Add timezone if available
       const tz = getLocalTimeZone();
       if (tz) {
         senderInfo.timezone = tz;
@@ -14546,25 +14562,26 @@ class ChatModal {
   }
 
   /**
-   * Build, encrypt, and sign a structured chat message transaction.
-   * Shared by composer sends and quick reaction sends.
+   * Resolve recipient contact and derive the shared chat crypto context.
    * @param {string} to
-   * @param {Object} messageObj
-   * @param {bigint} tollInLib
    * @param {Object} keys
-   * @returns {Promise<{payload: Object, chatMessageObj: Object, txid: string}>}
+   * @returns {Promise<{contact: Object, dhkey: Uint8Array, cipherText: Uint8Array}>}
    */
-  async buildEncryptedStructuredChatTx(to, messageObj, tollInLib, keys) {
+  async prepareEncryptedChatContext(to, keys) {
     const contact = myData.contacts[to];
     if (!contact) {
-      throw new Error(`Contact not found for ${to}`);
+      const error = new Error(`Contact not found for ${to}`);
+      error.code = 'CHAT_CRYPTO_PREPARATION';
+      throw error;
     }
 
     const keysOk = await ensureContactKeys(to);
     const recipientPubKey = contact.public;
     const pqRecPubKey = contact.pqPublic;
     if (!keysOk || !recipientPubKey || !pqRecPubKey) {
-      throw new Error(`No public/PQ key found for recipient ${to}`);
+      const error = new Error(`No public/PQ key found for recipient ${to}`);
+      error.code = 'CHAT_CRYPTO_PREPARATION';
+      throw error;
     }
 
     /*
@@ -14577,6 +14594,26 @@ class ChatModal {
     dhkey = deriveDhKey(combined);
     */
     const { dhkey, cipherText } = dhkeyCombined(keys.secret, recipientPubKey, pqRecPubKey);
+
+    return { contact, dhkey, cipherText };
+  }
+
+  /**
+   * Build, encrypt, and sign a structured chat message transaction.
+   * Shared by composer sends and quick reaction sends.
+   * @param {string} to
+   * @param {Object} messageObj
+   * @param {bigint} tollInLib
+   * @param {Object} keys
+   * @param {{contact: Object, dhkey: Uint8Array, cipherText: Uint8Array}|null} cryptoContext
+   * @returns {Promise<{payload: Object, chatMessageObj: Object, txid: string}>}
+   */
+  async buildEncryptedStructuredChatTx(to, messageObj, tollInLib, keys, cryptoContext = null) {
+    const context = cryptoContext || await this.prepareEncryptedChatContext(to, keys);
+    const { contact, dhkey, cipherText } = context;
+
+    // We purposely do not encrypt/decrypt using browser native crypto functions; all crypto functions must be readable
+    // Encrypt the JSON message using shared secret
     const payload = {
       message: encryptChacha(dhkey, stringify(messageObj)),
       encrypted: true,
@@ -14587,6 +14624,8 @@ class ChatModal {
       sent_timestamp: getCorrectedTimestamp()
     };
 
+    // Always include username, but only include other info if recipient is a friend
+    // Always encrypt and send senderInfo (which will contain at least the username)
     payload.senderInfo = encryptChacha(dhkey, stringify(this.buildChatSenderInfo(contact)));
 
     const chatMessageObj = await this.createChatMessage(to, payload, tollInLib, keys);
