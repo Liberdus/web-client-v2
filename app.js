@@ -5825,6 +5825,121 @@ async function ensureContactKeys(address) {
   }
 }
 
+/**
+ * Returns the normalized identity key used to attribute a stored reaction entry.
+ * Accepts either the current `sender` field or the older `from` field so the
+ * lookup logic remains tolerant of mixed local shapes while Phase 3 settles.
+ *
+ * @param {{sender?: string, from?: string} | null | undefined} reaction
+ * @returns {string}
+ */
+function getReactionSenderKey(reaction) {
+  const rawSender = reaction?.sender || reaction?.from || '';
+  return rawSender ? normalizeAddress(rawSender) : '';
+}
+
+/**
+ * Keeps stored reactions in a stable order so rendering does not jump around
+ * between refreshes. Sender is the primary key because each sender can only
+ * own one reaction entry per target message in the processed local model.
+ *
+ * @param {Array<{emoji?: string, sender?: string, from?: string}>} reactions
+ * @returns {Array<{emoji?: string, sender?: string, from?: string}>}
+ */
+function sortMessageReactions(reactions) {
+  return reactions.sort((left, right) => {
+    const leftSender = getReactionSenderKey(left);
+    const rightSender = getReactionSenderKey(right);
+    if (leftSender !== rightSender) {
+      return leftSender.localeCompare(rightSender);
+    }
+
+    const leftEmoji = typeof left?.emoji === 'string' ? left.emoji : '';
+    const rightEmoji = typeof right?.emoji === 'string' ? right.emoji : '';
+    return leftEmoji.localeCompare(rightEmoji);
+  });
+}
+
+/**
+ * Applies an incoming reaction control message onto its target message instead
+ * of inserting a standalone chat bubble. This mirrors the edit-message model:
+ * resolve the referenced target, then mutate that stored local message state.
+ *
+ * `set` creates or replaces the sender's reaction entry on the target.
+ * `remove` deletes the sender's existing reaction entry when present.
+ * Returning `true` means the target message state changed.
+ *
+ * @param {{messages?: Array<Object>} | null | undefined} contact
+ * @param {{from?: string} | null | undefined} tx
+ * @param {{reactId?: string, reactAction?: string, reactMessage?: string} | null | undefined} parsedMessage
+ * @returns {boolean}
+ */
+function applyIncomingReactionToMessage(contact, tx, parsedMessage) {
+  const reactId = typeof parsedMessage?.reactId === 'string' ? parsedMessage.reactId.trim() : '';
+  const reactAction = typeof parsedMessage?.reactAction === 'string' ? parsedMessage.reactAction.trim() : '';
+  const sender = tx?.from ? normalizeAddress(tx.from) : '';
+  if (!reactId || !reactAction || !sender || !Array.isArray(contact?.messages)) {
+    return false;
+  }
+
+  const targetMessage = contact.messages.find((message) => message.txid === reactId);
+  if (!targetMessage || isDeleted(targetMessage)) {
+    console.warn('Reaction target not found locally', { reactId, reactAction, sender });
+    return false;
+  }
+
+  const reactions = Array.isArray(targetMessage.reactions) ? [...targetMessage.reactions] : [];
+  const reactionIndex = reactions.findIndex((reaction) => getReactionSenderKey(reaction) === sender);
+
+  if (reactAction === 'remove') {
+    if (reactionIndex === -1) {
+      return false;
+    }
+
+    reactions.splice(reactionIndex, 1);
+    if (reactions.length > 0) {
+      targetMessage.reactions = sortMessageReactions(reactions);
+    } else {
+      delete targetMessage.reactions;
+    }
+    return true;
+  }
+
+  if (reactAction !== 'set') {
+    console.warn('Ignoring reaction with unsupported action', { reactAction, reactId, sender });
+    return false;
+  }
+
+  const emoji = typeof parsedMessage?.reactMessage === 'string' ? parsedMessage.reactMessage.trim() : '';
+  if (!emoji) {
+    console.warn('Ignoring reaction with missing emoji', { reactId, reactAction, sender });
+    return false;
+  }
+
+  const nextReaction = { emoji, sender };
+  if (reactionIndex === -1) {
+    reactions.push(nextReaction);
+    targetMessage.reactions = sortMessageReactions(reactions);
+    return true;
+  }
+
+  const currentReaction = reactions[reactionIndex];
+  if (
+    getReactionSenderKey(currentReaction) === sender &&
+    typeof currentReaction?.emoji === 'string' &&
+    currentReaction.emoji === emoji
+  ) {
+    return false;
+  }
+
+  reactions[reactionIndex] = {
+    ...currentReaction,
+    ...nextReaction
+  };
+  targetMessage.reactions = sortMessageReactions(reactions);
+  return true;
+}
+
 // Actually payments also appear in the chats, so we can add these to
 async function processChats(chats, keys) {
   let newTimestamp = 0;
@@ -6078,8 +6193,11 @@ async function processChats(chats, keys) {
                   }
                 } else if (parsedMessage.type === 'message') {
                   if (parsedMessage.reactId) {
-                    console.log('Reaction message received', parsedMessage, stringify(parsedMessage));
-                    continue; // recognize reaction control messages without adding them to chat history yet
+                    const didApplyReaction = applyIncomingReactionToMessage(contact, tx, parsedMessage);
+                    if (didApplyReaction && chatModal.isActive() && chatModal.address === from) {
+                      chatModal.appendChatModal();
+                    }
+                    continue; // reaction control messages update target state instead of adding a chat bubble
                   }
                   // Regular message format processing
                   payload.message = parsedMessage.message;
