@@ -14772,6 +14772,8 @@ class ChatModal {
       return;
     }
     const messages = contact.messages; // Already sorted descending
+    const currentUserAddress = normalizeAddress(myAccount.keys.address);
+    const contactAddress = normalizeAddress(contact.address);
     // Last time user previously had this chat open (used to mark newly edited messages)
     const lastReadTs = contact.lastChatOpenTs || 0;
 
@@ -14798,42 +14800,35 @@ class ChatModal {
       // Add txid attribute if available
       const txidAttribute = item?.txid ? `data-txid="${item.txid}"` : '';
       const statusAttribute = item?.status ? `data-status="${item.status}"` : '';
-      const normalizedCurrentUserAddress = normalizeAddress(myAccount?.keys?.address || '');
-      const normalizedContactAddress = normalizeAddress(contact?.address || '');
-      const reactionEntries = item?.reactions && typeof item.reactions === 'object'
-        ? Object.entries(item.reactions)
-            .filter(([, emoji]) => typeof emoji === 'string' && emoji.trim())
-            .sort(([leftSender], [rightSender]) => {
-              const leftNormalized = normalizeAddress(leftSender || '');
-              const rightNormalized = normalizeAddress(rightSender || '');
-              const leftRank = leftNormalized === normalizedContactAddress
-                ? 0
-                : (leftNormalized === normalizedCurrentUserAddress ? 1 : 2);
-              const rightRank = rightNormalized === normalizedContactAddress
-                ? 0
-                : (rightNormalized === normalizedCurrentUserAddress ? 1 : 2);
+      let reactionsHTML = '';
+      if (item.reactions) {
+        const chips = [];
+        const contactEmoji = item.reactions[contactAddress];
+        const myEmoji = item.reactions[currentUserAddress];
 
-              if (leftRank !== rightRank) {
-                return leftRank - rightRank;
-              }
+        if (contactEmoji) {
+          chips.push(`<span class="message-reaction-chip">${escapeHtml(contactEmoji)}</span>`);
+        }
+        if (myEmoji) {
+          chips.push(`<span class="message-reaction-chip my-reaction">${escapeHtml(myEmoji)}</span>`);
+        }
 
-              return leftNormalized.localeCompare(rightNormalized);
-            })
-        : [];
-      const reactionsHTML = reactionEntries.length > 0
-        ? `
+        for (const [sender, emoji] of Object.entries(item.reactions)) {
+          const normalizedSender = normalizeAddress(sender);
+          if (normalizedSender === contactAddress || normalizedSender === currentUserAddress) {
+            continue;
+          }
+          chips.push(`<span class="message-reaction-chip">${escapeHtml(emoji)}</span>`);
+        }
+
+        if (chips.length > 0) {
+          reactionsHTML = `
             <div class="message-reactions" aria-label="Reactions">
-              ${reactionEntries.map(([sender, emoji]) => {
-                const normalizedSender = normalizeAddress(sender || '');
-                const ownershipClass = normalizedSender === normalizedCurrentUserAddress
-                  ? ' my-reaction'
-                  : (normalizedSender === normalizedContactAddress ? ' contact-reaction' : '');
-
-                return `<span class="message-reaction-chip${ownershipClass}" data-reaction-sender="${escapeHtml(normalizedSender)}">${escapeHtml(emoji.trim())}</span>`;
-              }).join('')}
+              ${chips.join('')}
             </div>
-          `
-        : '';
+          `;
+        }
+      }
 
       // Check if it's a payment based on the presence of the amount property (BigInt)
       if (typeof item.amount === 'bigint') {

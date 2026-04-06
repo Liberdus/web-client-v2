@@ -2074,12 +2074,6 @@ input[type='file'].form-control::file-selector-button {
   margin-left: -8px;
 }
 
-.message-reaction-chip.contact-reaction {
-  background: var(--surface-muted);
-  color: #1f2430;
-  z-index: 2;
-}
-
 .message-reaction-chip.my-reaction {
   background: var(--primary-color);
   color: var(--background-color);
