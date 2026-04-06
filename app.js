@@ -5862,8 +5862,9 @@ function sortMessageReactions(reactions) {
 
 /**
  * Applies an incoming reaction control message onto its target message instead
- * of inserting a standalone chat bubble. This mirrors the edit-message model:
- * resolve the referenced target, then mutate that stored local message state.
+ * of inserting a standalone chat bubble. In Phase 3 we only persist processed
+ * reaction state onto the referenced local message; rendering reaction chips is
+ * deferred to a later phase.
  *
  * `set` creates or replaces the sender's reaction entry on the target.
  * `remove` deletes the sender's existing reaction entry when present.
@@ -5970,6 +5971,12 @@ async function processChats(chats, keys) {
       let mine = false;
       // Count of edits (from the other party) applied while user not viewing this chat
       let editIncrements = 0;
+      // Tracks whether any reaction state was applied for this sender batch.
+      // Phase 4 can use this to do a single redraw after all messages finish processing.
+      let didApplyReactionState = false;
+      // Phase 3 only materializes reaction state onto stored messages.
+      // If a reaction arrives before its target in this fetch batch, defer it
+      // and retry after the rest of the sender's messages are loaded.
       const pendingReactionControls = [];
 
       // This check determines if we're currently chatting with the sender
@@ -6199,9 +6206,11 @@ async function processChats(chats, keys) {
                     const reactionResult = applyIncomingReactionToMessage(contact, tx, parsedMessage);
                     if (reactionResult === 'missing_target') {
                       pendingReactionControls.push({ tx, parsedMessage });
-                    } else if (reactionResult === 'applied' && chatModal.isActive() && chatModal.address === from) {
-                      chatModal.appendChatModal();
+                    } else if (reactionResult === 'applied') {
+                      didApplyReactionState = true;
                     }
+                    // Phase 3 stops at updating local message state. Phase 4 can
+                    // use didApplyReactionState to do one redraw after the batch.
                     continue; // reaction control messages update target state instead of adding a chat bubble
                   }
                   // Regular message format processing
@@ -6484,17 +6493,16 @@ async function processChats(chats, keys) {
       }
 
       if (pendingReactionControls.length > 0) {
-        let didApplyDeferredReaction = false;
         for (const pendingReaction of pendingReactionControls) {
           const reactionResult = applyIncomingReactionToMessage(contact, pendingReaction.tx, pendingReaction.parsedMessage);
           if (reactionResult === 'applied') {
-            didApplyDeferredReaction = true;
+            didApplyReactionState = true;
           }
         }
-        if (didApplyDeferredReaction && chatModal.isActive() && chatModal.address === from) {
-          chatModal.appendChatModal();
-        }
       }
+
+      // Phase 4 hook: once appendChatModal() renders item.reactions, do a
+      // single redraw here when didApplyReactionState is true for the active chat.
 
       if (hasNewTransfer){ hasAnyTransfer = true; }
       // If messages were added to contact.messages, update myData.chats
