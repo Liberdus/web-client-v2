@@ -17406,6 +17406,28 @@ class ChatModal {
       return false;
     }
 
+    const localReaction = reaction.reactAction === 'remove'
+      ? {
+          sender: normalizeAddress(keys.address),
+          reactId: reaction.reactId,
+          action: 'remove'
+        }
+      : {
+          sender: normalizeAddress(keys.address),
+          reactId: reaction.reactId,
+          action: 'set',
+          emoji: reaction.reactMessage
+        };
+    const didApplyLocally = applyIncomingReaction(contact.messages, localReaction);
+    if (didApplyLocally) {
+      saveState();
+      if (this.isActive() && this.address === currentAddress) {
+        this.appendChatModal();
+      }
+    } else {
+      console.warn('Reaction sent but local optimistic apply was skipped', localReaction);
+    }
+
     return true;
   }
 
