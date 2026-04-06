@@ -6121,17 +6121,27 @@ async function processChats(chats, keys) {
                     payload.replyOwnerIsMine = parsedMessage.replyOwnerIsMine;
                   }
                 } else if (parsedMessage.type === 'message') {
-                  if (parsedMessage.reactId) {
-                    const reactId = parsedMessage.reactId.trim();
+                  const hasReactionFields =
+                    typeof parsedMessage.reactId !== 'undefined' ||
+                    typeof parsedMessage.reactAction !== 'undefined' ||
+                    typeof parsedMessage.reactMessage !== 'undefined';
+                  if (hasReactionFields) {
+                    const reactId = typeof parsedMessage.reactId === 'string'
+                      ? parsedMessage.reactId.trim()
+                      : '';
                     if (!reactId) {
                       console.error('Reaction message is missing reactId');
                       continue;
                     }
 
                     const sender = normalizeAddress(tx.from);
-                    const reactAction = parsedMessage.reactAction;
+                    const reactAction = typeof parsedMessage.reactAction === 'string'
+                      ? parsedMessage.reactAction.trim()
+                      : '';
                     if (reactAction === 'set') {
-                      const emoji = parsedMessage.reactMessage.trim();
+                      const emoji = typeof parsedMessage.reactMessage === 'string'
+                        ? parsedMessage.reactMessage.trim()
+                        : '';
                       if (!emoji) {
                         console.error('Reaction set is missing emoji');
                         continue;
