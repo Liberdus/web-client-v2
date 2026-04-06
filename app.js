@@ -5974,9 +5974,9 @@ async function processChats(chats, keys) {
       // Tracks whether any reaction state was applied for this sender batch.
       // Phase 4 can use this to do a single redraw after all messages finish processing.
       let didApplyReactionState = false;
-      // Phase 3 only materializes reaction state onto stored messages.
-      // If a reaction arrives before its target in this fetch batch, defer it
-      // and retry after the rest of the sender's messages are loaded.
+      // Queue all reaction controls and replay them after the sender batch.
+      // This keeps Phase 3 storage-only and lets us apply reactions in tx.timestamp
+      // order so the newest set/remove wins even if the API response is unsorted.
       const pendingReactionControls = [];
 
       // This check determines if we're currently chatting with the sender
@@ -6203,14 +6203,14 @@ async function processChats(chats, keys) {
                   }
                 } else if (parsedMessage.type === 'message') {
                   if (parsedMessage.reactId) {
-                    const reactionResult = applyIncomingReactionToMessage(contact, tx, parsedMessage);
-                    if (reactionResult === 'missing_target') {
-                      pendingReactionControls.push({ tx, parsedMessage });
-                    } else if (reactionResult === 'applied') {
-                      didApplyReactionState = true;
-                    }
-                    // Phase 3 stops at updating local message state. Phase 4 can
-                    // use didApplyReactionState to do one redraw after the batch.
+                    pendingReactionControls.push({
+                      tx,
+                      parsedMessage,
+                      originalIndex: Number(i)
+                    });
+                    // Phase 3 stops at updating local message state during the
+                    // sender replay pass below. Phase 4 can use didApplyReactionState
+                    // to do one redraw after the whole batch finishes.
                     continue; // reaction control messages update target state instead of adding a chat bubble
                   }
                   // Regular message format processing
@@ -6493,6 +6493,15 @@ async function processChats(chats, keys) {
       }
 
       if (pendingReactionControls.length > 0) {
+        pendingReactionControls.sort((left, right) => {
+          const leftTimestamp = Number(left?.tx?.timestamp || 0);
+          const rightTimestamp = Number(right?.tx?.timestamp || 0);
+          if (leftTimestamp !== rightTimestamp) {
+            return leftTimestamp - rightTimestamp;
+          }
+          return (left.originalIndex || 0) - (right.originalIndex || 0);
+        });
+
         for (const pendingReaction of pendingReactionControls) {
           const reactionResult = applyIncomingReactionToMessage(contact, pendingReaction.tx, pendingReaction.parsedMessage);
           if (reactionResult === 'applied') {
