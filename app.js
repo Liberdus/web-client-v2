@@ -5867,25 +5867,27 @@ function sortMessageReactions(reactions) {
  *
  * `set` creates or replaces the sender's reaction entry on the target.
  * `remove` deletes the sender's existing reaction entry when present.
- * Returning `true` means the target message state changed.
+ * Returns `applied` when the target message changed, `missing_target` when the
+ * reaction should be retried after later messages in the same batch are loaded,
+ * and `ignored` for invalid or duplicate control messages.
  *
  * @param {{messages?: Array<Object>} | null | undefined} contact
  * @param {{from?: string} | null | undefined} tx
  * @param {{reactId?: string, reactAction?: string, reactMessage?: string} | null | undefined} parsedMessage
- * @returns {boolean}
+ * @returns {'applied' | 'missing_target' | 'ignored'}
  */
 function applyIncomingReactionToMessage(contact, tx, parsedMessage) {
   const reactId = typeof parsedMessage?.reactId === 'string' ? parsedMessage.reactId.trim() : '';
   const reactAction = typeof parsedMessage?.reactAction === 'string' ? parsedMessage.reactAction.trim() : '';
   const sender = tx?.from ? normalizeAddress(tx.from) : '';
   if (!reactId || !reactAction || !sender || !Array.isArray(contact?.messages)) {
-    return false;
+    return 'ignored';
   }
 
   const targetMessage = contact.messages.find((message) => message.txid === reactId);
   if (!targetMessage || isDeleted(targetMessage)) {
     console.warn('Reaction target not found locally', { reactId, reactAction, sender });
-    return false;
+    return 'missing_target';
   }
 
   const reactions = Array.isArray(targetMessage.reactions) ? [...targetMessage.reactions] : [];
@@ -5893,7 +5895,7 @@ function applyIncomingReactionToMessage(contact, tx, parsedMessage) {
 
   if (reactAction === 'remove') {
     if (reactionIndex === -1) {
-      return false;
+      return 'ignored';
     }
 
     reactions.splice(reactionIndex, 1);
@@ -5902,25 +5904,25 @@ function applyIncomingReactionToMessage(contact, tx, parsedMessage) {
     } else {
       delete targetMessage.reactions;
     }
-    return true;
+    return 'applied';
   }
 
   if (reactAction !== 'set') {
     console.warn('Ignoring reaction with unsupported action', { reactAction, reactId, sender });
-    return false;
+    return 'ignored';
   }
 
   const emoji = typeof parsedMessage?.reactMessage === 'string' ? parsedMessage.reactMessage.trim() : '';
   if (!emoji) {
     console.warn('Ignoring reaction with missing emoji', { reactId, reactAction, sender });
-    return false;
+    return 'ignored';
   }
 
   const nextReaction = { emoji, sender };
   if (reactionIndex === -1) {
     reactions.push(nextReaction);
     targetMessage.reactions = sortMessageReactions(reactions);
-    return true;
+    return 'applied';
   }
 
   const currentReaction = reactions[reactionIndex];
@@ -5929,7 +5931,7 @@ function applyIncomingReactionToMessage(contact, tx, parsedMessage) {
     typeof currentReaction?.emoji === 'string' &&
     currentReaction.emoji === emoji
   ) {
-    return false;
+    return 'ignored';
   }
 
   reactions[reactionIndex] = {
@@ -5937,7 +5939,7 @@ function applyIncomingReactionToMessage(contact, tx, parsedMessage) {
     ...nextReaction
   };
   targetMessage.reactions = sortMessageReactions(reactions);
-  return true;
+  return 'applied';
 }
 
 // Actually payments also appear in the chats, so we can add these to
@@ -5968,6 +5970,7 @@ async function processChats(chats, keys) {
       let mine = false;
       // Count of edits (from the other party) applied while user not viewing this chat
       let editIncrements = 0;
+      const pendingReactionControls = [];
 
       // This check determines if we're currently chatting with the sender
       // We ONLY want to avoid notifications if we're actively viewing this exact chat
@@ -6193,8 +6196,10 @@ async function processChats(chats, keys) {
                   }
                 } else if (parsedMessage.type === 'message') {
                   if (parsedMessage.reactId) {
-                    const didApplyReaction = applyIncomingReactionToMessage(contact, tx, parsedMessage);
-                    if (didApplyReaction && chatModal.isActive() && chatModal.address === from) {
+                    const reactionResult = applyIncomingReactionToMessage(contact, tx, parsedMessage);
+                    if (reactionResult === 'missing_target') {
+                      pendingReactionControls.push({ tx, parsedMessage });
+                    } else if (reactionResult === 'applied' && chatModal.isActive() && chatModal.address === from) {
                       chatModal.appendChatModal();
                     }
                     continue; // reaction control messages update target state instead of adding a chat bubble
@@ -6477,6 +6482,20 @@ async function processChats(chats, keys) {
           }
         }
       }
+
+      if (pendingReactionControls.length > 0) {
+        let didApplyDeferredReaction = false;
+        for (const pendingReaction of pendingReactionControls) {
+          const reactionResult = applyIncomingReactionToMessage(contact, pendingReaction.tx, pendingReaction.parsedMessage);
+          if (reactionResult === 'applied') {
+            didApplyDeferredReaction = true;
+          }
+        }
+        if (didApplyDeferredReaction && chatModal.isActive() && chatModal.address === from) {
+          chatModal.appendChatModal();
+        }
+      }
+
       if (hasNewTransfer){ hasAnyTransfer = true; }
       // If messages were added to contact.messages, update myData.chats
       if (added > 0) {
