@@ -17400,12 +17400,6 @@ class ChatModal {
       reactAction: reaction.reactAction
     });
 
-    const response = await injectTx(chatMessageObj, txid);
-    if (!response?.result?.success) {
-      console.error('reaction message failed to send', response);
-      return false;
-    }
-
     const localReaction = reaction.reactAction === 'remove'
       ? {
           sender: normalizeAddress(keys.address),
@@ -17420,12 +17414,17 @@ class ChatModal {
         };
     const didApplyLocally = applyIncomingReaction(contact.messages, localReaction);
     if (didApplyLocally) {
-      saveState();
       if (this.isActive() && this.address === currentAddress) {
         this.appendChatModal();
       }
     } else {
       console.warn('Reaction sent but local optimistic apply was skipped', localReaction);
+    }
+
+    const response = await injectTx(chatMessageObj, txid);
+    if (!response?.result?.success) {
+      console.error('reaction message failed to send', response);
+      return false;
     }
 
     return true;
