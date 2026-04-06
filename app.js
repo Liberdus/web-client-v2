@@ -5826,73 +5826,46 @@ async function ensureContactKeys(address) {
 }
 
 /**
- * Applies an incoming reaction control message onto its target message instead
- * of inserting a standalone chat bubble. In Phase 3 we only persist processed
- * reaction state onto the referenced local message; rendering reaction chips is
- * deferred to a later phase.
- *
- * `set` creates or replaces the sender's reaction entry on the target.
- * `remove` deletes the sender's existing reaction entry when present.
- * Returns `applied` when the target message changed, `missing_target` when the
- * reaction should be retried after later messages in the same batch are loaded,
- * and `ignored` for invalid or duplicate control messages.
- *
- * @param {{messages?: Array<Object>} | null | undefined} contact
- * @param {{from?: string} | null | undefined} tx
- * @param {{reactId?: string, reactAction?: string, reactMessage?: string} | null | undefined} parsedMessage
- * @returns {'applied' | 'missing_target' | 'ignored'}
+ * @param {Array<Object>} messages
+ * @param {{ sender: string, reactId: string, action: 'remove' } | { sender: string, reactId: string, action: 'set', emoji: string }} reaction
+ * @returns {boolean}
  */
-function applyIncomingReactionToMessage(contact, tx, parsedMessage) {
-  const reactId = typeof parsedMessage?.reactId === 'string' ? parsedMessage.reactId.trim() : '';
-  const reactAction = typeof parsedMessage?.reactAction === 'string' ? parsedMessage.reactAction.trim() : '';
-  const sender = tx?.from ? normalizeAddress(tx.from) : '';
-  if (!reactId || !reactAction || !sender || !Array.isArray(contact?.messages)) {
-    return 'ignored';
-  }
-
-  const targetMessage = contact.messages.find((message) => message.txid === reactId);
+function applyIncomingReaction(messages, reaction) {
+  const targetMessage = messages.find((message) => message.txid === reaction.reactId);
   if (!targetMessage || isDeleted(targetMessage)) {
-    console.warn('Reaction target not found locally', { reactId, reactAction, sender });
-    return 'missing_target';
+    console.warn('Reaction target not found locally', reaction);
+    return false;
   }
 
-  const reactions = targetMessage.reactions && typeof targetMessage.reactions === 'object'
-    ? { ...targetMessage.reactions }
-    : {};
-  const currentEmoji = typeof reactions[sender] === 'string' ? reactions[sender] : '';
+  const reactions = targetMessage.reactions ? { ...targetMessage.reactions } : {};
+  const currentEmoji = reactions[reaction.sender];
 
-  if (reactAction === 'remove') {
+  if (reaction.action === 'remove') {
     if (!currentEmoji) {
-      return 'ignored';
+      return false;
     }
 
-    delete reactions[sender];
-    if (Object.keys(reactions).length > 0) {
-      targetMessage.reactions = reactions;
-    } else {
+    delete reactions[reaction.sender];
+    if (Object.keys(reactions).length === 0) {
       delete targetMessage.reactions;
+      return true;
     }
-    return 'applied';
+
+    targetMessage.reactions = reactions;
+    return true;
   }
 
-  if (reactAction !== 'set') {
-    console.warn('Ignoring reaction with unsupported action', { reactAction, reactId, sender });
-    return 'ignored';
+  if (reaction.action === 'set') {
+    if (currentEmoji === reaction.emoji) {
+      return false;
+    }
+
+    reactions[reaction.sender] = reaction.emoji;
+    targetMessage.reactions = reactions;
+    return true;
   }
 
-  const emoji = typeof parsedMessage?.reactMessage === 'string' ? parsedMessage.reactMessage.trim() : '';
-  if (!emoji) {
-    console.warn('Ignoring reaction with missing emoji', { reactId, reactAction, sender });
-    return 'ignored';
-  }
-
-  if (currentEmoji === emoji) {
-    return 'ignored';
-  }
-
-  reactions[sender] = emoji;
-  targetMessage.reactions = reactions;
-  return 'applied';
+  throw new Error(`Unknown reaction action: ${reaction.action}`);
 }
 
 // Actually payments also appear in the chats, so we can add these to
@@ -5923,12 +5896,6 @@ async function processChats(chats, keys) {
       let mine = false;
       // Count of edits (from the other party) applied while user not viewing this chat
       let editIncrements = 0;
-      // Tracks whether any reaction state was applied for this sender batch.
-      // Phase 4 can use this to do a single redraw after all messages finish processing.
-      let didApplyReactionState = false;
-      // Queue all reaction controls and replay them after the sender batch.
-      // This keeps Phase 3 storage-only and lets us apply reactions in tx.timestamp
-      // order so the newest set/remove wins even if the API response is unsorted.
       const pendingReactionControls = [];
 
       // This check determines if we're currently chatting with the sender
@@ -6155,15 +6122,45 @@ async function processChats(chats, keys) {
                   }
                 } else if (parsedMessage.type === 'message') {
                   if (parsedMessage.reactId) {
-                    pendingReactionControls.push({
-                      tx,
-                      parsedMessage,
-                      originalIndex: Number(i)
-                    });
-                    // Phase 3 stops at updating local message state during the
-                    // sender replay pass below. Phase 4 can use didApplyReactionState
-                    // to do one redraw after the whole batch finishes.
-                    continue; // reaction control messages update target state instead of adding a chat bubble
+                    const reactId = parsedMessage.reactId.trim();
+                    if (!reactId) {
+                      console.error('Reaction message is missing reactId');
+                      continue;
+                    }
+
+                    const sender = normalizeAddress(tx.from);
+                    const reactAction = parsedMessage.reactAction;
+                    if (reactAction === 'set') {
+                      const emoji = parsedMessage.reactMessage.trim();
+                      if (!emoji) {
+                        console.error('Reaction set is missing emoji');
+                        continue;
+                      }
+
+                      pendingReactionControls.push({
+                        sender,
+                        reactId,
+                        action: 'set',
+                        emoji,
+                        timestamp: Number(tx.timestamp),
+                        order: Number(i)
+                      });
+                      continue; // reaction control messages update target state instead of adding a chat bubble
+                    }
+
+                    if (reactAction === 'remove') {
+                      pendingReactionControls.push({
+                        sender,
+                        reactId,
+                        action: 'remove',
+                        timestamp: Number(tx.timestamp),
+                        order: Number(i)
+                      });
+                      continue; // reaction control messages update target state instead of adding a chat bubble
+                    }
+
+                    console.error('Unknown reaction action', reactAction);
+                    continue;
                   }
                   // Regular message format processing
                   payload.message = parsedMessage.message;
@@ -6446,24 +6443,13 @@ async function processChats(chats, keys) {
 
       if (pendingReactionControls.length > 0) {
         pendingReactionControls.sort((left, right) => {
-          const leftTimestamp = Number(left?.tx?.timestamp || 0);
-          const rightTimestamp = Number(right?.tx?.timestamp || 0);
-          if (leftTimestamp !== rightTimestamp) {
-            return leftTimestamp - rightTimestamp;
-          }
-          return (left.originalIndex || 0) - (right.originalIndex || 0);
+          return left.timestamp - right.timestamp || left.order - right.order;
         });
 
         for (const pendingReaction of pendingReactionControls) {
-          const reactionResult = applyIncomingReactionToMessage(contact, pendingReaction.tx, pendingReaction.parsedMessage);
-          if (reactionResult === 'applied') {
-            didApplyReactionState = true;
-          }
+          applyIncomingReaction(contact.messages, pendingReaction);
         }
       }
-
-      // Phase 4 hook: once appendChatModal() renders item.reactions, do a
-      // single redraw here when didApplyReactionState is true for the active chat.
 
       if (hasNewTransfer){ hasAnyTransfer = true; }
       // If messages were added to contact.messages, update myData.chats
