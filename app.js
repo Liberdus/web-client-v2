@@ -5826,41 +5826,6 @@ async function ensureContactKeys(address) {
 }
 
 /**
- * Returns the normalized identity key used to attribute a stored reaction entry.
- * Accepts either the current `sender` field or the older `from` field so the
- * lookup logic remains tolerant of mixed local shapes while Phase 3 settles.
- *
- * @param {{sender?: string, from?: string} | null | undefined} reaction
- * @returns {string}
- */
-function getReactionSenderKey(reaction) {
-  const rawSender = reaction?.sender || reaction?.from || '';
-  return rawSender ? normalizeAddress(rawSender) : '';
-}
-
-/**
- * Keeps stored reactions in a stable order so rendering does not jump around
- * between refreshes. Sender is the primary key because each sender can only
- * own one reaction entry per target message in the processed local model.
- *
- * @param {Array<{emoji?: string, sender?: string, from?: string}>} reactions
- * @returns {Array<{emoji?: string, sender?: string, from?: string}>}
- */
-function sortMessageReactions(reactions) {
-  return reactions.sort((left, right) => {
-    const leftSender = getReactionSenderKey(left);
-    const rightSender = getReactionSenderKey(right);
-    if (leftSender !== rightSender) {
-      return leftSender.localeCompare(rightSender);
-    }
-
-    const leftEmoji = typeof left?.emoji === 'string' ? left.emoji : '';
-    const rightEmoji = typeof right?.emoji === 'string' ? right.emoji : '';
-    return leftEmoji.localeCompare(rightEmoji);
-  });
-}
-
-/**
  * Applies an incoming reaction control message onto its target message instead
  * of inserting a standalone chat bubble. In Phase 3 we only persist processed
  * reaction state onto the referenced local message; rendering reaction chips is
@@ -5891,17 +5856,19 @@ function applyIncomingReactionToMessage(contact, tx, parsedMessage) {
     return 'missing_target';
   }
 
-  const reactions = Array.isArray(targetMessage.reactions) ? [...targetMessage.reactions] : [];
-  const reactionIndex = reactions.findIndex((reaction) => getReactionSenderKey(reaction) === sender);
+  const reactions = targetMessage.reactions && typeof targetMessage.reactions === 'object'
+    ? { ...targetMessage.reactions }
+    : {};
+  const currentEmoji = typeof reactions[sender] === 'string' ? reactions[sender] : '';
 
   if (reactAction === 'remove') {
-    if (reactionIndex === -1) {
+    if (!currentEmoji) {
       return 'ignored';
     }
 
-    reactions.splice(reactionIndex, 1);
-    if (reactions.length > 0) {
-      targetMessage.reactions = sortMessageReactions(reactions);
+    delete reactions[sender];
+    if (Object.keys(reactions).length > 0) {
+      targetMessage.reactions = reactions;
     } else {
       delete targetMessage.reactions;
     }
@@ -5919,27 +5886,12 @@ function applyIncomingReactionToMessage(contact, tx, parsedMessage) {
     return 'ignored';
   }
 
-  const nextReaction = { emoji, sender };
-  if (reactionIndex === -1) {
-    reactions.push(nextReaction);
-    targetMessage.reactions = sortMessageReactions(reactions);
-    return 'applied';
-  }
-
-  const currentReaction = reactions[reactionIndex];
-  if (
-    getReactionSenderKey(currentReaction) === sender &&
-    typeof currentReaction?.emoji === 'string' &&
-    currentReaction.emoji === emoji
-  ) {
+  if (currentEmoji === emoji) {
     return 'ignored';
   }
 
-  reactions[reactionIndex] = {
-    ...currentReaction,
-    ...nextReaction
-  };
-  targetMessage.reactions = sortMessageReactions(reactions);
+  reactions[sender] = emoji;
+  targetMessage.reactions = reactions;
   return 'applied';
 }
 
