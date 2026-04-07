@@ -5897,6 +5897,7 @@ async function processChats(chats, keys) {
       // Count of edits (from the other party) applied while user not viewing this chat
       let editIncrements = 0;
       const pendingReactionControls = [];
+      let didApplyPendingReaction = false;
 
       // This check determines if we're currently chatting with the sender
       // We ONLY want to avoid notifications if we're actively viewing this exact chat
@@ -6457,7 +6458,9 @@ async function processChats(chats, keys) {
         });
 
         for (const pendingReaction of pendingReactionControls) {
-          applyIncomingReaction(contact.messages, pendingReaction);
+          if (applyIncomingReaction(contact.messages, pendingReaction)) {
+            didApplyPendingReaction = true;
+          }
         }
       }
 
@@ -6504,6 +6507,10 @@ async function processChats(chats, keys) {
         if (!inActiveChatWithSender && !chatsScreen.isActive() && !isFaucetAddress(from)) {
           footer.chatButton.classList.add('has-notification');
         }
+      }
+
+      if (didApplyPendingReaction && added === 0 && inActiveChatWithSender) {
+        chatModal.appendChatModal();
       }
 
       // Show transfer notification even if no messages were added
@@ -14763,6 +14770,8 @@ class ChatModal {
       return;
     }
     const messages = contact.messages; // Already sorted descending
+    const currentUserAddress = normalizeAddress(myAccount.keys.address);
+    const contactAddress = normalizeAddress(contact.address);
     // Last time user previously had this chat open (used to mark newly edited messages)
     const lastReadTs = contact.lastChatOpenTs || 0;
 
@@ -14789,6 +14798,35 @@ class ChatModal {
       // Add txid attribute if available
       const txidAttribute = item?.txid ? `data-txid="${item.txid}"` : '';
       const statusAttribute = item?.status ? `data-status="${item.status}"` : '';
+      let reactionsHTML = '';
+      if (item.reactions) {
+        const chips = [];
+        const contactEmoji = item.reactions[contactAddress];
+        const myEmoji = item.reactions[currentUserAddress];
+
+        if (contactEmoji) {
+          chips.push(`<span class="message-reaction-chip">${escapeHtml(contactEmoji)}</span>`);
+        }
+        if (myEmoji) {
+          chips.push(`<span class="message-reaction-chip my-reaction">${escapeHtml(myEmoji)}</span>`);
+        }
+
+        for (const [sender, emoji] of Object.entries(item.reactions)) {
+          const normalizedSender = normalizeAddress(sender);
+          if (normalizedSender === contactAddress || normalizedSender === currentUserAddress) {
+            continue;
+          }
+          chips.push(`<span class="message-reaction-chip">${escapeHtml(emoji)}</span>`);
+        }
+
+        if (chips.length > 0) {
+          reactionsHTML = `
+            <div class="message-reactions" aria-label="Reactions">
+              ${chips.join('')}
+            </div>
+          `;
+        }
+      }
 
       // Check if it's a payment based on the presence of the amount property (BigInt)
       if (typeof item.amount === 'bigint') {
@@ -14817,6 +14855,7 @@ class ChatModal {
             </div>
             ${itemMemo ? `<div class="payment-memo">${linkifyUrls(itemMemo)}</div>` : ''}
             <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
+            ${reactionsHTML}
           </div>
         `;
       } else {
@@ -14975,6 +15014,7 @@ class ChatModal {
               ${attachmentsHTML}
               ${messageTextHTML}
               <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
+              ${reactionsHTML}
             </div>
           `;
         }

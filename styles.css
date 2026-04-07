@@ -1992,6 +1992,7 @@ input[type='file'].form-control::file-selector-button {
   padding: 0.75rem 1rem;
   border-radius: 1rem;
   position: relative;
+  margin-bottom: 16px;
   text-align: left;
   cursor: pointer;
   transition: filter 0.2s ease;
@@ -2037,6 +2038,49 @@ input[type='file'].form-control::file-selector-button {
   opacity: 0.7;
   margin-top: 0.25rem;
   text-align: left;
+}
+
+.message-reactions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  position: absolute;
+  left: 10px;
+  bottom: -14px;
+  z-index: 2;
+}
+
+.message-reaction-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  min-height: 24px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: #1f2430;
+  font-size: 15px;
+  line-height: 1;
+  box-shadow:
+    0 2px 6px rgba(31, 36, 48, 0.12),
+    inset 0 0 0 1px rgba(31, 36, 48, 0.08);
+  position: relative;
+  z-index: 1;
+}
+
+.message-reaction-chip + .message-reaction-chip {
+  margin-left: -8px;
+}
+
+.message-reaction-chip.my-reaction {
+  background: var(--primary-color);
+  color: var(--background-color);
+  z-index: 1;
+  box-shadow:
+    0 2px 6px rgba(31, 36, 48, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 
 /* Dot indicating a message was edited since last read */
