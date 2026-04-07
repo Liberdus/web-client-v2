@@ -6510,9 +6510,7 @@ async function processChats(chats, keys) {
       }
 
       if (didApplyPendingReaction && added === 0 && inActiveChatWithSender) {
-        if (document.visibilityState === 'visible') {
-          chatModal.appendChatModal();
-        }
+        chatModal.appendChatModal();
       }
 
       // Show transfer notification even if no messages were added
