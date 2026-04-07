@@ -13320,6 +13320,7 @@ class ChatModal {
     this.contextMenuReactions = document.getElementById('messageContextReactions');
     // Initialize image attachment context menu
     this.imageAttachmentContextMenu = document.getElementById('imageAttachmentContextMenu');
+    this.imageAttachmentContextMenuReactions = this.imageAttachmentContextMenu?.querySelector('.message-context-reactions') || null;
     // Initialize attachment options context menu
     this.attachmentOptionsContextMenu = document.getElementById('attachmentOptionsContextMenu');
     // Cache attachment options context menu option elements
@@ -16305,6 +16306,7 @@ class ChatModal {
 
     if (this.contextMenuReactions) {
       this.contextMenuReactions.style.display = canShowReactionRow ? 'flex' : 'none';
+      this.syncReactionPickerActiveState(this.contextMenuReactions, canShowReactionRow ? messageEl : null);
     }
 
     if (isDeletedLocalOnly) {
@@ -16478,6 +16480,7 @@ class ChatModal {
     if (!this.contextMenu) return;
     this.contextMenu.style.display = 'none';
     if (this.contextMenuReactions) this.contextMenuReactions.style.display = '';
+    this.syncReactionPickerActiveState(this.contextMenuReactions, null);
     this.currentContextMessage = null;
   }
 
@@ -16504,6 +16507,44 @@ class ChatModal {
       msg && (msg.txid === txid || msg.timestamp == timestamp)
     );
     return messageIndex === -1 ? null : contact.messages[messageIndex];
+  }
+
+  /**
+   * Returns the current user's stored reaction emoji for a rendered message.
+   * @param {HTMLElement | null} messageEl
+   * @returns {string}
+   */
+  getCurrentUserReactionForMessage(messageEl) {
+    const currentUserAddress = myAccount?.keys?.address
+      ? normalizeAddress(myAccount.keys.address)
+      : '';
+    if (!currentUserAddress) return '';
+
+    const messageRecord = this.getMessageRecordFromElement(messageEl);
+    const reactionEmoji = messageRecord?.reactions?.[currentUserAddress];
+    return typeof reactionEmoji === 'string' ? reactionEmoji.trim() : '';
+  }
+
+  /**
+   * Applies active-state styling to the quick reaction tray based on stored reaction state.
+   * @param {HTMLElement | null} reactionTray
+   * @param {HTMLElement | null} messageEl
+   */
+  syncReactionPickerActiveState(reactionTray, messageEl) {
+    if (!reactionTray) return;
+
+    const activeEmoji = this.getCurrentUserReactionForMessage(messageEl);
+    const reactionButtons = reactionTray.querySelectorAll('.message-context-reaction-button');
+    reactionButtons.forEach((button) => {
+      const isMorePickerTrigger = button.dataset.reactionPickerTrigger === 'true';
+      const buttonEmoji = isMorePickerTrigger
+        ? ''
+        : (button.dataset.emoji || button.textContent || '').trim();
+      const isActive = !isMorePickerTrigger && !!activeEmoji && buttonEmoji === activeEmoji;
+
+      button.classList.toggle('active', isActive);
+      button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
   }
 
   /**
@@ -16636,6 +16677,7 @@ class ChatModal {
   closeImageAttachmentContextMenu() {
     if (!this.imageAttachmentContextMenu) return;
     this.imageAttachmentContextMenu.style.display = 'none';
+    this.syncReactionPickerActiveState(this.imageAttachmentContextMenuReactions, null);
     this.currentImageAttachmentRow = null;
   }
 
@@ -17141,6 +17183,8 @@ class ChatModal {
       const isVcf = fileType === 'text/vcard' || fileName.toLowerCase().endsWith('.vcf');
       importContactsOpt.style.display = isVcf ? '' : 'none';
     }
+
+    this.syncReactionPickerActiveState(this.imageAttachmentContextMenuReactions, messageEl);
 
     this.positionContextMenu(this.imageAttachmentContextMenu, attachmentRow);
     this.imageAttachmentContextMenu.style.display = 'block';

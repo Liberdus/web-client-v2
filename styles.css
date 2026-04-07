@@ -6144,6 +6144,15 @@ small {
   transition: background-color 0.15s ease, transform 0.15s ease;
 }
 
+.message-context-reaction-button.active,
+.message-context-reaction-button[aria-pressed="true"] {
+  background-color: transparent;
+  background-image: radial-gradient(circle, rgba(167, 139, 250, 0.42) 0 60%, rgba(109, 40, 217, 0.5) 61% 66%, transparent 67%);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 34px 34px;
+}
+
 .message-context-reaction-button-more {
   position: relative;
   background: transparent;
@@ -6168,6 +6177,12 @@ small {
 .message-context-reaction-button:hover {
   background: rgba(255, 255, 255, 0.1);
   transform: translateY(-1px);
+}
+
+.message-context-reaction-button.active:hover,
+.message-context-reaction-button[aria-pressed="true"]:hover {
+  background-color: transparent;
+  background-image: radial-gradient(circle, rgba(167, 139, 250, 0.54) 0 60%, rgba(109, 40, 217, 0.62) 61% 66%, transparent 67%);
 }
 
 .message-context-reaction-button-more:hover {
