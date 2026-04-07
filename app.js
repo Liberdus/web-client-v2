@@ -17393,6 +17393,7 @@ class ChatModal {
     const selectedReaction = isMorePickerTrigger
       ? '+'
       : (reactionButton.dataset.emoji || reactionButton.textContent || '').trim();
+    const currentReaction = this.getCurrentUserReactionForMessage(messageEl);
 
     if (!txid) {
       console.warn('Reaction picker press ignored: missing message txid', { reaction: selectedReaction });
@@ -17407,6 +17408,21 @@ class ChatModal {
       return;
     }
 
+    const isRemovingCurrentReaction = !!currentReaction && selectedReaction === currentReaction;
+    if (isRemovingCurrentReaction) {
+      const confirmed = confirm('Remove your reaction?');
+      if (!confirmed) {
+        return;
+      }
+
+      closeMenu();
+      await this.sendReactionMessage({
+        reactId: txid,
+        reactAction: 'remove'
+      });
+      return;
+    }
+
     closeMenu();
     await this.sendReactionMessage({
       reactId: txid,
@@ -17417,11 +17433,15 @@ class ChatModal {
 
   /**
    * Sends a reaction control message.
-   * @param {{reactId: string, reactMessage: string, reactAction: string}} reaction
+   * @param {{reactId: string, reactAction: 'remove', reactMessage?: string} | {reactId: string, reactAction: 'set', reactMessage: string}} reaction
    * @returns {Promise<boolean>}
    */
   async sendReactionMessage(reaction) {
-    if (!reaction?.reactId || !reaction?.reactMessage || !reaction?.reactAction) {
+    if (!reaction?.reactId || !reaction?.reactAction) {
+      return false;
+    }
+
+    if (reaction.reactAction === 'set' && !reaction.reactMessage) {
       return false;
     }
 
@@ -17461,14 +17481,18 @@ class ChatModal {
     let chatMessageObj;
     let txid;
     try {
+      const payload = {
+        type: 'message',
+        reactId: reaction.reactId,
+        reactAction: reaction.reactAction
+      };
+      if (reaction.reactAction === 'set') {
+        payload.reactMessage = reaction.reactMessage;
+      }
+
       ({ chatMessageObj, txid } = await this.buildEncryptedStructuredChatTx(
         currentAddress,
-        {
-          type: 'message',
-          reactId: reaction.reactId,
-          reactMessage: reaction.reactMessage,
-          reactAction: reaction.reactAction
-        },
+        payload,
         tollInLib,
         keys
       ));
