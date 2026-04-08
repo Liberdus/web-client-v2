@@ -5839,6 +5839,7 @@ async function ensureContactKeys(address) {
  */
 
 /**
+ * Applies a reaction control message to the matching local message record.
  * @param {Array<Object>} messages
  * @param {ReactionUpdate} reaction
  * @returns {boolean}
@@ -5886,6 +5887,7 @@ function applyIncomingReaction(messages, reaction) {
 }
 
 /**
+ * Builds the quoted target text shown in the chat-list reaction preview.
  * @param {Object|null} message
  * @returns {string}
  */
@@ -5921,6 +5923,7 @@ function getReactionTargetPreviewText(message) {
 }
 
 /**
+ * Recomputes the chat-list reaction preview from the current message state.
  * @param {string} chatAddress
  * @param {Object} contact
  * @returns {void}
@@ -5969,6 +5972,7 @@ function syncChatReactionPreview(chatAddress, contact) {
 }
 
 /**
+ * Returns the unread total used by the chat list and tab notification bubble.
  * @param {Object|null} contact
  * @returns {number}
  */
@@ -5976,6 +5980,10 @@ function getContactTotalUnread(contact) {
   return Math.max(0, (contact?.unread || 0) + (contact?.reactionUnread || 0));
 }
 
+/**
+ * Syncs the footer chat tab notification bubble with combined message + reaction unread state.
+ * @returns {void}
+ */
 function syncChatTabNotificationBubble() {
   if (!footer?.chatButton) return;
 
