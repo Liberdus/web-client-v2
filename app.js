@@ -5837,8 +5837,37 @@ async function ensureContactKeys(address) {
 }
 
 /**
+ * @param {string|{ emoji?: string, timestamp?: number }|null|undefined} reactionValue
+ * @returns {string}
+ */
+function getStoredReactionEmoji(reactionValue) {
+  if (typeof reactionValue === 'string') {
+    return reactionValue.trim();
+  }
+
+  if (reactionValue && typeof reactionValue.emoji === 'string') {
+    return reactionValue.emoji.trim();
+  }
+
+  return '';
+}
+
+/**
+ * @param {string|{ emoji?: string, timestamp?: number }|null|undefined} reactionValue
+ * @param {number} fallbackTimestamp
+ * @returns {number}
+ */
+function getStoredReactionTimestamp(reactionValue, fallbackTimestamp = 0) {
+  if (reactionValue && Number.isFinite(reactionValue.timestamp)) {
+    return Number(reactionValue.timestamp);
+  }
+
+  return Number.isFinite(fallbackTimestamp) ? Number(fallbackTimestamp) : 0;
+}
+
+/**
  * @param {Array<Object>} messages
- * @param {{ sender: string, reactId: string, action: 'remove' } | { sender: string, reactId: string, action: 'set', emoji: string }} reaction
+ * @param {{ sender: string, reactId: string, action: 'remove', timestamp?: number } | { sender: string, reactId: string, action: 'set', emoji: string, timestamp?: number }} reaction
  * @returns {boolean}
  */
 function applyIncomingReaction(messages, reaction) {
@@ -5849,7 +5878,7 @@ function applyIncomingReaction(messages, reaction) {
   }
 
   const reactions = targetMessage.reactions ? { ...targetMessage.reactions } : {};
-  const currentEmoji = reactions[reaction.sender];
+  const currentEmoji = getStoredReactionEmoji(reactions[reaction.sender]);
 
   if (reaction.action === 'remove') {
     if (!currentEmoji) {
@@ -5871,7 +5900,12 @@ function applyIncomingReaction(messages, reaction) {
       return false;
     }
 
-    reactions[reaction.sender] = reaction.emoji;
+    reactions[reaction.sender] = {
+      emoji: reaction.emoji,
+      timestamp: Number.isFinite(reaction.timestamp)
+        ? Number(reaction.timestamp)
+        : getCorrectedTimestamp()
+    };
     targetMessage.reactions = reactions;
     return true;
   }
@@ -5916,7 +5950,7 @@ function getReactionTargetPreviewText(message) {
 
 /**
  * @param {string} chatAddress
- * @param {{ sender: string, reactId: string, action: 'remove' } | { sender: string, reactId: string, action: 'set', emoji: string }} reaction
+ * @param {{ sender: string, reactId: string, action: 'remove', timestamp?: number } | { sender: string, reactId: string, action: 'set', emoji: string, timestamp?: number }} reaction
  * @param {Object} contact
  * @param {string} previewEmoji
  * @returns {void}
@@ -5947,6 +5981,45 @@ function setChatReactionPreview(chatAddress, reaction, contact, previewEmoji = '
     timestamp: latestMessage?.timestamp || targetMessage.timestamp || getCorrectedTimestamp(),
     reactionPreview
   }, 'timestamp');
+}
+
+/**
+ * @param {string} chatAddress
+ * @param {Object|null} contact
+ * @returns {boolean}
+ */
+function rebuildChatReactionPreview(chatAddress, contact = null) {
+  let latestReaction = null;
+
+  for (const message of contact?.messages || []) {
+    if (!message?.txid || isDeleted(message) || !message.reactions) {
+      continue;
+    }
+
+    for (const [sender, storedReaction] of Object.entries(message.reactions)) {
+      const emoji = getStoredReactionEmoji(storedReaction);
+      if (!emoji) continue;
+
+      const timestamp = getStoredReactionTimestamp(storedReaction, message.timestamp);
+      if (!latestReaction || timestamp > latestReaction.timestamp) {
+        latestReaction = {
+          sender,
+          reactId: message.txid,
+          action: 'set',
+          emoji,
+          timestamp
+        };
+      }
+    }
+  }
+
+  if (!latestReaction) {
+    clearChatReactionPreview(chatAddress);
+    return false;
+  }
+
+  setChatReactionPreview(chatAddress, latestReaction, contact, latestReaction.emoji);
+  return true;
 }
 
 /**
@@ -6277,7 +6350,7 @@ async function processChats(chats, keys) {
                         reactId,
                         action: 'set',
                         emoji,
-                        timestamp: Number(tx.timestamp),
+                        timestamp: Number(payload.sent_timestamp || tx.timestamp),
                         order: Number(i)
                       });
                       continue; // reaction control messages update target state instead of adding a chat bubble
@@ -6288,7 +6361,7 @@ async function processChats(chats, keys) {
                         sender,
                         reactId,
                         action: 'remove',
-                        timestamp: Number(tx.timestamp),
+                        timestamp: Number(payload.sent_timestamp || tx.timestamp),
                         order: Number(i)
                       });
                       continue; // reaction control messages update target state instead of adding a chat bubble
@@ -6588,7 +6661,7 @@ async function processChats(chats, keys) {
               setChatReactionPreview(from, pendingReaction, contact, pendingReaction.emoji);
               didChangeReactionPreview = true;
             } else {
-              clearChatReactionPreview(from);
+              rebuildChatReactionPreview(from, contact);
               didChangeReactionPreview = true;
             }
             if (pendingReaction.sender === from && !inActiveChatWithSender) {
@@ -14962,8 +15035,8 @@ class ChatModal {
       let reactionsHTML = '';
       if (item.reactions) {
         const chips = [];
-        const contactEmoji = item.reactions[contactAddress];
-        const myEmoji = item.reactions[currentUserAddress];
+        const contactEmoji = getStoredReactionEmoji(item.reactions[contactAddress]);
+        const myEmoji = getStoredReactionEmoji(item.reactions[currentUserAddress]);
 
         if (contactEmoji) {
           chips.push(`<span class="message-reaction-chip">${escapeHtml(contactEmoji)}</span>`);
@@ -14972,11 +15045,13 @@ class ChatModal {
           chips.push(`<span class="message-reaction-chip my-reaction">${escapeHtml(myEmoji)}</span>`);
         }
 
-        for (const [sender, emoji] of Object.entries(item.reactions)) {
+        for (const [sender, storedReaction] of Object.entries(item.reactions)) {
           const normalizedSender = normalizeAddress(sender);
           if (normalizedSender === contactAddress || normalizedSender === currentUserAddress) {
             continue;
           }
+          const emoji = getStoredReactionEmoji(storedReaction);
+          if (!emoji) continue;
           chips.push(`<span class="message-reaction-chip">${escapeHtml(emoji)}</span>`);
         }
 
@@ -16681,8 +16756,7 @@ class ChatModal {
     if (!currentUserAddress) return '';
 
     const messageRecord = this.getMessageRecordFromElement(messageEl);
-    const reactionEmoji = messageRecord?.reactions?.[currentUserAddress];
-    return typeof reactionEmoji === 'string' ? reactionEmoji.trim() : '';
+    return getStoredReactionEmoji(messageRecord?.reactions?.[currentUserAddress]);
   }
 
   /**
@@ -17685,7 +17759,7 @@ class ChatModal {
       if (localReaction.action === 'set') {
         setChatReactionPreview(currentAddress, localReaction, contact, localReaction.emoji);
       } else {
-        clearChatReactionPreview(currentAddress);
+        rebuildChatReactionPreview(currentAddress, contact);
       }
       if (chatsScreen.isActive()) {
         chatsScreen.updateChatList();
