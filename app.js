@@ -1567,10 +1567,21 @@ class ChatsScreen {
       const avatarHtml = avatarHtmlList[index];
       const latestItemTimestamp = latestActivity.timestamp;
       const contactName = getContactDisplayName(contact);
+      const reactionPreview = chat.reactionPreview;
+      const unreadCount = getContactTotalUnread(contact);
 
       let previewHTML = '';
-      // Check if the latest activity is a payment/transfer message
-      if (isDeleted(latestActivity)) {
+      if (reactionPreview) {
+        const reactionActor = reactionPreview.my ? 'You' : contactName;
+        const reactionTarget = reactionPreview.target || '[message]';
+        const reactionText = reactionPreview.action === 'remove'
+          ? (reactionPreview.emoji
+              ? `${reactionActor} removed ${reactionPreview.emoji} from "${reactionTarget}"`
+              : `${reactionActor} removed a reaction from "${reactionTarget}"`)
+          : `${reactionActor} reacted ${reactionPreview.emoji} to "${reactionTarget}"`;
+        previewHTML = truncateMessage(escapeHtml(reactionText), 50);
+      } else if (isDeleted(latestActivity)) {
+        // Check if the latest activity is a payment/transfer message
         previewHTML = `<span><i>${escapeHtml(getDeletedPlaceholderText(latestActivity))}</i></span>`;
       } else if (typeof latestActivity.amount === 'bigint') {
         // Latest item is a payment/transfer
@@ -1615,7 +1626,7 @@ class ChatsScreen {
       // Determine what to show in the preview
 
       let displayPreview = previewHTML;
-      let displayPrefix = latestActivity.my ? '< ' : '> ';
+      let displayPrefix = reactionPreview ? '' : (latestActivity.my ? '< ' : '> ');
       let hasDraftAttachment = false;
 
       // Check for draft attachments
@@ -1658,7 +1669,7 @@ class ChatsScreen {
                   <div class="chat-time">${timeDisplay}</div>
               </div>
               <div class="chat-message">
-                ${contact.unread ? `<span class="chat-unread">${contact.unread}</span>` : ((contact.draft || contact.draftReplyTxid || hasDraftAttachment) ? `<span class="chat-draft" title="Draft"></span>` : '')}
+                ${unreadCount ? `<span class="chat-unread">${unreadCount}</span>` : ((contact.draft || contact.draftReplyTxid || hasDraftAttachment) ? `<span class="chat-draft" title="Draft"></span>` : '')}
                 ${displayPrefix}${displayPreview}
               </div>
           </div>
@@ -5868,6 +5879,113 @@ function applyIncomingReaction(messages, reaction) {
   throw new Error(`Unknown reaction action: ${reaction.action}`);
 }
 
+/**
+ * @param {Object|null} message
+ * @returns {string}
+ */
+function getReactionTargetPreviewText(message) {
+  if (!message) return '[message]';
+
+  if (isDeleted(message)) {
+    return getDeletedPlaceholderText(message);
+  }
+
+  const messageText = typeof message.message === 'string' ? message.message.trim() : '';
+  if (messageText) {
+    return messageText;
+  }
+
+  if (typeof message.amount === 'bigint') {
+    return 'payment';
+  }
+
+  if (message.type === 'call') {
+    return 'call';
+  }
+
+  if (message.type === 'vm') {
+    return 'voice message';
+  }
+
+  if (message.xattach) {
+    return 'attachment';
+  }
+
+  return '[message]';
+}
+
+/**
+ * @param {string} chatAddress
+ * @param {{ sender: string, reactId: string, action: 'remove' } | { sender: string, reactId: string, action: 'set', emoji: string }} reaction
+ * @param {Object} contact
+ * @param {string} previewEmoji
+ * @returns {void}
+ */
+function setChatReactionPreview(chatAddress, reaction, contact, previewEmoji = '') {
+  const targetMessage = contact?.messages?.find((message) => message.txid === reaction.reactId);
+  if (!targetMessage) return;
+
+  const currentUserAddress = myAccount?.keys?.address
+    ? normalizeAddress(myAccount.keys.address)
+    : '';
+  const reactionPreview = {
+    my: !!currentUserAddress && reaction.sender === currentUserAddress,
+    action: reaction.action,
+    emoji: previewEmoji,
+    target: getReactionTargetPreviewText(targetMessage)
+  };
+
+  const existingChatIndex = myData.chats.findIndex((chat) => chat.address === chatAddress);
+  if (existingChatIndex !== -1) {
+    myData.chats[existingChatIndex].reactionPreview = reactionPreview;
+    return;
+  }
+
+  const latestMessage = contact?.messages?.[0];
+  insertSorted(myData.chats, {
+    address: chatAddress,
+    timestamp: latestMessage?.timestamp || targetMessage.timestamp || getCorrectedTimestamp(),
+    reactionPreview
+  }, 'timestamp');
+}
+
+/**
+ * @param {string} chatAddress
+ * @returns {void}
+ */
+function clearChatReactionPreview(chatAddress) {
+  const existingChatIndex = myData.chats.findIndex((chat) => chat.address === chatAddress);
+  if (existingChatIndex === -1) return;
+
+  delete myData.chats[existingChatIndex].reactionPreview;
+}
+
+/**
+ * @param {Object|null} contact
+ * @returns {number}
+ */
+function getContactTotalUnread(contact) {
+  return Math.max(0, (contact?.unread || 0) + (contact?.reactionUnread || 0));
+}
+
+function syncChatTabNotificationBubble() {
+  if (!footer?.chatButton) return;
+
+  if (typeof chatsScreen !== 'undefined' && chatsScreen.isActive()) {
+    footer.chatButton.classList.remove('has-notification');
+    return;
+  }
+
+  const hasUnreadChats = Object.values(myData?.contacts || {}).some((contact) => {
+    if (!contact?.address || isFaucetAddress(contact.address)) {
+      return false;
+    }
+    return getContactTotalUnread(contact) > 0;
+  });
+
+  footer.chatButton.classList.toggle('has-notification', hasUnreadChats);
+}
+
 // Actually payments also appear in the chats, so we can add these to
 async function processChats(chats, keys) {
   let newTimestamp = 0;
@@ -5891,6 +6009,8 @@ async function processChats(chats, keys) {
         contact.username = 'Liberdus Faucet';
       }
       //            contact.address = from        // not needed since createNewContact does this
+      const initialReactionUnread = contact.reactionUnread || 0;
+      let nextReactionUnread = initialReactionUnread;
       let added = 0;
       let hasNewTransfer = false;
       let mine = false;
@@ -5898,6 +6018,7 @@ async function processChats(chats, keys) {
       let editIncrements = 0;
       const pendingReactionControls = [];
       let didApplyPendingReaction = false;
+      let didChangeReactionPreview = false;
 
       // This check determines if we're currently chatting with the sender
       // We ONLY want to avoid notifications if we're actively viewing this exact chat
@@ -5996,6 +6117,7 @@ async function processChats(chats, keys) {
                     didDeleteMessage = true;
                     // Remove attachments so we don't keep references around
                     delete messageToDelete.xattach;
+                    clearChatReactionPreview(from);
                     
                     // Remove payment-specific fields if present
                     if (messageToDelete.amount) {
@@ -6022,6 +6144,7 @@ async function processChats(chats, keys) {
                     didDeleteMessage = true;
                     // Remove attachments so we don't keep references around
                     delete messageToDelete.xattach;
+                    clearChatReactionPreview(from);
                     
                     // Remove payment-specific fields if present - same logic as above
                     if (messageToDelete.amount) {
@@ -6073,6 +6196,7 @@ async function processChats(chats, keys) {
                         messageToEdit.message = newText;
                         messageToEdit.edited = 1;
                         messageToEdit.edited_timestamp = tx.timestamp;
+                        clearChatReactionPreview(from);
                         // Also update wallet history entry memo if present
                         if (myData?.wallet?.history && Array.isArray(myData.wallet.history)) {
                           const hIdx = myData.wallet.history.findIndex((h) => h.txid === txidToEdit);
@@ -6460,6 +6584,20 @@ async function processChats(chats, keys) {
         for (const pendingReaction of pendingReactionControls) {
           if (applyIncomingReaction(contact.messages, pendingReaction)) {
             didApplyPendingReaction = true;
+            if (pendingReaction.action === 'set') {
+              setChatReactionPreview(from, pendingReaction, contact, pendingReaction.emoji);
+              didChangeReactionPreview = true;
+            } else {
+              clearChatReactionPreview(from);
+              didChangeReactionPreview = true;
+            }
+            if (pendingReaction.sender === from && !inActiveChatWithSender) {
+              if (pendingReaction.action === 'set') {
+                nextReactionUnread += 1;
+              } else {
+                nextReactionUnread = Math.max(0, nextReactionUnread - 1);
+              }
+            }
           }
         }
       }
@@ -6511,6 +6649,25 @@ async function processChats(chats, keys) {
 
       if (didApplyPendingReaction && added === 0 && inActiveChatWithSender) {
         chatModal.appendChatModal();
+      }
+
+      if (!inActiveChatWithSender && nextReactionUnread !== initialReactionUnread) {
+        contact.reactionUnread = nextReactionUnread;
+        if (nextReactionUnread > initialReactionUnread) {
+          // Add notification bubble if chats screen not active
+          // Don't add notification for faucet address
+          if (!chatsScreen.isActive() && !isFaucetAddress(from)) {
+            footer.chatButton.classList.add('has-notification');
+          }
+        } else if (!chatsScreen.isActive()) {
+          syncChatTabNotificationBubble();
+        }
+        // Refresh list if user is currently viewing chat list so unread counts update
+        if (chatsScreen.isActive()) {
+          chatsScreen.updateChatList();
+        }
+      } else if (didChangeReactionPreview && chatsScreen.isActive() && !inActiveChatWithSender) {
+        chatsScreen.updateChatList();
       }
 
       // Show transfer notification even if no messages were added
@@ -13861,10 +14018,13 @@ class ChatModal {
     this.modal.classList.add('active');
 
     // Clear unread count
-    if (contact.unread > 0) {
-      myData.state.unread = Math.max(0, (myData.state.unread || 0) - contact.unread);
+    const totalUnread = getContactTotalUnread(contact);
+    if (totalUnread > 0) {
+      myData.state.unread = Math.max(0, (myData.state.unread || 0) - totalUnread);
       contact.unread = 0;
+      contact.reactionUnread = 0;
       chatsScreen.updateChatList();
+      syncChatTabNotificationBubble();
     }
 
     this.clearNotificationsIfAllRead();
@@ -14027,7 +14187,7 @@ class ChatModal {
       return;
     }
 
-    const allRead = Object.values(myData.contacts).every((c) => c.unread === 0);
+    const allRead = Object.values(myData.contacts).every((c) => getContactTotalUnread(c) === 0);
     const currentAddress = myAccount?.keys?.address;
     
     if (allRead) {
@@ -17522,6 +17682,14 @@ class ChatModal {
         };
     const didApplyLocally = applyIncomingReaction(contact.messages, localReaction);
     if (didApplyLocally) {
+      if (localReaction.action === 'set') {
+        setChatReactionPreview(currentAddress, localReaction, contact, localReaction.emoji);
+      } else {
+        clearChatReactionPreview(currentAddress);
+      }
+      if (chatsScreen.isActive()) {
+        chatsScreen.updateChatList();
+      }
       if (this.isActive() && this.address === currentAddress) {
         this.appendChatModal();
       }
