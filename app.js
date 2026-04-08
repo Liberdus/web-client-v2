@@ -1567,8 +1567,6 @@ class ChatsScreen {
       const avatarHtml = avatarHtmlList[index];
       const contactName = getContactDisplayName(contact);
       const reactionPreview = chat.reactionPreview;
-      // 1. Chat list shows a reaction preview only when syncChatReactionPreview()
-      // has decided a reaction is newer than the latest message in the chat.
       const latestItemTimestamp = reactionPreview && Number.isFinite(chat.timestamp)
         ? chat.timestamp
         : latestActivity.timestamp;
@@ -5853,8 +5851,6 @@ function applyIncomingReaction(messages, reaction) {
   }
 
   const reactions = targetMessage.reactions ? { ...targetMessage.reactions } : {};
-  // 2. This branch has not shipped, so every stored reaction uses the same
-  // local shape: { emoji, timestamp }.
   const currentReaction = reactions[reaction.sender];
   const currentEmoji = currentReaction ? currentReaction.emoji.trim() : '';
 
@@ -5936,8 +5932,6 @@ function syncChatReactionPreview(chatAddress, contact) {
   const currentUserAddress = normalizeAddress(myAccount.keys.address);
   let latestReaction = null;
 
-  // 3. Recompute from message state every time instead of trying to track
-  // preview state incrementally. That keeps set/remove/edit/delete behavior aligned.
   for (const message of contact.messages) {
     if (isDeleted(message) || !message.reactions) continue;
 
@@ -5958,8 +5952,6 @@ function syncChatReactionPreview(chatAddress, contact) {
     ? { address: chatAddress, timestamp: latestMessage.timestamp }
     : myData.chats.splice(existingChatIndex, 1)[0];
 
-  // 4. Reaction preview wins only if the newest active reaction is newer than
-  // the latest message. Otherwise we fall back to normal latest-message preview.
   if (!latestReaction || latestReaction.timestamp <= latestMessage.timestamp) {
     delete chat.reactionPreview;
     chat.timestamp = latestMessage.timestamp;
@@ -6293,8 +6285,6 @@ async function processChats(chats, keys) {
                         reactId,
                         action: 'set',
                         emoji,
-                        // 5. Use sent_timestamp first so receiver-side replay follows
-                        // the sender's actual reaction order even inside one block.
                         timestamp: Number(payload.sent_timestamp || tx.timestamp),
                         order: Number(i)
                       });
@@ -6602,8 +6592,6 @@ async function processChats(chats, keys) {
         for (const pendingReaction of pendingReactionControls) {
           if (applyIncomingReaction(contact.messages, pendingReaction)) {
             didApplyPendingReaction = true;
-            // 6. Every incoming reaction change rewrites the chat-list preview
-            // from current message state, then updates the reaction unread count.
             syncChatReactionPreview(from, contact);
             didChangeReactionPreview = true;
             if (pendingReaction.sender === from && !inActiveChatWithSender) {
@@ -17698,8 +17686,6 @@ class ChatModal {
         };
     const didApplyLocally = applyIncomingReaction(contact.messages, localReaction);
     if (didApplyLocally) {
-      // 7. Local optimistic updates use the same preview sync path as incoming
-      // reactions so sender and receiver follow the same chat-list rule.
       syncChatReactionPreview(currentAddress, contact);
       if (chatsScreen.isActive()) {
         chatsScreen.updateChatList();
