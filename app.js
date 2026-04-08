@@ -5898,6 +5898,10 @@ function getReactionTargetPreviewText(message) {
     return getDeletedPlaceholderText(message);
   }
 
+  if (message.type === 'call') {
+    return 'call';
+  }
+
   const messageText = typeof message.message === 'string' ? message.message.trim() : '';
   if (messageText) {
     return messageText;
@@ -5905,10 +5909,6 @@ function getReactionTargetPreviewText(message) {
 
   if (typeof message.amount === 'bigint') {
     return 'payment';
-  }
-
-  if (message.type === 'call') {
-    return 'call';
   }
 
   if (message.type === 'vm') {
@@ -6665,8 +6665,6 @@ async function processChats(chats, keys) {
       if (!inActiveChatWithSender && nextReactionUnread !== initialReactionUnread) {
         contact.reactionUnread = nextReactionUnread;
         if (nextReactionUnread > initialReactionUnread) {
-          // Add notification bubble if chats screen not active
-          // Don't add notification for faucet address
           if (!chatsScreen.isActive() && !isFaucetAddress(from)) {
             footer.chatButton.classList.add('has-notification');
           }
