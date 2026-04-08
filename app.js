@@ -6630,16 +6630,16 @@ async function processChats(chats, keys) {
         // Add sender to the top of the chats tab
         // Remove existing chat for this contact if it exists
         const existingChatIndex = myData.chats.findIndex((chat) => chat.address === from);
-        if (existingChatIndex !== -1) {
-          myData.chats.splice(existingChatIndex, 1);
-        }
+        const existingChat = existingChatIndex === -1
+          ? null
+          : myData.chats.splice(existingChatIndex, 1)[0];
         // Get the most recent message (index 0 because it's sorted descending)
         const latestMessage = contact.messages[0];
-        // Create chat object with only guaranteed fields
-        const chatUpdate = {
-          address: from,
-          timestamp: latestMessage.timestamp,
-        };
+        const chatUpdate = existingChat || { address: from };
+        if (!chatUpdate.reactionPreview || chatUpdate.timestamp <= latestMessage.timestamp) {
+          delete chatUpdate.reactionPreview;
+          chatUpdate.timestamp = latestMessage.timestamp;
+        }
         // Find insertion point to maintain timestamp order (newest first)
         const insertIndex = myData.chats.findIndex((chat) => chat.timestamp < chatUpdate.timestamp);
         if (insertIndex === -1) {
