@@ -1575,7 +1575,7 @@ class ChatsScreen {
       let previewHTML = '';
       if (reactionPreview) {
         const reactionActor = reactionPreview.my ? 'You' : contactName;
-        const reactionTarget = reactionPreview.target || '[message]';
+        const reactionTarget = reactionPreview.target;
         const reactionText = `${reactionActor} reacted ${reactionPreview.emoji} to "${reactionTarget}"`;
         previewHTML = truncateMessage(escapeHtml(reactionText), 50);
       } else if (isDeleted(latestActivity)) {
@@ -5835,37 +5835,34 @@ async function ensureContactKeys(address) {
 }
 
 /**
- * @param {string|{ emoji?: string, timestamp?: number }|null|undefined} reactionValue
- * @returns {string}
+ * @typedef {{ emoji: string, timestamp: number }} StoredReaction
+ * @typedef {{ sender: string, reactId: string, action: 'remove', timestamp: number } | { sender: string, reactId: string, action: 'set', emoji: string, timestamp: number }} ReactionUpdate
  */
-function getStoredReactionEmoji(reactionValue) {
-  if (typeof reactionValue === 'string') {
-    return reactionValue.trim();
-  }
-
-  if (reactionValue && typeof reactionValue.emoji === 'string') {
-    return reactionValue.emoji.trim();
-  }
-
-  return '';
-}
 
 /**
- * @param {string|{ emoji?: string, timestamp?: number }|null|undefined} reactionValue
+ * @param {string|StoredReaction|null|undefined} reactionValue
  * @param {number} fallbackTimestamp
- * @returns {number}
+ * @returns {StoredReaction|null}
  */
-function getStoredReactionTimestamp(reactionValue, fallbackTimestamp = 0) {
-  if (reactionValue && Number.isFinite(reactionValue.timestamp)) {
-    return Number(reactionValue.timestamp);
+function readStoredReaction(reactionValue, fallbackTimestamp) {
+  if (!reactionValue) return null;
+
+  if (typeof reactionValue === 'string') {
+    return {
+      emoji: reactionValue.trim(),
+      timestamp: fallbackTimestamp
+    };
   }
 
-  return Number.isFinite(fallbackTimestamp) ? Number(fallbackTimestamp) : 0;
+  return {
+    emoji: reactionValue.emoji.trim(),
+    timestamp: reactionValue.timestamp
+  };
 }
 
 /**
  * @param {Array<Object>} messages
- * @param {{ sender: string, reactId: string, action: 'remove', timestamp?: number } | { sender: string, reactId: string, action: 'set', emoji: string, timestamp?: number }} reaction
+ * @param {ReactionUpdate} reaction
  * @returns {boolean}
  */
 function applyIncomingReaction(messages, reaction) {
@@ -5876,7 +5873,8 @@ function applyIncomingReaction(messages, reaction) {
   }
 
   const reactions = targetMessage.reactions ? { ...targetMessage.reactions } : {};
-  const currentEmoji = getStoredReactionEmoji(reactions[reaction.sender]);
+  const currentReaction = readStoredReaction(reactions[reaction.sender], targetMessage.timestamp);
+  const currentEmoji = currentReaction ? currentReaction.emoji : '';
 
   if (reaction.action === 'remove') {
     if (!currentEmoji) {
@@ -5900,9 +5898,7 @@ function applyIncomingReaction(messages, reaction) {
 
     reactions[reaction.sender] = {
       emoji: reaction.emoji,
-      timestamp: Number.isFinite(reaction.timestamp)
-        ? Number(reaction.timestamp)
-        : getCorrectedTimestamp()
+      timestamp: reaction.timestamp
     };
     targetMessage.reactions = reactions;
     return true;
@@ -5948,108 +5944,53 @@ function getReactionTargetPreviewText(message) {
 
 /**
  * @param {string} chatAddress
- * @param {{ sender: string, reactId: string }} reaction
  * @param {Object} contact
- * @param {string} previewEmoji
  * @returns {void}
  */
-function setChatReactionPreview(chatAddress, reaction, contact, previewEmoji = '') {
-  const targetMessage = contact?.messages?.find((message) => message.txid === reaction.reactId);
-  if (!targetMessage) return;
-  const latestMessage = contact?.messages?.[0];
-  const latestMessageTimestamp = Number(latestMessage?.timestamp);
-  const reactionTimestamp = Number.isFinite(reaction.timestamp)
-    ? Number(reaction.timestamp)
-    : getCorrectedTimestamp();
+function syncChatReactionPreview(chatAddress, contact) {
+  const latestMessage = contact.messages[0];
+  if (!latestMessage) return;
 
-  if (Number.isFinite(latestMessageTimestamp) && reactionTimestamp <= latestMessageTimestamp) {
-    clearChatReactionPreview(chatAddress, contact);
-    return;
-  }
-
-  const currentUserAddress = myAccount?.keys?.address
-    ? normalizeAddress(myAccount.keys.address)
-    : '';
-  const reactionPreview = {
-    my: !!currentUserAddress && reaction.sender === currentUserAddress,
-    emoji: previewEmoji,
-    target: getReactionTargetPreviewText(targetMessage)
-  };
-
-  const existingChatIndex = myData.chats.findIndex((chat) => chat.address === chatAddress);
-  if (existingChatIndex !== -1) {
-    const existingChat = myData.chats.splice(existingChatIndex, 1)[0];
-    existingChat.timestamp = reactionTimestamp;
-    existingChat.reactionPreview = reactionPreview;
-    insertSorted(myData.chats, existingChat, 'timestamp');
-    return;
-  }
-
-  insertSorted(myData.chats, {
-    address: chatAddress,
-    timestamp: reactionTimestamp,
-    reactionPreview
-  }, 'timestamp');
-}
-
-/**
- * @param {string} chatAddress
- * @param {Object|null} contact
- * @returns {boolean}
- */
-function rebuildChatReactionPreview(chatAddress, contact = null) {
+  const currentUserAddress = normalizeAddress(myAccount.keys.address);
   let latestReaction = null;
 
-  for (const message of contact?.messages || []) {
-    if (!message?.txid || isDeleted(message) || !message.reactions) {
-      continue;
-    }
+  for (const message of contact.messages) {
+    if (isDeleted(message) || !message.reactions) continue;
 
-    for (const [sender, storedReaction] of Object.entries(message.reactions)) {
-      const emoji = getStoredReactionEmoji(storedReaction);
-      if (!emoji) continue;
+    for (const [sender, reactionValue] of Object.entries(message.reactions)) {
+      const storedReaction = readStoredReaction(reactionValue, message.timestamp);
+      if (!storedReaction) continue;
 
-      const timestamp = getStoredReactionTimestamp(storedReaction, message.timestamp);
-      if (!latestReaction || timestamp > latestReaction.timestamp) {
+      if (!latestReaction || storedReaction.timestamp > latestReaction.timestamp) {
         latestReaction = {
-          sender,
-          reactId: message.txid,
-          emoji,
-          timestamp
+          my: !!currentUserAddress && sender === currentUserAddress,
+          emoji: storedReaction.emoji,
+          target: getReactionTargetPreviewText(message),
+          timestamp: storedReaction.timestamp
         };
       }
     }
   }
 
-  if (!latestReaction) {
-    clearChatReactionPreview(chatAddress, contact);
-    return false;
-  }
-
-  setChatReactionPreview(chatAddress, latestReaction, contact, latestReaction.emoji);
-  return true;
-}
-
-/**
- * @param {string} chatAddress
- * @param {Object|null} contact
- * @returns {void}
- */
-function clearChatReactionPreview(chatAddress, contact = null) {
   const existingChatIndex = myData.chats.findIndex((chat) => chat.address === chatAddress);
-  if (existingChatIndex === -1) return;
+  const chat = existingChatIndex === -1
+    ? { address: chatAddress, timestamp: latestMessage.timestamp }
+    : myData.chats.splice(existingChatIndex, 1)[0];
 
-  const existingChat = myData.chats[existingChatIndex];
-  delete existingChat.reactionPreview;
-
-  const latestMessageTimestamp = Number(contact?.messages?.[0]?.timestamp);
-  if (!Number.isFinite(latestMessageTimestamp) || existingChat.timestamp === latestMessageTimestamp) {
+  if (!latestReaction || latestReaction.timestamp <= latestMessage.timestamp) {
+    delete chat.reactionPreview;
+    chat.timestamp = latestMessage.timestamp;
+    insertSorted(myData.chats, chat, 'timestamp');
     return;
   }
 
-  myData.chats.splice(existingChatIndex, 1);
-  existingChat.timestamp = latestMessageTimestamp;
-  insertSorted(myData.chats, existingChat, 'timestamp');
+  chat.timestamp = latestReaction.timestamp;
+  chat.reactionPreview = {
+    my: latestReaction.my,
+    emoji: latestReaction.emoji,
+    target: latestReaction.target
+  };
+  insertSorted(myData.chats, chat, 'timestamp');
 }
 
 /**
@@ -6209,7 +6150,7 @@ async function processChats(chats, keys) {
                     didDeleteMessage = true;
                     // Remove attachments so we don't keep references around
                     delete messageToDelete.xattach;
-                    clearChatReactionPreview(from);
+                    syncChatReactionPreview(from, contact);
                     
                     // Remove payment-specific fields if present
                     if (messageToDelete.amount) {
@@ -6236,7 +6177,7 @@ async function processChats(chats, keys) {
                     didDeleteMessage = true;
                     // Remove attachments so we don't keep references around
                     delete messageToDelete.xattach;
-                    clearChatReactionPreview(from);
+                    syncChatReactionPreview(from, contact);
                     
                     // Remove payment-specific fields if present - same logic as above
                     if (messageToDelete.amount) {
@@ -6288,7 +6229,7 @@ async function processChats(chats, keys) {
                         messageToEdit.message = newText;
                         messageToEdit.edited = 1;
                         messageToEdit.edited_timestamp = tx.timestamp;
-                        clearChatReactionPreview(from);
+                        syncChatReactionPreview(from, contact);
                         // Also update wallet history entry memo if present
                         if (myData?.wallet?.history && Array.isArray(myData.wallet.history)) {
                           const hIdx = myData.wallet.history.findIndex((h) => h.txid === txidToEdit);
@@ -6676,13 +6617,8 @@ async function processChats(chats, keys) {
         for (const pendingReaction of pendingReactionControls) {
           if (applyIncomingReaction(contact.messages, pendingReaction)) {
             didApplyPendingReaction = true;
-            if (pendingReaction.action === 'set') {
-              setChatReactionPreview(from, pendingReaction, contact, pendingReaction.emoji);
-              didChangeReactionPreview = true;
-            } else {
-              rebuildChatReactionPreview(from, contact);
-              didChangeReactionPreview = true;
-            }
+            syncChatReactionPreview(from, contact);
+            didChangeReactionPreview = true;
             if (pendingReaction.sender === from && !inActiveChatWithSender) {
               if (pendingReaction.action === 'set') {
                 nextReactionUnread += 1;
@@ -15054,8 +14990,10 @@ class ChatModal {
       let reactionsHTML = '';
       if (item.reactions) {
         const chips = [];
-        const contactEmoji = getStoredReactionEmoji(item.reactions[contactAddress]);
-        const myEmoji = getStoredReactionEmoji(item.reactions[currentUserAddress]);
+        const contactReaction = readStoredReaction(item.reactions[contactAddress], item.timestamp);
+        const myReaction = readStoredReaction(item.reactions[currentUserAddress], item.timestamp);
+        const contactEmoji = contactReaction ? contactReaction.emoji : '';
+        const myEmoji = myReaction ? myReaction.emoji : '';
 
         if (contactEmoji) {
           chips.push(`<span class="message-reaction-chip">${escapeHtml(contactEmoji)}</span>`);
@@ -15069,9 +15007,9 @@ class ChatModal {
           if (normalizedSender === contactAddress || normalizedSender === currentUserAddress) {
             continue;
           }
-          const emoji = getStoredReactionEmoji(storedReaction);
-          if (!emoji) continue;
-          chips.push(`<span class="message-reaction-chip">${escapeHtml(emoji)}</span>`);
+          const reaction = readStoredReaction(storedReaction, item.timestamp);
+          if (!reaction) continue;
+          chips.push(`<span class="message-reaction-chip">${escapeHtml(reaction.emoji)}</span>`);
         }
 
         if (chips.length > 0) {
@@ -16769,13 +16707,10 @@ class ChatModal {
    * @returns {string}
    */
   getCurrentUserReactionForMessage(messageEl) {
-    const currentUserAddress = myAccount?.keys?.address
-      ? normalizeAddress(myAccount.keys.address)
-      : '';
-    if (!currentUserAddress) return '';
-
+    const currentUserAddress = normalizeAddress(myAccount.keys.address);
     const messageRecord = this.getMessageRecordFromElement(messageEl);
-    return getStoredReactionEmoji(messageRecord?.reactions?.[currentUserAddress]);
+    const reaction = readStoredReaction(messageRecord?.reactions?.[currentUserAddress], messageRecord?.timestamp || 0);
+    return reaction ? reaction.emoji : '';
   }
 
   /**
@@ -17761,25 +17696,24 @@ class ChatModal {
       reactAction: reaction.reactAction
     });
 
+    const reactionTimestamp = getCorrectedTimestamp();
     const localReaction = reaction.reactAction === 'remove'
       ? {
           sender: normalizeAddress(keys.address),
           reactId: reaction.reactId,
-          action: 'remove'
+          action: 'remove',
+          timestamp: reactionTimestamp
         }
       : {
           sender: normalizeAddress(keys.address),
           reactId: reaction.reactId,
           action: 'set',
-          emoji: reaction.reactMessage
+          emoji: reaction.reactMessage,
+          timestamp: reactionTimestamp
         };
     const didApplyLocally = applyIncomingReaction(contact.messages, localReaction);
     if (didApplyLocally) {
-      if (localReaction.action === 'set') {
-        setChatReactionPreview(currentAddress, localReaction, contact, localReaction.emoji);
-      } else {
-        rebuildChatReactionPreview(currentAddress, contact);
-      }
+      syncChatReactionPreview(currentAddress, contact);
       if (chatsScreen.isActive()) {
         chatsScreen.updateChatList();
       }
@@ -18151,6 +18085,7 @@ class ChatModal {
       // Remove cached thumbnails for image attachments, then remove attachments
       this.purgeThumbnail(message.xattach);
       delete message.xattach;
+      syncChatReactionPreview(this.address, contact);
       
       this.appendChatModal();
       if (shouldRefreshCallsUi) {
