@@ -1565,20 +1565,18 @@ class ChatsScreen {
 
     chatItems.forEach(({ chat, contact, latestActivity }, index) => {
       const avatarHtml = avatarHtmlList[index];
-      const latestItemTimestamp = latestActivity.timestamp;
       const contactName = getContactDisplayName(contact);
       const reactionPreview = chat.reactionPreview;
+      const latestItemTimestamp = reactionPreview && Number.isFinite(chat.timestamp)
+        ? chat.timestamp
+        : latestActivity.timestamp;
       const unreadCount = getContactTotalUnread(contact);
 
       let previewHTML = '';
       if (reactionPreview) {
         const reactionActor = reactionPreview.my ? 'You' : contactName;
         const reactionTarget = reactionPreview.target || '[message]';
-        const reactionText = reactionPreview.action === 'remove'
-          ? (reactionPreview.emoji
-              ? `${reactionActor} removed ${reactionPreview.emoji} from "${reactionTarget}"`
-              : `${reactionActor} removed a reaction from "${reactionTarget}"`)
-          : `${reactionActor} reacted ${reactionPreview.emoji} to "${reactionTarget}"`;
+        const reactionText = `${reactionActor} reacted ${reactionPreview.emoji} to "${reactionTarget}"`;
         previewHTML = truncateMessage(escapeHtml(reactionText), 50);
       } else if (isDeleted(latestActivity)) {
         // Check if the latest activity is a payment/transfer message
@@ -5950,7 +5948,7 @@ function getReactionTargetPreviewText(message) {
 
 /**
  * @param {string} chatAddress
- * @param {{ sender: string, reactId: string, action: 'remove', timestamp?: number } | { sender: string, reactId: string, action: 'set', emoji: string, timestamp?: number }} reaction
+ * @param {{ sender: string, reactId: string }} reaction
  * @param {Object} contact
  * @param {string} previewEmoji
  * @returns {void}
@@ -5958,27 +5956,38 @@ function getReactionTargetPreviewText(message) {
 function setChatReactionPreview(chatAddress, reaction, contact, previewEmoji = '') {
   const targetMessage = contact?.messages?.find((message) => message.txid === reaction.reactId);
   if (!targetMessage) return;
+  const latestMessage = contact?.messages?.[0];
+  const latestMessageTimestamp = Number(latestMessage?.timestamp);
+  const reactionTimestamp = Number.isFinite(reaction.timestamp)
+    ? Number(reaction.timestamp)
+    : getCorrectedTimestamp();
+
+  if (Number.isFinite(latestMessageTimestamp) && reactionTimestamp <= latestMessageTimestamp) {
+    clearChatReactionPreview(chatAddress, contact);
+    return;
+  }
 
   const currentUserAddress = myAccount?.keys?.address
     ? normalizeAddress(myAccount.keys.address)
     : '';
   const reactionPreview = {
     my: !!currentUserAddress && reaction.sender === currentUserAddress,
-    action: reaction.action,
     emoji: previewEmoji,
     target: getReactionTargetPreviewText(targetMessage)
   };
 
   const existingChatIndex = myData.chats.findIndex((chat) => chat.address === chatAddress);
   if (existingChatIndex !== -1) {
-    myData.chats[existingChatIndex].reactionPreview = reactionPreview;
+    const existingChat = myData.chats.splice(existingChatIndex, 1)[0];
+    existingChat.timestamp = reactionTimestamp;
+    existingChat.reactionPreview = reactionPreview;
+    insertSorted(myData.chats, existingChat, 'timestamp');
     return;
   }
 
-  const latestMessage = contact?.messages?.[0];
   insertSorted(myData.chats, {
     address: chatAddress,
-    timestamp: latestMessage?.timestamp || targetMessage.timestamp || getCorrectedTimestamp(),
+    timestamp: reactionTimestamp,
     reactionPreview
   }, 'timestamp');
 }
@@ -6005,7 +6014,6 @@ function rebuildChatReactionPreview(chatAddress, contact = null) {
         latestReaction = {
           sender,
           reactId: message.txid,
-          action: 'set',
           emoji,
           timestamp
         };
@@ -6014,7 +6022,7 @@ function rebuildChatReactionPreview(chatAddress, contact = null) {
   }
 
   if (!latestReaction) {
-    clearChatReactionPreview(chatAddress);
+    clearChatReactionPreview(chatAddress, contact);
     return false;
   }
 
@@ -6024,13 +6032,24 @@ function rebuildChatReactionPreview(chatAddress, contact = null) {
 
 /**
  * @param {string} chatAddress
+ * @param {Object|null} contact
  * @returns {void}
  */
-function clearChatReactionPreview(chatAddress) {
+function clearChatReactionPreview(chatAddress, contact = null) {
   const existingChatIndex = myData.chats.findIndex((chat) => chat.address === chatAddress);
   if (existingChatIndex === -1) return;
 
-  delete myData.chats[existingChatIndex].reactionPreview;
+  const existingChat = myData.chats[existingChatIndex];
+  delete existingChat.reactionPreview;
+
+  const latestMessageTimestamp = Number(contact?.messages?.[0]?.timestamp);
+  if (!Number.isFinite(latestMessageTimestamp) || existingChat.timestamp === latestMessageTimestamp) {
+    return;
+  }
+
+  myData.chats.splice(existingChatIndex, 1);
+  existingChat.timestamp = latestMessageTimestamp;
+  insertSorted(myData.chats, existingChat, 'timestamp');
 }
 
 /**
