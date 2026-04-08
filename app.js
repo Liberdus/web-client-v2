@@ -6293,7 +6293,7 @@ async function processChats(chats, keys) {
                         reactId,
                         action: 'set',
                         emoji,
-                        timestamp: Number(payload.sent_timestamp || tx.timestamp),
+                        timestamp: Number(payload.sent_timestamp),
                         order: Number(i)
                       });
                       continue; // reaction control messages update target state instead of adding a chat bubble
@@ -6304,7 +6304,7 @@ async function processChats(chats, keys) {
                         sender,
                         reactId,
                         action: 'remove',
-                        timestamp: Number(payload.sent_timestamp || tx.timestamp),
+                        timestamp: Number(payload.sent_timestamp),
                         order: Number(i)
                       });
                       continue; // reaction control messages update target state instead of adding a chat bubble
