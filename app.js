@@ -1612,7 +1612,7 @@ class ChatsScreen {
       const contactName = getContactDisplayName(contact);
       const reactionPreview = getLatestChatReactionActivity(contact);
       const isShowingReactionPreview = !!reactionPreview && reactionPreview.timestamp > latestActivity.timestamp;
-      const latestItemTimestamp = latestActivity.timestamp;
+      const latestItemTimestamp = isShowingReactionPreview ? reactionPreview.timestamp : latestActivity.timestamp;
       const unreadCount = getContactTotalUnread(contact);
 
       let previewHTML = '';
