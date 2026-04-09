@@ -1610,14 +1610,13 @@ class ChatsScreen {
     chatItems.forEach(({ chat, contact, latestActivity }, index) => {
       const avatarHtml = avatarHtmlList[index];
       const contactName = getContactDisplayName(contact);
-      const reactionPreview = chat.reactionPreview;
-      const latestItemTimestamp = reactionPreview && Number.isFinite(chat.timestamp)
-        ? chat.timestamp
-        : latestActivity.timestamp;
+      const reactionPreview = getLatestChatReactionActivity(contact);
+      const isShowingReactionPreview = !!reactionPreview && reactionPreview.timestamp > latestActivity.timestamp;
+      const latestItemTimestamp = latestActivity.timestamp;
       const unreadCount = getContactTotalUnread(contact);
 
       let previewHTML = '';
-      if (reactionPreview) {
+      if (isShowingReactionPreview) {
         const reactionActor = reactionPreview.my ? 'You' : contactName;
         const reactionTarget = reactionPreview.target;
         const reactionText = `${reactionActor} reacted ${reactionPreview.emoji} to "${reactionTarget}"`;
@@ -1668,7 +1667,7 @@ class ChatsScreen {
       // Determine what to show in the preview
 
       let displayPreview = previewHTML;
-      let displayPrefix = reactionPreview ? '' : (latestActivity.my ? '< ' : '> ');
+      let displayPrefix = isShowingReactionPreview ? '' : (latestActivity.my ? '< ' : '> ');
       let hasDraftAttachment = false;
 
       // Check for draft attachments
@@ -5997,7 +5996,31 @@ function getReactionTargetPreviewText(message) {
 }
 
 /**
- * Recomputes the chat-list reaction preview from the current message state.
+ * Returns the newest valid reaction activity for chat-list preview purposes.
+ * @param {Object} contact
+ * @returns {{my: boolean, emoji: string, target: string, timestamp: number}|null}
+ */
+function getLatestChatReactionActivity(contact) {
+  const currentUserAddress = normalizeAddress(myAccount.keys.address);
+  for (const reaction of contact.reactions) {
+    const targetMessage = contact.messages.find((message) => message.txid === reaction.targetTxid);
+    if (!targetMessage || isDeleted(targetMessage)) {
+      continue;
+    }
+
+    return {
+      my: reaction.sender === currentUserAddress,
+      emoji: reaction.emoji,
+      target: getReactionTargetPreviewText(targetMessage),
+      timestamp: reaction.timestamp
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Recomputes the chat-list timestamp from the current message and reaction state.
  * @param {string} chatAddress
  * @param {Object} contact
  * @returns {void}
@@ -6006,23 +6029,7 @@ function syncChatReactionPreview(chatAddress, contact) {
   const latestMessage = contact.messages[0];
   if (!latestMessage) return;
 
-  const currentUserAddress = normalizeAddress(myAccount.keys.address);
-  let latestReaction = null;
-
-  for (const reaction of contact.reactions) {
-    const targetMessage = contact.messages.find((message) => message.txid === reaction.targetTxid);
-    if (!targetMessage || isDeleted(targetMessage)) {
-      continue;
-    }
-
-    latestReaction = {
-      my: reaction.sender === currentUserAddress,
-      emoji: reaction.emoji,
-      target: getReactionTargetPreviewText(targetMessage),
-      timestamp: reaction.timestamp
-    };
-    break;
-  }
+  const latestReaction = getLatestChatReactionActivity(contact);
 
   const existingChatIndex = myData.chats.findIndex((chat) => chat.address === chatAddress);
   const chat = existingChatIndex === -1
@@ -6030,18 +6037,12 @@ function syncChatReactionPreview(chatAddress, contact) {
     : myData.chats.splice(existingChatIndex, 1)[0];
 
   if (!latestReaction || latestReaction.timestamp <= latestMessage.timestamp) {
-    delete chat.reactionPreview;
     chat.timestamp = latestMessage.timestamp;
     insertSorted(myData.chats, chat, 'timestamp');
     return;
   }
 
   chat.timestamp = latestReaction.timestamp;
-  chat.reactionPreview = {
-    my: latestReaction.my,
-    emoji: latestReaction.emoji,
-    target: latestReaction.target
-  };
   insertSorted(myData.chats, chat, 'timestamp');
 }
 
@@ -6720,10 +6721,12 @@ async function processChats(chats, keys) {
           : myData.chats.splice(existingChatIndex, 1)[0];
         // Get the most recent message (index 0 because it's sorted descending)
         const latestMessage = contact.messages[0];
+        const latestReaction = getLatestChatReactionActivity(contact);
         const chatUpdate = existingChat || { address: from };
-        if (!chatUpdate.reactionPreview || chatUpdate.timestamp <= latestMessage.timestamp) {
-          delete chatUpdate.reactionPreview;
+        if (!latestReaction || latestReaction.timestamp <= latestMessage.timestamp) {
           chatUpdate.timestamp = latestMessage.timestamp;
+        } else {
+          chatUpdate.timestamp = latestReaction.timestamp;
         }
         // Find insertion point to maintain timestamp order (newest first)
         const insertIndex = myData.chats.findIndex((chat) => chat.timestamp < chatUpdate.timestamp);
