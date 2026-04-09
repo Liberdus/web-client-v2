@@ -6254,6 +6254,7 @@ async function processChats(chats, keys) {
                   if (didDeleteMessage) {
                     purgeContactReactionsForTarget(contact, messageToDelete.txid);
                     syncChatReactionPreview(from, contact);
+                    didChangeReactionPreview = true;
                   }
                   if (didDeleteMessage && messageToDelete.type === 'call' && shouldRefreshUpcomingCallsUiForCallTime(messageToDelete.callTime)) {
                     needsUpcomingCallsUiRefresh = true;
