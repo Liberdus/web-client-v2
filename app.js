@@ -5840,18 +5840,101 @@ async function ensureContactKeys(address) {
 }
 
 /**
- * @typedef {{ sender: string, reactId: string, action: 'remove', timestamp: number } | { sender: string, reactId: string, action: 'set', emoji: string, timestamp: number }} ReactionUpdate
+ * @typedef {{ sender: string, reactId: string, action: 'remove', timestamp: number, reactionTxId?: string } | { sender: string, reactId: string, action: 'set', emoji: string, timestamp: number, reactionTxId?: string, keepFallback?: boolean }} ReactionUpdate
  */
 
 /**
- * Returns the active reactions for a specific target message.
+ * @typedef {{ action: 'set', targetTxid: string, previousReactionTxId: string | null }} PendingReactionSet
+ */
+
+/**
+ * Returns the newest effective reaction for a specific sender and target message.
+ * The raw reaction array may contain older fallback entries behind the newest one.
+ * @param {Object} contact
+ * @param {string} targetTxid
+ * @param {string} sender
+ * @returns {Object|null}
+ */
+function getEffectiveReactionForSenderTarget(contact, targetTxid, sender) {
+  const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
+  const normalizedSender = normalizeAddress(sender);
+
+  for (const reaction of reactions) {
+    if (reaction.targetTxid === targetTxid && normalizeAddress(reaction.sender) === normalizedSender) {
+      return reaction;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Returns the effective reactions for a specific target message.
+ * Older duplicate entries for the same sender are hidden fallback state.
  * @param {Object} contact
  * @param {string} targetTxid
  * @returns {Array<Object>}
  */
 function getContactReactionsForTarget(contact, targetTxid) {
   const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
-  return reactions.filter((reaction) => reaction.targetTxid === targetTxid);
+  const seenSenders = new Set();
+  const effectiveReactions = [];
+
+  for (const reaction of reactions) {
+    if (reaction.targetTxid !== targetTxid) {
+      continue;
+    }
+
+    const senderKey = normalizeAddress(reaction.sender);
+    if (seenSenders.has(senderKey)) {
+      continue;
+    }
+
+    seenSenders.add(senderKey);
+    effectiveReactions.push(reaction);
+  }
+
+  return effectiveReactions;
+}
+
+/**
+ * Removes every raw reaction entry for a given sender and target.
+ * @param {Object} contact
+ * @param {string} targetTxid
+ * @param {string} sender
+ * @returns {boolean}
+ */
+function purgeReactionStackForSenderTarget(contact, targetTxid, sender) {
+  if (!Array.isArray(contact.reactions)) {
+    return false;
+  }
+
+  const normalizedSender = normalizeAddress(sender);
+  const initialLength = contact.reactions.length;
+  contact.reactions = contact.reactions.filter((reaction) => {
+    return !(reaction.targetTxid === targetTxid && normalizeAddress(reaction.sender) === normalizedSender);
+  });
+  return contact.reactions.length !== initialLength;
+}
+
+/**
+ * Removes a raw reaction entry by the txid of the reaction-control transaction that created it.
+ * @param {Object} contact
+ * @param {string} reactionTxId
+ * @returns {boolean}
+ */
+function removeReactionByReactionTxId(contact, reactionTxId) {
+  if (!Array.isArray(contact.reactions) || !reactionTxId) {
+    return false;
+  }
+
+  const index = contact.reactions.findIndex((reaction) => reaction.reactionTxId === reactionTxId);
+  if (index === -1) {
+    return false;
+  }
+
+  contact.reactions.splice(index, 1);
+  return true;
 }
 
 /**
@@ -5891,35 +5974,32 @@ function applyIncomingReaction(contact, reaction) {
   }
 
   const sender = normalizeAddress(reaction.sender);
-  const currentReactionIndex = contact.reactions.findIndex((entry) => {
-    return entry.targetTxid === reaction.reactId && entry.sender === sender;
-  });
+  const currentReaction = getEffectiveReactionForSenderTarget(contact, reaction.reactId, sender);
 
   switch (reaction.action) {
     case 'remove':
-      if (currentReactionIndex === -1) {
-        return false;
-      }
-
-      contact.reactions.splice(currentReactionIndex, 1);
-      return true;
+      return purgeReactionStackForSenderTarget(contact, reaction.reactId, sender);
 
     case 'set': {
       const emoji = reaction.emoji.trim();
-      const currentReaction = currentReactionIndex === -1 ? null : contact.reactions[currentReactionIndex];
+      if (reaction.reactionTxId && contact.reactions.some((entry) => entry.reactionTxId === reaction.reactionTxId)) {
+        return false;
+      }
+
       if (currentReaction && currentReaction.emoji === emoji) {
         return false;
       }
 
-      if (currentReaction) {
-        contact.reactions.splice(currentReactionIndex, 1);
+      if (!reaction.keepFallback) {
+        purgeReactionStackForSenderTarget(contact, reaction.reactId, sender);
       }
 
       insertSorted(contact.reactions, {
         sender,
         targetTxid: reaction.reactId,
         emoji,
-        timestamp: reaction.timestamp
+        timestamp: reaction.timestamp,
+        reactionTxId: reaction.reactionTxId
       }, 'timestamp');
       return true;
     }
@@ -5971,7 +6051,14 @@ function getReactionTargetPreviewText(message) {
 function getLatestChatReactionActivity(contact) {
   const currentUserAddress = normalizeAddress(myAccount.keys.address);
   const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
+  const seenReactionKeys = new Set();
   for (const reaction of reactions) {
+    const reactionKey = `${reaction.targetTxid}:${normalizeAddress(reaction.sender)}`;
+    if (seenReactionKeys.has(reactionKey)) {
+      continue;
+    }
+    seenReactionKeys.add(reactionKey);
+
     const targetMessage = contact.messages.find((message) => message.txid === reaction.targetTxid);
     if (!targetMessage || isDeleted(targetMessage)) {
       continue;
@@ -6013,6 +6100,68 @@ function syncChatLatestActivityTimestamp(chatAddress, contact) {
 
   chat.timestamp = latestReaction.timestamp;
   insertSorted(myData.chats, chat, 'timestamp');
+}
+
+/**
+ * Refreshes chat list and visible reaction chips after local reaction state changes.
+ * @param {string} contactAddress
+ * @param {Object} contact
+ * @param {string} targetTxid
+ * @returns {void}
+ */
+function syncReactionUiState(contactAddress, contact, targetTxid) {
+  syncChatLatestActivityTimestamp(contactAddress, contact);
+  if (chatsScreen.isActive()) {
+    chatsScreen.updateChatList();
+  }
+
+  if (chatModal.isActive() && chatModal.address === contactAddress) {
+    chatModal.syncRenderedReactionTargets([targetTxid]);
+  }
+}
+
+/**
+ * Finalizes or reverts a pending optimistic reaction set that stored fallback metadata.
+ * @param {Object} pendingTxInfo
+ * @param {'success' | 'failure'} result
+ * @returns {boolean}
+ */
+function reconcilePendingReactionSet(pendingTxInfo, result) {
+  if (!pendingTxInfo.reactionPending) {
+    return false;
+  }
+
+  /** @type {PendingReactionSet} */
+  const { reactionPending } = pendingTxInfo;
+  assert(reactionPending.action === 'set', `Unknown pending reaction action: ${reactionPending.action}`);
+
+  const contact = myData.contacts[pendingTxInfo.to];
+  assert(contact, `Missing contact for pending reaction: ${pendingTxInfo.to}`);
+
+  switch (result) {
+    case 'success': {
+      if (!reactionPending.previousReactionTxId) {
+        return false;
+      }
+
+      const didChange = removeReactionByReactionTxId(contact, reactionPending.previousReactionTxId);
+      if (didChange) {
+        syncReactionUiState(pendingTxInfo.to, contact, reactionPending.targetTxid);
+      }
+      return didChange;
+    }
+
+    case 'failure': {
+      const didChange = removeReactionByReactionTxId(contact, pendingTxInfo.txid);
+      if (didChange) {
+        syncReactionUiState(pendingTxInfo.to, contact, reactionPending.targetTxid);
+      }
+      return didChange;
+    }
+
+    default:
+      throw new Error(`Unknown pending reaction result: ${result}`);
+  }
 }
 
 /**
@@ -6348,6 +6497,7 @@ async function processChats(chats, keys) {
                         action: 'set',
                         emoji,
                         timestamp: Number(payload.sent_timestamp),
+                        reactionTxId: txidHex,
                         order: Number(i)
                       });
                       continue; // reaction control messages update target state instead of adding a chat bubble
@@ -6359,6 +6509,7 @@ async function processChats(chats, keys) {
                         reactId,
                         action: 'remove',
                         timestamp: Number(payload.sent_timestamp),
+                        reactionTxId: txidHex,
                         order: Number(i)
                       });
                       continue; // reaction control messages update target state instead of adding a chat bubble
@@ -16715,9 +16866,7 @@ class ChatModal {
     const currentUserAddress = normalizeAddress(myAccount.keys.address);
     const targetTxid = messageEl.dataset.txid;
     const contact = myData.contacts[this.address];
-    const reaction = getContactReactionsForTarget(contact, targetTxid).find((entry) =>
-      entry.sender === currentUserAddress
-    );
+    const reaction = getEffectiveReactionForSenderTarget(contact, targetTxid, currentUserAddress);
     return reaction ? reaction.emoji : '';
   }
 
@@ -16794,7 +16943,14 @@ class ChatModal {
 
     const reactionsByTargetTxid = new Map();
     const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
+    const seenReactionKeys = new Set();
     for (const reaction of reactions) {
+      const reactionKey = `${reaction.targetTxid}:${normalizeAddress(reaction.sender)}`;
+      if (seenReactionKeys.has(reactionKey)) {
+        continue;
+      }
+      seenReactionKeys.add(reactionKey);
+
       const current = reactionsByTargetTxid.get(reaction.targetTxid) || [];
       current.push(reaction);
       reactionsByTargetTxid.set(reaction.targetTxid, current);
@@ -17814,23 +17970,29 @@ class ChatModal {
       reactAction: reaction.reactAction
     });
 
+    let reactionPendingState = null;
     if (reaction.reactAction === 'set') {
+      const sender = normalizeAddress(keys.address);
+      assert(payload.sent_timestamp, 'Reaction sent_timestamp is required');
+      const previousReaction = getEffectiveReactionForSenderTarget(contact, reaction.reactId, sender);
+      assert(!previousReaction || previousReaction.reactionTxId, 'Previous reaction txid is required');
       const localReaction = {
-        sender: normalizeAddress(keys.address),
+        sender,
         reactId: reaction.reactId,
         action: 'set',
         emoji: reaction.reactMessage,
-        timestamp: payload.sent_timestamp
+        timestamp: payload.sent_timestamp,
+        reactionTxId: txid,
+        keepFallback: true
       };
       const didApplyLocally = applyIncomingReaction(contact, localReaction);
       if (didApplyLocally) {
-        syncChatLatestActivityTimestamp(currentAddress, contact);
-        if (chatsScreen.isActive()) {
-          chatsScreen.updateChatList();
-        }
-        if (this.isActive() && this.address === currentAddress) {
-          this.syncRenderedReactionTargets([reaction.reactId]);
-        }
+        reactionPendingState = {
+          action: 'set',
+          targetTxid: reaction.reactId,
+          previousReactionTxId: previousReaction ? previousReaction.reactionTxId : null
+        };
+        syncReactionUiState(currentAddress, contact, reaction.reactId);
       } else {
         console.warn('Reaction sent but local optimistic apply was skipped', localReaction);
       }
@@ -17839,7 +18001,22 @@ class ChatModal {
     const response = await injectTx(chatMessageObj, txid);
     if (!response?.result?.success) {
       console.error('reaction message failed to send', response);
+      if (reactionPendingState) {
+        reconcilePendingReactionSet({
+          txid,
+          to: currentAddress,
+          reactionPending: reactionPendingState
+        }, 'failure');
+        saveState();
+      }
       return false;
+    }
+
+    if (reactionPendingState) {
+      const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
+      assert(pendingTxInfo, `Pending reaction metadata missing for ${txid}`);
+      pendingTxInfo.reactionPending = reactionPendingState;
+      saveState();
     }
 
     if (reaction.reactAction === 'remove') {
@@ -26793,6 +26970,7 @@ async function checkPendingTransactions() {
       //console.log(`DEBUG: txid ${txid} res: ${JSON.stringify(res)}`);
       if (submittedts < thirtySecondsAgo && (res.transaction === null || Object.keys(res.transaction).length === 0)) {
         console.error(`DEBUG: txid ${txid} timed out, removing completely`);
+        reconcilePendingReactionSet(pendingTxInfo, 'failure');
         // remove the pending tx from the pending array
         myData.pending.splice(i, 1);
         continue;
@@ -26801,6 +26979,7 @@ async function checkPendingTransactions() {
       if (res?.transaction?.success === true) {
         // comment out to test the pending txs removal logic
         myData.pending.splice(i, 1);
+        reconcilePendingReactionSet(pendingTxInfo, 'success');
 
         if (type === 'register') {
           pendingPromiseService.resolve(txid, {
@@ -26860,7 +27039,10 @@ async function checkPendingTransactions() {
           pendingPromiseService.reject(txid, new Error(userFailureReason));
         } else {
           // Show toast notification with the failure reason
-          if (type === 'withdraw_stake') {
+          if (pendingTxInfo.reactionPending) {
+            reconcilePendingReactionSet(pendingTxInfo, 'failure');
+            showToast(userFailureReason, 0, 'error');
+          } else if (type === 'withdraw_stake') {
             showToast(`Unstake failed: ${userFailureReason}`, 0, 'error');
           } else if (type === 'deposit_stake') {
             showToast(`Stake failed: ${userFailureReason}`, 0, 'error');
@@ -26912,9 +27094,11 @@ async function checkPendingTransactions() {
             showToast(userFailureReason, 0, 'error');
           }
 
-          const toAddress = pendingTxInfo.to;
-          updateTransactionStatus(txid, toAddress, 'failed', type);
-          chatModal.refreshCurrentView(txid);
+          if (!pendingTxInfo.reactionPending) {
+            const toAddress = pendingTxInfo.to;
+            updateTransactionStatus(txid, toAddress, 'failed', type);
+            chatModal.refreshCurrentView(txid);
+          }
         }
         // Remove from pending array
         myData.pending.splice(i, 1);
