@@ -180,8 +180,6 @@ const DELETED_MESSAGE_BY_SENDER_TEXT = 'Deleted by sender';
 // can be re-run multiple times per day by bumping this value.
 const MIGRATION_ATTACHMENT_KEYS_TO_ENC_KEY_TS = 202602010000;
 const MIGRATION_DELETE_STATES_TS = 202603160000;
-const MIGRATION_REACTION_ARRAY_TS = 202604090000;
-
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
@@ -644,43 +642,6 @@ function migrateDeletedMessageStates(data) {
 
   data.account.migrations = migrations && typeof migrations === 'object' ? migrations : {};
   data.account.migrations.deleteStates = MIGRATION_DELETE_STATES_TS;
-  return true;
-}
-
-/**
- * One-time migration: ensure every stored contact has a reaction array.
- * @param {Object} data
- * @returns {boolean} True if migration flag was applied
- */
-function migrateContactReactionArrays(data) {
-  if (!data?.account) return false;
-
-  const migrations =
-    data.account.migrations && typeof data.account.migrations === 'object'
-      ? data.account.migrations
-      : null;
-
-  const appliedTsRaw = migrations?.reactionArrays;
-  let appliedTs = 0;
-  if (typeof appliedTsRaw === 'number') {
-    appliedTs = appliedTsRaw;
-  } else if (appliedTsRaw === true) {
-    appliedTs = 0;
-  }
-
-  if (appliedTs >= MIGRATION_REACTION_ARRAY_TS) {
-    return false;
-  }
-
-  if (data.contacts && typeof data.contacts === 'object') {
-    for (const contact of Object.values(data.contacts)) {
-      if (!contact || typeof contact !== 'object') continue;
-      contact.reactions = [];
-    }
-  }
-
-  data.account.migrations = migrations && typeof migrations === 'object' ? migrations : {};
-  data.account.migrations.reactionArrays = MIGRATION_REACTION_ARRAY_TS;
   return true;
 }
 
@@ -3914,11 +3875,6 @@ class SignInModal {
       saveState();
     }
 
-    // One-time migration: ensure stored contacts have the new reaction array shape
-    if (migrateContactReactionArrays(myData)) {
-      saveState();
-    }
-
     // Clear notification address for this account when signing in
     // Notification storage is only for accounts the user is NOT signed in to
     if (reactNativeApp.isReactNativeWebView && myAccount?.keys?.address) {
@@ -5894,7 +5850,8 @@ async function ensureContactKeys(address) {
  * @returns {Array<Object>}
  */
 function getContactReactionsForTarget(contact, targetTxid) {
-  return contact.reactions.filter((reaction) => reaction.targetTxid === targetTxid);
+  const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
+  return reactions.filter((reaction) => reaction.targetTxid === targetTxid);
 }
 
 /**
@@ -5904,6 +5861,10 @@ function getContactReactionsForTarget(contact, targetTxid) {
  * @returns {boolean}
  */
 function purgeContactReactionsForTarget(contact, targetTxid) {
+  if (!Array.isArray(contact.reactions)) {
+    return false;
+  }
+
   const initialLength = contact.reactions.length;
   contact.reactions = contact.reactions.filter((reaction) => reaction.targetTxid !== targetTxid);
   return contact.reactions.length !== initialLength;
@@ -5920,6 +5881,13 @@ function applyIncomingReaction(contact, reaction) {
   if (!targetMessage || isDeleted(targetMessage)) {
     console.warn('Reaction target not found locally', reaction);
     return false;
+  }
+
+  if (!Array.isArray(contact.reactions)) {
+    if (reaction.action === 'remove') {
+      return false;
+    }
+    contact.reactions = [];
   }
 
   const sender = normalizeAddress(reaction.sender);
@@ -6002,7 +5970,8 @@ function getReactionTargetPreviewText(message) {
  */
 function getLatestChatReactionActivity(contact) {
   const currentUserAddress = normalizeAddress(myAccount.keys.address);
-  for (const reaction of contact.reactions) {
+  const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
+  for (const reaction of reactions) {
     const targetMessage = contact.messages.find((message) => message.txid === reaction.targetTxid);
     if (!targetMessage || isDeleted(targetMessage)) {
       continue;
@@ -6253,7 +6222,7 @@ async function processChats(chats, keys) {
                     reactNativeApp.sendCancelScheduledCall(contact?.username, Number(messageToDelete.callTime));
                   }
                   if (didDeleteMessage) {
-                    const removedIncomingReactionCount = contact.reactions.filter((reaction) => {
+                    const removedIncomingReactionCount = getContactReactionsForTarget(contact, messageToDelete.txid).filter((reaction) => {
                       return reaction.targetTxid === messageToDelete.txid && reaction.sender === from;
                     }).length;
                     purgeContactReactionsForTarget(contact, messageToDelete.txid);
@@ -16824,7 +16793,8 @@ class ChatModal {
     if (!contact) return;
 
     const reactionsByTargetTxid = new Map();
-    for (const reaction of contact.reactions) {
+    const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
+    for (const reaction of reactions) {
       const current = reactionsByTargetTxid.get(reaction.targetTxid) || [];
       current.push(reaction);
       reactionsByTargetTxid.set(reaction.targetTxid, current);
@@ -17843,47 +17813,36 @@ class ChatModal {
       reactAction: reaction.reactAction
     });
 
-    const reactionTimestamp = getCorrectedTimestamp();
-    const sender = normalizeAddress(keys.address);
-    let localReaction;
-    switch (reaction.reactAction) {
-      case 'remove':
-        localReaction = {
-          sender,
-          reactId: reaction.reactId,
-          action: 'remove',
-          timestamp: reactionTimestamp
-        };
-        break;
-      case 'set':
-        localReaction = {
-          sender,
-          reactId: reaction.reactId,
-          action: 'set',
-          emoji: reaction.reactMessage,
-          timestamp: reactionTimestamp
-        };
-        break;
-      default:
-        throw new Error(`Unknown reaction action: ${reaction.reactAction}`);
-    }
-    const didApplyLocally = applyIncomingReaction(contact, localReaction);
-    if (didApplyLocally) {
-      syncChatLatestActivityTimestamp(currentAddress, contact);
-      if (chatsScreen.isActive()) {
-        chatsScreen.updateChatList();
+    if (reaction.reactAction === 'set') {
+      const localReaction = {
+        sender: normalizeAddress(keys.address),
+        reactId: reaction.reactId,
+        action: 'set',
+        emoji: reaction.reactMessage,
+        timestamp: getCorrectedTimestamp()
+      };
+      const didApplyLocally = applyIncomingReaction(contact, localReaction);
+      if (didApplyLocally) {
+        syncChatLatestActivityTimestamp(currentAddress, contact);
+        if (chatsScreen.isActive()) {
+          chatsScreen.updateChatList();
+        }
+        if (this.isActive() && this.address === currentAddress) {
+          this.syncRenderedReactionTargets([reaction.reactId]);
+        }
+      } else {
+        console.warn('Reaction sent but local optimistic apply was skipped', localReaction);
       }
-      if (this.isActive() && this.address === currentAddress) {
-        this.syncRenderedReactionTargets([reaction.reactId]);
-      }
-    } else {
-      console.warn('Reaction sent but local optimistic apply was skipped', localReaction);
     }
 
     const response = await injectTx(chatMessageObj, txid);
     if (!response?.result?.success) {
       console.error('reaction message failed to send', response);
       return false;
+    }
+
+    if (reaction.reactAction === 'remove') {
+      showToast('Reaction remove request sent', 5000, 'loading');
     }
 
     return true;
