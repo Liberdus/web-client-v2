@@ -17777,10 +17777,11 @@ class ChatModal {
       return false;
     }
 
+    let payload;
     let chatMessageObj;
     let txid;
     try {
-      const payload = {
+      payload = {
         type: 'message',
         reactId: reaction.reactId,
         reactAction: reaction.reactAction
@@ -17795,7 +17796,7 @@ class ChatModal {
           throw new Error(`Unknown reaction action: ${reaction.reactAction}`);
       }
 
-      ({ chatMessageObj, txid } = await this.buildEncryptedStructuredChatTx(
+      ({ payload, chatMessageObj, txid } = await this.buildEncryptedStructuredChatTx(
         currentAddress,
         payload,
         tollInLib,
@@ -17819,7 +17820,7 @@ class ChatModal {
         reactId: reaction.reactId,
         action: 'set',
         emoji: reaction.reactMessage,
-        timestamp: getCorrectedTimestamp()
+        timestamp: payload.sent_timestamp
       };
       const didApplyLocally = applyIncomingReaction(contact, localReaction);
       if (didApplyLocally) {
