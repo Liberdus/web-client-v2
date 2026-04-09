@@ -180,6 +180,13 @@ const DELETED_MESSAGE_BY_SENDER_TEXT = 'Deleted by sender';
 // can be re-run multiple times per day by bumping this value.
 const MIGRATION_ATTACHMENT_KEYS_TO_ENC_KEY_TS = 202602010000;
 const MIGRATION_DELETE_STATES_TS = 202603160000;
+const MIGRATION_REACTION_ARRAY_TS = 202604090000;
+
+function assert(condition, message) {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
 
 function getDeletedState(recordOrValue) {
   const rawDeleted =
@@ -637,6 +644,43 @@ function migrateDeletedMessageStates(data) {
 
   data.account.migrations = migrations && typeof migrations === 'object' ? migrations : {};
   data.account.migrations.deleteStates = MIGRATION_DELETE_STATES_TS;
+  return true;
+}
+
+/**
+ * One-time migration: ensure every stored contact has a reaction array.
+ * @param {Object} data
+ * @returns {boolean} True if migration flag was applied
+ */
+function migrateContactReactionArrays(data) {
+  if (!data?.account) return false;
+
+  const migrations =
+    data.account.migrations && typeof data.account.migrations === 'object'
+      ? data.account.migrations
+      : null;
+
+  const appliedTsRaw = migrations?.reactionArrays;
+  let appliedTs = 0;
+  if (typeof appliedTsRaw === 'number') {
+    appliedTs = appliedTsRaw;
+  } else if (appliedTsRaw === true) {
+    appliedTs = 0;
+  }
+
+  if (appliedTs >= MIGRATION_REACTION_ARRAY_TS) {
+    return false;
+  }
+
+  if (data.contacts && typeof data.contacts === 'object') {
+    for (const contact of Object.values(data.contacts)) {
+      if (!contact || typeof contact !== 'object') continue;
+      contact.reactions = [];
+    }
+  }
+
+  data.account.migrations = migrations && typeof migrations === 'object' ? migrations : {};
+  data.account.migrations.reactionArrays = MIGRATION_REACTION_ARRAY_TS;
   return true;
 }
 
@@ -3208,6 +3252,7 @@ function createNewContact(addr, username, friendStatus = 1, tolledDepositToastSh
     c.username = normalizeUsername(username);
   }
   c.messages = [];
+  c.reactions = [];
   c.timestamp = 0;
   c.unread = 0;
   c.hasAvatar = false;
@@ -3867,6 +3912,11 @@ class SignInModal {
 
     // One-time migration: split deleted state into local-only vs for-all
     if (migrateDeletedMessageStates(myData)) {
+      saveState();
+    }
+
+    // One-time migration: ensure stored contacts have the new reaction array shape
+    if (migrateContactReactionArrays(myData)) {
       saveState();
     }
 
@@ -5839,61 +5889,85 @@ async function ensureContactKeys(address) {
  */
 
 /**
- * Applies a reaction control message to the matching local message record.
- * @param {Array<Object>} messages
+ * Returns the active reactions for a specific target message.
+ * @param {Object} contact
+ * @param {string} targetTxid
+ * @returns {Array<Object>}
+ */
+function getContactReactionsForTarget(contact, targetTxid) {
+  return contact.reactions.filter((reaction) => reaction.targetTxid === targetTxid);
+}
+
+/**
+ * Removes all active reactions that target a specific message.
+ * @param {Object} contact
+ * @param {string} targetTxid
+ * @returns {boolean}
+ */
+function purgeContactReactionsForTarget(contact, targetTxid) {
+  const initialLength = contact.reactions.length;
+  contact.reactions = contact.reactions.filter((reaction) => reaction.targetTxid !== targetTxid);
+  return contact.reactions.length !== initialLength;
+}
+
+/**
+ * Applies a reaction control message to the contact-level active reaction state.
+ * @param {Object} contact
  * @param {ReactionUpdate} reaction
  * @returns {boolean}
  */
-function applyIncomingReaction(messages, reaction) {
-  const targetMessage = messages.find((message) => message.txid === reaction.reactId);
+function applyIncomingReaction(contact, reaction) {
+  const targetMessage = contact.messages.find((message) => message.txid === reaction.reactId);
   if (!targetMessage || isDeleted(targetMessage)) {
     console.warn('Reaction target not found locally', reaction);
     return false;
   }
 
-  const reactions = targetMessage.reactions ? { ...targetMessage.reactions } : {};
-  const currentReaction = reactions[reaction.sender];
-  const currentEmoji = currentReaction ? currentReaction.emoji.trim() : '';
+  const sender = normalizeAddress(reaction.sender);
+  const currentReactionIndex = contact.reactions.findIndex((entry) => {
+    return entry.targetTxid === reaction.reactId && entry.sender === sender;
+  });
 
-  if (reaction.action === 'remove') {
-    if (!currentEmoji) {
-      return false;
-    }
+  switch (reaction.action) {
+    case 'remove':
+      if (currentReactionIndex === -1) {
+        return false;
+      }
 
-    delete reactions[reaction.sender];
-    if (Object.keys(reactions).length === 0) {
-      delete targetMessage.reactions;
+      contact.reactions.splice(currentReactionIndex, 1);
+      return true;
+
+    case 'set': {
+      const emoji = reaction.emoji.trim();
+      const currentReaction = currentReactionIndex === -1 ? null : contact.reactions[currentReactionIndex];
+      if (currentReaction && currentReaction.emoji === emoji) {
+        return false;
+      }
+
+      if (currentReaction) {
+        contact.reactions.splice(currentReactionIndex, 1);
+      }
+
+      insertSorted(contact.reactions, {
+        sender,
+        targetTxid: reaction.reactId,
+        emoji,
+        timestamp: reaction.timestamp
+      }, 'timestamp');
       return true;
     }
 
-    targetMessage.reactions = reactions;
-    return true;
+    default:
+      throw new Error(`Unknown reaction action: ${reaction.action}`);
   }
-
-  if (reaction.action === 'set') {
-    if (currentEmoji === reaction.emoji) {
-      return false;
-    }
-
-    reactions[reaction.sender] = {
-      emoji: reaction.emoji,
-      timestamp: reaction.timestamp
-    };
-    targetMessage.reactions = reactions;
-    return true;
-  }
-
-  throw new Error(`Unknown reaction action: ${reaction.action}`);
 }
 
 /**
  * Builds the quoted target text shown in the chat-list reaction preview.
- * @param {Object|null} message
+ * @param {Object} message
  * @returns {string}
  */
 function getReactionTargetPreviewText(message) {
-  if (!message) return '[message]';
-
   if (isDeleted(message)) {
     return getDeletedPlaceholderText(message);
   }
@@ -5935,19 +6009,19 @@ function syncChatReactionPreview(chatAddress, contact) {
   const currentUserAddress = normalizeAddress(myAccount.keys.address);
   let latestReaction = null;
 
-  for (const message of contact.messages) {
-    if (isDeleted(message) || !message.reactions) continue;
-
-    for (const [sender, reactionValue] of Object.entries(message.reactions)) {
-      if (!latestReaction || reactionValue.timestamp > latestReaction.timestamp) {
-        latestReaction = {
-          my: !!currentUserAddress && sender === currentUserAddress,
-          emoji: reactionValue.emoji.trim(),
-          target: getReactionTargetPreviewText(message),
-          timestamp: reactionValue.timestamp
-        };
-      }
+  for (const reaction of contact.reactions) {
+    const targetMessage = contact.messages.find((message) => message.txid === reaction.targetTxid);
+    if (!targetMessage || isDeleted(targetMessage)) {
+      continue;
     }
+
+    latestReaction = {
+      my: reaction.sender === currentUserAddress,
+      emoji: reaction.emoji,
+      target: getReactionTargetPreviewText(targetMessage),
+      timestamp: reaction.timestamp
+    };
+    break;
   }
 
   const existingChatIndex = myData.chats.findIndex((chat) => chat.address === chatAddress);
@@ -6035,6 +6109,7 @@ async function processChats(chats, keys) {
       const pendingReactionControls = [];
       let didApplyPendingReaction = false;
       let didChangeReactionPreview = false;
+      const touchedReactionTargetTxids = new Set();
 
       // This check determines if we're currently chatting with the sender
       // We ONLY want to avoid notifications if we're actively viewing this exact chat
@@ -6133,7 +6208,6 @@ async function processChats(chats, keys) {
                     didDeleteMessage = true;
                     // Remove attachments so we don't keep references around
                     delete messageToDelete.xattach;
-                    syncChatReactionPreview(from, contact);
                     
                     // Remove payment-specific fields if present
                     if (messageToDelete.amount) {
@@ -6160,7 +6234,6 @@ async function processChats(chats, keys) {
                     didDeleteMessage = true;
                     // Remove attachments so we don't keep references around
                     delete messageToDelete.xattach;
-                    syncChatReactionPreview(from, contact);
                     
                     // Remove payment-specific fields if present - same logic as above
                     if (messageToDelete.amount) {
@@ -6177,6 +6250,10 @@ async function processChats(chats, keys) {
 
                   if (reactNativeApp.isReactNativeWebView && messageToDelete.type === 'call' && Number(messageToDelete.callTime) > 0) {
                     reactNativeApp.sendCancelScheduledCall(contact?.username, Number(messageToDelete.callTime));
+                  }
+                  if (didDeleteMessage) {
+                    purgeContactReactionsForTarget(contact, messageToDelete.txid);
+                    syncChatReactionPreview(from, contact);
                   }
                   if (didDeleteMessage && messageToDelete.type === 'call' && shouldRefreshUpcomingCallsUiForCallTime(messageToDelete.callTime)) {
                     needsUpcomingCallsUiRefresh = true;
@@ -6598,10 +6675,11 @@ async function processChats(chats, keys) {
         });
 
         for (const pendingReaction of pendingReactionControls) {
-          if (applyIncomingReaction(contact.messages, pendingReaction)) {
+          if (applyIncomingReaction(contact, pendingReaction)) {
             didApplyPendingReaction = true;
             syncChatReactionPreview(from, contact);
             didChangeReactionPreview = true;
+            touchedReactionTargetTxids.add(pendingReaction.reactId);
             if (pendingReaction.sender === from && !inActiveChatWithSender) {
               if (pendingReaction.action === 'set') {
                 nextReactionUnread += 1;
@@ -6659,7 +6737,7 @@ async function processChats(chats, keys) {
       }
 
       if (didApplyPendingReaction && added === 0 && inActiveChatWithSender) {
-        chatModal.appendChatModal();
+        chatModal.syncRenderedReactionTargets([...touchedReactionTargetTxids]);
       }
 
       if (!inActiveChatWithSender && nextReactionUnread !== initialReactionUnread) {
@@ -14940,8 +15018,6 @@ class ChatModal {
       return;
     }
     const messages = contact.messages; // Already sorted descending
-    const currentUserAddress = normalizeAddress(myAccount.keys.address);
-    const contactAddress = normalizeAddress(contact.address);
     // Last time user previously had this chat open (used to mark newly edited messages)
     const lastReadTs = contact.lastChatOpenTs || 0;
 
@@ -14968,37 +15044,6 @@ class ChatModal {
       // Add txid attribute if available
       const txidAttribute = item?.txid ? `data-txid="${item.txid}"` : '';
       const statusAttribute = item?.status ? `data-status="${item.status}"` : '';
-      let reactionsHTML = '';
-      if (item.reactions) {
-        const chips = [];
-        const contactReaction = item.reactions[contactAddress];
-        const myReaction = item.reactions[currentUserAddress];
-        const contactEmoji = contactReaction ? contactReaction.emoji.trim() : '';
-        const myEmoji = myReaction ? myReaction.emoji.trim() : '';
-
-        if (contactEmoji) {
-          chips.push(`<span class="message-reaction-chip">${escapeHtml(contactEmoji)}</span>`);
-        }
-        if (myEmoji) {
-          chips.push(`<span class="message-reaction-chip my-reaction">${escapeHtml(myEmoji)}</span>`);
-        }
-
-        for (const [sender, storedReaction] of Object.entries(item.reactions)) {
-          const normalizedSender = normalizeAddress(sender);
-          if (normalizedSender === contactAddress || normalizedSender === currentUserAddress) {
-            continue;
-          }
-          chips.push(`<span class="message-reaction-chip">${escapeHtml(storedReaction.emoji.trim())}</span>`);
-        }
-
-        if (chips.length > 0) {
-          reactionsHTML = `
-            <div class="message-reactions" aria-label="Reactions">
-              ${chips.join('')}
-            </div>
-          `;
-        }
-      }
 
       // Check if it's a payment based on the presence of the amount property (BigInt)
       if (typeof item.amount === 'bigint') {
@@ -15027,7 +15072,6 @@ class ChatModal {
             </div>
             ${itemMemo ? `<div class="payment-memo">${linkifyUrls(itemMemo)}</div>` : ''}
             <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
-            ${reactionsHTML}
           </div>
         `;
       } else {
@@ -15186,7 +15230,6 @@ class ChatModal {
               ${attachmentsHTML}
               ${messageTextHTML}
               <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
-              ${reactionsHTML}
             </div>
           `;
         }
@@ -15197,6 +15240,8 @@ class ChatModal {
       this.messagesList.insertAdjacentHTML('beforeend', messageHTML);
       // The newest received element will be found after the loop completes
     }
+
+    this.syncAllRenderedReactionChips();
 
     // --- 4.5. Load thumbnails for image attachments (async, non-blocking) ---
     this.loadThumbnailsForAttachments();
@@ -16686,10 +16731,121 @@ class ChatModal {
    * @returns {string}
    */
   getCurrentUserReactionForMessage(messageEl) {
+    if (!messageEl) return '';
+
     const currentUserAddress = normalizeAddress(myAccount.keys.address);
-    const messageRecord = this.getMessageRecordFromElement(messageEl);
-    const reaction = messageRecord?.reactions?.[currentUserAddress];
-    return reaction ? reaction.emoji.trim() : '';
+    const targetTxid = messageEl.dataset.txid;
+    const contact = myData.contacts[this.address];
+    const reaction = getContactReactionsForTarget(contact, targetTxid).find((entry) =>
+      entry.sender === currentUserAddress
+    );
+    return reaction ? reaction.emoji : '';
+  }
+
+  /**
+   * Builds reaction chip markup for a specific target message.
+   * @param {Array<Object>} reactionsForTarget
+   * @returns {string}
+   */
+  buildReactionChipsHTML(reactionsForTarget) {
+    if (reactionsForTarget.length === 0) {
+      return '';
+    }
+
+    const currentUserAddress = normalizeAddress(myAccount.keys.address);
+    const contactAddress = normalizeAddress(this.address);
+    const contactChips = [];
+    const myChips = [];
+    const otherChips = [];
+
+    for (const reaction of reactionsForTarget) {
+      const sender = reaction.sender;
+      const emoji = reaction.emoji;
+
+      const chipClass = sender === currentUserAddress ? 'message-reaction-chip my-reaction' : 'message-reaction-chip';
+      const chipHtml = `<span class="${chipClass}">${escapeHtml(emoji)}</span>`;
+      if (sender === contactAddress) {
+        contactChips.push(chipHtml);
+      } else if (sender === currentUserAddress) {
+        myChips.push(chipHtml);
+      } else {
+        otherChips.push(chipHtml);
+      }
+    }
+
+    const chips = [...contactChips, ...myChips, ...otherChips];
+    if (chips.length === 0) return '';
+
+    return `
+      <div class="message-reactions" aria-label="Reactions">
+        ${chips.join('')}
+      </div>
+    `;
+  }
+
+  /**
+   * Syncs the rendered reaction chip container for one message element.
+   * @param {HTMLElement | null} messageEl
+   * @param {Array<Object>} reactionsForTarget
+   * @returns {void}
+   */
+  syncReactionChipsForMessage(messageEl, reactionsForTarget) {
+    if (!messageEl) return;
+
+    const existingContainer = messageEl.querySelector('.message-reactions');
+    if (existingContainer) {
+      existingContainer.remove();
+    }
+
+    const reactionHtml = this.buildReactionChipsHTML(reactionsForTarget);
+    if (!reactionHtml) return;
+
+    messageEl.insertAdjacentHTML('beforeend', reactionHtml);
+  }
+
+  /**
+   * Syncs reaction chips for every rendered message in the open chat.
+   * @returns {void}
+   */
+  syncAllRenderedReactionChips() {
+    if (!this.messagesList || !this.address) return;
+
+    const contact = myData.contacts[this.address];
+    if (!contact) return;
+
+    const reactionsByTargetTxid = new Map();
+    for (const reaction of contact.reactions) {
+      const current = reactionsByTargetTxid.get(reaction.targetTxid) || [];
+      current.push(reaction);
+      reactionsByTargetTxid.set(reaction.targetTxid, current);
+    }
+
+    const messageEls = this.messagesList.querySelectorAll('.message[data-txid]');
+    messageEls.forEach((messageEl) => {
+      const targetTxid = messageEl.dataset.txid;
+      this.syncReactionChipsForMessage(messageEl, reactionsByTargetTxid.get(targetTxid) || []);
+    });
+  }
+
+  /**
+   * Syncs reaction chips for the provided rendered target messages.
+   * @param {Array<string>} targetTxids
+   * @returns {void}
+   */
+  syncRenderedReactionTargets(targetTxids) {
+    if (!this.messagesList || !this.address || targetTxids.length === 0) {
+      return;
+    }
+
+    const contact = myData.contacts[this.address];
+    if (!contact) return;
+
+    const uniqueTargetTxids = [...new Set(targetTxids)];
+    uniqueTargetTxids.forEach((targetTxid) => {
+      const messageEl = this.messagesList.querySelector(`.message[data-txid="${CSS.escape(targetTxid)}"]`);
+      if (!messageEl) return;
+      this.syncReactionChipsForMessage(messageEl, getContactReactionsForTarget(contact, targetTxid));
+    });
   }
 
   /**
@@ -17553,19 +17709,18 @@ class ChatModal {
    * @param {HTMLElement | null} messageEl
    * @param {Function} closeMenu
    */
-  async handleReactionPickerSelection(reactionButton, messageEl, closeMenu = () => {}) {
+  async handleReactionPickerSelection(reactionButton, messageEl, closeMenu) {
     if (!reactionButton) return;
-    const txid = messageEl?.dataset?.txid || '';
+    if (!messageEl) return;
+
+    const txid = messageEl.dataset.txid;
+    assert(txid, 'Reaction target txid is required');
     const isMorePickerTrigger = reactionButton.dataset.reactionPickerTrigger === 'true';
     const selectedReaction = isMorePickerTrigger
       ? '+'
       : (reactionButton.dataset.emoji || reactionButton.textContent || '').trim();
     const currentReaction = this.getCurrentUserReactionForMessage(messageEl);
 
-    if (!txid) {
-      console.warn('Reaction picker press ignored: missing message txid', { reaction: selectedReaction });
-      return;
-    }
     console.log('Reaction picker pressed', {
       reaction: selectedReaction,
       txid
@@ -17604,12 +17759,9 @@ class ChatModal {
    * @returns {Promise<boolean>}
    */
   async sendReactionMessage(reaction) {
-    if (!reaction?.reactId || !reaction?.reactAction) {
-      return false;
-    }
-
-    if (reaction.reactAction === 'set' && !reaction.reactMessage) {
-      return false;
+    assert(reaction.reactId, 'Reaction target txid is required');
+    if (reaction.reactAction === 'set') {
+      assert(reaction.reactMessage, 'Reaction emoji is required for set');
     }
 
     if (!isOnline) {
@@ -17653,8 +17805,14 @@ class ChatModal {
         reactId: reaction.reactId,
         reactAction: reaction.reactAction
       };
-      if (reaction.reactAction === 'set') {
-        payload.reactMessage = reaction.reactMessage;
+      switch (reaction.reactAction) {
+        case 'set':
+          payload.reactMessage = reaction.reactMessage;
+          break;
+        case 'remove':
+          break;
+        default:
+          throw new Error(`Unknown reaction action: ${reaction.reactAction}`);
       }
 
       ({ chatMessageObj, txid } = await this.buildEncryptedStructuredChatTx(
@@ -17676,28 +17834,37 @@ class ChatModal {
     });
 
     const reactionTimestamp = getCorrectedTimestamp();
-    const localReaction = reaction.reactAction === 'remove'
-      ? {
-          sender: normalizeAddress(keys.address),
+    const sender = normalizeAddress(keys.address);
+    let localReaction;
+    switch (reaction.reactAction) {
+      case 'remove':
+        localReaction = {
+          sender,
           reactId: reaction.reactId,
           action: 'remove',
           timestamp: reactionTimestamp
-        }
-      : {
-          sender: normalizeAddress(keys.address),
+        };
+        break;
+      case 'set':
+        localReaction = {
+          sender,
           reactId: reaction.reactId,
           action: 'set',
           emoji: reaction.reactMessage,
           timestamp: reactionTimestamp
         };
-    const didApplyLocally = applyIncomingReaction(contact.messages, localReaction);
+        break;
+      default:
+        throw new Error(`Unknown reaction action: ${reaction.reactAction}`);
+    }
+    const didApplyLocally = applyIncomingReaction(contact, localReaction);
     if (didApplyLocally) {
       syncChatReactionPreview(currentAddress, contact);
       if (chatsScreen.isActive()) {
         chatsScreen.updateChatList();
       }
       if (this.isActive() && this.address === currentAddress) {
-        this.appendChatModal();
+        this.syncRenderedReactionTargets([reaction.reactId]);
       }
     } else {
       console.warn('Reaction sent but local optimistic apply was skipped', localReaction);
@@ -18064,6 +18231,7 @@ class ChatModal {
       // Remove cached thumbnails for image attachments, then remove attachments
       this.purgeThumbnail(message.xattach);
       delete message.xattach;
+      purgeContactReactionsForTarget(contact, message.txid);
       syncChatReactionPreview(this.address, contact);
       
       this.appendChatModal();
@@ -21191,6 +21359,7 @@ class ImportContactsModal {
           address: networkAddress,
           username: validation.username,
           messages: [],
+          reactions: [],
           timestamp: 0,
           unread: 0,
           hasAvatar: false,
