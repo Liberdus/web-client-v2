@@ -6025,7 +6025,7 @@ function getLatestChatReactionActivity(contact) {
  * @param {Object} contact
  * @returns {void}
  */
-function syncChatReactionPreview(chatAddress, contact) {
+function syncChatLatestActivityTimestamp(chatAddress, contact) {
   const latestMessage = contact.messages[0];
   if (!latestMessage) return;
 
@@ -6257,7 +6257,7 @@ async function processChats(chats, keys) {
                       return reaction.targetTxid === messageToDelete.txid && reaction.sender === from;
                     }).length;
                     purgeContactReactionsForTarget(contact, messageToDelete.txid);
-                    syncChatReactionPreview(from, contact);
+                    syncChatLatestActivityTimestamp(from, contact);
                     didChangeReactionPreview = true;
                     if (!inActiveChatWithSender && removedIncomingReactionCount > 0) {
                       nextReactionUnread = Math.max(0, nextReactionUnread - removedIncomingReactionCount);
@@ -6297,7 +6297,7 @@ async function processChats(chats, keys) {
                         messageToEdit.message = newText;
                         messageToEdit.edited = 1;
                         messageToEdit.edited_timestamp = tx.timestamp;
-                        syncChatReactionPreview(from, contact);
+                        syncChatLatestActivityTimestamp(from, contact);
                         // Also update wallet history entry memo if present
                         if (myData?.wallet?.history && Array.isArray(myData.wallet.history)) {
                           const hIdx = myData.wallet.history.findIndex((h) => h.txid === txidToEdit);
@@ -6685,7 +6685,7 @@ async function processChats(chats, keys) {
         for (const pendingReaction of pendingReactionControls) {
           if (applyIncomingReaction(contact, pendingReaction)) {
             didApplyPendingReaction = true;
-            syncChatReactionPreview(from, contact);
+            syncChatLatestActivityTimestamp(from, contact);
             didChangeReactionPreview = true;
             touchedReactionTargetTxids.add(pendingReaction.reactId);
             if (pendingReaction.sender === from && !inActiveChatWithSender) {
@@ -17869,7 +17869,7 @@ class ChatModal {
     }
     const didApplyLocally = applyIncomingReaction(contact, localReaction);
     if (didApplyLocally) {
-      syncChatReactionPreview(currentAddress, contact);
+      syncChatLatestActivityTimestamp(currentAddress, contact);
       if (chatsScreen.isActive()) {
         chatsScreen.updateChatList();
       }
@@ -18242,7 +18242,7 @@ class ChatModal {
       this.purgeThumbnail(message.xattach);
       delete message.xattach;
       purgeContactReactionsForTarget(contact, message.txid);
-      syncChatReactionPreview(this.address, contact);
+      syncChatLatestActivityTimestamp(this.address, contact);
       
       this.appendChatModal();
       if (shouldRefreshCallsUi) {
