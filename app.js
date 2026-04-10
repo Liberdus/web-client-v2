@@ -6371,14 +6371,12 @@ async function processChats(chats, keys) {
                     reactNativeApp.sendCancelScheduledCall(contact?.username, Number(messageToDelete.callTime));
                   }
                   if (didDeleteMessage) {
-                    const removedIncomingReactionCount = getContactReactionsForTarget(contact, messageToDelete.txid).filter((reaction) => {
-                      return reaction.targetTxid === messageToDelete.txid && reaction.sender === from;
-                    }).length;
+                    const hadIncomingEffectiveReaction = !!getEffectiveReactionForSenderTarget(contact, messageToDelete.txid, from);
                     purgeContactReactionsForTarget(contact, messageToDelete.txid);
                     syncChatLatestActivityTimestamp(from, contact);
                     didChangeReactionPreview = true;
-                    if (!inActiveChatWithSender && removedIncomingReactionCount > 0) {
-                      nextReactionUnread = Math.max(0, nextReactionUnread - removedIncomingReactionCount);
+                    if (!inActiveChatWithSender && hadIncomingEffectiveReaction) {
+                      nextReactionUnread = Math.max(0, nextReactionUnread - 1);
                     }
                   }
                   if (didDeleteMessage && messageToDelete.type === 'call' && shouldRefreshUpcomingCallsUiForCallTime(messageToDelete.callTime)) {
