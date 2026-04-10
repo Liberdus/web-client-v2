@@ -5874,7 +5874,7 @@ function getEffectiveReactionForSenderTarget(contact, targetTxid, sender) {
  */
 function getContactReactionsForTarget(contact, targetTxid) {
   const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
-  const seenSenders = new Set();
+  const seen = new Set();
   const effectiveReactions = [];
 
   for (const reaction of reactions) {
@@ -5883,11 +5883,11 @@ function getContactReactionsForTarget(contact, targetTxid) {
     }
 
     const senderKey = normalizeAddress(reaction.sender);
-    if (seenSenders.has(senderKey)) {
+    if (seen.has(senderKey)) {
       continue;
     }
 
-    seenSenders.add(senderKey);
+    seen.add(senderKey);
     effectiveReactions.push(reaction);
   }
 
@@ -5954,13 +5954,13 @@ function purgeContactReactionsForTarget(contact, targetTxid) {
  * Applies an optimistic outgoing reaction set while keeping the prior reaction as fallback.
  * @param {Object} contact
  * @param {Extract<ReactionUpdate, { action: 'set' }>} reaction
- * @returns {{ didApply: boolean, previousReaction: Object | null }}
+ * @returns {{ didApply: false } | { didApply: true, previousReactionTxId: string | null }}
  */
 function applyOptimisticReactionSet(contact, reaction) {
   const targetMessage = contact.messages.find((message) => message.txid === reaction.reactId);
   if (!targetMessage || isDeleted(targetMessage)) {
     console.warn('Reaction target not found locally', reaction);
-    return { didApply: false, previousReaction: null };
+    return { didApply: false };
   }
 
   if (!Array.isArray(contact.reactions)) {
@@ -5972,12 +5972,15 @@ function applyOptimisticReactionSet(contact, reaction) {
   const emoji = reaction.emoji.trim();
 
   if (reaction.reactionTxId && contact.reactions.some((entry) => entry.reactionTxId === reaction.reactionTxId)) {
-    return { didApply: false, previousReaction };
+    return { didApply: false };
   }
 
   if (previousReaction && previousReaction.emoji === emoji) {
-    return { didApply: false, previousReaction };
+    return { didApply: false };
   }
+
+  const previousReactionTxId = previousReaction ? previousReaction.reactionTxId : null;
+  assert(previousReaction === null || previousReactionTxId, 'Previous reaction txid is required');
 
   insertSorted(contact.reactions, {
     sender,
@@ -5986,7 +5989,7 @@ function applyOptimisticReactionSet(contact, reaction) {
     timestamp: reaction.timestamp,
     reactionTxId: reaction.reactionTxId
   }, 'timestamp');
-  return { didApply: true, previousReaction };
+  return { didApply: true, previousReactionTxId };
 }
 
 /**
@@ -6084,13 +6087,13 @@ function getReactionTargetPreviewText(message) {
 function getLatestChatReactionActivity(contact) {
   const currentUserAddress = normalizeAddress(myAccount.keys.address);
   const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
-  const seenReactionKeys = new Set();
+  const seen = new Set();
   for (const reaction of reactions) {
     const reactionKey = `${reaction.targetTxid}:${normalizeAddress(reaction.sender)}`;
-    if (seenReactionKeys.has(reactionKey)) {
+    if (seen.has(reactionKey)) {
       continue;
     }
-    seenReactionKeys.add(reactionKey);
+    seen.add(reactionKey);
 
     const targetMessage = contact.messages.find((message) => message.txid === reaction.targetTxid);
     if (!targetMessage || isDeleted(targetMessage)) {
@@ -17006,13 +17009,13 @@ class ChatModal {
 
     const reactionsByTargetTxid = new Map();
     const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
-    const seenReactionKeys = new Set();
+    const seen = new Set();
     for (const reaction of reactions) {
       const reactionKey = `${reaction.targetTxid}:${normalizeAddress(reaction.sender)}`;
-      if (seenReactionKeys.has(reactionKey)) {
+      if (seen.has(reactionKey)) {
         continue;
       }
-      seenReactionKeys.add(reactionKey);
+      seen.add(reactionKey);
 
       const current = reactionsByTargetTxid.get(reaction.targetTxid) || [];
       current.push(reaction);
@@ -18045,13 +18048,12 @@ class ChatModal {
         timestamp: payload.sent_timestamp,
         reactionTxId: txid
       };
-      const { didApply: didApplyLocally, previousReaction } = applyOptimisticReactionSet(contact, localReaction);
-      if (didApplyLocally) {
-        assert(!previousReaction || previousReaction.reactionTxId, 'Previous reaction txid is required');
+      const optimisticApply = applyOptimisticReactionSet(contact, localReaction);
+      if (optimisticApply.didApply) {
         reactionPendingState = {
           action: 'set',
           targetTxid: reaction.reactId,
-          previousReactionTxId: previousReaction ? previousReaction.reactionTxId : null
+          previousReactionTxId: optimisticApply.previousReactionTxId
         };
         syncReactionUiState(currentAddress, contact, reaction.reactId);
       } else {
