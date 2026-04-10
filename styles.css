@@ -1869,12 +1869,13 @@ input[type='file'].form-control::file-selector-button {
 
 .messages-container {
   overflow-y: auto;
-  padding: 1rem 1rem 0;
+  padding: 1rem 1rem var(--chat-reaction-sheet-space, 0px);
   display: flex;
   flex-direction: column;
   flex: 1;
   overscroll-behavior: contain; /* stop scroll chaining to modal/body */
   touch-action: pan-y; /* allow vertical panning only */
+  transition: padding-bottom 0.2s ease-out;
 }
 
 .message-input-container {
@@ -1886,6 +1887,170 @@ input[type='file'].form-control::file-selector-button {
   flex-direction: column; /* Change to column layout */
   width: 100%;
   pointer-events: none; /* Make the container itself non-interactive */
+}
+
+.chat-reaction-sheet-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: flex-end;
+  justify-content: stretch;
+  background: rgba(15, 23, 42, 0.22);
+  z-index: var(--overlay-z-index-high);
+}
+
+.chat-reaction-sheet-overlay.active {
+  display: flex;
+}
+
+.chat-reaction-sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: min(62%, calc(100% - 56px));
+  padding: 10px 14px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  border-radius: 22px 22px 0 0;
+  background: var(--background-color);
+  box-shadow: 0 -12px 36px rgba(15, 23, 42, 0.2);
+  overflow: hidden;
+  --chat-reaction-sheet-base-offset: 100%;
+  --chat-reaction-sheet-drag-offset: 0px;
+  transform: translateY(calc(var(--chat-reaction-sheet-base-offset) + var(--chat-reaction-sheet-drag-offset)));
+  transition: transform 0.2s ease-out;
+  will-change: transform;
+}
+
+.chat-reaction-sheet-overlay.active .chat-reaction-sheet {
+  --chat-reaction-sheet-base-offset: 0px;
+}
+
+.chat-reaction-sheet.dragging {
+  transition: none;
+}
+
+.chat-reaction-sheet-drag-region {
+  flex: 0 0 auto;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.chat-reaction-sheet-handle {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.16);
+  margin: 0 auto 12px;
+}
+
+.chat-reaction-sheet-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.chat-reaction-sheet-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color);
+}
+
+.chat-reaction-sheet-close {
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-color);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.chat-reaction-sheet-tabs {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 2px 6px;
+  margin: 0 -2px 12px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chat-reaction-sheet-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.chat-reaction-sheet-tab {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-color);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.chat-reaction-sheet-tab:hover {
+  background: rgba(61, 61, 206, 0.08);
+  transform: translateY(-1px);
+}
+
+.chat-reaction-sheet-tab.active,
+.chat-reaction-sheet-tab[aria-pressed="true"] {
+  background: rgba(61, 61, 206, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(61, 61, 206, 0.24);
+}
+
+.chat-reaction-sheet-tab-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.chat-reaction-sheet-tab-label {
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+}
+
+.chat-reaction-sheet-grid {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 2px;
+  padding-bottom: 2px;
+}
+
+.chat-reaction-sheet .chat-reaction-sheet-button {
+  width: 100%;
+  height: 46px;
+  border-radius: 14px;
+  font-size: 24px;
+  background: var(--surface-muted);
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.chat-reaction-sheet .chat-reaction-sheet-button:hover {
+  background: rgba(61, 61, 206, 0.08);
+  transform: translateY(-1px);
+}
+
+.chat-reaction-sheet .chat-reaction-sheet-button.active,
+.chat-reaction-sheet .chat-reaction-sheet-button[aria-pressed="true"] {
+  background: rgba(61, 61, 206, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(61, 61, 206, 0.24);
 }
 
 .message-input-row {
