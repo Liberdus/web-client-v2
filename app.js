@@ -6022,7 +6022,6 @@ function applyIncomingReaction(contact, reaction) {
       if (reaction.reactionTxId && contact.reactions.some((entry) => entry.reactionTxId === reaction.reactionTxId)) {
         return false;
       }
-
       if (currentReaction && currentReaction.emoji === emoji) {
         return false;
       }
@@ -6359,6 +6358,7 @@ async function processChats(chats, keys) {
                     continue; // ignore delete control messages for missing txid
                   }
                   const unreadIncomingMessageCount = Math.max(0, contact.unread || 0);
+                  // check if the message is unread and not in the active chat and not a payment
                   const wasUnreadIncomingMessage = unreadIncomingMessageCount > 0
                     && !messageToDelete.my
                     && !inActiveChatWithSender
