@@ -13543,6 +13543,10 @@ class ChatModal {
     // Expanded emoji picker state
     this.reactionSheetTargetMessage = null;
     this.reactionSheetActiveCategory = CHAT_REACTION_SHEET_DEFAULT_CATEGORY;
+    this.reactionSheetDragging = false;
+    this.reactionSheetDragStartY = 0;
+    this.reactionSheetDragOffset = 0;
+    this.reactionSheetDragPointerId = null;
     
     // Drag and drop state
     this.dragCounter = 0;
@@ -13702,10 +13706,12 @@ class ChatModal {
       this.modal.insertAdjacentHTML('beforeend', `
         <div class="chat-reaction-sheet-overlay" id="chatReactionSheetOverlay" aria-hidden="true">
           <div class="chat-reaction-sheet" id="chatReactionSheet" role="dialog" aria-label="Choose a reaction">
-            <div class="chat-reaction-sheet-handle" aria-hidden="true"></div>
-            <div class="chat-reaction-sheet-header">
-              <div class="chat-reaction-sheet-title">Choose reaction</div>
-              <button class="chat-reaction-sheet-close" id="closeChatReactionSheet" type="button" aria-label="Close reaction picker">Close</button>
+            <div class="chat-reaction-sheet-drag-region" id="chatReactionSheetDragRegion">
+              <div class="chat-reaction-sheet-handle" aria-hidden="true"></div>
+              <div class="chat-reaction-sheet-header">
+                <div class="chat-reaction-sheet-title">Choose reaction</div>
+                <button class="chat-reaction-sheet-close" id="closeChatReactionSheet" type="button" aria-label="Close reaction picker">Close</button>
+              </div>
             </div>
             <div class="chat-reaction-sheet-tabs" id="chatReactionSheetTabs" aria-label="Emoji categories"></div>
             <div class="chat-reaction-sheet-grid" id="chatReactionSheetGrid" aria-label="Emoji reactions"></div>
@@ -13717,6 +13723,8 @@ class ChatModal {
 
     this.reactionSheetOverlay = overlay;
     this.reactionSheet = document.getElementById('chatReactionSheet');
+    this.reactionSheetDragRegion = document.getElementById('chatReactionSheetDragRegion');
+    this.reactionSheetHandle = this.reactionSheet?.querySelector('.chat-reaction-sheet-handle') || null;
     this.reactionSheetTabs = document.getElementById('chatReactionSheetTabs');
     this.reactionSheetGrid = document.getElementById('chatReactionSheetGrid');
     this.closeReactionSheetButton = document.getElementById('closeChatReactionSheet');
@@ -13786,6 +13794,9 @@ class ChatModal {
     `).join('');
     this.reactionSheetGrid.scrollTop = 0;
     this.syncReactionPickerActiveState(this.reactionSheetGrid, this.reactionSheetTargetMessage);
+    if (this.reactionSheetOverlay?.classList.contains('active')) {
+      requestAnimationFrame(() => this.updateReactionSheetViewport(this.reactionSheetTargetMessage));
+    }
   }
 
   /**
@@ -14008,6 +14019,16 @@ class ChatModal {
     }
     if (this.closeReactionSheetButton) {
       this.closeReactionSheetButton.addEventListener('click', () => this.closeReactionSheet());
+    }
+    if (this.reactionSheetDragRegion) {
+      this.reactionSheetDragRegion.addEventListener('pointerdown', this.handleReactionSheetDragStart.bind(this));
+      this.reactionSheetDragRegion.addEventListener('pointermove', this.handleReactionSheetDragMove.bind(this));
+      this.reactionSheetDragRegion.addEventListener('pointerup', this.handleReactionSheetDragEnd.bind(this));
+      this.reactionSheetDragRegion.addEventListener('pointercancel', this.handleReactionSheetDragEnd.bind(this));
+      this.reactionSheetDragRegion.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
     }
     if (this.reactionSheetTabs) {
       this.reactionSheetTabs.addEventListener('click', (e) => {
@@ -17104,9 +17125,119 @@ class ChatModal {
     this.closeReactionSheet();
   }
 
+  /**
+   * Reserves vertical space for the reaction sheet and keeps the target message visible.
+   * @param {HTMLElement | null} messageEl
+   * @returns {void}
+   */
+  updateReactionSheetViewport(messageEl = this.reactionSheetTargetMessage) {
+    if (!this.modal || !this.messagesContainer || !this.reactionSheetOverlay || !this.reactionSheet) {
+      return;
+    }
+
+    const isOpen = this.reactionSheetOverlay.classList.contains('active');
+    if (!isOpen) {
+      this.modal.style.setProperty('--chat-reaction-sheet-space', '0px');
+      return;
+    }
+
+    const sheetHeight = Math.ceil(this.reactionSheet.getBoundingClientRect().height || 0);
+    const reservedSpace = Math.max(sheetHeight + 12, 0);
+    this.modal.style.setProperty('--chat-reaction-sheet-space', `${reservedSpace}px`);
+
+    if (!messageEl) return;
+
+    const containerRect = this.messagesContainer.getBoundingClientRect();
+    const messageRect = messageEl.getBoundingClientRect();
+    const sheetRect = this.reactionSheet.getBoundingClientRect();
+    const visibleTop = containerRect.top + 12;
+    const visibleBottom = Math.min(containerRect.bottom, sheetRect.top) - 16;
+
+    if (messageRect.bottom > visibleBottom) {
+      this.messagesContainer.scrollTop += messageRect.bottom - visibleBottom;
+    } else if (messageRect.top < visibleTop) {
+      this.messagesContainer.scrollTop -= visibleTop - messageRect.top;
+    }
+  }
+
+  /**
+   * Resets the reaction sheet drag state and transform offset.
+   * @returns {void}
+   */
+  resetReactionSheetDragState() {
+    this.reactionSheetDragging = false;
+    this.reactionSheetDragStartY = 0;
+    this.reactionSheetDragOffset = 0;
+    this.reactionSheetDragPointerId = null;
+    if (this.reactionSheet) {
+      this.reactionSheet.classList.remove('dragging');
+      this.reactionSheet.style.removeProperty('--chat-reaction-sheet-drag-offset');
+    }
+  }
+
+  /**
+   * Begins dragging the reaction sheet downward from its handle.
+   * @param {PointerEvent} event
+   * @returns {void}
+   */
+  handleReactionSheetDragStart(event) {
+    if (!this.reactionSheetOverlay?.classList.contains('active')) return;
+    if (event.button !== undefined && event.button !== 0) return;
+    if (event.target?.closest?.('.chat-reaction-sheet-close')) return;
+
+    event.stopPropagation();
+    this.reactionSheetDragging = true;
+    this.reactionSheetDragStartY = event.clientY;
+    this.reactionSheetDragOffset = 0;
+    this.reactionSheetDragPointerId = event.pointerId;
+    this.reactionSheet?.classList.add('dragging');
+    this.reactionSheetDragRegion?.setPointerCapture?.(event.pointerId);
+    event.preventDefault();
+  }
+
+  /**
+   * Updates the reaction sheet drag offset as the pointer moves.
+   * @param {PointerEvent} event
+   * @returns {void}
+   */
+  handleReactionSheetDragMove(event) {
+    if (!this.reactionSheetDragging || event.pointerId !== this.reactionSheetDragPointerId || !this.reactionSheet) {
+      return;
+    }
+
+    event.stopPropagation();
+    const offset = Math.max(0, event.clientY - this.reactionSheetDragStartY);
+    this.reactionSheetDragOffset = offset;
+    this.reactionSheet.style.setProperty('--chat-reaction-sheet-drag-offset', `${offset}px`);
+    event.preventDefault();
+  }
+
+  /**
+   * Ends a reaction sheet drag and either closes or snaps the sheet back open.
+   * @param {PointerEvent} event
+   * @returns {void}
+   */
+  handleReactionSheetDragEnd(event) {
+    if (!this.reactionSheetDragging || event.pointerId !== this.reactionSheetDragPointerId || !this.reactionSheet) {
+      return;
+    }
+
+    event.stopPropagation();
+    this.reactionSheetDragRegion?.releasePointerCapture?.(event.pointerId);
+    const closeThreshold = Math.min(Math.max(this.reactionSheet.offsetHeight * 0.28, 80), 180);
+    const shouldClose = this.reactionSheetDragOffset >= closeThreshold;
+
+    this.resetReactionSheetDragState();
+    if (shouldClose) {
+      this.closeReactionSheet();
+      return;
+    }
+  }
+
   openReactionSheet(messageEl) {
     if (!this.reactionSheetOverlay || !messageEl) return;
 
+    this.resetReactionSheetDragState();
     this.reactionSheetTargetMessage = messageEl;
     const currentReaction = this.getCurrentUserReactionForMessage(messageEl);
     const reactionCategoryKey = this.getReactionSheetCategoryKeyForEmoji(currentReaction);
@@ -17117,14 +17248,19 @@ class ChatModal {
     this.setReactionSheetCategory(this.reactionSheetActiveCategory);
     this.reactionSheetOverlay.classList.add('active');
     this.reactionSheetOverlay.setAttribute('aria-hidden', 'false');
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => this.updateReactionSheetViewport(messageEl));
+    });
   }
 
   closeReactionSheet() {
     if (!this.reactionSheetOverlay) return;
 
+    this.resetReactionSheetDragState();
     this.reactionSheetOverlay.classList.remove('active');
     this.reactionSheetOverlay.setAttribute('aria-hidden', 'true');
     this.syncReactionPickerActiveState(this.reactionSheetGrid, null);
+    this.updateReactionSheetViewport(null);
     this.reactionSheetTargetMessage = null;
   }
 
