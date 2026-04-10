@@ -6326,7 +6326,7 @@ async function processChats(chats, keys) {
                     && !messageToDelete.my
                     && !inActiveChatWithSender
                     && contact.messages
-                      .filter((message) => !message.my && !isDeleted(message))
+                      .filter((message) => !message.my && !isDeleted(message) && typeof message.amount !== 'bigint')
                       .slice(0, unreadIncomingMessageCount)
                       .some((message) => message.txid === messageToDelete.txid);
                   let didDeleteMessage = false;
