@@ -6307,6 +6307,14 @@ async function processChats(chats, keys) {
                   if (!messageToDelete) {
                     continue; // ignore delete control messages for missing txid
                   }
+                  const unreadIncomingMessageCount = Math.max(0, contact.unread || 0);
+                  const wasUnreadIncomingMessage = unreadIncomingMessageCount > 0
+                    && !messageToDelete.my
+                    && !inActiveChatWithSender
+                    && contact.messages
+                      .filter((message) => !message.my && !isDeleted(message))
+                      .slice(0, unreadIncomingMessageCount)
+                      .some((message) => message.txid === messageToDelete.txid);
                   let didDeleteMessage = false;
                   
                   // Only allow deletion if the sender of this delete tx is the same who sent the original message
@@ -6375,6 +6383,9 @@ async function processChats(chats, keys) {
                     purgeContactReactionsForTarget(contact, messageToDelete.txid);
                     syncChatLatestActivityTimestamp(from, contact);
                     didChangeReactionPreview = true;
+                    if (wasUnreadIncomingMessage) {
+                      contact.unread = Math.max(0, unreadIncomingMessageCount - 1);
+                    }
                     if (!inActiveChatWithSender && hadIncomingEffectiveReaction) {
                       nextReactionUnread = Math.max(0, nextReactionUnread - 1);
                     }
