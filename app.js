@@ -6831,6 +6831,9 @@ async function processChats(chats, keys) {
             syncChatLatestActivityTimestamp(from, contact);
             didChangeReactionPreview = true;
             touchedReactionTargetTxids.add(pendingReaction.reactId);
+            if (pendingReaction.sender === from && (!inActiveChatWithSender || document.visibilityState === 'hidden')) {
+              playChatSound();
+            }
             if (pendingReaction.sender === from && !inActiveChatWithSender) {
               if (pendingReaction.action === 'set') {
                 nextReactionUnread += 1;
