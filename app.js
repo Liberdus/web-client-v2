@@ -1551,8 +1551,8 @@ class ChatsScreen {
       // In chat list don't show people that are blocked
       if (Number(contact?.friend) === 0) continue;
 
-      const latestActivity = getLatestChatMessageActivity(contact);
-      // If there's no latest activity (no messages), skip this chat item
+      const latestActivity = getLatestChatMessageActivity(contact) || contact.messages[0];
+      // If there's no latest activity (no messages at all), skip this chat item
       if (!latestActivity) continue;
 
       chatItems.push({ chat, contact, latestActivity });
