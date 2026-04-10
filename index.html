@@ -1221,6 +1221,19 @@
             <input type="file" id="chatFilesInput" style="display:none;">
           </div>
         </div>
+        <div class="chat-reaction-sheet-overlay" id="chatReactionSheetOverlay" aria-hidden="true">
+          <div class="chat-reaction-sheet" id="chatReactionSheet" role="dialog" aria-label="Choose a reaction">
+            <div class="chat-reaction-sheet-drag-region" id="chatReactionSheetDragRegion">
+              <div class="chat-reaction-sheet-handle" aria-hidden="true"></div>
+              <div class="chat-reaction-sheet-header">
+                <div class="chat-reaction-sheet-title">Choose reaction</div>
+                <button class="chat-reaction-sheet-close" id="closeChatReactionSheet" type="button" aria-label="Close reaction picker">Close</button>
+              </div>
+            </div>
+            <div class="chat-reaction-sheet-tabs" id="chatReactionSheetTabs" aria-label="Emoji categories"></div>
+            <div class="chat-reaction-sheet-grid" id="chatReactionSheetGrid" aria-label="Emoji reactions"></div>
+          </div>
+        </div>
         <a class="last-item" href="#"> </a>
       </div>
 
