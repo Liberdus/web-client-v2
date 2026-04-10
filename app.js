@@ -18065,11 +18065,14 @@ class ChatModal {
     if (!response?.result?.success) {
       console.error('reaction message failed to send', response);
       if (reactionPendingState) {
-        reconcilePendingReactionSet({
+        const didRevert = reconcilePendingReactionSet({
           txid,
           to: currentAddress,
           reactionPending: reactionPendingState
         }, 'failure');
+        if (didRevert) {
+          showToast('Reaction failed to send and was reverted', 0, 'error');
+        }
         saveState();
       }
       return false;
@@ -27033,7 +27036,10 @@ async function checkPendingTransactions() {
       //console.log(`DEBUG: txid ${txid} res: ${JSON.stringify(res)}`);
       if (submittedts < thirtySecondsAgo && (res.transaction === null || Object.keys(res.transaction).length === 0)) {
         console.error(`DEBUG: txid ${txid} timed out, removing completely`);
-        reconcilePendingReactionSet(pendingTxInfo, 'failure');
+        const didRevert = reconcilePendingReactionSet(pendingTxInfo, 'failure');
+        if (didRevert) {
+          showToast('Reaction timed out and was reverted', 0, 'error');
+        }
         // remove the pending tx from the pending array
         myData.pending.splice(i, 1);
         continue;
@@ -27103,8 +27109,10 @@ async function checkPendingTransactions() {
         } else {
           // Show toast notification with the failure reason
           if (pendingTxInfo.reactionPending) {
-            reconcilePendingReactionSet(pendingTxInfo, 'failure');
-            showToast(userFailureReason, 0, 'error');
+            const didRevert = reconcilePendingReactionSet(pendingTxInfo, 'failure');
+            showToast(didRevert
+              ? `Reaction failed and was reverted: ${userFailureReason}`
+              : userFailureReason, 0, 'error');
           } else if (type === 'withdraw_stake') {
             showToast(`Unstake failed: ${userFailureReason}`, 0, 'error');
           } else if (type === 'deposit_stake') {
