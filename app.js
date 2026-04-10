@@ -1551,7 +1551,7 @@ class ChatsScreen {
       // In chat list don't show people that are blocked
       if (Number(contact?.friend) === 0) continue;
 
-      const latestActivity = contact.messages && contact.messages.length > 0 ? contact.messages[0] : null;
+      const latestActivity = getLatestChatMessageActivity(contact);
       // If there's no latest activity (no messages), skip this chat item
       if (!latestActivity) continue;
 
@@ -1582,9 +1582,6 @@ class ChatsScreen {
         const reactionTarget = reactionPreview.target;
         const reactionText = `${reactionActor} reacted ${reactionPreview.emoji} to "${reactionTarget}"`;
         previewHTML = truncateMessage(escapeHtml(reactionText), 50);
-      } else if (isDeleted(latestActivity)) {
-        // Check if the latest activity is a payment/transfer message
-        previewHTML = `<span><i>${escapeHtml(getDeletedPlaceholderText(latestActivity))}</i></span>`;
       } else if (typeof latestActivity.amount === 'bigint') {
         // Latest item is a payment/transfer
         const amountStr = parseFloat(big2str(latestActivity.amount, 18)).toFixed(6);
@@ -6076,13 +6073,30 @@ function getLatestChatReactionActivity(contact) {
 }
 
 /**
+ * Returns the newest non-deleted message for chat-list activity purposes.
+ * @param {Object} contact
+ * @returns {Object|null}
+ */
+function getLatestChatMessageActivity(contact) {
+  const messages = Array.isArray(contact.messages) ? contact.messages : [];
+
+  for (const message of messages) {
+    if (!isDeleted(message)) {
+      return message;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Recomputes the chat-list timestamp from the current message and reaction state.
  * @param {string} chatAddress
  * @param {Object} contact
  * @returns {void}
  */
 function syncChatLatestActivityTimestamp(chatAddress, contact) {
-  const latestMessage = contact.messages[0];
+  const latestMessage = getLatestChatMessageActivity(contact);
   if (!latestMessage) return;
 
   const latestReaction = getLatestChatReactionActivity(contact);
