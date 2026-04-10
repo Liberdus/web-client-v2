@@ -5837,7 +5837,7 @@ async function ensureContactKeys(address) {
 }
 
 /**
- * @typedef {{ sender: string, reactId: string, action: 'remove', timestamp: number, reactionTxId?: string } | { sender: string, reactId: string, action: 'set', emoji: string, timestamp: number, reactionTxId?: string, keepFallback?: boolean }} ReactionUpdate
+ * @typedef {{ sender: string, reactId: string, action: 'remove', timestamp: number, reactionTxId?: string } | { sender: string, reactId: string, action: 'set', emoji: string, timestamp: number, reactionTxId?: string }} ReactionUpdate
  */
 
 /**
@@ -5951,6 +5951,45 @@ function purgeContactReactionsForTarget(contact, targetTxid) {
 }
 
 /**
+ * Applies an optimistic outgoing reaction set while keeping the prior reaction as fallback.
+ * @param {Object} contact
+ * @param {Extract<ReactionUpdate, { action: 'set' }>} reaction
+ * @returns {{ didApply: boolean, previousReaction: Object | null }}
+ */
+function applyOptimisticReactionSet(contact, reaction) {
+  const targetMessage = contact.messages.find((message) => message.txid === reaction.reactId);
+  if (!targetMessage || isDeleted(targetMessage)) {
+    console.warn('Reaction target not found locally', reaction);
+    return { didApply: false, previousReaction: null };
+  }
+
+  if (!Array.isArray(contact.reactions)) {
+    contact.reactions = [];
+  }
+
+  const sender = normalizeAddress(reaction.sender);
+  const previousReaction = getEffectiveReactionForSenderTarget(contact, reaction.reactId, sender);
+  const emoji = reaction.emoji.trim();
+
+  if (reaction.reactionTxId && contact.reactions.some((entry) => entry.reactionTxId === reaction.reactionTxId)) {
+    return { didApply: false, previousReaction };
+  }
+
+  if (previousReaction && previousReaction.emoji === emoji) {
+    return { didApply: false, previousReaction };
+  }
+
+  insertSorted(contact.reactions, {
+    sender,
+    targetTxid: reaction.reactId,
+    emoji,
+    timestamp: reaction.timestamp,
+    reactionTxId: reaction.reactionTxId
+  }, 'timestamp');
+  return { didApply: true, previousReaction };
+}
+
+/**
  * Applies a reaction control message to the contact-level active reaction state.
  * @param {Object} contact
  * @param {ReactionUpdate} reaction
@@ -5979,6 +6018,7 @@ function applyIncomingReaction(contact, reaction) {
 
     case 'set': {
       const emoji = reaction.emoji.trim();
+      // don't allow duplicate reactions
       if (reaction.reactionTxId && contact.reactions.some((entry) => entry.reactionTxId === reaction.reactionTxId)) {
         return false;
       }
@@ -5986,10 +6026,7 @@ function applyIncomingReaction(contact, reaction) {
       if (currentReaction && currentReaction.emoji === emoji) {
         return false;
       }
-
-      if (!reaction.keepFallback) {
-        purgeReactionStackForSenderTarget(contact, reaction.reactId, sender);
-      }
+      purgeReactionStackForSenderTarget(contact, reaction.reactId, sender);
 
       insertSorted(contact.reactions, {
         sender,
@@ -18000,19 +18037,17 @@ class ChatModal {
     if (reaction.reactAction === 'set') {
       const sender = normalizeAddress(keys.address);
       assert(payload.sent_timestamp, 'Reaction sent_timestamp is required');
-      const previousReaction = getEffectiveReactionForSenderTarget(contact, reaction.reactId, sender);
-      assert(!previousReaction || previousReaction.reactionTxId, 'Previous reaction txid is required');
       const localReaction = {
         sender,
         reactId: reaction.reactId,
         action: 'set',
         emoji: reaction.reactMessage,
         timestamp: payload.sent_timestamp,
-        reactionTxId: txid,
-        keepFallback: true
+        reactionTxId: txid
       };
-      const didApplyLocally = applyIncomingReaction(contact, localReaction);
+      const { didApply: didApplyLocally, previousReaction } = applyOptimisticReactionSet(contact, localReaction);
       if (didApplyLocally) {
+        assert(!previousReaction || previousReaction.reactionTxId, 'Previous reaction txid is required');
         reactionPendingState = {
           action: 'set',
           targetTxid: reaction.reactId,
