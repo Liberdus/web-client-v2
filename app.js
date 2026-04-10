@@ -5703,9 +5703,6 @@ async function updateAssetPricesIfNeeded() {
 }
 
 async function queryNetwork(url, abortSignal = null) {
-  if (window.__reactionTest?.queryNetworkOverride) {
-    return window.__reactionTest.queryNetworkOverride(url, abortSignal);
-  }
   //console.log('queryNetwork', url)
   if (!isOnline) {
     console.warn('QueryNetwork: not online');
@@ -7292,9 +7289,6 @@ async function refreshNetworkParamsOnTxFeeMismatch(reason) {
  * @returns {Promise<Object>} The response from the injectTx call
  */
 async function injectTx(tx, txid) {
-  if (window.__reactionTest?.injectTxOverride) {
-    return window.__reactionTest.injectTxOverride(tx, txid);
-  }
   if (!isOnline) {
     return null;
   }
@@ -19844,35 +19838,6 @@ class ChatModal {
 }
 
 const chatModal = new ChatModal();
-
-function exposeReactionTestingHelpers() {
-  Object.defineProperties(window, {
-    myData: {
-      get: () => myData,
-      configurable: true
-    },
-    myAccount: {
-      get: () => myAccount,
-      configurable: true
-    },
-    isOnline: {
-      get: () => isOnline,
-      set: (value) => {
-        isOnline = !!value;
-      },
-      configurable: true
-    }
-  });
-
-  window.chatModal = chatModal;
-  window.checkPendingTransactions = (...args) => checkPendingTransactions(...args);
-  window.__reactionTest = window.__reactionTest || {
-    injectTxOverride: null,
-    queryNetworkOverride: null
-  };
-}
-
-exposeReactionTestingHelpers();
 
 class CallInviteModal {
   constructor() {
