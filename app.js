@@ -13698,7 +13698,7 @@ class ChatModal {
     this.reactionSheetGrid.scrollTop = 0;
     this.syncReactionPickerActiveState(this.reactionSheetGrid, this.reactionSheetTargetMessage);
     if (this.reactionSheetOverlay?.classList.contains('active')) {
-      requestAnimationFrame(() => this.updateReactionSheetViewport(this.reactionSheetTargetMessage));
+      requestAnimationFrame(() => this.updateReactionSheetViewport());
     }
   }
 
@@ -13831,12 +13831,6 @@ class ChatModal {
     this.reactionSheetTabs = document.getElementById('chatReactionSheetTabs');
     this.reactionSheetGrid = document.getElementById('chatReactionSheetGrid');
     this.closeReactionSheetButton = document.getElementById('closeChatReactionSheet');
-    assert(this.reactionSheetOverlay, 'chatReactionSheetOverlay is required');
-    assert(this.reactionSheet, 'chatReactionSheet is required');
-    assert(this.reactionSheetDragRegion, 'chatReactionSheetDragRegion is required');
-    assert(this.reactionSheetTabs, 'chatReactionSheetTabs is required');
-    assert(this.reactionSheetGrid, 'chatReactionSheetGrid is required');
-    assert(this.closeReactionSheetButton, 'closeChatReactionSheet is required');
     this.renderReactionSheetTabs();
     this.setReactionSheetCategory(this.reactionSheetActiveCategory);
     
@@ -17034,11 +17028,10 @@ class ChatModal {
   }
 
   /**
-   * Reserves vertical space for the reaction sheet and keeps the target message visible.
-   * @param {HTMLElement | null} messageEl
+   * Reserves vertical space for the reaction sheet while it is open.
    * @returns {void}
    */
-  updateReactionSheetViewport(messageEl = this.reactionSheetTargetMessage) {
+  updateReactionSheetViewport() {
     const isOpen = this.reactionSheetOverlay.classList.contains('active');
     if (!isOpen) {
       this.modal.style.setProperty('--chat-reaction-sheet-space', '0px');
@@ -17048,20 +17041,6 @@ class ChatModal {
     const sheetHeight = Math.ceil(this.reactionSheet.getBoundingClientRect().height || 0);
     const reservedSpace = Math.max(sheetHeight + 12, 0);
     this.modal.style.setProperty('--chat-reaction-sheet-space', `${reservedSpace}px`);
-
-    if (!messageEl) return;
-
-    const containerRect = this.messagesContainer.getBoundingClientRect();
-    const messageRect = messageEl.getBoundingClientRect();
-    const sheetRect = this.reactionSheet.getBoundingClientRect();
-    const visibleTop = containerRect.top + 12;
-    const visibleBottom = Math.min(containerRect.bottom, sheetRect.top) - 16;
-
-    if (messageRect.bottom > visibleBottom) {
-      this.messagesContainer.scrollTop += messageRect.bottom - visibleBottom;
-    } else if (messageRect.top < visibleTop) {
-      this.messagesContainer.scrollTop -= visibleTop - messageRect.top;
-    }
   }
 
   /**
@@ -17143,7 +17122,7 @@ class ChatModal {
     this.reactionSheetOverlay.classList.add('active');
     this.reactionSheetOverlay.setAttribute('aria-hidden', 'false');
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => this.updateReactionSheetViewport(messageEl));
+      requestAnimationFrame(() => this.updateReactionSheetViewport());
     });
   }
 
@@ -17151,10 +17130,13 @@ class ChatModal {
     if (!this.reactionSheetOverlay) return;
 
     this.resetReactionSheetDragState();
+    if (this.reactionSheetOverlay.contains(document.activeElement)) {
+      this.closeButton.focus({ preventScroll: true });
+    }
     this.reactionSheetOverlay.classList.remove('active');
     this.reactionSheetOverlay.setAttribute('aria-hidden', 'true');
     this.syncReactionPickerActiveState(this.reactionSheetGrid, null);
-    this.updateReactionSheetViewport(null);
+    this.updateReactionSheetViewport();
     this.reactionSheetTargetMessage = null;
   }
 
