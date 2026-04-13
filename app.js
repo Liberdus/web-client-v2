@@ -5844,7 +5844,7 @@ async function ensureContactKeys(address) {
  */
 
 /**
- * @typedef {{ action: 'set', targetTxid: string, previousReactionTxId: string | null }} PendingReactionSet
+ * @typedef {{ targetTxid: string, previousReactionTxId: string | null }} PendingReactionSet
  */
 
 /**
@@ -6189,7 +6189,6 @@ function reconcilePendingReactionSet(pendingTxInfo, result) {
 
   /** @type {PendingReactionSet} */
   const { reactionPending } = pendingTxInfo;
-  assert(reactionPending.action === 'set', `Unknown pending reaction action: ${reactionPending.action}`);
 
   const contact = myData.contacts[pendingTxInfo.to];
   assert(contact, `Missing contact for pending reaction: ${pendingTxInfo.to}`);
@@ -13661,8 +13660,6 @@ class ChatModal {
    * @returns {void}
    */
   renderReactionSheetTabs() {
-    if (!this.reactionSheetTabs) return;
-
     this.reactionSheetTabs.innerHTML = CHAT_REACTION_SHEET_CATEGORIES.map((category) => {
       const isActive = category.key === this.reactionSheetActiveCategory;
       return `
@@ -13690,14 +13687,12 @@ class ChatModal {
     this.reactionSheetActiveCategory = category.key;
     this.renderReactionSheetTabs();
 
-    if (!this.reactionSheetGrid) return;
-
     this.reactionSheetGrid.innerHTML = category.emojis.map((emoji) => `
       <button class="chat-reaction-sheet-button message-context-reaction-button" type="button" data-emoji="${emoji}" aria-label="React with ${emoji}">${emoji}</button>
     `).join('');
     this.reactionSheetGrid.scrollTop = 0;
     this.syncReactionPickerActiveState(this.reactionSheetGrid, this.reactionSheetTargetMessage);
-    if (this.reactionSheetOverlay?.classList.contains('active')) {
+    if (this.reactionSheetOverlay.classList.contains('active')) {
       requestAnimationFrame(() => this.updateReactionSheetViewport());
     }
   }
@@ -17113,10 +17108,7 @@ class ChatModal {
     this.resetReactionSheetDragState();
     this.reactionSheetTargetMessage = messageEl;
     const currentReaction = this.getCurrentUserReactionForMessage(messageEl);
-    const reactionCategoryKey = this.getReactionSheetCategoryKeyForEmoji(currentReaction);
-    if (reactionCategoryKey) {
-      this.reactionSheetActiveCategory = reactionCategoryKey;
-    }
+    this.reactionSheetActiveCategory = this.getReactionSheetCategoryKeyForEmoji(currentReaction) || CHAT_REACTION_SHEET_DEFAULT_CATEGORY;
 
     this.setReactionSheetCategory(this.reactionSheetActiveCategory);
     this.reactionSheetOverlay.classList.add('active');
@@ -17127,8 +17119,6 @@ class ChatModal {
   }
 
   closeReactionSheet() {
-    if (!this.reactionSheetOverlay) return;
-
     this.resetReactionSheetDragState();
     if (this.reactionSheetOverlay.contains(document.activeElement)) {
       this.closeButton.focus({ preventScroll: true });
@@ -18166,18 +18156,10 @@ class ChatModal {
     if (!reactionButton) return;
     if (!messageEl) return;
 
-    const txid = messageEl.dataset.txid;
-    assert(txid, 'Reaction target txid is required');
     const isMorePickerTrigger = reactionButton.dataset.reactionPickerTrigger === 'true';
     const selectedReaction = isMorePickerTrigger
       ? '+'
       : (reactionButton.dataset.emoji || reactionButton.textContent || '').trim();
-    const currentReaction = this.getCurrentUserReactionForMessage(messageEl);
-
-    console.log('Reaction picker pressed', {
-      reaction: selectedReaction,
-      txid
-    });
 
     if (isMorePickerTrigger) {
       closeMenu();
@@ -18197,7 +18179,7 @@ class ChatModal {
    */
   async submitReactionSelection(messageEl, selectedReaction, closeUi) {
     if (!messageEl || !selectedReaction) return;
-    if (typeof closeUi !== 'function') return;
+    assert(typeof closeUi === 'function', 'Reaction close callback is required');
 
     const txid = messageEl.dataset.txid;
     assert(txid, 'Reaction target txid is required');
@@ -18322,7 +18304,6 @@ class ChatModal {
       const optimisticApply = applyOptimisticReactionSet(contact, localReaction);
       if (optimisticApply.didApply) {
         reactionPendingState = {
-          action: 'set',
           targetTxid: reaction.reactId,
           previousReactionTxId: optimisticApply.previousReactionTxId
         };
