@@ -1969,13 +1969,25 @@ input[type='file'].form-control::file-selector-button {
   cursor: pointer;
 }
 
-.chat-reaction-sheet-tabs {
-  flex: 0 0 auto;
+.chat-reaction-sheet-body {
   display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 12px;
+}
+
+.chat-reaction-sheet-tabs {
+  flex: 0 0 48px;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  overflow-x: auto;
-  padding: 0 2px 6px;
-  margin: 0 -2px 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 2px;
+  margin: 0;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
@@ -1986,17 +1998,17 @@ input[type='file'].form-control::file-selector-button {
 
 .chat-reaction-sheet-tab {
   flex: 0 0 auto;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 38px;
-  padding: 8px 12px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--surface-muted);
+  justify-content: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.55);
   color: var(--text-color);
   cursor: pointer;
-  white-space: nowrap;
   transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
@@ -2007,19 +2019,29 @@ input[type='file'].form-control::file-selector-button {
 
 .chat-reaction-sheet-tab.active,
 .chat-reaction-sheet-tab[aria-pressed="true"] {
-  background: rgba(61, 61, 206, 0.14);
-  box-shadow: inset 0 0 0 1px rgba(61, 61, 206, 0.24);
+  background: rgba(61, 61, 206, 0.12);
+  border-color: rgba(61, 61, 206, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(61, 61, 206, 0.18);
 }
 
 .chat-reaction-sheet-tab-icon {
-  font-size: 18px;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #475569;
+  transition: transform 0.15s ease;
 }
 
-.chat-reaction-sheet-tab-label {
-  font-size: 13px;
-  font-weight: var(--font-weight-medium);
-  line-height: 1;
+.chat-reaction-sheet-tab-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.chat-reaction-sheet-tab.active .chat-reaction-sheet-tab-icon,
+.chat-reaction-sheet-tab[aria-pressed="true"] .chat-reaction-sheet-tab-icon {
+  transform: scale(1.04);
 }
 
 .chat-reaction-sheet-grid {
@@ -2038,18 +2060,16 @@ input[type='file'].form-control::file-selector-button {
   height: 46px;
   border-radius: 14px;
   font-size: 24px;
-  background: var(--surface-muted);
-  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  background: transparent;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .chat-reaction-sheet .chat-reaction-sheet-button:hover {
-  background: rgba(61, 61, 206, 0.08);
   transform: translateY(-1px);
 }
 
 .chat-reaction-sheet .chat-reaction-sheet-button.active,
 .chat-reaction-sheet .chat-reaction-sheet-button[aria-pressed="true"] {
-  background: rgba(61, 61, 206, 0.14);
   box-shadow: inset 0 0 0 1px rgba(61, 61, 206, 0.24);
 }
 
