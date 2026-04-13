@@ -23,7 +23,6 @@ TV TW TZ UA UG US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW
 export const CHAT_REACTION_SHEET_CATEGORIES = [
   {
     key: 'smileys',
-    icon: '😀',
     label: 'Smileys',
     emojis: emojiWords(`
 😀 😃 😄 😁 😆 😅 😂 🤣 🥲 ☺️ 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😝 😜 🤪 🤨 🧐 🤓 😎 🥸 🤩 🥳 🙂
@@ -32,7 +31,6 @@ export const CHAT_REACTION_SHEET_CATEGORIES = [
   },
   {
     key: 'people',
-    icon: '👍',
     label: 'People',
     emojis: emojiWords(`
 👋 🤚 🖐️ ✋ 🖖 🫱 🫲 🫳 🫴 🫷 🫸 👌 🤌 🤏 ✌️ 🤞 🫰 🤟 🤘 🤙 👈 👉 👆 🖕 👇 ☝️ 🫵 👍 👎 ✊ 👊 🤛 🤜 👏 🙌 👐 🤲 🙏 ✍️ 💅 🤳 💪 🦾 🦿 🦵 🦶 👂 🦻 👃 🧠 🫀 🫁 🦷 🦴 👀 👁️ 👅 👄 🫦
@@ -41,7 +39,6 @@ export const CHAT_REACTION_SHEET_CATEGORIES = [
   },
   {
     key: 'nature',
-    icon: '🐶',
     label: 'Nature',
     emojis: emojiWords(`
 🐵 🐒 🦍 🦧 🐶 🐕 🦮 🐕‍🦺 🐩 🐺 🦊 🦝 🐱 🐈 🐈‍⬛ 🦁 🐯 🐅 🐆 🐴 🫎 🫏 🐎 🦄 🦓 🦌 🦬 🐮 🐂 🐃 🐄 🐷 🐖 🐗 🐽 🐏 🐑 🐐 🐪 🐫 🦙 🦒 🐘 🦣 🦏 🦛 🐭 🐁 🐀 🐹 🐰 🐇 🐿️ 🦫 🦔 🦇 🐻 🐻‍❄️ 🐨 🐼 🦥 🦦 🦨 🦘 🦡
@@ -53,7 +50,6 @@ export const CHAT_REACTION_SHEET_CATEGORIES = [
   },
   {
     key: 'food',
-    icon: '🍕',
     label: 'Food',
     emojis: emojiWords(`
 🍏 🍎 🍐 🍊 🍋 🍋‍🟩 🍌 🍉 🍇 🍓 🫐 🍈 🍒 🍑 🥭 🍍 🥥 🥝 🍅 🍆 🥑 🫛 🥦 🥬 🥒 🌶️ 🫑 🌽 🥕 🫒 🧄 🧅 🥔 🍠 🫚 🥐 🥯 🍞 🥖 🥨 🧀 🥚 🍳 🧈 🥞 🧇 🥓 🥩 🍗 🍖 🦴 🌭 🍔 🍟 🍕 🫓 🥪 🥙 🧆 🌮 🌯 🫔 🥗 🥘 🫕 🥫 🍝 🍜 🍲 🍛 🍣 🍱 🥟 🦪 🍤 🍙 🍚 🍘 🍥 🥠 🥮 🍢 🍡 🍧 🍨 🍦 🥧 🧁 🍰 🎂 🍮 🍭 🍬 🍫 🍿 🍩 🍪 🌰 🥜 🍯 🍼 🥛 ☕ 🫖 🍵 🧃 🥤 🧋 🍶 🍺 🍻 🥂 🍷 🫗 🥃 🍸 🍹 🧉 🍾 🧊 🥢 🍽️ 🍴 🥄 🔪
@@ -61,7 +57,6 @@ export const CHAT_REACTION_SHEET_CATEGORIES = [
   },
   {
     key: 'activity',
-    icon: '⚽',
     label: 'Activity',
     emojis: emojiWords(`
 ⚽ 🏀 🏈 ⚾ 🥎 🎾 🏐 🏉 🥏 🎱 🪀 🏓 🏸 🏒 🏑 🥍 🏏 🪃 🥅 ⛳ 🪁 🏹 🎣 🤿 🥊 🥋 🎽 🛹 🛼 🛷 ⛸️ 🥌 🎿 ⛷️ 🏂 🪂 🏋️ 🤼 🤸 ⛹️ 🤺 🤾 🏌️ 🏇 🧘 🏄 🏊 🤽 🚣 🚴 🚵
@@ -73,7 +68,6 @@ export const CHAT_REACTION_SHEET_CATEGORIES = [
   },
   {
     key: 'travel',
-    icon: '🚗',
     label: 'Travel',
     emojis: emojiWords(`
 🚗 🚕 🚙 🚌 🚎 🏎️ 🚓 🚑 🚒 🚐 🛻 🚚 🚛 🚜 🦯 🦽 🦼 🛴 🚲 🛵 🏍️ 🛺 🚨 🚔 🚍 🚘 🚖
@@ -86,7 +80,6 @@ export const CHAT_REACTION_SHEET_CATEGORIES = [
   },
   {
     key: 'objects',
-    icon: '💡',
     label: 'Objects',
     emojis: emojiWords(`
 ⌚ 📱 📲 💻 ⌨️ 🖥️ 🖨️ 🖱️ 🖲️ 💽 💾 💿 📀 🧮 🎥 🎞️ 📽️ 🎬 📺 📷 📸 📹 📼 🔍 🔎 🕯️ 💡 🔦 🏮 🪔
@@ -99,7 +92,6 @@ export const CHAT_REACTION_SHEET_CATEGORIES = [
   },
   {
     key: 'symbols',
-    icon: '❤️',
     label: 'Symbols',
     emojis: emojiWords(`
 ❤️ 🩷 🧡 💛 💚 💙 🩵 💜 🤎 🖤 🩶 🤍 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 💟 ♥️ ♦️ ♣️ ♠️
@@ -119,7 +111,6 @@ export const CHAT_REACTION_SHEET_CATEGORIES = [
   },
   {
     key: 'flags',
-    icon: '🏳️',
     label: 'Flags',
     emojis: [
       ...emojiWords('🏁 🚩 🎌 🏴 🏳️ 🏳️‍🌈 🏳️‍⚧️ 🏴‍☠️ 🇪🇺 🇺🇳'),

@@ -13646,7 +13646,7 @@ class ChatModal {
   /**
    * Returns the active reaction sheet category config.
    * @param {string} categoryKey
-   * @returns {{key: string, icon: string, label: string, emojis: string[]}}
+   * @returns {{key: string, label: string, emojis: string[]}}
    */
   getReactionSheetCategory(categoryKey) {
     const category = CHAT_REACTION_SHEET_CATEGORY_MAP.get(categoryKey);
@@ -17049,9 +17049,8 @@ class ChatModal {
       return;
     }
 
-    const sheetHeight = Math.ceil(this.reactionSheet.getBoundingClientRect().height || 0);
-    const reservedSpace = Math.max(sheetHeight + 12, 0);
-    this.modal.style.setProperty('--chat-reaction-sheet-space', `${reservedSpace}px`);
+    const sheetHeight = Math.ceil(this.reactionSheet.getBoundingClientRect().height);
+    this.modal.style.setProperty('--chat-reaction-sheet-space', `${sheetHeight + 12}px`);
   }
 
   /**
@@ -17124,9 +17123,8 @@ class ChatModal {
     this.resetReactionSheetDragState();
     this.reactionSheetTargetMessage = messageEl;
     const currentReaction = this.getCurrentUserReactionForMessage(messageEl);
-    this.reactionSheetActiveCategory = this.getReactionSheetCategoryKeyForEmoji(currentReaction) || CHAT_REACTION_SHEET_DEFAULT_CATEGORY;
-
-    this.setReactionSheetCategory(this.reactionSheetActiveCategory);
+    const categoryKey = this.getReactionSheetCategoryKeyForEmoji(currentReaction) || CHAT_REACTION_SHEET_DEFAULT_CATEGORY;
+    this.setReactionSheetCategory(categoryKey);
     this.reactionSheetOverlay.classList.add('active');
     this.reactionSheetOverlay.setAttribute('aria-hidden', 'false');
     requestAnimationFrame(() => {
@@ -18172,17 +18170,13 @@ class ChatModal {
     if (!reactionButton) return;
     if (!messageEl) return;
 
-    const isMorePickerTrigger = reactionButton.dataset.reactionPickerTrigger === 'true';
-    const selectedReaction = isMorePickerTrigger
-      ? '+'
-      : (reactionButton.dataset.emoji || reactionButton.textContent || '').trim();
-
-    if (isMorePickerTrigger) {
+    if (reactionButton.dataset.reactionPickerTrigger === 'true') {
       closeMenu();
       this.openReactionSheet(messageEl);
       return;
     }
 
+    const selectedReaction = (reactionButton.dataset.emoji || reactionButton.textContent || '').trim();
     await this.submitReactionSelection(messageEl, selectedReaction, closeMenu);
   }
 
