@@ -14021,6 +14021,10 @@ class ChatModal {
         /* console.log('⌨️ Keyboard detected as closed (viewport height difference:', heightDifference, 'px)'); */
         this.unlockBackgroundScroll();
       }
+
+      if (this.reactionSheetOverlay.classList.contains('active')) {
+        requestAnimationFrame(() => this.updateReactionSheetViewport());
+      }
     });
 
     // Add focus event listener for message input to handle scrolling
