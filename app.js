@@ -38,6 +38,7 @@ async function checkVersion() {
       'app.js',
       'dao.repo.js',
       'dao.mock-data.js',
+      'data/emoji-picker-data.js',
       'lib.js',
       'network.js',
       'crypto.js',
@@ -134,6 +135,8 @@ import {
   normalizeUnsignedFloat,
   EthNum,
 } from './lib.js';
+
+import { CHAT_REACTION_SHEET_CATEGORIES } from './data/emoji-picker-data.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
@@ -13431,63 +13434,6 @@ class StakeValidatorModal {
   }
 }
 const stakeValidatorModal = new StakeValidatorModal();
-
-const CHAT_REACTION_SHEET_CATEGORIES = [
-  {
-    key: 'smileys',
-    icon: '😀',
-    label: 'Smileys',
-    emojis: '😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😝 😜 🤪 🤨 🧐 🤓 😎 🥳 😏 😒 😞 😔 😟 😕 🙁 ☹️ 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤗 🤔 🤭 🤫 🤥 😶 🫠 😴 🤤'.split(' ')
-  },
-  {
-    key: 'people',
-    icon: '👍',
-    label: 'People',
-    emojis: '👍 👎 👊 ✊ 🤛 🤜 👏 🙌 👐 🤲 🙏 ✍️ 💅 🤳 💪 🦾 🖐️ ✋ 👌 🤌 🤏 ✌️ 🤞 🫰 🤟 🤘 🤙 👈 👉 👆 🖕 👇 ☝️ 🫵 🫱 🫲 🤝 🙋 🙆 🙅 🤷 🤦 🙇 💁 🙎 🙍'.split(' ')
-  },
-  {
-    key: 'nature',
-    icon: '🐶',
-    label: 'Nature',
-    emojis: '🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🙈 🙉 🙊 🐔 🐧 🐦 🐤 🦆 🦅 🦉 🦇 🐺 🐗 🐴 🦄 🐝 🦋 🐌 🐞 🐢 🐍 🦎 🦖 🐙 🦑 🐠 🐬 🐳 🌸 🌹 🌺 🌻 🌼 🌷 🌱 🌿 🍀 🌲 🌳 🌴 🌵 🌾 🍄'.split(' ')
-  },
-  {
-    key: 'food',
-    icon: '🍕',
-    label: 'Food',
-    emojis: '🍎 🍊 🍋 🍌 🍉 🍇 🍓 🫐 🍒 🍑 🥭 🍍 🥥 🥑 🍅 🥕 🌽 🌶️ 🥔 🍕 🍔 🍟 🌭 🌮 🌯 🥪 🥗 🍝 🍜 🍣 🍩 🍪 🎂 🍰 🍫 🍿 ☕ 🍵 🍺 🍷 🥂'.split(' ')
-  },
-  {
-    key: 'activity',
-    icon: '⚽',
-    label: 'Activity',
-    emojis: '⚽ 🏀 🏈 ⚾ 🎾 🏐 🏉 🎱 🏓 🏸 🥊 🥋 🎯 ⛳ 🪁 🎣 🤿 🎽 🛹 🛷 ⛸️ 🥌 🎿 🏂 🏋️ 🤸 ⛹️ 🤾 🏌️ 🏇 🧘 ♟️ 🎮 🕹️ 🎲 🧩 🎨 🎭 🎬 🎤 🎧 🎼 🎹 🥁'.split(' ')
-  },
-  {
-    key: 'travel',
-    icon: '🚗',
-    label: 'Travel',
-    emojis: '🚗 🚕 🚙 🚌 🚎 🏎️ 🚓 🚑 🚒 🚐 🛻 🚚 🚛 🚜 🛵 🚲 🛴 ✈️ 🚀 🚁 🚤 ⛵ 🛶 🚢 🚉 🚆 🚇 🚊 🚠 🗺️ 🧭 🏖️ 🏝️ 🏔️ 🗽 🗼 🏰 🌋 ⛺ 🌌 🌃 🌆 🌉'.split(' ')
-  },
-  {
-    key: 'objects',
-    icon: '💡',
-    label: 'Objects',
-    emojis: '📱 💻 🖥️ ⌨️ 🖱️ 🖨️ 📷 📸 🎥 📺 📻 🎙️ 🎧 ⏰ ⌚ 💡 🔦 🕯️ 🔋 🔌 💰 💎 🧸 🎁 🔒 🔑 🧰 🪛 🔨 ⚙️ 🧲 🧪 💊 🩹 🧻 📚 📎 ✂️ 🖊️ 📝 📦 🪞'.split(' ')
-  },
-  {
-    key: 'symbols',
-    icon: '❤️',
-    label: 'Symbols',
-    emojis: '❤️ 🩷 🧡 💛 💚 💙 🩵 💜 🤍 🖤 🤎 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 ✨ ⭐ 🌟 💫 🔥 💯 ✅ ❌ ❗ ❓ ⚠️ 🔔 🎵 ♾️ ☮️ ✝️ ☪️ ☯️ ☢️ ☣️ ⬆️ ⬇️ ⬅️ ➡️'.split(' ')
-  },
-  {
-    key: 'flags',
-    icon: '🏳️',
-    label: 'Flags',
-    emojis: '🏳️ 🏴 🏁 🚩 🏳️‍🌈 🏳️‍⚧️ 🇺🇸 🇨🇦 🇲🇽 🇧🇷 🇦🇷 🇬🇧 🇫🇷 🇩🇪 🇮🇹 🇪🇸 🇵🇹 🇺🇦 🇯🇵 🇰🇷 🇨🇳 🇹🇼 🇮🇳 🇦🇺 🇳🇿 🇿🇦 🇳🇬 🇪🇬 🇹🇷 🇸🇦 🇦🇪'.split(' ')
-  }
-];
 
 const CHAT_REACTION_SHEET_CATEGORY_MAP = new Map(
   CHAT_REACTION_SHEET_CATEGORIES.map((category) => [category.key, category])
