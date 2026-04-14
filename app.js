@@ -14674,8 +14674,8 @@ class ChatModal {
 
   /**
    * Returns the latest outbound chat activity timestamp used for reclaim gating.
-   * This treats edits as recent outbound activity by considering edited timestamps
-   * on locally stored sent messages in addition to original send timestamps.
+   * This includes sent messages, edits, and outgoing reactions because the server
+   * treats any outbound message tx as reclaim-resetting activity.
    * @param {string} contactAddress
    * @returns {number}
    */
@@ -14684,6 +14684,7 @@ class ChatModal {
     assert(contact, `Missing contact for reclaim lookup: ${contactAddress}`);
 
     let latestTimestamp = 0;
+    const myAddress = normalizeAddress(myAccount.keys.address);
 
     for (const message of contact.messages) {
       if (!message.my) {
@@ -14694,6 +14695,16 @@ class ChatModal {
       const latestMessageTimestamp = Math.max(sentTimestamp, message.edited_timestamp || 0);
       if (latestMessageTimestamp > latestTimestamp) {
         latestTimestamp = latestMessageTimestamp;
+      }
+    }
+
+    for (const reaction of contact.reactions) {
+      if (normalizeAddress(reaction.sender) !== myAddress) {
+        continue;
+      }
+
+      if (reaction.timestamp > latestTimestamp) {
+        latestTimestamp = reaction.timestamp;
       }
     }
 
