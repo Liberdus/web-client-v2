@@ -3221,6 +3221,7 @@ function createNewContact(addr, username, friendStatus = 1, tolledDepositToastSh
   c.tollRequiredToSend = 1;
   c.friend = friendStatus;
   c.friendOld = friendStatus;
+  c.latestOutboundMessageTxTimestamp = 0;
   c.tolledDepositToastShown = tolledDepositToastShown;
 }
 
@@ -6320,6 +6321,7 @@ async function processChats(chats, keys) {
             payload.sent_timestamp = tx.timestamp;
           }
           if (mine){
+            trackLatestOutboundMessageTx(from, payload.sent_timestamp, txidHex);
             // console.warn('my message tx', tx)
           }
           else if (payload.encrypted) {
@@ -7387,6 +7389,10 @@ async function injectTx(tx, txid) {
       }
       myData.pending.push(pendingTxData);
 
+      if (tx.type === 'message') {
+        trackLatestOutboundMessageTx(pendingTxData.to, tx.timestamp, txid);
+      }
+
       if (tx.type !== 'register') {
         // After submitting a transaction, warn if user is low on LIB.
         maybeShowLowLibToast();
@@ -7442,6 +7448,74 @@ function shouldSuppressReclaimFailureToast(failureReason) {
     || reason.includes('user is trying to reclaim toll too soon after sending a message');
 }
 
+/**
+ * Returns the latest visible outbound message activity stored locally for a contact.
+ * This covers sent message bubbles, edits, and active outgoing reactions.
+ * @param {Object} contact
+ * @returns {number}
+ */
+function getLatestVisibleOutboundMessageTxTimestamp(contact) {
+  let latestTimestamp = 0;
+  const myAddress = normalizeAddress(myAccount.keys.address);
+  if (!contact.reactions) {
+    contact.reactions = [];
+  }
+
+  for (const message of contact.messages) {
+    if (!message.my) {
+      continue;
+    }
+
+    const sentTimestamp = message.sent_timestamp || message.timestamp;
+    const latestMessageTimestamp = Math.max(sentTimestamp, message.edited_timestamp || 0);
+    if (latestMessageTimestamp > latestTimestamp) {
+      latestTimestamp = latestMessageTimestamp;
+    }
+  }
+
+  for (const reaction of contact.reactions) {
+    if (normalizeAddress(reaction.sender) !== myAddress) {
+      continue;
+    }
+
+    if (reaction.timestamp > latestTimestamp) {
+      latestTimestamp = reaction.timestamp;
+    }
+  }
+
+  return latestTimestamp;
+}
+
+/**
+ * Tracks the latest outbound top-level chat message tx timestamp for a contact.
+ * If the tx is pending, keep enough metadata to restore the cached value if it later fails.
+ * @param {string} contactAddress
+ * @param {number} timestamp
+ * @param {string} txid
+ * @returns {void}
+ */
+function trackLatestOutboundMessageTx(contactAddress, timestamp, txid) {
+  const contact = myData.contacts[contactAddress];
+  assert(contact, `Missing contact for outbound tx tracking: ${contactAddress}`);
+
+  const nextTimestamp = timestamp;
+  assert(nextTimestamp > 0, 'Outbound tx timestamp is required');
+
+  const previousTimestamp = contact.latestOutboundMessageTxTimestamp || 0;
+  if (nextTimestamp <= previousTimestamp) {
+    return;
+  }
+
+  contact.latestOutboundMessageTxTimestamp = nextTimestamp;
+
+  const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
+  if (!pendingTxInfo) {
+    return;
+  }
+
+  pendingTxInfo.previousLatestOutboundMessageTxTimestamp = previousTimestamp;
+  pendingTxInfo.latestOutboundMessageTxTimestamp = nextTimestamp;
+}
 /**
  * Sign a transaction object and return the transaction ID hash
  * @param {Object} tx - The transaction object to sign
@@ -14682,34 +14756,10 @@ class ChatModal {
   getLatestOutboundActivityTimestamp(contactAddress) {
     const contact = myData.contacts[contactAddress];
     assert(contact, `Missing contact for reclaim lookup: ${contactAddress}`);
-
-    let latestTimestamp = 0;
-    const myAddress = normalizeAddress(myAccount.keys.address);
-    const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
-
-    for (const message of contact.messages) {
-      if (!message.my) {
-        continue;
-      }
-
-      const sentTimestamp = message.sent_timestamp || message.timestamp;
-      const latestMessageTimestamp = Math.max(sentTimestamp, message.edited_timestamp || 0);
-      if (latestMessageTimestamp > latestTimestamp) {
-        latestTimestamp = latestMessageTimestamp;
-      }
-    }
-
-    for (const reaction of reactions) {
-      if (normalizeAddress(reaction.sender) !== myAddress) {
-        continue;
-      }
-
-      if (reaction.timestamp > latestTimestamp) {
-        latestTimestamp = reaction.timestamp;
-      }
-    }
-
-    return latestTimestamp;
+    return Math.max(
+      Number(contact.latestOutboundMessageTxTimestamp || 0),
+      getLatestVisibleOutboundMessageTxTimestamp(contact)
+    );
   }
 
   /**
@@ -21898,6 +21948,7 @@ class ImportContactsModal {
           tollRequiredToSend: 1,
           friend: 2, // Friend status
           friendOld: 2,
+          latestOutboundMessageTxTimestamp: 0,
           tolledDepositToastShown: true,
         };
 
@@ -27435,6 +27486,15 @@ async function checkPendingTransactions() {
           } else if (type === 'deposit_stake') {
             showToast(`Stake failed: ${userFailureReason}`, 0, 'error');
           } else if (type === 'message') {
+            const contact = myData.contacts[pendingTxInfo.to];
+            assert(contact, `Missing contact for failed message tx: ${pendingTxInfo.to}`);
+
+            const failedTimestamp = pendingTxInfo.latestOutboundMessageTxTimestamp || 0;
+            if (failedTimestamp && contact.latestOutboundMessageTxTimestamp === failedTimestamp) {
+              const previousTimestamp = pendingTxInfo.previousLatestOutboundMessageTxTimestamp || 0;
+              const visibleTimestamp = getLatestVisibleOutboundMessageTxTimestamp(contact);
+              contact.latestOutboundMessageTxTimestamp = Math.max(previousTimestamp, visibleTimestamp);
+            }
             if (chatModal.isActive()) {
               await chatModal.reopen();
             }
