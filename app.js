@@ -7437,9 +7437,9 @@ async function injectTx(tx, txid) {
  * @returns {boolean}
  */
 function shouldSuppressReclaimFailureToast(failureReason) {
-  const normalizedReason = String(failureReason || '').toLowerCase();
-  return normalizedReason.includes('user is trying to reclaim toll but the toll pool is empty')
-    || normalizedReason.includes('user is trying to reclaim toll too soon after sending a message');
+  const reason = failureReason.toLowerCase();
+  return reason.includes('user is trying to reclaim toll but the toll pool is empty')
+    || reason.includes('user is trying to reclaim toll too soon after sending a message');
 }
 
 /**
@@ -14677,29 +14677,24 @@ class ChatModal {
    * This treats edits as recent outbound activity by considering edited timestamps
    * on locally stored sent messages in addition to original send timestamps.
    * @param {string} contactAddress
-   * @returns {number|null}
+   * @returns {number}
    */
-  getLatestOutboundActivityTimestamp(contactAddress = this.address) {
+  getLatestOutboundActivityTimestamp(contactAddress) {
     const contact = myData.contacts[contactAddress];
-    const messages = Array.isArray(contact?.messages) ? contact.messages : [];
-    let latestTimestamp = null;
+    assert(contact, `Missing contact for reclaim lookup: ${contactAddress}`);
 
-    for (const message of messages) {
-      if (!message?.my) {
+    let latestTimestamp = 0;
+
+    for (const message of contact.messages) {
+      if (!message.my) {
         continue;
       }
 
-      const baseTimestamp = Number(message.sent_timestamp || message.timestamp || 0);
-      const editedTimestamp = Number(message.edited_timestamp || 0);
-      const candidateTimestamp = Math.max(baseTimestamp, editedTimestamp);
-
-      if (!Number.isFinite(candidateTimestamp) || candidateTimestamp <= 0) {
-        continue;
+      const sentTimestamp = message.sent_timestamp || message.timestamp;
+      const latestMessageTimestamp = Math.max(sentTimestamp, message.edited_timestamp || 0);
+      if (latestMessageTimestamp > latestTimestamp) {
+        latestTimestamp = latestMessageTimestamp;
       }
-
-      latestTimestamp = latestTimestamp === null
-        ? candidateTimestamp
-        : Math.max(latestTimestamp, candidateTimestamp);
     }
 
     return latestTimestamp;
@@ -14717,7 +14712,7 @@ class ChatModal {
     const networkTollTimeoutInMs = parameters.current.tollTimeout;
     const latestOutboundActivityTimestamp = this.getLatestOutboundActivityTimestamp(contactAddress);
     const timeSinceLatestOutboundActivity = currentTime - latestOutboundActivityTimestamp;
-    if (!latestOutboundActivityTimestamp || timeSinceLatestOutboundActivity < networkTollTimeoutInMs) {
+    if (latestOutboundActivityTimestamp === 0 || timeSinceLatestOutboundActivity < networkTollTimeoutInMs) {
       // console.log(
       //   `[sendReclaimTollTransaction] timeSinceLatestOutboundActivity ${timeSinceLatestOutboundActivity}ms is less than networkTollTimeoutInMs ${networkTollTimeoutInMs}ms, skipping reclaim toll transaction`
       // );
