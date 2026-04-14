@@ -6321,7 +6321,7 @@ async function processChats(chats, keys) {
             payload.sent_timestamp = tx.timestamp;
           }
           if (mine){
-            trackLatestOutboundMessageTx(from, payload.sent_timestamp, txidHex);
+            trackLatestOutboundMessageTx(from, tx.timestamp, txidHex);
             // console.warn('my message tx', tx)
           }
           else if (payload.encrypted) {
