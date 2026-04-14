@@ -14685,6 +14685,7 @@ class ChatModal {
 
     let latestTimestamp = 0;
     const myAddress = normalizeAddress(myAccount.keys.address);
+    const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
 
     for (const message of contact.messages) {
       if (!message.my) {
@@ -14698,7 +14699,7 @@ class ChatModal {
       }
     }
 
-    for (const reaction of contact.reactions) {
+    for (const reaction of reactions) {
       if (normalizeAddress(reaction.sender) !== myAddress) {
         continue;
       }
