@@ -7410,7 +7410,9 @@ async function injectTx(tx, txid) {
         timeDifference()
         toastMessage += ' (Please try again)';
       }
-      showToast(toastMessage, 0, feeMismatchStatus.detected ? 'warning' : 'error');
+      if (tx.type !== 'reclaim_toll' || !shouldSuppressReclaimFailureToast(failureReason)) {
+        showToast(toastMessage, 0, feeMismatchStatus.detected ? 'warning' : 'error');
+      }
     }
     return data;
   } catch (error) {
@@ -7432,6 +7434,17 @@ async function injectTx(tx, txid) {
       saveState();
     }, 1000);
   }
+}
+
+/**
+ * Returns true when a reclaim-toll failure is expected noise and should not surface a toast.
+ * @param {string} failureReason
+ * @returns {boolean}
+ */
+function shouldSuppressReclaimFailureToast(failureReason) {
+  const reason = failureReason.toLowerCase();
+  return reason.includes('user is trying to reclaim toll but the toll pool is empty')
+    || reason.includes('user is trying to reclaim toll too soon after sending a message');
 }
 
 /**
@@ -14811,19 +14824,32 @@ class ChatModal {
   }
 
   /**
-   * Send a reclaim toll if the newest sent message is older than 7 days and the contact has a value not 0 in payOnReplay or payOnRead
+   * Returns the latest outbound chat activity timestamp used for reclaim gating.
+   * @param {string} contactAddress
+   * @returns {number}
+   */
+  getLatestOutboundActivityTimestamp(contactAddress) {
+    const contact = myData.contacts[contactAddress];
+    assert(contact, `Missing contact for reclaim lookup: ${contactAddress}`);
+    const state = getOutboundMessageTxState(contact);
+    return Math.max(state.timestamp, state.inflightTimestamp);
+  }
+
+  /**
+   * Send a reclaim toll if the latest outbound activity is older than the network toll timeout
    * @param {string} contactAddress - The address of the contact
    * @returns {Promise<void>}
    */
   async sendReclaimTollTransaction(contactAddress) {
     await getNetworkParams();
+    const latestOutboundActivityTimestamp = this.getLatestOutboundActivityTimestamp(contactAddress);
+    if (latestOutboundActivityTimestamp === 0) {
+      return;
+    }
     const currentTime = getCorrectedTimestamp();
-    const networkTollTimeoutInMs = parameters.current.tollTimeout; 
-    const timeSinceNewestSentMessage = currentTime - this.newestSentMessage?.timestamp;
-    if (!this.newestSentMessage || timeSinceNewestSentMessage < networkTollTimeoutInMs) {
-      // console.log(
-      //   `[sendReclaimTollTransaction] timeSinceNewestSentMessage ${timeSinceNewestSentMessage}ms is less than networkTollTimeoutInMs ${networkTollTimeoutInMs}ms, skipping reclaim toll transaction`
-      // );
+    const networkTollTimeoutInMs = parameters.current.tollTimeout;
+    const timeSinceLatestOutboundActivity = currentTime - latestOutboundActivityTimestamp;
+    if (timeSinceLatestOutboundActivity < networkTollTimeoutInMs) {
       return;
     }
     const canReclaimToll = await this.canSenderReclaimToll(contactAddress);
@@ -27571,7 +27597,7 @@ async function checkPendingTransactions() {
             // revert the local myData.contacts[toAddress].timestamp to the old value
             myData.contacts[pendingTxInfo.to].timestamp = pendingTxInfo.oldContactTimestamp;
           } else if (type === 'reclaim_toll') {
-            if (failureReason !== 'user is trying to reclaim toll but the toll pool is empty') {
+            if (!shouldSuppressReclaimFailureToast(failureReason)) {
               showToast(`Reclaim toll failed: ${userFailureReason}`, 0, 'error');
             }
           } else {
