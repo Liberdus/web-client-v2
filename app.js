@@ -7450,19 +7450,27 @@ function shouldSuppressReclaimFailureToast(failureReason) {
 
 /**
  * Returns the latest visible outbound message activity stored locally for a contact.
- * This covers sent message bubbles, edits, and active outgoing reactions.
  * @param {Object} contact
  * @returns {number}
  */
 function getLatestVisibleOutboundMessageTxTimestamp(contact) {
+  return getLatestVisibleOutboundMessageTxTimestampExcept(contact, '');
+}
+
+/**
+ * Returns the latest visible outbound message activity stored locally for a contact,
+ * excluding one failed pending tx.
+ * @param {Object} contact
+ * @param {string} excludedTxid
+ * @returns {number}
+ */
+function getLatestVisibleOutboundMessageTxTimestampExcept(contact, excludedTxid) {
   let latestTimestamp = 0;
   const myAddress = normalizeAddress(myAccount.keys.address);
-  if (!contact.reactions) {
-    contact.reactions = [];
-  }
+  const reactions = contact.reactions || [];
 
   for (const message of contact.messages) {
-    if (!message.my) {
+    if (!message.my || message.txid === excludedTxid) {
       continue;
     }
 
@@ -7473,8 +7481,8 @@ function getLatestVisibleOutboundMessageTxTimestamp(contact) {
     }
   }
 
-  for (const reaction of contact.reactions) {
-    if (normalizeAddress(reaction.sender) !== myAddress) {
+  for (const reaction of reactions) {
+    if (reaction.reactionTxId === excludedTxid || normalizeAddress(reaction.sender) !== myAddress) {
       continue;
     }
 
@@ -7484,6 +7492,25 @@ function getLatestVisibleOutboundMessageTxTimestamp(contact) {
   }
 
   return latestTimestamp;
+}
+
+/**
+ * Restores the cached latest outbound message tx timestamp after a pending message tx fails.
+ * @param {Object} pendingTxInfo
+ * @returns {void}
+ */
+function restoreLatestOutboundMessageTxTimestamp(pendingTxInfo) {
+  const contact = myData.contacts[pendingTxInfo.to];
+  assert(contact, `Missing contact for failed message tx: ${pendingTxInfo.to}`);
+
+  const failedTimestamp = pendingTxInfo.latestOutboundMessageTxTimestamp || 0;
+  if (!failedTimestamp || contact.latestOutboundMessageTxTimestamp !== failedTimestamp) {
+    return;
+  }
+
+  const previousTimestamp = pendingTxInfo.previousLatestOutboundMessageTxTimestamp || 0;
+  const visibleTimestamp = getLatestVisibleOutboundMessageTxTimestampExcept(contact, pendingTxInfo.txid);
+  contact.latestOutboundMessageTxTimestamp = Math.max(previousTimestamp, visibleTimestamp);
 }
 
 /**
@@ -27408,6 +27435,9 @@ async function checkPendingTransactions() {
         if (didRevert) {
           showToast('Reaction timed out and was reverted', 0, 'error');
         }
+        if (type === 'message') {
+          restoreLatestOutboundMessageTxTimestamp(pendingTxInfo);
+        }
         // remove the pending tx from the pending array
         myData.pending.splice(i, 1);
         continue;
@@ -27478,6 +27508,7 @@ async function checkPendingTransactions() {
           // Show toast notification with the failure reason
           if (pendingTxInfo.reactionPending) {
             const didRevert = reconcilePendingReactionSet(pendingTxInfo, 'failure');
+            restoreLatestOutboundMessageTxTimestamp(pendingTxInfo);
             showToast(didRevert
               ? `Reaction failed and was reverted: ${userFailureReason}`
               : userFailureReason, 0, 'error');
@@ -27486,15 +27517,7 @@ async function checkPendingTransactions() {
           } else if (type === 'deposit_stake') {
             showToast(`Stake failed: ${userFailureReason}`, 0, 'error');
           } else if (type === 'message') {
-            const contact = myData.contacts[pendingTxInfo.to];
-            assert(contact, `Missing contact for failed message tx: ${pendingTxInfo.to}`);
-
-            const failedTimestamp = pendingTxInfo.latestOutboundMessageTxTimestamp || 0;
-            if (failedTimestamp && contact.latestOutboundMessageTxTimestamp === failedTimestamp) {
-              const previousTimestamp = pendingTxInfo.previousLatestOutboundMessageTxTimestamp || 0;
-              const visibleTimestamp = getLatestVisibleOutboundMessageTxTimestamp(contact);
-              contact.latestOutboundMessageTxTimestamp = Math.max(previousTimestamp, visibleTimestamp);
-            }
+            restoreLatestOutboundMessageTxTimestamp(pendingTxInfo);
             if (chatModal.isActive()) {
               await chatModal.reopen();
             }
