@@ -7464,7 +7464,7 @@ function getOutboundMessageTxState(contact) {
 }
 
 /**
- * Tracks hidden outbound message tx activity while injectTx is still in flight.
+ * Tracks outbound message tx activity while injectTx is still in flight.
  * @param {string} contactAddress
  * @param {string} txid
  * @param {number} timestamp
@@ -7485,7 +7485,7 @@ function trackInFlightOutboundMessageTx(contactAddress, txid, timestamp) {
 }
 
 /**
- * Clears hidden outbound message tx activity after injectTx finishes.
+ * Clears outbound message tx activity after injectTx finishes.
  * @param {string} contactAddress
  * @param {string} txid
  * @returns {void}
@@ -7500,41 +7500,6 @@ function clearInFlightOutboundMessageTx(contactAddress, txid) {
 
   state.inflightTimestamp = 0;
   state.inflightTxid = '';
-}
-
-/**
- * Returns the latest visible outbound message activity stored locally for a contact.
- * @param {Object} contact
- * @returns {number}
- */
-function getLatestVisibleOutboundMessageTxTimestamp(contact) {
-  let latestTimestamp = 0;
-  const myAddress = normalizeAddress(myAccount.keys.address);
-  const reactions = contact.reactions || [];
-
-  for (const message of contact.messages) {
-    if (!message.my || message.status === 'failed') {
-      continue;
-    }
-
-    const sentTimestamp = message.sent_timestamp || message.timestamp;
-    const latestMessageTimestamp = Math.max(sentTimestamp, message.edited_timestamp || 0);
-    if (latestMessageTimestamp > latestTimestamp) {
-      latestTimestamp = latestMessageTimestamp;
-    }
-  }
-
-  for (const reaction of reactions) {
-    if (normalizeAddress(reaction.sender) !== myAddress) {
-      continue;
-    }
-
-    if (reaction.timestamp > latestTimestamp) {
-      latestTimestamp = reaction.timestamp;
-    }
-  }
-
-  return latestTimestamp;
 }
 
 /**
@@ -14860,8 +14825,6 @@ class ChatModal {
 
   /**
    * Returns the latest outbound chat activity timestamp used for reclaim gating.
-   * This includes sent messages, edits, and outgoing reactions because the server
-   * treats any outbound message tx as reclaim-resetting activity.
    * @param {string} contactAddress
    * @returns {number}
    */
@@ -14869,11 +14832,7 @@ class ChatModal {
     const contact = myData.contacts[contactAddress];
     assert(contact, `Missing contact for reclaim lookup: ${contactAddress}`);
     const state = getOutboundMessageTxState(contact);
-    return Math.max(
-      state.timestamp,
-      state.inflightTimestamp,
-      getLatestVisibleOutboundMessageTxTimestamp(contact)
-    );
+    return Math.max(state.timestamp, state.inflightTimestamp);
   }
 
   /**
@@ -15163,6 +15122,9 @@ class ChatModal {
         this.retryOfTxId.value = '';
       }
 
+      assert(payload.sent_timestamp, 'Message sent_timestamp is required');
+      trackInFlightOutboundMessageTx(currentAddress, txid, payload.sent_timestamp);
+
       // --- Optimistic UI Update ---
       // Create new message object for local display immediately
       let newMessage;
@@ -15270,7 +15232,12 @@ class ChatModal {
 
       //console.log('payload is', payload)
       // Send the message transaction using createChatMessage with default toll of 1
-      const response = await injectTx(chatMessageObj, txid);
+      let response;
+      try {
+        response = await injectTx(chatMessageObj, txid);
+      } finally {
+        clearInFlightOutboundMessageTx(currentAddress, txid);
+      }
 
       if (!response || !response.result || !response.result.success) {
         console.error('message failed to send', response);
@@ -15329,6 +15296,9 @@ class ChatModal {
         }
       }
     } catch (error) {
+      if (txid && currentAddress) {
+        clearInFlightOutboundMessageTx(currentAddress, txid);
+      }
       console.error('Message error:', error);
       showToast('Failed to send message. Please try again.', 0, 'error');
       if (isEdit && originalMsgState) {
@@ -18510,10 +18480,12 @@ class ChatModal {
       reactAction: reaction.reactAction
     });
 
+    assert(payload.sent_timestamp, 'Reaction sent_timestamp is required');
+    trackInFlightOutboundMessageTx(currentAddress, txid, payload.sent_timestamp);
+
     let reactionPendingState = null;
     if (reaction.reactAction === 'set') {
       const sender = normalizeAddress(keys.address);
-      assert(payload.sent_timestamp, 'Reaction sent_timestamp is required');
       const localReaction = {
         sender,
         reactId: reaction.reactId,
@@ -18534,13 +18506,10 @@ class ChatModal {
       }
     }
 
-    if (reaction.reactAction === 'remove') {
-      assert(payload.sent_timestamp, 'Reaction sent_timestamp is required');
-      trackInFlightOutboundMessageTx(currentAddress, txid, payload.sent_timestamp);
-    }
-
-    const response = await injectTx(chatMessageObj, txid);
-    if (reaction.reactAction === 'remove') {
+    let response;
+    try {
+      response = await injectTx(chatMessageObj, txid);
+    } finally {
       clearInFlightOutboundMessageTx(currentAddress, txid);
     }
     if (!response?.result?.success) {
@@ -19274,6 +19243,7 @@ class ChatModal {
    * @returns {Promise<void>}
    */
   async handleCallUser() {
+    let txid = '';
     try {
       // Synchronous eligibility based on cached value fetched on ChatModal open
       const contact = myData.contacts[this.address] || {};
@@ -19430,7 +19400,8 @@ class ChatModal {
       }
 
       await signObj(chatMessageObj, keys);
-      const txid = getTxid(chatMessageObj);
+      txid = getTxid(chatMessageObj);
+      trackInFlightOutboundMessageTx(currentAddress, txid, payload.sent_timestamp);
 
       // Create new message object for local display immediately
       const newMessage = {
@@ -19462,7 +19433,12 @@ class ChatModal {
       this.appendChatModal();
 
       // Send the message transaction
-      const response = await injectTx(chatMessageObj, txid);
+      let response;
+      try {
+        response = await injectTx(chatMessageObj, txid);
+      } finally {
+        clearInFlightOutboundMessageTx(currentAddress, txid);
+      }
 
       if (!response || !response.result || !response.result.success) {
         console.error('call message failed to send', response);
@@ -19478,6 +19454,9 @@ class ChatModal {
       return true;
       
     } catch (error) {
+      if (txid) {
+        clearInFlightOutboundMessageTx(currentAddress, txid);
+      }
       console.error('Call message error:', error);
       showToast('Failed to send call invitation. Please try again.', 0, 'error');
       return false;
@@ -19581,6 +19560,7 @@ class ChatModal {
     const chatMessageObj = await this.createChatMessage(this.address, payload, tollInLib, myAccount.keys);
     await signObj(chatMessageObj, myAccount.keys);
     const txid = getTxid(chatMessageObj);
+    trackInFlightOutboundMessageTx(this.address, txid, payload.sent_timestamp);
 
     // If retrying a failed message, remove the old failed tx from local stores
     const retryTxId = this.retryOfTxId?.value;
@@ -19637,7 +19617,12 @@ class ChatModal {
 
     // Send to network (injectTx may either throw OR return { result: { success:false } })
     try {
-      const response = await injectTx(chatMessageObj, txid);
+      let response;
+      try {
+        response = await injectTx(chatMessageObj, txid);
+      } finally {
+        clearInFlightOutboundMessageTx(this.address, txid);
+      }
 
       if (!response || !response.result || !response.result.success) {
         console.error('voice message failed to send', response);
@@ -20313,6 +20298,7 @@ class CallInviteModal {
         }
         await signObj(messageObj, keys);
         const txid = getTxid(messageObj);
+        trackInFlightOutboundMessageTx(addr, txid, messagePayload.sent_timestamp);
 
         // Create new message object for local display immediately
         const newMessage = {
@@ -20346,7 +20332,12 @@ class CallInviteModal {
         }
 
         // Send the message transaction
-        const response = await injectTx(messageObj, txid);
+        let response;
+        try {
+          response = await injectTx(messageObj, txid);
+        } finally {
+          clearInFlightOutboundMessageTx(addr, txid);
+        }
 
         if (!response || !response.result || !response.result.success) {
           // Refund local reservation when tx broadcast/injection fails.
@@ -20763,6 +20754,7 @@ class ShareAttachmentModal {
         const chatMessageObj = await chatModal.createChatMessage(addr, messagePayload, tollInLib, keys);
         await signObj(chatMessageObj, keys);
         const txid = getTxid(chatMessageObj);
+        trackInFlightOutboundMessageTx(addr, txid, messagePayload.sent_timestamp);
 
         // Create new message object for local display (with encKey in plaintext for our use)
         const newMessage = {
@@ -20802,7 +20794,12 @@ class ShareAttachmentModal {
         }
 
         // Send the message transaction
-        const response = await injectTx(chatMessageObj, txid);
+        let response;
+        try {
+          response = await injectTx(chatMessageObj, txid);
+        } finally {
+          clearInFlightOutboundMessageTx(addr, txid);
+        }
 
         if (!response || !response.result || !response.result.success) {
           // Refund local reservation when tx broadcast/injection fails.
