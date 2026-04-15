@@ -7452,12 +7452,53 @@ function createOutboundMessageTxState() {
 }
 
 /**
+ * Returns the latest visible outbound chat activity timestamp for a contact.
+ * Used to seed outbound message tx state for older saved contacts.
+ * @param {Object} contact
+ * @returns {number}
+ */
+function getLatestVisibleOutboundMessageTxTimestamp(contact) {
+  let latestTimestamp = 0;
+
+  for (const message of contact.messages) {
+    if (!message.my) {
+      continue;
+    }
+
+    const sentTimestamp = message.sent_timestamp || message.timestamp;
+    const messageTimestamp = Math.max(sentTimestamp, message.edited_timestamp || 0);
+    if (messageTimestamp > latestTimestamp) {
+      latestTimestamp = messageTimestamp;
+    }
+  }
+
+  const myAddress = normalizeAddress(myAccount.keys.address);
+  const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
+  for (const reaction of reactions) {
+    if (normalizeAddress(reaction.sender) !== myAddress) {
+      continue;
+    }
+
+    if (reaction.timestamp > latestTimestamp) {
+      latestTimestamp = reaction.timestamp;
+    }
+  }
+
+  return latestTimestamp;
+}
+
+/**
  * Returns the outbound message tx tracking state for a contact.
  * @param {Object} contact
  * @returns {OutboundMessageTxState}
  */
 function getOutboundMessageTxState(contact) {
-  assert(contact.latestOutboundMessageTx, 'Missing outbound message tx state');
+  if (!contact.latestOutboundMessageTx) {
+    const state = createOutboundMessageTxState();
+    state.timestamp = getLatestVisibleOutboundMessageTxTimestamp(contact);
+    contact.latestOutboundMessageTx = state;
+  }
+
   return contact.latestOutboundMessageTx;
 }
 
