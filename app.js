@@ -3221,12 +3221,7 @@ function createNewContact(addr, username, friendStatus = 1, tolledDepositToastSh
   c.tollRequiredToSend = 1;
   c.friend = friendStatus;
   c.friendOld = friendStatus;
-  c.latestOutboundMessageTx = {
-    timestamp: 0,
-    pendingTxid: '',
-    inflightTimestamp: 0,
-    inflightTxid: '',
-  };
+  c.latestOutboundMessageTx = createOutboundMessageTxState();
   c.tolledDepositToastShown = tolledDepositToastShown;
 }
 
@@ -7454,9 +7449,26 @@ function shouldSuppressReclaimFailureToast(failureReason) {
 }
 
 /**
+ * @typedef {{ timestamp: number, pendingTxid: string, inflightTimestamp: number, inflightTxid: string }} OutboundMessageTxState
+ */
+
+/**
+ * Creates the default outbound message tx state for a contact.
+ * @returns {OutboundMessageTxState}
+ */
+function createOutboundMessageTxState() {
+  return {
+    timestamp: 0,
+    pendingTxid: '',
+    inflightTimestamp: 0,
+    inflightTxid: '',
+  };
+}
+
+/**
  * Returns the outbound message tx tracking state for a contact.
  * @param {Object} contact
- * @returns {{ timestamp: number, pendingTxid: string, inflightTimestamp: number, inflightTxid: string }}
+ * @returns {OutboundMessageTxState}
  */
 function getOutboundMessageTxState(contact) {
   assert(contact.latestOutboundMessageTx, 'Missing outbound message tx state');
@@ -7500,6 +7512,23 @@ function clearInFlightOutboundMessageTx(contactAddress, txid) {
 
   state.inflightTimestamp = 0;
   state.inflightTxid = '';
+}
+
+/**
+ * Tracks a message tx while it is being injected, then clears the in-flight state.
+ * @param {string} contactAddress
+ * @param {string} txid
+ * @param {number} timestamp
+ * @param {Object} chatMessageObj
+ * @returns {Promise<Object>}
+ */
+async function injectTrackedOutboundMessageTx(contactAddress, txid, timestamp, chatMessageObj) {
+  trackInFlightOutboundMessageTx(contactAddress, txid, timestamp);
+  try {
+    return await injectTx(chatMessageObj, txid);
+  } finally {
+    clearInFlightOutboundMessageTx(contactAddress, txid);
+  }
 }
 
 /**
@@ -7570,9 +7599,6 @@ function restoreLatestOutboundMessageTxTimestamp(pendingTxInfo) {
  */
 function revertOptimisticEdit(editRollbackInfo) {
   const editedMessageTxid = editRollbackInfo.editedMessageTxid;
-  if (!editedMessageTxid) {
-    return;
-  }
   const originalEditedMessageState = editRollbackInfo.originalEditedMessageState;
   assert(originalEditedMessageState, `Missing original edit state for ${editRollbackInfo.txid}`);
 
@@ -15123,7 +15149,6 @@ class ChatModal {
       }
 
       assert(payload.sent_timestamp, 'Message sent_timestamp is required');
-      trackInFlightOutboundMessageTx(currentAddress, txid, payload.sent_timestamp);
 
       // --- Optimistic UI Update ---
       // Create new message object for local display immediately
@@ -15232,12 +15257,7 @@ class ChatModal {
 
       //console.log('payload is', payload)
       // Send the message transaction using createChatMessage with default toll of 1
-      let response;
-      try {
-        response = await injectTx(chatMessageObj, txid);
-      } finally {
-        clearInFlightOutboundMessageTx(currentAddress, txid);
-      }
+      const response = await injectTrackedOutboundMessageTx(currentAddress, txid, payload.sent_timestamp, chatMessageObj);
 
       if (!response || !response.result || !response.result.success) {
         console.error('message failed to send', response);
@@ -15296,7 +15316,7 @@ class ChatModal {
         }
       }
     } catch (error) {
-      if (txid && currentAddress) {
+      if (txid) {
         clearInFlightOutboundMessageTx(currentAddress, txid);
       }
       console.error('Message error:', error);
@@ -18481,7 +18501,6 @@ class ChatModal {
     });
 
     assert(payload.sent_timestamp, 'Reaction sent_timestamp is required');
-    trackInFlightOutboundMessageTx(currentAddress, txid, payload.sent_timestamp);
 
     let reactionPendingState = null;
     if (reaction.reactAction === 'set') {
@@ -18506,12 +18525,7 @@ class ChatModal {
       }
     }
 
-    let response;
-    try {
-      response = await injectTx(chatMessageObj, txid);
-    } finally {
-      clearInFlightOutboundMessageTx(currentAddress, txid);
-    }
+    const response = await injectTrackedOutboundMessageTx(currentAddress, txid, payload.sent_timestamp, chatMessageObj);
     if (!response?.result?.success) {
       console.error('reaction message failed to send', response);
       if (reactionPendingState) {
@@ -18997,11 +19011,9 @@ class ChatModal {
       const deleteMessageObj = await this.createChatMessage(this.address, payload, tollInLib, keys);
       await signObj(deleteMessageObj, keys);
       deleteTxid = getTxid(deleteMessageObj);
-      trackInFlightOutboundMessageTx(this.address, deleteTxid, payload.sent_timestamp);
 
       // Send the delete transaction
-      const response = await injectTx(deleteMessageObj, deleteTxid);
-      clearInFlightOutboundMessageTx(this.address, deleteTxid);
+      const response = await injectTrackedOutboundMessageTx(this.address, deleteTxid, payload.sent_timestamp, deleteMessageObj);
 
       if (!response || !response.result || !response.result.success) {
         console.error('Delete message failed to send', response);
@@ -19024,7 +19036,7 @@ class ChatModal {
       
     } catch (error) {
       console.error('Delete for all error:', error);
-      if (this.address && deleteTxid) {
+      if (deleteTxid) {
         clearInFlightOutboundMessageTx(this.address, deleteTxid);
       }
       showToast('Failed to delete message. Please try again.', 0, 'error');
@@ -19401,7 +19413,6 @@ class ChatModal {
 
       await signObj(chatMessageObj, keys);
       txid = getTxid(chatMessageObj);
-      trackInFlightOutboundMessageTx(currentAddress, txid, payload.sent_timestamp);
 
       // Create new message object for local display immediately
       const newMessage = {
@@ -19433,12 +19444,7 @@ class ChatModal {
       this.appendChatModal();
 
       // Send the message transaction
-      let response;
-      try {
-        response = await injectTx(chatMessageObj, txid);
-      } finally {
-        clearInFlightOutboundMessageTx(currentAddress, txid);
-      }
+      const response = await injectTrackedOutboundMessageTx(currentAddress, txid, payload.sent_timestamp, chatMessageObj);
 
       if (!response || !response.result || !response.result.success) {
         console.error('call message failed to send', response);
@@ -19560,7 +19566,6 @@ class ChatModal {
     const chatMessageObj = await this.createChatMessage(this.address, payload, tollInLib, myAccount.keys);
     await signObj(chatMessageObj, myAccount.keys);
     const txid = getTxid(chatMessageObj);
-    trackInFlightOutboundMessageTx(this.address, txid, payload.sent_timestamp);
 
     // If retrying a failed message, remove the old failed tx from local stores
     const retryTxId = this.retryOfTxId?.value;
@@ -19617,12 +19622,7 @@ class ChatModal {
 
     // Send to network (injectTx may either throw OR return { result: { success:false } })
     try {
-      let response;
-      try {
-        response = await injectTx(chatMessageObj, txid);
-      } finally {
-        clearInFlightOutboundMessageTx(this.address, txid);
-      }
+      const response = await injectTrackedOutboundMessageTx(this.address, txid, payload.sent_timestamp, chatMessageObj);
 
       if (!response || !response.result || !response.result.success) {
         console.error('voice message failed to send', response);
@@ -20298,7 +20298,6 @@ class CallInviteModal {
         }
         await signObj(messageObj, keys);
         const txid = getTxid(messageObj);
-        trackInFlightOutboundMessageTx(addr, txid, messagePayload.sent_timestamp);
 
         // Create new message object for local display immediately
         const newMessage = {
@@ -20332,12 +20331,7 @@ class CallInviteModal {
         }
 
         // Send the message transaction
-        let response;
-        try {
-          response = await injectTx(messageObj, txid);
-        } finally {
-          clearInFlightOutboundMessageTx(addr, txid);
-        }
+        const response = await injectTrackedOutboundMessageTx(addr, txid, messagePayload.sent_timestamp, messageObj);
 
         if (!response || !response.result || !response.result.success) {
           // Refund local reservation when tx broadcast/injection fails.
@@ -20754,7 +20748,6 @@ class ShareAttachmentModal {
         const chatMessageObj = await chatModal.createChatMessage(addr, messagePayload, tollInLib, keys);
         await signObj(chatMessageObj, keys);
         const txid = getTxid(chatMessageObj);
-        trackInFlightOutboundMessageTx(addr, txid, messagePayload.sent_timestamp);
 
         // Create new message object for local display (with encKey in plaintext for our use)
         const newMessage = {
@@ -20794,12 +20787,7 @@ class ShareAttachmentModal {
         }
 
         // Send the message transaction
-        let response;
-        try {
-          response = await injectTx(chatMessageObj, txid);
-        } finally {
-          clearInFlightOutboundMessageTx(addr, txid);
-        }
+        const response = await injectTrackedOutboundMessageTx(addr, txid, messagePayload.sent_timestamp, chatMessageObj);
 
         if (!response || !response.result || !response.result.success) {
           // Refund local reservation when tx broadcast/injection fails.
@@ -22065,12 +22053,7 @@ class ImportContactsModal {
           tollRequiredToSend: 1,
           friend: 2, // Friend status
           friendOld: 2,
-          latestOutboundMessageTx: {
-            timestamp: 0,
-            pendingTxid: '',
-            inflightTimestamp: 0,
-            inflightTxid: '',
-          },
+          latestOutboundMessageTx: createOutboundMessageTxState(),
           tolledDepositToastShown: true,
         };
 
@@ -27531,7 +27514,9 @@ async function checkPendingTransactions() {
           showToast('Reaction timed out and was reverted', 0, 'error');
         }
         if (type === 'message') {
-          revertOptimisticEdit(pendingTxInfo);
+          if (pendingTxInfo.editedMessageTxid) {
+            revertOptimisticEdit(pendingTxInfo);
+          }
           restoreLatestOutboundMessageTxTimestamp(pendingTxInfo);
           updateTransactionStatus(txid, pendingTxInfo.to, 'failed', type);
           if (chatModal.isActive()) {
@@ -27544,7 +27529,6 @@ async function checkPendingTransactions() {
       }
 
       if (res?.transaction?.success === true) {
-        // comment out to test the pending txs removal logic
         myData.pending.splice(i, 1);
         reconcilePendingReactionSet(pendingTxInfo, 'success');
         if (type === 'message') {
@@ -27625,7 +27609,9 @@ async function checkPendingTransactions() {
           } else if (type === 'deposit_stake') {
             showToast(`Stake failed: ${userFailureReason}`, 0, 'error');
           } else if (type === 'message') {
-            revertOptimisticEdit(pendingTxInfo);
+            if (pendingTxInfo.editedMessageTxid) {
+              revertOptimisticEdit(pendingTxInfo);
+            }
             restoreLatestOutboundMessageTxTimestamp(pendingTxInfo);
             if (chatModal.isActive()) {
               await chatModal.reopen();
