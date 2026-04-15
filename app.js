@@ -7503,6 +7503,62 @@ function getOutboundMessageTxState(contact) {
 }
 
 /**
+ * Tracks outbound message tx activity while injectTx is still in flight.
+ * @param {string} contactAddress
+ * @param {string} txid
+ * @param {number} timestamp
+ * @returns {void}
+ */
+function trackInFlightOutboundMessageTx(contactAddress, txid, timestamp) {
+  const contact = myData.contacts[contactAddress];
+  assert(contact, `Missing contact for outbound in-flight tracking: ${contactAddress}`);
+  assert(timestamp > 0, 'Outbound in-flight tx timestamp is required');
+  const state = getOutboundMessageTxState(contact);
+
+  if (timestamp < state.inflightTimestamp) {
+    return;
+  }
+
+  state.inflightTimestamp = timestamp;
+  state.inflightTxid = txid;
+}
+
+/**
+ * Clears outbound message tx activity after injectTx finishes.
+ * @param {string} contactAddress
+ * @param {string} txid
+ * @returns {void}
+ */
+function clearInFlightOutboundMessageTx(contactAddress, txid) {
+  const contact = myData.contacts[contactAddress];
+  assert(contact, `Missing contact for outbound in-flight tracking: ${contactAddress}`);
+  const state = getOutboundMessageTxState(contact);
+  if (state.inflightTxid !== txid) {
+    return;
+  }
+
+  state.inflightTimestamp = 0;
+  state.inflightTxid = '';
+}
+
+/**
+ * Tracks a message tx while it is being injected, then clears the in-flight state.
+ * @param {string} contactAddress
+ * @param {string} txid
+ * @param {number} timestamp
+ * @param {Object} chatMessageObj
+ * @returns {Promise<Object>}
+ */
+async function injectTrackedOutboundMessageTx(contactAddress, txid, timestamp, chatMessageObj) {
+  trackInFlightOutboundMessageTx(contactAddress, txid, timestamp);
+  try {
+    return await injectTx(chatMessageObj, txid);
+  } finally {
+    clearInFlightOutboundMessageTx(contactAddress, txid);
+  }
+}
+
+/**
  * Tracks the latest outbound top-level chat message tx timestamp for a contact.
  * @param {string} contactAddress
  * @param {number} timestamp
@@ -15146,7 +15202,7 @@ class ChatModal {
 
       //console.log('payload is', payload)
       // Send the message transaction using createChatMessage with default toll of 1
-      const response = await injectTx(chatMessageObj, txid);
+      const response = await injectTrackedOutboundMessageTx(currentAddress, txid, payload.sent_timestamp, chatMessageObj);
 
       if (!response || !response.result || !response.result.success) {
         console.error('message failed to send', response);
@@ -18418,7 +18474,7 @@ class ChatModal {
       }
     }
 
-    const response = await injectTx(chatMessageObj, txid);
+    const response = await injectTrackedOutboundMessageTx(currentAddress, txid, payload.sent_timestamp, chatMessageObj);
     if (!response?.result?.success) {
       console.error('reaction message failed to send', response);
       if (reactionPendingState) {
@@ -18905,7 +18961,7 @@ class ChatModal {
       const deleteTxid = getTxid(deleteMessageObj);
 
       // Send the delete transaction
-      const response = await injectTx(deleteMessageObj, deleteTxid);
+      const response = await injectTrackedOutboundMessageTx(this.address, deleteTxid, payload.sent_timestamp, deleteMessageObj);
 
       if (!response || !response.result || !response.result.success) {
         console.error('Delete message failed to send', response);
@@ -19332,7 +19388,7 @@ class ChatModal {
       this.appendChatModal();
 
       // Send the message transaction
-      const response = await injectTx(chatMessageObj, txid);
+      const response = await injectTrackedOutboundMessageTx(currentAddress, txid, payload.sent_timestamp, chatMessageObj);
 
       if (!response || !response.result || !response.result.success) {
         console.error('call message failed to send', response);
@@ -19507,7 +19563,7 @@ class ChatModal {
 
     // Send to network (injectTx may either throw OR return { result: { success:false } })
     try {
-      const response = await injectTx(chatMessageObj, txid);
+      const response = await injectTrackedOutboundMessageTx(this.address, txid, payload.sent_timestamp, chatMessageObj);
 
       if (!response || !response.result || !response.result.success) {
         console.error('voice message failed to send', response);
@@ -20216,7 +20272,7 @@ class CallInviteModal {
         }
 
         // Send the message transaction
-        const response = await injectTx(messageObj, txid);
+        const response = await injectTrackedOutboundMessageTx(addr, txid, messagePayload.sent_timestamp, messageObj);
 
         if (!response || !response.result || !response.result.success) {
           // Refund local reservation when tx broadcast/injection fails.
@@ -20672,7 +20728,7 @@ class ShareAttachmentModal {
         }
 
         // Send the message transaction
-        const response = await injectTx(chatMessageObj, txid);
+        const response = await injectTrackedOutboundMessageTx(addr, txid, messagePayload.sent_timestamp, chatMessageObj);
 
         if (!response || !response.result || !response.result.success) {
           // Refund local reservation when tx broadcast/injection fails.
