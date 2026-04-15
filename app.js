@@ -3221,8 +3221,12 @@ function createNewContact(addr, username, friendStatus = 1, tolledDepositToastSh
   c.tollRequiredToSend = 1;
   c.friend = friendStatus;
   c.friendOld = friendStatus;
-  c.latestOutboundMessageTxTimestamp = 0;
-  c.latestOutboundMessageTxPendingTxid = '';
+  c.latestOutboundMessageTx = {
+    timestamp: 0,
+    pendingTxid: '',
+    inflightTimestamp: 0,
+    inflightTxid: '',
+  };
   c.tolledDepositToastShown = tolledDepositToastShown;
 }
 
@@ -7450,6 +7454,64 @@ function shouldSuppressReclaimFailureToast(failureReason) {
 }
 
 /**
+ * Returns the outbound message tx tracking state for a contact.
+ * @param {Object} contact
+ * @returns {{ timestamp: number, pendingTxid: string, inflightTimestamp: number, inflightTxid: string }}
+ */
+function getOutboundMessageTxState(contact) {
+  if (contact.latestOutboundMessageTx) {
+    return contact.latestOutboundMessageTx;
+  }
+
+  contact.latestOutboundMessageTx = {
+    timestamp: contact.latestOutboundMessageTxTimestamp || 0,
+    pendingTxid: contact.latestOutboundMessageTxPendingTxid || '',
+    inflightTimestamp: contact.latestOutboundMessageTxInFlightTimestamp || 0,
+    inflightTxid: contact.latestOutboundMessageTxInFlightTxid || '',
+  };
+  return contact.latestOutboundMessageTx;
+}
+
+/**
+ * Tracks hidden outbound message tx activity while injectTx is still in flight.
+ * @param {string} contactAddress
+ * @param {string} txid
+ * @param {number} timestamp
+ * @returns {void}
+ */
+function trackInFlightOutboundMessageTx(contactAddress, txid, timestamp) {
+  const contact = myData.contacts[contactAddress];
+  assert(contact, `Missing contact for outbound in-flight tracking: ${contactAddress}`);
+  assert(timestamp > 0, 'Outbound in-flight tx timestamp is required');
+  const state = getOutboundMessageTxState(contact);
+
+  if (timestamp < state.inflightTimestamp) {
+    return;
+  }
+
+  state.inflightTimestamp = timestamp;
+  state.inflightTxid = txid;
+}
+
+/**
+ * Clears hidden outbound message tx activity after injectTx finishes.
+ * @param {string} contactAddress
+ * @param {string} txid
+ * @returns {void}
+ */
+function clearInFlightOutboundMessageTx(contactAddress, txid) {
+  const contact = myData.contacts[contactAddress];
+  assert(contact, `Missing contact for outbound in-flight tracking: ${contactAddress}`);
+  const state = getOutboundMessageTxState(contact);
+  if (state.inflightTxid !== txid) {
+    return;
+  }
+
+  state.inflightTimestamp = 0;
+  state.inflightTxid = '';
+}
+
+/**
  * Returns the latest visible outbound message activity stored locally for a contact.
  * @param {Object} contact
  * @returns {number}
@@ -7495,23 +7557,24 @@ function getLatestVisibleOutboundMessageTxTimestamp(contact) {
 function trackLatestOutboundMessageTx(contactAddress, timestamp, txid) {
   const contact = myData.contacts[contactAddress];
   assert(contact, `Missing contact for outbound tx tracking: ${contactAddress}`);
+  const state = getOutboundMessageTxState(contact);
 
-  const previousTimestamp = contact.latestOutboundMessageTxTimestamp || 0;
+  const previousTimestamp = state.timestamp;
   assert(timestamp > 0, 'Outbound tx timestamp is required');
   if (timestamp <= previousTimestamp) {
     return;
   }
 
-  const previousPendingTxid = contact.latestOutboundMessageTxPendingTxid || '';
+  const previousPendingTxid = state.pendingTxid;
   const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
 
-  contact.latestOutboundMessageTxTimestamp = timestamp;
+  state.timestamp = timestamp;
   if (!pendingTxInfo) {
-    contact.latestOutboundMessageTxPendingTxid = '';
+    state.pendingTxid = '';
     return;
   }
 
-  contact.latestOutboundMessageTxPendingTxid = txid;
+  state.pendingTxid = txid;
   pendingTxInfo.previousLatestOutboundMessageTxTimestamp = previousTimestamp;
   pendingTxInfo.previousLatestOutboundMessageTxPendingTxid = previousPendingTxid;
   pendingTxInfo.latestOutboundMessageTxTimestamp = timestamp;
@@ -7525,6 +7588,7 @@ function trackLatestOutboundMessageTx(contactAddress, timestamp, txid) {
 function restoreLatestOutboundMessageTxTimestamp(pendingTxInfo) {
   const contact = myData.contacts[pendingTxInfo.to];
   assert(contact, `Missing contact for failed message tx: ${pendingTxInfo.to}`);
+  const state = getOutboundMessageTxState(contact);
 
   const previousTimestamp = pendingTxInfo.previousLatestOutboundMessageTxTimestamp || 0;
   const previousPendingTxid = pendingTxInfo.previousLatestOutboundMessageTxPendingTxid || '';
@@ -7536,12 +7600,12 @@ function restoreLatestOutboundMessageTxTimestamp(pendingTxInfo) {
     }
   }
 
-  if (contact.latestOutboundMessageTxPendingTxid !== pendingTxInfo.txid) {
+  if (state.pendingTxid !== pendingTxInfo.txid) {
     return;
   }
 
-  contact.latestOutboundMessageTxTimestamp = previousTimestamp;
-  contact.latestOutboundMessageTxPendingTxid = previousPendingTxid;
+  state.timestamp = previousTimestamp;
+  state.pendingTxid = previousPendingTxid;
 }
 
 /**
@@ -14814,8 +14878,10 @@ class ChatModal {
   getLatestOutboundActivityTimestamp(contactAddress) {
     const contact = myData.contacts[contactAddress];
     assert(contact, `Missing contact for reclaim lookup: ${contactAddress}`);
+    const state = getOutboundMessageTxState(contact);
     return Math.max(
-      contact.latestOutboundMessageTxTimestamp || 0,
+      state.timestamp,
+      state.inflightTimestamp,
       getLatestVisibleOutboundMessageTxTimestamp(contact)
     );
   }
@@ -18478,7 +18544,15 @@ class ChatModal {
       }
     }
 
+    if (reaction.reactAction === 'remove') {
+      assert(payload.sent_timestamp, 'Reaction sent_timestamp is required');
+      trackInFlightOutboundMessageTx(currentAddress, txid, payload.sent_timestamp);
+    }
+
     const response = await injectTx(chatMessageObj, txid);
+    if (reaction.reactAction === 'remove') {
+      clearInFlightOutboundMessageTx(currentAddress, txid);
+    }
     if (!response?.result?.success) {
       console.error('reaction message failed to send', response);
       if (reactionPendingState) {
@@ -18888,6 +18962,7 @@ class ChatModal {
    */
   async deleteMessageForAll(messageEl) {
     const { txid, messageTimestamp: timestamp } = messageEl.dataset;
+    let deleteTxid = '';
     
     if (!timestamp || !confirm('Delete this message for all participants?')) return;
     
@@ -18962,10 +19037,12 @@ class ChatModal {
       // Prepare and send the delete message transaction
       const deleteMessageObj = await this.createChatMessage(this.address, payload, tollInLib, keys);
       await signObj(deleteMessageObj, keys);
-      const deleteTxid = getTxid(deleteMessageObj);
+      deleteTxid = getTxid(deleteMessageObj);
+      trackInFlightOutboundMessageTx(this.address, deleteTxid, payload.sent_timestamp);
 
       // Send the delete transaction
       const response = await injectTx(deleteMessageObj, deleteTxid);
+      clearInFlightOutboundMessageTx(this.address, deleteTxid);
 
       if (!response || !response.result || !response.result.success) {
         console.error('Delete message failed to send', response);
@@ -18988,6 +19065,9 @@ class ChatModal {
       
     } catch (error) {
       console.error('Delete for all error:', error);
+      if (this.address && deleteTxid) {
+        clearInFlightOutboundMessageTx(this.address, deleteTxid);
+      }
       showToast('Failed to delete message. Please try again.', 0, 'error');
     }
   }
@@ -21998,8 +22078,12 @@ class ImportContactsModal {
           tollRequiredToSend: 1,
           friend: 2, // Friend status
           friendOld: 2,
-          latestOutboundMessageTxTimestamp: 0,
-          latestOutboundMessageTxPendingTxid: '',
+          latestOutboundMessageTx: {
+            timestamp: 0,
+            pendingTxid: '',
+            inflightTimestamp: 0,
+            inflightTxid: '',
+          },
           tolledDepositToastShown: true,
         };
 
@@ -27479,8 +27563,9 @@ async function checkPendingTransactions() {
         if (type === 'message') {
           const contact = myData.contacts[pendingTxInfo.to];
           assert(contact, `Missing contact for confirmed message tx: ${pendingTxInfo.to}`);
-          if (contact.latestOutboundMessageTxPendingTxid === txid) {
-            contact.latestOutboundMessageTxPendingTxid = '';
+          const state = getOutboundMessageTxState(contact);
+          if (state.pendingTxid === txid) {
+            state.pendingTxid = '';
           }
         }
 
