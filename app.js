@@ -3222,6 +3222,7 @@ function createNewContact(addr, username, friendStatus = 1, tolledDepositToastSh
   c.friend = friendStatus;
   c.friendOld = friendStatus;
   c.latestOutboundMessageTxTimestamp = 0;
+  c.latestOutboundMessageTxPendingTxid = '';
   c.tolledDepositToastShown = tolledDepositToastShown;
 }
 
@@ -7459,7 +7460,7 @@ function getLatestVisibleOutboundMessageTxTimestamp(contact) {
   const reactions = contact.reactions || [];
 
   for (const message of contact.messages) {
-    if (!message.my) {
+    if (!message.my || message.status === 'failed') {
       continue;
     }
 
@@ -7497,6 +7498,8 @@ function trackLatestOutboundMessageTx(contactAddress, timestamp, txid) {
 
   const nextTimestamp = timestamp;
   assert(nextTimestamp > 0, 'Outbound tx timestamp is required');
+  const previousPendingTxid = contact.latestOutboundMessageTxPendingTxid || '';
+  const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
 
   const previousTimestamp = contact.latestOutboundMessageTxTimestamp || 0;
   if (nextTimestamp <= previousTimestamp) {
@@ -7504,13 +7507,14 @@ function trackLatestOutboundMessageTx(contactAddress, timestamp, txid) {
   }
 
   contact.latestOutboundMessageTxTimestamp = nextTimestamp;
-
-  const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
   if (!pendingTxInfo) {
+    contact.latestOutboundMessageTxPendingTxid = '';
     return;
   }
 
+  contact.latestOutboundMessageTxPendingTxid = txid;
   pendingTxInfo.previousLatestOutboundMessageTxTimestamp = previousTimestamp;
+  pendingTxInfo.previousLatestOutboundMessageTxPendingTxid = previousPendingTxid;
   pendingTxInfo.latestOutboundMessageTxTimestamp = nextTimestamp;
 }
 
@@ -7523,41 +7527,22 @@ function restoreLatestOutboundMessageTxTimestamp(pendingTxInfo) {
   const contact = myData.contacts[pendingTxInfo.to];
   assert(contact, `Missing contact for failed message tx: ${pendingTxInfo.to}`);
 
-  const failedTimestamp = pendingTxInfo.latestOutboundMessageTxTimestamp || 0;
-  if (!failedTimestamp || contact.latestOutboundMessageTxTimestamp !== failedTimestamp) {
+  const previousTimestamp = pendingTxInfo.previousLatestOutboundMessageTxTimestamp || 0;
+  const previousPendingTxid = pendingTxInfo.previousLatestOutboundMessageTxPendingTxid || '';
+
+  for (const pendingTx of myData.pending) {
+    if (pendingTx.previousLatestOutboundMessageTxPendingTxid === pendingTxInfo.txid) {
+      pendingTx.previousLatestOutboundMessageTxTimestamp = previousTimestamp;
+      pendingTx.previousLatestOutboundMessageTxPendingTxid = previousPendingTxid;
+    }
+  }
+
+  if (contact.latestOutboundMessageTxPendingTxid !== pendingTxInfo.txid) {
     return;
   }
 
-  let visibleTimestamp = 0;
-  const myAddress = normalizeAddress(myAccount.keys.address);
-  const reactions = contact.reactions || [];
-  const editedMessageTxid = pendingTxInfo.editedMessageTxid || '';
-
-  for (const message of contact.messages) {
-    if (!message.my || message.txid === pendingTxInfo.txid) {
-      continue;
-    }
-
-    const sentTimestamp = message.sent_timestamp || message.timestamp;
-    const editedTimestamp = message.txid === editedMessageTxid ? 0 : (message.edited_timestamp || 0);
-    const latestMessageTimestamp = Math.max(sentTimestamp, editedTimestamp);
-    if (latestMessageTimestamp > visibleTimestamp) {
-      visibleTimestamp = latestMessageTimestamp;
-    }
-  }
-
-  for (const reaction of reactions) {
-    if (reaction.reactionTxId === pendingTxInfo.txid || normalizeAddress(reaction.sender) !== myAddress) {
-      continue;
-    }
-
-    if (reaction.timestamp > visibleTimestamp) {
-      visibleTimestamp = reaction.timestamp;
-    }
-  }
-
-  const previousTimestamp = pendingTxInfo.previousLatestOutboundMessageTxTimestamp || 0;
-  contact.latestOutboundMessageTxTimestamp = Math.max(previousTimestamp, visibleTimestamp);
+  contact.latestOutboundMessageTxTimestamp = previousTimestamp;
+  contact.latestOutboundMessageTxPendingTxid = previousPendingTxid;
 }
 
 /**
@@ -14831,7 +14816,7 @@ class ChatModal {
     const contact = myData.contacts[contactAddress];
     assert(contact, `Missing contact for reclaim lookup: ${contactAddress}`);
     return Math.max(
-      Number(contact.latestOutboundMessageTxTimestamp || 0),
+      contact.latestOutboundMessageTxTimestamp || 0,
       getLatestVisibleOutboundMessageTxTimestamp(contact)
     );
   }
@@ -22028,6 +22013,7 @@ class ImportContactsModal {
           friend: 2, // Friend status
           friendOld: 2,
           latestOutboundMessageTxTimestamp: 0,
+          latestOutboundMessageTxPendingTxid: '',
           tolledDepositToastShown: true,
         };
 
@@ -27490,6 +27476,7 @@ async function checkPendingTransactions() {
         if (type === 'message') {
           revertPendingOptimisticEdit(pendingTxInfo);
           restoreLatestOutboundMessageTxTimestamp(pendingTxInfo);
+          updateTransactionStatus(txid, pendingTxInfo.to, 'failed', type);
           if (chatModal.isActive()) {
             await chatModal.reopen();
           }
@@ -27503,6 +27490,13 @@ async function checkPendingTransactions() {
         // comment out to test the pending txs removal logic
         myData.pending.splice(i, 1);
         reconcilePendingReactionSet(pendingTxInfo, 'success');
+        if (type === 'message') {
+          const contact = myData.contacts[pendingTxInfo.to];
+          assert(contact, `Missing contact for confirmed message tx: ${pendingTxInfo.to}`);
+          if (contact.latestOutboundMessageTxPendingTxid === txid) {
+            contact.latestOutboundMessageTxPendingTxid = '';
+          }
+        }
 
         if (type === 'register') {
           pendingPromiseService.resolve(txid, {
