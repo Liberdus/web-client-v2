@@ -7459,16 +7459,7 @@ function shouldSuppressReclaimFailureToast(failureReason) {
  * @returns {{ timestamp: number, pendingTxid: string, inflightTimestamp: number, inflightTxid: string }}
  */
 function getOutboundMessageTxState(contact) {
-  if (contact.latestOutboundMessageTx) {
-    return contact.latestOutboundMessageTx;
-  }
-
-  contact.latestOutboundMessageTx = {
-    timestamp: contact.latestOutboundMessageTxTimestamp || 0,
-    pendingTxid: contact.latestOutboundMessageTxPendingTxid || '',
-    inflightTimestamp: contact.latestOutboundMessageTxInFlightTimestamp || 0,
-    inflightTxid: contact.latestOutboundMessageTxInFlightTxid || '',
-  };
+  assert(contact.latestOutboundMessageTx, 'Missing outbound message tx state');
   return contact.latestOutboundMessageTx;
 }
 
@@ -7577,7 +7568,6 @@ function trackLatestOutboundMessageTx(contactAddress, timestamp, txid) {
   state.pendingTxid = txid;
   pendingTxInfo.previousLatestOutboundMessageTxTimestamp = previousTimestamp;
   pendingTxInfo.previousLatestOutboundMessageTxPendingTxid = previousPendingTxid;
-  pendingTxInfo.latestOutboundMessageTxTimestamp = timestamp;
 }
 
 /**
