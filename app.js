@@ -7454,23 +7454,12 @@ function shouldSuppressReclaimFailureToast(failureReason) {
  * @returns {number}
  */
 function getLatestVisibleOutboundMessageTxTimestamp(contact) {
-  return getLatestVisibleOutboundMessageTxTimestampExcept(contact, '');
-}
-
-/**
- * Returns the latest visible outbound message activity stored locally for a contact,
- * excluding one failed pending tx.
- * @param {Object} contact
- * @param {string} excludedTxid
- * @returns {number}
- */
-function getLatestVisibleOutboundMessageTxTimestampExcept(contact, excludedTxid) {
   let latestTimestamp = 0;
   const myAddress = normalizeAddress(myAccount.keys.address);
   const reactions = contact.reactions || [];
 
   for (const message of contact.messages) {
-    if (!message.my || message.txid === excludedTxid) {
+    if (!message.my) {
       continue;
     }
 
@@ -7482,7 +7471,7 @@ function getLatestVisibleOutboundMessageTxTimestampExcept(contact, excludedTxid)
   }
 
   for (const reaction of reactions) {
-    if (reaction.reactionTxId === excludedTxid || normalizeAddress(reaction.sender) !== myAddress) {
+    if (normalizeAddress(reaction.sender) !== myAddress) {
       continue;
     }
 
@@ -7492,25 +7481,6 @@ function getLatestVisibleOutboundMessageTxTimestampExcept(contact, excludedTxid)
   }
 
   return latestTimestamp;
-}
-
-/**
- * Restores the cached latest outbound message tx timestamp after a pending message tx fails.
- * @param {Object} pendingTxInfo
- * @returns {void}
- */
-function restoreLatestOutboundMessageTxTimestamp(pendingTxInfo) {
-  const contact = myData.contacts[pendingTxInfo.to];
-  assert(contact, `Missing contact for failed message tx: ${pendingTxInfo.to}`);
-
-  const failedTimestamp = pendingTxInfo.latestOutboundMessageTxTimestamp || 0;
-  if (!failedTimestamp || contact.latestOutboundMessageTxTimestamp !== failedTimestamp) {
-    return;
-  }
-
-  const previousTimestamp = pendingTxInfo.previousLatestOutboundMessageTxTimestamp || 0;
-  const visibleTimestamp = getLatestVisibleOutboundMessageTxTimestampExcept(contact, pendingTxInfo.txid);
-  contact.latestOutboundMessageTxTimestamp = Math.max(previousTimestamp, visibleTimestamp);
 }
 
 /**
@@ -7542,6 +7512,83 @@ function trackLatestOutboundMessageTx(contactAddress, timestamp, txid) {
 
   pendingTxInfo.previousLatestOutboundMessageTxTimestamp = previousTimestamp;
   pendingTxInfo.latestOutboundMessageTxTimestamp = nextTimestamp;
+}
+
+/**
+ * Restores the cached latest outbound message tx timestamp after a pending message tx fails.
+ * @param {Object} pendingTxInfo
+ * @returns {void}
+ */
+function restoreLatestOutboundMessageTxTimestamp(pendingTxInfo) {
+  const contact = myData.contacts[pendingTxInfo.to];
+  assert(contact, `Missing contact for failed message tx: ${pendingTxInfo.to}`);
+
+  const failedTimestamp = pendingTxInfo.latestOutboundMessageTxTimestamp || 0;
+  if (!failedTimestamp || contact.latestOutboundMessageTxTimestamp !== failedTimestamp) {
+    return;
+  }
+
+  let visibleTimestamp = 0;
+  const myAddress = normalizeAddress(myAccount.keys.address);
+  const reactions = contact.reactions || [];
+  const editedMessageTxid = pendingTxInfo.editedMessageTxid || '';
+
+  for (const message of contact.messages) {
+    if (!message.my || message.txid === pendingTxInfo.txid) {
+      continue;
+    }
+
+    const sentTimestamp = message.sent_timestamp || message.timestamp;
+    const editedTimestamp = message.txid === editedMessageTxid ? 0 : (message.edited_timestamp || 0);
+    const latestMessageTimestamp = Math.max(sentTimestamp, editedTimestamp);
+    if (latestMessageTimestamp > visibleTimestamp) {
+      visibleTimestamp = latestMessageTimestamp;
+    }
+  }
+
+  for (const reaction of reactions) {
+    if (reaction.reactionTxId === pendingTxInfo.txid || normalizeAddress(reaction.sender) !== myAddress) {
+      continue;
+    }
+
+    if (reaction.timestamp > visibleTimestamp) {
+      visibleTimestamp = reaction.timestamp;
+    }
+  }
+
+  const previousTimestamp = pendingTxInfo.previousLatestOutboundMessageTxTimestamp || 0;
+  contact.latestOutboundMessageTxTimestamp = Math.max(previousTimestamp, visibleTimestamp);
+}
+
+/**
+ * Reverts an optimistic edit after the pending edit tx fails or times out.
+ * @param {Object} pendingTxInfo
+ * @returns {void}
+ */
+function revertPendingOptimisticEdit(pendingTxInfo) {
+  const editedMessageTxid = pendingTxInfo.editedMessageTxid;
+  if (!editedMessageTxid) {
+    return;
+  }
+  const originalEditedMessageState = pendingTxInfo.originalEditedMessageState;
+  assert(originalEditedMessageState, `Missing original edit state for ${pendingTxInfo.txid}`);
+
+  const contact = myData.contacts[pendingTxInfo.to];
+  assert(contact, `Missing contact for failed message tx: ${pendingTxInfo.to}`);
+
+  const originalMsg = contact.messages.find((message) => message.txid === editedMessageTxid);
+  assert(originalMsg, `Missing edited message for failed tx: ${editedMessageTxid}`);
+
+  originalMsg.message = originalEditedMessageState.message;
+  if (originalEditedMessageState.edited) {
+    originalMsg.edited = originalEditedMessageState.edited;
+    originalMsg.edited_timestamp = originalEditedMessageState.edited_timestamp;
+  } else {
+    delete originalMsg.edited;
+    delete originalMsg.edited_timestamp;
+  }
+
+  chatModal.revertWalletHistoryEdit(editedMessageTxid, originalEditedMessageState.history);
 }
 /**
  * Sign a transaction object and return the transaction ID hash
@@ -15240,6 +15287,11 @@ class ChatModal {
       } else {
         // Success: for normal message nothing extra; for edit we already updated locally
         if (isEdit) {
+          assert(originalMsgState, `Missing optimistic edit state for ${txid}`);
+          const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
+          assert(pendingTxInfo, `Pending edit metadata missing for ${txid}`);
+          pendingTxInfo.editedMessageTxid = editTargetTxId;
+          pendingTxInfo.originalEditedMessageState = originalMsgState;
           showToast('Message edited', 2000, 'success');
           this.addAttachmentButton.disabled = this.blockedByRecipient;
         }
@@ -27436,7 +27488,11 @@ async function checkPendingTransactions() {
           showToast('Reaction timed out and was reverted', 0, 'error');
         }
         if (type === 'message') {
+          revertPendingOptimisticEdit(pendingTxInfo);
           restoreLatestOutboundMessageTxTimestamp(pendingTxInfo);
+          if (chatModal.isActive()) {
+            await chatModal.reopen();
+          }
         }
         // remove the pending tx from the pending array
         myData.pending.splice(i, 1);
@@ -27517,6 +27573,7 @@ async function checkPendingTransactions() {
           } else if (type === 'deposit_stake') {
             showToast(`Stake failed: ${userFailureReason}`, 0, 'error');
           } else if (type === 'message') {
+            revertPendingOptimisticEdit(pendingTxInfo);
             restoreLatestOutboundMessageTxTimestamp(pendingTxInfo);
             if (chatModal.isActive()) {
               await chatModal.reopen();
