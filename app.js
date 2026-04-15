@@ -3223,6 +3223,7 @@ function createNewContact(addr, username, friendStatus = 1, tolledDepositToastSh
   c.friendOld = friendStatus;
   c.latestOutboundMessageTx = {
     timestamp: 0,
+    pendingTxid: '',
   };
   c.tolledDepositToastShown = tolledDepositToastShown;
 }
@@ -6323,7 +6324,7 @@ async function processChats(chats, keys) {
             payload.sent_timestamp = tx.timestamp;
           }
           if (mine){
-            trackLatestOutboundMessageTx(from, tx.timestamp);
+            trackLatestOutboundMessageTx(from, tx.timestamp, txidHex);
             // console.warn('my message tx', tx)
           }
           else if (payload.encrypted) {
@@ -7392,7 +7393,7 @@ async function injectTx(tx, txid) {
       myData.pending.push(pendingTxData);
 
       if (tx.type === 'message') {
-        trackLatestOutboundMessageTx(pendingTxData.to, tx.timestamp);
+        trackLatestOutboundMessageTx(pendingTxData.to, tx.timestamp, txid);
       }
 
       if (tx.type !== 'register') {
@@ -7442,7 +7443,7 @@ async function injectTx(tx, txid) {
 /**
  * Returns the outbound message tx tracking state for a contact.
  * @param {Object} contact
- * @returns {{ timestamp: number }}
+ * @returns {{ timestamp: number, pendingTxid: string }}
  */
 function getOutboundMessageTxState(contact) {
   assert(contact.latestOutboundMessageTx, 'Missing outbound message tx state');
@@ -7498,20 +7499,93 @@ function getLatestVisibleOutboundMessageTxTimestamp(contact) {
 /**
  * Tracks the latest outbound top-level chat message tx timestamp for a contact.
  * @param {string} contactAddress
+ * If the tx is pending, keep enough metadata to restore the cached value if it later fails.
  * @param {number} timestamp
+ * @param {string} txid
  * @returns {void}
  */
-function trackLatestOutboundMessageTx(contactAddress, timestamp) {
+function trackLatestOutboundMessageTx(contactAddress, timestamp, txid) {
   const contact = myData.contacts[contactAddress];
   assert(contact, `Missing contact for outbound tx tracking: ${contactAddress}`);
   assert(timestamp > 0, 'Outbound tx timestamp is required');
 
   const state = getOutboundMessageTxState(contact);
-  if (timestamp <= state.timestamp) {
+  const previousTimestamp = state.timestamp;
+  if (timestamp <= previousTimestamp) {
     return;
   }
 
+  const previousPendingTxid = state.pendingTxid;
+  const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
+
   state.timestamp = timestamp;
+  if (!pendingTxInfo) {
+    state.pendingTxid = '';
+    return;
+  }
+
+  state.pendingTxid = txid;
+  pendingTxInfo.previousLatestOutboundMessageTxTimestamp = previousTimestamp;
+  pendingTxInfo.previousLatestOutboundMessageTxPendingTxid = previousPendingTxid;
+}
+
+/**
+ * Restores the cached latest outbound message tx timestamp after a pending message tx fails.
+ * @param {Object} pendingTxInfo
+ * @returns {void}
+ */
+function restoreLatestOutboundMessageTxTimestamp(pendingTxInfo) {
+  const contact = myData.contacts[pendingTxInfo.to];
+  assert(contact, `Missing contact for failed message tx: ${pendingTxInfo.to}`);
+  const state = getOutboundMessageTxState(contact);
+
+  const previousTimestamp = pendingTxInfo.previousLatestOutboundMessageTxTimestamp || 0;
+  const previousPendingTxid = pendingTxInfo.previousLatestOutboundMessageTxPendingTxid || '';
+
+  for (const pendingTx of myData.pending) {
+    if (pendingTx.previousLatestOutboundMessageTxPendingTxid === pendingTxInfo.txid) {
+      pendingTx.previousLatestOutboundMessageTxTimestamp = previousTimestamp;
+      pendingTx.previousLatestOutboundMessageTxPendingTxid = previousPendingTxid;
+    }
+  }
+
+  if (state.pendingTxid !== pendingTxInfo.txid) {
+    return;
+  }
+
+  state.timestamp = previousTimestamp;
+  state.pendingTxid = previousPendingTxid;
+}
+
+/**
+ * Reverts an optimistic edit.
+ * @param {Object} editRollbackInfo
+ * @returns {void}
+ */
+function revertOptimisticEdit(editRollbackInfo) {
+  const editedMessageTxid = editRollbackInfo.editedMessageTxid;
+  if (!editedMessageTxid) {
+    return;
+  }
+  const originalEditedMessageState = editRollbackInfo.originalEditedMessageState;
+  assert(originalEditedMessageState, `Missing original edit state for ${editRollbackInfo.txid}`);
+
+  const contact = myData.contacts[editRollbackInfo.to];
+  assert(contact, `Missing contact for failed message tx: ${editRollbackInfo.to}`);
+
+  const originalMsg = contact.messages.find((message) => message.txid === editedMessageTxid);
+  assert(originalMsg, `Missing edited message for failed tx: ${editedMessageTxid}`);
+
+  originalMsg.message = originalEditedMessageState.message;
+  if (originalEditedMessageState.edited) {
+    originalMsg.edited = originalEditedMessageState.edited;
+    originalMsg.edited_timestamp = originalEditedMessageState.edited_timestamp;
+  } else {
+    delete originalMsg.edited;
+    delete originalMsg.edited_timestamp;
+  }
+
+  chatModal.revertWalletHistoryEdit(editedMessageTxid, originalEditedMessageState.history);
 }
 
 /**
@@ -15181,20 +15255,13 @@ class ChatModal {
           this.appendChatModal();
         } else {
           showToast('Edit failed to send', 0, 'error');
-          // Revert optimistic edit
-          if (originalMsg && originalMsgState) {
-            originalMsg.message = originalMsgState.message;
-            if (originalMsgState.edited) {
-              originalMsg.edited = originalMsgState.edited;
-              originalMsg.edited_timestamp = originalMsgState.edited_timestamp;
-            } else {
-              delete originalMsg.edited;
-              delete originalMsg.edited_timestamp;
-            }
-            // Revert wallet history memo if we changed it optimistically
-            this.revertWalletHistoryEdit(editTargetTxId, originalMsgState.history);
-            this.appendChatModal();
-          }
+          revertOptimisticEdit({
+            to: currentAddress,
+            txid,
+            editedMessageTxid: editTargetTxId,
+            originalEditedMessageState: originalMsgState
+          });
+          this.appendChatModal();
           // Restore edit UI state to allow user to retry or cancel
           editInput.value = editTargetTxId;
           this.cancelEditButton.style.display = '';
@@ -15211,6 +15278,10 @@ class ChatModal {
       } else {
         // Success: for normal message nothing extra; for edit we already updated locally
         if (isEdit) {
+          const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
+          assert(pendingTxInfo, `Pending edit metadata missing for ${txid}`);
+          pendingTxInfo.editedMessageTxid = editTargetTxId;
+          pendingTxInfo.originalEditedMessageState = originalMsgState;
           showToast('Message edited', 2000, 'success');
           this.addAttachmentButton.disabled = this.blockedByRecipient;
         }
@@ -15218,18 +15289,13 @@ class ChatModal {
     } catch (error) {
       console.error('Message error:', error);
       showToast('Failed to send message. Please try again.', 0, 'error');
-      // Revert optimistic edit on exception
-      if (isEdit && originalMsg && originalMsgState) {
-        originalMsg.message = originalMsgState.message;
-        if (originalMsgState.edited) {
-          originalMsg.edited = originalMsgState.edited;
-          originalMsg.edited_timestamp = originalMsgState.edited_timestamp;
-        } else {
-          delete originalMsg.edited;
-          delete originalMsg.edited_timestamp;
-        }
-        // Revert wallet history memo if we changed it optimistically
-        this.revertWalletHistoryEdit(editTargetTxId, originalMsgState.history);
+      if (isEdit && originalMsgState) {
+        revertOptimisticEdit({
+          to: currentAddress,
+          txid,
+          editedMessageTxid: editTargetTxId,
+          originalEditedMessageState: originalMsgState
+        });
         this.appendChatModal();
       }
     } finally {
@@ -21948,6 +22014,7 @@ class ImportContactsModal {
           friendOld: 2,
           latestOutboundMessageTx: {
             timestamp: 0,
+            pendingTxid: '',
           },
           tolledDepositToastShown: true,
         };
@@ -27408,6 +27475,14 @@ async function checkPendingTransactions() {
         if (didRevert) {
           showToast('Reaction timed out and was reverted', 0, 'error');
         }
+        if (type === 'message') {
+          revertOptimisticEdit(pendingTxInfo);
+          restoreLatestOutboundMessageTxTimestamp(pendingTxInfo);
+          updateTransactionStatus(txid, pendingTxInfo.to, 'failed', type);
+          if (chatModal.isActive()) {
+            await chatModal.reopen();
+          }
+        }
         // remove the pending tx from the pending array
         myData.pending.splice(i, 1);
         continue;
@@ -27417,6 +27492,14 @@ async function checkPendingTransactions() {
         // comment out to test the pending txs removal logic
         myData.pending.splice(i, 1);
         reconcilePendingReactionSet(pendingTxInfo, 'success');
+        if (type === 'message') {
+          const contact = myData.contacts[pendingTxInfo.to];
+          assert(contact, `Missing contact for confirmed message tx: ${pendingTxInfo.to}`);
+          const state = getOutboundMessageTxState(contact);
+          if (state.pendingTxid === txid) {
+            state.pendingTxid = '';
+          }
+        }
 
         if (type === 'register') {
           pendingPromiseService.resolve(txid, {
@@ -27478,6 +27561,7 @@ async function checkPendingTransactions() {
           // Show toast notification with the failure reason
           if (pendingTxInfo.reactionPending) {
             const didRevert = reconcilePendingReactionSet(pendingTxInfo, 'failure');
+            restoreLatestOutboundMessageTxTimestamp(pendingTxInfo);
             showToast(didRevert
               ? `Reaction failed and was reverted: ${userFailureReason}`
               : userFailureReason, 0, 'error');
@@ -27486,6 +27570,8 @@ async function checkPendingTransactions() {
           } else if (type === 'deposit_stake') {
             showToast(`Stake failed: ${userFailureReason}`, 0, 'error');
           } else if (type === 'message') {
+            revertOptimisticEdit(pendingTxInfo);
+            restoreLatestOutboundMessageTxTimestamp(pendingTxInfo);
             if (chatModal.isActive()) {
               await chatModal.reopen();
             }
