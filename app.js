@@ -3221,6 +3221,7 @@ function createNewContact(addr, username, friendStatus = 1, tolledDepositToastSh
   c.tollRequiredToSend = 1;
   c.friend = friendStatus;
   c.friendOld = friendStatus;
+  c.latestOutboundMessageTx = createOutboundMessageTxState();
   c.tolledDepositToastShown = tolledDepositToastShown;
 }
 
@@ -6320,6 +6321,7 @@ async function processChats(chats, keys) {
             payload.sent_timestamp = tx.timestamp;
           }
           if (mine){
+            trackLatestOutboundMessageTx(from, tx.timestamp, txidHex);
             // console.warn('my message tx', tx)
           }
           else if (payload.encrypted) {
@@ -7382,6 +7384,9 @@ async function injectTx(tx, txid) {
         pendingTxData.oldContactTimestamp = tx.oldContactTimestamp;
       } else if (tx.type === 'message' || tx.type === 'transfer') {
         pendingTxData.to = normalizeAddress(tx.to);
+        if (tx.type === 'message') {
+          trackLatestOutboundMessageTx(pendingTxData.to, tx.timestamp, txid);
+        }
       } else if (tx.type === 'deposit_stake' || tx.type === 'withdraw_stake') {
         pendingTxData.to = tx.nominee; // Store 64-character address as-is for stake transactions
       }
@@ -7427,6 +7432,55 @@ async function injectTx(tx, txid) {
       saveState();
     }, 1000);
   }
+}
+
+/**
+ * @typedef {{ timestamp: number, pendingTxid: string, inflightTimestamp: number, inflightTxid: string }} OutboundMessageTxState
+ */
+
+/**
+ * Creates the default outbound message tx state for a contact.
+ * @returns {OutboundMessageTxState}
+ */
+function createOutboundMessageTxState() {
+  return {
+    timestamp: 0,
+    pendingTxid: '',
+    inflightTimestamp: 0,
+    inflightTxid: '',
+  };
+}
+
+/**
+ * Returns the outbound message tx tracking state for a contact.
+ * @param {Object} contact
+ * @returns {OutboundMessageTxState}
+ */
+function getOutboundMessageTxState(contact) {
+  assert(contact.latestOutboundMessageTx, 'Missing outbound message tx state');
+  return contact.latestOutboundMessageTx;
+}
+
+/**
+ * Tracks the latest outbound top-level chat message tx timestamp for a contact.
+ * @param {string} contactAddress
+ * @param {number} timestamp
+ * @param {string} txid
+ * @returns {void}
+ */
+function trackLatestOutboundMessageTx(contactAddress, timestamp, txid) {
+  const contact = myData.contacts[contactAddress];
+  assert(contact, `Missing contact for outbound tx tracking: ${contactAddress}`);
+  const state = getOutboundMessageTxState(contact);
+  const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
+
+  assert(timestamp > 0, 'Outbound tx timestamp is required');
+  if (timestamp <= state.timestamp) {
+    return;
+  }
+
+  state.timestamp = timestamp;
+  state.pendingTxid = pendingTxInfo ? txid : '';
 }
 
 /**
@@ -21843,6 +21897,7 @@ class ImportContactsModal {
           tollRequiredToSend: 1,
           friend: 2, // Friend status
           friendOld: 2,
+          latestOutboundMessageTx: createOutboundMessageTxState(),
           tolledDepositToastShown: true,
         };
 
