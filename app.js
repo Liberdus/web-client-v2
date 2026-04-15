@@ -7634,33 +7634,6 @@ function restoreLatestOutboundMessageTxTimestamp(pendingTxInfo) {
 }
 
 /**
- * Reverts an optimistic edit.
- * @param {Object} editRollbackInfo
- * @returns {void}
- */
-function revertOptimisticEdit(editRollbackInfo) {
-  const editedMessageTxid = editRollbackInfo.editedMessageTxid;
-  const originalEditedMessageState = editRollbackInfo.originalEditedMessageState;
-  assert(originalEditedMessageState, `Missing original edit state for ${editRollbackInfo.txid}`);
-
-  const contact = myData.contacts[editRollbackInfo.to];
-  assert(contact, `Missing contact for failed message tx: ${editRollbackInfo.to}`);
-
-  const originalMsg = contact.messages.find((message) => message.txid === editedMessageTxid);
-  assert(originalMsg, `Missing edited message for failed tx: ${editedMessageTxid}`);
-
-  originalMsg.message = originalEditedMessageState.message;
-  if (originalEditedMessageState.edited) {
-    originalMsg.edited = originalEditedMessageState.edited;
-    originalMsg.edited_timestamp = originalEditedMessageState.edited_timestamp;
-  } else {
-    delete originalMsg.edited;
-    delete originalMsg.edited_timestamp;
-  }
-
-  chatModal.revertWalletHistoryEdit(editedMessageTxid, originalEditedMessageState.history);
-}
-/**
  * Sign a transaction object and return the transaction ID hash
  * @param {Object} tx - The transaction object to sign
  * @param {Object} keys - The keys object containing address and secret
@@ -15325,13 +15298,18 @@ class ChatModal {
           this.appendChatModal();
         } else {
           showToast('Edit failed to send', 0, 'error');
-          revertOptimisticEdit({
-            to: currentAddress,
-            txid,
-            editedMessageTxid: editTargetTxId,
-            originalEditedMessageState: originalMsgState
-          });
-          this.appendChatModal();
+          if (originalMsg && originalMsgState) {
+            originalMsg.message = originalMsgState.message;
+            if (originalMsgState.edited) {
+              originalMsg.edited = originalMsgState.edited;
+              originalMsg.edited_timestamp = originalMsgState.edited_timestamp;
+            } else {
+              delete originalMsg.edited;
+              delete originalMsg.edited_timestamp;
+            }
+            this.revertWalletHistoryEdit(editTargetTxId, originalMsgState.history);
+            this.appendChatModal();
+          }
           // Restore edit UI state to allow user to retry or cancel
           editInput.value = editTargetTxId;
           this.cancelEditButton.style.display = '';
@@ -15348,10 +15326,6 @@ class ChatModal {
       } else {
         // Success: for normal message nothing extra; for edit we already updated locally
         if (isEdit) {
-          const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
-          assert(pendingTxInfo, `Pending edit metadata missing for ${txid}`);
-          pendingTxInfo.editedMessageTxid = editTargetTxId;
-          pendingTxInfo.originalEditedMessageState = originalMsgState;
           showToast('Message edited', 2000, 'success');
           this.addAttachmentButton.disabled = this.blockedByRecipient;
         }
@@ -15362,13 +15336,16 @@ class ChatModal {
       }
       console.error('Message error:', error);
       showToast('Failed to send message. Please try again.', 0, 'error');
-      if (isEdit && originalMsgState) {
-        revertOptimisticEdit({
-          to: currentAddress,
-          txid,
-          editedMessageTxid: editTargetTxId,
-          originalEditedMessageState: originalMsgState
-        });
+      if (isEdit && originalMsg && originalMsgState) {
+        originalMsg.message = originalMsgState.message;
+        if (originalMsgState.edited) {
+          originalMsg.edited = originalMsgState.edited;
+          originalMsg.edited_timestamp = originalMsgState.edited_timestamp;
+        } else {
+          delete originalMsg.edited;
+          delete originalMsg.edited_timestamp;
+        }
+        this.revertWalletHistoryEdit(editTargetTxId, originalMsgState.history);
         this.appendChatModal();
       }
     } finally {
@@ -27555,9 +27532,6 @@ async function checkPendingTransactions() {
           showToast('Reaction timed out and was reverted', 0, 'error');
         }
         if (type === 'message') {
-          if (pendingTxInfo.editedMessageTxid) {
-            revertOptimisticEdit(pendingTxInfo);
-          }
           restoreLatestOutboundMessageTxTimestamp(pendingTxInfo);
           updateTransactionStatus(txid, pendingTxInfo.to, 'failed', type);
           if (chatModal.isActive()) {
@@ -27650,9 +27624,6 @@ async function checkPendingTransactions() {
           } else if (type === 'deposit_stake') {
             showToast(`Stake failed: ${userFailureReason}`, 0, 'error');
           } else if (type === 'message') {
-            if (pendingTxInfo.editedMessageTxid) {
-              revertOptimisticEdit(pendingTxInfo);
-            }
             restoreLatestOutboundMessageTxTimestamp(pendingTxInfo);
             if (chatModal.isActive()) {
               await chatModal.reopen();
