@@ -15264,7 +15264,6 @@ class ChatModal {
       } else {
         // Success: for normal message nothing extra; for edit we already updated locally
         if (isEdit) {
-          assert(originalMsgState, `Missing optimistic edit state for ${txid}`);
           const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
           assert(pendingTxInfo, `Pending edit metadata missing for ${txid}`);
           pendingTxInfo.editedMessageTxid = editTargetTxId;
