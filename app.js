@@ -3221,6 +3221,9 @@ function createNewContact(addr, username, friendStatus = 1, tolledDepositToastSh
   c.tollRequiredToSend = 1;
   c.friend = friendStatus;
   c.friendOld = friendStatus;
+  c.latestOutboundMessageTx = {
+    timestamp: 0,
+  };
   c.tolledDepositToastShown = tolledDepositToastShown;
 }
 
@@ -6320,6 +6323,7 @@ async function processChats(chats, keys) {
             payload.sent_timestamp = tx.timestamp;
           }
           if (mine){
+            trackLatestOutboundMessageTx(from, tx.timestamp);
             // console.warn('my message tx', tx)
           }
           else if (payload.encrypted) {
@@ -7387,6 +7391,10 @@ async function injectTx(tx, txid) {
       }
       myData.pending.push(pendingTxData);
 
+      if (tx.type === 'message') {
+        trackLatestOutboundMessageTx(pendingTxData.to, tx.timestamp);
+      }
+
       if (tx.type !== 'register') {
         // After submitting a transaction, warn if user is low on LIB.
         maybeShowLowLibToast();
@@ -7427,6 +7435,35 @@ async function injectTx(tx, txid) {
       saveState();
     }, 1000);
   }
+}
+
+/**
+ * Returns the outbound message tx tracking state for a contact.
+ * @param {Object} contact
+ * @returns {{ timestamp: number }}
+ */
+function getOutboundMessageTxState(contact) {
+  assert(contact.latestOutboundMessageTx, 'Missing outbound message tx state');
+  return contact.latestOutboundMessageTx;
+}
+
+/**
+ * Tracks the latest outbound top-level chat message tx timestamp for a contact.
+ * @param {string} contactAddress
+ * @param {number} timestamp
+ * @returns {void}
+ */
+function trackLatestOutboundMessageTx(contactAddress, timestamp) {
+  const contact = myData.contacts[contactAddress];
+  assert(contact, `Missing contact for outbound tx tracking: ${contactAddress}`);
+  assert(timestamp > 0, 'Outbound tx timestamp is required');
+
+  const state = getOutboundMessageTxState(contact);
+  if (timestamp <= state.timestamp) {
+    return;
+  }
+
+  state.timestamp = timestamp;
 }
 
 /**
@@ -21843,6 +21880,9 @@ class ImportContactsModal {
           tollRequiredToSend: 1,
           friend: 2, // Friend status
           friendOld: 2,
+          latestOutboundMessageTx: {
+            timestamp: 0,
+          },
           tolledDepositToastShown: true,
         };
 
