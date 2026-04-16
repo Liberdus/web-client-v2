@@ -14807,6 +14807,15 @@ class ChatModal {
       return;
     }
 
+    await new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(resolve);
+      });
+    });
+    if (!this.isActive() || this.address !== contactAddress) {
+      return;
+    }
+
     const contact = myData.contacts[contactAddress];
     assert(contact, `Missing contact for reclaim prompt: ${contactAddress}`);
     const confirmed = window.confirm(`Reclaim unused toll for ${getContactDisplayName(contact)}?`);
