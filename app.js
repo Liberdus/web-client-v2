@@ -7376,7 +7376,7 @@ async function injectTx(tx, txid) {
       if (tx.type === 'register') {
         pendingTxData.username = tx.alias;
         pendingTxData.address = tx.from; // User's address (longAddress form)
-      } else if (tx.type === 'update_toll_required') {
+      } else if (tx.type === 'update_toll_required' || tx.type === 'reclaim_toll') {
         pendingTxData.to = normalizeAddress(tx.to);
       } else if (tx.type === 'read') {
         pendingTxData.oldContactTimestamp = tx.oldContactTimestamp;
@@ -14447,6 +14447,7 @@ class ChatModal {
 
     // One-time tolled deposit toast (only if explicitly enabled on the contact)
     this.maybeShowTolledDepositToast(address);
+    void this.maybePromptReclaimToll(address);
 
     this.appendChatModal(false, skipAutoScroll); // Call appendChatModal to render messages, ensure highlight=false
   }
@@ -14552,7 +14553,6 @@ class ChatModal {
         this.sendReadTransaction(this.address);
       }
       
-      this.sendReclaimTollTransaction(this.address);
     } else {
       console.warn('Offline: toll not processed');
     }
@@ -14667,7 +14667,7 @@ class ChatModal {
   async sendReclaimTollTransaction(contactAddress) {
     await getNetworkParams();
     const currentTime = getCorrectedTimestamp();
-    const networkTollTimeoutInMs = parameters.current.tollTimeout; 
+    const networkTollTimeoutInMs = parameters.current.tollTimeout;
     const timeSinceNewestSentMessage = currentTime - this.newestSentMessage?.timestamp;
     if (!this.newestSentMessage || timeSinceNewestSentMessage < networkTollTimeoutInMs) {
       // console.log(
@@ -14731,6 +14731,149 @@ class ChatModal {
       return true;
     }
     return false;
+  }
+
+  /**
+   * @typedef {{ kind: 'eligible' } | { kind: 'offline' } | { kind: 'pending' } | { kind: 'empty' } | { kind: 'too_soon', retryAfterTimestamp: number }} ReclaimStatus
+   */
+
+  /**
+   * Returns the reclaim status for the contact.
+   * @param {string} contactAddress
+   * @returns {Promise<ReclaimStatus>}
+   */
+  async getReclaimStatus(contactAddress) {
+    assert(contactAddress, 'Missing contact address for reclaim');
+    assert(Array.isArray(myData.pending), 'Pending tx array is required');
+
+    if (!isOnline) {
+      return { kind: 'offline' };
+    }
+
+    if (myData.pending.some((pendingTx) => pendingTx.type === 'reclaim_toll' && pendingTx.to === contactAddress)) {
+      return { kind: 'pending' };
+    }
+
+    await getNetworkParams();
+    assert(parameters.current.tollTimeout, 'Missing toll timeout');
+
+    const currentTime = getCorrectedTimestamp();
+    const networkTollTimeoutInMs = parameters.current.tollTimeout;
+    const timeSinceNewestSentMessage = currentTime - this.newestSentMessage?.timestamp;
+    if (!this.newestSentMessage) {
+      return { kind: 'empty' };
+    }
+    if (timeSinceNewestSentMessage < networkTollTimeoutInMs) {
+      return { kind: 'too_soon', retryAfterTimestamp: this.newestSentMessage.timestamp + networkTollTimeoutInMs };
+    }
+
+    const sortedAddresses = [longAddress(myData.account.keys.address), longAddress(contactAddress)].sort();
+    const receiverIndex = sortedAddresses.indexOf(longAddress(contactAddress));
+    const chatId = hashBytes(sortedAddresses.join(''));
+    const chatIdAccount = await queryNetwork(`/messages/${chatId}/toll`);
+    if (!chatIdAccount?.toll) {
+      return { kind: 'empty' };
+    }
+
+    const payOnReply = chatIdAccount.toll.payOnReply[receiverIndex];
+    const payOnRead = chatIdAccount.toll.payOnRead[receiverIndex];
+    if (payOnReply === 0n && payOnRead === 0n) {
+      return { kind: 'empty' };
+    }
+
+    return { kind: 'eligible' };
+  }
+
+  /**
+   * Prompts the user to reclaim toll when opening an eligible chat.
+   * @param {string} contactAddress
+   * @returns {Promise<void>}
+   */
+  async maybePromptReclaimToll(contactAddress) {
+    if (!this.isActive() || this.address !== contactAddress || !isOnline) {
+      return;
+    }
+
+    const status = await this.getReclaimStatus(contactAddress);
+    if (!this.isActive() || this.address !== contactAddress) {
+      return;
+    }
+    if (status.kind !== 'eligible') {
+      return;
+    }
+
+    const contact = myData.contacts[contactAddress];
+    assert(contact, `Missing contact for reclaim prompt: ${contactAddress}`);
+    const confirmed = window.confirm(`Reclaim unused toll for ${getContactDisplayName(contact)}?`);
+    if (!confirmed) {
+      return;
+    }
+
+    await this.submitReclaimToll(contactAddress);
+  }
+
+  /**
+   * Submits reclaim toll after explicit user confirmation.
+   * @param {string} contactAddress
+   * @returns {Promise<void>}
+   */
+  async submitReclaimToll(contactAddress) {
+    assert(contactAddress, 'Missing contact address for reclaim submit');
+
+    if (!this.isActive() || this.address !== contactAddress) {
+      return;
+    }
+
+    const status = await this.getReclaimStatus(contactAddress);
+    if (status.kind !== 'eligible') {
+      switch (status.kind) {
+        case 'offline':
+          showToast('You are offline. Reconnect before reclaiming toll.', 3000, 'error');
+          return;
+        case 'pending':
+          showToast('A reclaim toll transaction is already pending for this chat.', 3000, 'warning');
+          return;
+        case 'empty':
+          showToast('No reclaimable toll is available for this chat.', 3000, 'info');
+          return;
+        case 'too_soon':
+          showToast(
+            `Toll cannot be reclaimed yet. Try again after ${this.formatLocalDateTime(status.retryAfterTimestamp)}.`,
+            3000,
+            'info'
+          );
+          return;
+        default:
+          assert(false, `Unknown reclaim status: ${status.kind}`);
+      }
+    }
+
+    const feeBalanceStatus = await getFeeBalanceStatus();
+    if (!feeBalanceStatus.success) {
+      showFeeBalanceFailureToast(feeBalanceStatus.reason);
+      return;
+    }
+
+    showToast('Submitting reclaim toll...', 3000, 'info');
+
+    const tx = {
+      type: 'reclaim_toll',
+      from: longAddress(myData.account.keys.address),
+      to: longAddress(contactAddress),
+      chatId: hashBytes([longAddress(myData.account.keys.address), longAddress(contactAddress)].sort().join('')),
+      timestamp: getTransactionTimestamp(),
+      networkId: network.netid,
+    };
+    const txid = await signObj(tx, myAccount.keys);
+    const response = await injectTx(tx, txid);
+    if (response?.result?.success) {
+      return;
+    }
+
+    const failureReason = normalizeFailureReason(response?.result?.reason || '');
+    if (failureReason === 'user is trying to reclaim toll but the toll pool is empty') {
+      showToast('No reclaimable toll is currently available for this chat.', 3000, 'info');
+    }
   }
 
   /**
@@ -27357,6 +27500,7 @@ async function checkPendingTransactions() {
 
         if (type === 'reclaim_toll') {
           console.log(`DEBUG: reclaim_toll transaction successfully processed!`);
+          showToast('Reclaim toll successful.', 3000, 'success');
         }
       } else if (res?.transaction?.success === false) {
         console.log(`DEBUG: txid ${txid} failed, removing completely`);
@@ -27419,7 +27563,9 @@ async function checkPendingTransactions() {
             // revert the local myData.contacts[toAddress].timestamp to the old value
             myData.contacts[pendingTxInfo.to].timestamp = pendingTxInfo.oldContactTimestamp;
           } else if (type === 'reclaim_toll') {
-            if (failureReason !== 'user is trying to reclaim toll but the toll pool is empty') {
+            if (failureReason === 'user is trying to reclaim toll but the toll pool is empty') {
+              showToast('No reclaimable toll is currently available for this chat.', 3000, 'info');
+            } else {
               showToast(`Reclaim toll failed: ${userFailureReason}`, 0, 'error');
             }
           } else {
