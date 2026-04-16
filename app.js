@@ -14667,7 +14667,7 @@ class ChatModal {
   async sendReclaimTollTransaction(contactAddress) {
     await getNetworkParams();
     const currentTime = getCorrectedTimestamp();
-    const networkTollTimeoutInMs = parameters.current.tollTimeout;
+    const networkTollTimeoutInMs = parameters.current.tollTimeout; 
     const timeSinceNewestSentMessage = currentTime - this.newestSentMessage?.timestamp;
     if (!this.newestSentMessage || timeSinceNewestSentMessage < networkTollTimeoutInMs) {
       // console.log(
