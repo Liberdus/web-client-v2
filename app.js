@@ -14660,80 +14660,6 @@ class ChatModal {
   }
 
   /**
-   * Send a reclaim toll if the newest sent message is older than 7 days and the contact has a value not 0 in payOnReplay or payOnRead
-   * @param {string} contactAddress - The address of the contact
-   * @returns {Promise<void>}
-   */
-  async sendReclaimTollTransaction(contactAddress) {
-    await getNetworkParams();
-    const currentTime = getCorrectedTimestamp();
-    const networkTollTimeoutInMs = parameters.current.tollTimeout; 
-    const timeSinceNewestSentMessage = currentTime - this.newestSentMessage?.timestamp;
-    if (!this.newestSentMessage || timeSinceNewestSentMessage < networkTollTimeoutInMs) {
-      // console.log(
-      //   `[sendReclaimTollTransaction] timeSinceNewestSentMessage ${timeSinceNewestSentMessage}ms is less than networkTollTimeoutInMs ${networkTollTimeoutInMs}ms, skipping reclaim toll transaction`
-      // );
-      return;
-    }
-    const canReclaimToll = await this.canSenderReclaimToll(contactAddress);
-    if (!canReclaimToll) {
-      // console.log(
-      //   `[sendReclaimTollTransaction] does not have a value not 0 in payOnReplay or payOnRead, skipping reclaim toll transaction`
-      // );
-      return;
-    }
-    const feeBalanceStatus = await getFeeBalanceStatus();
-    if (!feeBalanceStatus.success) {
-      this.closeFeeFailureToastShown = showCloseFeeFailureWarningOnce(
-        feeBalanceStatus.reason,
-        'claim_fee',
-        this.closeFeeFailureToastShown
-      );
-      return;
-    }
-
-    const tx = {
-      type: 'reclaim_toll',
-      from: longAddress(myData.account.keys.address),
-      to: longAddress(contactAddress),
-      chatId: hashBytes([longAddress(myData.account.keys.address), longAddress(contactAddress)].sort().join('')),
-      timestamp: getTransactionTimestamp(),
-      networkId: network.netid,
-    };
-    const txid = await signObj(tx, myAccount.keys);
-    const response = await injectTx(tx, txid);
-    if (!response || !response.result || !response.result.success) {
-      console.warn('reclaim toll transaction failed to send', response);
-    }
-  }
-
-  /**
-   * return true if when we query chatID account , then check payOnReplay and payOnRead for index of the receiver has a value not 0
-   * @param {string} contactAddress - The address of the contact
-   * @returns {Promise<boolean>} - True if the contact has a value not 0 in payOnReplay or payOnRead, false otherwise
-   */
-  async canSenderReclaimToll(contactAddress) {
-    // keep track receiver index during the sort
-    const sortedAddresses = [longAddress(myData.account.keys.address), longAddress(contactAddress)].sort();
-    const receiverIndex = sortedAddresses.indexOf(longAddress(contactAddress));
-    const chatId = hashBytes(sortedAddresses.join(''));
-    const chatIdAccount = await queryNetwork(`/messages/${chatId}/toll`);
-    if (!chatIdAccount || !chatIdAccount.toll) {
-      console.warn('chatIdAccount not found', chatIdAccount);
-      return false;
-    }
-    const payOnReply = chatIdAccount.toll.payOnReply[receiverIndex]; // bigint
-    const payOnRead = chatIdAccount.toll.payOnRead[receiverIndex]; // bigint
-    if (payOnReply !== 0n) {
-      return true;
-    }
-    if (payOnRead !== 0n) {
-      return true;
-    }
-    return false;
-  }
-
-  /**
    * @typedef {{ kind: 'eligible' } | { kind: 'offline' } | { kind: 'pending' } | { kind: 'empty' } | { kind: 'unavailable' } | { kind: 'too_soon', retryAfterTimestamp: number }} ReclaimStatus
    */
 
@@ -14743,7 +14669,6 @@ class ChatModal {
    * @returns {Promise<ReclaimStatus>}
    */
   async getReclaimStatus(contactAddress) {
-    assert(contactAddress, 'Missing contact address for reclaim');
     if (!myData.pending) {
       myData.pending = [];
     }
@@ -14832,8 +14757,6 @@ class ChatModal {
    * @returns {Promise<void>}
    */
   async submitReclaimToll(contactAddress) {
-    assert(contactAddress, 'Missing contact address for reclaim submit');
-
     if (!this.isActive() || this.address !== contactAddress) {
       return;
     }
