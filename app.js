@@ -14731,7 +14731,7 @@ class ChatModal {
     if (status.kind !== 'eligible') {
       return;
     }
-
+    // wait for the next frame to ensure the modal is fully rendered
     await new Promise((resolve) => {
       requestAnimationFrame(() => {
         requestAnimationFrame(resolve);
@@ -27439,7 +27439,6 @@ async function checkPendingTransactions() {
 
         if (type === 'reclaim_toll') {
           console.log(`DEBUG: reclaim_toll transaction successfully processed!`);
-          showToast('Reclaim toll successful.', 3000, 'success');
         }
       } else if (res?.transaction?.success === false) {
         console.log(`DEBUG: txid ${txid} failed, removing completely`);
@@ -27502,9 +27501,7 @@ async function checkPendingTransactions() {
             // revert the local myData.contacts[toAddress].timestamp to the old value
             myData.contacts[pendingTxInfo.to].timestamp = pendingTxInfo.oldContactTimestamp;
           } else if (type === 'reclaim_toll') {
-            if (failureReason === 'user is trying to reclaim toll but the toll pool is empty') {
-              showToast('No reclaimable toll is currently available for this chat.', 3000, 'info');
-            } else {
+            if (failureReason !== 'user is trying to reclaim toll but the toll pool is empty') {
               showToast(`Reclaim toll failed: ${userFailureReason}`, 0, 'error');
             }
           } else {
