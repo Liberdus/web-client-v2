@@ -14447,9 +14447,9 @@ class ChatModal {
 
     // One-time tolled deposit toast (only if explicitly enabled on the contact)
     this.maybeShowTolledDepositToast(address);
-    void this.maybePromptReclaimToll(address);
 
     this.appendChatModal(false, skipAutoScroll); // Call appendChatModal to render messages, ensure highlight=false
+    void this.maybePromptReclaimToll(address);
   }
 
   /**
