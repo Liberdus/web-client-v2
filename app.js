@@ -6319,6 +6319,9 @@ async function processChats(chats, keys) {
           if (useTxTimestamp || !payload.sent_timestamp) {
             payload.sent_timestamp = tx.timestamp;
           }
+          if (mine && (typeof contact.latestOutboundMessageTimestamp !== 'number' || tx.timestamp > contact.latestOutboundMessageTimestamp)) {
+            contact.latestOutboundMessageTimestamp = tx.timestamp;
+          }
           if (mine){
             // console.warn('my message tx', tx)
           }
@@ -14684,14 +14687,21 @@ class ChatModal {
     await getNetworkParams();
     assert(parameters.current.tollTimeout, 'Missing toll timeout');
 
+    const contact = myData.contacts[contactAddress];
+    assert(contact, `Missing contact for reclaim status: ${contactAddress}`);
+    const latestOutboundMessageTimestamp =
+      typeof contact.latestOutboundMessageTimestamp === 'number'
+        ? contact.latestOutboundMessageTimestamp
+        : contact.messages.find((item) => item.my)?.timestamp;
+
     const currentTime = getCorrectedTimestamp();
     const networkTollTimeoutInMs = parameters.current.tollTimeout;
-    const timeSinceNewestSentMessage = currentTime - this.newestSentMessage?.timestamp;
-    if (!this.newestSentMessage) {
+    if (typeof latestOutboundMessageTimestamp !== 'number') {
       return { kind: 'empty' };
     }
-    if (timeSinceNewestSentMessage < networkTollTimeoutInMs) {
-      return { kind: 'too_soon', retryAfterTimestamp: this.newestSentMessage.timestamp + networkTollTimeoutInMs };
+    const timeSinceLatestOutboundMessage = currentTime - latestOutboundMessageTimestamp;
+    if (timeSinceLatestOutboundMessage < networkTollTimeoutInMs) {
+      return { kind: 'too_soon', retryAfterTimestamp: latestOutboundMessageTimestamp + networkTollTimeoutInMs };
     }
 
     const sortedAddresses = [longAddress(myData.account.keys.address), longAddress(contactAddress)].sort();
