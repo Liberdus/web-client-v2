@@ -14744,7 +14744,9 @@ class ChatModal {
    */
   async getReclaimStatus(contactAddress) {
     assert(contactAddress, 'Missing contact address for reclaim');
-    assert(Array.isArray(myData.pending), 'Pending tx array is required');
+    if (!myData.pending) {
+      myData.pending = [];
+    }
 
     if (!isOnline) {
       return { kind: 'offline' };
