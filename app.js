@@ -14734,7 +14734,7 @@ class ChatModal {
   }
 
   /**
-   * @typedef {{ kind: 'eligible' } | { kind: 'offline' } | { kind: 'pending' } | { kind: 'empty' } | { kind: 'too_soon', retryAfterTimestamp: number }} ReclaimStatus
+   * @typedef {{ kind: 'eligible' } | { kind: 'offline' } | { kind: 'pending' } | { kind: 'empty' } | { kind: 'unavailable' } | { kind: 'too_soon', retryAfterTimestamp: number }} ReclaimStatus
    */
 
   /**
@@ -14771,7 +14771,10 @@ class ChatModal {
     const receiverIndex = sortedAddresses.indexOf(longAddress(contactAddress));
     const chatId = hashBytes(sortedAddresses.join(''));
     const chatIdAccount = await queryNetwork(`/messages/${chatId}/toll`);
-    if (!chatIdAccount?.toll) {
+    if (!chatIdAccount) {
+      return { kind: 'unavailable' };
+    }
+    if (!chatIdAccount.toll) {
       return { kind: 'empty' };
     }
 
@@ -14836,6 +14839,9 @@ class ChatModal {
         case 'empty':
           showToast('No reclaimable toll is available for this chat.', 3000, 'info');
           return;
+        case 'unavailable':
+          showToast('Could not check reclaimable toll right now. Please try again later.', 3000, 'error');
+          return;
         case 'too_soon':
           showToast(
             `Toll cannot be reclaimed yet. Try again after ${this.formatLocalDateTime(status.retryAfterTimestamp)}.`,
@@ -14867,6 +14873,10 @@ class ChatModal {
     const txid = await signObj(tx, myAccount.keys);
     const response = await injectTx(tx, txid);
     if (response?.result?.success) {
+      return;
+    }
+    if (!response) {
+      showToast('Could not submit reclaim toll. Please try again later.', 3000, 'error');
       return;
     }
 
