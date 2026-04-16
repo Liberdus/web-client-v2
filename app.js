@@ -14879,11 +14879,6 @@ class ChatModal {
       showToast('Could not submit reclaim toll. Please try again later.', 3000, 'error');
       return;
     }
-
-    const failureReason = normalizeFailureReason(response?.result?.reason || '');
-    if (failureReason === 'user is trying to reclaim toll but the toll pool is empty') {
-      showToast('No reclaimable toll is currently available for this chat.', 3000, 'info');
-    }
   }
 
   /**
