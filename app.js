@@ -14743,7 +14743,7 @@ class ChatModal {
 
     const contact = myData.contacts[contactAddress];
     assert(contact, `Missing contact for reclaim prompt: ${contactAddress}`);
-    const confirmed = window.confirm(`Reclaim unused toll for ${getContactDisplayName(contact)}?`);
+    const confirmed = window.confirm(`Reclaim toll from ${getContactDisplayName(contact)}?`);
     if (!confirmed) {
       return;
     }
