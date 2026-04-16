@@ -6195,113 +6195,75 @@ function hasPendingEditForTarget(contactAddress, targetTxid) {
 }
 
 /**
- * Restores wallet history memo/edited fields captured before an optimistic edit.
- * @param {string} txid
- * @param {{memo?: string, edited?: number, edited_timestamp?: number}|undefined} originalHistory
- * @returns {boolean}
- */
-function restoreWalletHistoryEditSnapshot(txid, originalHistory) {
-  try {
-    if (!originalHistory) return false;
-    if (!(myData?.wallet?.history) || !Array.isArray(myData.wallet.history)) return false;
-
-    const hIdx = myData.wallet.history.findIndex((h) => h.txid === txid);
-    if (hIdx === -1) return false;
-
-    if (typeof originalHistory.memo !== 'undefined') {
-      myData.wallet.history[hIdx].memo = originalHistory.memo;
-    } else {
-      delete myData.wallet.history[hIdx].memo;
-    }
-    if (typeof originalHistory.edited !== 'undefined') {
-      myData.wallet.history[hIdx].edited = originalHistory.edited;
-    } else {
-      delete myData.wallet.history[hIdx].edited;
-    }
-    if (typeof originalHistory.edited_timestamp !== 'undefined') {
-      myData.wallet.history[hIdx].edited_timestamp = originalHistory.edited_timestamp;
-    } else {
-      delete myData.wallet.history[hIdx].edited_timestamp;
-    }
-
-    return true;
-  } catch (e) {
-    console.error('Failed to restore wallet history edit snapshot', e);
-    return false;
-  }
-}
-
-/**
- * Restores the previous chat-list entry after an optimistic edit fails.
+ * Restores local state captured before an optimistic message edit.
  * @param {string} contactAddress
- * @param {{address: string, timestamp: number, txid?: string}|null|undefined} previousChat
- * @returns {boolean}
+ * @param {{
+ *   targetTxid: string,
+ *   previousMessage: { message: string, edited?: number, edited_timestamp?: number },
+ *   previousHistory: null | { memo?: string, edited?: number, edited_timestamp?: number },
+ *   previousChat: { address: string, timestamp: number, txid?: string }
+ * }} editPending
+ * @returns {void}
  */
-function restoreChatListEntryAfterFailedEdit(contactAddress, previousChat) {
-  if (!contactAddress || !Array.isArray(myData?.chats)) {
-    return false;
+function restorePendingMessageEdit(contactAddress, editPending) {
+  const contact = myData.contacts[contactAddress];
+  assert(contact, `Missing contact for pending edit: ${contactAddress}`);
+  assert(editPending.previousChat, `Missing chat snapshot for pending edit: ${editPending.targetTxid}`);
+
+  const message = contact.messages.find((item) => item.txid === editPending.targetTxid);
+  assert(message, `Missing message for pending edit: ${editPending.targetTxid}`);
+
+  message.message = editPending.previousMessage.message;
+  if (typeof editPending.previousMessage.edited !== 'undefined') {
+    message.edited = editPending.previousMessage.edited;
+  } else {
+    delete message.edited;
+  }
+  if (typeof editPending.previousMessage.edited_timestamp !== 'undefined') {
+    message.edited_timestamp = editPending.previousMessage.edited_timestamp;
+  } else {
+    delete message.edited_timestamp;
   }
 
   const existingChatIndex = myData.chats.findIndex((chat) => chat.address === contactAddress);
   if (existingChatIndex !== -1) {
     myData.chats.splice(existingChatIndex, 1);
   }
+  insertSorted(myData.chats, { ...editPending.previousChat }, 'timestamp');
 
-  if (!previousChat) {
-    return existingChatIndex !== -1;
+  if (editPending.previousHistory === null) {
+    return;
   }
 
-  insertSorted(myData.chats, { ...previousChat }, 'timestamp');
-  return true;
+  const historyIndex = myData.wallet.history.findIndex((item) => item.txid === editPending.targetTxid);
+  assert(historyIndex !== -1, `Missing wallet history for pending edit: ${editPending.targetTxid}`);
+
+  if (typeof editPending.previousHistory.memo !== 'undefined') {
+    myData.wallet.history[historyIndex].memo = editPending.previousHistory.memo;
+  } else {
+    delete myData.wallet.history[historyIndex].memo;
+  }
+  if (typeof editPending.previousHistory.edited !== 'undefined') {
+    myData.wallet.history[historyIndex].edited = editPending.previousHistory.edited;
+  } else {
+    delete myData.wallet.history[historyIndex].edited;
+  }
+  if (typeof editPending.previousHistory.edited_timestamp !== 'undefined') {
+    myData.wallet.history[historyIndex].edited_timestamp = editPending.previousHistory.edited_timestamp;
+  } else {
+    delete myData.wallet.history[historyIndex].edited_timestamp;
+  }
 }
 
 /**
- * Finalizes or reverts a pending optimistic message edit that stored rollback metadata.
+ * Reverts a pending optimistic message edit that stored rollback metadata.
  * @param {Object} pendingTxInfo
- * @param {'success' | 'failure'} result
  * @returns {boolean}
  */
-function reconcilePendingMessageEdit(pendingTxInfo, result) {
-  if (!pendingTxInfo.editPending) {
-    return false;
-  }
-
-  if (result === 'success') {
-    return false;
-  }
-
-  if (result !== 'failure') {
-    throw new Error(`Unknown pending message edit result: ${result}`);
-  }
-
+function reconcilePendingMessageEdit(pendingTxInfo) {
   const { editPending } = pendingTxInfo;
-  const contact = myData?.contacts?.[pendingTxInfo.to];
-  if (!contact) {
-    console.warn('Missing contact for pending message edit revert', pendingTxInfo);
-    return false;
-  }
-
-  let didChange = false;
-  const messageToRestore = contact.messages?.find((msg) => msg.txid === editPending.targetTxid);
-  if (messageToRestore) {
-    messageToRestore.message = editPending.previousMessage.message;
-    if (typeof editPending.previousMessage.edited !== 'undefined') {
-      messageToRestore.edited = editPending.previousMessage.edited;
-    } else {
-      delete messageToRestore.edited;
-    }
-    if (typeof editPending.previousMessage.edited_timestamp !== 'undefined') {
-      messageToRestore.edited_timestamp = editPending.previousMessage.edited_timestamp;
-    } else {
-      delete messageToRestore.edited_timestamp;
-    }
-    didChange = true;
-  } else {
-    console.warn('Missing message for pending message edit revert', pendingTxInfo);
-  }
-
-  didChange = restoreWalletHistoryEditSnapshot(editPending.targetTxid, editPending.previousHistory) || didChange;
-  didChange = restoreChatListEntryAfterFailedEdit(pendingTxInfo.to, editPending.previousChat) || didChange;
+  assert(editPending, `Missing pending message edit metadata for ${pendingTxInfo.txid}`);
+  restorePendingMessageEdit(pendingTxInfo.to, editPending);
 
   if (historyModal.isActive()) {
     historyModal.refresh();
@@ -6313,7 +6275,7 @@ function reconcilePendingMessageEdit(pendingTxInfo, result) {
     chatModal.appendChatModal();
   }
 
-  return didChange;
+  return true;
 }
 
 /**
@@ -15032,12 +14994,12 @@ class ChatModal {
 
     // Declare edit-related state outside try so catch can access
     let isEdit = false;
-    let originalMsg = null;
-    let originalMsgState = null;
-    let originalChatState = null;
+    let editMessage = null;
+    let editPending = null;
     let editInput = null;
     let editTargetTxId = '';
     let currentAddress = '';
+    let existingChatIndex = -1;
 
     try {
       this.messageInput.focus(); // Add focus back to keep keyboard open
@@ -15100,15 +15062,15 @@ class ChatModal {
       if (editTargetTxId) {
         // Validate we still can edit
         const contactMsgs = myData.contacts[currentAddress].messages;
-        originalMsg = contactMsgs.find(m => m.txid === editTargetTxId);
-        if (!originalMsg) {
+        editMessage = contactMsgs.find((item) => item.txid === editTargetTxId);
+        if (!editMessage) {
           // Original disappeared; fallback to normal send
           console.warn('Edit target message not found locally; sending as new message');
-        } else if (!originalMsg.my) {
+        } else if (!editMessage.my) {
           console.warn('Attempt to edit a message not owned by user');
-        } else if (isDeleted(originalMsg)) {
+        } else if (isDeleted(editMessage)) {
           console.warn('Attempt to edit a deleted message');
-        } else if ((Date.now() - Number(originalMsg.timestamp || 0)) > EDIT_WINDOW_MS) {
+        } else if ((Date.now() - Number(editMessage.timestamp || 0)) > EDIT_WINDOW_MS) {
           showToast('Edit window expired', 3000, 'info');
         } else {
           isEdit = true;
@@ -15183,33 +15145,39 @@ class ChatModal {
       let newMessage;
       if (isEdit) {
         // Optimistic update of original message (record original so we can revert on failure)
-        const contactMsgs = chatsData.contacts[currentAddress].messages;
-        originalMsg = contactMsgs.find(m => m.txid === editTargetTxId);
-        if (originalMsg) {
-          originalMsgState = {
-            message: originalMsg.message,
-            edited: originalMsg.edited,
-            edited_timestamp: originalMsg.edited_timestamp
+        assert(editMessage, `Missing edit message for ${editTargetTxId}`);
+        editPending = {
+          targetTxid: editTargetTxId,
+          previousMessage: {
+            message: editMessage.message,
+            edited: editMessage.edited,
+            edited_timestamp: editMessage.edited_timestamp
+          },
+          previousHistory: null,
+          previousChat: null
+        };
+
+        existingChatIndex = chatsData.chats.findIndex((chat) => chat.address === currentAddress);
+        assert(existingChatIndex !== -1, `Missing chat list entry for pending edit: ${currentAddress}`);
+        editPending.previousChat = { ...chatsData.chats[existingChatIndex] };
+
+        editMessage.message = message;
+        editMessage.edited = 1;
+        editMessage.edited_timestamp = payload.sent_timestamp;
+
+        const historyIndex = myData.wallet.history.findIndex((item) => item.txid === editTargetTxId);
+        if (historyIndex !== -1) {
+          editPending.previousHistory = {
+            memo: myData.wallet.history[historyIndex].memo,
+            edited: myData.wallet.history[historyIndex].edited,
+            edited_timestamp: myData.wallet.history[historyIndex].edited_timestamp
           };
-          originalMsg.message = message;
-          originalMsg.edited = 1;
-          originalMsg.edited_timestamp = payload.sent_timestamp;
-          // Also update wallet history memo if this was a payment we sent
-          if (myData?.wallet?.history && Array.isArray(myData.wallet.history)) {
-            const hIdx = myData.wallet.history.findIndex((h) => h.txid === editTargetTxId);
-            if (hIdx !== -1) {
-              // Preserve prior state for potential revert
-              if (!originalMsgState.history) originalMsgState.history = {};
-              originalMsgState.history.memo = myData.wallet.history[hIdx].memo;
-              originalMsgState.history.edited = myData.wallet.history[hIdx].edited;
-              originalMsgState.history.edited_timestamp = myData.wallet.history[hIdx].edited_timestamp;
-              myData.wallet.history[hIdx].memo = message;
-              myData.wallet.history[hIdx].edited = 1;
-              myData.wallet.history[hIdx].edited_timestamp = payload.sent_timestamp;
-            }
-          }
-          this.appendChatModal();
+          myData.wallet.history[historyIndex].memo = message;
+          myData.wallet.history[historyIndex].edited = 1;
+          myData.wallet.history[historyIndex].edited_timestamp = payload.sent_timestamp;
         }
+
+        this.appendChatModal();
         // Clear edit marker only after capturing state and hide cancel button
         editInput.value = '';
         this.cancelEditButton.style.display = 'none';
@@ -15250,11 +15218,10 @@ class ChatModal {
       };
 
       // Remove existing chat for this contact if it exists. Not handling in removeFailedTx anymore.
-      const existingChatIndex = chatsData.chats.findIndex((chat) => chat.address === currentAddress);
+      if (!isEdit) {
+        existingChatIndex = chatsData.chats.findIndex((chat) => chat.address === currentAddress);
+      }
       if (existingChatIndex !== -1) {
-        if (isEdit) {
-          originalChatState = { ...chatsData.chats[existingChatIndex] };
-        }
         chatsData.chats.splice(existingChatIndex, 1);
       }
 
@@ -15315,21 +15282,9 @@ class ChatModal {
           this.appendChatModal();
         } else {
           showToast('Edit failed to send', 0, 'error');
-          // Revert optimistic edit
-          if (originalMsg && originalMsgState) {
-            originalMsg.message = originalMsgState.message;
-            if (originalMsgState.edited) {
-              originalMsg.edited = originalMsgState.edited;
-              originalMsg.edited_timestamp = originalMsgState.edited_timestamp;
-            } else {
-              delete originalMsg.edited;
-              delete originalMsg.edited_timestamp;
-            }
-            // Revert wallet history memo if we changed it optimistically
-            this.revertWalletHistoryEdit(editTargetTxId, originalMsgState.history);
-            restoreChatListEntryAfterFailedEdit(currentAddress, originalChatState);
-            this.appendChatModal();
-          }
+          assert(editPending, `Missing edit snapshot for ${editTargetTxId}`);
+          restorePendingMessageEdit(currentAddress, editPending);
+          this.appendChatModal();
           // Restore edit UI state to allow user to retry or cancel
           editInput.value = editTargetTxId;
           this.cancelEditButton.style.display = '';
@@ -15348,16 +15303,8 @@ class ChatModal {
         if (isEdit) {
           const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
           assert(pendingTxInfo, `Pending edit metadata missing for ${txid}`);
-          pendingTxInfo.editPending = {
-            targetTxid: editTargetTxId,
-            previousMessage: {
-              message: originalMsgState.message,
-              edited: originalMsgState.edited,
-              edited_timestamp: originalMsgState.edited_timestamp
-            },
-            previousHistory: originalMsgState.history ? { ...originalMsgState.history } : undefined,
-            previousChat: originalChatState ? { ...originalChatState } : null
-          };
+          assert(editPending, `Missing edit snapshot for ${editTargetTxId}`);
+          pendingTxInfo.editPending = editPending;
           saveState();
           showToast('Message edited', 2000, 'success');
           this.addAttachmentButton.disabled = this.blockedByRecipient;
@@ -15367,18 +15314,8 @@ class ChatModal {
       console.error('Message error:', error);
       showToast('Failed to send message. Please try again.', 0, 'error');
       // Revert optimistic edit on exception
-      if (isEdit && originalMsg && originalMsgState) {
-        originalMsg.message = originalMsgState.message;
-        if (originalMsgState.edited) {
-          originalMsg.edited = originalMsgState.edited;
-          originalMsg.edited_timestamp = originalMsgState.edited_timestamp;
-        } else {
-          delete originalMsg.edited;
-          delete originalMsg.edited_timestamp;
-        }
-        // Revert wallet history memo if we changed it optimistically
-        this.revertWalletHistoryEdit(editTargetTxId, originalMsgState.history);
-        restoreChatListEntryAfterFailedEdit(currentAddress, originalChatState);
+      if (isEdit && editPending) {
+        restorePendingMessageEdit(currentAddress, editPending);
         this.appendChatModal();
       }
     } finally {
@@ -15412,15 +15349,6 @@ class ChatModal {
     } catch (e) {
       console.error('Failed to cancel edit', e);
     }
-  }
-
-  /**
-   * Revert wallet history memo/edited fields for a given txid using the provided originalHistory snapshot
-   * @param {string} txid - Transaction id to locate in myData.wallet.history
-   * @param {{memo?: string, edited?: number, edited_timestamp?: number}} originalHistory - Original values to restore
-   */
-  revertWalletHistoryEdit(txid, originalHistory) {
-    restoreWalletHistoryEditSnapshot(txid, originalHistory);
   }
 
   /**
@@ -27536,7 +27464,7 @@ async function checkPendingTransactions() {
           showToast('Reaction timed out and was reverted', 0, 'error');
         }
         if (pendingTxInfo.editPending) {
-          const didRevertEdit = reconcilePendingMessageEdit(pendingTxInfo, 'failure');
+          const didRevertEdit = reconcilePendingMessageEdit(pendingTxInfo);
           showToast(didRevertEdit ? 'Edit timed out and was reverted' : 'Edit timed out', 0, 'error');
         }
         // remove the pending tx from the pending array
@@ -27613,7 +27541,7 @@ async function checkPendingTransactions() {
               ? `Reaction failed and was reverted: ${userFailureReason}`
               : userFailureReason, 0, 'error');
           } else if (pendingTxInfo.editPending) {
-            const didRevert = reconcilePendingMessageEdit(pendingTxInfo, 'failure');
+            const didRevert = reconcilePendingMessageEdit(pendingTxInfo);
             showToast(didRevert
               ? `Edit failed and was reverted: ${userFailureReason}`
               : userFailureReason, 0, 'error');
