@@ -6183,7 +6183,17 @@ function syncReactionUiState(contactAddress, contact, targetTxid) {
  * @returns {boolean}
  */
 function hasPendingEditForTarget(contactAddress, targetTxid) {
-  if (!contactAddress || !targetTxid || !Array.isArray(myData?.pending)) {
+  if (!contactAddress || !targetTxid) {
+    return false;
+  }
+
+  const contact = myData?.contacts?.[contactAddress];
+  const message = contact?.messages?.find((item) => item.txid === targetTxid);
+  if (message?.pendingEditTxid) {
+    return true;
+  }
+
+  if (!Array.isArray(myData?.pending)) {
     return false;
   }
 
@@ -6198,6 +6208,7 @@ function hasPendingEditForTarget(contactAddress, targetTxid) {
  * Restores local state captured before an optimistic message edit.
  * @param {string} contactAddress
  * @param {{
+ *   pendingTxid: string,
  *   targetTxid: string,
  *   previousMessage: { message: string, edited?: number, edited_timestamp?: number },
  *   previousHistory: null | { memo?: string, edited?: number, edited_timestamp?: number },
@@ -6224,12 +6235,15 @@ function restorePendingMessageEdit(contactAddress, editPending) {
   } else {
     delete message.edited_timestamp;
   }
+  if (message.pendingEditTxid === editPending.pendingTxid) {
+    delete message.pendingEditTxid;
+  }
 
   const existingChatIndex = myData.chats.findIndex((chat) => chat.address === contactAddress);
-  if (existingChatIndex !== -1) {
+  if (existingChatIndex !== -1 && myData.chats[existingChatIndex].txid === editPending.pendingTxid) {
     myData.chats.splice(existingChatIndex, 1);
+    insertSorted(myData.chats, { ...editPending.previousChat }, 'timestamp');
   }
-  insertSorted(myData.chats, { ...editPending.previousChat }, 'timestamp');
 
   if (editPending.previousHistory === null) {
     return;
@@ -15147,6 +15161,7 @@ class ChatModal {
         // Optimistic update of original message (record original so we can revert on failure)
         assert(editMessage, `Missing edit message for ${editTargetTxId}`);
         editPending = {
+          pendingTxid: txid,
           targetTxid: editTargetTxId,
           previousMessage: {
             message: editMessage.message,
@@ -15161,6 +15176,7 @@ class ChatModal {
         assert(existingChatIndex !== -1, `Missing chat list entry for pending edit: ${currentAddress}`);
         editPending.previousChat = { ...chatsData.chats[existingChatIndex] };
 
+        editMessage.pendingEditTxid = txid;
         editMessage.message = message;
         editMessage.edited = 1;
         editMessage.edited_timestamp = payload.sent_timestamp;
@@ -27476,6 +27492,13 @@ async function checkPendingTransactions() {
         // comment out to test the pending txs removal logic
         myData.pending.splice(i, 1);
         reconcilePendingReactionSet(pendingTxInfo, 'success');
+        if (pendingTxInfo.editPending) {
+          const contact = myData.contacts[pendingTxInfo.to];
+          const message = contact?.messages?.find((item) => item.txid === pendingTxInfo.editPending.targetTxid);
+          if (message?.pendingEditTxid === pendingTxInfo.txid) {
+            delete message.pendingEditTxid;
+          }
+        }
 
         if (type === 'register') {
           pendingPromiseService.resolve(txid, {
