@@ -6242,31 +6242,32 @@ function restorePendingMessageEdit(contactAddress, editPending) {
   }
   syncChatLatestActivityTimestamp(contactAddress, contact);
 
-  if (previousHistory.kind === 'none') {
-    return;
-  }
+  switch (previousHistory.kind) {
+    case 'none':
+      return;
+    case 'payment': {
+      const historyIndex = myData.wallet.history.findIndex((item) => item.txid === targetTxid);
+      assert(historyIndex !== -1, `Missing wallet history for pending edit: ${targetTxid}`);
 
-  if (previousHistory.kind !== 'payment') {
-    assert(false, `Unknown pending edit history kind: ${previousHistory.kind}`);
-  }
-
-  const historyIndex = myData.wallet.history.findIndex((item) => item.txid === targetTxid);
-  assert(historyIndex !== -1, `Missing wallet history for pending edit: ${targetTxid}`);
-
-  if (typeof previousHistory.memo !== 'undefined') {
-    myData.wallet.history[historyIndex].memo = previousHistory.memo;
-  } else {
-    delete myData.wallet.history[historyIndex].memo;
-  }
-  if (typeof previousHistory.edited !== 'undefined') {
-    myData.wallet.history[historyIndex].edited = previousHistory.edited;
-  } else {
-    delete myData.wallet.history[historyIndex].edited;
-  }
-  if (typeof previousHistory.edited_timestamp !== 'undefined') {
-    myData.wallet.history[historyIndex].edited_timestamp = previousHistory.edited_timestamp;
-  } else {
-    delete myData.wallet.history[historyIndex].edited_timestamp;
+      if (typeof previousHistory.memo !== 'undefined') {
+        myData.wallet.history[historyIndex].memo = previousHistory.memo;
+      } else {
+        delete myData.wallet.history[historyIndex].memo;
+      }
+      if (typeof previousHistory.edited !== 'undefined') {
+        myData.wallet.history[historyIndex].edited = previousHistory.edited;
+      } else {
+        delete myData.wallet.history[historyIndex].edited;
+      }
+      if (typeof previousHistory.edited_timestamp !== 'undefined') {
+        myData.wallet.history[historyIndex].edited_timestamp = previousHistory.edited_timestamp;
+      } else {
+        delete myData.wallet.history[historyIndex].edited_timestamp;
+      }
+      return;
+    }
+    default:
+      assert(false, `Unknown pending edit history kind: ${previousHistory.kind}`);
   }
 }
 
@@ -6297,22 +6298,22 @@ function reconcilePendingMessageEdit(pendingTxInfo) {
  * @param {string} txid
  * @param {string} contactAddress
  * @param {Object} editPending
- * @returns {Object}
+ * @returns {void}
  */
 function trackPendingMessageEditBeforeInject(txid, contactAddress, editPending) {
   if (!myData.pending) {
     myData.pending = [];
   }
 
-  const existingPending = myData.pending.find((pendingTx) => pendingTx.txid === txid);
-  if (existingPending) {
-    existingPending.to = normalizeAddress(contactAddress);
-    existingPending.editPending = editPending;
-    existingPending.awaitingInject = true;
-    return existingPending;
+  const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
+  if (pendingTxInfo) {
+    pendingTxInfo.to = normalizeAddress(contactAddress);
+    pendingTxInfo.editPending = editPending;
+    pendingTxInfo.awaitingInject = true;
+    return;
   }
 
-  const pendingTxData = {
+  myData.pending.push({
     txid,
     type: 'message',
     submittedts: getCorrectedTimestamp(),
@@ -6320,9 +6321,7 @@ function trackPendingMessageEditBeforeInject(txid, contactAddress, editPending) 
     to: normalizeAddress(contactAddress),
     editPending,
     awaitingInject: true,
-  };
-  myData.pending.push(pendingTxData);
-  return pendingTxData;
+  });
 }
 
 /**
@@ -17145,7 +17144,8 @@ class ChatModal {
         const hasMemo = !!messageEl.querySelector('.payment-memo');
         const isVoice = !!messageEl.querySelector('.voice-message');
         const allowedType = !isPayment || (isPayment && hasMemo);
-        const hasPendingEdit = isMine && hasPendingEditForTarget(this.address, messageEl.dataset.txid || '');
+        const targetTxid = messageEl.dataset.txid;
+        const hasPendingEdit = isMine && !!targetTxid && hasPendingEditForTarget(this.address, targetTxid);
         const show = isMine && !isDeleted && allowedType && !isVoice && !isFailedPayment && ageOk && !hasPendingEdit;
         editOption.style.display = show ? 'flex' : 'none';
       }
