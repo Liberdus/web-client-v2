@@ -17142,9 +17142,7 @@ class ChatModal {
         const hasMemo = !!messageEl.querySelector('.payment-memo');
         const isVoice = !!messageEl.querySelector('.voice-message');
         const allowedType = !isPayment || (isPayment && hasMemo);
-        const targetTxid = messageEl.dataset.txid;
-        const hasPendingEdit = isMine && !!targetTxid && hasPendingEditForTarget(this.address, targetTxid);
-        const show = isMine && !isDeleted && allowedType && !isVoice && !isFailedPayment && ageOk && !hasPendingEdit;
+        const show = isMine && !isDeleted && allowedType && !isVoice && !isFailedPayment && ageOk;
         editOption.style.display = show ? 'flex' : 'none';
       }
     }
