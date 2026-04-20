@@ -6305,7 +6305,6 @@ function trackPendingMessageEditBeforeInject(txid, contactAddress, editPending) 
   if (pendingTxInfo) {
     pendingTxInfo.to = normalizeAddress(contactAddress);
     pendingTxInfo.editPending = editPending;
-    pendingTxInfo.awaitingInject = true;
     return;
   }
 
@@ -6316,7 +6315,6 @@ function trackPendingMessageEditBeforeInject(txid, contactAddress, editPending) 
     checkedts: 0,
     to: normalizeAddress(contactAddress),
     editPending,
-    awaitingInject: true,
   });
 }
 
@@ -15355,11 +15353,6 @@ class ChatModal {
       } else {
         // Success: for normal message nothing extra; for edit we already updated locally
         if (isEdit) {
-          const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
-          assert(pendingTxInfo, `Pending edit metadata missing for ${txid}`);
-          assert(pendingTxInfo.editPending, `Missing pending edit snapshot for ${editTargetTxId}`);
-          delete pendingTxInfo.awaitingInject;
-          saveState();
           showToast('Message edited', 2000, 'success');
           this.addAttachmentButton.disabled = this.blockedByRecipient;
         }
@@ -27504,16 +27497,6 @@ async function checkPendingTransactions() {
   for (let i = myData.pending.length - 1; i >= 0; i--) {
     const pendingTxInfo = myData.pending[i];
     const { txid, type, submittedts } = pendingTxInfo;
-
-    if (pendingTxInfo.awaitingInject) {
-      if (submittedts < thirtySecondsAgo && pendingTxInfo.editPending) {
-        console.error(`DEBUG: txid ${txid} inject timed out before pending tracking was established`);
-        reconcilePendingMessageEdit(pendingTxInfo);
-        showToast('Edit failed to send and was reverted', 0, 'error');
-        myData.pending.splice(i, 1);
-      }
-      continue;
-    }
 
     if (submittedts < eightSecondsAgo) {
 
