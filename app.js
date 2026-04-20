@@ -6200,9 +6200,9 @@ function hasPendingEditForTarget(contactAddress, targetTxid) {
 
 /**
  * Restores local state captured before an optimistic message edit.
+ * @param {string} pendingTxid
  * @param {string} contactAddress
  * @param {{
- *   pendingTxid: string,
  *   targetTxid: string,
  *   previousMessage: { message: string, edited?: number, edited_timestamp?: number },
  *   previousHistory:
@@ -6211,9 +6211,8 @@ function hasPendingEditForTarget(contactAddress, targetTxid) {
  * }} editPending
  * @returns {void}
  */
-function restorePendingMessageEdit(contactAddress, editPending) {
+function restorePendingMessageEdit(pendingTxid, contactAddress, editPending) {
   const {
-    pendingTxid,
     targetTxid,
     previousMessage,
     previousHistory,
@@ -6279,7 +6278,7 @@ function restorePendingMessageEdit(contactAddress, editPending) {
 function reconcilePendingMessageEdit(pendingTxInfo) {
   const { editPending } = pendingTxInfo;
   assert(editPending, `Missing pending message edit metadata for ${pendingTxInfo.txid}`);
-  restorePendingMessageEdit(pendingTxInfo.to, editPending);
+  restorePendingMessageEdit(pendingTxInfo.txid, pendingTxInfo.to, editPending);
 
   if (historyModal.isActive()) {
     historyModal.refresh();
@@ -15212,7 +15211,6 @@ class ChatModal {
               edited_timestamp: myData.wallet.history[previousHistoryIndex].edited_timestamp
             };
         const editPending = {
-          pendingTxid: txid,
           targetTxid: editTargetTxId,
           previousMessage: {
             message: editMessage.message,
@@ -15344,7 +15342,7 @@ class ChatModal {
           myData.pending = myData.pending.filter((pendingTx) => pendingTx.txid !== txid);
           showToast('Edit failed to send', 0, 'error');
           assert(editPending, `Missing pending edit snapshot for ${editTargetTxId}`);
-          restorePendingMessageEdit(currentAddress, editPending);
+          restorePendingMessageEdit(txid, currentAddress, editPending);
           this.appendChatModal();
           // Restore edit UI state to allow user to retry or cancel
           editInput.value = editTargetTxId;
@@ -15383,7 +15381,7 @@ class ChatModal {
         pendingEditByTargetTxid.delete(editTargetTxId);
         myData.pending = myData.pending.filter((pendingTx) => pendingTx.txid !== txid);
         if (editPending) {
-          restorePendingMessageEdit(currentAddress, editPending);
+          restorePendingMessageEdit(txid, currentAddress, editPending);
           this.appendChatModal();
         }
       }
