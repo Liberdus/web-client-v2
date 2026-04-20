@@ -419,6 +419,7 @@ function newDataRecord(myAccount) {
  * This function centralizes the clearing of user data to ensure consistency
  */
 function clearMyData() {
+  pendingEditByTargetTxid.clear();
   myData = null;
   myAccount = null;
 }
@@ -6207,7 +6208,6 @@ function hasPendingEditForTarget(contactAddress, targetTxid) {
  *   previousHistory:
  *     | { kind: 'none' }
  *     | { kind: 'payment', memo?: string, edited?: number, edited_timestamp?: number },
- *   previousChat: { address: string, timestamp: number, txid?: string }
  * }} editPending
  * @returns {void}
  */
@@ -6217,7 +6217,6 @@ function restorePendingMessageEdit(contactAddress, editPending) {
     targetTxid,
     previousMessage,
     previousHistory,
-    previousChat,
   } = editPending;
   const contact = myData.contacts[contactAddress];
   assert(contact, `Missing contact for pending edit: ${contactAddress}`);
@@ -6240,8 +6239,8 @@ function restorePendingMessageEdit(contactAddress, editPending) {
   const existingChatIndex = myData.chats.findIndex((chat) => chat.address === contactAddress);
   if (existingChatIndex !== -1 && myData.chats[existingChatIndex].txid === pendingTxid) {
     myData.chats.splice(existingChatIndex, 1);
-    insertSorted(myData.chats, { ...previousChat }, 'timestamp');
   }
+  syncChatLatestActivityTimestamp(contactAddress, contact);
 
   if (previousHistory.kind === 'none') {
     return;
@@ -6290,6 +6289,40 @@ function reconcilePendingMessageEdit(pendingTxInfo) {
   if (chatModal.isActive() && chatModal.address === pendingTxInfo.to) {
     chatModal.appendChatModal();
   }
+}
+
+/**
+ * Creates or updates the provisional pending entry used to persist optimistic edit rollback data
+ * before `/inject` confirms the transaction was accepted for receipt tracking.
+ * @param {string} txid
+ * @param {string} contactAddress
+ * @param {Object} editPending
+ * @returns {Object}
+ */
+function trackPendingMessageEditBeforeInject(txid, contactAddress, editPending) {
+  if (!myData.pending) {
+    myData.pending = [];
+  }
+
+  const existingPending = myData.pending.find((pendingTx) => pendingTx.txid === txid);
+  if (existingPending) {
+    existingPending.to = normalizeAddress(contactAddress);
+    existingPending.editPending = editPending;
+    existingPending.awaitingInject = true;
+    return existingPending;
+  }
+
+  const pendingTxData = {
+    txid,
+    type: 'message',
+    submittedts: getCorrectedTimestamp(),
+    checkedts: 0,
+    to: normalizeAddress(contactAddress),
+    editPending,
+    awaitingInject: true,
+  };
+  myData.pending.push(pendingTxData);
+  return pendingTxData;
 }
 
 /**
@@ -7504,7 +7537,15 @@ async function injectTx(tx, txid) {
       } else if (tx.type === 'deposit_stake' || tx.type === 'withdraw_stake') {
         pendingTxData.to = tx.nominee; // Store 64-character address as-is for stake transactions
       }
-      myData.pending.push(pendingTxData);
+      const existingPendingIndex = myData.pending.findIndex((pendingTx) => pendingTx.txid === txid);
+      if (existingPendingIndex === -1) {
+        myData.pending.push(pendingTxData);
+      } else {
+        myData.pending[existingPendingIndex] = {
+          ...myData.pending[existingPendingIndex],
+          ...pendingTxData
+        };
+      }
 
       if (tx.type !== 'register') {
         // After submitting a transaction, warn if user is low on LIB.
@@ -15179,11 +15220,11 @@ class ChatModal {
             edited: editMessage.edited,
             edited_timestamp: editMessage.edited_timestamp
           },
-          previousHistory,
-          previousChat: { ...chatsData.chats[chatIndex] }
+          previousHistory
         };
 
         pendingEditByTargetTxid.set(editTargetTxId, editPending);
+        trackPendingMessageEditBeforeInject(txid, currentAddress, editPending);
         editMessage.message = message;
         editMessage.edited = 1;
         editMessage.edited_timestamp = payload.sent_timestamp;
@@ -15195,6 +15236,7 @@ class ChatModal {
         }
 
         this.appendChatModal();
+        saveState();
         // Clear edit marker only after capturing state and hide cancel button
         editInput.value = '';
         this.cancelEditButton.style.display = 'none';
@@ -15300,6 +15342,7 @@ class ChatModal {
         } else {
           const editPending = pendingEditByTargetTxid.get(editTargetTxId);
           pendingEditByTargetTxid.delete(editTargetTxId);
+          myData.pending = myData.pending.filter((pendingTx) => pendingTx.txid !== txid);
           showToast('Edit failed to send', 0, 'error');
           assert(editPending, `Missing pending edit snapshot for ${editTargetTxId}`);
           restorePendingMessageEdit(currentAddress, editPending);
@@ -15325,6 +15368,7 @@ class ChatModal {
           const editPending = pendingEditByTargetTxid.get(editTargetTxId);
           assert(editPending, `Missing pending edit snapshot for ${editTargetTxId}`);
           pendingTxInfo.editPending = editPending;
+          delete pendingTxInfo.awaitingInject;
           pendingEditByTargetTxid.delete(editTargetTxId);
           saveState();
           showToast('Message edited', 2000, 'success');
@@ -15338,6 +15382,7 @@ class ChatModal {
       if (isEdit && editTargetTxId) {
         const editPending = pendingEditByTargetTxid.get(editTargetTxId);
         pendingEditByTargetTxid.delete(editTargetTxId);
+        myData.pending = myData.pending.filter((pendingTx) => pendingTx.txid !== txid);
         if (editPending) {
           restorePendingMessageEdit(currentAddress, editPending);
           this.appendChatModal();
@@ -27472,6 +27517,16 @@ async function checkPendingTransactions() {
   for (let i = myData.pending.length - 1; i >= 0; i--) {
     const pendingTxInfo = myData.pending[i];
     const { txid, type, submittedts } = pendingTxInfo;
+
+    if (pendingTxInfo.awaitingInject) {
+      if (submittedts < thirtySecondsAgo && pendingTxInfo.editPending) {
+        console.error(`DEBUG: txid ${txid} inject timed out before pending tracking was established`);
+        reconcilePendingMessageEdit(pendingTxInfo);
+        showToast('Edit failed to send and was reverted', 0, 'error');
+        myData.pending.splice(i, 1);
+      }
+      continue;
+    }
 
     if (submittedts < eightSecondsAgo) {
 
