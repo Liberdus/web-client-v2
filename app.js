@@ -419,7 +419,6 @@ function newDataRecord(myAccount) {
  * This function centralizes the clearing of user data to ensure consistency
  */
 function clearMyData() {
-  pendingEditByTargetTxid.clear();
   myData = null;
   myAccount = null;
 }
@@ -6183,14 +6182,12 @@ function syncReactionUiState(contactAddress, contact, targetTxid) {
  * @param {string} targetTxid
  * @returns {boolean}
  */
-const pendingEditByTargetTxid = new Map();
-
 function hasPendingEditForTarget(contactAddress, targetTxid) {
   if (!contactAddress || !targetTxid) {
     return false;
   }
 
-  return pendingEditByTargetTxid.has(targetTxid) || myData.pending.some((pendingTx) =>
+  return myData.pending.some((pendingTx) =>
     pendingTx.type === 'message' &&
     pendingTx.to === contactAddress &&
     pendingTx.editPending &&
@@ -15220,7 +15217,6 @@ class ChatModal {
           previousHistory
         };
 
-        pendingEditByTargetTxid.set(editTargetTxId, editPending);
         trackPendingMessageEditBeforeInject(txid, currentAddress, editPending);
         editMessage.message = message;
         editMessage.edited = 1;
@@ -15337,12 +15333,11 @@ class ChatModal {
           updateTransactionStatus(txid, currentAddress, 'failed', 'message');
           this.appendChatModal();
         } else {
-          const editPending = pendingEditByTargetTxid.get(editTargetTxId);
-          pendingEditByTargetTxid.delete(editTargetTxId);
+          const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
           myData.pending = myData.pending.filter((pendingTx) => pendingTx.txid !== txid);
           showToast('Edit failed to send', 0, 'error');
-          assert(editPending, `Missing pending edit snapshot for ${editTargetTxId}`);
-          restorePendingMessageEdit(txid, currentAddress, editPending);
+          assert(pendingTxInfo?.editPending, `Missing pending edit snapshot for ${editTargetTxId}`);
+          restorePendingMessageEdit(txid, currentAddress, pendingTxInfo.editPending);
           this.appendChatModal();
           // Restore edit UI state to allow user to retry or cancel
           editInput.value = editTargetTxId;
@@ -15362,11 +15357,8 @@ class ChatModal {
         if (isEdit) {
           const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
           assert(pendingTxInfo, `Pending edit metadata missing for ${txid}`);
-          const editPending = pendingEditByTargetTxid.get(editTargetTxId);
-          assert(editPending, `Missing pending edit snapshot for ${editTargetTxId}`);
-          pendingTxInfo.editPending = editPending;
+          assert(pendingTxInfo.editPending, `Missing pending edit snapshot for ${editTargetTxId}`);
           delete pendingTxInfo.awaitingInject;
-          pendingEditByTargetTxid.delete(editTargetTxId);
           saveState();
           showToast('Message edited', 2000, 'success');
           this.addAttachmentButton.disabled = this.blockedByRecipient;
@@ -15377,11 +15369,10 @@ class ChatModal {
       showToast('Failed to send message. Please try again.', 0, 'error');
       // Revert optimistic edit on exception
       if (isEdit && editTargetTxId) {
-        const editPending = pendingEditByTargetTxid.get(editTargetTxId);
-        pendingEditByTargetTxid.delete(editTargetTxId);
+        const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
         myData.pending = myData.pending.filter((pendingTx) => pendingTx.txid !== txid);
-        if (editPending) {
-          restorePendingMessageEdit(txid, currentAddress, editPending);
+        if (pendingTxInfo?.editPending) {
+          restorePendingMessageEdit(txid, currentAddress, pendingTxInfo.editPending);
           this.appendChatModal();
         }
       }
