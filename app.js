@@ -5840,7 +5840,7 @@ async function ensureContactKeys(address) {
 }
 
 /**
- * @typedef {{ sender: string, reactId: string, action: 'remove', timestamp: number, reactionTxId?: string } | { sender: string, reactId: string, action: 'set', emoji: string, timestamp: number, reactionTxId?: string }} ReactionUpdate
+ * @typedef {{ sender: string, reactId: string, action: 'remove', timestamp: number, reactionTxId?: string, targetReactionTxId?: string } | { sender: string, reactId: string, action: 'set', emoji: string, timestamp: number, reactionTxId?: string }} ReactionUpdate
  */
 
 /**
@@ -5938,6 +5938,34 @@ function removeReactionByReactionTxId(contact, reactionTxId) {
 }
 
 /**
+ * Removes a raw reaction entry by the txid of the reaction being targeted, while
+ * also verifying the sender and target message match the remove request.
+ * @param {Object} contact
+ * @param {string} targetTxid
+ * @param {string} sender
+ * @param {string} reactionTxId
+ * @returns {boolean}
+ */
+function removeTargetedReaction(contact, targetTxid, sender, reactionTxId) {
+  if (!Array.isArray(contact.reactions) || !reactionTxId) {
+    return false;
+  }
+
+  const normalizedSender = normalizeAddress(sender);
+  const index = contact.reactions.findIndex((reaction) => {
+    return reaction.reactionTxId === reactionTxId &&
+      reaction.targetTxid === targetTxid &&
+      normalizeAddress(reaction.sender) === normalizedSender;
+  });
+  if (index === -1) {
+    return false;
+  }
+
+  contact.reactions.splice(index, 1);
+  return true;
+}
+
+/**
  * Removes all active reactions that target a specific message.
  * @param {Object} contact
  * @param {string} targetTxid
@@ -6020,6 +6048,9 @@ function applyIncomingReaction(contact, reaction) {
 
   switch (reaction.action) {
     case 'remove':
+      if (reaction.targetReactionTxId) {
+        return removeTargetedReaction(contact, reaction.reactId, sender, reaction.targetReactionTxId);
+      }
       return purgeReactionStackForSenderTarget(contact, reaction.reactId, sender);
 
     case 'set': {
@@ -6714,12 +6745,16 @@ async function processChats(chats, keys) {
                     }
 
                     if (reactAction === 'remove') {
+                      const targetReactionTxId = typeof parsedMessage.targetReactionTxId === 'string'
+                        ? parsedMessage.targetReactionTxId.trim()
+                        : '';
                       pendingReactionControls.push({
                         sender,
                         reactId,
                         action: 'remove',
                         timestamp: Number(payload.sent_timestamp),
                         reactionTxId: txidHex,
+                        targetReactionTxId: targetReactionTxId || undefined,
                         order: Number(i)
                       });
                       continue; // reaction control messages update target state instead of adding a chat bubble
@@ -17375,17 +17410,26 @@ class ChatModal {
   }
 
   /**
+   * Returns the current user's stored reaction record for a rendered message.
+   * @param {HTMLElement | null} messageEl
+   * @returns {Object|null}
+   */
+  getCurrentUserReactionRecordForMessage(messageEl) {
+    if (!messageEl) return null;
+
+    const currentUserAddress = normalizeAddress(myAccount.keys.address);
+    const targetTxid = messageEl.dataset.txid;
+    const contact = myData.contacts[this.address];
+    return getEffectiveReactionForSenderTarget(contact, targetTxid, currentUserAddress);
+  }
+
+  /**
    * Returns the current user's stored reaction emoji for a rendered message.
    * @param {HTMLElement | null} messageEl
    * @returns {string}
    */
   getCurrentUserReactionForMessage(messageEl) {
-    if (!messageEl) return '';
-
-    const currentUserAddress = normalizeAddress(myAccount.keys.address);
-    const targetTxid = messageEl.dataset.txid;
-    const contact = myData.contacts[this.address];
-    const reaction = getEffectiveReactionForSenderTarget(contact, targetTxid, currentUserAddress);
+    const reaction = this.getCurrentUserReactionRecordForMessage(messageEl);
     return reaction ? reaction.emoji : '';
   }
 
@@ -18421,9 +18465,10 @@ class ChatModal {
 
     const txid = messageEl.dataset.txid;
     assert(txid, 'Reaction target txid is required');
-    const currentReaction = this.getCurrentUserReactionForMessage(messageEl);
+    const currentReaction = this.getCurrentUserReactionRecordForMessage(messageEl);
+    const currentReactionEmoji = currentReaction ? currentReaction.emoji : '';
 
-    const isRemovingCurrentReaction = !!currentReaction && selectedReaction === currentReaction;
+    const isRemovingCurrentReaction = !!currentReaction && selectedReaction === currentReactionEmoji;
     if (isRemovingCurrentReaction) {
       const confirmed = confirm('Remove your reaction?');
       if (!confirmed) {
@@ -18433,7 +18478,8 @@ class ChatModal {
       closeUi();
       await this.sendReactionMessage({
         reactId: txid,
-        reactAction: 'remove'
+        reactAction: 'remove',
+        targetReactionTxId: currentReaction.reactionTxId || undefined
       });
       return;
     }
@@ -18448,7 +18494,7 @@ class ChatModal {
 
   /**
    * Sends a reaction control message.
-   * @param {{reactId: string, reactAction: 'remove', reactMessage?: string} | {reactId: string, reactAction: 'set', reactMessage: string}} reaction
+   * @param {{reactId: string, reactAction: 'remove', reactMessage?: string, targetReactionTxId?: string} | {reactId: string, reactAction: 'set', reactMessage: string}} reaction
    * @returns {Promise<boolean>}
    */
   async sendReactionMessage(reaction) {
@@ -18504,6 +18550,9 @@ class ChatModal {
           payload.reactMessage = reaction.reactMessage;
           break;
         case 'remove':
+          if (reaction.targetReactionTxId) {
+            payload.targetReactionTxId = reaction.targetReactionTxId;
+          }
           break;
         default:
           throw new Error(`Unknown reaction action: ${reaction.reactAction}`);
@@ -18524,7 +18573,8 @@ class ChatModal {
       txid,
       reactId: reaction.reactId,
       reactMessage: reaction.reactMessage,
-      reactAction: reaction.reactAction
+      reactAction: reaction.reactAction,
+      targetReactionTxId: reaction.targetReactionTxId
     });
 
     let reactionPendingState = null;
