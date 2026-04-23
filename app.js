@@ -14041,7 +14041,10 @@ class ChatModal {
       }
       return true;
     });
-    
+    // Close all context menus when messages container scrolls
+    this.messagesContainer.addEventListener('scroll', () => {
+      this.closeAllContextMenus();
+    }, { passive: true });
     // Add context menu option listeners
     this.contextMenu.addEventListener('click', (e) => {
       const reactionButton = e.target.closest('.message-context-reaction-button');
@@ -17244,6 +17247,7 @@ class ChatModal {
     this.closeAttachmentOptionsContextMenu();
     this.closeHeaderContextMenu();
     this.closeReactionSheet();
+    failedMessageMenu.hide();
   }
 
   /**
