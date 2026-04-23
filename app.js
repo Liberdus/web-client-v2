@@ -17079,6 +17079,10 @@ class ChatModal {
 
     if (this.contextMenuReactions) {
       this.contextMenuReactions.style.display = canShowReactionRow ? 'flex' : 'none';
+      this.syncContextReactionTrayDisplay(
+        this.contextMenuReactions,
+        canShowReactionRow ? messageEl : null
+      );
       this.syncReactionPickerActiveState(this.contextMenuReactions, canShowReactionRow ? messageEl : null);
     }
 
@@ -17403,6 +17407,41 @@ class ChatModal {
     const contact = myData.contacts[this.address];
     const reaction = getEffectiveReactionForSenderTarget(contact, targetTxid, currentUserAddress);
     return reaction ? reaction.emoji : '';
+  }
+
+  /**
+   * Ensures context-menu reaction trays surface the active reaction even when it
+   * was chosen from the expanded picker.
+   * @param {HTMLElement} reactionTray
+   * @param {HTMLElement | null} messageEl
+   * @returns {void}
+   */
+  syncContextReactionTrayDisplay(reactionTray, messageEl) {
+    const reactionButtons = [...reactionTray.querySelectorAll('.message-context-reaction-button')]
+      .filter((button) => button.dataset.reactionPickerTrigger !== 'true');
+    assert(reactionButtons.length > 0, 'Reaction tray requires quick reaction buttons');
+
+    for (const button of reactionButtons) {
+      const { defaultEmoji, defaultAriaLabel } = button.dataset;
+      assert(defaultEmoji, 'Reaction button emoji is required');
+      assert(defaultAriaLabel, 'Reaction button aria-label is required');
+      button.dataset.emoji = defaultEmoji;
+      button.textContent = defaultEmoji;
+      button.setAttribute('aria-label', defaultAriaLabel);
+    }
+
+    const activeEmoji = this.getCurrentUserReactionForMessage(messageEl);
+
+    if (!activeEmoji) return;
+
+    for (const button of reactionButtons) {
+      if (button.dataset.defaultEmoji === activeEmoji) return;
+    }
+
+    const customReactionButton = reactionButtons[reactionButtons.length - 1];
+    customReactionButton.dataset.emoji = activeEmoji;
+    customReactionButton.textContent = activeEmoji;
+    customReactionButton.setAttribute('aria-label', `React with ${activeEmoji}`);
   }
 
   /**
@@ -18178,6 +18217,11 @@ class ChatModal {
       importContactsOpt.style.display = isVcf ? '' : 'none';
     }
 
+    assert(this.imageAttachmentContextMenuReactions, 'Image attachment reaction tray is required');
+    this.syncContextReactionTrayDisplay(
+      this.imageAttachmentContextMenuReactions,
+      messageEl
+    );
     this.syncReactionPickerActiveState(this.imageAttachmentContextMenuReactions, messageEl);
 
     this.positionContextMenu(this.imageAttachmentContextMenu, attachmentRow);
