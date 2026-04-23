@@ -18403,6 +18403,22 @@ class ChatModal {
     if (!messageEl || !selectedReaction) return;
     assert(typeof closeUi === 'function', 'Reaction close callback is required');
 
+    const contact = myData.contacts[this.address];
+    const required = contact?.tollRequiredToSend;
+    if (required === 2) {
+      showToast('You are blocked by this user', 0, 'error');
+      return;
+    }
+    if (required !== undefined && required !== 0) {
+      const username = contact.username || `${this.address.slice(0, 8)}...${this.address.slice(-6)}`;
+      showToast(
+        `You can only send reactions to people who have added you as a connection. Ask ${username} to add you as a connection`,
+        0,
+        'info'
+      );
+      return;
+    }
+
     const txid = messageEl.dataset.txid;
     assert(txid, 'Reaction target txid is required');
     const currentReaction = this.getCurrentUserReactionForMessage(messageEl);
