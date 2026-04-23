@@ -5938,34 +5938,6 @@ function removeReactionByReactionTxId(contact, reactionTxId) {
 }
 
 /**
- * Removes a raw reaction entry by the txid of the reaction being targeted, while
- * also verifying the sender and target message match the remove request.
- * @param {Object} contact
- * @param {string} targetTxid
- * @param {string} sender
- * @param {string} reactionTxId
- * @returns {boolean}
- */
-function removeTargetedReaction(contact, targetTxid, sender, reactionTxId) {
-  if (!Array.isArray(contact.reactions) || !reactionTxId) {
-    return false;
-  }
-
-  const normalizedSender = normalizeAddress(sender);
-  const index = contact.reactions.findIndex((reaction) => {
-    return reaction.reactionTxId === reactionTxId &&
-      reaction.targetTxid === targetTxid &&
-      normalizeAddress(reaction.sender) === normalizedSender;
-  });
-  if (index === -1) {
-    return false;
-  }
-
-  contact.reactions.splice(index, 1);
-  return true;
-}
-
-/**
  * Removes all active reactions that target a specific message.
  * @param {Object} contact
  * @param {string} targetTxid
@@ -6047,11 +6019,20 @@ function applyIncomingReaction(contact, reaction) {
   const currentReaction = getEffectiveReactionForSenderTarget(contact, reaction.reactId, sender);
 
   switch (reaction.action) {
-    case 'remove':
+    case 'remove': {
       if (reaction.targetReactionTxId) {
-        return removeTargetedReaction(contact, reaction.reactId, sender, reaction.targetReactionTxId);
+        const targetReaction = contact.reactions.find((entry) => {
+          return entry.targetTxid === reaction.reactId &&
+            normalizeAddress(entry.sender) === sender &&
+            entry.reactionTxId === reaction.targetReactionTxId;
+        });
+        if (!targetReaction) {
+          return false;
+        }
+        return removeReactionByReactionTxId(contact, targetReaction.reactionTxId);
       }
       return purgeReactionStackForSenderTarget(contact, reaction.reactId, sender);
+    }
 
     case 'set': {
       const emoji = reaction.emoji.trim();
@@ -17410,26 +17391,17 @@ class ChatModal {
   }
 
   /**
-   * Returns the current user's stored reaction record for a rendered message.
-   * @param {HTMLElement | null} messageEl
-   * @returns {Object|null}
-   */
-  getCurrentUserReactionRecordForMessage(messageEl) {
-    if (!messageEl) return null;
-
-    const currentUserAddress = normalizeAddress(myAccount.keys.address);
-    const targetTxid = messageEl.dataset.txid;
-    const contact = myData.contacts[this.address];
-    return getEffectiveReactionForSenderTarget(contact, targetTxid, currentUserAddress);
-  }
-
-  /**
    * Returns the current user's stored reaction emoji for a rendered message.
    * @param {HTMLElement | null} messageEl
    * @returns {string}
    */
   getCurrentUserReactionForMessage(messageEl) {
-    const reaction = this.getCurrentUserReactionRecordForMessage(messageEl);
+    if (!messageEl) return '';
+
+    const currentUserAddress = normalizeAddress(myAccount.keys.address);
+    const targetTxid = messageEl.dataset.txid;
+    const contact = myData.contacts[this.address];
+    const reaction = getEffectiveReactionForSenderTarget(contact, targetTxid, currentUserAddress);
     return reaction ? reaction.emoji : '';
   }
 
@@ -18465,21 +18437,22 @@ class ChatModal {
 
     const txid = messageEl.dataset.txid;
     assert(txid, 'Reaction target txid is required');
-    const currentReaction = this.getCurrentUserReactionRecordForMessage(messageEl);
-    const currentReactionEmoji = currentReaction ? currentReaction.emoji : '';
+    const currentUserAddress = normalizeAddress(myAccount.keys.address);
+    const currentReaction = getEffectiveReactionForSenderTarget(contact, txid, currentUserAddress);
 
-    const isRemovingCurrentReaction = !!currentReaction && selectedReaction === currentReactionEmoji;
+    const isRemovingCurrentReaction = !!currentReaction && selectedReaction === currentReaction.emoji;
     if (isRemovingCurrentReaction) {
       const confirmed = confirm('Remove your reaction?');
       if (!confirmed) {
         return;
       }
 
+      assert(currentReaction.reactionTxId, 'Reaction txid is required for remove');
       closeUi();
       await this.sendReactionMessage({
         reactId: txid,
         reactAction: 'remove',
-        targetReactionTxId: currentReaction.reactionTxId || undefined
+        targetReactionTxId: currentReaction.reactionTxId
       });
       return;
     }
@@ -18494,15 +18467,11 @@ class ChatModal {
 
   /**
    * Sends a reaction control message.
-   * @param {{reactId: string, reactAction: 'remove', reactMessage?: string, targetReactionTxId?: string} | {reactId: string, reactAction: 'set', reactMessage: string}} reaction
+   * @param {{reactId: string, reactAction: 'remove', targetReactionTxId: string} | {reactId: string, reactAction: 'set', reactMessage: string}} reaction
    * @returns {Promise<boolean>}
    */
   async sendReactionMessage(reaction) {
     assert(reaction.reactId, 'Reaction target txid is required');
-    if (reaction.reactAction === 'set') {
-      assert(reaction.reactMessage, 'Reaction emoji is required for set');
-    }
-
     if (!isOnline) {
       console.warn('Reaction send skipped while offline', reaction);
       return false;
@@ -18536,28 +18505,27 @@ class ChatModal {
       return false;
     }
 
-    let payload;
+    let payload = {
+      type: 'message',
+      reactId: reaction.reactId,
+      reactAction: reaction.reactAction
+    };
+    switch (reaction.reactAction) {
+      case 'set':
+        assert(reaction.reactMessage, 'Reaction emoji is required for set');
+        payload.reactMessage = reaction.reactMessage;
+        break;
+      case 'remove':
+        assert(reaction.targetReactionTxId, 'Target reaction txid is required for remove');
+        payload.targetReactionTxId = reaction.targetReactionTxId;
+        break;
+      default:
+        throw new Error(`Unknown reaction action: ${reaction.reactAction}`);
+    }
+
     let chatMessageObj;
     let txid;
     try {
-      payload = {
-        type: 'message',
-        reactId: reaction.reactId,
-        reactAction: reaction.reactAction
-      };
-      switch (reaction.reactAction) {
-        case 'set':
-          payload.reactMessage = reaction.reactMessage;
-          break;
-        case 'remove':
-          if (reaction.targetReactionTxId) {
-            payload.targetReactionTxId = reaction.targetReactionTxId;
-          }
-          break;
-        default:
-          throw new Error(`Unknown reaction action: ${reaction.reactAction}`);
-      }
-
       ({ payload, chatMessageObj, txid } = await this.buildEncryptedStructuredChatTx(
         currentAddress,
         payload,
@@ -18573,8 +18541,7 @@ class ChatModal {
       txid,
       reactId: reaction.reactId,
       reactMessage: reaction.reactMessage,
-      reactAction: reaction.reactAction,
-      targetReactionTxId: reaction.targetReactionTxId
+      reactAction: reaction.reactAction
     });
 
     let reactionPendingState = null;
