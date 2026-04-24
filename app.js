@@ -18800,11 +18800,14 @@ class ChatModal {
     const sender = normalizeAddress(keys.address);
     assert(payload.sent_timestamp, 'Reaction sent_timestamp is required');
     const chainEntries = getPendingReactionChainEntries(currentAddress, reaction.reactId);
+    const activeChainEntries = chainEntries.some((entry) => entry.reactionPending.status === 'pending')
+      ? chainEntries
+      : [];
     const baseReaction = getPendingReactionChainBase(
-      chainEntries,
+      activeChainEntries,
       getEffectiveReactionForSenderTarget(contact, reaction.reactId, sender)
     );
-    const localOrder = getPendingReactionNextLocalOrder(chainEntries);
+    const localOrder = getPendingReactionNextLocalOrder(activeChainEntries);
 
     /** @type {PendingReactionMutation} */
     let reactionPendingState;
