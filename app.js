@@ -6161,6 +6161,7 @@ function applyIncomingReaction(contact, reaction) {
 
   const sender = normalizeAddress(reaction.sender);
   const currentReaction = getEffectiveReactionForSenderTarget(contact, reaction.reactId, sender);
+  const isIncomingOlderThanCurrent = !!currentReaction && currentReaction.timestamp > reaction.timestamp;
 
   switch (reaction.action) {
     case 'remove': {
@@ -6175,6 +6176,9 @@ function applyIncomingReaction(contact, reaction) {
         }
         return removeReactionByReactionTxId(contact, targetReaction.reactionTxId);
       }
+      if (isIncomingOlderThanCurrent) {
+        return false;
+      }
       return purgeReactionStackForSenderTarget(contact, reaction.reactId, sender);
     }
 
@@ -6182,6 +6186,9 @@ function applyIncomingReaction(contact, reaction) {
       const emoji = reaction.emoji.trim();
       // don't allow duplicate reactions
       if (reaction.reactionTxId && contact.reactions.some((entry) => entry.reactionTxId === reaction.reactionTxId)) {
+        return false;
+      }
+      if (isIncomingOlderThanCurrent) {
         return false;
       }
       if (currentReaction && currentReaction.emoji === emoji) {
@@ -6475,7 +6482,7 @@ function trackPendingMessageEditBeforeInject(txid, contactAddress, editPending) 
 }
 
 /**
- * Creates the provisional pending entry used to persist optimistic reaction chain metadata
+ * Creates or updates the provisional pending entry used to persist optimistic reaction chain metadata
  * before `/inject` confirms the transaction was accepted for receipt tracking.
  * @param {string} txid
  * @param {string} contactAddress
@@ -6569,6 +6576,7 @@ async function processChats(chats, keys) {
   const messageQueryTimestamp = Math.max(0, timestamp+1);
   let hasAnyTransfer = false;
   let needsUpcomingCallsUiRefresh = false;
+  const currentUserAddress = normalizeAddress(keys.address);
 
   for (let sender in chats) {
     // Fetch messages using the adjusted timestamp
@@ -7187,6 +7195,12 @@ async function processChats(chats, keys) {
         });
 
         for (const pendingReaction of pendingReactionControls) {
+          if (
+            pendingReaction.sender === currentUserAddress &&
+            getPendingReactionChainEntries(from, pendingReaction.reactId).length > 0
+          ) {
+            continue;
+          }
           if (applyIncomingReaction(contact, pendingReaction)) {
             didApplyPendingReaction = true;
             syncChatLatestActivityTimestamp(from, contact);
@@ -27978,6 +27992,7 @@ async function checkPendingTransactions() {
       }
     }
   }
+
   for (const chain of resolvedReactionChains) {
     removePendingReactionChainEntries(chain.contactAddress, chain.targetTxid);
   }
