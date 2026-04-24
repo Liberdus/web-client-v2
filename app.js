@@ -18768,53 +18768,64 @@ class ChatModal {
       return Math.max(maxOrder, entry.reactionPending.localOrder);
     }, 0) + 1;
 
-    /** @type {PendingReactionMutation | null} */
-    let reactionPendingState = null;
-    if (reaction.reactAction === 'set') {
-      reactionPendingState = {
-        kind: 'set',
-        targetTxid: reaction.reactId,
-        localOrder,
-        status: 'pending',
-        baseReaction,
-        visibleResult: {
-          sender,
+    /** @type {PendingReactionMutation} */
+    let reactionPendingState;
+    switch (reaction.reactAction) {
+      case 'set':
+        reactionPendingState = {
+          kind: 'set',
           targetTxid: reaction.reactId,
-          emoji: reaction.reactMessage.trim(),
-          timestamp: payload.sent_timestamp,
-          reactionTxId: txid
-        }
-      };
-      trackPendingReactionBeforeInject(txid, currentAddress, reactionPendingState);
-      syncPendingReactionChainState(currentAddress, contact, reaction.reactId);
+          localOrder,
+          status: 'pending',
+          baseReaction,
+          visibleResult: {
+            sender,
+            targetTxid: reaction.reactId,
+            emoji: reaction.reactMessage.trim(),
+            timestamp: payload.sent_timestamp,
+            reactionTxId: txid
+          }
+        };
+        break;
+      case 'remove':
+        reactionPendingState = {
+          kind: 'remove',
+          targetTxid: reaction.reactId,
+          localOrder,
+          status: 'pending',
+          baseReaction,
+          visibleResult: null
+        };
+        break;
+      default:
+        assert(false, `Unknown reaction action: ${reaction.reactAction}`);
     }
+
+    trackPendingReactionBeforeInject(txid, currentAddress, reactionPendingState);
+    syncPendingReactionChainState(currentAddress, contact, reaction.reactId);
 
     const response = await injectTx(chatMessageObj, txid);
     if (!response?.result?.success) {
       console.error('reaction message failed to send', response);
-      if (reactionPendingState) {
-        const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
-        assert(pendingTxInfo, `Pending reaction metadata missing for ${txid}`);
+      const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
+      assert(pendingTxInfo, `Pending reaction metadata missing for ${txid}`);
 
-        const outcome = reconcilePendingReaction(pendingTxInfo, 'failure');
-        if (!outcome.hasPending) {
-          removePendingReactionChainEntries(currentAddress, outcome.targetTxid);
-        }
-        if (outcome.didChange) {
-          showToast('Reaction failed to send and was reverted', 0, 'error');
-        }
-        saveState();
+      const outcome = reconcilePendingReaction(pendingTxInfo, 'failure');
+      if (!outcome.hasPending) {
+        removePendingReactionChainEntries(currentAddress, outcome.targetTxid);
       }
+      if (outcome.didChange) {
+        showToast('Reaction failed to send and was reverted', 0, 'error');
+      }
+      saveState();
       return false;
     }
 
-    if (reactionPendingState) {
-      assert(
-        myData.pending.some((pendingTx) => pendingTx.txid === txid),
-        `Pending reaction metadata missing for ${txid}`
-      );
-      saveState();
-    }
+    assert(
+      myData.pending.some((pendingTx) => pendingTx.txid === txid),
+      `Pending reaction metadata missing for ${txid}`
+    );
+    saveState();
 
     if (reaction.reactAction === 'remove') {
       showToast('Reaction remove request sent', 5000, 'loading');
