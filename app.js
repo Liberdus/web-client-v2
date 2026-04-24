@@ -6043,35 +6043,6 @@ function getPendingReactionChainEntries(contactAddress, targetTxid) {
 }
 
 /**
- * Returns the next client-side local order for a pending reaction chain entry.
- * @param {Array<Object>} chainEntries
- * @returns {number}
- */
-function getPendingReactionNextLocalOrder(chainEntries) {
-  if (chainEntries.length === 0) {
-    return 1;
-  }
-
-  return chainEntries.reduce((maxOrder, entry) => {
-    return Math.max(maxOrder, entry.reactionPending.localOrder);
-  }, 0) + 1;
-}
-
-/**
- * Returns the chain base reaction for a new pending reaction mutation.
- * @param {Array<Object>} chainEntries
- * @param {ReactionSnapshot | null} fallbackBaseReaction
- * @returns {ReactionSnapshot | null}
- */
-function getPendingReactionChainBase(chainEntries, fallbackBaseReaction) {
-  if (chainEntries.length > 0) {
-    return copyReactionSnapshot(chainEntries[0].reactionPending.baseReaction);
-  }
-
-  return copyReactionSnapshot(fallbackBaseReaction);
-}
-
-/**
  * Computes the visible reaction for a pending reaction chain by replaying successful/pending
  * mutations in client order on top of the chain base reaction.
  * @param {Array<Object>} chainEntries
@@ -6523,12 +6494,10 @@ function trackPendingReactionBeforeInject(txid, contactAddress, reactionPending)
   assert(contactAddress, 'Pending reaction contact address is required');
   myData.pending ??= [];
 
-  const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
-  if (pendingTxInfo) {
-    pendingTxInfo.to = normalizeAddress(contactAddress);
-    pendingTxInfo.reactionPending = reactionPending;
-    return;
-  }
+  assert(
+    !myData.pending.some((pendingTx) => pendingTx.txid === txid),
+    `Duplicate pending reaction txid: ${txid}`
+  );
 
   myData.pending.push({
     txid,
@@ -18803,11 +18772,15 @@ class ChatModal {
     const activeChainEntries = chainEntries.some((entry) => entry.reactionPending.status === 'pending')
       ? chainEntries
       : [];
-    const baseReaction = getPendingReactionChainBase(
-      activeChainEntries,
-      getEffectiveReactionForSenderTarget(contact, reaction.reactId, sender)
+    const currentReaction = getEffectiveReactionForSenderTarget(contact, reaction.reactId, sender);
+    const baseReaction = copyReactionSnapshot(
+      activeChainEntries.length > 0
+        ? activeChainEntries[0].reactionPending.baseReaction
+        : currentReaction
     );
-    const localOrder = getPendingReactionNextLocalOrder(activeChainEntries);
+    const localOrder = activeChainEntries.reduce((maxOrder, entry) => {
+      return Math.max(maxOrder, entry.reactionPending.localOrder);
+    }, 0) + 1;
 
     /** @type {PendingReactionMutation} */
     let reactionPendingState;
