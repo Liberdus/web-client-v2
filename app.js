@@ -5861,10 +5861,10 @@ async function ensureContactKeys(address) {
  *   baseReaction: ReactionSnapshot | null
  * } & ({
  *   kind: 'set',
- *   optimisticResult: ReactionSnapshot
+ *   visibleResult: ReactionSnapshot
  * } | {
  *   kind: 'remove',
- *   optimisticResult: null
+ *   visibleResult: null
  * })} PendingReactionMutation
  */
 
@@ -6089,7 +6089,7 @@ function computePendingReactionChainVisibleReaction(chainEntries) {
         continue;
       case 'pending':
       case 'success':
-        effectiveReaction = copyReactionSnapshot(entry.reactionPending.optimisticResult);
+        effectiveReaction = copyReactionSnapshot(entry.reactionPending.visibleResult);
         continue;
       default:
         assert(false, `Unknown pending reaction status: ${entry.reactionPending.status}`);
@@ -18819,7 +18819,7 @@ class ChatModal {
           localOrder,
           status: 'pending',
           baseReaction,
-          optimisticResult: {
+          visibleResult: {
             sender,
             targetTxid: reaction.reactId,
             emoji: reaction.reactMessage.trim(),
@@ -18835,7 +18835,7 @@ class ChatModal {
           localOrder,
           status: 'pending',
           baseReaction,
-          optimisticResult: null
+          visibleResult: null
         };
         break;
       default:
