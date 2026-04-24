@@ -6004,7 +6004,7 @@ function areReactionSnapshotsEqual(left, right) {
  * @param {ReactionSnapshot | null} reaction
  * @returns {void}
  */
-function setMaterializedReactionForSenderTarget(contact, targetTxid, sender, reaction) {
+function replaceVisibleReactionForSenderTarget(contact, targetTxid, sender, reaction) {
   contact.reactions ??= [];
   purgeReactionStackForSenderTarget(contact, targetTxid, sender);
 
@@ -6090,7 +6090,7 @@ function syncPendingReactionChainState(contactAddress, contact, targetTxid) {
   const nextVisibleReaction = computePendingReactionChainVisibleReaction(chainEntries);
   const didChange = !areReactionSnapshotsEqual(previousVisibleReaction, nextVisibleReaction);
 
-  setMaterializedReactionForSenderTarget(contact, targetTxid, currentUserAddress, nextVisibleReaction);
+  replaceVisibleReactionForSenderTarget(contact, targetTxid, currentUserAddress, nextVisibleReaction);
   if (didChange) {
     syncReactionUiState(contactAddress, contact, targetTxid);
   }
