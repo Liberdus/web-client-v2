@@ -6004,7 +6004,7 @@ function areReactionSnapshotsEqual(left, right) {
  * @param {ReactionSnapshot | null} reaction
  * @returns {void}
  */
-function replaceVisibleReactionForSenderTarget(contact, targetTxid, sender, reaction) {
+function setVisibleReaction(contact, targetTxid, sender, reaction) {
   contact.reactions ??= [];
   purgeReactionStackForSenderTarget(contact, targetTxid, sender);
 
@@ -6048,7 +6048,7 @@ function getPendingReactionChainEntries(contactAddress, targetTxid) {
  * @param {Array<Object>} chainEntries
  * @returns {ReactionSnapshot | null}
  */
-function computePendingReactionChainVisibleReaction(chainEntries) {
+function replayPendingReactionChain(chainEntries) {
   if (chainEntries.length === 0) {
     return null;
   }
@@ -6089,10 +6089,10 @@ function syncPendingReactionChainState(contactAddress, targetTxid) {
   const previousVisibleReaction = copyReactionSnapshot(
     getEffectiveReactionForSenderTarget(contact, targetTxid, currentUserAddress)
   );
-  const nextVisibleReaction = computePendingReactionChainVisibleReaction(chainEntries);
+  const nextVisibleReaction = replayPendingReactionChain(chainEntries);
   const didChange = !areReactionSnapshotsEqual(previousVisibleReaction, nextVisibleReaction);
 
-  replaceVisibleReactionForSenderTarget(contact, targetTxid, currentUserAddress, nextVisibleReaction);
+  setVisibleReaction(contact, targetTxid, currentUserAddress, nextVisibleReaction);
   if (didChange) {
     syncReactionUiState(contactAddress, contact, targetTxid);
   }
@@ -6109,7 +6109,7 @@ function syncPendingReactionChainState(contactAddress, targetTxid) {
  * @param {string} targetTxid
  * @returns {void}
  */
-function removePendingReactionChainEntries(contactAddress, targetTxid) {
+function cleanupResolvedReactionChain(contactAddress, targetTxid) {
   assert(contactAddress, 'Reaction contact address is required');
   assert(targetTxid, 'Reaction target txid is required');
   myData.pending ??= [];
@@ -6518,7 +6518,7 @@ function trackPendingReactionBeforeInject(txid, contactAddress, reactionPending)
  * @param {'success' | 'failure'} result
  * @returns {{ didChange: boolean, hasPending: boolean, targetTxid: string }}
  */
-function reconcilePendingReaction(pendingTxInfo, result) {
+function settlePendingReaction(pendingTxInfo, result) {
   assert(pendingTxInfo.reactionPending, `Missing pending reaction metadata for ${pendingTxInfo.txid}`);
   switch (result) {
     case 'success':
@@ -18818,9 +18818,9 @@ class ChatModal {
       const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
       assert(pendingTxInfo, `Pending reaction metadata missing for ${txid}`);
 
-      const outcome = reconcilePendingReaction(pendingTxInfo, 'failure');
+      const outcome = settlePendingReaction(pendingTxInfo, 'failure');
       if (!outcome.hasPending) {
-        removePendingReactionChainEntries(currentAddress, outcome.targetTxid);
+        cleanupResolvedReactionChain(currentAddress, outcome.targetTxid);
       }
       if (outcome.didChange) {
         showToast('Reaction failed to send and was reverted', 0, 'error');
@@ -27763,8 +27763,8 @@ async function checkPendingTransactions() {
   const startingPendingCount = myData.pending.length;
   let didMutatePendingState = false;
   const resolvedReactionChains = [];
-  const settlePendingReaction = (pendingTxInfo, result) => {
-    const outcome = reconcilePendingReaction(pendingTxInfo, result);
+  const settleAndQueueReactionCleanup = (pendingTxInfo, result) => {
+    const outcome = settlePendingReaction(pendingTxInfo, result);
     didMutatePendingState = true;
     if (!outcome.hasPending) {
       resolvedReactionChains.push({
@@ -27800,7 +27800,7 @@ async function checkPendingTransactions() {
       if (submittedts < thirtySecondsAgo && (res.transaction === null || Object.keys(res.transaction).length === 0)) {
         console.error(`DEBUG: txid ${txid} timed out, removing completely`);
         if (reactionPending) {
-          const outcome = settlePendingReaction(pendingTxInfo, 'failure');
+          const outcome = settleAndQueueReactionCleanup(pendingTxInfo, 'failure');
           if (outcome.didChange) {
             showToast('Reaction timed out and was reverted', 0, 'error');
           }
@@ -27818,7 +27818,7 @@ async function checkPendingTransactions() {
 
       if (res?.transaction?.success === true) {
         if (reactionPending) {
-          settlePendingReaction(pendingTxInfo, 'success');
+          settleAndQueueReactionCleanup(pendingTxInfo, 'success');
         } else {
           // comment out to test the pending txs removal logic
           myData.pending.splice(i, 1);
@@ -27884,7 +27884,7 @@ async function checkPendingTransactions() {
         } else {
           // Show toast notification with the failure reason
           if (reactionPending) {
-            const outcome = settlePendingReaction(pendingTxInfo, 'failure');
+            const outcome = settleAndQueueReactionCleanup(pendingTxInfo, 'failure');
             if (outcome.didChange) {
               showToast(`Reaction failed and was reverted: ${userFailureReason}`, 0, 'error');
             } else if (!outcome.hasPending) {
@@ -27975,7 +27975,7 @@ async function checkPendingTransactions() {
   }
 
   for (const chain of resolvedReactionChains) {
-    removePendingReactionChainEntries(chain.contactAddress, chain.targetTxid);
+    cleanupResolvedReactionChain(chain.contactAddress, chain.targetTxid);
   }
   // if createAccountModal is open, skip balance change
   if (!createAccountModal.isActive()) {
