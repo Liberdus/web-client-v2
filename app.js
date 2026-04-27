@@ -5866,7 +5866,7 @@ async function ensureContactKeys(address) {
  *   visibleResult: ReactionSnapshot
  * } | {
  *   kind: 'remove',
- *   visibleResult: ReactionSnapshot
+ *   visibleResult: ReactionSnapshot & { emoji: '' }
  * })} PendingReactionMutation
  */
 
@@ -6206,7 +6206,6 @@ function applyIncomingReaction(contact, reaction) {
   }
 
   const sender = normalizeAddress(reaction.sender);
-  const currentReaction = getEffectiveReactionForSenderTarget(contact, reaction.reactId, sender);
   const latestReactionState = getLatestReactionStateForSenderTarget(contact, reaction.reactId, sender);
   const isIncomingOlderThanCurrent = !!latestReactionState && latestReactionState.timestamp > reaction.timestamp;
 
@@ -6228,15 +6227,16 @@ function applyIncomingReaction(contact, reaction) {
       if (isIncomingOlderThanCurrent) {
         return false;
       }
-      const didRemove = purgeReactionStackForSenderTarget(contact, reaction.reactId, sender);
-      if (didRemove) {
-        recordReactionRemovalActivity(contact, reaction);
+      if (!purgeReactionStackForSenderTarget(contact, reaction.reactId, sender)) {
+        return false;
       }
-      return didRemove;
+      recordReactionRemovalActivity(contact, reaction);
+      return true;
     }
 
     case 'set': {
       const emoji = reaction.emoji.trim();
+      const currentReaction = getEffectiveReactionForSenderTarget(contact, reaction.reactId, sender);
       // don't allow duplicate reactions
       if (reaction.reactionTxId && contact.reactions.some((entry) => entry.reactionTxId === reaction.reactionTxId)) {
         return false;
