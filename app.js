@@ -6530,9 +6530,6 @@ function reconcilePendingReaction(pendingTxInfo, result) {
 
   /** @type {PendingReactionMutation} */
   const { reactionPending } = pendingTxInfo;
-  const contact = myData.contacts[pendingTxInfo.to];
-  assert(contact, `Missing contact for pending reaction: ${pendingTxInfo.to}`);
-
   reactionPending.status = result;
   return {
     ...syncPendingReactionChainState(pendingTxInfo.to, reactionPending.targetTxid),
