@@ -1583,7 +1583,9 @@ class ChatsScreen {
       if (isShowingReactionPreview) {
         const reactionActor = reactionPreview.my ? 'You' : contactName;
         const reactionTarget = reactionPreview.target;
-        const reactionText = `${reactionActor} reacted ${reactionPreview.emoji} to "${reactionTarget}"`;
+        const reactionText = reactionPreview.emoji
+          ? `${reactionActor} reacted ${reactionPreview.emoji} to "${reactionTarget}"`
+          : `${reactionActor} removed a reaction from "${reactionTarget}"`;
         previewHTML = truncateMessage(escapeHtml(reactionText), 50);
       } else if (typeof latestActivity.amount === 'bigint') {
         // Latest item is a payment/transfer
@@ -5880,7 +5882,11 @@ function getEffectiveReactionForSenderTarget(contact, targetTxid, sender) {
   const normalizedSender = normalizeAddress(sender);
 
   for (const reaction of reactions) {
-    if (reaction.targetTxid === targetTxid && normalizeAddress(reaction.sender) === normalizedSender) {
+    if (
+      reaction.emoji &&
+      reaction.targetTxid === targetTxid &&
+      normalizeAddress(reaction.sender) === normalizedSender
+    ) {
       return reaction;
     }
   }
@@ -5901,6 +5907,9 @@ function getContactReactionsForTarget(contact, targetTxid) {
 
   for (const reaction of reactions) {
     if (reaction.targetTxid !== targetTxid) {
+      continue;
+    }
+    if (!reaction.emoji) {
       continue;
     }
 
@@ -5954,6 +5963,22 @@ function removeReactionByReactionTxId(contact, reactionTxId) {
 
   contact.reactions.splice(index, 1);
   return true;
+}
+
+/**
+ * Records a reaction removal as chat-list activity without creating a visible chip.
+ * @param {Object} contact
+ * @param {ReactionUpdate} reaction
+ * @returns {void}
+ */
+function recordReactionRemovalActivity(contact, reaction) {
+  insertSorted(contact.reactions, {
+    sender: normalizeAddress(reaction.sender),
+    targetTxid: reaction.reactId,
+    emoji: '',
+    timestamp: reaction.timestamp,
+    reactionTxId: reaction.reactionTxId
+  }, 'timestamp');
 }
 
 /**
@@ -6176,12 +6201,18 @@ function applyIncomingReaction(contact, reaction) {
         if (!targetReaction) {
           return false;
         }
-        return removeReactionByReactionTxId(contact, targetReaction.reactionTxId);
+        removeReactionByReactionTxId(contact, targetReaction.reactionTxId);
+        recordReactionRemovalActivity(contact, reaction);
+        return true;
       }
       if (isIncomingOlderThanCurrent) {
         return false;
       }
-      return purgeReactionStackForSenderTarget(contact, reaction.reactId, sender);
+      const didRemove = purgeReactionStackForSenderTarget(contact, reaction.reactId, sender);
+      if (didRemove) {
+        recordReactionRemovalActivity(contact, reaction);
+      }
+      return didRemove;
     }
 
     case 'set': {
@@ -17632,6 +17663,9 @@ class ChatModal {
     const otherChips = [];
 
     for (const reaction of reactionsForTarget) {
+      if (!reaction.emoji) {
+        continue;
+      }
       const sender = reaction.sender;
       const emoji = reaction.emoji;
 
@@ -17690,6 +17724,9 @@ class ChatModal {
     const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
     const seen = new Set();
     for (const reaction of reactions) {
+      if (!reaction.emoji) {
+        continue;
+      }
       const reactionKey = `${reaction.targetTxid}:${normalizeAddress(reaction.sender)}`;
       if (seen.has(reactionKey)) {
         continue;
