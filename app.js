@@ -5882,11 +5882,10 @@ function getEffectiveReactionForSenderTarget(contact, targetTxid, sender) {
   const normalizedSender = normalizeAddress(sender);
 
   for (const reaction of reactions) {
-    if (
-      reaction.emoji &&
-      reaction.targetTxid === targetTxid &&
-      normalizeAddress(reaction.sender) === normalizedSender
-    ) {
+    if (!reaction.emoji) {
+      continue;
+    }
+    if (reaction.targetTxid === targetTxid && normalizeAddress(reaction.sender) === normalizedSender) {
       return reaction;
     }
   }
@@ -5906,10 +5905,10 @@ function getContactReactionsForTarget(contact, targetTxid) {
   const effectiveReactions = [];
 
   for (const reaction of reactions) {
-    if (reaction.targetTxid !== targetTxid) {
+    if (!reaction.emoji) {
       continue;
     }
-    if (!reaction.emoji) {
+    if (reaction.targetTxid !== targetTxid) {
       continue;
     }
 
@@ -5968,7 +5967,7 @@ function removeReactionByReactionTxId(contact, reactionTxId) {
 /**
  * Records a reaction removal as chat-list activity without creating a visible chip.
  * @param {Object} contact
- * @param {ReactionUpdate} reaction
+ * @param {Extract<ReactionUpdate, { action: 'remove' }>} reaction
  * @returns {void}
  */
 function recordReactionRemovalActivity(contact, reaction) {
@@ -17663,9 +17662,6 @@ class ChatModal {
     const otherChips = [];
 
     for (const reaction of reactionsForTarget) {
-      if (!reaction.emoji) {
-        continue;
-      }
       const sender = reaction.sender;
       const emoji = reaction.emoji;
 
