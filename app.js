@@ -18657,11 +18657,6 @@ class ChatModal {
 
     const isRemovingCurrentReaction = !!currentReaction && selectedReaction === currentReaction.emoji;
     if (isRemovingCurrentReaction) {
-      const confirmed = confirm('Remove your reaction?');
-      if (!confirmed) {
-        return;
-      }
-
       assert(currentReaction.reactionTxId, 'Reaction txid is required for remove');
       closeUi();
       await this.sendReactionMessage({
@@ -18839,10 +18834,6 @@ class ChatModal {
       `Pending reaction metadata missing for ${txid}`
     );
     saveState();
-
-    if (reaction.reactAction === 'remove') {
-      showToast('Reaction remove request sent', 5000, 'loading');
-    }
 
     return true;
   }
