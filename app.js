@@ -27766,6 +27766,7 @@ async function checkPendingTransactions() {
     return;
   }
 
+  // initialize the pending array if it is not already initialized
   myData.pending ??= [];
   if (myData.pending.length === 0) return; // No pending transactions to check
 
