@@ -5866,7 +5866,7 @@ async function ensureContactKeys(address) {
  *   visibleResult: ReactionSnapshot
  * } | {
  *   kind: 'remove',
- *   visibleResult: null
+ *   visibleResult: ReactionSnapshot
  * })} PendingReactionMutation
  */
 
@@ -5885,6 +5885,26 @@ function getEffectiveReactionForSenderTarget(contact, targetTxid, sender) {
     if (!reaction.emoji) {
       continue;
     }
+    if (reaction.targetTxid === targetTxid && normalizeAddress(reaction.sender) === normalizedSender) {
+      return reaction;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Returns the newest reaction state, including empty-emoji removal markers.
+ * @param {Object} contact
+ * @param {string} targetTxid
+ * @param {string} sender
+ * @returns {Object|null}
+ */
+function getLatestReactionStateForSenderTarget(contact, targetTxid, sender) {
+  const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
+  const normalizedSender = normalizeAddress(sender);
+
+  for (const reaction of reactions) {
     if (reaction.targetTxid === targetTxid && normalizeAddress(reaction.sender) === normalizedSender) {
       return reaction;
     }
@@ -6187,7 +6207,8 @@ function applyIncomingReaction(contact, reaction) {
 
   const sender = normalizeAddress(reaction.sender);
   const currentReaction = getEffectiveReactionForSenderTarget(contact, reaction.reactId, sender);
-  const isIncomingOlderThanCurrent = !!currentReaction && currentReaction.timestamp > reaction.timestamp;
+  const latestReactionState = getLatestReactionStateForSenderTarget(contact, reaction.reactId, sender);
+  const isIncomingOlderThanCurrent = !!latestReactionState && latestReactionState.timestamp > reaction.timestamp;
 
   switch (reaction.action) {
     case 'remove': {
@@ -18835,7 +18856,13 @@ class ChatModal {
           localOrder,
           status: 'pending',
           baseReaction,
-          visibleResult: null
+          visibleResult: {
+            sender,
+            targetTxid: reaction.reactId,
+            emoji: '',
+            timestamp: payload.sent_timestamp,
+            reactionTxId: txid
+          }
         };
         break;
       default:
