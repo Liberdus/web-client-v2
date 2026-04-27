@@ -18820,7 +18820,7 @@ class ChatModal {
     const activeChainEntries = chainEntries.some((entry) => entry.reactionPending.status === 'pending')
       ? chainEntries
       : [];
-    const currentReaction = getEffectiveReactionForSenderTarget(contact, reaction.reactId, sender);
+    const currentReaction = getLatestReactionStateForSenderTarget(contact, reaction.reactId, sender);
     const baseReaction = copyReactionSnapshot(
       activeChainEntries.length > 0
         ? activeChainEntries[0].reactionPending.baseReaction
