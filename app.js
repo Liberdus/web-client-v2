@@ -10401,7 +10401,9 @@ class BackupAccountModal {
 
   open() {
     // called when the modal needs to be opened
-    this.resetFormState();
+    this.passwordInput.value = '';
+    this.passwordConfirmInput.value = '';
+    this.storageLocationSelect.value = 'local';
     
     // Show/hide checkbox based on login status
     if (myData) {
@@ -10415,7 +10417,7 @@ class BackupAccountModal {
     }
     
     this.modal.classList.add('active');
-    this.updateButtonState();
+    this.handleStorageLocationChange();
   }
 
   close() {
@@ -10427,17 +10429,12 @@ class BackupAccountModal {
     
     // called when the modal needs to be closed
     this.modal.classList.remove('active');
-    this.resetFormState();
-  }
-
-  resetFormState() {
-    // Clear passwords for security and ensure stale validation messages stay hidden.
+    // Clear passwords for security
     this.passwordInput.value = '';
     this.passwordConfirmInput.value = '';
-    this.passwordWarning.style.display = 'none';
-    this.passwordRequired.style.display = 'none';
-    this.passwordConfirmWarning.style.display = 'none';
+    // Reset checkbox
     this.backupAllAccountsCheckbox.checked = false;
+    // Reset storage location to default
     this.storageLocationSelect.value = 'local';
     this.handleStorageLocationChange();
   }
@@ -26627,8 +26624,6 @@ class LockModal {
 
   close() {
     this.modal.classList.remove('active');
-    this.clearInputs();
-    this.lockButton.disabled = true;
   }
 
   pickMode(mode) {
