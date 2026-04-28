@@ -1187,6 +1187,7 @@ class WelcomeMenuModal {
 
   load() {
     this.modal = document.getElementById('welcomeMenuModal');
+    lockRapidMenuClicks(this.modal.querySelector('.menu-list'));
     this.closeButton = document.getElementById('closeWelcomeMenu');
     this.closeButton.addEventListener('click', () => this.close());
 
