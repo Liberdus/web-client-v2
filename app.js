@@ -143,6 +143,42 @@ const wei = 10n ** BigInt(weiDigits);
 //network.monitor.url = "http://test.liberdus.com:3000"    // URL of the monitor server
 //network.explorer.url = "http://test.liberdus.com:6001"   // URL of the chain explorer
 const MAX_MEMO_BYTES = 1000; // 1000 bytes for memos
+const MENU_NAVIGATION_GUARD_MS = 400;
+
+function addMenuNavigationGuard(menuList) {
+  if (!menuList) return () => {};
+
+  let isPending = false;
+  let timeoutId = null;
+
+  const release = () => {
+    if (timeoutId) clearTimeout(timeoutId);
+    isPending = false;
+    timeoutId = null;
+    menuList.style.pointerEvents = '';
+    menuList.removeAttribute('aria-busy');
+  };
+
+  menuList.addEventListener('click', (event) => {
+    const menuItem = event.target?.closest?.('.menu-item');
+    if (!menuItem || !menuList.contains(menuItem)) return;
+
+    if (isPending) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+
+    isPending = true;
+    menuList.style.pointerEvents = 'none';
+    menuList.setAttribute('aria-busy', 'true');
+
+    if (timeoutId) clearTimeout(timeoutId);
+    timeoutId = setTimeout(release, MENU_NAVIGATION_GUARD_MS);
+  }, true);
+
+  return release;
+}
 const MAX_CHAT_MESSAGE_BYTES = 1000; // 1000 bytes for chat messages
 const BRIDGE_USERNAME = 'liberdusbridge';
 const TRANSACTION_TIMESTAMP_OFFSET_MS = 500; // Transaction offset to allow for slow connections
@@ -1167,6 +1203,7 @@ class WelcomeMenuModal {
 
   load() {
     this.modal = document.getElementById('welcomeMenuModal');
+    this.releaseMenuNavigationGuard = addMenuNavigationGuard(this.modal.querySelector('.menu-list'));
     this.closeButton = document.getElementById('closeWelcomeMenu');
     this.closeButton.addEventListener('click', () => this.close());
 
@@ -1198,6 +1235,7 @@ class WelcomeMenuModal {
   }
 
   open() {
+    this.releaseMenuNavigationGuard();
     if (localStorage.lock && unlockModal.isLocked()) {
       unlockModal.openButtonElementUsed = welcomeScreen.openWelcomeMenuButton;
       unlockModal.open();
@@ -1208,6 +1246,7 @@ class WelcomeMenuModal {
   }
 
   close() {
+    this.releaseMenuNavigationGuard();
     this.modal.classList.remove('active');
     enterFullscreen();
   }
@@ -1306,7 +1345,7 @@ const header = new Header();
 
 class Footer {
   constructor() {
-    // No DOM dependencies in constructor
+    this.viewSwitchInProgress = false;
   }
 
   load() {
@@ -1341,6 +1380,9 @@ class Footer {
   }
 
   async switchView(view) {
+    if (this.viewSwitchInProgress) return;
+    this.viewSwitchInProgress = true;
+
     // Store the current view for potential rollback
     const previousView = document.querySelector('.app-screen.active')?.id?.replace('Screen', '') || 'chats';
     const previousButton = document.querySelector('.nav-button.active');
@@ -1453,6 +1495,8 @@ class Footer {
         // Display error toast to user
         showToast(`Failed to switch to ${view} view`, 0, 'error');
       }
+    } finally {
+      this.viewSwitchInProgress = false;
     }
   }
 }
@@ -2128,6 +2172,7 @@ class MenuModal {
 
   load() {
     this.modal = document.getElementById('menuModal');
+    this.releaseMenuNavigationGuard = addMenuNavigationGuard(this.modal.querySelector('.menu-list'));
     this.closeButton = document.getElementById('closeMenu');
     this.closeButton.addEventListener('click', () => this.close());
     this.validatorButton = document.getElementById('openValidator');
@@ -2184,12 +2229,14 @@ class MenuModal {
   }
 
   open() {
+    this.releaseMenuNavigationGuard();
     this.modal.classList.add('active');
     this.enableSignOutButtonWithDelay();
     enterFullscreen();
   }
 
   close() {
+    this.releaseMenuNavigationGuard();
     this.modal.classList.remove('active');
     enterFullscreen();
   }
@@ -2900,6 +2947,7 @@ class SettingsModal {
 
   load() {
     this.modal = document.getElementById('settingsModal');
+    this.releaseMenuNavigationGuard = addMenuNavigationGuard(this.modal.querySelector('.menu-list'));
     this.closeButton = document.getElementById('closeSettings');
     this.closeButton.addEventListener('click', () => this.close());
     
@@ -2946,12 +2994,14 @@ class SettingsModal {
   }
 
   open() {
+    this.releaseMenuNavigationGuard();
     this.modal.classList.add('active');
     this.enableSignOutButtonWithDelay();
     enterFullscreen();
   }
 
   close() {
+    this.releaseMenuNavigationGuard();
     this.modal.classList.remove('active');
     enterFullscreen();
   }
