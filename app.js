@@ -657,6 +657,25 @@ function isPrivateAccount() {
   return myAccount?.private === true || myData?.account?.private === true;
 }
 
+/**
+ * Lock rapid menu clicks to prevent multiple clicks from triggering multiple actions
+ * @param {Element} menuList - The menu list element
+ */
+function lockRapidMenuClicks(menuList) {
+  let locked = false;
+  menuList.addEventListener('click', (event) => {
+    if (!event.target.closest('.menu-item')) return;
+    if (locked) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+
+    locked = true;
+    setTimeout(() => { locked = false; }, MENU_NAVIGATION_LOCK_MS);
+  }, true);
+}
+
 // Load saved account data and update chat list on page load
 document.addEventListener('DOMContentLoaded', async () => {
   markConnectivityDependentElements();
@@ -2129,20 +2148,7 @@ class MenuModal {
 
   load() {
     this.modal = document.getElementById('menuModal');
-    const menuList = this.modal.querySelector('.menu-list');
-    let menuNavigationLocked = false;
-    menuList.addEventListener('click', (event) => {
-      if (!event.target.closest('.menu-item')) return;
-      if (menuNavigationLocked) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        return;
-      }
-
-      menuNavigationLocked = true;
-      setTimeout(() => { menuNavigationLocked = false; }, MENU_NAVIGATION_LOCK_MS);
-    }, true);
-
+    lockRapidMenuClicks(this.modal.querySelector('.menu-list'));
     this.closeButton = document.getElementById('closeMenu');
     this.closeButton.addEventListener('click', () => this.close());
     this.validatorButton = document.getElementById('openValidator');
@@ -2915,20 +2921,7 @@ class SettingsModal {
 
   load() {
     this.modal = document.getElementById('settingsModal');
-    const menuList = this.modal.querySelector('.menu-list');
-    let menuNavigationLocked = false;
-    menuList.addEventListener('click', (event) => {
-      if (!event.target.closest('.menu-item')) return;
-      if (menuNavigationLocked) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        return;
-      }
-
-      menuNavigationLocked = true;
-      setTimeout(() => { menuNavigationLocked = false; }, MENU_NAVIGATION_LOCK_MS);
-    }, true);
-
+    lockRapidMenuClicks(this.modal.querySelector('.menu-list'));
     this.closeButton = document.getElementById('closeSettings');
     this.closeButton.addEventListener('click', () => this.close());
     
