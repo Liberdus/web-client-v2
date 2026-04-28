@@ -144,21 +144,6 @@ const wei = 10n ** BigInt(weiDigits);
 //network.explorer.url = "http://test.liberdus.com:6001"   // URL of the chain explorer
 const MAX_MEMO_BYTES = 1000; // 1000 bytes for memos
 const MENU_NAVIGATION_LOCK_MS = 400;
-
-function lockRapidMenuClicks(menuList) {
-  let locked = false;
-  menuList.addEventListener('click', (event) => {
-    if (!event.target.closest('.menu-item')) return;
-    if (locked) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      return;
-    }
-
-    locked = true;
-    setTimeout(() => { locked = false; }, MENU_NAVIGATION_LOCK_MS);
-  }, true);
-}
 const MAX_CHAT_MESSAGE_BYTES = 1000; // 1000 bytes for chat messages
 const BRIDGE_USERNAME = 'liberdusbridge';
 const TRANSACTION_TIMESTAMP_OFFSET_MS = 500; // Transaction offset to allow for slow connections
@@ -1183,7 +1168,6 @@ class WelcomeMenuModal {
 
   load() {
     this.modal = document.getElementById('welcomeMenuModal');
-    lockRapidMenuClicks(this.modal.querySelector('.menu-list'));
     this.closeButton = document.getElementById('closeWelcomeMenu');
     this.closeButton.addEventListener('click', () => this.close());
 
@@ -1323,7 +1307,7 @@ const header = new Header();
 
 class Footer {
   constructor() {
-    this.viewSwitchInProgress = false;
+    // No DOM dependencies in constructor
   }
 
   load() {
@@ -1358,9 +1342,6 @@ class Footer {
   }
 
   async switchView(view) {
-    if (this.viewSwitchInProgress) return;
-    this.viewSwitchInProgress = true;
-
     // Store the current view for potential rollback
     const previousView = document.querySelector('.app-screen.active')?.id?.replace('Screen', '') || 'chats';
     const previousButton = document.querySelector('.nav-button.active');
@@ -1473,8 +1454,6 @@ class Footer {
         // Display error toast to user
         showToast(`Failed to switch to ${view} view`, 0, 'error');
       }
-    } finally {
-      this.viewSwitchInProgress = false;
     }
   }
 }
@@ -2150,7 +2129,20 @@ class MenuModal {
 
   load() {
     this.modal = document.getElementById('menuModal');
-    lockRapidMenuClicks(this.modal.querySelector('.menu-list'));
+    const menuList = this.modal.querySelector('.menu-list');
+    let menuNavigationLocked = false;
+    menuList.addEventListener('click', (event) => {
+      if (!event.target.closest('.menu-item')) return;
+      if (menuNavigationLocked) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+
+      menuNavigationLocked = true;
+      setTimeout(() => { menuNavigationLocked = false; }, MENU_NAVIGATION_LOCK_MS);
+    }, true);
+
     this.closeButton = document.getElementById('closeMenu');
     this.closeButton.addEventListener('click', () => this.close());
     this.validatorButton = document.getElementById('openValidator');
@@ -2923,7 +2915,20 @@ class SettingsModal {
 
   load() {
     this.modal = document.getElementById('settingsModal');
-    lockRapidMenuClicks(this.modal.querySelector('.menu-list'));
+    const menuList = this.modal.querySelector('.menu-list');
+    let menuNavigationLocked = false;
+    menuList.addEventListener('click', (event) => {
+      if (!event.target.closest('.menu-item')) return;
+      if (menuNavigationLocked) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+
+      menuNavigationLocked = true;
+      setTimeout(() => { menuNavigationLocked = false; }, MENU_NAVIGATION_LOCK_MS);
+    }, true);
+
     this.closeButton = document.getElementById('closeSettings');
     this.closeButton.addEventListener('click', () => this.close());
     
