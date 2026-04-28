@@ -6124,6 +6124,11 @@ small {
   color: var(--button-text);
 }
 
+#proposalInfoFields {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 #lockModal p {
   font-family: var(--font-primary);
   font-size: var(--font-size-base);
