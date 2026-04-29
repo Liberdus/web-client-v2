@@ -17520,6 +17520,17 @@ class ChatModal {
   }
 
   /**
+   * Resets all scrollable reaction sheet regions to their initial position.
+   * @returns {void}
+   */
+  resetReactionSheetScrollState() {
+    this.reactionSheetTabs.scrollTop = 0;
+    this.reactionSheetTabs.scrollLeft = 0;
+    this.reactionSheetGrid.scrollTop = 0;
+    this.reactionSheetGrid.scrollLeft = 0;
+  }
+
+  /**
    * Begins dragging the reaction sheet downward from its handle.
    * @param {PointerEvent} event
    * @returns {void}
@@ -17576,12 +17587,11 @@ class ChatModal {
     assert(messageEl, 'Reaction sheet target message is required');
     this.resetReactionSheetDragState();
     this.reactionSheetTargetMessage = messageEl;
-    const currentReaction = this.getCurrentUserReactionForMessage(messageEl);
-    const categoryKey = this.getReactionSheetCategoryKeyForEmoji(currentReaction) || CHAT_REACTION_SHEET_DEFAULT_CATEGORY;
-    this.setReactionSheetCategory(categoryKey);
+    this.setReactionSheetCategory(CHAT_REACTION_SHEET_DEFAULT_CATEGORY);
     this.reactionSheetOverlay.classList.add('active');
     this.reactionSheetOverlay.setAttribute('aria-hidden', 'false');
     requestAnimationFrame(() => {
+      this.resetReactionSheetScrollState();
       requestAnimationFrame(() => this.updateReactionSheetViewport());
     });
   }
