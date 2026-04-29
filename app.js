@@ -6612,16 +6612,16 @@ function settlePendingReaction(pendingTxInfo, result) {
 }
 
 /**
- * Returns the unread total used by the chat list and tab notification bubble.
+ * Returns the unread message total used by the chat list and tab notification bubble.
  * @param {Object|null} contact
  * @returns {number}
  */
 function getContactTotalUnread(contact) {
-  return Math.max(0, (contact?.unread || 0) + (contact?.reactionUnread || 0));
+  return Math.max(0, contact?.unread || 0);
 }
 
 /**
- * Syncs the footer chat tab notification bubble with combined message + reaction unread state.
+ * Syncs the footer chat tab notification bubble with unread message state.
  * @returns {void}
  */
 function syncChatTabNotificationBubble() {
@@ -6666,8 +6666,6 @@ async function processChats(chats, keys) {
         contact.username = 'Liberdus Faucet';
       }
       //            contact.address = from        // not needed since createNewContact does this
-      const initialReactionUnread = contact.reactionUnread || 0;
-      let nextReactionUnread = initialReactionUnread;
       let added = 0;
       let hasNewTransfer = false;
       let mine = false;
@@ -6831,15 +6829,11 @@ async function processChats(chats, keys) {
                     reactNativeApp.sendCancelScheduledCall(contact?.username, Number(messageToDelete.callTime));
                   }
                   if (didDeleteMessage) {
-                    const hadIncomingEffectiveReaction = !!getEffectiveReactionForSenderTarget(contact, messageToDelete.txid, from);
                     purgeContactReactionsForTarget(contact, messageToDelete.txid);
                     syncChatLatestActivityTimestamp(from, contact);
                     didChangeReactionPreview = true;
                     if (wasUnreadIncomingMessage) {
                       contact.unread = Math.max(0, unreadIncomingMessageCount - 1);
-                    }
-                    if (!inActiveChatWithSender && hadIncomingEffectiveReaction) {
-                      nextReactionUnread = Math.max(0, nextReactionUnread - 1);
                     }
                   }
                   if (didDeleteMessage && messageToDelete.type === 'call' && shouldRefreshUpcomingCallsUiForCallTime(messageToDelete.callTime)) {
@@ -7282,13 +7276,6 @@ async function processChats(chats, keys) {
             if (pendingReaction.sender === from && (!inActiveChatWithSender || document.visibilityState === 'hidden')) {
               playChatSound();
             }
-            if (pendingReaction.sender === from && !inActiveChatWithSender) {
-              if (pendingReaction.action === 'set') {
-                nextReactionUnread += 1;
-              } else {
-                nextReactionUnread = Math.max(0, nextReactionUnread - 1);
-              }
-            }
           }
         }
       }
@@ -7344,20 +7331,7 @@ async function processChats(chats, keys) {
         chatModal.syncRenderedReactionTargets([...touchedReactionTargetTxids]);
       }
 
-      if (!inActiveChatWithSender && nextReactionUnread !== initialReactionUnread) {
-        contact.reactionUnread = nextReactionUnread;
-        if (nextReactionUnread > initialReactionUnread) {
-          if (!chatsScreen.isActive() && !isFaucetAddress(from)) {
-            footer.chatButton.classList.add('has-notification');
-          }
-        } else if (!chatsScreen.isActive()) {
-          syncChatTabNotificationBubble();
-        }
-        // Refresh list if user is currently viewing chat list so unread counts update
-        if (chatsScreen.isActive()) {
-          chatsScreen.updateChatList();
-        }
-      } else if (didChangeReactionPreview && chatsScreen.isActive() && !inActiveChatWithSender) {
+      if (didChangeReactionPreview && chatsScreen.isActive() && !inActiveChatWithSender) {
         chatsScreen.updateChatList();
       }
 
@@ -14855,7 +14829,6 @@ class ChatModal {
     if (totalUnread > 0) {
       myData.state.unread = Math.max(0, (myData.state.unread || 0) - totalUnread);
       contact.unread = 0;
-      contact.reactionUnread = 0;
       chatsScreen.updateChatList();
       syncChatTabNotificationBubble();
     }
