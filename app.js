@@ -1598,7 +1598,7 @@ class ChatsScreen {
       const reactionPreview = getLatestChatReactionActivity(contact);
       const isShowingReactionPreview = !!reactionPreview && reactionPreview.timestamp > latestActivity.timestamp;
       const latestItemTimestamp = isShowingReactionPreview ? reactionPreview.timestamp : latestActivity.timestamp;
-      const unreadCount = getContactTotalUnread(contact);
+      const unreadCount = contact.unread;
 
       let previewHTML = '';
       if (isShowingReactionPreview) {
@@ -6612,15 +6612,6 @@ function settlePendingReaction(pendingTxInfo, result) {
 }
 
 /**
- * Returns the unread message total used by the chat list and tab notification bubble.
- * @param {Object|null} contact
- * @returns {number}
- */
-function getContactTotalUnread(contact) {
-  return Math.max(0, contact?.unread || 0);
-}
-
-/**
  * Syncs the footer chat tab notification bubble with unread message state.
  * @returns {void}
  */
@@ -6636,7 +6627,7 @@ function syncChatTabNotificationBubble() {
     if (!contact?.address || isFaucetAddress(contact.address)) {
       return false;
     }
-    return getContactTotalUnread(contact) > 0;
+    return contact.unread > 0;
   });
 
   footer.chatButton.classList.toggle('has-notification', hasUnreadChats);
@@ -14825,7 +14816,7 @@ class ChatModal {
     this.modal.classList.add('active');
 
     // Clear unread count
-    const totalUnread = getContactTotalUnread(contact);
+    const totalUnread = contact.unread;
     if (totalUnread > 0) {
       myData.state.unread = Math.max(0, (myData.state.unread || 0) - totalUnread);
       contact.unread = 0;
@@ -14994,7 +14985,7 @@ class ChatModal {
       return;
     }
 
-    const allRead = Object.values(myData.contacts).every((c) => getContactTotalUnread(c) === 0);
+    const allRead = Object.values(myData.contacts).every((contact) => contact.unread === 0);
     const currentAddress = myAccount?.keys?.address;
     
     if (allRead) {
