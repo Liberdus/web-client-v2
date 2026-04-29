@@ -2996,9 +2996,6 @@ class SettingsModal {
 
     delete myData.account[CHAT_REACTION_SHEET_RECENT_ACCOUNT_KEY];
     saveState();
-    if (chatModal?.reactionSheetActiveCategory === CHAT_REACTION_SHEET_RECENT_CATEGORY_KEY) {
-      chatModal.setReactionSheetCategory(CHAT_REACTION_SHEET_RECENT_CATEGORY_KEY);
-    }
     showToast('Recent emojis reset', 2000, 'success');
   }
 
@@ -13855,6 +13852,63 @@ const CHAT_REACTION_SHEET_RECENT_ACCOUNT_KEY = 'recentReactionEmojis';
 const CHAT_REACTION_SHEET_RECENT_LIMIT = CHAT_REACTION_SHEET_DEFAULT_COMMON_EMOJIS.length;
 const CHAT_REACTION_SHEET_PROMOTION_RATIO = 0.5;
 const CHAT_REACTION_SHEET_CLOSE_DRAG_PX = 120;
+
+function normalizeRecentReactionEmojiList(emojis) {
+  if (!Array.isArray(emojis)) {
+    return [];
+  }
+
+  const normalizedEmojis = [];
+  const seen = new Set();
+  for (const entry of emojis) {
+    const emoji = typeof entry === 'string' ? entry.trim() : '';
+    if (!emoji || seen.has(emoji)) {
+      continue;
+    }
+    seen.add(emoji);
+    normalizedEmojis.push(emoji);
+  }
+
+  return normalizedEmojis;
+}
+
+function getRecentReactionSheetEmojis(accountEmojis) {
+  const rankedEmojis = [];
+  const seen = new Set();
+  const addEmoji = (emoji) => {
+    if (!emoji || seen.has(emoji)) {
+      return;
+    }
+    seen.add(emoji);
+    rankedEmojis.push(emoji);
+  };
+
+  normalizeRecentReactionEmojiList(accountEmojis).forEach(addEmoji);
+  CHAT_REACTION_SHEET_DEFAULT_COMMON_EMOJIS.forEach(addEmoji);
+
+  return rankedEmojis.slice(0, CHAT_REACTION_SHEET_RECENT_LIMIT);
+}
+
+function promoteRecentReactionEmoji(recentEmojis, selectedEmoji) {
+  const emoji = typeof selectedEmoji === 'string' ? selectedEmoji.trim() : '';
+  if (!emoji) {
+    return normalizeRecentReactionEmojiList(recentEmojis).slice(0, CHAT_REACTION_SHEET_RECENT_LIMIT);
+  }
+
+  const currentEmojis = normalizeRecentReactionEmojiList(recentEmojis).slice(0, CHAT_REACTION_SHEET_RECENT_LIMIT);
+  const currentIndex = currentEmojis.indexOf(emoji);
+  const remainingEmojis = currentEmojis.filter((entry) => entry !== emoji);
+  const targetIndex = currentIndex === -1
+    ? CHAT_REACTION_SHEET_RECENT_LIMIT - 1
+    : Math.max(
+        0,
+        currentIndex - Math.max(1, Math.ceil((currentIndex + 1) * CHAT_REACTION_SHEET_PROMOTION_RATIO))
+      );
+
+  remainingEmojis.splice(targetIndex, 0, emoji);
+  return remainingEmojis.slice(0, CHAT_REACTION_SHEET_RECENT_LIMIT);
+}
+
 const CHAT_REACTION_SHEET_TAB_ICONS = {
   recent: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/></svg>',
   smileys: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>',
@@ -14060,44 +14114,8 @@ class ChatModal {
     return this.dropOverlay;
   }
 
-  normalizeRecentReactionEmojiList(emojis) {
-    if (!Array.isArray(emojis)) {
-      return [];
-    }
-
-    const normalizedEmojis = [];
-    const seen = new Set();
-    for (const entry of emojis) {
-      const emoji = typeof entry === 'string' ? entry.trim() : '';
-      if (!emoji || seen.has(emoji)) {
-        continue;
-      }
-      seen.add(emoji);
-      normalizedEmojis.push(emoji);
-    }
-
-    return normalizedEmojis;
-  }
-
-  getRecentReactionAccountEmojis() {
-    return this.normalizeRecentReactionEmojiList(myData?.account?.[CHAT_REACTION_SHEET_RECENT_ACCOUNT_KEY]);
-  }
-
   getRecentReactionSheetEmojis() {
-    const rankedEmojis = [];
-    const seen = new Set();
-    const addEmoji = (emoji) => {
-      if (!emoji || seen.has(emoji)) {
-        return;
-      }
-      seen.add(emoji);
-      rankedEmojis.push(emoji);
-    };
-
-    this.getRecentReactionAccountEmojis().forEach(addEmoji);
-    CHAT_REACTION_SHEET_DEFAULT_COMMON_EMOJIS.forEach(addEmoji);
-
-    return rankedEmojis.slice(0, CHAT_REACTION_SHEET_RECENT_LIMIT);
+    return getRecentReactionSheetEmojis(myData?.account?.[CHAT_REACTION_SHEET_RECENT_ACCOUNT_KEY]);
   }
 
   recordRecentReactionEmoji(emoji) {
@@ -14106,20 +14124,9 @@ class ChatModal {
       return;
     }
 
-    const rankedEmojis = this.getRecentReactionSheetEmojis();
-    const currentIndex = rankedEmojis.indexOf(selectedEmoji);
-    const remainingEmojis = rankedEmojis.filter((entry) => entry !== selectedEmoji);
-    const targetIndex = currentIndex === -1
-      ? CHAT_REACTION_SHEET_RECENT_LIMIT - 1
-      : Math.max(
-          0,
-          currentIndex - Math.max(1, Math.ceil((currentIndex + 1) * CHAT_REACTION_SHEET_PROMOTION_RATIO))
-        );
-
-    remainingEmojis.splice(targetIndex, 0, selectedEmoji);
-    myData.account[CHAT_REACTION_SHEET_RECENT_ACCOUNT_KEY] = remainingEmojis.slice(
-      0,
-      CHAT_REACTION_SHEET_RECENT_LIMIT
+    myData.account[CHAT_REACTION_SHEET_RECENT_ACCOUNT_KEY] = promoteRecentReactionEmoji(
+      this.getRecentReactionSheetEmojis(),
+      selectedEmoji
     );
     saveState();
   }
