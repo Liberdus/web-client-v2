@@ -18712,12 +18712,13 @@ class ChatModal {
     assert(typeof closeUi === 'function', 'Reaction close callback is required');
 
     const contact = myData.contacts[this.address];
-    const required = contact?.tollRequiredToSend;
+    const required = contact.tollRequiredToSend;
     if (required === 2) {
       showToast('You are blocked by this user', 0, 'error');
       return;
     }
-    if (required !== undefined && required !== 0) {
+    const tollInLib = required === 0 ? 0n : getEffectiveTollLibWei(this.toll);
+    if (required !== 0 && tollInLib > 0n) {
       const username = contact.username || `${this.address.slice(0, 8)}...${this.address.slice(-6)}`;
       showToast(
         `You can only send reactions to people who have added you as a connection. Ask ${username} to add you as a connection`,
@@ -18774,12 +18775,13 @@ class ChatModal {
       return false;
     }
 
-    if (contact.tollRequiredToSend == 2) {
+    const required = contact.tollRequiredToSend;
+    if (required === 2) {
       console.warn('Reaction send skipped because sender is blocked by recipient');
       return false;
     }
 
-    const tollInLib = contact.tollRequiredToSend == 0 ? 0n : getEffectiveTollLibWei(this.toll);
+    const tollInLib = required === 0 ? 0n : getEffectiveTollLibWei(this.toll);
     const sufficientBalance = await validateBalance(tollInLib);
     if (!sufficientBalance) {
       console.warn('Reaction send skipped due to insufficient balance', reaction);
