@@ -17908,11 +17908,7 @@ class ChatModal {
    */
   canDeleteMessageForAll(messageEl, messageRecord = null) {
     const isMine = !!messageEl?.classList?.contains('sent');
-    if (!isMine) {
-      return false;
-    }
-
-    if (!this.canSendWithZeroToll()) {
+    if (!isMine || !this.canSendWithZeroToll()) {
       return false;
     }
 
