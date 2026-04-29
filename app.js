@@ -136,7 +136,11 @@ import {
   EthNum,
 } from './lib.js';
 
-import { CHAT_REACTION_SHEET_CATEGORIES } from './data/emoji-picker-data.js';
+import {
+  CHAT_REACTION_SHEET_CATEGORIES,
+  CHAT_REACTION_SHEET_DEFAULT_COMMON_EMOJIS,
+  CHAT_REACTION_SHEET_RECENT_CATEGORY_KEY,
+} from './data/emoji-picker-data.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
@@ -2949,6 +2953,9 @@ class SettingsModal {
     
     this.secretButton = document.getElementById('openSecretModal');
     this.secretButton.addEventListener('click', () => secretModal.open());
+
+    this.resetRecentEmojisButton = document.getElementById('resetRecentEmojis');
+    this.resetRecentEmojisButton.addEventListener('click', () => this.handleResetRecentEmojis());
     
     this.signOutButton = document.getElementById('handleSignOutSettings');
     this.signOutHeaderButton = document.getElementById('signOutSettingsHeader');
@@ -2966,6 +2973,33 @@ class SettingsModal {
         this.signOutHeaderButton.classList.add('active');
       }
     }, 400); // 400ms = modal animation (300ms) + 100ms buffer
+  }
+
+  handleResetRecentEmojis() {
+    if (!myData?.account) {
+      return;
+    }
+
+    const hasRecentEmojiOverrides = Object.prototype.hasOwnProperty.call(
+      myData.account,
+      CHAT_REACTION_SHEET_RECENT_ACCOUNT_KEY
+    );
+    if (!hasRecentEmojiOverrides) {
+      showToast('Recent emojis are already reset', 2000, 'info');
+      return;
+    }
+
+    const confirmed = confirm('Reset recent emojis to the default set?');
+    if (!confirmed) {
+      return;
+    }
+
+    delete myData.account[CHAT_REACTION_SHEET_RECENT_ACCOUNT_KEY];
+    saveState();
+    if (chatModal?.reactionSheetActiveCategory === CHAT_REACTION_SHEET_RECENT_CATEGORY_KEY) {
+      chatModal.setReactionSheetCategory(CHAT_REACTION_SHEET_RECENT_CATEGORY_KEY);
+    }
+    showToast('Recent emojis reset', 2000, 'success');
   }
 
   open() {
@@ -13816,9 +13850,13 @@ const stakeValidatorModal = new StakeValidatorModal();
 const CHAT_REACTION_SHEET_CATEGORY_MAP = new Map(
   CHAT_REACTION_SHEET_CATEGORIES.map((category) => [category.key, category])
 );
-const CHAT_REACTION_SHEET_DEFAULT_CATEGORY = CHAT_REACTION_SHEET_CATEGORIES[0].key;
+const CHAT_REACTION_SHEET_DEFAULT_CATEGORY = CHAT_REACTION_SHEET_RECENT_CATEGORY_KEY;
+const CHAT_REACTION_SHEET_RECENT_ACCOUNT_KEY = 'recentReactionEmojis';
+const CHAT_REACTION_SHEET_RECENT_LIMIT = CHAT_REACTION_SHEET_DEFAULT_COMMON_EMOJIS.length;
+const CHAT_REACTION_SHEET_PROMOTION_RATIO = 0.5;
 const CHAT_REACTION_SHEET_CLOSE_DRAG_PX = 120;
 const CHAT_REACTION_SHEET_TAB_ICONS = {
+  recent: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/></svg>',
   smileys: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>',
   people: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/></svg>',
   nature: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>',
@@ -14022,6 +14060,70 @@ class ChatModal {
     return this.dropOverlay;
   }
 
+  normalizeRecentReactionEmojiList(emojis) {
+    if (!Array.isArray(emojis)) {
+      return [];
+    }
+
+    const normalizedEmojis = [];
+    const seen = new Set();
+    for (const entry of emojis) {
+      const emoji = typeof entry === 'string' ? entry.trim() : '';
+      if (!emoji || seen.has(emoji)) {
+        continue;
+      }
+      seen.add(emoji);
+      normalizedEmojis.push(emoji);
+    }
+
+    return normalizedEmojis;
+  }
+
+  getRecentReactionAccountEmojis() {
+    return this.normalizeRecentReactionEmojiList(myData?.account?.[CHAT_REACTION_SHEET_RECENT_ACCOUNT_KEY]);
+  }
+
+  getRecentReactionSheetEmojis() {
+    const rankedEmojis = [];
+    const seen = new Set();
+    const addEmoji = (emoji) => {
+      if (!emoji || seen.has(emoji)) {
+        return;
+      }
+      seen.add(emoji);
+      rankedEmojis.push(emoji);
+    };
+
+    this.getRecentReactionAccountEmojis().forEach(addEmoji);
+    CHAT_REACTION_SHEET_DEFAULT_COMMON_EMOJIS.forEach(addEmoji);
+
+    return rankedEmojis.slice(0, CHAT_REACTION_SHEET_RECENT_LIMIT);
+  }
+
+  recordRecentReactionEmoji(emoji) {
+    const selectedEmoji = typeof emoji === 'string' ? emoji.trim() : '';
+    if (!selectedEmoji || !myData?.account) {
+      return;
+    }
+
+    const rankedEmojis = this.getRecentReactionSheetEmojis();
+    const currentIndex = rankedEmojis.indexOf(selectedEmoji);
+    const remainingEmojis = rankedEmojis.filter((entry) => entry !== selectedEmoji);
+    const targetIndex = currentIndex === -1
+      ? CHAT_REACTION_SHEET_RECENT_LIMIT - 1
+      : Math.max(
+          0,
+          currentIndex - Math.max(1, Math.ceil((currentIndex + 1) * CHAT_REACTION_SHEET_PROMOTION_RATIO))
+        );
+
+    remainingEmojis.splice(targetIndex, 0, selectedEmoji);
+    myData.account[CHAT_REACTION_SHEET_RECENT_ACCOUNT_KEY] = remainingEmojis.slice(
+      0,
+      CHAT_REACTION_SHEET_RECENT_LIMIT
+    );
+    saveState();
+  }
+
   /**
    * Returns the active reaction sheet category config.
    * @param {string} categoryKey
@@ -14030,6 +14132,9 @@ class ChatModal {
   getReactionSheetCategory(categoryKey) {
     const category = CHAT_REACTION_SHEET_CATEGORY_MAP.get(categoryKey);
     assert(category, `Unknown reaction sheet category: ${categoryKey}`);
+    if (category.key === CHAT_REACTION_SHEET_RECENT_CATEGORY_KEY) {
+      return { ...category, emojis: this.getRecentReactionSheetEmojis() };
+    }
     return category;
   }
 
@@ -14041,7 +14146,10 @@ class ChatModal {
   getReactionSheetCategoryKeyForEmoji(emoji) {
     if (!emoji) return '';
 
-    const category = CHAT_REACTION_SHEET_CATEGORIES.find((entry) => entry.emojis.includes(emoji));
+    const category = CHAT_REACTION_SHEET_CATEGORIES.find((entry) => (
+      entry.key !== CHAT_REACTION_SHEET_RECENT_CATEGORY_KEY &&
+      entry.emojis.includes(emoji)
+    ));
     return category?.key || '';
   }
 
@@ -18738,11 +18846,14 @@ class ChatModal {
     }
 
     closeUi();
-    await this.sendReactionMessage({
+    const didSend = await this.sendReactionMessage({
       reactId: txid,
       reactMessage: selectedReaction,
       reactAction: 'set'
     });
+    if (didSend) {
+      this.recordRecentReactionEmoji(selectedReaction);
+    }
   }
 
   /**
