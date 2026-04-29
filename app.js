@@ -19651,7 +19651,7 @@ class ChatModal {
   /**
    * updateTollRequired queries contact object and updates the tollRequiredByMe and tollRequiredByOther fields
    * @param {string} address - the address of the contact
-   * @returns {void}
+   * @returns {Promise<void>}
    */
   async updateTollRequired(address) {
     const myAddr = longAddress(myAccount.keys.address);
@@ -19704,7 +19704,7 @@ class ChatModal {
    * Invoked when opening chatModal. In the background, it will query the contact's toll field from the network.
    * If the queried toll value is different from the toll field in localStorage, it will update the toll field in localStorage and update the UI element that displays the toll field value.
    * @param {string} address - the address of the contact
-   * @returns {void}
+   * @returns {Promise<void>}
    */
   async updateTollValue(address) {
     // query the contact's toll field from the network
