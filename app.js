@@ -17908,7 +17908,7 @@ class ChatModal {
    */
   canDeleteMessageForAll(messageEl, messageRecord = null) {
     const isMine = !!messageEl?.classList?.contains('sent');
-    if (!isMine || myData.contacts[this.address]?.tollRequiredToSend != 0) {
+    if (!isMine || !this.canSendWithZeroToll()) {
       return false;
     }
 
@@ -18681,6 +18681,25 @@ class ChatModal {
   }
 
   /**
+   * Returns whether the active chat can send actions with no payable toll.
+   * @returns {boolean}
+   */
+  canSendWithZeroToll() {
+    const contact = myData.contacts[this.address];
+
+    switch (contact.tollRequiredToSend) {
+      case 0:
+        return true;
+      case 1:
+        return getEffectiveTollLibWei(this.toll) === 0n;
+      case 2:
+        return false;
+      default:
+        assert(false, `Unknown tollRequiredToSend: ${contact.tollRequiredToSend}`);
+    }
+  }
+
+  /**
    * Resolves a quick reaction picker press into a target txid and a minimal send flow.
    * @param {HTMLElement} reactionButton
    * @param {HTMLElement | null} messageEl
@@ -18717,7 +18736,7 @@ class ChatModal {
       showToast('You are blocked by this user', 0, 'error');
       return;
     }
-    if (required !== undefined && required !== 0) {
+    if (!this.canSendWithZeroToll()) {
       const username = contact.username || `${this.address.slice(0, 8)}...${this.address.slice(-6)}`;
       showToast(
         `You can only send reactions to people who have added you as a connection. Ask ${username} to add you as a connection`,
@@ -18774,14 +18793,20 @@ class ChatModal {
       return false;
     }
 
-    if (contact.tollRequiredToSend == 2) {
+    if (!this.canSendWithZeroToll()) {
+      if (contact.tollRequiredToSend !== 2) {
+        console.warn('Reaction send skipped because recipient requires a nonzero toll');
+        return false;
+      }
       console.warn('Reaction send skipped because sender is blocked by recipient');
       return false;
     }
 
-    const tollInLib = contact.tollRequiredToSend == 0 ? 0n : getEffectiveTollLibWei(this.toll);
+    const tollInLib = 0n;
     const sufficientBalance = await validateBalance(tollInLib);
     if (!sufficientBalance) {
+      const feeInLIB = big2str(getTransactionFeeWei(), 18).slice(0, -16);
+      showToast(`Insufficient balance for fee of ${feeInLIB} LIB. Go to the wallet to add more LIB.`, 0, 'error');
       console.warn('Reaction send skipped due to insufficient balance', reaction);
       return false;
     }
@@ -19622,10 +19647,9 @@ class ChatModal {
     try {
       // Synchronous eligibility based on cached value fetched on ChatModal open
       const contact = myData.contacts[this.address] || {};
-      const required = contact.tollRequiredToSend;
-      if (required !== 0) {
+      if (!this.canSendWithZeroToll()) {
         const username = contact.username || `${this.address.slice(0, 8)}...${this.address.slice(-6)}`;
-        if (required === 2) {
+        if (contact.tollRequiredToSend === 2) {
           showToast('You are blocked by this user', 0, 'error');
         } else {
           showToast(
