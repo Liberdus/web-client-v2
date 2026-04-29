@@ -7702,6 +7702,11 @@ function getUserFacingTxFailureReason(reason, feeMismatchStatus = null) {
   return typeof reason === 'string' && reason.length > 0 ? reason : 'Transaction failed';
 }
 
+/**
+ * Returns true when the transaction failure reason indicates a recipient toll state failure.
+ * @param {string} reason
+ * @returns {boolean}
+ */
 function isRecipientTollStateFailure(reason) {
   assert(typeof reason === 'string', 'Transaction failure reason must be a string');
   return /toll|blocked by the receiver|chat is blocked/i.test(reason);
@@ -19749,6 +19754,11 @@ class ChatModal {
     }
   }
 
+  /**
+   * Refreshes the toll state for the given address
+   * @param {string} address - The address of the contact to refresh the toll state for
+   * @returns {Promise<void>}
+   */
   async refreshRecipientTollState(address) {
     assert(address, 'Recipient address is required to refresh toll state');
     const contact = myData.contacts[address];
@@ -20196,7 +20206,7 @@ class ChatModal {
       if (!response || !response.result || !response.result.success) {
         console.error('voice message failed to send', response);
 
-        const reason = response?.result?.reason;
+        const reason = response?.result?.reason || '';
         if (reason && isRecipientTollStateFailure(reason)) {
           await this.refreshRecipientTollState(this.address);
         }
