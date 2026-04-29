@@ -10401,9 +10401,7 @@ class BackupAccountModal {
 
   open() {
     // called when the modal needs to be opened
-    this.passwordInput.value = '';
-    this.passwordConfirmInput.value = '';
-    this.storageLocationSelect.value = 'local';
+    this.modal.classList.add('active');
     
     // Show/hide checkbox based on login status
     if (myData) {
@@ -10416,8 +10414,7 @@ class BackupAccountModal {
       this.backupAllAccountsCheckbox.checked = true; // Default to all accounts
     }
     
-    this.modal.classList.add('active');
-    this.handleStorageLocationChange();
+    this.updateButtonState();
   }
 
   close() {
