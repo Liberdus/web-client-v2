@@ -2953,9 +2953,6 @@ class SettingsModal {
     
     this.secretButton = document.getElementById('openSecretModal');
     this.secretButton.addEventListener('click', () => secretModal.open());
-
-    this.resetRecentEmojisButton = document.getElementById('resetRecentEmojis');
-    this.resetRecentEmojisButton.addEventListener('click', () => this.handleResetRecentEmojis());
     
     this.signOutButton = document.getElementById('handleSignOutSettings');
     this.signOutHeaderButton = document.getElementById('signOutSettingsHeader');
@@ -2973,30 +2970,6 @@ class SettingsModal {
         this.signOutHeaderButton.classList.add('active');
       }
     }, 400); // 400ms = modal animation (300ms) + 100ms buffer
-  }
-
-  handleResetRecentEmojis() {
-    if (!myData?.account) {
-      return;
-    }
-
-    const hasRecentEmojiOverrides = Object.prototype.hasOwnProperty.call(
-      myData.account,
-      CHAT_REACTION_SHEET_RECENT_ACCOUNT_KEY
-    );
-    if (!hasRecentEmojiOverrides) {
-      showToast('Recent emojis are already reset', 2000, 'info');
-      return;
-    }
-
-    const confirmed = confirm('Reset recent emojis to the default set?');
-    if (!confirmed) {
-      return;
-    }
-
-    delete myData.account[CHAT_REACTION_SHEET_RECENT_ACCOUNT_KEY];
-    saveState();
-    showToast('Recent emojis reset', 2000, 'success');
   }
 
   open() {
@@ -14131,6 +14104,44 @@ class ChatModal {
     saveState();
   }
 
+  hasRecentReactionEmojiOverrides() {
+    return !!myData?.account && Object.prototype.hasOwnProperty.call(
+      myData.account,
+      CHAT_REACTION_SHEET_RECENT_ACCOUNT_KEY
+    );
+  }
+
+  updateReactionSheetResetButtonVisibility() {
+    if (!this.resetReactionSheetRecentButton) {
+      return;
+    }
+
+    this.resetReactionSheetRecentButton.hidden = (
+      this.reactionSheetActiveCategory !== CHAT_REACTION_SHEET_RECENT_CATEGORY_KEY
+    );
+  }
+
+  handleResetRecentReactionEmojis() {
+    if (!myData?.account) {
+      return;
+    }
+
+    if (!this.hasRecentReactionEmojiOverrides()) {
+      showToast('Recent emojis are already reset', 2000, 'info');
+      return;
+    }
+
+    const confirmed = confirm('Reset recent emojis to the default set?');
+    if (!confirmed) {
+      return;
+    }
+
+    delete myData.account[CHAT_REACTION_SHEET_RECENT_ACCOUNT_KEY];
+    saveState();
+    this.setReactionSheetCategory(CHAT_REACTION_SHEET_RECENT_CATEGORY_KEY);
+    showToast('Recent emojis reset', 2000, 'success');
+  }
+
   /**
    * Returns the active reaction sheet category config.
    * @param {string} categoryKey
@@ -14192,6 +14203,7 @@ class ChatModal {
     const category = this.getReactionSheetCategory(categoryKey);
     this.reactionSheetActiveCategory = category.key;
     this.renderReactionSheetTabs();
+    this.updateReactionSheetResetButtonVisibility();
 
     this.reactionSheetGrid.innerHTML = category.emojis.map((emoji) => `
       <button class="chat-reaction-sheet-button message-context-reaction-button" type="button" data-emoji="${emoji}" aria-label="React with ${emoji}">${emoji}</button>
@@ -14331,6 +14343,7 @@ class ChatModal {
     this.reactionSheetDragRegion = document.getElementById('chatReactionSheetDragRegion');
     this.reactionSheetTabs = document.getElementById('chatReactionSheetTabs');
     this.reactionSheetGrid = document.getElementById('chatReactionSheetGrid');
+    this.resetReactionSheetRecentButton = document.getElementById('resetChatReactionSheetRecent');
     this.closeReactionSheetButton = document.getElementById('closeChatReactionSheet');
     this.renderReactionSheetTabs();
     this.setReactionSheetCategory(this.reactionSheetActiveCategory);
@@ -14431,6 +14444,7 @@ class ChatModal {
       }
     });
     this.closeReactionSheetButton.addEventListener('click', () => this.closeReactionSheet());
+    this.resetReactionSheetRecentButton.addEventListener('click', () => this.handleResetRecentReactionEmojis());
     this.reactionSheetDragRegion.addEventListener('pointerdown', this.handleReactionSheetDragStart.bind(this));
     this.reactionSheetDragRegion.addEventListener('pointermove', this.handleReactionSheetDragMove.bind(this));
     this.reactionSheetDragRegion.addEventListener('pointerup', this.handleReactionSheetDragEnd.bind(this));
@@ -17640,7 +17654,7 @@ class ChatModal {
   handleReactionSheetDragStart(event) {
     if (!this.reactionSheetOverlay.classList.contains('active')) return;
     if (event.button !== undefined && event.button !== 0) return;
-    if (event.target?.closest?.('.chat-reaction-sheet-close')) return;
+    if (event.target?.closest?.('.chat-reaction-sheet-close, .chat-reaction-sheet-reset')) return;
 
     event.stopPropagation();
     this.reactionSheetDragStartY = event.clientY;

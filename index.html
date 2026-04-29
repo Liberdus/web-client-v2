@@ -434,7 +434,6 @@
             <li class="menu-item" id="openToll" data-icon="dollar-sign">Toll</li>
             <li class="menu-item" id="openLockModal" data-icon="lock">Lock</li>
             <li class="menu-item" id="openSecretModal" data-icon="key">Secret</li>
-            <li class="menu-item" id="resetRecentEmojis" data-icon="rotate-ccw">Reset Recent Emojis</li>
             <li class="menu-item" id="openBackupForm" data-icon="download">Backup</li>
             <li class="menu-item" id="openRemoveAccount" data-icon="trash-2">Remove</li>
             <li class="menu-item" id="openLaunchUrl" data-icon="launch" style="display: none;">Launch</li>
@@ -1228,7 +1227,10 @@
               <div class="chat-reaction-sheet-handle" aria-hidden="true"></div>
               <div class="chat-reaction-sheet-header">
                 <div class="chat-reaction-sheet-title">Choose reaction</div>
-                <button class="chat-reaction-sheet-close" id="closeChatReactionSheet" type="button" aria-label="Close reaction picker">Close</button>
+                <div class="chat-reaction-sheet-actions">
+                  <button class="chat-reaction-sheet-reset" id="resetChatReactionSheetRecent" type="button" aria-label="Reset recent emojis" hidden>Reset</button>
+                  <button class="chat-reaction-sheet-close" id="closeChatReactionSheet" type="button" aria-label="Close reaction picker">Close</button>
+                </div>
               </div>
             </div>
             <div class="chat-reaction-sheet-body">

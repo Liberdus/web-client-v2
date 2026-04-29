@@ -1958,6 +1958,13 @@ input[type='file'].form-control::file-selector-button {
   color: var(--text-color);
 }
 
+.chat-reaction-sheet-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-reaction-sheet-reset,
 .chat-reaction-sheet-close {
   border: 0;
   border-radius: 999px;
