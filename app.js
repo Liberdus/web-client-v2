@@ -1606,11 +1606,11 @@ class ChatsScreen {
 
       let previewHTML = '';
       if (isShowingReactionPreview) {
-        const reactionActor = reactionPreview.my ? 'You' : contactName;
         const reactionTarget = reactionPreview.target;
+        const reactionActor = reactionPreview.my ? 'You ' : '';
         const reactionText = reactionPreview.emoji
-          ? `${reactionActor} reacted ${reactionPreview.emoji} to "${reactionTarget}"`
-          : `${reactionActor} removed a reaction from "${reactionTarget}"`;
+          ? `${reactionActor}reacted ${reactionPreview.emoji} to "${reactionTarget}"`
+          : `${reactionActor}removed a reaction from "${reactionTarget}"`;
         previewHTML = truncateMessage(escapeHtml(reactionText), 50);
       } else if (typeof latestActivity.amount === 'bigint') {
         // Latest item is a payment/transfer
@@ -1655,7 +1655,8 @@ class ChatsScreen {
       // Determine what to show in the preview
 
       let displayPreview = previewHTML;
-      let displayPrefix = isShowingReactionPreview ? '' : (latestActivity.my ? '< ' : '> ');
+      const isOutgoingPreview = isShowingReactionPreview ? reactionPreview.my : latestActivity.my;
+      let displayPrefix = isOutgoingPreview ? '< ' : '> ';
       let hasDraftAttachment = false;
 
       // Check for draft attachments
