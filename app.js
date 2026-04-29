@@ -26810,6 +26810,8 @@ class LockModal {
     this.oldPasswordInput.value = '';
     this.newPasswordInput.value = '';
     this.confirmNewPasswordInput.value = '';
+    this.passwordWarning.textContent = '';
+    this.passwordWarning.style.display = 'none';
   }
 }
 const lockModal = new LockModal();
