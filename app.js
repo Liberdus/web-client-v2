@@ -18853,14 +18853,12 @@ class ChatModal {
     }
 
     closeUi();
-    const didSend = await this.sendReactionMessage({
+    this.recordRecentReactionEmoji(selectedReaction);
+    await this.sendReactionMessage({
       reactId: txid,
       reactMessage: selectedReaction,
       reactAction: 'set'
     });
-    if (didSend) {
-      this.recordRecentReactionEmoji(selectedReaction);
-    }
   }
 
   /**
