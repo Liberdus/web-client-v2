@@ -18797,13 +18797,16 @@ class ChatModal {
       return false;
     }
 
-    const required = contact.tollRequiredToSend;
-    if (required === 2) {
+    if (!this.canSendWithZeroToll()) {
+      if (contact.tollRequiredToSend !== 2) {
+        console.warn('Reaction send skipped because recipient requires a nonzero toll');
+        return false;
+      }
       console.warn('Reaction send skipped because sender is blocked by recipient');
       return false;
     }
 
-    const tollInLib = required === 0 ? 0n : getEffectiveTollLibWei(this.toll);
+    const tollInLib = 0n;
     const sufficientBalance = await validateBalance(tollInLib);
     if (!sufficientBalance) {
       console.warn('Reaction send skipped due to insufficient balance', reaction);
@@ -19645,7 +19648,7 @@ class ChatModal {
   async handleCallUser() {
     try {
       // Synchronous eligibility based on cached value fetched on ChatModal open
-      const contact = myData.contacts[this.address];
+      const contact = myData.contacts[this.address] || {};
       if (!this.canSendWithZeroToll()) {
         const username = contact.username || `${this.address.slice(0, 8)}...${this.address.slice(-6)}`;
         if (contact.tollRequiredToSend === 2) {
