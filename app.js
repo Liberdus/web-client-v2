@@ -18805,6 +18805,8 @@ class ChatModal {
     const tollInLib = 0n;
     const sufficientBalance = await validateBalance(tollInLib);
     if (!sufficientBalance) {
+      const feeInLIB = big2str(getTransactionFeeWei(), 18);
+      showToast(`Insufficient balance for fee of ${feeInLIB} LIB. Go to the wallet to add more LIB.`, 0, 'error');
       console.warn('Reaction send skipped due to insufficient balance', reaction);
       return false;
     }
