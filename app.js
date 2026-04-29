@@ -18712,7 +18712,7 @@ class ChatModal {
     assert(typeof closeUi === 'function', 'Reaction close callback is required');
 
     const contact = myData.contacts[this.address];
-    const required = contact.tollRequiredToSend;
+    const required = contact?.tollRequiredToSend ?? 1;
     if (required === 2) {
       showToast('You are blocked by this user', 0, 'error');
       return;
