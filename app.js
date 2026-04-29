@@ -143,6 +143,7 @@ const wei = 10n ** BigInt(weiDigits);
 //network.monitor.url = "http://test.liberdus.com:3000"    // URL of the monitor server
 //network.explorer.url = "http://test.liberdus.com:6001"   // URL of the chain explorer
 const MAX_MEMO_BYTES = 1000; // 1000 bytes for memos
+const MENU_NAVIGATION_LOCK_MS = 400;
 const MAX_CHAT_MESSAGE_BYTES = 1000; // 1000 bytes for chat messages
 const BRIDGE_USERNAME = 'liberdusbridge';
 const TRANSACTION_TIMESTAMP_OFFSET_MS = 500; // Transaction offset to allow for slow connections
@@ -656,6 +657,25 @@ function isPrivateAccount() {
   return myAccount?.private === true || myData?.account?.private === true;
 }
 
+/**
+ * Lock rapid menu clicks to prevent multiple clicks from triggering multiple actions
+ * @param {Element} menuList - The menu list element
+ */
+function lockRapidMenuClicks(menuList) {
+  let locked = false;
+  menuList.addEventListener('click', (event) => {
+    if (!event.target.closest('.menu-item')) return;
+    if (locked) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+
+    locked = true;
+    setTimeout(() => { locked = false; }, MENU_NAVIGATION_LOCK_MS);
+  }, true);
+}
+
 // Load saved account data and update chat list on page load
 document.addEventListener('DOMContentLoaded', async () => {
   markConnectivityDependentElements();
@@ -1167,6 +1187,7 @@ class WelcomeMenuModal {
 
   load() {
     this.modal = document.getElementById('welcomeMenuModal');
+    lockRapidMenuClicks(this.modal.querySelector('.menu-list'));
     this.closeButton = document.getElementById('closeWelcomeMenu');
     this.closeButton.addEventListener('click', () => this.close());
 
@@ -2128,6 +2149,7 @@ class MenuModal {
 
   load() {
     this.modal = document.getElementById('menuModal');
+    lockRapidMenuClicks(this.modal.querySelector('.menu-list'));
     this.closeButton = document.getElementById('closeMenu');
     this.closeButton.addEventListener('click', () => this.close());
     this.validatorButton = document.getElementById('openValidator');
@@ -2900,6 +2922,7 @@ class SettingsModal {
 
   load() {
     this.modal = document.getElementById('settingsModal');
+    lockRapidMenuClicks(this.modal.querySelector('.menu-list'));
     this.closeButton = document.getElementById('closeSettings');
     this.closeButton.addEventListener('click', () => this.close());
     
