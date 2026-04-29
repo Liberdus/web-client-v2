@@ -1603,9 +1603,10 @@ class ChatsScreen {
       let previewHTML = '';
       if (isShowingReactionPreview) {
         const reactionTarget = reactionPreview.target;
+        const reactionActor = reactionPreview.my ? 'You ' : '';
         const reactionText = reactionPreview.emoji
-          ? `reacted ${reactionPreview.emoji} to "${reactionTarget}"`
-          : `removed a reaction from "${reactionTarget}"`;
+          ? `${reactionActor}reacted ${reactionPreview.emoji} to "${reactionTarget}"`
+          : `${reactionActor}removed a reaction from "${reactionTarget}"`;
         previewHTML = truncateMessage(escapeHtml(reactionText), 50);
       } else if (typeof latestActivity.amount === 'bigint') {
         // Latest item is a payment/transfer
