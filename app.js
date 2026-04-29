@@ -2076,7 +2076,7 @@ class WalletScreen {
 
   /**
    * Request funds from the faucet for normal users
-   * @returns {Promise<void>}
+   * @returns {void}
    */
   async requestFromFaucet() {
     if (this.isFaucetRequestInProgress) {
@@ -4648,7 +4648,7 @@ class FriendModal {
   * Handle friend form submission
   * 0 = blocked, 1 = Other, 2 = Connection
    * @param {Event} event
-   * @returns {Promise<void>}
+   * @returns {void}
    */
   async handleFriendSubmit(event) {
     event.preventDefault();
@@ -4736,7 +4736,7 @@ class FriendModal {
    * Update the friend button based on the contact's friend status
    * @param {Object} contact - The contact object
    * @param {string} buttonId - The ID of the button to update
-   * @returns {void}
+   * @returns {Promise<void>}
    */
   updateFriendButton(contact, buttonId) {
     const button = document.getElementById(buttonId);
@@ -5263,7 +5263,7 @@ class ClockTimer {
 
   /**
    * Starts the ticking clock timer
-   * @returns {void}
+   * @returns {Promise<void>}
    */
   start() {
     // Clear any existing timer
