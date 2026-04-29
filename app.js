@@ -17908,7 +17908,11 @@ class ChatModal {
    */
   canDeleteMessageForAll(messageEl, messageRecord = null) {
     const isMine = !!messageEl?.classList?.contains('sent');
-    if (!isMine || myData.contacts[this.address]?.tollRequiredToSend != 0) {
+    if (!isMine) {
+      return false;
+    }
+
+    if (!this.canUseConnectionGatedChatAction(myData.contacts[this.address])) {
       return false;
     }
 
@@ -18681,6 +18685,24 @@ class ChatModal {
   }
 
   /**
+   * Returns whether the active chat can use actions normally limited to connections.
+   * @param {Object} contact
+   * @returns {boolean}
+   */
+  canUseConnectionGatedChatAction(contact) {
+    switch (contact.tollRequiredToSend) {
+      case 0:
+        return true;
+      case 1:
+        return getEffectiveTollLibWei(this.toll) === 0n;
+      case 2:
+        return false;
+      default:
+        assert(false, `Unknown tollRequiredToSend: ${contact.tollRequiredToSend}`);
+    }
+  }
+
+  /**
    * Resolves a quick reaction picker press into a target txid and a minimal send flow.
    * @param {HTMLElement} reactionButton
    * @param {HTMLElement | null} messageEl
@@ -18717,8 +18739,7 @@ class ChatModal {
       showToast('You are blocked by this user', 0, 'error');
       return;
     }
-    const tollInLib = required === 0 ? 0n : getEffectiveTollLibWei(this.toll);
-    if (required !== 0 && tollInLib > 0n) {
+    if (!this.canUseConnectionGatedChatAction(contact)) {
       const username = contact.username || `${this.address.slice(0, 8)}...${this.address.slice(-6)}`;
       showToast(
         `You can only send reactions to people who have added you as a connection. Ask ${username} to add you as a connection`,
@@ -19623,11 +19644,10 @@ class ChatModal {
   async handleCallUser() {
     try {
       // Synchronous eligibility based on cached value fetched on ChatModal open
-      const contact = myData.contacts[this.address] || {};
-      const required = contact.tollRequiredToSend;
-      if (required !== 0) {
+      const contact = myData.contacts[this.address];
+      if (!this.canUseConnectionGatedChatAction(contact)) {
         const username = contact.username || `${this.address.slice(0, 8)}...${this.address.slice(-6)}`;
-        if (required === 2) {
+        if (contact.tollRequiredToSend === 2) {
           showToast('You are blocked by this user', 0, 'error');
         } else {
           showToast(
