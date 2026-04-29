@@ -17912,7 +17912,7 @@ class ChatModal {
       return false;
     }
 
-    if (!this.canUseConnectionGatedChatAction(myData.contacts[this.address])) {
+    if (!this.canUseConnectionGatedChatAction()) {
       return false;
     }
 
@@ -18686,10 +18686,11 @@ class ChatModal {
 
   /**
    * Returns whether the active chat can use actions normally limited to connections.
-   * @param {Object} contact
    * @returns {boolean}
    */
-  canUseConnectionGatedChatAction(contact) {
+  canUseConnectionGatedChatAction() {
+    const contact = myData.contacts[this.address];
+
     switch (contact.tollRequiredToSend) {
       case 0:
         return true;
@@ -18739,7 +18740,7 @@ class ChatModal {
       showToast('You are blocked by this user', 0, 'error');
       return;
     }
-    if (!this.canUseConnectionGatedChatAction(contact)) {
+    if (!this.canUseConnectionGatedChatAction()) {
       const username = contact.username || `${this.address.slice(0, 8)}...${this.address.slice(-6)}`;
       showToast(
         `You can only send reactions to people who have added you as a connection. Ask ${username} to add you as a connection`,
@@ -19645,7 +19646,7 @@ class ChatModal {
     try {
       // Synchronous eligibility based on cached value fetched on ChatModal open
       const contact = myData.contacts[this.address];
-      if (!this.canUseConnectionGatedChatAction(contact)) {
+      if (!this.canUseConnectionGatedChatAction()) {
         const username = contact.username || `${this.address.slice(0, 8)}...${this.address.slice(-6)}`;
         if (contact.tollRequiredToSend === 2) {
           showToast('You are blocked by this user', 0, 'error');
