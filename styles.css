@@ -4067,6 +4067,20 @@ mark {
   margin-bottom: 6px;
 }
 
+.toast-reaction-failure {
+  text-align: left;
+  line-height: 1.3;
+}
+
+.toast-reaction-title {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.toast-reaction-detail {
+  font-weight: var(--font-weight-normal);
+}
+
 .toast-list-title-centered {
   text-align: center;
 }

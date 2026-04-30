@@ -19096,7 +19096,13 @@ class ChatModal {
       if (outcome.didChange) {
         const precrackReason = getRecipientTollPrecrackFailureReason(reason);
         if (precrackReason) {
-          showToast(`${escapeHtml(REACTION_REVERTED_TOAST)}<br>${escapeHtml(precrackReason)}`, 0, 'error', true);
+          const message = [
+            '<div class="toast-reaction-failure">',
+            `<div class="toast-reaction-title">${escapeHtml(REACTION_REVERTED_TOAST)}</div>`,
+            `<div class="toast-reaction-detail">${escapeHtml(precrackReason)}</div>`,
+            '</div>'
+          ].join('');
+          showToast(message, 0, 'error', true);
         } else {
           showToast(REACTION_REVERTED_TOAST, 0, 'error');
         }
