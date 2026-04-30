@@ -13951,6 +13951,7 @@ class ChatModal {
     this.chatRenderedWindowAddress = null;
     this.chatForceFullRenderOnce = false;
     this.isExpandingChatRenderWindow = false;
+    this.lastChatScrollLogAt = 0;
   }
 
   /**
@@ -15038,6 +15039,12 @@ class ChatModal {
     };
   }
 
+  getChatTopSpacerHeight(renderRange) {
+    if (!renderRange?.isWindowed) return 0;
+    const hiddenCount = Math.max(0, renderRange.totalMessages - renderRange.oldestIndex - 1);
+    return Math.min(1600, Math.max(480, hiddenCount * 28));
+  }
+
   getFirstVisibleMessageAnchor() {
     const container = this.messagesContainer;
     if (!container || !this.messagesList) return null;
@@ -15108,10 +15115,22 @@ class ChatModal {
   handleMessagesContainerScroll() {
     this.closeAllContextMenus();
     if (!this.messagesContainer || !this.isActive()) return;
-    const messageListPaddingTop = this.messagesList
-      ? parseFloat(getComputedStyle(this.messagesList).paddingTop || '0')
+    const now = this.getChatPerfTime();
+    if (now - this.lastChatScrollLogAt > 750) {
+      this.lastChatScrollLogAt = now;
+      this.logChatPerf('scroll:metrics', {
+        scrollTop: Math.round(this.messagesContainer.scrollTop),
+        scrollHeight: Math.round(this.messagesContainer.scrollHeight),
+        clientHeight: Math.round(this.messagesContainer.clientHeight),
+        messageListHeight: this.messagesList ? Math.round(this.messagesList.scrollHeight) : 'n/a',
+        modalScrollTop: this.modal ? Math.round(this.modal.scrollTop || 0) : 'n/a',
+        bodyScrollY: Math.round(window.scrollY || 0)
+      });
+    }
+    const topSpacerHeight = this.messagesList
+      ? this.messagesList.querySelector('.chat-window-top-spacer')?.offsetHeight || 0
       : 0;
-    const loadAheadThreshold = messageListPaddingTop + (this.messagesContainer.clientHeight * 2);
+    const loadAheadThreshold = topSpacerHeight + (this.messagesContainer.clientHeight * 1.5);
     if (this.messagesContainer.scrollTop <= loadAheadThreshold) {
       this.expandChatRenderWindow();
     }
@@ -16484,6 +16503,10 @@ class ChatModal {
       // The newest received element will be found after the loop completes
     }
     const renderLoopMs = this.formatChatPerfMs(renderLoopPerfStart);
+    const topSpacerHeight = this.getChatTopSpacerHeight(renderRange);
+    if (topSpacerHeight > 0) {
+      renderedMessages.unshift(`<div class="chat-window-top-spacer" style="height: ${topSpacerHeight}px;"></div>`);
+    }
 
     // Replace the list once to avoid one DOM mutation per message.
     const joinPerfStart = this.getChatPerfTime();
@@ -16506,6 +16529,7 @@ class ChatModal {
       rendered: renderedMessages.length,
       oldestIndex: renderRange.oldestIndex,
       isWindowed: renderRange.isWindowed,
+      topSpacer: topSpacerHeight,
       txidMap: txidMapMs,
       build: renderLoopMs,
       join: joinMs,

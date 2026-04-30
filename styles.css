@@ -2176,9 +2176,12 @@ input[type='file'].form-control::file-selector-button {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  justify-content: flex-end;
   min-height: 100%;
   padding-top: 1rem;
+}
+
+.chat-window-top-spacer {
+  flex: 0 0 auto;
 }
 
 .message {
