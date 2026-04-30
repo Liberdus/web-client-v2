@@ -7725,8 +7725,10 @@ function getRecipientTollPrecrackFailureReason(reason) {
   const blockedReason = 'Chat is blocked by the receiver.';
   if (reason.includes(blockedReason)) return blockedReason;
 
-  const tollMatch = reason.match(/Message amount \([^)]+\) is less than required toll \([^)]+\)\./);
-  if (tollMatch) return tollMatch[0];
+  const tollMatch = reason.match(/Message amount \(([0-9]+)\) is less than required toll \(([0-9]+)\)\./);
+  if (tollMatch) {
+    return `Toll sent (${EthNum.toStr(BigInt(tollMatch[1]))} LIB) is less than required toll (${EthNum.toStr(BigInt(tollMatch[2]))} LIB).`;
+  }
 
   return '';
 }
