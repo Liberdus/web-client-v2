@@ -7713,6 +7713,28 @@ function isRecipientTollStateFailure(reason) {
 }
 
 /**
+ * Extracts the actionable one-line recipient toll/block reason from a pre-crack message.
+ * @param {string} reason
+ * @param {Object} contact
+ * @returns {string}
+ */
+function getRecipientTollPrecrackFailureReason(reason, contact) {
+  assert(typeof reason === 'string', 'Pre-crack failure reason must be a string');
+  assert(contact, 'Contact is required for reaction pre-crack failure copy');
+
+  if (reason.includes('Chat is blocked by the receiver.')) {
+    return 'You are blocked by this user';
+  }
+
+  if (/less than required toll/i.test(reason)) {
+    const username = getContactDisplayName(contact);
+    return `You can only send reactions to people who have added you as a connection. Ask ${username} to add you as a connection`;
+  }
+
+  return '';
+}
+
+/**
  * Attempts to refresh network params when a tx fails due to fee mismatch.
  * @param {string} reason
  * @returns {Promise<{detected: boolean, refreshed: boolean}>}
@@ -7851,6 +7873,12 @@ async function injectTx(tx, txid) {
         console.error('Timestamp out of range, updating timestamp');
         timeDifference()
         toastMessage += ' (Please try again)';
+      }
+      if (
+        isRecipientTollStateFailure(failureReason)
+        && myData.pending.some((pendingTx) => pendingTx.txid === txid && pendingTx.reactionPending)
+      ) {
+        return data;
       }
       showToast(toastMessage, 0, feeMismatchStatus.detected ? 'warning' : 'error');
     }
@@ -19057,10 +19085,15 @@ class ChatModal {
       if (!outcome.hasPending) {
         cleanupResolvedReactionChain(currentAddress, outcome.targetTxid);
       }
+      const reason = response?.result?.reason || '';
       if (outcome.didChange) {
-        showToast('Reaction failed to send and was reverted', 0, 'error');
+        const precrackReason = getRecipientTollPrecrackFailureReason(reason, contact);
+        if (precrackReason) {
+          showToast(precrackReason, 0, 'error');
+        } else {
+          showToast('Reaction failed to send and was reverted', 0, 'error');
+        }
       }
-      const reason = response?.result?.reason;
       if (reason && isRecipientTollStateFailure(reason)) {
         await this.refreshRecipientTollState(currentAddress);
       }
