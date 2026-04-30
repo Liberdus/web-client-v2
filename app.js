@@ -13945,8 +13945,8 @@ class ChatModal {
     this.chatPerfLogBuffer = [];
     this.chatPerfLogFlushTimer = null;
 
-    this.chatInitialRenderCount = 80;
-    this.chatOlderRenderBatchSize = 80;
+    this.chatInitialRenderCount = 50;
+    this.chatOlderRenderBatchSize = 50;
     this.chatRenderedOldestIndex = null;
     this.chatRenderedWindowAddress = null;
     this.chatForceFullRenderOnce = false;
