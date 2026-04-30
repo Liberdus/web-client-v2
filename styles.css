@@ -4079,6 +4079,7 @@ mark {
 
 .toast-reaction-detail {
   font-weight: var(--font-weight-normal);
+  white-space: pre-line;
 }
 
 .toast-list-title-centered {
