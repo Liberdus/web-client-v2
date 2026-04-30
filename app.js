@@ -7712,28 +7712,22 @@ function isRecipientTollStateFailure(reason) {
   return /required toll|blocked by the receiver|chat is blocked/i.test(reason);
 }
 
-const REACTION_REVERTED_TOAST = 'Reaction failed to send and was reverted';
-
 /**
  * Extracts the actionable one-line recipient toll/block reason from a pre-crack message.
  * @param {string} reason
- * @param {Object | null} contact
- * @param {string} address
+ * @param {Object} contact
  * @returns {string}
  */
-function getRecipientTollPrecrackFailureReason(reason, contact = null, address = '') {
+function getRecipientTollPrecrackFailureReason(reason, contact) {
   assert(typeof reason === 'string', 'Pre-crack failure reason must be a string');
+  assert(contact, 'Contact is required for reaction pre-crack failure copy');
 
-  const blockedReason = 'Chat is blocked by the receiver.';
-  if (reason.includes(blockedReason)) return 'You are blocked by this user';
+  if (reason.includes('Chat is blocked by the receiver.')) {
+    return 'You are blocked by this user';
+  }
 
-  const tollMatch = reason.match(/Message amount \(([0-9]+)\) is less than required toll \(([0-9]+)\)\./);
-  if (tollMatch) {
-    const displayContact = {
-      ...(contact || {}),
-      address: contact?.address || address
-    };
-    const username = (contact || address) ? getContactDisplayName(displayContact) : 'this contact';
+  if (/less than required toll/i.test(reason)) {
+    const username = getContactDisplayName(contact);
     return `You can only send reactions to people who have added you as a connection. Ask ${username} to add you as a connection`;
   }
 
@@ -7880,11 +7874,13 @@ async function injectTx(tx, txid) {
         timeDifference()
         toastMessage += ' (Please try again)';
       }
-      const isReactionPrecrackFailure = getRecipientTollPrecrackFailureReason(failureReason) !== ''
-        && myData.pending.some((pendingTx) => pendingTx.txid === txid && pendingTx.reactionPending);
-      if (!isReactionPrecrackFailure) {
-        showToast(toastMessage, 0, feeMismatchStatus.detected ? 'warning' : 'error');
+      if (
+        isRecipientTollStateFailure(failureReason)
+        && myData.pending.some((pendingTx) => pendingTx.txid === txid && pendingTx.reactionPending)
+      ) {
+        return data;
       }
+      showToast(toastMessage, 0, feeMismatchStatus.detected ? 'warning' : 'error');
     }
     return data;
   } catch (error) {
@@ -19091,11 +19087,11 @@ class ChatModal {
       }
       const reason = response?.result?.reason || '';
       if (outcome.didChange) {
-        const precrackReason = getRecipientTollPrecrackFailureReason(reason, contact, currentAddress);
+        const precrackReason = getRecipientTollPrecrackFailureReason(reason, contact);
         if (precrackReason) {
           showToast(precrackReason, 0, 'error');
         } else {
-          showToast(REACTION_REVERTED_TOAST, 0, 'error');
+          showToast('Reaction failed to send and was reverted', 0, 'error');
         }
       }
       if (reason && isRecipientTollStateFailure(reason)) {
