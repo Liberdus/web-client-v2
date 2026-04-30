@@ -16187,10 +16187,17 @@ class ChatModal {
     // Replace the list once to avoid one DOM mutation per message.
     this.messagesList.innerHTML = renderedMessages.join('');
 
-    this.syncAllRenderedReactionChips();
-
-    // --- 4.5. Load thumbnails for image attachments (async, non-blocking) ---
-    this.loadThumbnailsForAttachments();
+    const renderedAddress = currentAddress;
+    const scheduleAfterPaint = typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame
+      : (callback) => setTimeout(callback, 0);
+    scheduleAfterPaint(() => {
+      scheduleAfterPaint(() => {
+        if (!this.isActive() || this.address !== renderedAddress || !this.messagesList) return;
+        this.syncAllRenderedReactionChips();
+        this.loadThumbnailsForAttachments();
+      });
+    });
 
     // --- 5. Find the corresponding DOM element after rendering ---
     // This happens inside the setTimeout to ensure elements are in the DOM
