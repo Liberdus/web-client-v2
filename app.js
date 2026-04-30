@@ -14976,6 +14976,23 @@ class ChatModal {
     }
   }
 
+  isMessagesContainerNearBottom(thresholdPx = 50) {
+    const container = this.messagesContainer || this.messagesList?.parentElement;
+    if (!container) return false;
+    return container.scrollHeight - container.scrollTop - container.clientHeight <= thresholdPx;
+  }
+
+  scrollMessagesToBottom() {
+    const container = this.messagesContainer || this.messagesList?.parentElement;
+    if (!container) return null;
+    container.scrollTop = container.scrollHeight;
+    return {
+      scrollTop: Math.round(container.scrollTop),
+      scrollHeight: Math.round(container.scrollHeight),
+      clientHeight: Math.round(container.clientHeight)
+    };
+  }
+
   /**
    * Clears all staged composer attachments.
    * @param {{ deleteFromServer?: boolean }} options
@@ -15046,9 +15063,7 @@ class ChatModal {
       skipAutoScroll,
       viewport: `${window.innerWidth}x${window.innerHeight}`,
       visualViewport: visualViewportSize,
-      contentVisibility: typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
-        ? CSS.supports('content-visibility', 'auto')
-        : 'unknown'
+      contentVisibilityApplied: false
     });
     // Cache whether the contact has me blocked, and disable attachments accordingly
     this.blockedByRecipient = Number(contact?.tollRequiredToSend) === 2;
@@ -16350,6 +16365,14 @@ class ChatModal {
     const domWritePerfStart = this.getChatPerfTime();
     this.messagesList.innerHTML = renderedHTML;
     const domWriteMs = this.formatChatPerfMs(domWritePerfStart);
+    let immediateScrollMetrics = null;
+    let immediateScrollMs = 'skipped';
+    const shouldKeepBottomAnchored = !skipAutoScroll && !highlightNewMessage;
+    if (shouldKeepBottomAnchored) {
+      const immediateScrollPerfStart = this.getChatPerfTime();
+      immediateScrollMetrics = this.scrollMessagesToBottom();
+      immediateScrollMs = this.formatChatPerfMs(immediateScrollPerfStart);
+    }
     this.logChatPerf('append:sync', {
       contact: this.formatChatPerfAddress(currentAddress, contact),
       messages: messages.length,
@@ -16357,6 +16380,9 @@ class ChatModal {
       build: renderLoopMs,
       join: joinMs,
       domWrite: domWriteMs,
+      immediateScroll: immediateScrollMs,
+      immediateScrollTop: immediateScrollMetrics ? immediateScrollMetrics.scrollTop : 'n/a',
+      immediateScrollHeight: immediateScrollMetrics ? immediateScrollMetrics.scrollHeight : 'n/a',
       htmlChars: renderedHTML.length,
       children: this.messagesList.children.length,
       total: this.formatChatPerfMs(appendPerfStart)
@@ -16381,16 +16407,30 @@ class ChatModal {
         const reactionPerfStart = this.getChatPerfTime();
         this.syncAllRenderedReactionChips();
         const reactionsMs = this.formatChatPerfMs(reactionPerfStart);
+        const wasNearBottomBeforeThumbnails = shouldKeepBottomAnchored
+          ? this.isMessagesContainerNearBottom(80)
+          : false;
         const thumbnailPerfStart = this.getChatPerfTime();
         try {
           const thumbnailResult = this.loadThumbnailsForAttachments();
           Promise.resolve(thumbnailResult).then(
             () => {
+              let thumbnailScrollMetrics = null;
+              let thumbnailScrollMs = 'skipped';
+              if (shouldKeepBottomAnchored && wasNearBottomBeforeThumbnails) {
+                const thumbnailScrollPerfStart = this.getChatPerfTime();
+                thumbnailScrollMetrics = this.scrollMessagesToBottom();
+                thumbnailScrollMs = this.formatChatPerfMs(thumbnailScrollPerfStart);
+              }
               this.logChatPerf('append:deferred', {
                 contact: this.formatChatPerfAddress(renderedAddress, contact),
                 delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
                 reactions: reactionsMs,
                 thumbnails: this.formatChatPerfMs(thumbnailPerfStart),
+                thumbnailScroll: thumbnailScrollMs,
+                wasNearBottomBeforeThumbnails,
+                scrollTop: thumbnailScrollMetrics ? thumbnailScrollMetrics.scrollTop : 'n/a',
+                scrollHeight: thumbnailScrollMetrics ? thumbnailScrollMetrics.scrollHeight : 'n/a',
                 total: this.formatChatPerfMs(deferredStart)
               });
             },
@@ -16482,7 +16522,14 @@ class ChatModal {
         // No received messages found, not highlighting, or highlightNewMessage is false,
         // just scroll to the bottom if the container exists.
         if (messageContainer) {
-          messageContainer.scrollTop = messageContainer.scrollHeight;
+          const userStayedAtInitialBottom = immediateScrollMetrics
+            ? Math.abs(messageContainer.scrollTop - immediateScrollMetrics.scrollTop) <= 2
+            : true;
+          if (!shouldKeepBottomAnchored || userStayedAtInitialBottom || this.isMessagesContainerNearBottom(120)) {
+            messageContainer.scrollTop = messageContainer.scrollHeight;
+          } else {
+            scrollTarget = 'bottomSkippedUserScrolled';
+          }
         }
       }
       this.logChatPerf('append:scroll', {
