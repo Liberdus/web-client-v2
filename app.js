@@ -15976,8 +15976,7 @@ class ChatModal {
     this.newestReceivedMessage = newestReceivedItem;
     this.newestSentMessage = messages.find((item) => item.my);
 
-    // 2. Clear the entire list
-    this.messagesList.innerHTML = '';
+    const renderedMessages = [];
 
     // 3. Iterate backwards through messages (oldest to newest for rendering order)
     // messages are already sorted descending (newest first) in myData
@@ -16181,11 +16180,12 @@ class ChatModal {
         }
       }
 
-      // 4. Append the constructed HTML
-      // Insert at the end of the list to maintain correct chronological order
-      this.messagesList.insertAdjacentHTML('beforeend', messageHTML);
+      renderedMessages.push(messageHTML);
       // The newest received element will be found after the loop completes
     }
+
+    // Replace the list once to avoid one DOM mutation per message.
+    this.messagesList.innerHTML = renderedMessages.join('');
 
     this.syncAllRenderedReactionChips();
 
