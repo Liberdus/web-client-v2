@@ -15039,12 +15039,6 @@ class ChatModal {
     };
   }
 
-  getChatTopSpacerHeight(renderRange) {
-    if (!renderRange?.isWindowed) return 0;
-    const hiddenCount = Math.max(0, renderRange.totalMessages - renderRange.oldestIndex - 1);
-    return Math.min(1600, Math.max(480, hiddenCount * 28));
-  }
-
   getFirstVisibleMessageAnchor() {
     const container = this.messagesContainer;
     if (!container || !this.messagesList) return null;
@@ -15127,10 +15121,7 @@ class ChatModal {
         bodyScrollY: Math.round(window.scrollY || 0)
       });
     }
-    const topSpacerHeight = this.messagesList
-      ? this.messagesList.querySelector('.chat-window-top-spacer')?.offsetHeight || 0
-      : 0;
-    const loadAheadThreshold = topSpacerHeight + (this.messagesContainer.clientHeight * 1.5);
+    const loadAheadThreshold = this.messagesContainer.clientHeight * 1.5;
     if (this.messagesContainer.scrollTop <= loadAheadThreshold) {
       this.expandChatRenderWindow();
     }
@@ -16503,10 +16494,7 @@ class ChatModal {
       // The newest received element will be found after the loop completes
     }
     const renderLoopMs = this.formatChatPerfMs(renderLoopPerfStart);
-    const topSpacerHeight = this.getChatTopSpacerHeight(renderRange);
-    if (topSpacerHeight > 0) {
-      renderedMessages.unshift(`<div class="chat-window-top-spacer" style="height: ${topSpacerHeight}px;"></div>`);
-    }
+    const topSpacerHeight = 0;
 
     // Replace the list once to avoid one DOM mutation per message.
     const joinPerfStart = this.getChatPerfTime();

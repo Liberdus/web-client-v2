@@ -2180,10 +2180,6 @@ input[type='file'].form-control::file-selector-button {
   padding-top: 1rem;
 }
 
-.chat-window-top-spacer {
-  flex: 0 0 auto;
-}
-
 .message {
   max-width: 80%;
   padding: 0.75rem 1rem;
