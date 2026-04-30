@@ -4749,7 +4749,7 @@ class FriendModal {
   updateFriendButton(contact, buttonId) {
     const button = document.getElementById(buttonId);
     // Remove all status classes
-    button.classList.remove('status-0', 'status-1', 'status-2');
+    button.classList.remove('status-0', 'status-1', 'status-2', 'status-3');
     // Add the current status class
     button.classList.add(`status-${contact.friend}`);
   }
@@ -13953,8 +13953,12 @@ class ChatModal {
     this.isExpandingChatRenderWindow = false;
     this.lastChatScrollLogAt = 0;
     this.chatRenderWindowDrainTimer = null;
+    this.chatRenderWindowDrainFrame = null;
     this.chatRenderWindowDrainAddress = null;
     this.chatRenderWindowDrainStartedAt = 0;
+    this.chatRenderSequence = 0;
+    this.lastChatTouchLogAt = 0;
+    this.chatTouchStartY = null;
   }
 
   /**
@@ -14467,6 +14471,9 @@ class ChatModal {
     });
     // Close all context menus when messages container scrolls
     this.messagesContainer.addEventListener('scroll', () => this.handleMessagesContainerScroll(), { passive: true });
+    this.messagesContainer.addEventListener('touchstart', (e) => this.logChatTouchDiagnostics(e, 'messagesStart'), { passive: true });
+    this.messagesContainer.addEventListener('touchmove', (e) => this.logChatTouchDiagnostics(e, 'messagesMove'), { passive: true });
+    this.modal.addEventListener('touchmove', (e) => this.logChatTouchDiagnostics(e, 'modalMove'), { passive: true });
     // Add context menu option listeners
     this.contextMenu.addEventListener('click', (e) => {
       const reactionButton = e.target.closest('.message-context-reaction-button');
@@ -15100,6 +15107,64 @@ class ChatModal {
     };
   }
 
+  describeChatTouchTarget(target) {
+    if (!target || typeof target.closest !== 'function') return 'unknown';
+    if (target.closest('.message-input-container')) return 'composer';
+    if (target.closest('.modal-header')) return 'header';
+    if (target.closest('.attachment-row')) return 'attachment';
+    if (target.closest('.message')) return 'message';
+    if (target.closest('.messages-list')) return 'messages-list';
+    if (target.closest('.messages-container')) return 'messages-container';
+    if (target.closest('#chatModal')) return 'chat-modal';
+    return target.id || target.className || target.tagName || 'unknown';
+  }
+
+  logChatTouchDiagnostics(event, phase) {
+    if (!this.isActive() || !this.messagesContainer) return;
+    const now = this.getChatPerfTime();
+    if (phase !== 'messagesStart' && now - this.lastChatTouchLogAt < 350) return;
+    this.lastChatTouchLogAt = now;
+
+    const touch = event.touches?.[0] || event.changedTouches?.[0] || null;
+    const y = touch ? Math.round(touch.clientY) : 'n/a';
+    if (phase === 'messagesStart' && typeof y === 'number') {
+      this.chatTouchStartY = y;
+    }
+    const deltaY = typeof y === 'number' && typeof this.chatTouchStartY === 'number'
+      ? y - this.chatTouchStartY
+      : 'n/a';
+    const snapshot = this.getChatScrollSnapshot();
+    const containerStyle = getComputedStyle(this.messagesContainer);
+    const modalStyle = this.modal ? getComputedStyle(this.modal) : null;
+    const activeElement = document.activeElement;
+
+    this.logChatPerf(`touch:${phase}`, {
+      target: this.describeChatTouchTarget(event.target),
+      inMessagesContainer: !!event.target.closest?.('.messages-container'),
+      inMessagesList: !!event.target.closest?.('.messages-list'),
+      y,
+      deltaY,
+      cancelable: event.cancelable,
+      defaultPrevented: event.defaultPrevented,
+      canScroll: snapshot ? snapshot.scrollHeight > snapshot.clientHeight : 'n/a',
+      atTop: snapshot ? snapshot.scrollTop <= 0 : 'n/a',
+      atBottom: snapshot ? snapshot.distanceFromBottom <= 1 : 'n/a',
+      scrollTop: snapshot ? snapshot.scrollTop : 'n/a',
+      maxScrollTop: snapshot ? snapshot.maxScrollTop : 'n/a',
+      distanceFromBottom: snapshot ? snapshot.distanceFromBottom : 'n/a',
+      containerOverflowY: containerStyle.overflowY,
+      containerTouchAction: containerStyle.touchAction,
+      containerWebkitOverflow: containerStyle.webkitOverflowScrolling || 'n/a',
+      modalTouchAction: modalStyle ? modalStyle.touchAction : 'n/a',
+      modalScrollTop: this.modal ? Math.round(this.modal.scrollTop || 0) : 'n/a',
+      bodyScrollY: Math.round(window.scrollY || 0),
+      htmlOverflow: getComputedStyle(document.documentElement).overflow,
+      bodyOverflow: getComputedStyle(document.body).overflow,
+      activeElement: activeElement?.id || activeElement?.className || activeElement?.tagName || 'none',
+      scrollLocked: this.scrollLocked
+    });
+  }
+
   expandChatRenderWindow(reason = 'scroll') {
     if (this.isExpandingChatRenderWindow || !this.address || !this.messagesList) return false;
     const contact = myData.contacts[this.address];
@@ -15209,6 +15274,12 @@ class ChatModal {
       clearTimeout(this.chatRenderWindowDrainTimer);
       this.chatRenderWindowDrainTimer = null;
     }
+    if (this.chatRenderWindowDrainFrame) {
+      if (typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(this.chatRenderWindowDrainFrame);
+      }
+      this.chatRenderWindowDrainFrame = null;
+    }
     this.chatRenderWindowDrainAddress = null;
     this.chatRenderWindowDrainStartedAt = 0;
   }
@@ -15240,10 +15311,23 @@ class ChatModal {
       ? requestAnimationFrame
       : (callback) => setTimeout(callback, 0);
 
-    const scheduleNextDrainStep = (delayMs) => {
-      if (this.chatRenderWindowDrainTimer) return;
-      this.chatRenderWindowDrainTimer = setTimeout(() => {
-        this.chatRenderWindowDrainTimer = null;
+    const scheduleDrainFrame = (callback) => {
+      if (typeof requestAnimationFrame === 'function') {
+        this.chatRenderWindowDrainFrame = requestAnimationFrame(() => {
+          this.chatRenderWindowDrainFrame = null;
+          callback();
+        });
+      } else {
+        this.chatRenderWindowDrainTimer = setTimeout(() => {
+          this.chatRenderWindowDrainTimer = null;
+          callback();
+        }, 0);
+      }
+    };
+
+    const scheduleNextDrainStep = () => {
+      if (this.chatRenderWindowDrainFrame || this.chatRenderWindowDrainTimer) return;
+      scheduleDrainFrame(() => {
         scheduleAfterPaint(() => {
           if (!this.isActive() || this.address !== address) {
             this.logChatPerf('window:drainAbort', {
@@ -15256,7 +15340,7 @@ class ChatModal {
           }
 
           if (this.isExpandingChatRenderWindow) {
-            scheduleNextDrainStep(60);
+            scheduleNextDrainStep();
             return;
           }
 
@@ -15272,7 +15356,9 @@ class ChatModal {
             return;
           }
 
+          const stepStart = this.getChatPerfTime();
           const expanded = this.expandChatRenderWindow('openDrain');
+          const stepMs = this.formatChatPerfMs(stepStart);
           const nextOldestIndex = getCurrentOldestIndex();
           this.logChatPerf('window:drainStep', {
             contact: this.formatChatPerfAddress(address, contact),
@@ -15280,11 +15366,12 @@ class ChatModal {
             previousOldestIndex: currentOldestIndex,
             currentOldestIndex: nextOldestIndex,
             remainingOlder: Math.max(0, messages.length - 1 - nextOldestIndex),
+            step: stepMs,
             elapsed: this.formatChatPerfMs(this.chatRenderWindowDrainStartedAt)
           });
 
           if (nextOldestIndex < messages.length - 1) {
-            scheduleNextDrainStep(90);
+            scheduleNextDrainStep();
           } else {
             this.logChatPerf('window:drainDone', {
               contact: this.formatChatPerfAddress(address, contact),
@@ -15300,7 +15387,7 @@ class ChatModal {
 
     scheduleAfterPaint(() => {
       scheduleAfterPaint(() => {
-        scheduleNextDrainStep(0);
+        scheduleNextDrainStep();
       });
     });
   }
@@ -15382,7 +15469,17 @@ class ChatModal {
     this.blockedByRecipient = Number(contact?.tollRequiredToSend) === 2;
     this.addAttachmentButton.disabled = this.blockedByRecipient;
     if (this.voiceRecordButton) this.voiceRecordButton.disabled = this.blockedByRecipient || !isOnline;
+    const friendButtonPerfStart = this.getChatPerfTime();
     friendModal.updateFriendButton(contact, 'addFriendButtonChat');
+    const friendButtonClass = this.addFriendButtonChat
+      ? [...this.addFriendButtonChat.classList].filter((className) => className.startsWith('status-')).join(',')
+      : 'missing';
+    this.logChatPerf('open:friendButton', {
+      ms: this.formatChatPerfMs(friendButtonPerfStart),
+      friend: contact?.friend,
+      class: friendButtonClass,
+      total: this.formatChatPerfMs(openPerfStart)
+    });
     // Set user info
     this.modalTitle.textContent = getContactDisplayName(contact);
 
@@ -16447,6 +16544,7 @@ class ChatModal {
 
     if (!this.modal) return;
     if (!this.messagesList) return;
+    const renderSequence = ++this.chatRenderSequence;
 
     // --- 1. Identify the actual newest received message data item ---
     // Since messages are sorted descending (newest first), the first item with my: false is the newest received.
@@ -16716,10 +16814,18 @@ class ChatModal {
     scheduleAfterPaint(() => {
       scheduleAfterPaint(() => {
         const deferredStart = this.getChatPerfTime();
-        if (!this.isActive() || this.address !== renderedAddress || !this.messagesList) {
+        if (
+          !this.isActive() ||
+          this.address !== renderedAddress ||
+          !this.messagesList ||
+          renderSequence !== this.chatRenderSequence
+        ) {
           this.logChatPerf('append:deferredSkipped', {
             contact: this.formatChatPerfAddress(renderedAddress, contact),
             delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
+            reason: renderSequence !== this.chatRenderSequence ? 'staleRender' : 'inactive',
+            renderSequence,
+            currentRenderSequence: this.chatRenderSequence,
             currentAddress: this.address || 'none'
           });
           return;
@@ -16793,6 +16899,18 @@ class ChatModal {
         contact: this.formatChatPerfAddress(currentAddress, contact),
         delay: '0.0ms',
         reason: 'skipAutoScroll'
+      });
+      return;
+    }
+
+    if (shouldKeepBottomAnchored && !highlightNewMessage) {
+      this.logChatPerf('append:scrollSkipped', {
+        contact: this.formatChatPerfAddress(currentAddress, contact),
+        delay: '0.0ms',
+        reason: 'immediateBottom',
+        scrollTop: this.messagesContainer ? Math.round(this.messagesContainer.scrollTop) : 'n/a',
+        scrollHeight: this.messagesContainer ? Math.round(this.messagesContainer.scrollHeight) : 'n/a',
+        clientHeight: this.messagesContainer ? Math.round(this.messagesContainer.clientHeight) : 'n/a'
       });
       return;
     }

@@ -1873,6 +1873,8 @@ input[type='file'].form-control::file-selector-button {
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain; /* stop scroll chaining to modal/body */
   touch-action: pan-y; /* allow vertical panning only */
   transition: padding-bottom 0.2s ease-out;
