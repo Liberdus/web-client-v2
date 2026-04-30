@@ -15977,6 +15977,12 @@ class ChatModal {
     this.newestSentMessage = messages.find((item) => item.my);
 
     const renderedMessages = [];
+    const messagesByTxid = new Map();
+    messages.forEach((message) => {
+      if (message?.txid) {
+        messagesByTxid.set(message.txid, message);
+      }
+    });
 
     // 3. Iterate backwards through messages (oldest to newest for rendering order)
     // messages are already sorted descending (newest first) in myData
@@ -16051,7 +16057,7 @@ class ChatModal {
                 const isSelfReply = ownerIsMineHint === true || ownerIsMineHint === '1';
                 isOwnerMine = item.my === isSelfReply;
               } else {
-                const targetMsg = contact.messages?.find((m) => m.txid === item.replyId);
+                const targetMsg = messagesByTxid.get(item.replyId);
                 isOwnerMine = !!(targetMsg && targetMsg.my);
               }
               const ownerText = isOwnerMine ? 'You' : (getContactDisplayName(contact) || 'Contact');
