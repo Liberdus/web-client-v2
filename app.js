@@ -13946,7 +13946,7 @@ class ChatModal {
     this.chatPerfLogFlushTimer = null;
 
     this.chatInitialRenderCount = 40;
-    this.chatOlderRenderBatchSize = 40;
+    this.chatOlderRenderBatchSize = 60;
     this.chatRenderedOldestIndex = null;
     this.chatRenderedWindowAddress = null;
     this.chatForceFullRenderOnce = false;
@@ -15098,6 +15098,8 @@ class ChatModal {
       previousOldestIndex: currentOldestIndex,
       nextOldestIndex,
       batchSize: renderBatchSize,
+      scrollTop: this.messagesContainer ? Math.round(this.messagesContainer.scrollTop) : 'n/a',
+      loadAheadThreshold: Math.round(this.getChatLoadAheadThreshold()),
       totalMessages: messages.length
     });
 
@@ -15132,7 +15134,7 @@ class ChatModal {
 
   getChatLoadAheadThreshold() {
     const containerHeight = this.messagesContainer?.clientHeight || 0;
-    return Math.max(2400, containerHeight * 4);
+    return Math.max(5200, containerHeight * 8);
   }
 
   getChatOlderRenderBatchSize() {
