@@ -7709,7 +7709,7 @@ function getUserFacingTxFailureReason(reason, feeMismatchStatus = null) {
  */
 function isRecipientTollStateFailure(reason) {
   assert(typeof reason === 'string', 'Transaction failure reason must be a string');
-  return /toll|blocked by the receiver|chat is blocked/i.test(reason);
+  return /required toll|blocked by the receiver|chat is blocked/i.test(reason);
 }
 
 /**
