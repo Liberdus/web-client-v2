@@ -13952,6 +13952,9 @@ class ChatModal {
     this.chatForceFullRenderOnce = false;
     this.isExpandingChatRenderWindow = false;
     this.lastChatScrollLogAt = 0;
+    this.chatRenderWindowDrainTimer = null;
+    this.chatRenderWindowDrainAddress = null;
+    this.chatRenderWindowDrainStartedAt = 0;
   }
 
   /**
@@ -14375,6 +14378,7 @@ class ChatModal {
    * @returns {void}
    */
   load() {
+    const loadPerfStart = this.getChatPerfTime();
     this.modal = document.getElementById('chatModal');
     assert(this.modal, 'chatModal element is required');
     this.closeButton = document.getElementById('closeChatModal');
@@ -14443,6 +14447,8 @@ class ChatModal {
     this.contactsOpt = this.attachmentOptionsContextMenu?.querySelector('.context-menu-option[data-action="contacts"]');
     
     this.currentImageAttachmentRow = null;
+    const refsMs = this.formatChatPerfMs(loadPerfStart);
+    const listenerPerfStart = this.getChatPerfTime();
     
     // Add event delegation for message clicks (since messages are created dynamically)
     this.messagesList.addEventListener('click', this.handleMessageClick.bind(this));
@@ -14764,6 +14770,11 @@ class ChatModal {
     }
 
     this.toggleSendButtonVisibility();
+    this.logChatPerf('load:listeners', {
+      refs: refsMs,
+      listeners: this.formatChatPerfMs(listenerPerfStart),
+      total: this.formatChatPerfMs(loadPerfStart)
+    });
   }
 
     // Voice message seek slider live time display (works even before playback)
@@ -15001,6 +15012,7 @@ class ChatModal {
   }
 
   resetChatRenderWindow(address = null) {
+    this.cancelChatRenderWindowDrain();
     this.chatRenderedWindowAddress = address;
     this.chatRenderedOldestIndex = null;
     this.chatForceFullRenderOnce = false;
@@ -15089,15 +15101,15 @@ class ChatModal {
   }
 
   expandChatRenderWindow(reason = 'scroll') {
-    if (this.isExpandingChatRenderWindow || !this.address || !this.messagesList) return;
+    if (this.isExpandingChatRenderWindow || !this.address || !this.messagesList) return false;
     const contact = myData.contacts[this.address];
     const messages = contact?.messages;
-    if (!Array.isArray(messages) || messages.length === 0) return;
+    if (!Array.isArray(messages) || messages.length === 0) return false;
 
     const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
       ? this.chatRenderedOldestIndex
       : Math.min(messages.length - 1, this.chatInitialRenderCount - 1);
-    if (currentOldestIndex >= messages.length - 1) return;
+    if (currentOldestIndex >= messages.length - 1) return false;
 
     const renderBatchSize = this.getChatOlderRenderBatchSize();
     const nextOldestIndex = Math.min(
@@ -15137,6 +15149,7 @@ class ChatModal {
       afterRestoreDistanceFromBottom: afterRestoreSnapshot ? afterRestoreSnapshot.distanceFromBottom : 'n/a',
       afterRestoreScrollHeight: afterRestoreSnapshot ? afterRestoreSnapshot.scrollHeight : 'n/a'
     });
+    return true;
   }
 
   handleMessagesContainerScroll() {
@@ -15191,28 +15204,103 @@ class ChatModal {
       : this.chatOlderRenderBatchSize;
   }
 
-  scheduleChatRenderWindowWarmup(address) {
+  cancelChatRenderWindowDrain() {
+    if (this.chatRenderWindowDrainTimer) {
+      clearTimeout(this.chatRenderWindowDrainTimer);
+      this.chatRenderWindowDrainTimer = null;
+    }
+    this.chatRenderWindowDrainAddress = null;
+    this.chatRenderWindowDrainStartedAt = 0;
+  }
+
+  scheduleChatRenderWindowDrain(address, reason = 'afterDeferred') {
+    if (!address || this.chatRenderWindowDrainAddress === address) return;
+    const contact = myData.contacts[address];
+    const messages = contact?.messages;
+    if (!Array.isArray(messages) || messages.length === 0) return;
+
+    const getCurrentOldestIndex = () => Number.isInteger(this.chatRenderedOldestIndex)
+      ? this.chatRenderedOldestIndex
+      : Math.min(messages.length - 1, this.chatInitialRenderCount - 1);
+
+    if (getCurrentOldestIndex() >= messages.length - 1) return;
+
+    this.chatRenderWindowDrainAddress = address;
+    this.chatRenderWindowDrainStartedAt = this.getChatPerfTime();
+    this.logChatPerf('window:drainScheduled', {
+      contact: this.formatChatPerfAddress(address, contact),
+      reason,
+      currentOldestIndex: getCurrentOldestIndex(),
+      batchSize: this.chatOlderRenderBatchSize,
+      remainingOlder: Math.max(0, messages.length - 1 - getCurrentOldestIndex()),
+      totalMessages: messages.length
+    });
+
     const scheduleAfterPaint = typeof requestAnimationFrame === 'function'
       ? requestAnimationFrame
       : (callback) => setTimeout(callback, 0);
 
+    const scheduleNextDrainStep = (delayMs) => {
+      if (this.chatRenderWindowDrainTimer) return;
+      this.chatRenderWindowDrainTimer = setTimeout(() => {
+        this.chatRenderWindowDrainTimer = null;
+        scheduleAfterPaint(() => {
+          if (!this.isActive() || this.address !== address) {
+            this.logChatPerf('window:drainAbort', {
+              contact: this.formatChatPerfAddress(address, contact),
+              reason: this.address !== address ? 'addressChanged' : 'inactive',
+              elapsed: this.formatChatPerfMs(this.chatRenderWindowDrainStartedAt)
+            });
+            this.cancelChatRenderWindowDrain();
+            return;
+          }
+
+          if (this.isExpandingChatRenderWindow) {
+            scheduleNextDrainStep(60);
+            return;
+          }
+
+          const currentOldestIndex = getCurrentOldestIndex();
+          if (currentOldestIndex >= messages.length - 1) {
+            this.logChatPerf('window:drainDone', {
+              contact: this.formatChatPerfAddress(address, contact),
+              currentOldestIndex,
+              totalMessages: messages.length,
+              elapsed: this.formatChatPerfMs(this.chatRenderWindowDrainStartedAt)
+            });
+            this.cancelChatRenderWindowDrain();
+            return;
+          }
+
+          const expanded = this.expandChatRenderWindow('openDrain');
+          const nextOldestIndex = getCurrentOldestIndex();
+          this.logChatPerf('window:drainStep', {
+            contact: this.formatChatPerfAddress(address, contact),
+            expanded,
+            previousOldestIndex: currentOldestIndex,
+            currentOldestIndex: nextOldestIndex,
+            remainingOlder: Math.max(0, messages.length - 1 - nextOldestIndex),
+            elapsed: this.formatChatPerfMs(this.chatRenderWindowDrainStartedAt)
+          });
+
+          if (nextOldestIndex < messages.length - 1) {
+            scheduleNextDrainStep(90);
+          } else {
+            this.logChatPerf('window:drainDone', {
+              contact: this.formatChatPerfAddress(address, contact),
+              currentOldestIndex: nextOldestIndex,
+              totalMessages: messages.length,
+              elapsed: this.formatChatPerfMs(this.chatRenderWindowDrainStartedAt)
+            });
+            this.cancelChatRenderWindowDrain();
+          }
+        });
+      });
+    };
+
     scheduleAfterPaint(() => {
       scheduleAfterPaint(() => {
-        if (!this.isActive() || this.address !== address || this.isExpandingChatRenderWindow) return;
-        const contact = myData.contacts[address];
-        const messages = contact?.messages;
-        if (!Array.isArray(messages) || messages.length === 0) return;
-        const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
-          ? this.chatRenderedOldestIndex
-          : Math.min(messages.length - 1, this.chatInitialRenderCount - 1);
-        if (currentOldestIndex >= messages.length - 1) return;
-        this.logChatPerf('window:warmup', {
-          contact: this.formatChatPerfAddress(address, contact),
-          currentOldestIndex,
-          batchSize: this.chatOlderRenderBatchSize,
-          totalMessages: messages.length
-        });
-        this.expandChatRenderWindow('openWarmup');
+        scheduleNextDrainStep(0);
       });
     });
   }
@@ -15400,9 +15488,6 @@ class ChatModal {
       ms: this.formatChatPerfMs(appendPerfStart),
       total: this.formatChatPerfMs(openPerfStart)
     });
-    if (!skipAutoScroll) {
-      this.scheduleChatRenderWindowWarmup(address);
-    }
     void this.maybePromptReclaimToll(address);
   }
 
@@ -16668,6 +16753,9 @@ class ChatModal {
                 scrollHeight: thumbnailScrollMetrics ? thumbnailScrollMetrics.scrollHeight : 'n/a',
                 total: this.formatChatPerfMs(deferredStart)
               });
+              if (shouldKeepBottomAnchored && renderRange.isWindowed) {
+                this.scheduleChatRenderWindowDrain(renderedAddress, 'afterDeferred');
+              }
             },
             (error) => {
               this.logChatPerf('append:deferredError', {
@@ -16677,6 +16765,9 @@ class ChatModal {
                 thumbnails: this.formatChatPerfMs(thumbnailPerfStart),
                 error: error?.message || String(error)
               });
+              if (shouldKeepBottomAnchored && renderRange.isWindowed) {
+                this.scheduleChatRenderWindowDrain(renderedAddress, 'afterDeferredError');
+              }
             }
           );
         } catch (error) {
@@ -16687,6 +16778,9 @@ class ChatModal {
             thumbnails: this.formatChatPerfMs(thumbnailPerfStart),
             error: error?.message || String(error)
           });
+          if (shouldKeepBottomAnchored && renderRange.isWindowed) {
+            this.scheduleChatRenderWindowDrain(renderedAddress, 'afterDeferredError');
+          }
         }
       });
     });
