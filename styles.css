@@ -6162,10 +6162,9 @@ small {
 
 /* Thumbnail image in attachment rows */
 .attachment-thumbnail {
-  width: 100%;
-  max-width: 300px;
-  height: auto;
-  object-fit: contain;
+  width: 144px;
+  height: 144px;
+  object-fit: cover;
   border-radius: 8px;
   background: #f0f0f0;
   display: block;
@@ -6181,7 +6180,9 @@ small {
   justify-content: center;
   align-items: center;
   overflow: hidden;
-  max-height: 400px;
+  width: 144px;
+  height: 144px;
+  flex: 0 0 144px;
 }
 
 .attachment-preview-hint {
