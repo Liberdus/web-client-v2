@@ -15046,8 +15046,15 @@ class ChatModal {
     for (const messageEl of messageEls) {
       const rect = messageEl.getBoundingClientRect();
       if (rect.bottom >= containerTop) {
+        const txid = messageEl.dataset.txid;
+        const timestamp = messageEl.dataset.messageTimestamp;
+        const selector = txid
+          ? `.message[data-txid="${CSS.escape(txid)}"]`
+          : timestamp
+            ? `.message[data-message-timestamp="${CSS.escape(timestamp)}"]`
+            : null;
         return {
-          element: messageEl,
+          selector,
           offsetTop: rect.top - containerTop
         };
       }
@@ -15057,9 +15064,11 @@ class ChatModal {
   }
 
   restoreVisibleMessageAnchor(anchor) {
-    if (!anchor?.element || !this.messagesContainer) return;
+    if (!anchor?.selector || !this.messagesContainer || !this.messagesList) return;
+    const anchorElement = this.messagesList.querySelector(anchor.selector);
+    if (!anchorElement) return;
     const containerTop = this.messagesContainer.getBoundingClientRect().top;
-    const nextTop = anchor.element.getBoundingClientRect().top - containerTop;
+    const nextTop = anchorElement.getBoundingClientRect().top - containerTop;
     this.messagesContainer.scrollTop += nextTop - anchor.offsetTop;
   }
 
