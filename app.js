@@ -19704,7 +19704,22 @@ class ChatModal {
    */
   scrollToMessage(txid) {
     if (!txid || !this.messagesList) return;
-    const target = this.messagesList.querySelector(`[data-txid="${txid}"]`);
+    let target = this.messagesList.querySelector(`[data-txid="${CSS.escape(txid)}"]`);
+    if (!target && this.address) {
+      const contact = myData.contacts[this.address];
+      const messages = contact?.messages;
+      const targetIndex = Array.isArray(messages)
+        ? messages.findIndex((message) => message?.txid === txid)
+        : -1;
+      if (targetIndex !== -1) {
+        this.chatRenderedOldestIndex = Math.max(
+          Number.isInteger(this.chatRenderedOldestIndex) ? this.chatRenderedOldestIndex : 0,
+          targetIndex
+        );
+        this.appendChatModal(false, true);
+        target = this.messagesList.querySelector(`[data-txid="${CSS.escape(txid)}"]`);
+      }
+    }
     if (!target) {
       showToast('Message not found', 2000, 'info');
       return;
