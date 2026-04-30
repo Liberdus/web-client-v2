@@ -4736,7 +4736,7 @@ class FriendModal {
    * Update the friend button based on the contact's friend status
    * @param {Object} contact - The contact object
    * @param {string} buttonId - The ID of the button to update
-   * @returns {void}
+   * @returns {Promise<void>}
    */
   updateFriendButton(contact, buttonId) {
     const button = document.getElementById(buttonId);
@@ -5263,7 +5263,7 @@ class ClockTimer {
 
   /**
    * Starts the ticking clock timer
-   * @returns {void}
+   * @returns {Promise<void>}
    */
   start() {
     // Clear any existing timer
@@ -7640,6 +7640,16 @@ function getUserFacingTxFailureReason(reason, feeMismatchStatus = null) {
     return getInsufficientFundsFailureMessage(reason);
   }
   return typeof reason === 'string' && reason.length > 0 ? reason : 'Transaction failed';
+}
+
+/**
+ * Returns true when the transaction failure reason indicates a recipient toll state failure.
+ * @param {string} reason
+ * @returns {boolean}
+ */
+function isRecipientTollStateFailure(reason) {
+  assert(typeof reason === 'string', 'Transaction failure reason must be a string');
+  return /required toll|blocked by the receiver|chat is blocked/i.test(reason);
 }
 
 /**
@@ -15667,11 +15677,9 @@ class ChatModal {
 
       if (!response || !response.result || !response.result.success) {
         console.error('message failed to send', response);
-        const str = response.result.reason;
-        const regex = /toll/i;
-  
-        if (str.match(regex)) {
-          await this.reopen();
+        const reason = response?.result?.reason;
+        if (reason && isRecipientTollStateFailure(reason)) {
+          await this.refreshRecipientTollState(currentAddress);
         }
         //let userMessage = 'Message failed to send. Please try again.';
         //const reason = response.result?.reason || '';
@@ -19038,6 +19046,10 @@ class ChatModal {
       if (outcome.didChange) {
         showToast('Reaction failed to send and was reverted', 0, 'error');
       }
+      const reason = response?.result?.reason;
+      if (reason && isRecipientTollStateFailure(reason)) {
+        await this.refreshRecipientTollState(currentAddress);
+      }
       saveState();
       return false;
     }
@@ -19639,7 +19651,7 @@ class ChatModal {
   /**
    * updateTollRequired queries contact object and updates the tollRequiredByMe and tollRequiredByOther fields
    * @param {string} address - the address of the contact
-   * @returns {void}
+   * @returns {Promise<void>}
    */
   async updateTollRequired(address) {
     const myAddr = longAddress(myAccount.keys.address);
@@ -19692,7 +19704,7 @@ class ChatModal {
    * Invoked when opening chatModal. In the background, it will query the contact's toll field from the network.
    * If the queried toll value is different from the toll field in localStorage, it will update the toll field in localStorage and update the UI element that displays the toll field value.
    * @param {string} address - the address of the contact
-   * @returns {void}
+   * @returns {Promise<void>}
    */
   async updateTollValue(address) {
     // query the contact's toll field from the network
@@ -19716,6 +19728,32 @@ class ChatModal {
     } else {
       return;
     }
+  }
+
+  /**
+   * Refreshes the toll state for the given address
+   * @param {string} address - The address of the contact to refresh the toll state for
+   * @returns {Promise<void>}
+   */
+  async refreshRecipientTollState(address) {
+    assert(address, 'Recipient address is required to refresh toll state');
+    const contact = myData.contacts[address];
+    assert(contact, `Contact is required to refresh toll state: ${address}`);
+
+    await this.updateTollValue(address);
+    await this.updateTollRequired(address);
+
+    if (!this.isActive() || this.address !== address) {
+      saveState();
+      return;
+    }
+
+    this.blockedByRecipient = Number(contact.tollRequiredToSend) === 2;
+    this.updateTollAmountUI(address);
+    this.addAttachmentButton.disabled = this.isEncrypting || this.isEditingMessage() || this.blockedByRecipient;
+    this.voiceRecordButton.disabled = this.blockedByRecipient || !isOnline;
+
+    saveState();
   }
 
   /**
@@ -20117,8 +20155,8 @@ class ChatModal {
         console.error('voice message failed to send', response);
 
         const reason = response?.result?.reason || '';
-        if (/toll/i.test(reason)) {
-          await this.reopen();
+        if (reason && isRecipientTollStateFailure(reason)) {
+          await this.refreshRecipientTollState(this.address);
         }
 
         newMessage.status = 'failed';
