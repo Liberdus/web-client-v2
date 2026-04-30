@@ -2190,6 +2190,13 @@ input[type='file'].form-control::file-selector-button {
   transition: filter 0.2s ease;
 }
 
+@supports (content-visibility: auto) {
+  .messages-list .message {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 72px;
+  }
+}
+
 .message:hover {
   filter: brightness(95%);
 }
