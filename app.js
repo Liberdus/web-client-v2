@@ -19775,9 +19775,7 @@ class ChatModal {
     this.blockedByRecipient = Number(contact.tollRequiredToSend) === 2;
     this.updateTollAmountUI(address);
     this.addAttachmentButton.disabled = this.isEncrypting || this.isEditingMessage() || this.blockedByRecipient;
-    if (this.voiceRecordButton) {
-      this.voiceRecordButton.disabled = this.blockedByRecipient || !isOnline;
-    }
+    this.voiceRecordButton.disabled = this.blockedByRecipient || !isOnline;
 
     saveState();
   }
