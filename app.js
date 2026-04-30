@@ -15085,9 +15085,10 @@ class ChatModal {
       : Math.min(messages.length - 1, this.chatInitialRenderCount - 1);
     if (currentOldestIndex >= messages.length - 1) return;
 
+    const renderBatchSize = this.getChatOlderRenderBatchSize();
     const nextOldestIndex = Math.min(
       messages.length - 1,
-      currentOldestIndex + this.chatOlderRenderBatchSize
+      currentOldestIndex + renderBatchSize
     );
     const anchor = this.getFirstVisibleMessageAnchor();
     this.isExpandingChatRenderWindow = true;
@@ -15096,6 +15097,7 @@ class ChatModal {
       contact: this.formatChatPerfAddress(this.address, contact),
       previousOldestIndex: currentOldestIndex,
       nextOldestIndex,
+      batchSize: renderBatchSize,
       totalMessages: messages.length
     });
 
@@ -15117,14 +15119,28 @@ class ChatModal {
         scrollHeight: Math.round(this.messagesContainer.scrollHeight),
         clientHeight: Math.round(this.messagesContainer.clientHeight),
         messageListHeight: this.messagesList ? Math.round(this.messagesList.scrollHeight) : 'n/a',
+        loadAheadThreshold: Math.round(this.getChatLoadAheadThreshold()),
         modalScrollTop: this.modal ? Math.round(this.modal.scrollTop || 0) : 'n/a',
         bodyScrollY: Math.round(window.scrollY || 0)
       });
     }
-    const loadAheadThreshold = this.messagesContainer.clientHeight * 1.5;
+    const loadAheadThreshold = this.getChatLoadAheadThreshold();
     if (this.messagesContainer.scrollTop <= loadAheadThreshold) {
       this.expandChatRenderWindow();
     }
+  }
+
+  getChatLoadAheadThreshold() {
+    const containerHeight = this.messagesContainer?.clientHeight || 0;
+    return Math.max(2400, containerHeight * 4);
+  }
+
+  getChatOlderRenderBatchSize() {
+    const scrollTop = this.messagesContainer?.scrollTop ?? Infinity;
+    const urgentThreshold = (this.messagesContainer?.clientHeight || 0) * 1.5;
+    return scrollTop <= urgentThreshold
+      ? this.chatOlderRenderBatchSize * 2
+      : this.chatOlderRenderBatchSize;
   }
 
   /**
