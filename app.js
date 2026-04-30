@@ -7712,6 +7712,25 @@ function isRecipientTollStateFailure(reason) {
   return /required toll|blocked by the receiver|chat is blocked/i.test(reason);
 }
 
+const REACTION_REVERTED_TOAST = 'Reaction failed to send and was reverted';
+
+/**
+ * Extracts the actionable recipient toll/block reason from a pre-crack message.
+ * @param {string} reason
+ * @returns {string}
+ */
+function getRecipientTollPrecrackFailureReason(reason) {
+  assert(typeof reason === 'string', 'Pre-crack failure reason must be a string');
+
+  const blockedReason = 'Chat is blocked by the receiver.';
+  if (reason.includes(blockedReason)) return blockedReason;
+
+  const tollMatch = reason.match(/Message amount \([^)]+\) is less than required toll \([^)]+\)\./);
+  if (tollMatch) return tollMatch[0];
+
+  return '';
+}
+
 /**
  * Returns true when the transaction failure reason indicates a recipient toll state failure.
  * @param {string} reason
@@ -7862,7 +7881,11 @@ async function injectTx(tx, txid) {
         timeDifference()
         toastMessage += ' (Please try again)';
       }
-      showToast(toastMessage, 0, feeMismatchStatus.detected ? 'warning' : 'error');
+      const isReactionPrecrackFailure = getRecipientTollPrecrackFailureReason(failureReason) !== ''
+        && myData.pending.some((pendingTx) => pendingTx.txid === txid && pendingTx.reactionPending);
+      if (!isReactionPrecrackFailure) {
+        showToast(toastMessage, 0, feeMismatchStatus.detected ? 'warning' : 'error');
+      }
     }
     return data;
   } catch (error) {
@@ -19067,10 +19090,15 @@ class ChatModal {
       if (!outcome.hasPending) {
         cleanupResolvedReactionChain(currentAddress, outcome.targetTxid);
       }
+      const reason = response?.result?.reason || '';
       if (outcome.didChange) {
-        showToast('Reaction failed to send and was reverted', 0, 'error');
+        const precrackReason = getRecipientTollPrecrackFailureReason(reason);
+        if (precrackReason) {
+          showToast(`${escapeHtml(REACTION_REVERTED_TOAST)}<br>${escapeHtml(precrackReason)}`, 0, 'error', true);
+        } else {
+          showToast(REACTION_REVERTED_TOAST, 0, 'error');
+        }
       }
-      const reason = response?.result?.reason;
       if (reason && isRecipientTollStateFailure(reason)) {
         await this.refreshRecipientTollState(currentAddress);
       }
