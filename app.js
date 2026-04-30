@@ -13945,8 +13945,8 @@ class ChatModal {
     this.chatPerfLogBuffer = [];
     this.chatPerfLogFlushTimer = null;
 
-    this.chatInitialRenderCount = 60;
-    this.chatOlderRenderBatchSize = 60;
+    this.chatInitialRenderCount = 40;
+    this.chatOlderRenderBatchSize = 40;
     this.chatRenderedOldestIndex = null;
     this.chatRenderedWindowAddress = null;
     this.chatForceFullRenderOnce = false;
@@ -14987,10 +14987,11 @@ class ChatModal {
     return container.scrollHeight - container.scrollTop - container.clientHeight <= thresholdPx;
   }
 
-  scrollMessagesToBottom() {
+  scrollMessagesToBottom({ readMetrics = true } = {}) {
     const container = this.messagesContainer || this.messagesList?.parentElement;
     if (!container) return null;
-    container.scrollTop = container.scrollHeight;
+    container.scrollTop = 1000000000;
+    if (!readMetrics) return null;
     return {
       scrollTop: Math.round(container.scrollTop),
       scrollHeight: Math.round(container.scrollHeight),
@@ -15107,7 +15108,11 @@ class ChatModal {
   handleMessagesContainerScroll() {
     this.closeAllContextMenus();
     if (!this.messagesContainer || !this.isActive()) return;
-    if (this.messagesContainer.scrollTop <= 160) {
+    const messageListPaddingTop = this.messagesList
+      ? parseFloat(getComputedStyle(this.messagesList).paddingTop || '0')
+      : 0;
+    const loadAheadThreshold = messageListPaddingTop + (this.messagesContainer.clientHeight * 2);
+    if (this.messagesContainer.scrollTop <= loadAheadThreshold) {
       this.expandChatRenderWindow();
     }
   }
@@ -16492,7 +16497,7 @@ class ChatModal {
     const shouldKeepBottomAnchored = !skipAutoScroll && !highlightNewMessage;
     if (shouldKeepBottomAnchored) {
       const immediateScrollPerfStart = this.getChatPerfTime();
-      immediateScrollMetrics = this.scrollMessagesToBottom();
+      immediateScrollMetrics = this.scrollMessagesToBottom({ readMetrics: false });
       immediateScrollMs = this.formatChatPerfMs(immediateScrollPerfStart);
     }
     this.logChatPerf('append:sync', {
@@ -16649,7 +16654,7 @@ class ChatModal {
         if (messageContainer) {
           const userStayedAtInitialBottom = immediateScrollMetrics
             ? Math.abs(messageContainer.scrollTop - immediateScrollMetrics.scrollTop) <= 2
-            : true;
+            : false;
           if (!shouldKeepBottomAnchored || userStayedAtInitialBottom || this.isMessagesContainerNearBottom(120)) {
             messageContainer.scrollTop = messageContainer.scrollHeight;
           } else {
