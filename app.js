@@ -391,7 +391,7 @@ function newDataRecord(myAccount) {
           img: 'images/lib.png',
           chainid: 2220,
           contract: '041e48a5b11c29fdbd92498eb05573c52728398c',
-          price: 1.0,
+          price: null,
           balance: 0n,
           networth: 0.0,
           addresses: [
@@ -1990,7 +1990,9 @@ class WalletScreen {
     }
 
     // Update total networth
-    this.totalBalance.textContent = (walletData.networth || 0).toFixed(2);
+    const walletUsdValue = calculateWalletUsdValue(walletData.assets);
+    walletData.networth = walletUsdValue ?? 0.0;
+    this.totalBalance.textContent = walletUsdValue === null ? 'N/A' : walletUsdValue.toFixed(2);
 
     if (!Array.isArray(walletData.assets) || walletData.assets.length === 0) {
       this.assetsList.querySelector('.empty-state').style.display = 'block';
@@ -1999,14 +2001,18 @@ class WalletScreen {
 
     this.assetsList.innerHTML = walletData.assets
       .map((asset) => {
+        const assetUsdPrice = getAssetUsdPrice(asset);
+        const assetNetworth = calculateAssetUsdValue(asset);
+        const assetPriceText = assetUsdPrice === null ? 'N/A' : `$${assetUsdPrice.toFixed(6)} / ${asset.symbol}`;
+        const assetNetworthText = assetNetworth === null ? 'N/A' : `$${assetNetworth.toFixed(6)}`;
         return `
               <div class="asset-item">
                   <div class="asset-logo"><img src="./media/liberdus_logo_50.png" class="asset-logo"></div>
                   <div class="asset-info">
                       <div class="asset-name">${asset.name}</div>
-                      <div class="asset-symbol">$${asset.price} / ${asset.symbol}</div>
+                      <div class="asset-symbol">${assetPriceText}</div>
                   </div>
-                  <div class="asset-balance">${(Number(asset.balance) / Number(wei)).toFixed(6)}<br><span class="asset-symbol">$${asset.networth.toFixed(6)}</span></div>
+                  <div class="asset-balance">${(Number(asset.balance) / Number(wei)).toFixed(6)}<br><span class="asset-symbol">${assetNetworthText}</span></div>
               </div>
           `;
       })
@@ -2018,11 +2024,14 @@ class WalletScreen {
     if (!myAccount || !myData || !myData.wallet || !myData.wallet.assets) {
       console.error('No wallet data available');
       return;
-    } else if (!isOnline) {
+    }
+
+    await updateAssetPricesIfNeeded();
+    if (!isOnline) {
       console.warn('Not online. Not updating wallet balances');
       return;
     }
-    await updateAssetPricesIfNeeded();
+
     const now = getCorrectedTimestamp();
     if (!myData.wallet.timestamp) {
       myData.wallet.timestamp = 0;
@@ -2051,14 +2060,13 @@ class WalletScreen {
             // Update address balance
             addr.balance = data.balance;
           }
-          // Add to asset total (convert to USD using asset price)
           assetTotalBalance += addr.balance;
         } catch (error) {
           console.error(`Error fetching balance for address ${addr.address}:`, error);
         }
       }
       asset.balance = assetTotalBalance;
-      asset.networth = (asset.price * Number(assetTotalBalance)) / Number(wei);
+      asset.networth = calculateAssetUsdValue(asset) ?? 0.0;
 
       // Add this asset's total to wallet total
       totalWalletNetworth += asset.networth;
@@ -5699,40 +5707,92 @@ class GroupCallParticipantsModal {
 
 const groupCallParticipantsModal = new GroupCallParticipantsModal();
 
+function isLibAsset(asset) {
+  return asset?.id === 'liberdus' || asset?.symbol === 'LIB';
+}
+
+function getLibUsdPriceFromParameters() {
+  const price = getStabilityFactor();
+  return Number.isFinite(price) && price > 0 ? price : null;
+}
+
+function syncLibUsdPriceToWalletAssets(price) {
+  if (!Array.isArray(myData?.wallet?.assets)) {
+    return;
+  }
+
+  for (const asset of myData.wallet.assets) {
+    if (isLibAsset(asset)) {
+      asset.price = price;
+    }
+  }
+
+  if (price !== null) {
+    myData.wallet.priceTimestamp = getCorrectedTimestamp();
+  }
+}
+
+async function getLibUsdPrice(options = {}) {
+  const { forceRefresh = false } = options;
+  await getNetworkParams(forceRefresh);
+
+  const price = getLibUsdPriceFromParameters();
+  syncLibUsdPriceToWalletAssets(price);
+
+  if (price === null) {
+    console.warn('LIB/USD price unavailable: missing or invalid stability factor.');
+  }
+
+  return price;
+}
+
+function getAssetUsdPrice(asset) {
+  if (isLibAsset(asset)) {
+    return getLibUsdPriceFromParameters();
+  }
+
+  const price = Number(asset?.price);
+  return Number.isFinite(price) && price >= 0 ? price : null;
+}
+
+function calculateAssetUsdValue(asset) {
+  const price = getAssetUsdPrice(asset);
+  if (price === null) {
+    return null;
+  }
+
+  const balance = Number(asset?.balance ?? 0n);
+  if (!Number.isFinite(balance)) {
+    return null;
+  }
+
+  return (price * balance) / Number(wei);
+}
+
+function calculateWalletUsdValue(assets) {
+  if (!Array.isArray(assets)) {
+    return 0.0;
+  }
+
+  let total = 0.0;
+  for (const asset of assets) {
+    const assetValue = calculateAssetUsdValue(asset);
+    if (assetValue === null) {
+      return null;
+    }
+    total += assetValue;
+  }
+
+  return total;
+}
+
 async function updateAssetPricesIfNeeded() {
   if (!myData || !myData.wallet || !myData.wallet.assets) {
     console.error('No wallet data available to update asset prices');
     return;
   }
 
-  const now = getCorrectedTimestamp();
-  const priceUpdateInterval = 10 * 60 * 1000; // 10 minutes in milliseconds
-
-  if (now - myData.wallet.priceTimestamp < priceUpdateInterval) {
-    return;
-  }
-
-  for (let i = 0; i < myData.wallet.assets.length; i++) {
-    const asset = myData.wallet.assets[i];
-    const contractAddress = '0x' + asset.contract;
-    const apiUrl = `https://api.dexscreener.com/latest/dex/search?q=${contractAddress}`;
-    try {
-      const response = await fetch(apiUrl);
-      if (!response.ok) {
-        console.error(`API request failed for ${asset.symbol} with status ${response.status}`);
-        continue; // Skip to the next asset
-      }
-      const data = await response.json();
-      if (data.pairs && data.pairs.length > 0 && data.pairs[0].priceUsd) {
-        asset.price = parseFloat(data.pairs[0].priceUsd);
-        myData.wallet.priceTimestamp = now;
-      } else {
-        console.warn(`No price data found for ${asset.symbol} from API`);
-      }
-    } catch (error) {
-      console.error(`Failed to update price for ${asset.symbol}`, error);
-    }
-  }
+  await getLibUsdPrice();
 }
 
 async function queryNetwork(url, abortSignal = null) {
@@ -7694,14 +7754,7 @@ async function injectTx(tx, txid) {
       const libAsset = myData.wallet.assets.find((asset) => asset?.symbol === 'LIB');
       if (!libAsset) return;
 
-      let usd = Number(libAsset.networth);
-      if (!Number.isFinite(usd)) {
-        // Fallback: estimate from cached balance + price.
-        const balance = libAsset.balance ?? 0n;
-        const price = Number(libAsset.price);
-        if (!Number.isFinite(price) || typeof wei === 'undefined') return;
-        usd = (price * Number(balance)) / Number(wei);
-      }
+      const usd = calculateAssetUsdValue(libAsset);
 
       if (Number.isFinite(usd) && usd < LOW_LIB_USD_THRESHOLD) {
         showToast(
@@ -9990,43 +10043,6 @@ function getTransactionTimestamp() {
 }
 
 // Validator Modals
-
-// fetching market price by invoking `updateAssetPricesIfNeeded` and extracting from myData.assetPrices
-async function getMarketPrice() {
-  try {
-    // Ensure asset prices are potentially updated by the central function
-    await updateAssetPricesIfNeeded();
-
-    // Check if wallet data and assets exist after the update attempt
-    if (!myData?.wallet?.assets) {
-      console.warn('getMarketPrice: Wallet assets not available in myData.');
-      return null;
-    }
-
-    // Find the LIB asset in the myData structure
-    const libAsset = myData.wallet.assets.find((asset) => asset.id === 'liberdus');
-
-    if (libAsset) {
-      // Check if the price exists and is a valid number on the found asset
-      if (typeof libAsset.price === 'number' && !isNaN(libAsset.price)) {
-        // console.log(`getMarketPrice: Retrieved LIB price from myData: ${libAsset.price}`); // Optional: For debugging
-        return libAsset.price;
-      } else {
-        // Price might be missing if the initial fetch failed or hasn't happened yet
-        console.warn(
-          `getMarketPrice: LIB asset found in myData, but its price is missing or invalid (value: ${libAsset.price}).`
-        );
-        return null;
-      }
-    } else {
-      console.warn('getMarketPrice: LIB asset not found in myData.wallet.assets.');
-      return null;
-    }
-  } catch (error) {
-    console.error('getMarketPrice: Error occurred while trying to get price from myData:', error);
-    return null; // Return null on any unexpected error during the process
-  }
-}
 
 class RemoveAccountModal {
   constructor() {}
@@ -12992,7 +13008,7 @@ class ValidatorStakingModal {
 
       const stakeRequiredUsd = EthNum.toWei(parameters.current?.stakeRequiredUsdStr); // BigInt object
 
-      const marketPrice = await getMarketPrice(); // number or null
+      const libUsdPrice = await getLibUsdPrice(); // number or null
       const stabilityFactor = getStabilityFactor(); // number
 
 
@@ -13013,35 +13029,33 @@ class ValidatorStakingModal {
       }
 
       let userStakedUsd = null; // number or null
-      // TODO: Calculate User Staked Amount (USD) using market price - Use stability factor if available?
-      // For now, using market price as implemented previously.
-      if (userStakedBaseUnits != null && typeof userStakedBaseUnits === 'bigint' && marketPrice != null) {
+      if (userStakedBaseUnits != null && typeof userStakedBaseUnits === 'bigint' && libUsdPrice != null) {
         // Check it's a BigInt
         try {
           // userStakedBaseUnits is already a BigInt object
           const userStakedLib = Number(userStakedBaseUnits) / 1e18;
-          userStakedUsd = userStakedLib * marketPrice;
+          userStakedUsd = userStakedLib * libUsdPrice;
         } catch (e) {
           console.error('Error calculating userStakedUsd:', e, {
             userStakedBaseUnits,
-            marketPrice,
+            libUsdPrice,
           });
         }
       }
 
-      let marketStakeUsdBaseUnits = null; // BigInt object or null
-      // Calculate Min Stake at Market (USD) using BigInt and market price
-      if (stakeAmountLibBaseUnits !== null && marketPrice != null) {
+      let stabilityStakeUsdBaseUnits = null; // BigInt object or null
+      // Calculate min stake USD using the network stability factor price
+      if (stakeAmountLibBaseUnits !== null && libUsdPrice != null) {
         // stakeAmountLibBaseUnits is BigInt object here
         try {
           const stakeAmountLib = Number(stakeAmountLibBaseUnits) / 1e18;
-          const marketStakeUsd = stakeAmountLib * marketPrice;
+          const stabilityStakeUsd = stakeAmountLib * libUsdPrice;
           // Approximate back to base units (assuming 18 decimals for USD base units)
-          marketStakeUsdBaseUnits = BigInt(Math.round(marketStakeUsd * 1e18));
+          stabilityStakeUsdBaseUnits = BigInt(Math.round(stabilityStakeUsd * 1e18));
         } catch (e) {
-          console.error('Error calculating marketStakeUsdBaseUnits:', e, {
+          console.error('Error calculating stabilityStakeUsdBaseUnits:', e, {
             stakeAmountLibBaseUnits,
-            marketPrice,
+            libUsdPrice,
           });
         }
       }
@@ -13057,16 +13071,16 @@ class ValidatorStakingModal {
       const displayNetworkStakeLib =
         stakeAmountLibBaseUnits !== null ? big2str(stakeAmountLibBaseUnits, 18).slice(0, 7) : 'N/A';
       const displayStabilityFactor = stabilityFactor ? stabilityFactor.toFixed(6) : 'N/A';
-      const displayMarketPrice = marketPrice ? '$' + marketPrice.toFixed(6) : 'N/A';
-      // marketStakeUsdBaseUnits is a BigInt object or null. Pass its string representation.
-      const displayMarketStakeUsd =
-        marketStakeUsdBaseUnits !== null ? '$' + big2str(marketStakeUsdBaseUnits, 18).slice(0, 6) : 'N/A';
+      const displayLibUsdPrice = libUsdPrice ? '$' + libUsdPrice.toFixed(6) : 'N/A';
+      // stabilityStakeUsdBaseUnits is a BigInt object or null. Pass its string representation.
+      const displayStabilityStakeUsd =
+        stabilityStakeUsdBaseUnits !== null ? '$' + big2str(stabilityStakeUsdBaseUnits, 18).slice(0, 6) : 'N/A';
 
       this.networkStakeUsdValue.textContent = displayNetworkStakeUsd;
       this.networkStakeLibValue.textContent = displayNetworkStakeLib;
       this.stabilityFactorValue.textContent = displayStabilityFactor;
-      this.marketPriceValue.textContent = displayMarketPrice;
-      this.marketStakeUsdValue.textContent = displayMarketStakeUsd;
+      this.marketPriceValue.textContent = displayLibUsdPrice;
+      this.marketStakeUsdValue.textContent = displayStabilityStakeUsd;
 
       if (!nominee) {
         // Case: No Nominee - Hide the stake info section completely and show earn message
@@ -25657,7 +25671,7 @@ class SendAssetConfirmModal {
           // Update local balance after successful transaction
           fromAddress.balance -= amount;
           walletData.balance = walletData.assets.reduce((total, asset) =>
-              total + asset.addresses.reduce((sum, addr) => sum + bigxnum2num(addr.balance, asset.price), 0), 0);
+              total + asset.addresses.reduce((sum, addr) => sum + (bigxnum2num(addr.balance, getAssetUsdPrice(asset)) || 0), 0), 0);
           // Update wallet view and close modal
           updateWalletView();
   */
@@ -29830,7 +29844,7 @@ async function downloadAndDecryptAvatar(url, key) {
 }
 
 function getStabilityFactor() {
-  return parseFloat(parameters.current.stabilityFactorStr);
+  return parseFloat(parameters?.current?.stabilityFactorStr);
 }
 
 function getNetworkMinTollLibWei() {
