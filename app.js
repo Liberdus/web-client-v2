@@ -7717,9 +7717,11 @@ const REACTION_REVERTED_TOAST = 'Reaction failed to send and was reverted';
 /**
  * Extracts the actionable one-line recipient toll/block reason from a pre-crack message.
  * @param {string} reason
+ * @param {Object | null} contact
+ * @param {string} address
  * @returns {string}
  */
-function getRecipientTollPrecrackFailureReason(reason) {
+function getRecipientTollPrecrackFailureReason(reason, contact = null, address = '') {
   assert(typeof reason === 'string', 'Pre-crack failure reason must be a string');
 
   const blockedReason = 'Chat is blocked by the receiver.';
@@ -7727,7 +7729,12 @@ function getRecipientTollPrecrackFailureReason(reason) {
 
   const tollMatch = reason.match(/Message amount \(([0-9]+)\) is less than required toll \(([0-9]+)\)\./);
   if (tollMatch) {
-    return 'You can only send reactions to people who have added you as a connection';
+    const displayContact = {
+      ...(contact || {}),
+      address: contact?.address || address
+    };
+    const username = (contact || address) ? getContactDisplayName(displayContact) : 'this contact';
+    return `You can only send reactions to people who have added you as a connection. Ask ${username} to add you as a connection`;
   }
 
   return '';
@@ -19094,7 +19101,7 @@ class ChatModal {
       }
       const reason = response?.result?.reason || '';
       if (outcome.didChange) {
-        const precrackReason = getRecipientTollPrecrackFailureReason(reason);
+        const precrackReason = getRecipientTollPrecrackFailureReason(reason, contact, currentAddress);
         if (precrackReason) {
           showToast(precrackReason, 0, 'error');
         } else {
