@@ -16261,11 +16261,13 @@ class ChatModal {
       }
     });
     const txidMapMs = this.formatChatPerfMs(txidMapPerfStart);
+    const forceFullRender = highlightNewMessage && skipAutoScroll;
+    const renderRange = this.getChatRenderRange(messages, currentAddress, forceFullRender);
 
     // 3. Iterate backwards through messages (oldest to newest for rendering order)
     // messages are already sorted descending (newest first) in myData
     const renderLoopPerfStart = this.getChatPerfTime();
-    for (let i = messages.length - 1; i >= 0; i--) {
+    for (let i = renderRange.oldestIndex; i >= renderRange.newestIndex; i--) {
       const item = messages[i];
       let messageHTML = '';
       const timeString = formatTime(item.timestamp);
@@ -16487,6 +16489,9 @@ class ChatModal {
     this.logChatPerf('append:sync', {
       contact: this.formatChatPerfAddress(currentAddress, contact),
       messages: messages.length,
+      rendered: renderedMessages.length,
+      oldestIndex: renderRange.oldestIndex,
+      isWindowed: renderRange.isWindowed,
       txidMap: txidMapMs,
       build: renderLoopMs,
       join: joinMs,
