@@ -15170,19 +15170,28 @@ class ChatModal {
     const contact = myData.contacts[this.address];
     const messages = contact?.messages;
     if (!Array.isArray(messages) || messages.length === 0) return false;
+    const isOpenDrain = reason === 'openDrain';
 
     const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
       ? this.chatRenderedOldestIndex
       : Math.min(messages.length - 1, this.chatInitialRenderCount - 1);
     if (currentOldestIndex >= messages.length - 1) return false;
 
-    const renderBatchSize = this.getChatOlderRenderBatchSize();
+    const renderBatchSize = isOpenDrain
+      ? this.chatOlderRenderBatchSize
+      : this.getChatOlderRenderBatchSize();
     const nextOldestIndex = Math.min(
       messages.length - 1,
       currentOldestIndex + renderBatchSize
     );
-    const anchor = this.getFirstVisibleMessageAnchor();
-    const beforeSnapshot = this.getChatScrollSnapshot();
+    const anchor = isOpenDrain ? null : this.getFirstVisibleMessageAnchor();
+    const beforeSnapshot = isOpenDrain
+      ? {
+          scrollTop: this.messagesContainer ? Math.round(this.messagesContainer.scrollTop) : 'n/a',
+          maxScrollTop: 'skipped',
+          distanceFromBottom: 'skipped'
+        }
+      : this.getChatScrollSnapshot();
     this.isExpandingChatRenderWindow = true;
     this.chatRenderedOldestIndex = nextOldestIndex;
     this.logChatPerf('window:expand', {
@@ -15199,7 +15208,21 @@ class ChatModal {
       totalMessages: messages.length
     });
 
-    this.appendChatModal(false, true);
+    this.appendChatModal(false, true, { skipDeferredWork: isOpenDrain });
+    if (isOpenDrain) {
+      const bottomScrollPerfStart = this.getChatPerfTime();
+      this.scrollMessagesToBottom({ readMetrics: false });
+      this.isExpandingChatRenderWindow = false;
+      this.logChatPerf('window:bottomRestored', {
+        contact: this.formatChatPerfAddress(this.address, contact),
+        reason,
+        beforeScrollTop: beforeSnapshot ? beforeSnapshot.scrollTop : 'n/a',
+        bottomScroll: this.formatChatPerfMs(bottomScrollPerfStart),
+        remainingOlder: Math.max(0, messages.length - 1 - nextOldestIndex)
+      });
+      return true;
+    }
+
     const afterWriteSnapshot = this.getChatScrollSnapshot();
     this.restoreVisibleMessageAnchor(anchor);
     const afterRestoreSnapshot = this.getChatScrollSnapshot();
@@ -16524,9 +16547,10 @@ class ChatModal {
    * Appends the chat modal to the DOM
    * @param {boolean} highlightNewMessage - Whether to highlight the newest message
    * @param {boolean} skipAutoScroll - Whether to skip auto-scrolling to bottom (used when scrolling to a specific message)
+   * @param {{ skipDeferredWork?: boolean }} options - Render behavior options
    * @returns {void}
    */
-  appendChatModal(highlightNewMessage = false, skipAutoScroll = false) {
+  appendChatModal(highlightNewMessage = false, skipAutoScroll = false, { skipDeferredWork = false } = {}) {
     const appendPerfStart = this.getChatPerfTime();
     const currentAddress = this.address; // Use a local constant
     if (!currentAddress) {
@@ -16807,89 +16831,98 @@ class ChatModal {
     });
 
     const renderedAddress = currentAddress;
-    const deferredScheduledAt = this.getChatPerfTime();
-    const scheduleAfterPaint = typeof requestAnimationFrame === 'function'
-      ? requestAnimationFrame
-      : (callback) => setTimeout(callback, 0);
-    scheduleAfterPaint(() => {
-      scheduleAfterPaint(() => {
-        const deferredStart = this.getChatPerfTime();
-        if (
-          !this.isActive() ||
-          this.address !== renderedAddress ||
-          !this.messagesList ||
-          renderSequence !== this.chatRenderSequence
-        ) {
-          this.logChatPerf('append:deferredSkipped', {
-            contact: this.formatChatPerfAddress(renderedAddress, contact),
-            delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
-            reason: renderSequence !== this.chatRenderSequence ? 'staleRender' : 'inactive',
-            renderSequence,
-            currentRenderSequence: this.chatRenderSequence,
-            currentAddress: this.address || 'none'
-          });
-          return;
-        }
-        const reactionPerfStart = this.getChatPerfTime();
-        this.syncAllRenderedReactionChips();
-        const reactionsMs = this.formatChatPerfMs(reactionPerfStart);
-        const wasNearBottomBeforeThumbnails = shouldKeepBottomAnchored
-          ? this.isMessagesContainerNearBottom(80)
-          : false;
-        const thumbnailPerfStart = this.getChatPerfTime();
-        try {
-          const thumbnailResult = this.loadThumbnailsForAttachments();
-          Promise.resolve(thumbnailResult).then(
-            () => {
-              let thumbnailScrollMetrics = null;
-              let thumbnailScrollMs = 'skipped';
-              if (shouldKeepBottomAnchored && wasNearBottomBeforeThumbnails) {
-                const thumbnailScrollPerfStart = this.getChatPerfTime();
-                thumbnailScrollMetrics = this.scrollMessagesToBottom();
-                thumbnailScrollMs = this.formatChatPerfMs(thumbnailScrollPerfStart);
-              }
-              this.logChatPerf('append:deferred', {
-                contact: this.formatChatPerfAddress(renderedAddress, contact),
-                delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
-                reactions: reactionsMs,
-                thumbnails: this.formatChatPerfMs(thumbnailPerfStart),
-                thumbnailScroll: thumbnailScrollMs,
-                wasNearBottomBeforeThumbnails,
-                scrollTop: thumbnailScrollMetrics ? thumbnailScrollMetrics.scrollTop : 'n/a',
-                scrollHeight: thumbnailScrollMetrics ? thumbnailScrollMetrics.scrollHeight : 'n/a',
-                total: this.formatChatPerfMs(deferredStart)
-              });
-              if (shouldKeepBottomAnchored && renderRange.isWindowed) {
-                this.scheduleChatRenderWindowDrain(renderedAddress, 'afterDeferred');
-              }
-            },
-            (error) => {
-              this.logChatPerf('append:deferredError', {
-                contact: this.formatChatPerfAddress(renderedAddress, contact),
-                delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
-                reactions: reactionsMs,
-                thumbnails: this.formatChatPerfMs(thumbnailPerfStart),
-                error: error?.message || String(error)
-              });
-              if (shouldKeepBottomAnchored && renderRange.isWindowed) {
-                this.scheduleChatRenderWindowDrain(renderedAddress, 'afterDeferredError');
-              }
-            }
-          );
-        } catch (error) {
-          this.logChatPerf('append:deferredError', {
-            contact: this.formatChatPerfAddress(renderedAddress, contact),
-            delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
-            reactions: reactionsMs,
-            thumbnails: this.formatChatPerfMs(thumbnailPerfStart),
-            error: error?.message || String(error)
-          });
-          if (shouldKeepBottomAnchored && renderRange.isWindowed) {
-            this.scheduleChatRenderWindowDrain(renderedAddress, 'afterDeferredError');
-          }
-        }
+    if (skipDeferredWork) {
+      this.logChatPerf('append:deferredSkipped', {
+        contact: this.formatChatPerfAddress(renderedAddress, contact),
+        delay: '0.0ms',
+        reason: 'skipDeferredWork',
+        renderSequence
       });
-    });
+    } else {
+      const deferredScheduledAt = this.getChatPerfTime();
+      const scheduleAfterPaint = typeof requestAnimationFrame === 'function'
+        ? requestAnimationFrame
+        : (callback) => setTimeout(callback, 0);
+      scheduleAfterPaint(() => {
+        scheduleAfterPaint(() => {
+          const deferredStart = this.getChatPerfTime();
+          if (
+            !this.isActive() ||
+            this.address !== renderedAddress ||
+            !this.messagesList ||
+            renderSequence !== this.chatRenderSequence
+          ) {
+            this.logChatPerf('append:deferredSkipped', {
+              contact: this.formatChatPerfAddress(renderedAddress, contact),
+              delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
+              reason: renderSequence !== this.chatRenderSequence ? 'staleRender' : 'inactive',
+              renderSequence,
+              currentRenderSequence: this.chatRenderSequence,
+              currentAddress: this.address || 'none'
+            });
+            return;
+          }
+          const reactionPerfStart = this.getChatPerfTime();
+          this.syncAllRenderedReactionChips();
+          const reactionsMs = this.formatChatPerfMs(reactionPerfStart);
+          const wasNearBottomBeforeThumbnails = shouldKeepBottomAnchored
+            ? this.isMessagesContainerNearBottom(80)
+            : false;
+          const thumbnailPerfStart = this.getChatPerfTime();
+          try {
+            const thumbnailResult = this.loadThumbnailsForAttachments();
+            Promise.resolve(thumbnailResult).then(
+              () => {
+                let thumbnailScrollMetrics = null;
+                let thumbnailScrollMs = 'skipped';
+                if (shouldKeepBottomAnchored && wasNearBottomBeforeThumbnails) {
+                  const thumbnailScrollPerfStart = this.getChatPerfTime();
+                  thumbnailScrollMetrics = this.scrollMessagesToBottom();
+                  thumbnailScrollMs = this.formatChatPerfMs(thumbnailScrollPerfStart);
+                }
+                this.logChatPerf('append:deferred', {
+                  contact: this.formatChatPerfAddress(renderedAddress, contact),
+                  delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
+                  reactions: reactionsMs,
+                  thumbnails: this.formatChatPerfMs(thumbnailPerfStart),
+                  thumbnailScroll: thumbnailScrollMs,
+                  wasNearBottomBeforeThumbnails,
+                  scrollTop: thumbnailScrollMetrics ? thumbnailScrollMetrics.scrollTop : 'n/a',
+                  scrollHeight: thumbnailScrollMetrics ? thumbnailScrollMetrics.scrollHeight : 'n/a',
+                  total: this.formatChatPerfMs(deferredStart)
+                });
+                if (shouldKeepBottomAnchored && renderRange.isWindowed) {
+                  this.scheduleChatRenderWindowDrain(renderedAddress, 'afterDeferred');
+                }
+              },
+              (error) => {
+                this.logChatPerf('append:deferredError', {
+                  contact: this.formatChatPerfAddress(renderedAddress, contact),
+                  delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
+                  reactions: reactionsMs,
+                  thumbnails: this.formatChatPerfMs(thumbnailPerfStart),
+                  error: error?.message || String(error)
+                });
+                if (shouldKeepBottomAnchored && renderRange.isWindowed) {
+                  this.scheduleChatRenderWindowDrain(renderedAddress, 'afterDeferredError');
+                }
+              }
+            );
+          } catch (error) {
+            this.logChatPerf('append:deferredError', {
+              contact: this.formatChatPerfAddress(renderedAddress, contact),
+              delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
+              reactions: reactionsMs,
+              thumbnails: this.formatChatPerfMs(thumbnailPerfStart),
+              error: error?.message || String(error)
+            });
+            if (shouldKeepBottomAnchored && renderRange.isWindowed) {
+              this.scheduleChatRenderWindowDrain(renderedAddress, 'afterDeferredError');
+            }
+          }
+        });
+      });
+    }
 
     // --- 5. Find the corresponding DOM element after rendering ---
     // This happens inside the setTimeout to ensure elements are in the DOM
