@@ -13941,6 +13941,9 @@ class ChatModal {
     // Drag and drop state
     this.dragCounter = 0;
     this.dropOverlay = null;
+
+    this.chatPerfLogBuffer = [];
+    this.chatPerfLogFlushTimer = null;
   }
 
   /**
@@ -14885,6 +14888,94 @@ class ChatModal {
     return !!(editInput?.value?.trim?.());
   }
 
+  getChatPerfTime() {
+    return typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now();
+  }
+
+  formatChatPerfMs(start, end = this.getChatPerfTime()) {
+    return `${Math.max(0, end - start).toFixed(1)}ms`;
+  }
+
+  formatChatPerfAddress(address, contact) {
+    const compactAddress = address
+      ? `${address.slice(0, 8)}...${address.slice(-6)}`
+      : 'unknown';
+    const displayName = contact ? getContactDisplayName(contact) : '';
+    return displayName && displayName !== address
+      ? `${displayName}(${compactAddress})`
+      : compactAddress;
+  }
+
+  summarizeChatPerfContact(contact) {
+    const messages = Array.isArray(contact?.messages) ? contact.messages : [];
+    const summary = {
+      messages: messages.length,
+      replies: 0,
+      attachments: 0,
+      mediaAttachments: 0,
+      voice: 0,
+      payments: 0,
+      calls: 0,
+      edited: 0,
+      deleted: 0,
+      textChars: 0,
+      reactions: Array.isArray(contact?.reactions) ? contact.reactions.length : 0
+    };
+
+    messages.forEach((message) => {
+      if (message?.replyId) summary.replies++;
+      if (typeof message?.amount === 'bigint') summary.payments++;
+      if (message?.type === 'vm') summary.voice++;
+      if (message?.type === 'call') summary.calls++;
+      if (message?.edited) summary.edited++;
+      if (isDeleted(message)) summary.deleted++;
+      if (typeof message?.message === 'string') summary.textChars += message.message.length;
+      if (Array.isArray(message?.xattach)) {
+        summary.attachments += message.xattach.length;
+        summary.mediaAttachments += message.xattach.filter((attachment) => {
+          const type = attachment?.type || '';
+          return type.startsWith('image/') || type.startsWith('video/');
+        }).length;
+      }
+    });
+
+    return summary;
+  }
+
+  logChatPerf(event, fields = {}) {
+    try {
+      const details = Object.entries(fields)
+        .filter(([, value]) => value !== undefined && value !== null && value !== '')
+        .map(([key, value]) => `${key}=${value}`)
+        .join(' ');
+      this.chatPerfLogBuffer.push(`[ChatPerf] ${event}${details ? ` ${details}` : ''}`);
+      this.scheduleChatPerfLogFlush();
+    } catch (error) {
+      console.warn('Failed to write chat performance log:', error);
+    }
+  }
+
+  scheduleChatPerfLogFlush() {
+    if (this.chatPerfLogFlushTimer) return;
+    this.chatPerfLogFlushTimer = setTimeout(() => {
+      this.chatPerfLogFlushTimer = null;
+      this.flushChatPerfLogs();
+    }, 500);
+  }
+
+  flushChatPerfLogs() {
+    if (!this.chatPerfLogBuffer.length) return;
+    try {
+      if (typeof logsModal === 'undefined' || typeof logsModal.log !== 'function') return;
+      const logBlock = this.chatPerfLogBuffer.splice(0, this.chatPerfLogBuffer.length).join('\n');
+      logsModal.log(logBlock);
+    } catch (error) {
+      console.warn('Failed to flush chat performance logs:', error);
+    }
+  }
+
   /**
    * Clears all staged composer attachments.
    * @param {{ deleteFromServer?: boolean }} options
@@ -14914,6 +15005,7 @@ class ChatModal {
    * @returns {Promise<void>}
    */
   async open(address, skipAutoScroll = false) {
+    const openPerfStart = this.getChatPerfTime();
     this.closeReactionSheet();
 
     // Set active chat address early so async refreshes target the correct chat.
@@ -14934,6 +15026,30 @@ class ChatModal {
     friendModal.setAddress(address);
     footer.closeNewChatButton();
     const contact = myData.contacts[address];
+    const chatPerfSummary = this.summarizeChatPerfContact(contact);
+    const visualViewportSize = window.visualViewport
+      ? `${Math.round(window.visualViewport.width)}x${Math.round(window.visualViewport.height)}`
+      : 'n/a';
+    this.logChatPerf('open:start', {
+      contact: this.formatChatPerfAddress(address, contact),
+      messages: chatPerfSummary.messages,
+      replies: chatPerfSummary.replies,
+      attachments: chatPerfSummary.attachments,
+      mediaAttachments: chatPerfSummary.mediaAttachments,
+      voice: chatPerfSummary.voice,
+      payments: chatPerfSummary.payments,
+      calls: chatPerfSummary.calls,
+      edited: chatPerfSummary.edited,
+      deleted: chatPerfSummary.deleted,
+      reactions: chatPerfSummary.reactions,
+      textChars: chatPerfSummary.textChars,
+      skipAutoScroll,
+      viewport: `${window.innerWidth}x${window.innerHeight}`,
+      visualViewport: visualViewportSize,
+      contentVisibility: typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
+        ? CSS.supports('content-visibility', 'auto')
+        : 'unknown'
+    });
     // Cache whether the contact has me blocked, and disable attachments accordingly
     this.blockedByRecipient = Number(contact?.tollRequiredToSend) === 2;
     this.addAttachmentButton.disabled = this.blockedByRecipient;
@@ -14942,7 +15058,12 @@ class ChatModal {
     // Set user info
     this.modalTitle.textContent = getContactDisplayName(contact);
 
+    const walletPerfStart = this.getChatPerfTime();
     walletScreen.updateWalletBalances();
+    this.logChatPerf('open:wallet', {
+      ms: this.formatChatPerfMs(walletPerfStart),
+      total: this.formatChatPerfMs(openPerfStart)
+    });
 
     // update the toll value. Will not await this and it'll update the toll value while the modal is open.
     this.updateTollValue(address);
@@ -14963,13 +15084,32 @@ class ChatModal {
       }
     }
 
+    const avatarPerfStart = this.getChatPerfTime();
     this.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
+    this.logChatPerf('open:avatar', {
+      ms: this.formatChatPerfMs(avatarPerfStart),
+      total: this.formatChatPerfMs(openPerfStart)
+    });
 
     // Stop and cleanup all voice messages from previous conversation
-    this.messagesList?.querySelectorAll('.voice-message').forEach(vm => this.stopVoiceMessage(vm));
+    const cleanupPerfStart = this.getChatPerfTime();
+    const previousVoiceMessages = this.messagesList
+      ? this.messagesList.querySelectorAll('.voice-message')
+      : [];
+    previousVoiceMessages.forEach(vm => this.stopVoiceMessage(vm));
+    this.logChatPerf('open:cleanupPreviousVoice', {
+      ms: this.formatChatPerfMs(cleanupPerfStart),
+      previousVoice: previousVoiceMessages.length,
+      total: this.formatChatPerfMs(openPerfStart)
+    });
 
     // Clear previous messages from the UI
+    const clearPerfStart = this.getChatPerfTime();
     this.messagesList.innerHTML = '';
+    this.logChatPerf('open:clearPreviousDom', {
+      ms: this.formatChatPerfMs(clearPerfStart),
+      total: this.formatChatPerfMs(openPerfStart)
+    });
 
     // Scroll to bottom (initial scroll for empty list, appendChatModal will scroll later)
     // Skip if we're going to scroll to a specific message
@@ -14996,6 +15136,9 @@ class ChatModal {
 
     // Show modal
     this.modal.classList.add('active');
+    this.logChatPerf('open:modalActive', {
+      total: this.formatChatPerfMs(openPerfStart)
+    });
 
     // Clear unread count
     const totalUnread = contact.unread;
@@ -15011,7 +15154,12 @@ class ChatModal {
     // One-time tolled deposit toast (only if explicitly enabled on the contact)
     this.maybeShowTolledDepositToast(address);
 
+    const appendPerfStart = this.getChatPerfTime();
     this.appendChatModal(false, skipAutoScroll); // Call appendChatModal to render messages, ensure highlight=false
+    this.logChatPerf('open:appendSyncReturned', {
+      ms: this.formatChatPerfMs(appendPerfStart),
+      total: this.formatChatPerfMs(openPerfStart)
+    });
     void this.maybePromptReclaimToll(address);
   }
 
@@ -15953,6 +16101,7 @@ class ChatModal {
    * @returns {void}
    */
   appendChatModal(highlightNewMessage = false, skipAutoScroll = false) {
+    const appendPerfStart = this.getChatPerfTime();
     const currentAddress = this.address; // Use a local constant
     if (!currentAddress) {
       return;
@@ -15977,15 +16126,18 @@ class ChatModal {
     this.newestSentMessage = messages.find((item) => item.my);
 
     const renderedMessages = [];
+    const txidMapPerfStart = this.getChatPerfTime();
     const messagesByTxid = new Map();
     messages.forEach((message) => {
       if (message?.txid) {
         messagesByTxid.set(message.txid, message);
       }
     });
+    const txidMapMs = this.formatChatPerfMs(txidMapPerfStart);
 
     // 3. Iterate backwards through messages (oldest to newest for rendering order)
     // messages are already sorted descending (newest first) in myData
+    const renderLoopPerfStart = this.getChatPerfTime();
     for (let i = messages.length - 1; i >= 0; i--) {
       const item = messages[i];
       let messageHTML = '';
@@ -16189,19 +16341,78 @@ class ChatModal {
       renderedMessages.push(messageHTML);
       // The newest received element will be found after the loop completes
     }
+    const renderLoopMs = this.formatChatPerfMs(renderLoopPerfStart);
 
     // Replace the list once to avoid one DOM mutation per message.
-    this.messagesList.innerHTML = renderedMessages.join('');
+    const joinPerfStart = this.getChatPerfTime();
+    const renderedHTML = renderedMessages.join('');
+    const joinMs = this.formatChatPerfMs(joinPerfStart);
+    const domWritePerfStart = this.getChatPerfTime();
+    this.messagesList.innerHTML = renderedHTML;
+    const domWriteMs = this.formatChatPerfMs(domWritePerfStart);
+    this.logChatPerf('append:sync', {
+      contact: this.formatChatPerfAddress(currentAddress, contact),
+      messages: messages.length,
+      txidMap: txidMapMs,
+      build: renderLoopMs,
+      join: joinMs,
+      domWrite: domWriteMs,
+      htmlChars: renderedHTML.length,
+      children: this.messagesList.children.length,
+      total: this.formatChatPerfMs(appendPerfStart)
+    });
 
     const renderedAddress = currentAddress;
+    const deferredScheduledAt = this.getChatPerfTime();
     const scheduleAfterPaint = typeof requestAnimationFrame === 'function'
       ? requestAnimationFrame
       : (callback) => setTimeout(callback, 0);
     scheduleAfterPaint(() => {
       scheduleAfterPaint(() => {
-        if (!this.isActive() || this.address !== renderedAddress || !this.messagesList) return;
+        const deferredStart = this.getChatPerfTime();
+        if (!this.isActive() || this.address !== renderedAddress || !this.messagesList) {
+          this.logChatPerf('append:deferredSkipped', {
+            contact: this.formatChatPerfAddress(renderedAddress, contact),
+            delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
+            currentAddress: this.address || 'none'
+          });
+          return;
+        }
+        const reactionPerfStart = this.getChatPerfTime();
         this.syncAllRenderedReactionChips();
-        this.loadThumbnailsForAttachments();
+        const reactionsMs = this.formatChatPerfMs(reactionPerfStart);
+        const thumbnailPerfStart = this.getChatPerfTime();
+        try {
+          const thumbnailResult = this.loadThumbnailsForAttachments();
+          Promise.resolve(thumbnailResult).then(
+            () => {
+              this.logChatPerf('append:deferred', {
+                contact: this.formatChatPerfAddress(renderedAddress, contact),
+                delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
+                reactions: reactionsMs,
+                thumbnails: this.formatChatPerfMs(thumbnailPerfStart),
+                total: this.formatChatPerfMs(deferredStart)
+              });
+            },
+            (error) => {
+              this.logChatPerf('append:deferredError', {
+                contact: this.formatChatPerfAddress(renderedAddress, contact),
+                delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
+                reactions: reactionsMs,
+                thumbnails: this.formatChatPerfMs(thumbnailPerfStart),
+                error: error?.message || String(error)
+              });
+            }
+          );
+        } catch (error) {
+          this.logChatPerf('append:deferredError', {
+            contact: this.formatChatPerfAddress(renderedAddress, contact),
+            delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
+            reactions: reactionsMs,
+            thumbnails: this.formatChatPerfMs(thumbnailPerfStart),
+            error: error?.message || String(error)
+          });
+        }
       });
     });
 
@@ -16209,11 +16420,20 @@ class ChatModal {
     // This happens inside the setTimeout to ensure elements are in the DOM
 
     // 6. Delayed Scrolling & Highlighting Logic (after loop)
+    const scrollScheduledAt = this.getChatPerfTime();
     setTimeout(() => {
+      const scrollPerfStart = this.getChatPerfTime();
       // Skip auto-scrolling if we're going to scroll to a specific message
-      if (skipAutoScroll) return;
+      if (skipAutoScroll) {
+        this.logChatPerf('append:scrollSkipped', {
+          contact: this.formatChatPerfAddress(currentAddress, contact),
+          delay: this.formatChatPerfMs(scrollScheduledAt, scrollPerfStart)
+        });
+        return;
+      }
 
       const messageContainer = this.messagesList.parentElement;
+      let scrollTarget = 'bottom';
 
       // Find the DOM element for the actual newest received item using its timestamp
       // Only proceed if newestReceivedItem was found and highlightNewMessage is true
@@ -16234,6 +16454,7 @@ class ChatModal {
             
             // Scroll to the calculated position
             messageContainer.scrollTop = scrollTop;
+            scrollTarget = 'highlight';
           }
           
           // Apply highlight immediately
@@ -16254,6 +16475,7 @@ class ChatModal {
           // If element not found, just scroll to bottom
           if (messageContainer) {
             messageContainer.scrollTop = messageContainer.scrollHeight;
+            scrollTarget = 'fallbackBottom';
           }
         }
       } else {
@@ -16263,6 +16485,15 @@ class ChatModal {
           messageContainer.scrollTop = messageContainer.scrollHeight;
         }
       }
+      this.logChatPerf('append:scroll', {
+        contact: this.formatChatPerfAddress(currentAddress, contact),
+        delay: this.formatChatPerfMs(scrollScheduledAt, scrollPerfStart),
+        ms: this.formatChatPerfMs(scrollPerfStart),
+        target: scrollTarget,
+        scrollTop: messageContainer ? Math.round(messageContainer.scrollTop) : 'n/a',
+        scrollHeight: messageContainer ? Math.round(messageContainer.scrollHeight) : 'n/a',
+        clientHeight: messageContainer ? Math.round(messageContainer.clientHeight) : 'n/a'
+      });
     }, 300); // <<< Delay of 300 milliseconds for rendering
   }
 
