@@ -7741,16 +7741,6 @@ function getRecipientTollPrecrackFailureReason(reason, contact = null, address =
 }
 
 /**
- * Returns true when the transaction failure reason indicates a recipient toll state failure.
- * @param {string} reason
- * @returns {boolean}
- */
-function isRecipientTollStateFailure(reason) {
-  assert(typeof reason === 'string', 'Transaction failure reason must be a string');
-  return /required toll|blocked by the receiver|chat is blocked/i.test(reason);
-}
-
-/**
  * Attempts to refresh network params when a tx fails due to fee mismatch.
  * @param {string} reason
  * @returns {Promise<{detected: boolean, refreshed: boolean}>}
@@ -19789,32 +19779,6 @@ class ChatModal {
     } else {
       return;
     }
-  }
-
-  /**
-   * Refreshes the toll state for the given address
-   * @param {string} address - The address of the contact to refresh the toll state for
-   * @returns {Promise<void>}
-   */
-  async refreshRecipientTollState(address) {
-    assert(address, 'Recipient address is required to refresh toll state');
-    const contact = myData.contacts[address];
-    assert(contact, `Contact is required to refresh toll state: ${address}`);
-
-    await this.updateTollValue(address);
-    await this.updateTollRequired(address);
-
-    if (!this.isActive() || this.address !== address) {
-      saveState();
-      return;
-    }
-
-    this.blockedByRecipient = Number(contact.tollRequiredToSend) === 2;
-    this.updateTollAmountUI(address);
-    this.addAttachmentButton.disabled = this.isEncrypting || this.isEditingMessage() || this.blockedByRecipient;
-    this.voiceRecordButton.disabled = this.blockedByRecipient || !isOnline;
-
-    saveState();
   }
 
   /**
