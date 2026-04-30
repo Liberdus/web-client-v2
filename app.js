@@ -13944,6 +13944,13 @@ class ChatModal {
 
     this.chatPerfLogBuffer = [];
     this.chatPerfLogFlushTimer = null;
+
+    this.chatInitialRenderCount = 60;
+    this.chatOlderRenderBatchSize = 60;
+    this.chatRenderedOldestIndex = null;
+    this.chatRenderedWindowAddress = null;
+    this.chatForceFullRenderOnce = false;
+    this.isExpandingChatRenderWindow = false;
   }
 
   /**
@@ -14452,9 +14459,7 @@ class ChatModal {
       return true;
     });
     // Close all context menus when messages container scrolls
-    this.messagesContainer.addEventListener('scroll', () => {
-      this.closeAllContextMenus();
-    }, { passive: true });
+    this.messagesContainer.addEventListener('scroll', () => this.handleMessagesContainerScroll(), { passive: true });
     // Add context menu option listeners
     this.contextMenu.addEventListener('click', (e) => {
       const reactionButton = e.target.closest('.message-context-reaction-button');
@@ -14993,6 +14998,111 @@ class ChatModal {
     };
   }
 
+  resetChatRenderWindow(address = null) {
+    this.chatRenderedWindowAddress = address;
+    this.chatRenderedOldestIndex = null;
+    this.chatForceFullRenderOnce = false;
+    this.isExpandingChatRenderWindow = false;
+  }
+
+  getChatRenderRange(messages, currentAddress, forceFullRender = false) {
+    const totalMessages = Array.isArray(messages) ? messages.length : 0;
+    if (totalMessages === 0) {
+      return { newestIndex: 0, oldestIndex: -1, totalMessages, isWindowed: false };
+    }
+
+    if (
+      forceFullRender ||
+      this.chatForceFullRenderOnce ||
+      this.chatRenderedWindowAddress !== currentAddress
+    ) {
+      this.chatRenderedWindowAddress = currentAddress;
+      this.chatRenderedOldestIndex = forceFullRender || this.chatForceFullRenderOnce
+        ? totalMessages - 1
+        : Math.min(totalMessages - 1, this.chatInitialRenderCount - 1);
+      this.chatForceFullRenderOnce = false;
+    }
+
+    if (!Number.isInteger(this.chatRenderedOldestIndex)) {
+      this.chatRenderedOldestIndex = Math.min(totalMessages - 1, this.chatInitialRenderCount - 1);
+    }
+
+    this.chatRenderedOldestIndex = Math.min(this.chatRenderedOldestIndex, totalMessages - 1);
+
+    return {
+      newestIndex: 0,
+      oldestIndex: this.chatRenderedOldestIndex,
+      totalMessages,
+      isWindowed: this.chatRenderedOldestIndex < totalMessages - 1
+    };
+  }
+
+  getFirstVisibleMessageAnchor() {
+    const container = this.messagesContainer;
+    if (!container || !this.messagesList) return null;
+
+    const containerTop = container.getBoundingClientRect().top;
+    const messageEls = [...this.messagesList.querySelectorAll('.message')];
+    for (const messageEl of messageEls) {
+      const rect = messageEl.getBoundingClientRect();
+      if (rect.bottom >= containerTop) {
+        return {
+          element: messageEl,
+          offsetTop: rect.top - containerTop
+        };
+      }
+    }
+
+    return null;
+  }
+
+  restoreVisibleMessageAnchor(anchor) {
+    if (!anchor?.element || !this.messagesContainer) return;
+    const containerTop = this.messagesContainer.getBoundingClientRect().top;
+    const nextTop = anchor.element.getBoundingClientRect().top - containerTop;
+    this.messagesContainer.scrollTop += nextTop - anchor.offsetTop;
+  }
+
+  expandChatRenderWindow() {
+    if (this.isExpandingChatRenderWindow || !this.address || !this.messagesList) return;
+    const contact = myData.contacts[this.address];
+    const messages = contact?.messages;
+    if (!Array.isArray(messages) || messages.length === 0) return;
+
+    const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
+      ? this.chatRenderedOldestIndex
+      : Math.min(messages.length - 1, this.chatInitialRenderCount - 1);
+    if (currentOldestIndex >= messages.length - 1) return;
+
+    const nextOldestIndex = Math.min(
+      messages.length - 1,
+      currentOldestIndex + this.chatOlderRenderBatchSize
+    );
+    const anchor = this.getFirstVisibleMessageAnchor();
+    this.isExpandingChatRenderWindow = true;
+    this.chatRenderedOldestIndex = nextOldestIndex;
+    this.logChatPerf('window:expand', {
+      contact: this.formatChatPerfAddress(this.address, contact),
+      previousOldestIndex: currentOldestIndex,
+      nextOldestIndex,
+      totalMessages: messages.length
+    });
+
+    this.appendChatModal(false, true);
+    requestAnimationFrame(() => {
+      this.restoreVisibleMessageAnchor(anchor);
+      this.isExpandingChatRenderWindow = false;
+    });
+  }
+
+  handleMessagesContainerScroll() {
+    this.closeAllContextMenus();
+    if (!this.messagesContainer || !this.isActive()) return;
+    if (this.messagesContainer.scrollTop <= 160) {
+      this.expandChatRenderWindow();
+    }
+  }
+
   /**
    * Clears all staged composer attachments.
    * @param {{ deleteFromServer?: boolean }} options
@@ -15043,6 +15153,7 @@ class ChatModal {
     friendModal.setAddress(address);
     footer.closeNewChatButton();
     const contact = myData.contacts[address];
+    this.resetChatRenderWindow(address);
     const chatPerfSummary = this.summarizeChatPerfContact(contact);
     const visualViewportSize = window.visualViewport
       ? `${Math.round(window.visualViewport.width)}x${Math.round(window.visualViewport.height)}`
@@ -15323,6 +15434,7 @@ class ChatModal {
     }
 
     this.address = null;
+    this.resetChatRenderWindow();
   }
 
   clearNotificationsIfAllRead() {
