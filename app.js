@@ -13945,8 +13945,8 @@ class ChatModal {
     this.chatPerfLogBuffer = [];
     this.chatPerfLogFlushTimer = null;
 
-    this.chatInitialRenderCount = 40;
-    this.chatOlderRenderBatchSize = 60;
+    this.chatInitialRenderCount = 80;
+    this.chatOlderRenderBatchSize = 80;
     this.chatRenderedOldestIndex = null;
     this.chatRenderedWindowAddress = null;
     this.chatForceFullRenderOnce = false;
@@ -15074,7 +15074,21 @@ class ChatModal {
     this.messagesContainer.scrollTop += nextTop - anchor.offsetTop;
   }
 
-  expandChatRenderWindow() {
+  getChatScrollSnapshot() {
+    const container = this.messagesContainer || this.messagesList?.parentElement;
+    if (!container) return null;
+    const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+    return {
+      scrollTop: Math.round(container.scrollTop),
+      maxScrollTop: Math.round(maxScrollTop),
+      distanceFromBottom: Math.round(Math.max(0, maxScrollTop - container.scrollTop)),
+      scrollHeight: Math.round(container.scrollHeight),
+      clientHeight: Math.round(container.clientHeight),
+      messageListHeight: this.messagesList ? Math.round(this.messagesList.scrollHeight) : 'n/a'
+    };
+  }
+
+  expandChatRenderWindow(reason = 'scroll') {
     if (this.isExpandingChatRenderWindow || !this.address || !this.messagesList) return;
     const contact = myData.contacts[this.address];
     const messages = contact?.messages;
@@ -15091,58 +15105,116 @@ class ChatModal {
       currentOldestIndex + renderBatchSize
     );
     const anchor = this.getFirstVisibleMessageAnchor();
+    const beforeSnapshot = this.getChatScrollSnapshot();
     this.isExpandingChatRenderWindow = true;
     this.chatRenderedOldestIndex = nextOldestIndex;
     this.logChatPerf('window:expand', {
       contact: this.formatChatPerfAddress(this.address, contact),
+      reason,
       previousOldestIndex: currentOldestIndex,
       nextOldestIndex,
       batchSize: renderBatchSize,
-      scrollTop: this.messagesContainer ? Math.round(this.messagesContainer.scrollTop) : 'n/a',
+      scrollTop: beforeSnapshot ? beforeSnapshot.scrollTop : 'n/a',
+      maxScrollTop: beforeSnapshot ? beforeSnapshot.maxScrollTop : 'n/a',
+      distanceFromBottom: beforeSnapshot ? beforeSnapshot.distanceFromBottom : 'n/a',
       loadAheadThreshold: Math.round(this.getChatLoadAheadThreshold()),
+      remainingOlder: Math.max(0, messages.length - 1 - nextOldestIndex),
       totalMessages: messages.length
     });
 
     this.appendChatModal(false, true);
-    requestAnimationFrame(() => {
-      this.restoreVisibleMessageAnchor(anchor);
-      this.isExpandingChatRenderWindow = false;
+    const afterWriteSnapshot = this.getChatScrollSnapshot();
+    this.restoreVisibleMessageAnchor(anchor);
+    const afterRestoreSnapshot = this.getChatScrollSnapshot();
+    this.isExpandingChatRenderWindow = false;
+    this.logChatPerf('window:anchorRestored', {
+      contact: this.formatChatPerfAddress(this.address, contact),
+      reason,
+      anchor: anchor?.selector ? 'found' : 'none',
+      beforeScrollTop: beforeSnapshot ? beforeSnapshot.scrollTop : 'n/a',
+      afterWriteScrollTop: afterWriteSnapshot ? afterWriteSnapshot.scrollTop : 'n/a',
+      afterRestoreScrollTop: afterRestoreSnapshot ? afterRestoreSnapshot.scrollTop : 'n/a',
+      afterRestoreDistanceFromBottom: afterRestoreSnapshot ? afterRestoreSnapshot.distanceFromBottom : 'n/a',
+      afterRestoreScrollHeight: afterRestoreSnapshot ? afterRestoreSnapshot.scrollHeight : 'n/a'
     });
   }
 
   handleMessagesContainerScroll() {
     this.closeAllContextMenus();
     if (!this.messagesContainer || !this.isActive()) return;
+    const scrollSnapshot = this.getChatScrollSnapshot();
+    if (!scrollSnapshot) return;
+    const contact = this.address ? myData.contacts[this.address] : null;
+    const totalMessages = Array.isArray(contact?.messages) ? contact.messages.length : 0;
+    const renderedOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
+      ? this.chatRenderedOldestIndex
+      : 'n/a';
     const now = this.getChatPerfTime();
     if (now - this.lastChatScrollLogAt > 750) {
       this.lastChatScrollLogAt = now;
       this.logChatPerf('scroll:metrics', {
-        scrollTop: Math.round(this.messagesContainer.scrollTop),
-        scrollHeight: Math.round(this.messagesContainer.scrollHeight),
-        clientHeight: Math.round(this.messagesContainer.clientHeight),
-        messageListHeight: this.messagesList ? Math.round(this.messagesList.scrollHeight) : 'n/a',
+        scrollTop: scrollSnapshot.scrollTop,
+        maxScrollTop: scrollSnapshot.maxScrollTop,
+        distanceFromBottom: scrollSnapshot.distanceFromBottom,
+        scrollHeight: scrollSnapshot.scrollHeight,
+        clientHeight: scrollSnapshot.clientHeight,
+        messageListHeight: scrollSnapshot.messageListHeight,
         loadAheadThreshold: Math.round(this.getChatLoadAheadThreshold()),
+        renderedOldestIndex,
+        remainingOlder: Number.isInteger(renderedOldestIndex)
+          ? Math.max(0, totalMessages - 1 - renderedOldestIndex)
+          : 'n/a',
+        isExpanding: this.isExpandingChatRenderWindow,
         modalScrollTop: this.modal ? Math.round(this.modal.scrollTop || 0) : 'n/a',
         bodyScrollY: Math.round(window.scrollY || 0)
       });
     }
     const loadAheadThreshold = this.getChatLoadAheadThreshold();
-    if (this.messagesContainer.scrollTop <= loadAheadThreshold) {
-      this.expandChatRenderWindow();
+    if (scrollSnapshot.distanceFromBottom >= loadAheadThreshold) {
+      this.expandChatRenderWindow('scrollDistance');
     }
   }
 
   getChatLoadAheadThreshold() {
     const containerHeight = this.messagesContainer?.clientHeight || 0;
-    return Math.max(5200, containerHeight * 8);
+    return Math.max(700, containerHeight);
   }
 
   getChatOlderRenderBatchSize() {
-    const scrollTop = this.messagesContainer?.scrollTop ?? Infinity;
-    const urgentThreshold = (this.messagesContainer?.clientHeight || 0) * 1.5;
-    return scrollTop <= urgentThreshold
+    const container = this.messagesContainer;
+    if (!container) return this.chatOlderRenderBatchSize;
+    const scrollSnapshot = this.getChatScrollSnapshot();
+    const distanceFromBottom = scrollSnapshot ? scrollSnapshot.distanceFromBottom : 0;
+    const urgentThreshold = (container.clientHeight || 0) * 3;
+    return distanceFromBottom >= urgentThreshold
       ? this.chatOlderRenderBatchSize * 2
       : this.chatOlderRenderBatchSize;
+  }
+
+  scheduleChatRenderWindowWarmup(address) {
+    const scheduleAfterPaint = typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame
+      : (callback) => setTimeout(callback, 0);
+
+    scheduleAfterPaint(() => {
+      scheduleAfterPaint(() => {
+        if (!this.isActive() || this.address !== address || this.isExpandingChatRenderWindow) return;
+        const contact = myData.contacts[address];
+        const messages = contact?.messages;
+        if (!Array.isArray(messages) || messages.length === 0) return;
+        const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
+          ? this.chatRenderedOldestIndex
+          : Math.min(messages.length - 1, this.chatInitialRenderCount - 1);
+        if (currentOldestIndex >= messages.length - 1) return;
+        this.logChatPerf('window:warmup', {
+          contact: this.formatChatPerfAddress(address, contact),
+          currentOldestIndex,
+          batchSize: this.chatOlderRenderBatchSize,
+          totalMessages: messages.length
+        });
+        this.expandChatRenderWindow('openWarmup');
+      });
+    });
   }
 
   /**
@@ -15328,6 +15400,9 @@ class ChatModal {
       ms: this.formatChatPerfMs(appendPerfStart),
       total: this.formatChatPerfMs(openPerfStart)
     });
+    if (!skipAutoScroll) {
+      this.scheduleChatRenderWindowWarmup(address);
+    }
     void this.maybePromptReclaimToll(address);
   }
 
@@ -16619,19 +16694,19 @@ class ChatModal {
     // --- 5. Find the corresponding DOM element after rendering ---
     // This happens inside the setTimeout to ensure elements are in the DOM
 
+    if (skipAutoScroll) {
+      this.logChatPerf('append:scrollSkipped', {
+        contact: this.formatChatPerfAddress(currentAddress, contact),
+        delay: '0.0ms',
+        reason: 'skipAutoScroll'
+      });
+      return;
+    }
+
     // 6. Delayed Scrolling & Highlighting Logic (after loop)
     const scrollScheduledAt = this.getChatPerfTime();
     setTimeout(() => {
       const scrollPerfStart = this.getChatPerfTime();
-      // Skip auto-scrolling if we're going to scroll to a specific message
-      if (skipAutoScroll) {
-        this.logChatPerf('append:scrollSkipped', {
-          contact: this.formatChatPerfAddress(currentAddress, contact),
-          delay: this.formatChatPerfMs(scrollScheduledAt, scrollPerfStart)
-        });
-        return;
-      }
-
       const messageContainer = this.messagesList.parentElement;
       let scrollTarget = 'bottom';
 
