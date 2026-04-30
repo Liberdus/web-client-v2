@@ -2076,7 +2076,7 @@ class WalletScreen {
 
   /**
    * Request funds from the faucet for normal users
-   * @returns {void}
+   * @returns {Promise<void>}
    */
   async requestFromFaucet() {
     if (this.isFaucetRequestInProgress) {
@@ -4648,7 +4648,7 @@ class FriendModal {
   * Handle friend form submission
   * 0 = blocked, 1 = Other, 2 = Connection
    * @param {Event} event
-   * @returns {void}
+   * @returns {Promise<void>}
    */
   async handleFriendSubmit(event) {
     event.preventDefault();
