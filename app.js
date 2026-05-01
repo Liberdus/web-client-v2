@@ -13965,6 +13965,7 @@ class ChatModal {
     this.chatSpacerCatchupTimer = null;
     this.chatRenderSequence = 0;
     this.lastChatTouchLogAt = 0;
+    this.lastChatExpandBlockedLogAt = 0;
     this.chatTouchStartY = null;
     this.chatExpansionRearmDistanceFromBottom = null;
     this.chatHistorySpacerHeight = 0;
@@ -14984,6 +14985,51 @@ class ChatModal {
     return summary;
   }
 
+  updateChatPerfBatchSummary(summary, message) {
+    if (!summary || !message) return;
+    if (message.replyId) summary.replies++;
+    if (typeof message.amount === 'bigint') {
+      summary.payments++;
+      summary.types.add('payment');
+    } else if (message.type) {
+      summary.types.add(message.type);
+    } else {
+      summary.types.add('text');
+    }
+    if (message.type === 'vm') summary.voice++;
+    if (message.type === 'call') summary.calls++;
+    if (message.edited) summary.edited++;
+    if (isDeleted(message)) summary.deleted++;
+    if (typeof message.message === 'string') {
+      summary.textChars += message.message.length;
+      summary.maxTextChars = Math.max(summary.maxTextChars, message.message.length);
+    }
+    if (Array.isArray(message.xattach)) {
+      summary.attachments += message.xattach.length;
+      message.xattach.forEach((attachment) => {
+        const type = attachment?.type || 'unknown';
+        summary.attachmentTypes.add(type);
+        if (type.startsWith('image/')) {
+          summary.mediaAttachments++;
+          summary.imageAttachments++;
+        } else if (type.startsWith('video/')) {
+          summary.mediaAttachments++;
+          summary.videoAttachments++;
+        } else {
+          summary.fileAttachments++;
+        }
+      });
+    }
+  }
+
+  formatChatPerfSet(set, maxItems = 4) {
+    if (!set || typeof set[Symbol.iterator] !== 'function') return 'none';
+    const values = [...set].filter(Boolean);
+    if (values.length === 0) return 'none';
+    const visible = values.slice(0, maxItems).join('|');
+    return values.length > maxItems ? `${visible}|+${values.length - maxItems}` : visible;
+  }
+
   logChatPerf(event, fields = {}) {
     if (!this.chatPerfLoggingEnabled) return;
     try {
@@ -15123,6 +15169,7 @@ class ChatModal {
     this.isExpandingChatRenderWindow = false;
     this.chatExpansionRearmDistanceFromBottom = null;
     this.chatHistorySpacerHeight = 0;
+    this.lastChatExpandBlockedLogAt = 0;
   }
 
   getChatRenderRange(messages, currentAddress, forceFullRender = false) {
@@ -15468,17 +15515,43 @@ class ChatModal {
       this.chatRenderedOldestIndex = nextOldestIndex;
       this.isExpandingChatRenderWindow = false;
 
+      const expectedScrollTop = useEstimatedSpacerPreserve
+        ? oldScrollTop
+        : this.messagesContainer.scrollTop;
+      const afterDistanceToRenderedTop = Math.max(0, expectedScrollTop - nextSpacerHeight);
+      const afterSnapshotEstimate = beforeSnapshot && useEstimatedSpacerPreserve
+        ? {
+            ...beforeSnapshot,
+            topSpacerHeight: Math.round(nextSpacerHeight),
+            distanceToRenderedTop: Math.round(afterDistanceToRenderedTop)
+          }
+        : null;
       const rearmDistance = (beforeSnapshot?.distanceFromBottom || 0) + Math.max(
         beforeSnapshot?.clientHeight || this.messagesContainer.clientHeight || 0,
-        this.getChatLoadAheadThreshold() * 2
+        this.getChatLoadAheadThreshold()
       );
       this.chatExpansionRearmDistanceFromBottom = rearmDistance;
       if (this.chatPerfLoggingEnabled) {
+        const totalMs = this.formatChatPerfMs(prependPerfStart);
         this.logChatPerf('window:prepend', {
           contact: this.formatChatPerfAddress(this.address, contact),
           previousOldestIndex: currentOldestIndex,
           nextOldestIndex,
           rendered: range.renderedCount,
+          batchTypes: range.summary.types,
+          attachments: range.summary.attachments,
+          media: range.summary.mediaAttachments,
+          images: range.summary.imageAttachments,
+          videos: range.summary.videoAttachments,
+          files: range.summary.fileAttachments,
+          attachmentTypes: range.summary.attachmentTypes,
+          voice: range.summary.voice,
+          payments: range.summary.payments,
+          calls: range.summary.calls,
+          deleted: range.summary.deleted,
+          replies: range.summary.replies,
+          textChars: range.summary.textChars,
+          maxTextChars: range.summary.maxTextChars,
           build: range.buildMs,
           join: range.joinMs,
           domWrite: domWriteMs,
@@ -15491,19 +15564,31 @@ class ChatModal {
           estimatedHeight: Math.round(estimatedInsertedHeight),
           nextSpacerHeight: Math.round(nextSpacerHeight),
           scrollDelta: Math.round(scrollDelta),
-          nextScrollTop: Math.round(this.messagesContainer.scrollTop),
+          nextScrollTop: Math.round(expectedScrollTop),
+          afterDistanceToRenderedTop: Math.round(afterDistanceToRenderedTop),
           rearmDistance: Math.round(rearmDistance),
           children: this.messagesList.children.length,
-          total: this.formatChatPerfMs(prependPerfStart)
+          total: totalMs
         });
       }
       if (useEstimatedSpacerPreserve && nextOldestIndex < messages.length - 1) {
-        const distanceToRenderedTop = Math.max(
-          0,
-          this.messagesContainer.scrollTop - this.getChatHistorySpacerHeight()
-        );
-        if (distanceToRenderedTop <= this.getChatRenderedTopLoadAheadThreshold()) {
+        const renderedTopThreshold = this.getChatRenderedTopLoadAheadThreshold(afterSnapshotEstimate);
+        const shouldCatchUp = afterDistanceToRenderedTop <= renderedTopThreshold &&
+          beforeSnapshot?.distanceFromBottom >= rearmDistance;
+        if (shouldCatchUp) {
           this.scheduleChatSpacerCatchup('afterPrepend');
+        } else if (
+          this.chatPerfLoggingEnabled &&
+          afterDistanceToRenderedTop <= renderedTopThreshold
+        ) {
+          this.logChatPerf('window:catchupDeferred', {
+            contact: this.formatChatPerfAddress(this.address, contact),
+            reason: 'notRearmed',
+            distanceFromBottom: beforeSnapshot ? beforeSnapshot.distanceFromBottom : 'n/a',
+            rearmDistance: Math.round(rearmDistance),
+            distanceToRenderedTop: Math.round(afterDistanceToRenderedTop),
+            renderedTopThreshold: Math.round(renderedTopThreshold)
+          });
         }
       }
       return true;
@@ -15588,15 +15673,30 @@ class ChatModal {
       scrollSnapshot.distanceFromBottom >= this.chatExpansionRearmDistanceFromBottom;
     const isNearRenderedTop = remainingOlder > 0 &&
       scrollSnapshot.distanceToRenderedTop <= renderedTopThreshold;
-    if (
-      isNearRenderedTop &&
-      (isExpansionRearmed || scrollSnapshot.topSpacerHeight > 0)
-    ) {
+    if (isNearRenderedTop && isExpansionRearmed) {
       if (scrollSnapshot.topSpacerHeight > 0) {
         this.expandChatRenderWindow('scrollDistance');
       } else {
         this.queueChatScrollExpand('scrollDistance', scrollSnapshot);
       }
+    } else if (
+      this.chatPerfLoggingEnabled &&
+      isNearRenderedTop &&
+      !isExpansionRearmed &&
+      now - this.lastChatExpandBlockedLogAt > 750
+    ) {
+      this.lastChatExpandBlockedLogAt = now;
+      this.logChatPerf('window:expandBlocked', {
+        reason: 'notRearmed',
+        scrollTop: scrollSnapshot.scrollTop,
+        distanceFromBottom: scrollSnapshot.distanceFromBottom,
+        rearmDistance: Number.isFinite(this.chatExpansionRearmDistanceFromBottom)
+          ? Math.round(this.chatExpansionRearmDistanceFromBottom)
+          : 'n/a',
+        distanceToRenderedTop: scrollSnapshot.distanceToRenderedTop,
+        renderedTopThreshold: Math.round(renderedTopThreshold),
+        remainingOlder
+      });
     }
   }
 
@@ -17098,10 +17198,28 @@ class ChatModal {
     const lastReadTs = contact.lastChatOpenTs || 0;
     const renderedMessages = [];
     const renderedTxids = [];
+    const summary = {
+      replies: 0,
+      attachments: 0,
+      mediaAttachments: 0,
+      imageAttachments: 0,
+      videoAttachments: 0,
+      fileAttachments: 0,
+      voice: 0,
+      payments: 0,
+      calls: 0,
+      edited: 0,
+      deleted: 0,
+      textChars: 0,
+      maxTextChars: 0,
+      types: new Set(),
+      attachmentTypes: new Set()
+    };
 
     for (let i = oldestIndex; i >= newestIndex; i--) {
       const item = messages[i];
       if (!item) continue;
+      this.updateChatPerfBatchSummary(summary, item);
       renderedMessages.push(this.renderChatMessageHTML(item, i, { contact, messagesByTxid, lastReadTs }));
       if (item.txid) renderedTxids.push(item.txid);
     }
@@ -17115,6 +17233,23 @@ class ChatModal {
       html,
       renderedCount: renderedMessages.length,
       renderedTxids,
+      summary: {
+        replies: summary.replies,
+        attachments: summary.attachments,
+        mediaAttachments: summary.mediaAttachments,
+        imageAttachments: summary.imageAttachments,
+        videoAttachments: summary.videoAttachments,
+        fileAttachments: summary.fileAttachments,
+        voice: summary.voice,
+        payments: summary.payments,
+        calls: summary.calls,
+        edited: summary.edited,
+        deleted: summary.deleted,
+        textChars: summary.textChars,
+        maxTextChars: summary.maxTextChars,
+        types: this.formatChatPerfSet(summary.types),
+        attachmentTypes: this.formatChatPerfSet(summary.attachmentTypes)
+      },
       buildMs,
       joinMs
     };
