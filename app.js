@@ -13948,7 +13948,7 @@ class ChatModal {
 
     this.chatInitialRenderCount = 50;
     this.chatFirstOlderRenderBatchSize = 10;
-    this.chatOlderRenderBatchSize = 25;
+    this.chatOlderRenderBatchSize = 10;
     this.chatRenderedOldestIndex = null;
     this.chatRenderedWindowAddress = null;
     this.chatForceFullRenderOnce = false;
