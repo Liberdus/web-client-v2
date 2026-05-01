@@ -13942,13 +13942,9 @@ class ChatModal {
     this.dragCounter = 0;
     this.dropOverlay = null;
 
-    this.chatPerfLogBuffer = [];
-    this.chatPerfLogFlushTimer = null;
-    this.chatPerfLoggingEnabled = true;
-
     this.chatInitialRenderCount = 50;
-    this.chatFirstOlderRenderBatchSize = 10;
-    this.chatOlderRenderBatchSize = 10;
+    this.chatFirstOlderRenderBatchSize = 25;
+    this.chatOlderRenderBatchSize = 50;
     this.chatRenderedOldestIndex = null;
     this.chatRenderedWindowAddress = null;
     this.chatForceFullRenderOnce = false;
@@ -13957,22 +13953,17 @@ class ChatModal {
     this.chatPendingScrollExpand = false;
     this.chatPendingScrollExpandReason = null;
     this.chatScrollEndFallbackTimer = null;
-    this.lastChatScrollLogAt = 0;
     this.chatRenderWindowDrainTimer = null;
     this.chatRenderWindowDrainFrame = null;
     this.chatRenderWindowDrainAddress = null;
-    this.chatRenderWindowDrainStartedAt = 0;
     this.chatSpacerCatchupTimer = null;
     this.chatRenderSequence = 0;
-    this.lastChatTouchLogAt = 0;
-    this.lastChatExpandBlockedLogAt = 0;
     this.chatTouchStartY = null;
     this.chatExpansionRearmDistanceFromBottom = null;
     this.chatHistorySpacerHeight = 0;
     this.chatHistoryLoadingToastId = null;
     this.chatTopBoundaryScrollHoldActive = false;
     this.chatTopBoundaryScrollHoldTop = 0;
-    this.lastChatTopBoundaryBlockLogAt = 0;
   }
 
   /**
@@ -14396,7 +14387,6 @@ class ChatModal {
    * @returns {void}
    */
   load() {
-    const loadPerfStart = this.getChatPerfTime();
     this.modal = document.getElementById('chatModal');
     assert(this.modal, 'chatModal element is required');
     this.closeButton = document.getElementById('closeChatModal');
@@ -14465,8 +14455,6 @@ class ChatModal {
     this.contactsOpt = this.attachmentOptionsContextMenu?.querySelector('.context-menu-option[data-action="contacts"]');
     
     this.currentImageAttachmentRow = null;
-    const refsMs = this.formatChatPerfMs(loadPerfStart);
-    const listenerPerfStart = this.getChatPerfTime();
     
     // Add event delegation for message clicks (since messages are created dynamically)
     this.messagesList.addEventListener('click', this.handleMessageClick.bind(this));
@@ -14490,9 +14478,6 @@ class ChatModal {
     this.messagesContainer.addEventListener('touchmove', (e) => this.handleMessagesTouchMove(e), { passive: false });
     this.messagesContainer.addEventListener('touchend', (e) => this.handleMessagesTouchEnd(e), { passive: true });
     this.messagesContainer.addEventListener('touchcancel', (e) => this.handleMessagesTouchEnd(e), { passive: true });
-    this.modal.addEventListener('touchmove', (e) => {
-      if (this.chatPerfLoggingEnabled) this.logChatTouchDiagnostics(e, 'modalMove');
-    }, { passive: true });
     // Add context menu option listeners
     this.contextMenu.addEventListener('click', (e) => {
       const reactionButton = e.target.closest('.message-context-reaction-button');
@@ -14796,11 +14781,6 @@ class ChatModal {
     }
 
     this.toggleSendButtonVisibility();
-    this.logChatPerf('load:listeners', {
-      refs: refsMs,
-      listeners: this.formatChatPerfMs(listenerPerfStart),
-      total: this.formatChatPerfMs(loadPerfStart)
-    });
   }
 
     // Voice message seek slider live time display (works even before playback)
@@ -14931,140 +14911,6 @@ class ChatModal {
     return !!(editInput?.value?.trim?.());
   }
 
-  getChatPerfTime() {
-    return typeof performance !== 'undefined' && typeof performance.now === 'function'
-      ? performance.now()
-      : Date.now();
-  }
-
-  formatChatPerfMs(start, end = this.getChatPerfTime()) {
-    return `${Math.max(0, end - start).toFixed(1)}ms`;
-  }
-
-  formatChatPerfAddress(address, contact) {
-    const compactAddress = address
-      ? `${address.slice(0, 8)}...${address.slice(-6)}`
-      : 'unknown';
-    const displayName = contact ? getContactDisplayName(contact) : '';
-    return displayName && displayName !== address
-      ? `${displayName}(${compactAddress})`
-      : compactAddress;
-  }
-
-  summarizeChatPerfContact(contact) {
-    const messages = Array.isArray(contact?.messages) ? contact.messages : [];
-    const summary = {
-      messages: messages.length,
-      replies: 0,
-      attachments: 0,
-      mediaAttachments: 0,
-      voice: 0,
-      payments: 0,
-      calls: 0,
-      edited: 0,
-      deleted: 0,
-      textChars: 0,
-      reactions: Array.isArray(contact?.reactions) ? contact.reactions.length : 0
-    };
-
-    messages.forEach((message) => {
-      if (message?.replyId) summary.replies++;
-      if (typeof message?.amount === 'bigint') summary.payments++;
-      if (message?.type === 'vm') summary.voice++;
-      if (message?.type === 'call') summary.calls++;
-      if (message?.edited) summary.edited++;
-      if (isDeleted(message)) summary.deleted++;
-      if (typeof message?.message === 'string') summary.textChars += message.message.length;
-      if (Array.isArray(message?.xattach)) {
-        summary.attachments += message.xattach.length;
-        summary.mediaAttachments += message.xattach.filter((attachment) => {
-          const type = attachment?.type || '';
-          return type.startsWith('image/') || type.startsWith('video/');
-        }).length;
-      }
-    });
-
-    return summary;
-  }
-
-  updateChatPerfBatchSummary(summary, message) {
-    if (!summary || !message) return;
-    if (message.replyId) summary.replies++;
-    if (typeof message.amount === 'bigint') {
-      summary.payments++;
-      summary.types.add('payment');
-    } else if (message.type) {
-      summary.types.add(message.type);
-    } else {
-      summary.types.add('text');
-    }
-    if (message.type === 'vm') summary.voice++;
-    if (message.type === 'call') summary.calls++;
-    if (message.edited) summary.edited++;
-    if (isDeleted(message)) summary.deleted++;
-    if (typeof message.message === 'string') {
-      summary.textChars += message.message.length;
-      summary.maxTextChars = Math.max(summary.maxTextChars, message.message.length);
-    }
-    if (Array.isArray(message.xattach)) {
-      summary.attachments += message.xattach.length;
-      message.xattach.forEach((attachment) => {
-        const type = attachment?.type || 'unknown';
-        summary.attachmentTypes.add(type);
-        if (type.startsWith('image/')) {
-          summary.mediaAttachments++;
-          summary.imageAttachments++;
-        } else if (type.startsWith('video/')) {
-          summary.mediaAttachments++;
-          summary.videoAttachments++;
-        } else {
-          summary.fileAttachments++;
-        }
-      });
-    }
-  }
-
-  formatChatPerfSet(set, maxItems = 4) {
-    if (!set || typeof set[Symbol.iterator] !== 'function') return 'none';
-    const values = [...set].filter(Boolean);
-    if (values.length === 0) return 'none';
-    const visible = values.slice(0, maxItems).join('|');
-    return values.length > maxItems ? `${visible}|+${values.length - maxItems}` : visible;
-  }
-
-  logChatPerf(event, fields = {}) {
-    if (!this.chatPerfLoggingEnabled) return;
-    try {
-      const details = Object.entries(fields)
-        .filter(([, value]) => value !== undefined && value !== null && value !== '')
-        .map(([key, value]) => `${key}=${value}`)
-        .join(' ');
-      this.chatPerfLogBuffer.push(`[ChatPerf] ${event}${details ? ` ${details}` : ''}`);
-      this.scheduleChatPerfLogFlush();
-    } catch (error) {
-      console.warn('Failed to write chat performance log:', error);
-    }
-  }
-
-  scheduleChatPerfLogFlush() {
-    if (this.chatPerfLogFlushTimer) return;
-    this.chatPerfLogFlushTimer = setTimeout(() => {
-      this.chatPerfLogFlushTimer = null;
-      this.flushChatPerfLogs();
-    }, 500);
-  }
-
-  flushChatPerfLogs() {
-    if (!this.chatPerfLogBuffer.length) return;
-    try {
-      if (typeof logsModal === 'undefined' || typeof logsModal.log !== 'function') return;
-      const logBlock = this.chatPerfLogBuffer.splice(0, this.chatPerfLogBuffer.length).join('\n');
-      logsModal.log(logBlock);
-    } catch (error) {
-      console.warn('Failed to flush chat performance logs:', error);
-    }
-  }
-
   isMessagesContainerNearBottom(thresholdPx = 50) {
     const container = this.messagesContainer || this.messagesList?.parentElement;
     if (!container) return false;
@@ -15172,8 +15018,6 @@ class ChatModal {
     this.isExpandingChatRenderWindow = false;
     this.chatExpansionRearmDistanceFromBottom = null;
     this.chatHistorySpacerHeight = 0;
-    this.lastChatExpandBlockedLogAt = 0;
-    this.lastChatTopBoundaryBlockLogAt = 0;
   }
 
   getChatRenderRange(messages, currentAddress, forceFullRender = false) {
@@ -15274,22 +15118,11 @@ class ChatModal {
     this.chatHistoryLoadingToastId = null;
   }
 
-  startChatTopBoundaryScrollHold(scrollSnapshot, reason = 'topBoundary') {
-    const wasActive = this.chatTopBoundaryScrollHoldActive;
+  startChatTopBoundaryScrollHold(scrollSnapshot) {
     this.chatTopBoundaryScrollHoldActive = true;
     this.chatTopBoundaryScrollHoldTop = Math.max(0, Math.round(scrollSnapshot?.topSpacerHeight || 0));
     this.showChatHistoryLoadingToast();
     this.clampChatTopBoundaryScrollHold();
-
-    if (!wasActive && this.chatPerfLoggingEnabled) {
-      this.logChatPerf('window:topBoundaryHold', {
-        reason,
-        scrollTop: scrollSnapshot ? scrollSnapshot.scrollTop : 'n/a',
-        distanceFromBottom: scrollSnapshot ? scrollSnapshot.distanceFromBottom : 'n/a',
-        distanceToRenderedTop: scrollSnapshot ? scrollSnapshot.distanceToRenderedTop : 'n/a',
-        holdTop: Math.round(this.chatTopBoundaryScrollHoldTop)
-      });
-    }
   }
 
   stopChatTopBoundaryScrollHold(reason = 'rendered') {
@@ -15297,10 +15130,6 @@ class ChatModal {
     this.chatTopBoundaryScrollHoldActive = false;
     this.chatTopBoundaryScrollHoldTop = 0;
     this.hideChatHistoryLoadingToast();
-
-    if (this.chatPerfLoggingEnabled) {
-      this.logChatPerf('window:topBoundaryRelease', { reason });
-    }
   }
 
   clampChatTopBoundaryScrollHold() {
@@ -15325,106 +15154,24 @@ class ChatModal {
     return !snapshot || snapshot.distanceToRenderedTop <= renderedBoundaryThreshold;
   }
 
-  describeChatTouchTarget(target) {
-    if (!target || typeof target.closest !== 'function') return 'unknown';
-    if (target.closest('.message-input-container')) return 'composer';
-    if (target.closest('.modal-header')) return 'header';
-    if (target.closest('.attachment-row')) return 'attachment';
-    if (target.closest('.message')) return 'message';
-    if (target.closest('.messages-list')) return 'messages-list';
-    if (target.closest('.messages-container')) return 'messages-container';
-    if (target.closest('#chatModal')) return 'chat-modal';
-    return target.id || target.className || target.tagName || 'unknown';
-  }
-
-  logChatTouchDiagnostics(event, phase) {
-    if (!this.isActive() || !this.messagesContainer) return;
-    const now = this.getChatPerfTime();
-    if (phase !== 'messagesStart' && now - this.lastChatTouchLogAt < 350) return;
-    this.lastChatTouchLogAt = now;
-
-    const touch = event.touches?.[0] || event.changedTouches?.[0] || null;
-    const y = touch ? Math.round(touch.clientY) : 'n/a';
-    if (phase === 'messagesStart' && typeof y === 'number') {
-      this.chatTouchStartY = y;
-    }
-    const deltaY = typeof y === 'number' && typeof this.chatTouchStartY === 'number'
-      ? y - this.chatTouchStartY
-      : 'n/a';
-    const snapshot = this.getChatScrollSnapshot();
-    const containerStyle = getComputedStyle(this.messagesContainer);
-    const modalStyle = this.modal ? getComputedStyle(this.modal) : null;
-    const activeElement = document.activeElement;
-
-    this.logChatPerf(`touch:${phase}`, {
-      target: this.describeChatTouchTarget(event.target),
-      inMessagesContainer: !!event.target.closest?.('.messages-container'),
-      inMessagesList: !!event.target.closest?.('.messages-list'),
-      y,
-      deltaY,
-      cancelable: event.cancelable,
-      defaultPrevented: event.defaultPrevented,
-      canScroll: snapshot ? snapshot.scrollHeight > snapshot.clientHeight : 'n/a',
-      atTop: snapshot ? snapshot.scrollTop <= 0 : 'n/a',
-      atBottom: snapshot ? snapshot.distanceFromBottom <= 1 : 'n/a',
-      scrollTop: snapshot ? snapshot.scrollTop : 'n/a',
-      maxScrollTop: snapshot ? snapshot.maxScrollTop : 'n/a',
-      distanceFromBottom: snapshot ? snapshot.distanceFromBottom : 'n/a',
-      distanceToRenderedTop: snapshot ? snapshot.distanceToRenderedTop : 'n/a',
-      topSpacerHeight: snapshot ? snapshot.topSpacerHeight : 'n/a',
-      containerOverflowY: containerStyle.overflowY,
-      containerTouchAction: containerStyle.touchAction,
-      containerWebkitOverflow: containerStyle.webkitOverflowScrolling || 'n/a',
-      modalTouchAction: modalStyle ? modalStyle.touchAction : 'n/a',
-      modalScrollTop: this.modal ? Math.round(this.modal.scrollTop || 0) : 'n/a',
-      bodyScrollY: Math.round(window.scrollY || 0),
-      htmlOverflow: getComputedStyle(document.documentElement).overflow,
-      bodyOverflow: getComputedStyle(document.body).overflow,
-      activeElement: activeElement?.id || activeElement?.className || activeElement?.tagName || 'none',
-      scrollLocked: this.scrollLocked
-    });
-  }
-
   handleMessagesTouchStart(event) {
     this.isChatTouchActive = true;
-    if (this.chatPerfLoggingEnabled) {
-      this.logChatTouchDiagnostics(event, 'messagesStart');
-    }
+    const touch = event.touches?.[0] || null;
+    this.chatTouchStartY = touch ? Math.round(touch.clientY) : null;
   }
 
   handleMessagesTouchMove(event) {
-    if (this.chatPerfLoggingEnabled) {
-      this.logChatTouchDiagnostics(event, 'messagesMove');
-    }
-
     if (!this.shouldBlockChatTopBoundaryTouchMove(event)) return;
 
-    const clamped = this.clampChatTopBoundaryScrollHold();
+    this.clampChatTopBoundaryScrollHold();
     if (event.cancelable) {
       event.preventDefault();
     }
     event.stopPropagation();
-
-    const now = this.chatPerfLoggingEnabled ? this.getChatPerfTime() : 0;
-    if (this.chatPerfLoggingEnabled && now - this.lastChatTopBoundaryBlockLogAt > 350) {
-      this.lastChatTopBoundaryBlockLogAt = now;
-      const snapshot = this.getChatScrollSnapshot();
-      this.logChatPerf('window:topBoundaryScrollBlocked', {
-        scrollTop: snapshot ? snapshot.scrollTop : 'n/a',
-        distanceFromBottom: snapshot ? snapshot.distanceFromBottom : 'n/a',
-        distanceToRenderedTop: snapshot ? snapshot.distanceToRenderedTop : 'n/a',
-        holdTop: Math.round(this.chatTopBoundaryScrollHoldTop || 0),
-        clamped,
-        cancelable: event.cancelable
-      });
-    }
   }
 
   handleMessagesTouchEnd(event) {
     this.isChatTouchActive = false;
-    if (this.chatPerfLoggingEnabled) {
-      this.logChatTouchDiagnostics(event, 'messagesEnd');
-    }
     this.schedulePendingChatScrollExpand('touchEnd');
   }
 
@@ -15438,20 +15185,8 @@ class ChatModal {
   }
 
   queueChatScrollExpand(reason, scrollSnapshot) {
-    const wasPending = this.chatPendingScrollExpand;
     this.chatPendingScrollExpand = true;
     this.chatPendingScrollExpandReason = reason;
-    if (!wasPending && this.chatPerfLoggingEnabled) {
-      this.logChatPerf('window:expandQueued', {
-        reason,
-        scrollTop: scrollSnapshot ? scrollSnapshot.scrollTop : 'n/a',
-        distanceFromBottom: scrollSnapshot ? scrollSnapshot.distanceFromBottom : 'n/a',
-        distanceToRenderedTop: scrollSnapshot ? scrollSnapshot.distanceToRenderedTop : 'n/a',
-        topSpacerHeight: scrollSnapshot ? scrollSnapshot.topSpacerHeight : 'n/a',
-        loadAheadThreshold: Math.round(this.getChatLoadAheadThreshold()),
-        touchActive: this.isChatTouchActive
-      });
-    }
     this.schedulePendingChatScrollExpand('scrollIdleFallback');
   }
 
@@ -15491,42 +15226,15 @@ class ChatModal {
       scrollSnapshot.distanceFromBottom < loadAheadThreshold ||
       (!isExpansionRearmed && !isAtRenderedBoundary)
     ) {
-      if (this.chatPerfLoggingEnabled) {
-        this.logChatPerf('window:expandAborted', {
-          trigger,
-          reason: !scrollSnapshot
-            ? 'missingSnapshot'
-            : scrollSnapshot.distanceFromBottom < loadAheadThreshold
-              ? 'belowThreshold'
-              : 'notRearmed',
-          distanceFromBottom: scrollSnapshot ? scrollSnapshot.distanceFromBottom : 'n/a',
-          loadAheadThreshold: Math.round(loadAheadThreshold),
-          distanceToRenderedTop: scrollSnapshot ? scrollSnapshot.distanceToRenderedTop : 'n/a',
-          renderedBoundaryThreshold: Math.round(renderedBoundaryThreshold),
-          rearmDistance: Number.isFinite(rearmDistance) ? Math.round(rearmDistance) : 'n/a'
-        });
-      }
       this.clearPendingChatScrollExpand();
       this.stopChatTopBoundaryScrollHold('expandAborted');
       return;
     }
 
-    const queuedReason = this.chatPendingScrollExpandReason || 'scrollDistance';
     if (isAtRenderedBoundary) {
       this.startChatTopBoundaryScrollHold(scrollSnapshot, 'expandFlush');
     }
     this.clearPendingChatScrollExpand();
-    if (this.chatPerfLoggingEnabled) {
-      this.logChatPerf('window:expandFlushed', {
-        trigger,
-        queuedReason,
-        distanceFromBottom: scrollSnapshot.distanceFromBottom,
-        loadAheadThreshold: Math.round(loadAheadThreshold),
-        distanceToRenderedTop: scrollSnapshot.distanceToRenderedTop,
-        renderedBoundaryThreshold: Math.round(renderedBoundaryThreshold),
-        rearmDistance: Number.isFinite(rearmDistance) ? Math.round(rearmDistance) : 'n/a'
-      });
-    }
     const expanded = this.expandChatRenderWindow('scrollIdle');
     if (!expanded) {
       this.stopChatTopBoundaryScrollHold('expandSkipped');
@@ -15575,95 +15283,49 @@ class ChatModal {
       : this.getChatScrollSnapshot();
     this.isExpandingChatRenderWindow = true;
     this.chatRenderedOldestIndex = nextOldestIndex;
-    if (this.chatPerfLoggingEnabled) {
-      this.logChatPerf('window:expand', {
-        contact: this.formatChatPerfAddress(this.address, contact),
-        reason,
-        previousOldestIndex: currentOldestIndex,
-        nextOldestIndex,
-        batchSize: renderBatchSize,
-        scrollTop: beforeSnapshot ? beforeSnapshot.scrollTop : 'n/a',
-        maxScrollTop: beforeSnapshot ? beforeSnapshot.maxScrollTop : 'n/a',
-        distanceFromBottom: beforeSnapshot ? beforeSnapshot.distanceFromBottom : 'n/a',
-        distanceToRenderedTop: beforeSnapshot ? beforeSnapshot.distanceToRenderedTop : 'n/a',
-        loadAheadThreshold: Math.round(this.getChatLoadAheadThreshold()),
-        renderedTopThreshold: Math.round(this.getChatRenderedTopLoadAheadThreshold(beforeSnapshot)),
-        renderedBoundaryThreshold: Math.round(this.getChatRenderedBoundaryThreshold(beforeSnapshot)),
-        atRenderedBoundary: beforeSnapshot
-          ? beforeSnapshot.distanceToRenderedTop <= this.getChatRenderedBoundaryThreshold(beforeSnapshot)
-          : 'n/a',
-        remainingOlder: Math.max(0, messages.length - 1 - nextOldestIndex),
-        totalMessages: messages.length
-      });
-    }
 
     if (shouldPrependOlderMessages) {
-      const prependPerfStart = this.getChatPerfTime();
       const cachedClientHeight = Number.isFinite(beforeSnapshot?.clientHeight)
         ? beforeSnapshot.clientHeight
         : (this.messagesContainer?.clientHeight || 0);
       const cachedLoadAheadThreshold = Math.max(1200, cachedClientHeight * 3);
-      const readScrollTopPerfStart = this.getChatPerfTime();
       const snapshotScrollTop = Number.isFinite(beforeSnapshot?.scrollTop)
         ? beforeSnapshot.scrollTop
         : null;
       const oldScrollTop = snapshotScrollTop ?? this.messagesContainer.scrollTop;
-      const oldScrollTopSource = snapshotScrollTop === null ? 'dom' : 'snapshot';
-      const readScrollTopMs = snapshotScrollTop === null
-        ? this.formatChatPerfMs(readScrollTopPerfStart)
-        : 'skipped';
-      const spacerLookupPerfStart = this.getChatPerfTime();
       const spacer = this.getChatHistorySpacerElement();
       const oldSpacerHeight = this.getChatHistorySpacerHeight();
-      const spacerLookupMs = this.formatChatPerfMs(spacerLookupPerfStart);
       const useEstimatedSpacerPreserve = !!spacer && oldSpacerHeight > 0;
-      const oldScrollHeightPerfStart = this.getChatPerfTime();
       const oldScrollHeight = useEstimatedSpacerPreserve ? null : this.messagesContainer.scrollHeight;
-      const oldScrollHeightMs = useEstimatedSpacerPreserve
-        ? 'skipped'
-        : this.formatChatPerfMs(oldScrollHeightPerfStart);
-      const estimatePerfStart = this.getChatPerfTime();
       const estimatedInsertedHeight = this.estimateChatMessagesHeight(
         messages,
         nextOldestIndex,
         currentOldestIndex + 1
       );
-      const estimateMs = this.formatChatPerfMs(estimatePerfStart);
-      const rangePerfStart = this.getChatPerfTime();
       const range = this.buildChatMessageRangeHTML(
         messages,
         contact,
         nextOldestIndex,
         currentOldestIndex + 1
       );
-      const rangeMs = this.formatChatPerfMs(rangePerfStart);
-      const domWritePerfStart = this.getChatPerfTime();
       if (useEstimatedSpacerPreserve) {
         spacer.insertAdjacentHTML('afterend', range.html);
       } else {
         this.messagesList.insertAdjacentHTML('afterbegin', range.html);
       }
-      const domWriteMs = this.formatChatPerfMs(domWritePerfStart);
-      const reactionsPerfStart = this.getChatPerfTime();
       if (range.renderedTxids.length > 0) {
         this.syncRenderedReactionTargets(range.renderedTxids);
       }
-      const reactionsMs = this.formatChatPerfMs(reactionsPerfStart);
-      const preservePerfStart = this.getChatPerfTime();
       let scrollDelta = estimatedInsertedHeight;
       let nextSpacerHeight = oldSpacerHeight;
-      let newScrollHeightMs = 'skipped';
       if (useEstimatedSpacerPreserve) {
         nextSpacerHeight = Math.max(0, oldSpacerHeight - estimatedInsertedHeight);
         this.setChatHistorySpacerHeight(nextSpacerHeight);
       } else {
-        const newScrollHeightPerfStart = this.getChatPerfTime();
         const newScrollHeight = this.messagesContainer.scrollHeight;
-        newScrollHeightMs = this.formatChatPerfMs(newScrollHeightPerfStart);
         scrollDelta = newScrollHeight - oldScrollHeight;
         this.messagesContainer.scrollTop = oldScrollTop + scrollDelta;
       }
-      const preserveMs = this.formatChatPerfMs(preservePerfStart);
       this.chatRenderedOldestIndex = nextOldestIndex;
       this.isExpandingChatRenderWindow = false;
 
@@ -15683,53 +15345,6 @@ class ChatModal {
         cachedLoadAheadThreshold
       );
       this.chatExpansionRearmDistanceFromBottom = rearmDistance;
-      if (this.chatPerfLoggingEnabled) {
-        const totalMs = this.formatChatPerfMs(prependPerfStart);
-        this.logChatPerf('window:prepend', {
-          contact: this.formatChatPerfAddress(this.address, contact),
-          previousOldestIndex: currentOldestIndex,
-          nextOldestIndex,
-          rendered: range.renderedCount,
-          batchTypes: range.summary.types,
-          attachments: range.summary.attachments,
-          media: range.summary.mediaAttachments,
-          images: range.summary.imageAttachments,
-          videos: range.summary.videoAttachments,
-          files: range.summary.fileAttachments,
-          attachmentTypes: range.summary.attachmentTypes,
-          voice: range.summary.voice,
-          payments: range.summary.payments,
-          calls: range.summary.calls,
-          deleted: range.summary.deleted,
-          replies: range.summary.replies,
-          textChars: range.summary.textChars,
-          maxTextChars: range.summary.maxTextChars,
-          scrollTopRead: readScrollTopMs,
-          scrollTopSource: oldScrollTopSource,
-          spacerLookup: spacerLookupMs,
-          oldScrollHeightRead: oldScrollHeightMs,
-          newScrollHeightRead: newScrollHeightMs,
-          estimate: estimateMs,
-          range: rangeMs,
-          build: range.buildMs,
-          join: range.joinMs,
-          domWrite: domWriteMs,
-          reactions: reactionsMs,
-          preserveStrategy: useEstimatedSpacerPreserve ? 'estimatedSpacer' : 'scrollHeightDelta',
-          preserve: preserveMs,
-          oldScrollTop: Math.round(oldScrollTop),
-          oldScrollHeight: useEstimatedSpacerPreserve ? 'skipped' : Math.round(oldScrollHeight),
-          oldSpacerHeight: Math.round(oldSpacerHeight),
-          estimatedHeight: Math.round(estimatedInsertedHeight),
-          nextSpacerHeight: Math.round(nextSpacerHeight),
-          scrollDelta: Math.round(scrollDelta),
-          nextScrollTop: Math.round(expectedScrollTop),
-          afterDistanceToRenderedTop: Math.round(afterDistanceToRenderedTop),
-          rearmDistance: Math.round(rearmDistance),
-          children: this.messagesList.children.length,
-          total: totalMs
-        });
-      }
       if (useEstimatedSpacerPreserve && nextOldestIndex < messages.length - 1) {
         const renderedTopThreshold = this.getChatRenderedTopLoadAheadThreshold(afterSnapshotEstimate);
         const renderedBoundaryThreshold = this.getChatRenderedBoundaryThreshold(afterSnapshotEstimate);
@@ -15737,22 +15352,9 @@ class ChatModal {
           (
             beforeSnapshot?.distanceFromBottom >= rearmDistance ||
             afterDistanceToRenderedTop <= renderedBoundaryThreshold
-          );
+        );
         if (shouldCatchUp) {
           this.scheduleChatSpacerCatchup('afterPrepend');
-        } else if (
-          this.chatPerfLoggingEnabled &&
-          afterDistanceToRenderedTop <= renderedTopThreshold
-        ) {
-          this.logChatPerf('window:catchupDeferred', {
-            contact: this.formatChatPerfAddress(this.address, contact),
-            reason: 'notRearmed',
-            distanceFromBottom: beforeSnapshot ? beforeSnapshot.distanceFromBottom : 'n/a',
-            rearmDistance: Math.round(rearmDistance),
-            distanceToRenderedTop: Math.round(afterDistanceToRenderedTop),
-            renderedTopThreshold: Math.round(renderedTopThreshold),
-            renderedBoundaryThreshold: Math.round(renderedBoundaryThreshold)
-          });
         }
       }
       this.stopChatTopBoundaryScrollHold('rendered');
@@ -15762,33 +15364,13 @@ class ChatModal {
     this.chatRenderedOldestIndex = nextOldestIndex;
     this.appendChatModal(false, true, { skipDeferredWork: isOpenDrain });
     if (isOpenDrain) {
-      const bottomScrollPerfStart = this.getChatPerfTime();
       this.scrollMessagesToBottom({ readMetrics: false });
       this.isExpandingChatRenderWindow = false;
-      this.logChatPerf('window:bottomRestored', {
-        contact: this.formatChatPerfAddress(this.address, contact),
-        reason,
-        beforeScrollTop: beforeSnapshot ? beforeSnapshot.scrollTop : 'n/a',
-        bottomScroll: this.formatChatPerfMs(bottomScrollPerfStart),
-        remainingOlder: Math.max(0, messages.length - 1 - nextOldestIndex)
-      });
       return true;
     }
 
-    const afterWriteSnapshot = this.getChatScrollSnapshot();
     this.restoreVisibleMessageAnchor(anchor);
-    const afterRestoreSnapshot = this.getChatScrollSnapshot();
     this.isExpandingChatRenderWindow = false;
-    this.logChatPerf('window:anchorRestored', {
-      contact: this.formatChatPerfAddress(this.address, contact),
-      reason,
-      anchor: anchor?.selector ? 'found' : 'none',
-      beforeScrollTop: beforeSnapshot ? beforeSnapshot.scrollTop : 'n/a',
-      afterWriteScrollTop: afterWriteSnapshot ? afterWriteSnapshot.scrollTop : 'n/a',
-      afterRestoreScrollTop: afterRestoreSnapshot ? afterRestoreSnapshot.scrollTop : 'n/a',
-      afterRestoreDistanceFromBottom: afterRestoreSnapshot ? afterRestoreSnapshot.distanceFromBottom : 'n/a',
-      afterRestoreScrollHeight: afterRestoreSnapshot ? afterRestoreSnapshot.scrollHeight : 'n/a'
-    });
     return true;
   }
 
@@ -15805,27 +15387,6 @@ class ChatModal {
     const remainingOlder = Number.isInteger(renderedOldestIndex)
       ? Math.max(0, totalMessages - 1 - renderedOldestIndex)
       : 0;
-    const now = this.chatPerfLoggingEnabled ? this.getChatPerfTime() : 0;
-    if (this.chatPerfLoggingEnabled && now - this.lastChatScrollLogAt > 750) {
-      this.lastChatScrollLogAt = now;
-      this.logChatPerf('scroll:metrics', {
-        scrollTop: scrollSnapshot.scrollTop,
-        maxScrollTop: scrollSnapshot.maxScrollTop,
-        distanceFromBottom: scrollSnapshot.distanceFromBottom,
-        scrollHeight: scrollSnapshot.scrollHeight,
-        clientHeight: scrollSnapshot.clientHeight,
-        messageListHeight: scrollSnapshot.messageListHeight,
-        loadAheadThreshold: Math.round(this.getChatLoadAheadThreshold()),
-        renderedTopThreshold: Math.round(this.getChatRenderedTopLoadAheadThreshold(scrollSnapshot)),
-        topSpacerHeight: scrollSnapshot.topSpacerHeight,
-        distanceToRenderedTop: scrollSnapshot.distanceToRenderedTop,
-        renderedOldestIndex,
-        remainingOlder: Number.isInteger(renderedOldestIndex) ? remainingOlder : 'n/a',
-        isExpanding: this.isExpandingChatRenderWindow,
-        modalScrollTop: this.modal ? Math.round(this.modal.scrollTop || 0) : 'n/a',
-        bodyScrollY: Math.round(window.scrollY || 0)
-      });
-    }
     const loadAheadThreshold = this.getChatLoadAheadThreshold();
     const renderedTopThreshold = this.getChatRenderedTopLoadAheadThreshold(scrollSnapshot);
     if (
@@ -15851,25 +15412,6 @@ class ChatModal {
         }
         this.queueChatScrollExpand('scrollDistance', scrollSnapshot);
       }
-    } else if (
-      this.chatPerfLoggingEnabled &&
-      isNearRenderedTop &&
-      !isExpansionRearmed &&
-      now - this.lastChatExpandBlockedLogAt > 750
-    ) {
-      this.lastChatExpandBlockedLogAt = now;
-      this.logChatPerf('window:expandBlocked', {
-        reason: 'notRearmed',
-        scrollTop: scrollSnapshot.scrollTop,
-        distanceFromBottom: scrollSnapshot.distanceFromBottom,
-        rearmDistance: Number.isFinite(this.chatExpansionRearmDistanceFromBottom)
-          ? Math.round(this.chatExpansionRearmDistanceFromBottom)
-          : 'n/a',
-        distanceToRenderedTop: scrollSnapshot.distanceToRenderedTop,
-        renderedTopThreshold: Math.round(renderedTopThreshold),
-        renderedBoundaryThreshold: Math.round(renderedBoundaryThreshold),
-        remainingOlder
-      });
     }
   }
 
@@ -15941,15 +15483,6 @@ class ChatModal {
       const loadAheadThreshold = this.getChatRenderedTopLoadAheadThreshold();
       if (topSpacerHeight <= 0 || distanceToRenderedTop > loadAheadThreshold) return;
 
-      this.logChatPerf('window:spacerCatchup', {
-        contact: this.formatChatPerfAddress(this.address, contact),
-        reason,
-        scrollTop: Math.round(this.messagesContainer.scrollTop),
-        topSpacerHeight: Math.round(topSpacerHeight),
-        distanceToRenderedTop: Math.round(distanceToRenderedTop),
-        renderedTopThreshold: Math.round(loadAheadThreshold),
-        remainingOlder: Math.max(0, messages.length - 1 - currentOldestIndex)
-      });
       this.expandChatRenderWindow('scrollDistance');
     }, 16);
   }
@@ -15966,10 +15499,9 @@ class ChatModal {
       this.chatRenderWindowDrainFrame = null;
     }
     this.chatRenderWindowDrainAddress = null;
-    this.chatRenderWindowDrainStartedAt = 0;
   }
 
-  scheduleChatRenderWindowDrain(address, reason = 'afterDeferred') {
+  scheduleChatRenderWindowDrain(address) {
     if (!address || this.chatRenderWindowDrainAddress === address) return;
     const contact = myData.contacts[address];
     const messages = contact?.messages;
@@ -15982,15 +15514,6 @@ class ChatModal {
     if (getCurrentOldestIndex() >= messages.length - 1) return;
 
     this.chatRenderWindowDrainAddress = address;
-    this.chatRenderWindowDrainStartedAt = this.getChatPerfTime();
-    this.logChatPerf('window:drainScheduled', {
-      contact: this.formatChatPerfAddress(address, contact),
-      reason,
-      currentOldestIndex: getCurrentOldestIndex(),
-      batchSize: this.chatOlderRenderBatchSize,
-      remainingOlder: Math.max(0, messages.length - 1 - getCurrentOldestIndex()),
-      totalMessages: messages.length
-    });
 
     const scheduleAfterPaint = typeof requestAnimationFrame === 'function'
       ? requestAnimationFrame
@@ -16015,11 +15538,6 @@ class ChatModal {
       scheduleDrainFrame(() => {
         scheduleAfterPaint(() => {
           if (!this.isActive() || this.address !== address) {
-            this.logChatPerf('window:drainAbort', {
-              contact: this.formatChatPerfAddress(address, contact),
-              reason: this.address !== address ? 'addressChanged' : 'inactive',
-              elapsed: this.formatChatPerfMs(this.chatRenderWindowDrainStartedAt)
-            });
             this.cancelChatRenderWindowDrain();
             return;
           }
@@ -16031,39 +15549,16 @@ class ChatModal {
 
           const currentOldestIndex = getCurrentOldestIndex();
           if (currentOldestIndex >= messages.length - 1) {
-            this.logChatPerf('window:drainDone', {
-              contact: this.formatChatPerfAddress(address, contact),
-              currentOldestIndex,
-              totalMessages: messages.length,
-              elapsed: this.formatChatPerfMs(this.chatRenderWindowDrainStartedAt)
-            });
             this.cancelChatRenderWindowDrain();
             return;
           }
 
-          const stepStart = this.getChatPerfTime();
-          const expanded = this.expandChatRenderWindow('openDrain');
-          const stepMs = this.formatChatPerfMs(stepStart);
+          this.expandChatRenderWindow('openDrain');
           const nextOldestIndex = getCurrentOldestIndex();
-          this.logChatPerf('window:drainStep', {
-            contact: this.formatChatPerfAddress(address, contact),
-            expanded,
-            previousOldestIndex: currentOldestIndex,
-            currentOldestIndex: nextOldestIndex,
-            remainingOlder: Math.max(0, messages.length - 1 - nextOldestIndex),
-            step: stepMs,
-            elapsed: this.formatChatPerfMs(this.chatRenderWindowDrainStartedAt)
-          });
 
           if (nextOldestIndex < messages.length - 1) {
             scheduleNextDrainStep();
           } else {
-            this.logChatPerf('window:drainDone', {
-              contact: this.formatChatPerfAddress(address, contact),
-              currentOldestIndex: nextOldestIndex,
-              totalMessages: messages.length,
-              elapsed: this.formatChatPerfMs(this.chatRenderWindowDrainStartedAt)
-            });
             this.cancelChatRenderWindowDrain();
           }
         });
@@ -16106,7 +15601,6 @@ class ChatModal {
    * @returns {Promise<void>}
    */
   async open(address, skipAutoScroll = false) {
-    const openPerfStart = this.getChatPerfTime();
     this.closeReactionSheet();
 
     // Set active chat address early so async refreshes target the correct chat.
@@ -16128,52 +15622,15 @@ class ChatModal {
     footer.closeNewChatButton();
     const contact = myData.contacts[address];
     this.resetChatRenderWindow(address);
-    const chatPerfSummary = this.summarizeChatPerfContact(contact);
-    const visualViewportSize = window.visualViewport
-      ? `${Math.round(window.visualViewport.width)}x${Math.round(window.visualViewport.height)}`
-      : 'n/a';
-    this.logChatPerf('open:start', {
-      contact: this.formatChatPerfAddress(address, contact),
-      messages: chatPerfSummary.messages,
-      replies: chatPerfSummary.replies,
-      attachments: chatPerfSummary.attachments,
-      mediaAttachments: chatPerfSummary.mediaAttachments,
-      voice: chatPerfSummary.voice,
-      payments: chatPerfSummary.payments,
-      calls: chatPerfSummary.calls,
-      edited: chatPerfSummary.edited,
-      deleted: chatPerfSummary.deleted,
-      reactions: chatPerfSummary.reactions,
-      textChars: chatPerfSummary.textChars,
-      skipAutoScroll,
-      viewport: `${window.innerWidth}x${window.innerHeight}`,
-      visualViewport: visualViewportSize,
-      contentVisibilityApplied: false
-    });
     // Cache whether the contact has me blocked, and disable attachments accordingly
     this.blockedByRecipient = Number(contact?.tollRequiredToSend) === 2;
     this.addAttachmentButton.disabled = this.blockedByRecipient;
     if (this.voiceRecordButton) this.voiceRecordButton.disabled = this.blockedByRecipient || !isOnline;
-    const friendButtonPerfStart = this.getChatPerfTime();
     friendModal.updateFriendButton(contact, 'addFriendButtonChat');
-    const friendButtonClass = this.addFriendButtonChat
-      ? [...this.addFriendButtonChat.classList].filter((className) => className.startsWith('status-')).join(',')
-      : 'missing';
-    this.logChatPerf('open:friendButton', {
-      ms: this.formatChatPerfMs(friendButtonPerfStart),
-      friend: contact?.friend,
-      class: friendButtonClass,
-      total: this.formatChatPerfMs(openPerfStart)
-    });
     // Set user info
     this.modalTitle.textContent = getContactDisplayName(contact);
 
-    const walletPerfStart = this.getChatPerfTime();
     walletScreen.updateWalletBalances();
-    this.logChatPerf('open:wallet', {
-      ms: this.formatChatPerfMs(walletPerfStart),
-      total: this.formatChatPerfMs(openPerfStart)
-    });
 
     // update the toll value. Will not await this and it'll update the toll value while the modal is open.
     this.updateTollValue(address);
@@ -16194,32 +15651,16 @@ class ChatModal {
       }
     }
 
-    const avatarPerfStart = this.getChatPerfTime();
     this.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
-    this.logChatPerf('open:avatar', {
-      ms: this.formatChatPerfMs(avatarPerfStart),
-      total: this.formatChatPerfMs(openPerfStart)
-    });
 
     // Stop and cleanup all voice messages from previous conversation
-    const cleanupPerfStart = this.getChatPerfTime();
     const previousVoiceMessages = this.messagesList
       ? this.messagesList.querySelectorAll('.voice-message')
       : [];
     previousVoiceMessages.forEach(vm => this.stopVoiceMessage(vm));
-    this.logChatPerf('open:cleanupPreviousVoice', {
-      ms: this.formatChatPerfMs(cleanupPerfStart),
-      previousVoice: previousVoiceMessages.length,
-      total: this.formatChatPerfMs(openPerfStart)
-    });
 
     // Clear previous messages from the UI
-    const clearPerfStart = this.getChatPerfTime();
     this.messagesList.innerHTML = '';
-    this.logChatPerf('open:clearPreviousDom', {
-      ms: this.formatChatPerfMs(clearPerfStart),
-      total: this.formatChatPerfMs(openPerfStart)
-    });
 
     // Scroll to bottom (initial scroll for empty list, appendChatModal will scroll later)
     // Skip if we're going to scroll to a specific message
@@ -16246,9 +15687,6 @@ class ChatModal {
 
     // Show modal
     this.modal.classList.add('active');
-    this.logChatPerf('open:modalActive', {
-      total: this.formatChatPerfMs(openPerfStart)
-    });
 
     // Clear unread count
     const totalUnread = contact.unread;
@@ -16264,12 +15702,7 @@ class ChatModal {
     // One-time tolled deposit toast (only if explicitly enabled on the contact)
     this.maybeShowTolledDepositToast(address);
 
-    const appendPerfStart = this.getChatPerfTime();
     this.appendChatModal(false, skipAutoScroll); // Call appendChatModal to render messages, ensure highlight=false
-    this.logChatPerf('open:appendSyncReturned', {
-      ms: this.formatChatPerfMs(appendPerfStart),
-      total: this.formatChatPerfMs(openPerfStart)
-    });
     void this.maybePromptReclaimToll(address);
   }
 
@@ -17379,65 +16812,24 @@ class ChatModal {
   }
 
   buildChatMessageRangeHTML(messages, contact, oldestIndex, newestIndex) {
-    const buildPerfStart = this.getChatPerfTime();
     const messagesByTxid = this.buildChatMessagesByTxid(messages);
     const lastReadTs = contact.lastChatOpenTs || 0;
     const renderedMessages = [];
     const renderedTxids = [];
-    const summary = {
-      replies: 0,
-      attachments: 0,
-      mediaAttachments: 0,
-      imageAttachments: 0,
-      videoAttachments: 0,
-      fileAttachments: 0,
-      voice: 0,
-      payments: 0,
-      calls: 0,
-      edited: 0,
-      deleted: 0,
-      textChars: 0,
-      maxTextChars: 0,
-      types: new Set(),
-      attachmentTypes: new Set()
-    };
 
     for (let i = oldestIndex; i >= newestIndex; i--) {
       const item = messages[i];
       if (!item) continue;
-      this.updateChatPerfBatchSummary(summary, item);
       renderedMessages.push(this.renderChatMessageHTML(item, i, { contact, messagesByTxid, lastReadTs }));
       if (item.txid) renderedTxids.push(item.txid);
     }
 
-    const buildMs = this.formatChatPerfMs(buildPerfStart);
-    const joinPerfStart = this.getChatPerfTime();
     const html = renderedMessages.join('');
-    const joinMs = this.formatChatPerfMs(joinPerfStart);
 
     return {
       html,
       renderedCount: renderedMessages.length,
-      renderedTxids,
-      summary: {
-        replies: summary.replies,
-        attachments: summary.attachments,
-        mediaAttachments: summary.mediaAttachments,
-        imageAttachments: summary.imageAttachments,
-        videoAttachments: summary.videoAttachments,
-        fileAttachments: summary.fileAttachments,
-        voice: summary.voice,
-        payments: summary.payments,
-        calls: summary.calls,
-        edited: summary.edited,
-        deleted: summary.deleted,
-        textChars: summary.textChars,
-        maxTextChars: summary.maxTextChars,
-        types: this.formatChatPerfSet(summary.types),
-        attachmentTypes: this.formatChatPerfSet(summary.attachmentTypes)
-      },
-      buildMs,
-      joinMs
+      renderedTxids
     };
   }
 
@@ -17449,7 +16841,6 @@ class ChatModal {
    * @returns {void}
    */
   appendChatModal(highlightNewMessage = false, skipAutoScroll = false, { skipDeferredWork = false } = {}) {
-    const appendPerfStart = this.getChatPerfTime();
     const currentAddress = this.address; // Use a local constant
     if (!currentAddress) {
       return;
@@ -17475,20 +16866,17 @@ class ChatModal {
     this.newestSentMessage = messages.find((item) => item.my);
 
     const renderedMessages = [];
-    const txidMapPerfStart = this.getChatPerfTime();
     const messagesByTxid = new Map();
     messages.forEach((message) => {
       if (message?.txid) {
         messagesByTxid.set(message.txid, message);
       }
     });
-    const txidMapMs = this.formatChatPerfMs(txidMapPerfStart);
     const forceFullRender = highlightNewMessage && skipAutoScroll;
     const renderRange = this.getChatRenderRange(messages, currentAddress, forceFullRender);
 
     // 3. Iterate backwards through messages (oldest to newest for rendering order)
     // messages are already sorted descending (newest first) in myData
-    const renderLoopPerfStart = this.getChatPerfTime();
     for (let i = renderRange.oldestIndex; i >= renderRange.newestIndex; i--) {
       const item = messages[i];
       let messageHTML = '';
@@ -17692,96 +17080,35 @@ class ChatModal {
       renderedMessages.push(messageHTML);
       // The newest received element will be found after the loop completes
     }
-    const renderLoopMs = this.formatChatPerfMs(renderLoopPerfStart);
-    const topSpacerHeight = 0;
     this.chatHistorySpacerHeight = 0;
 
     // Replace the list once to avoid one DOM mutation per message.
-    const joinPerfStart = this.getChatPerfTime();
     const renderedHTML = renderedMessages.join('');
-    const joinMs = this.formatChatPerfMs(joinPerfStart);
-    const domWritePerfStart = this.getChatPerfTime();
     this.messagesList.innerHTML = renderedHTML;
-    const domWriteMs = this.formatChatPerfMs(domWritePerfStart);
-    let immediateScrollMetrics = null;
-    let immediateScrollMs = 'skipped';
     const shouldKeepBottomAnchored = !skipAutoScroll && !highlightNewMessage;
     if (shouldKeepBottomAnchored) {
-      const immediateScrollPerfStart = this.getChatPerfTime();
-      immediateScrollMetrics = this.scrollMessagesToBottom({ readMetrics: false });
-      immediateScrollMs = this.formatChatPerfMs(immediateScrollPerfStart);
+      this.scrollMessagesToBottom({ readMetrics: false });
     }
-    this.logChatPerf('append:sync', {
-      contact: this.formatChatPerfAddress(currentAddress, contact),
-      messages: messages.length,
-      rendered: renderedMessages.length,
-      oldestIndex: renderRange.oldestIndex,
-      isWindowed: renderRange.isWindowed,
-      topSpacer: topSpacerHeight,
-      txidMap: txidMapMs,
-      build: renderLoopMs,
-      join: joinMs,
-      domWrite: domWriteMs,
-      immediateScroll: immediateScrollMs,
-      immediateScrollTop: immediateScrollMetrics ? immediateScrollMetrics.scrollTop : 'n/a',
-      immediateScrollHeight: immediateScrollMetrics ? immediateScrollMetrics.scrollHeight : 'n/a',
-      htmlChars: renderedHTML.length,
-      children: this.messagesList.children.length,
-      total: this.formatChatPerfMs(appendPerfStart)
-    });
 
     // --- 4.5. Load thumbnails for image attachments (async, non-blocking) ---
     this.loadThumbnailsForAttachments();
 
     const renderedAddress = currentAddress;
-    if (skipDeferredWork) {
-      this.logChatPerf('append:deferredSkipped', {
-        contact: this.formatChatPerfAddress(renderedAddress, contact),
-        delay: '0.0ms',
-        reason: 'skipDeferredWork',
-        renderSequence
-      });
-    } else {
-      const deferredScheduledAt = this.getChatPerfTime();
+    if (!skipDeferredWork) {
       const scheduleAfterPaint = typeof requestAnimationFrame === 'function'
         ? requestAnimationFrame
         : (callback) => setTimeout(callback, 0);
       scheduleAfterPaint(() => {
         scheduleAfterPaint(() => {
-          const deferredStart = this.getChatPerfTime();
           if (
             !this.isActive() ||
             this.address !== renderedAddress ||
             !this.messagesList ||
             renderSequence !== this.chatRenderSequence
           ) {
-            this.logChatPerf('append:deferredSkipped', {
-              contact: this.formatChatPerfAddress(renderedAddress, contact),
-              delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
-              reason: renderSequence !== this.chatRenderSequence ? 'staleRender' : 'inactive',
-              renderSequence,
-              currentRenderSequence: this.chatRenderSequence,
-              currentAddress: this.address || 'none'
-            });
             return;
           }
-          const reactionPerfStart = this.getChatPerfTime();
           this.syncAllRenderedReactionChips();
-          const reactionsMs = this.formatChatPerfMs(reactionPerfStart);
-          this.logChatPerf('append:deferred', {
-            contact: this.formatChatPerfAddress(renderedAddress, contact),
-            delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
-            reactions: reactionsMs,
-            total: this.formatChatPerfMs(deferredStart)
-          });
-          if (shouldKeepBottomAnchored && renderRange.isWindowed) {
-            this.logChatPerf('window:drainSuppressed', {
-              contact: this.formatChatPerfAddress(renderedAddress, contact),
-              reason: 'bottomScrollCost',
-              rendered: renderedMessages.length,
-              remainingOlder: Math.max(0, messages.length - 1 - renderRange.oldestIndex)
-            });
-          }
         });
       });
     }
@@ -17790,36 +17117,16 @@ class ChatModal {
     // This happens inside the setTimeout to ensure elements are in the DOM
 
     if (skipAutoScroll) {
-      if (this.chatPerfLoggingEnabled) {
-        this.logChatPerf('append:scrollSkipped', {
-          contact: this.formatChatPerfAddress(currentAddress, contact),
-          delay: '0.0ms',
-          reason: 'skipAutoScroll'
-        });
-      }
       return;
     }
 
     if (shouldKeepBottomAnchored && !highlightNewMessage) {
-      if (this.chatPerfLoggingEnabled) {
-        this.logChatPerf('append:scrollSkipped', {
-          contact: this.formatChatPerfAddress(currentAddress, contact),
-          delay: '0.0ms',
-          reason: 'immediateBottom',
-          scrollTop: this.messagesContainer ? Math.round(this.messagesContainer.scrollTop) : 'n/a',
-          scrollHeight: this.messagesContainer ? Math.round(this.messagesContainer.scrollHeight) : 'n/a',
-          clientHeight: this.messagesContainer ? Math.round(this.messagesContainer.clientHeight) : 'n/a'
-        });
-      }
       return;
     }
 
     // 6. Delayed Scrolling & Highlighting Logic (after loop)
-    const scrollScheduledAt = this.getChatPerfTime();
     setTimeout(() => {
-      const scrollPerfStart = this.getChatPerfTime();
       const messageContainer = this.messagesList.parentElement;
-      let scrollTarget = 'bottom';
 
       // Find the DOM element for the actual newest received item using its timestamp
       // Only proceed if newestReceivedItem was found and highlightNewMessage is true
@@ -17840,7 +17147,6 @@ class ChatModal {
             
             // Scroll to the calculated position
             messageContainer.scrollTop = scrollTop;
-            scrollTarget = 'highlight';
           }
           
           // Apply highlight immediately
@@ -17861,33 +17167,16 @@ class ChatModal {
           // If element not found, just scroll to bottom
           if (messageContainer) {
             messageContainer.scrollTop = messageContainer.scrollHeight;
-            scrollTarget = 'fallbackBottom';
           }
         }
       } else {
         // No received messages found, not highlighting, or highlightNewMessage is false,
         // just scroll to the bottom if the container exists.
         if (messageContainer) {
-          const userStayedAtInitialBottom = immediateScrollMetrics
-            ? Math.abs(messageContainer.scrollTop - immediateScrollMetrics.scrollTop) <= 2
-            : false;
-          if (!shouldKeepBottomAnchored || userStayedAtInitialBottom || this.isMessagesContainerNearBottom(120)) {
+          if (!shouldKeepBottomAnchored || this.isMessagesContainerNearBottom(120)) {
             messageContainer.scrollTop = messageContainer.scrollHeight;
-          } else {
-            scrollTarget = 'bottomSkippedUserScrolled';
           }
         }
-      }
-      if (this.chatPerfLoggingEnabled) {
-        this.logChatPerf('append:scroll', {
-          contact: this.formatChatPerfAddress(currentAddress, contact),
-          delay: this.formatChatPerfMs(scrollScheduledAt, scrollPerfStart),
-          ms: this.formatChatPerfMs(scrollPerfStart),
-          target: scrollTarget,
-          scrollTop: messageContainer ? Math.round(messageContainer.scrollTop) : 'n/a',
-          scrollHeight: messageContainer ? Math.round(messageContainer.scrollHeight) : 'n/a',
-          clientHeight: messageContainer ? Math.round(messageContainer.clientHeight) : 'n/a'
-        });
       }
     }, 300); // <<< Delay of 300 milliseconds for rendering
   }
