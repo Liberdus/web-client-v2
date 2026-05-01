@@ -13963,7 +13963,6 @@ class ChatModal {
     this.chatRenderWindowDrainAddress = null;
     this.chatRenderWindowDrainStartedAt = 0;
     this.chatSpacerCatchupTimer = null;
-    this.chatSpacerPrewarmTimer = null;
     this.chatRenderSequence = 0;
     this.lastChatTouchLogAt = 0;
     this.chatTouchStartY = null;
@@ -15117,7 +15116,6 @@ class ChatModal {
   resetChatRenderWindow(address = null) {
     this.cancelChatRenderWindowDrain();
     this.cancelChatSpacerCatchup();
-    this.cancelChatSpacerPrewarm();
     this.clearPendingChatScrollExpand();
     this.chatRenderedWindowAddress = address;
     this.chatRenderedOldestIndex = null;
@@ -15382,8 +15380,7 @@ class ChatModal {
     const isOpenDrain = reason === 'openDrain';
     const shouldPrependOlderMessages = (
       reason === 'scrollDistance' ||
-      reason === 'scrollIdle' ||
-      reason === 'prewarm'
+      reason === 'scrollIdle'
     ) && this.messagesContainer;
 
     const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
@@ -15639,55 +15636,6 @@ class ChatModal {
     if (!this.chatSpacerCatchupTimer) return;
     clearTimeout(this.chatSpacerCatchupTimer);
     this.chatSpacerCatchupTimer = null;
-  }
-
-  cancelChatSpacerPrewarm() {
-    if (!this.chatSpacerPrewarmTimer) return;
-    clearTimeout(this.chatSpacerPrewarmTimer);
-    this.chatSpacerPrewarmTimer = null;
-  }
-
-  scheduleChatSpacerPrewarm(address, reason = 'afterDeferred') {
-    if (!address || this.chatSpacerPrewarmTimer || this.isExpandingChatRenderWindow) return;
-    this.logChatPerf('window:prewarmScheduled', {
-      contact: this.formatChatPerfAddress(address, myData.contacts[address]),
-      reason,
-      currentOldestIndex: Number.isInteger(this.chatRenderedOldestIndex) ? this.chatRenderedOldestIndex : 'n/a',
-      topSpacerHeight: Math.round(this.getChatHistorySpacerHeight())
-    });
-    this.chatSpacerPrewarmTimer = setTimeout(() => {
-      this.chatSpacerPrewarmTimer = null;
-      if (!this.isActive() || this.address !== address || !this.messagesContainer || !this.messagesList) return;
-      const contact = myData.contacts[address];
-      const messages = contact?.messages;
-      if (!Array.isArray(messages) || messages.length === 0) return;
-      const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
-        ? this.chatRenderedOldestIndex
-        : Math.min(messages.length - 1, this.chatInitialRenderCount - 1);
-      const remainingOlder = Math.max(0, messages.length - 1 - currentOldestIndex);
-      const topSpacerHeight = this.getChatHistorySpacerHeight();
-      if (remainingOlder <= 0 || topSpacerHeight <= 0 || this.isExpandingChatRenderWindow) {
-        this.logChatPerf('window:prewarmSkipped', {
-          contact: this.formatChatPerfAddress(address, contact),
-          reason,
-          currentOldestIndex,
-          remainingOlder,
-          topSpacerHeight: Math.round(topSpacerHeight),
-          isExpanding: this.isExpandingChatRenderWindow
-        });
-        return;
-      }
-
-      this.logChatPerf('window:prewarm', {
-        contact: this.formatChatPerfAddress(address, contact),
-        reason,
-        currentOldestIndex,
-        batchSize: this.getChatOlderRenderBatchSize(),
-        remainingOlder,
-        topSpacerHeight: Math.round(topSpacerHeight)
-      });
-      this.expandChatRenderWindow('prewarm');
-    }, 80);
   }
 
   scheduleChatSpacerCatchup(reason) {
@@ -17532,7 +17480,6 @@ class ChatModal {
                     rendered: renderedMessages.length,
                     remainingOlder: Math.max(0, messages.length - 1 - renderRange.oldestIndex)
                   });
-                  this.scheduleChatSpacerPrewarm(renderedAddress, 'afterDeferred');
                 }
               },
               (error) => {
