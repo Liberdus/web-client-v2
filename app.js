@@ -13946,7 +13946,7 @@ class ChatModal {
     this.chatPerfLogFlushTimer = null;
 
     this.chatInitialRenderCount = 50;
-    this.chatOlderRenderBatchSize = 50;
+    this.chatOlderRenderBatchSize = 75;
     this.chatRenderedOldestIndex = null;
     this.chatRenderedWindowAddress = null;
     this.chatForceFullRenderOnce = false;
@@ -15278,7 +15278,7 @@ class ChatModal {
 
   getChatLoadAheadThreshold() {
     const containerHeight = this.messagesContainer?.clientHeight || 0;
-    return Math.max(700, containerHeight);
+    return Math.max(240, containerHeight * 0.35);
   }
 
   getChatOlderRenderBatchSize() {
@@ -16892,7 +16892,12 @@ class ChatModal {
                   total: this.formatChatPerfMs(deferredStart)
                 });
                 if (shouldKeepBottomAnchored && renderRange.isWindowed) {
-                  this.scheduleChatRenderWindowDrain(renderedAddress, 'afterDeferred');
+                  this.logChatPerf('window:drainSuppressed', {
+                    contact: this.formatChatPerfAddress(renderedAddress, contact),
+                    reason: 'bottomScrollCost',
+                    rendered: renderedMessages.length,
+                    remainingOlder: Math.max(0, messages.length - 1 - renderRange.oldestIndex)
+                  });
                 }
               },
               (error) => {
@@ -16904,7 +16909,12 @@ class ChatModal {
                   error: error?.message || String(error)
                 });
                 if (shouldKeepBottomAnchored && renderRange.isWindowed) {
-                  this.scheduleChatRenderWindowDrain(renderedAddress, 'afterDeferredError');
+                  this.logChatPerf('window:drainSuppressed', {
+                    contact: this.formatChatPerfAddress(renderedAddress, contact),
+                    reason: 'bottomScrollCostAfterDeferredError',
+                    rendered: renderedMessages.length,
+                    remainingOlder: Math.max(0, messages.length - 1 - renderRange.oldestIndex)
+                  });
                 }
               }
             );
@@ -16917,7 +16927,12 @@ class ChatModal {
               error: error?.message || String(error)
             });
             if (shouldKeepBottomAnchored && renderRange.isWindowed) {
-              this.scheduleChatRenderWindowDrain(renderedAddress, 'afterDeferredError');
+              this.logChatPerf('window:drainSuppressed', {
+                contact: this.formatChatPerfAddress(renderedAddress, contact),
+                reason: 'bottomScrollCostAfterDeferredError',
+                rendered: renderedMessages.length,
+                remainingOlder: Math.max(0, messages.length - 1 - renderRange.oldestIndex)
+              });
             }
           }
         });
