@@ -13969,6 +13969,10 @@ class ChatModal {
     this.chatTouchStartY = null;
     this.chatExpansionRearmDistanceFromBottom = null;
     this.chatHistorySpacerHeight = 0;
+    this.chatHistoryLoadingToastId = null;
+    this.chatTopBoundaryScrollHoldActive = false;
+    this.chatTopBoundaryScrollHoldTop = 0;
+    this.lastChatTopBoundaryBlockLogAt = 0;
   }
 
   /**
@@ -14483,9 +14487,7 @@ class ChatModal {
     this.messagesContainer.addEventListener('scroll', () => this.handleMessagesContainerScroll(), { passive: true });
     this.messagesContainer.addEventListener('scrollend', () => this.handleMessagesContainerScrollEnd('scrollend'), { passive: true });
     this.messagesContainer.addEventListener('touchstart', (e) => this.handleMessagesTouchStart(e), { passive: true });
-    this.messagesContainer.addEventListener('touchmove', (e) => {
-      if (this.chatPerfLoggingEnabled) this.logChatTouchDiagnostics(e, 'messagesMove');
-    }, { passive: true });
+    this.messagesContainer.addEventListener('touchmove', (e) => this.handleMessagesTouchMove(e), { passive: false });
     this.messagesContainer.addEventListener('touchend', (e) => this.handleMessagesTouchEnd(e), { passive: true });
     this.messagesContainer.addEventListener('touchcancel', (e) => this.handleMessagesTouchEnd(e), { passive: true });
     this.modal.addEventListener('touchmove', (e) => {
@@ -15163,6 +15165,7 @@ class ChatModal {
     this.cancelChatRenderWindowDrain();
     this.cancelChatSpacerCatchup();
     this.clearPendingChatScrollExpand();
+    this.stopChatTopBoundaryScrollHold('reset');
     this.chatRenderedWindowAddress = address;
     this.chatRenderedOldestIndex = null;
     this.chatForceFullRenderOnce = false;
@@ -15170,6 +15173,7 @@ class ChatModal {
     this.chatExpansionRearmDistanceFromBottom = null;
     this.chatHistorySpacerHeight = 0;
     this.lastChatExpandBlockedLogAt = 0;
+    this.lastChatTopBoundaryBlockLogAt = 0;
   }
 
   getChatRenderRange(messages, currentAddress, forceFullRender = false) {
@@ -15257,6 +15261,70 @@ class ChatModal {
     };
   }
 
+  showChatHistoryLoadingToast() {
+    if (this.chatHistoryLoadingToastId && document.getElementById(this.chatHistoryLoadingToastId)) {
+      return;
+    }
+    this.chatHistoryLoadingToastId = showToast('Loading messages', 0, 'loading', false, { dedupe: false });
+  }
+
+  hideChatHistoryLoadingToast() {
+    if (!this.chatHistoryLoadingToastId) return;
+    hideToast(this.chatHistoryLoadingToastId);
+    this.chatHistoryLoadingToastId = null;
+  }
+
+  startChatTopBoundaryScrollHold(scrollSnapshot, reason = 'topBoundary') {
+    const wasActive = this.chatTopBoundaryScrollHoldActive;
+    this.chatTopBoundaryScrollHoldActive = true;
+    this.chatTopBoundaryScrollHoldTop = Math.max(0, Math.round(scrollSnapshot?.topSpacerHeight || 0));
+    this.showChatHistoryLoadingToast();
+    this.clampChatTopBoundaryScrollHold();
+
+    if (!wasActive && this.chatPerfLoggingEnabled) {
+      this.logChatPerf('window:topBoundaryHold', {
+        reason,
+        scrollTop: scrollSnapshot ? scrollSnapshot.scrollTop : 'n/a',
+        distanceFromBottom: scrollSnapshot ? scrollSnapshot.distanceFromBottom : 'n/a',
+        distanceToRenderedTop: scrollSnapshot ? scrollSnapshot.distanceToRenderedTop : 'n/a',
+        holdTop: Math.round(this.chatTopBoundaryScrollHoldTop)
+      });
+    }
+  }
+
+  stopChatTopBoundaryScrollHold(reason = 'rendered') {
+    if (!this.chatTopBoundaryScrollHoldActive && !this.chatHistoryLoadingToastId) return;
+    this.chatTopBoundaryScrollHoldActive = false;
+    this.chatTopBoundaryScrollHoldTop = 0;
+    this.hideChatHistoryLoadingToast();
+
+    if (this.chatPerfLoggingEnabled) {
+      this.logChatPerf('window:topBoundaryRelease', { reason });
+    }
+  }
+
+  clampChatTopBoundaryScrollHold() {
+    if (!this.chatTopBoundaryScrollHoldActive || !this.messagesContainer) return false;
+    const holdTop = Math.max(0, Math.round(this.chatTopBoundaryScrollHoldTop || 0));
+    if (this.messagesContainer.scrollTop >= holdTop) return false;
+    this.messagesContainer.scrollTop = holdTop;
+    return true;
+  }
+
+  shouldBlockChatTopBoundaryTouchMove(event) {
+    if (!this.chatTopBoundaryScrollHoldActive || !this.messagesContainer) return false;
+    const touch = event.touches?.[0] || null;
+    const y = touch ? Math.round(touch.clientY) : null;
+    const deltaY = typeof y === 'number' && typeof this.chatTouchStartY === 'number'
+      ? y - this.chatTouchStartY
+      : 0;
+    if (deltaY <= 0) return false;
+
+    const snapshot = this.getChatScrollSnapshot();
+    const renderedBoundaryThreshold = this.getChatRenderedBoundaryThreshold(snapshot);
+    return !snapshot || snapshot.distanceToRenderedTop <= renderedBoundaryThreshold;
+  }
+
   describeChatTouchTarget(target) {
     if (!target || typeof target.closest !== 'function') return 'unknown';
     if (target.closest('.message-input-container')) return 'composer';
@@ -15321,6 +15389,34 @@ class ChatModal {
     this.isChatTouchActive = true;
     if (this.chatPerfLoggingEnabled) {
       this.logChatTouchDiagnostics(event, 'messagesStart');
+    }
+  }
+
+  handleMessagesTouchMove(event) {
+    if (this.chatPerfLoggingEnabled) {
+      this.logChatTouchDiagnostics(event, 'messagesMove');
+    }
+
+    if (!this.shouldBlockChatTopBoundaryTouchMove(event)) return;
+
+    const clamped = this.clampChatTopBoundaryScrollHold();
+    if (event.cancelable) {
+      event.preventDefault();
+    }
+    event.stopPropagation();
+
+    const now = this.chatPerfLoggingEnabled ? this.getChatPerfTime() : 0;
+    if (this.chatPerfLoggingEnabled && now - this.lastChatTopBoundaryBlockLogAt > 350) {
+      this.lastChatTopBoundaryBlockLogAt = now;
+      const snapshot = this.getChatScrollSnapshot();
+      this.logChatPerf('window:topBoundaryScrollBlocked', {
+        scrollTop: snapshot ? snapshot.scrollTop : 'n/a',
+        distanceFromBottom: snapshot ? snapshot.distanceFromBottom : 'n/a',
+        distanceToRenderedTop: snapshot ? snapshot.distanceToRenderedTop : 'n/a',
+        holdTop: Math.round(this.chatTopBoundaryScrollHoldTop || 0),
+        clamped,
+        cancelable: event.cancelable
+      });
     }
   }
 
@@ -15411,10 +15507,14 @@ class ChatModal {
         });
       }
       this.clearPendingChatScrollExpand();
+      this.stopChatTopBoundaryScrollHold('expandAborted');
       return;
     }
 
     const queuedReason = this.chatPendingScrollExpandReason || 'scrollDistance';
+    if (isAtRenderedBoundary) {
+      this.startChatTopBoundaryScrollHold(scrollSnapshot, 'expandFlush');
+    }
     this.clearPendingChatScrollExpand();
     if (this.chatPerfLoggingEnabled) {
       this.logChatPerf('window:expandFlushed', {
@@ -15427,14 +15527,23 @@ class ChatModal {
         rearmDistance: Number.isFinite(rearmDistance) ? Math.round(rearmDistance) : 'n/a'
       });
     }
-    this.expandChatRenderWindow('scrollIdle');
+    const expanded = this.expandChatRenderWindow('scrollIdle');
+    if (!expanded) {
+      this.stopChatTopBoundaryScrollHold('expandSkipped');
+    }
   }
 
   expandChatRenderWindow(reason = 'scroll') {
-    if (this.isExpandingChatRenderWindow || !this.address || !this.messagesList) return false;
+    if (this.isExpandingChatRenderWindow || !this.address || !this.messagesList) {
+      this.stopChatTopBoundaryScrollHold('expandUnavailable');
+      return false;
+    }
     const contact = myData.contacts[this.address];
     const messages = contact?.messages;
-    if (!Array.isArray(messages) || messages.length === 0) return false;
+    if (!Array.isArray(messages) || messages.length === 0) {
+      this.stopChatTopBoundaryScrollHold('expandNoMessages');
+      return false;
+    }
     const isOpenDrain = reason === 'openDrain';
     const shouldPrependOlderMessages = (
       reason === 'scrollDistance' ||
@@ -15444,7 +15553,10 @@ class ChatModal {
     const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
       ? this.chatRenderedOldestIndex
       : Math.min(messages.length - 1, this.chatInitialRenderCount - 1);
-    if (currentOldestIndex >= messages.length - 1) return false;
+    if (currentOldestIndex >= messages.length - 1) {
+      this.stopChatTopBoundaryScrollHold('expandComplete');
+      return false;
+    }
 
     const renderBatchSize = isOpenDrain
       ? this.chatOlderRenderBatchSize
@@ -15643,6 +15755,7 @@ class ChatModal {
           });
         }
       }
+      this.stopChatTopBoundaryScrollHold('rendered');
       return true;
     }
 
@@ -15733,6 +15846,9 @@ class ChatModal {
       if (scrollSnapshot.topSpacerHeight > 0) {
         this.expandChatRenderWindow('scrollDistance');
       } else {
+        if (isAtRenderedBoundary) {
+          this.startChatTopBoundaryScrollHold(scrollSnapshot, 'scrollBoundary');
+        }
         this.queueChatScrollExpand('scrollDistance', scrollSnapshot);
       }
     } else if (
