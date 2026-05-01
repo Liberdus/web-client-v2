@@ -13947,23 +13947,14 @@ class ChatModal {
     this.chatOlderRenderBatchSize = 50;
     this.chatRenderedOldestIndex = null;
     this.chatRenderedWindowAddress = null;
-    this.chatForceFullRenderOnce = false;
     this.isExpandingChatRenderWindow = false;
     this.isChatTouchActive = false;
     this.chatPendingScrollExpand = false;
-    this.chatPendingScrollExpandReason = null;
     this.chatScrollEndFallbackTimer = null;
-    this.chatRenderWindowDrainTimer = null;
-    this.chatRenderWindowDrainFrame = null;
-    this.chatRenderWindowDrainAddress = null;
-    this.chatSpacerCatchupTimer = null;
     this.chatRenderSequence = 0;
     this.chatTouchStartY = null;
     this.chatExpansionRearmDistanceFromBottom = null;
-    this.chatHistorySpacerHeight = 0;
     this.chatHistoryLoadingToastId = null;
-    this.chatTopBoundaryScrollHoldActive = false;
-    this.chatTopBoundaryScrollHoldTop = 0;
   }
 
   /**
@@ -14473,11 +14464,11 @@ class ChatModal {
     });
     // Close all context menus when messages container scrolls
     this.messagesContainer.addEventListener('scroll', () => this.handleMessagesContainerScroll(), { passive: true });
-    this.messagesContainer.addEventListener('scrollend', () => this.handleMessagesContainerScrollEnd('scrollend'), { passive: true });
+    this.messagesContainer.addEventListener('scrollend', () => this.handleMessagesContainerScrollEnd(), { passive: true });
     this.messagesContainer.addEventListener('touchstart', (e) => this.handleMessagesTouchStart(e), { passive: true });
     this.messagesContainer.addEventListener('touchmove', (e) => this.handleMessagesTouchMove(e), { passive: false });
-    this.messagesContainer.addEventListener('touchend', (e) => this.handleMessagesTouchEnd(e), { passive: true });
-    this.messagesContainer.addEventListener('touchcancel', (e) => this.handleMessagesTouchEnd(e), { passive: true });
+    this.messagesContainer.addEventListener('touchend', () => this.handleMessagesTouchEnd(), { passive: true });
+    this.messagesContainer.addEventListener('touchcancel', () => this.handleMessagesTouchEnd(), { passive: true });
     // Add context menu option listeners
     this.contextMenu.addEventListener('click', (e) => {
       const reactionButton = e.target.closest('.message-context-reaction-button');
@@ -14911,131 +14902,27 @@ class ChatModal {
     return !!(editInput?.value?.trim?.());
   }
 
-  isMessagesContainerNearBottom(thresholdPx = 50) {
-    const container = this.messagesContainer || this.messagesList?.parentElement;
-    if (!container) return false;
-    return container.scrollHeight - container.scrollTop - container.clientHeight <= thresholdPx;
-  }
-
-  scrollMessagesToBottom({ readMetrics = true } = {}) {
-    const container = this.messagesContainer || this.messagesList?.parentElement;
-    if (!container) return null;
-    container.scrollTop = 1000000000;
-    if (!readMetrics) return null;
-    return {
-      scrollTop: Math.round(container.scrollTop),
-      scrollHeight: Math.round(container.scrollHeight),
-      clientHeight: Math.round(container.clientHeight)
-    };
-  }
-
-  getChatHistorySpacerElement() {
-    const firstChild = this.messagesList?.firstElementChild;
-    return firstChild?.classList?.contains('chat-history-spacer') ? firstChild : null;
-  }
-
-  getChatHistorySpacerHeight() {
-    const spacer = this.getChatHistorySpacerElement();
-    if (spacer) {
-      const styleHeight = Number.parseFloat(spacer.style.height);
-      if (Number.isFinite(styleHeight)) {
-        return Math.max(0, styleHeight);
-      }
-    }
-    return Number.isFinite(this.chatHistorySpacerHeight)
-      ? Math.max(0, this.chatHistorySpacerHeight)
-      : 0;
-  }
-
-  setChatHistorySpacerHeight(height) {
-    const nextHeight = Math.max(0, Math.round(height || 0));
-    this.chatHistorySpacerHeight = nextHeight;
-    const spacer = this.getChatHistorySpacerElement();
-    if (!spacer) return;
-    if (nextHeight <= 0) {
-      spacer.remove();
-      return;
-    }
-    spacer.style.height = `${nextHeight}px`;
-    spacer.dataset.estimatedHeight = String(nextHeight);
-  }
-
-  estimateChatMessageHeight(item) {
-    if (!item) return 104;
-
-    let height = 92;
-    if (item.replyId) height += 56;
-
-    if (typeof item.amount === 'bigint') {
-      if (typeof item.message === 'string' && item.message.trim()) height += 28;
-      return Math.min(260, height);
-    }
-
-    if (isDeleted(item)) {
-      return Math.min(180, height + 20);
-    }
-
-    const attachments = Array.isArray(item.xattach) ? item.xattach : [];
-    attachments.forEach((attachment) => {
-      const type = attachment?.type || '';
-      height += type.startsWith('image/') || type.startsWith('video/') ? 148 : 132;
-    });
-
-    if (item.type === 'vm') {
-      height += 104;
-    } else if (item.type === 'call') {
-      height += 72;
-    } else if (typeof item.message === 'string' && item.message.trim()) {
-      const textLength = item.message.length;
-      const estimatedLines = Math.max(1, Math.ceil(textLength / 28));
-      height += Math.min(220, estimatedLines * 22);
-    }
-
-    return Math.min(520, Math.max(104, height));
-  }
-
-  estimateChatMessagesHeight(messages, oldestIndex, newestIndex) {
-    if (!Array.isArray(messages) || messages.length === 0) return 0;
-    const clampedOldestIndex = Math.min(messages.length - 1, oldestIndex);
-    const clampedNewestIndex = Math.max(0, newestIndex);
-    if (clampedOldestIndex < clampedNewestIndex) return 0;
-
-    let estimatedHeight = 0;
-    for (let i = clampedOldestIndex; i >= clampedNewestIndex; i--) {
-      estimatedHeight += this.estimateChatMessageHeight(messages[i]);
-    }
-    return Math.round(estimatedHeight);
-  }
-
-  resetChatRenderWindow(address = null) {
-    this.cancelChatRenderWindowDrain();
-    this.cancelChatSpacerCatchup();
+  resetChatRenderWindow(address) {
     this.clearPendingChatScrollExpand();
-    this.stopChatTopBoundaryScrollHold('reset');
+    this.stopChatTopBoundaryScrollHold();
     this.chatRenderedWindowAddress = address;
     this.chatRenderedOldestIndex = null;
-    this.chatForceFullRenderOnce = false;
     this.isExpandingChatRenderWindow = false;
     this.chatExpansionRearmDistanceFromBottom = null;
-    this.chatHistorySpacerHeight = 0;
   }
 
-  getChatRenderRange(messages, currentAddress, forceFullRender = false) {
-    const totalMessages = Array.isArray(messages) ? messages.length : 0;
+  getChatRenderRange(messages, currentAddress, renderAll) {
+    assert(Array.isArray(messages), 'Chat messages are required');
+    const totalMessages = messages.length;
     if (totalMessages === 0) {
-      return { newestIndex: 0, oldestIndex: -1, totalMessages, isWindowed: false };
+      return { newestIndex: 0, oldestIndex: -1 };
     }
 
-    if (
-      forceFullRender ||
-      this.chatForceFullRenderOnce ||
-      this.chatRenderedWindowAddress !== currentAddress
-    ) {
+    if (renderAll || this.chatRenderedWindowAddress !== currentAddress) {
       this.chatRenderedWindowAddress = currentAddress;
-      this.chatRenderedOldestIndex = forceFullRender || this.chatForceFullRenderOnce
+      this.chatRenderedOldestIndex = renderAll
         ? totalMessages - 1
         : Math.min(totalMessages - 1, this.chatInitialRenderCount - 1);
-      this.chatForceFullRenderOnce = false;
     }
 
     if (!Number.isInteger(this.chatRenderedOldestIndex)) {
@@ -15046,69 +14933,25 @@ class ChatModal {
 
     return {
       newestIndex: 0,
-      oldestIndex: this.chatRenderedOldestIndex,
-      totalMessages,
-      isWindowed: this.chatRenderedOldestIndex < totalMessages - 1
+      oldestIndex: this.chatRenderedOldestIndex
     };
   }
 
-  getFirstVisibleMessageAnchor() {
-    const container = this.messagesContainer;
-    if (!container || !this.messagesList) return null;
-
-    const containerTop = container.getBoundingClientRect().top;
-    const messageEls = [...this.messagesList.querySelectorAll('.message')];
-    for (const messageEl of messageEls) {
-      const rect = messageEl.getBoundingClientRect();
-      if (rect.bottom >= containerTop) {
-        const txid = messageEl.dataset.txid;
-        const timestamp = messageEl.dataset.messageTimestamp;
-        const selector = txid
-          ? `.message[data-txid="${CSS.escape(txid)}"]`
-          : timestamp
-            ? `.message[data-message-timestamp="${CSS.escape(timestamp)}"]`
-            : null;
-        return {
-          selector,
-          offsetTop: rect.top - containerTop
-        };
-      }
-    }
-
-    return null;
-  }
-
-  restoreVisibleMessageAnchor(anchor) {
-    if (!anchor?.selector || !this.messagesContainer || !this.messagesList) return;
-    const anchorElement = this.messagesList.querySelector(anchor.selector);
-    if (!anchorElement) return;
-    const containerTop = this.messagesContainer.getBoundingClientRect().top;
-    const nextTop = anchorElement.getBoundingClientRect().top - containerTop;
-    this.messagesContainer.scrollTop += nextTop - anchor.offsetTop;
-  }
-
   getChatScrollSnapshot() {
-    const container = this.messagesContainer || this.messagesList?.parentElement;
-    if (!container) return null;
-    const topSpacerHeight = this.getChatHistorySpacerHeight();
-    const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+    const container = this.messagesContainer;
+    assert(container, 'Messages container is required');
+    const maxScrollTop = container.scrollHeight - container.clientHeight;
     const scrollTop = Math.round(container.scrollTop);
     return {
       scrollTop,
-      maxScrollTop: Math.round(maxScrollTop),
       distanceFromBottom: Math.round(Math.max(0, maxScrollTop - container.scrollTop)),
-      scrollHeight: Math.round(container.scrollHeight),
       clientHeight: Math.round(container.clientHeight),
-      messageListHeight: this.messagesList ? Math.round(this.messagesList.scrollHeight) : 'n/a',
-      topSpacerHeight: Math.round(topSpacerHeight),
-      distanceToRenderedTop: Math.round(Math.max(0, scrollTop - topSpacerHeight))
+      distanceToRenderedTop: Math.max(0, scrollTop)
     };
   }
 
   showChatHistoryLoadingToast() {
-    if (this.chatHistoryLoadingToastId && document.getElementById(this.chatHistoryLoadingToastId)) {
-      return;
-    }
+    if (this.chatHistoryLoadingToastId) return;
     this.chatHistoryLoadingToastId = showToast('Loading messages', 0, 'loading', false, { dedupe: false });
   }
 
@@ -15118,30 +14961,25 @@ class ChatModal {
     this.chatHistoryLoadingToastId = null;
   }
 
-  startChatTopBoundaryScrollHold(scrollSnapshot) {
-    this.chatTopBoundaryScrollHoldActive = true;
-    this.chatTopBoundaryScrollHoldTop = Math.max(0, Math.round(scrollSnapshot?.topSpacerHeight || 0));
+  startChatTopBoundaryScrollHold() {
     this.showChatHistoryLoadingToast();
     this.clampChatTopBoundaryScrollHold();
   }
 
-  stopChatTopBoundaryScrollHold(reason = 'rendered') {
-    if (!this.chatTopBoundaryScrollHoldActive && !this.chatHistoryLoadingToastId) return;
-    this.chatTopBoundaryScrollHoldActive = false;
-    this.chatTopBoundaryScrollHoldTop = 0;
+  stopChatTopBoundaryScrollHold() {
+    if (!this.chatHistoryLoadingToastId) return;
     this.hideChatHistoryLoadingToast();
   }
 
   clampChatTopBoundaryScrollHold() {
-    if (!this.chatTopBoundaryScrollHoldActive || !this.messagesContainer) return false;
-    const holdTop = Math.max(0, Math.round(this.chatTopBoundaryScrollHoldTop || 0));
-    if (this.messagesContainer.scrollTop >= holdTop) return false;
-    this.messagesContainer.scrollTop = holdTop;
+    if (!this.chatHistoryLoadingToastId || !this.messagesContainer) return false;
+    if (this.messagesContainer.scrollTop >= 0) return false;
+    this.messagesContainer.scrollTop = 0;
     return true;
   }
 
   shouldBlockChatTopBoundaryTouchMove(event) {
-    if (!this.chatTopBoundaryScrollHoldActive || !this.messagesContainer) return false;
+    if (!this.chatHistoryLoadingToastId || !this.messagesContainer) return false;
     const touch = event.touches?.[0] || null;
     const y = touch ? Math.round(touch.clientY) : null;
     const deltaY = typeof y === 'number' && typeof this.chatTouchStartY === 'number'
@@ -15150,8 +14988,7 @@ class ChatModal {
     if (deltaY <= 0) return false;
 
     const snapshot = this.getChatScrollSnapshot();
-    const renderedBoundaryThreshold = this.getChatRenderedBoundaryThreshold(snapshot);
-    return !snapshot || snapshot.distanceToRenderedTop <= renderedBoundaryThreshold;
+    return snapshot.distanceToRenderedTop <= this.getChatRenderedBoundaryThreshold(snapshot);
   }
 
   handleMessagesTouchStart(event) {
@@ -15170,45 +15007,43 @@ class ChatModal {
     event.stopPropagation();
   }
 
-  handleMessagesTouchEnd(event) {
+  handleMessagesTouchEnd() {
     this.isChatTouchActive = false;
-    this.schedulePendingChatScrollExpand('touchEnd');
+    this.schedulePendingChatScrollExpand();
   }
 
   clearPendingChatScrollExpand() {
     this.chatPendingScrollExpand = false;
-    this.chatPendingScrollExpandReason = null;
     if (this.chatScrollEndFallbackTimer) {
       clearTimeout(this.chatScrollEndFallbackTimer);
       this.chatScrollEndFallbackTimer = null;
     }
   }
 
-  queueChatScrollExpand(reason, scrollSnapshot) {
+  queueChatScrollExpand() {
     this.chatPendingScrollExpand = true;
-    this.chatPendingScrollExpandReason = reason;
-    this.schedulePendingChatScrollExpand('scrollIdleFallback');
+    this.schedulePendingChatScrollExpand();
   }
 
-  schedulePendingChatScrollExpand(trigger) {
+  schedulePendingChatScrollExpand() {
     if (!this.chatPendingScrollExpand) return;
     if (this.chatScrollEndFallbackTimer) {
       clearTimeout(this.chatScrollEndFallbackTimer);
     }
     this.chatScrollEndFallbackTimer = setTimeout(() => {
       this.chatScrollEndFallbackTimer = null;
-      this.flushPendingChatScrollExpand(trigger);
+      this.flushPendingChatScrollExpand();
     }, 220);
   }
 
-  handleMessagesContainerScrollEnd(trigger = 'scrollend') {
-    this.flushPendingChatScrollExpand(trigger);
+  handleMessagesContainerScrollEnd() {
+    this.flushPendingChatScrollExpand();
   }
 
-  flushPendingChatScrollExpand(trigger) {
+  flushPendingChatScrollExpand() {
     if (!this.chatPendingScrollExpand || this.isExpandingChatRenderWindow || !this.isActive()) return;
-    if (this.isChatTouchActive && trigger !== 'scrollend') {
-      this.schedulePendingChatScrollExpand('touchStillActive');
+    if (this.isChatTouchActive) {
+      this.schedulePendingChatScrollExpand();
       return;
     }
 
@@ -15216,161 +15051,72 @@ class ChatModal {
     const loadAheadThreshold = this.getChatLoadAheadThreshold();
     const rearmDistance = this.chatExpansionRearmDistanceFromBottom;
     const renderedBoundaryThreshold = this.getChatRenderedBoundaryThreshold(scrollSnapshot);
-    const isAtRenderedBoundary = !!scrollSnapshot &&
-      scrollSnapshot.distanceToRenderedTop <= renderedBoundaryThreshold;
+    const isAtRenderedBoundary = scrollSnapshot.distanceToRenderedTop <= renderedBoundaryThreshold;
     const isExpansionRearmed = !Number.isFinite(rearmDistance) ||
-      (scrollSnapshot && scrollSnapshot.distanceFromBottom >= rearmDistance);
+      scrollSnapshot.distanceFromBottom >= rearmDistance;
 
     if (
-      !scrollSnapshot ||
       scrollSnapshot.distanceFromBottom < loadAheadThreshold ||
       (!isExpansionRearmed && !isAtRenderedBoundary)
     ) {
       this.clearPendingChatScrollExpand();
-      this.stopChatTopBoundaryScrollHold('expandAborted');
+      this.stopChatTopBoundaryScrollHold();
       return;
     }
 
     if (isAtRenderedBoundary) {
-      this.startChatTopBoundaryScrollHold(scrollSnapshot, 'expandFlush');
+      this.startChatTopBoundaryScrollHold();
     }
     this.clearPendingChatScrollExpand();
-    const expanded = this.expandChatRenderWindow('scrollIdle');
+    const expanded = this.expandChatRenderWindow();
     if (!expanded) {
-      this.stopChatTopBoundaryScrollHold('expandSkipped');
+      this.stopChatTopBoundaryScrollHold();
     }
   }
 
-  expandChatRenderWindow(reason = 'scroll') {
-    if (this.isExpandingChatRenderWindow || !this.address || !this.messagesList) {
-      this.stopChatTopBoundaryScrollHold('expandUnavailable');
-      return false;
-    }
+  expandChatRenderWindow() {
+    if (this.isExpandingChatRenderWindow || !this.address || !this.messagesContainer || !this.messagesList) return false;
+
     const contact = myData.contacts[this.address];
     const messages = contact?.messages;
-    if (!Array.isArray(messages) || messages.length === 0) {
-      this.stopChatTopBoundaryScrollHold('expandNoMessages');
-      return false;
-    }
-    const isOpenDrain = reason === 'openDrain';
-    const shouldPrependOlderMessages = (
-      reason === 'scrollDistance' ||
-      reason === 'scrollIdle'
-    ) && this.messagesContainer;
+    assert(Array.isArray(messages), `Missing messages for chat: ${this.address}`);
 
     const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
       ? this.chatRenderedOldestIndex
       : Math.min(messages.length - 1, this.chatInitialRenderCount - 1);
     if (currentOldestIndex >= messages.length - 1) {
-      this.stopChatTopBoundaryScrollHold('expandComplete');
+      this.stopChatTopBoundaryScrollHold();
       return false;
     }
 
-    const renderBatchSize = isOpenDrain
-      ? this.chatOlderRenderBatchSize
-      : this.getChatOlderRenderBatchSize();
     const nextOldestIndex = Math.min(
       messages.length - 1,
-      currentOldestIndex + renderBatchSize
+      currentOldestIndex + this.getChatOlderRenderBatchSize()
     );
-    const anchor = isOpenDrain || shouldPrependOlderMessages ? null : this.getFirstVisibleMessageAnchor();
-    const beforeSnapshot = isOpenDrain
-      ? {
-          scrollTop: this.messagesContainer ? Math.round(this.messagesContainer.scrollTop) : 'n/a',
-          maxScrollTop: 'skipped',
-          distanceFromBottom: 'skipped'
-        }
-      : this.getChatScrollSnapshot();
+
+    const beforeSnapshot = this.getChatScrollSnapshot();
+    const oldScrollTop = beforeSnapshot.scrollTop;
+    const oldScrollHeight = this.messagesContainer.scrollHeight;
+    const range = this.buildChatMessageRangeHTML(
+      messages,
+      contact,
+      nextOldestIndex,
+      currentOldestIndex + 1
+    );
+
     this.isExpandingChatRenderWindow = true;
     this.chatRenderedOldestIndex = nextOldestIndex;
+    this.messagesList.insertAdjacentHTML('afterbegin', range.html);
 
-    if (shouldPrependOlderMessages) {
-      const cachedClientHeight = Number.isFinite(beforeSnapshot?.clientHeight)
-        ? beforeSnapshot.clientHeight
-        : (this.messagesContainer?.clientHeight || 0);
-      const cachedLoadAheadThreshold = Math.max(1200, cachedClientHeight * 3);
-      const snapshotScrollTop = Number.isFinite(beforeSnapshot?.scrollTop)
-        ? beforeSnapshot.scrollTop
-        : null;
-      const oldScrollTop = snapshotScrollTop ?? this.messagesContainer.scrollTop;
-      const spacer = this.getChatHistorySpacerElement();
-      const oldSpacerHeight = this.getChatHistorySpacerHeight();
-      const useEstimatedSpacerPreserve = !!spacer && oldSpacerHeight > 0;
-      const oldScrollHeight = useEstimatedSpacerPreserve ? null : this.messagesContainer.scrollHeight;
-      const estimatedInsertedHeight = this.estimateChatMessagesHeight(
-        messages,
-        nextOldestIndex,
-        currentOldestIndex + 1
-      );
-      const range = this.buildChatMessageRangeHTML(
-        messages,
-        contact,
-        nextOldestIndex,
-        currentOldestIndex + 1
-      );
-      if (useEstimatedSpacerPreserve) {
-        spacer.insertAdjacentHTML('afterend', range.html);
-      } else {
-        this.messagesList.insertAdjacentHTML('afterbegin', range.html);
-      }
-      if (range.renderedTxids.length > 0) {
-        this.syncRenderedReactionTargets(range.renderedTxids);
-      }
-      let scrollDelta = estimatedInsertedHeight;
-      let nextSpacerHeight = oldSpacerHeight;
-      if (useEstimatedSpacerPreserve) {
-        nextSpacerHeight = Math.max(0, oldSpacerHeight - estimatedInsertedHeight);
-        this.setChatHistorySpacerHeight(nextSpacerHeight);
-      } else {
-        const newScrollHeight = this.messagesContainer.scrollHeight;
-        scrollDelta = newScrollHeight - oldScrollHeight;
-        this.messagesContainer.scrollTop = oldScrollTop + scrollDelta;
-      }
-      this.chatRenderedOldestIndex = nextOldestIndex;
-      this.isExpandingChatRenderWindow = false;
-
-      const expectedScrollTop = useEstimatedSpacerPreserve
-        ? oldScrollTop
-        : oldScrollTop + scrollDelta;
-      const afterDistanceToRenderedTop = Math.max(0, expectedScrollTop - nextSpacerHeight);
-      const afterSnapshotEstimate = beforeSnapshot && useEstimatedSpacerPreserve
-        ? {
-            ...beforeSnapshot,
-            topSpacerHeight: Math.round(nextSpacerHeight),
-            distanceToRenderedTop: Math.round(afterDistanceToRenderedTop)
-          }
-        : null;
-      const rearmDistance = (beforeSnapshot?.distanceFromBottom || 0) + Math.max(
-        cachedClientHeight,
-        cachedLoadAheadThreshold
-      );
-      this.chatExpansionRearmDistanceFromBottom = rearmDistance;
-      if (useEstimatedSpacerPreserve && nextOldestIndex < messages.length - 1) {
-        const renderedTopThreshold = this.getChatRenderedTopLoadAheadThreshold(afterSnapshotEstimate);
-        const renderedBoundaryThreshold = this.getChatRenderedBoundaryThreshold(afterSnapshotEstimate);
-        const shouldCatchUp = afterDistanceToRenderedTop <= renderedTopThreshold &&
-          (
-            beforeSnapshot?.distanceFromBottom >= rearmDistance ||
-            afterDistanceToRenderedTop <= renderedBoundaryThreshold
-        );
-        if (shouldCatchUp) {
-          this.scheduleChatSpacerCatchup('afterPrepend');
-        }
-      }
-      this.stopChatTopBoundaryScrollHold('rendered');
-      return true;
+    if (range.renderedTxids.length > 0) {
+      this.syncRenderedReactionTargets(range.renderedTxids);
     }
 
-    this.chatRenderedOldestIndex = nextOldestIndex;
-    this.appendChatModal(false, true, { skipDeferredWork: isOpenDrain });
-    if (isOpenDrain) {
-      this.scrollMessagesToBottom({ readMetrics: false });
-      this.isExpandingChatRenderWindow = false;
-      return true;
-    }
-
-    this.restoreVisibleMessageAnchor(anchor);
+    const insertedHeight = this.messagesContainer.scrollHeight - oldScrollHeight;
+    this.messagesContainer.scrollTop = oldScrollTop + insertedHeight;
+    this.chatExpansionRearmDistanceFromBottom = beforeSnapshot.distanceFromBottom + this.getChatLoadAheadThreshold();
     this.isExpandingChatRenderWindow = false;
+    this.stopChatTopBoundaryScrollHold();
     return true;
   }
 
@@ -15378,15 +15124,12 @@ class ChatModal {
     this.closeAllContextMenus();
     if (!this.messagesContainer || !this.isActive()) return;
     const scrollSnapshot = this.getChatScrollSnapshot();
-    if (!scrollSnapshot) return;
     const contact = this.address ? myData.contacts[this.address] : null;
     const totalMessages = Array.isArray(contact?.messages) ? contact.messages.length : 0;
     const renderedOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
       ? this.chatRenderedOldestIndex
-      : 'n/a';
-    const remainingOlder = Number.isInteger(renderedOldestIndex)
-      ? Math.max(0, totalMessages - 1 - renderedOldestIndex)
-      : 0;
+      : this.chatInitialRenderCount - 1;
+    const remainingOlder = Math.max(0, totalMessages - 1 - renderedOldestIndex);
     const loadAheadThreshold = this.getChatLoadAheadThreshold();
     const renderedTopThreshold = this.getChatRenderedTopLoadAheadThreshold(scrollSnapshot);
     if (
@@ -15404,52 +15147,27 @@ class ChatModal {
       scrollSnapshot.distanceToRenderedTop <= renderedBoundaryThreshold;
     const canExpandOlderWindow = isExpansionRearmed || isAtRenderedBoundary;
     if (isNearRenderedTop && canExpandOlderWindow) {
-      if (scrollSnapshot.topSpacerHeight > 0) {
-        this.expandChatRenderWindow('scrollDistance');
-      } else {
-        if (isAtRenderedBoundary) {
-          this.startChatTopBoundaryScrollHold(scrollSnapshot, 'scrollBoundary');
-        }
-        this.queueChatScrollExpand('scrollDistance', scrollSnapshot);
+      if (isAtRenderedBoundary) {
+        this.startChatTopBoundaryScrollHold();
       }
+      this.queueChatScrollExpand();
     }
   }
 
   getChatLoadAheadThreshold() {
-    const containerHeight = this.messagesContainer?.clientHeight || 0;
-    return Math.max(1200, containerHeight * 3);
+    assert(this.messagesContainer, 'Messages container is required');
+    return Math.max(1200, this.messagesContainer.clientHeight * 3);
   }
 
-  getChatRenderedTopLoadAheadThreshold(scrollSnapshot = null) {
-    const snapshot = scrollSnapshot || this.getChatScrollSnapshot();
-    const baseThreshold = Number.isFinite(snapshot?.clientHeight)
-      ? Math.max(1200, snapshot.clientHeight * 3)
-      : this.getChatLoadAheadThreshold();
-    if (
-      !snapshot ||
-      !Number.isFinite(snapshot.maxScrollTop) ||
-      !Number.isFinite(snapshot.topSpacerHeight)
-    ) {
-      return baseThreshold;
-    }
-
-    if (snapshot.topSpacerHeight <= 0) {
-      return Math.max(420, Math.min(900, (snapshot.clientHeight || 0) * 1.25));
-    }
-
-    const renderedRunway = Math.max(0, snapshot.maxScrollTop - snapshot.topSpacerHeight);
-    return Math.max(baseThreshold, renderedRunway * 0.5);
+  getChatRenderedTopLoadAheadThreshold(scrollSnapshot) {
+    return Math.max(420, Math.min(900, scrollSnapshot.clientHeight * 1.25));
   }
 
-  getChatRenderedBoundaryThreshold(scrollSnapshot = null) {
-    const snapshot = scrollSnapshot || this.getChatScrollSnapshot();
-    const containerHeight = snapshot?.clientHeight || this.messagesContainer?.clientHeight || 0;
-    return Math.max(32, Math.min(180, containerHeight * 0.2));
+  getChatRenderedBoundaryThreshold(scrollSnapshot) {
+    return Math.max(32, Math.min(180, scrollSnapshot.clientHeight * 0.2));
   }
 
   getChatOlderRenderBatchSize() {
-    const container = this.messagesContainer;
-    if (!container) return this.chatOlderRenderBatchSize;
     const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
       ? this.chatRenderedOldestIndex
       : this.chatInitialRenderCount - 1;
@@ -15457,119 +15175,6 @@ class ChatModal {
       return this.chatFirstOlderRenderBatchSize;
     }
     return this.chatOlderRenderBatchSize;
-  }
-
-  cancelChatSpacerCatchup() {
-    if (!this.chatSpacerCatchupTimer) return;
-    clearTimeout(this.chatSpacerCatchupTimer);
-    this.chatSpacerCatchupTimer = null;
-  }
-
-  scheduleChatSpacerCatchup(reason) {
-    if (this.chatSpacerCatchupTimer || this.isExpandingChatRenderWindow) return;
-    this.chatSpacerCatchupTimer = setTimeout(() => {
-      this.chatSpacerCatchupTimer = null;
-      if (!this.isActive() || !this.messagesContainer || !this.messagesList || !this.address) return;
-      const contact = myData.contacts[this.address];
-      const messages = contact?.messages;
-      if (!Array.isArray(messages) || messages.length === 0) return;
-      const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
-        ? this.chatRenderedOldestIndex
-        : Math.min(messages.length - 1, this.chatInitialRenderCount - 1);
-      if (currentOldestIndex >= messages.length - 1) return;
-
-      const topSpacerHeight = this.getChatHistorySpacerHeight();
-      const distanceToRenderedTop = Math.max(0, this.messagesContainer.scrollTop - topSpacerHeight);
-      const loadAheadThreshold = this.getChatRenderedTopLoadAheadThreshold();
-      if (topSpacerHeight <= 0 || distanceToRenderedTop > loadAheadThreshold) return;
-
-      this.expandChatRenderWindow('scrollDistance');
-    }, 16);
-  }
-
-  cancelChatRenderWindowDrain() {
-    if (this.chatRenderWindowDrainTimer) {
-      clearTimeout(this.chatRenderWindowDrainTimer);
-      this.chatRenderWindowDrainTimer = null;
-    }
-    if (this.chatRenderWindowDrainFrame) {
-      if (typeof cancelAnimationFrame === 'function') {
-        cancelAnimationFrame(this.chatRenderWindowDrainFrame);
-      }
-      this.chatRenderWindowDrainFrame = null;
-    }
-    this.chatRenderWindowDrainAddress = null;
-  }
-
-  scheduleChatRenderWindowDrain(address) {
-    if (!address || this.chatRenderWindowDrainAddress === address) return;
-    const contact = myData.contacts[address];
-    const messages = contact?.messages;
-    if (!Array.isArray(messages) || messages.length === 0) return;
-
-    const getCurrentOldestIndex = () => Number.isInteger(this.chatRenderedOldestIndex)
-      ? this.chatRenderedOldestIndex
-      : Math.min(messages.length - 1, this.chatInitialRenderCount - 1);
-
-    if (getCurrentOldestIndex() >= messages.length - 1) return;
-
-    this.chatRenderWindowDrainAddress = address;
-
-    const scheduleAfterPaint = typeof requestAnimationFrame === 'function'
-      ? requestAnimationFrame
-      : (callback) => setTimeout(callback, 0);
-
-    const scheduleDrainFrame = (callback) => {
-      if (typeof requestAnimationFrame === 'function') {
-        this.chatRenderWindowDrainFrame = requestAnimationFrame(() => {
-          this.chatRenderWindowDrainFrame = null;
-          callback();
-        });
-      } else {
-        this.chatRenderWindowDrainTimer = setTimeout(() => {
-          this.chatRenderWindowDrainTimer = null;
-          callback();
-        }, 0);
-      }
-    };
-
-    const scheduleNextDrainStep = () => {
-      if (this.chatRenderWindowDrainFrame || this.chatRenderWindowDrainTimer) return;
-      scheduleDrainFrame(() => {
-        scheduleAfterPaint(() => {
-          if (!this.isActive() || this.address !== address) {
-            this.cancelChatRenderWindowDrain();
-            return;
-          }
-
-          if (this.isExpandingChatRenderWindow) {
-            scheduleNextDrainStep();
-            return;
-          }
-
-          const currentOldestIndex = getCurrentOldestIndex();
-          if (currentOldestIndex >= messages.length - 1) {
-            this.cancelChatRenderWindowDrain();
-            return;
-          }
-
-          this.expandChatRenderWindow('openDrain');
-          const nextOldestIndex = getCurrentOldestIndex();
-
-          if (nextOldestIndex < messages.length - 1) {
-            scheduleNextDrainStep();
-          } else {
-            this.cancelChatRenderWindowDrain();
-          }
-        });
-      });
-    };
-
-    scheduleAfterPaint(() => {
-      scheduleAfterPaint(() => {
-        scheduleNextDrainStep();
-      });
-    });
   }
 
   /**
@@ -15654,10 +15259,7 @@ class ChatModal {
     this.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
 
     // Stop and cleanup all voice messages from previous conversation
-    const previousVoiceMessages = this.messagesList
-      ? this.messagesList.querySelectorAll('.voice-message')
-      : [];
-    previousVoiceMessages.forEach(vm => this.stopVoiceMessage(vm));
+    this.messagesList?.querySelectorAll('.voice-message').forEach(vm => this.stopVoiceMessage(vm));
 
     // Clear previous messages from the UI
     this.messagesList.innerHTML = '';
@@ -15851,7 +15453,7 @@ class ChatModal {
     }
 
     this.address = null;
-    this.resetChatRenderWindow();
+    this.resetChatRenderWindow(null);
   }
 
   clearNotificationsIfAllRead() {
@@ -16828,7 +16430,6 @@ class ChatModal {
 
     return {
       html,
-      renderedCount: renderedMessages.length,
       renderedTxids
     };
   }
@@ -16837,10 +16438,9 @@ class ChatModal {
    * Appends the chat modal to the DOM
    * @param {boolean} highlightNewMessage - Whether to highlight the newest message
    * @param {boolean} skipAutoScroll - Whether to skip auto-scrolling to bottom (used when scrolling to a specific message)
-   * @param {{ skipDeferredWork?: boolean }} options - Render behavior options
    * @returns {void}
    */
-  appendChatModal(highlightNewMessage = false, skipAutoScroll = false, { skipDeferredWork = false } = {}) {
+  appendChatModal(highlightNewMessage = false, skipAutoScroll = false) {
     const currentAddress = this.address; // Use a local constant
     if (!currentAddress) {
       return;
@@ -16852,11 +16452,10 @@ class ChatModal {
       return;
     }
     const messages = contact.messages; // Already sorted descending
-    // Last time user previously had this chat open (used to mark newly edited messages)
-    const lastReadTs = contact.lastChatOpenTs || 0;
 
     if (!this.modal) return;
     if (!this.messagesList) return;
+    assert(this.messagesContainer, 'Messages container is required');
     const renderSequence = ++this.chatRenderSequence;
 
     // --- 1. Identify the actual newest received message data item ---
@@ -16865,253 +16464,42 @@ class ChatModal {
     this.newestReceivedMessage = newestReceivedItem;
     this.newestSentMessage = messages.find((item) => item.my);
 
-    const renderedMessages = [];
-    const messagesByTxid = new Map();
-    messages.forEach((message) => {
-      if (message?.txid) {
-        messagesByTxid.set(message.txid, message);
-      }
-    });
     const forceFullRender = highlightNewMessage && skipAutoScroll;
     const renderRange = this.getChatRenderRange(messages, currentAddress, forceFullRender);
-
-    // 3. Iterate backwards through messages (oldest to newest for rendering order)
-    // messages are already sorted descending (newest first) in myData
-    for (let i = renderRange.oldestIndex; i >= renderRange.newestIndex; i--) {
-      const item = messages[i];
-      let messageHTML = '';
-      const timeString = formatTime(item.timestamp);
-      // Use a consistent timestamp attribute for potential future use (e.g., message jumping)
-      const timestampAttribute = `data-message-timestamp="${item.timestamp}"`;
-      // Add txid attribute if available
-      const txidAttribute = item?.txid ? `data-txid="${item.txid}"` : '';
-      const statusAttribute = item?.status ? `data-status="${item.status}"` : '';
-
-      // Check if it's a payment based on the presence of the amount property (BigInt)
-      if (typeof item.amount === 'bigint') {
-        // Define common payment variables
-        const itemAmount = item.amount;
-        const itemMemo = item.message; // Memo is stored in the 'message' field for transfers
-
-        // Assuming LIB (18 decimals) for now. TODO: Handle different asset decimals if needed.
-        // Format amount correctly using big2str
-        const amountStr = big2str(itemAmount, 18);
-        const amountNum = parseFloat(amountStr);
-        const amountDisplay = `${amountNum.toFixed(6)} ${item.symbol || 'LIB'}`;
-
-        // Check item.my for sent/received
-
-        //console.log(`debug item: ${JSON.stringify(item, (key, value) => typeof value === 'bigint' ? big2str(value, 18) : value)}`)
-        // --- Render Payment Transaction ---
-        const directionText = item.my ? '-' : '+';
-        const messageClass = item.my ? 'sent' : 'received';
-    const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
-    messageHTML = `
-          <div class="message ${messageClass} payment-info" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
-            <div class="payment-header">
-              <span class="payment-direction">${directionText}</span>
-              <span class="payment-amount">${amountDisplay}</span>
-            </div>
-            ${itemMemo ? `<div class="payment-memo">${linkifyUrls(itemMemo)}</div>` : ''}
-            <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
-          </div>
-        `;
-      } else {
-        // --- Render Chat Message ---
-        const messageClass = item.my ? 'sent' : 'received'; // Use item.my directly
-        
-        // Initialize replyHTML at this scope so it's always defined
-        let replyHTML = '';
-        
-        // Check if message was deleted
-        if (isDeleted(item)) {
-          // Render deleted message with special styling
-          messageHTML = `
-                    <div class="message ${messageClass} deleted-message" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
-                        <div class="message-content deleted-content">${item.message}</div>
-                        <div class="message-time">${timeString}</div>
-                    </div>
-                `;
-        } else {
-          // --- Render Reply Quote if present ---
-          if (item.replyId) {
-              const replyText = escapeHtml(item.replyMessage || 'View original message');
-              // Determine owner label: "You" if the referenced message is ours, else contact name
-              const ownerIsMineHint = item.replyOwnerIsMine;
-              const hasHint = typeof ownerIsMineHint !== 'undefined';
-              let isOwnerMine = false;
-              if (hasHint) {
-                // Use both item.my and replyOwnerIsMine to determine from current viewer's perspective
-                // item.my: true if reply is from current user (viewer's perspective)
-                // replyOwnerIsMine: true if original message was from sender's perspective
-                // If they match (both true or both false), original message is from current user's perspective
-                const isSelfReply = ownerIsMineHint === true || ownerIsMineHint === '1';
-                isOwnerMine = item.my === isSelfReply;
-              } else {
-                const targetMsg = messagesByTxid.get(item.replyId);
-                isOwnerMine = !!(targetMsg && targetMsg.my);
-              }
-              const ownerText = isOwnerMine ? 'You' : (getContactDisplayName(contact) || 'Contact');
-              const ownerClass = isOwnerMine ? 'reply-owner-me' : 'reply-owner-contact';
-              const replyOwnerLabel = `<span class="reply-quote-label ${ownerClass}">${escapeHtml(ownerText)}</span>`;
-
-              replyHTML = `
-                <div class="reply-quote ${ownerClass}" data-reply-txid="${escapeHtml(item.replyId)}">
-                  ${replyOwnerLabel}
-                  <div class="reply-quote-text">${replyText}</div>
-                </div>
-              `;
-          }
-          // --- Render Attachments if present ---
-          let attachmentsHTML = '';
-          if (item.xattach && Array.isArray(item.xattach) && item.xattach.length > 0) {
-            attachmentsHTML = item.xattach.map(att => {
-              const fileUrl = att.url || '#';
-              const fileName = att.name || 'Attachment';
-              const fileSize = att.size ? this.formatFileSize(att.size) : '';
-              const fileType = att.type ? att.type.split('/').pop().toUpperCase() : '';
-              const isImage = att.type && att.type.startsWith('image/');
-              const isVideo = att.type && att.type.startsWith('video/');
-              const hasThumbnail = isImage || isVideo;
-              const fileTypeIcon = this.getFileTypeForIcon(att.type || '', fileName);
-              const paddingStyle = hasThumbnail ? 'padding: 5px 5px;' : 'padding: 10px 12px;';
-              return `
-                <div class="attachment-row" style="display: flex; ${hasThumbnail ? 'flex-direction: column;' : 'align-items: center;'} background: #f5f5f7; border-radius: 12px; ${paddingStyle} margin-bottom: 6px;"
-                  data-url="${fileUrl}"
-                  data-p-url="${att.pUrl || ''}"
-                  data-name="${encodeURIComponent(fileName)}"
-                  data-type="${att.type || ''}"
-                  data-msg-idx="${i}"
-                  ${isImage ? 'data-image-attachment="true"' : ''}
-                  ${isVideo ? 'data-video-attachment="true"' : ''}
-                >
-                  <div class="attachment-icon-container" style="${hasThumbnail ? 'margin-bottom: 10px; flex-direction: column;' : 'margin-right: 14px; flex-shrink: 0;'}">
-                    <div class="attachment-icon" data-file-type="${fileTypeIcon}"></div>
-                    ${hasThumbnail ? '<div class="attachment-preview-hint">Click for options</div>' : ''}
-                  </div>
-                  <div style="min-width:0;">
-                    <span class="attachment-label" style="font-weight:500;color:#222;font-size:0.7em;display:block;word-wrap:break-word;">
-                      ${fileName}
-                    </span><br>
-                    <span style="font-size: 0.93em; color: #888;">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
-                  </div>
-                </div>
-              `;
-            }).join('');
-          }
-          
-          // --- Render message text (if any) ---
-          let messageTextHTML = '';
-          if (item.message && item.message.trim()) {
-            // Check if this is a call message
-            if (item.type === 'call') {
-              // Determine call timing and whether join should be allowed
-              const callTimeMs = Number(item.callTime || 0);
-              const callStart = callTimeMs > 0 ? callTimeMs : Number(item.timestamp || item.sent_timestamp || 0);
-              const isExpired = this.isCallExpired(callStart);
-
-              if (isExpired) {
-                // Over 2 hours since call time: show as plain text without join button
-                const theirName = getContactDisplayName(contact);
-                const label = item.my ? `You called ${escapeHtml(theirName)}` : `${escapeHtml(theirName)} called you`;
-                messageTextHTML = `
-                  <div class="call-message">
-                    <div class="call-message-text"><i>${label}</i></div>
-                  </div>`;
-              } else {
-                // Build scheduled label if in the future
-                const scheduleHTML = this.buildCallScheduleHTML(callTimeMs);
-                // Render call message with a left circular phone icon (clickable) and plain text to the right
-                // TODO - remove the href and instead have it call a function which will open the URL and at the time of opening it adds the callUrlParam and username
-                messageTextHTML = `
-                  <div class="call-message">
-                    <a href='${item.message}${callUrlParams}"${myAccount.username}"' target="_blank" rel="noopener noreferrer" class="call-message-phone-button" aria-label="Join Video Call">
-                      <span class="sr-only">Join Video Call</span>
-                    </a>
-                    <div>
-                      <div class="call-message-text">Join Video Call</div>
-                      ${scheduleHTML}
-                    </div>
-                  </div>`;
-              }
-            } else {
-              // Regular message rendering
-              messageTextHTML = `<div class="message-content" style="white-space: pre-wrap; margin-top: ${attachmentsHTML ? '2px' : '0'};">${linkifyUrls(item.message)}</div>`;
-            }
-          }
-          
-          // Check for voice message
-          if (item.type === 'vm') {
-            const duration = this.formatDuration(item.duration);
-            // Use audio encryption keys for playback, fall back to message encryption keys if not available
-            messageTextHTML = `
-              <div class="voice-message" data-url="${item.url || ''}" data-name="voice-message" data-type="audio/webm" data-msg-idx="${i}" data-duration="${item.duration || 0}">
-                <div class="voice-message-controls">
-                  <div class="voice-message-top-row">
-                    <button class="voice-message-play-button" aria-label="Play voice message">
-                      <svg viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z"/>
-                      </svg>
-                    </button>
-                    <div class="voice-message-text">Voice message</div>
-                    <div class="voice-message-time-display">0:00 / ${duration}</div>
-                  </div>
-                  <div class="voice-message-bottom-row">
-                    <input type="range" class="voice-message-seek" min="0" max="${item.duration || 0}" value="0" step="1" aria-label="Seek voice message">
-                    <button class="voice-message-speed-button" aria-label="Toggle playback speed" data-speed="1">1x</button>
-                  </div>
-                </div>
-              </div>`;
-          }
-          
-          const callTimeAttribute = item.type === 'call' && item.callTime ? `data-call-time="${item.callTime}"` : '';
-      const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
-      messageHTML = `
-            <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute} ${callTimeAttribute}>
-              ${replyHTML}
-              ${attachmentsHTML}
-              ${messageTextHTML}
-              <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
-            </div>
-          `;
-        }
-      }
-
-      renderedMessages.push(messageHTML);
-      // The newest received element will be found after the loop completes
-    }
-    this.chatHistorySpacerHeight = 0;
+    const range = this.buildChatMessageRangeHTML(
+      messages,
+      contact,
+      renderRange.oldestIndex,
+      renderRange.newestIndex
+    );
 
     // Replace the list once to avoid one DOM mutation per message.
-    const renderedHTML = renderedMessages.join('');
-    this.messagesList.innerHTML = renderedHTML;
+    this.messagesList.innerHTML = range.html;
     const shouldKeepBottomAnchored = !skipAutoScroll && !highlightNewMessage;
     if (shouldKeepBottomAnchored) {
-      this.scrollMessagesToBottom({ readMetrics: false });
+      this.messagesContainer.scrollTop = 1000000000;
     }
 
     // --- 4.5. Load thumbnails for image attachments (async, non-blocking) ---
     this.loadThumbnailsForAttachments();
 
     const renderedAddress = currentAddress;
-    if (!skipDeferredWork) {
-      const scheduleAfterPaint = typeof requestAnimationFrame === 'function'
-        ? requestAnimationFrame
-        : (callback) => setTimeout(callback, 0);
+    const scheduleAfterPaint = typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame
+      : (callback) => setTimeout(callback, 0);
+    scheduleAfterPaint(() => {
       scheduleAfterPaint(() => {
-        scheduleAfterPaint(() => {
-          if (
-            !this.isActive() ||
-            this.address !== renderedAddress ||
-            !this.messagesList ||
-            renderSequence !== this.chatRenderSequence
-          ) {
-            return;
-          }
-          this.syncAllRenderedReactionChips();
-        });
+        if (
+          !this.isActive() ||
+          this.address !== renderedAddress ||
+          !this.messagesList ||
+          renderSequence !== this.chatRenderSequence
+        ) {
+          return;
+        }
+        this.syncAllRenderedReactionChips();
       });
-    }
+    });
 
     // --- 5. Find the corresponding DOM element after rendering ---
     // This happens inside the setTimeout to ensure elements are in the DOM
@@ -17173,7 +16561,8 @@ class ChatModal {
         // No received messages found, not highlighting, or highlightNewMessage is false,
         // just scroll to the bottom if the container exists.
         if (messageContainer) {
-          if (!shouldKeepBottomAnchored || this.isMessagesContainerNearBottom(120)) {
+          const isNearBottom = messageContainer.scrollHeight - messageContainer.scrollTop - messageContainer.clientHeight <= 120;
+          if (!shouldKeepBottomAnchored || isNearBottom) {
             messageContainer.scrollTop = messageContainer.scrollHeight;
           }
         }
