@@ -13963,6 +13963,7 @@ class ChatModal {
     this.chatRenderWindowDrainAddress = null;
     this.chatRenderWindowDrainStartedAt = 0;
     this.chatSpacerCatchupTimer = null;
+    this.chatSpacerPrewarmTimer = null;
     this.chatRenderSequence = 0;
     this.lastChatTouchLogAt = 0;
     this.chatTouchStartY = null;
@@ -15116,6 +15117,7 @@ class ChatModal {
   resetChatRenderWindow(address = null) {
     this.cancelChatRenderWindowDrain();
     this.cancelChatSpacerCatchup();
+    this.cancelChatSpacerPrewarm();
     this.clearPendingChatScrollExpand();
     this.chatRenderedWindowAddress = address;
     this.chatRenderedOldestIndex = null;
@@ -15378,7 +15380,11 @@ class ChatModal {
     const messages = contact?.messages;
     if (!Array.isArray(messages) || messages.length === 0) return false;
     const isOpenDrain = reason === 'openDrain';
-    const shouldPrependOlderMessages = (reason === 'scrollDistance' || reason === 'scrollIdle') && this.messagesContainer;
+    const shouldPrependOlderMessages = (
+      reason === 'scrollDistance' ||
+      reason === 'scrollIdle' ||
+      reason === 'prewarm'
+    ) && this.messagesContainer;
 
     const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
       ? this.chatRenderedOldestIndex
@@ -15414,6 +15420,7 @@ class ChatModal {
         distanceFromBottom: beforeSnapshot ? beforeSnapshot.distanceFromBottom : 'n/a',
         distanceToRenderedTop: beforeSnapshot ? beforeSnapshot.distanceToRenderedTop : 'n/a',
         loadAheadThreshold: Math.round(this.getChatLoadAheadThreshold()),
+        renderedTopThreshold: Math.round(this.getChatRenderedTopLoadAheadThreshold(beforeSnapshot)),
         remainingOlder: Math.max(0, messages.length - 1 - nextOldestIndex),
         totalMessages: messages.length
       });
@@ -15498,7 +15505,7 @@ class ChatModal {
           0,
           this.messagesContainer.scrollTop - this.getChatHistorySpacerHeight()
         );
-        if (distanceToRenderedTop <= this.getChatLoadAheadThreshold()) {
+        if (distanceToRenderedTop <= this.getChatRenderedTopLoadAheadThreshold()) {
           this.scheduleChatSpacerCatchup('afterPrepend');
         }
       }
@@ -15562,6 +15569,7 @@ class ChatModal {
         clientHeight: scrollSnapshot.clientHeight,
         messageListHeight: scrollSnapshot.messageListHeight,
         loadAheadThreshold: Math.round(this.getChatLoadAheadThreshold()),
+        renderedTopThreshold: Math.round(this.getChatRenderedTopLoadAheadThreshold(scrollSnapshot)),
         topSpacerHeight: scrollSnapshot.topSpacerHeight,
         distanceToRenderedTop: scrollSnapshot.distanceToRenderedTop,
         renderedOldestIndex,
@@ -15572,6 +15580,7 @@ class ChatModal {
       });
     }
     const loadAheadThreshold = this.getChatLoadAheadThreshold();
+    const renderedTopThreshold = this.getChatRenderedTopLoadAheadThreshold(scrollSnapshot);
     if (
       Number.isFinite(this.chatExpansionRearmDistanceFromBottom) &&
       scrollSnapshot.distanceFromBottom < Math.max(0, loadAheadThreshold * 0.5)
@@ -15580,10 +15589,11 @@ class ChatModal {
     }
     const isExpansionRearmed = !Number.isFinite(this.chatExpansionRearmDistanceFromBottom) ||
       scrollSnapshot.distanceFromBottom >= this.chatExpansionRearmDistanceFromBottom;
+    const isNearRenderedTop = remainingOlder > 0 &&
+      scrollSnapshot.distanceToRenderedTop <= renderedTopThreshold;
     if (
-      remainingOlder > 0 &&
-      scrollSnapshot.distanceToRenderedTop <= loadAheadThreshold &&
-      isExpansionRearmed
+      isNearRenderedTop &&
+      (isExpansionRearmed || scrollSnapshot.topSpacerHeight > 0)
     ) {
       if (scrollSnapshot.topSpacerHeight > 0) {
         this.expandChatRenderWindow('scrollDistance');
@@ -15596,6 +15606,21 @@ class ChatModal {
   getChatLoadAheadThreshold() {
     const containerHeight = this.messagesContainer?.clientHeight || 0;
     return Math.max(1200, containerHeight * 3);
+  }
+
+  getChatRenderedTopLoadAheadThreshold(scrollSnapshot = null) {
+    const baseThreshold = this.getChatLoadAheadThreshold();
+    const snapshot = scrollSnapshot || this.getChatScrollSnapshot();
+    if (
+      !snapshot ||
+      !Number.isFinite(snapshot.maxScrollTop) ||
+      !Number.isFinite(snapshot.topSpacerHeight)
+    ) {
+      return baseThreshold;
+    }
+
+    const renderedRunway = Math.max(0, snapshot.maxScrollTop - snapshot.topSpacerHeight);
+    return Math.max(baseThreshold, renderedRunway * 0.5);
   }
 
   getChatOlderRenderBatchSize() {
@@ -15616,6 +15641,55 @@ class ChatModal {
     this.chatSpacerCatchupTimer = null;
   }
 
+  cancelChatSpacerPrewarm() {
+    if (!this.chatSpacerPrewarmTimer) return;
+    clearTimeout(this.chatSpacerPrewarmTimer);
+    this.chatSpacerPrewarmTimer = null;
+  }
+
+  scheduleChatSpacerPrewarm(address, reason = 'afterDeferred') {
+    if (!address || this.chatSpacerPrewarmTimer || this.isExpandingChatRenderWindow) return;
+    this.logChatPerf('window:prewarmScheduled', {
+      contact: this.formatChatPerfAddress(address, myData.contacts[address]),
+      reason,
+      currentOldestIndex: Number.isInteger(this.chatRenderedOldestIndex) ? this.chatRenderedOldestIndex : 'n/a',
+      topSpacerHeight: Math.round(this.getChatHistorySpacerHeight())
+    });
+    this.chatSpacerPrewarmTimer = setTimeout(() => {
+      this.chatSpacerPrewarmTimer = null;
+      if (!this.isActive() || this.address !== address || !this.messagesContainer || !this.messagesList) return;
+      const contact = myData.contacts[address];
+      const messages = contact?.messages;
+      if (!Array.isArray(messages) || messages.length === 0) return;
+      const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
+        ? this.chatRenderedOldestIndex
+        : Math.min(messages.length - 1, this.chatInitialRenderCount - 1);
+      const remainingOlder = Math.max(0, messages.length - 1 - currentOldestIndex);
+      const topSpacerHeight = this.getChatHistorySpacerHeight();
+      if (remainingOlder <= 0 || topSpacerHeight <= 0 || this.isExpandingChatRenderWindow) {
+        this.logChatPerf('window:prewarmSkipped', {
+          contact: this.formatChatPerfAddress(address, contact),
+          reason,
+          currentOldestIndex,
+          remainingOlder,
+          topSpacerHeight: Math.round(topSpacerHeight),
+          isExpanding: this.isExpandingChatRenderWindow
+        });
+        return;
+      }
+
+      this.logChatPerf('window:prewarm', {
+        contact: this.formatChatPerfAddress(address, contact),
+        reason,
+        currentOldestIndex,
+        batchSize: this.getChatOlderRenderBatchSize(),
+        remainingOlder,
+        topSpacerHeight: Math.round(topSpacerHeight)
+      });
+      this.expandChatRenderWindow('prewarm');
+    }, 80);
+  }
+
   scheduleChatSpacerCatchup(reason) {
     if (this.chatSpacerCatchupTimer || this.isExpandingChatRenderWindow) return;
     this.chatSpacerCatchupTimer = setTimeout(() => {
@@ -15631,7 +15705,7 @@ class ChatModal {
 
       const topSpacerHeight = this.getChatHistorySpacerHeight();
       const distanceToRenderedTop = Math.max(0, this.messagesContainer.scrollTop - topSpacerHeight);
-      const loadAheadThreshold = this.getChatLoadAheadThreshold();
+      const loadAheadThreshold = this.getChatRenderedTopLoadAheadThreshold();
       if (topSpacerHeight <= 0 || distanceToRenderedTop > loadAheadThreshold) return;
 
       this.logChatPerf('window:spacerCatchup', {
@@ -15640,7 +15714,7 @@ class ChatModal {
         scrollTop: Math.round(this.messagesContainer.scrollTop),
         topSpacerHeight: Math.round(topSpacerHeight),
         distanceToRenderedTop: Math.round(distanceToRenderedTop),
-        loadAheadThreshold: Math.round(loadAheadThreshold),
+        renderedTopThreshold: Math.round(loadAheadThreshold),
         remainingOlder: Math.max(0, messages.length - 1 - currentOldestIndex)
       });
       this.expandChatRenderWindow('scrollDistance');
@@ -17458,6 +17532,7 @@ class ChatModal {
                     rendered: renderedMessages.length,
                     remainingOlder: Math.max(0, messages.length - 1 - renderRange.oldestIndex)
                   });
+                  this.scheduleChatSpacerPrewarm(renderedAddress, 'afterDeferred');
                 }
               },
               (error) => {
