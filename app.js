@@ -13944,6 +13944,7 @@ class ChatModal {
 
     this.chatPerfLogBuffer = [];
     this.chatPerfLogFlushTimer = null;
+    this.chatPerfLoggingEnabled = true;
 
     this.chatInitialRenderCount = 50;
     this.chatFirstOlderRenderBatchSize = 25;
@@ -14481,10 +14482,14 @@ class ChatModal {
     this.messagesContainer.addEventListener('scroll', () => this.handleMessagesContainerScroll(), { passive: true });
     this.messagesContainer.addEventListener('scrollend', () => this.handleMessagesContainerScrollEnd('scrollend'), { passive: true });
     this.messagesContainer.addEventListener('touchstart', (e) => this.handleMessagesTouchStart(e), { passive: true });
-    this.messagesContainer.addEventListener('touchmove', (e) => this.logChatTouchDiagnostics(e, 'messagesMove'), { passive: true });
+    this.messagesContainer.addEventListener('touchmove', (e) => {
+      if (this.chatPerfLoggingEnabled) this.logChatTouchDiagnostics(e, 'messagesMove');
+    }, { passive: true });
     this.messagesContainer.addEventListener('touchend', (e) => this.handleMessagesTouchEnd(e), { passive: true });
     this.messagesContainer.addEventListener('touchcancel', (e) => this.handleMessagesTouchEnd(e), { passive: true });
-    this.modal.addEventListener('touchmove', (e) => this.logChatTouchDiagnostics(e, 'modalMove'), { passive: true });
+    this.modal.addEventListener('touchmove', (e) => {
+      if (this.chatPerfLoggingEnabled) this.logChatTouchDiagnostics(e, 'modalMove');
+    }, { passive: true });
     // Add context menu option listeners
     this.contextMenu.addEventListener('click', (e) => {
       const reactionButton = e.target.closest('.message-context-reaction-button');
@@ -14980,6 +14985,7 @@ class ChatModal {
   }
 
   logChatPerf(event, fields = {}) {
+    if (!this.chatPerfLoggingEnabled) return;
     try {
       const details = Object.entries(fields)
         .filter(([, value]) => value !== undefined && value !== null && value !== '')
@@ -15266,12 +15272,16 @@ class ChatModal {
 
   handleMessagesTouchStart(event) {
     this.isChatTouchActive = true;
-    this.logChatTouchDiagnostics(event, 'messagesStart');
+    if (this.chatPerfLoggingEnabled) {
+      this.logChatTouchDiagnostics(event, 'messagesStart');
+    }
   }
 
   handleMessagesTouchEnd(event) {
     this.isChatTouchActive = false;
-    this.logChatTouchDiagnostics(event, 'messagesEnd');
+    if (this.chatPerfLoggingEnabled) {
+      this.logChatTouchDiagnostics(event, 'messagesEnd');
+    }
     this.schedulePendingChatScrollExpand('touchEnd');
   }
 
@@ -15288,7 +15298,7 @@ class ChatModal {
     const wasPending = this.chatPendingScrollExpand;
     this.chatPendingScrollExpand = true;
     this.chatPendingScrollExpandReason = reason;
-    if (!wasPending) {
+    if (!wasPending && this.chatPerfLoggingEnabled) {
       this.logChatPerf('window:expandQueued', {
         reason,
         scrollTop: scrollSnapshot ? scrollSnapshot.scrollTop : 'n/a',
@@ -15331,30 +15341,34 @@ class ChatModal {
       (scrollSnapshot && scrollSnapshot.distanceFromBottom >= rearmDistance);
 
     if (!scrollSnapshot || scrollSnapshot.distanceFromBottom < loadAheadThreshold || !isExpansionRearmed) {
-      this.logChatPerf('window:expandAborted', {
-        trigger,
-        reason: !scrollSnapshot
-          ? 'missingSnapshot'
-          : scrollSnapshot.distanceFromBottom < loadAheadThreshold
-            ? 'belowThreshold'
-            : 'notRearmed',
-        distanceFromBottom: scrollSnapshot ? scrollSnapshot.distanceFromBottom : 'n/a',
-        loadAheadThreshold: Math.round(loadAheadThreshold),
-        rearmDistance: Number.isFinite(rearmDistance) ? Math.round(rearmDistance) : 'n/a'
-      });
+      if (this.chatPerfLoggingEnabled) {
+        this.logChatPerf('window:expandAborted', {
+          trigger,
+          reason: !scrollSnapshot
+            ? 'missingSnapshot'
+            : scrollSnapshot.distanceFromBottom < loadAheadThreshold
+              ? 'belowThreshold'
+              : 'notRearmed',
+          distanceFromBottom: scrollSnapshot ? scrollSnapshot.distanceFromBottom : 'n/a',
+          loadAheadThreshold: Math.round(loadAheadThreshold),
+          rearmDistance: Number.isFinite(rearmDistance) ? Math.round(rearmDistance) : 'n/a'
+        });
+      }
       this.clearPendingChatScrollExpand();
       return;
     }
 
     const queuedReason = this.chatPendingScrollExpandReason || 'scrollDistance';
     this.clearPendingChatScrollExpand();
-    this.logChatPerf('window:expandFlushed', {
-      trigger,
-      queuedReason,
-      distanceFromBottom: scrollSnapshot.distanceFromBottom,
-      loadAheadThreshold: Math.round(loadAheadThreshold),
-      rearmDistance: Number.isFinite(rearmDistance) ? Math.round(rearmDistance) : 'n/a'
-    });
+    if (this.chatPerfLoggingEnabled) {
+      this.logChatPerf('window:expandFlushed', {
+        trigger,
+        queuedReason,
+        distanceFromBottom: scrollSnapshot.distanceFromBottom,
+        loadAheadThreshold: Math.round(loadAheadThreshold),
+        rearmDistance: Number.isFinite(rearmDistance) ? Math.round(rearmDistance) : 'n/a'
+      });
+    }
     this.expandChatRenderWindow('scrollIdle');
   }
 
@@ -15388,19 +15402,22 @@ class ChatModal {
       : this.getChatScrollSnapshot();
     this.isExpandingChatRenderWindow = true;
     this.chatRenderedOldestIndex = nextOldestIndex;
-    this.logChatPerf('window:expand', {
-      contact: this.formatChatPerfAddress(this.address, contact),
-      reason,
-      previousOldestIndex: currentOldestIndex,
-      nextOldestIndex,
-      batchSize: renderBatchSize,
-      scrollTop: beforeSnapshot ? beforeSnapshot.scrollTop : 'n/a',
-      maxScrollTop: beforeSnapshot ? beforeSnapshot.maxScrollTop : 'n/a',
-      distanceFromBottom: beforeSnapshot ? beforeSnapshot.distanceFromBottom : 'n/a',
-      loadAheadThreshold: Math.round(this.getChatLoadAheadThreshold()),
-      remainingOlder: Math.max(0, messages.length - 1 - nextOldestIndex),
-      totalMessages: messages.length
-    });
+    if (this.chatPerfLoggingEnabled) {
+      this.logChatPerf('window:expand', {
+        contact: this.formatChatPerfAddress(this.address, contact),
+        reason,
+        previousOldestIndex: currentOldestIndex,
+        nextOldestIndex,
+        batchSize: renderBatchSize,
+        scrollTop: beforeSnapshot ? beforeSnapshot.scrollTop : 'n/a',
+        maxScrollTop: beforeSnapshot ? beforeSnapshot.maxScrollTop : 'n/a',
+        distanceFromBottom: beforeSnapshot ? beforeSnapshot.distanceFromBottom : 'n/a',
+        distanceToRenderedTop: beforeSnapshot ? beforeSnapshot.distanceToRenderedTop : 'n/a',
+        loadAheadThreshold: Math.round(this.getChatLoadAheadThreshold()),
+        remainingOlder: Math.max(0, messages.length - 1 - nextOldestIndex),
+        totalMessages: messages.length
+      });
+    }
 
     if (shouldPrependOlderMessages) {
       const prependPerfStart = this.getChatPerfTime();
@@ -15452,28 +15469,30 @@ class ChatModal {
         this.getChatLoadAheadThreshold() * 2
       );
       this.chatExpansionRearmDistanceFromBottom = rearmDistance;
-      this.logChatPerf('window:prepend', {
-        contact: this.formatChatPerfAddress(this.address, contact),
-        previousOldestIndex: currentOldestIndex,
-        nextOldestIndex,
-        rendered: range.renderedCount,
-        build: range.buildMs,
-        join: range.joinMs,
-        domWrite: domWriteMs,
-        reactions: reactionsMs,
-        preserveStrategy: useEstimatedSpacerPreserve ? 'estimatedSpacer' : 'scrollHeightDelta',
-        preserve: preserveMs,
-        oldScrollTop: Math.round(oldScrollTop),
-        oldScrollHeight: useEstimatedSpacerPreserve ? 'skipped' : Math.round(oldScrollHeight),
-        oldSpacerHeight: Math.round(oldSpacerHeight),
-        estimatedHeight: Math.round(estimatedInsertedHeight),
-        nextSpacerHeight: Math.round(nextSpacerHeight),
-        scrollDelta: Math.round(scrollDelta),
-        nextScrollTop: Math.round(this.messagesContainer.scrollTop),
-        rearmDistance: Math.round(rearmDistance),
-        children: this.messagesList.children.length,
-        total: this.formatChatPerfMs(prependPerfStart)
-      });
+      if (this.chatPerfLoggingEnabled) {
+        this.logChatPerf('window:prepend', {
+          contact: this.formatChatPerfAddress(this.address, contact),
+          previousOldestIndex: currentOldestIndex,
+          nextOldestIndex,
+          rendered: range.renderedCount,
+          build: range.buildMs,
+          join: range.joinMs,
+          domWrite: domWriteMs,
+          reactions: reactionsMs,
+          preserveStrategy: useEstimatedSpacerPreserve ? 'estimatedSpacer' : 'scrollHeightDelta',
+          preserve: preserveMs,
+          oldScrollTop: Math.round(oldScrollTop),
+          oldScrollHeight: useEstimatedSpacerPreserve ? 'skipped' : Math.round(oldScrollHeight),
+          oldSpacerHeight: Math.round(oldSpacerHeight),
+          estimatedHeight: Math.round(estimatedInsertedHeight),
+          nextSpacerHeight: Math.round(nextSpacerHeight),
+          scrollDelta: Math.round(scrollDelta),
+          nextScrollTop: Math.round(this.messagesContainer.scrollTop),
+          rearmDistance: Math.round(rearmDistance),
+          children: this.messagesList.children.length,
+          total: this.formatChatPerfMs(prependPerfStart)
+        });
+      }
       if (useEstimatedSpacerPreserve && nextOldestIndex < messages.length - 1) {
         const distanceToRenderedTop = Math.max(
           0,
@@ -15532,8 +15551,8 @@ class ChatModal {
     const remainingOlder = Number.isInteger(renderedOldestIndex)
       ? Math.max(0, totalMessages - 1 - renderedOldestIndex)
       : 0;
-    const now = this.getChatPerfTime();
-    if (now - this.lastChatScrollLogAt > 750) {
+    const now = this.chatPerfLoggingEnabled ? this.getChatPerfTime() : 0;
+    if (this.chatPerfLoggingEnabled && now - this.lastChatScrollLogAt > 750) {
       this.lastChatScrollLogAt = now;
       this.logChatPerf('scroll:metrics', {
         scrollTop: scrollSnapshot.scrollTop,
@@ -17484,23 +17503,27 @@ class ChatModal {
     // This happens inside the setTimeout to ensure elements are in the DOM
 
     if (skipAutoScroll) {
-      this.logChatPerf('append:scrollSkipped', {
-        contact: this.formatChatPerfAddress(currentAddress, contact),
-        delay: '0.0ms',
-        reason: 'skipAutoScroll'
-      });
+      if (this.chatPerfLoggingEnabled) {
+        this.logChatPerf('append:scrollSkipped', {
+          contact: this.formatChatPerfAddress(currentAddress, contact),
+          delay: '0.0ms',
+          reason: 'skipAutoScroll'
+        });
+      }
       return;
     }
 
     if (shouldKeepBottomAnchored && !highlightNewMessage) {
-      this.logChatPerf('append:scrollSkipped', {
-        contact: this.formatChatPerfAddress(currentAddress, contact),
-        delay: '0.0ms',
-        reason: 'immediateBottom',
-        scrollTop: this.messagesContainer ? Math.round(this.messagesContainer.scrollTop) : 'n/a',
-        scrollHeight: this.messagesContainer ? Math.round(this.messagesContainer.scrollHeight) : 'n/a',
-        clientHeight: this.messagesContainer ? Math.round(this.messagesContainer.clientHeight) : 'n/a'
-      });
+      if (this.chatPerfLoggingEnabled) {
+        this.logChatPerf('append:scrollSkipped', {
+          contact: this.formatChatPerfAddress(currentAddress, contact),
+          delay: '0.0ms',
+          reason: 'immediateBottom',
+          scrollTop: this.messagesContainer ? Math.round(this.messagesContainer.scrollTop) : 'n/a',
+          scrollHeight: this.messagesContainer ? Math.round(this.messagesContainer.scrollHeight) : 'n/a',
+          clientHeight: this.messagesContainer ? Math.round(this.messagesContainer.clientHeight) : 'n/a'
+        });
+      }
       return;
     }
 
@@ -17568,15 +17591,17 @@ class ChatModal {
           }
         }
       }
-      this.logChatPerf('append:scroll', {
-        contact: this.formatChatPerfAddress(currentAddress, contact),
-        delay: this.formatChatPerfMs(scrollScheduledAt, scrollPerfStart),
-        ms: this.formatChatPerfMs(scrollPerfStart),
-        target: scrollTarget,
-        scrollTop: messageContainer ? Math.round(messageContainer.scrollTop) : 'n/a',
-        scrollHeight: messageContainer ? Math.round(messageContainer.scrollHeight) : 'n/a',
-        clientHeight: messageContainer ? Math.round(messageContainer.clientHeight) : 'n/a'
-      });
+      if (this.chatPerfLoggingEnabled) {
+        this.logChatPerf('append:scroll', {
+          contact: this.formatChatPerfAddress(currentAddress, contact),
+          delay: this.formatChatPerfMs(scrollScheduledAt, scrollPerfStart),
+          ms: this.formatChatPerfMs(scrollPerfStart),
+          target: scrollTarget,
+          scrollTop: messageContainer ? Math.round(messageContainer.scrollTop) : 'n/a',
+          scrollHeight: messageContainer ? Math.round(messageContainer.scrollHeight) : 'n/a',
+          clientHeight: messageContainer ? Math.round(messageContainer.clientHeight) : 'n/a'
+        });
+      }
     }, 300); // <<< Delay of 300 milliseconds for rendering
   }
 
