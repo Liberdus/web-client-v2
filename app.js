@@ -15477,6 +15477,10 @@ class ChatModal {
 
     if (shouldPrependOlderMessages) {
       const prependPerfStart = this.getChatPerfTime();
+      const cachedClientHeight = Number.isFinite(beforeSnapshot?.clientHeight)
+        ? beforeSnapshot.clientHeight
+        : (this.messagesContainer?.clientHeight || 0);
+      const cachedLoadAheadThreshold = Math.max(1200, cachedClientHeight * 3);
       const readScrollTopPerfStart = this.getChatPerfTime();
       const snapshotScrollTop = Number.isFinite(beforeSnapshot?.scrollTop)
         ? beforeSnapshot.scrollTop
@@ -15550,8 +15554,8 @@ class ChatModal {
           }
         : null;
       const rearmDistance = (beforeSnapshot?.distanceFromBottom || 0) + Math.max(
-        beforeSnapshot?.clientHeight || this.messagesContainer.clientHeight || 0,
-        this.getChatLoadAheadThreshold()
+        cachedClientHeight,
+        cachedLoadAheadThreshold
       );
       this.chatExpansionRearmDistanceFromBottom = rearmDistance;
       if (this.chatPerfLoggingEnabled) {
@@ -15746,8 +15750,10 @@ class ChatModal {
   }
 
   getChatRenderedTopLoadAheadThreshold(scrollSnapshot = null) {
-    const baseThreshold = this.getChatLoadAheadThreshold();
     const snapshot = scrollSnapshot || this.getChatScrollSnapshot();
+    const baseThreshold = Number.isFinite(snapshot?.clientHeight)
+      ? Math.max(1200, snapshot.clientHeight * 3)
+      : this.getChatLoadAheadThreshold();
     if (
       !snapshot ||
       !Number.isFinite(snapshot.maxScrollTop) ||
