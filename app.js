@@ -15384,10 +15384,17 @@ class ChatModal {
     const scrollSnapshot = this.getChatScrollSnapshot();
     const loadAheadThreshold = this.getChatLoadAheadThreshold();
     const rearmDistance = this.chatExpansionRearmDistanceFromBottom;
+    const renderedBoundaryThreshold = this.getChatRenderedBoundaryThreshold(scrollSnapshot);
+    const isAtRenderedBoundary = !!scrollSnapshot &&
+      scrollSnapshot.distanceToRenderedTop <= renderedBoundaryThreshold;
     const isExpansionRearmed = !Number.isFinite(rearmDistance) ||
       (scrollSnapshot && scrollSnapshot.distanceFromBottom >= rearmDistance);
 
-    if (!scrollSnapshot || scrollSnapshot.distanceFromBottom < loadAheadThreshold || !isExpansionRearmed) {
+    if (
+      !scrollSnapshot ||
+      scrollSnapshot.distanceFromBottom < loadAheadThreshold ||
+      (!isExpansionRearmed && !isAtRenderedBoundary)
+    ) {
       if (this.chatPerfLoggingEnabled) {
         this.logChatPerf('window:expandAborted', {
           trigger,
@@ -15398,6 +15405,8 @@ class ChatModal {
               : 'notRearmed',
           distanceFromBottom: scrollSnapshot ? scrollSnapshot.distanceFromBottom : 'n/a',
           loadAheadThreshold: Math.round(loadAheadThreshold),
+          distanceToRenderedTop: scrollSnapshot ? scrollSnapshot.distanceToRenderedTop : 'n/a',
+          renderedBoundaryThreshold: Math.round(renderedBoundaryThreshold),
           rearmDistance: Number.isFinite(rearmDistance) ? Math.round(rearmDistance) : 'n/a'
         });
       }
@@ -15413,6 +15422,8 @@ class ChatModal {
         queuedReason,
         distanceFromBottom: scrollSnapshot.distanceFromBottom,
         loadAheadThreshold: Math.round(loadAheadThreshold),
+        distanceToRenderedTop: scrollSnapshot.distanceToRenderedTop,
+        renderedBoundaryThreshold: Math.round(renderedBoundaryThreshold),
         rearmDistance: Number.isFinite(rearmDistance) ? Math.round(rearmDistance) : 'n/a'
       });
     }
@@ -15467,8 +15478,7 @@ class ChatModal {
         renderedTopThreshold: Math.round(this.getChatRenderedTopLoadAheadThreshold(beforeSnapshot)),
         renderedBoundaryThreshold: Math.round(this.getChatRenderedBoundaryThreshold(beforeSnapshot)),
         atRenderedBoundary: beforeSnapshot
-          ? beforeSnapshot.topSpacerHeight > 0 &&
-            beforeSnapshot.distanceToRenderedTop <= this.getChatRenderedBoundaryThreshold(beforeSnapshot)
+          ? beforeSnapshot.distanceToRenderedTop <= this.getChatRenderedBoundaryThreshold(beforeSnapshot)
           : 'n/a',
         remainingOlder: Math.max(0, messages.length - 1 - nextOldestIndex),
         totalMessages: messages.length
@@ -15530,11 +15540,14 @@ class ChatModal {
       const preservePerfStart = this.getChatPerfTime();
       let scrollDelta = estimatedInsertedHeight;
       let nextSpacerHeight = oldSpacerHeight;
+      let newScrollHeightMs = 'skipped';
       if (useEstimatedSpacerPreserve) {
         nextSpacerHeight = Math.max(0, oldSpacerHeight - estimatedInsertedHeight);
         this.setChatHistorySpacerHeight(nextSpacerHeight);
       } else {
+        const newScrollHeightPerfStart = this.getChatPerfTime();
         const newScrollHeight = this.messagesContainer.scrollHeight;
+        newScrollHeightMs = this.formatChatPerfMs(newScrollHeightPerfStart);
         scrollDelta = newScrollHeight - oldScrollHeight;
         this.messagesContainer.scrollTop = oldScrollTop + scrollDelta;
       }
@@ -15544,7 +15557,7 @@ class ChatModal {
 
       const expectedScrollTop = useEstimatedSpacerPreserve
         ? oldScrollTop
-        : this.messagesContainer.scrollTop;
+        : oldScrollTop + scrollDelta;
       const afterDistanceToRenderedTop = Math.max(0, expectedScrollTop - nextSpacerHeight);
       const afterSnapshotEstimate = beforeSnapshot && useEstimatedSpacerPreserve
         ? {
@@ -15583,6 +15596,7 @@ class ChatModal {
           scrollTopSource: oldScrollTopSource,
           spacerLookup: spacerLookupMs,
           oldScrollHeightRead: oldScrollHeightMs,
+          newScrollHeightRead: newScrollHeightMs,
           estimate: estimateMs,
           range: rangeMs,
           build: range.buildMs,
@@ -15713,7 +15727,6 @@ class ChatModal {
       scrollSnapshot.distanceToRenderedTop <= renderedTopThreshold;
     const renderedBoundaryThreshold = this.getChatRenderedBoundaryThreshold(scrollSnapshot);
     const isAtRenderedBoundary = remainingOlder > 0 &&
-      scrollSnapshot.topSpacerHeight > 0 &&
       scrollSnapshot.distanceToRenderedTop <= renderedBoundaryThreshold;
     const canExpandOlderWindow = isExpansionRearmed || isAtRenderedBoundary;
     if (isNearRenderedTop && canExpandOlderWindow) {
@@ -15760,6 +15773,10 @@ class ChatModal {
       !Number.isFinite(snapshot.topSpacerHeight)
     ) {
       return baseThreshold;
+    }
+
+    if (snapshot.topSpacerHeight <= 0) {
+      return Math.max(420, Math.min(900, (snapshot.clientHeight || 0) * 1.25));
     }
 
     const renderedRunway = Math.max(0, snapshot.maxScrollTop - snapshot.topSpacerHeight);
@@ -17558,16 +17575,12 @@ class ChatModal {
       // The newest received element will be found after the loop completes
     }
     const renderLoopMs = this.formatChatPerfMs(renderLoopPerfStart);
-    const topSpacerHeight = renderRange.isWindowed
-      ? this.estimateChatMessagesHeight(messages, messages.length - 1, renderRange.oldestIndex + 1)
-      : 0;
-    this.chatHistorySpacerHeight = topSpacerHeight;
+    const topSpacerHeight = 0;
+    this.chatHistorySpacerHeight = 0;
 
     // Replace the list once to avoid one DOM mutation per message.
     const joinPerfStart = this.getChatPerfTime();
-    const renderedHTML = `${topSpacerHeight > 0
-      ? `<div class="chat-history-spacer" aria-hidden="true" data-estimated-height="${Math.round(topSpacerHeight)}" style="height:${Math.round(topSpacerHeight)}px"></div>`
-      : ''}${renderedMessages.join('')}`;
+    const renderedHTML = renderedMessages.join('');
     const joinMs = this.formatChatPerfMs(joinPerfStart);
     const domWritePerfStart = this.getChatPerfTime();
     this.messagesList.innerHTML = renderedHTML;
