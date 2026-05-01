@@ -13959,6 +13959,7 @@ class ChatModal {
     this.chatRenderSequence = 0;
     this.lastChatTouchLogAt = 0;
     this.chatTouchStartY = null;
+    this.chatExpansionRearmDistanceFromBottom = null;
   }
 
   /**
@@ -15024,6 +15025,7 @@ class ChatModal {
     this.chatRenderedOldestIndex = null;
     this.chatForceFullRenderOnce = false;
     this.isExpandingChatRenderWindow = false;
+    this.chatExpansionRearmDistanceFromBottom = null;
   }
 
   getChatRenderRange(messages, currentAddress, forceFullRender = false) {
@@ -15171,6 +15173,7 @@ class ChatModal {
     const messages = contact?.messages;
     if (!Array.isArray(messages) || messages.length === 0) return false;
     const isOpenDrain = reason === 'openDrain';
+    const shouldPrependOlderMessages = reason === 'scrollDistance' && this.messagesContainer;
 
     const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
       ? this.chatRenderedOldestIndex
@@ -15184,7 +15187,7 @@ class ChatModal {
       messages.length - 1,
       currentOldestIndex + renderBatchSize
     );
-    const anchor = isOpenDrain ? null : this.getFirstVisibleMessageAnchor();
+    const anchor = isOpenDrain || shouldPrependOlderMessages ? null : this.getFirstVisibleMessageAnchor();
     const beforeSnapshot = isOpenDrain
       ? {
           scrollTop: this.messagesContainer ? Math.round(this.messagesContainer.scrollTop) : 'n/a',
@@ -15208,6 +15211,59 @@ class ChatModal {
       totalMessages: messages.length
     });
 
+    if (shouldPrependOlderMessages) {
+      const prependPerfStart = this.getChatPerfTime();
+      const oldScrollTop = this.messagesContainer.scrollTop;
+      const oldScrollHeight = this.messagesContainer.scrollHeight;
+      const range = this.buildChatMessageRangeHTML(
+        messages,
+        contact,
+        nextOldestIndex,
+        currentOldestIndex + 1
+      );
+      const domWritePerfStart = this.getChatPerfTime();
+      this.messagesList.insertAdjacentHTML('afterbegin', range.html);
+      const domWriteMs = this.formatChatPerfMs(domWritePerfStart);
+      const reactionsPerfStart = this.getChatPerfTime();
+      if (range.renderedTxids.length > 0) {
+        this.syncRenderedReactionTargets(range.renderedTxids);
+      }
+      const reactionsMs = this.formatChatPerfMs(reactionsPerfStart);
+      const preservePerfStart = this.getChatPerfTime();
+      const newScrollHeight = this.messagesContainer.scrollHeight;
+      const scrollDelta = newScrollHeight - oldScrollHeight;
+      this.messagesContainer.scrollTop = oldScrollTop + scrollDelta;
+      const preserveMs = this.formatChatPerfMs(preservePerfStart);
+      this.chatRenderedOldestIndex = nextOldestIndex;
+      this.isExpandingChatRenderWindow = false;
+
+      const rearmDistance = (beforeSnapshot?.distanceFromBottom || 0) + Math.max(
+        this.messagesContainer.clientHeight || 0,
+        this.getChatLoadAheadThreshold() * 2
+      );
+      this.chatExpansionRearmDistanceFromBottom = rearmDistance;
+      this.logChatPerf('window:prepend', {
+        contact: this.formatChatPerfAddress(this.address, contact),
+        previousOldestIndex: currentOldestIndex,
+        nextOldestIndex,
+        rendered: range.renderedCount,
+        build: range.buildMs,
+        join: range.joinMs,
+        domWrite: domWriteMs,
+        reactions: reactionsMs,
+        preserve: preserveMs,
+        oldScrollTop: Math.round(oldScrollTop),
+        oldScrollHeight: Math.round(oldScrollHeight),
+        scrollDelta: Math.round(scrollDelta),
+        nextScrollTop: Math.round(this.messagesContainer.scrollTop),
+        rearmDistance: Math.round(rearmDistance),
+        children: this.messagesList.children.length,
+        total: this.formatChatPerfMs(prependPerfStart)
+      });
+      return true;
+    }
+
+    this.chatRenderedOldestIndex = nextOldestIndex;
     this.appendChatModal(false, true, { skipDeferredWork: isOpenDrain });
     if (isOpenDrain) {
       const bottomScrollPerfStart = this.getChatPerfTime();
@@ -15271,7 +15327,15 @@ class ChatModal {
       });
     }
     const loadAheadThreshold = this.getChatLoadAheadThreshold();
-    if (scrollSnapshot.distanceFromBottom >= loadAheadThreshold) {
+    if (
+      Number.isFinite(this.chatExpansionRearmDistanceFromBottom) &&
+      scrollSnapshot.distanceFromBottom < Math.max(0, loadAheadThreshold * 0.5)
+    ) {
+      this.chatExpansionRearmDistanceFromBottom = null;
+    }
+    const isExpansionRearmed = !Number.isFinite(this.chatExpansionRearmDistanceFromBottom) ||
+      scrollSnapshot.distanceFromBottom >= this.chatExpansionRearmDistanceFromBottom;
+    if (scrollSnapshot.distanceFromBottom >= loadAheadThreshold && isExpansionRearmed) {
       this.expandChatRenderWindow('scrollDistance');
     }
   }
@@ -16540,6 +16604,206 @@ class ChatModal {
       payload,
       chatMessageObj,
       txid: getTxid(chatMessageObj)
+    };
+  }
+
+  buildChatMessagesByTxid(messages) {
+    const messagesByTxid = new Map();
+    messages.forEach((message) => {
+      if (message?.txid) {
+        messagesByTxid.set(message.txid, message);
+      }
+    });
+    return messagesByTxid;
+  }
+
+  renderChatMessageHTML(item, index, { contact, messagesByTxid, lastReadTs }) {
+    const timeString = formatTime(item.timestamp);
+    const timestampAttribute = `data-message-timestamp="${item.timestamp}"`;
+    const txidAttribute = item?.txid ? `data-txid="${item.txid}"` : '';
+    const statusAttribute = item?.status ? `data-status="${item.status}"` : '';
+
+    if (typeof item.amount === 'bigint') {
+      const amountStr = big2str(item.amount, 18);
+      const amountNum = parseFloat(amountStr);
+      const amountDisplay = `${amountNum.toFixed(6)} ${item.symbol || 'LIB'}`;
+      const directionText = item.my ? '-' : '+';
+      const messageClass = item.my ? 'sent' : 'received';
+      const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
+      return `
+          <div class="message ${messageClass} payment-info" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
+            <div class="payment-header">
+              <span class="payment-direction">${directionText}</span>
+              <span class="payment-amount">${amountDisplay}</span>
+            </div>
+            ${item.message ? `<div class="payment-memo">${linkifyUrls(item.message)}</div>` : ''}
+            <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
+          </div>
+        `;
+    }
+
+    const messageClass = item.my ? 'sent' : 'received';
+    if (isDeleted(item)) {
+      return `
+                    <div class="message ${messageClass} deleted-message" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
+                        <div class="message-content deleted-content">${item.message}</div>
+                        <div class="message-time">${timeString}</div>
+                    </div>
+                `;
+    }
+
+    let replyHTML = '';
+    if (item.replyId) {
+      const replyText = escapeHtml(item.replyMessage || 'View original message');
+      const ownerIsMineHint = item.replyOwnerIsMine;
+      const hasHint = typeof ownerIsMineHint !== 'undefined';
+      let isOwnerMine = false;
+      if (hasHint) {
+        const isSelfReply = ownerIsMineHint === true || ownerIsMineHint === '1';
+        isOwnerMine = item.my === isSelfReply;
+      } else {
+        const targetMsg = messagesByTxid.get(item.replyId);
+        isOwnerMine = !!(targetMsg && targetMsg.my);
+      }
+      const ownerText = isOwnerMine ? 'You' : (getContactDisplayName(contact) || 'Contact');
+      const ownerClass = isOwnerMine ? 'reply-owner-me' : 'reply-owner-contact';
+      const replyOwnerLabel = `<span class="reply-quote-label ${ownerClass}">${escapeHtml(ownerText)}</span>`;
+
+      replyHTML = `
+                <div class="reply-quote ${ownerClass}" data-reply-txid="${escapeHtml(item.replyId)}">
+                  ${replyOwnerLabel}
+                  <div class="reply-quote-text">${replyText}</div>
+                </div>
+              `;
+    }
+
+    let attachmentsHTML = '';
+    if (item.xattach && Array.isArray(item.xattach) && item.xattach.length > 0) {
+      attachmentsHTML = item.xattach.map(att => {
+        const fileUrl = att.url || '#';
+        const fileName = att.name || 'Attachment';
+        const fileSize = att.size ? this.formatFileSize(att.size) : '';
+        const fileType = att.type ? att.type.split('/').pop().toUpperCase() : '';
+        const isImage = att.type && att.type.startsWith('image/');
+        const isVideo = att.type && att.type.startsWith('video/');
+        const hasThumbnail = isImage || isVideo;
+        const fileTypeIcon = this.getFileTypeForIcon(att.type || '', fileName);
+        const attachmentClass = hasThumbnail ? 'attachment-row attachment-row-media' : 'attachment-row attachment-row-file';
+        return `
+                <div class="${attachmentClass}"
+                  data-url="${fileUrl}"
+                  data-p-url="${att.pUrl || ''}"
+                  data-name="${encodeURIComponent(fileName)}"
+                  data-type="${att.type || ''}"
+                  data-msg-idx="${index}"
+                  ${isImage ? 'data-image-attachment="true"' : ''}
+                  ${isVideo ? 'data-video-attachment="true"' : ''}
+                >
+                  <div class="attachment-icon-container">
+                    <div class="attachment-icon" data-file-type="${fileTypeIcon}"></div>
+                  </div>
+                  <div class="attachment-details">
+                    <span class="attachment-label">
+                      ${fileName}
+                    </span>
+                    <span class="attachment-meta">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
+                  </div>
+                </div>
+              `;
+      }).join('');
+    }
+
+    let messageTextHTML = '';
+    if (item.message && item.message.trim()) {
+      if (item.type === 'call') {
+        const callTimeMs = Number(item.callTime || 0);
+        const callStart = callTimeMs > 0 ? callTimeMs : Number(item.timestamp || item.sent_timestamp || 0);
+        const isExpired = this.isCallExpired(callStart);
+
+        if (isExpired) {
+          const theirName = getContactDisplayName(contact);
+          const label = item.my ? `You called ${escapeHtml(theirName)}` : `${escapeHtml(theirName)} called you`;
+          messageTextHTML = `
+                  <div class="call-message">
+                    <div class="call-message-text"><i>${label}</i></div>
+                  </div>`;
+        } else {
+          const scheduleHTML = this.buildCallScheduleHTML(callTimeMs);
+          messageTextHTML = `
+                  <div class="call-message">
+                    <a href='${item.message}${callUrlParams}"${myAccount.username}"' target="_blank" rel="noopener noreferrer" class="call-message-phone-button" aria-label="Join Video Call">
+                      <span class="sr-only">Join Video Call</span>
+                    </a>
+                    <div>
+                      <div class="call-message-text">Join Video Call</div>
+                      ${scheduleHTML}
+                    </div>
+                  </div>`;
+        }
+      } else {
+        messageTextHTML = `<div class="message-content" style="white-space: pre-wrap; margin-top: ${attachmentsHTML ? '2px' : '0'};">${linkifyUrls(item.message)}</div>`;
+      }
+    }
+
+    if (item.type === 'vm') {
+      const duration = this.formatDuration(item.duration);
+      messageTextHTML = `
+              <div class="voice-message" data-url="${item.url || ''}" data-name="voice-message" data-type="audio/webm" data-msg-idx="${index}" data-duration="${item.duration || 0}">
+                <div class="voice-message-controls">
+                  <div class="voice-message-top-row">
+                    <button class="voice-message-play-button" aria-label="Play voice message">
+                      <svg viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </button>
+                    <div class="voice-message-text">Voice message</div>
+                    <div class="voice-message-time-display">0:00 / ${duration}</div>
+                  </div>
+                  <div class="voice-message-bottom-row">
+                    <input type="range" class="voice-message-seek" min="0" max="${item.duration || 0}" value="0" step="1" aria-label="Seek voice message">
+                    <button class="voice-message-speed-button" aria-label="Toggle playback speed" data-speed="1">1x</button>
+                  </div>
+                </div>
+              </div>`;
+    }
+
+    const callTimeAttribute = item.type === 'call' && item.callTime ? `data-call-time="${item.callTime}"` : '';
+    const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
+    return `
+            <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute} ${callTimeAttribute}>
+              ${replyHTML}
+              ${attachmentsHTML}
+              ${messageTextHTML}
+              <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
+            </div>
+          `;
+  }
+
+  buildChatMessageRangeHTML(messages, contact, oldestIndex, newestIndex) {
+    const buildPerfStart = this.getChatPerfTime();
+    const messagesByTxid = this.buildChatMessagesByTxid(messages);
+    const lastReadTs = contact.lastChatOpenTs || 0;
+    const renderedMessages = [];
+    const renderedTxids = [];
+
+    for (let i = oldestIndex; i >= newestIndex; i--) {
+      const item = messages[i];
+      if (!item) continue;
+      renderedMessages.push(this.renderChatMessageHTML(item, i, { contact, messagesByTxid, lastReadTs }));
+      if (item.txid) renderedTxids.push(item.txid);
+    }
+
+    const buildMs = this.formatChatPerfMs(buildPerfStart);
+    const joinPerfStart = this.getChatPerfTime();
+    const html = renderedMessages.join('');
+    const joinMs = this.formatChatPerfMs(joinPerfStart);
+
+    return {
+      html,
+      renderedCount: renderedMessages.length,
+      renderedTxids,
+      buildMs,
+      joinMs
     };
   }
 
