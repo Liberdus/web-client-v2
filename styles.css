@@ -6170,6 +6170,39 @@ small {
   margin-bottom: 8px;
 }
 
+/* Thumbnail image in attachment rows */
+.attachment-thumbnail {
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #f0f0f0;
+  display: block;
+  margin: 0 auto;
+  /* Disable long press context menus on iOS and Android */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.attachment-icon-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  max-height: 400px;
+}
+
+.attachment-preview-hint {
+  font-size: 0.75em;
+  color: #000000;
+  text-align: center;
+  font-style: italic;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
 .attachment-icon {
   width: 36px;
   height: 36px;
@@ -6180,73 +6213,6 @@ small {
   cursor: pointer;
   transition: opacity 0.2s ease;
   flex-shrink: 0;
-}
-
-.attachment-row {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  width: min(100%, 320px);
-  min-height: 120px;
-  padding: 10px;
-  margin-bottom: 6px;
-  border-radius: 12px;
-  background: #f5f5f7;
-  color: #222;
-  overflow: hidden;
-}
-
-.attachment-icon-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
-  width: 96px;
-  height: 96px;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.03);
-}
-
-/* Thumbnail image in attachment rows */
-.attachment-thumbnail {
-  width: 96px;
-  height: 96px;
-  object-fit: cover;
-  border-radius: 8px;
-  background: #f0f0f0;
-  display: block;
-  /* Disable long press context menus on iOS and Android */
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-.attachment-details {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.attachment-label {
-  display: -webkit-box;
-  max-height: 3.6em;
-  overflow: hidden;
-  color: #222;
-  font-size: 0.78rem;
-  font-weight: 500;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-}
-
-.attachment-meta {
-  color: #888;
-  font-size: 0.95rem;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
 }
 
 .attachment-icon:hover {
@@ -6261,9 +6227,9 @@ small {
 /* Image and video icons in message display (not preview) */
 .attachment-row .attachment-icon[data-file-type="image"],
 .attachment-row .attachment-icon[data-file-type="video"] {
-  width: 72px;
-  height: 72px;
-  background-size: 72px;
+  width: 144px;
+  height: 144px;
+  background-size: 144px;
 }
 
 .attachment-icon[data-file-type="audio"] {

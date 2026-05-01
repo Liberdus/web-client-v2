@@ -17286,9 +17286,9 @@ class ChatModal {
         const isVideo = att.type && att.type.startsWith('video/');
         const hasThumbnail = isImage || isVideo;
         const fileTypeIcon = this.getFileTypeForIcon(att.type || '', fileName);
-        const attachmentClass = hasThumbnail ? 'attachment-row attachment-row-media' : 'attachment-row attachment-row-file';
+        const paddingStyle = hasThumbnail ? 'padding: 5px 5px;' : 'padding: 10px 12px;';
         return `
-                <div class="${attachmentClass}"
+                <div class="attachment-row" style="display: flex; ${hasThumbnail ? 'flex-direction: column;' : 'align-items: center;'} background: #f5f5f7; border-radius: 12px; ${paddingStyle} margin-bottom: 6px;"
                   data-url="${fileUrl}"
                   data-p-url="${att.pUrl || ''}"
                   data-name="${encodeURIComponent(fileName)}"
@@ -17297,14 +17297,15 @@ class ChatModal {
                   ${isImage ? 'data-image-attachment="true"' : ''}
                   ${isVideo ? 'data-video-attachment="true"' : ''}
                 >
-                  <div class="attachment-icon-container">
+                  <div class="attachment-icon-container" style="${hasThumbnail ? 'margin-bottom: 10px; flex-direction: column;' : 'margin-right: 14px; flex-shrink: 0;'}">
                     <div class="attachment-icon" data-file-type="${fileTypeIcon}"></div>
+                    ${hasThumbnail ? '<div class="attachment-preview-hint">Click for options</div>' : ''}
                   </div>
-                  <div class="attachment-details">
-                    <span class="attachment-label">
+                  <div style="min-width:0;">
+                    <span class="attachment-label" style="font-weight:500;color:#222;font-size:0.7em;display:block;word-wrap:break-word;">
                       ${fileName}
-                    </span>
-                    <span class="attachment-meta">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
+                    </span><br>
+                    <span style="font-size: 0.93em; color: #888;">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
                   </div>
                 </div>
               `;
@@ -17585,9 +17586,9 @@ class ChatModal {
               const isVideo = att.type && att.type.startsWith('video/');
               const hasThumbnail = isImage || isVideo;
               const fileTypeIcon = this.getFileTypeForIcon(att.type || '', fileName);
-              const attachmentClass = hasThumbnail ? 'attachment-row attachment-row-media' : 'attachment-row attachment-row-file';
+              const paddingStyle = hasThumbnail ? 'padding: 5px 5px;' : 'padding: 10px 12px;';
               return `
-                <div class="${attachmentClass}"
+                <div class="attachment-row" style="display: flex; ${hasThumbnail ? 'flex-direction: column;' : 'align-items: center;'} background: #f5f5f7; border-radius: 12px; ${paddingStyle} margin-bottom: 6px;"
                   data-url="${fileUrl}"
                   data-p-url="${att.pUrl || ''}"
                   data-name="${encodeURIComponent(fileName)}"
@@ -17596,14 +17597,15 @@ class ChatModal {
                   ${isImage ? 'data-image-attachment="true"' : ''}
                   ${isVideo ? 'data-video-attachment="true"' : ''}
                 >
-                  <div class="attachment-icon-container">
+                  <div class="attachment-icon-container" style="${hasThumbnail ? 'margin-bottom: 10px; flex-direction: column;' : 'margin-right: 14px; flex-shrink: 0;'}">
                     <div class="attachment-icon" data-file-type="${fileTypeIcon}"></div>
+                    ${hasThumbnail ? '<div class="attachment-preview-hint">Click for options</div>' : ''}
                   </div>
-                  <div class="attachment-details">
-                    <span class="attachment-label">
+                  <div style="min-width:0;">
+                    <span class="attachment-label" style="font-weight:500;color:#222;font-size:0.7em;display:block;word-wrap:break-word;">
                       ${fileName}
-                    </span>
-                    <span class="attachment-meta">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
+                    </span><br>
+                    <span style="font-size: 0.93em; color: #888;">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
                   </div>
                 </div>
               `;
@@ -17728,6 +17730,9 @@ class ChatModal {
       total: this.formatChatPerfMs(appendPerfStart)
     });
 
+    // --- 4.5. Load thumbnails for image attachments (async, non-blocking) ---
+    this.loadThumbnailsForAttachments();
+
     const renderedAddress = currentAddress;
     if (skipDeferredWork) {
       this.logChatPerf('append:deferredSkipped', {
@@ -17763,75 +17768,19 @@ class ChatModal {
           const reactionPerfStart = this.getChatPerfTime();
           this.syncAllRenderedReactionChips();
           const reactionsMs = this.formatChatPerfMs(reactionPerfStart);
-          const wasNearBottomBeforeThumbnails = shouldKeepBottomAnchored
-            ? this.isMessagesContainerNearBottom(80)
-            : false;
-          const thumbnailPerfStart = this.getChatPerfTime();
-          try {
-            const thumbnailResult = this.loadThumbnailsForAttachments();
-            Promise.resolve(thumbnailResult).then(
-              () => {
-                let thumbnailScrollMetrics = null;
-                let thumbnailScrollMs = 'skipped';
-                if (shouldKeepBottomAnchored && wasNearBottomBeforeThumbnails) {
-                  const thumbnailScrollPerfStart = this.getChatPerfTime();
-                  thumbnailScrollMetrics = this.scrollMessagesToBottom();
-                  thumbnailScrollMs = this.formatChatPerfMs(thumbnailScrollPerfStart);
-                }
-                this.logChatPerf('append:deferred', {
-                  contact: this.formatChatPerfAddress(renderedAddress, contact),
-                  delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
-                  reactions: reactionsMs,
-                  thumbnails: this.formatChatPerfMs(thumbnailPerfStart),
-                  thumbnailScroll: thumbnailScrollMs,
-                  wasNearBottomBeforeThumbnails,
-                  scrollTop: thumbnailScrollMetrics ? thumbnailScrollMetrics.scrollTop : 'n/a',
-                  scrollHeight: thumbnailScrollMetrics ? thumbnailScrollMetrics.scrollHeight : 'n/a',
-                  total: this.formatChatPerfMs(deferredStart)
-                });
-                if (shouldKeepBottomAnchored && renderRange.isWindowed) {
-                  this.logChatPerf('window:drainSuppressed', {
-                    contact: this.formatChatPerfAddress(renderedAddress, contact),
-                    reason: 'bottomScrollCost',
-                    rendered: renderedMessages.length,
-                    remainingOlder: Math.max(0, messages.length - 1 - renderRange.oldestIndex)
-                  });
-                }
-              },
-              (error) => {
-                this.logChatPerf('append:deferredError', {
-                  contact: this.formatChatPerfAddress(renderedAddress, contact),
-                  delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
-                  reactions: reactionsMs,
-                  thumbnails: this.formatChatPerfMs(thumbnailPerfStart),
-                  error: error?.message || String(error)
-                });
-                if (shouldKeepBottomAnchored && renderRange.isWindowed) {
-                  this.logChatPerf('window:drainSuppressed', {
-                    contact: this.formatChatPerfAddress(renderedAddress, contact),
-                    reason: 'bottomScrollCostAfterDeferredError',
-                    rendered: renderedMessages.length,
-                    remainingOlder: Math.max(0, messages.length - 1 - renderRange.oldestIndex)
-                  });
-                }
-              }
-            );
-          } catch (error) {
-            this.logChatPerf('append:deferredError', {
+          this.logChatPerf('append:deferred', {
+            contact: this.formatChatPerfAddress(renderedAddress, contact),
+            delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
+            reactions: reactionsMs,
+            total: this.formatChatPerfMs(deferredStart)
+          });
+          if (shouldKeepBottomAnchored && renderRange.isWindowed) {
+            this.logChatPerf('window:drainSuppressed', {
               contact: this.formatChatPerfAddress(renderedAddress, contact),
-              delay: this.formatChatPerfMs(deferredScheduledAt, deferredStart),
-              reactions: reactionsMs,
-              thumbnails: this.formatChatPerfMs(thumbnailPerfStart),
-              error: error?.message || String(error)
+              reason: 'bottomScrollCost',
+              rendered: renderedMessages.length,
+              remainingOlder: Math.max(0, messages.length - 1 - renderRange.oldestIndex)
             });
-            if (shouldKeepBottomAnchored && renderRange.isWindowed) {
-              this.logChatPerf('window:drainSuppressed', {
-                contact: this.formatChatPerfAddress(renderedAddress, contact),
-                reason: 'bottomScrollCostAfterDeferredError',
-                rendered: renderedMessages.length,
-                remainingOlder: Math.max(0, messages.length - 1 - renderRange.oldestIndex)
-              });
-            }
           }
         });
       });
