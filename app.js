@@ -15465,6 +15465,11 @@ class ChatModal {
         distanceToRenderedTop: beforeSnapshot ? beforeSnapshot.distanceToRenderedTop : 'n/a',
         loadAheadThreshold: Math.round(this.getChatLoadAheadThreshold()),
         renderedTopThreshold: Math.round(this.getChatRenderedTopLoadAheadThreshold(beforeSnapshot)),
+        renderedBoundaryThreshold: Math.round(this.getChatRenderedBoundaryThreshold(beforeSnapshot)),
+        atRenderedBoundary: beforeSnapshot
+          ? beforeSnapshot.topSpacerHeight > 0 &&
+            beforeSnapshot.distanceToRenderedTop <= this.getChatRenderedBoundaryThreshold(beforeSnapshot)
+          : 'n/a',
         remainingOlder: Math.max(0, messages.length - 1 - nextOldestIndex),
         totalMessages: messages.length
       });
@@ -15472,22 +15477,40 @@ class ChatModal {
 
     if (shouldPrependOlderMessages) {
       const prependPerfStart = this.getChatPerfTime();
-      const oldScrollTop = this.messagesContainer.scrollTop;
+      const readScrollTopPerfStart = this.getChatPerfTime();
+      const snapshotScrollTop = Number.isFinite(beforeSnapshot?.scrollTop)
+        ? beforeSnapshot.scrollTop
+        : null;
+      const oldScrollTop = snapshotScrollTop ?? this.messagesContainer.scrollTop;
+      const oldScrollTopSource = snapshotScrollTop === null ? 'dom' : 'snapshot';
+      const readScrollTopMs = snapshotScrollTop === null
+        ? this.formatChatPerfMs(readScrollTopPerfStart)
+        : 'skipped';
+      const spacerLookupPerfStart = this.getChatPerfTime();
       const spacer = this.getChatHistorySpacerElement();
       const oldSpacerHeight = this.getChatHistorySpacerHeight();
+      const spacerLookupMs = this.formatChatPerfMs(spacerLookupPerfStart);
       const useEstimatedSpacerPreserve = !!spacer && oldSpacerHeight > 0;
+      const oldScrollHeightPerfStart = this.getChatPerfTime();
       const oldScrollHeight = useEstimatedSpacerPreserve ? null : this.messagesContainer.scrollHeight;
+      const oldScrollHeightMs = useEstimatedSpacerPreserve
+        ? 'skipped'
+        : this.formatChatPerfMs(oldScrollHeightPerfStart);
+      const estimatePerfStart = this.getChatPerfTime();
       const estimatedInsertedHeight = this.estimateChatMessagesHeight(
         messages,
         nextOldestIndex,
         currentOldestIndex + 1
       );
+      const estimateMs = this.formatChatPerfMs(estimatePerfStart);
+      const rangePerfStart = this.getChatPerfTime();
       const range = this.buildChatMessageRangeHTML(
         messages,
         contact,
         nextOldestIndex,
         currentOldestIndex + 1
       );
+      const rangeMs = this.formatChatPerfMs(rangePerfStart);
       const domWritePerfStart = this.getChatPerfTime();
       if (useEstimatedSpacerPreserve) {
         spacer.insertAdjacentHTML('afterend', range.html);
@@ -15552,6 +15575,12 @@ class ChatModal {
           replies: range.summary.replies,
           textChars: range.summary.textChars,
           maxTextChars: range.summary.maxTextChars,
+          scrollTopRead: readScrollTopMs,
+          scrollTopSource: oldScrollTopSource,
+          spacerLookup: spacerLookupMs,
+          oldScrollHeightRead: oldScrollHeightMs,
+          estimate: estimateMs,
+          range: rangeMs,
           build: range.buildMs,
           join: range.joinMs,
           domWrite: domWriteMs,
@@ -15573,8 +15602,12 @@ class ChatModal {
       }
       if (useEstimatedSpacerPreserve && nextOldestIndex < messages.length - 1) {
         const renderedTopThreshold = this.getChatRenderedTopLoadAheadThreshold(afterSnapshotEstimate);
+        const renderedBoundaryThreshold = this.getChatRenderedBoundaryThreshold(afterSnapshotEstimate);
         const shouldCatchUp = afterDistanceToRenderedTop <= renderedTopThreshold &&
-          beforeSnapshot?.distanceFromBottom >= rearmDistance;
+          (
+            beforeSnapshot?.distanceFromBottom >= rearmDistance ||
+            afterDistanceToRenderedTop <= renderedBoundaryThreshold
+          );
         if (shouldCatchUp) {
           this.scheduleChatSpacerCatchup('afterPrepend');
         } else if (
@@ -15587,7 +15620,8 @@ class ChatModal {
             distanceFromBottom: beforeSnapshot ? beforeSnapshot.distanceFromBottom : 'n/a',
             rearmDistance: Math.round(rearmDistance),
             distanceToRenderedTop: Math.round(afterDistanceToRenderedTop),
-            renderedTopThreshold: Math.round(renderedTopThreshold)
+            renderedTopThreshold: Math.round(renderedTopThreshold),
+            renderedBoundaryThreshold: Math.round(renderedBoundaryThreshold)
           });
         }
       }
@@ -15673,7 +15707,12 @@ class ChatModal {
       scrollSnapshot.distanceFromBottom >= this.chatExpansionRearmDistanceFromBottom;
     const isNearRenderedTop = remainingOlder > 0 &&
       scrollSnapshot.distanceToRenderedTop <= renderedTopThreshold;
-    if (isNearRenderedTop && isExpansionRearmed) {
+    const renderedBoundaryThreshold = this.getChatRenderedBoundaryThreshold(scrollSnapshot);
+    const isAtRenderedBoundary = remainingOlder > 0 &&
+      scrollSnapshot.topSpacerHeight > 0 &&
+      scrollSnapshot.distanceToRenderedTop <= renderedBoundaryThreshold;
+    const canExpandOlderWindow = isExpansionRearmed || isAtRenderedBoundary;
+    if (isNearRenderedTop && canExpandOlderWindow) {
       if (scrollSnapshot.topSpacerHeight > 0) {
         this.expandChatRenderWindow('scrollDistance');
       } else {
@@ -15695,6 +15734,7 @@ class ChatModal {
           : 'n/a',
         distanceToRenderedTop: scrollSnapshot.distanceToRenderedTop,
         renderedTopThreshold: Math.round(renderedTopThreshold),
+        renderedBoundaryThreshold: Math.round(renderedBoundaryThreshold),
         remainingOlder
       });
     }
@@ -15718,6 +15758,12 @@ class ChatModal {
 
     const renderedRunway = Math.max(0, snapshot.maxScrollTop - snapshot.topSpacerHeight);
     return Math.max(baseThreshold, renderedRunway * 0.5);
+  }
+
+  getChatRenderedBoundaryThreshold(scrollSnapshot = null) {
+    const snapshot = scrollSnapshot || this.getChatScrollSnapshot();
+    const containerHeight = snapshot?.clientHeight || this.messagesContainer?.clientHeight || 0;
+    return Math.max(32, Math.min(180, containerHeight * 0.2));
   }
 
   getChatOlderRenderBatchSize() {
