@@ -13946,11 +13946,16 @@ class ChatModal {
     this.chatPerfLogFlushTimer = null;
 
     this.chatInitialRenderCount = 50;
-    this.chatOlderRenderBatchSize = 75;
+    this.chatFirstOlderRenderBatchSize = 25;
+    this.chatOlderRenderBatchSize = 50;
     this.chatRenderedOldestIndex = null;
     this.chatRenderedWindowAddress = null;
     this.chatForceFullRenderOnce = false;
     this.isExpandingChatRenderWindow = false;
+    this.isChatTouchActive = false;
+    this.chatPendingScrollExpand = false;
+    this.chatPendingScrollExpandReason = null;
+    this.chatScrollEndFallbackTimer = null;
     this.lastChatScrollLogAt = 0;
     this.chatRenderWindowDrainTimer = null;
     this.chatRenderWindowDrainFrame = null;
@@ -14472,8 +14477,11 @@ class ChatModal {
     });
     // Close all context menus when messages container scrolls
     this.messagesContainer.addEventListener('scroll', () => this.handleMessagesContainerScroll(), { passive: true });
-    this.messagesContainer.addEventListener('touchstart', (e) => this.logChatTouchDiagnostics(e, 'messagesStart'), { passive: true });
+    this.messagesContainer.addEventListener('scrollend', () => this.handleMessagesContainerScrollEnd('scrollend'), { passive: true });
+    this.messagesContainer.addEventListener('touchstart', (e) => this.handleMessagesTouchStart(e), { passive: true });
     this.messagesContainer.addEventListener('touchmove', (e) => this.logChatTouchDiagnostics(e, 'messagesMove'), { passive: true });
+    this.messagesContainer.addEventListener('touchend', (e) => this.handleMessagesTouchEnd(e), { passive: true });
+    this.messagesContainer.addEventListener('touchcancel', (e) => this.handleMessagesTouchEnd(e), { passive: true });
     this.modal.addEventListener('touchmove', (e) => this.logChatTouchDiagnostics(e, 'modalMove'), { passive: true });
     // Add context menu option listeners
     this.contextMenu.addEventListener('click', (e) => {
@@ -15021,6 +15029,7 @@ class ChatModal {
 
   resetChatRenderWindow(address = null) {
     this.cancelChatRenderWindowDrain();
+    this.clearPendingChatScrollExpand();
     this.chatRenderedWindowAddress = address;
     this.chatRenderedOldestIndex = null;
     this.chatForceFullRenderOnce = false;
@@ -15167,13 +15176,105 @@ class ChatModal {
     });
   }
 
+  handleMessagesTouchStart(event) {
+    this.isChatTouchActive = true;
+    this.logChatTouchDiagnostics(event, 'messagesStart');
+  }
+
+  handleMessagesTouchEnd(event) {
+    this.isChatTouchActive = false;
+    this.logChatTouchDiagnostics(event, 'messagesEnd');
+    this.schedulePendingChatScrollExpand('touchEnd');
+  }
+
+  clearPendingChatScrollExpand() {
+    this.chatPendingScrollExpand = false;
+    this.chatPendingScrollExpandReason = null;
+    if (this.chatScrollEndFallbackTimer) {
+      clearTimeout(this.chatScrollEndFallbackTimer);
+      this.chatScrollEndFallbackTimer = null;
+    }
+  }
+
+  queueChatScrollExpand(reason, scrollSnapshot) {
+    const wasPending = this.chatPendingScrollExpand;
+    this.chatPendingScrollExpand = true;
+    this.chatPendingScrollExpandReason = reason;
+    if (!wasPending) {
+      this.logChatPerf('window:expandQueued', {
+        reason,
+        scrollTop: scrollSnapshot ? scrollSnapshot.scrollTop : 'n/a',
+        distanceFromBottom: scrollSnapshot ? scrollSnapshot.distanceFromBottom : 'n/a',
+        loadAheadThreshold: Math.round(this.getChatLoadAheadThreshold()),
+        touchActive: this.isChatTouchActive
+      });
+    }
+    this.schedulePendingChatScrollExpand('scrollIdleFallback');
+  }
+
+  schedulePendingChatScrollExpand(trigger) {
+    if (!this.chatPendingScrollExpand) return;
+    if (this.chatScrollEndFallbackTimer) {
+      clearTimeout(this.chatScrollEndFallbackTimer);
+    }
+    this.chatScrollEndFallbackTimer = setTimeout(() => {
+      this.chatScrollEndFallbackTimer = null;
+      this.flushPendingChatScrollExpand(trigger);
+    }, 220);
+  }
+
+  handleMessagesContainerScrollEnd(trigger = 'scrollend') {
+    this.flushPendingChatScrollExpand(trigger);
+  }
+
+  flushPendingChatScrollExpand(trigger) {
+    if (!this.chatPendingScrollExpand || this.isExpandingChatRenderWindow || !this.isActive()) return;
+    if (this.isChatTouchActive && trigger !== 'scrollend') {
+      this.schedulePendingChatScrollExpand('touchStillActive');
+      return;
+    }
+
+    const scrollSnapshot = this.getChatScrollSnapshot();
+    const loadAheadThreshold = this.getChatLoadAheadThreshold();
+    const rearmDistance = this.chatExpansionRearmDistanceFromBottom;
+    const isExpansionRearmed = !Number.isFinite(rearmDistance) ||
+      (scrollSnapshot && scrollSnapshot.distanceFromBottom >= rearmDistance);
+
+    if (!scrollSnapshot || scrollSnapshot.distanceFromBottom < loadAheadThreshold || !isExpansionRearmed) {
+      this.logChatPerf('window:expandAborted', {
+        trigger,
+        reason: !scrollSnapshot
+          ? 'missingSnapshot'
+          : scrollSnapshot.distanceFromBottom < loadAheadThreshold
+            ? 'belowThreshold'
+            : 'notRearmed',
+        distanceFromBottom: scrollSnapshot ? scrollSnapshot.distanceFromBottom : 'n/a',
+        loadAheadThreshold: Math.round(loadAheadThreshold),
+        rearmDistance: Number.isFinite(rearmDistance) ? Math.round(rearmDistance) : 'n/a'
+      });
+      this.clearPendingChatScrollExpand();
+      return;
+    }
+
+    const queuedReason = this.chatPendingScrollExpandReason || 'scrollDistance';
+    this.clearPendingChatScrollExpand();
+    this.logChatPerf('window:expandFlushed', {
+      trigger,
+      queuedReason,
+      distanceFromBottom: scrollSnapshot.distanceFromBottom,
+      loadAheadThreshold: Math.round(loadAheadThreshold),
+      rearmDistance: Number.isFinite(rearmDistance) ? Math.round(rearmDistance) : 'n/a'
+    });
+    this.expandChatRenderWindow('scrollIdle');
+  }
+
   expandChatRenderWindow(reason = 'scroll') {
     if (this.isExpandingChatRenderWindow || !this.address || !this.messagesList) return false;
     const contact = myData.contacts[this.address];
     const messages = contact?.messages;
     if (!Array.isArray(messages) || messages.length === 0) return false;
     const isOpenDrain = reason === 'openDrain';
-    const shouldPrependOlderMessages = reason === 'scrollDistance' && this.messagesContainer;
+    const shouldPrependOlderMessages = (reason === 'scrollDistance' || reason === 'scrollIdle') && this.messagesContainer;
 
     const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
       ? this.chatRenderedOldestIndex
@@ -15336,7 +15437,7 @@ class ChatModal {
     const isExpansionRearmed = !Number.isFinite(this.chatExpansionRearmDistanceFromBottom) ||
       scrollSnapshot.distanceFromBottom >= this.chatExpansionRearmDistanceFromBottom;
     if (scrollSnapshot.distanceFromBottom >= loadAheadThreshold && isExpansionRearmed) {
-      this.expandChatRenderWindow('scrollDistance');
+      this.queueChatScrollExpand('scrollDistance', scrollSnapshot);
     }
   }
 
@@ -15348,6 +15449,12 @@ class ChatModal {
   getChatOlderRenderBatchSize() {
     const container = this.messagesContainer;
     if (!container) return this.chatOlderRenderBatchSize;
+    const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
+      ? this.chatRenderedOldestIndex
+      : this.chatInitialRenderCount - 1;
+    if (currentOldestIndex <= this.chatInitialRenderCount - 1) {
+      return this.chatFirstOlderRenderBatchSize;
+    }
     const scrollSnapshot = this.getChatScrollSnapshot();
     const distanceFromBottom = scrollSnapshot ? scrollSnapshot.distanceFromBottom : 0;
     const urgentThreshold = (container.clientHeight || 0) * 3;
