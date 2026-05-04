@@ -13944,8 +13944,7 @@ class ChatModal {
     this.dragCounter = 0;
     this.dropOverlay = null;
 
-    this.chatRenderedOldestIndex = null;
-    this.chatRenderSequence = 0;
+    this.chatRenderedOldestIndex = CHAT_INITIAL_RENDER_COUNT - 1;
   }
 
   /**
@@ -14889,7 +14888,7 @@ class ChatModal {
   }
 
   resetChatRenderWindow() {
-    this.chatRenderedOldestIndex = null;
+    this.chatRenderedOldestIndex = CHAT_INITIAL_RENDER_COUNT - 1;
   }
 
   expandChatRenderWindow() {
@@ -14898,9 +14897,7 @@ class ChatModal {
     const container = this.messagesContainer;
     const list = this.messagesList;
 
-    const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
-      ? this.chatRenderedOldestIndex
-      : Math.min(messages.length - 1, CHAT_INITIAL_RENDER_COUNT - 1);
+    const currentOldestIndex = Math.min(this.chatRenderedOldestIndex, messages.length - 1);
     if (currentOldestIndex >= messages.length - 1) {
       return;
     }
@@ -14940,9 +14937,7 @@ class ChatModal {
     if (!this.isActive()) return;
     const container = this.messagesContainer;
     const messages = myData.contacts[this.address].messages;
-    const renderedOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
-      ? this.chatRenderedOldestIndex
-      : CHAT_INITIAL_RENDER_COUNT - 1;
+    const renderedOldestIndex = this.chatRenderedOldestIndex;
     if (renderedOldestIndex >= messages.length - 1) {
       return;
     }
@@ -16016,7 +16011,7 @@ class ChatModal {
     };
   }
 
-  renderChatMessageHTML(item, index, { contact, lastReadTs }) {
+  renderChatMessageHTML(item, { contact, lastReadTs }) {
     const timeString = formatTime(item.timestamp);
     const timestampAttribute = `data-message-timestamp="${item.timestamp}"`;
     const txidAttribute = item?.txid ? `data-txid="${item.txid}"` : '';
@@ -16091,7 +16086,6 @@ class ChatModal {
                   data-p-url="${att.pUrl || ''}"
                   data-name="${encodeURIComponent(fileName)}"
                   data-type="${att.type || ''}"
-                  data-msg-idx="${index}"
                   ${isImage ? 'data-image-attachment="true"' : ''}
                   ${isVideo ? 'data-video-attachment="true"' : ''}
                 >
@@ -16148,7 +16142,7 @@ class ChatModal {
       case 'vm': {
         const duration = this.formatDuration(item.duration);
         messageTextHTML = `
-              <div class="voice-message" data-url="${item.url || ''}" data-name="voice-message" data-type="audio/webm" data-msg-idx="${index}" data-duration="${item.duration || 0}">
+              <div class="voice-message" data-url="${item.url || ''}" data-name="voice-message" data-type="audio/webm" data-duration="${item.duration || 0}">
                 <div class="voice-message-controls">
                   <div class="voice-message-top-row">
                     <button class="voice-message-play-button" aria-label="Play voice message">
@@ -16191,7 +16185,7 @@ class ChatModal {
     for (let i = oldestIndex; i >= newestIndex; i--) {
       const item = messages[i];
       if (!item) continue;
-      renderedMessages.push(this.renderChatMessageHTML(item, i, { contact, lastReadTs }));
+      renderedMessages.push(this.renderChatMessageHTML(item, { contact, lastReadTs }));
       if (item.txid) renderedTxids.push(item.txid);
     }
 
@@ -16204,17 +16198,15 @@ class ChatModal {
   }
 
   getOldestRenderedMessageIndex(messages) {
-    const oldestRendered = this.messagesList?.firstElementChild;
+    const oldestRendered = this.messagesList.firstElementChild;
     if (!oldestRendered) return -1;
 
-    const { txid, messageTimestamp } = oldestRendered.dataset || {};
-    if (!txid && !messageTimestamp) return -1;
+    const { txid, messageTimestamp } = oldestRendered.dataset;
+    assert(txid || messageTimestamp, 'Rendered message must have an identity');
 
     return messages.findIndex((message) =>
-      message && (
-        (txid && message.txid === txid) ||
-        (messageTimestamp && message.timestamp == messageTimestamp)
-      )
+      (txid && message.txid === txid) ||
+      (messageTimestamp && message.timestamp == messageTimestamp)
     );
   }
 
@@ -16239,7 +16231,6 @@ class ChatModal {
 
     if (!this.modal) return;
     if (!this.messagesList) return;
-    const renderSequence = ++this.chatRenderSequence;
 
     // --- 1. Identify the actual newest received message data item ---
     // Since messages are sorted descending (newest first), the first item with my: false is the newest received.
@@ -16249,9 +16240,7 @@ class ChatModal {
 
     let oldestIndex = -1;
     if (messages.length > 0) {
-      const requestedOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
-        ? this.chatRenderedOldestIndex
-        : CHAT_INITIAL_RENDER_COUNT - 1;
+      const requestedOldestIndex = this.chatRenderedOldestIndex;
       const preservedOldestIndex = this.getOldestRenderedMessageIndex(messages);
       oldestIndex = Math.min(
         Math.max(0, requestedOldestIndex, preservedOldestIndex),
@@ -16284,11 +16273,7 @@ class ChatModal {
     const renderedAddress = currentAddress;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        if (
-          !this.isActive() ||
-          this.address !== renderedAddress ||
-          renderSequence !== this.chatRenderSequence
-        ) {
+        if (!this.isActive() || this.address !== renderedAddress) {
           return;
         }
         if (shouldKeepBottomAnchored) {
@@ -17954,12 +17939,12 @@ class ChatModal {
   }
 
   getMessageRecordFromRenderedChild(element) {
-    const messageEl = element?.closest?.('.message') || null;
-    const messageRecord = this.getMessageRecordFromElement(messageEl);
-    if (messageRecord) return messageRecord;
+    const messageEl = element.closest('.message');
+    assert(messageEl, 'Rendered child must be inside a message');
 
-    const idx = Number(element?.dataset?.msgIdx);
-    return Number.isInteger(idx) ? myData.contacts[this.address]?.messages?.[idx] || null : null;
+    const messageRecord = this.getMessageRecordFromElement(messageEl);
+    assert(messageRecord, 'Rendered message must have a backing record');
+    return messageRecord;
   }
 
   /**
@@ -18264,17 +18249,23 @@ class ChatModal {
   /**
    * Resolve common attachment context fields from an attachment row.
    * @param {HTMLElement} attachmentRow
-   * @returns {{ attachmentRow: HTMLElement, messageEl: HTMLElement | null, idx: number, item: any, url: string }}
+   * @returns {{ attachmentRow: HTMLElement, messageEl: HTMLElement, item: any, url: string }}
    */
   getAttachmentContextFromRow(attachmentRow) {
-    const idx = Number(attachmentRow?.dataset?.msgIdx);
-    const item = this.getMessageRecordFromRenderedChild(attachmentRow);
+    const messageEl = attachmentRow.closest('.message');
+    assert(messageEl, 'Attachment row must be inside a message');
+
+    const item = this.getMessageRecordFromElement(messageEl);
+    assert(item, 'Attachment message must have a backing record');
+
+    const url = attachmentRow.dataset.url;
+    assert(url, 'Attachment row must include a url');
+
     return {
       attachmentRow,
-      messageEl: attachmentRow?.closest?.('.message') || null,
-      idx,
+      messageEl,
       item,
-      url: attachmentRow?.dataset?.url || ''
+      url
     };
   }
 
@@ -18845,10 +18836,7 @@ class ChatModal {
 
     // Get encryption keys from the message
     const message = this.getMessageRecordFromRenderedChild(attachmentRow);
-    if (!message?.xattach) {
-      showToast('Could not find attachment data', 0, 'error');
-      return;
-    }
+    assert(message.xattach, 'VCF attachment message must include attachment data');
 
     // Find the attachment in xattach array
     const attachment = message.xattach.find(att => att.url === url);
@@ -18877,7 +18865,7 @@ class ChatModal {
     let loadingToastId;
     try {
       const { item, url } = this.getAttachmentContextFromRow(attachmentRow);
-      if (!item || !url || url === '#') return;
+      if (url === '#') return;
       
       // Get pUrl from data attributes
       const pUrl = attachmentRow.dataset.pUrl;
@@ -18910,7 +18898,6 @@ class ChatModal {
   async saveImageAttachment(attachmentRow) {
     // Reuse normal attachment download flow (decrypt + download)
     const { item } = this.getAttachmentContextFromRow(attachmentRow);
-    if (!item) return;
 
     // Concurent download prevention
     if (this.attachmentDownloadInProgress) return;
@@ -19473,7 +19460,7 @@ class ChatModal {
         : -1;
       if (targetIndex !== -1) {
         this.chatRenderedOldestIndex = Math.max(
-          Number.isInteger(this.chatRenderedOldestIndex) ? this.chatRenderedOldestIndex : 0,
+          this.chatRenderedOldestIndex,
           targetIndex
         );
         this.appendChatModal(false, true);
@@ -20453,9 +20440,6 @@ class ChatModal {
     try {
       // Check if it's our own message or received message
       const message = this.getMessageRecordFromRenderedChild(voiceMessageElement);
-      if (!message) {
-        throw new Error('Message not found');
-      }
       const isMyMessage = message.my;
       
       // Get keys from message item (voice messages use audio-specific keys with fallback)
@@ -21358,15 +21342,9 @@ class ShareAttachmentModal {
 
     // Get the actual message data from myData to access encryption keys
     const messageData = chatModal.getMessageRecordFromElement(messageEl);
-    if (!messageData) {
-      console.error('Cannot find message data for attachment');
-      return null;
-    }
+    assert(messageData, 'Shared attachment must have a backing message record');
 
-    if (!messageData || !messageData.xattach || !messageData.xattach[0]) {
-      console.error('Cannot find attachment in message data');
-      return null;
-    }
+    assert(messageData.xattach && messageData.xattach[0], 'Shared attachment message must include attachment data');
 
     const attachmentData = messageData.xattach[0];
 
