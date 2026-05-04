@@ -20624,8 +20624,7 @@ class ChatModal {
    */
   async saveVoiceMessage(messageEl) {
     const voiceEl = messageEl.querySelector('.voice-message');
-    const msgIdx = voiceEl?.dataset?.msgIdx;
-    const item = msgIdx !== undefined ? myData.contacts[this.address]?.messages?.[msgIdx] : null;
+    const item = this.getMessageRecordFromElement(messageEl);
     
     if (!voiceEl || !item || item.type !== 'vm') {
       showToast('Voice message not found', 2000, 'error');
