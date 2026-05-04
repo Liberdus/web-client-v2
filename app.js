@@ -16229,9 +16229,12 @@ class ChatModal {
     const { txid, messageTimestamp } = oldestRendered.dataset;
     assert(txid || messageTimestamp, 'Rendered message must have an identity');
 
+    if (txid) {
+      return messages.findIndex((message) => message?.txid === txid);
+    }
+
     return messages.findIndex((message) =>
-      (txid && message.txid === txid) ||
-      (messageTimestamp && message.timestamp == messageTimestamp)
+      messageTimestamp && message?.timestamp == messageTimestamp
     );
   }
 
@@ -17957,8 +17960,12 @@ class ChatModal {
     const contact = myData.contacts[this.address];
     if (!contact?.messages?.length) return null;
 
+    if (txid) {
+      return contact.messages.find((msg) => msg?.txid === txid) || null;
+    }
+
     const messageIndex = contact.messages.findIndex((msg) =>
-      msg && (msg.txid === txid || msg.timestamp == timestamp)
+      timestamp && msg?.timestamp == timestamp
     );
     return messageIndex === -1 ? null : contact.messages[messageIndex];
   }
