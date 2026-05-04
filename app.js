@@ -13943,7 +13943,6 @@ class ChatModal {
     this.dropOverlay = null;
 
     this.chatInitialRenderCount = 50;
-    this.chatFirstOlderRenderBatchSize = 25;
     this.chatOlderRenderBatchSize = 50;
     this.chatRenderedOldestIndex = null;
     this.chatRenderedWindowAddress = null;
@@ -15091,7 +15090,7 @@ class ChatModal {
 
     const nextOldestIndex = Math.min(
       messages.length - 1,
-      currentOldestIndex + this.getChatOlderRenderBatchSize()
+      currentOldestIndex + this.chatOlderRenderBatchSize
     );
 
     const beforeSnapshot = this.getChatScrollSnapshot();
@@ -15165,16 +15164,6 @@ class ChatModal {
 
   getChatRenderedBoundaryThreshold(scrollSnapshot) {
     return Math.max(32, Math.min(180, scrollSnapshot.clientHeight * 0.2));
-  }
-
-  getChatOlderRenderBatchSize() {
-    const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
-      ? this.chatRenderedOldestIndex
-      : this.chatInitialRenderCount - 1;
-    if (currentOldestIndex <= this.chatInitialRenderCount - 1) {
-      return this.chatFirstOlderRenderBatchSize;
-    }
-    return this.chatOlderRenderBatchSize;
   }
 
   /**
