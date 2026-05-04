@@ -13942,8 +13942,8 @@ class ChatModal {
     this.dragCounter = 0;
     this.dropOverlay = null;
 
-    this.chatInitialRenderCount = 50;
-    this.chatOlderRenderBatchSize = 50;
+    this.chatInitialRenderCount = 100;
+    this.chatOlderRenderBatchSize = 200;
     this.chatRenderedOldestIndex = null;
     this.isExpandingChatRenderWindow = false;
     this.isChatTouchActive = false;
@@ -15046,8 +15046,8 @@ class ChatModal {
       scrollSnapshot.distanceFromBottom >= rearmDistance;
 
     if (
-      scrollSnapshot.distanceFromBottom < loadAheadThreshold ||
-      (!isExpansionRearmed && !isAtRenderedBoundary)
+      !isAtRenderedBoundary &&
+      (scrollSnapshot.distanceFromBottom < loadAheadThreshold || !isExpansionRearmed)
     ) {
       this.clearPendingChatScrollExpand();
       this.stopChatTopBoundaryScrollHold();
@@ -15099,6 +15099,7 @@ class ChatModal {
     this.messagesList.insertAdjacentHTML('afterbegin', range.html);
 
     this.syncRenderedReactionTargets(range.renderedTxids);
+    this.loadThumbnailsForAttachments();
 
     const insertedHeight = this.messagesContainer.scrollHeight - oldScrollHeight;
     this.messagesContainer.scrollTop = oldScrollTop + insertedHeight;
