@@ -16427,7 +16427,7 @@ class ChatModal {
     const shouldKeepBottomAnchored = !skipAutoScroll && !highlightNewMessage;
 
     // --- 4.5. Load thumbnails for image attachments (async, non-blocking) ---
-    this.loadThumbnailsForAttachments();
+    this.loadThumbnailsForAttachments({ keepBottomAnchored: shouldKeepBottomAnchored });
 
     const renderedAddress = currentAddress;
     const scheduleAfterPaint = typeof requestAnimationFrame === 'function'
@@ -17322,15 +17322,21 @@ class ChatModal {
 
   /**
    * Load thumbnails for visible image and video attachments.
+   * @param {{ keepBottomAnchored?: boolean }} options
    * @returns {void}
    */
-  async loadThumbnailsForAttachments() {
+  async loadThumbnailsForAttachments({ keepBottomAnchored = false } = {}) {
     const thumbnailRows = this.messagesList.querySelectorAll(
       '[data-image-attachment="true"], [data-video-attachment="true"]'
     );
 
     for (const attachmentRow of thumbnailRows) {
-      await this.loadThumbnailForAttachment(attachmentRow);
+      const oldScrollHeight = this.messagesContainer?.scrollHeight ?? 0;
+      const didUpdate = await this.loadThumbnailForAttachment(attachmentRow);
+      const heightDelta = (this.messagesContainer?.scrollHeight ?? 0) - oldScrollHeight;
+      if (keepBottomAnchored && didUpdate && heightDelta !== 0 && this.messagesContainer) {
+        this.messagesContainer.scrollTop = Math.max(0, this.messagesContainer.scrollTop + heightDelta);
+      }
     }
   }
 
