@@ -4749,7 +4749,7 @@ class FriendModal {
   updateFriendButton(contact, buttonId) {
     const button = document.getElementById(buttonId);
     // Remove all status classes
-    button.classList.remove('status-0', 'status-1', 'status-2', 'status-3');
+    button.classList.remove('status-0', 'status-1', 'status-2');
     // Add the current status class
     button.classList.add(`status-${contact.friend}`);
   }
@@ -13878,6 +13878,9 @@ const CHAT_REACTION_SHEET_RECENT_ACCOUNT_KEY = 'recentReactionEmojis';
 const CHAT_REACTION_SHEET_RECENT_LIMIT = CHAT_REACTION_SHEET_DEFAULT_COMMON_EMOJIS.length;
 const CHAT_REACTION_SHEET_PROMOTION_RATIO = 0.5;
 const CHAT_REACTION_SHEET_CLOSE_DRAG_PX = 120;
+const CHAT_INITIAL_RENDER_COUNT = 100;
+const CHAT_OLDER_RENDER_BATCH_SIZE = 200;
+const CHAT_SCROLL_EXPAND_DELAY_MS = 220;
 const CHAT_REACTION_SHEET_TAB_ICONS = {
   recent: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/></svg>',
   smileys: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>',
@@ -13942,16 +13945,10 @@ class ChatModal {
     this.dragCounter = 0;
     this.dropOverlay = null;
 
-    this.chatInitialRenderCount = 100;
-    this.chatOlderRenderBatchSize = 200;
     this.chatRenderedOldestIndex = null;
-    this.isExpandingChatRenderWindow = false;
-    this.isChatTouchActive = false;
-    this.chatPendingScrollExpand = false;
-    this.chatScrollEndFallbackTimer = null;
+    this.chatScrollExpandTimer = null;
     this.chatRenderSequence = 0;
     this.chatTouchStartY = null;
-    this.chatExpansionRearmDistanceFromBottom = null;
     this.chatHistoryLoadingToastId = null;
   }
 
@@ -14904,8 +14901,7 @@ class ChatModal {
     this.clearPendingChatScrollExpand();
     this.stopChatTopBoundaryScrollHold();
     this.chatRenderedOldestIndex = null;
-    this.isExpandingChatRenderWindow = false;
-    this.chatExpansionRearmDistanceFromBottom = null;
+    this.chatTouchStartY = null;
   }
 
   getChatRenderRange(messages) {
@@ -14916,7 +14912,7 @@ class ChatModal {
     }
 
     if (!Number.isInteger(this.chatRenderedOldestIndex)) {
-      this.chatRenderedOldestIndex = Math.min(totalMessages - 1, this.chatInitialRenderCount - 1);
+      this.chatRenderedOldestIndex = Math.min(totalMessages - 1, CHAT_INITIAL_RENDER_COUNT - 1);
     }
 
     this.chatRenderedOldestIndex = Math.min(this.chatRenderedOldestIndex, totalMessages - 1);
@@ -14970,21 +14966,19 @@ class ChatModal {
 
   shouldBlockChatTopBoundaryTouchMove(event) {
     if (!this.chatHistoryLoadingToastId || !this.messagesContainer) return false;
-    const touch = event.touches?.[0] || null;
-    const y = touch ? Math.round(touch.clientY) : null;
-    const deltaY = typeof y === 'number' && typeof this.chatTouchStartY === 'number'
-      ? y - this.chatTouchStartY
-      : 0;
-    if (deltaY <= 0) return false;
+    const touch = event.touches[0];
+    assert(touch, 'Touch point is required');
+    assert(typeof this.chatTouchStartY === 'number', 'Touch start y is required');
+    if (Math.round(touch.clientY) <= this.chatTouchStartY) return false;
 
     const snapshot = this.getChatScrollSnapshot();
     return snapshot.distanceToRenderedTop <= this.getChatRenderedBoundaryThreshold(snapshot);
   }
 
   handleMessagesTouchStart(event) {
-    this.isChatTouchActive = true;
-    const touch = event.touches?.[0] || null;
-    this.chatTouchStartY = touch ? Math.round(touch.clientY) : null;
+    const touch = event.touches[0];
+    assert(touch, 'Touch point is required');
+    this.chatTouchStartY = Math.round(touch.clientY);
   }
 
   handleMessagesTouchMove(event) {
@@ -14998,66 +14992,56 @@ class ChatModal {
   }
 
   handleMessagesTouchEnd() {
-    this.isChatTouchActive = false;
-    this.schedulePendingChatScrollExpand();
+    this.chatTouchStartY = null;
+    if (this.chatScrollExpandTimer) {
+      this.schedulePendingChatScrollExpand();
+    }
   }
 
   clearPendingChatScrollExpand() {
-    this.chatPendingScrollExpand = false;
-    if (this.chatScrollEndFallbackTimer) {
-      clearTimeout(this.chatScrollEndFallbackTimer);
-      this.chatScrollEndFallbackTimer = null;
+    if (this.chatScrollExpandTimer) {
+      clearTimeout(this.chatScrollExpandTimer);
+      this.chatScrollExpandTimer = null;
     }
   }
 
   queueChatScrollExpand() {
-    this.chatPendingScrollExpand = true;
     this.schedulePendingChatScrollExpand();
   }
 
   schedulePendingChatScrollExpand() {
-    if (!this.chatPendingScrollExpand) return;
-    if (this.chatScrollEndFallbackTimer) {
-      clearTimeout(this.chatScrollEndFallbackTimer);
+    if (this.chatScrollExpandTimer) {
+      clearTimeout(this.chatScrollExpandTimer);
     }
-    this.chatScrollEndFallbackTimer = setTimeout(() => {
-      this.chatScrollEndFallbackTimer = null;
+    this.chatScrollExpandTimer = setTimeout(() => {
+      this.chatScrollExpandTimer = null;
       this.flushPendingChatScrollExpand();
-    }, 220);
+    }, CHAT_SCROLL_EXPAND_DELAY_MS);
   }
 
   handleMessagesContainerScrollEnd() {
-    this.flushPendingChatScrollExpand();
+    if (this.chatScrollExpandTimer) {
+      this.flushPendingChatScrollExpand();
+    }
   }
 
   flushPendingChatScrollExpand() {
-    if (!this.chatPendingScrollExpand || this.isExpandingChatRenderWindow || !this.isActive()) return;
-    if (this.isChatTouchActive) {
+    this.clearPendingChatScrollExpand();
+    if (!this.isActive()) return;
+    if (this.chatTouchStartY !== null) {
       this.schedulePendingChatScrollExpand();
       return;
     }
 
     const scrollSnapshot = this.getChatScrollSnapshot();
-    const loadAheadThreshold = this.getChatLoadAheadThreshold();
-    const rearmDistance = this.chatExpansionRearmDistanceFromBottom;
-    const renderedBoundaryThreshold = this.getChatRenderedBoundaryThreshold(scrollSnapshot);
-    const isAtRenderedBoundary = scrollSnapshot.distanceToRenderedTop <= renderedBoundaryThreshold;
-    const isExpansionRearmed = !Number.isFinite(rearmDistance) ||
-      scrollSnapshot.distanceFromBottom >= rearmDistance;
-
-    if (
-      !isAtRenderedBoundary &&
-      (scrollSnapshot.distanceFromBottom < loadAheadThreshold || !isExpansionRearmed)
-    ) {
-      this.clearPendingChatScrollExpand();
+    if (scrollSnapshot.distanceToRenderedTop > this.getChatRenderedTopLoadAheadThreshold(scrollSnapshot)) {
       this.stopChatTopBoundaryScrollHold();
       return;
     }
 
-    if (isAtRenderedBoundary) {
+    if (scrollSnapshot.distanceToRenderedTop <= this.getChatRenderedBoundaryThreshold(scrollSnapshot)) {
       this.startChatTopBoundaryScrollHold();
     }
-    this.clearPendingChatScrollExpand();
     const expanded = this.expandChatRenderWindow();
     if (!expanded) {
       this.stopChatTopBoundaryScrollHold();
@@ -15065,7 +15049,7 @@ class ChatModal {
   }
 
   expandChatRenderWindow() {
-    if (this.isExpandingChatRenderWindow || !this.address || !this.messagesContainer || !this.messagesList) return false;
+    if (!this.address || !this.messagesContainer || !this.messagesList) return false;
 
     const contact = myData.contacts[this.address];
     const messages = contact?.messages;
@@ -15073,7 +15057,7 @@ class ChatModal {
 
     const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
       ? this.chatRenderedOldestIndex
-      : Math.min(messages.length - 1, this.chatInitialRenderCount - 1);
+      : Math.min(messages.length - 1, CHAT_INITIAL_RENDER_COUNT - 1);
     if (currentOldestIndex >= messages.length - 1) {
       this.stopChatTopBoundaryScrollHold();
       return false;
@@ -15081,11 +15065,10 @@ class ChatModal {
 
     const nextOldestIndex = Math.min(
       messages.length - 1,
-      currentOldestIndex + this.chatOlderRenderBatchSize
+      currentOldestIndex + CHAT_OLDER_RENDER_BATCH_SIZE
     );
 
-    const beforeSnapshot = this.getChatScrollSnapshot();
-    const oldScrollTop = beforeSnapshot.scrollTop;
+    const oldScrollTop = this.getChatScrollSnapshot().scrollTop;
     const oldScrollHeight = this.messagesContainer.scrollHeight;
     const range = this.buildChatMessageRangeHTML(
       messages,
@@ -15094,7 +15077,6 @@ class ChatModal {
       currentOldestIndex + 1
     );
 
-    this.isExpandingChatRenderWindow = true;
     this.chatRenderedOldestIndex = nextOldestIndex;
     this.messagesList.insertAdjacentHTML('afterbegin', range.html);
     const prependedThumbnailRows = range.renderedTxids.flatMap((txid) => {
@@ -15108,53 +15090,37 @@ class ChatModal {
 
     const insertedHeight = this.messagesContainer.scrollHeight - oldScrollHeight;
     this.messagesContainer.scrollTop = oldScrollTop + insertedHeight;
-    this.loadThumbnailsForAttachments({
-      attachmentRows: prependedThumbnailRows,
-      preserveScrollAnchor: true
-    });
-    this.chatExpansionRearmDistanceFromBottom = beforeSnapshot.distanceFromBottom + this.getChatLoadAheadThreshold();
-    this.isExpandingChatRenderWindow = false;
+    this.loadPrependedThumbnails(prependedThumbnailRows);
     this.stopChatTopBoundaryScrollHold();
     return true;
   }
 
   handleMessagesContainerScroll() {
     this.closeAllContextMenus();
-    if (!this.messagesContainer || !this.isActive()) return;
+    if (!this.isActive()) return;
     const scrollSnapshot = this.getChatScrollSnapshot();
-    const contact = this.address ? myData.contacts[this.address] : null;
-    const totalMessages = Array.isArray(contact?.messages) ? contact.messages.length : 0;
+    const contact = myData.contacts[this.address];
+    const messages = contact?.messages;
+    assert(Array.isArray(messages), `Missing messages for chat: ${this.address}`);
+    const totalMessages = messages.length;
     const renderedOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
       ? this.chatRenderedOldestIndex
-      : this.chatInitialRenderCount - 1;
+      : CHAT_INITIAL_RENDER_COUNT - 1;
     const remainingOlder = Math.max(0, totalMessages - 1 - renderedOldestIndex);
-    const loadAheadThreshold = this.getChatLoadAheadThreshold();
-    const renderedTopThreshold = this.getChatRenderedTopLoadAheadThreshold(scrollSnapshot);
-    if (
-      Number.isFinite(this.chatExpansionRearmDistanceFromBottom) &&
-      scrollSnapshot.distanceFromBottom < Math.max(0, loadAheadThreshold * 0.5)
-    ) {
-      this.chatExpansionRearmDistanceFromBottom = null;
+    if (remainingOlder === 0) {
+      this.clearPendingChatScrollExpand();
+      this.stopChatTopBoundaryScrollHold();
+      return;
     }
-    const isExpansionRearmed = !Number.isFinite(this.chatExpansionRearmDistanceFromBottom) ||
-      scrollSnapshot.distanceFromBottom >= this.chatExpansionRearmDistanceFromBottom;
-    const isNearRenderedTop = remainingOlder > 0 &&
-      scrollSnapshot.distanceToRenderedTop <= renderedTopThreshold;
+
+    const isNearRenderedTop = scrollSnapshot.distanceToRenderedTop <= this.getChatRenderedTopLoadAheadThreshold(scrollSnapshot);
     const renderedBoundaryThreshold = this.getChatRenderedBoundaryThreshold(scrollSnapshot);
-    const isAtRenderedBoundary = remainingOlder > 0 &&
-      scrollSnapshot.distanceToRenderedTop <= renderedBoundaryThreshold;
-    const canExpandOlderWindow = isExpansionRearmed || isAtRenderedBoundary;
-    if (isNearRenderedTop && canExpandOlderWindow) {
-      if (isAtRenderedBoundary) {
+    if (isNearRenderedTop) {
+      if (scrollSnapshot.distanceToRenderedTop <= renderedBoundaryThreshold) {
         this.startChatTopBoundaryScrollHold();
       }
       this.queueChatScrollExpand();
     }
-  }
-
-  getChatLoadAheadThreshold() {
-    assert(this.messagesContainer, 'Messages container is required');
-    return Math.max(1200, this.messagesContainer.clientHeight * 3);
   }
 
   getChatRenderedTopLoadAheadThreshold(scrollSnapshot) {
@@ -16263,6 +16229,12 @@ class ChatModal {
                 `;
     }
 
+    const messageType = item.type || 'message';
+    assert(
+      messageType === 'message' || messageType === 'call' || messageType === 'vm',
+      `Unknown chat message type: ${messageType}`
+    );
+
     let replyHTML = '';
     if (item.replyId) {
       const replyText = escapeHtml(item.replyMessage || 'View original message');
@@ -16322,7 +16294,7 @@ class ChatModal {
 
     let messageTextHTML = '';
     if (item.message && item.message.trim()) {
-      if (item.type === 'call') {
+      if (messageType === 'call') {
         const callTimeMs = Number(item.callTime || 0);
         const callStart = callTimeMs > 0 ? callTimeMs : Number(item.timestamp || item.sent_timestamp || 0);
         const isExpired = this.isCallExpired(callStart);
@@ -16352,7 +16324,7 @@ class ChatModal {
       }
     }
 
-    if (item.type === 'vm') {
+    if (messageType === 'vm') {
       const duration = this.formatDuration(item.duration);
       messageTextHTML = `
               <div class="voice-message" data-url="${item.url || ''}" data-name="voice-message" data-type="audio/webm" data-msg-idx="${index}" data-duration="${item.duration || 0}">
@@ -16374,7 +16346,7 @@ class ChatModal {
               </div>`;
     }
 
-    const callTimeAttribute = item.type === 'call' && item.callTime ? `data-call-time="${item.callTime}"` : '';
+    const callTimeAttribute = messageType === 'call' && item.callTime ? `data-call-time="${item.callTime}"` : '';
     const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
     return `
             <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute} ${callTimeAttribute}>
@@ -17329,39 +17301,53 @@ class ChatModal {
   }
 
   /**
-   * Load thumbnails for image and video attachments asynchronously
-   * Only loads from local IndexedDB cache - pUrl downloads happen on user action (Preview)
-   * @param {{ attachmentRows?: Iterable<HTMLElement>, preserveScrollAnchor?: boolean }} options
+   * Load a cached thumbnail into one attachment row.
+   * @param {HTMLElement} attachmentRow
+   * @returns {Promise<boolean>}
+   */
+  async loadThumbnailForAttachment(attachmentRow) {
+    if (!attachmentRow.isConnected) return false;
+    const url = attachmentRow.dataset.url;
+    if (!url || url === '#') return false;
+
+    try {
+      const thumbnailBlob = await thumbnailCache.get(url);
+      if (!thumbnailBlob || !attachmentRow.isConnected) return false;
+      return this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
+    } catch (error) {
+      console.warn('Failed to load thumbnail for', url, error);
+      return false;
+    }
+  }
+
+  /**
+   * Load thumbnails for visible image and video attachments.
    * @returns {void}
    */
-  async loadThumbnailsForAttachments({ attachmentRows = null, preserveScrollAnchor = false } = {}) {
-    const thumbnailAttachments = attachmentRows
-      ? [...attachmentRows]
-      : [...this.messagesList.querySelectorAll(
-          '[data-image-attachment="true"], [data-video-attachment="true"]'
-        )];
-    
-    for (const attachmentRow of thumbnailAttachments) {
-      if (!attachmentRow?.isConnected) continue;
-      const url = attachmentRow.dataset.url;
-      if (!url || url === '#') continue;
+  async loadThumbnailsForAttachments() {
+    const thumbnailRows = this.messagesList.querySelectorAll(
+      '[data-image-attachment="true"], [data-video-attachment="true"]'
+    );
 
-      try {
-        const thumbnailBlob = await thumbnailCache.get(url);
-        if (thumbnailBlob && attachmentRow.isConnected) {
-          const oldScrollHeight = preserveScrollAnchor && this.messagesContainer
-            ? this.messagesContainer.scrollHeight
-            : null;
-          const didUpdate = this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
-          if (didUpdate && Number.isFinite(oldScrollHeight) && this.messagesContainer) {
-            const heightDelta = this.messagesContainer.scrollHeight - oldScrollHeight;
-            if (heightDelta !== 0) {
-              this.messagesContainer.scrollTop = Math.max(0, this.messagesContainer.scrollTop + heightDelta);
-            }
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to load thumbnail for', url, error);
+    for (const attachmentRow of thumbnailRows) {
+      await this.loadThumbnailForAttachment(attachmentRow);
+    }
+  }
+
+  /**
+   * Load thumbnails for prepended rows without moving the user's viewport.
+   * @param {HTMLElement[]} attachmentRows
+   * @returns {void}
+   */
+  async loadPrependedThumbnails(attachmentRows) {
+    assert(this.messagesContainer, 'Messages container is required');
+
+    for (const attachmentRow of attachmentRows) {
+      const oldScrollHeight = this.messagesContainer.scrollHeight;
+      const didUpdate = await this.loadThumbnailForAttachment(attachmentRow);
+      const heightDelta = this.messagesContainer.scrollHeight - oldScrollHeight;
+      if (didUpdate && heightDelta !== 0) {
+        this.messagesContainer.scrollTop = Math.max(0, this.messagesContainer.scrollTop + heightDelta);
       }
     }
   }
