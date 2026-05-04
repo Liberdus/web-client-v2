@@ -13881,6 +13881,7 @@ const CHAT_REACTION_SHEET_CLOSE_DRAG_PX = 120;
 const CHAT_INITIAL_RENDER_COUNT = 100;
 const CHAT_OLDER_RENDER_BATCH_SIZE = 200;
 const CHAT_SCROLL_EXPAND_DELAY_MS = 220;
+const CHAT_HISTORY_LOADING_TOAST_MIN_MS = 500;
 const CHAT_REACTION_SHEET_TAB_ICONS = {
   recent: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/></svg>',
   smileys: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>',
@@ -13949,7 +13950,7 @@ class ChatModal {
     this.chatScrollExpandTimer = null;
     this.chatRenderSequence = 0;
     this.chatTouchStartY = null;
-    this.chatHistoryLoadingToastId = null;
+    this.chatHistoryLoadingToast = null;
   }
 
   /**
@@ -14899,7 +14900,7 @@ class ChatModal {
 
   resetChatRenderWindow() {
     this.clearPendingChatScrollExpand();
-    this.stopChatTopBoundaryScrollHold();
+    this.clearChatHistoryLoadingToast();
     this.chatRenderedOldestIndex = null;
     this.chatTouchStartY = null;
   }
@@ -14933,14 +14934,48 @@ class ChatModal {
   }
 
   showChatHistoryLoadingToast() {
-    if (this.chatHistoryLoadingToastId) return;
-    this.chatHistoryLoadingToastId = showToast('Loading messages', 0, 'loading', false, { dedupe: false });
+    const toast = this.chatHistoryLoadingToast;
+    if (toast?.hideTimer) {
+      clearTimeout(toast.hideTimer);
+      toast.hideTimer = null;
+    }
+    if (toast) return;
+
+    this.chatHistoryLoadingToast = {
+      id: showToast('Loading messages', 0, 'loading', false, { dedupe: false }),
+      shownAt: Date.now(),
+      hideTimer: null
+    };
+  }
+
+  clearChatHistoryLoadingToast() {
+    const toast = this.chatHistoryLoadingToast;
+    if (!toast) return;
+
+    if (toast.hideTimer) {
+      clearTimeout(toast.hideTimer);
+    }
+    hideToast(toast.id);
+    this.chatHistoryLoadingToast = null;
   }
 
   hideChatHistoryLoadingToast() {
-    if (!this.chatHistoryLoadingToastId) return;
-    hideToast(this.chatHistoryLoadingToastId);
-    this.chatHistoryLoadingToastId = null;
+    const toast = this.chatHistoryLoadingToast;
+    if (!toast) return;
+
+    const remainingMs = CHAT_HISTORY_LOADING_TOAST_MIN_MS - (Date.now() - toast.shownAt);
+    if (remainingMs > 0) {
+      if (toast.hideTimer) {
+        clearTimeout(toast.hideTimer);
+      }
+      toast.hideTimer = setTimeout(() => {
+        toast.hideTimer = null;
+        this.hideChatHistoryLoadingToast();
+      }, remainingMs);
+      return;
+    }
+
+    this.clearChatHistoryLoadingToast();
   }
 
   startChatTopBoundaryScrollHold() {
@@ -14953,7 +14988,7 @@ class ChatModal {
   }
 
   clampChatTopBoundaryScrollHold() {
-    if (!this.chatHistoryLoadingToastId) return false;
+    if (!this.chatHistoryLoadingToast) return false;
     const container = this.messagesContainer;
     if (container.scrollTop >= 0) return false;
     container.scrollTop = 0;
@@ -14961,7 +14996,7 @@ class ChatModal {
   }
 
   shouldBlockChatTopBoundaryTouchMove(event) {
-    if (!this.chatHistoryLoadingToastId) return false;
+    if (!this.chatHistoryLoadingToast) return false;
     const touch = event.touches[0];
     if (Math.round(touch.clientY) <= this.chatTouchStartY) return false;
 
