@@ -14911,15 +14911,13 @@ class ChatModal {
       return { newestIndex: 0, oldestIndex: -1 };
     }
 
-    if (!Number.isInteger(this.chatRenderedOldestIndex)) {
-      this.chatRenderedOldestIndex = Math.min(totalMessages - 1, CHAT_INITIAL_RENDER_COUNT - 1);
-    }
-
-    this.chatRenderedOldestIndex = Math.min(this.chatRenderedOldestIndex, totalMessages - 1);
-
+    const oldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
+      ? Math.min(this.chatRenderedOldestIndex, totalMessages - 1)
+      : Math.min(totalMessages - 1, CHAT_INITIAL_RENDER_COUNT - 1);
+    this.chatRenderedOldestIndex = oldestIndex;
     return {
       newestIndex: 0,
-      oldestIndex: this.chatRenderedOldestIndex
+      oldestIndex
     };
   }
 
@@ -14953,19 +14951,21 @@ class ChatModal {
   }
 
   stopChatTopBoundaryScrollHold() {
-    if (!this.chatHistoryLoadingToastId) return;
     this.hideChatHistoryLoadingToast();
   }
 
   clampChatTopBoundaryScrollHold() {
-    if (!this.chatHistoryLoadingToastId || !this.messagesContainer) return false;
-    if (this.messagesContainer.scrollTop >= 0) return false;
-    this.messagesContainer.scrollTop = 0;
+    if (!this.chatHistoryLoadingToastId) return false;
+    const container = this.messagesContainer;
+    assert(container, 'Messages container is required');
+    if (container.scrollTop >= 0) return false;
+    container.scrollTop = 0;
     return true;
   }
 
   shouldBlockChatTopBoundaryTouchMove(event) {
-    if (!this.chatHistoryLoadingToastId || !this.messagesContainer) return false;
+    if (!this.chatHistoryLoadingToastId) return false;
+    assert(this.messagesContainer, 'Messages container is required');
     const touch = event.touches[0];
     assert(touch, 'Touch point is required');
     assert(typeof this.chatTouchStartY === 'number', 'Touch start y is required');
@@ -15003,10 +15003,6 @@ class ChatModal {
       clearTimeout(this.chatScrollExpandTimer);
       this.chatScrollExpandTimer = null;
     }
-  }
-
-  queueChatScrollExpand() {
-    this.schedulePendingChatScrollExpand();
   }
 
   schedulePendingChatScrollExpand() {
@@ -15049,7 +15045,9 @@ class ChatModal {
   }
 
   expandChatRenderWindow() {
-    if (!this.address || !this.messagesContainer || !this.messagesList) return false;
+    if (!this.address) return false;
+    assert(this.messagesContainer, 'Messages container is required');
+    assert(this.messagesList, 'Messages list is required');
 
     const contact = myData.contacts[this.address];
     const messages = contact?.messages;
@@ -15119,7 +15117,7 @@ class ChatModal {
       if (scrollSnapshot.distanceToRenderedTop <= renderedBoundaryThreshold) {
         this.startChatTopBoundaryScrollHold();
       }
-      this.queueChatScrollExpand();
+      this.schedulePendingChatScrollExpand();
     }
   }
 
@@ -16230,10 +16228,6 @@ class ChatModal {
     }
 
     const messageType = item.type || 'message';
-    assert(
-      messageType === 'message' || messageType === 'call' || messageType === 'vm',
-      `Unknown chat message type: ${messageType}`
-    );
 
     let replyHTML = '';
     if (item.replyId) {
@@ -16293,8 +16287,14 @@ class ChatModal {
     }
 
     let messageTextHTML = '';
-    if (item.message && item.message.trim()) {
-      if (messageType === 'call') {
+    switch (messageType) {
+      case 'message':
+        if (item.message && item.message.trim()) {
+          messageTextHTML = `<div class="message-content" style="white-space: pre-wrap; margin-top: ${attachmentsHTML ? '2px' : '0'};">${linkifyUrls(item.message)}</div>`;
+        }
+        break;
+      case 'call': {
+        if (!item.message || !item.message.trim()) break;
         const callTimeMs = Number(item.callTime || 0);
         const callStart = callTimeMs > 0 ? callTimeMs : Number(item.timestamp || item.sent_timestamp || 0);
         const isExpired = this.isCallExpired(callStart);
@@ -16319,14 +16319,11 @@ class ChatModal {
                     </div>
                   </div>`;
         }
-      } else {
-        messageTextHTML = `<div class="message-content" style="white-space: pre-wrap; margin-top: ${attachmentsHTML ? '2px' : '0'};">${linkifyUrls(item.message)}</div>`;
+        break;
       }
-    }
-
-    if (messageType === 'vm') {
-      const duration = this.formatDuration(item.duration);
-      messageTextHTML = `
+      case 'vm': {
+        const duration = this.formatDuration(item.duration);
+        messageTextHTML = `
               <div class="voice-message" data-url="${item.url || ''}" data-name="voice-message" data-type="audio/webm" data-msg-idx="${index}" data-duration="${item.duration || 0}">
                 <div class="voice-message-controls">
                   <div class="voice-message-top-row">
@@ -16344,6 +16341,10 @@ class ChatModal {
                   </div>
                 </div>
               </div>`;
+        break;
+      }
+      default:
+        assert(false, `Unknown chat message type: ${messageType}`);
     }
 
     const callTimeAttribute = messageType === 'call' && item.callTime ? `data-call-time="${item.callTime}"` : '';
@@ -16427,7 +16428,11 @@ class ChatModal {
     const shouldKeepBottomAnchored = !skipAutoScroll && !highlightNewMessage;
 
     // --- 4.5. Load thumbnails for image attachments (async, non-blocking) ---
-    this.loadThumbnailsForAttachments({ keepBottomAnchored: shouldKeepBottomAnchored });
+    if (shouldKeepBottomAnchored) {
+      this.loadThumbnailsForAttachmentsKeepingBottomAnchored();
+    } else {
+      this.loadThumbnailsForAttachments();
+    }
 
     const renderedAddress = currentAddress;
     const scheduleAfterPaint = typeof requestAnimationFrame === 'function'
@@ -17322,19 +17327,33 @@ class ChatModal {
 
   /**
    * Load thumbnails for visible image and video attachments.
-   * @param {{ keepBottomAnchored?: boolean }} options
    * @returns {void}
    */
-  async loadThumbnailsForAttachments({ keepBottomAnchored = false } = {}) {
+  async loadThumbnailsForAttachments() {
     const thumbnailRows = this.messagesList.querySelectorAll(
       '[data-image-attachment="true"], [data-video-attachment="true"]'
     );
 
     for (const attachmentRow of thumbnailRows) {
-      const oldScrollHeight = this.messagesContainer?.scrollHeight ?? 0;
+      await this.loadThumbnailForAttachment(attachmentRow);
+    }
+  }
+
+  /**
+   * Load visible thumbnails while keeping the newest messages anchored.
+   * @returns {void}
+   */
+  async loadThumbnailsForAttachmentsKeepingBottomAnchored() {
+    const thumbnailRows = this.messagesList.querySelectorAll(
+      '[data-image-attachment="true"], [data-video-attachment="true"]'
+    );
+    assert(this.messagesContainer, 'Messages container is required');
+
+    for (const attachmentRow of thumbnailRows) {
+      const oldScrollHeight = this.messagesContainer.scrollHeight;
       const didUpdate = await this.loadThumbnailForAttachment(attachmentRow);
-      const heightDelta = (this.messagesContainer?.scrollHeight ?? 0) - oldScrollHeight;
-      if (keepBottomAnchored && didUpdate && heightDelta !== 0 && this.messagesContainer) {
+      const heightDelta = this.messagesContainer.scrollHeight - oldScrollHeight;
+      if (didUpdate && heightDelta !== 0) {
         this.messagesContainer.scrollTop = Math.max(0, this.messagesContainer.scrollTop + heightDelta);
       }
     }
