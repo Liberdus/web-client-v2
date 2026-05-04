@@ -16444,9 +16444,6 @@ class ChatModal {
     // Replace the list once to avoid one DOM mutation per message.
     this.messagesList.innerHTML = range.html;
     const shouldKeepBottomAnchored = !skipAutoScroll && !highlightNewMessage;
-    if (shouldKeepBottomAnchored) {
-      this.messagesContainer.scrollTop = 1000000000;
-    }
 
     // --- 4.5. Load thumbnails for image attachments (async, non-blocking) ---
     this.loadThumbnailsForAttachments();
@@ -16464,6 +16461,9 @@ class ChatModal {
           renderSequence !== this.chatRenderSequence
         ) {
           return;
+        }
+        if (shouldKeepBottomAnchored) {
+          this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
         }
         this.syncAllRenderedReactionChips();
       });
