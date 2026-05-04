@@ -17096,9 +17096,9 @@ class ChatModal {
    * Update an attachment row with a thumbnail image
    * @param {HTMLElement} attachmentRow - The attachment row element
    * @param {Blob} thumbnailBlob - The thumbnail blob to display
-   * @returns {boolean} True if update was successful, false otherwise
+   * @returns {Promise<boolean>} True if update was successful, false otherwise
    */
-  updateThumbnailInPlace(attachmentRow, thumbnailBlob) {
+  async updateThumbnailInPlace(attachmentRow, thumbnailBlob) {
     if (!attachmentRow || !attachmentRow.parentNode || !thumbnailBlob) {
       return false;
     }
@@ -17112,10 +17112,34 @@ class ChatModal {
       if (oldThumbnailUrl) {
         URL.revokeObjectURL(oldThumbnailUrl);
       }
-      
+
+      const thumbnailImage = new Image();
+      thumbnailImage.alt = 'Thumbnail';
+      thumbnailImage.className = 'attachment-thumbnail';
+      thumbnailImage.src = thumbnailUrl;
+
+      try {
+        if (typeof thumbnailImage.decode === 'function') {
+          await thumbnailImage.decode();
+        } else if (!thumbnailImage.complete) {
+          await new Promise((resolve, reject) => {
+            thumbnailImage.onload = resolve;
+            thumbnailImage.onerror = reject;
+          });
+        }
+      } catch (error) {
+        URL.revokeObjectURL(thumbnailUrl);
+        throw error;
+      }
+
+      if (!attachmentRow.isConnected || !iconContainer.isConnected) {
+        URL.revokeObjectURL(thumbnailUrl);
+        return false;
+      }
+
       // Replace icon with thumbnail image
-      iconContainer.innerHTML = `<img src="${thumbnailUrl}" alt="Thumbnail" class="attachment-thumbnail">`;
-      
+      iconContainer.replaceChildren(thumbnailImage);
+
       // Store blob URL for cleanup
       attachmentRow.dataset.thumbnailUrl = thumbnailUrl;
       return true;
@@ -17373,7 +17397,7 @@ class ChatModal {
             if (attachmentRow) {
               const thumbnailBlob = await thumbnailCache.get(attachmentUrl);
               if (thumbnailBlob) {
-                this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
+                await this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
               }
             }
           })
@@ -18843,7 +18867,7 @@ class ChatModal {
       
       // Cache and display thumbnail
       await thumbnailCache.save(url, thumbnailBlob, 'image/jpeg');
-      this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
+      await this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
       
       hideToast(loadingToastId);
     } catch (err) {
