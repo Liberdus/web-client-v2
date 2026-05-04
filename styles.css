@@ -2298,13 +2298,21 @@ input[type='file'].form-control::file-selector-button {
 }
 
 .message-content {
-  overflow-wrap: break-word;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   word-wrap: break-word;
-  word-break: normal; /* Use normal word breaking to allow hyphens to work */
+  word-break: break-word; /* Allow long continuous text to wrap in WebView */
   white-space: normal; /* Ensure text can wrap */
   -webkit-hyphens: auto; /* Add hyphens at line breaks (Chrome/Safari) */
   -moz-hyphens: auto; /* Add hyphens at line breaks (Firefox) */
   hyphens: auto; /* Add hyphens at line breaks */
+}
+
+.message-content a,
+.payment-memo,
+.payment-memo a {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* Wrapper for the send button and the toll information */
