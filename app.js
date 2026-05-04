@@ -13945,7 +13945,6 @@ class ChatModal {
     this.chatInitialRenderCount = 50;
     this.chatOlderRenderBatchSize = 50;
     this.chatRenderedOldestIndex = null;
-    this.chatRenderedWindowAddress = null;
     this.isExpandingChatRenderWindow = false;
     this.isChatTouchActive = false;
     this.chatPendingScrollExpand = false;
@@ -14901,27 +14900,19 @@ class ChatModal {
     return !!(editInput?.value?.trim?.());
   }
 
-  resetChatRenderWindow(address) {
+  resetChatRenderWindow() {
     this.clearPendingChatScrollExpand();
     this.stopChatTopBoundaryScrollHold();
-    this.chatRenderedWindowAddress = address;
     this.chatRenderedOldestIndex = null;
     this.isExpandingChatRenderWindow = false;
     this.chatExpansionRearmDistanceFromBottom = null;
   }
 
-  getChatRenderRange(messages, currentAddress, renderAll) {
+  getChatRenderRange(messages) {
     assert(Array.isArray(messages), 'Chat messages are required');
     const totalMessages = messages.length;
     if (totalMessages === 0) {
       return { newestIndex: 0, oldestIndex: -1 };
-    }
-
-    if (renderAll || this.chatRenderedWindowAddress !== currentAddress) {
-      this.chatRenderedWindowAddress = currentAddress;
-      this.chatRenderedOldestIndex = renderAll
-        ? totalMessages - 1
-        : Math.min(totalMessages - 1, this.chatInitialRenderCount - 1);
     }
 
     if (!Number.isInteger(this.chatRenderedOldestIndex)) {
@@ -15107,9 +15098,7 @@ class ChatModal {
     this.chatRenderedOldestIndex = nextOldestIndex;
     this.messagesList.insertAdjacentHTML('afterbegin', range.html);
 
-    if (range.renderedTxids.length > 0) {
-      this.syncRenderedReactionTargets(range.renderedTxids);
-    }
+    this.syncRenderedReactionTargets(range.renderedTxids);
 
     const insertedHeight = this.messagesContainer.scrollHeight - oldScrollHeight;
     this.messagesContainer.scrollTop = oldScrollTop + insertedHeight;
@@ -15215,7 +15204,7 @@ class ChatModal {
     friendModal.setAddress(address);
     footer.closeNewChatButton();
     const contact = myData.contacts[address];
-    this.resetChatRenderWindow(address);
+    this.resetChatRenderWindow();
     // Cache whether the contact has me blocked, and disable attachments accordingly
     this.blockedByRecipient = Number(contact?.tollRequiredToSend) === 2;
     this.addAttachmentButton.disabled = this.blockedByRecipient;
@@ -15442,7 +15431,7 @@ class ChatModal {
     }
 
     this.address = null;
-    this.resetChatRenderWindow(null);
+    this.resetChatRenderWindow();
   }
 
   clearNotificationsIfAllRead() {
@@ -16229,16 +16218,6 @@ class ChatModal {
     };
   }
 
-  buildChatMessagesByTxid(messages) {
-    const messagesByTxid = new Map();
-    messages.forEach((message) => {
-      if (message?.txid) {
-        messagesByTxid.set(message.txid, message);
-      }
-    });
-    return messagesByTxid;
-  }
-
   renderChatMessageHTML(item, index, { contact, messagesByTxid, lastReadTs }) {
     const timeString = formatTime(item.timestamp);
     const timestampAttribute = `data-message-timestamp="${item.timestamp}"`;
@@ -16278,15 +16257,10 @@ class ChatModal {
     if (item.replyId) {
       const replyText = escapeHtml(item.replyMessage || 'View original message');
       const ownerIsMineHint = item.replyOwnerIsMine;
-      const hasHint = typeof ownerIsMineHint !== 'undefined';
-      let isOwnerMine = false;
-      if (hasHint) {
-        const isSelfReply = ownerIsMineHint === true || ownerIsMineHint === '1';
-        isOwnerMine = item.my === isSelfReply;
-      } else {
-        const targetMsg = messagesByTxid.get(item.replyId);
-        isOwnerMine = !!(targetMsg && targetMsg.my);
-      }
+      const targetMsg = messagesByTxid.get(item.replyId);
+      const isOwnerMine = typeof ownerIsMineHint === 'undefined'
+        ? !!(targetMsg && targetMsg.my)
+        : item.my === (ownerIsMineHint === true || ownerIsMineHint === '1');
       const ownerText = isOwnerMine ? 'You' : (getContactDisplayName(contact) || 'Contact');
       const ownerClass = isOwnerMine ? 'reply-owner-me' : 'reply-owner-contact';
       const replyOwnerLabel = `<span class="reply-quote-label ${ownerClass}">${escapeHtml(ownerText)}</span>`;
@@ -16403,7 +16377,12 @@ class ChatModal {
   }
 
   buildChatMessageRangeHTML(messages, contact, oldestIndex, newestIndex) {
-    const messagesByTxid = this.buildChatMessagesByTxid(messages);
+    const messagesByTxid = new Map();
+    messages.forEach((message) => {
+      if (message?.txid) {
+        messagesByTxid.set(message.txid, message);
+      }
+    });
     const lastReadTs = contact.lastChatOpenTs || 0;
     const renderedMessages = [];
     const renderedTxids = [];
@@ -16453,8 +16432,7 @@ class ChatModal {
     this.newestReceivedMessage = newestReceivedItem;
     this.newestSentMessage = messages.find((item) => item.my);
 
-    const forceFullRender = highlightNewMessage && skipAutoScroll;
-    const renderRange = this.getChatRenderRange(messages, currentAddress, forceFullRender);
+    const renderRange = this.getChatRenderRange(messages);
     const range = this.buildChatMessageRangeHTML(
       messages,
       contact,
