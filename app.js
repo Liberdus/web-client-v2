@@ -16012,17 +16012,23 @@ class ChatModal {
 
   renderChatMessageHTML(item, { contact, lastReadTs }) {
     const timeString = formatTime(item.timestamp);
+    // Use a consistent timestamp attribute for potential future use (e.g., message jumping)
     const timestampAttribute = `data-message-timestamp="${item.timestamp}"`;
+    // Add txid attribute if available
     const txidAttribute = item.txid ? `data-txid="${item.txid}"` : '';
     const statusAttribute = item.status ? `data-status="${item.status}"` : '';
 
+    // Check if it's a payment based on the presence of the amount property (BigInt)
     if (typeof item.amount === 'bigint') {
+      // Assuming LIB (18 decimals) for now. TODO: Handle different asset decimals if needed.
+      // Format amount correctly using big2str
       const amountStr = big2str(item.amount, 18);
       const amountNum = parseFloat(amountStr);
       const amountDisplay = `${amountNum.toFixed(6)} ${item.symbol || 'LIB'}`;
       const directionText = item.my ? '-' : '+';
       const messageClass = item.my ? 'sent' : 'received';
       const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
+      // --- Render Payment Transaction ---
       return `
           <div class="message ${messageClass} payment-info" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
             <div class="payment-header">
@@ -16035,8 +16041,11 @@ class ChatModal {
         `;
     }
 
+    // --- Render Chat Message ---
     const messageClass = item.my ? 'sent' : 'received';
+    // Check if message was deleted
     if (isDeleted(item)) {
+      // Render deleted message with special styling
       return `
                     <div class="message ${messageClass} deleted-message" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
                         <div class="message-content deleted-content">${item.message}</div>
@@ -16048,10 +16057,16 @@ class ChatModal {
     const messageType = item.type || 'message';
 
     let replyHTML = '';
+    // --- Render Reply Quote if present ---
     if (item.replyId) {
       const replyText = escapeHtml(item.replyMessage || 'View original message');
+      // Determine owner label: "You" if the referenced message is ours, else contact name
       const ownerIsMineHint = item.replyOwnerIsMine;
       const targetMsg = contact.messages.find((message) => message.txid === item.replyId);
+      // Use both item.my and replyOwnerIsMine to determine from current viewer's perspective
+      // item.my: true if reply is from current user (viewer's perspective)
+      // replyOwnerIsMine: true if original message was from sender's perspective
+      // If they match (both true or both false), original message is from current user's perspective
       const isOwnerMine = typeof ownerIsMineHint === 'undefined'
         ? !!(targetMsg && targetMsg.my)
         : item.my === (ownerIsMineHint === true || ownerIsMineHint === '1');
@@ -16067,6 +16082,7 @@ class ChatModal {
               `;
     }
 
+    // --- Render Attachments if present ---
     let attachmentsHTML = '';
     if (item.xattach && Array.isArray(item.xattach) && item.xattach.length > 0) {
       attachmentsHTML = item.xattach.map(att => {
@@ -16103,6 +16119,7 @@ class ChatModal {
       }).join('');
     }
 
+    // --- Render message text (if any) ---
     let messageTextHTML = '';
     switch (messageType) {
       case 'message':
@@ -16112,11 +16129,13 @@ class ChatModal {
         break;
       case 'call': {
         if (!item.message || !item.message.trim()) break;
+        // Determine call timing and whether join should be allowed
         const callTimeMs = Number(item.callTime || 0);
         const callStart = callTimeMs > 0 ? callTimeMs : Number(item.timestamp || item.sent_timestamp || 0);
         const isExpired = this.isCallExpired(callStart);
 
         if (isExpired) {
+          // Over 2 hours since call time: show as plain text without join button
           const theirName = getContactDisplayName(contact);
           const label = item.my ? `You called ${escapeHtml(theirName)}` : `${escapeHtml(theirName)} called you`;
           messageTextHTML = `
@@ -16124,7 +16143,10 @@ class ChatModal {
                     <div class="call-message-text"><i>${label}</i></div>
                   </div>`;
         } else {
+          // Build scheduled label if in the future
           const scheduleHTML = this.buildCallScheduleHTML(callTimeMs);
+          // Render call message with a left circular phone icon (clickable) and plain text to the right
+          // TODO - remove the href and instead have it call a function which will open the URL and at the time of opening it adds the callUrlParam and username
           messageTextHTML = `
                   <div class="call-message">
                     <a href='${item.message}${callUrlParams}"${myAccount.username}"' target="_blank" rel="noopener noreferrer" class="call-message-phone-button" aria-label="Join Video Call">
@@ -16139,7 +16161,9 @@ class ChatModal {
         break;
       }
       case 'vm': {
+        // Check for voice message
         const duration = this.formatDuration(item.duration);
+        // Use audio encryption keys for playback, fall back to message encryption keys if not available
         messageTextHTML = `
               <div class="voice-message" data-url="${item.url || ''}" data-name="voice-message" data-type="audio/webm" data-duration="${item.duration || 0}">
                 <div class="voice-message-controls">
@@ -16177,10 +16201,13 @@ class ChatModal {
   }
 
   buildChatMessageRangeHTML(messages, contact, oldestIndex, newestIndex) {
+    // Last time user previously had this chat open (used to mark newly edited messages)
     const lastReadTs = contact.lastChatOpenTs || 0;
     const renderedMessages = [];
     const renderedTxids = [];
 
+    // Iterate backwards through messages (oldest to newest for rendering order)
+    // messages are already sorted descending (newest first) in myData
     for (let i = oldestIndex; i >= newestIndex; i--) {
       const item = messages[i];
       renderedMessages.push(this.renderChatMessageHTML(item, { contact, lastReadTs }));
