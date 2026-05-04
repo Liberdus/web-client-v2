@@ -13880,7 +13880,6 @@ const CHAT_REACTION_SHEET_PROMOTION_RATIO = 0.5;
 const CHAT_REACTION_SHEET_CLOSE_DRAG_PX = 120;
 const CHAT_INITIAL_RENDER_COUNT = 100;
 const CHAT_OLDER_RENDER_BATCH_SIZE = 200;
-const CHAT_SCROLL_EXPAND_DELAY_MS = 220;
 const CHAT_REACTION_SHEET_TAB_ICONS = {
   recent: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/></svg>',
   smileys: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>',
@@ -13946,9 +13945,7 @@ class ChatModal {
     this.dropOverlay = null;
 
     this.chatRenderedOldestIndex = null;
-    this.chatScrollExpandTimer = null;
     this.chatRenderSequence = 0;
-    this.chatTouchStartY = null;
   }
 
   /**
@@ -14458,10 +14455,6 @@ class ChatModal {
     });
     // Close all context menus when messages container scrolls
     this.messagesContainer.addEventListener('scroll', () => this.handleMessagesContainerScroll(), { passive: true });
-    this.messagesContainer.addEventListener('scrollend', () => this.handleMessagesContainerScrollEnd(), { passive: true });
-    this.messagesContainer.addEventListener('touchstart', (e) => this.handleMessagesTouchStart(e), { passive: true });
-    this.messagesContainer.addEventListener('touchend', () => this.handleMessagesTouchEnd(), { passive: true });
-    this.messagesContainer.addEventListener('touchcancel', () => this.handleMessagesTouchEnd(), { passive: true });
     // Add context menu option listeners
     this.contextMenu.addEventListener('click', (e) => {
       const reactionButton = e.target.closest('.message-context-reaction-button');
@@ -14896,9 +14889,7 @@ class ChatModal {
   }
 
   resetChatRenderWindow() {
-    this.clearPendingChatScrollExpand();
     this.chatRenderedOldestIndex = null;
-    this.chatTouchStartY = null;
   }
 
   getChatRenderRange(messages) {
@@ -14919,65 +14910,12 @@ class ChatModal {
 
   getChatScrollSnapshot() {
     const container = this.messagesContainer;
-    const maxScrollTop = container.scrollHeight - container.clientHeight;
     const scrollTop = Math.round(container.scrollTop);
     return {
       scrollTop,
-      distanceFromBottom: Math.round(Math.max(0, maxScrollTop - container.scrollTop)),
       clientHeight: Math.round(container.clientHeight),
       distanceToRenderedTop: Math.max(0, scrollTop)
     };
-  }
-
-  handleMessagesTouchStart(event) {
-    const touch = event.touches[0];
-    this.chatTouchStartY = Math.round(touch.clientY);
-  }
-
-  handleMessagesTouchEnd() {
-    this.chatTouchStartY = null;
-    if (this.chatScrollExpandTimer) {
-      this.schedulePendingChatScrollExpand();
-    }
-  }
-
-  clearPendingChatScrollExpand() {
-    if (this.chatScrollExpandTimer) {
-      clearTimeout(this.chatScrollExpandTimer);
-      this.chatScrollExpandTimer = null;
-    }
-  }
-
-  schedulePendingChatScrollExpand() {
-    if (this.chatScrollExpandTimer) {
-      clearTimeout(this.chatScrollExpandTimer);
-    }
-    this.chatScrollExpandTimer = setTimeout(() => {
-      this.chatScrollExpandTimer = null;
-      this.flushPendingChatScrollExpand();
-    }, CHAT_SCROLL_EXPAND_DELAY_MS);
-  }
-
-  handleMessagesContainerScrollEnd() {
-    if (this.chatScrollExpandTimer) {
-      this.flushPendingChatScrollExpand();
-    }
-  }
-
-  flushPendingChatScrollExpand() {
-    this.clearPendingChatScrollExpand();
-    if (!this.isActive()) return;
-    if (this.chatTouchStartY !== null) {
-      this.schedulePendingChatScrollExpand();
-      return;
-    }
-
-    const scrollSnapshot = this.getChatScrollSnapshot();
-    if (scrollSnapshot.distanceToRenderedTop > this.getChatRenderedTopLoadAheadThreshold(scrollSnapshot)) {
-      return;
-    }
-
-    this.expandChatRenderWindow();
   }
 
   expandChatRenderWindow() {
@@ -15035,13 +14973,12 @@ class ChatModal {
       : CHAT_INITIAL_RENDER_COUNT - 1;
     const remainingOlder = Math.max(0, totalMessages - 1 - renderedOldestIndex);
     if (remainingOlder === 0) {
-      this.clearPendingChatScrollExpand();
       return;
     }
 
     const isNearRenderedTop = scrollSnapshot.distanceToRenderedTop <= this.getChatRenderedTopLoadAheadThreshold(scrollSnapshot);
     if (isNearRenderedTop) {
-      this.schedulePendingChatScrollExpand();
+      this.expandChatRenderWindow();
     }
   }
 
