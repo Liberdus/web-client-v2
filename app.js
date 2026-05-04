@@ -14462,7 +14462,6 @@ class ChatModal {
     this.messagesContainer.addEventListener('scroll', () => this.handleMessagesContainerScroll(), { passive: true });
     this.messagesContainer.addEventListener('scrollend', () => this.handleMessagesContainerScrollEnd(), { passive: true });
     this.messagesContainer.addEventListener('touchstart', (e) => this.handleMessagesTouchStart(e), { passive: true });
-    this.messagesContainer.addEventListener('touchmove', (e) => this.handleMessagesTouchMove(e), { passive: false });
     this.messagesContainer.addEventListener('touchend', () => this.handleMessagesTouchEnd(), { passive: true });
     this.messagesContainer.addEventListener('touchcancel', () => this.handleMessagesTouchEnd(), { passive: true });
     // Add context menu option listeners
@@ -14980,43 +14979,15 @@ class ChatModal {
 
   startChatTopBoundaryScrollHold() {
     this.showChatHistoryLoadingToast();
-    this.clampChatTopBoundaryScrollHold();
   }
 
   stopChatTopBoundaryScrollHold() {
     this.hideChatHistoryLoadingToast();
   }
 
-  clampChatTopBoundaryScrollHold() {
-    if (!this.chatHistoryLoadingToast) return false;
-    const container = this.messagesContainer;
-    if (container.scrollTop >= 0) return false;
-    container.scrollTop = 0;
-    return true;
-  }
-
-  shouldBlockChatTopBoundaryTouchMove(event) {
-    if (!this.chatHistoryLoadingToast) return false;
-    const touch = event.touches[0];
-    if (Math.round(touch.clientY) <= this.chatTouchStartY) return false;
-
-    const snapshot = this.getChatScrollSnapshot();
-    return snapshot.distanceToRenderedTop <= this.getChatRenderedBoundaryThreshold(snapshot);
-  }
-
   handleMessagesTouchStart(event) {
     const touch = event.touches[0];
     this.chatTouchStartY = Math.round(touch.clientY);
-  }
-
-  handleMessagesTouchMove(event) {
-    if (!this.shouldBlockChatTopBoundaryTouchMove(event)) return;
-
-    this.clampChatTopBoundaryScrollHold();
-    if (event.cancelable) {
-      event.preventDefault();
-    }
-    event.stopPropagation();
   }
 
   handleMessagesTouchEnd() {
