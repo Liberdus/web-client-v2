@@ -14920,9 +14920,8 @@ class ChatModal {
     list.insertAdjacentHTML('afterbegin', range.html);
     const prependedThumbnailRows = range.renderedTxids.flatMap((txid) => {
       const messageEl = list.querySelector(`.message[data-txid="${CSS.escape(txid)}"]`);
-      return messageEl
-        ? [...messageEl.querySelectorAll('[data-image-attachment="true"], [data-video-attachment="true"]')]
-        : [];
+      assert(messageEl, `Rendered message missing for ${txid}`);
+      return [...messageEl.querySelectorAll('[data-image-attachment="true"], [data-video-attachment="true"]')];
     });
 
     this.syncRenderedReactionTargets(range.renderedTxids);
@@ -16014,8 +16013,8 @@ class ChatModal {
   renderChatMessageHTML(item, { contact, lastReadTs }) {
     const timeString = formatTime(item.timestamp);
     const timestampAttribute = `data-message-timestamp="${item.timestamp}"`;
-    const txidAttribute = item?.txid ? `data-txid="${item.txid}"` : '';
-    const statusAttribute = item?.status ? `data-status="${item.status}"` : '';
+    const txidAttribute = item.txid ? `data-txid="${item.txid}"` : '';
+    const statusAttribute = item.status ? `data-status="${item.status}"` : '';
 
     if (typeof item.amount === 'bigint') {
       const amountStr = big2str(item.amount, 18);
@@ -16184,7 +16183,6 @@ class ChatModal {
 
     for (let i = oldestIndex; i >= newestIndex; i--) {
       const item = messages[i];
-      if (!item) continue;
       renderedMessages.push(this.renderChatMessageHTML(item, { contact, lastReadTs }));
       if (item.txid) renderedTxids.push(item.txid);
     }
@@ -18736,7 +18734,7 @@ class ChatModal {
     // Show copy only if parent message has actual message text
     const copyOption = this.imageAttachmentContextMenu.querySelector('[data-action="copy"]');
     if (copyOption) {
-      const text = messageEl?.querySelector?.('.message-content')?.textContent?.trim() || '';
+      const text = messageEl.querySelector('.message-content')?.textContent?.trim() || '';
       copyOption.style.display = text ? 'flex' : 'none';
     }
 
@@ -18756,7 +18754,7 @@ class ChatModal {
     let hasThumb = true;
     if (hasThumbnailSupport) {
       hasThumb = false;
-      if (url && url !== '#') {
+      if (url !== '#') {
         try {
           const thumb = await thumbnailCache.get(url);
           hasThumb = !!thumb;
@@ -18806,19 +18804,19 @@ class ChatModal {
         void this.saveImageAttachment(row);
         break;
       case 'share':
-        if (messageEl) shareAttachmentModal.open(messageEl);
+        shareAttachmentModal.open(messageEl);
         break;
       case 'reply':
-        if (messageEl) this.startReplyToMessage(messageEl);
+        this.startReplyToMessage(messageEl);
         break;
       case 'copy':
-        if (messageEl) void this.copyMessageContent(messageEl);
+        void this.copyMessageContent(messageEl);
         break;
       case 'delete':
-        if (messageEl) this.deleteMessage(messageEl);
+        this.deleteMessage(messageEl);
         break;
       case 'delete-for-all':
-        if (messageEl) void this.deleteMessageForAll(messageEl);
+        void this.deleteMessageForAll(messageEl);
         break;
     }
 
@@ -18840,10 +18838,7 @@ class ChatModal {
 
     // Find the attachment in xattach array
     const attachment = message.xattach.find(att => att.url === url);
-    if (!attachment) {
-      showToast('Could not find attachment data', 0, 'error');
-      return;
-    }
+    assert(attachment, 'Rendered VCF attachment must exist in message data');
 
     // Open the import contacts modal with the full attachment object so
     // fields like `encKey` (new flow) are preserved for backwards compatibility.
@@ -18970,7 +18965,8 @@ class ChatModal {
    */
   async handleImageAttachmentReactionPickerClick(reactionButton) {
     const row = this.currentImageAttachmentRow;
-    const { messageEl } = row ? this.getAttachmentContextFromRow(row) : { messageEl: null };
+    assert(row, 'Image attachment reaction requires an active attachment row');
+    const { messageEl } = this.getAttachmentContextFromRow(row);
     await this.handleReactionPickerSelection(reactionButton, messageEl, () => this.closeImageAttachmentContextMenu());
   }
 
@@ -19452,12 +19448,10 @@ class ChatModal {
   scrollToMessage(txid) {
     if (!txid || !this.messagesList) return;
     let target = this.messagesList.querySelector(`[data-txid="${CSS.escape(txid)}"]`);
-    if (!target && this.address) {
+    if (!target) {
+      assert(this.address, 'Cannot scroll to a message without an active chat');
       const contact = myData.contacts[this.address];
-      const messages = contact?.messages;
-      const targetIndex = Array.isArray(messages)
-        ? messages.findIndex((message) => message?.txid === txid)
-        : -1;
+      const targetIndex = contact.messages.findIndex((message) => message.txid === txid);
       if (targetIndex !== -1) {
         this.chatRenderedOldestIndex = Math.max(
           this.chatRenderedOldestIndex,
