@@ -14892,32 +14892,6 @@ class ChatModal {
     this.chatRenderedOldestIndex = null;
   }
 
-  getChatRenderRange(messages) {
-    const totalMessages = messages.length;
-    if (totalMessages === 0) {
-      return { newestIndex: 0, oldestIndex: -1 };
-    }
-
-    const oldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
-      ? Math.min(this.chatRenderedOldestIndex, totalMessages - 1)
-      : Math.min(totalMessages - 1, CHAT_INITIAL_RENDER_COUNT - 1);
-    this.chatRenderedOldestIndex = oldestIndex;
-    return {
-      newestIndex: 0,
-      oldestIndex
-    };
-  }
-
-  getChatScrollSnapshot() {
-    const container = this.messagesContainer;
-    const scrollTop = Math.round(container.scrollTop);
-    return {
-      scrollTop,
-      clientHeight: Math.round(container.clientHeight),
-      distanceToRenderedTop: Math.max(0, scrollTop)
-    };
-  }
-
   expandChatRenderWindow() {
     const contact = myData.contacts[this.address];
     const messages = contact.messages;
@@ -14928,7 +14902,7 @@ class ChatModal {
       ? this.chatRenderedOldestIndex
       : Math.min(messages.length - 1, CHAT_INITIAL_RENDER_COUNT - 1);
     if (currentOldestIndex >= messages.length - 1) {
-      return false;
+      return;
     }
 
     const nextOldestIndex = Math.min(
@@ -14936,7 +14910,7 @@ class ChatModal {
       currentOldestIndex + CHAT_OLDER_RENDER_BATCH_SIZE
     );
 
-    const oldScrollTop = this.getChatScrollSnapshot().scrollTop;
+    const oldScrollTop = Math.round(container.scrollTop);
     const oldScrollHeight = container.scrollHeight;
     const range = this.buildChatMessageRangeHTML(
       messages,
@@ -14958,32 +14932,25 @@ class ChatModal {
 
     const insertedHeight = container.scrollHeight - oldScrollHeight;
     container.scrollTop = oldScrollTop + insertedHeight;
-    this.loadPrependedThumbnails(prependedThumbnailRows);
-    return true;
+    this.loadThumbnailsKeepingScrollAnchored(prependedThumbnailRows);
   }
 
   handleMessagesContainerScroll() {
     this.closeAllContextMenus();
     if (!this.isActive()) return;
-    const scrollSnapshot = this.getChatScrollSnapshot();
+    const container = this.messagesContainer;
     const messages = myData.contacts[this.address].messages;
-    const totalMessages = messages.length;
     const renderedOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
       ? this.chatRenderedOldestIndex
       : CHAT_INITIAL_RENDER_COUNT - 1;
-    const remainingOlder = Math.max(0, totalMessages - 1 - renderedOldestIndex);
-    if (remainingOlder === 0) {
+    if (renderedOldestIndex >= messages.length - 1) {
       return;
     }
 
-    const isNearRenderedTop = scrollSnapshot.distanceToRenderedTop <= this.getChatRenderedTopLoadAheadThreshold(scrollSnapshot);
-    if (isNearRenderedTop) {
+    const loadAheadPx = Math.max(420, Math.min(900, container.clientHeight * 1.25));
+    if (container.scrollTop <= loadAheadPx) {
       this.expandChatRenderWindow();
     }
-  }
-
-  getChatRenderedTopLoadAheadThreshold(scrollSnapshot) {
-    return Math.max(420, Math.min(900, scrollSnapshot.clientHeight * 1.25));
   }
 
   /**
@@ -16049,7 +16016,7 @@ class ChatModal {
     };
   }
 
-  renderChatMessageHTML(item, index, { contact, messagesByTxid, lastReadTs }) {
+  renderChatMessageHTML(item, index, { contact, lastReadTs }) {
     const timeString = formatTime(item.timestamp);
     const timestampAttribute = `data-message-timestamp="${item.timestamp}"`;
     const txidAttribute = item?.txid ? `data-txid="${item.txid}"` : '';
@@ -16090,7 +16057,7 @@ class ChatModal {
     if (item.replyId) {
       const replyText = escapeHtml(item.replyMessage || 'View original message');
       const ownerIsMineHint = item.replyOwnerIsMine;
-      const targetMsg = messagesByTxid.get(item.replyId);
+      const targetMsg = contact.messages.find((message) => message.txid === item.replyId);
       const isOwnerMine = typeof ownerIsMineHint === 'undefined'
         ? !!(targetMsg && targetMsg.my)
         : item.my === (ownerIsMineHint === true || ownerIsMineHint === '1');
@@ -16217,12 +16184,6 @@ class ChatModal {
   }
 
   buildChatMessageRangeHTML(messages, contact, oldestIndex, newestIndex) {
-    const messagesByTxid = new Map();
-    messages.forEach((message) => {
-      if (message?.txid) {
-        messagesByTxid.set(message.txid, message);
-      }
-    });
     const lastReadTs = contact.lastChatOpenTs || 0;
     const renderedMessages = [];
     const renderedTxids = [];
@@ -16230,7 +16191,7 @@ class ChatModal {
     for (let i = oldestIndex; i >= newestIndex; i--) {
       const item = messages[i];
       if (!item) continue;
-      renderedMessages.push(this.renderChatMessageHTML(item, i, { contact, messagesByTxid, lastReadTs }));
+      renderedMessages.push(this.renderChatMessageHTML(item, i, { contact, lastReadTs }));
       if (item.txid) renderedTxids.push(item.txid);
     }
 
@@ -16271,12 +16232,20 @@ class ChatModal {
     this.newestReceivedMessage = newestReceivedItem;
     this.newestSentMessage = messages.find((item) => item.my);
 
-    const renderRange = this.getChatRenderRange(messages);
+    let oldestIndex = -1;
+    if (messages.length > 0) {
+      const requestedOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
+        ? this.chatRenderedOldestIndex
+        : CHAT_INITIAL_RENDER_COUNT - 1;
+      oldestIndex = Math.min(Math.max(0, requestedOldestIndex), messages.length - 1);
+      this.chatRenderedOldestIndex = oldestIndex;
+    }
+
     const range = this.buildChatMessageRangeHTML(
       messages,
       contact,
-      renderRange.oldestIndex,
-      renderRange.newestIndex
+      oldestIndex,
+      0
     );
 
     // Replace the list once to avoid one DOM mutation per message.
@@ -16285,21 +16254,20 @@ class ChatModal {
 
     // --- 4.5. Load thumbnails for image attachments (async, non-blocking) ---
     if (shouldKeepBottomAnchored) {
-      this.loadThumbnailsForAttachmentsKeepingBottomAnchored();
+      const thumbnailRows = this.messagesList.querySelectorAll(
+        '[data-image-attachment="true"], [data-video-attachment="true"]'
+      );
+      this.loadThumbnailsKeepingScrollAnchored(thumbnailRows);
     } else {
       this.loadThumbnailsForAttachments();
     }
 
     const renderedAddress = currentAddress;
-    const scheduleAfterPaint = typeof requestAnimationFrame === 'function'
-      ? requestAnimationFrame
-      : (callback) => setTimeout(callback, 0);
-    scheduleAfterPaint(() => {
-      scheduleAfterPaint(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
         if (
           !this.isActive() ||
           this.address !== renderedAddress ||
-          !this.messagesList ||
           renderSequence !== this.chatRenderSequence
         ) {
           return;
@@ -16318,7 +16286,7 @@ class ChatModal {
       return;
     }
 
-    if (shouldKeepBottomAnchored && !highlightNewMessage) {
+    if (shouldKeepBottomAnchored) {
       return;
     }
 
@@ -16371,10 +16339,7 @@ class ChatModal {
         // No received messages found, not highlighting, or highlightNewMessage is false,
         // just scroll to the bottom if the container exists.
         if (messageContainer) {
-          const isNearBottom = messageContainer.scrollHeight - messageContainer.scrollTop - messageContainer.clientHeight <= 120;
-          if (!shouldKeepBottomAnchored || isNearBottom) {
-            messageContainer.scrollTop = messageContainer.scrollHeight;
-          }
+          messageContainer.scrollTop = messageContainer.scrollHeight;
         }
       }
     }, 300); // <<< Delay of 300 milliseconds for rendering
@@ -17196,30 +17161,11 @@ class ChatModal {
   }
 
   /**
-   * Load visible thumbnails while keeping the newest messages anchored.
+   * Load thumbnails without letting row height changes move the viewport.
+   * @param {Iterable<HTMLElement>} attachmentRows
    * @returns {void}
    */
-  async loadThumbnailsForAttachmentsKeepingBottomAnchored() {
-    const thumbnailRows = this.messagesList.querySelectorAll(
-      '[data-image-attachment="true"], [data-video-attachment="true"]'
-    );
-
-    for (const attachmentRow of thumbnailRows) {
-      const oldScrollHeight = this.messagesContainer.scrollHeight;
-      const didUpdate = await this.loadThumbnailForAttachment(attachmentRow);
-      const heightDelta = this.messagesContainer.scrollHeight - oldScrollHeight;
-      if (didUpdate && heightDelta !== 0) {
-        this.messagesContainer.scrollTop = Math.max(0, this.messagesContainer.scrollTop + heightDelta);
-      }
-    }
-  }
-
-  /**
-   * Load thumbnails for prepended rows without moving the user's viewport.
-   * @param {HTMLElement[]} attachmentRows
-   * @returns {void}
-   */
-  async loadPrependedThumbnails(attachmentRows) {
+  async loadThumbnailsKeepingScrollAnchored(attachmentRows) {
     for (const attachmentRow of attachmentRows) {
       const oldScrollHeight = this.messagesContainer.scrollHeight;
       const didUpdate = await this.loadThumbnailForAttachment(attachmentRow);
