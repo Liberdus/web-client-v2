@@ -13924,6 +13924,7 @@ class ChatModal {
     // Track whether we've locked background/modal scroll
     this.scrollLocked = false;
     this._touchMoveBlocker = null; // blocks touch outside messages container
+    this.messagesContainerTouchY = null;
 
     // Track which voice message element is playing
     this.playingVoiceMessageElement = null;
@@ -14454,6 +14455,8 @@ class ChatModal {
     });
     // Close all context menus when messages container scrolls
     this.messagesContainer.addEventListener('scroll', () => this.handleMessagesContainerScroll(), { passive: true });
+    this.messagesContainer.addEventListener('touchstart', (e) => this.handleMessagesContainerTouchStart(e), { passive: true });
+    this.messagesContainer.addEventListener('touchmove', (e) => this.handleMessagesContainerTouchMove(e), { passive: false });
     // Add context menu option listeners
     this.contextMenu.addEventListener('click', (e) => {
       const reactionButton = e.target.closest('.message-context-reaction-button');
@@ -14944,6 +14947,28 @@ class ChatModal {
     const loadAheadPx = Math.max(420, Math.min(900, container.clientHeight * 1.25));
     if (container.scrollTop <= loadAheadPx) {
       this.expandChatRenderWindow();
+    }
+  }
+
+  handleMessagesContainerTouchStart(e) {
+    this.messagesContainerTouchY = e.touches?.[0]?.clientY ?? null;
+  }
+
+  handleMessagesContainerTouchMove(e) {
+    const container = this.messagesContainer;
+    const nextY = e.touches?.[0]?.clientY;
+    if (!container || !Number.isFinite(nextY) || !Number.isFinite(this.messagesContainerTouchY)) return;
+
+    const deltaY = nextY - this.messagesContainerTouchY;
+    this.messagesContainerTouchY = nextY;
+    if (deltaY === 0) return;
+
+    const isScrollable = container.scrollHeight > container.clientHeight + 1;
+    const atTop = container.scrollTop <= 0;
+    const atBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 1;
+
+    if (!isScrollable || (deltaY > 0 && atTop) || (deltaY < 0 && atBottom)) {
+      e.preventDefault();
     }
   }
 
