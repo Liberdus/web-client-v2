@@ -15097,12 +15097,21 @@ class ChatModal {
     this.isExpandingChatRenderWindow = true;
     this.chatRenderedOldestIndex = nextOldestIndex;
     this.messagesList.insertAdjacentHTML('afterbegin', range.html);
+    const prependedThumbnailRows = range.renderedTxids.flatMap((txid) => {
+      const messageEl = this.messagesList.querySelector(`.message[data-txid="${CSS.escape(txid)}"]`);
+      return messageEl
+        ? [...messageEl.querySelectorAll('[data-image-attachment="true"], [data-video-attachment="true"]')]
+        : [];
+    });
 
     this.syncRenderedReactionTargets(range.renderedTxids);
-    this.loadThumbnailsForAttachments();
 
     const insertedHeight = this.messagesContainer.scrollHeight - oldScrollHeight;
     this.messagesContainer.scrollTop = oldScrollTop + insertedHeight;
+    this.loadThumbnailsForAttachments({
+      attachmentRows: prependedThumbnailRows,
+      preserveScrollAnchor: true
+    });
     this.chatExpansionRearmDistanceFromBottom = beforeSnapshot.distanceFromBottom + this.getChatLoadAheadThreshold();
     this.isExpandingChatRenderWindow = false;
     this.stopChatTopBoundaryScrollHold();
@@ -17322,21 +17331,34 @@ class ChatModal {
   /**
    * Load thumbnails for image and video attachments asynchronously
    * Only loads from local IndexedDB cache - pUrl downloads happen on user action (Preview)
+   * @param {{ attachmentRows?: Iterable<HTMLElement>, preserveScrollAnchor?: boolean }} options
    * @returns {void}
    */
-  async loadThumbnailsForAttachments() {
-    const thumbnailAttachments = this.messagesList.querySelectorAll(
-      '[data-image-attachment="true"], [data-video-attachment="true"]'
-    );
+  async loadThumbnailsForAttachments({ attachmentRows = null, preserveScrollAnchor = false } = {}) {
+    const thumbnailAttachments = attachmentRows
+      ? [...attachmentRows]
+      : [...this.messagesList.querySelectorAll(
+          '[data-image-attachment="true"], [data-video-attachment="true"]'
+        )];
     
     for (const attachmentRow of thumbnailAttachments) {
+      if (!attachmentRow?.isConnected) continue;
       const url = attachmentRow.dataset.url;
       if (!url || url === '#') continue;
 
       try {
         const thumbnailBlob = await thumbnailCache.get(url);
-        if (thumbnailBlob) {
-          this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
+        if (thumbnailBlob && attachmentRow.isConnected) {
+          const oldScrollHeight = preserveScrollAnchor && this.messagesContainer
+            ? this.messagesContainer.scrollHeight
+            : null;
+          const didUpdate = this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
+          if (didUpdate && Number.isFinite(oldScrollHeight) && this.messagesContainer) {
+            const heightDelta = this.messagesContainer.scrollHeight - oldScrollHeight;
+            if (heightDelta !== 0) {
+              this.messagesContainer.scrollTop = Math.max(0, this.messagesContainer.scrollTop + heightDelta);
+            }
+          }
         }
       } catch (error) {
         console.warn('Failed to load thumbnail for', url, error);
