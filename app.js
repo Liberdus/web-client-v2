@@ -14905,7 +14905,6 @@ class ChatModal {
   }
 
   getChatRenderRange(messages) {
-    assert(Array.isArray(messages), 'Chat messages are required');
     const totalMessages = messages.length;
     if (totalMessages === 0) {
       return { newestIndex: 0, oldestIndex: -1 };
@@ -14923,7 +14922,6 @@ class ChatModal {
 
   getChatScrollSnapshot() {
     const container = this.messagesContainer;
-    assert(container, 'Messages container is required');
     const maxScrollTop = container.scrollHeight - container.clientHeight;
     const scrollTop = Math.round(container.scrollTop);
     return {
@@ -14957,7 +14955,6 @@ class ChatModal {
   clampChatTopBoundaryScrollHold() {
     if (!this.chatHistoryLoadingToastId) return false;
     const container = this.messagesContainer;
-    assert(container, 'Messages container is required');
     if (container.scrollTop >= 0) return false;
     container.scrollTop = 0;
     return true;
@@ -14965,10 +14962,7 @@ class ChatModal {
 
   shouldBlockChatTopBoundaryTouchMove(event) {
     if (!this.chatHistoryLoadingToastId) return false;
-    assert(this.messagesContainer, 'Messages container is required');
     const touch = event.touches[0];
-    assert(touch, 'Touch point is required');
-    assert(typeof this.chatTouchStartY === 'number', 'Touch start y is required');
     if (Math.round(touch.clientY) <= this.chatTouchStartY) return false;
 
     const snapshot = this.getChatScrollSnapshot();
@@ -14977,7 +14971,6 @@ class ChatModal {
 
   handleMessagesTouchStart(event) {
     const touch = event.touches[0];
-    assert(touch, 'Touch point is required');
     this.chatTouchStartY = Math.round(touch.clientY);
   }
 
@@ -15045,13 +15038,10 @@ class ChatModal {
   }
 
   expandChatRenderWindow() {
-    if (!this.address) return false;
-    assert(this.messagesContainer, 'Messages container is required');
-    assert(this.messagesList, 'Messages list is required');
-
     const contact = myData.contacts[this.address];
-    const messages = contact?.messages;
-    assert(Array.isArray(messages), `Missing messages for chat: ${this.address}`);
+    const messages = contact.messages;
+    const container = this.messagesContainer;
+    const list = this.messagesList;
 
     const currentOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
       ? this.chatRenderedOldestIndex
@@ -15067,7 +15057,7 @@ class ChatModal {
     );
 
     const oldScrollTop = this.getChatScrollSnapshot().scrollTop;
-    const oldScrollHeight = this.messagesContainer.scrollHeight;
+    const oldScrollHeight = container.scrollHeight;
     const range = this.buildChatMessageRangeHTML(
       messages,
       contact,
@@ -15076,9 +15066,9 @@ class ChatModal {
     );
 
     this.chatRenderedOldestIndex = nextOldestIndex;
-    this.messagesList.insertAdjacentHTML('afterbegin', range.html);
+    list.insertAdjacentHTML('afterbegin', range.html);
     const prependedThumbnailRows = range.renderedTxids.flatMap((txid) => {
-      const messageEl = this.messagesList.querySelector(`.message[data-txid="${CSS.escape(txid)}"]`);
+      const messageEl = list.querySelector(`.message[data-txid="${CSS.escape(txid)}"]`);
       return messageEl
         ? [...messageEl.querySelectorAll('[data-image-attachment="true"], [data-video-attachment="true"]')]
         : [];
@@ -15086,8 +15076,8 @@ class ChatModal {
 
     this.syncRenderedReactionTargets(range.renderedTxids);
 
-    const insertedHeight = this.messagesContainer.scrollHeight - oldScrollHeight;
-    this.messagesContainer.scrollTop = oldScrollTop + insertedHeight;
+    const insertedHeight = container.scrollHeight - oldScrollHeight;
+    container.scrollTop = oldScrollTop + insertedHeight;
     this.loadPrependedThumbnails(prependedThumbnailRows);
     this.stopChatTopBoundaryScrollHold();
     return true;
@@ -15097,9 +15087,7 @@ class ChatModal {
     this.closeAllContextMenus();
     if (!this.isActive()) return;
     const scrollSnapshot = this.getChatScrollSnapshot();
-    const contact = myData.contacts[this.address];
-    const messages = contact?.messages;
-    assert(Array.isArray(messages), `Missing messages for chat: ${this.address}`);
+    const messages = myData.contacts[this.address].messages;
     const totalMessages = messages.length;
     const renderedOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
       ? this.chatRenderedOldestIndex
@@ -16406,7 +16394,6 @@ class ChatModal {
 
     if (!this.modal) return;
     if (!this.messagesList) return;
-    assert(this.messagesContainer, 'Messages container is required');
     const renderSequence = ++this.chatRenderSequence;
 
     // --- 1. Identify the actual newest received message data item ---
@@ -17347,7 +17334,6 @@ class ChatModal {
     const thumbnailRows = this.messagesList.querySelectorAll(
       '[data-image-attachment="true"], [data-video-attachment="true"]'
     );
-    assert(this.messagesContainer, 'Messages container is required');
 
     for (const attachmentRow of thumbnailRows) {
       const oldScrollHeight = this.messagesContainer.scrollHeight;
@@ -17365,8 +17351,6 @@ class ChatModal {
    * @returns {void}
    */
   async loadPrependedThumbnails(attachmentRows) {
-    assert(this.messagesContainer, 'Messages container is required');
-
     for (const attachmentRow of attachmentRows) {
       const oldScrollHeight = this.messagesContainer.scrollHeight;
       const didUpdate = await this.loadThumbnailForAttachment(attachmentRow);
