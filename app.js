@@ -16203,6 +16203,21 @@ class ChatModal {
     };
   }
 
+  getOldestRenderedMessageIndex(messages) {
+    const oldestRendered = this.messagesList?.firstElementChild;
+    if (!oldestRendered) return -1;
+
+    const { txid, messageTimestamp } = oldestRendered.dataset || {};
+    if (!txid && !messageTimestamp) return -1;
+
+    return messages.findIndex((message) =>
+      message && (
+        (txid && message.txid === txid) ||
+        (messageTimestamp && message.timestamp == messageTimestamp)
+      )
+    );
+  }
+
   /**
    * Appends the chat modal to the DOM
    * @param {boolean} highlightNewMessage - Whether to highlight the newest message
@@ -16237,7 +16252,11 @@ class ChatModal {
       const requestedOldestIndex = Number.isInteger(this.chatRenderedOldestIndex)
         ? this.chatRenderedOldestIndex
         : CHAT_INITIAL_RENDER_COUNT - 1;
-      oldestIndex = Math.min(Math.max(0, requestedOldestIndex), messages.length - 1);
+      const preservedOldestIndex = this.getOldestRenderedMessageIndex(messages);
+      oldestIndex = Math.min(
+        Math.max(0, requestedOldestIndex, preservedOldestIndex),
+        messages.length - 1
+      );
       this.chatRenderedOldestIndex = oldestIndex;
     }
 
@@ -17934,6 +17953,15 @@ class ChatModal {
     return messageIndex === -1 ? null : contact.messages[messageIndex];
   }
 
+  getMessageRecordFromRenderedChild(element) {
+    const messageEl = element?.closest?.('.message') || null;
+    const messageRecord = this.getMessageRecordFromElement(messageEl);
+    if (messageRecord) return messageRecord;
+
+    const idx = Number(element?.dataset?.msgIdx);
+    return Number.isInteger(idx) ? myData.contacts[this.address]?.messages?.[idx] || null : null;
+  }
+
   /**
    * Returns the current user's stored reaction emoji for a rendered message.
    * @param {HTMLElement | null} messageEl
@@ -18240,7 +18268,7 @@ class ChatModal {
    */
   getAttachmentContextFromRow(attachmentRow) {
     const idx = Number(attachmentRow?.dataset?.msgIdx);
-    const item = Number.isFinite(idx) ? myData.contacts[this.address]?.messages?.[idx] : null;
+    const item = this.getMessageRecordFromRenderedChild(attachmentRow);
     return {
       attachmentRow,
       messageEl: attachmentRow?.closest?.('.message') || null,
@@ -18814,11 +18842,9 @@ class ChatModal {
     const url = attachmentRow.dataset.url;
     const name = attachmentRow.dataset.name ? decodeURIComponent(attachmentRow.dataset.name) : 'contacts.vcf';
     const type = attachmentRow.dataset.type || 'text/vcard';
-    const msgIdx = attachmentRow.dataset.msgIdx;
 
     // Get encryption keys from the message
-    const contact = myData.contacts[this.address];
-    const message = contact?.messages?.[msgIdx];
+    const message = this.getMessageRecordFromRenderedChild(attachmentRow);
     if (!message?.xattach) {
       showToast('Could not find attachment data', 0, 'error');
       return;
@@ -20418,7 +20444,6 @@ class ChatModal {
     }
 
     const voiceUrl = voiceMessageElement.dataset.url;
-    const msgIdx = voiceMessageElement.dataset.msgIdx;
 
     if (!voiceUrl) {
       showToast('Voice message URL not found', 0, 'error');
@@ -20427,7 +20452,7 @@ class ChatModal {
 
     try {
       // Check if it's our own message or received message
-      const message = myData.contacts[this.address].messages[msgIdx];
+      const message = this.getMessageRecordFromRenderedChild(voiceMessageElement);
       if (!message) {
         throw new Error('Message not found');
       }
@@ -21328,20 +21353,16 @@ class ShareAttachmentModal {
     const url = attachmentRow.dataset.url;
     const name = attachmentRow.dataset.name;
     const type = attachmentRow.dataset.type;
-    const msgIdx = attachmentRow.dataset.msgIdx;
 
     if (!url) return null;
 
     // Get the actual message data from myData to access encryption keys
-    const contactAddress = chatModal.address;
-    const contact = myData.contacts[contactAddress];
-    
-    if (!contact || !contact.messages || !msgIdx) {
+    const messageData = chatModal.getMessageRecordFromElement(messageEl);
+    if (!messageData) {
       console.error('Cannot find message data for attachment');
       return null;
     }
 
-    const messageData = contact.messages[parseInt(msgIdx)];
     if (!messageData || !messageData.xattach || !messageData.xattach[0]) {
       console.error('Cannot find attachment in message data');
       return null;
