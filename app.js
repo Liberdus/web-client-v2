@@ -6274,6 +6274,27 @@ function purgeContactReactionsForTarget(contact, targetTxid) {
 }
 
 /**
+ * Removes pending reaction transactions that would rematerialize chips for a deleted message.
+ * @param {string} contactAddress
+ * @param {string} targetTxid
+ */
+function purgePendingReactionsForTarget(contactAddress, targetTxid) {
+  if (!Array.isArray(myData?.pending) || !contactAddress || !targetTxid) {
+    return;
+  }
+
+  const normalizedContactAddress = normalizeAddress(contactAddress);
+  myData.pending = myData.pending.filter((pendingTx) => {
+    return !(
+      pendingTx.type === 'message' &&
+      pendingTx.to === normalizedContactAddress &&
+      pendingTx.reactionPending &&
+      pendingTx.reactionPending.targetTxid === targetTxid
+    );
+  });
+}
+
+/**
  * Applies a reaction control message to the contact-level active reaction state.
  * @param {Object} contact
  * @param {ReactionUpdate} reaction
@@ -6886,6 +6907,7 @@ async function processChats(chats, keys) {
                   }
                   if (didDeleteMessage) {
                     purgeContactReactionsForTarget(contact, messageToDelete.txid);
+                    purgePendingReactionsForTarget(from, messageToDelete.txid);
                     syncChatLatestActivityTimestamp(from, contact);
                     didChangeReactionPreview = true;
                     if (wasUnreadIncomingMessage) {
@@ -17898,6 +17920,11 @@ class ChatModal {
       existingContainer.remove();
     }
 
+    const messageRecord = this.getMessageRecordFromElement(messageEl);
+    if (messageRecord && isDeleted(messageRecord)) {
+      return;
+    }
+
     const reactionHtml = this.buildReactionChipsHTML(reactionsForTarget);
     if (!reactionHtml) return;
 
@@ -19466,6 +19493,7 @@ class ChatModal {
       this.purgeThumbnail(message.xattach);
       delete message.xattach;
       purgeContactReactionsForTarget(contact, message.txid);
+      purgePendingReactionsForTarget(this.address, message.txid);
       syncChatLatestActivityTimestamp(this.address, contact);
       
       this.appendChatModal();
