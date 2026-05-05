@@ -53,7 +53,8 @@ jobs:
       WEB_CLIENT_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.web_client_ref || github.sha }}
       CLIENT_TESTING_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.client_testing_ref || 'main' }}
       BROWSER: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.browser || 'chromium' }}
-      TEST_PATH: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.test_path || '' }}
+      TEST_PATH: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.test_path || 'tests/smoke.e2e.test.js' }}
+      TEST_GREP: ${{ github.event_name != 'workflow_dispatch' && '@smoke' || '' }}
       WORKERS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.workers || '4' }}
       PORT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.port || '4173' }}
 
@@ -148,6 +149,10 @@ jobs:
             echo "Running full test suite"
           fi
           "${CMD[@]}"
+          if [ -n "${TEST_GREP}" ]; then
+            echo "Running tests matching grep: ${TEST_GREP}"
+            "${CMD[@]}" --grep "${TEST_GREP}" --pass-with-no-tests
+          fi
 
       - name: Upload Playwright HTML report
         if: always()
@@ -190,6 +195,9 @@ jobs:
             TEST_SCOPE="${TEST_PATH}"
           else
             TEST_SCOPE="(full suite)"
+          fi
+          if [ -n "${TEST_GREP}" ]; then
+            TEST_SCOPE="${TEST_SCOPE} plus grep ${TEST_GREP}"
           fi
           if [ "${{ job.status }}" = "success" ]; then
             RESULT="PASS"
