@@ -14918,14 +14918,16 @@ class ChatModal {
       nextOldestIndex,
       currentOldestIndex + 1
     );
+    const oldFirstMessage = list.firstElementChild;
 
     this.chatRenderedOldestIndex = nextOldestIndex;
     list.insertAdjacentHTML('afterbegin', range.html);
-    const prependedThumbnailRows = range.renderedTxids.flatMap((txid) => {
-      const messageEl = list.querySelector(`.message[data-txid="${CSS.escape(txid)}"]`);
-      assert(messageEl, `Rendered message missing for ${txid}`);
-      return [...messageEl.querySelectorAll('[data-image-attachment="true"], [data-video-attachment="true"]')];
-    });
+    const prependedThumbnailRows = [];
+    for (let messageEl = list.firstElementChild; messageEl && messageEl !== oldFirstMessage; messageEl = messageEl.nextElementSibling) {
+      prependedThumbnailRows.push(
+        ...messageEl.querySelectorAll('[data-image-attachment="true"], [data-video-attachment="true"]')
+      );
+    }
 
     this.syncRenderedReactionTargets(range.renderedTxids);
 
