@@ -6274,6 +6274,30 @@ function purgeContactReactionsForTarget(contact, targetTxid) {
 }
 
 /**
+ * Removes pending reaction transactions that would rematerialize chips for a deleted message.
+ * @param {string} contactAddress
+ * @param {string} targetTxid
+ */
+function purgePendingReactionsForTarget(contactAddress, targetTxid) {
+  if (!Array.isArray(myData?.pending) || !contactAddress || !targetTxid) {
+    return;
+  }
+
+  const normalizedContactAddress = normalizeAddress(contactAddress);
+  myData.pending = myData.pending.filter((pendingTx) => {
+    const isTargetReaction =
+      pendingTx.type === 'message' &&
+      pendingTx.to === normalizedContactAddress &&
+      pendingTx.reactionPending &&
+      pendingTx.reactionPending.targetTxid === targetTxid;
+    if (!isTargetReaction) {
+      return true;
+    }
+    return pendingTx.reactionInjectPending === true;
+  });
+}
+
+/**
  * Applies a reaction control message to the contact-level active reaction state.
  * @param {Object} contact
  * @param {ReactionUpdate} reaction
@@ -6646,8 +6670,21 @@ function trackPendingReactionBeforeInject(txid, contactAddress, reactionPending)
     submittedts: getCorrectedTimestamp(),
     checkedts: 0,
     to: normalizeAddress(contactAddress),
+    reactionInjectPending: true,
     reactionPending,
   });
+}
+
+/**
+ * Marks pending reaction metadata as safe for deletion after `/inject` returns.
+ * @param {string} txid
+ * @returns {Object}
+ */
+function finishPendingReactionInject(txid) {
+  const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
+  assert(pendingTxInfo, `Pending reaction metadata missing for ${txid}`);
+  pendingTxInfo.reactionInjectPending = false;
+  return pendingTxInfo;
 }
 
 /**
@@ -6886,6 +6923,7 @@ async function processChats(chats, keys) {
                   }
                   if (didDeleteMessage) {
                     purgeContactReactionsForTarget(contact, messageToDelete.txid);
+                    purgePendingReactionsForTarget(from, messageToDelete.txid);
                     syncChatLatestActivityTimestamp(from, contact);
                     didChangeReactionPreview = true;
                     if (wasUnreadIncomingMessage) {
@@ -17898,6 +17936,11 @@ class ChatModal {
       existingContainer.remove();
     }
 
+    const messageRecord = this.getMessageRecordFromElement(messageEl);
+    if (messageRecord && isDeleted(messageRecord)) {
+      return;
+    }
+
     const reactionHtml = this.buildReactionChipsHTML(reactionsForTarget);
     if (!reactionHtml) return;
 
@@ -19078,12 +19121,14 @@ class ChatModal {
     const response = await injectTx(chatMessageObj, txid);
     if (!response?.result?.success) {
       console.error('reaction message failed to send', response);
-      const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
-      assert(pendingTxInfo, `Pending reaction metadata missing for ${txid}`);
+      const pendingTxInfo = finishPendingReactionInject(txid);
 
       const outcome = settlePendingReaction(pendingTxInfo, 'failure');
       if (!outcome.hasPending) {
         cleanupResolvedReactionChain(currentAddress, outcome.targetTxid);
+      }
+      if (isDeleted(targetMessage)) {
+        purgePendingReactionsForTarget(currentAddress, reaction.reactId);
       }
       const reason = response?.result?.reason || '';
       if (outcome.didChange) {
@@ -19101,10 +19146,10 @@ class ChatModal {
       return false;
     }
 
-    assert(
-      myData.pending.some((pendingTx) => pendingTx.txid === txid),
-      `Pending reaction metadata missing for ${txid}`
-    );
+    finishPendingReactionInject(txid);
+    if (isDeleted(targetMessage)) {
+      purgePendingReactionsForTarget(currentAddress, reaction.reactId);
+    }
     saveState();
 
     return true;
@@ -19466,6 +19511,7 @@ class ChatModal {
       this.purgeThumbnail(message.xattach);
       delete message.xattach;
       purgeContactReactionsForTarget(contact, message.txid);
+      purgePendingReactionsForTarget(this.address, message.txid);
       syncChatLatestActivityTimestamp(this.address, contact);
       
       this.appendChatModal();
