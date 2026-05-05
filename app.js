@@ -6290,7 +6290,7 @@ function purgePendingReactionsForTarget(contactAddress, targetTxid) {
       pendingTx.to === normalizedContactAddress &&
       pendingTx.reactionPending &&
       pendingTx.reactionPending.targetTxid === targetTxid;
-    const isAwaitingInject = isTargetReaction && pendingTx.checkedts === 0;
+    const isAwaitingInject = isTargetReaction && pendingTx.reactionInjectPending === true;
     return !(isTargetReaction && !isAwaitingInject);
   });
 }
@@ -6668,6 +6668,7 @@ function trackPendingReactionBeforeInject(txid, contactAddress, reactionPending)
     submittedts: getCorrectedTimestamp(),
     checkedts: 0,
     to: normalizeAddress(contactAddress),
+    reactionInjectPending: true,
     reactionPending,
   });
 }
@@ -19108,10 +19109,14 @@ class ChatModal {
       console.error('reaction message failed to send', response);
       const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
       assert(pendingTxInfo, `Pending reaction metadata missing for ${txid}`);
+      pendingTxInfo.reactionInjectPending = false;
 
       const outcome = settlePendingReaction(pendingTxInfo, 'failure');
       if (!outcome.hasPending) {
         cleanupResolvedReactionChain(currentAddress, outcome.targetTxid);
+      }
+      if (isDeleted(targetMessage)) {
+        purgePendingReactionsForTarget(currentAddress, reaction.reactId);
       }
       const reason = response?.result?.reason || '';
       if (outcome.didChange) {
@@ -19129,10 +19134,12 @@ class ChatModal {
       return false;
     }
 
-    assert(
-      myData.pending.some((pendingTx) => pendingTx.txid === txid),
-      `Pending reaction metadata missing for ${txid}`
-    );
+    const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
+    assert(pendingTxInfo, `Pending reaction metadata missing for ${txid}`);
+    pendingTxInfo.reactionInjectPending = false;
+    if (isDeleted(targetMessage)) {
+      purgePendingReactionsForTarget(currentAddress, reaction.reactId);
+    }
     saveState();
 
     return true;
