@@ -13880,6 +13880,7 @@ const CHAT_REACTION_SHEET_PROMOTION_RATIO = 0.5;
 const CHAT_REACTION_SHEET_CLOSE_DRAG_PX = 120;
 const CHAT_INITIAL_RENDER_COUNT = 100;
 const CHAT_OLDER_RENDER_BATCH_SIZE = 200;
+const CHAT_THUMBNAIL_ATTACHMENT_SELECTOR = '[data-image-attachment="true"], [data-video-attachment="true"]';
 const CHAT_REACTION_SHEET_TAB_ICONS = {
   recent: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/></svg>',
   smileys: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>',
@@ -14925,7 +14926,7 @@ class ChatModal {
     const prependedThumbnailRows = [];
     for (let messageEl = list.firstElementChild; messageEl && messageEl !== oldFirstMessage; messageEl = messageEl.nextElementSibling) {
       prependedThumbnailRows.push(
-        ...messageEl.querySelectorAll('[data-image-attachment="true"], [data-video-attachment="true"]')
+        ...messageEl.querySelectorAll(CHAT_THUMBNAIL_ATTACHMENT_SELECTOR)
       );
     }
 
@@ -14957,8 +14958,7 @@ class ChatModal {
     if (!this.isActive()) return;
     const container = this.messagesContainer;
     const messages = myData.contacts[this.address].messages;
-    const renderedOldestIndex = this.chatRenderedOldestIndex;
-    if (renderedOldestIndex >= messages.length - 1) {
+    if (this.chatRenderedOldestIndex >= messages.length - 1) {
       return;
     }
 
@@ -16260,10 +16260,8 @@ class ChatModal {
       if (item.txid) renderedTxids.push(item.txid);
     }
 
-    const html = renderedMessages.join('');
-
     return {
-      html,
+      html: renderedMessages.join(''),
       renderedTxids
     };
   }
@@ -16336,9 +16334,7 @@ class ChatModal {
 
     // --- 4.5. Load thumbnails for image attachments (async, non-blocking) ---
     if (shouldKeepBottomAnchored) {
-      const thumbnailRows = this.messagesList.querySelectorAll(
-        '[data-image-attachment="true"], [data-video-attachment="true"]'
-      );
+      const thumbnailRows = this.messagesList.querySelectorAll(CHAT_THUMBNAIL_ATTACHMENT_SELECTOR);
       this.loadThumbnailsKeepingScrollAnchored(thumbnailRows);
     } else {
       this.loadThumbnailsForAttachments();
@@ -16363,11 +16359,7 @@ class ChatModal {
     // --- 5. Find the corresponding DOM element after rendering ---
     // This happens inside the setTimeout to ensure elements are in the DOM
 
-    if (skipAutoScroll) {
-      return;
-    }
-
-    if (shouldKeepBottomAnchored) {
+    if (skipAutoScroll || shouldKeepBottomAnchored) {
       return;
     }
 
@@ -17256,9 +17248,7 @@ class ChatModal {
    * @returns {void}
    */
   async loadThumbnailsForAttachments() {
-    const thumbnailRows = this.messagesList.querySelectorAll(
-      '[data-image-attachment="true"], [data-video-attachment="true"]'
-    );
+    const thumbnailRows = this.messagesList.querySelectorAll(CHAT_THUMBNAIL_ATTACHMENT_SELECTOR);
 
     for (const attachmentRow of thumbnailRows) {
       await this.loadThumbnailForAttachment(attachmentRow);
@@ -17463,9 +17453,7 @@ class ChatModal {
       // Generate and cache thumbnail for images and videos, then update in place
       if (blob.type.startsWith('image/') || blob.type.startsWith('video/')) {
         const attachmentUrl = linkEl.dataset.url;
-        const attachmentRow = linkEl.closest('.attachment-row') || 
-          linkEl.closest('[data-image-attachment="true"]') ||
-          linkEl.closest('[data-video-attachment="true"]');
+        const attachmentRow = linkEl.closest('.attachment-row') || linkEl.closest(CHAT_THUMBNAIL_ATTACHMENT_SELECTOR);
         
         const thumbnailPromise = blob.type.startsWith('image/')
           ? thumbnailCache.generateThumbnail(blob)
@@ -18013,10 +18001,9 @@ class ChatModal {
       return contact.messages.find((msg) => msg?.txid === txid) || null;
     }
 
-    const messageIndex = contact.messages.findIndex((msg) =>
+    return contact.messages.find((msg) =>
       timestamp && msg?.timestamp == timestamp
-    );
-    return messageIndex === -1 ? null : contact.messages[messageIndex];
+    ) || null;
   }
 
   getMessageRecordFromRenderedChild(element) {
