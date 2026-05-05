@@ -16210,7 +16210,10 @@ class ChatModal {
         break;
       }
       default:
-        assert(false, `Unknown chat message type: ${messageType}`);
+        console.warn(`Unknown chat message type: ${messageType}`);
+        if (item.message && item.message.trim()) {
+          messageTextHTML = `<div class="message-content" style="white-space: pre-wrap; margin-top: ${attachmentsHTML ? '2px' : '0'};">${linkifyUrls(item.message)}</div>`;
+        }
     }
 
     const callTimeAttribute = messageType === 'call' && item.callTime ? `data-call-time="${item.callTime}"` : '';
@@ -18893,11 +18896,19 @@ class ChatModal {
 
     // Get encryption keys from the message
     const message = this.getMessageRecordFromRenderedChild(attachmentRow);
-    assert(message.xattach, 'VCF attachment message must include attachment data');
+    if (!Array.isArray(message.xattach)) {
+      console.warn('VCF attachment message missing attachment data');
+      showToast('Import contacts is not available for this attachment', 2000, 'error');
+      return;
+    }
 
     // Find the attachment in xattach array
     const attachment = message.xattach.find(att => att.url === url);
-    assert(attachment, 'Rendered VCF attachment must exist in message data');
+    if (!attachment) {
+      console.warn('Rendered VCF attachment missing from message data');
+      showToast('Import contacts is not available for this attachment', 2000, 'error');
+      return;
+    }
 
     // Open the import contacts modal with the full attachment object so
     // fields like `encKey` (new flow) are preserved for backwards compatibility.
