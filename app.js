@@ -6290,8 +6290,10 @@ function purgePendingReactionsForTarget(contactAddress, targetTxid) {
       pendingTx.to === normalizedContactAddress &&
       pendingTx.reactionPending &&
       pendingTx.reactionPending.targetTxid === targetTxid;
-    const isAwaitingInject = isTargetReaction && pendingTx.reactionInjectPending === true;
-    return !(isTargetReaction && !isAwaitingInject);
+    if (!isTargetReaction) {
+      return true;
+    }
+    return pendingTx.reactionInjectPending === true;
   });
 }
 
@@ -6671,6 +6673,18 @@ function trackPendingReactionBeforeInject(txid, contactAddress, reactionPending)
     reactionInjectPending: true,
     reactionPending,
   });
+}
+
+/**
+ * Marks pending reaction metadata as safe for deletion after `/inject` returns.
+ * @param {string} txid
+ * @returns {Object}
+ */
+function finishPendingReactionInject(txid) {
+  const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
+  assert(pendingTxInfo, `Pending reaction metadata missing for ${txid}`);
+  pendingTxInfo.reactionInjectPending = false;
+  return pendingTxInfo;
 }
 
 /**
@@ -19107,9 +19121,7 @@ class ChatModal {
     const response = await injectTx(chatMessageObj, txid);
     if (!response?.result?.success) {
       console.error('reaction message failed to send', response);
-      const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
-      assert(pendingTxInfo, `Pending reaction metadata missing for ${txid}`);
-      pendingTxInfo.reactionInjectPending = false;
+      const pendingTxInfo = finishPendingReactionInject(txid);
 
       const outcome = settlePendingReaction(pendingTxInfo, 'failure');
       if (!outcome.hasPending) {
@@ -19134,9 +19146,7 @@ class ChatModal {
       return false;
     }
 
-    const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === txid);
-    assert(pendingTxInfo, `Pending reaction metadata missing for ${txid}`);
-    pendingTxInfo.reactionInjectPending = false;
+    finishPendingReactionInject(txid);
     if (isDeleted(targetMessage)) {
       purgePendingReactionsForTarget(currentAddress, reaction.reactId);
     }
