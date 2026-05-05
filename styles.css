@@ -1873,6 +1873,8 @@ input[type='file'].form-control::file-selector-button {
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain; /* stop scroll chaining to modal/body */
   touch-action: pan-y; /* allow vertical panning only */
   transition: padding-bottom 0.2s ease-out;
@@ -2176,7 +2178,13 @@ input[type='file'].form-control::file-selector-button {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding-top:1000px; /* keeps message list scrollable */
+  flex: 0 0 auto;
+  min-height: 100%;
+  padding-top: 1rem;
+}
+
+.messages-list > .message:first-child {
+  margin-top: auto;
 }
 
 .message {
@@ -2298,13 +2306,21 @@ input[type='file'].form-control::file-selector-button {
 }
 
 .message-content {
-  overflow-wrap: break-word;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   word-wrap: break-word;
-  word-break: normal; /* Use normal word breaking to allow hyphens to work */
+  word-break: break-word;
   white-space: normal; /* Ensure text can wrap */
   -webkit-hyphens: auto; /* Add hyphens at line breaks (Chrome/Safari) */
   -moz-hyphens: auto; /* Add hyphens at line breaks (Firefox) */
   hyphens: auto; /* Add hyphens at line breaks */
+}
+
+.message-content a,
+.payment-memo,
+.payment-memo a {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* Wrapper for the send button and the toll information */

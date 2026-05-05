@@ -13916,6 +13916,9 @@ const CHAT_REACTION_SHEET_RECENT_ACCOUNT_KEY = 'recentReactionEmojis';
 const CHAT_REACTION_SHEET_RECENT_LIMIT = CHAT_REACTION_SHEET_DEFAULT_COMMON_EMOJIS.length;
 const CHAT_REACTION_SHEET_PROMOTION_RATIO = 0.5;
 const CHAT_REACTION_SHEET_CLOSE_DRAG_PX = 120;
+const CHAT_INITIAL_RENDER_COUNT = 100;
+const CHAT_OLDER_RENDER_BATCH_SIZE = 200;
+const CHAT_THUMBNAIL_ATTACHMENT_SELECTOR = '[data-image-attachment="true"], [data-video-attachment="true"]';
 const CHAT_REACTION_SHEET_TAB_ICONS = {
   recent: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/></svg>',
   smileys: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>',
@@ -13960,6 +13963,7 @@ class ChatModal {
     // Track whether we've locked background/modal scroll
     this.scrollLocked = false;
     this._touchMoveBlocker = null; // blocks touch outside messages container
+    this.messagesContainerTouchY = null;
 
     // Track which voice message element is playing
     this.playingVoiceMessageElement = null;
@@ -13979,6 +13983,8 @@ class ChatModal {
     // Drag and drop state
     this.dragCounter = 0;
     this.dropOverlay = null;
+
+    this.chatRenderedOldestIndex = CHAT_INITIAL_RENDER_COUNT - 1;
   }
 
   /**
@@ -14487,9 +14493,9 @@ class ChatModal {
       return true;
     });
     // Close all context menus when messages container scrolls
-    this.messagesContainer.addEventListener('scroll', () => {
-      this.closeAllContextMenus();
-    }, { passive: true });
+    this.messagesContainer.addEventListener('scroll', () => this.handleMessagesContainerScroll(), { passive: true });
+    this.messagesContainer.addEventListener('touchstart', (e) => this.handleMessagesContainerTouchStart(e), { passive: true });
+    this.messagesContainer.addEventListener('touchmove', (e) => this.handleMessagesContainerTouchMove(e), { passive: false });
     // Add context menu option listeners
     this.contextMenu.addEventListener('click', (e) => {
       const reactionButton = e.target.closest('.message-context-reaction-button');
@@ -14923,6 +14929,105 @@ class ChatModal {
     return !!(editInput?.value?.trim?.());
   }
 
+  resetChatRenderWindow() {
+    this.chatRenderedOldestIndex = CHAT_INITIAL_RENDER_COUNT - 1;
+  }
+
+  expandChatRenderWindow() {
+    const contact = myData.contacts[this.address];
+    const messages = contact.messages;
+    const container = this.messagesContainer;
+    const list = this.messagesList;
+
+    const currentOldestIndex = Math.min(this.chatRenderedOldestIndex, messages.length - 1);
+    if (currentOldestIndex >= messages.length - 1) {
+      return false;
+    }
+
+    const nextOldestIndex = Math.min(
+      messages.length - 1,
+      currentOldestIndex + CHAT_OLDER_RENDER_BATCH_SIZE
+    );
+
+    const oldScrollTop = Math.round(container.scrollTop);
+    const oldScrollHeight = container.scrollHeight;
+    const range = this.buildChatMessageRangeHTML(
+      messages,
+      contact,
+      nextOldestIndex,
+      currentOldestIndex + 1
+    );
+    const oldFirstMessage = list.firstElementChild;
+
+    this.chatRenderedOldestIndex = nextOldestIndex;
+    list.insertAdjacentHTML('afterbegin', range.html);
+    const prependedThumbnailRows = [];
+    for (let messageEl = list.firstElementChild; messageEl && messageEl !== oldFirstMessage; messageEl = messageEl.nextElementSibling) {
+      prependedThumbnailRows.push(
+        ...messageEl.querySelectorAll(CHAT_THUMBNAIL_ATTACHMENT_SELECTOR)
+      );
+    }
+
+    this.syncRenderedReactionTargets(range.renderedTxids);
+
+    const insertedHeight = container.scrollHeight - oldScrollHeight;
+    container.scrollTop = oldScrollTop + insertedHeight;
+    this.loadThumbnailsKeepingScrollAnchored(prependedThumbnailRows);
+    return true;
+  }
+
+  ensureScrollableChatRenderWindow() {
+    if (!this.messagesContainer || !this.messagesList || !this.address) return;
+
+    const contact = myData.contacts[this.address];
+    const messages = contact?.messages;
+    if (!messages?.length) return;
+
+    while (
+      this.chatRenderedOldestIndex < messages.length - 1 &&
+      this.messagesContainer.scrollHeight <= this.messagesContainer.clientHeight + 1
+    ) {
+      if (!this.expandChatRenderWindow()) break;
+    }
+  }
+
+  handleMessagesContainerScroll() {
+    this.closeAllContextMenus();
+    if (!this.isActive()) return;
+    const container = this.messagesContainer;
+    const messages = myData.contacts[this.address].messages;
+    if (this.chatRenderedOldestIndex >= messages.length - 1) {
+      return;
+    }
+
+    const loadAheadPx = Math.max(420, Math.min(900, container.clientHeight * 1.25));
+    if (container.scrollTop <= loadAheadPx) {
+      this.expandChatRenderWindow();
+    }
+  }
+
+  handleMessagesContainerTouchStart(e) {
+    this.messagesContainerTouchY = e.touches?.[0]?.clientY ?? null;
+  }
+
+  handleMessagesContainerTouchMove(e) {
+    const container = this.messagesContainer;
+    const nextY = e.touches?.[0]?.clientY;
+    if (!container || !Number.isFinite(nextY) || !Number.isFinite(this.messagesContainerTouchY)) return;
+
+    const deltaY = nextY - this.messagesContainerTouchY;
+    this.messagesContainerTouchY = nextY;
+    if (deltaY === 0) return;
+
+    const isScrollable = container.scrollHeight > container.clientHeight + 1;
+    const atTop = container.scrollTop <= 0;
+    const atBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 1;
+
+    if (!isScrollable || (deltaY > 0 && atTop) || (deltaY < 0 && atBottom)) {
+      e.preventDefault();
+    }
+  }
+
   /**
    * Clears all staged composer attachments.
    * @param {{ deleteFromServer?: boolean }} options
@@ -14972,6 +15077,7 @@ class ChatModal {
     friendModal.setAddress(address);
     footer.closeNewChatButton();
     const contact = myData.contacts[address];
+    this.resetChatRenderWindow();
     // Cache whether the contact has me blocked, and disable attachments accordingly
     this.blockedByRecipient = Number(contact?.tollRequiredToSend) === 2;
     this.addAttachmentButton.disabled = this.blockedByRecipient;
@@ -15198,6 +15304,7 @@ class ChatModal {
     }
 
     this.address = null;
+    this.resetChatRenderWindow();
   }
 
   clearNotificationsIfAllRead() {
@@ -15984,6 +16091,235 @@ class ChatModal {
     };
   }
 
+  renderChatMessageHTML(item, { contact, lastReadTs }) {
+    const timeString = formatTime(item.timestamp);
+    // Use a consistent timestamp attribute for potential future use (e.g., message jumping)
+    const timestampAttribute = `data-message-timestamp="${item.timestamp}"`;
+    // Add txid attribute if available
+    const txidAttribute = item.txid ? `data-txid="${item.txid}"` : '';
+    const statusAttribute = item.status ? `data-status="${item.status}"` : '';
+
+    // Check if it's a payment based on the presence of the amount property (BigInt)
+    if (typeof item.amount === 'bigint') {
+      // Assuming LIB (18 decimals) for now. TODO: Handle different asset decimals if needed.
+      // Format amount correctly using big2str
+      const amountStr = big2str(item.amount, 18);
+      const amountNum = parseFloat(amountStr);
+      const amountDisplay = `${amountNum.toFixed(6)} ${item.symbol || 'LIB'}`;
+      const directionText = item.my ? '-' : '+';
+      const messageClass = item.my ? 'sent' : 'received';
+      const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
+      // --- Render Payment Transaction ---
+      return `
+          <div class="message ${messageClass} payment-info" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
+            <div class="payment-header">
+              <span class="payment-direction">${directionText}</span>
+              <span class="payment-amount">${amountDisplay}</span>
+            </div>
+            ${item.message ? `<div class="payment-memo">${linkifyUrls(item.message)}</div>` : ''}
+            <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
+          </div>
+        `;
+    }
+
+    // --- Render Chat Message ---
+    const messageClass = item.my ? 'sent' : 'received';
+    // Check if message was deleted
+    if (isDeleted(item)) {
+      // Render deleted message with special styling
+      return `
+                    <div class="message ${messageClass} deleted-message" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
+                        <div class="message-content deleted-content">${item.message}</div>
+                        <div class="message-time">${timeString}</div>
+                    </div>
+                `;
+    }
+
+    const messageType = item.type || 'message';
+
+    let replyHTML = '';
+    // --- Render Reply Quote if present ---
+    if (item.replyId) {
+      const replyText = escapeHtml(item.replyMessage || 'View original message');
+      // Determine owner label: "You" if the referenced message is ours, else contact name
+      const ownerIsMineHint = item.replyOwnerIsMine;
+      const targetMsg = contact.messages.find((message) => message.txid === item.replyId);
+      // Use both item.my and replyOwnerIsMine to determine from current viewer's perspective
+      // item.my: true if reply is from current user (viewer's perspective)
+      // replyOwnerIsMine: true if original message was from sender's perspective
+      // If they match (both true or both false), original message is from current user's perspective
+      const isOwnerMine = typeof ownerIsMineHint === 'undefined'
+        ? !!(targetMsg && targetMsg.my)
+        : item.my === (ownerIsMineHint === true || ownerIsMineHint === '1');
+      const ownerText = isOwnerMine ? 'You' : (getContactDisplayName(contact) || 'Contact');
+      const ownerClass = isOwnerMine ? 'reply-owner-me' : 'reply-owner-contact';
+      const replyOwnerLabel = `<span class="reply-quote-label ${ownerClass}">${escapeHtml(ownerText)}</span>`;
+
+      replyHTML = `
+                <div class="reply-quote ${ownerClass}" data-reply-txid="${escapeHtml(item.replyId)}">
+                  ${replyOwnerLabel}
+                  <div class="reply-quote-text">${replyText}</div>
+                </div>
+              `;
+    }
+
+    // --- Render Attachments if present ---
+    let attachmentsHTML = '';
+    if (item.xattach && Array.isArray(item.xattach) && item.xattach.length > 0) {
+      attachmentsHTML = item.xattach.map(att => {
+        const fileUrl = att.url || '#';
+        const fileName = att.name || 'Attachment';
+        const fileSize = att.size ? this.formatFileSize(att.size) : '';
+        const fileType = att.type ? att.type.split('/').pop().toUpperCase() : '';
+        const isImage = att.type && att.type.startsWith('image/');
+        const isVideo = att.type && att.type.startsWith('video/');
+        const hasThumbnail = isImage || isVideo;
+        const fileTypeIcon = this.getFileTypeForIcon(att.type || '', fileName);
+        const paddingStyle = hasThumbnail ? 'padding: 5px 5px;' : 'padding: 10px 12px;';
+        return `
+                <div class="attachment-row" style="display: flex; ${hasThumbnail ? 'flex-direction: column;' : 'align-items: center;'} background: #f5f5f7; border-radius: 12px; ${paddingStyle} margin-bottom: 6px;"
+                  data-url="${fileUrl}"
+                  data-p-url="${att.pUrl || ''}"
+                  data-name="${encodeURIComponent(fileName)}"
+                  data-type="${att.type || ''}"
+                  ${isImage ? 'data-image-attachment="true"' : ''}
+                  ${isVideo ? 'data-video-attachment="true"' : ''}
+                >
+                  <div class="attachment-icon-container" style="${hasThumbnail ? 'margin-bottom: 10px; flex-direction: column;' : 'margin-right: 14px; flex-shrink: 0;'}">
+                    <div class="attachment-icon" data-file-type="${fileTypeIcon}"></div>
+                    ${hasThumbnail ? '<div class="attachment-preview-hint">Click for options</div>' : ''}
+                  </div>
+                  <div style="min-width:0;">
+                    <span class="attachment-label" style="font-weight:500;color:#222;font-size:0.7em;display:block;word-wrap:break-word;">
+                      ${fileName}
+                    </span><br>
+                    <span style="font-size: 0.93em; color: #888;">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
+                  </div>
+                </div>
+              `;
+      }).join('');
+    }
+
+    // --- Render message text (if any) ---
+    let messageTextHTML = '';
+    switch (messageType) {
+      case 'message':
+        if (item.message && item.message.trim()) {
+          messageTextHTML = `<div class="message-content" style="white-space: pre-wrap; margin-top: ${attachmentsHTML ? '2px' : '0'};">${linkifyUrls(item.message)}</div>`;
+        }
+        break;
+      case 'call': {
+        if (!item.message || !item.message.trim()) break;
+        // Determine call timing and whether join should be allowed
+        const callTimeMs = Number(item.callTime || 0);
+        const callStart = callTimeMs > 0 ? callTimeMs : Number(item.timestamp || item.sent_timestamp || 0);
+        const isExpired = this.isCallExpired(callStart);
+
+        if (isExpired) {
+          // Over 2 hours since call time: show as plain text without join button
+          const theirName = getContactDisplayName(contact);
+          const label = item.my ? `You called ${escapeHtml(theirName)}` : `${escapeHtml(theirName)} called you`;
+          messageTextHTML = `
+                  <div class="call-message">
+                    <div class="call-message-text"><i>${label}</i></div>
+                  </div>`;
+        } else {
+          // Build scheduled label if in the future
+          const scheduleHTML = this.buildCallScheduleHTML(callTimeMs);
+          // Render call message with a left circular phone icon (clickable) and plain text to the right
+          // TODO - remove the href and instead have it call a function which will open the URL and at the time of opening it adds the callUrlParam and username
+          messageTextHTML = `
+                  <div class="call-message">
+                    <a href='${item.message}${callUrlParams}"${myAccount.username}"' target="_blank" rel="noopener noreferrer" class="call-message-phone-button" aria-label="Join Video Call">
+                      <span class="sr-only">Join Video Call</span>
+                    </a>
+                    <div>
+                      <div class="call-message-text">Join Video Call</div>
+                      ${scheduleHTML}
+                    </div>
+                  </div>`;
+        }
+        break;
+      }
+      case 'vm': {
+        // Check for voice message
+        const duration = this.formatDuration(item.duration);
+        // Use audio encryption keys for playback, fall back to message encryption keys if not available
+        messageTextHTML = `
+              <div class="voice-message" data-url="${item.url || ''}" data-name="voice-message" data-type="audio/webm" data-duration="${item.duration || 0}">
+                <div class="voice-message-controls">
+                  <div class="voice-message-top-row">
+                    <button class="voice-message-play-button" aria-label="Play voice message">
+                      <svg viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </button>
+                    <div class="voice-message-text">Voice message</div>
+                    <div class="voice-message-time-display">0:00 / ${duration}</div>
+                  </div>
+                  <div class="voice-message-bottom-row">
+                    <input type="range" class="voice-message-seek" min="0" max="${item.duration || 0}" value="0" step="1" aria-label="Seek voice message">
+                    <button class="voice-message-speed-button" aria-label="Toggle playback speed" data-speed="1">1x</button>
+                  </div>
+                </div>
+              </div>`;
+        break;
+      }
+      default:
+        console.warn(`Unknown chat message type: ${messageType}`);
+        if (item.message && item.message.trim()) {
+          messageTextHTML = `<div class="message-content" style="white-space: pre-wrap; margin-top: ${attachmentsHTML ? '2px' : '0'};">${linkifyUrls(item.message)}</div>`;
+        }
+    }
+
+    const callTimeAttribute = messageType === 'call' && item.callTime ? `data-call-time="${item.callTime}"` : '';
+    const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
+    return `
+            <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute} ${callTimeAttribute}>
+              ${replyHTML}
+              ${attachmentsHTML}
+              ${messageTextHTML}
+              <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
+            </div>
+          `;
+  }
+
+  buildChatMessageRangeHTML(messages, contact, oldestIndex, newestIndex) {
+    // Last time user previously had this chat open (used to mark newly edited messages)
+    const lastReadTs = contact.lastChatOpenTs || 0;
+    const renderedMessages = [];
+    const renderedTxids = [];
+
+    // Iterate backwards through messages (oldest to newest for rendering order)
+    // messages are already sorted descending (newest first) in myData
+    for (let i = oldestIndex; i >= newestIndex; i--) {
+      const item = messages[i];
+      renderedMessages.push(this.renderChatMessageHTML(item, { contact, lastReadTs }));
+      if (item.txid) renderedTxids.push(item.txid);
+    }
+
+    return {
+      html: renderedMessages.join(''),
+      renderedTxids
+    };
+  }
+
+  getOldestRenderedMessageIndex(messages) {
+    const oldestRendered = this.messagesList.firstElementChild;
+    if (!oldestRendered) return -1;
+
+    const { txid, messageTimestamp } = oldestRendered.dataset;
+    assert(txid || messageTimestamp, 'Rendered message must have an identity');
+
+    if (txid) {
+      return messages.findIndex((message) => message?.txid === txid);
+    }
+
+    return messages.findIndex((message) =>
+      messageTimestamp && message?.timestamp == messageTimestamp
+    );
+  }
+
   /**
    * Appends the chat modal to the DOM
    * @param {boolean} highlightNewMessage - Whether to highlight the newest message
@@ -16002,8 +16338,6 @@ class ChatModal {
       return;
     }
     const messages = contact.messages; // Already sorted descending
-    // Last time user previously had this chat open (used to mark newly edited messages)
-    const lastReadTs = contact.lastChatOpenTs || 0;
 
     if (!this.modal) return;
     if (!this.messagesList) return;
@@ -16014,230 +16348,61 @@ class ChatModal {
     this.newestReceivedMessage = newestReceivedItem;
     this.newestSentMessage = messages.find((item) => item.my);
 
-    // 2. Clear the entire list
-    this.messagesList.innerHTML = '';
-
-    // 3. Iterate backwards through messages (oldest to newest for rendering order)
-    // messages are already sorted descending (newest first) in myData
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const item = messages[i];
-      let messageHTML = '';
-      const timeString = formatTime(item.timestamp);
-      // Use a consistent timestamp attribute for potential future use (e.g., message jumping)
-      const timestampAttribute = `data-message-timestamp="${item.timestamp}"`;
-      // Add txid attribute if available
-      const txidAttribute = item?.txid ? `data-txid="${item.txid}"` : '';
-      const statusAttribute = item?.status ? `data-status="${item.status}"` : '';
-
-      // Check if it's a payment based on the presence of the amount property (BigInt)
-      if (typeof item.amount === 'bigint') {
-        // Define common payment variables
-        const itemAmount = item.amount;
-        const itemMemo = item.message; // Memo is stored in the 'message' field for transfers
-
-        // Assuming LIB (18 decimals) for now. TODO: Handle different asset decimals if needed.
-        // Format amount correctly using big2str
-        const amountStr = big2str(itemAmount, 18);
-        const amountNum = parseFloat(amountStr);
-        const amountDisplay = `${amountNum.toFixed(6)} ${item.symbol || 'LIB'}`;
-
-        // Check item.my for sent/received
-
-        //console.log(`debug item: ${JSON.stringify(item, (key, value) => typeof value === 'bigint' ? big2str(value, 18) : value)}`)
-        // --- Render Payment Transaction ---
-        const directionText = item.my ? '-' : '+';
-        const messageClass = item.my ? 'sent' : 'received';
-    const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
-    messageHTML = `
-          <div class="message ${messageClass} payment-info" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
-            <div class="payment-header">
-              <span class="payment-direction">${directionText}</span>
-              <span class="payment-amount">${amountDisplay}</span>
-            </div>
-            ${itemMemo ? `<div class="payment-memo">${linkifyUrls(itemMemo)}</div>` : ''}
-            <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
-          </div>
-        `;
-      } else {
-        // --- Render Chat Message ---
-        const messageClass = item.my ? 'sent' : 'received'; // Use item.my directly
-        
-        // Initialize replyHTML at this scope so it's always defined
-        let replyHTML = '';
-        
-        // Check if message was deleted
-        if (isDeleted(item)) {
-          // Render deleted message with special styling
-          messageHTML = `
-                    <div class="message ${messageClass} deleted-message" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
-                        <div class="message-content deleted-content">${item.message}</div>
-                        <div class="message-time">${timeString}</div>
-                    </div>
-                `;
-        } else {
-          // --- Render Reply Quote if present ---
-          if (item.replyId) {
-              const replyText = escapeHtml(item.replyMessage || 'View original message');
-              // Determine owner label: "You" if the referenced message is ours, else contact name
-              const ownerIsMineHint = item.replyOwnerIsMine;
-              const hasHint = typeof ownerIsMineHint !== 'undefined';
-              let isOwnerMine = false;
-              if (hasHint) {
-                // Use both item.my and replyOwnerIsMine to determine from current viewer's perspective
-                // item.my: true if reply is from current user (viewer's perspective)
-                // replyOwnerIsMine: true if original message was from sender's perspective
-                // If they match (both true or both false), original message is from current user's perspective
-                const isSelfReply = ownerIsMineHint === true || ownerIsMineHint === '1';
-                isOwnerMine = item.my === isSelfReply;
-              } else {
-                const targetMsg = contact.messages?.find((m) => m.txid === item.replyId);
-                isOwnerMine = !!(targetMsg && targetMsg.my);
-              }
-              const ownerText = isOwnerMine ? 'You' : (getContactDisplayName(contact) || 'Contact');
-              const ownerClass = isOwnerMine ? 'reply-owner-me' : 'reply-owner-contact';
-              const replyOwnerLabel = `<span class="reply-quote-label ${ownerClass}">${escapeHtml(ownerText)}</span>`;
-
-              replyHTML = `
-                <div class="reply-quote ${ownerClass}" data-reply-txid="${escapeHtml(item.replyId)}">
-                  ${replyOwnerLabel}
-                  <div class="reply-quote-text">${replyText}</div>
-                </div>
-              `;
-          }
-          // --- Render Attachments if present ---
-          let attachmentsHTML = '';
-          if (item.xattach && Array.isArray(item.xattach) && item.xattach.length > 0) {
-            attachmentsHTML = item.xattach.map(att => {
-              const fileUrl = att.url || '#';
-              const fileName = att.name || 'Attachment';
-              const fileSize = att.size ? this.formatFileSize(att.size) : '';
-              const fileType = att.type ? att.type.split('/').pop().toUpperCase() : '';
-              const isImage = att.type && att.type.startsWith('image/');
-              const isVideo = att.type && att.type.startsWith('video/');
-              const hasThumbnail = isImage || isVideo;
-              const fileTypeIcon = this.getFileTypeForIcon(att.type || '', fileName);
-              const paddingStyle = hasThumbnail ? 'padding: 5px 5px;' : 'padding: 10px 12px;';
-              return `
-                <div class="attachment-row" style="display: flex; ${hasThumbnail ? 'flex-direction: column;' : 'align-items: center;'} background: #f5f5f7; border-radius: 12px; ${paddingStyle} margin-bottom: 6px;"
-                  data-url="${fileUrl}"
-                  data-p-url="${att.pUrl || ''}"
-                  data-name="${encodeURIComponent(fileName)}"
-                  data-type="${att.type || ''}"
-                  data-msg-idx="${i}"
-                  ${isImage ? 'data-image-attachment="true"' : ''}
-                  ${isVideo ? 'data-video-attachment="true"' : ''}
-                >
-                  <div class="attachment-icon-container" style="${hasThumbnail ? 'margin-bottom: 10px; flex-direction: column;' : 'margin-right: 14px; flex-shrink: 0;'}">
-                    <div class="attachment-icon" data-file-type="${fileTypeIcon}"></div>
-                    ${hasThumbnail ? '<div class="attachment-preview-hint">Click for options</div>' : ''}
-                  </div>
-                  <div style="min-width:0;">
-                    <span class="attachment-label" style="font-weight:500;color:#222;font-size:0.7em;display:block;word-wrap:break-word;">
-                      ${fileName}
-                    </span><br>
-                    <span style="font-size: 0.93em; color: #888;">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
-                  </div>
-                </div>
-              `;
-            }).join('');
-          }
-          
-          // --- Render message text (if any) ---
-          let messageTextHTML = '';
-          if (item.message && item.message.trim()) {
-            // Check if this is a call message
-            if (item.type === 'call') {
-              // Determine call timing and whether join should be allowed
-              const callTimeMs = Number(item.callTime || 0);
-              const callStart = callTimeMs > 0 ? callTimeMs : Number(item.timestamp || item.sent_timestamp || 0);
-              const isExpired = this.isCallExpired(callStart);
-
-              if (isExpired) {
-                // Over 2 hours since call time: show as plain text without join button
-                const theirName = getContactDisplayName(contact);
-                const label = item.my ? `You called ${escapeHtml(theirName)}` : `${escapeHtml(theirName)} called you`;
-                messageTextHTML = `
-                  <div class="call-message">
-                    <div class="call-message-text"><i>${label}</i></div>
-                  </div>`;
-              } else {
-                // Build scheduled label if in the future
-                const scheduleHTML = this.buildCallScheduleHTML(callTimeMs);
-                // Render call message with a left circular phone icon (clickable) and plain text to the right
-                // TODO - remove the href and instead have it call a function which will open the URL and at the time of opening it adds the callUrlParam and username
-                messageTextHTML = `
-                  <div class="call-message">
-                    <a href='${item.message}${callUrlParams}"${myAccount.username}"' target="_blank" rel="noopener noreferrer" class="call-message-phone-button" aria-label="Join Video Call">
-                      <span class="sr-only">Join Video Call</span>
-                    </a>
-                    <div>
-                      <div class="call-message-text">Join Video Call</div>
-                      ${scheduleHTML}
-                    </div>
-                  </div>`;
-              }
-            } else {
-              // Regular message rendering
-              messageTextHTML = `<div class="message-content" style="white-space: pre-wrap; margin-top: ${attachmentsHTML ? '2px' : '0'};">${linkifyUrls(item.message)}</div>`;
-            }
-          }
-          
-          // Check for voice message
-          if (item.type === 'vm') {
-            const duration = this.formatDuration(item.duration);
-            // Use audio encryption keys for playback, fall back to message encryption keys if not available
-            messageTextHTML = `
-              <div class="voice-message" data-url="${item.url || ''}" data-name="voice-message" data-type="audio/webm" data-msg-idx="${i}" data-duration="${item.duration || 0}">
-                <div class="voice-message-controls">
-                  <div class="voice-message-top-row">
-                    <button class="voice-message-play-button" aria-label="Play voice message">
-                      <svg viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z"/>
-                      </svg>
-                    </button>
-                    <div class="voice-message-text">Voice message</div>
-                    <div class="voice-message-time-display">0:00 / ${duration}</div>
-                  </div>
-                  <div class="voice-message-bottom-row">
-                    <input type="range" class="voice-message-seek" min="0" max="${item.duration || 0}" value="0" step="1" aria-label="Seek voice message">
-                    <button class="voice-message-speed-button" aria-label="Toggle playback speed" data-speed="1">1x</button>
-                  </div>
-                </div>
-              </div>`;
-          }
-          
-          const callTimeAttribute = item.type === 'call' && item.callTime ? `data-call-time="${item.callTime}"` : '';
-      const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
-      messageHTML = `
-            <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute} ${callTimeAttribute}>
-              ${replyHTML}
-              ${attachmentsHTML}
-              ${messageTextHTML}
-              <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
-            </div>
-          `;
-        }
-      }
-
-      // 4. Append the constructed HTML
-      // Insert at the end of the list to maintain correct chronological order
-      this.messagesList.insertAdjacentHTML('beforeend', messageHTML);
-      // The newest received element will be found after the loop completes
+    let oldestIndex = -1;
+    if (messages.length > 0) {
+      const requestedOldestIndex = this.chatRenderedOldestIndex;
+      const preservedOldestIndex = this.getOldestRenderedMessageIndex(messages);
+      oldestIndex = Math.min(
+        Math.max(0, requestedOldestIndex, preservedOldestIndex),
+        messages.length - 1
+      );
+      this.chatRenderedOldestIndex = oldestIndex;
     }
 
-    this.syncAllRenderedReactionChips();
+    const range = this.buildChatMessageRangeHTML(
+      messages,
+      contact,
+      oldestIndex,
+      0
+    );
+
+    // Replace the list once to avoid one DOM mutation per message.
+    this.messagesList.innerHTML = range.html;
+    const shouldKeepBottomAnchored = !skipAutoScroll && !highlightNewMessage;
 
     // --- 4.5. Load thumbnails for image attachments (async, non-blocking) ---
-    this.loadThumbnailsForAttachments();
+    if (shouldKeepBottomAnchored) {
+      const thumbnailRows = this.messagesList.querySelectorAll(CHAT_THUMBNAIL_ATTACHMENT_SELECTOR);
+      this.loadThumbnailsKeepingScrollAnchored(thumbnailRows);
+    } else {
+      this.loadThumbnailsForAttachments();
+    }
+
+    const renderedAddress = currentAddress;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!this.isActive() || this.address !== renderedAddress) {
+          return;
+        }
+        if (shouldKeepBottomAnchored) {
+          this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+        }
+        if (!skipAutoScroll) {
+          this.ensureScrollableChatRenderWindow();
+        }
+        this.syncAllRenderedReactionChips();
+      });
+    });
 
     // --- 5. Find the corresponding DOM element after rendering ---
     // This happens inside the setTimeout to ensure elements are in the DOM
 
+    if (skipAutoScroll || shouldKeepBottomAnchored) {
+      return;
+    }
+
     // 6. Delayed Scrolling & Highlighting Logic (after loop)
     setTimeout(() => {
-      // Skip auto-scrolling if we're going to scroll to a specific message
-      if (skipAutoScroll) return;
-
       const messageContainer = this.messagesList.parentElement;
 
       // Find the DOM element for the actual newest received item using its timestamp
@@ -17042,9 +17207,9 @@ class ChatModal {
    * Update an attachment row with a thumbnail image
    * @param {HTMLElement} attachmentRow - The attachment row element
    * @param {Blob} thumbnailBlob - The thumbnail blob to display
-   * @returns {boolean} True if update was successful, false otherwise
+   * @returns {Promise<boolean>} True if update was successful, false otherwise
    */
-  updateThumbnailInPlace(attachmentRow, thumbnailBlob) {
+  async updateThumbnailInPlace(attachmentRow, thumbnailBlob) {
     if (!attachmentRow || !attachmentRow.parentNode || !thumbnailBlob) {
       return false;
     }
@@ -17058,10 +17223,34 @@ class ChatModal {
       if (oldThumbnailUrl) {
         URL.revokeObjectURL(oldThumbnailUrl);
       }
-      
+
+      const thumbnailImage = new Image();
+      thumbnailImage.alt = 'Thumbnail';
+      thumbnailImage.className = 'attachment-thumbnail';
+      thumbnailImage.src = thumbnailUrl;
+
+      try {
+        if (typeof thumbnailImage.decode === 'function') {
+          await thumbnailImage.decode();
+        } else if (!thumbnailImage.complete) {
+          await new Promise((resolve, reject) => {
+            thumbnailImage.onload = resolve;
+            thumbnailImage.onerror = reject;
+          });
+        }
+      } catch (error) {
+        URL.revokeObjectURL(thumbnailUrl);
+        throw error;
+      }
+
+      if (!attachmentRow.isConnected || !iconContainer.isConnected) {
+        URL.revokeObjectURL(thumbnailUrl);
+        return false;
+      }
+
       // Replace icon with thumbnail image
-      iconContainer.innerHTML = `<img src="${thumbnailUrl}" alt="Thumbnail" class="attachment-thumbnail">`;
-      
+      iconContainer.replaceChildren(thumbnailImage);
+
       // Store blob URL for cleanup
       attachmentRow.dataset.thumbnailUrl = thumbnailUrl;
       return true;
@@ -17073,26 +17262,49 @@ class ChatModal {
   }
 
   /**
-   * Load thumbnails for image and video attachments asynchronously
-   * Only loads from local IndexedDB cache - pUrl downloads happen on user action (Preview)
+   * Load a cached thumbnail into one attachment row.
+   * @param {HTMLElement} attachmentRow
+   * @returns {Promise<boolean>}
+   */
+  async loadThumbnailForAttachment(attachmentRow) {
+    if (!attachmentRow.isConnected) return false;
+    const url = attachmentRow.dataset.url;
+    if (!url || url === '#') return false;
+
+    try {
+      const thumbnailBlob = await thumbnailCache.get(url);
+      if (!thumbnailBlob || !attachmentRow.isConnected) return false;
+      return this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
+    } catch (error) {
+      console.warn('Failed to load thumbnail for', url, error);
+      return false;
+    }
+  }
+
+  /**
+   * Load thumbnails for visible image and video attachments.
    * @returns {void}
    */
   async loadThumbnailsForAttachments() {
-    const thumbnailAttachments = this.messagesList.querySelectorAll(
-      '[data-image-attachment="true"], [data-video-attachment="true"]'
-    );
-    
-    for (const attachmentRow of thumbnailAttachments) {
-      const url = attachmentRow.dataset.url;
-      if (!url || url === '#') continue;
+    const thumbnailRows = this.messagesList.querySelectorAll(CHAT_THUMBNAIL_ATTACHMENT_SELECTOR);
 
-      try {
-        const thumbnailBlob = await thumbnailCache.get(url);
-        if (thumbnailBlob) {
-          this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
-        }
-      } catch (error) {
-        console.warn('Failed to load thumbnail for', url, error);
+    for (const attachmentRow of thumbnailRows) {
+      await this.loadThumbnailForAttachment(attachmentRow);
+    }
+  }
+
+  /**
+   * Load thumbnails without letting row height changes move the viewport.
+   * @param {Iterable<HTMLElement>} attachmentRows
+   * @returns {void}
+   */
+  async loadThumbnailsKeepingScrollAnchored(attachmentRows) {
+    for (const attachmentRow of attachmentRows) {
+      const oldScrollHeight = this.messagesContainer.scrollHeight;
+      const didUpdate = await this.loadThumbnailForAttachment(attachmentRow);
+      const heightDelta = this.messagesContainer.scrollHeight - oldScrollHeight;
+      if (didUpdate && heightDelta !== 0) {
+        this.messagesContainer.scrollTop = Math.max(0, this.messagesContainer.scrollTop + heightDelta);
       }
     }
   }
@@ -17279,9 +17491,7 @@ class ChatModal {
       // Generate and cache thumbnail for images and videos, then update in place
       if (blob.type.startsWith('image/') || blob.type.startsWith('video/')) {
         const attachmentUrl = linkEl.dataset.url;
-        const attachmentRow = linkEl.closest('.attachment-row') || 
-          linkEl.closest('[data-image-attachment="true"]') ||
-          linkEl.closest('[data-video-attachment="true"]');
+        const attachmentRow = linkEl.closest('.attachment-row') || linkEl.closest(CHAT_THUMBNAIL_ATTACHMENT_SELECTOR);
         
         const thumbnailPromise = blob.type.startsWith('image/')
           ? thumbnailCache.generateThumbnail(blob)
@@ -17294,7 +17504,7 @@ class ChatModal {
             if (attachmentRow) {
               const thumbnailBlob = await thumbnailCache.get(attachmentUrl);
               if (thumbnailBlob) {
-                this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
+                await this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
               }
             }
           })
@@ -17825,10 +18035,22 @@ class ChatModal {
     const contact = myData.contacts[this.address];
     if (!contact?.messages?.length) return null;
 
-    const messageIndex = contact.messages.findIndex((msg) =>
-      msg && (msg.txid === txid || msg.timestamp == timestamp)
-    );
-    return messageIndex === -1 ? null : contact.messages[messageIndex];
+    if (txid) {
+      return contact.messages.find((msg) => msg?.txid === txid) || null;
+    }
+
+    return contact.messages.find((msg) =>
+      timestamp && msg?.timestamp == timestamp
+    ) || null;
+  }
+
+  getMessageRecordFromRenderedChild(element) {
+    const messageEl = element.closest('.message');
+    assert(messageEl, 'Rendered child must be inside a message');
+
+    const messageRecord = this.getMessageRecordFromElement(messageEl);
+    assert(messageRecord, 'Rendered message must have a backing record');
+    return messageRecord;
   }
 
   /**
@@ -18138,17 +18360,23 @@ class ChatModal {
   /**
    * Resolve common attachment context fields from an attachment row.
    * @param {HTMLElement} attachmentRow
-   * @returns {{ attachmentRow: HTMLElement, messageEl: HTMLElement | null, idx: number, item: any, url: string }}
+   * @returns {{ attachmentRow: HTMLElement, messageEl: HTMLElement, item: any, url: string }}
    */
   getAttachmentContextFromRow(attachmentRow) {
-    const idx = Number(attachmentRow?.dataset?.msgIdx);
-    const item = Number.isFinite(idx) ? myData.contacts[this.address]?.messages?.[idx] : null;
+    const messageEl = attachmentRow.closest('.message');
+    assert(messageEl, 'Attachment row must be inside a message');
+
+    const item = this.getMessageRecordFromElement(messageEl);
+    assert(item, 'Attachment message must have a backing record');
+
+    const url = attachmentRow.dataset.url;
+    assert(url, 'Attachment row must include a url');
+
     return {
       attachmentRow,
-      messageEl: attachmentRow?.closest?.('.message') || null,
-      idx,
+      messageEl,
       item,
-      url: attachmentRow?.dataset?.url || ''
+      url
     };
   }
 
@@ -18619,7 +18847,7 @@ class ChatModal {
     // Show copy only if parent message has actual message text
     const copyOption = this.imageAttachmentContextMenu.querySelector('[data-action="copy"]');
     if (copyOption) {
-      const text = messageEl?.querySelector?.('.message-content')?.textContent?.trim() || '';
+      const text = messageEl.querySelector('.message-content')?.textContent?.trim() || '';
       copyOption.style.display = text ? 'flex' : 'none';
     }
 
@@ -18639,7 +18867,7 @@ class ChatModal {
     let hasThumb = true;
     if (hasThumbnailSupport) {
       hasThumb = false;
-      if (url && url !== '#') {
+      if (url !== '#') {
         try {
           const thumb = await thumbnailCache.get(url);
           hasThumb = !!thumb;
@@ -18689,19 +18917,19 @@ class ChatModal {
         void this.saveImageAttachment(row);
         break;
       case 'share':
-        if (messageEl) shareAttachmentModal.open(messageEl);
+        shareAttachmentModal.open(messageEl);
         break;
       case 'reply':
-        if (messageEl) this.startReplyToMessage(messageEl);
+        this.startReplyToMessage(messageEl);
         break;
       case 'copy':
-        if (messageEl) void this.copyMessageContent(messageEl);
+        void this.copyMessageContent(messageEl);
         break;
       case 'delete':
-        if (messageEl) this.deleteMessage(messageEl);
+        this.deleteMessage(messageEl);
         break;
       case 'delete-for-all':
-        if (messageEl) void this.deleteMessageForAll(messageEl);
+        void this.deleteMessageForAll(messageEl);
         break;
     }
 
@@ -18716,20 +18944,20 @@ class ChatModal {
     const url = attachmentRow.dataset.url;
     const name = attachmentRow.dataset.name ? decodeURIComponent(attachmentRow.dataset.name) : 'contacts.vcf';
     const type = attachmentRow.dataset.type || 'text/vcard';
-    const msgIdx = attachmentRow.dataset.msgIdx;
 
     // Get encryption keys from the message
-    const contact = myData.contacts[this.address];
-    const message = contact?.messages?.[msgIdx];
-    if (!message?.xattach) {
-      showToast('Could not find attachment data', 0, 'error');
+    const message = this.getMessageRecordFromRenderedChild(attachmentRow);
+    if (!Array.isArray(message.xattach)) {
+      console.warn('VCF attachment message missing attachment data');
+      showToast('Import contacts is not available for this attachment', 2000, 'error');
       return;
     }
 
     // Find the attachment in xattach array
     const attachment = message.xattach.find(att => att.url === url);
     if (!attachment) {
-      showToast('Could not find attachment data', 0, 'error');
+      console.warn('Rendered VCF attachment missing from message data');
+      showToast('Import contacts is not available for this attachment', 2000, 'error');
       return;
     }
 
@@ -18753,7 +18981,7 @@ class ChatModal {
     let loadingToastId;
     try {
       const { item, url } = this.getAttachmentContextFromRow(attachmentRow);
-      if (!item || !url || url === '#') return;
+      if (url === '#') return;
       
       // Get pUrl from data attributes
       const pUrl = attachmentRow.dataset.pUrl;
@@ -18769,7 +18997,7 @@ class ChatModal {
       
       // Cache and display thumbnail
       await thumbnailCache.save(url, thumbnailBlob, 'image/jpeg');
-      this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
+      await this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
       
       hideToast(loadingToastId);
     } catch (err) {
@@ -18786,7 +19014,6 @@ class ChatModal {
   async saveImageAttachment(attachmentRow) {
     // Reuse normal attachment download flow (decrypt + download)
     const { item } = this.getAttachmentContextFromRow(attachmentRow);
-    if (!item) return;
 
     // Concurent download prevention
     if (this.attachmentDownloadInProgress) return;
@@ -18859,7 +19086,8 @@ class ChatModal {
    */
   async handleImageAttachmentReactionPickerClick(reactionButton) {
     const row = this.currentImageAttachmentRow;
-    const { messageEl } = row ? this.getAttachmentContextFromRow(row) : { messageEl: null };
+    assert(row, 'Image attachment reaction requires an active attachment row');
+    const { messageEl } = this.getAttachmentContextFromRow(row);
     await this.handleReactionPickerSelection(reactionButton, messageEl, () => this.closeImageAttachmentContextMenu());
   }
 
@@ -19342,7 +19570,20 @@ class ChatModal {
    */
   scrollToMessage(txid) {
     if (!txid || !this.messagesList) return;
-    const target = this.messagesList.querySelector(`[data-txid="${txid}"]`);
+    let target = this.messagesList.querySelector(`[data-txid="${CSS.escape(txid)}"]`);
+    if (!target) {
+      assert(this.address, 'Cannot scroll to a message without an active chat');
+      const contact = myData.contacts[this.address];
+      const targetIndex = contact.messages.findIndex((message) => message.txid === txid);
+      if (targetIndex !== -1) {
+        this.chatRenderedOldestIndex = Math.max(
+          this.chatRenderedOldestIndex,
+          targetIndex
+        );
+        this.appendChatModal(false, true);
+        target = this.messagesList.querySelector(`[data-txid="${CSS.escape(txid)}"]`);
+      }
+    }
     if (!target) {
       showToast('Message not found', 2000, 'info');
       return;
@@ -20308,7 +20549,6 @@ class ChatModal {
     }
 
     const voiceUrl = voiceMessageElement.dataset.url;
-    const msgIdx = voiceMessageElement.dataset.msgIdx;
 
     if (!voiceUrl) {
       showToast('Voice message URL not found', 0, 'error');
@@ -20317,10 +20557,7 @@ class ChatModal {
 
     try {
       // Check if it's our own message or received message
-      const message = myData.contacts[this.address].messages[msgIdx];
-      if (!message) {
-        throw new Error('Message not found');
-      }
+      const message = this.getMessageRecordFromRenderedChild(voiceMessageElement);
       const isMyMessage = message.my;
       
       // Get keys from message item (voice messages use audio-specific keys with fallback)
@@ -20484,8 +20721,7 @@ class ChatModal {
    */
   async saveVoiceMessage(messageEl) {
     const voiceEl = messageEl.querySelector('.voice-message');
-    const msgIdx = voiceEl?.dataset?.msgIdx;
-    const item = msgIdx !== undefined ? myData.contacts[this.address]?.messages?.[msgIdx] : null;
+    const item = this.getMessageRecordFromElement(messageEl);
     
     if (!voiceEl || !item || item.type !== 'vm') {
       showToast('Voice message not found', 2000, 'error');
@@ -21218,24 +21454,14 @@ class ShareAttachmentModal {
     const url = attachmentRow.dataset.url;
     const name = attachmentRow.dataset.name;
     const type = attachmentRow.dataset.type;
-    const msgIdx = attachmentRow.dataset.msgIdx;
 
     if (!url) return null;
 
     // Get the actual message data from myData to access encryption keys
-    const contactAddress = chatModal.address;
-    const contact = myData.contacts[contactAddress];
-    
-    if (!contact || !contact.messages || !msgIdx) {
-      console.error('Cannot find message data for attachment');
-      return null;
-    }
+    const messageData = chatModal.getMessageRecordFromElement(messageEl);
+    assert(messageData, 'Shared attachment must have a backing message record');
 
-    const messageData = contact.messages[parseInt(msgIdx)];
-    if (!messageData || !messageData.xattach || !messageData.xattach[0]) {
-      console.error('Cannot find attachment in message data');
-      return null;
-    }
+    assert(messageData.xattach && messageData.xattach[0], 'Shared attachment message must include attachment data');
 
     const attachmentData = messageData.xattach[0];
 
