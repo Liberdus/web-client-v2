@@ -6285,12 +6285,13 @@ function purgePendingReactionsForTarget(contactAddress, targetTxid) {
 
   const normalizedContactAddress = normalizeAddress(contactAddress);
   myData.pending = myData.pending.filter((pendingTx) => {
-    return !(
+    const isTargetReaction =
       pendingTx.type === 'message' &&
       pendingTx.to === normalizedContactAddress &&
       pendingTx.reactionPending &&
-      pendingTx.reactionPending.targetTxid === targetTxid
-    );
+      pendingTx.reactionPending.targetTxid === targetTxid;
+    const isAwaitingInject = isTargetReaction && pendingTx.checkedts === 0;
+    return !(isTargetReaction && !isAwaitingInject);
   });
 }
 
