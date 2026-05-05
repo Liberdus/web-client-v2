@@ -14902,7 +14902,7 @@ class ChatModal {
 
     const currentOldestIndex = Math.min(this.chatRenderedOldestIndex, messages.length - 1);
     if (currentOldestIndex >= messages.length - 1) {
-      return;
+      return false;
     }
 
     const nextOldestIndex = Math.min(
@@ -14932,6 +14932,22 @@ class ChatModal {
     const insertedHeight = container.scrollHeight - oldScrollHeight;
     container.scrollTop = oldScrollTop + insertedHeight;
     this.loadThumbnailsKeepingScrollAnchored(prependedThumbnailRows);
+    return true;
+  }
+
+  ensureScrollableChatRenderWindow() {
+    if (!this.messagesContainer || !this.messagesList || !this.address) return;
+
+    const contact = myData.contacts[this.address];
+    const messages = contact?.messages;
+    if (!messages?.length) return;
+
+    while (
+      this.chatRenderedOldestIndex < messages.length - 1 &&
+      this.messagesContainer.scrollHeight <= this.messagesContainer.clientHeight + 1
+    ) {
+      if (!this.expandChatRenderWindow()) break;
+    }
   }
 
   handleMessagesContainerScroll() {
@@ -16334,6 +16350,9 @@ class ChatModal {
         }
         if (shouldKeepBottomAnchored) {
           this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+        }
+        if (!skipAutoScroll) {
+          this.ensureScrollableChatRenderWindow();
         }
         this.syncAllRenderedReactionChips();
       });
