@@ -1372,6 +1372,7 @@ button:disabled {
 .modal.fixed-header .form-container {
   flex: 1;
   overflow-y: auto;
+  overscroll-behavior: auto;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -4708,11 +4709,6 @@ small {
   background-color: var(--hover-background-purple);
   border-radius: 12px;
   padding: 16px;
-}
-
-#sendAssetConfirmModal .form-container {
-  overflow-y: visible;
-  overscroll-behavior: auto;
 }
 
 #sendAssetConfirmModal label {
