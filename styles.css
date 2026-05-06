@@ -4710,6 +4710,11 @@ small {
   padding: 16px;
 }
 
+#sendAssetConfirmModal .form-container {
+  overflow-y: visible;
+  overscroll-behavior: auto;
+}
+
 #sendAssetConfirmModal label {
   display: block;
   font-size: var(--font-size-sm);
