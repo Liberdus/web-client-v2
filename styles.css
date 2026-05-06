@@ -1372,6 +1372,7 @@ button:disabled {
 .modal.fixed-header .form-container {
   flex: 1;
   overflow-y: auto;
+  overscroll-behavior: auto;
   -webkit-overflow-scrolling: touch;
 }
 
