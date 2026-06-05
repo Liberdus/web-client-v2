@@ -156,7 +156,9 @@ let myData = null;
 let myAccount = null; // this is set to myData.account for convience
 let timeSkew = 0;
 let useLongPolling = true;
+const LONG_POLL_REQUEST_TIMEOUT_MS = 100_000; // Stay under Cloudflare's ~120s proxy limit
 let longPollTimeoutId = null;
+let longPollAbortTimeoutId = null;
 let isLongPolling = false;
 let longPollAbortController = null;
 
@@ -28836,11 +28838,19 @@ function normalizeTimeZone(tz) {
   return cleaned.slice(0, 64);
 }
 
+function clearLongPollAbortTimeout() {
+  if (longPollAbortTimeoutId) {
+    clearTimeout(longPollAbortTimeoutId);
+    longPollAbortTimeoutId = null;
+  }
+}
+
 function stopLongPoll() {
   if (longPollTimeoutId) {
     clearTimeout(longPollTimeoutId);
     longPollTimeoutId = null;
   }
+  clearLongPollAbortTimeout();
   if (longPollAbortController) {
     longPollAbortController.abort();
     longPollAbortController = null;
@@ -28875,6 +28885,9 @@ function longPoll() {
 
     // Create abort controller for this request
     longPollAbortController = new AbortController();
+    longPollAbortTimeoutId = setTimeout(() => {
+      longPollAbortController?.abort();
+    }, LONG_POLL_REQUEST_TIMEOUT_MS);
 
     // call this with a promise that'll resolve with callback longPollResult function with the data
     const longPollPromise = queryNetwork(`/collector/api/poll?account=${longAddress(myAccount.keys.address)}&chatTimestamp=${timestamp}`, longPollAbortController.signal);
@@ -28885,6 +28898,7 @@ function longPoll() {
       .catch(error => {
         console.error('Chat polling error:', error);
         // Reset polling state and schedule next poll even on error, but with longer delay
+        clearLongPollAbortTimeout();
         isLongPolling = false;
         longPollAbortController = null;
         longPollTimeoutId = setTimeout(longPoll, 5000);
@@ -28896,6 +28910,7 @@ function longPoll() {
 //      showToast(`chat poll error: ${error} ${now}`)
     }
     // Reset polling state and schedule next poll even on synchronous error
+    clearLongPollAbortTimeout();
     isLongPolling = false;
     longPollAbortController = null;
     longPollTimeoutId = setTimeout(longPoll, 5000);
@@ -28905,6 +28920,7 @@ longPoll.start = 0;
 
 async function longPollResult(data) {  
   // Reset polling state and clean up abort controller
+  clearLongPollAbortTimeout();
   isLongPolling = false;
   longPollAbortController = null;
   
