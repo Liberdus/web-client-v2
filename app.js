@@ -3764,14 +3764,17 @@ class SignInModal {
 
     const renderListItem = (username) => {
       const isNotifiedAccount = notifiedUsernameSet.has(username);
-      const notificationIndicator = isNotifiedAccount ? ' 🔔' : '';
       const isPrivateAccount = isPrivateMap[username];
       const displayName = isPrivateAccount ? `- ${username}` : username;
       const privateClass = isPrivateAccount ? ' is-private' : '';
+      const notificationBadge = isNotifiedAccount
+        ? '<span class="sign-in-account-badge" aria-label="Has notifications">🔔</span>'
+        : '';
       return `
-        <li class="chat-item sign-in-account-item${privateClass}" role="option" data-username="${username}">
-          <div class="chat-content">
-            <div class="chat-name">${escapeHtml(displayName)}${notificationIndicator}</div>
+        <li class="sign-in-account-item${privateClass}" role="option" data-username="${username}">
+          <div class="sign-in-account-card">
+            <span class="sign-in-account-name">${escapeHtml(displayName)}</span>
+            ${notificationBadge}
           </div>
         </li>
       `;

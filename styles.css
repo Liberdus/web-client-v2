@@ -3175,26 +3175,84 @@ input[type='number'].form-control::-webkit-inner-spin-button {
 }
 
 /* Sign In Modal account list */
-#signInModal #signInAccountList {
-  margin-bottom: 0.5rem;
+#signInModal .sign-in-account-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 #signInModal .sign-in-account-item {
-  border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.06));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
 }
 
-#signInModal .sign-in-account-item.is-private .chat-name {
+#signInModal .sign-in-account-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--background-color);
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+  border-radius: 12px;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+#signInModal .sign-in-account-item:hover .sign-in-account-card {
+  background: var(--hover-background);
+  border-color: var(--primary-tint-20);
+}
+
+#signInModal .sign-in-account-item:active .sign-in-account-card {
+  transform: scale(0.99);
+}
+
+#signInModal .sign-in-account-item.is-selected .sign-in-account-card {
+  background: var(--primary-tint-04);
+  border-color: var(--primary-color);
+}
+
+#signInModal .sign-in-account-name {
+  font-family: var(--font-primary);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-color);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#signInModal .sign-in-account-item.is-private .sign-in-account-card {
+  border-color: rgba(220, 53, 69, 0.35);
+}
+
+#signInModal .sign-in-account-item.is-private .sign-in-account-name {
   color: var(--danger-color);
 }
 
-#signInModal .sign-in-account-item.is-selected {
-  background: var(--hover-background);
+#signInModal .sign-in-account-item.is-private:hover .sign-in-account-card,
+#signInModal .sign-in-account-item.is-private.is-selected .sign-in-account-card {
+  border-color: var(--danger-color);
+}
+
+#signInModal .sign-in-account-badge {
+  flex: 0 0 auto;
+  font-size: 1rem;
+  line-height: 1;
 }
 
 #signInModal .sign-in-account-section {
-  padding: 10px 16px 4px;
-  font-size: 0.85rem;
+  padding: 4px 2px 0;
+  font-size: 0.8rem;
   font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--danger-color);
   list-style: none;
   cursor: default;
