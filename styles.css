@@ -3174,6 +3174,43 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   accent-color: var(--primary-color, #007bff);
 }
 
+/* Sign In Modal account list */
+#signInModal #signInAccountList {
+  margin-bottom: 0.5rem;
+}
+
+#signInModal .sign-in-account-item {
+  border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.06));
+}
+
+#signInModal .sign-in-account-item.is-private .chat-name {
+  color: var(--danger-color);
+}
+
+#signInModal .sign-in-account-item.is-selected {
+  background: var(--hover-background);
+}
+
+#signInModal .sign-in-account-section {
+  padding: 10px 16px 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--danger-color);
+  list-style: none;
+  cursor: default;
+}
+
+#signInModal .sign-in-account-actions {
+  margin-top: 0.75rem;
+}
+
+#signInModal .sign-in-account-status {
+  margin: 0 0 0.75rem;
+  color: var(--danger-color);
+  font-size: var(--font-size-base);
+  text-align: center;
+}
+
 #removeAccountsModal .remove-account-username {
   font-weight: 600;
   flex: 0 0 auto;
