@@ -3576,13 +3576,30 @@ function showCloseFeeFailureWarningOnce(reason, action, alreadyShown = false) {
 }
 
 // Sign In Modal Management
+const SIGN_IN_ACTION_SHEETS = {
+  'not-found': {
+    message: 'This account is not on the network. You can recreate it from local data or remove it from this device.',
+    showRecreate: true,
+    showRemove: true,
+  },
+  taken: {
+    message: 'This username is taken on the network by a different address.',
+    showRecreate: false,
+    showRemove: true,
+  },
+  'network-error': {
+    message: 'Could not reach the network. Check your connection and try again.',
+    showRecreate: false,
+    showRemove: false,
+  },
+};
+
 class SignInModal {
   constructor() {
     this.preselectedUsername = null;
     this.selectedUsername = null;
     this.isSigningIn = false;
     this.accountClickSeq = 0;
-    this.actionSheetUsername = null;
   }
 
   load () {
@@ -3591,55 +3608,44 @@ class SignInModal {
     this.signInModalLastItem = document.getElementById('signInModalLastItem');
     this.backButton = document.getElementById('closeSignInModal');
     this.actionSheetOverlay = document.getElementById('signInActionSheetOverlay');
-    this.actionSheet = document.getElementById('signInActionSheet');
     this.actionSheetTitle = document.getElementById('signInActionSheetTitle');
     this.actionSheetMessage = document.getElementById('signInActionSheetMessage');
     this.actionRecreateButton = document.getElementById('signInActionRecreate');
     this.actionRemoveButton = document.getElementById('signInActionRemove');
     this.closeActionSheetButton = document.getElementById('closeSignInActionSheet');
+    assert(this.modal && this.accountList && this.actionSheetOverlay, 'SignInModal DOM is incomplete');
 
     this.accountList.addEventListener('click', (event) => {
       const item = event.target.closest('.sign-in-account-item');
       if (!item || this.isSigningIn) return;
       const username = item.dataset.username;
-      if (!username) return;
+      assert(username, 'Sign-in account item is missing username');
       this.handleAccountClick(username);
     });
 
     this.actionSheetOverlay.addEventListener('click', (event) => {
-      if (event.target === this.actionSheetOverlay) {
-        this.closeActionSheet();
-      }
+      if (event.target === this.actionSheetOverlay) this.closeActionSheet();
     });
     this.closeActionSheetButton.addEventListener('click', () => this.closeActionSheet());
 
-    const actionSheetRevalidate = () => {
+    const enableActionButtons = () => {
       this.actionRecreateButton.disabled = false;
       this.actionRemoveButton.disabled = false;
     };
-    this.actionRecreateButton.addEventListener('click', withButtonCooldown(
+    const runSheetAction = (action) => withButtonCooldown(
       [this.actionRecreateButton, this.actionRemoveButton],
       BUTTON_COOLDOWN_MS,
-      actionSheetRevalidate,
+      enableActionButtons,
       () => {
-        const username = this.actionSheetUsername;
-        if (!username) return;
-        this.openRecreateFlow(username);
+        assert(this.selectedUsername, 'Sign-in action sheet requires selected account');
+        action(this.selectedUsername);
       }
-    ));
-    this.actionRemoveButton.addEventListener('click', withButtonCooldown(
-      [this.actionRecreateButton, this.actionRemoveButton],
-      BUTTON_COOLDOWN_MS,
-      actionSheetRevalidate,
-      () => {
-        const username = this.actionSheetUsername;
-        if (!username) return;
-        this.handleRemoveAccount(username);
-      }
-    ));
+    );
+    this.actionRecreateButton.addEventListener('click', runSheetAction((username) => this.openRecreateFlow(username)));
+    this.actionRemoveButton.addEventListener('click', runSheetAction((username) => removeAccountModal.removeAccount(username)));
 
     this.backButton.addEventListener('click', () => {
-      if (this.isActionSheetOpen()) {
+      if (this.actionSheetOverlay.classList.contains('active')) {
         this.closeActionSheet();
         return;
       }
@@ -3647,43 +3653,20 @@ class SignInModal {
     });
   }
 
-  isActionSheetOpen() {
-    return this.actionSheetOverlay?.classList.contains('active');
-  }
-
   closeActionSheet() {
-    if (!this.actionSheetOverlay) return;
     this.actionSheetOverlay.classList.remove('active');
     this.actionSheetOverlay.setAttribute('aria-hidden', 'true');
-    this.actionSheetUsername = null;
   }
 
   openActionSheet(username, reason) {
-    const copy = {
-      'not-found': {
-        message: 'This account is not on the network. You can recreate it from local data or remove it from this device.',
-        showRecreate: true,
-        showRemove: true,
-      },
-      taken: {
-        message: 'This username is taken on the network by a different address.',
-        showRecreate: false,
-        showRemove: true,
-      },
-      'network-error': {
-        message: 'Could not reach the network. Check your connection and try again.',
-        showRecreate: false,
-        showRemove: false,
-      },
-    }[reason];
+    const sheet = SIGN_IN_ACTION_SHEETS[reason];
+    assert(sheet, `Unknown sign-in action sheet: ${reason}`);
 
-    if (!copy) return;
-
-    this.actionSheetUsername = username;
+    this.selectedUsername = username;
     this.actionSheetTitle.textContent = username;
-    this.actionSheetMessage.textContent = copy.message;
-    this.actionRecreateButton.hidden = !copy.showRecreate;
-    this.actionRemoveButton.hidden = !copy.showRemove;
+    this.actionSheetMessage.textContent = sheet.message;
+    this.actionRecreateButton.hidden = !sheet.showRecreate;
+    this.actionRemoveButton.hidden = !sheet.showRemove;
     this.actionSheetOverlay.classList.add('active');
     this.actionSheetOverlay.setAttribute('aria-hidden', 'false');
 
@@ -3695,11 +3678,8 @@ class SignInModal {
   openRecreateFlow(username) {
     const { netid } = network;
     const accountData = loadState(`${username}_${netid}`);
-    const privateKey = accountData?.account?.keys?.secret;
-    if (!privateKey) {
-      showToast('Account data not found', 0, 'error');
-      return;
-    }
+    assert(accountData?.account?.keys?.secret, `Missing private key for ${username}`);
+    const privateKey = accountData.account.keys.secret;
 
     createAccountModal.usernameInput.value = username;
     createAccountModal.privateKeyInput.value = privateKey;
@@ -3708,43 +3688,29 @@ class SignInModal {
     createAccountModal.usernameInput.dispatchEvent(new Event('input'));
   }
 
-  /**
-   * Get the available usernames for the current network
-   * @returns {string[]} - An array of available usernames
-   */
   getSignInUsernames() {
     const { netid } = network;
     const accounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
     const netidAccounts = accounts.netids[netid];
-    if (!netidAccounts || !netidAccounts.usernames) return [];
-    return { usernames: Object.keys(netidAccounts.usernames), netidAccounts };
+    const usernames = netidAccounts?.usernames ? Object.keys(netidAccounts.usernames) : [];
+    return { usernames, netidAccounts: netidAccounts || { usernames: {} } };
   }
 
-  /**
-   * Render the account list with notification indicators and sort by notification status
-   * @param {string} [selectedUsername] - Optionally preserve a selected username
-   * @returns {Object} Object containing usernames array and account information
-   */
-  renderAccountList(selectedUsername = null) {
-    const signInData = signInModal.getSignInUsernames() || {};
-    const usernames = Array.isArray(signInData.usernames) ? signInData.usernames : [];
-    const netidAccounts = signInData.netidAccounts || { usernames: {} };
+  renderAccountList(preserveUsername) {
+    const { usernames, netidAccounts } = this.getSignInUsernames();
     const { netid } = network;
-
-    // Get the notified addresses and sort usernames to prioritize them
     const notifiedAddresses = reactNativeApp.isReactNativeWebView ? reactNativeApp.getNotificationAddresses() : [];
-    let sortedUsernames = [...usernames];
     const notifiedUsernameSet = new Set();
-    
-    // if there are notified addresses, partition the usernames (stable) so notified come first
+    let sortedUsernames = usernames;
+
+    // If there are notified addresses, partition usernames (stable) so notified come first.
     if (notifiedAddresses.length > 0) {
-      const normalizedNotifiedSet = new Set(notifiedAddresses.map(addr => normalizeAddress(addr)));
+      const normalizedNotifiedSet = new Set(notifiedAddresses.map((addr) => normalizeAddress(addr)));
       const notifiedUsernames = [];
       const otherUsernames = [];
-      for (const username of sortedUsernames) {
-        const address = netidAccounts?.usernames?.[username]?.address;
-        const isNotified = address && normalizedNotifiedSet.has(normalizeAddress(address));
-        if (isNotified) {
+      for (const username of usernames) {
+        const address = netidAccounts.usernames[username].address;
+        if (normalizedNotifiedSet.has(normalizeAddress(address))) {
           notifiedUsernames.push(username);
           notifiedUsernameSet.add(username);
         } else {
@@ -3757,30 +3723,22 @@ class SignInModal {
     // Build a map of privacy flags to avoid multiple loadState calls.
     const isPrivateMap = Object.create(null);
     for (const username of sortedUsernames) {
-      let isPrivateAccount = false;
-      try {
-        const localState = loadState(`${username}_${netid}`);
-        isPrivateAccount = localState?.account?.private === true;
-      } catch (e) {
-        isPrivateAccount = false;
-      }
-      isPrivateMap[username] = isPrivateAccount;
+      const localState = loadState(`${username}_${netid}`);
+      isPrivateMap[username] = localState?.account?.private === true;
     }
 
-    // Keep notified accounts (any privacy) at the very top, in the order
-    // they appear in sortedUsernames. Then render remaining public accounts,
-    // and finally remaining private accounts grouped under a section label.
-    const notifiedTop = sortedUsernames.filter(u => notifiedUsernameSet.has(u));
-    const remaining = sortedUsernames.filter(u => !notifiedUsernameSet.has(u));
-    const publicRemaining = remaining.filter(u => !isPrivateMap[u]);
-    const privateRemaining = remaining.filter(u => isPrivateMap[u]);
+    // Keep notified accounts (any privacy) at the top, then public accounts,
+    // then remaining private accounts grouped under a section label.
+    const notifiedTop = sortedUsernames.filter((username) => notifiedUsernameSet.has(username));
+    const remaining = sortedUsernames.filter((username) => !notifiedUsernameSet.has(username));
+    const publicRemaining = remaining.filter((username) => !isPrivateMap[username]);
+    const privateRemaining = remaining.filter((username) => isPrivateMap[username]);
 
     const renderListItem = (username) => {
-      const isNotifiedAccount = notifiedUsernameSet.has(username);
       const isPrivateAccount = isPrivateMap[username];
       const displayName = isPrivateAccount ? `- ${username}` : username;
       const privateClass = isPrivateAccount ? ' is-private' : '';
-      const notificationBadge = isNotifiedAccount
+      const notificationBadge = notifiedUsernameSet.has(username)
         ? '<span class="sign-in-account-badge" aria-label="Has notifications">🔔</span>'
         : '';
       return `
@@ -3793,120 +3751,88 @@ class SignInModal {
       `;
     };
 
-    let html = '';
-
-    if (notifiedTop.length > 0) {
-      html += notifiedTop.map(renderListItem).join('');
-    }
-
-    if (publicRemaining.length > 0) {
-      html += publicRemaining.map(renderListItem).join('');
-    }
-
+    const sections = [
+      ...notifiedTop.map(renderListItem),
+      ...publicRemaining.map(renderListItem),
+    ];
     if (privateRemaining.length > 0) {
-      html += '<li class="sign-in-account-section" role="presentation">Private accounts</li>';
-      html += privateRemaining.map(renderListItem).join('');
+      sections.push('<li class="sign-in-account-section" role="presentation">Private accounts</li>');
+      sections.push(...privateRemaining.map(renderListItem));
     }
+    this.accountList.innerHTML = sections.join('');
 
-    this.accountList.innerHTML = html;
-
-    if (selectedUsername && usernames.includes(selectedUsername)) {
-      this.selectedUsername = selectedUsername;
+    if (preserveUsername && usernames.includes(preserveUsername)) {
+      this.selectedUsername = preserveUsername;
     }
-
-    this.updateSelectedAccountStyling(netid);
-
-    return { usernames, netidAccounts, sortedUsernames };
-  }
-
-  updateSelectedAccountStyling(netid) {
-    const items = this.accountList.querySelectorAll('.sign-in-account-item');
-    items.forEach((item) => {
+    for (const item of this.accountList.querySelectorAll('.sign-in-account-item')) {
       const isSelected = item.dataset.username === this.selectedUsername;
       item.classList.toggle('is-selected', isSelected);
       item.setAttribute('aria-selected', isSelected ? 'true' : 'false');
-    });
+    }
+
+    return usernames;
   }
 
-  async open(preselectedUsername_) {
-    this.preselectedUsername = preselectedUsername_;
+  async open(preselectedUsername) {
+    this.preselectedUsername = preselectedUsername;
     this.selectedUsername = null;
     this.isSigningIn = false;
     this.closeActionSheet();
 
-    // Render account list and get usernames BEFORE opening modal
-    const { usernames } = this.renderAccountList();
+    // Render account list before opening modal.
+    const usernames = this.renderAccountList();
 
-    // Wait for browser to process DOM changes before starting modal transition
+    // Wait for browser to process DOM changes before starting modal transition.
     requestAnimationFrame(async () => {
       this.modal.classList.add('active');
 
-      // If no accounts exist, close modal and open Create Account modal
+      // No accounts on this device — open Create Account instead.
       if (usernames.length === 0) {
         this.close();
         createAccountModal.open();
         return;
       }
 
-      // If a username should be auto-selected after account creation, sign in directly
-      if (preselectedUsername_ && usernames.includes(preselectedUsername_)) {
-        const availability = await this.handleAccountClick(preselectedUsername_);
-        // Network may not have propagated the new account yet
-        if (availability === 'available') {
-          await this.handleSignIn();
-        }
+      // Auto-select after account creation; network may not have propagated yet.
+      if (preselectedUsername && usernames.includes(preselectedUsername)) {
+        const availability = await this.handleAccountClick(preselectedUsername);
+        if (availability === 'available') await this.handleSignIn();
         return;
       }
 
-      // If only one account exists, sign in directly when available
       if (usernames.length === 1) {
         await this.handleAccountClick(usernames[0]);
         return;
       }
 
-      // set timeout to focus on the last item so shift+tab and tab prevention works
-      setTimeout(() => {
-        this.signInModalLastItem.focus();
-      }, 325);
+      // Focus last item so shift+tab and tab prevention works.
+      setTimeout(() => this.signInModalLastItem.focus(), 325);
     });
   }
 
   close() {
     this.selectedUsername = null;
     this.isSigningIn = false;
+    this.preselectedUsername = null;
     this.closeActionSheet();
     this.accountList.innerHTML = '';
-    
     this.modal.classList.remove('active');
-    this.preselectedUsername = null;
   }
 
   async handleSignIn() {
+    const username = this.selectedUsername;
+    assert(username, 'Sign-in requires selected account');
+
     history.pushState({state:1}, "", ".")
     window.addEventListener('popstate', handleBrowserBackButton);
-    
     enterFullscreen();
-    
-    const username = this.selectedUsername;
-    if (!username) return;
 
-    // Get network ID from network.js
     const { netid } = network;
-
-    // Get existing accounts
     const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+    assert(existingAccounts.netids[netid]?.usernames?.[username], `Account registry missing ${username}`);
 
-    // Check if username exists
-    if (!existingAccounts.netids[netid]?.usernames?.[username]) {
-      console.error('Account not found');
-      return;
-    }
-
-    myData = loadState(`${username}_${netid}`)
-    if (!myData) {
-      console.warn('Account data not found');
-      return;
-    }
+    myData = loadState(`${username}_${netid}`);
+    assert(myData, `Account data missing for ${username}`);
     myAccount = myData.account;
     logsModal.log(`SignIn as ${username}_${netid}`)
 
@@ -3990,81 +3916,55 @@ class SignInModal {
     this.closeActionSheet();
 
     const { netid } = network;
-    const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-    const netidAccounts = existingAccounts.netids[netid];
-
-    if (!username || !netidAccounts?.usernames?.[username]) {
+    const netidAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}').netids[netid];
+    if (!netidAccounts?.usernames?.[username]) {
       this.selectedUsername = null;
       return null;
     }
 
     this.selectedUsername = username;
-    this.updateSelectedAccountStyling(netid);
-
     const address = netidAccounts.usernames[username].address;
     let availability = await checkUsernameAvailability(username, address);
-    // Retry logic: if availability reported as 'available' but we have local account data
-    // (meaning the account previously existed locally), we suspect propagation delay.
-    if (availability === 'available' && netidAccounts?.usernames?.[username]) {
-      const localStateKey = `${username}_${netid}`;
-      const hasLocalState = !!localStorage.getItem(localStateKey);
-      if (hasLocalState) {
-        const maxAttempts = 3; // total attempts including initial (so 2 more re-tries)
-        const delayMs = 200;
-        let attempt = 1;
-        while (attempt < maxAttempts && availability === 'available') {
-          attempt++;
-          logsModal.log(`[SignInModal] Retry ${attempt}/${maxAttempts} username availability for '${username}' because local data exists but network returned 'available'.`);
-          try {
-            await new Promise(res => setTimeout(res, delayMs));
-            availability = await checkUsernameAvailability(username, address);
-          } catch (err) {
-            break; // break on explicit error; will treat as network error below if availability not set
-          }
+    // Retry when network says 'available' but local account data still exists (propagation delay).
+    if (availability === 'available' && localStorage.getItem(`${username}_${netid}`)) {
+      for (let attempt = 2; attempt <= 3 && availability === 'available'; attempt++) {
+        logsModal.log(`[SignInModal] Retry ${attempt}/3 username availability for '${username}' because local data exists but network returned 'available'.`);
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        availability = await checkUsernameAvailability(username, address);
+      }
+      if (availability === 'available') {
+        logsModal.log(`[SignInModal] After 3 attempts username '${username}' still reported as available.`);
+      }
+    }
+    // Ignore stale results if the user tapped a different account while we were waiting.
+    if (clickSeq !== this.accountClickSeq) return null;
+
+    switch (availability) {
+      case 'mine':
+        this.isSigningIn = true;
+        try {
+          await this.handleSignIn();
+        } finally {
+          this.isSigningIn = false;
         }
-        if (availability === 'available') {
-          logsModal.log(`[SignInModal] After ${maxAttempts} attempts username '${username}' still reported as available. Assuming account deleted on network; offering recreate/delete options.`);
-        } else {
-          logsModal.log(`[SignInModal] Availability resolved to '${availability}' after retries for '${username}'.`);
-        }
-      }
-    }
-
-    if (clickSeq !== this.accountClickSeq) {
-      return null;
-    }
-
-    if (availability === 'mine') {
-      this.isSigningIn = true;
-      try {
-        await this.handleSignIn();
-      } finally {
-        this.isSigningIn = false;
-      }
-      this.preselectedUsername = null;
-      return availability;
-    }
-
-    if (availability === 'taken') {
-      this.openActionSheet(username, 'taken');
-    } else if (availability === 'available') {
-      // Post-creation preselect may sign in locally without showing the sheet.
-      if (!(this.preselectedUsername && username === this.preselectedUsername)) {
-        this.openActionSheet(username, 'not-found');
-      }
-    } else {
-      this.openActionSheet(username, 'network-error');
+        this.preselectedUsername = null;
+        break;
+      case 'taken':
+        this.openActionSheet(username, 'taken');
+        break;
+      case 'available':
+        // Post-creation preselect may sign in locally without showing the sheet.
+        if (this.preselectedUsername !== username) this.openActionSheet(username, 'not-found');
+        break;
+      case 'error':
+      case 'error2':
+        this.openActionSheet(username, 'network-error');
+        break;
+      default:
+        assert(false, `Unknown username availability: ${availability}`);
     }
 
     return availability;
-  }
-
-  handleRemoveAccount(username = this.actionSheetUsername || this.selectedUsername) {
-    if (!username) {
-      showToast('Please select an account to remove', 2000, 'warning');
-      return;
-    }
-    removeAccountModal.removeAccount(username);
   }
 
   isActive() {
@@ -4072,14 +3972,11 @@ class SignInModal {
   }
 
   /**
-   * Update the display to reflect new notifications while the modal is open
-   * This is called when new notifications arrive while the modal is open
+   * Update the display when new notifications arrive while the modal is open.
    */
   updateNotificationDisplay() {
-    // Only update if the modal is actually active
     if (!this.isActive()) return;
-    
-    // Preserve the currently selected username after re-rendering the list
+    // Preserve the currently selected username after re-rendering the list.
     this.renderAccountList(this.selectedUsername);
   }
 }
