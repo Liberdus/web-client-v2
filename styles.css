@@ -3258,15 +3258,82 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   cursor: default;
 }
 
-#signInModal .sign-in-account-actions {
-  margin-top: 0.75rem;
+/* Sign In account action sheet (reaction-sheet cousin) */
+.sign-in-action-sheet-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: flex-end;
+  justify-content: stretch;
+  background: rgba(15, 23, 42, 0.22);
+  z-index: var(--overlay-z-index-high);
 }
 
-#signInModal .sign-in-account-status {
-  margin: 0 0 0.75rem;
-  color: var(--danger-color);
+.sign-in-action-sheet-overlay.active {
+  display: flex;
+}
+
+.sign-in-action-sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 10px 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  border-radius: 22px 22px 0 0;
+  background: var(--background-color);
+  box-shadow: 0 -12px 36px rgba(15, 23, 42, 0.2);
+}
+
+.sign-in-action-sheet-handle {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.16);
+  margin: 0 auto 12px;
+}
+
+.sign-in-action-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.sign-in-action-sheet-title {
   font-size: var(--font-size-base);
-  text-align: center;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sign-in-action-sheet-close {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-color);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.sign-in-action-sheet-message {
+  margin: 0 0 16px;
+  font-size: var(--font-size-sm);
+  color: var(--neutral-600);
+  text-align: left;
+  line-height: 1.45;
+}
+
+.sign-in-action-sheet-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 #removeAccountsModal .remove-account-username {

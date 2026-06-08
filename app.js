@@ -3581,29 +3581,23 @@ class SignInModal {
     this.preselectedUsername = null;
     this.selectedUsername = null;
     this.isSigningIn = false;
+    this.accountClickSeq = 0;
+    this.actionSheetUsername = null;
   }
 
   load () {
     this.modal = document.getElementById('signInModal');
     this.accountList = document.getElementById('signInAccountList');
-    this.accountActions = document.getElementById('signInAccountActions');
-    this.submitButton = document.querySelector('#signInForm button[type="submit"]');
-    this.removeButton = document.getElementById('removeAccountButton');
-    this.notFoundMessage = document.getElementById('usernameNotFound');
     this.signInModalLastItem = document.getElementById('signInModalLastItem');
     this.backButton = document.getElementById('closeSignInModal');
-
-    // Sign in form submission (2s cooldown; both buttons disabled; revalidate restores state)
-    const signInRevalidate = () => {
-      this.removeButton.disabled = false;
-      if (this.isActive() && this.selectedUsername) this.handleAccountClick(this.selectedUsername);
-    };
-    document.getElementById('signInForm').addEventListener('submit', withButtonCooldown(
-      [this.submitButton, this.removeButton],
-      BUTTON_COOLDOWN_MS,
-      signInRevalidate,
-      (event) => this.handleSignIn(event)
-    ));
+    this.actionSheetOverlay = document.getElementById('signInActionSheetOverlay');
+    this.actionSheet = document.getElementById('signInActionSheet');
+    this.actionSheetTitle = document.getElementById('signInActionSheetTitle');
+    this.actionSheetMessage = document.getElementById('signInActionSheetMessage');
+    this.actionRecreateButton = document.getElementById('signInActionRecreate');
+    this.actionRemoveButton = document.getElementById('signInActionRemove');
+    this.actionRetryButton = document.getElementById('signInActionRetry');
+    this.closeActionSheetButton = document.getElementById('closeSignInActionSheet');
 
     this.accountList.addEventListener('click', (event) => {
       const item = event.target.closest('.sign-in-account-item');
@@ -3613,86 +3607,122 @@ class SignInModal {
       this.handleAccountClick(username);
     });
 
-    // Remove account button (2s cooldown; both buttons disabled)
-    this.removeButton.addEventListener('click', withButtonCooldown(
-      [this.removeButton, this.submitButton],
+    this.actionSheetOverlay.addEventListener('click', (event) => {
+      if (event.target === this.actionSheetOverlay) {
+        this.closeActionSheet();
+      }
+    });
+    this.closeActionSheetButton.addEventListener('click', () => this.closeActionSheet());
+
+    const actionSheetRevalidate = () => {
+      this.actionRecreateButton.disabled = false;
+      this.actionRemoveButton.disabled = false;
+      this.actionRetryButton.disabled = false;
+    };
+    this.actionRecreateButton.addEventListener('click', withButtonCooldown(
+      [this.actionRecreateButton, this.actionRemoveButton, this.actionRetryButton],
       BUTTON_COOLDOWN_MS,
-      signInRevalidate,
-      () => this.handleRemoveAccount()
+      actionSheetRevalidate,
+      () => {
+        const username = this.actionSheetUsername;
+        if (!username) return;
+        this.openRecreateFlow(username);
+      }
+    ));
+    this.actionRemoveButton.addEventListener('click', withButtonCooldown(
+      [this.actionRecreateButton, this.actionRemoveButton, this.actionRetryButton],
+      BUTTON_COOLDOWN_MS,
+      actionSheetRevalidate,
+      () => {
+        const username = this.actionSheetUsername;
+        if (!username) return;
+        this.handleRemoveAccount(username);
+      }
+    ));
+    this.actionRetryButton.addEventListener('click', withButtonCooldown(
+      [this.actionRecreateButton, this.actionRemoveButton, this.actionRetryButton],
+      BUTTON_COOLDOWN_MS,
+      actionSheetRevalidate,
+      () => {
+        const username = this.actionSheetUsername;
+        if (!username) return;
+        this.closeActionSheet();
+        this.handleAccountClick(username);
+      }
     ));
 
-    // Back button
-    this.backButton.addEventListener('click', () => this.close());
+    this.backButton.addEventListener('click', () => {
+      if (this.isActionSheetOpen()) {
+        this.closeActionSheet();
+        return;
+      }
+      this.close();
+    });
   }
 
-  // Centralized UI state helpers for availability results
-  showAccountActions() {
-    this.accountActions.style.display = 'block';
+  isActionSheetOpen() {
+    return this.actionSheetOverlay?.classList.contains('active');
   }
 
-  hideAccountActions() {
-    this.accountActions.style.display = 'none';
+  closeActionSheet() {
+    if (!this.actionSheetOverlay) return;
+    this.actionSheetOverlay.classList.remove('active');
+    this.actionSheetOverlay.setAttribute('aria-hidden', 'true');
+    this.actionSheetUsername = null;
   }
 
-  setUiForMine() {
-    this.showAccountActions();
-    this.submitButton.disabled = false;
-    this.submitButton.textContent = 'Sign In';
-    this.submitButton.style.display = 'inline';
-    this.removeButton.style.display = 'none';
-    this.notFoundMessage.textContent = '';
-    this.notFoundMessage.style.display = 'none';
+  openActionSheet(username, reason) {
+    const copy = {
+      'not-found': {
+        message: 'This account is not on the network. You can recreate it from local data or remove it from this device.',
+        showRecreate: true,
+        showRemove: true,
+        showRetry: false,
+      },
+      taken: {
+        message: 'This username is taken on the network by a different address.',
+        showRecreate: false,
+        showRemove: true,
+        showRetry: false,
+      },
+      'network-error': {
+        message: 'Could not reach the network. Check your connection and try again.',
+        showRecreate: false,
+        showRemove: false,
+        showRetry: true,
+      },
+    }[reason];
+
+    if (!copy) return;
+
+    this.actionSheetUsername = username;
+    this.actionSheetTitle.textContent = username;
+    this.actionSheetMessage.textContent = copy.message;
+    this.actionRecreateButton.hidden = !copy.showRecreate;
+    this.actionRemoveButton.hidden = !copy.showRemove;
+    this.actionRetryButton.hidden = !copy.showRetry;
+    this.actionSheetOverlay.classList.add('active');
+    this.actionSheetOverlay.setAttribute('aria-hidden', 'false');
+
+    if (reason === 'network-error') {
+      showToast('The gateway server is down, please try again later.', 5000, 'warning');
+    }
   }
 
-  setUiDisabledSignIn() {
-    this.hideAccountActions();
-    this.submitButton.disabled = true;
-    this.submitButton.textContent = 'Sign In';
-    this.submitButton.style.display = 'inline';
-    this.removeButton.style.display = 'none';
-    this.notFoundMessage.textContent = '';
-    this.notFoundMessage.style.display = 'none';
-  }
+  openRecreateFlow(username) {
+    const { netid } = network;
+    const accountData = loadState(`${username}_${netid}`);
+    const privateKey = accountData?.account?.keys?.secret;
+    if (!privateKey) {
+      showToast('Account data not found', 0, 'error');
+      return;
+    }
 
-  setUiForTaken() {
-    this.showAccountActions();
-    this.submitButton.style.display = 'none';
-    this.removeButton.style.display = 'inline';
-    this.notFoundMessage.textContent = 'taken';
-    this.notFoundMessage.style.display = 'block';
-  }
-
-  setUiForAvailableNotFound() {
-    this.showAccountActions();
-    this.submitButton.disabled = false;
-    this.submitButton.textContent = 'Recreate';
-    this.submitButton.style.display = 'inline';
-    this.removeButton.style.display = 'inline';
-    this.notFoundMessage.textContent = 'not found';
-    this.notFoundMessage.style.display = 'block';
-  }
-
-  setUiForNetworkError() {
-    this.showAccountActions();
-    this.submitButton.disabled = true;
-    this.submitButton.textContent = 'Sign In';
-    this.submitButton.style.display = 'none';
-    this.removeButton.style.display = 'none';
-    this.notFoundMessage.textContent = 'network error';
-    this.notFoundMessage.style.display = 'block';
-    showToast('The gateway server is down, please try again later.', 5000, 'warning');
-  }
-
-  // When auto-selecting after account creation, the network may not have propagated
-  // the alias yet. In that case we suppress the
-  // transient "not found" and allow local sign-in using stored state.
-  applyAutoSelectNotFoundOverride() {
-    this.notFoundMessage.textContent = '';
-    this.notFoundMessage.style.display = 'none';
-    this.submitButton.style.display = 'inline';
-    this.submitButton.disabled = false;
-    this.submitButton.textContent = 'Sign In';
-    this.removeButton.style.display = 'none';
+    createAccountModal.usernameInput.value = username;
+    createAccountModal.privateKeyInput.value = privateKey;
+    this.close();
+    createAccountModal.open();
+    createAccountModal.usernameInput.dispatchEvent(new Event('input'));
   }
 
   /**
@@ -3819,6 +3849,7 @@ class SignInModal {
     this.preselectedUsername = preselectedUsername_;
     this.selectedUsername = null;
     this.isSigningIn = false;
+    this.closeActionSheet();
 
     // Render account list and get usernames BEFORE opening modal
     const { usernames } = this.renderAccountList();
@@ -3836,11 +3867,10 @@ class SignInModal {
 
       // If a username should be auto-selected after account creation, sign in directly
       if (preselectedUsername_ && usernames.includes(preselectedUsername_)) {
-        await this.handleAccountClick(preselectedUsername_);
+        const availability = await this.handleAccountClick(preselectedUsername_);
         // Network may not have propagated the new account yet
-        if (this.notFoundMessage.textContent === 'not found') {
-          this.applyAutoSelectNotFoundOverride();
-          this.handleSignIn();
+        if (availability === 'available') {
+          await this.handleSignIn();
         }
         return;
       }
@@ -3850,8 +3880,6 @@ class SignInModal {
         await this.handleAccountClick(usernames[0]);
         return;
       }
-
-      this.setUiDisabledSignIn();
 
       // set timeout to focus on the last item so shift+tab and tab prevention works
       setTimeout(() => {
@@ -3863,18 +3891,14 @@ class SignInModal {
   close() {
     this.selectedUsername = null;
     this.isSigningIn = false;
-    this.setUiDisabledSignIn();
+    this.closeActionSheet();
     this.accountList.innerHTML = '';
     
     this.modal.classList.remove('active');
     this.preselectedUsername = null;
   }
 
-  async handleSignIn(event) {
-    if (event) {
-      event.preventDefault();
-    }
-
+  async handleSignIn() {
     history.pushState({state:1}, "", ".")
     window.addEventListener('popstate', handleBrowserBackButton);
     
@@ -3892,21 +3916,6 @@ class SignInModal {
     // Check if username exists
     if (!existingAccounts.netids[netid]?.usernames?.[username]) {
       console.error('Account not found');
-      return;
-    }
-
-    // Check if the button text is 'Recreate'
-    if (this.submitButton.textContent === 'Recreate') {
-//      const myData = parse(localStorage.getItem(`${username}_${netid}`));
-      const myData = loadState(`${username}_${netid}`);
-      const privateKey = myData.account.keys.secret;
-      createAccountModal.usernameInput.value = username;
-
-      createAccountModal.privateKeyInput.value = privateKey;
-      this.close();
-      createAccountModal.open();
-      // Dispatch a change event to trigger the availability check
-      createAccountModal.usernameInput.dispatchEvent(new Event('input'));
       return;
     }
 
@@ -3994,15 +4003,16 @@ class SignInModal {
   }
 
   async handleAccountClick(username) {
+    const clickSeq = ++this.accountClickSeq;
+    this.closeActionSheet();
+
     const { netid } = network;
     const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
     const netidAccounts = existingAccounts.netids[netid];
-    const usernames = netidAccounts?.usernames ? Object.keys(netidAccounts.usernames) : [];
 
     if (!username || !netidAccounts?.usernames?.[username]) {
       this.selectedUsername = null;
-      this.setUiDisabledSignIn();
-      return;
+      return null;
     }
 
     this.selectedUsername = username;
@@ -4037,25 +4047,36 @@ class SignInModal {
       }
     }
 
+    if (clickSeq !== this.accountClickSeq) {
+      return null;
+    }
+
     if (availability === 'mine') {
       this.isSigningIn = true;
-      await this.handleSignIn();
-      this.isSigningIn = false;
+      try {
+        await this.handleSignIn();
+      } finally {
+        this.isSigningIn = false;
+      }
       this.preselectedUsername = null;
-      return;
+      return availability;
     }
 
     if (availability === 'taken') {
-      this.setUiForTaken();
+      this.openActionSheet(username, 'taken');
     } else if (availability === 'available') {
-      this.setUiForAvailableNotFound();
+      // Post-creation preselect may sign in locally without showing the sheet.
+      if (!(this.preselectedUsername && username === this.preselectedUsername)) {
+        this.openActionSheet(username, 'not-found');
+      }
     } else {
-      this.setUiForNetworkError();
+      this.openActionSheet(username, 'network-error');
     }
+
+    return availability;
   }
 
-  async handleRemoveAccount() {
-    const username = this.selectedUsername;
+  handleRemoveAccount(username = this.actionSheetUsername || this.selectedUsername) {
     if (!username) {
       showToast('Please select an account to remove', 2000, 'warning');
       return;
