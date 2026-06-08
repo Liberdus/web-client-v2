@@ -3576,6 +3576,7 @@ function showCloseFeeFailureWarningOnce(reason, action, alreadyShown = false) {
 }
 
 // Sign In Modal Management
+/** Action sheet copy and button visibility by sign-in error reason. */
 const SIGN_IN_ACTION_SHEETS = {
   'not-found': {
     message: 'This account is not on the network. You can recreate it from local data or remove it from this device.',
@@ -3653,11 +3654,17 @@ class SignInModal {
     });
   }
 
+  /** Hide the account error action sheet. */
   closeActionSheet() {
     this.actionSheetOverlay.classList.remove('active');
     this.actionSheetOverlay.setAttribute('aria-hidden', 'true');
   }
 
+  /**
+   * Show the bottom action sheet for a sign-in edge case.
+   * @param {string} username
+   * @param {'not-found'|'taken'|'network-error'} reason
+   */
   openActionSheet(username, reason) {
     const sheet = SIGN_IN_ACTION_SHEETS[reason];
     assert(sheet, `Unknown sign-in action sheet: ${reason}`);
@@ -3675,6 +3682,10 @@ class SignInModal {
     }
   }
 
+  /**
+   * Open Create Account with the selected username and stored private key prefilled.
+   * @param {string} username
+   */
   openRecreateFlow(username) {
     const { netid } = network;
     const accountData = loadState(`${username}_${netid}`);
@@ -3688,6 +3699,10 @@ class SignInModal {
     createAccountModal.usernameInput.dispatchEvent(new Event('input'));
   }
 
+  /**
+   * Get the available usernames for the current network.
+   * @returns {{ usernames: string[], netidAccounts: Object }}
+   */
   getSignInUsernames() {
     const { netid } = network;
     const accounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
@@ -3696,6 +3711,11 @@ class SignInModal {
     return { usernames, netidAccounts: netidAccounts || { usernames: {} } };
   }
 
+  /**
+   * Render the account list with notification indicators and sort by notification status.
+   * @param {string} [preserveUsername] - Optionally preserve a selected username
+   * @returns {string[]} Usernames for the current network
+   */
   renderAccountList(preserveUsername) {
     const { usernames, netidAccounts } = this.getSignInUsernames();
     const { netid } = network;
@@ -3911,6 +3931,11 @@ class SignInModal {
     callsModal.startPeriodicCallsRefresh();
   }
 
+  /**
+   * Check username availability and sign in, or show the action sheet for edge cases.
+   * @param {string} username
+   * @returns {Promise<string|null>} Availability result from checkUsernameAvailability
+   */
   async handleAccountClick(username) {
     const clickSeq = ++this.accountClickSeq;
     this.closeActionSheet();
@@ -3972,7 +3997,8 @@ class SignInModal {
   }
 
   /**
-   * Update the display when new notifications arrive while the modal is open.
+   * Update the display to reflect new notifications while the modal is open.
+   * This is called when new notifications arrive while the modal is open.
    */
   updateNotificationDisplay() {
     if (!this.isActive()) return;
