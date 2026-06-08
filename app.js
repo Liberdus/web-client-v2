@@ -3713,10 +3713,9 @@ class SignInModal {
 
   /**
    * Render the account list with notification indicators and sort by notification status.
-   * @param {string} [preserveUsername] - Optionally preserve a selected username
-   * @returns {string[]} Usernames for the current network
+   * @returns {string[]} Usernames for the current network (registry order, not display order)
    */
-  renderAccountList(preserveUsername) {
+  renderAccountList() {
     const { usernames, netidAccounts } = this.getSignInUsernames();
     const { netid } = network;
     const notifiedAddresses = reactNativeApp.isReactNativeWebView ? reactNativeApp.getNotificationAddresses() : [];
@@ -3780,15 +3779,6 @@ class SignInModal {
       sections.push(...privateRemaining.map(renderListItem));
     }
     this.accountList.innerHTML = sections.join('');
-
-    if (preserveUsername && usernames.includes(preserveUsername)) {
-      this.selectedUsername = preserveUsername;
-    }
-    for (const item of this.accountList.querySelectorAll('.sign-in-account-item')) {
-      const isSelected = item.dataset.username === this.selectedUsername;
-      item.classList.toggle('is-selected', isSelected);
-      item.setAttribute('aria-selected', isSelected ? 'true' : 'false');
-    }
 
     return usernames;
   }
@@ -4002,8 +3992,7 @@ class SignInModal {
    */
   updateNotificationDisplay() {
     if (!this.isActive()) return;
-    // Preserve the currently selected username after re-rendering the list.
-    this.renderAccountList(this.selectedUsername);
+    this.renderAccountList();
   }
 }
 
