@@ -3579,11 +3579,14 @@ function showCloseFeeFailureWarningOnce(reason, action, alreadyShown = false) {
 class SignInModal {
   constructor() {
     this.preselectedUsername = null;
+    this.selectedUsername = null;
+    this.isSigningIn = false;
   }
 
   load () {
     this.modal = document.getElementById('signInModal');
-    this.usernameSelect = document.getElementById('username');
+    this.accountList = document.getElementById('signInAccountList');
+    this.accountActions = document.getElementById('signInAccountActions');
     this.submitButton = document.querySelector('#signInForm button[type="submit"]');
     this.removeButton = document.getElementById('removeAccountButton');
     this.notFoundMessage = document.getElementById('usernameNotFound');
@@ -3593,7 +3596,7 @@ class SignInModal {
     // Sign in form submission (2s cooldown; both buttons disabled; revalidate restores state)
     const signInRevalidate = () => {
       this.removeButton.disabled = false;
-      if (this.isActive()) this.handleUsernameChange();
+      if (this.isActive() && this.selectedUsername) this.handleAccountClick(this.selectedUsername);
     };
     document.getElementById('signInForm').addEventListener('submit', withButtonCooldown(
       [this.submitButton, this.removeButton],
@@ -3602,8 +3605,13 @@ class SignInModal {
       (event) => this.handleSignIn(event)
     ));
 
-    // Username selection change
-    this.usernameSelect.addEventListener('change', () => this.handleUsernameChange());
+    this.accountList.addEventListener('click', (event) => {
+      const item = event.target.closest('.sign-in-account-item');
+      if (!item || this.isSigningIn) return;
+      const username = item.dataset.username;
+      if (!username) return;
+      this.handleAccountClick(username);
+    });
 
     // Remove account button (2s cooldown; both buttons disabled)
     this.removeButton.addEventListener('click', withButtonCooldown(
@@ -3618,45 +3626,60 @@ class SignInModal {
   }
 
   // Centralized UI state helpers for availability results
+  showAccountActions() {
+    this.accountActions.style.display = 'block';
+  }
+
+  hideAccountActions() {
+    this.accountActions.style.display = 'none';
+  }
+
   setUiForMine() {
+    this.showAccountActions();
     this.submitButton.disabled = false;
     this.submitButton.textContent = 'Sign In';
     this.submitButton.style.display = 'inline';
     this.removeButton.style.display = 'none';
+    this.notFoundMessage.textContent = '';
     this.notFoundMessage.style.display = 'none';
   }
 
   setUiDisabledSignIn() {
+    this.hideAccountActions();
     this.submitButton.disabled = true;
     this.submitButton.textContent = 'Sign In';
     this.submitButton.style.display = 'inline';
     this.removeButton.style.display = 'none';
+    this.notFoundMessage.textContent = '';
     this.notFoundMessage.style.display = 'none';
   }
 
   setUiForTaken() {
+    this.showAccountActions();
     this.submitButton.style.display = 'none';
     this.removeButton.style.display = 'inline';
     this.notFoundMessage.textContent = 'taken';
-    this.notFoundMessage.style.display = 'inline';
+    this.notFoundMessage.style.display = 'block';
   }
 
   setUiForAvailableNotFound() {
+    this.showAccountActions();
     this.submitButton.disabled = false;
     this.submitButton.textContent = 'Recreate';
     this.submitButton.style.display = 'inline';
     this.removeButton.style.display = 'inline';
     this.notFoundMessage.textContent = 'not found';
-    this.notFoundMessage.style.display = 'inline';
+    this.notFoundMessage.style.display = 'block';
   }
 
   setUiForNetworkError() {
+    this.showAccountActions();
     this.submitButton.disabled = true;
     this.submitButton.textContent = 'Sign In';
     this.submitButton.style.display = 'none';
     this.removeButton.style.display = 'none';
     this.notFoundMessage.textContent = 'network error';
-    this.notFoundMessage.style.display = 'inline';
+    this.notFoundMessage.style.display = 'block';
     showToast('The gateway server is down, please try again later.', 5000, 'warning');
   }
 
@@ -3685,11 +3708,11 @@ class SignInModal {
   }
 
   /**
-   * Update the username select dropdown with notification indicators and sort by notification status
+   * Render the account list with notification indicators and sort by notification status
    * @param {string} [selectedUsername] - Optionally preserve a selected username
    * @returns {Object} Object containing usernames array and account information
    */
-  updateUsernameSelect(selectedUsername = null) {
+  renderAccountList(selectedUsername = null) {
     const signInData = signInModal.getSignInUsernames() || {};
     const usernames = Array.isArray(signInData.usernames) ? signInData.usernames : [];
     const netidAccounts = signInData.netidAccounts || { usernames: {} };
@@ -3718,9 +3741,7 @@ class SignInModal {
       sortedUsernames = [...notifiedUsernames, ...otherUsernames];
     }
 
-    // Populate select with sorted usernames.
-    // Build a map of privacy flags to avoid multiple loadState calls and
-    // render options via a small helper to reduce duplication.
+    // Build a map of privacy flags to avoid multiple loadState calls.
     const isPrivateMap = Object.create(null);
     for (const username of sortedUsernames) {
       let isPrivateAccount = false;
@@ -3735,71 +3756,69 @@ class SignInModal {
 
     // Keep notified accounts (any privacy) at the very top, in the order
     // they appear in sortedUsernames. Then render remaining public accounts,
-    // and finally remaining private accounts grouped under a disabled label.
+    // and finally remaining private accounts grouped under a section label.
     const notifiedTop = sortedUsernames.filter(u => notifiedUsernameSet.has(u));
     const remaining = sortedUsernames.filter(u => !notifiedUsernameSet.has(u));
     const publicRemaining = remaining.filter(u => !isPrivateMap[u]);
     const privateRemaining = remaining.filter(u => isPrivateMap[u]);
 
-    const renderOption = (username) => {
+    const renderListItem = (username) => {
       const isNotifiedAccount = notifiedUsernameSet.has(username);
-      const dotIndicator = isNotifiedAccount ? ' 🔔' : '';
-      const optionColor = isPrivateMap[username] ? 'var(--danger-color)' : 'var(--text-color)';
-      const displayName = isPrivateMap[username] ? `- ${username}` : username;
-      return `<option value="${username}" style="color: ${optionColor};">${displayName}${dotIndicator}</option>`;
+      const notificationIndicator = isNotifiedAccount ? ' 🔔' : '';
+      const isPrivateAccount = isPrivateMap[username];
+      const displayName = isPrivateAccount ? `- ${username}` : username;
+      const privateClass = isPrivateAccount ? ' is-private' : '';
+      return `
+        <li class="chat-item sign-in-account-item${privateClass}" role="option" data-username="${username}">
+          <div class="chat-content">
+            <div class="chat-name">${escapeHtml(displayName)}${notificationIndicator}</div>
+          </div>
+        </li>
+      `;
     };
 
-    let html = `<option value="" disabled selected hidden>Select an account</option>`;
+    let html = '';
 
     if (notifiedTop.length > 0) {
-      html += notifiedTop.map(renderOption).join('');
+      html += notifiedTop.map(renderListItem).join('');
     }
 
     if (publicRemaining.length > 0) {
-      html += publicRemaining.map(renderOption).join('');
+      html += publicRemaining.map(renderListItem).join('');
     }
 
-    // Private accounts grouped with a disabled label (avoids optgroup indentation)
     if (privateRemaining.length > 0) {
-      html += `<option value="" disabled style="font-weight:600; color:var(--danger-color);">Private accounts</option>`;
-      html += privateRemaining.map(renderOption).join('');
+      html += '<li class="sign-in-account-section" role="presentation">Private accounts</li>';
+      html += privateRemaining.map(renderListItem).join('');
     }
 
-    this.usernameSelect.innerHTML = html;
+    this.accountList.innerHTML = html;
 
-    // Restore the previously selected username if it exists
     if (selectedUsername && usernames.includes(selectedUsername)) {
-      this.usernameSelect.value = selectedUsername;
+      this.selectedUsername = selectedUsername;
     }
 
-    // Update selected styling (so chosen private account shows red when the dropdown is closed)
-    this.updateSelectedAccountPrivateIndicator(netid);
+    this.updateSelectedAccountStyling(netid);
 
     return { usernames, netidAccounts, sortedUsernames };
   }
 
-  updateSelectedAccountPrivateIndicator(netid) {
-    const username = this.usernameSelect.value;
-    if (!username) {
-      this.usernameSelect.classList.remove('is-private');
-      return;
-    }
-
-    let isPrivateAccount = false;
-    try {
-      const localState = loadState(`${username}_${netid}`);
-      isPrivateAccount = localState?.account?.private === true;
-    } catch (e) {
-      isPrivateAccount = false;
-    }
-    this.usernameSelect.classList.toggle('is-private', isPrivateAccount);
+  updateSelectedAccountStyling(netid) {
+    const items = this.accountList.querySelectorAll('.sign-in-account-item');
+    items.forEach((item) => {
+      const isSelected = item.dataset.username === this.selectedUsername;
+      item.classList.toggle('is-selected', isSelected);
+      item.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+    });
   }
 
   async open(preselectedUsername_) {
     this.preselectedUsername = preselectedUsername_;
+    this.selectedUsername = null;
+    this.isSigningIn = false;
 
-    // Update username select and get usernames BEFORE opening modal
-    const { usernames } = this.updateUsernameSelect();
+    // Render account list and get usernames BEFORE opening modal
+    const { usernames } = this.renderAccountList();
 
     // Wait for browser to process DOM changes before starting modal transition
     requestAnimationFrame(async () => {
@@ -3812,11 +3831,10 @@ class SignInModal {
         return;
       }
 
-      // If a username should be auto-selected (either preselect or only one account), do it
-      if ((preselectedUsername_ && usernames.includes(preselectedUsername_))) {
-        this.usernameSelect.value = this.preselectedUsername;
-        await this.handleUsernameChange();
-        // happens when autoselect parameter is given since new account was just created and network may not have propagated account
+      // If a username should be auto-selected after account creation, sign in directly
+      if (preselectedUsername_ && usernames.includes(preselectedUsername_)) {
+        await this.handleAccountClick(preselectedUsername_);
+        // Network may not have propagated the new account yet
         if (this.notFoundMessage.textContent === 'not found') {
           this.applyAutoSelectNotFoundOverride();
           this.handleSignIn();
@@ -3824,14 +3842,12 @@ class SignInModal {
         return;
       }
 
-      // If only one account exists, select it and trigger change event
+      // If only one account exists, sign in directly when available
       if (usernames.length === 1) {
-        this.usernameSelect.value = usernames[0];
-        this.usernameSelect.dispatchEvent(new Event('change'));
+        await this.handleAccountClick(usernames[0]);
         return;
       }
 
-      // Multiple accounts exist, show modal with select dropdown
       this.setUiDisabledSignIn();
 
       // set timeout to focus on the last item so shift+tab and tab prevention works
@@ -3842,9 +3858,10 @@ class SignInModal {
   }
 
   close() {
-    // clear signInModal input fields
-    this.usernameSelect.value = '';
+    this.selectedUsername = null;
+    this.isSigningIn = false;
     this.setUiDisabledSignIn();
+    this.accountList.innerHTML = '';
     
     this.modal.classList.remove('active');
     this.preselectedUsername = null;
@@ -3860,7 +3877,8 @@ class SignInModal {
     
     enterFullscreen();
     
-    const username = this.usernameSelect.value;
+    const username = this.selectedUsername;
+    if (!username) return;
 
     // Get network ID from network.js
     const { netid } = network;
@@ -3972,23 +3990,21 @@ class SignInModal {
     callsModal.startPeriodicCallsRefresh();
   }
 
-  async handleUsernameChange() {
-    // Get existing accounts
+  async handleAccountClick(username) {
     const { netid } = network;
     const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
     const netidAccounts = existingAccounts.netids[netid];
     const usernames = netidAccounts?.usernames ? Object.keys(netidAccounts.usernames) : [];
-    // Enable submit button when an account is selected
-    const username = this.usernameSelect.value;
-    if (!username) {
-      this.submitButton.disabled = true;
-      this.notFoundMessage.style.display = 'none';
+
+    if (!username || !netidAccounts?.usernames?.[username]) {
+      this.selectedUsername = null;
+      this.setUiDisabledSignIn();
       return;
     }
 
-    // Update selected styling
-    this.updateSelectedAccountPrivateIndicator(netid);
-    //        const address = netidAccounts.usernames[username].keys.address;
+    this.selectedUsername = username;
+    this.updateSelectedAccountStyling(netid);
+
     const address = netidAccounts.usernames[username].address;
     let availability = await checkUsernameAvailability(username, address);
     // Retry logic: if availability reported as 'available' but we have local account data
@@ -4017,21 +4033,16 @@ class SignInModal {
         }
       }
     }
-    //console.log('usernames.length', usernames.length);
-    //console.log('availability', availability);
 
-    // If this username was pre-selected and is available, auto-sign-in
-    if (this.preselectedUsername && username === this.preselectedUsername && availability === 'mine') {
-      this.handleSignIn();
+    if (availability === 'mine') {
+      this.isSigningIn = true;
+      await this.handleSignIn();
+      this.isSigningIn = false;
       this.preselectedUsername = null;
       return;
     }
-    if (usernames.length === 1 && availability === 'mine') {
-      this.handleSignIn();
-      return;
-    } else if (availability === 'mine') {
-      this.setUiForMine();
-    } else if (availability === 'taken') {
+
+    if (availability === 'taken') {
       this.setUiForTaken();
     } else if (availability === 'available') {
       this.setUiForAvailableNotFound();
@@ -4041,7 +4052,7 @@ class SignInModal {
   }
 
   async handleRemoveAccount() {
-    const username = this.usernameSelect.value;
+    const username = this.selectedUsername;
     if (!username) {
       showToast('Please select an account to remove', 2000, 'warning');
       return;
@@ -4061,12 +4072,8 @@ class SignInModal {
     // Only update if the modal is actually active
     if (!this.isActive()) return;
     
-    // Get the currently selected username so we can keep it selected after the update
-    const selectedUsername = this.usernameSelect.value;
-    
-    // Update the dropdown with sorted usernames and notification indicators
-    // This will also preserve the selected username if it still exists
-    this.updateUsernameSelect(selectedUsername);
+    // Preserve the currently selected username after re-rendering the list
+    this.renderAccountList(this.selectedUsername);
   }
 }
 
