@@ -3821,6 +3821,7 @@ class SignInModal {
   }
 
   close() {
+    this.accountClickSeq++;
     this.selectedUsername = null;
     this.isSigningIn = false;
     this.preselectedUsername = null;
@@ -3951,8 +3952,8 @@ class SignInModal {
         logsModal.log(`[SignInModal] After 3 attempts username '${username}' still reported as available.`);
       }
     }
-    // Ignore stale results if the user tapped a different account while we were waiting.
-    if (clickSeq !== this.accountClickSeq) return null;
+    // Ignore stale results if the user tapped a different account or closed the modal while we were waiting.
+    if (clickSeq !== this.accountClickSeq || !this.isActive()) return null;
 
     switch (availability) {
       case 'mine':
