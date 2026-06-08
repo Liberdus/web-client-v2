@@ -3761,7 +3761,7 @@ class SignInModal {
         ? '<span class="sign-in-account-badge" aria-label="Has notifications">🔔</span>'
         : '';
       return `
-        <li class="sign-in-account-item${privateClass}" role="option" data-username="${username}">
+        <li class="sign-in-account-item${privateClass}" data-username="${username}">
           <div class="sign-in-account-card">
             <span class="sign-in-account-name">${escapeHtml(displayName)}</span>
             ${notificationBadge}

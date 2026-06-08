@@ -3212,11 +3212,6 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   transform: scale(0.99);
 }
 
-#signInModal .sign-in-account-item.is-selected .sign-in-account-card {
-  background: var(--primary-tint-04);
-  border-color: var(--primary-color);
-}
-
 #signInModal .sign-in-account-name {
   font-family: var(--font-primary);
   font-size: var(--font-size-base);
@@ -3236,8 +3231,7 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   color: var(--danger-color);
 }
 
-#signInModal .sign-in-account-item.is-private:hover .sign-in-account-card,
-#signInModal .sign-in-account-item.is-private.is-selected .sign-in-account-card {
+#signInModal .sign-in-account-item.is-private:hover .sign-in-account-card {
   border-color: var(--danger-color);
 }
 
@@ -3364,26 +3358,6 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   font-size: var(--font-size-base);
   color: var(--text-color);
 } /* Specific style for search icon to ensure consistent size */
-
-/* Sign In Modal specific styles */
-#removeAccountButton {
-  width: calc(100% - 32px);
-  height: 48px;
-  margin: 8px 16px;
-  background-color: var(--hover-background);
-  color: var(--danger-color);
-  border: none;
-  border-radius: 24px;
-  font-family: var(--font-primary);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-bold);
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-#removeAccountButton:hover {
-  background-color: var(--hover-background);
-}
 
 /* About Modal Content Styles */
 #aboutModal #netIdAbout {
