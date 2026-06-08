@@ -3596,7 +3596,6 @@ class SignInModal {
     this.actionSheetMessage = document.getElementById('signInActionSheetMessage');
     this.actionRecreateButton = document.getElementById('signInActionRecreate');
     this.actionRemoveButton = document.getElementById('signInActionRemove');
-    this.actionRetryButton = document.getElementById('signInActionRetry');
     this.closeActionSheetButton = document.getElementById('closeSignInActionSheet');
 
     this.accountList.addEventListener('click', (event) => {
@@ -3617,10 +3616,9 @@ class SignInModal {
     const actionSheetRevalidate = () => {
       this.actionRecreateButton.disabled = false;
       this.actionRemoveButton.disabled = false;
-      this.actionRetryButton.disabled = false;
     };
     this.actionRecreateButton.addEventListener('click', withButtonCooldown(
-      [this.actionRecreateButton, this.actionRemoveButton, this.actionRetryButton],
+      [this.actionRecreateButton, this.actionRemoveButton],
       BUTTON_COOLDOWN_MS,
       actionSheetRevalidate,
       () => {
@@ -3630,24 +3628,13 @@ class SignInModal {
       }
     ));
     this.actionRemoveButton.addEventListener('click', withButtonCooldown(
-      [this.actionRecreateButton, this.actionRemoveButton, this.actionRetryButton],
+      [this.actionRecreateButton, this.actionRemoveButton],
       BUTTON_COOLDOWN_MS,
       actionSheetRevalidate,
       () => {
         const username = this.actionSheetUsername;
         if (!username) return;
         this.handleRemoveAccount(username);
-      }
-    ));
-    this.actionRetryButton.addEventListener('click', withButtonCooldown(
-      [this.actionRecreateButton, this.actionRemoveButton, this.actionRetryButton],
-      BUTTON_COOLDOWN_MS,
-      actionSheetRevalidate,
-      () => {
-        const username = this.actionSheetUsername;
-        if (!username) return;
-        this.closeActionSheet();
-        this.handleAccountClick(username);
       }
     ));
 
@@ -3677,19 +3664,16 @@ class SignInModal {
         message: 'This account is not on the network. You can recreate it from local data or remove it from this device.',
         showRecreate: true,
         showRemove: true,
-        showRetry: false,
       },
       taken: {
         message: 'This username is taken on the network by a different address.',
         showRecreate: false,
         showRemove: true,
-        showRetry: false,
       },
       'network-error': {
         message: 'Could not reach the network. Check your connection and try again.',
         showRecreate: false,
         showRemove: false,
-        showRetry: true,
       },
     }[reason];
 
@@ -3700,7 +3684,6 @@ class SignInModal {
     this.actionSheetMessage.textContent = copy.message;
     this.actionRecreateButton.hidden = !copy.showRecreate;
     this.actionRemoveButton.hidden = !copy.showRemove;
-    this.actionRetryButton.hidden = !copy.showRetry;
     this.actionSheetOverlay.classList.add('active');
     this.actionSheetOverlay.setAttribute('aria-hidden', 'false');
 
