@@ -683,22 +683,22 @@
         </div>
         <div class="modal-content">
           <div class="form-container">
-            <form id="signInForm" class="form--narrow">
-              <div class="form-group">
-                <label for="username"
-                  >Select Account
-                  <span id="usernameNotFound" style="color: #dc3545; display: none; display: inline"></span
-                ></label>
-                <select id="username" class="form-control" required></select>
-              </div>
-              <div class="form-actions">
-                <button type="submit" class="btn btn--primary btn--pill btn--full" disabled>Sign In</button>
-                <button type="button" id="removeAccountButton" class="btn btn--secondary btn--pill btn--full" style="display: none">
-                  Remove
-                </button>
-              </div>
-            </form>
+            <ul class="sign-in-account-list" id="signInAccountList" aria-label="Accounts"></ul>
             <a class="last-item" href="#" id="signInModalLastItem"> </a>
+          </div>
+        </div>
+        <div class="sign-in-action-sheet-overlay" id="signInActionSheetOverlay" aria-hidden="true">
+          <div class="sign-in-action-sheet" id="signInActionSheet" role="dialog" aria-labelledby="signInActionSheetTitle">
+            <div class="sign-in-action-sheet-handle" aria-hidden="true"></div>
+            <div class="sign-in-action-sheet-header">
+              <div class="sign-in-action-sheet-title" id="signInActionSheetTitle"></div>
+              <button class="sign-in-action-sheet-close" id="closeSignInActionSheet" type="button" aria-label="Close">Close</button>
+            </div>
+            <p class="sign-in-action-sheet-message" id="signInActionSheetMessage"></p>
+            <div class="sign-in-action-sheet-buttons">
+              <button type="button" id="signInActionRecreate" class="btn btn--primary btn--pill btn--full" hidden>Recreate</button>
+              <button type="button" id="signInActionRemove" class="btn btn--danger btn--pill btn--full" hidden>Remove</button>
+            </div>
           </div>
         </div>
       </div>

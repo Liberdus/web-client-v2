@@ -3174,6 +3174,162 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   accent-color: var(--primary-color, #007bff);
 }
 
+/* Sign In Modal account list */
+#signInModal .sign-in-account-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#signInModal .sign-in-account-item {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+#signInModal .sign-in-account-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--background-color);
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+  border-radius: 12px;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+#signInModal .sign-in-account-item:hover .sign-in-account-card {
+  background: var(--hover-background);
+  border-color: var(--primary-tint-20);
+}
+
+#signInModal .sign-in-account-item:active .sign-in-account-card {
+  transform: scale(0.99);
+}
+
+#signInModal .sign-in-account-name {
+  font-family: var(--font-primary);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-color);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#signInModal .sign-in-account-item.is-private .sign-in-account-card {
+  border-color: rgba(220, 53, 69, 0.35);
+}
+
+#signInModal .sign-in-account-item.is-private .sign-in-account-name {
+  color: var(--danger-color);
+}
+
+#signInModal .sign-in-account-item.is-private:hover .sign-in-account-card {
+  border-color: var(--danger-color);
+}
+
+#signInModal .sign-in-account-badge {
+  flex: 0 0 auto;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+#signInModal .sign-in-account-section {
+  padding: 4px 2px 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--danger-color);
+  list-style: none;
+  cursor: default;
+}
+
+/* Sign In account action sheet (reaction-sheet cousin) */
+.sign-in-action-sheet-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: flex-end;
+  justify-content: stretch;
+  background: rgba(15, 23, 42, 0.22);
+  z-index: var(--overlay-z-index-high);
+}
+
+.sign-in-action-sheet-overlay.active {
+  display: flex;
+}
+
+.sign-in-action-sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 10px 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  border-radius: 22px 22px 0 0;
+  background: var(--background-color);
+  box-shadow: 0 -12px 36px rgba(15, 23, 42, 0.2);
+}
+
+.sign-in-action-sheet-handle {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.16);
+  margin: 0 auto 12px;
+}
+
+.sign-in-action-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.sign-in-action-sheet-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sign-in-action-sheet-close {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-color);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.sign-in-action-sheet-message {
+  margin: 0 0 16px;
+  font-size: var(--font-size-sm);
+  color: var(--neutral-600);
+  text-align: left;
+  line-height: 1.45;
+}
+
+.sign-in-action-sheet-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 #removeAccountsModal .remove-account-username {
   font-weight: 600;
   flex: 0 0 auto;
@@ -3202,26 +3358,6 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   font-size: var(--font-size-base);
   color: var(--text-color);
 } /* Specific style for search icon to ensure consistent size */
-
-/* Sign In Modal specific styles */
-#removeAccountButton {
-  width: calc(100% - 32px);
-  height: 48px;
-  margin: 8px 16px;
-  background-color: var(--hover-background);
-  color: var(--danger-color);
-  border: none;
-  border-radius: 24px;
-  font-family: var(--font-primary);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-bold);
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-#removeAccountButton:hover {
-  background-color: var(--hover-background);
-}
 
 /* About Modal Content Styles */
 #aboutModal #netIdAbout {
