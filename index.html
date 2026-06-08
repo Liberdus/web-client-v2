@@ -684,14 +684,9 @@
         <div class="modal-content">
           <div class="form-container">
             <form id="signInForm" class="form--narrow">
-              <div class="form-group">
-                <label for="username"
-                  >Select Account
-                  <span id="usernameNotFound" style="color: #dc3545; display: none; display: inline"></span
-                ></label>
-                <select id="username" class="form-control" required></select>
-              </div>
-              <div class="form-actions">
+              <ul class="chat-list" id="signInAccountList" role="listbox" aria-label="Accounts"></ul>
+              <div class="form-actions sign-in-account-actions" id="signInAccountActions" style="display: none">
+                <p class="sign-in-account-status" id="usernameNotFound"></p>
                 <button type="submit" class="btn btn--primary btn--pill btn--full" disabled>Sign In</button>
                 <button type="button" id="removeAccountButton" class="btn btn--secondary btn--pill btn--full" style="display: none">
                   Remove
