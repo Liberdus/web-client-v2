@@ -3724,12 +3724,16 @@ class SignInModal {
    * @returns {string[]} Clean recent username list.
    */
   normalizeRecentSignInUsernameList(storedUsernames, availableUsernameSet) {
-    assert(Array.isArray(storedUsernames), 'Recent sign-in usernames must be an array');
+    if (!Array.isArray(storedUsernames)) {
+      return [];
+    }
 
     const normalizedUsernames = [];
     const seen = new Set();
     for (const username of storedUsernames) {
-      assert(typeof username === 'string' && username, 'Recent sign-in username must be a string');
+      if (typeof username !== 'string' || !username) {
+        continue;
+      }
       if (!seen.has(username) && availableUsernameSet.has(username)) {
         seen.add(username);
         normalizedUsernames.push(username);
@@ -3788,18 +3792,24 @@ class SignInModal {
    * @returns {void}
    */
   recordRecentSignInUsername(username) {
-    const { netid } = network;
-    const accounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-    const netidAccounts = accounts.netids[netid];
-    assert(netidAccounts?.usernames?.[username], `Account registry missing ${username}`);
+    try {
+      const { netid } = network;
+      const accounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+      const netidAccounts = accounts.netids[netid];
+      if (!netidAccounts?.usernames?.[username]) {
+        return;
+      }
 
-    const usernames = Object.keys(netidAccounts.usernames);
-    const rankedUsernames = this.getRecentSignInUsernames(usernames, netidAccounts);
-    netidAccounts[SIGN_IN_RECENT_USERNAME_KEY] = this.promoteRecentSignInUsername(
-      rankedUsernames,
-      username
-    );
-    localStorage.setItem('accounts', stringify(accounts));
+      const usernames = Object.keys(netidAccounts.usernames);
+      const rankedUsernames = this.getRecentSignInUsernames(usernames, netidAccounts);
+      netidAccounts[SIGN_IN_RECENT_USERNAME_KEY] = this.promoteRecentSignInUsername(
+        rankedUsernames,
+        username
+      );
+      localStorage.setItem('accounts', stringify(accounts));
+    } catch (error) {
+      console.warn('Failed to update recent sign-in order:', error);
+    }
   }
 
   /**
