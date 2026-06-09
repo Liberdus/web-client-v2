@@ -10223,6 +10223,18 @@ class RemoveAccountModal {
     this.modal.classList.remove('active');
   }
 
+  removeSignInUsernameOrder(netidAccounts, username) {
+    const usernameOrder = netidAccounts[SIGN_IN_USERNAME_ORDER_KEY];
+    if (!usernameOrder) return;
+
+    usernameOrder.public = usernameOrder.public.filter((storedUsername) => storedUsername !== username);
+    usernameOrder.private = usernameOrder.private.filter((storedUsername) => storedUsername !== username);
+
+    if (usernameOrder.public.length === 0 && usernameOrder.private.length === 0) {
+      delete netidAccounts[SIGN_IN_USERNAME_ORDER_KEY];
+    }
+  }
+
   submit(username = myAccount.username) {
     // called when the form is submitted
     // Get network ID from network.js
@@ -10232,8 +10244,10 @@ class RemoveAccountModal {
     const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
 
     // Remove the account from the accounts object
-    if (existingAccounts.netids[netid] && existingAccounts.netids[netid].usernames) {
-      delete existingAccounts.netids[netid].usernames[username];
+    const netidAccounts = existingAccounts.netids[netid];
+    if (netidAccounts && netidAccounts.usernames) {
+      delete netidAccounts.usernames[username];
+      this.removeSignInUsernameOrder(netidAccounts, username);
       localStorage.setItem('accounts', stringify(existingAccounts));
     }
     // Remove the account data from localStorage
@@ -10264,8 +10278,10 @@ class RemoveAccountModal {
     const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
 
     // Remove the account from the accounts object
-    if (existingAccounts.netids[netid] && existingAccounts.netids[netid].usernames) {
-      delete existingAccounts.netids[netid].usernames[username];
+    const netidAccounts = existingAccounts.netids[netid];
+    if (netidAccounts && netidAccounts.usernames) {
+      delete netidAccounts.usernames[username];
+      this.removeSignInUsernameOrder(netidAccounts, username);
       localStorage.setItem('accounts', stringify(existingAccounts));
     }
     // Remove the account data from localStorage
