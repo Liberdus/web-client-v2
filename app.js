@@ -3712,6 +3712,12 @@ class SignInModal {
     return { usernames, netidAccounts: netidAccounts || { usernames: {} } };
   }
 
+  /**
+   * Normalize recent sign-in usernames, de-duping entries and optionally dropping stale accounts.
+   * @param {Array} usernames Stored recent username values.
+   * @param {Set<string>|null} [availableUsernameSet=null] Usernames still available for the active network.
+   * @returns {string[]} Clean recent username list.
+   */
   normalizeRecentSignInUsernameList(usernames, availableUsernameSet = null) {
     if (!Array.isArray(usernames)) {
       return [];
@@ -3734,6 +3740,12 @@ class SignInModal {
     return normalizedUsernames;
   }
 
+  /**
+   * Build the ranked sign-in username list from saved recent order plus current registry order.
+   * @param {string[]} usernames Current network usernames in registry order.
+   * @param {Object} netidAccounts Current network account registry.
+   * @returns {string[]} Usernames ordered by recent sign-in preference.
+   */
   getRecentSignInUsernames(usernames, netidAccounts) {
     const rankedUsernames = [];
     const seen = new Set();
@@ -3755,6 +3767,12 @@ class SignInModal {
     return rankedUsernames;
   }
 
+  /**
+   * Move the selected username halfway closer to the front, matching emoji picker promotion.
+   * @param {string[]} recentUsernames Current recent sign-in username order.
+   * @param {string} selectedUsername Username selected for sign-in.
+   * @returns {string[]} Updated recent sign-in username order.
+   */
   promoteRecentSignInUsername(recentUsernames, selectedUsername) {
     const username = typeof selectedUsername === 'string' ? selectedUsername.trim() : '';
     if (!username) {
@@ -3775,6 +3793,11 @@ class SignInModal {
     return remainingUsernames;
   }
 
+  /**
+   * Persist a valid sign-in selection to the active network's recent username order.
+   * @param {string} username Username selected for sign-in.
+   * @returns {void}
+   */
   recordRecentSignInUsername(username) {
     const selectedUsername = typeof username === 'string' ? username.trim() : '';
     if (!selectedUsername) {
