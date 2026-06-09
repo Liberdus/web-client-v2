@@ -2,6 +2,7 @@
 //   Versions should be YYYY.MM.DD.HH.mm like 2025.01.25.10.05
 const version = 't'; // Also increment this when you increment version.html
 const BOOT_SPLASH_MIN_MS = 3000;
+const BOOT_SPLASH_HANDOFF_MS = 520;
 const bootSplashStartedAt = performance.now();
 let myVersion = '0';
 async function checkVersion() {
@@ -1033,6 +1034,7 @@ class WelcomeScreen {
   load() {
     this.screen = document.getElementById('welcomeScreen');
     this.bootSplash = document.getElementById('bootSplash');
+    assert(this.bootSplash, 'Boot splash is required');
     this.signInButton = document.getElementById('signInButton');
     this.createAccountButton = document.getElementById('createAccountButton');
     this.openWelcomeMenuButton = document.getElementById('openWelcomeMenu');
@@ -1081,21 +1083,73 @@ class WelcomeScreen {
     const elapsedMs = performance.now() - bootSplashStartedAt;
     const revealDelayMs = Math.max(0, BOOT_SPLASH_MIN_MS - elapsedMs);
 
-    setTimeout(() => {
-      this.screen.classList.remove('is-booting');
-      this.bootSplash?.classList.add('hidden');
+    setTimeout(() => this.animateBootSplashToWelcome(), revealDelayMs);
+  }
 
-      // Show Apple Safari backup reminder toast after welcome screen has rendered
-      setTimeout(() => {
-        this.showAppleSafariBackupToast();
-        this.showGDriveBackupReminder();
-      }, 500);
-    }, revealDelayMs);
+  async animateBootSplashToWelcome() {
+    const splashLogo = this.bootSplash.querySelector('.boot-splash-logo');
+    const splashTitle = document.getElementById('bootSplashBrandTitle');
+    const welcomeLogo = this.logoLink.querySelector('img');
+    const welcomeTitle = document.getElementById('welcomeBrandTitle');
+    assert(splashLogo, 'Boot splash logo is required');
+    assert(splashTitle, 'Boot splash title is required');
+    assert(welcomeLogo, 'Welcome logo is required');
+    assert(welcomeTitle, 'Welcome title is required');
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      this.showHydratedWelcome();
+      return;
+    }
+
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    this.bootSplash.classList.add('is-handoff');
+
+    await Promise.all([
+      this.createBootSplashHandoffAnimation(splashLogo, welcomeLogo).finished,
+      this.createBootSplashHandoffAnimation(splashTitle, welcomeTitle).finished,
+    ]);
+    this.showHydratedWelcome();
+  }
+
+  createBootSplashHandoffAnimation(sourceElement, targetElement) {
+    const sourceRect = sourceElement.getBoundingClientRect();
+    const targetRect = targetElement.getBoundingClientRect();
+    assert(sourceRect.width && sourceRect.height, 'Boot splash handoff source must be measurable');
+    assert(targetRect.width && targetRect.height, 'Boot splash handoff target must be measurable');
+
+    const sourceCenterX = sourceRect.left + sourceRect.width / 2;
+    const sourceCenterY = sourceRect.top + sourceRect.height / 2;
+    const targetCenterX = targetRect.left + targetRect.width / 2;
+    const targetCenterY = targetRect.top + targetRect.height / 2;
+    const translateX = targetCenterX - sourceCenterX;
+    const translateY = targetCenterY - sourceCenterY;
+    const scale = targetRect.width / sourceRect.width;
+    const transform = 'translate3d(' + translateX + 'px, ' + translateY + 'px, 0) scale(' + scale + ')';
+
+    return sourceElement.animate([
+      { transform: 'translate3d(0, 0, 0) scale(1)' },
+      { transform },
+    ], {
+      duration: BOOT_SPLASH_HANDOFF_MS,
+      easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+      fill: 'forwards',
+    });
+  }
+
+  showHydratedWelcome() {
+    this.screen.classList.remove('is-booting');
+    this.bootSplash.classList.add('hidden');
+
+    // Show Apple Safari backup reminder toast after welcome screen has rendered
+    setTimeout(() => {
+      this.showAppleSafariBackupToast();
+      this.showGDriveBackupReminder();
+    }, 500);
   }
 
   open() {
     this.screen.classList.remove('is-booting');
-    this.bootSplash?.classList.add('hidden');
+    this.bootSplash.classList.add('hidden');
     this.screen.style.display = 'flex';
     // Show the navigation bar on the native app
     reactNativeApp.sendNavigationBarVisibility(true);

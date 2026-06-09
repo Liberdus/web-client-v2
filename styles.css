@@ -390,6 +390,7 @@ body {
   inset: 0;
   z-index: 20;
   display: flex;
+  overflow: hidden;
   align-items: center;
   justify-content: center;
   padding: 2rem;
@@ -415,6 +416,8 @@ body {
   width: 250px;
   height: 250px;
   object-fit: contain;
+  transform-origin: center;
+  will-change: transform;
 }
 
 .boot-splash-name {
@@ -422,15 +425,28 @@ body {
   top: calc(50% + 155px);
   left: 0;
   right: 0;
-  color: var(--text-color);
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-bold);
-  text-align: center;
   z-index: 1;
+  margin-bottom: 0;
+}
+
+.boot-splash-title-text,
+#welcomeBrandTitle {
+  display: inline-block;
+  transform-origin: center;
+}
+
+.boot-splash-title-text {
+  will-change: transform;
+}
+
+.boot-splash.is-handoff::before {
+  opacity: 0;
+  animation: none;
 }
 
 .welcome-screen.is-booting {
-  display: none;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 @keyframes boot-splash-halo {
