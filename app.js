@@ -3594,7 +3594,8 @@ const SIGN_IN_ACTION_SHEETS = {
     showRemove: false,
   },
 };
-const SIGN_IN_RECENT_USERNAME_KEY = 'recentSignInUsernames';
+const SIGN_IN_LEGACY_RECENT_USERNAME_KEY = 'recentSignInUsernames';
+const SIGN_IN_USERNAME_ORDER_KEY = 'signInUsernameOrder';
 const SIGN_IN_USERNAME_PROMOTION_RATIO = 0.5;
 
 class SignInModal {
@@ -3718,12 +3719,33 @@ class SignInModal {
   }
 
   /**
-   * Normalize stored recent sign-in usernames against the supplied valid username set.
-   * @param {string[]} storedUsernames Stored recent username values.
-   * @param {Set<string>} availableUsernameSet Usernames that should remain in the recent order.
-   * @returns {string[]} Clean recent username list.
+   * Split current usernames into the same account groups shown in the sign-in list.
+   * @param {string[]} usernames Current network usernames in registry order.
+   * @param {string} netid Active network id.
+   * @returns {{ usernameGroups: { public: string[], private: string[] }, isPrivateMap: Object }}
    */
-  normalizeRecentSignInUsernameList(storedUsernames, availableUsernameSet) {
+  getSignInUsernameGroups(usernames, netid) {
+    const usernameGroups = { public: [], private: [] };
+    const isPrivateMap = Object.create(null);
+
+    for (const username of usernames) {
+      const localState = loadState(`${username}_${netid}`);
+      const isPrivate = localState?.account?.private === true;
+      const usernameType = isPrivate ? 'private' : 'public';
+      isPrivateMap[username] = isPrivate;
+      usernameGroups[usernameType].push(username);
+    }
+
+    return { usernameGroups, isPrivateMap };
+  }
+
+  /**
+   * Normalize stored sign-in usernames against the supplied valid username set.
+   * @param {string[]} storedUsernames Stored username values.
+   * @param {Set<string>} availableUsernameSet Usernames that should remain in the order.
+   * @returns {string[]} Clean username list.
+   */
+  normalizeSignInUsernameList(storedUsernames, availableUsernameSet) {
     if (!Array.isArray(storedUsernames)) {
       return [];
     }
@@ -3744,50 +3766,73 @@ class SignInModal {
   }
 
   /**
-   * Build the ranked sign-in username list from saved recent order plus current registry order.
-   * @param {string[]} usernames Current network usernames in registry order.
-   * @param {Object} netidAccounts Current network account registry.
-   * @returns {string[]} Usernames ordered by recent sign-in preference.
+   * Build one visible sign-in group from saved order plus current registry order.
+   * @param {string[]} usernames Current group usernames in registry order.
+   * @param {string[]} storedUsernames Stored order for the same group.
+   * @returns {string[]} Usernames ordered by sign-in preference.
    */
-  getRecentSignInUsernames(usernames, netidAccounts) {
-    const hasStoredUsernames = Object.prototype.hasOwnProperty.call(
-      netidAccounts,
-      SIGN_IN_RECENT_USERNAME_KEY
-    );
-    const storedUsernames = hasStoredUsernames ? netidAccounts[SIGN_IN_RECENT_USERNAME_KEY] : [];
+  getOrderedSignInUsernames(usernames, storedUsernames) {
     const availableUsernameSet = new Set(usernames);
-    const recentUsernames = this.normalizeRecentSignInUsernameList(storedUsernames, availableUsernameSet);
-    const recentUsernameSet = new Set(recentUsernames);
+    const orderedUsernames = this.normalizeSignInUsernameList(storedUsernames, availableUsernameSet);
+    const orderedUsernameSet = new Set(orderedUsernames);
 
     return [
-      ...recentUsernames,
-      ...usernames.filter((username) => !recentUsernameSet.has(username)),
+      ...orderedUsernames,
+      ...usernames.filter((username) => !orderedUsernameSet.has(username)),
     ];
   }
 
   /**
-   * Move the selected username halfway closer to the front, matching emoji picker promotion.
-   * @param {string[]} recentUsernames Current recent sign-in username order.
-   * @param {string} selectedUsername Username selected for sign-in.
-   * @returns {string[]} Updated recent sign-in username order.
+   * Get public and private sign-in ordering for the active network.
+   * @param {{ public: string[], private: string[] }} usernameGroups Current usernames split by type.
+   * @param {Object} netidAccounts Current network account registry.
+   * @returns {{ public: string[], private: string[] }} Ordered usernames split by type.
    */
-  promoteRecentSignInUsername(recentUsernames, selectedUsername) {
-    const currentIndex = recentUsernames.indexOf(selectedUsername);
-    assert(currentIndex !== -1, `Recent sign-in list missing ${selectedUsername}`);
+  getSignInUsernameOrder(usernameGroups, netidAccounts) {
+    const hasStoredOrder = Object.prototype.hasOwnProperty.call(
+      netidAccounts,
+      SIGN_IN_USERNAME_ORDER_KEY
+    );
+    const storedOrder = hasStoredOrder ? netidAccounts[SIGN_IN_USERNAME_ORDER_KEY] || {} : {};
+    const legacyUsernames = !hasStoredOrder && Array.isArray(netidAccounts[SIGN_IN_LEGACY_RECENT_USERNAME_KEY])
+      ? netidAccounts[SIGN_IN_LEGACY_RECENT_USERNAME_KEY]
+      : [];
+
+    return {
+      public: this.getOrderedSignInUsernames(
+        usernameGroups.public,
+        hasStoredOrder ? storedOrder.public : legacyUsernames
+      ),
+      private: this.getOrderedSignInUsernames(
+        usernameGroups.private,
+        hasStoredOrder ? storedOrder.private : legacyUsernames
+      ),
+    };
+  }
+
+  /**
+   * Move the selected username halfway closer to the front, matching emoji picker promotion.
+   * @param {string[]} signInUsernames Current sign-in username order.
+   * @param {string} selectedUsername Username selected for sign-in.
+   * @returns {string[]} Updated sign-in username order.
+   */
+  promoteSignInUsername(signInUsernames, selectedUsername) {
+    const currentIndex = signInUsernames.indexOf(selectedUsername);
+    assert(currentIndex !== -1, `Sign-in order missing ${selectedUsername}`);
 
     const promotionDistance = Math.max(
       1,
       Math.ceil((currentIndex + 1) * SIGN_IN_USERNAME_PROMOTION_RATIO)
     );
     const targetIndex = Math.max(0, currentIndex - promotionDistance);
-    const promotedUsernames = recentUsernames.filter((username) => username !== selectedUsername);
+    const promotedUsernames = signInUsernames.filter((username) => username !== selectedUsername);
 
     promotedUsernames.splice(targetIndex, 0, selectedUsername);
     return promotedUsernames;
   }
 
   /**
-   * Persist a valid sign-in selection to the active network's recent username order.
+   * Persist a valid sign-in selection to the active network's username order.
    * @param {string} username Username selected for sign-in.
    * @returns {void}
    */
@@ -3801,24 +3846,29 @@ class SignInModal {
       }
 
       const usernames = Object.keys(netidAccounts.usernames);
-      const rankedUsernames = this.getRecentSignInUsernames(usernames, netidAccounts);
-      netidAccounts[SIGN_IN_RECENT_USERNAME_KEY] = this.promoteRecentSignInUsername(
-        rankedUsernames,
-        username
-      );
+      const { usernameGroups } = this.getSignInUsernameGroups(usernames, netid);
+      const usernameOrder = this.getSignInUsernameOrder(usernameGroups, netidAccounts);
+      const usernameType = usernameGroups.private.includes(username) ? 'private' : 'public';
+      usernameOrder[usernameType] = this.promoteSignInUsername(usernameOrder[usernameType], username);
+
+      netidAccounts[SIGN_IN_USERNAME_ORDER_KEY] = usernameOrder;
+      delete netidAccounts[SIGN_IN_LEGACY_RECENT_USERNAME_KEY];
       localStorage.setItem('accounts', stringify(accounts));
     } catch (error) {
-      console.warn('Failed to update recent sign-in order:', error);
+      console.warn('Failed to update sign-in order:', error);
     }
   }
 
   /**
    * Check whether the active network has a custom sign-in username order.
-   * @returns {boolean} True when recent sign-in order is stored.
+   * @returns {boolean} True when sign-in order is stored.
    */
   hasRecentSignInUsernameOverrides() {
     const { netidAccounts } = this.getSignInUsernames();
-    return Object.prototype.hasOwnProperty.call(netidAccounts, SIGN_IN_RECENT_USERNAME_KEY);
+    return (
+      Object.prototype.hasOwnProperty.call(netidAccounts, SIGN_IN_USERNAME_ORDER_KEY) ||
+      Object.prototype.hasOwnProperty.call(netidAccounts, SIGN_IN_LEGACY_RECENT_USERNAME_KEY)
+    );
   }
 
   /**
@@ -3839,7 +3889,7 @@ class SignInModal {
     const netidAccounts = accounts.netids[netid];
     assert(netidAccounts, 'Active network account registry is missing');
 
-    if (!Object.prototype.hasOwnProperty.call(netidAccounts, SIGN_IN_RECENT_USERNAME_KEY)) {
+    if (!this.hasRecentSignInUsernameOverrides()) {
       return;
     }
 
@@ -3848,7 +3898,8 @@ class SignInModal {
       return;
     }
 
-    delete netidAccounts[SIGN_IN_RECENT_USERNAME_KEY];
+    delete netidAccounts[SIGN_IN_USERNAME_ORDER_KEY];
+    delete netidAccounts[SIGN_IN_LEGACY_RECENT_USERNAME_KEY];
     localStorage.setItem('accounts', stringify(accounts));
     this.renderAccountList();
     showToast('Sign-in order reset', 2000, 'success');
@@ -3861,40 +3912,27 @@ class SignInModal {
   renderAccountList() {
     const { usernames, netidAccounts } = this.getSignInUsernames();
     const { netid } = network;
+    const { usernameGroups, isPrivateMap } = this.getSignInUsernameGroups(usernames, netid);
+    const usernameOrder = this.getSignInUsernameOrder(usernameGroups, netidAccounts);
     const notifiedAddresses = reactNativeApp.isReactNativeWebView ? reactNativeApp.getNotificationAddresses() : [];
+    const normalizedNotifiedSet = new Set(notifiedAddresses.map((addr) => normalizeAddress(addr)));
     const notifiedUsernameSet = new Set();
-    let sortedUsernames = this.getRecentSignInUsernames(usernames, netidAccounts);
+    const notifiedTop = [];
+    const publicRemaining = [];
+    const privateRemaining = [];
 
-    // If there are notified addresses, partition usernames (stable) so notified come first.
-    if (notifiedAddresses.length > 0) {
-      const normalizedNotifiedSet = new Set(notifiedAddresses.map((addr) => normalizeAddress(addr)));
-      const notifiedUsernames = [];
-      const otherUsernames = [];
-      for (const username of sortedUsernames) {
-        const address = netidAccounts.usernames[username].address;
-        if (normalizedNotifiedSet.has(normalizeAddress(address))) {
-          notifiedUsernames.push(username);
-          notifiedUsernameSet.add(username);
-        } else {
-          otherUsernames.push(username);
-        }
+    const placeUsername = (username, remainingUsernames) => {
+      const address = netidAccounts.usernames[username].address;
+      if (normalizedNotifiedSet.has(normalizeAddress(address))) {
+        notifiedTop.push(username);
+        notifiedUsernameSet.add(username);
+        return;
       }
-      sortedUsernames = [...notifiedUsernames, ...otherUsernames];
-    }
+      remainingUsernames.push(username);
+    };
 
-    // Build a map of privacy flags to avoid multiple loadState calls.
-    const isPrivateMap = Object.create(null);
-    for (const username of sortedUsernames) {
-      const localState = loadState(`${username}_${netid}`);
-      isPrivateMap[username] = localState?.account?.private === true;
-    }
-
-    // Keep notified accounts (any privacy) at the top, then public accounts,
-    // then remaining private accounts grouped under a section label.
-    const notifiedTop = sortedUsernames.filter((username) => notifiedUsernameSet.has(username));
-    const remaining = sortedUsernames.filter((username) => !notifiedUsernameSet.has(username));
-    const publicRemaining = remaining.filter((username) => !isPrivateMap[username]);
-    const privateRemaining = remaining.filter((username) => isPrivateMap[username]);
+    usernameOrder.public.forEach((username) => placeUsername(username, publicRemaining));
+    usernameOrder.private.forEach((username) => placeUsername(username, privateRemaining));
 
     const renderListItem = (username) => {
       const isPrivateAccount = isPrivateMap[username];
