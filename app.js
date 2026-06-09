@@ -3893,18 +3893,31 @@ class SignInModal {
     const { usernameGroups, isPrivateMap } = this.getSignInUsernameGroups(usernames, netid);
     const usernameOrder = this.getSignInUsernameOrder(usernameGroups, netidAccounts);
     const notifiedAddresses = reactNativeApp.isReactNativeWebView ? reactNativeApp.getNotificationAddresses() : [];
-    const normalizedNotifiedSet = new Set(notifiedAddresses.map((addr) => normalizeAddress(addr)));
+    const normalizedNotifiedSet = new Set();
+    for (const address of notifiedAddresses) {
+      try {
+        normalizedNotifiedSet.add(normalizeAddress(address));
+      } catch (error) {
+        console.warn('Skipping invalid notification address:', error);
+      }
+    }
     const notifiedUsernameSet = new Set();
     const notifiedTop = [];
     const publicRemaining = [];
     const privateRemaining = [];
 
     const placeUsername = (username, remainingUsernames) => {
-      const address = netidAccounts.usernames[username].address;
-      if (normalizedNotifiedSet.has(normalizeAddress(address))) {
-        notifiedTop.push(username);
-        notifiedUsernameSet.add(username);
-        return;
+      if (normalizedNotifiedSet.size > 0) {
+        const address = netidAccounts.usernames[username]?.address;
+        try {
+          if (address && normalizedNotifiedSet.has(normalizeAddress(address))) {
+            notifiedTop.push(username);
+            notifiedUsernameSet.add(username);
+            return;
+          }
+        } catch (error) {
+          console.warn(`Skipping invalid sign-in account address for ${username}:`, error);
+        }
       }
       remainingUsernames.push(username);
     };
