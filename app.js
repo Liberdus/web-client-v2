@@ -3606,7 +3606,6 @@ class SignInModal {
   load () {
     this.modal = document.getElementById('signInModal');
     this.accountList = document.getElementById('signInAccountList');
-    this.signInModalLastItem = document.getElementById('signInModalLastItem');
     this.backButton = document.getElementById('closeSignInModal');
     this.actionSheetOverlay = document.getElementById('signInActionSheetOverlay');
     this.actionSheetTitle = document.getElementById('signInActionSheetTitle');
@@ -3814,9 +3813,6 @@ class SignInModal {
         await this.handleAccountClick(usernames[0]);
         return;
       }
-
-      // Focus last item so shift+tab and tab prevention works.
-      setTimeout(() => this.signInModalLastItem.focus(), 325);
     });
   }
 
