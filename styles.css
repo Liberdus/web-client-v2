@@ -2216,6 +2216,35 @@ input[type='file'].form-control::file-selector-button {
   border-bottom-right-radius: 0rem;
 }
 
+.message.status-change {
+  align-self: center;
+  max-width: min(92%, 420px);
+  padding: 0.5rem 0.75rem;
+  margin: 0.25rem auto 1rem;
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--secondary-text-color);
+  cursor: default;
+  text-align: center;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
+}
+
+.message.status-change:hover {
+  filter: none;
+}
+
+.status-change-content {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.status-change-time {
+  margin-top: 0.2rem;
+  font-size: var(--font-size-xs);
+  opacity: 0.72;
+}
+
 /* Make links white in sent messages for contrast */
 .message.sent a {
   color: white;

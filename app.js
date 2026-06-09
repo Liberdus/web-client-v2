@@ -1612,6 +1612,8 @@ class ChatsScreen {
           ? `${reactionActor}reacted ${reactionPreview.emoji} to "${reactionTarget}"`
           : `${reactionActor}removed a reaction from "${reactionTarget}"`;
         previewHTML = truncateMessage(escapeHtml(reactionText), 50);
+      } else if (latestActivity.type === 'status_change') {
+        previewHTML = truncateMessage(escapeHtml(getStatusChangeMessageText(latestActivity, contact)), 50);
       } else if (typeof latestActivity.amount === 'bigint') {
         // Latest item is a payment/transfer
         const amountStr = parseFloat(big2str(latestActivity.amount, 18)).toFixed(6);
@@ -4538,7 +4540,7 @@ class FriendModal {
     this.warningShown = false;
   }
 
-  async postUpdateTollRequired(address, friend) {
+  async postUpdateTollRequired(address, friend, previousRequired = undefined) {
     const feeBalanceStatus = await getFeeBalanceStatus();
     if (!feeBalanceStatus.success) {
       showFeeBalanceFailureToast(feeBalanceStatus.reason);
@@ -4561,6 +4563,9 @@ class FriendModal {
       timestamp: getTransactionTimestamp(),
       networkId: network.netid,
     };
+    if (typeof previousRequired === 'number' && [0, 1, 2].includes(previousRequired)) {
+      tx.previousRequired = previousRequired;
+    }
     const txid = await signObj(tx, myAccount.keys);
     const res = await injectTx(tx, txid);
     if (res?.result?.success !== true) {
@@ -4572,6 +4577,7 @@ class FriendModal {
       }
       return { result: { success: false, reason }, toastAlreadyShown: true };
     }
+    res.statusChangeTx = tx;
     return res;
   }
 
@@ -4586,6 +4592,10 @@ class FriendModal {
     const contact = myData.contacts[this.currentContactAddress];
     const selectedStatus = this.friendForm.querySelector('input[name="friendStatus"]:checked')?.value;
     const prevFriendStatus = Number(contact?.friend);
+    const previousRequired = Number.isInteger(Number(contact?.tollRequiredToReceive))
+      ? Number(contact.tollRequiredToReceive)
+      : friendStatusToRequired(prevFriendStatus);
+    let statusChangeTx = null;
 
     if (selectedStatus == null || Number(selectedStatus) === contact.friend) {
       console.log('No change in friend status or no status selected.');
@@ -4597,7 +4607,7 @@ class FriendModal {
     } else {
       try {
         // send transaction to update chat toll
-        const res = await this.postUpdateTollRequired(this.currentContactAddress, Number(selectedStatus));
+        const res = await this.postUpdateTollRequired(this.currentContactAddress, Number(selectedStatus), previousRequired);
         if (res?.result?.success !== true) {
           console.log(
             `[handleFriendSubmit] update_toll_required transaction failed: ${res?.result?.reason}. Did not update contact status.`
@@ -4608,6 +4618,7 @@ class FriendModal {
           }
           return;
         }
+        statusChangeTx = res.statusChangeTx || null;
       } catch (error) {
         console.error('Error sending transaction to update chat toll:', error);
         showToast('Failed to update friend status. Please try again.', 0, 'error');
@@ -4624,8 +4635,15 @@ class FriendModal {
     }
     // Update friend status based on selected value
     contact.friend = Number(selectedStatus);
+    contact.tollRequiredToReceive = friendStatusToRequired(contact.friend);
     if (contact.friend === 0 && prevFriendStatus !== 0) {
       await this.clearContactAvatar(contact);
+    }
+    if (statusChangeTx) {
+      applyStatusChangeTxToContact(statusChangeTx, contact, this.currentContactAddress);
+      if (chatModal.isActive() && chatModal.address === this.currentContactAddress) {
+        chatModal.appendChatModal();
+      }
     }
 
     this.lastChangeTimeStamp = Date.now();
@@ -4648,9 +4666,9 @@ class FriendModal {
 
     // Update the contact list
     await contactsScreen.updateContactsList();
-    // Only refresh chats list if the change enters or exits "blocked"
+    // Refresh chats if the visible preview changed, or if the change enters/exits "blocked".
     const nextFriendStatus = Number(selectedStatus);
-    if (prevFriendStatus === 0 || nextFriendStatus === 0) {
+    if (statusChangeTx || prevFriendStatus === 0 || nextFriendStatus === 0) {
       await chatsScreen.updateChatList();
     }
 
@@ -6658,6 +6676,70 @@ function syncChatTabNotificationBubble() {
   footer.chatButton.classList.toggle('has-notification', hasUnreadChats);
 }
 
+function friendStatusToRequired(friendStatus) {
+  const status = Number(friendStatus);
+  return status === 2 ? 0 : status === 0 ? 2 : 1;
+}
+
+function getRequiredStatusLabel(required) {
+  const value = Number(required);
+  if (value === 0) return 'Connection';
+  if (value === 2) return 'Blocked';
+  return 'Tolled';
+}
+
+function getStatusChangeMessageText(item, contact) {
+  const statusLabel = getRequiredStatusLabel(item.required);
+  const contactName = getContactDisplayName(contact);
+  if (item.my) {
+    return `You set ${contactName} as ${statusLabel}`;
+  }
+  return `${contactName} set you as ${statusLabel}`;
+}
+
+function buildStatusChangeMessageFromTx(tx) {
+  const actorAddress = normalizeAddress(tx.from);
+  const currentUserAddress = normalizeAddress(myAccount.keys.address);
+  const changedByMe = actorAddress === currentUserAddress;
+
+  return {
+    type: 'status_change',
+    txid: getTxid(tx),
+    timestamp: Number(tx.timestamp),
+    my: changedByMe,
+    from: actorAddress,
+    to: normalizeAddress(tx.to),
+    previousRequired: typeof tx.previousRequired === 'number' ? tx.previousRequired : undefined,
+    required: Number(tx.required)
+  };
+}
+
+function applyStatusChangeTxToContact(tx, contact, contactAddress) {
+  if (!contact || !Array.isArray(contact.messages)) {
+    return false;
+  }
+  if (![0, 1, 2].includes(Number(tx.required))) {
+    return false;
+  }
+
+  const txid = getTxid(tx);
+  if (contact.messages.some((message) => message.txid === txid)) {
+    return false;
+  }
+
+  const statusChangeMessage = buildStatusChangeMessageFromTx(tx);
+  insertSorted(contact.messages, statusChangeMessage, 'timestamp');
+
+  if (statusChangeMessage.my) {
+    contact.tollRequiredToReceive = statusChangeMessage.required;
+  } else {
+    contact.tollRequiredToSend = statusChangeMessage.required;
+  }
+
+  syncChatLatestActivityTimestamp(contactAddress, contact);
+  return true;
+}
+
 // Actually payments also appear in the chats, so we can add these to
 async function processChats(chats, keys) {
   let newTimestamp = 0;
@@ -6690,6 +6772,7 @@ async function processChats(chats, keys) {
       const pendingReactionControls = [];
       let didApplyPendingReaction = false;
       let didChangeReactionPreview = false;
+      let didApplyStatusChange = false;
       const touchedReactionTargetTxids = new Set();
 
       // This check determines if we're currently chatting with the sender
@@ -6715,6 +6798,36 @@ async function processChats(chats, keys) {
             useTxTimestamp = true;
           }
         }
+        if (tx.type === 'update_toll_required') {
+          const txFrom = normalizeAddress(tx.from);
+          const txTo = normalizeAddress(tx.to);
+          if (txFrom !== currentUserAddress && txTo !== currentUserAddress) {
+            continue;
+          }
+          if (tx.chatId && tx.chatId !== chats[sender]) {
+            console.warn('Skipping status change with mismatched chatId', tx);
+            continue;
+          }
+
+          const statusContactAddress = txFrom === currentUserAddress ? txTo : txFrom;
+          if (!myData.contacts[statusContactAddress]) {
+            createNewContact(statusContactAddress, undefined, 1, false);
+          }
+          const statusContact = myData.contacts[statusContactAddress];
+
+          if (applyStatusChangeTxToContact(tx, statusContact, statusContactAddress)) {
+            didApplyStatusChange = true;
+            if (chatModal.isActive() && chatModal.address === statusContactAddress) {
+              chatModal.appendChatModal();
+              chatModal.updateTollAmountUI(statusContactAddress);
+            }
+            if (!mine && (!chatModal.isActive() || chatModal.address !== statusContactAddress || document.visibilityState === 'hidden')) {
+              playChatSound();
+            }
+          }
+          continue;
+        }
+
         if (tx.type == 'message') {
           // Handle messages without xmessage (same as transfer handling)
           // Ensure payload is always an object, even if xmessage is null/undefined
@@ -7349,6 +7462,10 @@ async function processChats(chats, keys) {
       }
 
       if (didChangeReactionPreview && chatsScreen.isActive() && !inActiveChatWithSender) {
+        chatsScreen.updateChatList();
+      }
+
+      if (didApplyStatusChange && chatsScreen.isActive()) {
         chatsScreen.updateChatList();
       }
 
@@ -15267,6 +15384,9 @@ class ChatModal {
 
     // Find the last relevant message
     const lastChatMessage = contact.messages.find((message) => {
+      if (message.type === 'status_change') {
+        return false;
+      }
       // Skip payment-only messages
       if (message.amount) {
         return false;
@@ -16021,6 +16141,15 @@ class ChatModal {
     // Add txid attribute if available
     const txidAttribute = item.txid ? `data-txid="${item.txid}"` : '';
     const statusAttribute = item.status ? `data-status="${item.status}"` : '';
+
+    if (item.type === 'status_change') {
+      return `
+          <div class="message status-change" ${timestampAttribute} ${txidAttribute}>
+            <div class="status-change-content">${escapeHtml(getStatusChangeMessageText(item, contact))}</div>
+            <div class="status-change-time">${timeString}</div>
+          </div>
+        `;
+    }
 
     // Check if it's a payment based on the presence of the amount property (BigInt)
     if (typeof item.amount === 'bigint') {
