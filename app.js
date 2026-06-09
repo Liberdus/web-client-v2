@@ -3718,9 +3718,9 @@ class SignInModal {
   }
 
   /**
-   * Normalize stored recent sign-in usernames against accounts on the active network.
+   * Normalize stored recent sign-in usernames against the supplied valid username set.
    * @param {string[]} storedUsernames Stored recent username values.
-   * @param {Set<string>} availableUsernameSet Usernames still available for the active network.
+   * @param {Set<string>} availableUsernameSet Usernames that should remain in the recent order.
    * @returns {string[]} Clean recent username list.
    */
   normalizeRecentSignInUsernameList(storedUsernames, availableUsernameSet) {
