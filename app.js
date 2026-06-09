@@ -10521,6 +10521,7 @@ class RemoveAccountsModal {
       // remove from registry if present
       if (accountsObj.netids[netid] && accountsObj.netids[netid].usernames && accountsObj.netids[netid].usernames[username]) {
         delete accountsObj.netids[netid].usernames[username];
+        removeAccountModal.removeSignInUsernameOrder(accountsObj.netids[netid], username);
       }
     });
     localStorage.setItem('accounts', stringify(accountsObj));
