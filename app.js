@@ -3594,6 +3594,8 @@ const SIGN_IN_ACTION_SHEETS = {
     showRemove: false,
   },
 };
+const SIGN_IN_RECENT_USERNAME_KEY = 'recentSignInUsernames';
+const SIGN_IN_USERNAME_PROMOTION_RATIO = 0.5;
 
 class SignInModal {
   constructor() {
@@ -3710,6 +3712,90 @@ class SignInModal {
     return { usernames, netidAccounts: netidAccounts || { usernames: {} } };
   }
 
+  normalizeRecentSignInUsernameList(usernames, availableUsernameSet = null) {
+    if (!Array.isArray(usernames)) {
+      return [];
+    }
+
+    const normalizedUsernames = [];
+    const seen = new Set();
+    for (const entry of usernames) {
+      const username = typeof entry === 'string' ? entry.trim() : '';
+      if (!username || seen.has(username)) {
+        continue;
+      }
+      if (availableUsernameSet && !availableUsernameSet.has(username)) {
+        continue;
+      }
+      seen.add(username);
+      normalizedUsernames.push(username);
+    }
+
+    return normalizedUsernames;
+  }
+
+  getRecentSignInUsernames(usernames, netidAccounts) {
+    const rankedUsernames = [];
+    const seen = new Set();
+    const availableUsernameSet = new Set(usernames);
+    const addUsername = (username) => {
+      if (!username || seen.has(username) || !availableUsernameSet.has(username)) {
+        return;
+      }
+      seen.add(username);
+      rankedUsernames.push(username);
+    };
+
+    this.normalizeRecentSignInUsernameList(
+      netidAccounts?.[SIGN_IN_RECENT_USERNAME_KEY],
+      availableUsernameSet
+    ).forEach(addUsername);
+    usernames.forEach(addUsername);
+
+    return rankedUsernames;
+  }
+
+  promoteRecentSignInUsername(recentUsernames, selectedUsername) {
+    const username = typeof selectedUsername === 'string' ? selectedUsername.trim() : '';
+    if (!username) {
+      return this.normalizeRecentSignInUsernameList(recentUsernames);
+    }
+
+    const currentUsernames = this.normalizeRecentSignInUsernameList(recentUsernames);
+    const currentIndex = currentUsernames.indexOf(username);
+    const remainingUsernames = currentUsernames.filter((entry) => entry !== username);
+    const targetIndex = currentIndex === -1
+      ? currentUsernames.length
+      : Math.max(
+          0,
+          currentIndex - Math.max(1, Math.ceil((currentIndex + 1) * SIGN_IN_USERNAME_PROMOTION_RATIO))
+        );
+
+    remainingUsernames.splice(targetIndex, 0, username);
+    return remainingUsernames;
+  }
+
+  recordRecentSignInUsername(username) {
+    const selectedUsername = typeof username === 'string' ? username.trim() : '';
+    if (!selectedUsername) {
+      return;
+    }
+
+    const { netid } = network;
+    const accounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+    const netidAccounts = accounts.netids[netid];
+    if (!netidAccounts?.usernames?.[selectedUsername]) {
+      return;
+    }
+
+    const usernames = Object.keys(netidAccounts.usernames);
+    netidAccounts[SIGN_IN_RECENT_USERNAME_KEY] = this.promoteRecentSignInUsername(
+      this.getRecentSignInUsernames(usernames, netidAccounts),
+      selectedUsername
+    );
+    localStorage.setItem('accounts', stringify(accounts));
+  }
+
   /**
    * Render the account list with notification indicators and sort by notification status.
    * @returns {string[]} Usernames for the current network (registry order, not display order)
@@ -3719,14 +3805,14 @@ class SignInModal {
     const { netid } = network;
     const notifiedAddresses = reactNativeApp.isReactNativeWebView ? reactNativeApp.getNotificationAddresses() : [];
     const notifiedUsernameSet = new Set();
-    let sortedUsernames = usernames;
+    let sortedUsernames = this.getRecentSignInUsernames(usernames, netidAccounts);
 
     // If there are notified addresses, partition usernames (stable) so notified come first.
     if (notifiedAddresses.length > 0) {
       const normalizedNotifiedSet = new Set(notifiedAddresses.map((addr) => normalizeAddress(addr)));
       const notifiedUsernames = [];
       const otherUsernames = [];
-      for (const username of usernames) {
+      for (const username of sortedUsernames) {
         const address = netidAccounts.usernames[username].address;
         if (normalizedNotifiedSet.has(normalizeAddress(address))) {
           notifiedUsernames.push(username);
@@ -3842,6 +3928,7 @@ class SignInModal {
     assert(myData, `Account data missing for ${username}`);
     myAccount = myData.account;
     logsModal.log(`SignIn as ${username}_${netid}`)
+    this.recordRecentSignInUsername(username);
 
     // One-time migration: convert legacy friend status to connection
     if (migrateFriendStatusToConnection(myData)) {
