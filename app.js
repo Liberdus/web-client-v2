@@ -1078,13 +1078,40 @@ class WelcomeScreen {
   }
 
   async revealHydratedWelcome() {
+    await this.waitForBootSplashImages();
+
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       this.showHydratedWelcome();
       return;
     }
 
+    this.bootSplash.classList.add('is-ready');
     await this.waitForBootSplashPulse();
     await this.animateBootSplashToWelcome();
+  }
+
+  async waitForBootSplashImages() {
+    const splashLogo = this.bootSplash.querySelector('.boot-splash-logo');
+    const welcomeLogo = this.logoLink.querySelector('img');
+    assert(splashLogo, 'Boot splash logo is required');
+    assert(welcomeLogo, 'Welcome logo is required');
+
+    await Promise.all([
+      this.waitForImage(splashLogo),
+      this.waitForImage(welcomeLogo),
+    ]);
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  }
+
+  async waitForImage(image) {
+    if (!image.complete) {
+      await new Promise((resolve) => image.addEventListener('load', resolve, { once: true }));
+    }
+    assert(image.naturalWidth > 0, 'Boot splash image is required');
+
+    if (image.decode) {
+      await image.decode();
+    }
   }
 
   waitForBootSplashPulse() {

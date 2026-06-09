@@ -407,6 +407,9 @@ body {
   background: var(--primary-tint-12);
   opacity: 0;
   transform: translate(-50%, -50%) scale(0.74);
+}
+
+.boot-splash.is-ready .boot-splash-halo {
   animation: boot-splash-halo 1.35s ease-in-out both;
 }
 
@@ -436,7 +439,12 @@ body {
 }
 
 .boot-splash-title-text {
+  opacity: 0;
   will-change: transform;
+}
+
+.boot-splash.is-ready .boot-splash-title-text {
+  animation: boot-splash-title 1.35s ease-in-out both;
 }
 
 .boot-splash.is-handoff .boot-splash-halo {
@@ -459,6 +467,18 @@ body {
   50% {
     opacity: 0.8;
     transform: translate(-50%, -50%) scale(1.08);
+  }
+}
+
+@keyframes boot-splash-title {
+  0%,
+  35% {
+    opacity: 0;
+  }
+
+  50%,
+  100% {
+    opacity: 1;
   }
 }
 
