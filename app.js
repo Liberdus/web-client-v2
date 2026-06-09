@@ -3718,28 +3718,22 @@ class SignInModal {
   }
 
   /**
-   * Normalize recent sign-in usernames, de-duping entries and optionally dropping stale accounts.
-   * @param {Array} usernames Stored recent username values.
-   * @param {Set<string>|null} [availableUsernameSet=null] Usernames still available for the active network.
+   * Normalize stored recent sign-in usernames against accounts on the active network.
+   * @param {string[]} storedUsernames Stored recent username values.
+   * @param {Set<string>} availableUsernameSet Usernames still available for the active network.
    * @returns {string[]} Clean recent username list.
    */
-  normalizeRecentSignInUsernameList(usernames, availableUsernameSet = null) {
-    if (!Array.isArray(usernames)) {
-      return [];
-    }
+  normalizeRecentSignInUsernameList(storedUsernames, availableUsernameSet) {
+    assert(Array.isArray(storedUsernames), 'Recent sign-in usernames must be an array');
 
     const normalizedUsernames = [];
     const seen = new Set();
-    for (const entry of usernames) {
-      const username = typeof entry === 'string' ? entry.trim() : '';
-      if (!username || seen.has(username)) {
-        continue;
+    for (const username of storedUsernames) {
+      assert(typeof username === 'string' && username, 'Recent sign-in username must be a string');
+      if (!seen.has(username) && availableUsernameSet.has(username)) {
+        seen.add(username);
+        normalizedUsernames.push(username);
       }
-      if (availableUsernameSet && !availableUsernameSet.has(username)) {
-        continue;
-      }
-      seen.add(username);
-      normalizedUsernames.push(username);
     }
 
     return normalizedUsernames;
@@ -3752,24 +3746,19 @@ class SignInModal {
    * @returns {string[]} Usernames ordered by recent sign-in preference.
    */
   getRecentSignInUsernames(usernames, netidAccounts) {
-    const rankedUsernames = [];
-    const seen = new Set();
+    const hasStoredUsernames = Object.prototype.hasOwnProperty.call(
+      netidAccounts,
+      SIGN_IN_RECENT_USERNAME_KEY
+    );
+    const storedUsernames = hasStoredUsernames ? netidAccounts[SIGN_IN_RECENT_USERNAME_KEY] : [];
     const availableUsernameSet = new Set(usernames);
-    const addUsername = (username) => {
-      if (!username || seen.has(username) || !availableUsernameSet.has(username)) {
-        return;
-      }
-      seen.add(username);
-      rankedUsernames.push(username);
-    };
+    const recentUsernames = this.normalizeRecentSignInUsernameList(storedUsernames, availableUsernameSet);
+    const recentUsernameSet = new Set(recentUsernames);
 
-    this.normalizeRecentSignInUsernameList(
-      netidAccounts?.[SIGN_IN_RECENT_USERNAME_KEY],
-      availableUsernameSet
-    ).forEach(addUsername);
-    usernames.forEach(addUsername);
-
-    return rankedUsernames;
+    return [
+      ...recentUsernames,
+      ...usernames.filter((username) => !recentUsernameSet.has(username)),
+    ];
   }
 
   /**
@@ -3779,23 +3768,18 @@ class SignInModal {
    * @returns {string[]} Updated recent sign-in username order.
    */
   promoteRecentSignInUsername(recentUsernames, selectedUsername) {
-    const username = typeof selectedUsername === 'string' ? selectedUsername.trim() : '';
-    if (!username) {
-      return this.normalizeRecentSignInUsernameList(recentUsernames);
-    }
+    const currentIndex = recentUsernames.indexOf(selectedUsername);
+    assert(currentIndex !== -1, `Recent sign-in list missing ${selectedUsername}`);
 
-    const currentUsernames = this.normalizeRecentSignInUsernameList(recentUsernames);
-    const currentIndex = currentUsernames.indexOf(username);
-    const remainingUsernames = currentUsernames.filter((entry) => entry !== username);
-    const targetIndex = currentIndex === -1
-      ? currentUsernames.length
-      : Math.max(
-          0,
-          currentIndex - Math.max(1, Math.ceil((currentIndex + 1) * SIGN_IN_USERNAME_PROMOTION_RATIO))
-        );
+    const promotionDistance = Math.max(
+      1,
+      Math.ceil((currentIndex + 1) * SIGN_IN_USERNAME_PROMOTION_RATIO)
+    );
+    const targetIndex = Math.max(0, currentIndex - promotionDistance);
+    const promotedUsernames = recentUsernames.filter((username) => username !== selectedUsername);
 
-    remainingUsernames.splice(targetIndex, 0, username);
-    return remainingUsernames;
+    promotedUsernames.splice(targetIndex, 0, selectedUsername);
+    return promotedUsernames;
   }
 
   /**
@@ -3804,51 +3788,48 @@ class SignInModal {
    * @returns {void}
    */
   recordRecentSignInUsername(username) {
-    const selectedUsername = typeof username === 'string' ? username.trim() : '';
-    if (!selectedUsername) {
-      return;
-    }
-
     const { netid } = network;
     const accounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
     const netidAccounts = accounts.netids[netid];
-    if (!netidAccounts?.usernames?.[selectedUsername]) {
-      return;
-    }
+    assert(netidAccounts?.usernames?.[username], `Account registry missing ${username}`);
 
     const usernames = Object.keys(netidAccounts.usernames);
+    const rankedUsernames = this.getRecentSignInUsernames(usernames, netidAccounts);
     netidAccounts[SIGN_IN_RECENT_USERNAME_KEY] = this.promoteRecentSignInUsername(
-      this.getRecentSignInUsernames(usernames, netidAccounts),
-      selectedUsername
+      rankedUsernames,
+      username
     );
     localStorage.setItem('accounts', stringify(accounts));
   }
 
+  /**
+   * Check whether the active network has a custom sign-in username order.
+   * @returns {boolean} True when recent sign-in order is stored.
+   */
   hasRecentSignInUsernameOverrides() {
-    const { netid } = network;
-    const accounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-    return Object.prototype.hasOwnProperty.call(
-      accounts.netids[netid] || {},
-      SIGN_IN_RECENT_USERNAME_KEY
-    );
+    const { netidAccounts } = this.getSignInUsernames();
+    return Object.prototype.hasOwnProperty.call(netidAccounts, SIGN_IN_RECENT_USERNAME_KEY);
   }
 
+  /**
+   * Update reset button visibility from the active network account registry.
+   * @returns {void}
+   */
   updateRecentSignInResetButtonVisibility() {
-    if (!this.resetRecentUsernamesButton) {
-      return;
-    }
-
     this.resetRecentUsernamesButton.hidden = !this.hasRecentSignInUsernameOverrides();
   }
 
+  /**
+   * Reset the active network sign-in username order back to registry order.
+   * @returns {void}
+   */
   handleResetRecentSignInUsernames() {
     const { netid } = network;
     const accounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
     const netidAccounts = accounts.netids[netid];
+    assert(netidAccounts, 'Active network account registry is missing');
 
-    if (!Object.prototype.hasOwnProperty.call(netidAccounts || {}, SIGN_IN_RECENT_USERNAME_KEY)) {
-      showToast('Sign-in order is already reset', 2000, 'info');
-      this.updateRecentSignInResetButtonVisibility();
+    if (!Object.prototype.hasOwnProperty.call(netidAccounts, SIGN_IN_RECENT_USERNAME_KEY)) {
       return;
     }
 

@@ -3174,7 +3174,7 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   accent-color: var(--primary-color, #007bff);
 }
 
-/* Sign In Modal account list */
+/* Sign In Modal */
 #signInModal .modal-title {
   padding: 0 76px;
 }
