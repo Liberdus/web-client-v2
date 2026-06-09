@@ -397,8 +397,7 @@ body {
   background-color: var(--background-color);
 }
 
-.boot-splash::before {
-  content: "";
+.boot-splash-halo {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -406,8 +405,9 @@ body {
   height: 318px;
   border-radius: 50%;
   background: var(--primary-tint-12);
-  transform: translate(-50%, -50%) scale(0.84);
-  animation: boot-splash-halo 1.35s ease-in-out infinite;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.74);
+  animation: boot-splash-halo 1.35s ease-in-out both;
 }
 
 .boot-splash-logo {
@@ -439,7 +439,7 @@ body {
   will-change: transform;
 }
 
-.boot-splash.is-handoff::before {
+.boot-splash.is-handoff .boot-splash-halo {
   opacity: 0;
   animation: none;
 }
@@ -452,8 +452,8 @@ body {
 @keyframes boot-splash-halo {
   0%,
   100% {
-    opacity: 0.35;
-    transform: translate(-50%, -50%) scale(0.84);
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.74);
   }
 
   50% {

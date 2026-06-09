@@ -1,9 +1,7 @@
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MM.DD.HH.mm like 2025.01.25.10.05
 const version = 't'; // Also increment this when you increment version.html
-const BOOT_SPLASH_MIN_MS = 3000;
-const BOOT_SPLASH_HANDOFF_MS = 520;
-const bootSplashStartedAt = performance.now();
+const BOOT_SPLASH_HANDOFF_MS = 1000;
 let myVersion = '0';
 async function checkVersion() {
   // Use network-specific version key to avoid false update alerts when switching networks
@@ -1079,11 +1077,29 @@ class WelcomeScreen {
     this.revealHydratedWelcome();
   }
 
-  revealHydratedWelcome() {
-    const elapsedMs = performance.now() - bootSplashStartedAt;
-    const revealDelayMs = Math.max(0, BOOT_SPLASH_MIN_MS - elapsedMs);
+  async revealHydratedWelcome() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      this.showHydratedWelcome();
+      return;
+    }
 
-    setTimeout(() => this.animateBootSplashToWelcome(), revealDelayMs);
+    await this.waitForBootSplashPulse();
+    await this.animateBootSplashToWelcome();
+  }
+
+  waitForBootSplashPulse() {
+    const halo = this.bootSplash.querySelector('.boot-splash-halo');
+    assert(halo, 'Boot splash halo is required');
+    const [animation] = halo.getAnimations();
+    assert(animation, 'Boot splash halo animation is required');
+    assert(animation.effect, 'Boot splash halo animation effect is required');
+
+    const pulseDurationMs = animation.effect.getComputedTiming().duration;
+    assert(Number.isFinite(pulseDurationMs) && pulseDurationMs > 0, 'Boot splash halo duration is required');
+    return Promise.race([
+      animation.finished,
+      new Promise((resolve) => setTimeout(resolve, pulseDurationMs + 100)),
+    ]);
   }
 
   async animateBootSplashToWelcome() {
@@ -1095,11 +1111,6 @@ class WelcomeScreen {
     assert(splashTitle, 'Boot splash title is required');
     assert(welcomeLogo, 'Welcome logo is required');
     assert(welcomeTitle, 'Welcome title is required');
-
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      this.showHydratedWelcome();
-      return;
-    }
 
     await new Promise((resolve) => requestAnimationFrame(resolve));
     this.bootSplash.classList.add('is-handoff');
