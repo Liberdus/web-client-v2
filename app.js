@@ -2350,8 +2350,26 @@ class MenuModal {
     // Remove event listeners for beforeunload and visibilitychange
     window.removeEventListener('beforeunload', handleBeforeUnload);
 
+    // Save myData to localStorage if it exists
+    saveState();
+
+    // clear storage
+    clearMyData();
+
     // Lock the app
     unlockModal.lock();
+
+    if (isOnline) {
+      await reactNativeApp.handleNativeAppSubscribe();
+      await checkVersion();
+
+      // checkVersion() may update online status
+      if (isOnline) {
+        const newUrl = window.location.href.split('?')[0];
+        window.location.replace(newUrl);
+        return;
+      }
+    }
 
     // Close all modals
     menuModal.close();
@@ -2377,27 +2395,6 @@ class MenuModal {
 
     // Show welcome screen
     welcomeScreen.open();
-
-
-    // Save myData to localStorage if it exists
-    saveState();
-
-    // clear storage
-    clearMyData();
-
-    // Add offline fallback
-    if (!isOnline) {
-      return;
-    }
-
-    await reactNativeApp.handleNativeAppSubscribe();
-    await checkVersion();
-
-    // checkVersion() may update online status
-    if (isOnline) {
-      const newUrl = window.location.href.split('?')[0];
-      window.location.replace(newUrl);
-    }
   }
 }
 
