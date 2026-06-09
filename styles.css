@@ -385,6 +385,103 @@ body {
   touch-action: none; /* Prevent touch scroll gestures on document */
 }
 
+.boot-splash {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background-color: var(--background-color);
+}
+
+.boot-splash-halo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 318px;
+  height: 318px;
+  border-radius: 50%;
+  background: var(--primary-tint-12);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.74);
+}
+
+.boot-splash.is-ready .boot-splash-halo {
+  animation: boot-splash-halo 1.35s ease-in-out both;
+}
+
+.boot-splash-logo {
+  position: relative;
+  z-index: 1;
+  width: 250px;
+  height: 250px;
+  object-fit: contain;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.boot-splash-name {
+  position: absolute;
+  top: calc(50% + 155px);
+  left: 0;
+  right: 0;
+  z-index: 1;
+  margin-bottom: 0;
+}
+
+.boot-splash-title-text,
+#welcomeBrandTitle {
+  display: inline-block;
+  transform-origin: center;
+}
+
+.boot-splash-title-text {
+  opacity: 0;
+  will-change: transform;
+}
+
+.boot-splash.is-ready .boot-splash-title-text {
+  animation: boot-splash-title 1.35s ease-in-out both;
+}
+
+.boot-splash.is-handoff .boot-splash-halo {
+  opacity: 0;
+  animation: none;
+}
+
+.welcome-screen.is-booting {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+@keyframes boot-splash-halo {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.74);
+  }
+
+  50% {
+    opacity: 0.8;
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+}
+
+@keyframes boot-splash-title {
+  0%,
+  35% {
+    opacity: 0;
+  }
+
+  50%,
+  100% {
+    opacity: 1;
+  }
+}
+
 .welcome-screen {
   flex: 1;
   display: flex;

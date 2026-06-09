@@ -1,6 +1,7 @@
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MM.DD.HH.mm like 2025.01.25.10.05
 const version = 't'; // Also increment this when you increment version.html
+const BOOT_SPLASH_HANDOFF_MS = 1000;
 let myVersion = '0';
 async function checkVersion() {
   // Use network-specific version key to avoid false update alerts when switching networks
@@ -1030,6 +1031,8 @@ class WelcomeScreen {
 
   load() {
     this.screen = document.getElementById('welcomeScreen');
+    this.bootSplash = document.getElementById('bootSplash');
+    assert(this.bootSplash, 'Boot splash is required');
     this.signInButton = document.getElementById('signInButton');
     this.createAccountButton = document.getElementById('createAccountButton');
     this.openWelcomeMenuButton = document.getElementById('openWelcomeMenu');
@@ -1071,6 +1074,109 @@ class WelcomeScreen {
     });
 
     this.orderButtons();
+    this.revealHydratedWelcome();
+  }
+
+  async revealHydratedWelcome() {
+    await this.waitForBootSplashImages();
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      this.showHydratedWelcome();
+      return;
+    }
+
+    this.bootSplash.classList.add('is-ready');
+    await this.waitForBootSplashPulse();
+    await this.animateBootSplashToWelcome();
+  }
+
+  async waitForBootSplashImages() {
+    const splashLogo = this.bootSplash.querySelector('.boot-splash-logo');
+    const welcomeLogo = this.logoLink.querySelector('img');
+    assert(splashLogo, 'Boot splash logo is required');
+    assert(welcomeLogo, 'Welcome logo is required');
+
+    await Promise.all([
+      this.waitForImage(splashLogo),
+      this.waitForImage(welcomeLogo),
+    ]);
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  }
+
+  async waitForImage(image) {
+    if (!image.complete) {
+      await new Promise((resolve) => image.addEventListener('load', resolve, { once: true }));
+    }
+    assert(image.naturalWidth > 0, 'Boot splash image is required');
+
+    if (image.decode) {
+      await image.decode();
+    }
+  }
+
+  waitForBootSplashPulse() {
+    const halo = this.bootSplash.querySelector('.boot-splash-halo');
+    assert(halo, 'Boot splash halo is required');
+    const [animation] = halo.getAnimations();
+    assert(animation, 'Boot splash halo animation is required');
+    assert(animation.effect, 'Boot splash halo animation effect is required');
+
+    const pulseDurationMs = animation.effect.getComputedTiming().duration;
+    assert(Number.isFinite(pulseDurationMs) && pulseDurationMs > 0, 'Boot splash halo duration is required');
+    return Promise.race([
+      animation.finished,
+      new Promise((resolve) => setTimeout(resolve, pulseDurationMs + 100)),
+    ]);
+  }
+
+  async animateBootSplashToWelcome() {
+    const splashLogo = this.bootSplash.querySelector('.boot-splash-logo');
+    const splashTitle = document.getElementById('bootSplashBrandTitle');
+    const welcomeLogo = this.logoLink.querySelector('img');
+    const welcomeTitle = document.getElementById('welcomeBrandTitle');
+    assert(splashLogo, 'Boot splash logo is required');
+    assert(splashTitle, 'Boot splash title is required');
+    assert(welcomeLogo, 'Welcome logo is required');
+    assert(welcomeTitle, 'Welcome title is required');
+
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    this.bootSplash.classList.add('is-handoff');
+
+    await Promise.all([
+      this.createBootSplashHandoffAnimation(splashLogo, welcomeLogo).finished,
+      this.createBootSplashHandoffAnimation(splashTitle, welcomeTitle).finished,
+    ]);
+    this.showHydratedWelcome();
+  }
+
+  createBootSplashHandoffAnimation(sourceElement, targetElement) {
+    const sourceRect = sourceElement.getBoundingClientRect();
+    const targetRect = targetElement.getBoundingClientRect();
+    assert(sourceRect.width && sourceRect.height, 'Boot splash handoff source must be measurable');
+    assert(targetRect.width && targetRect.height, 'Boot splash handoff target must be measurable');
+
+    const sourceCenterX = sourceRect.left + sourceRect.width / 2;
+    const sourceCenterY = sourceRect.top + sourceRect.height / 2;
+    const targetCenterX = targetRect.left + targetRect.width / 2;
+    const targetCenterY = targetRect.top + targetRect.height / 2;
+    const translateX = targetCenterX - sourceCenterX;
+    const translateY = targetCenterY - sourceCenterY;
+    const scale = targetRect.width / sourceRect.width;
+    const transform = 'translate3d(' + translateX + 'px, ' + translateY + 'px, 0) scale(' + scale + ')';
+
+    return sourceElement.animate([
+      { transform: 'translate3d(0, 0, 0) scale(1)' },
+      { transform },
+    ], {
+      duration: BOOT_SPLASH_HANDOFF_MS,
+      easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+      fill: 'forwards',
+    });
+  }
+
+  showHydratedWelcome() {
+    this.screen.classList.remove('is-booting');
+    this.bootSplash.classList.add('hidden');
 
     // Show Apple Safari backup reminder toast after welcome screen has rendered
     setTimeout(() => {
@@ -1080,6 +1186,8 @@ class WelcomeScreen {
   }
 
   open() {
+    this.screen.classList.remove('is-booting');
+    this.bootSplash.classList.add('hidden');
     this.screen.style.display = 'flex';
     // Show the navigation bar on the native app
     reactNativeApp.sendNavigationBarVisibility(true);
@@ -2269,8 +2377,26 @@ class MenuModal {
     // Remove event listeners for beforeunload and visibilitychange
     window.removeEventListener('beforeunload', handleBeforeUnload);
 
+    // Save myData to localStorage if it exists
+    saveState();
+
+    // clear storage
+    clearMyData();
+
     // Lock the app
     unlockModal.lock();
+
+    if (isOnline) {
+      await reactNativeApp.handleNativeAppSubscribe();
+      await checkVersion();
+
+      // checkVersion() may update online status
+      if (isOnline) {
+        const newUrl = window.location.href.split('?')[0];
+        window.location.replace(newUrl);
+        return;
+      }
+    }
 
     // Close all modals
     menuModal.close();
@@ -2296,27 +2422,6 @@ class MenuModal {
 
     // Show welcome screen
     welcomeScreen.open();
-
-
-    // Save myData to localStorage if it exists
-    saveState();
-
-    // clear storage
-    clearMyData();
-
-    // Add offline fallback
-    if (!isOnline) {
-      return;
-    }
-
-    await reactNativeApp.handleNativeAppSubscribe();
-    await checkVersion();
-
-    // checkVersion() may update online status
-    if (isOnline) {
-      const newUrl = window.location.href.split('?')[0];
-      window.location.replace(newUrl);
-    }
   }
 }
 
