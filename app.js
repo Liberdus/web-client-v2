@@ -3752,13 +3752,10 @@ class SignInModal {
     const normalizedUsernames = [];
     const seen = new Set();
     for (const username of storedUsernames) {
-      if (typeof username !== 'string' || !username) {
-        continue;
-      }
-      if (!seen.has(username) && availableUsernameSet.has(username)) {
-        seen.add(username);
-        normalizedUsernames.push(username);
-      }
+      if (typeof username !== 'string' || !username) continue;
+      if (seen.has(username) || !availableUsernameSet.has(username)) continue;
+      seen.add(username);
+      normalizedUsernames.push(username);
     }
 
     return normalizedUsernames;
