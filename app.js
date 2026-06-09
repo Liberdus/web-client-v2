@@ -1,6 +1,8 @@
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MM.DD.HH.mm like 2025.01.25.10.05
 const version = 't'; // Also increment this when you increment version.html
+const BOOT_SPLASH_MIN_MS = 3000;
+const bootSplashStartedAt = performance.now();
 let myVersion = '0';
 async function checkVersion() {
   // Use network-specific version key to avoid false update alerts when switching networks
@@ -1030,6 +1032,7 @@ class WelcomeScreen {
 
   load() {
     this.screen = document.getElementById('welcomeScreen');
+    this.bootSplash = document.getElementById('bootSplash');
     this.signInButton = document.getElementById('signInButton');
     this.createAccountButton = document.getElementById('createAccountButton');
     this.openWelcomeMenuButton = document.getElementById('openWelcomeMenu');
@@ -1071,15 +1074,28 @@ class WelcomeScreen {
     });
 
     this.orderButtons();
+    this.revealHydratedWelcome();
+  }
 
-    // Show Apple Safari backup reminder toast after welcome screen has rendered
+  revealHydratedWelcome() {
+    const elapsedMs = performance.now() - bootSplashStartedAt;
+    const revealDelayMs = Math.max(0, BOOT_SPLASH_MIN_MS - elapsedMs);
+
     setTimeout(() => {
-      this.showAppleSafariBackupToast();
-      this.showGDriveBackupReminder();
-    }, 500);
+      this.screen.classList.remove('is-booting');
+      this.bootSplash?.classList.add('hidden');
+
+      // Show Apple Safari backup reminder toast after welcome screen has rendered
+      setTimeout(() => {
+        this.showAppleSafariBackupToast();
+        this.showGDriveBackupReminder();
+      }, 500);
+    }, revealDelayMs);
   }
 
   open() {
+    this.screen.classList.remove('is-booting');
+    this.bootSplash?.classList.add('hidden');
     this.screen.style.display = 'flex';
     // Show the navigation bar on the native app
     reactNativeApp.sendNavigationBarVisibility(true);

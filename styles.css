@@ -385,6 +385,65 @@ body {
   touch-action: none; /* Prevent touch scroll gestures on document */
 }
 
+.boot-splash {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background-color: var(--background-color);
+}
+
+.boot-splash-logo {
+  width: 132px;
+  height: 132px;
+  object-fit: contain;
+  animation: boot-splash-pulse 1.2s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.boot-splash-name {
+  position: absolute;
+  top: calc(50% + 86px);
+  left: 0;
+  right: 0;
+  color: var(--text-color);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  text-align: center;
+  animation: boot-splash-name-fade 1.2s ease-in-out infinite;
+}
+
+.welcome-screen.is-booting {
+  display: none;
+}
+
+@keyframes boot-splash-pulse {
+  0%,
+  100% {
+    opacity: 0.62;
+    transform: scale(0.94);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes boot-splash-name-fade {
+  0%,
+  100% {
+    opacity: 0.58;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
 .welcome-screen {
   flex: 1;
   display: flex;
