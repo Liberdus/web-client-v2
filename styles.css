@@ -3174,7 +3174,24 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   accent-color: var(--primary-color, #007bff);
 }
 
-/* Sign In Modal account list */
+/* Sign In Modal */
+#signInModal .modal-title {
+  padding: 0 76px;
+}
+
+#signInModal .sign-in-account-reset {
+  position: absolute;
+  right: 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-color);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
 #signInModal .sign-in-account-list {
   list-style: none;
   padding: 0;
