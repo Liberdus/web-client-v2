@@ -3773,8 +3773,8 @@ class SignInModal {
     const orderedUsernameSet = new Set(orderedUsernames);
 
     return [
-      ...orderedUsernames,
       ...usernames.filter((username) => !orderedUsernameSet.has(username)),
+      ...orderedUsernames,
     ];
   }
 
