@@ -3608,6 +3608,7 @@ class SignInModal {
   load () {
     this.modal = document.getElementById('signInModal');
     this.accountList = document.getElementById('signInAccountList');
+    this.resetRecentUsernamesButton = document.getElementById('resetSignInRecentUsernames');
     this.backButton = document.getElementById('closeSignInModal');
     this.actionSheetOverlay = document.getElementById('signInActionSheetOverlay');
     this.actionSheetTitle = document.getElementById('signInActionSheetTitle');
@@ -3615,7 +3616,10 @@ class SignInModal {
     this.actionRecreateButton = document.getElementById('signInActionRecreate');
     this.actionRemoveButton = document.getElementById('signInActionRemove');
     this.closeActionSheetButton = document.getElementById('closeSignInActionSheet');
-    assert(this.modal && this.accountList && this.actionSheetOverlay, 'SignInModal DOM is incomplete');
+    assert(
+      this.modal && this.accountList && this.resetRecentUsernamesButton && this.actionSheetOverlay,
+      'SignInModal DOM is incomplete'
+    );
 
     this.accountList.addEventListener('click', (event) => {
       const item = event.target.closest('.sign-in-account-item');
@@ -3629,6 +3633,7 @@ class SignInModal {
       if (event.target === this.actionSheetOverlay) this.closeActionSheet();
     });
     this.closeActionSheetButton.addEventListener('click', () => this.closeActionSheet());
+    this.resetRecentUsernamesButton.addEventListener('click', () => this.handleResetRecentSignInUsernames());
 
     const enableActionButtons = () => {
       this.actionRecreateButton.disabled = false;
@@ -3819,6 +3824,45 @@ class SignInModal {
     localStorage.setItem('accounts', stringify(accounts));
   }
 
+  hasRecentSignInUsernameOverrides() {
+    const { netid } = network;
+    const accounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+    return Object.prototype.hasOwnProperty.call(
+      accounts.netids[netid] || {},
+      SIGN_IN_RECENT_USERNAME_KEY
+    );
+  }
+
+  updateRecentSignInResetButtonVisibility() {
+    if (!this.resetRecentUsernamesButton) {
+      return;
+    }
+
+    this.resetRecentUsernamesButton.hidden = !this.hasRecentSignInUsernameOverrides();
+  }
+
+  handleResetRecentSignInUsernames() {
+    const { netid } = network;
+    const accounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+    const netidAccounts = accounts.netids[netid];
+
+    if (!Object.prototype.hasOwnProperty.call(netidAccounts || {}, SIGN_IN_RECENT_USERNAME_KEY)) {
+      showToast('Sign-in order is already reset', 2000, 'info');
+      this.updateRecentSignInResetButtonVisibility();
+      return;
+    }
+
+    const confirmed = confirm('Reset sign-in account order?');
+    if (!confirmed) {
+      return;
+    }
+
+    delete netidAccounts[SIGN_IN_RECENT_USERNAME_KEY];
+    localStorage.setItem('accounts', stringify(accounts));
+    this.renderAccountList();
+    showToast('Sign-in order reset', 2000, 'success');
+  }
+
   /**
    * Render the account list with notification indicators and sort by notification status.
    * @returns {string[]} Usernames for the current network (registry order, not display order)
@@ -3887,6 +3931,7 @@ class SignInModal {
       sections.push(...privateRemaining.map(renderListItem));
     }
     this.accountList.innerHTML = sections.join('');
+    this.updateRecentSignInResetButtonVisibility();
 
     return usernames;
   }
