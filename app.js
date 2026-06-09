@@ -3594,7 +3594,6 @@ const SIGN_IN_ACTION_SHEETS = {
     showRemove: false,
   },
 };
-const SIGN_IN_LEGACY_RECENT_USERNAME_KEY = 'recentSignInUsernames';
 const SIGN_IN_USERNAME_ORDER_KEY = 'signInUsernameOrder';
 const SIGN_IN_USERNAME_PROMOTION_RATIO = 0.5;
 
@@ -3789,24 +3788,11 @@ class SignInModal {
    * @returns {{ public: string[], private: string[] }} Ordered usernames split by type.
    */
   getSignInUsernameOrder(usernameGroups, netidAccounts) {
-    const hasStoredOrder = Object.prototype.hasOwnProperty.call(
-      netidAccounts,
-      SIGN_IN_USERNAME_ORDER_KEY
-    );
-    const storedOrder = hasStoredOrder ? netidAccounts[SIGN_IN_USERNAME_ORDER_KEY] || {} : {};
-    const legacyUsernames = !hasStoredOrder && Array.isArray(netidAccounts[SIGN_IN_LEGACY_RECENT_USERNAME_KEY])
-      ? netidAccounts[SIGN_IN_LEGACY_RECENT_USERNAME_KEY]
-      : [];
+    const storedOrder = netidAccounts[SIGN_IN_USERNAME_ORDER_KEY] || {};
 
     return {
-      public: this.getOrderedSignInUsernames(
-        usernameGroups.public,
-        hasStoredOrder ? storedOrder.public : legacyUsernames
-      ),
-      private: this.getOrderedSignInUsernames(
-        usernameGroups.private,
-        hasStoredOrder ? storedOrder.private : legacyUsernames
-      ),
+      public: this.getOrderedSignInUsernames(usernameGroups.public, storedOrder.public),
+      private: this.getOrderedSignInUsernames(usernameGroups.private, storedOrder.private),
     };
   }
 
@@ -3852,7 +3838,6 @@ class SignInModal {
       usernameOrder[usernameType] = this.promoteSignInUsername(usernameOrder[usernameType], username);
 
       netidAccounts[SIGN_IN_USERNAME_ORDER_KEY] = usernameOrder;
-      delete netidAccounts[SIGN_IN_LEGACY_RECENT_USERNAME_KEY];
       localStorage.setItem('accounts', stringify(accounts));
     } catch (error) {
       console.warn('Failed to update sign-in order:', error);
@@ -3865,10 +3850,7 @@ class SignInModal {
    */
   hasRecentSignInUsernameOverrides() {
     const { netidAccounts } = this.getSignInUsernames();
-    return (
-      Object.prototype.hasOwnProperty.call(netidAccounts, SIGN_IN_USERNAME_ORDER_KEY) ||
-      Object.prototype.hasOwnProperty.call(netidAccounts, SIGN_IN_LEGACY_RECENT_USERNAME_KEY)
-    );
+    return Object.prototype.hasOwnProperty.call(netidAccounts, SIGN_IN_USERNAME_ORDER_KEY);
   }
 
   /**
@@ -3899,7 +3881,6 @@ class SignInModal {
     }
 
     delete netidAccounts[SIGN_IN_USERNAME_ORDER_KEY];
-    delete netidAccounts[SIGN_IN_LEGACY_RECENT_USERNAME_KEY];
     localStorage.setItem('accounts', stringify(accounts));
     this.renderAccountList();
     showToast('Sign-in order reset', 2000, 'success');
