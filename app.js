@@ -3754,9 +3754,7 @@ class SignInModal {
       if (event.target === this.actionSheetOverlay) this.closeActionSheet();
     });
     this.closeActionSheetButton.addEventListener('click', () => this.closeActionSheet());
-    this.resetRecentUsernamesButton.addEventListener('click', () => {
-      this.handleResetRecentSignInUsernames();
-    });
+    this.resetRecentUsernamesButton.addEventListener('click', () => this.handleResetRecentSignInUsernames());
 
     const enableActionButtons = () => {
       this.actionRecreateButton.disabled = false;
