@@ -3768,7 +3768,8 @@ class SignInModal {
       () => {
         assert(this.selectedUsername, 'Sign-in action sheet requires selected account');
         this.setSigningInBusy(true);
-        return Promise.resolve(action(this.selectedUsername))
+        return Promise.resolve()
+          .then(() => action(this.selectedUsername))
           .finally(() => this.setSigningInBusy(false));
       }
     );
@@ -4275,13 +4276,15 @@ class SignInModal {
 
       return availability;
     } catch (error) {
-      if (this.isActive()) {
+      if (clickSeq === this.accountClickSeq && this.isActive()) {
         console.error('[SignInModal] Account sign-in check failed:', error);
         showToast('Unable to sign in right now. Please try again.', 5000, 'error');
       }
       return null;
     } finally {
-      this.setSigningInBusy(false);
+      if (clickSeq === this.accountClickSeq) {
+        this.setSigningInBusy(false);
+      }
     }
   }
 
