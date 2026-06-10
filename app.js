@@ -878,6 +878,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.addEventListener('visibilitychange', handleVisibilityChange); // Keep as document
 
+  // App-wide unload guard; handleBeforeUnload only acts when protected state exists.
+  window.addEventListener('beforeunload', handleBeforeUnload);
+
   // Add global keyboard listener for fullscreen toggling
   window.addEventListener('resize', () => setTimeout(handleKeyboardFullscreenToggle(), 300));
 
@@ -888,17 +891,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Add unload handler to save myData
 function handleBeforeUnload(e) {
-  reactNativeApp.handleNativeAppSubscribe();
   if (menuModal.isSignoutExit){
     return;
   }
   // Check if backup is in progress
   if (backupAccountModal.isUploading) {
+    reactNativeApp.handleNativeAppSubscribe();
     e.preventDefault();
     e.returnValue = 'A backup is currently being uploaded to Google Drive. Leaving the page will interrupt the backup. Are you sure you want to leave?';
     return e.returnValue;
   }
+  if (createAccountModal.isCreatingAccount) {
+    e.preventDefault();
+    e.returnValue = true;
+    return e.returnValue;
+  }
   if (myData){
+    reactNativeApp.handleNativeAppSubscribe();
     e.preventDefault();
     saveState();    // This save might not work if the amount of data to save is large and user quickly clicks on Leave button
   }
@@ -2373,9 +2382,6 @@ class MenuModal {
     if (typeof scanQRModal !== 'undefined' && scanQRModal.camera.scanInterval) {
       scanQRModal.stopCamera();
     }
-
-    // Remove event listeners for beforeunload and visibilitychange
-    window.removeEventListener('beforeunload', handleBeforeUnload);
 
     // Save myData to localStorage if it exists
     saveState();
@@ -4195,10 +4201,6 @@ class SignInModal {
     if (!getSystemNoticeIntervalId) {
       getSystemNoticeIntervalId = setInterval(getSystemNotice, 15000);
     }
-
-    // Register events that will saveState if the browser is closed without proper signOut
-    // Add beforeunload handler to save myData; don't use unload event, it is getting depricated
-    window.addEventListener('beforeunload', handleBeforeUnload);
 
     reactNativeApp.handleNativeAppUnsubscribe();
     reactNativeApp.sendNavigationBarVisibility(false);
@@ -24737,6 +24739,7 @@ const newChatModal = new NewChatModal();
 class CreateAccountModal {
   constructor() {
     this.checkTimeout = null;
+    this.isCreatingAccount = false;
   }
 
   load() {
@@ -24861,6 +24864,14 @@ class CreateAccountModal {
    */
   isActive() {
     return this.modal?.classList.contains('active') || false;
+  }
+
+  startAccountCreationUnloadWarning() {
+    this.isCreatingAccount = true;
+  }
+
+  stopAccountCreationUnloadWarning() {
+    this.isCreatingAccount = false;
   }
 
   handleUsernameInput(e) {
@@ -25014,6 +25025,8 @@ class CreateAccountModal {
       this.privateKeyError.style.display = 'none'; // Ensure hidden if generated
     }
 
+    this.startAccountCreationUnloadWarning();
+
     // Generate uncompressed public key
     const publicKey = getPublicKey(privateKey);
     const publicKeyHex = bin2hex(publicKey);
@@ -25036,6 +25049,7 @@ class CreateAccountModal {
           this.privateKeyError.textContent = 'An account already exists for this private key.';
           this.privateKeyError.style.color = '#dc3545';
           this.privateKeyError.style.display = 'inline';
+          this.stopAccountCreationUnloadWarning();
           return; // Stop the account creation process
         } else {
           this.privateKeyError.style.display = 'none';
@@ -25045,6 +25059,7 @@ class CreateAccountModal {
         this.privateKeyError.textContent = 'Network error checking key. Please try again.';
         this.privateKeyError.style.color = '#dc3545';
         this.privateKeyError.style.display = 'inline';
+        this.stopAccountCreationUnloadWarning();
         return; // Stop process on error
       }
     }
@@ -25083,6 +25098,7 @@ class CreateAccountModal {
       if (waitingToastId) hideToast(waitingToastId);
       showToast(`Failed to fetch network parameters, try again later.`, 0, 'error');
       console.error('Failed to fetch network parameters, using defaults:', error);
+      this.stopAccountCreationUnloadWarning();
       return;
     }
 
@@ -25114,6 +25130,7 @@ class CreateAccountModal {
         existingAccounts.netids[netid].usernames[username] = { address: myAccount.keys.address };
         localStorage.setItem('accounts', stringify(existingAccounts));
         saveState();
+        this.stopAccountCreationUnloadWarning();
 
         // Refresh wallet balance immediately after account creation for fee-dependent screens.
         try {
@@ -25138,6 +25155,7 @@ class CreateAccountModal {
         }
 
         clearMyData();
+        this.stopAccountCreationUnloadWarning();
 
         // Note: `checkPendingTransactions` will also remove the item from `myData.pending` if it's rejected by the service.
         return;
@@ -25157,6 +25175,7 @@ class CreateAccountModal {
       }
 
       clearMyData();
+      this.stopAccountCreationUnloadWarning();
 
       // no toast here since injectTx will show it
       return;
