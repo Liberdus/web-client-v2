@@ -3289,6 +3289,12 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   cursor: pointer;
 }
 
+#signInModal .sign-in-account-reset:disabled,
+#signInModal .back-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 #signInModal .sign-in-account-list {
   list-style: none;
   padding: 0;
@@ -3296,6 +3302,15 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+#signInModal .sign-in-account-list.is-disabled {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+#signInModal .sign-in-account-list.is-disabled .sign-in-account-item {
+  cursor: default;
 }
 
 #signInModal .sign-in-account-item {
