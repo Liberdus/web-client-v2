@@ -3289,6 +3289,11 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   cursor: pointer;
 }
 
+#signInModal .sign-in-account-reset:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 #signInModal .sign-in-account-list {
   list-style: none;
   padding: 0;
