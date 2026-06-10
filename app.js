@@ -3711,31 +3711,20 @@ class SignInModal {
     this.accountClickSeq = 0;
   }
 
-  setSigningInBusy(isBusy, toastMessage = 'Signing in...') {
-    if (this.accountList) {
-      this.accountList.classList.toggle('is-disabled', isBusy);
-    }
-
-    if (this.actionRecreateButton) {
-      this.actionRecreateButton.disabled = isBusy;
-    }
-
-    if (this.actionRemoveButton) {
-      this.actionRemoveButton.disabled = isBusy;
-    }
-
-    if (this.resetRecentUsernamesButton) {
-      this.resetRecentUsernamesButton.disabled = isBusy;
-    }
+  setSigningInBusy(isBusy) {
+    [this.actionRecreateButton, this.actionRemoveButton, this.resetRecentUsernamesButton]
+      .forEach((button) => {
+        if (button) button.disabled = isBusy;
+      });
+    this.accountList?.classList.toggle('is-disabled', isBusy);
+    this.isSigningIn = isBusy;
 
     if (isBusy && !this.signInLoadingToastId) {
-      this.signInLoadingToastId = showToast(toastMessage, 0, 'loading');
+      this.signInLoadingToastId = showToast('Signing in...', 0, 'loading');
     } else if (!isBusy && this.signInLoadingToastId) {
       hideToast(this.signInLoadingToastId);
       this.signInLoadingToastId = null;
     }
-
-    this.isSigningIn = isBusy;
   }
 
   load () {
@@ -3767,7 +3756,6 @@ class SignInModal {
     });
     this.closeActionSheetButton.addEventListener('click', () => this.closeActionSheet());
     this.resetRecentUsernamesButton.addEventListener('click', () => {
-      if (this.isSigningIn) return;
       this.handleResetRecentSignInUsernames();
     });
 
@@ -3781,11 +3769,9 @@ class SignInModal {
       enableActionButtons,
       () => {
         assert(this.selectedUsername, 'Sign-in action sheet requires selected account');
-        this.setSigningInBusy(true, 'Applying sign-in option...');
+        this.setSigningInBusy(true);
         return Promise.resolve(action(this.selectedUsername))
-          .finally(() => {
-            this.setSigningInBusy(false);
-          });
+          .finally(() => this.setSigningInBusy(false));
       }
     );
     this.actionRecreateButton.addEventListener('click', runSheetAction((username) => this.openRecreateFlow(username)));
@@ -4249,13 +4235,13 @@ class SignInModal {
       return null;
     }
 
-    this.setSigningInBusy(true, 'Signing in...');
-    let availability = null;
+    this.setSigningInBusy(true);
+
 
     try {
       this.selectedUsername = username;
       const address = netidAccounts.usernames[username].address;
-      availability = await checkUsernameAvailability(username, address);
+      let availability = await checkUsernameAvailability(username, address);
       // Retry when network says 'available' but local account data still exists (propagation delay).
       if (availability === 'available' && localStorage.getItem(`${username}_${netid}`)) {
         for (let attempt = 2; attempt <= 3 && availability === 'available'; attempt++) {
