@@ -3293,6 +3293,11 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   opacity: 0.5;
 }
 
+#signInModal .back-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 #signInModal .sign-in-account-list {
   list-style: none;
   padding: 0;
