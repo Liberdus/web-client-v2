@@ -3708,6 +3708,7 @@ class SignInModal {
     this.selectedUsername = null;
     this.isSigningIn = false;
     this.signInLoadingToastId = null;
+    this.accountClickSeq = 0;
   }
 
   setSigningInBusy(isBusy) {
@@ -4114,6 +4115,7 @@ class SignInModal {
   }
 
   close() {
+    this.accountClickSeq++;
     this.selectedUsername = null;
     this.setSigningInBusy(false);
     this.preselectedUsername = null;
@@ -4221,6 +4223,7 @@ class SignInModal {
    * @returns {Promise<string|null>} Availability result from checkUsernameAvailability
    */
   async handleAccountClick(username) {
+    const clickSeq = ++this.accountClickSeq;
     this.closeActionSheet();
 
     const { netid } = network;
@@ -4247,8 +4250,8 @@ class SignInModal {
           logsModal.log(`[SignInModal] After 3 attempts username '${username}' still reported as available.`);
         }
       }
-      // Ignore results if the modal closed while we were waiting.
-      if (!this.isActive()) return null;
+      // Ignore stale results if the user tapped a different account or closed the modal while we were waiting.
+      if (clickSeq !== this.accountClickSeq || !this.isActive()) return null;
 
       switch (availability) {
         case 'mine':
