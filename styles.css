@@ -3289,10 +3289,7 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   cursor: pointer;
 }
 
-#signInModal .sign-in-account-reset:disabled {
-  opacity: 0.5;
-}
-
+#signInModal .sign-in-account-reset:disabled,
 #signInModal .back-button:disabled {
   opacity: 0.5;
   cursor: default;
@@ -3312,8 +3309,7 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   opacity: 0.7;
 }
 
-#signInModal .sign-in-account-list.is-disabled .sign-in-account-item,
-#signInModal .sign-in-account-reset:disabled {
+#signInModal .sign-in-account-list.is-disabled .sign-in-account-item {
   cursor: default;
 }
 

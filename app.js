@@ -3707,7 +3707,7 @@ class SignInModal {
     this.preselectedUsername = null;
     this.selectedUsername = null;
     this.isSigningIn = false;
-    this.isSignInCommitted = false;
+    this.isCompletingSignIn = false;
     this.signInLoadingToastId = null;
     this.accountClickSeq = 0;
   }
@@ -3726,6 +3726,11 @@ class SignInModal {
       hideToast(this.signInLoadingToastId);
       this.signInLoadingToastId = null;
     }
+  }
+
+  setCompletingSignIn(isCompleting) {
+    this.isCompletingSignIn = isCompleting;
+    if (this.backButton) this.backButton.disabled = isCompleting;
   }
 
   load () {
@@ -3778,7 +3783,7 @@ class SignInModal {
     this.actionRemoveButton.addEventListener('click', runSheetAction((username) => removeAccountModal.removeAccount(username)));
 
     this.backButton.addEventListener('click', () => {
-      if (this.isSignInCommitted) return;
+      if (this.isCompletingSignIn) return;
       if (this.actionSheetOverlay.classList.contains('active')) {
         this.closeActionSheet();
         return;
@@ -4086,6 +4091,7 @@ class SignInModal {
   async open(preselectedUsername) {
     this.preselectedUsername = preselectedUsername;
     this.selectedUsername = null;
+    this.setCompletingSignIn(false);
     this.setSigningInBusy(false);
     this.closeActionSheet();
 
@@ -4106,7 +4112,16 @@ class SignInModal {
       // Auto-select after account creation; network may not have propagated yet.
       if (preselectedUsername && usernames.includes(preselectedUsername)) {
         const availability = await this.handleAccountClick(preselectedUsername);
-        if (availability === 'available') await this.handleSignIn();
+        if (availability === 'available') {
+          this.setSigningInBusy(true);
+          this.setCompletingSignIn(true);
+          try {
+            await this.handleSignIn();
+          } finally {
+            this.setCompletingSignIn(false);
+            this.setSigningInBusy(false);
+          }
+        }
         return;
       }
 
@@ -4120,6 +4135,7 @@ class SignInModal {
   close() {
     this.accountClickSeq++;
     this.selectedUsername = null;
+    this.setCompletingSignIn(false);
     this.setSigningInBusy(false);
     this.preselectedUsername = null;
     this.closeActionSheet();
@@ -4131,101 +4147,93 @@ class SignInModal {
     const username = this.selectedUsername;
     assert(username, 'Sign-in requires selected account');
 
-    // Sign-in is committed past this point; Back must not close the modal mid-flight.
-    this.isSignInCommitted = true;
-    this.backButton.disabled = true;
-    try {
-      history.pushState({state:1}, "", ".")
-      window.addEventListener('popstate', handleBrowserBackButton);
-      enterFullscreen();
+    history.pushState({state:1}, "", ".")
+    window.addEventListener('popstate', handleBrowserBackButton);
+    enterFullscreen();
 
-      const { netid } = network;
-      const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-      assert(existingAccounts.netids[netid]?.usernames?.[username], `Account registry missing ${username}`);
+    const { netid } = network;
+    const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+    assert(existingAccounts.netids[netid]?.usernames?.[username], `Account registry missing ${username}`);
 
-      myData = loadState(`${username}_${netid}`);
-      assert(myData, `Account data missing for ${username}`);
-      myAccount = myData.account;
-      logsModal.log(`SignIn as ${username}_${netid}`)
-      this.recordRecentSignInUsername(username);
+    myData = loadState(`${username}_${netid}`);
+    assert(myData, `Account data missing for ${username}`);
+    myAccount = myData.account;
+    logsModal.log(`SignIn as ${username}_${netid}`)
+    this.recordRecentSignInUsername(username);
 
-      // One-time migration: convert legacy friend status to connection
-      if (migrateFriendStatusToConnection(myData)) {
-        saveState();
-      }
-
-
-      // One-time migration: extract attachment encryption keys to encKey field
-      if (await migrateAttachmentKeysToEncKey(myData)) {
-        saveState();
-      }
-
-      // One-time migration: split deleted state into local-only vs for-all
-      if (migrateDeletedMessageStates(myData)) {
-        saveState();
-      }
-
-      // Clear notification address for this account when signing in
-      // Notification storage is only for accounts the user is NOT signed in to
-      if (reactNativeApp.isReactNativeWebView && myAccount?.keys?.address) {
-        const addressToClear = myAccount.keys.address;
-        reactNativeApp.clearNotificationAddress(addressToClear);
-        reactNativeApp.sendClearNotifications(addressToClear);
-      }
-
-      /* requestNotificationPermission(); */
-      if (useLongPolling) {
-        setTimeout(longPoll, 10);
-      }
-      if (!checkPendingTransactionsIntervalId) {
-        checkPendingTransactionsIntervalId = setInterval(checkPendingTransactions, 5000);
-      }
-      if (!getSystemNoticeIntervalId) {
-        getSystemNoticeIntervalId = setInterval(getSystemNotice, 15000);
-      }
-
-      // Register events that will saveState if the browser is closed without proper signOut
-      // Add beforeunload handler to save myData; don't use unload event, it is getting depricated
-      window.addEventListener('beforeunload', handleBeforeUnload);
-
-      reactNativeApp.handleNativeAppUnsubscribe();
-      reactNativeApp.sendNavigationBarVisibility(false);
-
-      // Refresh wallet balance on sign-in so fee-dependent flows (e.g. Toll modal) have fresh data.
-      try {
-        myData.wallet.timestamp = 0;
-        await walletScreen.updateWalletBalances();
-      } catch (error) {
-        console.error('Failed to refresh wallet balances after sign-in:', error);
-      }
-
-      // Close modal and proceed to app
-      this.close();
-      welcomeScreen.close();
-
-      // Log storage information after successful sign-in
-      try {
-        const storageInfo = localStorageMonitor.getStorageInfo();
-        logsModal.log(`💾 Storage Status: ${storageInfo.usageMB}MB used, ${storageInfo.availableMB}MB available (${storageInfo.percentageUsed}% used)`);
-      } catch (error) {
-        logsModal.log('⚠️ Could not retrieve storage information');
-      }
-
-      await footer.switchView('chats'); // Default view
-
-      // Restore wallet/history notification dots if there are unread transfers
-      if (myData?.wallet?.history && Array.isArray(myData.wallet.history) && myData.wallet.history.length > 0) {
-        restoreWalletNotificationDots();
-      }
-
-      // Initialize upcoming calls icon and start periodic refresh
-      callsModal.refreshCalls();
-      header.updateCallsIcon();
-      callsModal.startPeriodicCallsRefresh();
-    } finally {
-      this.isSignInCommitted = false;
-      this.backButton.disabled = false;
+    // One-time migration: convert legacy friend status to connection
+    if (migrateFriendStatusToConnection(myData)) {
+      saveState();
     }
+
+
+    // One-time migration: extract attachment encryption keys to encKey field
+    if (await migrateAttachmentKeysToEncKey(myData)) {
+      saveState();
+    }
+
+    // One-time migration: split deleted state into local-only vs for-all
+    if (migrateDeletedMessageStates(myData)) {
+      saveState();
+    }
+
+    // Clear notification address for this account when signing in
+    // Notification storage is only for accounts the user is NOT signed in to
+    if (reactNativeApp.isReactNativeWebView && myAccount?.keys?.address) {
+      const addressToClear = myAccount.keys.address;
+      reactNativeApp.clearNotificationAddress(addressToClear);
+      reactNativeApp.sendClearNotifications(addressToClear);
+    }
+
+    /* requestNotificationPermission(); */
+    if (useLongPolling) {
+      setTimeout(longPoll, 10);
+    }
+    if (!checkPendingTransactionsIntervalId) {
+      checkPendingTransactionsIntervalId = setInterval(checkPendingTransactions, 5000);
+    }
+    if (!getSystemNoticeIntervalId) {
+      getSystemNoticeIntervalId = setInterval(getSystemNotice, 15000);
+    }
+
+    // Register events that will saveState if the browser is closed without proper signOut
+    // Add beforeunload handler to save myData; don't use unload event, it is getting depricated
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    reactNativeApp.handleNativeAppUnsubscribe();
+    reactNativeApp.sendNavigationBarVisibility(false);
+
+    // Refresh wallet balance on sign-in so fee-dependent flows (e.g. Toll modal) have fresh data.
+    try {
+      myData.wallet.timestamp = 0;
+      await walletScreen.updateWalletBalances();
+    } catch (error) {
+      console.error('Failed to refresh wallet balances after sign-in:', error);
+    }
+
+    // Close modal and proceed to app
+    this.close();
+    welcomeScreen.close();
+    
+    // Log storage information after successful sign-in
+    try {
+      const storageInfo = localStorageMonitor.getStorageInfo();
+      logsModal.log(`💾 Storage Status: ${storageInfo.usageMB}MB used, ${storageInfo.availableMB}MB available (${storageInfo.percentageUsed}% used)`);
+    } catch (error) {
+      logsModal.log('⚠️ Could not retrieve storage information');
+    }
+    
+    await footer.switchView('chats'); // Default view
+    
+    // Restore wallet/history notification dots if there are unread transfers
+    if (myData?.wallet?.history && Array.isArray(myData.wallet.history) && myData.wallet.history.length > 0) {
+      restoreWalletNotificationDots();
+    }
+    
+    // Initialize upcoming calls icon and start periodic refresh
+    callsModal.refreshCalls();
+    header.updateCallsIcon();
+    callsModal.startPeriodicCallsRefresh();
   }
 
   /**
@@ -4266,6 +4274,7 @@ class SignInModal {
 
       switch (availability) {
         case 'mine':
+          this.setCompletingSignIn(true);
           await this.handleSignIn();
           this.preselectedUsername = null;
           break;
@@ -4293,6 +4302,7 @@ class SignInModal {
       return null;
     } finally {
       if (clickSeq === this.accountClickSeq) {
+        this.setCompletingSignIn(false);
         this.setSigningInBusy(false);
       }
     }
