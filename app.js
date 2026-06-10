@@ -6,7 +6,7 @@ let myVersion = '0';
 async function checkVersion() {
   // Use network-specific version key to avoid false update alerts when switching networks
   const versionKey = network?.netid ? `version_${network.netid}` : 'version';
-  myVersion = localStorage.getItem(versionKey) || '0';
+  myVersion = (localStorage.getItem(versionKey) || '0').trim();
   let newVersion;
   try {
     const response = await fetch(`version.html`, {cache: 'reload', headers: {
@@ -14,7 +14,7 @@ async function checkVersion() {
       Pragma: 'no-cache',
     }});
     if (!response.ok) throw new Error('Version check failed');
-    newVersion = await response.text();
+    newVersion = (await response.text()).trim();
   } catch (error) {
     console.error('Version check failed:', error);
     showToast('Version check failed. Your Internet connection may be down.', 0, 'error');
