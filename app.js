@@ -3707,7 +3707,31 @@ class SignInModal {
     this.preselectedUsername = null;
     this.selectedUsername = null;
     this.isSigningIn = false;
+    this.signInLoadingToastId = null;
     this.accountClickSeq = 0;
+  }
+
+  setSigningInBusy(isBusy, toastMessage = 'Signing in...') {
+    if (this.accountList) {
+      this.accountList.classList.toggle('is-disabled', isBusy);
+    }
+
+    if (this.actionRecreateButton) {
+      this.actionRecreateButton.disabled = isBusy;
+    }
+
+    if (this.actionRemoveButton) {
+      this.actionRemoveButton.disabled = isBusy;
+    }
+
+    if (isBusy && !this.signInLoadingToastId) {
+      this.signInLoadingToastId = showToast(toastMessage, 0, 'loading');
+    } else if (!isBusy && this.signInLoadingToastId) {
+      hideToast(this.signInLoadingToastId);
+      this.signInLoadingToastId = null;
+    }
+
+    this.isSigningIn = isBusy;
   }
 
   load () {
@@ -3731,7 +3755,7 @@ class SignInModal {
       if (!item || this.isSigningIn) return;
       const username = item.dataset.username;
       assert(username, 'Sign-in account item is missing username');
-      this.handleAccountClick(username);
+      void this.handleAccountClick(username);
     });
 
     this.actionSheetOverlay.addEventListener('click', (event) => {
@@ -3750,7 +3774,11 @@ class SignInModal {
       enableActionButtons,
       () => {
         assert(this.selectedUsername, 'Sign-in action sheet requires selected account');
-        action(this.selectedUsername);
+        this.setSigningInBusy(true, 'Applying sign-in option...');
+        return Promise.resolve(action(this.selectedUsername))
+          .finally(() => {
+            this.setSigningInBusy(false);
+          });
       }
     );
     this.actionRecreateButton.addEventListener('click', runSheetAction((username) => this.openRecreateFlow(username)));
@@ -4064,7 +4092,7 @@ class SignInModal {
   async open(preselectedUsername) {
     this.preselectedUsername = preselectedUsername;
     this.selectedUsername = null;
-    this.isSigningIn = false;
+    this.setSigningInBusy(false);
     this.closeActionSheet();
 
     // Render account list before opening modal.
@@ -4098,7 +4126,7 @@ class SignInModal {
   close() {
     this.accountClickSeq++;
     this.selectedUsername = null;
-    this.isSigningIn = false;
+    this.setSigningInBusy(false);
     this.preselectedUsername = null;
     this.closeActionSheet();
     this.accountList.innerHTML = '';
@@ -4214,49 +4242,58 @@ class SignInModal {
       return null;
     }
 
-    this.selectedUsername = username;
-    const address = netidAccounts.usernames[username].address;
-    let availability = await checkUsernameAvailability(username, address);
-    // Retry when network says 'available' but local account data still exists (propagation delay).
-    if (availability === 'available' && localStorage.getItem(`${username}_${netid}`)) {
-      for (let attempt = 2; attempt <= 3 && availability === 'available'; attempt++) {
-        logsModal.log(`[SignInModal] Retry ${attempt}/3 username availability for '${username}' because local data exists but network returned 'available'.`);
-        await new Promise((resolve) => setTimeout(resolve, 200));
-        availability = await checkUsernameAvailability(username, address);
-      }
-      if (availability === 'available') {
-        logsModal.log(`[SignInModal] After 3 attempts username '${username}' still reported as available.`);
-      }
-    }
-    // Ignore stale results if the user tapped a different account or closed the modal while we were waiting.
-    if (clickSeq !== this.accountClickSeq || !this.isActive()) return null;
+    this.setSigningInBusy(true, 'Signing in...');
+    let availability = null;
 
-    switch (availability) {
-      case 'mine':
-        this.isSigningIn = true;
-        try {
-          await this.handleSignIn();
-        } finally {
-          this.isSigningIn = false;
+    try {
+      this.selectedUsername = username;
+      const address = netidAccounts.usernames[username].address;
+      availability = await checkUsernameAvailability(username, address);
+      // Retry when network says 'available' but local account data still exists (propagation delay).
+      if (availability === 'available' && localStorage.getItem(`${username}_${netid}`)) {
+        for (let attempt = 2; attempt <= 3 && availability === 'available'; attempt++) {
+          logsModal.log(`[SignInModal] Retry ${attempt}/3 username availability for '${username}' because local data exists but network returned 'available'.`);
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          availability = await checkUsernameAvailability(username, address);
         }
-        this.preselectedUsername = null;
-        break;
-      case 'taken':
-        this.openActionSheet(username, 'taken');
-        break;
-      case 'available':
-        // Post-creation preselect may sign in locally without showing the sheet.
-        if (this.preselectedUsername !== username) this.openActionSheet(username, 'not-found');
-        break;
-      case 'error':
-      case 'error2':
-        this.openActionSheet(username, 'network-error');
-        break;
-      default:
-        assert(false, `Unknown username availability: ${availability}`);
-    }
+        if (availability === 'available') {
+          logsModal.log(`[SignInModal] After 3 attempts username '${username}' still reported as available.`);
+        }
+      }
 
-    return availability;
+      // Ignore stale results if the user tapped a different account or closed the modal while we were waiting.
+      if (clickSeq !== this.accountClickSeq || !this.isActive()) return null;
+
+      switch (availability) {
+        case 'mine':
+          await this.handleSignIn();
+          this.preselectedUsername = null;
+          break;
+        case 'taken':
+          this.openActionSheet(username, 'taken');
+          break;
+        case 'available':
+          // Post-creation preselect may sign in locally without showing the sheet.
+          if (this.preselectedUsername !== username) this.openActionSheet(username, 'not-found');
+          break;
+        case 'error':
+        case 'error2':
+          this.openActionSheet(username, 'network-error');
+          break;
+        default:
+          assert(false, `Unknown username availability: ${availability}`);
+      }
+
+      return availability;
+    } catch (error) {
+      if (clickSeq === this.accountClickSeq && this.isActive()) {
+        console.error('[SignInModal] Account sign-in check failed:', error);
+        showToast('Unable to sign in right now. Please try again.', 5000, 'error');
+      }
+      return null;
+    } finally {
+      this.setSigningInBusy(false);
+    }
   }
 
   isActive() {
