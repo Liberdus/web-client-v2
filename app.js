@@ -3708,7 +3708,6 @@ class SignInModal {
     this.selectedUsername = null;
     this.isSigningIn = false;
     this.signInLoadingToastId = null;
-    this.accountClickSeq = 0;
   }
 
   setSigningInBusy(isBusy) {
@@ -4117,7 +4116,6 @@ class SignInModal {
   }
 
   close() {
-    this.accountClickSeq++;
     this.selectedUsername = null;
     this.setSigningInBusy(false);
     this.preselectedUsername = null;
@@ -4225,7 +4223,6 @@ class SignInModal {
    * @returns {Promise<string|null>} Availability result from checkUsernameAvailability
    */
   async handleAccountClick(username) {
-    const clickSeq = ++this.accountClickSeq;
     this.closeActionSheet();
 
     const { netid } = network;
@@ -4236,7 +4233,6 @@ class SignInModal {
     }
 
     this.setSigningInBusy(true);
-
 
     try {
       this.selectedUsername = username;
@@ -4253,9 +4249,8 @@ class SignInModal {
           logsModal.log(`[SignInModal] After 3 attempts username '${username}' still reported as available.`);
         }
       }
-
-      // Ignore stale results if the user tapped a different account or closed the modal while we were waiting.
-      if (clickSeq !== this.accountClickSeq || !this.isActive()) return null;
+      // Ignore results if the modal closed while we were waiting.
+      if (!this.isActive()) return null;
 
       switch (availability) {
         case 'mine':
@@ -4279,7 +4274,7 @@ class SignInModal {
 
       return availability;
     } catch (error) {
-      if (clickSeq === this.accountClickSeq && this.isActive()) {
+      if (this.isActive()) {
         console.error('[SignInModal] Account sign-in check failed:', error);
         showToast('Unable to sign in right now. Please try again.', 5000, 'error');
       }
