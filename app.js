@@ -14983,6 +14983,12 @@ class ChatModal {
       if (this.reactionSheetOverlay.classList.contains('active')) {
         requestAnimationFrame(() => this.updateReactionSheetViewport());
       }
+      if (this.locationPermissionOverlay?.style.display === 'block') {
+        requestAnimationFrame(() => this.positionLocationPermissionGuide());
+      }
+      if (this.locationSharePanel?.style.display !== 'none') {
+        requestAnimationFrame(() => this.positionLocationSharePanel());
+      }
     });
 
     // Add focus event listener for message input to handle scrolling
@@ -16378,6 +16384,32 @@ class ChatModal {
   }
 
   /**
+   * Positions the staged location popover beside the attachment button.
+   * @returns {void}
+   */
+  positionLocationSharePanel() {
+    if (!this.locationSharePanel || !this.addAttachmentButton) return;
+
+    const buttonRect = this.addAttachmentButton.getBoundingClientRect();
+    const panelRect = this.locationSharePanel.getBoundingClientRect();
+    let top = buttonRect.top - panelRect.height - 8;
+    if (top < 10) {
+      top = buttonRect.bottom + 8;
+    }
+
+    let left = buttonRect.left;
+    if (left + panelRect.width > window.innerWidth - 10) {
+      left = window.innerWidth - panelRect.width - 10;
+    }
+    if (left < 10) {
+      left = 10;
+    }
+
+    this.locationSharePanel.style.left = `${left}px`;
+    this.locationSharePanel.style.top = `${top}px`;
+  }
+
+  /**
    * Updates one permission guide checklist row.
    * @param {HTMLElement|null} step
    * @param {'complete'|'pending'|'blocked'} state
@@ -16594,6 +16626,7 @@ class ChatModal {
       this.locationShareAccuracy.style.display = accuracyText ? '' : 'none';
     }
     this.locationSharePanel.style.display = 'flex';
+    this.positionLocationSharePanel();
     this.setLocationPanelBusy(this.locationRequestInProgress);
     this.updateLiveLocationToggleUI();
   }
@@ -16605,7 +16638,11 @@ class ChatModal {
   clearPendingLocation() {
     this.stopLiveLocationPreview();
     this.pendingLocation = null;
-    if (this.locationSharePanel) this.locationSharePanel.style.display = 'none';
+    if (this.locationSharePanel) {
+      this.locationSharePanel.style.display = 'none';
+      this.locationSharePanel.style.left = '';
+      this.locationSharePanel.style.top = '';
+    }
     if (this.locationShareCoordinates) this.locationShareCoordinates.textContent = '';
     if (this.locationShareAccuracy) this.locationShareAccuracy.textContent = '';
     this.setLocationPanelBusy(false);

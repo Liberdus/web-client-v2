@@ -6530,13 +6530,20 @@ small {
 }
 
 .location-share-panel {
+  position: fixed;
+  width: min(320px, calc(100vw - 20px));
+  z-index: var(--overlay-z-index-high);
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
-  margin: 0 16px 8px;
+  margin: 0;
   padding: 10px;
-  background: var(--bg-secondary);
+  background: var(--background-color);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 14px;
+  box-shadow: var(--overlay-shadow-large);
+  backdrop-filter: blur(20px);
+  animation: contextMenuAppear 0.2s ease-out;
   min-width: 0;
 }
 
@@ -6575,9 +6582,11 @@ small {
 
 .location-share-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
-  flex-shrink: 0;
+  width: 100%;
 }
 
 .location-share-action {
@@ -6618,13 +6627,8 @@ small {
 
 @media (max-width: 480px) {
   .location-share-panel {
+    width: calc(100vw - 20px);
     align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .location-share-actions {
-    width: 100%;
-    justify-content: flex-end;
   }
 }
 
