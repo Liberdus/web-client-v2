@@ -15598,6 +15598,8 @@ class ChatModal {
     this.closeReactionSheet();
     const closingAddress = this.address;
     this.hideAttachmentLoadingToastsForContact(closingAddress);
+    this.closeLocationPermissionGuide();
+    this.clearPendingLocation();
 
     // Ensure scroll is unlocked when closing
     this.unlockBackgroundScroll();
