@@ -6533,6 +6533,7 @@ small {
   position: fixed;
   width: min(320px, calc(100vw - 20px));
   z-index: var(--overlay-z-index-high);
+  pointer-events: auto;
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
