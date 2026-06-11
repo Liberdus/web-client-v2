@@ -17143,23 +17143,6 @@ class ChatModal {
             this.revalidateSendButtonState();
 
             this.addAttachmentButton.disabled = this.isEditingMessage() || this.blockedByRecipient;
-            if (activeChatMatchesUpload) {
-              showToast(
-                `Attached "${file.name}" to ${uploadContactName}`,
-                3000,
-                'success',
-                false,
-                { dedupe: false }
-              );
-            } else {
-              showToast(
-                `Uploaded "${file.name}" for ${uploadContactName}; saved to that draft`,
-                3000,
-                'success',
-                false,
-                { dedupe: false }
-              );
-            }
             refreshChatsScreenIfActive();
             resolve(); // Successfully completed upload
           } catch (fetchError) {
@@ -17278,10 +17261,12 @@ class ChatModal {
    */
   showAttachmentPreview() {
     const preview = document.getElementById('attachmentPreview');
+    const divider = document.getElementById('attachmentInputDivider');
     
     if (!this.fileAttachments || this.fileAttachments.length === 0) {
       preview.innerHTML = '';
       preview.style.display = 'none';
+      if (divider) divider.style.display = 'none';
       this.toggleSendButtonVisibility();
       return;
     }
@@ -17309,6 +17294,7 @@ class ChatModal {
     });
 
     preview.style.display = 'block';
+    if (divider) divider.style.display = 'block';
     // Toggle button visibility when attachments are added
     this.toggleSendButtonVisibility();
     // Check if user was at the bottom before showing preview
