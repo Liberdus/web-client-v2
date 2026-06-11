@@ -1981,6 +1981,7 @@ input[type='file'].form-control::file-selector-button {
 }
 
 .message-input-container {
+  position: relative;
   min-height: 80px;
   padding: 8px 14px;
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
@@ -6530,7 +6531,7 @@ small {
 }
 
 .location-share-panel {
-  position: fixed;
+  position: absolute;
   width: min(320px, calc(100vw - 20px));
   z-index: var(--overlay-z-index-high);
   pointer-events: auto;

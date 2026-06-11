@@ -16384,29 +16384,42 @@ class ChatModal {
   }
 
   /**
-   * Positions the staged location popover beside the attachment button.
+   * Positions the staged location popover centered over the chat composer.
    * @returns {void}
    */
   positionLocationSharePanel() {
-    if (!this.locationSharePanel || !this.addAttachmentButton) return;
+    if (!this.locationSharePanel) return;
 
-    const buttonRect = this.addAttachmentButton.getBoundingClientRect();
+    const composer = this.modal?.querySelector('.message-input-container');
+    const composerRect = composer?.getBoundingClientRect();
+    const anchorRect = composerRect && composerRect.width > 0
+      ? composerRect
+      : { left: 0, right: window.innerWidth, top: 0, bottom: window.innerHeight, width: window.innerWidth, height: window.innerHeight };
+    const inset = 10;
+    const maxPanelWidth = Math.max(1, anchorRect.width - (inset * 2));
+
+    this.locationSharePanel.style.maxWidth = `${maxPanelWidth}px`;
+    const previousAnimation = this.locationSharePanel.style.animation;
+    this.locationSharePanel.style.animation = 'none';
     const panelRect = this.locationSharePanel.getBoundingClientRect();
-    let top = buttonRect.top - panelRect.height - 8;
-    if (top < 10) {
-      top = buttonRect.bottom + 8;
-    }
 
-    let left = buttonRect.left;
-    if (left + panelRect.width > window.innerWidth - 10) {
-      left = window.innerWidth - panelRect.width - 10;
-    }
-    if (left < 10) {
-      left = 10;
-    }
+    const minLeft = inset;
+    const maxLeft = window.innerWidth - panelRect.width - inset;
+    const desiredLeft = anchorRect.left + ((anchorRect.width - panelRect.width) / 2);
+    const left = Math.min(Math.max(desiredLeft, minLeft), Math.max(minLeft, maxLeft));
 
-    this.locationSharePanel.style.left = `${left}px`;
-    this.locationSharePanel.style.top = `${top}px`;
+    let top = anchorRect.top - panelRect.height - 8;
+    if (top < inset) {
+      top = anchorRect.bottom + 8;
+    }
+    if (top + panelRect.height > window.innerHeight - inset) {
+      top = window.innerHeight - panelRect.height - inset;
+    }
+    top = Math.max(inset, top);
+
+    this.locationSharePanel.style.left = `${left - anchorRect.left}px`;
+    this.locationSharePanel.style.top = `${top - anchorRect.top}px`;
+    this.locationSharePanel.style.animation = previousAnimation;
   }
 
   /**
