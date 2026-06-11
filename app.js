@@ -18710,6 +18710,7 @@ class ChatModal {
 
     // Do not open context menu when clicking on reply quote
     if (e.target.closest('.reply-quote')) return;
+    if (e.target.closest('.location-message-summary')) return;
 
     // Ensure only one context menu is open at a time
     this.closeAllContextMenus();
