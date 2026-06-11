@@ -6436,13 +6436,7 @@ small {
 /* File attachment preview */
 .attachment-preview {
   padding: 8px 16px 0;
-}
-
-.attachment-input-divider {
-  height: 1px;
-  margin: 0 16px;
-  background: var(--border-color);
-  pointer-events: none;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .attachment-item {

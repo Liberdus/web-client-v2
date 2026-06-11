@@ -17261,12 +17261,10 @@ class ChatModal {
    */
   showAttachmentPreview() {
     const preview = document.getElementById('attachmentPreview');
-    const divider = document.getElementById('attachmentInputDivider');
     
     if (!this.fileAttachments || this.fileAttachments.length === 0) {
       preview.innerHTML = '';
       preview.style.display = 'none';
-      if (divider) divider.style.display = 'none';
       this.toggleSendButtonVisibility();
       return;
     }
@@ -17294,7 +17292,6 @@ class ChatModal {
     });
 
     preview.style.display = 'block';
-    if (divider) divider.style.display = 'block';
     // Toggle button visibility when attachments are added
     this.toggleSendButtonVisibility();
     // Check if user was at the bottom before showing preview
