@@ -6622,11 +6622,6 @@ small {
   background: var(--primary-hover);
 }
 
-.location-share-action-active {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-}
-
 @media (max-width: 480px) {
   .location-share-panel {
     width: calc(100vw - 20px);

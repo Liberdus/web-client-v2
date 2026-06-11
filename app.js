@@ -14252,7 +14252,6 @@ class ChatModal {
     this.pendingLocation = null;
     this.locationRequestInProgress = false;
     this.locationSendInProgress = false;
-    this.liveLocationWatchId = null;
     this.locationPermissionPosition = null;
     // context menu properties
     this.currentContextMessage = null;
@@ -14786,8 +14785,6 @@ class ChatModal {
     this.locationShareCoordinates = document.getElementById('locationShareCoordinates');
     this.locationShareAccuracy = document.getElementById('locationShareAccuracy');
     this.cancelLocationShareButton = document.getElementById('cancelLocationShareButton');
-    this.refreshLocationShareButton = document.getElementById('refreshLocationShareButton');
-    this.toggleLiveLocationShareButton = document.getElementById('toggleLiveLocationShareButton');
     this.sendLocationShareButton = document.getElementById('sendLocationShareButton');
     this.locationPermissionOverlay = document.getElementById('locationPermissionOverlay');
     this.locationPermissionSupportStep = document.getElementById('locationPermissionSupportStep');
@@ -14916,10 +14913,6 @@ class ChatModal {
       () => this.handleSendMessage()
     ));
     this.cancelLocationShareButton?.addEventListener('click', () => this.clearPendingLocation());
-    this.refreshLocationShareButton?.addEventListener('click', () => {
-      void this.refreshPendingLocation();
-    });
-    this.toggleLiveLocationShareButton?.addEventListener('click', () => this.toggleLiveLocationPreview());
     this.sendLocationShareButton?.addEventListener('click', withButtonCooldown(
       this.sendLocationShareButton,
       BUTTON_COOLDOWN_MS,
@@ -16311,7 +16304,7 @@ class ChatModal {
       return;
     }
 
-    await this.refreshPendingLocation();
+    await this.requestPendingLocation();
   }
 
   /**
@@ -16563,10 +16556,10 @@ class ChatModal {
   }
 
   /**
-   * Requests a fresh location and updates the pending confirmation panel.
+   * Requests the current location and updates the pending confirmation panel.
    * @returns {Promise<void>}
    */
-  async refreshPendingLocation() {
+  async requestPendingLocation() {
     if (this.locationRequestInProgress) return;
 
     this.locationRequestInProgress = true;
@@ -16615,12 +16608,10 @@ class ChatModal {
    * @returns {void}
    */
   setLocationPanelBusy(busy) {
-    if (this.refreshLocationShareButton) this.refreshLocationShareButton.disabled = !!busy;
     if (this.sendLocationShareButton) {
       this.sendLocationShareButton.disabled = !!busy || this.locationSendInProgress || !this.pendingLocation;
       this.sendLocationShareButton.textContent = this.locationSendInProgress ? 'Sending...' : 'Send';
     }
-    if (this.toggleLiveLocationShareButton) this.toggleLiveLocationShareButton.disabled = !!busy && !this.liveLocationWatchId;
   }
 
   /**
@@ -16644,7 +16635,6 @@ class ChatModal {
     this.locationSharePanel.style.display = 'flex';
     this.positionLocationSharePanel();
     this.setLocationPanelBusy(this.locationRequestInProgress);
-    this.updateLiveLocationToggleUI();
   }
 
   /**
@@ -16652,7 +16642,6 @@ class ChatModal {
    * @returns {void}
    */
   clearPendingLocation() {
-    this.stopLiveLocationPreview();
     this.pendingLocation = null;
     if (this.locationSharePanel) {
       this.locationSharePanel.style.display = 'none';
@@ -16662,57 +16651,6 @@ class ChatModal {
     if (this.locationShareCoordinates) this.locationShareCoordinates.textContent = '';
     if (this.locationShareAccuracy) this.locationShareAccuracy.textContent = '';
     this.setLocationPanelBusy(false);
-  }
-
-  /**
-   * Starts or stops local live preview for the staged location.
-   * @returns {void}
-   */
-  toggleLiveLocationPreview() {
-    if (this.liveLocationWatchId) {
-      this.stopLiveLocationPreview();
-      return;
-    }
-
-    if (!navigator.geolocation) {
-      this.openLocationPermissionGuide({ supportState: 'blocked' });
-      return;
-    }
-
-    this.liveLocationWatchId = navigator.geolocation.watchPosition(
-      (position) => this.showPendingLocation(position),
-      (error) => {
-        console.warn('Live location preview failed:', error);
-        this.stopLiveLocationPreview();
-        this.showLocationError(error);
-      },
-      LOCATION_GEO_OPTIONS
-    );
-    this.updateLiveLocationToggleUI();
-  }
-
-  /**
-   * Stops local live preview.
-   * @returns {void}
-   */
-  stopLiveLocationPreview() {
-    if (this.liveLocationWatchId && navigator.geolocation?.clearWatch) {
-      navigator.geolocation.clearWatch(this.liveLocationWatchId);
-    }
-    this.liveLocationWatchId = null;
-    this.updateLiveLocationToggleUI();
-  }
-
-  /**
-   * Updates the live preview toggle label and state.
-   * @returns {void}
-   */
-  updateLiveLocationToggleUI() {
-    if (!this.toggleLiveLocationShareButton) return;
-    const isLive = !!this.liveLocationWatchId;
-    this.toggleLiveLocationShareButton.textContent = isLive ? 'Disable' : 'Live';
-    this.toggleLiveLocationShareButton.setAttribute('aria-pressed', isLive ? 'true' : 'false');
-    this.toggleLiveLocationShareButton.classList.toggle('location-share-action-active', isLive);
   }
 
   /**
