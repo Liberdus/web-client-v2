@@ -6644,12 +6644,6 @@ small {
   .location-share-panel {
     width: calc(100vw - 20px);
     align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .location-share-actions {
-    width: 100%;
-    justify-content: flex-end;
   }
 }
 
