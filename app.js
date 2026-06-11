@@ -17143,23 +17143,6 @@ class ChatModal {
             this.revalidateSendButtonState();
 
             this.addAttachmentButton.disabled = this.isEditingMessage() || this.blockedByRecipient;
-            if (activeChatMatchesUpload) {
-              showToast(
-                `Attached "${file.name}" to ${uploadContactName}`,
-                3000,
-                'success',
-                false,
-                { dedupe: false }
-              );
-            } else {
-              showToast(
-                `Uploaded "${file.name}" for ${uploadContactName}; saved to that draft`,
-                3000,
-                'success',
-                false,
-                { dedupe: false }
-              );
-            }
             refreshChatsScreenIfActive();
             resolve(); // Successfully completed upload
           } catch (fetchError) {
