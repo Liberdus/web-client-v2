@@ -16603,7 +16603,10 @@ class ChatModal {
    */
   setLocationPanelBusy(busy) {
     if (this.refreshLocationShareButton) this.refreshLocationShareButton.disabled = !!busy;
-    if (this.sendLocationShareButton) this.sendLocationShareButton.disabled = !!busy || this.locationSendInProgress || !this.pendingLocation;
+    if (this.sendLocationShareButton) {
+      this.sendLocationShareButton.disabled = !!busy || this.locationSendInProgress || !this.pendingLocation;
+      this.sendLocationShareButton.textContent = this.locationSendInProgress ? 'Sending...' : 'Send';
+    }
     if (this.toggleLiveLocationShareButton) this.toggleLiveLocationShareButton.disabled = !!busy && !this.liveLocationWatchId;
   }
 
@@ -16704,7 +16707,16 @@ class ChatModal {
    * @returns {Promise<void>}
    */
   async sendPendingLocation() {
-    if (!this.pendingLocation || this.locationSendInProgress) return;
+    if (this.locationSendInProgress) {
+      showToast('Location is already sending.', 2000, 'info');
+      return;
+    }
+
+    if (!this.pendingLocation) {
+      showToast('Refresh your location before sending.', 3000, 'error');
+      return;
+    }
+
     await this.sendLocationMessage(this.pendingLocation);
   }
 
@@ -16733,7 +16745,14 @@ class ChatModal {
     }
 
     const currentAddress = this.address;
-    if (!currentAddress || currentAddress === myAccount.address) return;
+    if (!currentAddress) {
+      showToast('Open a chat before sending location.', 3000, 'error');
+      return;
+    }
+    if (currentAddress === myAccount.address) {
+      showToast('You cannot send a location to yourself.', 3000, 'error');
+      return;
+    }
 
     const keys = myAccount.keys;
     if (!keys) {
@@ -16743,6 +16762,7 @@ class ChatModal {
 
     this.locationSendInProgress = true;
     this.setLocationPanelBusy(true);
+    showToast('Sending location...', 2000, 'info');
 
     let txid = '';
     try {
@@ -16763,6 +16783,7 @@ class ChatModal {
       } catch (error) {
         if (error?.code === 'CHAT_CRYPTO_PREPARATION') {
           console.warn(error.message);
+          showToast(error.message || 'Could not prepare encrypted chat. Please try again.', 0, 'error');
           return;
         }
         throw error;
