@@ -14816,13 +14816,6 @@ class ChatModal {
       }
       return true;
     });
-    this.messagesList.addEventListener('click', (e) => {
-      const summary = e.target.closest('.location-message-summary');
-      if (!summary) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      this.toggleLocationMiniMap(summary.closest('.location-message'));
-    });
     // Close all context menus when messages container scrolls
     this.messagesContainer.addEventListener('scroll', () => this.handleMessagesContainerScroll(), { passive: true });
     this.messagesContainer.addEventListener('touchstart', (e) => this.handleMessagesContainerTouchStart(e), { passive: true });
