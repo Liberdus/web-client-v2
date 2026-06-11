@@ -10020,7 +10020,7 @@ function markConnectivityDependentElements() {
     '#confirmCallSchedule',
 
     // Message context menu (disable all except 'Delete for me' and 'Copy' and 'Join')
-    '.message-context-menu .context-menu-option:not([data-action="delete"]):not([data-action="copy"]):not([data-action="join"])',
+    '.message-context-menu .context-menu-option:not([data-action="delete"]):not([data-action="copy"]):not([data-action="join"]):not([data-action="location"])',
 
     // bridgeModal
     '#bridgeForm button[type="submit"]',
@@ -19453,6 +19453,13 @@ class ChatModal {
       } catch (_) {
         // ignore
       }
+    }
+
+    if (this.locationOpt) {
+      this.locationOpt.classList.remove('offline-disabled');
+      this.locationOpt.removeAttribute('disabled');
+      this.locationOpt.removeAttribute('data-requires-connection');
+      this.locationOpt.setAttribute('aria-disabled', 'false');
     }
     
     // Show menu first to get its dimensions
