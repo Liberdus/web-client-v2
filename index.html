@@ -1205,6 +1205,20 @@
             </div>
             <button class="reply-preview-close" id="replyPreviewClose" aria-label="Cancel reply" type="button"></button>
           </div>
+          <div class="location-share-panel" id="locationSharePanel" style="display: none;">
+            <div class="location-share-icon" aria-hidden="true"></div>
+            <div class="location-share-details">
+              <div class="location-share-title">Share current location</div>
+              <div class="location-share-coordinates" id="locationShareCoordinates"></div>
+              <div class="location-share-accuracy" id="locationShareAccuracy"></div>
+            </div>
+            <div class="location-share-actions">
+              <button type="button" class="location-share-action" id="cancelLocationShareButton">Cancel</button>
+              <button type="button" class="location-share-action" id="refreshLocationShareButton">Refresh</button>
+              <button type="button" class="location-share-action" id="toggleLiveLocationShareButton" aria-pressed="false">Live</button>
+              <button type="button" class="location-share-action location-share-action-primary" id="sendLocationShareButton">Send</button>
+            </div>
+          </div>
           <div class="toll-container chat-toll-container">
             <span class="toll-label" id="tollLabel">Toll:</span>
             <span class="toll-value" id="tollValue"></span>
@@ -1504,7 +1518,42 @@
           <span class="context-menu-icon"></span>
           <span class="context-menu-text">Contacts</span>
         </div>
+        <div class="context-menu-option" data-action="location" data-icon="location">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text">Share Location</span>
+        </div>
         <a class="last-item" href="#"> </a>
+      </div>
+
+      <div class="location-permission-overlay" id="locationPermissionOverlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="locationPermissionTitle">
+        <div class="location-permission-dialog">
+          <div class="location-permission-icon" aria-hidden="true"></div>
+          <div class="location-permission-content">
+            <h3 id="locationPermissionTitle">Allow location sharing</h3>
+            <p class="location-permission-copy">Complete these steps so Liberdus can add your current location to this chat.</p>
+            <ol class="location-permission-steps">
+              <li id="locationPermissionSupportStep" data-step-state="pending">
+                <span class="location-permission-check" aria-hidden="true"></span>
+                <span>Use a browser with location services available.</span>
+              </li>
+              <li id="locationPermissionBrowserStep" data-step-state="pending">
+                <span class="location-permission-check" aria-hidden="true"></span>
+                <span>Allow location for this Liberdus page in your browser.</span>
+              </li>
+              <li id="locationPermissionPositionStep" data-step-state="pending">
+                <span class="location-permission-check" aria-hidden="true"></span>
+                <span>Confirm that your current position can be detected.</span>
+              </li>
+            </ol>
+            <p class="location-permission-help" id="locationPermissionHelp"></p>
+          </div>
+          <div class="location-permission-actions">
+            <button type="button" class="location-permission-action" id="cancelLocationPermissionButton">Cancel</button>
+            <button type="button" class="location-permission-action" id="requestLocationPermissionButton">Request Permission</button>
+            <button type="button" class="location-permission-action" id="checkLocationPermissionButton">Check Again</button>
+            <button type="button" class="location-permission-action location-permission-action-primary" id="confirmLocationPermissionButton" disabled>Confirm</button>
+          </div>
+        </div>
       </div>
 
       <!-- Camera Capture Modal -->

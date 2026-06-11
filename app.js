@@ -1758,6 +1758,8 @@ class ChatsScreen {
         }
       } else if (latestActivity.type === 'vm') {
         previewHTML = `<span><i>Voice message</i></span>`;
+      } else if (latestActivity.type === 'location') {
+        previewHTML = `<span><i>Shared location</i></span>`;
       } else if ((!latestActivity.message || String(latestActivity.message).trim() === '') && latestActivity.xattach) {
         previewHTML = `<span><i>Attachment</i></span>`;
       } else if (latestActivity.xattach && latestActivity.message && String(latestActivity.message).trim() !== '') {
@@ -6644,6 +6646,10 @@ function getReactionTargetPreviewText(message) {
     return 'call';
   }
 
+  if (message.type === 'location') {
+    return 'location';
+  }
+
   const messageText = typeof message.message === 'string' ? message.message.trim() : '';
   if (messageText) {
     return messageText;
@@ -7267,6 +7273,26 @@ async function processChats(chats, keys) {
                   if (typeof parsedMessage.replyOwnerIsMine !== 'undefined') {
                     payload.replyOwnerIsMine = parsedMessage.replyOwnerIsMine;
                   }
+                } else if (parsedMessage.type === 'location') {
+                  const latitude = Number(parsedMessage.latitude);
+                  const longitude = Number(parsedMessage.longitude);
+                  const accuracy = Number(parsedMessage.accuracy);
+                  if (
+                    !Number.isFinite(latitude) ||
+                    !Number.isFinite(longitude) ||
+                    latitude < -90 ||
+                    latitude > 90 ||
+                    longitude < -180 ||
+                    longitude > 180
+                  ) {
+                    console.warn('Ignoring invalid location message', parsedMessage);
+                    continue;
+                  }
+                  payload.message = '';
+                  payload.type = 'location';
+                  payload.latitude = latitude;
+                  payload.longitude = longitude;
+                  payload.accuracy = Number.isFinite(accuracy) && accuracy >= 0 ? accuracy : null;
                 } else if (parsedMessage.type === 'message') {
                   const hasReactionFields =
                     typeof parsedMessage.reactId !== 'undefined' ||
@@ -14190,6 +14216,11 @@ const CHAT_REACTION_SHEET_CLOSE_DRAG_PX = 120;
 const CHAT_INITIAL_RENDER_COUNT = 100;
 const CHAT_OLDER_RENDER_BATCH_SIZE = 200;
 const CHAT_THUMBNAIL_ATTACHMENT_SELECTOR = '[data-image-attachment="true"], [data-video-attachment="true"]';
+const LOCATION_GEO_OPTIONS = {
+  enableHighAccuracy: true,
+  timeout: 15000,
+  maximumAge: 0
+};
 const CHAT_REACTION_SHEET_TAB_ICONS = {
   recent: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/></svg>',
   smileys: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>',
@@ -14218,6 +14249,11 @@ class ChatModal {
 
     // file attachments
     this.fileAttachments = [];
+    this.pendingLocation = null;
+    this.locationRequestInProgress = false;
+    this.locationSendInProgress = false;
+    this.liveLocationWatchId = null;
+    this.locationPermissionPosition = null;
     // context menu properties
     this.currentContextMessage = null;
 
@@ -14745,6 +14781,23 @@ class ChatModal {
     this.filesOpt = this.attachmentOptionsContextMenu?.querySelector('.context-menu-option[data-action="files"]');
     this.cameraFileOpt = this.attachmentOptionsContextMenu?.querySelector('.context-menu-option[data-action="camera-file"]');
     this.contactsOpt = this.attachmentOptionsContextMenu?.querySelector('.context-menu-option[data-action="contacts"]');
+    this.locationOpt = this.attachmentOptionsContextMenu?.querySelector('.context-menu-option[data-action="location"]');
+    this.locationSharePanel = document.getElementById('locationSharePanel');
+    this.locationShareCoordinates = document.getElementById('locationShareCoordinates');
+    this.locationShareAccuracy = document.getElementById('locationShareAccuracy');
+    this.cancelLocationShareButton = document.getElementById('cancelLocationShareButton');
+    this.refreshLocationShareButton = document.getElementById('refreshLocationShareButton');
+    this.toggleLiveLocationShareButton = document.getElementById('toggleLiveLocationShareButton');
+    this.sendLocationShareButton = document.getElementById('sendLocationShareButton');
+    this.locationPermissionOverlay = document.getElementById('locationPermissionOverlay');
+    this.locationPermissionSupportStep = document.getElementById('locationPermissionSupportStep');
+    this.locationPermissionBrowserStep = document.getElementById('locationPermissionBrowserStep');
+    this.locationPermissionPositionStep = document.getElementById('locationPermissionPositionStep');
+    this.locationPermissionHelp = document.getElementById('locationPermissionHelp');
+    this.cancelLocationPermissionButton = document.getElementById('cancelLocationPermissionButton');
+    this.requestLocationPermissionButton = document.getElementById('requestLocationPermissionButton');
+    this.checkLocationPermissionButton = document.getElementById('checkLocationPermissionButton');
+    this.confirmLocationPermissionButton = document.getElementById('confirmLocationPermissionButton');
     
     this.currentImageAttachmentRow = null;
     
@@ -14762,6 +14815,13 @@ class ChatModal {
         return false;
       }
       return true;
+    });
+    this.messagesList.addEventListener('click', (e) => {
+      const summary = e.target.closest('.location-message-summary');
+      if (!summary) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      this.toggleLocationMiniMap(summary.closest('.location-message'));
     });
     // Close all context menus when messages container scrolls
     this.messagesContainer.addEventListener('scroll', () => this.handleMessagesContainerScroll(), { passive: true });
@@ -14855,6 +14915,25 @@ class ChatModal {
       () => this.revalidateSendButtonState(),
       () => this.handleSendMessage()
     ));
+    this.cancelLocationShareButton?.addEventListener('click', () => this.clearPendingLocation());
+    this.refreshLocationShareButton?.addEventListener('click', () => {
+      void this.refreshPendingLocation();
+    });
+    this.toggleLiveLocationShareButton?.addEventListener('click', () => this.toggleLiveLocationPreview());
+    this.sendLocationShareButton?.addEventListener('click', withButtonCooldown(
+      this.sendLocationShareButton,
+      BUTTON_COOLDOWN_MS,
+      () => this.setLocationPanelBusy(this.locationRequestInProgress),
+      () => this.sendPendingLocation()
+    ));
+    this.cancelLocationPermissionButton?.addEventListener('click', () => this.closeLocationPermissionGuide());
+    this.requestLocationPermissionButton?.addEventListener('click', () => {
+      void this.requestLocationPermissionFromGuide();
+    });
+    this.checkLocationPermissionButton?.addEventListener('click', () => {
+      void this.updateLocationPermissionGuide({ attemptPosition: true });
+    });
+    this.confirmLocationPermissionButton?.addEventListener('click', () => this.confirmLocationPermissionGuide());
     this.cancelEditButton.addEventListener('click', () => this.cancelEdit());
     this.closeButton.addEventListener('click', this.close.bind(this));
     this.sendButton.addEventListener('keydown', ignoreTabKey);
@@ -15337,6 +15416,7 @@ class ChatModal {
     this.messageInput.value = '';
     this.messageInput.style.height = '48px';
     this.messageByteCounter.style.display = 'none';
+    this.clearPendingLocation();
     this.toggleSendButtonVisibility();
     // clear any edit state and hide cancel button
     const editInputInit = document.getElementById('editOfTxId');
@@ -16199,6 +16279,539 @@ class ChatModal {
   }
 
   /**
+   * Starts the browser geolocation flow and stages a location message for confirmation.
+   * @returns {Promise<void>}
+   */
+  async handleShareLocationAction() {
+    if (this.isEditingMessage()) {
+      showToast('Finish editing before sharing location.', 3000, 'info');
+      return;
+    }
+
+    if (this.blockedByRecipient || myData.contacts[this.address]?.tollRequiredToSend == 2) {
+      showToast('You are blocked by this user', 0, 'error');
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      this.openLocationPermissionGuide({ supportState: 'blocked' });
+      return;
+    }
+
+    const permissionState = await this.getLocationPermissionState();
+    if (permissionState !== 'granted') {
+      this.openLocationPermissionGuide();
+      await this.updateLocationPermissionGuide({ attemptPosition: false });
+      return;
+    }
+
+    await this.refreshPendingLocation();
+  }
+
+  /**
+   * Reads the browser geolocation permission state when supported.
+   * @returns {Promise<'granted'|'prompt'|'denied'|'unknown'>}
+   */
+  async getLocationPermissionState() {
+    try {
+      if (!navigator.permissions?.query) return 'unknown';
+      const result = await navigator.permissions.query({ name: 'geolocation' });
+      return result?.state || 'unknown';
+    } catch (_) {
+      return 'unknown';
+    }
+  }
+
+  /**
+   * Opens the step-by-step location permission guide.
+   * @param {{ supportState?: 'complete'|'blocked'|'pending' }} options
+   * @returns {void}
+   */
+  openLocationPermissionGuide({ supportState = 'pending' } = {}) {
+    this.locationPermissionPosition = null;
+    if (this.locationPermissionOverlay) {
+      this.locationPermissionOverlay.style.display = 'block';
+    }
+    this.updateLocationPermissionStep(this.locationPermissionSupportStep, supportState);
+    this.updateLocationPermissionStep(this.locationPermissionBrowserStep, 'pending');
+    this.updateLocationPermissionStep(this.locationPermissionPositionStep, 'pending');
+    if (this.locationPermissionHelp) {
+      this.locationPermissionHelp.textContent = 'Click Request Permission, then allow location in the browser prompt. If it is blocked, use the site settings icon beside the address bar and set Location to Allow.';
+    }
+    if (this.confirmLocationPermissionButton) this.confirmLocationPermissionButton.disabled = true;
+    this.positionLocationPermissionGuide();
+  }
+
+  /**
+   * Closes the permission guide.
+   * @returns {void}
+   */
+  closeLocationPermissionGuide() {
+    if (this.locationPermissionOverlay) this.locationPermissionOverlay.style.display = 'none';
+  }
+
+  /**
+   * Positions the permission guide like the attachment options popover.
+   * @returns {void}
+   */
+  positionLocationPermissionGuide() {
+    const dialog = this.locationPermissionOverlay?.querySelector('.location-permission-dialog');
+    if (!dialog || !this.addAttachmentButton) return;
+
+    const buttonRect = this.addAttachmentButton.getBoundingClientRect();
+    const dialogRect = dialog.getBoundingClientRect();
+    let top = buttonRect.top - dialogRect.height - 8;
+    if (top < 10) {
+      top = buttonRect.bottom + 8;
+    }
+
+    let left = buttonRect.left;
+    if (left + dialogRect.width > window.innerWidth - 10) {
+      left = window.innerWidth - dialogRect.width - 10;
+    }
+    if (left < 10) {
+      left = 10;
+    }
+
+    dialog.style.left = `${left}px`;
+    dialog.style.top = `${top}px`;
+  }
+
+  /**
+   * Updates one permission guide checklist row.
+   * @param {HTMLElement|null} step
+   * @param {'complete'|'pending'|'blocked'} state
+   * @returns {void}
+   */
+  updateLocationPermissionStep(step, state) {
+    if (!step) return;
+    step.dataset.stepState = state;
+  }
+
+  /**
+   * Checks the permission guide status and optionally attempts to read a position.
+   * @param {{ attemptPosition?: boolean }} options
+   * @returns {Promise<void>}
+   */
+  async updateLocationPermissionGuide({ attemptPosition = false } = {}) {
+    const hasSupport = !!navigator.geolocation;
+    this.updateLocationPermissionStep(this.locationPermissionSupportStep, hasSupport ? 'complete' : 'blocked');
+
+    if (!hasSupport) {
+      if (this.locationPermissionHelp) {
+        this.locationPermissionHelp.textContent = 'This browser does not expose location services to Liberdus. Try a browser with location services enabled.';
+      }
+      if (this.confirmLocationPermissionButton) this.confirmLocationPermissionButton.disabled = true;
+      return;
+    }
+
+    const permissionState = await this.getLocationPermissionState();
+    const browserAllowed = permissionState === 'granted';
+    const browserBlocked = permissionState === 'denied';
+    this.updateLocationPermissionStep(
+      this.locationPermissionBrowserStep,
+      browserAllowed ? 'complete' : (browserBlocked ? 'blocked' : 'pending')
+    );
+
+    if (browserBlocked) {
+      if (this.locationPermissionHelp) {
+        this.locationPermissionHelp.textContent = 'Location is blocked for this page. Click the site settings icon beside the address bar, set Location to Allow, then click Check Again.';
+      }
+      this.updateLocationPermissionStep(this.locationPermissionPositionStep, 'pending');
+      if (this.confirmLocationPermissionButton) this.confirmLocationPermissionButton.disabled = true;
+      return;
+    }
+
+    if (!attemptPosition && !browserAllowed) {
+      if (this.locationPermissionHelp) {
+        this.locationPermissionHelp.textContent = 'Click Request Permission and choose Allow in the browser prompt.';
+      }
+      this.updateLocationPermissionStep(this.locationPermissionPositionStep, 'pending');
+      if (this.confirmLocationPermissionButton) this.confirmLocationPermissionButton.disabled = true;
+      return;
+    }
+
+    try {
+      const position = await this.requestCurrentLocation();
+      this.locationPermissionPosition = position;
+      this.updateLocationPermissionStep(this.locationPermissionBrowserStep, 'complete');
+      this.updateLocationPermissionStep(this.locationPermissionPositionStep, 'complete');
+      if (this.locationPermissionHelp) {
+        this.locationPermissionHelp.textContent = 'Location is ready. Confirm to add it to this chat.';
+      }
+      if (this.confirmLocationPermissionButton) this.confirmLocationPermissionButton.disabled = false;
+    } catch (error) {
+      console.warn('Location permission guide check failed:', error);
+      const nextPermissionState = await this.getLocationPermissionState();
+      this.updateLocationPermissionStep(
+        this.locationPermissionBrowserStep,
+        nextPermissionState === 'denied' ? 'blocked' : 'pending'
+      );
+      this.updateLocationPermissionStep(this.locationPermissionPositionStep, 'blocked');
+      if (this.locationPermissionHelp) {
+        this.locationPermissionHelp.textContent = nextPermissionState === 'denied'
+          ? 'Location is blocked for this page. Change Location to Allow in browser site settings, then click Check Again.'
+          : 'Location could not be detected yet. Check system Location Services, then click Check Again.';
+      }
+      if (this.confirmLocationPermissionButton) this.confirmLocationPermissionButton.disabled = true;
+    }
+  }
+
+  /**
+   * Requests permission from inside the guide.
+   * @returns {Promise<void>}
+   */
+  async requestLocationPermissionFromGuide() {
+    await this.updateLocationPermissionGuide({ attemptPosition: true });
+    this.positionLocationPermissionGuide();
+  }
+
+  /**
+   * Confirms the guide and stages the detected location.
+   * @returns {void}
+   */
+  confirmLocationPermissionGuide() {
+    if (!this.locationPermissionPosition) return;
+    this.closeLocationPermissionGuide();
+    this.showPendingLocation(this.locationPermissionPosition);
+  }
+
+  /**
+   * Requests the current browser location.
+   * @returns {Promise<GeolocationPosition>}
+   */
+  requestCurrentLocation() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        const error = new Error('Geolocation is not available');
+        error.code = 'UNAVAILABLE';
+        reject(error);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(resolve, reject, LOCATION_GEO_OPTIONS);
+    });
+  }
+
+  /**
+   * Converts a geolocation error into a short user-facing toast.
+   * @param {GeolocationPositionError|Error} error
+   * @returns {void}
+   */
+  showLocationError(error) {
+    if (error?.code === 1) {
+      showToast('Location permission is required to share your location.', 0, 'error');
+      return;
+    }
+
+    if (error?.code === 'UNAVAILABLE' || error?.code === 2) {
+      showToast('Location is not available on this device.', 0, 'error');
+      return;
+    }
+
+    if (error?.code === 3) {
+      showToast('Location request timed out. Try again when your position is ready.', 0, 'error');
+      return;
+    }
+
+    showToast('Could not get your current location. Check location permissions and try again.', 0, 'error');
+  }
+
+  /**
+   * Requests a fresh location and updates the pending confirmation panel.
+   * @returns {Promise<void>}
+   */
+  async refreshPendingLocation() {
+    if (this.locationRequestInProgress) return;
+
+    this.locationRequestInProgress = true;
+    this.setLocationPanelBusy(true);
+
+    try {
+      const position = await this.requestCurrentLocation();
+      this.showPendingLocation(position);
+    } catch (error) {
+      console.warn('Location request failed:', error);
+      this.clearPendingLocation();
+      this.showLocationError(error);
+    } finally {
+      this.locationRequestInProgress = false;
+      this.setLocationPanelBusy(false);
+    }
+  }
+
+  /**
+   * Stores and displays a pending location before it is sent.
+   * @param {GeolocationPosition} position
+   * @returns {void}
+   */
+  showPendingLocation(position) {
+    const latitude = Number(position?.coords?.latitude);
+    const longitude = Number(position?.coords?.longitude);
+    const accuracy = Number(position?.coords?.accuracy);
+
+    if (!this.isValidLocation(latitude, longitude)) {
+      this.clearPendingLocation();
+      showToast('Received an invalid location. Please try again.', 0, 'error');
+      return;
+    }
+
+    this.pendingLocation = {
+      latitude,
+      longitude,
+      accuracy: Number.isFinite(accuracy) && accuracy >= 0 ? accuracy : null
+    };
+    this.renderLocationSharePanel();
+  }
+
+  /**
+   * Updates disabled/loading state for the staged location panel.
+   * @param {boolean} busy
+   * @returns {void}
+   */
+  setLocationPanelBusy(busy) {
+    if (this.refreshLocationShareButton) this.refreshLocationShareButton.disabled = !!busy;
+    if (this.sendLocationShareButton) this.sendLocationShareButton.disabled = !!busy || this.locationSendInProgress || !this.pendingLocation;
+    if (this.toggleLiveLocationShareButton) this.toggleLiveLocationShareButton.disabled = !!busy && !this.liveLocationWatchId;
+  }
+
+  /**
+   * Renders the staged location confirmation panel.
+   * @returns {void}
+   */
+  renderLocationSharePanel() {
+    if (!this.locationSharePanel || !this.pendingLocation) return;
+
+    if (this.locationShareCoordinates) {
+      this.locationShareCoordinates.textContent = this.formatLocationCoordinates(
+        this.pendingLocation.latitude,
+        this.pendingLocation.longitude
+      );
+    }
+    if (this.locationShareAccuracy) {
+      const accuracyText = this.formatLocationAccuracy(this.pendingLocation.accuracy);
+      this.locationShareAccuracy.textContent = accuracyText;
+      this.locationShareAccuracy.style.display = accuracyText ? '' : 'none';
+    }
+    this.locationSharePanel.style.display = 'flex';
+    this.setLocationPanelBusy(this.locationRequestInProgress);
+    this.updateLiveLocationToggleUI();
+  }
+
+  /**
+   * Clears the staged location without touching typed message drafts.
+   * @returns {void}
+   */
+  clearPendingLocation() {
+    this.stopLiveLocationPreview();
+    this.pendingLocation = null;
+    if (this.locationSharePanel) this.locationSharePanel.style.display = 'none';
+    if (this.locationShareCoordinates) this.locationShareCoordinates.textContent = '';
+    if (this.locationShareAccuracy) this.locationShareAccuracy.textContent = '';
+    this.setLocationPanelBusy(false);
+  }
+
+  /**
+   * Starts or stops local live preview for the staged location.
+   * @returns {void}
+   */
+  toggleLiveLocationPreview() {
+    if (this.liveLocationWatchId) {
+      this.stopLiveLocationPreview();
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      this.openLocationPermissionGuide({ supportState: 'blocked' });
+      return;
+    }
+
+    this.liveLocationWatchId = navigator.geolocation.watchPosition(
+      (position) => this.showPendingLocation(position),
+      (error) => {
+        console.warn('Live location preview failed:', error);
+        this.stopLiveLocationPreview();
+        this.showLocationError(error);
+      },
+      LOCATION_GEO_OPTIONS
+    );
+    this.updateLiveLocationToggleUI();
+  }
+
+  /**
+   * Stops local live preview.
+   * @returns {void}
+   */
+  stopLiveLocationPreview() {
+    if (this.liveLocationWatchId && navigator.geolocation?.clearWatch) {
+      navigator.geolocation.clearWatch(this.liveLocationWatchId);
+    }
+    this.liveLocationWatchId = null;
+    this.updateLiveLocationToggleUI();
+  }
+
+  /**
+   * Updates the live preview toggle label and state.
+   * @returns {void}
+   */
+  updateLiveLocationToggleUI() {
+    if (!this.toggleLiveLocationShareButton) return;
+    const isLive = !!this.liveLocationWatchId;
+    this.toggleLiveLocationShareButton.textContent = isLive ? 'Disable' : 'Live';
+    this.toggleLiveLocationShareButton.setAttribute('aria-pressed', isLive ? 'true' : 'false');
+    this.toggleLiveLocationShareButton.classList.toggle('location-share-action-active', isLive);
+  }
+
+  /**
+   * Sends the currently staged location.
+   * @returns {Promise<void>}
+   */
+  async sendPendingLocation() {
+    if (!this.pendingLocation || this.locationSendInProgress) return;
+    await this.sendLocationMessage(this.pendingLocation);
+  }
+
+  /**
+   * Sends a standalone encrypted location chat message.
+   * @param {{latitude: number, longitude: number, accuracy: number|null}} location
+   * @returns {Promise<void>}
+   */
+  async sendLocationMessage(location) {
+    if (!isOnline) {
+      showToast('You are offline. Please check your internet connection.', 3000, 'error');
+      return;
+    }
+
+    if (myData.contacts[this.address]?.tollRequiredToSend == 2) {
+      showToast('You are blocked by this user', 0, 'error');
+      return;
+    }
+
+    const latitude = Number(location.latitude);
+    const longitude = Number(location.longitude);
+    const accuracy = Number(location.accuracy);
+    if (!this.isValidLocation(latitude, longitude)) {
+      showToast('Location is invalid. Please refresh and try again.', 0, 'error');
+      return;
+    }
+
+    const currentAddress = this.address;
+    if (!currentAddress || currentAddress === myAccount.address) return;
+
+    const keys = myAccount.keys;
+    if (!keys) {
+      showToast('Keys not found for sender address', 0, 'error');
+      return;
+    }
+
+    this.locationSendInProgress = true;
+    this.setLocationPanelBusy(true);
+
+    let txid = '';
+    try {
+      const tollInLib =
+        myData.contacts[currentAddress].tollRequiredToSend == 0
+          ? 0n
+          : getEffectiveTollLibWei(this.toll);
+      const sufficientBalance = await validateBalance(tollInLib);
+      if (!sufficientBalance) {
+        const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}. Go to the wallet to add more LIB.`;
+        showToast(msg, 0, 'error');
+        return;
+      }
+
+      let chatCryptoContext;
+      try {
+        chatCryptoContext = await this.prepareEncryptedChatContext(currentAddress, keys);
+      } catch (error) {
+        if (error?.code === 'CHAT_CRYPTO_PREPARATION') {
+          console.warn(error.message);
+          return;
+        }
+        throw error;
+      }
+
+      const messageObj = {
+        type: 'location',
+        latitude,
+        longitude,
+        accuracy: Number.isFinite(accuracy) && accuracy >= 0 ? accuracy : null
+      };
+
+      const { payload, chatMessageObj, txid: builtTxid } = await this.buildEncryptedStructuredChatTx(
+        currentAddress,
+        messageObj,
+        tollInLib,
+        keys,
+        chatCryptoContext
+      );
+      txid = builtTxid;
+
+      const retryTxId = this.retryOfTxId.value;
+      if (retryTxId) {
+        removeFailedTx(retryTxId, currentAddress);
+        this.retryOfTxId.value = '';
+      }
+
+      const newMessage = {
+        message: '',
+        type: 'location',
+        latitude: messageObj.latitude,
+        longitude: messageObj.longitude,
+        accuracy: messageObj.accuracy,
+        timestamp: payload.sent_timestamp,
+        sent_timestamp: payload.sent_timestamp,
+        my: true,
+        txid,
+        status: 'sent'
+      };
+
+      const contact = myData.contacts[currentAddress];
+      insertSorted(contact.messages, newMessage, 'timestamp');
+
+      const chatIndex = myData.chats.findIndex((chat) => chat.address === currentAddress);
+      if (chatIndex !== -1) {
+        myData.chats.splice(chatIndex, 1);
+      }
+      insertSorted(myData.chats, {
+        address: currentAddress,
+        timestamp: newMessage.sent_timestamp,
+        txid
+      }, 'timestamp');
+
+      this.clearPendingLocation();
+      this.appendChatModal();
+      this.messagesList.parentElement.scrollTop = this.messagesList.parentElement.scrollHeight;
+      saveState();
+      chatsScreen.updateChatList();
+
+      const response = await injectTx(chatMessageObj, txid);
+      if (!response || !response.result || !response.result.success) {
+        console.error('location message failed to send', response);
+        const reason = response?.result?.reason;
+        if (reason && isRecipientTollStateFailure(reason)) {
+          await this.refreshRecipientTollState(currentAddress);
+        }
+        updateTransactionStatus(txid, currentAddress, 'failed', 'message');
+        this.appendChatModal();
+        saveState();
+        return;
+      }
+    } catch (error) {
+      console.error('Location message error:', error);
+      showToast('Failed to send location. Please try again.', 0, 'error');
+      if (txid) {
+        updateTransactionStatus(txid, currentAddress, 'failed', 'message');
+        this.appendChatModal();
+        saveState();
+      }
+    } finally {
+      this.locationSendInProgress = false;
+      this.setLocationPanelBusy(false);
+    }
+  }
+
+  /**
    * Cancel editing mode without sending: clears hidden edit txid and restores UI state
    */
   cancelEdit() {
@@ -16360,6 +16973,84 @@ class ChatModal {
       chatMessageObj,
       txid: getTxid(chatMessageObj)
     };
+  }
+
+  /**
+   * Checks latitude and longitude bounds.
+   * @param {number} latitude
+   * @param {number} longitude
+   * @returns {boolean}
+   */
+  isValidLocation(latitude, longitude) {
+    return Number.isFinite(latitude)
+      && Number.isFinite(longitude)
+      && latitude >= -90
+      && latitude <= 90
+      && longitude >= -180
+      && longitude <= 180;
+  }
+
+  /**
+   * Formats one coordinate for display.
+   * @param {number} value
+   * @returns {string}
+   */
+  formatLocationCoordinate(value) {
+    const coordinate = Number(value);
+    return Number.isFinite(coordinate) ? coordinate.toFixed(6) : '';
+  }
+
+  /**
+   * Formats latitude and longitude for display.
+   * @param {number} latitude
+   * @param {number} longitude
+   * @returns {string}
+   */
+  formatLocationCoordinates(latitude, longitude) {
+    return `${this.formatLocationCoordinate(latitude)}, ${this.formatLocationCoordinate(longitude)}`;
+  }
+
+  /**
+   * Formats location accuracy for display.
+   * @param {number|null} accuracy
+   * @returns {string}
+   */
+  formatLocationAccuracy(accuracy) {
+    const meters = Number(accuracy);
+    if (!Number.isFinite(meters) || meters < 0) return '';
+    return `Accuracy: ~${Math.round(meters)} m`;
+  }
+
+  /**
+   * Builds a maps URL for a shared location.
+   * @param {number} latitude
+   * @param {number} longitude
+   * @returns {string}
+   */
+  getLocationMapUrl(latitude, longitude) {
+    const lat = this.formatLocationCoordinate(latitude);
+    const lng = this.formatLocationCoordinate(longitude);
+    const query = encodeURIComponent(`${lat},${lng}`);
+    const platform = navigator.platform || '';
+    const useAppleMaps = isIOS() || /Mac/i.test(platform);
+    if (useAppleMaps) {
+      return `https://maps.apple.com/?ll=${lat},${lng}&q=Shared%20Location`;
+    }
+    return `https://www.google.com/maps/search/?api=1&query=${query}`;
+  }
+
+  /**
+   * Toggles an inline mini map for a rendered location message.
+   * @param {HTMLElement|null} locationMessage
+   * @returns {void}
+   */
+  toggleLocationMiniMap(locationMessage) {
+    if (!locationMessage) return;
+    const isExpanded = locationMessage.classList.toggle('location-message-expanded');
+    const map = locationMessage.querySelector('.location-mini-map');
+    const summary = locationMessage.querySelector('.location-message-summary');
+    if (map) map.hidden = !isExpanded;
+    if (summary) summary.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
   }
 
   renderChatMessageHTML(item, { contact, lastReadTs }) {
@@ -16534,6 +17225,37 @@ class ChatModal {
                   </div>
                 </div>
               </div>`;
+        break;
+      }
+      case 'location': {
+        const latitude = Number(item.latitude);
+        const longitude = Number(item.longitude);
+        if (this.isValidLocation(latitude, longitude)) {
+          const coordinates = this.formatLocationCoordinates(latitude, longitude);
+          const accuracy = this.formatLocationAccuracy(item.accuracy);
+          const mapUrl = this.getLocationMapUrl(latitude, longitude);
+          messageTextHTML = `
+              <div class="location-message">
+                <button type="button" class="location-message-summary" aria-expanded="false">
+                  <span class="location-message-icon" aria-hidden="true"></span>
+                  <span class="location-message-body">
+                    <span class="location-message-title">Shared location</span>
+                    <span class="location-message-coordinates">${escapeHtml(coordinates)}</span>
+                    ${accuracy ? `<span class="location-message-accuracy">${escapeHtml(accuracy)}</span>` : ''}
+                    <span class="location-message-link">View mini map</span>
+                  </span>
+                </button>
+                <div class="location-mini-map" hidden>
+                  <div class="location-mini-map-grid" aria-hidden="true">
+                    <span class="location-mini-map-pin"></span>
+                  </div>
+                  <div class="location-mini-map-footer">
+                    <span>${escapeHtml(coordinates)}</span>
+                    <a href="${mapUrl}" target="_blank" rel="noopener noreferrer">Open in Maps</a>
+                  </div>
+                </div>
+              </div>`;
+        }
         break;
       }
       default:
@@ -18677,9 +19399,14 @@ class ChatModal {
       if (this.filesOpt) this.filesOpt.style.display = 'none';
       if (this.cameraFileOpt) this.cameraFileOpt.style.display = '';
       if (this.contactsOpt) this.contactsOpt.style.display = '';
+      if (this.locationOpt) this.locationOpt.style.display = '';
     } else {
       // Non-iOS: Hide "Camera/File", show others
       if (this.cameraFileOpt) this.cameraFileOpt.style.display = 'none';
+      if (this.cameraOpt) this.cameraOpt.style.display = '';
+      if (this.filesOpt) this.filesOpt.style.display = '';
+      if (this.contactsOpt) this.contactsOpt.style.display = '';
+      if (this.locationOpt) this.locationOpt.style.display = '';
       
       // Desktop: only show "Camera" + "Files" (hide "Photo Library")
       // Heuristic: devices with a fine pointer + hover are typically desktop/laptop.
@@ -18770,6 +19497,9 @@ class ChatModal {
         break;
       case 'contacts':
         shareContactsModal.open(chatModal.address);
+        break;
+      case 'location':
+        void this.handleShareLocationAction();
         break;
     }
   }
