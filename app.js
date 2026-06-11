@@ -14813,13 +14813,6 @@ class ChatModal {
       }
       return true;
     });
-    this.messagesList.addEventListener('click', (e) => {
-      const summary = e.target.closest('.location-message-summary');
-      if (!summary) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      this.toggleLocationMiniMap(summary.closest('.location-message'));
-    });
     // Close all context menus when messages container scrolls
     this.messagesContainer.addEventListener('scroll', () => this.handleMessagesContainerScroll(), { passive: true });
     this.messagesContainer.addEventListener('touchstart', (e) => this.handleMessagesContainerTouchStart(e), { passive: true });
@@ -14905,6 +14898,7 @@ class ChatModal {
       if (this.headerContextMenu && !this.headerContextMenu.contains(e.target) && this.headerMenuButton && !this.headerMenuButton.contains(e.target)) {
         this.closeHeaderContextMenu();
       }
+      this.handleLocationUiOutsideClick(e);
     });
     this.sendButton.addEventListener('click', withButtonCooldown(
       this.sendButton,
@@ -16352,6 +16346,28 @@ class ChatModal {
   }
 
   /**
+   * Treat clicks outside the visible location UI as cancellation.
+   * @param {Event} e
+   * @returns {void}
+   */
+  handleLocationUiOutsideClick(e) {
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+    if (this.attachmentOptionsContextMenu?.contains(target)) return;
+    const permissionDialog = this.locationPermissionOverlay?.querySelector('.location-permission-dialog');
+    if (permissionDialog?.contains(target)) return;
+    if (this.locationSharePanel?.contains(target)) return;
+
+    if (this.locationPermissionOverlay?.style.display === 'block') {
+      this.closeLocationPermissionGuide();
+    }
+
+    if (this.locationSharePanel?.style.display !== 'none') {
+      this.clearPendingLocation();
+    }
+  }
+
+  /**
    * Positions the permission guide like the attachment options popover.
    * @returns {void}
    */
@@ -16666,7 +16682,7 @@ class ChatModal {
     }
 
     if (!this.pendingLocation) {
-      showToast('Refresh your location before sending.', 3000, 'error');
+      showToast('Choose Share Location again before sending.', 3000, 'error');
       return;
     }
 
@@ -18618,6 +18634,14 @@ class ChatModal {
    * @param {Event} e - Click event
    */
   async handleMessageClick(e) {
+    const locationSummary = e.target.closest('.location-message-summary');
+    if (locationSummary) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      this.toggleLocationMiniMap(locationSummary.closest('.location-message'));
+      return;
+    }
+
     const attachmentRow = e.target.closest('.attachment-row');
     if (attachmentRow) {
       e.preventDefault();
@@ -24531,6 +24555,28 @@ class FailedMessageMenu {
         console.error('Voice message retry failed:', err);
         showToast(err?.message || 'Failed to retry voice message', 0, 'error');
       }
+      return;
+    }
+
+    if (message?.type === 'location') {
+      const latitude = Number(message.latitude);
+      const longitude = Number(message.longitude);
+      const accuracy = Number(message.accuracy);
+
+      if (!txid || !chatModal.isValidLocation(latitude, longitude)) {
+        console.error('Error preparing location retry: Location data missing or invalid.');
+        showToast('Could not retry this location message.', 0, 'error');
+        return;
+      }
+
+      chatModal.retryOfTxId.value = txid;
+      chatModal.showPendingLocation({
+        coords: {
+          latitude,
+          longitude,
+          accuracy: Number.isFinite(accuracy) && accuracy >= 0 ? accuracy : null
+        }
+      });
       return;
     }
 
