@@ -24820,7 +24820,7 @@ class VoiceRecordingModal {
       
     } catch (error) {
       console.error('Error starting voice recording:', error);
-      showToast('Could not access microphone. Please check permissions.', 0, 'error');
+      showToast('Microphone permission was denied. Enable microphone access in your browser or device settings, then try again.', 0, 'warning');
     }
   }
 
