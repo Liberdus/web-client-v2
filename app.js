@@ -24498,6 +24498,7 @@ class FailedMessageMenu {
     const action = option.dataset.action;
     const messageEl = this.currentMessageEl;
     this.hide();
+    chatModal.clearPendingLocation();
 
     switch (action) {
       case 'retry':
