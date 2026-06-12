@@ -14224,6 +14224,7 @@ const LOCATION_GEO_OPTIONS = {
   timeout: 15000,
   maximumAge: 0
 };
+const LOCATION_PERMISSION_DENIED_MESSAGE = 'Location permission was denied. Enable location access in your browser or device settings, then try again.';
 const CHAT_REACTION_SHEET_TAB_ICONS = {
   recent: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/></svg>',
   smileys: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>',
@@ -14255,7 +14256,6 @@ class ChatModal {
     this.pendingLocation = null;
     this.locationRequestInProgress = false;
     this.locationSendInProgress = false;
-    this.locationPermissionPosition = null;
     // context menu properties
     this.currentContextMessage = null;
 
@@ -14789,15 +14789,6 @@ class ChatModal {
     this.locationShareAccuracy = document.getElementById('locationShareAccuracy');
     this.cancelLocationShareButton = document.getElementById('cancelLocationShareButton');
     this.sendLocationShareButton = document.getElementById('sendLocationShareButton');
-    this.locationPermissionOverlay = document.getElementById('locationPermissionOverlay');
-    this.locationPermissionSupportStep = document.getElementById('locationPermissionSupportStep');
-    this.locationPermissionBrowserStep = document.getElementById('locationPermissionBrowserStep');
-    this.locationPermissionPositionStep = document.getElementById('locationPermissionPositionStep');
-    this.locationPermissionHelp = document.getElementById('locationPermissionHelp');
-    this.cancelLocationPermissionButton = document.getElementById('cancelLocationPermissionButton');
-    this.requestLocationPermissionButton = document.getElementById('requestLocationPermissionButton');
-    this.checkLocationPermissionButton = document.getElementById('checkLocationPermissionButton');
-    this.confirmLocationPermissionButton = document.getElementById('confirmLocationPermissionButton');
     
     this.currentImageAttachmentRow = null;
     
@@ -14916,14 +14907,6 @@ class ChatModal {
       () => this.setLocationPanelBusy(this.locationRequestInProgress),
       () => this.sendPendingLocation()
     ));
-    this.cancelLocationPermissionButton?.addEventListener('click', () => this.closeLocationPermissionGuide());
-    this.requestLocationPermissionButton?.addEventListener('click', () => {
-      void this.requestLocationPermissionFromGuide();
-    });
-    this.checkLocationPermissionButton?.addEventListener('click', () => {
-      void this.updateLocationPermissionGuide({ attemptPosition: true });
-    });
-    this.confirmLocationPermissionButton?.addEventListener('click', () => this.confirmLocationPermissionGuide());
     this.cancelEditButton.addEventListener('click', () => this.cancelEdit());
     this.closeButton.addEventListener('click', this.close.bind(this));
     this.sendButton.addEventListener('keydown', ignoreTabKey);
@@ -14972,9 +14955,6 @@ class ChatModal {
 
       if (this.reactionSheetOverlay.classList.contains('active')) {
         requestAnimationFrame(() => this.updateReactionSheetViewport());
-      }
-      if (this.locationPermissionOverlay?.style.display === 'block') {
-        requestAnimationFrame(() => this.positionLocationPermissionGuide());
       }
       if (this.locationSharePanel?.style.display !== 'none') {
         requestAnimationFrame(() => this.positionLocationSharePanel());
@@ -15595,7 +15575,6 @@ class ChatModal {
     this.closeReactionSheet();
     const closingAddress = this.address;
     this.hideAttachmentLoadingToastsForContact(closingAddress);
-    this.closeLocationPermissionGuide();
     this.clearPendingLocation();
 
     // Ensure scroll is unlocked when closing
@@ -16292,14 +16271,13 @@ class ChatModal {
     }
 
     if (!navigator.geolocation) {
-      this.openLocationPermissionGuide({ supportState: 'blocked' });
+      showToast('Location is not available on this device.', 0, 'warning');
       return;
     }
 
     const permissionState = await this.getLocationPermissionState();
-    if (permissionState !== 'granted') {
-      this.openLocationPermissionGuide();
-      await this.updateLocationPermissionGuide({ attemptPosition: false });
+    if (permissionState === 'denied') {
+      this.showLocationPermissionDeniedToast();
       return;
     }
 
@@ -16321,34 +16299,6 @@ class ChatModal {
   }
 
   /**
-   * Opens the step-by-step location permission guide.
-   * @param {{ supportState?: 'complete'|'blocked'|'pending' }} options
-   * @returns {void}
-   */
-  openLocationPermissionGuide({ supportState = 'pending' } = {}) {
-    this.locationPermissionPosition = null;
-    if (this.locationPermissionOverlay) {
-      this.locationPermissionOverlay.style.display = 'block';
-    }
-    this.updateLocationPermissionStep(this.locationPermissionSupportStep, supportState);
-    this.updateLocationPermissionStep(this.locationPermissionBrowserStep, 'pending');
-    this.updateLocationPermissionStep(this.locationPermissionPositionStep, 'pending');
-    if (this.locationPermissionHelp) {
-      this.locationPermissionHelp.textContent = 'Click Request Permission, then allow location in the browser prompt. If it is blocked, use the site settings icon beside the address bar and set Location to Allow.';
-    }
-    if (this.confirmLocationPermissionButton) this.confirmLocationPermissionButton.disabled = true;
-    this.positionLocationPermissionGuide();
-  }
-
-  /**
-   * Closes the permission guide.
-   * @returns {void}
-   */
-  closeLocationPermissionGuide() {
-    if (this.locationPermissionOverlay) this.locationPermissionOverlay.style.display = 'none';
-  }
-
-  /**
    * Treat clicks outside the visible location UI as cancellation.
    * @param {Event} e
    * @returns {void}
@@ -16357,13 +16307,7 @@ class ChatModal {
     const target = e.target;
     if (!(target instanceof Element)) return;
     if (this.attachmentOptionsContextMenu?.contains(target)) return;
-    const permissionDialog = this.locationPermissionOverlay?.querySelector('.location-permission-dialog');
-    if (permissionDialog?.contains(target)) return;
     if (this.locationSharePanel?.contains(target)) return;
-
-    if (this.locationPermissionOverlay?.style.display === 'block') {
-      this.closeLocationPermissionGuide();
-    }
 
     if (this.locationSharePanel?.style.display !== 'none') {
       this.clearPendingLocation();
@@ -16371,30 +16315,11 @@ class ChatModal {
   }
 
   /**
-   * Positions the permission guide like the attachment options popover.
+   * Shows the location permission denied warning.
    * @returns {void}
    */
-  positionLocationPermissionGuide() {
-    const dialog = this.locationPermissionOverlay?.querySelector('.location-permission-dialog');
-    if (!dialog || !this.addAttachmentButton) return;
-
-    const buttonRect = this.addAttachmentButton.getBoundingClientRect();
-    const dialogRect = dialog.getBoundingClientRect();
-    let top = buttonRect.top - dialogRect.height - 8;
-    if (top < 10) {
-      top = buttonRect.bottom + 8;
-    }
-
-    let left = buttonRect.left;
-    if (left + dialogRect.width > window.innerWidth - 10) {
-      left = window.innerWidth - dialogRect.width - 10;
-    }
-    if (left < 10) {
-      left = 10;
-    }
-
-    dialog.style.left = `${left}px`;
-    dialog.style.top = `${top}px`;
+  showLocationPermissionDeniedToast() {
+    showToast(LOCATION_PERMISSION_DENIED_MESSAGE, 0, 'warning');
   }
 
   /**
@@ -16437,105 +16362,6 @@ class ChatModal {
   }
 
   /**
-   * Updates one permission guide checklist row.
-   * @param {HTMLElement|null} step
-   * @param {'complete'|'pending'|'blocked'} state
-   * @returns {void}
-   */
-  updateLocationPermissionStep(step, state) {
-    if (!step) return;
-    step.dataset.stepState = state;
-  }
-
-  /**
-   * Checks the permission guide status and optionally attempts to read a position.
-   * @param {{ attemptPosition?: boolean }} options
-   * @returns {Promise<void>}
-   */
-  async updateLocationPermissionGuide({ attemptPosition = false } = {}) {
-    const hasSupport = !!navigator.geolocation;
-    this.updateLocationPermissionStep(this.locationPermissionSupportStep, hasSupport ? 'complete' : 'blocked');
-
-    if (!hasSupport) {
-      if (this.locationPermissionHelp) {
-        this.locationPermissionHelp.textContent = 'This browser does not expose location services to Liberdus. Try a browser with location services enabled.';
-      }
-      if (this.confirmLocationPermissionButton) this.confirmLocationPermissionButton.disabled = true;
-      return;
-    }
-
-    const permissionState = await this.getLocationPermissionState();
-    const browserAllowed = permissionState === 'granted';
-    const browserBlocked = permissionState === 'denied';
-    this.updateLocationPermissionStep(
-      this.locationPermissionBrowserStep,
-      browserAllowed ? 'complete' : (browserBlocked ? 'blocked' : 'pending')
-    );
-
-    if (browserBlocked) {
-      if (this.locationPermissionHelp) {
-        this.locationPermissionHelp.textContent = 'Location is blocked for this page. Click the site settings icon beside the address bar, set Location to Allow, then click Check Again.';
-      }
-      this.updateLocationPermissionStep(this.locationPermissionPositionStep, 'pending');
-      if (this.confirmLocationPermissionButton) this.confirmLocationPermissionButton.disabled = true;
-      return;
-    }
-
-    if (!attemptPosition && !browserAllowed) {
-      if (this.locationPermissionHelp) {
-        this.locationPermissionHelp.textContent = 'Click Request Permission and choose Allow in the browser prompt.';
-      }
-      this.updateLocationPermissionStep(this.locationPermissionPositionStep, 'pending');
-      if (this.confirmLocationPermissionButton) this.confirmLocationPermissionButton.disabled = true;
-      return;
-    }
-
-    try {
-      const position = await this.requestCurrentLocation();
-      this.locationPermissionPosition = position;
-      this.updateLocationPermissionStep(this.locationPermissionBrowserStep, 'complete');
-      this.updateLocationPermissionStep(this.locationPermissionPositionStep, 'complete');
-      if (this.locationPermissionHelp) {
-        this.locationPermissionHelp.textContent = 'Location is ready. Confirm to add it to this chat.';
-      }
-      if (this.confirmLocationPermissionButton) this.confirmLocationPermissionButton.disabled = false;
-    } catch (error) {
-      console.warn('Location permission guide check failed:', error);
-      const nextPermissionState = await this.getLocationPermissionState();
-      this.updateLocationPermissionStep(
-        this.locationPermissionBrowserStep,
-        nextPermissionState === 'denied' ? 'blocked' : 'pending'
-      );
-      this.updateLocationPermissionStep(this.locationPermissionPositionStep, 'blocked');
-      if (this.locationPermissionHelp) {
-        this.locationPermissionHelp.textContent = nextPermissionState === 'denied'
-          ? 'Location is blocked for this page. Change Location to Allow in browser site settings, then click Check Again.'
-          : 'Location could not be detected yet. Check system Location Services, then click Check Again.';
-      }
-      if (this.confirmLocationPermissionButton) this.confirmLocationPermissionButton.disabled = true;
-    }
-  }
-
-  /**
-   * Requests permission from inside the guide.
-   * @returns {Promise<void>}
-   */
-  async requestLocationPermissionFromGuide() {
-    await this.updateLocationPermissionGuide({ attemptPosition: true });
-    this.positionLocationPermissionGuide();
-  }
-
-  /**
-   * Confirms the guide and stages the detected location.
-   * @returns {void}
-   */
-  confirmLocationPermissionGuide() {
-    if (!this.locationPermissionPosition) return;
-    this.closeLocationPermissionGuide();
-    this.showPendingLocation(this.locationPermissionPosition);
-  }
-
-  /**
    * Requests the current browser location.
    * @returns {Promise<GeolocationPosition>}
    */
@@ -16559,7 +16385,7 @@ class ChatModal {
    */
   showLocationError(error) {
     if (error?.code === 1) {
-      showToast('Location permission is required to share your location.', 0, 'error');
+      this.showLocationPermissionDeniedToast();
       return;
     }
 
@@ -17080,26 +16906,7 @@ class ChatModal {
     const lat = this.formatLocationCoordinate(latitude);
     const lng = this.formatLocationCoordinate(longitude);
     const query = encodeURIComponent(`${lat},${lng}`);
-    const platform = navigator.platform || '';
-    const useAppleMaps = isIOS() || /Mac/i.test(platform);
-    if (useAppleMaps) {
-      return `https://maps.apple.com/?ll=${lat},${lng}&q=Shared%20Location`;
-    }
-    return `https://www.google.com/maps/search/?api=1&query=${query}`;
-  }
-
-  /**
-   * Toggles an inline mini map for a rendered location message.
-   * @param {HTMLElement|null} locationMessage
-   * @returns {void}
-   */
-  toggleLocationMiniMap(locationMessage) {
-    if (!locationMessage) return;
-    const isExpanded = locationMessage.classList.toggle('location-message-expanded');
-    const map = locationMessage.querySelector('.location-mini-map');
-    const summary = locationMessage.querySelector('.location-message-summary');
-    if (map) map.hidden = !isExpanded;
-    if (summary) summary.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+    return `https://maps.google.com/?q=${query}`;
   }
 
   renderChatMessageHTML(item, { contact, lastReadTs }) {
@@ -17285,24 +17092,15 @@ class ChatModal {
           const mapUrl = this.getLocationMapUrl(latitude, longitude);
           messageTextHTML = `
               <div class="location-message">
-                <button type="button" class="location-message-summary" aria-expanded="false">
+                <a class="location-message-summary" href="${mapUrl}" target="_blank" rel="noopener noreferrer">
                   <span class="location-message-icon" aria-hidden="true"></span>
                   <span class="location-message-body">
                     <span class="location-message-title">Shared location</span>
                     <span class="location-message-coordinates">${escapeHtml(coordinates)}</span>
                     ${accuracy ? `<span class="location-message-accuracy">${escapeHtml(accuracy)}</span>` : ''}
-                    <span class="location-message-link">View mini map</span>
+                    <span class="location-message-link">Open in Google Maps</span>
                   </span>
-                </button>
-                <div class="location-mini-map" hidden>
-                  <div class="location-mini-map-grid" aria-hidden="true">
-                    <span class="location-mini-map-pin"></span>
-                  </div>
-                  <div class="location-mini-map-footer">
-                    <span>${escapeHtml(coordinates)}</span>
-                    <a href="${mapUrl}" target="_blank" rel="noopener noreferrer">Open in Maps</a>
-                  </div>
-                </div>
+                </a>
               </div>`;
         }
         break;
@@ -18639,14 +18437,6 @@ class ChatModal {
    * @param {Event} e - Click event
    */
   async handleMessageClick(e) {
-    const locationSummary = e.target.closest('.location-message-summary');
-    if (locationSummary) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      this.toggleLocationMiniMap(locationSummary.closest('.location-message'));
-      return;
-    }
-
     const attachmentRow = e.target.closest('.attachment-row');
     if (attachmentRow) {
       e.preventDefault();

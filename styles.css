@@ -6642,145 +6642,6 @@ small {
   }
 }
 
-.location-permission-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: var(--overlay-z-index-high);
-  pointer-events: none;
-  background: transparent;
-}
-
-.location-permission-dialog {
-  position: fixed;
-  width: min(320px, calc(100vw - 20px));
-  min-width: 0;
-  padding: 10px;
-  border-radius: 14px;
-  background: var(--background-color);
-  backdrop-filter: blur(20px);
-  box-shadow: var(--overlay-shadow-large);
-  animation: contextMenuAppear 0.2s ease-out;
-  pointer-events: auto;
-}
-
-.location-permission-icon {
-  display: none;
-}
-
-.location-permission-content {
-  min-width: 0;
-}
-
-.location-permission-content h3 {
-  margin: 2px 8px 4px;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-color);
-}
-
-.location-permission-copy,
-.location-permission-help {
-  margin: 0 8px;
-  font-size: var(--font-size-xs);
-  color: var(--secondary-text-color);
-  line-height: 1.4;
-}
-
-.location-permission-help {
-  margin-top: 10px;
-}
-
-.location-permission-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  margin: 8px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.location-permission-steps li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 42px;
-  padding: 6px 8px;
-  border-radius: 10px;
-  color: var(--text-color);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  line-height: 1.25;
-}
-
-.location-permission-steps li:hover {
-  background: var(--button-hover-background);
-}
-
-.location-permission-check {
-  width: var(--icon-size-20);
-  height: var(--icon-size-20);
-  border: 1px solid var(--border-color);
-  border-radius: 50%;
-  flex-shrink: 0;
-  background: var(--button-background);
-}
-
-.location-permission-steps li[data-step-state="complete"] .location-permission-check {
-  border-color: var(--success-color);
-  background-color: var(--success-color);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 9.5 7.5 13 14 5'%3E%3C/path%3E%3C/svg%3E");
-  background-position: center;
-  background-repeat: no-repeat;
-}
-
-.location-permission-steps li[data-step-state="blocked"] .location-permission-check {
-  border-color: var(--danger-color);
-  background-color: var(--danger-color);
-}
-
-.location-permission-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  margin-top: 10px;
-  padding: 0 2px;
-}
-
-.location-permission-action {
-  min-height: 32px;
-  padding: 0 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--button-background);
-  color: var(--button-text);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-}
-
-.location-permission-action:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.location-permission-action-primary {
-  border-color: var(--primary-color);
-  background: var(--primary-color);
-  color: white;
-}
-
-.location-permission-action-primary:hover:not(:disabled) {
-  background: var(--primary-hover);
-}
-
-@media (max-width: 480px) {
-  .location-permission-dialog {
-    width: calc(100vw - 20px);
-  }
-}
-
 .attachment-name {
   flex: 1;
   overflow: hidden;
@@ -7705,6 +7566,8 @@ small {
   color: inherit;
   text-align: left;
   cursor: pointer;
+  text-decoration: none;
+  box-sizing: border-box;
 }
 
 .location-message-summary:hover {
@@ -7737,72 +7600,6 @@ small {
   margin-top: 2px;
 }
 
-.location-mini-map {
-  padding: 0 10px 10px;
-}
-
-.location-mini-map-grid {
-  position: relative;
-  height: 132px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  overflow: hidden;
-  background:
-    linear-gradient(90deg, rgba(61, 61, 206, 0.08) 1px, transparent 1px) 0 0 / 28px 28px,
-    linear-gradient(rgba(61, 61, 206, 0.08) 1px, transparent 1px) 0 0 / 28px 28px,
-    linear-gradient(135deg, #e7f0ff 0%, #f7fbff 44%, #e8f6ee 100%);
-}
-
-.location-mini-map-pin {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 30px;
-  height: 30px;
-  transform: translate(-50%, -50%);
-  background-image: var(--icon-location-white);
-  background-color: var(--primary-color);
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: 18px;
-  border-radius: 50%;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.24);
-}
-
-.location-mini-map-pin::after {
-  content: "";
-  position: absolute;
-  inset: 8px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.location-mini-map-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 8px;
-  font-size: var(--font-size-xs);
-  color: var(--secondary-text-color);
-}
-
-.location-mini-map-footer span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.location-mini-map-footer a {
-  flex-shrink: 0;
-  color: var(--primary-color);
-  font-weight: var(--font-weight-medium);
-  text-decoration: none;
-}
-
-.location-mini-map-footer a:hover {
-  text-decoration: underline;
-}
-
 .message.sent .location-message {
   background: rgba(255, 255, 255, 0.14);
 }
@@ -7810,9 +7607,7 @@ small {
 .message.sent .location-message-title,
 .message.sent .location-message-coordinates,
 .message.sent .location-message-accuracy,
-.message.sent .location-message-link,
-.message.sent .location-mini-map-footer,
-.message.sent .location-mini-map-footer a {
+.message.sent .location-message-link {
   color: white;
 }
 
@@ -7822,10 +7617,6 @@ small {
 
 .message.sent .location-message-summary:hover {
   background: rgba(255, 255, 255, 0.08);
-}
-
-.message.sent .location-mini-map-grid {
-  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .call-message-phone-button {
