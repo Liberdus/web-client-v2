@@ -7553,6 +7553,8 @@ small {
   color: inherit;
   text-align: left;
   cursor: pointer;
+  text-decoration: none;
+  box-sizing: border-box;
 }
 
 .location-message-summary:hover {
@@ -7585,72 +7587,6 @@ small {
   margin-top: 2px;
 }
 
-.location-mini-map {
-  padding: 0 10px 10px;
-}
-
-.location-mini-map-grid {
-  position: relative;
-  height: 132px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  overflow: hidden;
-  background:
-    linear-gradient(90deg, rgba(61, 61, 206, 0.08) 1px, transparent 1px) 0 0 / 28px 28px,
-    linear-gradient(rgba(61, 61, 206, 0.08) 1px, transparent 1px) 0 0 / 28px 28px,
-    linear-gradient(135deg, #e7f0ff 0%, #f7fbff 44%, #e8f6ee 100%);
-}
-
-.location-mini-map-pin {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 30px;
-  height: 30px;
-  transform: translate(-50%, -50%);
-  background-image: var(--icon-location-white);
-  background-color: var(--primary-color);
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: 18px;
-  border-radius: 50%;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.24);
-}
-
-.location-mini-map-pin::after {
-  content: "";
-  position: absolute;
-  inset: 8px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.location-mini-map-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 8px;
-  font-size: var(--font-size-xs);
-  color: var(--secondary-text-color);
-}
-
-.location-mini-map-footer span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.location-mini-map-footer a {
-  flex-shrink: 0;
-  color: var(--primary-color);
-  font-weight: var(--font-weight-medium);
-  text-decoration: none;
-}
-
-.location-mini-map-footer a:hover {
-  text-decoration: underline;
-}
-
 .message.sent .location-message {
   background: rgba(255, 255, 255, 0.14);
 }
@@ -7658,9 +7594,7 @@ small {
 .message.sent .location-message-title,
 .message.sent .location-message-coordinates,
 .message.sent .location-message-accuracy,
-.message.sent .location-message-link,
-.message.sent .location-mini-map-footer,
-.message.sent .location-mini-map-footer a {
+.message.sent .location-message-link {
   color: white;
 }
 
@@ -7670,10 +7604,6 @@ small {
 
 .message.sent .location-message-summary:hover {
   background: rgba(255, 255, 255, 0.08);
-}
-
-.message.sent .location-mini-map-grid {
-  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .call-message-phone-button {
