@@ -16884,26 +16884,7 @@ class ChatModal {
     const lat = this.formatLocationCoordinate(latitude);
     const lng = this.formatLocationCoordinate(longitude);
     const query = encodeURIComponent(`${lat},${lng}`);
-    const platform = navigator.platform || '';
-    const useAppleMaps = isIOS() || /Mac/i.test(platform);
-    if (useAppleMaps) {
-      return `https://maps.apple.com/?ll=${lat},${lng}&q=Shared%20Location`;
-    }
-    return `https://www.google.com/maps/search/?api=1&query=${query}`;
-  }
-
-  /**
-   * Toggles an inline mini map for a rendered location message.
-   * @param {HTMLElement|null} locationMessage
-   * @returns {void}
-   */
-  toggleLocationMiniMap(locationMessage) {
-    if (!locationMessage) return;
-    const isExpanded = locationMessage.classList.toggle('location-message-expanded');
-    const map = locationMessage.querySelector('.location-mini-map');
-    const summary = locationMessage.querySelector('.location-message-summary');
-    if (map) map.hidden = !isExpanded;
-    if (summary) summary.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+    return `https://maps.google.com/?q=${query}`;
   }
 
   renderChatMessageHTML(item, { contact, lastReadTs }) {
@@ -17089,24 +17070,15 @@ class ChatModal {
           const mapUrl = this.getLocationMapUrl(latitude, longitude);
           messageTextHTML = `
               <div class="location-message">
-                <button type="button" class="location-message-summary" aria-expanded="false">
+                <a class="location-message-summary" href="${mapUrl}" target="_blank" rel="noopener noreferrer">
                   <span class="location-message-icon" aria-hidden="true"></span>
                   <span class="location-message-body">
                     <span class="location-message-title">Shared location</span>
                     <span class="location-message-coordinates">${escapeHtml(coordinates)}</span>
                     ${accuracy ? `<span class="location-message-accuracy">${escapeHtml(accuracy)}</span>` : ''}
-                    <span class="location-message-link">View mini map</span>
+                    <span class="location-message-link">Open in Google Maps</span>
                   </span>
-                </button>
-                <div class="location-mini-map" hidden>
-                  <div class="location-mini-map-grid" aria-hidden="true">
-                    <span class="location-mini-map-pin"></span>
-                  </div>
-                  <div class="location-mini-map-footer">
-                    <span>${escapeHtml(coordinates)}</span>
-                    <a href="${mapUrl}" target="_blank" rel="noopener noreferrer">Open in Maps</a>
-                  </div>
-                </div>
+                </a>
               </div>`;
         }
         break;
@@ -18460,14 +18432,6 @@ class ChatModal {
    * @param {Event} e - Click event
    */
   async handleMessageClick(e) {
-    const locationSummary = e.target.closest('.location-message-summary');
-    if (locationSummary) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      this.toggleLocationMiniMap(locationSummary.closest('.location-message'));
-      return;
-    }
-
     const attachmentRow = e.target.closest('.attachment-row');
     if (attachmentRow) {
       e.preventDefault();
