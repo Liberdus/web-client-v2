@@ -16602,10 +16602,10 @@ class ChatModal {
   /**
    * Stores and displays a pending location before it is sent.
    * @param {GeolocationPosition} position
-   * @param {{ retryTxId?: string }} options
+   * @param {string} [retryTxId]
    * @returns {void}
    */
-  showPendingLocation(position, { retryTxId = '' } = {}) {
+  showPendingLocation(position, retryTxId = '') {
     const latitude = Number(position?.coords?.latitude);
     const longitude = Number(position?.coords?.longitude);
     const accuracy = Number(position?.coords?.accuracy);
@@ -24586,7 +24586,7 @@ class FailedMessageMenu {
           longitude,
           accuracy: Number.isFinite(accuracy) && accuracy >= 0 ? accuracy : null
         }
-      }, { retryTxId: txid });
+      }, txid);
       return;
     }
 
