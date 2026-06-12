@@ -9839,6 +9839,9 @@ function showToast(message, duration = 2000, type = 'default', isHTML = false, o
   
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
+  if (options?.className) {
+    toast.classList.add(...String(options.className).split(/\s+/).filter(Boolean));
+  }
   
   if (isHTML) {
     toast.innerHTML = message;
@@ -24820,7 +24823,13 @@ class VoiceRecordingModal {
       
     } catch (error) {
       console.error('Error starting voice recording:', error);
-      showToast('Microphone permission was denied. Enable microphone access in your browser or device settings, then try again.', 0, 'warning');
+      showToast(
+        'Microphone permission was denied. Enable microphone access in your browser or device settings, then try again.',
+        0,
+        'warning',
+        false,
+        { className: 'toast-left-aligned' }
+      );
     }
   }
 

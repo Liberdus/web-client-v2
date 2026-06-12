@@ -4329,6 +4329,10 @@ mark {
   word-break: break-word;
 }
 
+.toast-left-aligned {
+  text-align: left;
+}
+
 /* Sticky (duration <= 0) toasts get space for the close button + are clickable */
 .toast.sticky {
   padding-top: 32px;
