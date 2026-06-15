@@ -803,6 +803,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Settings Modal
   settingsModal.load();
 
+  // Chat Settings Modal
+  chatSettingsModal.load();
+
   // Manage Contacts Modal
   manageContactsModal.load();
 
@@ -3058,6 +3061,9 @@ class SettingsModal {
     this.contactsButton = document.getElementById('openManageContactsModal');
     this.contactsButton.addEventListener('click', () => manageContactsModal.open());
     
+    this.chatSettingsButton = document.getElementById('openChatSettingsModal');
+    this.chatSettingsButton.addEventListener('click', () => chatSettingsModal.open());
+
     this.profileButton = document.getElementById('openAccountForm');
     this.profileButton.addEventListener('click', () => myProfileModal.open());
     
@@ -3111,6 +3117,79 @@ class SettingsModal {
 }
 
 const settingsModal = new SettingsModal();
+
+class ChatSettingsModal {
+  constructor() {
+    this.defaultFontSizePx = 16;
+    this.savedFontSizePx = this.defaultFontSizePx;
+    this.draftFontSizePx = this.defaultFontSizePx;
+    this.warningShown = false;
+  }
+
+  load() {
+    this.modal = document.getElementById('chatSettingsModal');
+    this.closeButton = document.getElementById('closeChatSettingsModal');
+    this.preview = document.getElementById('chatSettingsFontPreview');
+    this.fontSizeSlider = document.getElementById('chatSettingsFontSizeSlider');
+    this.saveButton = document.getElementById('saveChatSettingsButton');
+
+    this.closeButton.addEventListener('click', () => this.handleClose());
+    this.fontSizeSlider.addEventListener('input', () => this.handleSliderInput());
+    this.saveButton.addEventListener('click', () => this.save());
+  }
+
+  open() {
+    this.draftFontSizePx = this.savedFontSizePx;
+    this.warningShown = false;
+    this.fontSizeSlider.value = String(this.draftFontSizePx);
+    this.updatePreview();
+    this.modal.classList.add('active');
+  }
+
+  handleSliderInput() {
+    this.draftFontSizePx = Number(this.fontSizeSlider.value);
+    this.warningShown = false;
+    this.updatePreview();
+  }
+
+  save() {
+    this.savedFontSizePx = this.draftFontSizePx;
+    this.warningShown = false;
+    this.close();
+  }
+
+  updatePreview() {
+    this.preview.style.setProperty('--chat-settings-preview-message-font-size', this.draftFontSizePx + 'px');
+  }
+
+  hasUnsavedChanges() {
+    return this.draftFontSizePx !== this.savedFontSizePx;
+  }
+
+  handleClose() {
+    if (this.hasUnsavedChanges() && !this.warningShown) {
+      this.warningShown = true;
+      showToast('Press back again to discard changes.', 5000, 'warning');
+      return;
+    }
+
+    this.close();
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+    this.draftFontSizePx = this.savedFontSizePx;
+    this.warningShown = false;
+    this.fontSizeSlider.value = String(this.savedFontSizePx);
+    this.updatePreview();
+  }
+
+  isActive() {
+    return this.modal.classList.contains('active');
+  }
+}
+
+const chatSettingsModal = new ChatSettingsModal();
 
 /**
  * Manage Contacts Modal
@@ -31141,6 +31220,9 @@ function closeTopModal(topModal){
       break;
     case 'settingsModal':
       settingsModal.close();
+      break;
+    case 'chatSettingsModal':
+      chatSettingsModal.handleClose();
       break;
     case 'sendAssetFormModal':
       sendAssetFormModal.close();

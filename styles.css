@@ -2423,6 +2423,101 @@ input[type='file'].form-control::file-selector-button {
   word-break: break-word;
 }
 
+.chat-settings-form {
+  max-width: 480px;
+  margin: 0 auto;
+  padding-bottom: 24px;
+}
+
+.chat-settings-font-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.chat-settings-section-title {
+  color: var(--text-color);
+  font-family: var(--font-primary);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+}
+
+.chat-settings-preview {
+  --chat-settings-preview-message-font-size: 16px;
+  background: var(--hover-background);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.chat-settings-preview-label {
+  color: var(--secondary-text-color);
+  font-family: var(--font-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  margin-bottom: 14px;
+}
+
+.chat-settings-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-settings-preview .message {
+  cursor: default;
+  margin-bottom: 0;
+  max-width: 82%;
+}
+
+.chat-settings-preview .message:hover {
+  filter: none;
+}
+
+.chat-settings-preview .message-content {
+  font-size: var(--chat-settings-preview-message-font-size);
+  line-height: 1.35;
+}
+
+.chat-settings-font-slider-row {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.chat-settings-font-label {
+  color: var(--text-color);
+  font-family: var(--font-primary);
+  line-height: 1;
+}
+
+.chat-settings-font-label-small {
+  font-size: var(--font-size-sm);
+}
+
+.chat-settings-font-label-large {
+  font-size: var(--font-size-lg);
+}
+
+#chatSettingsFontSizeSlider {
+  accent-color: var(--primary-color);
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.chat-settings-slider-labels {
+  color: var(--secondary-text-color);
+  display: grid;
+  font-family: var(--font-primary);
+  font-size: var(--font-size-xs);
+  grid-template-columns: repeat(3, 1fr);
+  padding: 0 34px;
+  text-align: center;
+}
+
 /* Wrapper for the message input, attachment preview, and inline action buttons */
 .message-input-wrapper {
   position: relative;
@@ -6338,6 +6433,10 @@ small {
 /* Contacts icon for settings menu - reuse existing contacts icon */
 .menu-item[data-icon="contacts"]::before {
   background-image: var(--icon-contacts);
+}
+
+.menu-item[data-icon="chat"]::before {
+  background-image: var(--icon-chat);
 }
 
 .menu-item[data-icon="arrow-right-arrow-left"]::before {

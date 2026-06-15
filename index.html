@@ -437,6 +437,7 @@
             <li class="menu-item" id="openCallsModal" data-icon="call">Calls</li>
             <li class="menu-item" id="openAccountForm" data-icon="user">Profile</li>
             <li class="menu-item" id="openManageContactsModal" data-icon="contacts">Contacts</li>
+            <li class="menu-item" id="openChatSettingsModal" data-icon="chat">Chat</li>
             <li class="menu-item" id="openToll" data-icon="dollar-sign">Toll</li>
             <li class="menu-item" id="openLockModal" data-icon="lock">Lock</li>
             <li class="menu-item" id="openSecretModal" data-icon="key">Secret</li>
@@ -445,6 +446,51 @@
             <li class="menu-item" id="openLaunchUrl" data-icon="launch" style="display: none;">Launch</li>
             <li class="menu-item sign-out" id="handleSignOutSettings" data-icon="log-out">Sign Out</li>
           </ul>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Chat Settings Modal -->
+      <div class="modal fixed-header" id="chatSettingsModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeChatSettingsModal"></button>
+          <div class="modal-title">Chat</div>
+        </div>
+        <div class="modal-content">
+          <div class="form-container chat-settings-form">
+            <div class="chat-settings-font-section form--narrow">
+              <div class="chat-settings-section-title">Chat font size</div>
+
+              <div class="chat-settings-preview" id="chatSettingsFontPreview">
+                <div class="chat-settings-preview-label">Preview</div>
+                <div class="chat-settings-preview-list" aria-live="polite">
+                  <div class="message received chat-settings-preview-message">
+                    <div class="message-content">Hey, can you read this comfortably?</div>
+                    <div class="message-time">10:32</div>
+                  </div>
+                  <div class="message sent chat-settings-preview-message">
+                    <div class="message-content">This is the size chats will use.</div>
+                    <div class="message-time">10:33</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="chat-settings-font-slider-row">
+                <span class="chat-settings-font-label chat-settings-font-label-small">Aa</span>
+                <input type="range" id="chatSettingsFontSizeSlider" min="14" max="20" step="1" value="16" aria-label="Chat font size" />
+                <span class="chat-settings-font-label chat-settings-font-label-large">Aa</span>
+              </div>
+              <div class="chat-settings-slider-labels" aria-hidden="true">
+                <span>Small</span>
+                <span>Default</span>
+                <span>Large</span>
+              </div>
+
+              <div class="form-actions chat-settings-actions">
+                <button type="button" id="saveChatSettingsButton" class="btn btn--primary btn--pill btn--full">Save Changes</button>
+              </div>
+            </div>
+          </div>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
