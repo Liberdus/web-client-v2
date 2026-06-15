@@ -3063,7 +3063,7 @@ class SettingsModal {
     
     this.displayButton = document.getElementById('openDisplayModal');
     this.displayButton.addEventListener('click', () => displayModal.open());
-    
+
     this.profileButton = document.getElementById('openAccountForm');
     this.profileButton.addEventListener('click', () => myProfileModal.open());
     
@@ -3123,6 +3123,7 @@ class DisplayModal {
     this.defaultFontSizePx = 16;
     this.savedFontSizePx = this.defaultFontSizePx;
     this.draftFontSizePx = this.defaultFontSizePx;
+    this.warningShown = false;
   }
 
   load() {
@@ -3139,6 +3140,7 @@ class DisplayModal {
 
   open() {
     this.draftFontSizePx = this.savedFontSizePx;
+    this.warningShown = false;
     this.fontSizeSlider.value = String(this.draftFontSizePx);
     this.updatePreview();
     this.modal.classList.add('active');
@@ -3146,11 +3148,13 @@ class DisplayModal {
 
   handleSliderInput() {
     this.draftFontSizePx = Number(this.fontSizeSlider.value);
+    this.warningShown = false;
     this.updatePreview();
   }
 
   save() {
     this.savedFontSizePx = this.draftFontSizePx;
+    this.warningShown = false;
     this.close();
   }
 
@@ -3158,12 +3162,26 @@ class DisplayModal {
     this.preview.style.setProperty('--display-preview-message-font-size', this.draftFontSizePx + 'px');
   }
 
+  hasUnsavedChanges() {
+    return this.draftFontSizePx !== this.savedFontSizePx;
+  }
+
   handleClose() {
+    if (this.hasUnsavedChanges() && !this.warningShown) {
+      this.warningShown = true;
+      showToast('Press back again to discard changes.', 5000, 'warning');
+      return;
+    }
+
     this.close();
   }
 
   close() {
     this.modal.classList.remove('active');
+    this.draftFontSizePx = this.savedFontSizePx;
+    this.warningShown = false;
+    this.fontSizeSlider.value = String(this.savedFontSizePx);
+    this.updatePreview();
   }
 
   isActive() {
