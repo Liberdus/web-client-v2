@@ -2423,6 +2423,106 @@ input[type='file'].form-control::file-selector-button {
   word-break: break-word;
 }
 
+.display-settings-form {
+  max-width: 480px;
+  margin: 0 auto;
+  padding-bottom: 24px;
+}
+
+.display-font-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.display-section-title {
+  color: var(--text-color);
+  font-family: var(--font-primary);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+}
+
+.display-chat-preview {
+  --display-preview-message-font-size: 16px;
+  background: var(--hover-background);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.display-preview-label {
+  color: var(--secondary-text-color);
+  font-family: var(--font-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  margin-bottom: 14px;
+}
+
+.display-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.display-chat-preview .message {
+  cursor: default;
+  margin-bottom: 0;
+  max-width: 82%;
+}
+
+.display-chat-preview .message:hover {
+  filter: none;
+}
+
+.display-chat-preview .message-content {
+  font-size: var(--display-preview-message-font-size);
+  line-height: 1.35;
+}
+
+.display-font-slider-row {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.display-font-label {
+  color: var(--text-color);
+  font-family: var(--font-primary);
+  line-height: 1;
+}
+
+.display-font-label-small {
+  font-size: var(--font-size-sm);
+}
+
+.display-font-label-large {
+  font-size: var(--font-size-lg);
+}
+
+#displayFontSizeSlider {
+  accent-color: var(--primary-color);
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.display-slider-labels {
+  color: var(--secondary-text-color);
+  display: grid;
+  font-family: var(--font-primary);
+  font-size: var(--font-size-xs);
+  grid-template-columns: repeat(3, 1fr);
+  padding: 0 34px;
+  text-align: center;
+}
+
+.display-actions .btn--full {
+  margin: 0;
+  width: 100%;
+}
+
 /* Wrapper for the message input, attachment preview, and inline action buttons */
 .message-input-wrapper {
   position: relative;

@@ -458,6 +458,38 @@
         </div>
         <div class="modal-content">
           <div class="form-container display-settings-form">
+            <div class="display-font-section">
+              <div class="display-section-title">Chat font size</div>
+
+              <div class="display-chat-preview" id="displayFontPreview">
+                <div class="display-preview-label">Preview</div>
+                <div class="display-preview-list" aria-live="polite">
+                  <div class="message received display-preview-message">
+                    <div class="message-content">Hey, can you read this comfortably?</div>
+                    <div class="message-time">10:32</div>
+                  </div>
+                  <div class="message sent display-preview-message">
+                    <div class="message-content">This is the size chats will use.</div>
+                    <div class="message-time">10:33</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="display-font-slider-row">
+                <span class="display-font-label display-font-label-small">Aa</span>
+                <input type="range" id="displayFontSizeSlider" min="14" max="20" step="1" value="16" aria-label="Chat font size" />
+                <span class="display-font-label display-font-label-large">Aa</span>
+              </div>
+              <div class="display-slider-labels" aria-hidden="true">
+                <span>Small</span>
+                <span>Default</span>
+                <span>Large</span>
+              </div>
+
+              <div class="form-actions display-actions">
+                <button type="button" id="saveDisplaySettingsButton" class="btn btn--primary btn--pill btn--full">Save Changes</button>
+              </div>
+            </div>
           </div>
         </div>
         <a class="last-item" href="#"> </a>

@@ -3119,16 +3119,43 @@ class SettingsModal {
 const settingsModal = new SettingsModal();
 
 class DisplayModal {
-  constructor() { }
+  constructor() {
+    this.defaultFontSizePx = 16;
+    this.savedFontSizePx = this.defaultFontSizePx;
+    this.draftFontSizePx = this.defaultFontSizePx;
+  }
 
   load() {
     this.modal = document.getElementById('displayModal');
     this.closeButton = document.getElementById('closeDisplayModal');
+    this.preview = document.getElementById('displayFontPreview');
+    this.fontSizeSlider = document.getElementById('displayFontSizeSlider');
+    this.saveButton = document.getElementById('saveDisplaySettingsButton');
+
     this.closeButton.addEventListener('click', () => this.handleClose());
+    this.fontSizeSlider.addEventListener('input', () => this.handleSliderInput());
+    this.saveButton.addEventListener('click', () => this.save());
   }
 
   open() {
+    this.draftFontSizePx = this.savedFontSizePx;
+    this.fontSizeSlider.value = String(this.draftFontSizePx);
+    this.updatePreview();
     this.modal.classList.add('active');
+  }
+
+  handleSliderInput() {
+    this.draftFontSizePx = Number(this.fontSizeSlider.value);
+    this.updatePreview();
+  }
+
+  save() {
+    this.savedFontSizePx = this.draftFontSizePx;
+    this.close();
+  }
+
+  updatePreview() {
+    this.preview.style.setProperty('--display-preview-message-font-size', this.draftFontSizePx + 'px');
   }
 
   handleClose() {
