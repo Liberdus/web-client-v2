@@ -803,8 +803,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Settings Modal
   settingsModal.load();
 
-  // Display Modal
-  displayModal.load();
+  // Chat Settings Modal
+  chatSettingsModal.load();
 
   // Manage Contacts Modal
   manageContactsModal.load();
@@ -3061,8 +3061,8 @@ class SettingsModal {
     this.contactsButton = document.getElementById('openManageContactsModal');
     this.contactsButton.addEventListener('click', () => manageContactsModal.open());
     
-    this.displayButton = document.getElementById('openDisplayModal');
-    this.displayButton.addEventListener('click', () => displayModal.open());
+    this.chatSettingsButton = document.getElementById('openChatSettingsModal');
+    this.chatSettingsButton.addEventListener('click', () => chatSettingsModal.open());
 
     this.profileButton = document.getElementById('openAccountForm');
     this.profileButton.addEventListener('click', () => myProfileModal.open());
@@ -3118,7 +3118,7 @@ class SettingsModal {
 
 const settingsModal = new SettingsModal();
 
-class DisplayModal {
+class ChatSettingsModal {
   constructor() {
     this.defaultFontSizePx = 16;
     this.savedFontSizePx = this.defaultFontSizePx;
@@ -3127,11 +3127,11 @@ class DisplayModal {
   }
 
   load() {
-    this.modal = document.getElementById('displayModal');
-    this.closeButton = document.getElementById('closeDisplayModal');
-    this.preview = document.getElementById('displayFontPreview');
-    this.fontSizeSlider = document.getElementById('displayFontSizeSlider');
-    this.saveButton = document.getElementById('saveDisplaySettingsButton');
+    this.modal = document.getElementById('chatSettingsModal');
+    this.closeButton = document.getElementById('closeChatSettingsModal');
+    this.preview = document.getElementById('chatSettingsFontPreview');
+    this.fontSizeSlider = document.getElementById('chatSettingsFontSizeSlider');
+    this.saveButton = document.getElementById('saveChatSettingsButton');
 
     this.closeButton.addEventListener('click', () => this.handleClose());
     this.fontSizeSlider.addEventListener('input', () => this.handleSliderInput());
@@ -3159,7 +3159,7 @@ class DisplayModal {
   }
 
   updatePreview() {
-    this.preview.style.setProperty('--display-preview-message-font-size', this.draftFontSizePx + 'px');
+    this.preview.style.setProperty('--chat-settings-preview-message-font-size', this.draftFontSizePx + 'px');
   }
 
   hasUnsavedChanges() {
@@ -3189,7 +3189,7 @@ class DisplayModal {
   }
 }
 
-const displayModal = new DisplayModal();
+const chatSettingsModal = new ChatSettingsModal();
 
 /**
  * Manage Contacts Modal
@@ -31221,8 +31221,8 @@ function closeTopModal(topModal){
     case 'settingsModal':
       settingsModal.close();
       break;
-    case 'displayModal':
-      displayModal.handleClose();
+    case 'chatSettingsModal':
+      chatSettingsModal.handleClose();
       break;
     case 'sendAssetFormModal':
       sendAssetFormModal.close();
