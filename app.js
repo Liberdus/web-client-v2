@@ -3120,7 +3120,10 @@ const settingsModal = new SettingsModal();
 
 class ChatSettingsModal {
   constructor() {
+    this.storageKey = 'chat_font_size_px';
     this.defaultFontSizePx = 16;
+    this.minFontSizePx = 14;
+    this.maxFontSizePx = 20;
     this.savedFontSizePx = this.defaultFontSizePx;
     this.draftFontSizePx = this.defaultFontSizePx;
     this.warningShown = false;
@@ -3136,6 +3139,12 @@ class ChatSettingsModal {
     this.closeButton.addEventListener('click', () => this.handleClose());
     this.fontSizeSlider.addEventListener('input', () => this.handleSliderInput());
     this.saveButton.addEventListener('click', () => this.save());
+
+    this.savedFontSizePx = this.readSavedFontSize();
+    this.draftFontSizePx = this.savedFontSizePx;
+    this.fontSizeSlider.value = String(this.savedFontSizePx);
+    this.updatePreview();
+    this.applyChatFontSize();
   }
 
   open() {
@@ -3147,19 +3156,36 @@ class ChatSettingsModal {
   }
 
   handleSliderInput() {
-    this.draftFontSizePx = Number(this.fontSizeSlider.value);
+    this.draftFontSizePx = this.clampFontSize(Number(this.fontSizeSlider.value));
     this.warningShown = false;
     this.updatePreview();
   }
 
   save() {
     this.savedFontSizePx = this.draftFontSizePx;
+    localStorage.setItem(this.storageKey, String(this.savedFontSizePx));
+    this.applyChatFontSize();
     this.warningShown = false;
     this.close();
   }
 
   updatePreview() {
     this.preview.style.setProperty('--chat-settings-preview-message-font-size', this.draftFontSizePx + 'px');
+  }
+
+  applyChatFontSize() {
+    document.documentElement.style.setProperty('--chat-message-font-size', this.savedFontSizePx + 'px');
+  }
+
+  readSavedFontSize() {
+    const storedValue = localStorage.getItem(this.storageKey);
+    if (storedValue === null) return this.defaultFontSizePx;
+    return this.clampFontSize(Number(storedValue));
+  }
+
+  clampFontSize(value) {
+    if (!Number.isFinite(value)) return this.defaultFontSizePx;
+    return Math.min(this.maxFontSizePx, Math.max(this.minFontSizePx, Math.round(value)));
   }
 
   hasUnsavedChanges() {
