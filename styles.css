@@ -2518,11 +2518,6 @@ input[type='file'].form-control::file-selector-button {
   text-align: center;
 }
 
-.display-actions .btn--full {
-  margin: 0;
-  width: 100%;
-}
-
 /* Wrapper for the message input, attachment preview, and inline action buttons */
 .message-input-wrapper {
   position: relative;
