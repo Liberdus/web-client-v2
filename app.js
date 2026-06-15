@@ -803,6 +803,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Settings Modal
   settingsModal.load();
 
+  // Display Modal
+  displayModal.load();
+
   // Manage Contacts Modal
   manageContactsModal.load();
 
@@ -3058,6 +3061,9 @@ class SettingsModal {
     this.contactsButton = document.getElementById('openManageContactsModal');
     this.contactsButton.addEventListener('click', () => manageContactsModal.open());
     
+    this.displayButton = document.getElementById('openDisplayModal');
+    this.displayButton.addEventListener('click', () => displayModal.open());
+    
     this.profileButton = document.getElementById('openAccountForm');
     this.profileButton.addEventListener('click', () => myProfileModal.open());
     
@@ -3111,6 +3117,34 @@ class SettingsModal {
 }
 
 const settingsModal = new SettingsModal();
+
+class DisplayModal {
+  constructor() { }
+
+  load() {
+    this.modal = document.getElementById('displayModal');
+    this.closeButton = document.getElementById('closeDisplayModal');
+    this.closeButton.addEventListener('click', () => this.handleClose());
+  }
+
+  open() {
+    this.modal.classList.add('active');
+  }
+
+  handleClose() {
+    this.close();
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+  }
+
+  isActive() {
+    return this.modal.classList.contains('active');
+  }
+}
+
+const displayModal = new DisplayModal();
 
 /**
  * Manage Contacts Modal
@@ -31141,6 +31175,9 @@ function closeTopModal(topModal){
       break;
     case 'settingsModal':
       settingsModal.close();
+      break;
+    case 'displayModal':
+      displayModal.handleClose();
       break;
     case 'sendAssetFormModal':
       sendAssetFormModal.close();
