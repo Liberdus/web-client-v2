@@ -3171,10 +3171,13 @@ class ChatSettingsModal {
 
   updatePreview() {
     this.preview.style.setProperty('--chat-settings-preview-message-font-size', this.draftFontSizePx + 'px');
+    this.preview.style.setProperty('--chat-settings-preview-message-meta-font-size', this.metaFontSizePx(this.draftFontSizePx) + 'px');
   }
 
   applyChatFontSize() {
     document.documentElement.style.setProperty('--chat-message-font-size', this.savedFontSizePx + 'px');
+    document.documentElement.style.setProperty('--chat-message-detail-font-size', this.detailFontSizePx(this.savedFontSizePx) + 'px');
+    document.documentElement.style.setProperty('--chat-message-meta-font-size', this.metaFontSizePx(this.savedFontSizePx) + 'px');
   }
 
   readSavedFontSize() {
@@ -3186,6 +3189,14 @@ class ChatSettingsModal {
   clampFontSize(value) {
     if (!Number.isFinite(value)) return this.defaultFontSizePx;
     return Math.min(this.maxFontSizePx, Math.max(this.minFontSizePx, Math.round(value)));
+  }
+
+  detailFontSizePx(value) {
+    return Math.round(value * 0.875);
+  }
+
+  metaFontSizePx(value) {
+    return Math.round(value * 0.75);
   }
 
   hasUnsavedChanges() {
@@ -17113,10 +17124,10 @@ class ChatModal {
                     ${hasThumbnail ? '<div class="attachment-preview-hint">Click for options</div>' : ''}
                   </div>
                   <div style="min-width:0;">
-                    <span class="attachment-label" style="font-weight:500;color:#222;font-size:0.7em;display:block;word-wrap:break-word;">
+                    <span class="attachment-label" style="font-weight:500;color:#222;display:block;word-wrap:break-word;">
                       ${fileName}
                     </span><br>
-                    <span style="font-size: 0.93em; color: #888;">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
+                    <span class="attachment-meta" style="color: #888;">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
                   </div>
                 </div>
               `;

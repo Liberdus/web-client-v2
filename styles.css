@@ -2416,10 +2416,6 @@ input[type='file'].form-control::file-selector-button {
   hyphens: auto; /* Add hyphens at line breaks */
 }
 
-.messages-list .message-content {
-  font-size: var(--chat-message-font-size, var(--font-size-base));
-}
-
 .message-content a,
 .payment-memo,
 .payment-memo a {
@@ -2449,6 +2445,7 @@ input[type='file'].form-control::file-selector-button {
 
 .chat-settings-preview {
   --chat-settings-preview-message-font-size: 16px;
+  --chat-settings-preview-message-meta-font-size: 12px;
   background: var(--hover-background);
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -2482,6 +2479,10 @@ input[type='file'].form-control::file-selector-button {
 .chat-settings-preview .message-content {
   font-size: var(--chat-settings-preview-message-font-size);
   line-height: 1.35;
+}
+
+.chat-settings-preview .message-time {
+  font-size: var(--chat-settings-preview-message-meta-font-size);
 }
 
 .chat-settings-font-slider-row {
@@ -7840,6 +7841,39 @@ small {
 /* Make time display white on sent messages */
 .message.sent .voice-message-time-display {
   color: rgba(255, 255, 255, 0.9);
+}
+
+.messages-list .message-content,
+.messages-list .payment-header,
+.messages-list .payment-direction,
+.messages-list .payment-amount,
+.messages-list .attachment-label,
+.messages-list .call-message-text,
+.messages-list .voice-message-text,
+.messages-list .location-message-title,
+.message-input-container .message-input {
+  font-size: var(--chat-message-font-size, var(--font-size-base));
+}
+
+.messages-list .deleted-content,
+.messages-list .payment-memo,
+.messages-list .reply-quote-text,
+.messages-list .attachment-meta,
+.messages-list .call-message-schedule,
+.messages-list .voice-message-time-display,
+.message-input-container .attachment-item,
+.message-input-container .reply-preview-text {
+  font-size: var(--chat-message-detail-font-size, var(--font-size-sm));
+}
+
+.messages-list .message-time,
+.messages-list .reply-quote-label,
+.messages-list .attachment-preview-hint,
+.messages-list .location-message-coordinates,
+.messages-list .location-message-accuracy,
+.messages-list .location-message-link,
+.message-input-container .reply-preview-label {
+  font-size: var(--chat-message-meta-font-size, var(--font-size-xs));
 }
 
 /* Hide pulse rings when not recording */
