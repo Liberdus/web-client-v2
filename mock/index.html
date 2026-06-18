@@ -926,6 +926,60 @@
         height: 100%;
       }
 
+      .impact-preview {
+        background: var(--hover-background);
+        border: 1px solid var(--primary-tint-20);
+        border-radius: 8px;
+        display: grid;
+        gap: 6px;
+        padding: 8px;
+      }
+
+      .impact-preview-title {
+        align-items: center;
+        color: var(--text-color);
+        display: flex;
+        font-size: 13px;
+        font-weight: var(--font-weight-semibold);
+        justify-content: space-between;
+      }
+
+      .impact-preview-title span {
+        color: var(--secondary-text-color);
+        font-size: 11px;
+        font-weight: var(--font-weight-regular);
+      }
+
+      .impact-row {
+        display: grid;
+        gap: 3px;
+      }
+
+      .impact-row-header {
+        align-items: center;
+        color: var(--text-color);
+        display: flex;
+        font-size: 12px;
+        font-weight: var(--font-weight-semibold);
+        justify-content: space-between;
+      }
+
+      .impact-row.no .progress-fill {
+        background: var(--info-color);
+      }
+
+      .impact-summary-line {
+        color: var(--secondary-text-color);
+        display: grid;
+        font-size: 11px;
+        gap: 3px;
+        line-height: 1.25;
+      }
+
+      .impact-summary-line strong {
+        color: var(--text-color);
+      }
+
       .two-col {
         display: grid;
         gap: 10px;
@@ -1712,16 +1766,26 @@
                 <span class="status-pill role">Eligible voter</span>
               </div>
               <div class="screen-context"><strong>Weighted dao_vote</strong>Eligible voters submit weights[] for proposal options plus spend. The server requires balance above voteThreshold and spend at least minimumSpend.</div>
-              <div class="mock-muted">Eligibility: balance above 100.0 USD threshold</div>
-              <div class="mock-muted">Voting ends in 5d 2h</div>
+              <div class="mock-muted">Eligible: balance above 100.0 USD threshold - voting ends in 5d 2h</div>
               <div class="field-stack">
                 <div class="field"><label>Option[0] yes weight</label><div class="field-box">3</div></div>
                 <div class="field"><label>Option[1] no weight</label><div class="field-box">1</div></div>
                 <div class="field"><label>Spend amount</label><div class="field-box">10.00 USD</div></div>
               </div>
-              <div class="mock-kpi state-target" data-flow-target="vote-estimate">
-                <div class="mock-kpi-value">12.59</div>
-                <div class="mock-kpi-label">Estimated applied weight</div>
+              <div class="impact-preview state-target" data-flow-target="vote-estimate">
+                <div class="impact-preview-title">Your vote impact <span>Total 12.59 (12.6x min)</span></div>
+                <div class="impact-row">
+                  <div class="impact-row-header"><span>Yes</span><span>+9.44</span></div>
+                  <div class="progress-bar"><div class="progress-fill" style="width: 75%"></div></div>
+                </div>
+                <div class="impact-row no">
+                  <div class="impact-row-header"><span>No</span><span>+3.15</span></div>
+                  <div class="progress-bar"><div class="progress-fill" style="width: 25%"></div></div>
+                </div>
+                <div class="impact-summary-line">
+                  <div><strong>Before:</strong> Yes 124.44 / No 88.10</div>
+                  <div><strong>After:</strong> Yes 133.88 / No 91.25</div>
+                </div>
               </div>
               <div class="button-row">
                 <div class="mock-button secondary press-target" data-flow-source="vote-preview">Preview</div>
