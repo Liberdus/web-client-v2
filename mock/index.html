@@ -1440,16 +1440,16 @@
         <div class="mock-section-header">
           <div>
             <h2 class="mock-section-title" id="needed-flow-title">Potential Role-Specific DAO Screens</h2>
-            <div class="mock-section-note">Server-aligned Phase 1 flow. The DAO overview appears once; alternate branches start in column 2 and connect from the relevant DAO action.</div>
+            <div class="mock-section-note">Server-aligned Phase 1 flow. The DAO overview is a category hub; category rows open list screens, and list rows open the action modal.</div>
           </div>
         </div>
 
         <div class="branch-flow-board" data-branch-board>
           <svg class="branch-transition-arrows" data-branch-arrows aria-hidden="true"></svg>
 
-          <div class="flow-row-title">Shared DAO entry and proposal creation path <span>Regular proposals create a review-status account, then committee review decides voting or withheld.</span></div>
+          <div class="flow-row-title">Shared DAO entry and proposal creation path <span>Create opens the builder; signing creates a review proposal. Authors land on review status, while committee members see the same proposal in their queue.</span></div>
           <div class="screen-grid flow-grid branch-row">
-          <article class="screen" data-flow="1. DAO entry">
+          <article class="screen" data-flow="1. DAO category hub">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">DAO</div>
@@ -1458,37 +1458,46 @@
             <div class="screen-body">
               <div class="status-line">
                 <span class="status-pill needed">Needed</span>
+                <span class="status-pill committee">Demo: committee</span>
                 <span class="status-pill role">Role-aware</span>
               </div>
-              <div class="screen-context"><strong>Shared DAO branch point</strong>Shows proposal counts, user shortcuts, and role-specific actions. Shortcut rows are clickable destinations; footer buttons stay fixed for Create and Parameters.</div>
-              <div class="mock-kpi-grid">
-                <div class="mock-kpi"><div class="mock-kpi-value">22</div><div class="mock-kpi-label">Active proposals</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">1</div><div class="mock-kpi-label">Voting now</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">4.23</div><div class="mock-kpi-label">LIB claimable</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">3</div><div class="mock-kpi-label">Shortcuts</div></div>
-              </div>
-              <div class="action-heading">My shortcuts</div>
+              <div class="screen-context"><strong>Demo user: committee member</strong>Rows are DAO queues, not direct action links. Tap a category to open its list, then tap a proposal row to open the vote, reward, review, apply, or result modal.</div>
+              <div class="action-heading">DAO queues</div>
               <div class="mock-list action-list">
-                <div class="mock-list-row press-target" data-flow-source="dao-vote">
+                <div class="mock-list-row press-target" data-flow-source="dao-active-category">
                   <div>
-                    <div class="mock-list-title">Voting proposal open</div>
-                    <div class="mock-list-meta">Opens weighted vote form for eligible voters</div>
+                    <div class="mock-list-title">Active proposals</div>
+                    <div class="mock-list-meta">All review, voting, accepted, and applied proposals</div>
                   </div>
-                  <div class="row-role">voter</div>
+                  <div class="row-role">22</div>
                 </div>
-                <div class="mock-list-row press-target" data-flow-source="dao-reward">
+                <div class="mock-list-row press-target" data-flow-source="dao-voting-category">
                   <div>
-                    <div class="mock-list-title">Reward claim available</div>
-                    <div class="mock-list-meta">Claim period is open for a proposal you voted on</div>
+                    <div class="mock-list-title">Voting now</div>
+                    <div class="mock-list-meta">Open community votes this user can inspect or join</div>
                   </div>
-                  <div class="row-role">voter</div>
+                  <div class="row-role">1</div>
                 </div>
-                <div class="mock-list-row press-target" data-flow-source="dao-apply">
+                <div class="mock-list-row press-target" data-flow-source="dao-reward-category">
                   <div>
-                    <div class="mock-list-title">Proposal ready to apply</div>
-                    <div class="mock-list-meta">Accepted parameter change reached applyEligibleAt</div>
+                    <div class="mock-list-title">Claimable rewards</div>
+                    <div class="mock-list-meta">Proposals this user voted on with open claims</div>
                   </div>
-                  <div class="row-role">operator</div>
+                  <div class="row-role">4.23 LIB</div>
+                </div>
+                <div class="mock-list-row press-target" data-flow-source="dao-committee-category">
+                  <div>
+                    <div class="mock-list-title">Committee review</div>
+                    <div class="mock-list-meta">Visible because this demo user is a committee member</div>
+                  </div>
+                  <div class="row-role committee">2</div>
+                </div>
+                <div class="mock-list-row press-target" data-flow-source="dao-operator-category">
+                  <div>
+                    <div class="mock-list-title">Operator queue</div>
+                    <div class="mock-list-meta">Ready to apply or burn after the timing window</div>
+                  </div>
+                  <div class="row-role">3</div>
                 </div>
               </div>
               <div class="button-row">
@@ -1535,7 +1544,7 @@
                 <span class="status-pill needed">Needed</span>
                 <span class="status-pill role">Proposal author</span>
               </div>
-              <div class="screen-context"><strong>Confirm dao_proposal_create</strong>Final checkpoint before signing. The server snapshots DAO params onto the proposal and starts regular proposals in review status.</div>
+              <div class="screen-context"><strong>Confirm dao_proposal_create</strong>Final checkpoint before signing. Non-committee authors land on review status after submit; committee-only controls stay in the committee queue.</div>
               <div class="mock-kpi">
                 <div class="mock-kpi-value">50.0 USD</div>
                 <div class="mock-kpi-label">Proposal fee / reward pool</div>
@@ -1545,13 +1554,70 @@
                 <div class="detail-line"><span>Type:</span> Governance</div>
                 <div class="detail-line"><span>Tx:</span> dao_proposal_create</div>
                 <div class="detail-line"><span>Options:</span> yes, no</div>
+                <div class="detail-line"><span>Next:</span> author review status</div>
               </div>
               <div class="field"><label>Payload preview</label><div class="field-box tall">description, options, governance changes, fee, signature request</div></div>
               <div class="mock-button primary press-target" data-flow-source="confirm-sign">Sign dao_proposal_create</div>
             </div>
           </article>
 
-          <article class="screen" data-flow-target="committee" data-flow="4. Committee review">
+
+          <article class="screen" data-flow-target="review-status" data-flow="4. Submitted review status">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Proposal Submitted</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Proposal author</span>
+              </div>
+              <div class="screen-context"><strong>Author post-submit view</strong>After dao_proposal_create, non-committee authors see the proposal in review status. They can track timing and votes, but cannot use committee-only controls.</div>
+              <div>
+                <div class="proposal-title">#21 Increase vote exponent</div>
+                <div class="mock-muted">Status: review</div>
+              </div>
+              <div class="mock-list">
+                <div class="mock-list-row"><div class="mock-list-title">Review window</div><div class="mock-list-meta">ends in 1d 3h</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">Committee visibility</div><div class="mock-list-meta">appears in committee queue</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">Next public state</div><div class="mock-list-meta">voting or withheld after dao_committee_result</div></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow-target="committee-queue" data-flow="5. Committee queue">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Committee Queue</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill committee">Committee only</span>
+              </div>
+              <div class="screen-context"><strong>Review list</strong>Visible only to committee members. Rows are review-status proposals that need accept, withhold, or result finalization.</div>
+              <div class="mock-list action-list">
+                <div class="mock-list-row press-target" data-flow-source="committee-list-row">
+                  <div>
+                    <div class="mock-list-title">#21 Increase vote exponent</div>
+                    <div class="mock-list-meta">review - 3 accept / 1 withhold - ends in 1d 3h</div>
+                  </div>
+                  <div class="row-role committee">review</div>
+                </div>
+                <div class="mock-list-row">
+                  <div>
+                    <div class="mock-list-title">#18 Emergency endpoint patch</div>
+                    <div class="mock-list-meta">emergency - committee-only proposal</div>
+                  </div>
+                  <div class="row-role committee">emergency</div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow-target="committee" data-flow="6. Committee review">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Committee Review</div>
@@ -1589,10 +1655,34 @@
           </article>
           </div>
 
-          <div class="flow-row-title branch-indent">Voter, result, and reward branch <span>Starts from a voting shortcut, committee result, or reward claim shortcut.</span></div>
+          <div class="flow-row-title branch-indent">Voting and result branch <span>Voting category opens a list first; selecting a proposal opens the weighted vote modal.</span></div>
           <div class="screen-grid flow-grid branch-row">
             <div class="branch-spacer" aria-hidden="true"></div>
-          <article class="screen" data-flow-target="community-vote" data-flow="5. Community vote">
+          <article class="screen" data-flow-target="voting-list" data-flow="2a. Voting list">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Voting Now</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Eligible voter</span>
+              </div>
+              <div class="screen-context"><strong>Voting proposal list</strong>Shows proposals currently in voting status. A row opens the voting modal with options, spend, eligibility, and preview.</div>
+              <div class="mock-list action-list">
+                <div class="mock-list-row press-target" data-flow-source="voting-list-row">
+                  <div>
+                    <div class="mock-list-title">#21 Increase vote exponent</div>
+                    <div class="mock-list-meta">voting - ends in 5d 2h - yes/no options</div>
+                  </div>
+                  <div class="row-role">vote</div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow-target="community-vote" data-flow="3a. Community vote">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Vote</div>
@@ -1622,7 +1712,7 @@
             </div>
           </article>
 
-          <article class="screen" data-flow-target="results" data-flow="6. Results / audit">
+          <article class="screen" data-flow-target="results" data-flow="4a. Results / audit">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Results</div>
@@ -1651,7 +1741,7 @@
             </div>
           </article>
 
-          <article class="screen" data-flow-target="rewards" data-flow="7. Rewards">
+          <article class="screen" data-flow-target="rewards" data-flow="5a. Rewards">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Rewards</div>
@@ -1678,7 +1768,7 @@
             </div>
           </article>
 
-          <article class="screen" data-flow-target="burn-reward" data-flow="8. Burn unclaimed">
+          <article class="screen" data-flow-target="burn-reward" data-flow="6a. Burn unclaimed">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Burn Unclaimed</div>
@@ -1701,10 +1791,69 @@
           </article>
           </div>
 
-          <div class="flow-row-title branch-indent">Reference and operator branch <span>Parameters and apply shortcuts branch from the shared DAO overview.</span></div>
+          <div class="flow-row-title branch-indent">Browse and reward category lists <span>These are category drilldowns from the DAO hub; rows link to existing destination modals.</span></div>
           <div class="screen-grid flow-grid branch-row">
             <div class="branch-spacer" aria-hidden="true"></div>
-          <article class="screen" data-flow-target="parameters" data-flow="2b. Parameters">
+          <article class="screen" data-flow-target="active-list" data-flow="2b. Active proposals">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Active Proposals</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Any user</span>
+              </div>
+              <div class="screen-context"><strong>Active proposal list</strong>Shows the full active set. Selecting a row opens the proposal detail or results view appropriate for its status.</div>
+              <div class="mock-list action-list">
+                <div class="mock-list-row press-target" data-flow-source="active-list-row">
+                  <div>
+                    <div class="mock-list-title">#21 Increase vote exponent</div>
+                    <div class="mock-list-meta">voting - current winner Yes - ends in 5d 2h</div>
+                  </div>
+                  <div class="row-role">detail</div>
+                </div>
+                <div class="mock-list-row">
+                  <div>
+                    <div class="mock-list-title">#20 Minimum spend update</div>
+                    <div class="mock-list-meta">review - waiting for committee result</div>
+                  </div>
+                  <div class="row-role">review</div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow-target="reward-list" data-flow="3b. Claimable rewards">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Claimable Rewards</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Voter</span>
+              </div>
+              <div class="screen-context"><strong>Claimable proposal list</strong>Shows proposals where this voter is eligible to claim during claimDuration. Selecting a row opens the reward claim modal.</div>
+              <div class="mock-list action-list">
+                <div class="mock-list-row press-target" data-flow-source="reward-list-row">
+                  <div>
+                    <div class="mock-list-title">#21 Increase vote exponent</div>
+                    <div class="mock-list-meta">4.23 LIB estimate - claim window open</div>
+                  </div>
+                  <div class="row-role">claim</div>
+                </div>
+              </div>
+            </div>
+          </article>
+          </div>
+
+          <div class="flow-row-title branch-indent">Reference and operator branch <span>Parameters open directly; operator category opens a queue before the apply modal.</span></div>
+          <div class="screen-grid flow-grid branch-row">
+            <div class="branch-spacer" aria-hidden="true"></div>
+          <article class="screen" data-flow-target="parameters" data-flow="2c. Parameters">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">DAO Parameters</div>
@@ -1731,7 +1880,38 @@
             </div>
           </article>
 
-          <article class="screen" data-flow-target="apply" data-flow="3b. Apply parameters">
+          <article class="screen" data-flow-target="operator-list" data-flow="3c. Operator queue">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Operator Queue</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Operator</span>
+              </div>
+              <div class="screen-context"><strong>Post-vote actions</strong>Shows accepted proposals ready to apply and proposals ready for final reward burn. Selecting a row opens the relevant action modal.</div>
+              <div class="mock-list action-list">
+                <div class="mock-list-row press-target" data-flow-source="operator-list-row">
+                  <div>
+                    <div class="mock-list-title">#21 Ready to apply</div>
+                    <div class="mock-list-meta">applyEligibleAt reached - governance parameter change</div>
+                  </div>
+                  <div class="row-role">apply</div>
+                </div>
+                <div class="mock-list-row">
+                  <div>
+                    <div class="mock-list-title">#17 Ready for final burn</div>
+                    <div class="mock-list-meta">claimEnd passed - unclaimed pool remains</div>
+                  </div>
+                  <div class="row-role">burn</div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow-target="apply" data-flow="4c. Apply parameters">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Apply Parameters</div>
@@ -1895,22 +2075,30 @@
 
           const svgNS = "http://www.w3.org/2000/svg";
           const connectors = [
-            { from: "dao-create", to: "builder", label: "dao_proposal_create", fromSide: "top", toSide: "left", toRatio: 0.8, route: "same-row", labelDx: -34, labelDy: -30, labelWidth: 156 },
+            { from: "dao-create", to: "builder", label: "open builder", fromSide: "top", toSide: "left", toRatio: 0.8, route: "same-row", labelDx: -22, labelDy: -30 },
             { from: "builder-review", to: "confirm", label: "review payload", fromSide: "top", toSide: "left", toRatio: 0.8, route: "same-row", labelDx: -28, labelDy: -28 },
-            { from: "confirm-sign", to: "committee", label: "submit tx", fromSide: "top", toSide: "left", toRatio: 0.42, route: "same-row", labelDx: -24, labelDy: -40 },
+            { from: "confirm-sign", to: "review-status", label: "submitted review", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: -46, labelDy: -40, labelWidth: 134 },
+            { from: "review-status", to: "committee-queue", label: "committee view", fromSide: "right", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: -36, labelDy: -38, labelWidth: 122 },
+            { from: "committee-list-row", to: "committee", label: "tap review item", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: -32, labelDy: -34 },
             { from: "committee-accept", to: "committee-tally", label: "dao_committee_vote", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -78, labelDy: -16, labelWidth: 154 },
             { from: "committee-withhold", to: "withhold-reason", label: "withhold reason", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -44, labelDy: -10 },
-            { from: "committee-result", to: "community-vote", label: "dao_committee_result", fromSide: "right", toSide: "left", toRatio: 0.38, route: "branch-reverse", labelDx: -102, labelDy: -10, labelWidth: 166 },
-            { from: "dao-vote", to: "community-vote", label: "tap voting shortcut", fromSide: "right", toSide: "left", toRatio: 0.38, route: "branch", labelDx: -106, labelDy: -30 },
-            { from: "dao-reward", to: "rewards", label: "tap reward shortcut", fromSide: "right", toSide: "left", toRatio: 0.43, route: "branch-low", labelDx: -80, labelDy: 50 },
+            { from: "committee-result", to: "voting-list", label: "moves to voting", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-reverse", labelDx: -94, labelDy: -10, labelWidth: 126 },
+            { from: "dao-committee-category", to: "committee-queue", label: "open committee list", fromSide: "right", toSide: "left", toRatio: 0.55, route: "same-row", labelDx: -104, labelDy: -24, labelWidth: 148 },
+            { from: "dao-voting-category", to: "voting-list", label: "open voting list", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch", labelDx: -96, labelDy: -30, labelWidth: 128 },
+            { from: "voting-list-row", to: "community-vote", label: "tap proposal", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: -26, labelDy: -34 },
             { from: "vote-preview", to: "vote-estimate", label: "shows estimate", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -30, labelDy: -16 },
             { from: "vote-submit", to: "results", label: "dao_vote", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: 2, labelDy: -30 },
             { from: "results-vote-result", to: "results-audit", label: "dao_vote_result", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -44, labelDy: -22, labelWidth: 130 },
             { from: "results", to: "rewards", label: "claim period starts", fromSide: "right", fromRatio: 0.43, toSide: "left", toRatio: 0.43, route: "same-row", labelDx: -34, labelDy: -38 },
             { from: "reward-claim", to: "reward-breakdown", label: "dao_claim_reward", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -48, labelDy: -18, labelWidth: 138 },
             { from: "reward-burn", to: "burn-reward", label: "dao_burn_reward", fromSide: "top", toSide: "left", toRatio: 0.5, route: "same-row", labelDx: -34, labelDy: -34, labelWidth: 132 },
+            { from: "dao-active-category", to: "active-list", label: "open active list", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-low", labelDx: -100, labelDy: 28, labelWidth: 126 },
+            { from: "active-list-row", to: "results", label: "tap proposal", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-reverse", labelDx: -54, labelDy: -54 },
+            { from: "dao-reward-category", to: "reward-list", label: "open rewards list", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-low", labelDx: -88, labelDy: 36, labelWidth: 138 },
+            { from: "reward-list-row", to: "rewards", label: "tap claim item", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-reverse", labelDx: -52, labelDy: -50 },
             { from: "dao-parameters", to: "parameters", label: "tap Parameters", fromSide: "top", toSide: "left", toRatio: 0.8, route: "branch", labelDx: -80, labelDy: -30 },
-            { from: "dao-apply", to: "apply", label: "tap apply shortcut", fromSide: "right", toSide: "left", toRatio: 0.38, route: "branch-low", labelDx: -80, labelDy: 24 },
+            { from: "dao-operator-category", to: "operator-list", label: "open operator queue", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-low", labelDx: -106, labelDy: 34, labelWidth: 154 },
+            { from: "operator-list-row", to: "apply", label: "tap ready item", fromSide: "top", toSide: "left", toRatio: 0.42, route: "same-row", labelDx: -34, labelDy: -34 },
             { from: "apply-parameters", to: "apply-timeline", label: "dao_apply_parameters", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -74, labelDy: -24, labelWidth: 170 }
           ];
 
