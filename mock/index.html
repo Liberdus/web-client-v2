@@ -1127,7 +1127,7 @@
         <div class="mock-section-header">
           <div>
             <h2 class="mock-section-title" id="dao-routes-title">DAO Routes From Menu</h2>
-            <div class="mock-section-note">The DAO entry point can branch into different routes depending on what the user is trying to do and what role they have.</div>
+            <div class="mock-section-note">The DAO entry point branches by task and role. This version is aligned to the server DAO Phase 1 statuses and transaction names.</div>
           </div>
         </div>
         <div class="route-map" aria-label="DAO route map">
@@ -1146,22 +1146,21 @@
             <div class="route-chain">
               <span class="route-step entry">Menu</span><span class="route-arrow"></span>
               <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
-              <span class="route-step">Discussion</span><span class="route-arrow"></span>
               <span class="route-step">Proposal builder</span><span class="route-arrow"></span>
-              <span class="route-step">Confirm proposal tx</span><span class="route-arrow"></span>
-              <span class="route-step decision">Committee review</span>
+              <span class="route-step">Confirm dao_proposal_create</span><span class="route-arrow"></span>
+              <span class="route-step decision">Review status</span>
             </div>
           </div>
-          <div class="route-note">Regular proposals wait for discussion and committee review. Emergency proposals skip discussion, can only be created by committee members, and do not go to community voting.</div>
+          <div class="route-note">Regular proposals start in review. Committee votes are recorded during review; after reviewEnd, dao_committee_result moves the proposal to voting or withheld. Emergency proposals are committee-only and can be accepted and applied without community voting.</div>
           <div class="route-lane">
             <div class="route-title">Committee route<span>Committee member</span></div>
             <div class="route-chain">
               <span class="route-step entry">Menu</span><span class="route-arrow"></span>
               <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
-              <span class="route-step">Needs attention</span><span class="route-arrow"></span>
-              <span class="route-step">Committee review</span><span class="route-arrow"></span>
-              <span class="route-step decision">Accept or withhold</span><span class="route-arrow"></span>
-              <span class="route-step">Withhold reason / emergency explanation</span>
+              <span class="route-step">Review proposals</span><span class="route-arrow"></span>
+              <span class="route-step">dao_committee_vote</span><span class="route-arrow"></span>
+              <span class="route-step decision">dao_committee_result</span><span class="route-arrow"></span>
+              <span class="route-step">Withheld or voting</span>
             </div>
           </div>
           <div class="route-lane">
@@ -1170,10 +1169,10 @@
               <span class="route-step entry">Menu</span><span class="route-arrow"></span>
               <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
               <span class="route-step">Voting proposals</span><span class="route-arrow"></span>
-              <span class="route-step">Proposal detail</span><span class="route-arrow"></span>
               <span class="route-step">Weighted vote form</span><span class="route-arrow"></span>
-              <span class="route-step">Confirm vote tx</span><span class="route-arrow"></span>
-              <span class="route-step">Live results / audit</span>
+              <span class="route-step">dao_vote</span><span class="route-arrow"></span>
+              <span class="route-step">dao_vote_result</span><span class="route-arrow"></span>
+              <span class="route-step">Results / audit</span>
             </div>
           </div>
           <div class="route-lane">
@@ -1181,21 +1180,20 @@
             <div class="route-chain">
               <span class="route-step entry">Menu</span><span class="route-arrow"></span>
               <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
-              <span class="route-step">Final result</span><span class="route-arrow"></span>
-              <span class="route-step">Claim reward</span><span class="route-arrow"></span>
-              <span class="route-step">Grace period</span><span class="route-arrow"></span>
-              <span class="route-step done">Apply proposal</span>
+              <span class="route-step">Accepted / rejected result</span><span class="route-arrow"></span>
+              <span class="route-step">dao_claim_reward</span><span class="route-arrow"></span>
+              <span class="route-step">dao_apply_parameters</span><span class="route-arrow"></span>
+              <span class="route-step done">dao_burn_reward</span>
             </div>
           </div>
           <div class="route-lane">
-            <div class="route-title">Execution route<span>Project proposals</span></div>
+            <div class="route-title">Emergency route<span>Committee member</span></div>
             <div class="route-chain">
               <span class="route-step entry">Menu</span><span class="route-arrow"></span>
               <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
-              <span class="route-step">Accepted project</span><span class="route-arrow"></span>
-              <span class="route-step">Milestones</span><span class="route-arrow"></span>
-              <span class="route-step">Verify deliverable</span><span class="route-arrow"></span>
-              <span class="route-step done">Claim payment</span>
+              <span class="route-step">Emergency create</span><span class="route-arrow"></span>
+              <span class="route-step">Decisive accept</span><span class="route-arrow"></span>
+              <span class="route-step done">Apply immediately</span>
             </div>
           </div>
           <div class="route-lane">
@@ -1336,8 +1334,8 @@
                 </div>
               </div>
               <div class="message-context-menu mock-context-menu">
-                <div class="context-menu-option" data-state-key="discussion">
-                  <span class="context-menu-text">Discussion 2</span>
+                <div class="context-menu-option" data-state-key="review">
+                  <span class="context-menu-text">Review 2</span>
                 </div>
                 <div class="context-menu-option" data-state-key="withheld">
                   <span class="context-menu-text">Withheld 7</span>
@@ -1353,15 +1351,6 @@
                 </div>
                 <div class="context-menu-option" data-state-key="applied">
                   <span class="context-menu-text">Applied 3</span>
-                </div>
-                <div class="context-menu-option" data-state-key="executing">
-                  <span class="context-menu-text">Executing 1</span>
-                </div>
-                <div class="context-menu-option" data-state-key="terminated">
-                  <span class="context-menu-text">Terminated 0</span>
-                </div>
-                <div class="context-menu-option" data-state-key="completed">
-                  <span class="context-menu-text">Completed 5</span>
                 </div>
               </div>
               <div class="floating-plus">+</div>
@@ -1380,29 +1369,29 @@
                 <span class="status-pill mock">Mock data</span>
                 <span class="status-pill partial">Partial</span>
               </div>
-              <div class="screen-context"><strong>Mock proposal creation</strong>Creates an in-memory discussion proposal. Missing production pieces include fee preview, transaction signing, emergency mode, ballot options, and committee submission.</div>
+              <div class="screen-context"><strong>Mock proposal creation</strong>Creates an in-memory proposal and does not yet send server DAO transactions. Phase 1 needs dao_proposal_create, committee review, weighted voting, rewards, apply, and burn actions.</div>
               <div class="field-stack">
                 <div class="field">
                   <label>Title</label>
-                  <div class="field-box">Add community grants working group</div>
+                  <div class="field-box">Increase vote exponent</div>
                 </div>
                 <div class="field">
                   <label>Type</label>
-                  <div class="field-box">Project</div>
+                  <div class="field-box">Governance</div>
                 </div>
                 <div class="two-col">
                   <div class="field">
-                    <label>Address</label>
-                    <div class="field-box">lib1qxy...</div>
+                    <label>Parameter</label>
+                    <div class="field-box">voteExponent</div>
                   </div>
                   <div class="field">
-                    <label>Amount</label>
-                    <div class="field-box">2500</div>
+                    <label>New value</label>
+                    <div class="field-box">1.2</div>
                   </div>
                 </div>
                 <div class="field">
                   <label>Summary</label>
-                  <div class="field-box tall">Create a lightweight working group to evaluate community grants and publish monthly reports.</div>
+                  <div class="field-box tall">Change voteExponent from 1.1 to 1.2 and keep yes/no ballot options.</div>
                 </div>
               </div>
               <div class="button-row">
@@ -1424,7 +1413,7 @@
                 <span class="status-pill mock">Mock data</span>
                 <span class="status-pill partial">Partial</span>
               </div>
-              <div class="screen-context"><strong>Proposal detail</strong>Displays the selected proposal and simple mock Yes/No voting only when status is Voting. Real voting will need weighted options, spend amount, eligibility, and an audit trail.</div>
+              <div class="screen-context"><strong>Proposal detail</strong>Displays the selected proposal and simple mock Yes/No voting only when status is Voting. Server voting needs weights[], spend, eligibility checks, dao_vote_result, and an audit trail.</div>
               <div>
                 <div class="mock-muted">Proposal #3</div>
                 <div class="proposal-title">Adjust minimum transaction fee</div>
@@ -1451,14 +1440,14 @@
         <div class="mock-section-header">
           <div>
             <h2 class="mock-section-title" id="needed-flow-title">Potential Role-Specific DAO Screens</h2>
-            <div class="mock-section-note">The DAO overview is shown once as the shared branch point. Lower rows are alternate branches that start in column 2, with arrows from the DAO action that opens them.</div>
+            <div class="mock-section-note">Server-aligned Phase 1 flow. The DAO overview appears once; alternate branches start in column 2 and connect from the relevant DAO action.</div>
           </div>
         </div>
 
         <div class="branch-flow-board" data-branch-board>
           <svg class="branch-transition-arrows" data-branch-arrows aria-hidden="true"></svg>
 
-          <div class="flow-row-title">Shared DAO entry and author path <span>Create continues in this row; committee accept routes to the shared vote branch below.</span></div>
+          <div class="flow-row-title">Shared DAO entry and proposal creation path <span>Regular proposals create a review-status account, then committee review decides voting or withheld.</span></div>
           <div class="screen-grid flow-grid branch-row">
           <article class="screen" data-flow="1. DAO entry">
             <div class="screen-header">
@@ -1469,9 +1458,9 @@
             <div class="screen-body">
               <div class="status-line">
                 <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Any user</span>
+                <span class="status-pill role">Role-aware</span>
               </div>
-              <div class="screen-context"><strong>Shared DAO branch point</strong>Shown once. Create continues across this row; shortcuts and Parameters branch to lower rows starting in column 2.</div>
+              <div class="screen-context"><strong>Shared DAO branch point</strong>Shows proposal counts, user shortcuts, and role-specific actions. Shortcut rows are clickable destinations; footer buttons stay fixed for Create and Parameters.</div>
               <div class="mock-kpi-grid">
                 <div class="mock-kpi"><div class="mock-kpi-value">22</div><div class="mock-kpi-label">Active proposals</div></div>
                 <div class="mock-kpi"><div class="mock-kpi-value">1</div><div class="mock-kpi-label">Voting now</div></div>
@@ -1483,21 +1472,21 @@
                 <div class="mock-list-row press-target" data-flow-source="dao-vote">
                   <div>
                     <div class="mock-list-title">Voting proposal open</div>
-                    <div class="mock-list-meta">Opens proposal detail and vote form</div>
+                    <div class="mock-list-meta">Opens weighted vote form for eligible voters</div>
                   </div>
                   <div class="row-role">voter</div>
                 </div>
                 <div class="mock-list-row press-target" data-flow-source="dao-reward">
                   <div>
                     <div class="mock-list-title">Reward claim available</div>
-                    <div class="mock-list-meta">Claim period ends in 23d</div>
+                    <div class="mock-list-meta">Claim period is open for a proposal you voted on</div>
                   </div>
                   <div class="row-role">voter</div>
                 </div>
                 <div class="mock-list-row press-target" data-flow-source="dao-apply">
                   <div>
                     <div class="mock-list-title">Proposal ready to apply</div>
-                    <div class="mock-list-meta">Grace period complete</div>
+                    <div class="mock-list-meta">Accepted parameter change reached applyEligibleAt</div>
                   </div>
                   <div class="row-role">operator</div>
                 </div>
@@ -1509,35 +1498,7 @@
             </div>
           </article>
 
-          <article class="screen" data-flow-target="discussion" data-flow="2. Discussion">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Proposal Discussion</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Proposal author</span>
-              </div>
-              <div class="screen-context"><strong>Pre-proposal discussion</strong>Used before creating a regular proposal. Community feedback and elapsed discussion time determine whether the proposal is ready to submit.</div>
-              <div>
-                <div class="proposal-title">Draft: Increase minimum spend</div>
-                <div class="mock-muted">Discussion ends in 2d 4h</div>
-              </div>
-              <p class="proposal-body">Collect comments and signals before a proposal is created on chain.</p>
-              <div class="mock-list" data-flow-target="discussion-comments">
-                <div class="mock-list-row"><div><div class="mock-list-title">alice</div><div class="mock-list-meta">Support if the fee remains near 1/100 of proposal fee.</div></div></div>
-                <div class="mock-list-row"><div><div class="mock-list-title">bob</div><div class="mock-list-meta">Needs spam analysis before moving to review.</div></div></div>
-              </div>
-              <div class="button-row">
-                <div class="mock-button secondary press-target" data-flow-source="discussion-comment">Comment</div>
-                <div class="mock-button primary press-target" data-flow-source="discussion-create">Create proposal</div>
-              </div>
-            </div>
-          </article>
-
-          <article class="screen" data-flow-target="builder" data-flow="3. Builder">
+          <article class="screen" data-flow-target="builder" data-flow="2. Proposal builder">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Create Proposal</div>
@@ -1549,12 +1510,12 @@
                 <span class="status-pill partial">Expands current add</span>
                 <span class="status-pill role">Proposal author</span>
               </div>
-              <div class="screen-context"><strong>Full builder</strong>Turns a draft into a chain payload: type, ballot options, parameter changes or milestones, timing, fee, and emergency flags.</div>
+              <div class="screen-context"><strong>Phase 1 proposal draft</strong>Builds a governance, economic, or protocol proposal with 2-10 ballot options. Emergency creation is committee-only and pays no proposal fee.</div>
               <div class="field-stack">
-                <div class="field"><label>Step 1: Type</label><div class="field-box">Governance parameter</div></div>
-                <div class="field"><label>Step 2: Ballot options</label><div class="field-box">Yes, No, Add option</div></div>
-                <div class="field"><label>Step 3: Payload</label><div class="field-box">minimumSpend: 1.00 -&gt; 1.25</div></div>
-                <div class="field"><label>Step 4: Timing and fee</label><div class="field-box">Grace: 7d, Emergency: no</div></div>
+                <div class="field"><label>Step 1: Type</label><div class="field-box">Governance</div></div>
+                <div class="field"><label>Step 2: Ballot options</label><div class="field-box">yes, no, add option</div></div>
+                <div class="field"><label>Step 3: Payload</label><div class="field-box">governance.voteExponent: 1.1 -&gt; 1.2</div></div>
+                <div class="field"><label>Step 4: Timing and fee</label><div class="field-box">fee: 50.0 USD, emergency: no</div></div>
               </div>
               <div class="button-row">
                 <div class="mock-button secondary">Back</div>
@@ -1563,7 +1524,7 @@
             </div>
           </article>
 
-          <article class="screen" data-flow-target="confirm" data-flow="4. Confirm tx">
+          <article class="screen" data-flow-target="confirm" data-flow="3. Confirm create">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Confirm Proposal</div>
@@ -1574,23 +1535,23 @@
                 <span class="status-pill needed">Needed</span>
                 <span class="status-pill role">Proposal author</span>
               </div>
-              <div class="screen-context"><strong>Transaction confirmation</strong>Final checkpoint before signing. Shows the fee, proposal account, payload summary, and transaction type.</div>
+              <div class="screen-context"><strong>Confirm dao_proposal_create</strong>Final checkpoint before signing. The server snapshots DAO params onto the proposal and starts regular proposals in review status.</div>
               <div class="mock-kpi">
-                <div class="mock-kpi-value">100 USD</div>
-                <div class="mock-kpi-label">Proposal fee equivalent</div>
+                <div class="mock-kpi-value">50.0 USD</div>
+                <div class="mock-kpi-label">Proposal fee / reward pool</div>
               </div>
               <div class="detail-pair">
-                <div class="detail-line"><span>Starts:</span> committee review</div>
+                <div class="detail-line"><span>Starts:</span> review</div>
                 <div class="detail-line"><span>Type:</span> Governance</div>
                 <div class="detail-line"><span>Tx:</span> dao_proposal_create</div>
-                <div class="detail-line"><span>Account:</span> dao proposal #21</div>
+                <div class="detail-line"><span>Options:</span> yes, no</div>
               </div>
-              <div class="field"><label>Payload preview</label><div class="field-box tall">hash, fields, options, timing, fee, signature request</div></div>
-              <div class="mock-button primary press-target" data-flow-source="confirm-sign">Sign and submit</div>
+              <div class="field"><label>Payload preview</label><div class="field-box tall">description, options, governance changes, fee, signature request</div></div>
+              <div class="mock-button primary press-target" data-flow-source="confirm-sign">Sign dao_proposal_create</div>
             </div>
           </article>
 
-          <article class="screen" data-flow-target="committee" data-flow="5. Committee review">
+          <article class="screen" data-flow-target="committee" data-flow="4. Committee review">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Committee Review</div>
@@ -1601,17 +1562,25 @@
                 <span class="status-pill needed">Needed</span>
                 <span class="status-pill committee">Committee only</span>
               </div>
-              <div class="screen-context"><strong>Committee decision</strong>Only committee members see voting controls. Accept moves regular proposals toward community voting; withhold requires a reason.</div>
+              <div class="screen-context"><strong>Committee review</strong>Committee members vote accept or withhold during review. Withhold requires a reason; regular accepted proposals still wait for reviewEnd.</div>
               <div>
                 <div class="proposal-title">Proposal #21</div>
                 <div class="mock-muted">Review ends in 1d 3h</div>
               </div>
-              <div class="mock-kpi-grid">
-                <div class="mock-kpi"><div class="mock-kpi-value">4</div><div class="mock-kpi-label">Accept</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">2</div><div class="mock-kpi-label">Withhold</div></div>
+              <div class="mock-kpi-grid" data-flow-target="committee-tally">
+                <div class="mock-kpi"><div class="mock-kpi-value">3</div><div class="mock-kpi-label">Accept</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">1</div><div class="mock-kpi-label">Withhold</div></div>
               </div>
-              <p class="mock-muted">Decisive result requires more than 50% of committee members to vote the same way.</p>
-              <div class="field" data-flow-target="withhold-reason"><label>Withhold reason</label><div class="field-box">Insufficient discussion period</div></div>
+              <div class="field" data-flow-target="withhold-reason"><label>Withhold reason</label><div class="field-box">Required when withholding</div></div>
+              <div class="mock-list action-list">
+                <div class="mock-list-row press-target" data-flow-source="committee-result">
+                  <div>
+                    <div class="mock-list-title">Finalize review result</div>
+                    <div class="mock-list-meta">dao_committee_result after reviewEnd</div>
+                  </div>
+                  <div class="row-role">operator</div>
+                </div>
+              </div>
               <div class="button-row">
                 <div class="mock-button primary press-target" data-flow-source="committee-accept">Accept</div>
                 <div class="mock-button secondary press-target" data-flow-source="committee-withhold">Withhold</div>
@@ -1620,10 +1589,10 @@
           </article>
           </div>
 
-          <div class="flow-row-title branch-indent">Voter and reward branch <span>Starts from Voting proposal open, Committee accept, or Reward claim available.</span></div>
+          <div class="flow-row-title branch-indent">Voter, result, and reward branch <span>Starts from a voting shortcut, committee result, or reward claim shortcut.</span></div>
           <div class="screen-grid flow-grid branch-row">
             <div class="branch-spacer" aria-hidden="true"></div>
-          <article class="screen" data-flow-target="community-vote" data-flow="2. Community vote">
+          <article class="screen" data-flow-target="community-vote" data-flow="5. Community vote">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Vote</div>
@@ -1634,12 +1603,12 @@
                 <span class="status-pill needed">Needed</span>
                 <span class="status-pill role">Eligible voter</span>
               </div>
-              <div class="screen-context"><strong>Weighted vote</strong>Eligible voters assign option weights and choose spend. The app previews applied weight before submitting the vote transaction.</div>
-              <div class="mock-muted">Eligibility: balance above threshold</div>
+              <div class="screen-context"><strong>Weighted dao_vote</strong>Eligible voters submit weights[] for proposal options plus spend. The server requires balance above voteThreshold and spend at least minimumSpend.</div>
+              <div class="mock-muted">Eligibility: balance above 100.0 USD threshold</div>
               <div class="mock-muted">Voting ends in 5d 2h</div>
               <div class="field-stack">
-                <div class="field"><label>Yes weight</label><div class="field-box">3</div></div>
-                <div class="field"><label>No weight</label><div class="field-box">1</div></div>
+                <div class="field"><label>Option[0] yes weight</label><div class="field-box">3</div></div>
+                <div class="field"><label>Option[1] no weight</label><div class="field-box">1</div></div>
                 <div class="field"><label>Spend amount</label><div class="field-box">10.00 USD</div></div>
               </div>
               <div class="mock-kpi state-target" data-flow-target="vote-estimate">
@@ -1648,12 +1617,12 @@
               </div>
               <div class="button-row">
                 <div class="mock-button secondary press-target" data-flow-source="vote-preview">Preview</div>
-                <div class="mock-button primary press-target" data-flow-source="vote-submit">Submit vote</div>
+                <div class="mock-button primary press-target" data-flow-source="vote-submit">Submit dao_vote</div>
               </div>
             </div>
           </article>
 
-          <article class="screen" data-flow-target="results" data-flow="3. Results / audit">
+          <article class="screen" data-flow-target="results" data-flow="6. Results / audit">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Results</div>
@@ -1664,26 +1633,28 @@
                 <span class="status-pill needed">Needed</span>
                 <span class="status-pill role">Any user</span>
               </div>
-              <div class="screen-context"><strong>Transparent results</strong>Shows current or final weighted totals plus recent votes so anyone can audit the proposal state and verify their vote.</div>
-              <div class="proposal-title">Current winner: Yes</div>
+              <div class="screen-context"><strong>dao_vote_result and audit</strong>After votingEnd, dao_vote_result sets accepted or rejected from the winning option and burns pctBurned from the reward pool as initialBurnedReward.</div>
+              <div class="proposal-title">Winning option: Yes</div>
               <div class="detail-pair">
                 <div class="detail-line"><span>Yes:</span> 124.44</div>
                 <div class="progress-bar"><div class="progress-fill" style="width: 59%"></div></div>
                 <div class="detail-line"><span>No:</span> 88.10</div>
                 <div class="progress-bar"><div class="progress-fill" style="width: 41%"></div></div>
+                <div class="detail-line"><span>voterRewardPool:</span> 50.0 USD</div>
+                <div class="detail-line"><span>initialBurnedReward:</span> 25.0 USD</div>
               </div>
               <div class="mock-list" data-flow-target="results-audit">
                 <div class="mock-list-row"><div><div class="mock-list-title">address...9f21</div><div class="mock-list-meta">spend 10 - weights 3/1 - 8:42 AM</div></div></div>
                 <div class="mock-list-row"><div><div class="mock-list-title">address...0ac4</div><div class="mock-list-meta">spend 1 - weights 0/1 - 8:10 AM</div></div></div>
               </div>
-              <div class="mock-button secondary press-target" data-flow-source="results-verify">Verify on chain</div>
+              <div class="mock-button secondary press-target" data-flow-source="results-vote-result">Run vote result</div>
             </div>
           </article>
 
-          <article class="screen" data-flow-target="rewards" data-flow="4. Rewards">
+          <article class="screen" data-flow-target="rewards" data-flow="7. Rewards">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Final Result</div>
+              <div class="screen-title">Rewards</div>
               <span></span>
             </div>
             <div class="screen-body">
@@ -1691,14 +1662,41 @@
                 <span class="status-pill needed">Needed</span>
                 <span class="status-pill role">Voter</span>
               </div>
-              <div class="screen-context"><strong>Reward claim</strong>After voting ends, the initial burn happens and eligible unique voters can claim their share during the claim period.</div>
+              <div class="screen-context"><strong>Reward claim</strong>Eligible voters can claim during claimDuration. Claims update claimedReward; after claimEnd, the remaining reward pool can be burned.</div>
               <div class="proposal-title">Winner: Yes</div>
               <div class="mock-list" data-flow-target="reward-breakdown">
                 <div class="mock-list-row"><div class="mock-list-title">Initial burn</div><div class="mock-list-meta">50%</div></div>
-                <div class="mock-list-row"><div class="mock-list-title">Claim period</div><div class="mock-list-meta">23d left</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">Claim period</div><div class="mock-list-meta">30d</div></div>
                 <div class="mock-list-row"><div class="mock-list-title">Your reward estimate</div><div class="mock-list-meta">4.23 LIB</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">claimedReward</div><div class="mock-list-meta">18.40 LIB</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">Unclaimed after claimEnd</div><div class="mock-list-meta">6.60 LIB</div></div>
               </div>
-              <div class="mock-button primary press-target" data-flow-source="reward-claim">Claim reward</div>
+              <div class="button-row">
+                <div class="mock-button primary press-target" data-flow-source="reward-claim">Claim reward</div>
+                <div class="mock-button secondary press-target" data-flow-source="reward-burn">Burn unclaimed</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow-target="burn-reward" data-flow="8. Burn unclaimed">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Burn Unclaimed</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Operator</span>
+              </div>
+              <div class="screen-context"><strong>Final reward burn</strong>dao_burn_reward runs after claimEnd for accepted, applied, or rejected proposals and moves remaining rewards into finalBurnedReward.</div>
+              <div class="proposal-title">Claim window complete</div>
+              <div class="mock-list" data-flow-target="burn-ledger">
+                <div class="mock-list-row"><div class="mock-list-title">Proposal status</div><div class="mock-list-meta">accepted/applied/rejected</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">Unclaimed reward pool</div><div class="mock-list-meta">6.60 LIB</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">finalBurnedReward</div><div class="mock-list-meta">6.60 LIB</div></div>
+              </div>
+              <div class="mock-muted">Withheld proposals already burn the pool during review result handling.</div>
             </div>
           </article>
           </div>
@@ -1706,7 +1704,7 @@
           <div class="flow-row-title branch-indent">Reference and operator branch <span>Parameters and apply shortcuts branch from the shared DAO overview.</span></div>
           <div class="screen-grid flow-grid branch-row">
             <div class="branch-spacer" aria-hidden="true"></div>
-          <article class="screen" data-flow-target="parameters" data-flow="2. Parameters">
+          <article class="screen" data-flow-target="parameters" data-flow="2b. Parameters">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">DAO Parameters</div>
@@ -1717,23 +1715,26 @@
                 <span class="status-pill needed">Needed</span>
                 <span class="status-pill role">Any user</span>
               </div>
-              <div class="screen-context"><strong>DAO parameter reference</strong>Shows current network DAO parameters so users can understand thresholds, durations, burns, and proposal costs before creating or voting.</div>
+              <div class="screen-context"><strong>DAO parameter reference</strong>Shows current server DAO params and committee size before users create, review, vote, apply, or claim rewards.</div>
               <div class="mock-kpi-grid parameter-grid">
-                <div class="mock-kpi"><div class="mock-kpi-value">100 USD</div><div class="mock-kpi-label">proposalFee</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">current</div><div class="mock-kpi-label">voteThreshold</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">1 USD</div><div class="mock-kpi-label">minimumSpend</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">50.0 USD</div><div class="mock-kpi-label">proposalFee</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">100.0 USD</div><div class="mock-kpi-label">voteThreshold</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">1.0 USD</div><div class="mock-kpi-label">minimumSpend</div></div>
                 <div class="mock-kpi"><div class="mock-kpi-value">1.1</div><div class="mock-kpi-label">voteExponent</div></div>
                 <div class="mock-kpi"><div class="mock-kpi-value">50%</div><div class="mock-kpi-label">pctBurned</div></div>
                 <div class="mock-kpi"><div class="mock-kpi-value">2d</div><div class="mock-kpi-label">reviewDuration</div></div>
                 <div class="mock-kpi"><div class="mock-kpi-value">8d</div><div class="mock-kpi-label">votingDuration</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">7d</div><div class="mock-kpi-label">graceDuration</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">30d</div><div class="mock-kpi-label">claimDuration</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">5</div><div class="mock-kpi-label">committee members</div></div>
               </div>
             </div>
           </article>
 
-          <article class="screen" data-flow-target="apply" data-flow="3. Apply">
+          <article class="screen" data-flow-target="apply" data-flow="3b. Apply parameters">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Apply Proposal</div>
+              <div class="screen-title">Apply Parameters</div>
               <span></span>
             </div>
             <div class="screen-body">
@@ -1741,42 +1742,19 @@
                 <span class="status-pill needed">Needed</span>
                 <span class="status-pill role">Operator</span>
               </div>
-              <div class="screen-context"><strong>Apply accepted change</strong>After the grace period, an operator submits the apply transaction. Emergency proposals can skip the grace period.</div>
-              <div class="proposal-title">Accepted proposal</div>
-              <div class="mock-muted">Grace period ends in 6d 4h</div>
-              <div class="timeline">
-                <div class="timeline-row"><span class="timeline-dot"></span><div><div class="mock-list-title">Accepted</div><div class="mock-muted">Community vote passed.</div></div></div>
-                <div class="timeline-row"><span class="timeline-dot"></span><div><div class="mock-list-title">Grace period</div><div class="mock-muted">Network prepares for the change.</div></div></div>
-                <div class="timeline-row"><span class="timeline-dot"></span><div><div class="mock-list-title">Apply</div><div class="mock-muted">Submit apply transaction when available.</div></div></div>
+              <div class="screen-context"><strong>dao_apply_parameters</strong>Applies accepted governance, economic, or protocol changes after applyEligibleAt. Emergency proposals can be applied by committee immediately after acceptance.</div>
+              <div class="proposal-title">Accepted governance proposal</div>
+              <div class="mock-list">
+                <div class="mock-list-row"><div class="mock-list-title">voteExponent</div><div class="mock-list-meta">1.1 -&gt; 1.2</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">Grace period</div><div class="mock-list-meta">complete</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">Next status</div><div class="mock-list-meta">applied</div></div>
               </div>
-              <div class="mock-button secondary press-target" data-flow-source="apply-project">Apply when available</div>
-            </div>
-          </article>
-
-          <article class="screen" data-flow-target="project" data-flow="4. Execute project">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Project Execution</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Project owner</span>
+              <div class="timeline" data-flow-target="apply-timeline">
+                <div class="timeline-row"><span class="timeline-dot"></span><div><div class="mock-list-title">Accepted</div><div class="mock-muted">Proposal passed or emergency accepted.</div></div></div>
+                <div class="timeline-row"><span class="timeline-dot"></span><div><div class="mock-list-title">Eligible</div><div class="mock-muted">applyEligibleAt reached, unless emergency.</div></div></div>
+                <div class="timeline-row"><span class="timeline-dot"></span><div><div class="mock-list-title">Applied</div><div class="mock-muted">Server updates DAO parameters.</div></div></div>
               </div>
-              <div class="screen-context"><strong>Project execution</strong>Project proposals continue after acceptance. Milestones track deliverables, escrow, penalties, bonuses, and payment claims.</div>
-              <div>
-                <div class="proposal-title">Documentation sprint</div>
-                <div class="mock-muted">Escrow balance: 5000 USD equivalent</div>
-              </div>
-              <div class="mock-list" data-flow-target="project-milestones">
-                <div class="mock-list-row"><div><div class="mock-list-title">Milestone 1: Started</div><div class="mock-list-meta">deliverable / duration / cost / penalty / bonus</div></div></div>
-                <div class="mock-list-row"><div><div class="mock-list-title">Milestone 2: Pending</div><div class="mock-list-meta">starts after milestone 1 verification</div></div></div>
-              </div>
-              <div class="button-row">
-                <div class="mock-button secondary press-target" data-flow-source="project-mark">Mark complete</div>
-                <div class="mock-button primary press-target" data-flow-source="project-claim">Claim payment</div>
-              </div>
+              <div class="mock-button primary press-target" data-flow-source="apply-parameters">Apply parameters</div>
             </div>
           </article>
           </div>
@@ -1800,8 +1778,7 @@
           <div class="flow-node">Network state</div>
         </div>
         <div class="flow-note">
-          Current `createProposal()` and `castVote()` mutate memory only. Live mode would add proposal list/detail fetches, proposal creation, committee vote,
-          weighted vote, reward claim, and apply transactions while preserving a UI-friendly store shape.
+          The live client should read `GET dao/proposals`, `GET dao/proposals/:id`, `GET dao/proposals/meta`, and `GET dao/voters/:proposalId`. Phase 1 writes map to `dao_proposal_create`, `dao_committee_vote`, `dao_committee_result`, `dao_vote`, `dao_vote_result`, `dao_claim_reward`, `dao_apply_parameters`, and `dao_burn_reward`.
         </div>
       </section>
       </main>
@@ -1918,25 +1895,23 @@
 
           const svgNS = "http://www.w3.org/2000/svg";
           const connectors = [
-            { from: "dao-create", to: "discussion", label: "tap Create", fromSide: "top", toSide: "left", toRatio: 0.8, route: "same-row", labelDx: -20, labelDy: -28 },
-            { from: "discussion-comment", to: "discussion-comments", label: "add comment", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -84, labelDy: -20 },
-            { from: "discussion-create", to: "builder", label: "tap Create proposal", fromSide: "top", toSide: "left", toRatio: 0.8, route: "same-row", labelDx: -40, labelDy: -28 },
-            { from: "builder-review", to: "confirm", label: "tap Review", fromSide: "top", toSide: "left", toRatio: 0.8, route: "same-row", labelDx: -20, labelDy: -28 },
-            { from: "confirm-sign", to: "committee", label: "sign submit", fromSide: "top", toSide: "left", toRatio: 0.4, route: "same-row", labelDx: -26, labelDy: -40 },
+            { from: "dao-create", to: "builder", label: "dao_proposal_create", fromSide: "top", toSide: "left", toRatio: 0.8, route: "same-row", labelDx: -34, labelDy: -30, labelWidth: 156 },
+            { from: "builder-review", to: "confirm", label: "review payload", fromSide: "top", toSide: "left", toRatio: 0.8, route: "same-row", labelDx: -28, labelDy: -28 },
+            { from: "confirm-sign", to: "committee", label: "submit tx", fromSide: "top", toSide: "left", toRatio: 0.42, route: "same-row", labelDx: -24, labelDy: -40 },
+            { from: "committee-accept", to: "committee-tally", label: "dao_committee_vote", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -78, labelDy: -16, labelWidth: 154 },
             { from: "committee-withhold", to: "withhold-reason", label: "withhold reason", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -44, labelDy: -10 },
-            { from: "committee-accept", to: "community-vote", label: "tap Accept", fromSide: "top", toSide: "left", toRatio: 0.38, route: "branch-reverse", labelDx: -30, labelDy: -18 },
+            { from: "committee-result", to: "community-vote", label: "dao_committee_result", fromSide: "right", toSide: "left", toRatio: 0.38, route: "branch-reverse", labelDx: -102, labelDy: -10, labelWidth: 166 },
             { from: "dao-vote", to: "community-vote", label: "tap voting shortcut", fromSide: "right", toSide: "left", toRatio: 0.38, route: "branch", labelDx: -106, labelDy: -30 },
             { from: "dao-reward", to: "rewards", label: "tap reward shortcut", fromSide: "right", toSide: "left", toRatio: 0.43, route: "branch-low", labelDx: -80, labelDy: 50 },
             { from: "vote-preview", to: "vote-estimate", label: "shows estimate", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -30, labelDy: -16 },
-            { from: "vote-submit", to: "results", label: "submit vote", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: -8, labelDy: -30 },
-            { from: "results-verify", to: "results-audit", label: "verify tx", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -26, labelDy: -22 },
+            { from: "vote-submit", to: "results", label: "dao_vote", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: 2, labelDy: -30 },
+            { from: "results-vote-result", to: "results-audit", label: "dao_vote_result", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -44, labelDy: -22, labelWidth: 130 },
             { from: "results", to: "rewards", label: "claim period starts", fromSide: "right", fromRatio: 0.43, toSide: "left", toRatio: 0.43, route: "same-row", labelDx: -34, labelDy: -38 },
-            { from: "reward-claim", to: "reward-breakdown", label: "claim tx", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -26, labelDy: -18 },
+            { from: "reward-claim", to: "reward-breakdown", label: "dao_claim_reward", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -48, labelDy: -18, labelWidth: 138 },
+            { from: "reward-burn", to: "burn-reward", label: "dao_burn_reward", fromSide: "top", toSide: "left", toRatio: 0.5, route: "same-row", labelDx: -34, labelDy: -34, labelWidth: 132 },
             { from: "dao-parameters", to: "parameters", label: "tap Parameters", fromSide: "top", toSide: "left", toRatio: 0.8, route: "branch", labelDx: -80, labelDy: -30 },
             { from: "dao-apply", to: "apply", label: "tap apply shortcut", fromSide: "right", toSide: "left", toRatio: 0.38, route: "branch-low", labelDx: -80, labelDy: 24 },
-            { from: "apply-project", to: "project", label: "project proposal", fromSide: "top", toSide: "left", toRatio: 0.5, route: "same-row", labelDx: -36, labelDy: -34 },
-            { from: "project-mark", to: "project-milestones", label: "mark milestone", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -72, labelDy: -34 },
-            { from: "project-claim", to: "project-milestones", label: "claim payment", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: 28, labelDy: -18 }
+            { from: "apply-parameters", to: "apply-timeline", label: "dao_apply_parameters", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -74, labelDy: -24, labelWidth: 170 }
           ];
 
           const makeSvgElement = (tag, attrs = {}) => {
