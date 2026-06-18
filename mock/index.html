@@ -2092,12 +2092,12 @@
             { from: "results", to: "rewards", label: "claim period starts", fromSide: "right", fromRatio: 0.43, toSide: "left", toRatio: 0.43, route: "same-row", labelDx: -34, labelDy: -38 },
             { from: "reward-claim", to: "reward-breakdown", label: "dao_claim_reward", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -48, labelDy: -18, labelWidth: 138 },
             { from: "reward-burn", to: "burn-reward", label: "dao_burn_reward", fromSide: "top", toSide: "left", toRatio: 0.5, route: "same-row", labelDx: -34, labelDy: -34, labelWidth: 132 },
-            { from: "dao-active-category", to: "active-list", label: "open active list", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-low", labelDx: -100, labelDy: 28, labelWidth: 126 },
+            { from: "dao-active-category", to: "active-list", label: "open active list", fromSide: "left", wrapFromSide: "left", toSide: "left", toRatio: 0.42, route: "branch-low", wrapLabelDx: -70, wrapLabelDy: -30, labelWidth: 126 },
             { from: "active-list-row", to: "results", label: "tap proposal", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-reverse", labelDx: -54, labelDy: -54 },
-            { from: "dao-reward-category", to: "reward-list", label: "open rewards list", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-low", labelDx: -88, labelDy: 36, labelWidth: 138 },
+            { from: "dao-reward-category", to: "reward-list", label: "open rewards list", fromSide: "left", wrapFromSide: "left", toSide: "left", toRatio: 0.42, route: "branch-low", wrapLabelDx: -76, wrapLabelDy: -30, labelWidth: 138 },
             { from: "reward-list-row", to: "rewards", label: "tap claim item", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-reverse", labelDx: -52, labelDy: -50 },
             { from: "dao-parameters", to: "parameters", label: "tap Parameters", fromSide: "top", toSide: "left", toRatio: 0.8, route: "branch", labelDx: -80, labelDy: -30 },
-            { from: "dao-operator-category", to: "operator-list", label: "open operator queue", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-low", labelDx: -106, labelDy: 34, labelWidth: 154 },
+            { from: "dao-operator-category", to: "operator-list", label: "open operator queue", fromSide: "left", wrapFromSide: "left", toSide: "left", toRatio: 0.42, route: "branch-low", wrapLabelDx: -84, wrapLabelDy: -30, labelWidth: 154 },
             { from: "operator-list-row", to: "apply", label: "tap ready item", fromSide: "top", toSide: "left", toRatio: 0.42, route: "same-row", labelDx: -34, labelDy: -34 },
             { from: "apply-parameters", to: "apply-timeline", label: "dao_apply_parameters", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -74, labelDy: -24, labelWidth: 170 }
           ];
@@ -2139,40 +2139,131 @@
             return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
           };
 
-          const pathFor = (start, end, route) => {
-            if (route === "local-up") {
-              return `M ${start.x} ${start.y} C ${start.x} ${start.y - 76}, ${end.x} ${end.y + 76}, ${end.x} ${end.y}`;
+          const connectorPalette = [
+            "#d00000",
+            "#c2410c",
+            "#9a6700",
+            "#15803d",
+            "#047857",
+            "#0369a1",
+            "#1d4ed8",
+            "#6d28d9",
+            "#be185d"
+          ];
+          const targetColorMap = new Map();
+          const markerMap = new Map();
+
+          const colorForTarget = (target) => {
+            if (!targetColorMap.has(target)) {
+              const color = connectorPalette[targetColorMap.size % connectorPalette.length];
+              targetColorMap.set(target, color);
             }
-            if (route === "branch-low") {
-              const midY = Math.max(start.y, end.y) + 110;
-              return `M ${start.x} ${start.y} C ${start.x + 140} ${midY}, ${end.x - 180} ${midY}, ${end.x} ${end.y}`;
+            return targetColorMap.get(target);
+          };
+
+          const hexToRgba = (hex, alpha) => {
+            const value = hex.replace("#", "");
+            const red = parseInt(value.slice(0, 2), 16);
+            const green = parseInt(value.slice(2, 4), 16);
+            const blue = parseInt(value.slice(4, 6), 16);
+            return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+          };
+
+          const isWrapRoute = (route) => ["branch", "branch-low", "branch-reverse"].includes(route);
+
+          const screenBoxFor = (element) => {
+            const screen = element.closest(".screen") || element;
+            return boxInBoard(screen);
+          };
+
+          const routeDetailsFor = (from, to, start, end, connector, index) => {
+            if (connector.route === "local-up") {
+              return {
+                d: `M ${start.x} ${start.y} C ${start.x} ${start.y - 76}, ${end.x} ${end.y + 76}, ${end.x} ${end.y}`,
+                labelX: (start.x + end.x) / 2,
+                labelY: (start.y + end.y) / 2,
+                wrapped: false
+              };
             }
-            if (route === "branch-reverse") {
-              const midY = (start.y + end.y) / 2;
-              return `M ${start.x} ${start.y} C ${start.x + 110} ${midY}, ${end.x - 150} ${midY}, ${end.x} ${end.y}`;
+
+            if (isWrapRoute(connector.route)) {
+              const sourceBox = screenBoxFor(from);
+              const targetBox = screenBoxFor(to);
+              const sourceCenterX = sourceBox.x + sourceBox.width / 2;
+              const targetCenterX = targetBox.x + targetBox.width / 2;
+              const lane = connector.lane ?? (index % 4);
+              const laneOffset = connector.laneOffset ?? 9 + lane * 4;
+              const rowOffset = 34 + lane * 9;
+              const sourceSide = connector.wrapFromSide ?? (connector.fromSide === "left" || connector.fromSide === "right"
+                ? connector.fromSide
+                : (targetCenterX >= sourceCenterX ? "right" : "left"));
+              const targetSide = connector.wrapSide ?? (index % 2 === 0 ? "left" : "right");
+              const sourceLaneX = sourceSide === "right"
+                ? sourceBox.x + sourceBox.width + laneOffset
+                : sourceBox.x - laneOffset;
+              const targetLaneX = targetSide === "right"
+                ? targetBox.x + targetBox.width + laneOffset
+                : targetBox.x - laneOffset;
+              const targetRatio = clamp((end.y - targetBox.y) / targetBox.height, 0.08, 0.92);
+              const targetPoint = {
+                x: targetSide === "right" ? targetBox.x + targetBox.width : targetBox.x,
+                y: targetBox.y + targetBox.height * targetRatio
+              };
+              let laneY;
+              if (targetBox.y > sourceBox.y) {
+                laneY = targetBox.y - rowOffset;
+              } else if (targetBox.y < sourceBox.y) {
+                laneY = targetBox.y + targetBox.height + rowOffset;
+              } else {
+                laneY = Math.min(sourceBox.y, targetBox.y) - rowOffset;
+              }
+              const sourceControlX = sourceSide === "right" ? start.x + 28 : start.x - 28;
+              const targetControlX = targetSide === "right" ? targetPoint.x + 28 : targetPoint.x - 28;
+              return {
+                d: `M ${start.x} ${start.y} C ${sourceControlX} ${start.y}, ${sourceLaneX} ${start.y}, ${sourceLaneX} ${start.y} L ${sourceLaneX} ${laneY} L ${targetLaneX} ${laneY} L ${targetLaneX} ${targetPoint.y} C ${targetLaneX} ${targetPoint.y}, ${targetControlX} ${targetPoint.y}, ${targetPoint.x} ${targetPoint.y}`,
+                labelX: (sourceLaneX + targetLaneX) / 2,
+                labelY: laneY,
+                wrapped: true
+              };
             }
+
             const distance = Math.abs(end.x - start.x);
             const control = Math.max(90, Math.min(240, distance * 0.45));
             const startControl = start.x <= end.x ? start.x + control : start.x - control;
             const endControl = start.x <= end.x ? end.x - control : end.x + control;
-            return `M ${start.x} ${start.y} C ${startControl} ${start.y}, ${endControl} ${end.y}, ${end.x} ${end.y}`;
+            return {
+              d: `M ${start.x} ${start.y} C ${startControl} ${start.y}, ${endControl} ${end.y}, ${end.x} ${end.y}`,
+              labelX: (start.x + end.x) / 2,
+              labelY: (start.y + end.y) / 2,
+              wrapped: false
+            };
           };
 
-          const marker = makeSvgElement("marker", {
-            id: "arrow-branch",
-            markerWidth: "10",
-            markerHeight: "10",
-            refX: "8",
-            refY: "5",
-            orient: "auto"
-          });
-          marker.appendChild(makeSvgElement("path", {
-            d: "M 0 0 L 10 5 L 0 10 z",
-            fill: "rgba(61, 61, 206, 0.56)"
-          }));
           const defs = makeSvgElement("defs");
-          defs.appendChild(marker);
           svg.replaceChildren(defs);
+
+          const markerFor = (target, color) => {
+            if (markerMap.has(target)) {
+              return markerMap.get(target);
+            }
+            const safeTarget = target.replace(/[^a-z0-9_-]/gi, "-");
+            const markerId = `arrow-branch-${safeTarget}`;
+            const marker = makeSvgElement("marker", {
+              id: markerId,
+              markerWidth: "10",
+              markerHeight: "10",
+              refX: "8",
+              refY: "5",
+              orient: "auto"
+            });
+            marker.appendChild(makeSvgElement("path", {
+              d: "M 0 0 L 10 5 L 0 10 z",
+              fill: color
+            }));
+            defs.appendChild(marker);
+            markerMap.set(target, markerId);
+            return markerId;
+          };
 
           const width = board.scrollWidth;
           const height = board.scrollHeight;
@@ -2180,35 +2271,43 @@
           svg.style.width = `${width}px`;
           svg.style.height = `${height}px`;
 
-          connectors.forEach((connector) => {
+          connectors.forEach((connector, index) => {
             const from = findAnchor(connector.from);
             const to = findAnchor(connector.to);
             if (!from || !to) {
               return;
             }
+            const color = colorForTarget(connector.to);
+            const markerId = markerFor(connector.to, color);
             const start = pointFor(from, connector.fromSide, connector.fromRatio ?? 0.5);
             const end = pointFor(to, connector.toSide, connector.toRatio ?? 0.5);
+            const route = routeDetailsFor(from, to, start, end, connector, index);
             const path = makeSvgElement("path", {
               class: "transition-path",
-              d: pathFor(start, end, connector.route),
-              "marker-end": "url(#arrow-branch)"
+              d: route.d,
+              style: `stroke: ${color}; stroke-opacity: 0.86;`,
+              "marker-end": `url(#${markerId})`
             });
             svg.appendChild(path);
 
-            const width = connector.labelWidth ?? connector.label.length * 7 + 26;
-            const x = (start.x + end.x) / 2 + (connector.labelDx ?? 0);
-            const y = (start.y + end.y) / 2 + (connector.labelDy ?? 0);
+            const labelWidth = connector.labelWidth ?? connector.label.length * 7 + 26;
+            const labelDx = route.wrapped ? (connector.wrapLabelDx ?? 0) : (connector.labelDx ?? 0);
+            const labelDy = route.wrapped ? (connector.wrapLabelDy ?? -28) : (connector.labelDy ?? 0);
+            const x = route.labelX + labelDx;
+            const y = route.labelY + labelDy;
             const label = makeSvgElement("g", { class: "transition-label" });
             label.appendChild(makeSvgElement("rect", {
               x: String(x),
               y: String(y),
-              width: String(width),
+              width: String(labelWidth),
               height: "24",
-              rx: "12"
+              rx: "12",
+              style: `stroke: ${hexToRgba(color, 0.42)};`
             }));
             const text = makeSvgElement("text", {
               x: String(x + 13),
-              y: String(y + 16)
+              y: String(y + 16),
+              style: `fill: ${color};`
             });
             text.textContent = connector.label;
             label.appendChild(text);
