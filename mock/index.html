@@ -1,0 +1,1872 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Liberdus DAO Mock Screens</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <style>
+      body {
+        align-items: stretch;
+        background: var(--surface-muted);
+        color: var(--text-color);
+        display: block;
+        min-height: 100vh;
+        padding: 0;
+      }
+
+      .mock-page {
+        margin: 0;
+        max-width: none;
+        min-width: max-content;
+        padding: 24px;
+      }
+
+      .mock-header {
+        align-items: center;
+        background: var(--background-color);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        display: grid;
+        gap: 16px;
+        grid-template-columns: auto 1fr auto;
+        margin-bottom: 18px;
+        padding: 14px 16px;
+      }
+
+      .mock-brand {
+        align-items: center;
+        display: flex;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .mock-logo {
+        height: 34px;
+        width: 34px;
+      }
+
+      .mock-title {
+        font-size: 20px;
+        font-weight: var(--font-weight-semibold);
+        line-height: 1.2;
+      }
+
+      .mock-subtitle {
+        color: var(--secondary-text-color);
+        font-size: 13px;
+        margin-top: 3px;
+      }
+
+      .mock-tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .mock-tag {
+        align-items: center;
+        background: var(--hover-background);
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        color: var(--secondary-text-color);
+        display: inline-flex;
+        font-size: 12px;
+        font-weight: var(--font-weight-medium);
+        min-height: 28px;
+        padding: 0 10px;
+      }
+
+      .mock-tag.current {
+        background: rgba(40, 167, 69, 0.1);
+        border-color: rgba(40, 167, 69, 0.24);
+        color: var(--success-color);
+      }
+
+      .mock-tag.mock {
+        background: var(--primary-tint-12);
+        border-color: var(--primary-tint-20);
+        color: var(--primary-color);
+      }
+
+      .mock-tag.partial {
+        background: rgba(0, 102, 204, 0.1);
+        border-color: rgba(0, 102, 204, 0.22);
+        color: var(--info-color);
+      }
+
+      .mock-tag.needed {
+        background: rgba(239, 108, 0, 0.1);
+        border-color: rgba(239, 108, 0, 0.25);
+        color: var(--warning-color);
+      }
+
+      .mock-section {
+        margin-top: 22px;
+      }
+
+      .mock-section-header {
+        align-items: end;
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+
+      .mock-section-title {
+        font-size: 16px;
+        font-weight: var(--font-weight-semibold);
+      }
+
+      .mock-section-note {
+        color: var(--secondary-text-color);
+        font-size: 13px;
+      }
+
+      .route-map {
+        background: var(--background-color);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        box-shadow: var(--elev-1);
+        display: grid;
+        gap: 12px;
+        min-width: 1320px;
+        padding: 14px;
+      }
+
+      .route-lane {
+        align-items: center;
+        display: grid;
+        gap: 12px;
+        grid-template-columns: 170px 1fr;
+      }
+
+      .route-title {
+        color: var(--text-color);
+        font-size: 13px;
+        font-weight: var(--font-weight-semibold);
+        line-height: 1.25;
+      }
+
+      .route-title span {
+        color: var(--secondary-text-color);
+        display: block;
+        font-size: 12px;
+        font-weight: var(--font-weight-normal);
+        margin-top: 3px;
+      }
+
+      .route-chain {
+        align-items: center;
+        display: flex;
+        gap: 0;
+        min-width: max-content;
+      }
+
+      .route-step {
+        align-items: center;
+        background: var(--hover-background);
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        color: var(--text-color);
+        display: inline-flex;
+        font-size: 13px;
+        font-weight: var(--font-weight-medium);
+        min-height: 36px;
+        padding: 0 13px;
+        white-space: nowrap;
+      }
+
+      .route-step.entry {
+        background: var(--primary-tint-12);
+        border-color: var(--primary-tint-20);
+        color: var(--primary-color);
+        font-weight: var(--font-weight-semibold);
+      }
+
+      .route-step.decision {
+        background: rgba(239, 108, 0, 0.1);
+        border-color: rgba(239, 108, 0, 0.25);
+        color: var(--warning-color);
+      }
+
+      .route-step.done {
+        background: rgba(40, 167, 69, 0.1);
+        border-color: rgba(40, 167, 69, 0.24);
+        color: var(--success-color);
+      }
+
+      .route-arrow {
+        background: linear-gradient(90deg, var(--border-color), var(--primary-tint-40));
+        display: inline-block;
+        height: 2px;
+        margin: 0 6px;
+        position: relative;
+        width: 34px;
+      }
+
+      .route-arrow::after {
+        border-bottom: 5px solid transparent;
+        border-left: 7px solid var(--primary-tint-40);
+        border-top: 5px solid transparent;
+        content: "";
+        position: absolute;
+        right: -2px;
+        top: -4px;
+      }
+
+      .route-note {
+        color: var(--secondary-text-color);
+        font-size: 12px;
+        line-height: 1.35;
+        margin-left: 182px;
+        margin-top: -6px;
+      }
+
+      .mock-flow {
+        align-items: center;
+        background: var(--background-color);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        display: flex;
+        gap: 0;
+        margin: 0 0 18px;
+        overflow-x: auto;
+        padding: 12px;
+      }
+
+      .flow-node {
+        align-items: center;
+        background: var(--hover-background);
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        display: flex;
+        flex: 0 0 160px;
+        font-size: 13px;
+        font-weight: var(--font-weight-semibold);
+        justify-content: center;
+        min-height: 42px;
+        margin-right: 42px;
+        padding: 8px 14px;
+        position: relative;
+        text-align: center;
+      }
+
+      .flow-node:not(:last-child)::after {
+        background: linear-gradient(90deg, var(--border-color), var(--primary-tint-40));
+        content: "";
+        height: 2px;
+        position: absolute;
+        right: -42px;
+        top: 50%;
+        width: 42px;
+      }
+
+      .flow-node:not(:last-child)::before {
+        border-bottom: 5px solid transparent;
+        border-left: 7px solid var(--primary-tint-40);
+        border-top: 5px solid transparent;
+        content: "";
+        position: absolute;
+        right: -42px;
+        top: calc(50% - 5px);
+      }
+
+      .flow-node:last-child {
+        margin-right: 0;
+      }
+
+      .flow-arrow {
+        display: none;
+      }
+
+      .screen-grid {
+        align-items: start;
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 18px;
+        min-width: max-content;
+        overflow: visible;
+        position: relative;
+      }
+
+      .row-transition-arrows {
+        height: 760px;
+        left: 0;
+        overflow: visible;
+        pointer-events: none;
+        position: absolute;
+        top: 0;
+        z-index: 20;
+      }
+
+      .current-row-arrows {
+        width: 2022px;
+      }
+
+      .potential-row-arrows {
+        width: 4470px;
+      }
+
+      .author-row-arrows {
+        width: 2430px;
+      }
+
+      .voter-row-arrows,
+      .operations-row-arrows {
+        width: 1614px;
+      }
+
+      .flow-row-title {
+        color: var(--text-color);
+        font-size: 15px;
+        font-weight: var(--font-weight-semibold);
+        margin: 24px 0 8px;
+      }
+
+      .flow-row-title span {
+        color: var(--text-secondary);
+        font-size: 13px;
+        font-weight: var(--font-weight-regular);
+        margin-left: 10px;
+      }
+
+      .screen-grid.flow-grid {
+        margin-bottom: 20px;
+      }
+
+      .action-list .mock-list-row.press-target {
+        background: var(--hover-background-purple);
+      }
+
+      .transition-path {
+        fill: none;
+        stroke: rgba(61, 61, 206, 0.56);
+        stroke-dasharray: 7 6;
+        stroke-linecap: round;
+        stroke-width: 2.5;
+      }
+
+      .transition-label rect {
+        fill: var(--background-color);
+        stroke: rgba(61, 61, 206, 0.24);
+      }
+
+      .transition-label text {
+        fill: var(--primary-color);
+        font-family: var(--font-primary);
+        font-size: 12px;
+        font-weight: var(--font-weight-semibold);
+      }
+
+      .press-target {
+        box-shadow: 0 0 0 2px rgba(61, 61, 206, 0.3);
+        position: relative;
+      }
+
+      .menu-item.press-target {
+        background: var(--hover-background-purple);
+      }
+
+      .screen {
+        background: var(--background-color);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        box-shadow: var(--overlay-shadow);
+        display: flex;
+        flex: 0 0 390px;
+        flex-direction: column;
+        height: 640px;
+        justify-self: center;
+        margin-top: 104px;
+        overflow: visible;
+        position: relative;
+        width: 390px;
+      }
+
+      .screen.compact {
+        height: 430px;
+      }
+
+      .screen::before {
+        align-items: center;
+        background: var(--hover-background);
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        color: var(--text-color);
+        content: attr(data-flow);
+        display: inline-flex;
+        font-size: 13px;
+        font-weight: var(--font-weight-semibold);
+        justify-content: center;
+        left: 0;
+        min-height: 36px;
+        padding: 0 14px;
+        position: absolute;
+        top: -104px;
+        white-space: nowrap;
+      }
+
+      .screen::after {
+        background: var(--background-color);
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        color: var(--secondary-text-color);
+        content: "Narrow render: 390 x 640";
+        font-family: var(--font-monospace);
+        font-size: 11px;
+        line-height: 1;
+        padding: 6px 9px;
+        position: absolute;
+        right: 0;
+        top: -58px;
+      }
+
+      .screen.compact::after {
+        content: "Narrow render: 390 x 430";
+      }
+
+      .screen-header {
+        align-items: center;
+        background: var(--background-color);
+        border-bottom: 1px solid var(--border-color);
+        border-radius: 8px 8px 0 0;
+        display: grid;
+        gap: 8px;
+        grid-template-columns: 32px 1fr 32px;
+        min-height: 54px;
+        padding: 0 12px;
+        position: relative;
+      }
+
+      .screen-grid .screen:not(:last-child) .screen-header::before {
+        display: none;
+      }
+
+      .screen-grid .screen:not(:last-child) .screen-header::after {
+        display: none;
+      }
+
+      .screen-header .back-button,
+      .screen-header .icon-button {
+        align-items: center;
+        background-color: transparent;
+        border: 0;
+        color: var(--text-color);
+        display: inline-flex;
+        height: 32px;
+        justify-content: center;
+        min-height: 32px;
+        min-width: 32px;
+        opacity: 0.82;
+        padding: 0;
+        position: static;
+        width: 32px;
+      }
+
+      .screen-header .icon-button.filter-icon {
+        color: var(--primary-color);
+        background-size: 20px;
+      }
+
+      .screen-title {
+        font-size: 15px;
+        font-weight: var(--font-weight-semibold);
+        overflow: hidden;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .screen-body {
+        background: var(--background-color);
+        border-radius: 0 0 8px 8px;
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 12px;
+        overflow-y: auto;
+        padding: 14px;
+      }
+
+      .screen-body > .status-line:first-child {
+        left: 0;
+        position: absolute;
+        top: -30px;
+        z-index: 2;
+      }
+
+      .status-line {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .status-pill {
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        color: var(--secondary-text-color);
+        display: inline-flex;
+        font-size: 12px;
+        font-weight: var(--font-weight-medium);
+        min-height: 24px;
+        padding: 3px 9px;
+      }
+
+      .status-pill.current {
+        background: rgba(40, 167, 69, 0.1);
+        border-color: rgba(40, 167, 69, 0.24);
+        color: var(--success-color);
+      }
+
+      .status-pill.mock {
+        background: var(--primary-tint-12);
+        border-color: var(--primary-tint-20);
+        color: var(--primary-color);
+      }
+
+      .status-pill.partial {
+        background: rgba(0, 102, 204, 0.1);
+        border-color: rgba(0, 102, 204, 0.2);
+        color: var(--info-color);
+      }
+
+      .status-pill.needed {
+        background: rgba(239, 108, 0, 0.1);
+        border-color: rgba(239, 108, 0, 0.25);
+        color: var(--warning-color);
+      }
+
+      .status-pill.role {
+        background: rgba(15, 23, 42, 0.06);
+        border-color: rgba(15, 23, 42, 0.14);
+        color: var(--secondary-text-color);
+      }
+
+      .status-pill.committee {
+        background: rgba(220, 53, 69, 0.1);
+        border-color: rgba(220, 53, 69, 0.24);
+        color: var(--danger-color);
+      }
+
+      .action-heading {
+        color: var(--secondary-text-color);
+        font-size: 12px;
+        font-weight: var(--font-weight-semibold);
+        margin-top: 2px;
+        text-transform: uppercase;
+      }
+
+      .screen-context {
+        background: var(--hover-background);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--secondary-text-color);
+        font-size: 12px;
+        line-height: 1.4;
+        padding: 9px 10px;
+      }
+
+      .screen-context strong {
+        color: var(--text-color);
+        display: block;
+        font-size: 13px;
+        font-weight: var(--font-weight-semibold);
+        margin-bottom: 3px;
+      }
+
+      .mock-list.action-list .mock-list-row {
+        cursor: pointer;
+      }
+
+      .row-role {
+        align-self: start;
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        color: var(--secondary-text-color);
+        font-size: 11px;
+        font-weight: var(--font-weight-semibold);
+        line-height: 1;
+        padding: 5px 8px;
+        white-space: nowrap;
+      }
+
+      .row-role.committee {
+        border-color: rgba(220, 53, 69, 0.22);
+        color: var(--danger-color);
+      }
+
+      .toggle {
+        background: var(--hover-background-purple);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        display: grid;
+        gap: 6px;
+        grid-template-columns: 1fr 1fr;
+        padding: 6px;
+      }
+
+      .toggle span {
+        border-radius: 6px;
+        color: var(--text-color);
+        display: block;
+        font-size: 13px;
+        font-weight: var(--font-weight-medium);
+        padding: 9px;
+        text-align: center;
+      }
+
+      .toggle .active {
+        background: var(--button-background);
+        box-shadow: var(--elev-1);
+      }
+
+      .mock-list {
+        border-bottom: 1px solid var(--border-color);
+        border-top: 1px solid var(--border-color);
+        margin-left: -14px;
+        margin-right: -14px;
+        overflow: hidden;
+      }
+
+      .mock-list-row {
+        background: var(--background-color);
+        border-bottom: 1px solid var(--border-color);
+        display: grid;
+        gap: 8px;
+        grid-template-columns: 1fr auto;
+        min-height: 58px;
+        padding: 11px 14px;
+      }
+
+      .mock-list-row:last-child {
+        border-bottom: 0;
+      }
+
+      .mock-list-title {
+        font-size: 14px;
+        font-weight: var(--font-weight-semibold);
+        line-height: 1.25;
+      }
+
+      .mock-list-meta,
+      .mock-muted {
+        color: var(--secondary-text-color);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
+      .mock-kpi-grid {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .mock-kpi {
+        background: var(--hover-background);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        min-height: 64px;
+        padding: 10px;
+      }
+
+      .mock-kpi-value {
+        font-size: 20px;
+        font-weight: var(--font-weight-semibold);
+        line-height: 1.1;
+      }
+
+      .mock-kpi-label {
+        color: var(--secondary-text-color);
+        font-size: 12px;
+        margin-top: 4px;
+      }
+
+      .parameter-grid .mock-kpi {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 76px;
+      }
+
+      .parameter-grid .mock-kpi-value {
+        font-size: 18px;
+      }
+
+      .parameter-grid .mock-kpi-label {
+        overflow-wrap: anywhere;
+      }
+
+      .parameter-grid .mock-kpi:last-child:nth-child(odd) {
+        grid-column: span 2;
+      }
+
+      .state-target {
+        box-shadow: 0 0 0 2px rgba(61, 61, 206, 0.18);
+      }
+
+      .field-stack {
+        display: grid;
+        gap: 10px;
+      }
+
+      .field {
+        display: grid;
+        gap: 5px;
+      }
+
+      .field label {
+        color: var(--secondary-text-color);
+        font-size: 12px;
+        font-weight: var(--font-weight-medium);
+      }
+
+      .field-box {
+        align-items: center;
+        background: var(--input-background);
+        border: 1px solid transparent;
+        border-radius: 8px;
+        color: var(--text-color);
+        display: flex;
+        font-size: 14px;
+        min-height: 40px;
+        padding: 8px 10px;
+      }
+
+      .field-box.tall {
+        align-items: flex-start;
+        min-height: 92px;
+      }
+
+      .button-row {
+        background: var(--background-color);
+        border-top: 1px solid var(--border-color);
+        display: grid;
+        flex-shrink: 0;
+        gap: 8px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin: auto -14px -14px;
+        padding: 12px 14px;
+      }
+
+      .screen-body > .mock-button:last-child {
+        align-self: stretch;
+        flex-shrink: 0;
+        margin-top: auto;
+      }
+
+      .mock-button {
+        align-items: center;
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        display: inline-flex;
+        font-size: 14px;
+        font-weight: var(--font-weight-semibold);
+        justify-content: center;
+        min-height: 40px;
+        padding: 0 12px;
+      }
+
+      .mock-button.primary {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        color: #fff;
+      }
+
+      .mock-button.secondary {
+        background: var(--button-background);
+        color: var(--text-color);
+      }
+
+      .proposal-title {
+        font-size: 16px;
+        font-weight: var(--font-weight-semibold);
+        line-height: 1.25;
+      }
+
+      .proposal-body {
+        color: var(--text-color);
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      .detail-pair {
+        display: grid;
+        gap: 6px;
+      }
+
+      .detail-line {
+        color: var(--text-color);
+        font-size: 13px;
+      }
+
+      .detail-line span {
+        color: var(--secondary-text-color);
+      }
+
+      .floating-plus {
+        align-items: center;
+        align-self: flex-end;
+        background: var(--primary-color);
+        border-radius: 50%;
+        box-shadow: var(--shadow-primary);
+        color: #fff;
+        display: inline-flex;
+        font-size: 24px;
+        font-weight: var(--font-weight-normal);
+        height: 48px;
+        justify-content: center;
+        margin-top: auto;
+        width: 48px;
+      }
+
+      .menu-preview {
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      .menu-item-preview {
+        align-items: center;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        font-size: 14px;
+        gap: 10px;
+        min-height: 42px;
+        padding: 0 12px;
+      }
+
+      .menu-item-preview:last-child {
+        border-bottom: 0;
+      }
+
+      .menu-dot {
+        background: var(--primary-color);
+        border-radius: 50%;
+        height: 8px;
+        width: 8px;
+      }
+
+      .screen .menu-list {
+        margin: -14px;
+      }
+
+      .screen .menu-item {
+        min-height: 56px;
+      }
+
+      .screen .message-context-menu.mock-context-menu {
+        display: block;
+        position: absolute;
+        right: 14px;
+        top: 64px;
+        z-index: 8;
+      }
+
+      .screen .message-context-menu.mock-context-menu .context-menu-option {
+        min-height: 44px;
+      }
+
+      .screen .message-context-menu.mock-context-menu .context-menu-text {
+        font-size: var(--font-size-base);
+      }
+
+      .mock-underlay-list {
+        opacity: 0.42;
+      }
+
+      .progress-bar {
+        background: var(--hover-background);
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        height: 10px;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        background: var(--primary-color);
+        height: 100%;
+      }
+
+      .two-col {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .timeline {
+        display: grid;
+        gap: 8px;
+      }
+
+      .timeline-row {
+        align-items: start;
+        display: grid;
+        gap: 8px;
+        grid-template-columns: 10px 1fr;
+      }
+
+      .timeline-dot {
+        background: var(--primary-color);
+        border-radius: 50%;
+        height: 10px;
+        margin-top: 4px;
+        width: 10px;
+      }
+
+      .flow-note {
+        background: var(--background-color);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--secondary-text-color);
+        font-size: 13px;
+        line-height: 1.45;
+        margin-top: 16px;
+        padding: 12px 14px;
+      }
+
+      @media (max-width: 900px) {
+        .mock-page {
+          padding: 14px;
+        }
+
+        .mock-header {
+          grid-template-columns: 1fr;
+        }
+
+        .mock-tag-row {
+          justify-content: flex-start;
+        }
+
+        .mock-flow {
+          align-items: stretch;
+          flex-direction: column;
+          overflow-x: visible;
+        }
+
+        .flow-node {
+          flex-basis: auto;
+          margin-bottom: 28px;
+          margin-right: 0;
+          width: 100%;
+        }
+
+        .flow-node:not(:last-child)::after {
+          height: 28px;
+          left: 50%;
+          right: auto;
+          top: 100%;
+          width: 2px;
+        }
+
+        .flow-node:not(:last-child)::before {
+          border-left: 5px solid transparent;
+          border-right: 5px solid transparent;
+          border-top: 7px solid var(--primary-tint-40);
+          left: calc(50% - 5px);
+          right: auto;
+          top: calc(100% + 21px);
+        }
+
+        .flow-node:last-child {
+          margin-bottom: 0;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .mock-section-header {
+          align-items: start;
+          flex-direction: column;
+          gap: 4px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="mock-page">
+      <header class="mock-header">
+        <div class="mock-brand">
+          <img class="mock-logo" src="../media/liberdus_logo_50.png" alt="" />
+          <div>
+            <h1 class="mock-title">DAO Screen Mock Board</h1>
+            <div class="mock-subtitle">Single-page HTML version of DAO_SCREEN_FLOW.md</div>
+          </div>
+        </div>
+        <div class="mock-subtitle">
+          Current mock screens and possible future screens are shown together so layout, copy, and workflow gaps can be reviewed visually.
+        </div>
+        <div class="mock-tag-row" aria-label="Legend">
+          <span class="mock-tag current">Current</span>
+          <span class="mock-tag mock">Mock data</span>
+          <span class="mock-tag partial">Partial</span>
+          <span class="mock-tag needed">Needed</span>
+        </div>
+      </header>
+
+      <section class="mock-section" aria-labelledby="dao-routes-title">
+        <div class="mock-section-header">
+          <div>
+            <h2 class="mock-section-title" id="dao-routes-title">DAO Routes From Menu</h2>
+            <div class="mock-section-note">The DAO entry point can branch into different routes depending on what the user is trying to do and what role they have.</div>
+          </div>
+        </div>
+        <div class="route-map" aria-label="DAO route map">
+          <div class="route-lane">
+            <div class="route-title">Browse route<span>Any user</span></div>
+            <div class="route-chain">
+              <span class="route-step entry">Menu</span><span class="route-arrow"></span>
+              <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
+              <span class="route-step">Active / archived list</span><span class="route-arrow"></span>
+              <span class="route-step">Filter by status</span><span class="route-arrow"></span>
+              <span class="route-step">Proposal detail</span>
+            </div>
+          </div>
+          <div class="route-lane">
+            <div class="route-title">Create route<span>Proposal author</span></div>
+            <div class="route-chain">
+              <span class="route-step entry">Menu</span><span class="route-arrow"></span>
+              <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
+              <span class="route-step">Discussion</span><span class="route-arrow"></span>
+              <span class="route-step">Proposal builder</span><span class="route-arrow"></span>
+              <span class="route-step">Confirm proposal tx</span><span class="route-arrow"></span>
+              <span class="route-step decision">Committee review</span>
+            </div>
+          </div>
+          <div class="route-note">Regular proposals wait for discussion and committee review. Emergency proposals skip discussion, can only be created by committee members, and do not go to community voting.</div>
+          <div class="route-lane">
+            <div class="route-title">Committee route<span>Committee member</span></div>
+            <div class="route-chain">
+              <span class="route-step entry">Menu</span><span class="route-arrow"></span>
+              <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
+              <span class="route-step">Needs attention</span><span class="route-arrow"></span>
+              <span class="route-step">Committee review</span><span class="route-arrow"></span>
+              <span class="route-step decision">Accept or withhold</span><span class="route-arrow"></span>
+              <span class="route-step">Withhold reason / emergency explanation</span>
+            </div>
+          </div>
+          <div class="route-lane">
+            <div class="route-title">Voting route<span>Eligible voter</span></div>
+            <div class="route-chain">
+              <span class="route-step entry">Menu</span><span class="route-arrow"></span>
+              <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
+              <span class="route-step">Voting proposals</span><span class="route-arrow"></span>
+              <span class="route-step">Proposal detail</span><span class="route-arrow"></span>
+              <span class="route-step">Weighted vote form</span><span class="route-arrow"></span>
+              <span class="route-step">Confirm vote tx</span><span class="route-arrow"></span>
+              <span class="route-step">Live results / audit</span>
+            </div>
+          </div>
+          <div class="route-lane">
+            <div class="route-title">After vote route<span>Voter or operator</span></div>
+            <div class="route-chain">
+              <span class="route-step entry">Menu</span><span class="route-arrow"></span>
+              <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
+              <span class="route-step">Final result</span><span class="route-arrow"></span>
+              <span class="route-step">Claim reward</span><span class="route-arrow"></span>
+              <span class="route-step">Grace period</span><span class="route-arrow"></span>
+              <span class="route-step done">Apply proposal</span>
+            </div>
+          </div>
+          <div class="route-lane">
+            <div class="route-title">Execution route<span>Project proposals</span></div>
+            <div class="route-chain">
+              <span class="route-step entry">Menu</span><span class="route-arrow"></span>
+              <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
+              <span class="route-step">Accepted project</span><span class="route-arrow"></span>
+              <span class="route-step">Milestones</span><span class="route-arrow"></span>
+              <span class="route-step">Verify deliverable</span><span class="route-arrow"></span>
+              <span class="route-step done">Claim payment</span>
+            </div>
+          </div>
+          <div class="route-lane">
+            <div class="route-title">Reference route<span>Any user</span></div>
+            <div class="route-chain">
+              <span class="route-step entry">Menu</span><span class="route-arrow"></span>
+              <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
+              <span class="route-step">DAO parameters</span><span class="route-arrow"></span>
+              <span class="route-step">Current values</span><span class="route-arrow"></span>
+              <span class="route-step">Create parameter proposal</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mock-section" aria-labelledby="current-flow-title">
+        <div class="mock-section-header">
+          <div>
+            <h2 class="mock-section-title" id="current-flow-title">Current Entry Flow</h2>
+            <div class="mock-section-note">What exists today in the app, backed by in-memory DAO mock data.</div>
+          </div>
+        </div>
+        <div class="screen-grid">
+          <svg class="row-transition-arrows current-row-arrows" viewBox="0 0 2022 760" aria-hidden="true">
+            <defs>
+              <marker id="arrow-current" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(61, 61, 206, 0.56)"></path>
+              </marker>
+            </defs>
+            <path class="transition-path" marker-end="url(#arrow-current)" d="M 389 459 C 430 459 372 220 408 220"></path>
+            <g class="transition-label">
+              <rect x="314" y="400" width="70" height="24" rx="12"></rect>
+              <text x="327" y="416">tap DAO</text>
+            </g>
+            <path class="transition-path" marker-end="url(#arrow-current)" d="M 769 132 C 840 132 910 169 991 169"></path>
+            <g class="transition-label">
+              <rect x="820" y="108" width="78" height="24" rx="12"></rect>
+              <text x="833" y="124">tap filter</text>
+            </g>
+            <path class="transition-path" marker-end="url(#arrow-current)" d="M 797 373 C 1010 330 1350 320 1632 278"></path>
+            <g class="transition-label">
+              <rect x="1018" y="300" width="116" height="24" rx="12"></rect>
+              <text x="1031" y="316">tap proposal row</text>
+            </g>
+            <path class="transition-path" marker-end="url(#arrow-current)" d="M 759 705 C 930 730 1080 650 1224 620"></path>
+            <g class="transition-label">
+              <rect x="906" y="682" width="54" height="24" rx="12"></rect>
+              <text x="919" y="698">tap +</text>
+            </g>
+          </svg>
+          <article class="screen" data-flow="1. Menu -> DAO">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Menu</div>
+              <button class="sign-out-header-button active" aria-label="Sign Out"></button>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill current">Current</span>
+                <span class="status-pill mock">Mock data</span>
+                <span class="status-pill partial">Devnet only</span>
+              </div>
+              <div class="screen-context"><strong>Entry point</strong>DAO is currently reached from the main app menu. In the real app this item only appears on Devnet, then opens the DAO proposal list.</div>
+              <ul class="menu-list">
+                <li class="menu-item" data-icon="mail">Invite</li>
+                <li class="menu-item" data-icon="trending-up">Farm</li>
+                <li class="menu-item" data-icon="shield">Validator</li>
+                <li class="menu-item press-target" data-icon="dao">DAO</li>
+                <li class="menu-item" data-icon="arrow-right-arrow-left">Bridge</li>
+                <li class="menu-item" data-icon="search">Explorer</li>
+                <li class="menu-item" data-icon="globe">Network</li>
+                <li class="menu-item" data-icon="file-text">Logs</li>
+                <li class="menu-item" data-icon="github">Help</li>
+                <li class="menu-item" data-icon="info">About</li>
+                <li class="menu-item sign-out" data-icon="log-out">Sign Out</li>
+              </ul>
+            </div>
+          </article>
+
+          <article class="screen" data-flow="2. DAO list">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">DAO - Active - Voting</div>
+              <button class="icon-button filter-icon press-target" aria-label="Filter"></button>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill current">Current</span>
+                <span class="status-pill mock">Mock data</span>
+              </div>
+              <div class="screen-context"><strong>Proposal list</strong>Shows active or archived proposals filtered by status. Tap the filter icon to change status, tap a row for details, or tap + to create a proposal.</div>
+              <div class="toggle" aria-label="Proposal group">
+                <span class="active">Active 22</span>
+                <span>Archived 14</span>
+              </div>
+              <div class="mock-list">
+                <div class="mock-list-row press-target">
+                  <div>
+                    <div class="mock-list-title">#3 Adjust minimum transaction fee</div>
+                    <div class="mock-list-meta">Change the minimum transaction fee to better match network load.</div>
+                  </div>
+                  <div class="mock-list-meta">9:10 AM</div>
+                </div>
+                <div class="mock-list-row">
+                  <div>
+                    <div class="mock-list-title">No proposals found</div>
+                    <div class="mock-list-meta">Use + to create a proposal</div>
+                  </div>
+                </div>
+              </div>
+              <div class="floating-plus press-target">+</div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow="2a. Filter menu open">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">DAO - Active - Voting</div>
+              <button class="icon-button filter-icon" aria-label="Filter"></button>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill current">Current</span>
+                <span class="status-pill mock">Mock data</span>
+              </div>
+              <div class="screen-context"><strong>Filter overlay</strong>This is the existing DAO status menu opened from the funnel icon. Counts are calculated from the current group, not a separate modal route.</div>
+              <div class="toggle" aria-label="Proposal group">
+                <span class="active">Active 22</span>
+                <span>Archived 14</span>
+              </div>
+              <div class="mock-list mock-underlay-list">
+                <div class="mock-list-row">
+                  <div>
+                    <div class="mock-list-title">#3 Adjust minimum transaction fee</div>
+                    <div class="mock-list-meta">Change the minimum transaction fee to better match network load.</div>
+                  </div>
+                  <div class="mock-list-meta">9:10 AM</div>
+                </div>
+              </div>
+              <div class="message-context-menu mock-context-menu">
+                <div class="context-menu-option" data-state-key="discussion">
+                  <span class="context-menu-text">Discussion 2</span>
+                </div>
+                <div class="context-menu-option" data-state-key="withheld">
+                  <span class="context-menu-text">Withheld 7</span>
+                </div>
+                <div class="context-menu-option" data-state-key="voting">
+                  <span class="context-menu-text">Voting 1</span>
+                </div>
+                <div class="context-menu-option" data-state-key="rejected">
+                  <span class="context-menu-text">Rejected 1</span>
+                </div>
+                <div class="context-menu-option" data-state-key="accepted">
+                  <span class="context-menu-text">Accepted 2</span>
+                </div>
+                <div class="context-menu-option" data-state-key="applied">
+                  <span class="context-menu-text">Applied 3</span>
+                </div>
+                <div class="context-menu-option" data-state-key="executing">
+                  <span class="context-menu-text">Executing 1</span>
+                </div>
+                <div class="context-menu-option" data-state-key="terminated">
+                  <span class="context-menu-text">Terminated 0</span>
+                </div>
+                <div class="context-menu-option" data-state-key="completed">
+                  <span class="context-menu-text">Completed 5</span>
+                </div>
+              </div>
+              <div class="floating-plus">+</div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow="3a. Add proposal">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Add Proposal</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill current">Current</span>
+                <span class="status-pill mock">Mock data</span>
+                <span class="status-pill partial">Partial</span>
+              </div>
+              <div class="screen-context"><strong>Mock proposal creation</strong>Creates an in-memory discussion proposal. Missing production pieces include fee preview, transaction signing, emergency mode, ballot options, and committee submission.</div>
+              <div class="field-stack">
+                <div class="field">
+                  <label>Title</label>
+                  <div class="field-box">Add community grants working group</div>
+                </div>
+                <div class="field">
+                  <label>Type</label>
+                  <div class="field-box">Project</div>
+                </div>
+                <div class="two-col">
+                  <div class="field">
+                    <label>Address</label>
+                    <div class="field-box">lib1qxy...</div>
+                  </div>
+                  <div class="field">
+                    <label>Amount</label>
+                    <div class="field-box">2500</div>
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Summary</label>
+                  <div class="field-box tall">Create a lightweight working group to evaluate community grants and publish monthly reports.</div>
+                </div>
+              </div>
+              <div class="button-row">
+                <div class="mock-button primary">Submit</div>
+                <div class="mock-button secondary">Cancel</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow="3b. Proposal detail">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Proposal</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill current">Current</span>
+                <span class="status-pill mock">Mock data</span>
+                <span class="status-pill partial">Partial</span>
+              </div>
+              <div class="screen-context"><strong>Proposal detail</strong>Displays the selected proposal and simple mock Yes/No voting only when status is Voting. Real voting will need weighted options, spend amount, eligibility, and an audit trail.</div>
+              <div>
+                <div class="mock-muted">Proposal #3</div>
+                <div class="proposal-title">Adjust minimum transaction fee</div>
+                <div class="mock-muted">Type: Economic</div>
+                <div class="mock-muted">Voting - 6/15/2026, 9:10 AM - by carol</div>
+              </div>
+              <p class="proposal-body">Change the minimum transaction fee to better match network load.</p>
+              <div class="detail-pair">
+                <div class="detail-line"><span>minTxFee:</span> 0.001</div>
+                <div class="detail-line"><span>nodeRewards:</span> unchanged</div>
+              </div>
+              <div class="proposal-title">Vote</div>
+              <div class="button-row">
+                <div class="mock-button primary">Yes</div>
+                <div class="mock-button secondary">No</div>
+              </div>
+              <div class="mock-muted">Yes: 12 - No: 4</div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="mock-section" aria-labelledby="needed-flow-title">
+        <div class="mock-section-header">
+          <div>
+            <h2 class="mock-section-title" id="needed-flow-title">Potential Role-Specific DAO Screens</h2>
+            <div class="mock-section-note">Each row is a different role or branch. Arrows start at the shortcut or button being pressed and land on the screen or in-screen state that opens. Back buttons are shown in the shell but intentionally not routed.</div>
+          </div>
+        </div>
+
+        <div class="flow-row-title">Author and committee path <span>Create, discuss, build, sign, then committee accept opens voting.</span></div>
+        <div class="screen-grid flow-grid">
+          <svg class="row-transition-arrows author-row-arrows" viewBox="0 0 2430 760" aria-hidden="true">
+            <defs>
+              <marker id="arrow-author" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(61, 61, 206, 0.56)"></path>
+              </marker>
+            </defs>
+            <path class="transition-path" marker-end="url(#arrow-author)" d="M 103 691 C 210 700 300 620 408 620"></path>
+            <g class="transition-label"><rect x="235" y="654" width="80" height="24" rx="12"></rect><text x="248" y="670">tap Create</text></g>
+            <path class="transition-path" marker-end="url(#arrow-author)" d="M 511 691 C 500 620 545 535 603 495"></path>
+            <g class="transition-label"><rect x="438" y="594" width="100" height="24" rx="12"></rect><text x="451" y="610">add comment</text></g>
+            <path class="transition-path" marker-end="url(#arrow-author)" d="M 695 691 C 760 700 768 620 816 620"></path>
+            <g class="transition-label"><rect x="694" y="644" width="126" height="24" rx="12"></rect><text x="707" y="660">tap Create proposal</text></g>
+            <path class="transition-path" marker-end="url(#arrow-author)" d="M 1103 691 C 1162 700 1178 620 1224 620"></path>
+            <g class="transition-label"><rect x="1114" y="644" width="78" height="24" rx="12"></rect><text x="1127" y="660">tap Review</text></g>
+            <path class="transition-path" marker-end="url(#arrow-author)" d="M 1419 689 C 1510 650 1548 420 1632 360"></path>
+            <g class="transition-label"><rect x="1482" y="574" width="88" height="24" rx="12"></rect><text x="1495" y="590">sign submit</text></g>
+            <path class="transition-path" marker-end="url(#arrow-author)" d="M 1735 691 C 1870 650 1945 420 2040 360"></path>
+            <g class="transition-label"><rect x="1840" y="562" width="84" height="24" rx="12"></rect><text x="1853" y="578">tap Accept</text></g>
+            <path class="transition-path" marker-end="url(#arrow-author)" d="M 1919 691 C 1910 625 1886 545 1827 504"></path>
+            <g class="transition-label"><rect x="1844" y="604" width="112" height="24" rx="12"></rect><text x="1857" y="620">withhold reason</text></g>
+          </svg>
+          <article class="screen" data-flow="1. DAO entry">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">DAO</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Any user</span>
+              </div>
+              <div class="screen-context"><strong>DAO entry</strong>Tap Create to start the proposal author path. The shortcut rows are role-specific entry points, not one universal list.</div>
+              <div class="mock-kpi-grid">
+                <div class="mock-kpi"><div class="mock-kpi-value">22</div><div class="mock-kpi-label">Active proposals</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">1</div><div class="mock-kpi-label">Voting now</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">4.23</div><div class="mock-kpi-label">LIB claimable</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">3</div><div class="mock-kpi-label">Shortcuts</div></div>
+              </div>
+              <div class="action-heading">My shortcuts</div>
+              <div class="mock-list action-list">
+                <div class="mock-list-row">
+                  <div>
+                    <div class="mock-list-title">Voting proposal open</div>
+                    <div class="mock-list-meta">Opens proposal detail and vote form</div>
+                  </div>
+                  <div class="row-role">voter</div>
+                </div>
+                <div class="mock-list-row">
+                  <div>
+                    <div class="mock-list-title">Reward claim available</div>
+                    <div class="mock-list-meta">Claim period ends in 23d</div>
+                  </div>
+                  <div class="row-role">voter</div>
+                </div>
+                <div class="mock-list-row">
+                  <div>
+                    <div class="mock-list-title">Proposal ready to apply</div>
+                    <div class="mock-list-meta">Grace period complete</div>
+                  </div>
+                  <div class="row-role">operator</div>
+                </div>
+              </div>
+              <div class="button-row">
+                <div class="mock-button primary press-target">Create</div>
+                <div class="mock-button secondary">Parameters</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow="2. Discussion">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Proposal Discussion</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Proposal author</span>
+              </div>
+              <div class="screen-context"><strong>Pre-proposal discussion</strong>Used before creating a regular proposal. Community feedback and elapsed discussion time determine whether the proposal is ready to submit.</div>
+              <div>
+                <div class="proposal-title">Draft: Increase minimum spend</div>
+                <div class="mock-muted">Discussion ends in 2d 4h</div>
+              </div>
+              <p class="proposal-body">Collect comments and signals before a proposal is created on chain.</p>
+              <div class="mock-list">
+                <div class="mock-list-row"><div><div class="mock-list-title">alice</div><div class="mock-list-meta">Support if the fee remains near 1/100 of proposal fee.</div></div></div>
+                <div class="mock-list-row"><div><div class="mock-list-title">bob</div><div class="mock-list-meta">Needs spam analysis before moving to review.</div></div></div>
+              </div>
+              <div class="button-row">
+                <div class="mock-button secondary press-target">Comment</div>
+                <div class="mock-button primary press-target">Create proposal</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow="3. Builder">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Create Proposal</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill partial">Expands current add</span>
+                <span class="status-pill role">Proposal author</span>
+              </div>
+              <div class="screen-context"><strong>Full builder</strong>Turns a draft into a chain payload: type, ballot options, parameter changes or milestones, timing, fee, and emergency flags.</div>
+              <div class="field-stack">
+                <div class="field"><label>Step 1: Type</label><div class="field-box">Governance parameter</div></div>
+                <div class="field"><label>Step 2: Ballot options</label><div class="field-box">Yes, No, Add option</div></div>
+                <div class="field"><label>Step 3: Payload</label><div class="field-box">minimumSpend: 1.00 -&gt; 1.25</div></div>
+                <div class="field"><label>Step 4: Timing and fee</label><div class="field-box">Grace: 7d, Emergency: no</div></div>
+              </div>
+              <div class="button-row">
+                <div class="mock-button secondary">Back</div>
+                <div class="mock-button primary press-target">Review</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow="4. Confirm tx">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Confirm Proposal</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Proposal author</span>
+              </div>
+              <div class="screen-context"><strong>Transaction confirmation</strong>Final checkpoint before signing. Shows the fee, proposal account, payload summary, and transaction type.</div>
+              <div class="mock-kpi">
+                <div class="mock-kpi-value">100 USD</div>
+                <div class="mock-kpi-label">Proposal fee equivalent</div>
+              </div>
+              <div class="detail-pair">
+                <div class="detail-line"><span>Starts:</span> committee review</div>
+                <div class="detail-line"><span>Type:</span> Governance</div>
+                <div class="detail-line"><span>Tx:</span> dao_proposal_create</div>
+                <div class="detail-line"><span>Account:</span> dao proposal #21</div>
+              </div>
+              <div class="field"><label>Payload preview</label><div class="field-box tall">hash, fields, options, timing, fee, signature request</div></div>
+              <div class="mock-button primary press-target">Sign and submit</div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow="5. Committee review">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Committee Review</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill committee">Committee only</span>
+              </div>
+              <div class="screen-context"><strong>Committee decision</strong>Only committee members see voting controls. Accept moves regular proposals toward community voting; withhold requires a reason.</div>
+              <div>
+                <div class="proposal-title">Proposal #21</div>
+                <div class="mock-muted">Review ends in 1d 3h</div>
+              </div>
+              <div class="mock-kpi-grid">
+                <div class="mock-kpi"><div class="mock-kpi-value">4</div><div class="mock-kpi-label">Accept</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">2</div><div class="mock-kpi-label">Withhold</div></div>
+              </div>
+              <p class="mock-muted">Decisive result requires more than 50% of committee members to vote the same way.</p>
+              <div class="field"><label>Withhold reason</label><div class="field-box">Insufficient discussion period</div></div>
+              <div class="button-row">
+                <div class="mock-button primary press-target">Accept</div>
+                <div class="mock-button secondary press-target">Withhold</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow="6. Vote opens">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Vote</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Eligible voter</span>
+              </div>
+              <div class="screen-context"><strong>Weighted vote</strong>Eligible voters assign option weights and choose spend. The app previews applied weight before submitting the vote transaction.</div>
+              <div class="mock-muted">Eligibility: balance above threshold</div>
+              <div class="mock-muted">Voting ends in 5d 2h</div>
+              <div class="field-stack">
+                <div class="field"><label>Yes weight</label><div class="field-box">3</div></div>
+                <div class="field"><label>No weight</label><div class="field-box">1</div></div>
+                <div class="field"><label>Spend amount</label><div class="field-box">10.00 USD</div></div>
+              </div>
+              <div class="mock-kpi">
+                <div class="mock-kpi-value">12.59</div>
+                <div class="mock-kpi-label">Estimated applied weight</div>
+              </div>
+              <div class="button-row">
+                <div class="mock-button secondary">Preview</div>
+                <div class="mock-button primary">Submit vote</div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="flow-row-title">Voter and reward path <span>Dashboard shortcuts can jump straight to vote or reward claim screens.</span></div>
+        <div class="screen-grid flow-grid">
+          <svg class="row-transition-arrows voter-row-arrows" viewBox="0 0 1614 760" aria-hidden="true">
+            <defs>
+              <marker id="arrow-voter" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(61, 61, 206, 0.56)"></path>
+              </marker>
+            </defs>
+            <path class="transition-path" marker-end="url(#arrow-voter)" d="M 389 483 C 400 468 398 378 408 350"></path>
+            <g class="transition-label"><rect x="236" y="430" width="136" height="24" rx="12"></rect><text x="249" y="446">tap voting shortcut</text></g>
+            <path class="transition-path" marker-end="url(#arrow-voter)" d="M 389 541 C 470 620 690 748 850 748 C 1050 748 1130 445 1224 380"></path>
+            <g class="transition-label"><rect x="584" y="716" width="132" height="24" rx="12"></rect><text x="597" y="732">tap reward shortcut</text></g>
+            <path class="transition-path" marker-end="url(#arrow-voter)" d="M 511 691 C 520 660 550 625 603 606"></path>
+            <g class="transition-label"><rect x="500" y="642" width="112" height="24" rx="12"></rect><text x="513" y="658">shows estimate</text></g>
+            <path class="transition-path" marker-end="url(#arrow-voter)" d="M 695 691 C 770 650 780 460 816 430"></path>
+            <g class="transition-label"><rect x="716" y="594" width="94" height="24" rx="12"></rect><text x="729" y="610">submit vote</text></g>
+            <path class="transition-path" marker-end="url(#arrow-voter)" d="M 1011 689 C 1025 620 1020 545 1011 490"></path>
+            <g class="transition-label"><rect x="960" y="604" width="76" height="24" rx="12"></rect><text x="973" y="620">verify tx</text></g>
+            <path class="transition-path" marker-end="url(#arrow-voter)" d="M 1206 380 C 1212 380 1218 380 1224 380"></path>
+            <g class="transition-label"><rect x="1066" y="336" width="142" height="24" rx="12"></rect><text x="1079" y="352">claim period starts</text></g>
+            <path class="transition-path" marker-end="url(#arrow-voter)" d="M 1419 689 C 1438 620 1438 545 1419 467"></path>
+            <g class="transition-label"><rect x="1368" y="604" width="72" height="24" rx="12"></rect><text x="1381" y="620">claim tx</text></g>
+          </svg>
+          <article class="screen" data-flow="1. Voter shortcuts">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">DAO</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Any user</span>
+              </div>
+              <div class="screen-context"><strong>Voter shortcuts</strong>Voting proposal open routes to the vote form. Reward claim available skips directly to the reward claim screen after voting closes.</div>
+              <div class="mock-kpi-grid">
+                <div class="mock-kpi"><div class="mock-kpi-value">22</div><div class="mock-kpi-label">Active proposals</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">1</div><div class="mock-kpi-label">Voting now</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">4.23</div><div class="mock-kpi-label">LIB claimable</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">3</div><div class="mock-kpi-label">Shortcuts</div></div>
+              </div>
+              <div class="action-heading">My shortcuts</div>
+              <div class="mock-list action-list">
+                <div class="mock-list-row press-target">
+                  <div>
+                    <div class="mock-list-title">Voting proposal open</div>
+                    <div class="mock-list-meta">Opens proposal detail and vote form</div>
+                  </div>
+                  <div class="row-role">voter</div>
+                </div>
+                <div class="mock-list-row press-target">
+                  <div>
+                    <div class="mock-list-title">Reward claim available</div>
+                    <div class="mock-list-meta">Claim period ends in 23d</div>
+                  </div>
+                  <div class="row-role">voter</div>
+                </div>
+                <div class="mock-list-row">
+                  <div>
+                    <div class="mock-list-title">Proposal ready to apply</div>
+                    <div class="mock-list-meta">Grace period complete</div>
+                  </div>
+                  <div class="row-role">operator</div>
+                </div>
+              </div>
+              <div class="button-row">
+                <div class="mock-button primary">Create</div>
+                <div class="mock-button secondary">Parameters</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow="2. Community vote">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Vote</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Eligible voter</span>
+              </div>
+              <div class="screen-context"><strong>Weighted vote</strong>Eligible voters assign option weights and choose spend. The app previews applied weight before submitting the vote transaction.</div>
+              <div class="mock-muted">Eligibility: balance above threshold</div>
+              <div class="mock-muted">Voting ends in 5d 2h</div>
+              <div class="field-stack">
+                <div class="field"><label>Yes weight</label><div class="field-box">3</div></div>
+                <div class="field"><label>No weight</label><div class="field-box">1</div></div>
+                <div class="field"><label>Spend amount</label><div class="field-box">10.00 USD</div></div>
+              </div>
+              <div class="mock-kpi state-target">
+                <div class="mock-kpi-value">12.59</div>
+                <div class="mock-kpi-label">Estimated applied weight</div>
+              </div>
+              <div class="button-row">
+                <div class="mock-button secondary press-target">Preview</div>
+                <div class="mock-button primary press-target">Submit vote</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow="3. Results / audit">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Results</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Any user</span>
+              </div>
+              <div class="screen-context"><strong>Transparent results</strong>Shows current or final weighted totals plus recent votes so anyone can audit the proposal state and verify their vote.</div>
+              <div class="proposal-title">Current winner: Yes</div>
+              <div class="detail-pair">
+                <div class="detail-line"><span>Yes:</span> 124.44</div>
+                <div class="progress-bar"><div class="progress-fill" style="width: 59%"></div></div>
+                <div class="detail-line"><span>No:</span> 88.10</div>
+                <div class="progress-bar"><div class="progress-fill" style="width: 41%"></div></div>
+              </div>
+              <div class="mock-list">
+                <div class="mock-list-row"><div><div class="mock-list-title">address...9f21</div><div class="mock-list-meta">spend 10 - weights 3/1 - 8:42 AM</div></div></div>
+                <div class="mock-list-row"><div><div class="mock-list-title">address...0ac4</div><div class="mock-list-meta">spend 1 - weights 0/1 - 8:10 AM</div></div></div>
+              </div>
+              <div class="mock-button secondary press-target">Verify on chain</div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow="4. Rewards">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Final Result</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Voter</span>
+              </div>
+              <div class="screen-context"><strong>Reward claim</strong>After voting ends, the initial burn happens and eligible unique voters can claim their share during the claim period.</div>
+              <div class="proposal-title">Winner: Yes</div>
+              <div class="mock-list">
+                <div class="mock-list-row"><div class="mock-list-title">Initial burn</div><div class="mock-list-meta">50%</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">Claim period</div><div class="mock-list-meta">23d left</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">Your reward estimate</div><div class="mock-list-meta">4.23 LIB</div></div>
+              </div>
+              <div class="mock-button primary press-target">Claim reward</div>
+            </div>
+          </article>
+        </div>
+
+        <div class="flow-row-title">Reference and operator path <span>Parameters, apply, and project execution are separate role-driven branches.</span></div>
+        <div class="screen-grid flow-grid">
+          <svg class="row-transition-arrows operations-row-arrows" viewBox="0 0 1614 760" aria-hidden="true">
+            <defs>
+              <marker id="arrow-ops" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(61, 61, 206, 0.56)"></path>
+              </marker>
+            </defs>
+            <path class="transition-path" marker-end="url(#arrow-ops)" d="M 287 691 C 345 700 360 620 408 620"></path>
+            <g class="transition-label"><rect x="286" y="644" width="112" height="24" rx="12"></rect><text x="299" y="660">tap Parameters</text></g>
+            <path class="transition-path" marker-end="url(#arrow-ops)" d="M 389 582 C 520 600 665 390 816 350"></path>
+            <g class="transition-label"><rect x="536" y="448" width="124" height="24" rx="12"></rect><text x="549" y="464">tap apply shortcut</text></g>
+            <path class="transition-path" marker-end="url(#arrow-ops)" d="M 1011 689 C 1080 630 1150 490 1224 430"></path>
+            <g class="transition-label"><rect x="1080" y="574" width="112" height="24" rx="12"></rect><text x="1093" y="590">project proposal</text></g>
+            <path class="transition-path" marker-end="url(#arrow-ops)" d="M 1327 691 C 1355 610 1400 460 1419 367"></path>
+            <g class="transition-label"><rect x="1318" y="590" width="112" height="24" rx="12"></rect><text x="1331" y="606">mark milestone</text></g>
+            <path class="transition-path" marker-end="url(#arrow-ops)" d="M 1511 691 C 1516 620 1502 520 1419 426"></path>
+            <g class="transition-label"><rect x="1464" y="604" width="106" height="24" rx="12"></rect><text x="1477" y="620">claim payment</text></g>
+          </svg>
+          <article class="screen" data-flow="1. Operator actions">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">DAO</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Any user</span>
+              </div>
+              <div class="screen-context"><strong>Reference and operator shortcuts</strong>Parameters opens the read-only DAO parameter list. Proposal ready to apply appears for operators after the grace period.</div>
+              <div class="mock-kpi-grid">
+                <div class="mock-kpi"><div class="mock-kpi-value">22</div><div class="mock-kpi-label">Active proposals</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">1</div><div class="mock-kpi-label">Voting now</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">4.23</div><div class="mock-kpi-label">LIB claimable</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">3</div><div class="mock-kpi-label">Shortcuts</div></div>
+              </div>
+              <div class="action-heading">My shortcuts</div>
+              <div class="mock-list action-list">
+                <div class="mock-list-row">
+                  <div>
+                    <div class="mock-list-title">Voting proposal open</div>
+                    <div class="mock-list-meta">Opens proposal detail and vote form</div>
+                  </div>
+                  <div class="row-role">voter</div>
+                </div>
+                <div class="mock-list-row">
+                  <div>
+                    <div class="mock-list-title">Reward claim available</div>
+                    <div class="mock-list-meta">Claim period ends in 23d</div>
+                  </div>
+                  <div class="row-role">voter</div>
+                </div>
+                <div class="mock-list-row press-target">
+                  <div>
+                    <div class="mock-list-title">Proposal ready to apply</div>
+                    <div class="mock-list-meta">Grace period complete</div>
+                  </div>
+                  <div class="row-role">operator</div>
+                </div>
+              </div>
+              <div class="button-row">
+                <div class="mock-button primary">Create</div>
+                <div class="mock-button secondary press-target">Parameters</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow="2. Parameters">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">DAO Parameters</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Any user</span>
+              </div>
+              <div class="screen-context"><strong>DAO parameter reference</strong>Shows current network DAO parameters so users can understand thresholds, durations, burns, and proposal costs before creating or voting.</div>
+              <div class="mock-kpi-grid parameter-grid">
+                <div class="mock-kpi"><div class="mock-kpi-value">100 USD</div><div class="mock-kpi-label">proposalFee</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">current</div><div class="mock-kpi-label">voteThreshold</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">1 USD</div><div class="mock-kpi-label">minimumSpend</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">1.1</div><div class="mock-kpi-label">voteExponent</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">50%</div><div class="mock-kpi-label">pctBurned</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">2d</div><div class="mock-kpi-label">reviewDuration</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">8d</div><div class="mock-kpi-label">votingDuration</div></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow="3. Apply">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Apply Proposal</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Operator</span>
+              </div>
+              <div class="screen-context"><strong>Apply accepted change</strong>After the grace period, an operator submits the apply transaction. Emergency proposals can skip the grace period.</div>
+              <div class="proposal-title">Accepted proposal</div>
+              <div class="mock-muted">Grace period ends in 6d 4h</div>
+              <div class="timeline">
+                <div class="timeline-row"><span class="timeline-dot"></span><div><div class="mock-list-title">Accepted</div><div class="mock-muted">Community vote passed.</div></div></div>
+                <div class="timeline-row"><span class="timeline-dot"></span><div><div class="mock-list-title">Grace period</div><div class="mock-muted">Network prepares for the change.</div></div></div>
+                <div class="timeline-row"><span class="timeline-dot"></span><div><div class="mock-list-title">Apply</div><div class="mock-muted">Submit apply transaction when available.</div></div></div>
+              </div>
+              <div class="mock-button secondary press-target">Apply when available</div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow="4. Execute project">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Project Execution</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Project owner</span>
+              </div>
+              <div class="screen-context"><strong>Project execution</strong>Project proposals continue after acceptance. Milestones track deliverables, escrow, penalties, bonuses, and payment claims.</div>
+              <div>
+                <div class="proposal-title">Documentation sprint</div>
+                <div class="mock-muted">Escrow balance: 5000 USD equivalent</div>
+              </div>
+              <div class="mock-list">
+                <div class="mock-list-row"><div><div class="mock-list-title">Milestone 1: Started</div><div class="mock-list-meta">deliverable / duration / cost / penalty / bonus</div></div></div>
+                <div class="mock-list-row"><div><div class="mock-list-title">Milestone 2: Pending</div><div class="mock-list-meta">starts after milestone 1 verification</div></div></div>
+              </div>
+              <div class="button-row">
+                <div class="mock-button secondary press-target">Mark complete</div>
+                <div class="mock-button primary press-target">Claim payment</div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="mock-section" aria-labelledby="backend-title">
+        <div class="mock-section-header">
+          <div>
+            <h2 class="mock-section-title" id="backend-title">Backend Integration Shape</h2>
+            <div class="mock-section-note">Same repo abstraction as the current mock, with live fetchers and transaction actions behind it.</div>
+          </div>
+        </div>
+        <div class="mock-flow">
+          <div class="flow-node">DAO screens</div>
+          <div class="flow-arrow">-&gt;</div>
+          <div class="flow-node">dao.repo.js</div>
+          <div class="flow-arrow">-&gt;</div>
+          <div class="flow-node">Backend fetcher</div>
+          <div class="flow-arrow">-&gt;</div>
+          <div class="flow-node">Network state</div>
+        </div>
+        <div class="flow-note">
+          Current `createProposal()` and `castVote()` mutate memory only. Live mode would add proposal list/detail fetches, proposal creation, committee vote,
+          weighted vote, reward claim, and apply transactions while preserving a UI-friendly store shape.
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
