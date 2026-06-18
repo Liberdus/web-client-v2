@@ -1816,6 +1816,7 @@
         const minScale = 0.45;
         const maxScale = 1.8;
         const step = 0.12;
+        const wheelStep = 0.08;
         let scale = 1;
         let offsetX = 0;
         let offsetY = 0;
@@ -1832,10 +1833,8 @@
           zoomIn.disabled = scale >= maxScale - 0.001;
         };
 
-        const zoomTo = (nextScale) => {
+        const zoomAt = (nextScale, anchorX, anchorY) => {
           const clamped = clamp(nextScale, minScale, maxScale);
-          const anchorX = viewport.clientWidth / 2;
-          const anchorY = viewport.clientHeight / 2;
           const canvasX = (anchorX - offsetX) / scale;
           const canvasY = (anchorY - offsetY) / scale;
           scale = clamped;
@@ -1844,8 +1843,20 @@
           update();
         };
 
+        const zoomTo = (nextScale) => {
+          zoomAt(nextScale, viewport.clientWidth / 2, viewport.clientHeight / 2);
+        };
+
         zoomIn.addEventListener("click", () => zoomTo(scale + step));
         zoomOut.addEventListener("click", () => zoomTo(scale - step));
+        viewport.addEventListener("wheel", (event) => {
+          if (event.target.closest(".zoom-controls")) {
+            return;
+          }
+          event.preventDefault();
+          const direction = event.deltaY < 0 ? 1 : -1;
+          zoomAt(scale + direction * wheelStep, event.clientX, event.clientY);
+        }, { passive: false });
         zoomReset.addEventListener("click", () => {
           scale = 1;
           offsetX = 0;
