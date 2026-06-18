@@ -1474,7 +1474,7 @@
                 <div class="mock-list-row press-target" data-flow-source="dao-voting-category">
                   <div>
                     <div class="mock-list-title">Voting now</div>
-                    <div class="mock-list-meta">Open community votes this user can inspect or join</div>
+                    <div class="mock-list-meta">Filtered active proposals currently in voting</div>
                   </div>
                   <div class="row-role">1</div>
                 </div>
@@ -1655,28 +1655,46 @@
           </article>
           </div>
 
-          <div class="flow-row-title branch-indent">Voting and result branch <span>Voting category opens a list first; selecting a proposal opens the weighted vote modal.</span></div>
+          <div class="flow-row-title branch-indent">Proposal list, voting, and result branch <span>Active proposals and Voting now open the same list; Voting now enters with the Voting filter selected.</span></div>
           <div class="screen-grid flow-grid branch-row">
             <div class="branch-spacer" aria-hidden="true"></div>
-          <article class="screen" data-flow-target="voting-list" data-flow="2a. Voting list">
+          <article class="screen" data-flow-target="proposal-list" data-flow="2a. Active proposals list">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Voting Now</div>
+              <div class="screen-title">Active Proposals</div>
               <span></span>
             </div>
             <div class="screen-body">
               <div class="status-line">
                 <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Eligible voter</span>
+                <span class="status-pill role">Any user</span>
               </div>
-              <div class="screen-context"><strong>Voting proposal list</strong>Shows proposals currently in voting status. A row opens the voting modal with options, spend, eligibility, and preview.</div>
+              <div class="screen-context"><strong>Shared proposal list</strong>Active proposals opens this list with all active statuses. Voting now opens the same list with the Voting filter selected, so voting rows are not duplicated in a separate modal.</div>
+              <div class="toggle" aria-label="Proposal filters">
+                <span class="active">All active 22</span>
+                <span>Voting 1</span>
+              </div>
               <div class="mock-list action-list">
-                <div class="mock-list-row press-target" data-flow-source="voting-list-row">
+                <div class="mock-list-row press-target" data-flow-source="proposal-list-vote-row">
                   <div>
                     <div class="mock-list-title">#21 Increase vote exponent</div>
-                    <div class="mock-list-meta">voting - ends in 5d 2h - yes/no options</div>
+                    <div class="mock-list-meta">voting - ends in 5d 2h - opens weighted vote</div>
                   </div>
                   <div class="row-role">vote</div>
+                </div>
+                <div class="mock-list-row press-target" data-flow-source="proposal-list-result-row">
+                  <div>
+                    <div class="mock-list-title">#19 Adjust minimum spend</div>
+                    <div class="mock-list-meta">accepted - claim period open - opens results</div>
+                  </div>
+                  <div class="row-role">result</div>
+                </div>
+                <div class="mock-list-row">
+                  <div>
+                    <div class="mock-list-title">#20 Minimum spend update</div>
+                    <div class="mock-list-meta">review - waiting for committee result</div>
+                  </div>
+                  <div class="row-role">review</div>
                 </div>
               </div>
             </div>
@@ -1791,40 +1809,9 @@
           </article>
           </div>
 
-          <div class="flow-row-title branch-indent">Browse and reward category lists <span>These are category drilldowns from the DAO hub; rows link to existing destination modals.</span></div>
+          <div class="flow-row-title branch-indent">Reward category list <span>Claimable rewards remains a separate voter-specific list because it is based on the user claim state.</span></div>
           <div class="screen-grid flow-grid branch-row">
             <div class="branch-spacer" aria-hidden="true"></div>
-          <article class="screen" data-flow-target="active-list" data-flow="2b. Active proposals">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Active Proposals</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Any user</span>
-              </div>
-              <div class="screen-context"><strong>Active proposal list</strong>Shows the full active set. Selecting a row opens the proposal detail or results view appropriate for its status.</div>
-              <div class="mock-list action-list">
-                <div class="mock-list-row press-target" data-flow-source="active-list-row">
-                  <div>
-                    <div class="mock-list-title">#21 Increase vote exponent</div>
-                    <div class="mock-list-meta">voting - current winner Yes - ends in 5d 2h</div>
-                  </div>
-                  <div class="row-role">detail</div>
-                </div>
-                <div class="mock-list-row">
-                  <div>
-                    <div class="mock-list-title">#20 Minimum spend update</div>
-                    <div class="mock-list-meta">review - waiting for committee result</div>
-                  </div>
-                  <div class="row-role">review</div>
-                </div>
-              </div>
-            </div>
-          </article>
-
           <article class="screen" data-flow-target="reward-list" data-flow="3b. Claimable rewards">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
@@ -2082,18 +2069,18 @@
             { from: "committee-list-row", to: "committee", label: "tap review item", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: -32, labelDy: -34 },
             { from: "committee-accept", to: "committee-tally", label: "dao_committee_vote", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -78, labelDy: -16, labelWidth: 154 },
             { from: "committee-withhold", to: "withhold-reason", label: "withhold reason", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -44, labelDy: -10 },
-            { from: "committee-result", to: "voting-list", label: "moves to voting", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-reverse", labelDx: -94, labelDy: -10, labelWidth: 126 },
+            { from: "committee-result", to: "proposal-list", label: "moves to voting", fromSide: "right", toSide: "right", wrapSide: "right", toRatio: 0.42, route: "branch-reverse", labelDx: -94, labelDy: -10, labelWidth: 126 },
             { from: "dao-committee-category", to: "committee-queue", label: "open committee list", fromSide: "right", toSide: "left", toRatio: 0.55, route: "same-row", labelDx: -104, labelDy: -24, labelWidth: 148 },
-            { from: "dao-voting-category", to: "voting-list", label: "open voting list", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch", labelDx: -96, labelDy: -30, labelWidth: 128 },
-            { from: "voting-list-row", to: "community-vote", label: "tap proposal", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: -26, labelDy: -34 },
+            { from: "dao-voting-category", to: "proposal-list", label: "open voting filter", fromSide: "right", toSide: "right", wrapSide: "right", toRatio: 0.42, route: "branch", labelDx: -96, labelDy: -30, labelWidth: 144 },
+            { from: "proposal-list-vote-row", to: "community-vote", label: "tap voting row", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: -34, labelDy: -34, labelWidth: 120 },
             { from: "vote-preview", to: "vote-estimate", label: "shows estimate", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -30, labelDy: -16 },
             { from: "vote-submit", to: "results", label: "dao_vote", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: 2, labelDy: -30 },
             { from: "results-vote-result", to: "results-audit", label: "dao_vote_result", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -44, labelDy: -22, labelWidth: 130 },
             { from: "results", to: "rewards", label: "claim period starts", fromSide: "right", fromRatio: 0.43, toSide: "left", toRatio: 0.43, route: "same-row", labelDx: -34, labelDy: -38 },
             { from: "reward-claim", to: "reward-breakdown", label: "dao_claim_reward", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -48, labelDy: -18, labelWidth: 138 },
             { from: "reward-burn", to: "burn-reward", label: "dao_burn_reward", fromSide: "top", toSide: "left", toRatio: 0.5, route: "same-row", labelDx: -34, labelDy: -34, labelWidth: 132 },
-            { from: "dao-active-category", to: "active-list", label: "open active list", fromSide: "left", wrapFromSide: "left", toSide: "left", toRatio: 0.42, route: "branch-low", wrapLabelDx: -70, wrapLabelDy: -30, labelWidth: 126 },
-            { from: "active-list-row", to: "results", label: "tap proposal", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-reverse", labelDx: -54, labelDy: -54 },
+            { from: "dao-active-category", to: "proposal-list", label: "open active list", fromSide: "left", wrapFromSide: "left", toSide: "left", wrapSide: "left", toRatio: 0.42, route: "branch-low", wrapLabelDx: -70, wrapLabelDy: -30, labelWidth: 126 },
+            { from: "proposal-list-result-row", to: "results", label: "tap result row", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-reverse", labelDx: -54, labelDy: -54, labelWidth: 118 },
             { from: "dao-reward-category", to: "reward-list", label: "open rewards list", fromSide: "left", wrapFromSide: "left", toSide: "left", toRatio: 0.42, route: "branch-low", wrapLabelDx: -76, wrapLabelDy: -30, labelWidth: 138 },
             { from: "reward-list-row", to: "rewards", label: "tap claim item", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-reverse", labelDx: -52, labelDy: -50 },
             { from: "dao-parameters", to: "parameters", label: "tap Parameters", fromSide: "top", toSide: "left", toRatio: 0.8, route: "branch", labelDx: -80, labelDy: -30 },
@@ -2139,6 +2126,22 @@
             return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
           };
 
+          const pointOnBox = (box, side, ratio = 0.5) => {
+            if (side === "left") {
+              return { x: box.x, y: box.y + box.height * ratio };
+            }
+            if (side === "right") {
+              return { x: box.x + box.width, y: box.y + box.height * ratio };
+            }
+            if (side === "top") {
+              return { x: box.x + box.width * ratio, y: box.y };
+            }
+            if (side === "bottom") {
+              return { x: box.x + box.width * ratio, y: box.y + box.height };
+            }
+            return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+          };
+
           const connectorPalette = [
             "#d00000",
             "#c2410c",
@@ -2152,6 +2155,16 @@
           ];
           const targetColorMap = new Map();
           const markerMap = new Map();
+          const modalLandingSlots = [
+            { side: "top", ratio: 0.24 },
+            { side: "right", ratio: 0.28 },
+            { side: "bottom", ratio: 0.76 },
+            { side: "left", ratio: 0.72 },
+            { side: "top", ratio: 0.76 },
+            { side: "right", ratio: 0.72 },
+            { side: "bottom", ratio: 0.24 },
+            { side: "left", ratio: 0.28 }
+          ];
 
           const colorForTarget = (target) => {
             if (!targetColorMap.has(target)) {
@@ -2176,7 +2189,7 @@
             return boxInBoard(screen);
           };
 
-          const routeDetailsFor = (from, to, start, end, connector, index) => {
+          const routeDetailsFor = (from, to, start, end, connector, index, targetLanding) => {
             if (connector.route === "local-up") {
               return {
                 d: `M ${start.x} ${start.y} C ${start.x} ${start.y - 76}, ${end.x} ${end.y + 76}, ${end.x} ${end.y}`,
@@ -2197,20 +2210,25 @@
               const sourceSide = connector.wrapFromSide ?? (connector.fromSide === "left" || connector.fromSide === "right"
                 ? connector.fromSide
                 : (targetCenterX >= sourceCenterX ? "right" : "left"));
-              const targetSide = connector.wrapSide ?? (index % 2 === 0 ? "left" : "right");
+              const targetSide = targetLanding?.auto
+                ? targetLanding.side
+                : (connector.wrapSide ?? targetLanding?.side ?? (index % 2 === 0 ? "left" : "right"));
               const sourceLaneX = sourceSide === "right"
                 ? sourceBox.x + sourceBox.width + laneOffset
                 : sourceBox.x - laneOffset;
+              const targetRatio = targetLanding?.ratio ?? clamp((end.y - targetBox.y) / targetBox.height, 0.08, 0.92);
+              const targetPoint = pointOnBox(targetBox, targetSide, targetRatio);
               const targetLaneX = targetSide === "right"
                 ? targetBox.x + targetBox.width + laneOffset
-                : targetBox.x - laneOffset;
-              const targetRatio = clamp((end.y - targetBox.y) / targetBox.height, 0.08, 0.92);
-              const targetPoint = {
-                x: targetSide === "right" ? targetBox.x + targetBox.width : targetBox.x,
-                y: targetBox.y + targetBox.height * targetRatio
-              };
+                : targetSide === "left"
+                  ? targetBox.x - laneOffset
+                  : targetPoint.x;
               let laneY;
-              if (targetBox.y > sourceBox.y) {
+              if (targetSide === "top") {
+                laneY = targetBox.y - rowOffset;
+              } else if (targetSide === "bottom") {
+                laneY = targetBox.y + targetBox.height + rowOffset;
+              } else if (targetBox.y > sourceBox.y) {
                 laneY = targetBox.y - rowOffset;
               } else if (targetBox.y < sourceBox.y) {
                 laneY = targetBox.y + targetBox.height + rowOffset;
@@ -2218,6 +2236,15 @@
                 laneY = Math.min(sourceBox.y, targetBox.y) - rowOffset;
               }
               const sourceControlX = sourceSide === "right" ? start.x + 28 : start.x - 28;
+              if (targetSide === "top" || targetSide === "bottom") {
+                const targetControlY = targetSide === "top" ? targetPoint.y - 28 : targetPoint.y + 28;
+                return {
+                  d: `M ${start.x} ${start.y} C ${sourceControlX} ${start.y}, ${sourceLaneX} ${start.y}, ${sourceLaneX} ${start.y} L ${sourceLaneX} ${laneY} L ${targetLaneX} ${laneY} L ${targetLaneX} ${targetControlY} C ${targetLaneX} ${targetControlY}, ${targetPoint.x} ${targetControlY}, ${targetPoint.x} ${targetPoint.y}`,
+                  labelX: (sourceLaneX + targetLaneX) / 2,
+                  labelY: laneY,
+                  wrapped: true
+                };
+              }
               const targetControlX = targetSide === "right" ? targetPoint.x + 28 : targetPoint.x - 28;
               return {
                 d: `M ${start.x} ${start.y} C ${sourceControlX} ${start.y}, ${sourceLaneX} ${start.y}, ${sourceLaneX} ${start.y} L ${sourceLaneX} ${laneY} L ${targetLaneX} ${laneY} L ${targetLaneX} ${targetPoint.y} C ${targetLaneX} ${targetPoint.y}, ${targetControlX} ${targetPoint.y}, ${targetPoint.x} ${targetPoint.y}`,
@@ -2271,6 +2298,30 @@
           svg.style.width = `${width}px`;
           svg.style.height = `${height}px`;
 
+          const modalTargetCounts = new Map();
+          connectors.forEach((connector) => {
+            const target = findAnchor(connector.to);
+            if (target?.classList.contains("screen")) {
+              modalTargetCounts.set(connector.to, (modalTargetCounts.get(connector.to) ?? 0) + 1);
+            }
+          });
+          const modalTargetIndexes = new Map();
+          const targetLandingFor = (connector, target) => {
+            if (!target.classList.contains("screen")) {
+              return null;
+            }
+            if ((modalTargetCounts.get(connector.to) ?? 0) <= 1) {
+              return {
+                side: connector.toSide ?? "left",
+                ratio: connector.toRatio ?? 0.5,
+                auto: false
+              };
+            }
+            const slotIndex = modalTargetIndexes.get(connector.to) ?? 0;
+            modalTargetIndexes.set(connector.to, slotIndex + 1);
+            return { ...modalLandingSlots[slotIndex % modalLandingSlots.length], auto: true };
+          };
+
           connectors.forEach((connector, index) => {
             const from = findAnchor(connector.from);
             const to = findAnchor(connector.to);
@@ -2279,9 +2330,12 @@
             }
             const color = colorForTarget(connector.to);
             const markerId = markerFor(connector.to, color);
+            const targetLanding = targetLandingFor(connector, to);
             const start = pointFor(from, connector.fromSide, connector.fromRatio ?? 0.5);
-            const end = pointFor(to, connector.toSide, connector.toRatio ?? 0.5);
-            const route = routeDetailsFor(from, to, start, end, connector, index);
+            const end = targetLanding
+              ? pointFor(to, targetLanding.side, targetLanding.ratio)
+              : pointFor(to, connector.toSide, connector.toRatio ?? 0.5);
+            const route = routeDetailsFor(from, to, start, end, connector, index, targetLanding);
             const path = makeSvgElement("path", {
               class: "transition-path",
               d: route.d,
