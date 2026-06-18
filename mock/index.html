@@ -6,12 +6,19 @@
     <title>Liberdus DAO Mock Screens</title>
     <link rel="stylesheet" href="../styles.css" />
     <style>
+      html {
+        height: 100%;
+        overflow: hidden;
+      }
+
       body {
         align-items: stretch;
         background: var(--surface-muted);
         color: var(--text-color);
         display: block;
+        height: 100%;
         min-height: 100vh;
+        overflow: hidden;
         padding: 0;
       }
 
@@ -927,6 +934,82 @@
         padding: 12px 14px;
       }
 
+      .mock-viewport {
+        cursor: grab;
+        height: 100vh;
+        overflow: hidden;
+        position: relative;
+        touch-action: none;
+        width: 100vw;
+      }
+
+      .mock-viewport.is-dragging {
+        cursor: grabbing;
+      }
+
+      .mock-viewport.is-dragging .mock-canvas {
+        user-select: none;
+      }
+
+      .mock-canvas {
+        transform: translate(0, 0) scale(1);
+        transform-origin: 0 0;
+        will-change: transform;
+      }
+
+      .zoom-controls {
+        align-items: center;
+        background: rgba(255, 255, 255, 0.94);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        box-shadow: var(--overlay-shadow);
+        display: inline-flex;
+        gap: 6px;
+        padding: 6px;
+        position: fixed;
+        right: 16px;
+        top: 16px;
+        z-index: 1000;
+      }
+
+      .zoom-button,
+      .zoom-reset {
+        align-items: center;
+        background: var(--background-color);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-color);
+        cursor: pointer;
+        display: inline-flex;
+        font-family: var(--font-primary);
+        font-size: 16px;
+        font-weight: var(--font-weight-semibold);
+        height: 34px;
+        justify-content: center;
+        line-height: 1;
+        min-width: 34px;
+        padding: 0 10px;
+      }
+
+      .zoom-reset {
+        color: var(--secondary-text-color);
+        font-size: 12px;
+        min-width: 58px;
+      }
+
+      .zoom-button:hover,
+      .zoom-reset:hover {
+        background: var(--hover-background-purple);
+        border-color: var(--primary-tint-40);
+        color: var(--primary-color);
+      }
+
+      .zoom-button:disabled {
+        color: var(--text-tertiary);
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
       @media (max-width: 900px) {
         .mock-page {
           padding: 14px;
@@ -985,7 +1068,13 @@
     </style>
   </head>
   <body>
-    <main class="mock-page">
+    <div class="mock-viewport" data-pan-viewport>
+      <div class="zoom-controls" aria-label="Mock board zoom controls">
+        <button class="zoom-button" type="button" data-zoom-out aria-label="Zoom out">-</button>
+        <button class="zoom-reset" type="button" data-zoom-reset aria-label="Reset zoom and position">100%</button>
+        <button class="zoom-button" type="button" data-zoom-in aria-label="Zoom in">+</button>
+      </div>
+      <main class="mock-page mock-canvas" data-pan-canvas>
       <header class="mock-header">
         <div class="mock-brand">
           <img class="mock-logo" src="../media/liberdus_logo_50.png" alt="" />
@@ -1867,6 +1956,94 @@
           weighted vote, reward claim, and apply transactions while preserving a UI-friendly store shape.
         </div>
       </section>
-    </main>
+      </main>
+    </div>
+    <script>
+      (() => {
+        const viewport = document.querySelector("[data-pan-viewport]");
+        const canvas = document.querySelector("[data-pan-canvas]");
+        const zoomIn = document.querySelector("[data-zoom-in]");
+        const zoomOut = document.querySelector("[data-zoom-out]");
+        const zoomReset = document.querySelector("[data-zoom-reset]");
+        const minScale = 0.45;
+        const maxScale = 1.8;
+        const step = 0.12;
+        let scale = 1;
+        let offsetX = 0;
+        let offsetY = 0;
+        let dragging = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+        const update = () => {
+          canvas.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+          zoomReset.textContent = `${Math.round(scale * 100)}%`;
+          zoomOut.disabled = scale <= minScale + 0.001;
+          zoomIn.disabled = scale >= maxScale - 0.001;
+        };
+
+        const zoomTo = (nextScale) => {
+          const clamped = clamp(nextScale, minScale, maxScale);
+          const anchorX = viewport.clientWidth / 2;
+          const anchorY = viewport.clientHeight / 2;
+          const canvasX = (anchorX - offsetX) / scale;
+          const canvasY = (anchorY - offsetY) / scale;
+          scale = clamped;
+          offsetX = anchorX - canvasX * scale;
+          offsetY = anchorY - canvasY * scale;
+          update();
+        };
+
+        zoomIn.addEventListener("click", () => zoomTo(scale + step));
+        zoomOut.addEventListener("click", () => zoomTo(scale - step));
+        zoomReset.addEventListener("click", () => {
+          scale = 1;
+          offsetX = 0;
+          offsetY = 0;
+          update();
+        });
+
+        viewport.addEventListener("pointerdown", (event) => {
+          if (event.button !== 0 || event.target.closest(".zoom-controls")) {
+            return;
+          }
+          dragging = true;
+          lastX = event.clientX;
+          lastY = event.clientY;
+          viewport.classList.add("is-dragging");
+          viewport.setPointerCapture(event.pointerId);
+          event.preventDefault();
+        });
+
+        viewport.addEventListener("pointermove", (event) => {
+          if (!dragging) {
+            return;
+          }
+          offsetX += event.clientX - lastX;
+          offsetY += event.clientY - lastY;
+          lastX = event.clientX;
+          lastY = event.clientY;
+          update();
+        });
+
+        const stopDragging = (event) => {
+          if (!dragging) {
+            return;
+          }
+          dragging = false;
+          viewport.classList.remove("is-dragging");
+          if (viewport.hasPointerCapture(event.pointerId)) {
+            viewport.releasePointerCapture(event.pointerId);
+          }
+        };
+
+        viewport.addEventListener("pointerup", stopDragging);
+        viewport.addEventListener("pointercancel", stopDragging);
+
+        update();
+      })();
+    </script>
   </body>
 </html>
