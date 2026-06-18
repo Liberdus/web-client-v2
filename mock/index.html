@@ -325,6 +325,35 @@
         width: 1614px;
       }
 
+      .branch-flow-board {
+        min-width: 2022px;
+        position: relative;
+      }
+
+      .branch-transition-arrows {
+        left: 0;
+        overflow: visible;
+        pointer-events: none;
+        position: absolute;
+        top: 0;
+        z-index: 20;
+      }
+
+      .branch-row,
+      .branch-flow-board .flow-row-title {
+        position: relative;
+        z-index: 10;
+      }
+
+      .branch-flow-board .flow-row-title.branch-indent {
+        padding-left: 408px;
+      }
+
+      .branch-spacer {
+        flex: 0 0 390px;
+        width: 390px;
+      }
+
       .flow-row-title {
         color: var(--text-color);
         font-size: 15px;
@@ -1422,33 +1451,15 @@
         <div class="mock-section-header">
           <div>
             <h2 class="mock-section-title" id="needed-flow-title">Potential Role-Specific DAO Screens</h2>
-            <div class="mock-section-note">Each row is a different role or branch. Arrows start at the shortcut or button being pressed and land on the screen or in-screen state that opens. Back buttons are shown in the shell but intentionally not routed.</div>
+            <div class="mock-section-note">The DAO overview is shown once as the shared branch point. Lower rows are alternate branches that start in column 2, with arrows from the DAO action that opens them.</div>
           </div>
         </div>
 
-        <div class="flow-row-title">Author and committee path <span>Create, discuss, build, sign, then committee accept opens voting.</span></div>
-        <div class="screen-grid flow-grid">
-          <svg class="row-transition-arrows author-row-arrows" viewBox="0 0 2430 760" aria-hidden="true">
-            <defs>
-              <marker id="arrow-author" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(61, 61, 206, 0.56)"></path>
-              </marker>
-            </defs>
-            <path class="transition-path" marker-end="url(#arrow-author)" d="M 103 691 C 210 700 300 620 408 620"></path>
-            <g class="transition-label"><rect x="235" y="654" width="80" height="24" rx="12"></rect><text x="248" y="670">tap Create</text></g>
-            <path class="transition-path" marker-end="url(#arrow-author)" d="M 511 691 C 500 620 545 535 603 495"></path>
-            <g class="transition-label"><rect x="438" y="594" width="100" height="24" rx="12"></rect><text x="451" y="610">add comment</text></g>
-            <path class="transition-path" marker-end="url(#arrow-author)" d="M 695 691 C 760 700 768 620 816 620"></path>
-            <g class="transition-label"><rect x="694" y="644" width="126" height="24" rx="12"></rect><text x="707" y="660">tap Create proposal</text></g>
-            <path class="transition-path" marker-end="url(#arrow-author)" d="M 1103 691 C 1162 700 1178 620 1224 620"></path>
-            <g class="transition-label"><rect x="1114" y="644" width="78" height="24" rx="12"></rect><text x="1127" y="660">tap Review</text></g>
-            <path class="transition-path" marker-end="url(#arrow-author)" d="M 1419 689 C 1510 650 1548 420 1632 360"></path>
-            <g class="transition-label"><rect x="1482" y="574" width="88" height="24" rx="12"></rect><text x="1495" y="590">sign submit</text></g>
-            <path class="transition-path" marker-end="url(#arrow-author)" d="M 1735 691 C 1870 650 1945 420 2040 360"></path>
-            <g class="transition-label"><rect x="1840" y="562" width="84" height="24" rx="12"></rect><text x="1853" y="578">tap Accept</text></g>
-            <path class="transition-path" marker-end="url(#arrow-author)" d="M 1919 691 C 1910 625 1886 545 1827 504"></path>
-            <g class="transition-label"><rect x="1844" y="604" width="112" height="24" rx="12"></rect><text x="1857" y="620">withhold reason</text></g>
-          </svg>
+        <div class="branch-flow-board" data-branch-board>
+          <svg class="branch-transition-arrows" data-branch-arrows aria-hidden="true"></svg>
+
+          <div class="flow-row-title">Shared DAO entry and author path <span>Create continues in this row; committee accept routes to the shared vote branch below.</span></div>
+          <div class="screen-grid flow-grid branch-row">
           <article class="screen" data-flow="1. DAO entry">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
@@ -1460,7 +1471,7 @@
                 <span class="status-pill needed">Needed</span>
                 <span class="status-pill role">Any user</span>
               </div>
-              <div class="screen-context"><strong>DAO entry</strong>Tap Create to start the proposal author path. The shortcut rows are role-specific entry points, not one universal list.</div>
+              <div class="screen-context"><strong>Shared DAO branch point</strong>Shown once. Create continues across this row; shortcuts and Parameters branch to lower rows starting in column 2.</div>
               <div class="mock-kpi-grid">
                 <div class="mock-kpi"><div class="mock-kpi-value">22</div><div class="mock-kpi-label">Active proposals</div></div>
                 <div class="mock-kpi"><div class="mock-kpi-value">1</div><div class="mock-kpi-label">Voting now</div></div>
@@ -1469,21 +1480,21 @@
               </div>
               <div class="action-heading">My shortcuts</div>
               <div class="mock-list action-list">
-                <div class="mock-list-row">
+                <div class="mock-list-row press-target" data-flow-source="dao-vote">
                   <div>
                     <div class="mock-list-title">Voting proposal open</div>
                     <div class="mock-list-meta">Opens proposal detail and vote form</div>
                   </div>
                   <div class="row-role">voter</div>
                 </div>
-                <div class="mock-list-row">
+                <div class="mock-list-row press-target" data-flow-source="dao-reward">
                   <div>
                     <div class="mock-list-title">Reward claim available</div>
                     <div class="mock-list-meta">Claim period ends in 23d</div>
                   </div>
                   <div class="row-role">voter</div>
                 </div>
-                <div class="mock-list-row">
+                <div class="mock-list-row press-target" data-flow-source="dao-apply">
                   <div>
                     <div class="mock-list-title">Proposal ready to apply</div>
                     <div class="mock-list-meta">Grace period complete</div>
@@ -1492,13 +1503,13 @@
                 </div>
               </div>
               <div class="button-row">
-                <div class="mock-button primary press-target">Create</div>
-                <div class="mock-button secondary">Parameters</div>
+                <div class="mock-button primary press-target" data-flow-source="dao-create">Create</div>
+                <div class="mock-button secondary press-target" data-flow-source="dao-parameters">Parameters</div>
               </div>
             </div>
           </article>
 
-          <article class="screen" data-flow="2. Discussion">
+          <article class="screen" data-flow-target="discussion" data-flow="2. Discussion">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Proposal Discussion</div>
@@ -1515,18 +1526,18 @@
                 <div class="mock-muted">Discussion ends in 2d 4h</div>
               </div>
               <p class="proposal-body">Collect comments and signals before a proposal is created on chain.</p>
-              <div class="mock-list">
+              <div class="mock-list" data-flow-target="discussion-comments">
                 <div class="mock-list-row"><div><div class="mock-list-title">alice</div><div class="mock-list-meta">Support if the fee remains near 1/100 of proposal fee.</div></div></div>
                 <div class="mock-list-row"><div><div class="mock-list-title">bob</div><div class="mock-list-meta">Needs spam analysis before moving to review.</div></div></div>
               </div>
               <div class="button-row">
-                <div class="mock-button secondary press-target">Comment</div>
-                <div class="mock-button primary press-target">Create proposal</div>
+                <div class="mock-button secondary press-target" data-flow-source="discussion-comment">Comment</div>
+                <div class="mock-button primary press-target" data-flow-source="discussion-create">Create proposal</div>
               </div>
             </div>
           </article>
 
-          <article class="screen" data-flow="3. Builder">
+          <article class="screen" data-flow-target="builder" data-flow="3. Builder">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Create Proposal</div>
@@ -1547,12 +1558,12 @@
               </div>
               <div class="button-row">
                 <div class="mock-button secondary">Back</div>
-                <div class="mock-button primary press-target">Review</div>
+                <div class="mock-button primary press-target" data-flow-source="builder-review">Review</div>
               </div>
             </div>
           </article>
 
-          <article class="screen" data-flow="4. Confirm tx">
+          <article class="screen" data-flow-target="confirm" data-flow="4. Confirm tx">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Confirm Proposal</div>
@@ -1575,11 +1586,11 @@
                 <div class="detail-line"><span>Account:</span> dao proposal #21</div>
               </div>
               <div class="field"><label>Payload preview</label><div class="field-box tall">hash, fields, options, timing, fee, signature request</div></div>
-              <div class="mock-button primary press-target">Sign and submit</div>
+              <div class="mock-button primary press-target" data-flow-source="confirm-sign">Sign and submit</div>
             </div>
           </article>
 
-          <article class="screen" data-flow="5. Committee review">
+          <article class="screen" data-flow-target="committee" data-flow="5. Committee review">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Committee Review</div>
@@ -1600,15 +1611,19 @@
                 <div class="mock-kpi"><div class="mock-kpi-value">2</div><div class="mock-kpi-label">Withhold</div></div>
               </div>
               <p class="mock-muted">Decisive result requires more than 50% of committee members to vote the same way.</p>
-              <div class="field"><label>Withhold reason</label><div class="field-box">Insufficient discussion period</div></div>
+              <div class="field" data-flow-target="withhold-reason"><label>Withhold reason</label><div class="field-box">Insufficient discussion period</div></div>
               <div class="button-row">
-                <div class="mock-button primary press-target">Accept</div>
-                <div class="mock-button secondary press-target">Withhold</div>
+                <div class="mock-button primary press-target" data-flow-source="committee-accept">Accept</div>
+                <div class="mock-button secondary press-target" data-flow-source="committee-withhold">Withhold</div>
               </div>
             </div>
           </article>
+          </div>
 
-          <article class="screen" data-flow="6. Vote opens">
+          <div class="flow-row-title branch-indent">Voter and reward branch <span>Starts from Voting proposal open, Committee accept, or Reward claim available.</span></div>
+          <div class="screen-grid flow-grid branch-row">
+            <div class="branch-spacer" aria-hidden="true"></div>
+          <article class="screen" data-flow-target="community-vote" data-flow="2. Community vote">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Vote</div>
@@ -1627,121 +1642,18 @@
                 <div class="field"><label>No weight</label><div class="field-box">1</div></div>
                 <div class="field"><label>Spend amount</label><div class="field-box">10.00 USD</div></div>
               </div>
-              <div class="mock-kpi">
+              <div class="mock-kpi state-target" data-flow-target="vote-estimate">
                 <div class="mock-kpi-value">12.59</div>
                 <div class="mock-kpi-label">Estimated applied weight</div>
               </div>
               <div class="button-row">
-                <div class="mock-button secondary">Preview</div>
-                <div class="mock-button primary">Submit vote</div>
-              </div>
-            </div>
-          </article>
-        </div>
-
-        <div class="flow-row-title">Voter and reward path <span>Dashboard shortcuts can jump straight to vote or reward claim screens.</span></div>
-        <div class="screen-grid flow-grid">
-          <svg class="row-transition-arrows voter-row-arrows" viewBox="0 0 1614 760" aria-hidden="true">
-            <defs>
-              <marker id="arrow-voter" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(61, 61, 206, 0.56)"></path>
-              </marker>
-            </defs>
-            <path class="transition-path" marker-end="url(#arrow-voter)" d="M 389 483 C 400 468 398 378 408 350"></path>
-            <g class="transition-label"><rect x="236" y="430" width="136" height="24" rx="12"></rect><text x="249" y="446">tap voting shortcut</text></g>
-            <path class="transition-path" marker-end="url(#arrow-voter)" d="M 389 541 C 470 620 690 748 850 748 C 1050 748 1130 445 1224 380"></path>
-            <g class="transition-label"><rect x="584" y="716" width="132" height="24" rx="12"></rect><text x="597" y="732">tap reward shortcut</text></g>
-            <path class="transition-path" marker-end="url(#arrow-voter)" d="M 511 691 C 520 660 550 625 603 606"></path>
-            <g class="transition-label"><rect x="500" y="642" width="112" height="24" rx="12"></rect><text x="513" y="658">shows estimate</text></g>
-            <path class="transition-path" marker-end="url(#arrow-voter)" d="M 695 691 C 770 650 780 460 816 430"></path>
-            <g class="transition-label"><rect x="716" y="594" width="94" height="24" rx="12"></rect><text x="729" y="610">submit vote</text></g>
-            <path class="transition-path" marker-end="url(#arrow-voter)" d="M 1011 689 C 1025 620 1020 545 1011 490"></path>
-            <g class="transition-label"><rect x="960" y="604" width="76" height="24" rx="12"></rect><text x="973" y="620">verify tx</text></g>
-            <path class="transition-path" marker-end="url(#arrow-voter)" d="M 1206 380 C 1212 380 1218 380 1224 380"></path>
-            <g class="transition-label"><rect x="1066" y="336" width="142" height="24" rx="12"></rect><text x="1079" y="352">claim period starts</text></g>
-            <path class="transition-path" marker-end="url(#arrow-voter)" d="M 1419 689 C 1438 620 1438 545 1419 467"></path>
-            <g class="transition-label"><rect x="1368" y="604" width="72" height="24" rx="12"></rect><text x="1381" y="620">claim tx</text></g>
-          </svg>
-          <article class="screen" data-flow="1. Voter shortcuts">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">DAO</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Any user</span>
-              </div>
-              <div class="screen-context"><strong>Voter shortcuts</strong>Voting proposal open routes to the vote form. Reward claim available skips directly to the reward claim screen after voting closes.</div>
-              <div class="mock-kpi-grid">
-                <div class="mock-kpi"><div class="mock-kpi-value">22</div><div class="mock-kpi-label">Active proposals</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">1</div><div class="mock-kpi-label">Voting now</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">4.23</div><div class="mock-kpi-label">LIB claimable</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">3</div><div class="mock-kpi-label">Shortcuts</div></div>
-              </div>
-              <div class="action-heading">My shortcuts</div>
-              <div class="mock-list action-list">
-                <div class="mock-list-row press-target">
-                  <div>
-                    <div class="mock-list-title">Voting proposal open</div>
-                    <div class="mock-list-meta">Opens proposal detail and vote form</div>
-                  </div>
-                  <div class="row-role">voter</div>
-                </div>
-                <div class="mock-list-row press-target">
-                  <div>
-                    <div class="mock-list-title">Reward claim available</div>
-                    <div class="mock-list-meta">Claim period ends in 23d</div>
-                  </div>
-                  <div class="row-role">voter</div>
-                </div>
-                <div class="mock-list-row">
-                  <div>
-                    <div class="mock-list-title">Proposal ready to apply</div>
-                    <div class="mock-list-meta">Grace period complete</div>
-                  </div>
-                  <div class="row-role">operator</div>
-                </div>
-              </div>
-              <div class="button-row">
-                <div class="mock-button primary">Create</div>
-                <div class="mock-button secondary">Parameters</div>
+                <div class="mock-button secondary press-target" data-flow-source="vote-preview">Preview</div>
+                <div class="mock-button primary press-target" data-flow-source="vote-submit">Submit vote</div>
               </div>
             </div>
           </article>
 
-          <article class="screen" data-flow="2. Community vote">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Vote</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Eligible voter</span>
-              </div>
-              <div class="screen-context"><strong>Weighted vote</strong>Eligible voters assign option weights and choose spend. The app previews applied weight before submitting the vote transaction.</div>
-              <div class="mock-muted">Eligibility: balance above threshold</div>
-              <div class="mock-muted">Voting ends in 5d 2h</div>
-              <div class="field-stack">
-                <div class="field"><label>Yes weight</label><div class="field-box">3</div></div>
-                <div class="field"><label>No weight</label><div class="field-box">1</div></div>
-                <div class="field"><label>Spend amount</label><div class="field-box">10.00 USD</div></div>
-              </div>
-              <div class="mock-kpi state-target">
-                <div class="mock-kpi-value">12.59</div>
-                <div class="mock-kpi-label">Estimated applied weight</div>
-              </div>
-              <div class="button-row">
-                <div class="mock-button secondary press-target">Preview</div>
-                <div class="mock-button primary press-target">Submit vote</div>
-              </div>
-            </div>
-          </article>
-
-          <article class="screen" data-flow="3. Results / audit">
+          <article class="screen" data-flow-target="results" data-flow="3. Results / audit">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Results</div>
@@ -1760,15 +1672,15 @@
                 <div class="detail-line"><span>No:</span> 88.10</div>
                 <div class="progress-bar"><div class="progress-fill" style="width: 41%"></div></div>
               </div>
-              <div class="mock-list">
+              <div class="mock-list" data-flow-target="results-audit">
                 <div class="mock-list-row"><div><div class="mock-list-title">address...9f21</div><div class="mock-list-meta">spend 10 - weights 3/1 - 8:42 AM</div></div></div>
                 <div class="mock-list-row"><div><div class="mock-list-title">address...0ac4</div><div class="mock-list-meta">spend 1 - weights 0/1 - 8:10 AM</div></div></div>
               </div>
-              <div class="mock-button secondary press-target">Verify on chain</div>
+              <div class="mock-button secondary press-target" data-flow-source="results-verify">Verify on chain</div>
             </div>
           </article>
 
-          <article class="screen" data-flow="4. Rewards">
+          <article class="screen" data-flow-target="rewards" data-flow="4. Rewards">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Final Result</div>
@@ -1781,85 +1693,20 @@
               </div>
               <div class="screen-context"><strong>Reward claim</strong>After voting ends, the initial burn happens and eligible unique voters can claim their share during the claim period.</div>
               <div class="proposal-title">Winner: Yes</div>
-              <div class="mock-list">
+              <div class="mock-list" data-flow-target="reward-breakdown">
                 <div class="mock-list-row"><div class="mock-list-title">Initial burn</div><div class="mock-list-meta">50%</div></div>
                 <div class="mock-list-row"><div class="mock-list-title">Claim period</div><div class="mock-list-meta">23d left</div></div>
                 <div class="mock-list-row"><div class="mock-list-title">Your reward estimate</div><div class="mock-list-meta">4.23 LIB</div></div>
               </div>
-              <div class="mock-button primary press-target">Claim reward</div>
+              <div class="mock-button primary press-target" data-flow-source="reward-claim">Claim reward</div>
             </div>
           </article>
-        </div>
+          </div>
 
-        <div class="flow-row-title">Reference and operator path <span>Parameters, apply, and project execution are separate role-driven branches.</span></div>
-        <div class="screen-grid flow-grid">
-          <svg class="row-transition-arrows operations-row-arrows" viewBox="0 0 1614 760" aria-hidden="true">
-            <defs>
-              <marker id="arrow-ops" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(61, 61, 206, 0.56)"></path>
-              </marker>
-            </defs>
-            <path class="transition-path" marker-end="url(#arrow-ops)" d="M 287 691 C 345 700 360 620 408 620"></path>
-            <g class="transition-label"><rect x="286" y="644" width="112" height="24" rx="12"></rect><text x="299" y="660">tap Parameters</text></g>
-            <path class="transition-path" marker-end="url(#arrow-ops)" d="M 389 582 C 520 600 665 390 816 350"></path>
-            <g class="transition-label"><rect x="536" y="448" width="124" height="24" rx="12"></rect><text x="549" y="464">tap apply shortcut</text></g>
-            <path class="transition-path" marker-end="url(#arrow-ops)" d="M 1011 689 C 1080 630 1150 490 1224 430"></path>
-            <g class="transition-label"><rect x="1080" y="574" width="112" height="24" rx="12"></rect><text x="1093" y="590">project proposal</text></g>
-            <path class="transition-path" marker-end="url(#arrow-ops)" d="M 1327 691 C 1355 610 1400 460 1419 367"></path>
-            <g class="transition-label"><rect x="1318" y="590" width="112" height="24" rx="12"></rect><text x="1331" y="606">mark milestone</text></g>
-            <path class="transition-path" marker-end="url(#arrow-ops)" d="M 1511 691 C 1516 620 1502 520 1419 426"></path>
-            <g class="transition-label"><rect x="1464" y="604" width="106" height="24" rx="12"></rect><text x="1477" y="620">claim payment</text></g>
-          </svg>
-          <article class="screen" data-flow="1. Operator actions">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">DAO</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Any user</span>
-              </div>
-              <div class="screen-context"><strong>Reference and operator shortcuts</strong>Parameters opens the read-only DAO parameter list. Proposal ready to apply appears for operators after the grace period.</div>
-              <div class="mock-kpi-grid">
-                <div class="mock-kpi"><div class="mock-kpi-value">22</div><div class="mock-kpi-label">Active proposals</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">1</div><div class="mock-kpi-label">Voting now</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">4.23</div><div class="mock-kpi-label">LIB claimable</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">3</div><div class="mock-kpi-label">Shortcuts</div></div>
-              </div>
-              <div class="action-heading">My shortcuts</div>
-              <div class="mock-list action-list">
-                <div class="mock-list-row">
-                  <div>
-                    <div class="mock-list-title">Voting proposal open</div>
-                    <div class="mock-list-meta">Opens proposal detail and vote form</div>
-                  </div>
-                  <div class="row-role">voter</div>
-                </div>
-                <div class="mock-list-row">
-                  <div>
-                    <div class="mock-list-title">Reward claim available</div>
-                    <div class="mock-list-meta">Claim period ends in 23d</div>
-                  </div>
-                  <div class="row-role">voter</div>
-                </div>
-                <div class="mock-list-row press-target">
-                  <div>
-                    <div class="mock-list-title">Proposal ready to apply</div>
-                    <div class="mock-list-meta">Grace period complete</div>
-                  </div>
-                  <div class="row-role">operator</div>
-                </div>
-              </div>
-              <div class="button-row">
-                <div class="mock-button primary">Create</div>
-                <div class="mock-button secondary press-target">Parameters</div>
-              </div>
-            </div>
-          </article>
-
-          <article class="screen" data-flow="2. Parameters">
+          <div class="flow-row-title branch-indent">Reference and operator branch <span>Parameters and apply shortcuts branch from the shared DAO overview.</span></div>
+          <div class="screen-grid flow-grid branch-row">
+            <div class="branch-spacer" aria-hidden="true"></div>
+          <article class="screen" data-flow-target="parameters" data-flow="2. Parameters">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">DAO Parameters</div>
@@ -1883,7 +1730,7 @@
             </div>
           </article>
 
-          <article class="screen" data-flow="3. Apply">
+          <article class="screen" data-flow-target="apply" data-flow="3. Apply">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Apply Proposal</div>
@@ -1902,11 +1749,11 @@
                 <div class="timeline-row"><span class="timeline-dot"></span><div><div class="mock-list-title">Grace period</div><div class="mock-muted">Network prepares for the change.</div></div></div>
                 <div class="timeline-row"><span class="timeline-dot"></span><div><div class="mock-list-title">Apply</div><div class="mock-muted">Submit apply transaction when available.</div></div></div>
               </div>
-              <div class="mock-button secondary press-target">Apply when available</div>
+              <div class="mock-button secondary press-target" data-flow-source="apply-project">Apply when available</div>
             </div>
           </article>
 
-          <article class="screen" data-flow="4. Execute project">
+          <article class="screen" data-flow-target="project" data-flow="4. Execute project">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Project Execution</div>
@@ -1922,16 +1769,17 @@
                 <div class="proposal-title">Documentation sprint</div>
                 <div class="mock-muted">Escrow balance: 5000 USD equivalent</div>
               </div>
-              <div class="mock-list">
+              <div class="mock-list" data-flow-target="project-milestones">
                 <div class="mock-list-row"><div><div class="mock-list-title">Milestone 1: Started</div><div class="mock-list-meta">deliverable / duration / cost / penalty / bonus</div></div></div>
                 <div class="mock-list-row"><div><div class="mock-list-title">Milestone 2: Pending</div><div class="mock-list-meta">starts after milestone 1 verification</div></div></div>
               </div>
               <div class="button-row">
-                <div class="mock-button secondary press-target">Mark complete</div>
-                <div class="mock-button primary press-target">Claim payment</div>
+                <div class="mock-button secondary press-target" data-flow-source="project-mark">Mark complete</div>
+                <div class="mock-button primary press-target" data-flow-source="project-claim">Claim payment</div>
               </div>
             </div>
           </article>
+          </div>
         </div>
       </section>
 
@@ -2013,7 +1861,11 @@
           lastX = event.clientX;
           lastY = event.clientY;
           viewport.classList.add("is-dragging");
-          viewport.setPointerCapture(event.pointerId);
+          try {
+            viewport.setPointerCapture(event.pointerId);
+          } catch {
+            // Synthetic pointer events in tests do not always create an active pointer capture target.
+          }
           event.preventDefault();
         });
 
@@ -2034,13 +1886,164 @@
           }
           dragging = false;
           viewport.classList.remove("is-dragging");
-          if (viewport.hasPointerCapture(event.pointerId)) {
-            viewport.releasePointerCapture(event.pointerId);
+          try {
+            if (viewport.hasPointerCapture(event.pointerId)) {
+              viewport.releasePointerCapture(event.pointerId);
+            }
+          } catch {
+            // Ignore synthetic pointer events without a browser-managed capture target.
           }
         };
 
         viewport.addEventListener("pointerup", stopDragging);
         viewport.addEventListener("pointercancel", stopDragging);
+
+        const renderBranchArrows = () => {
+          const board = document.querySelector("[data-branch-board]");
+          const svg = document.querySelector("[data-branch-arrows]");
+          if (!board || !svg) {
+            return;
+          }
+
+          const svgNS = "http://www.w3.org/2000/svg";
+          const connectors = [
+            { from: "dao-create", to: "discussion", label: "tap Create", fromSide: "top", toSide: "left", toRatio: 0.8, route: "same-row", labelDx: -20, labelDy: -28 },
+            { from: "discussion-comment", to: "discussion-comments", label: "add comment", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -84, labelDy: -20 },
+            { from: "discussion-create", to: "builder", label: "tap Create proposal", fromSide: "top", toSide: "left", toRatio: 0.8, route: "same-row", labelDx: -40, labelDy: -28 },
+            { from: "builder-review", to: "confirm", label: "tap Review", fromSide: "top", toSide: "left", toRatio: 0.8, route: "same-row", labelDx: -20, labelDy: -28 },
+            { from: "confirm-sign", to: "committee", label: "sign submit", fromSide: "top", toSide: "left", toRatio: 0.4, route: "same-row", labelDx: -26, labelDy: -40 },
+            { from: "committee-withhold", to: "withhold-reason", label: "withhold reason", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -44, labelDy: -10 },
+            { from: "committee-accept", to: "community-vote", label: "tap Accept", fromSide: "top", toSide: "left", toRatio: 0.38, route: "branch-reverse", labelDx: -30, labelDy: -18 },
+            { from: "dao-vote", to: "community-vote", label: "tap voting shortcut", fromSide: "right", toSide: "left", toRatio: 0.38, route: "branch", labelDx: -106, labelDy: -30 },
+            { from: "dao-reward", to: "rewards", label: "tap reward shortcut", fromSide: "right", toSide: "left", toRatio: 0.43, route: "branch-low", labelDx: -80, labelDy: 50 },
+            { from: "vote-preview", to: "vote-estimate", label: "shows estimate", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -30, labelDy: -16 },
+            { from: "vote-submit", to: "results", label: "submit vote", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: -8, labelDy: -30 },
+            { from: "results-verify", to: "results-audit", label: "verify tx", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -26, labelDy: -22 },
+            { from: "results", to: "rewards", label: "claim period starts", fromSide: "right", fromRatio: 0.43, toSide: "left", toRatio: 0.43, route: "same-row", labelDx: -34, labelDy: -38 },
+            { from: "reward-claim", to: "reward-breakdown", label: "claim tx", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -26, labelDy: -18 },
+            { from: "dao-parameters", to: "parameters", label: "tap Parameters", fromSide: "top", toSide: "left", toRatio: 0.8, route: "branch", labelDx: -80, labelDy: -30 },
+            { from: "dao-apply", to: "apply", label: "tap apply shortcut", fromSide: "right", toSide: "left", toRatio: 0.38, route: "branch-low", labelDx: -80, labelDy: 24 },
+            { from: "apply-project", to: "project", label: "project proposal", fromSide: "top", toSide: "left", toRatio: 0.5, route: "same-row", labelDx: -36, labelDy: -34 },
+            { from: "project-mark", to: "project-milestones", label: "mark milestone", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -72, labelDy: -34 },
+            { from: "project-claim", to: "project-milestones", label: "claim payment", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: 28, labelDy: -18 }
+          ];
+
+          const makeSvgElement = (tag, attrs = {}) => {
+            const element = document.createElementNS(svgNS, tag);
+            Object.entries(attrs).forEach(([key, value]) => element.setAttribute(key, value));
+            return element;
+          };
+
+          const findAnchor = (id) => board.querySelector(`[data-flow-source="${id}"], [data-flow-target="${id}"]`);
+
+          const boxInBoard = (element) => {
+            let x = 0;
+            let y = 0;
+            let node = element;
+            while (node && node !== board) {
+              x += node.offsetLeft || 0;
+              y += node.offsetTop || 0;
+              node = node.offsetParent;
+            }
+            return { x, y, width: element.offsetWidth, height: element.offsetHeight };
+          };
+
+          const pointFor = (element, side, ratio = 0.5) => {
+            const box = boxInBoard(element);
+            if (side === "left") {
+              return { x: box.x, y: box.y + box.height * ratio };
+            }
+            if (side === "right") {
+              return { x: box.x + box.width, y: box.y + box.height * ratio };
+            }
+            if (side === "top") {
+              return { x: box.x + box.width * ratio, y: box.y };
+            }
+            if (side === "bottom") {
+              return { x: box.x + box.width * ratio, y: box.y + box.height };
+            }
+            return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+          };
+
+          const pathFor = (start, end, route) => {
+            if (route === "local-up") {
+              return `M ${start.x} ${start.y} C ${start.x} ${start.y - 76}, ${end.x} ${end.y + 76}, ${end.x} ${end.y}`;
+            }
+            if (route === "branch-low") {
+              const midY = Math.max(start.y, end.y) + 110;
+              return `M ${start.x} ${start.y} C ${start.x + 140} ${midY}, ${end.x - 180} ${midY}, ${end.x} ${end.y}`;
+            }
+            if (route === "branch-reverse") {
+              const midY = (start.y + end.y) / 2;
+              return `M ${start.x} ${start.y} C ${start.x + 110} ${midY}, ${end.x - 150} ${midY}, ${end.x} ${end.y}`;
+            }
+            const distance = Math.abs(end.x - start.x);
+            const control = Math.max(90, Math.min(240, distance * 0.45));
+            const startControl = start.x <= end.x ? start.x + control : start.x - control;
+            const endControl = start.x <= end.x ? end.x - control : end.x + control;
+            return `M ${start.x} ${start.y} C ${startControl} ${start.y}, ${endControl} ${end.y}, ${end.x} ${end.y}`;
+          };
+
+          const marker = makeSvgElement("marker", {
+            id: "arrow-branch",
+            markerWidth: "10",
+            markerHeight: "10",
+            refX: "8",
+            refY: "5",
+            orient: "auto"
+          });
+          marker.appendChild(makeSvgElement("path", {
+            d: "M 0 0 L 10 5 L 0 10 z",
+            fill: "rgba(61, 61, 206, 0.56)"
+          }));
+          const defs = makeSvgElement("defs");
+          defs.appendChild(marker);
+          svg.replaceChildren(defs);
+
+          const width = board.scrollWidth;
+          const height = board.scrollHeight;
+          svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+          svg.style.width = `${width}px`;
+          svg.style.height = `${height}px`;
+
+          connectors.forEach((connector) => {
+            const from = findAnchor(connector.from);
+            const to = findAnchor(connector.to);
+            if (!from || !to) {
+              return;
+            }
+            const start = pointFor(from, connector.fromSide, connector.fromRatio ?? 0.5);
+            const end = pointFor(to, connector.toSide, connector.toRatio ?? 0.5);
+            const path = makeSvgElement("path", {
+              class: "transition-path",
+              d: pathFor(start, end, connector.route),
+              "marker-end": "url(#arrow-branch)"
+            });
+            svg.appendChild(path);
+
+            const width = connector.labelWidth ?? connector.label.length * 7 + 26;
+            const x = (start.x + end.x) / 2 + (connector.labelDx ?? 0);
+            const y = (start.y + end.y) / 2 + (connector.labelDy ?? 0);
+            const label = makeSvgElement("g", { class: "transition-label" });
+            label.appendChild(makeSvgElement("rect", {
+              x: String(x),
+              y: String(y),
+              width: String(width),
+              height: "24",
+              rx: "12"
+            }));
+            const text = makeSvgElement("text", {
+              x: String(x + 13),
+              y: String(y + 16)
+            });
+            text.textContent = connector.label;
+            label.appendChild(text);
+            svg.appendChild(label);
+          });
+        };
+
+        renderBranchArrows();
+        window.addEventListener("resize", renderBranchArrows);
 
         update();
       })();
