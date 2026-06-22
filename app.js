@@ -1763,8 +1763,6 @@ class ChatsScreen {
         previewHTML = `<span><i>Voice message</i></span>`;
       } else if (latestActivity.type === 'location') {
         previewHTML = `<span><i>Shared location</i></span>`;
-      } else if (latestActivity.type === 'status_change') {
-        previewHTML = truncateMessage(escapeHtml(getStatusChangeMessageText(latestActivity, contact)), 50);
       } else if ((!latestActivity.message || String(latestActivity.message).trim() === '') && latestActivity.xattach) {
         previewHTML = `<span><i>Attachment</i></span>`;
       } else if (latestActivity.xattach && latestActivity.message && String(latestActivity.message).trim() !== '') {
@@ -6774,10 +6772,6 @@ function getReactionTargetPreviewText(message) {
     return getDeletedPlaceholderText(message);
   }
 
-  if (message.type === 'status_change') {
-    return 'status change';
-  }
-
   if (message.type === 'call') {
     return 'call';
   }
@@ -6814,26 +6808,6 @@ function friendStatusToRequiredStatus(friendStatus) {
 function requiredToFriendStatus(required) {
   const requiredNum = Number(required);
   return requiredNum === 0 ? 2 : requiredNum === 2 ? 0 : 1;
-}
-
-function getFriendStatusLabelFromRequired(required) {
-  switch (requiredToFriendStatus(required)) {
-    case 2:
-      return 'Connection';
-    case 0:
-      return 'Blocked';
-    case 1:
-    default:
-      return 'Tolled';
-  }
-}
-
-function getStatusChangeMessageText(statusChange, contact) {
-  const contactName = getContactDisplayName(contact);
-  const statusLabel = getFriendStatusLabelFromRequired(statusChange.required);
-  return statusChange.my
-    ? `You set ${contactName} as ${statusLabel}`
-    : `${contactName} set you as ${statusLabel}`;
 }
 
 /**
@@ -7193,8 +7167,6 @@ async function processChats(chats, keys) {
       const pendingReactionControls = [];
       let didApplyPendingReaction = false;
       let didChangeReactionPreview = false;
-      let didAddStatusActivity = false;
-      let didAddIncomingStatusActivity = false;
       const touchedReactionTargetTxids = new Set();
 
       // This check determines if we're currently chatting with the sender
@@ -7221,33 +7193,25 @@ async function processChats(chats, keys) {
           }
         }
         if (tx.type === 'update_toll_required') {
-          if (contact.messages.some((messageTx) => messageTx.txid === txidHex)) {
-            continue;
-          }
-
           const required = Number(tx.required);
-          const previousRequired = Number(tx.previousRequired);
           if (![0, 1, 2].includes(required)) {
             console.warn('Ignoring update_toll_required with unknown required value', tx);
             continue;
           }
 
-          const statusChange = {
-            type: 'status_change',
-            txid: txidHex,
-            timestamp: Number(tx.timestamp) || 0,
-            my: normalizeAddress(tx.from) === currentUserAddress,
-            required
-          };
-          if ([0, 1, 2].includes(previousRequired)) {
-            statusChange.previousRequired = previousRequired;
+          const txFrom = normalizeAddress(tx.from);
+          const txTo = normalizeAddress(tx.to);
+          if (txFrom === currentUserAddress && txTo === from) {
+            contact.tollRequiredToReceive = required;
+            contact.friend = requiredToFriendStatus(required);
+            contact.friendOld = contact.friend;
+          } else if (txFrom === from && txTo === currentUserAddress) {
+            contact.tollRequiredToSend = required;
+            if (chatModal.address === from) {
+              chatModal.blockedByRecipient = Number(required) === 2;
+            }
           }
 
-          insertSorted(contact.messages, statusChange, 'timestamp');
-          didAddStatusActivity = true;
-          if (!statusChange.my) {
-            didAddIncomingStatusActivity = true;
-          }
           continue;
         }
 
@@ -7854,28 +7818,48 @@ async function processChats(chats, keys) {
       }
 
       if (hasNewTransfer){ hasAnyTransfer = true; }
-      // If visible activity was added to contact.messages, update myData.chats
-      if (added > 0 || didAddStatusActivity) {
+      // If messages were added to contact.messages, update myData.chats
+      if (added > 0) {
         // Update unread count ONLY if the chat modal for this sender is NOT active
-        if (added > 0 && !inActiveChatWithSender) {
+        if (!inActiveChatWithSender) {
           contact.unread = (contact.unread || 0) + added; // Ensure unread is initialized
-        } else if (inActiveChatWithSender && (added > 0 || didAddStatusActivity)) {
+        } else {
           // If chat modal is active, explicitly call appendChatModal to update it
           // and trigger highlight/scroll for the new message.
           if (document.visibilityState === 'visible') {
-            chatModal.appendChatModal(added > 0 || didAddIncomingStatusActivity);
+            chatModal.appendChatModal(true); // Pass true for highlightNewMessage flag
           }
         }
 
-        syncChatLatestActivityTimestamp(from, contact);
-        if (chatsScreen.isActive()) {
-          chatsScreen.updateChatList();
+        // Add sender to the top of the chats tab
+        // Remove existing chat for this contact if it exists
+        const existingChatIndex = myData.chats.findIndex((chat) => chat.address === from);
+        const existingChat = existingChatIndex === -1
+          ? null
+          : myData.chats.splice(existingChatIndex, 1)[0];
+        // Get the most recent message (index 0 because it's sorted descending)
+        const latestMessage = contact.messages[0];
+        const latestReaction = getLatestChatReactionActivity(contact);
+        const chatUpdate = existingChat || { address: from };
+        if (!latestReaction || latestReaction.timestamp <= latestMessage.timestamp) {
+          chatUpdate.timestamp = latestMessage.timestamp;
+        } else {
+          chatUpdate.timestamp = latestReaction.timestamp;
+        }
+        // Find insertion point to maintain timestamp order (newest first)
+        const insertIndex = myData.chats.findIndex((chat) => chat.timestamp < chatUpdate.timestamp);
+        if (insertIndex === -1) {
+          // If no earlier timestamp found, append to end
+          myData.chats.push(chatUpdate);
+        } else {
+          // Insert at correct position to maintain order
+          myData.chats.splice(insertIndex, 0, chatUpdate);
         }
 
         // Add bubble to chats tab if we are not on it
         // Only suppress notification if we're ACTIVELY viewing this chat and if not a transfer
         // Don't add notification for faucet address
-        if (added > 0 && !inActiveChatWithSender && !chatsScreen.isActive() && !isFaucetAddress(from)) {
+        if (!inActiveChatWithSender && !chatsScreen.isActive() && !isFaucetAddress(from)) {
           footer.chatButton.classList.add('has-notification');
         }
       }
@@ -17096,15 +17080,6 @@ class ChatModal {
     const txidAttribute = item.txid ? `data-txid="${item.txid}"` : '';
     const statusAttribute = item.status ? `data-status="${item.status}"` : '';
 
-    if (item.type === 'status_change') {
-      return `
-          <div class="message status-change-message" ${timestampAttribute} ${txidAttribute} data-system-message="true">
-            <div class="status-change-content">${escapeHtml(getStatusChangeMessageText(item, contact))}</div>
-            <div class="message-time">${timeString}</div>
-          </div>
-        `;
-    }
-
     // Check if it's a payment based on the presence of the amount property (BigInt)
     if (typeof item.amount === 'bigint') {
       // Assuming LIB (18 decimals) for now. TODO: Handle different asset decimals if needed.
@@ -18659,7 +18634,6 @@ class ChatModal {
     
     const messageEl = e.target.closest('.message');
     if (!messageEl) return;
-    if (messageEl.dataset.systemMessage === 'true') return;
 
     const messageRecord = this.getMessageRecordFromElement(messageEl);
     if (messageEl.classList.contains('deleted-message')) {
