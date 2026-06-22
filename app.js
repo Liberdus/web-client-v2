@@ -21634,7 +21634,7 @@ class ChatModal {
       // Handle pending seeks (if user moved slider before clicking play)
       audio.addEventListener('loadedmetadata', () => {
         const metadataDuration = this.getPositiveDurationSeconds(audio.duration);
-        if (!totalDurationSeconds && metadataDuration) {
+        if (metadataDuration && Math.abs(metadataDuration - totalDurationSeconds) > 0.05) {
           totalDurationSeconds = metadataDuration;
           updateDurationUi();
         }
