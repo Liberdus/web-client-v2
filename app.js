@@ -14353,6 +14353,16 @@ const LOCATION_GEO_OPTIONS = {
   maximumAge: 0
 };
 const LOCATION_PERMISSION_DENIED_MESSAGE = 'Location permission was denied. Enable location access in your browser or device settings, then try again.';
+function formatVoiceTimer(seconds) {
+  const duration = Number(seconds);
+  if (!Number.isFinite(duration) || duration <= 0) return '00:00.0';
+
+  const totalTenths = Math.round(duration * 10);
+  const mins = Math.floor(totalTenths / 600);
+  const secs = Math.floor((totalTenths % 600) / 10);
+  const tenths = totalTenths % 10;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${tenths}`;
+}
 const CHAT_REACTION_SHEET_TAB_ICONS = {
   recent: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/></svg>',
   smileys: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>',
@@ -15269,7 +15279,7 @@ class ChatModal {
       // updates the on-screen "current / total" label
       if (timeDisplayElement) {
         const currentTime = this.formatVoiceProgressTime(newTime, totalSeconds);
-        const totalTime = this.formatDuration(totalSeconds);
+        const totalTime = formatVoiceTimer(totalSeconds);
         timeDisplayElement.textContent = `${currentTime} / ${totalTime}`;
       }
       // ensures playback starts at the chosen position when audio is ready
@@ -15302,7 +15312,7 @@ class ChatModal {
     if (timeDisplay && voiceMessageElement.dataset.duration) {
       const totalSeconds = this.getPositiveDurationSeconds(voiceMessageElement.dataset.duration);
       const currentTime = this.formatVoiceProgressTime(0, totalSeconds);
-      const duration = this.formatDuration(totalSeconds);
+      const duration = formatVoiceTimer(totalSeconds);
       timeDisplay.textContent = `${currentTime} / ${duration}`;
     }
   }
@@ -17194,7 +17204,7 @@ class ChatModal {
         // Check for voice message
         const durationSeconds = this.getPositiveDurationSeconds(item.duration);
         const currentTime = this.formatVoiceProgressTime(0, durationSeconds);
-        const duration = this.formatDuration(durationSeconds);
+        const duration = formatVoiceTimer(durationSeconds);
         // Use audio encryption keys for playback, fall back to message encryption keys if not available
         messageTextHTML = `
               <div class="voice-message" data-url="${item.url || ''}" data-name="voice-message" data-type="audio/webm" data-duration="${durationSeconds}">
@@ -21306,22 +21316,6 @@ class ChatModal {
 
   // ========== Voice Message Methods ==========
 
-  /**
-   * Format duration from seconds to MM:SS.t for stable voice timers.
-   * @param {number} seconds - Duration in seconds
-   * @returns {string} Formatted duration
-   */
-  formatDuration(seconds) {
-    const duration = Number(seconds);
-    if (!Number.isFinite(duration) || duration <= 0) return '00:00.0';
-
-    const totalTenths = Math.round(duration * 10);
-    const mins = Math.floor(totalTenths / 600);
-    const secs = Math.floor((totalTenths % 600) / 10);
-    const tenths = totalTenths % 10;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${tenths}`;
-  }
-
   getPositiveDurationSeconds(seconds) {
     const duration = Number(seconds);
     return Number.isFinite(duration) && duration > 0 ? duration : 0;
@@ -21330,7 +21324,7 @@ class ChatModal {
   formatVoiceProgressTime(seconds, totalSeconds) {
     const current = Math.max(0, Number(seconds) || 0);
     const total = this.getPositiveDurationSeconds(totalSeconds);
-    return this.formatDuration(total ? Math.min(current, total) : current);
+    return formatVoiceTimer(total ? Math.min(current, total) : current);
   }
 
   /**
@@ -21614,7 +21608,7 @@ class ChatModal {
 
         const current = audio?.currentTime || Number(seekEl?.value || 0);
         const currentTime = this.formatVoiceProgressTime(current, totalDurationSeconds);
-        const totalTime = this.formatDuration(totalDurationSeconds);
+        const totalTime = formatVoiceTimer(totalDurationSeconds);
         timeDisplayElement.textContent = `${currentTime} / ${totalTime}`;
       };
 
@@ -21652,7 +21646,7 @@ class ChatModal {
           }
           if (timeDisplayElement) {
             const currentTime = this.formatVoiceProgressTime(audio.currentTime, totalDurationSeconds);
-            const totalTime = this.formatDuration(totalDurationSeconds);
+            const totalTime = formatVoiceTimer(totalDurationSeconds);
             timeDisplayElement.textContent = `${currentTime} / ${totalTime}`;
           }
         }
@@ -24735,7 +24729,7 @@ class VoiceRecordingModal {
     this.recordingControls.style.display = 'none';
     this.recordedControls.style.display = 'none';
     this.listeningControls.style.display = 'none';
-    this.recordingTimer.textContent = this.formatDuration(0);
+    this.recordingTimer.textContent = formatVoiceTimer(0);
     this.recordingIndicator.classList.remove('recording');
     this.voiceMessageSendStarted = false;
   }
@@ -24821,7 +24815,7 @@ class VoiceRecordingModal {
       // Calculate actual recording duration (excluding processing time)
       if (this.recordingStartTime) {
         this.actualDuration = (this.recordingStopTime - this.recordingStartTime) / 1000;
-        this.recordingTimer.textContent = this.formatDuration(this.actualDuration);
+        this.recordingTimer.textContent = formatVoiceTimer(this.actualDuration);
       }
       this.stopRecordingTimer();
       this.recordingIndicator.classList.remove('recording');
@@ -24836,7 +24830,7 @@ class VoiceRecordingModal {
     const updateTimer = () => {
       const elapsed = Date.now() - this.recordingStartTime;
       const seconds = elapsed / 1000;
-      this.recordingTimer.textContent = this.formatDuration(seconds);
+      this.recordingTimer.textContent = formatVoiceTimer(seconds);
       
       // Stop recording after 5 minutes
       if (elapsed >= 5 * 60 * 1000) {
@@ -24910,7 +24904,7 @@ class VoiceRecordingModal {
       
       // Start playback timer
       this.playbackStartTime = Date.now();
-      this.recordingTimer.textContent = this.formatDuration(0);
+      this.recordingTimer.textContent = formatVoiceTimer(0);
       this.startPlaybackTimer();
       
       const audioUrl = URL.createObjectURL(this.recordedBlob);
@@ -24919,7 +24913,7 @@ class VoiceRecordingModal {
       
       audio.onended = () => {
         URL.revokeObjectURL(audioUrl);
-        this.recordingTimer.textContent = this.formatDuration(this.actualDuration || audio.duration || audio.currentTime || 0);
+        this.recordingTimer.textContent = formatVoiceTimer(this.actualDuration || audio.duration || audio.currentTime || 0);
         // Disable buttons before returning
         this.pauseResumeButton.disabled = true;
         this.stopListeningButton.disabled = true;
@@ -24956,7 +24950,7 @@ class VoiceRecordingModal {
         ? this.currentAudio.currentTime
         : elapsed / 1000;
       
-      this.recordingTimer.textContent = this.formatDuration(seconds);
+      this.recordingTimer.textContent = formatVoiceTimer(seconds);
     };
 
     updateTimer();
@@ -25000,7 +24994,7 @@ class VoiceRecordingModal {
     this.stopRecordingTimer();
     
     // Reset timer to show duration immediately
-    this.recordingTimer.textContent = this.formatDuration(this.actualDuration || 0);
+    this.recordingTimer.textContent = formatVoiceTimer(this.actualDuration || 0);
     
     // Hide listening controls and show recorded controls
     this.listeningControls.style.display = 'none';
@@ -25102,22 +25096,6 @@ class VoiceRecordingModal {
     } finally {
       hideToast(loadingToastId);
     }
-  }
-
-  /**
-   * Format duration from seconds to MM:SS.t for stable voice timers.
-   * @param {number} seconds - Duration in seconds
-   * @returns {string} Formatted duration
-   */
-  formatDuration(seconds) {
-    const duration = Number(seconds);
-    if (!Number.isFinite(duration) || duration <= 0) return '00:00.0';
-
-    const totalTenths = Math.round(duration * 10);
-    const mins = Math.floor(totalTenths / 600);
-    const secs = Math.floor((totalTenths % 600) / 10);
-    const tenths = totalTenths % 10;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${tenths}`;
   }
 
   /**
