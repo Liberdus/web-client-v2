@@ -1230,7 +1230,7 @@
             </div>
           </div>
           <div class="route-lane">
-            <div class="route-title">After vote route<span>Voter or operator</span></div>
+            <div class="route-title">After vote route<span>Voter or any user</span></div>
             <div class="route-chain">
               <span class="route-step entry">Menu</span><span class="route-arrow"></span>
               <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
@@ -1546,10 +1546,10 @@
                   </div>
                   <div class="row-role committee">2</div>
                 </div>
-                <div class="mock-list-row press-target" data-flow-source="dao-operator-category">
+                <div class="mock-list-row press-target" data-flow-source="dao-ready-actions-category">
                   <div>
-                    <div class="mock-list-title">Operator queue</div>
-                    <div class="mock-list-meta">Ready to apply or burn after the timing window</div>
+                    <div class="mock-list-title">Ready actions</div>
+                    <div class="mock-list-meta">Permissionless finalize/apply/burn transactions when ready</div>
                   </div>
                   <div class="row-role">3</div>
                 </div>
@@ -1698,7 +1698,7 @@
                     <div class="mock-list-title">Finalize review result</div>
                     <div class="mock-list-meta">dao_committee_result after reviewEnd</div>
                   </div>
-                  <div class="row-role">operator</div>
+                  <div class="row-role">any user</div>
                 </div>
               </div>
               <div class="button-row">
@@ -1859,7 +1859,7 @@
             <div class="screen-body">
               <div class="status-line">
                 <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Operator</span>
+                <span class="status-pill role">Any user</span>
               </div>
               <div class="screen-context"><strong>Final reward burn</strong>dao_burn_reward runs after claimEnd for accepted, applied, or rejected proposals and moves remaining rewards into finalBurnedReward.</div>
               <div class="proposal-title">Claim window complete</div>
@@ -1901,7 +1901,7 @@
           </article>
           </div>
 
-          <div class="flow-row-title branch-indent">Reference and operator branch <span>Parameters open directly; operator category opens a queue before the apply modal.</span></div>
+          <div class="flow-row-title branch-indent">Reference and ready-action branch <span>Parameters open directly; ready actions are permissionless finalization tasks unless emergency rules apply.</span></div>
           <div class="screen-grid flow-grid branch-row">
             <div class="branch-spacer" aria-hidden="true"></div>
           <article class="screen" data-flow-target="parameters" data-flow="2c. Parameters">
@@ -1931,20 +1931,20 @@
             </div>
           </article>
 
-          <article class="screen" data-flow-target="operator-list" data-flow="3c. Operator queue">
+          <article class="screen" data-flow-target="ready-actions" data-flow="3c. Ready actions">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Operator Queue</div>
+              <div class="screen-title">Ready Actions</div>
               <span></span>
             </div>
             <div class="screen-body">
               <div class="status-line">
                 <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Operator</span>
+                <span class="status-pill role">Any user</span>
               </div>
-              <div class="screen-context"><strong>Post-vote actions</strong>Shows accepted proposals ready to apply and proposals ready for final reward burn. Selecting a row opens the relevant action modal.</div>
+              <div class="screen-context"><strong>Permissionless lifecycle actions</strong>No separate operator account is required. Any funded user can run these timing/status transactions when they become valid.</div>
               <div class="mock-list action-list">
-                <div class="mock-list-row press-target" data-flow-source="operator-list-row">
+                <div class="mock-list-row press-target" data-flow-source="ready-action-row">
                   <div>
                     <div class="mock-list-title">#21 Ready to apply</div>
                     <div class="mock-list-meta">applyEligibleAt reached - governance parameter change</div>
@@ -1971,13 +1971,13 @@
             <div class="screen-body">
               <div class="status-line">
                 <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Operator</span>
+                <span class="status-pill role">Any user</span>
               </div>
-              <div class="screen-context"><strong>dao_apply_parameters</strong>Applies accepted governance, economic, or protocol changes after applyEligibleAt. Emergency proposals can be applied by committee immediately after acceptance.</div>
+              <div class="screen-context"><strong>dao_apply_parameters</strong>Regular accepted proposals can be applied by any funded user after applyEligibleAt. Emergency proposals can only be applied by a committee member.</div>
               <div class="proposal-title">Accepted governance proposal</div>
               <div class="mock-list">
                 <div class="mock-list-row"><div class="mock-list-title">voteExponent</div><div class="mock-list-meta">1.1 -&gt; 1.2</div></div>
-                <div class="mock-list-row"><div class="mock-list-title">Grace period</div><div class="mock-list-meta">complete</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">Permission</div><div class="mock-list-meta">any user for regular proposal</div></div>
                 <div class="mock-list-row"><div class="mock-list-title">Next status</div><div class="mock-list-meta">applied</div></div>
               </div>
               <div class="timeline" data-flow-target="apply-timeline">
@@ -2148,8 +2148,8 @@
             { from: "dao-reward-category", to: "reward-list", label: "open rewards list", fromSide: "left", wrapFromSide: "left", toSide: "left", toRatio: 0.42, route: "branch-low", wrapLabelDx: -76, wrapLabelDy: -30, labelWidth: 138 },
             { from: "reward-list-row", to: "rewards", label: "tap claim item", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-reverse", labelDx: -52, labelDy: -50 },
             { from: "dao-parameters", to: "parameters", label: "tap Parameters", fromSide: "top", toSide: "left", toRatio: 0.8, route: "branch", labelDx: -80, labelDy: -30 },
-            { from: "dao-operator-category", to: "operator-list", label: "open operator queue", fromSide: "left", wrapFromSide: "left", toSide: "left", toRatio: 0.42, route: "branch-low", wrapLabelDx: -84, wrapLabelDy: -30, labelWidth: 154 },
-            { from: "operator-list-row", to: "apply", label: "tap ready item", fromSide: "top", toSide: "left", toRatio: 0.42, route: "same-row", labelDx: -34, labelDy: -34 },
+            { from: "dao-ready-actions-category", to: "ready-actions", label: "open ready actions", fromSide: "left", wrapFromSide: "left", toSide: "left", toRatio: 0.42, route: "branch-low", wrapLabelDx: -84, wrapLabelDy: -30, labelWidth: 154 },
+            { from: "ready-action-row", to: "apply", label: "tap ready item", fromSide: "top", toSide: "left", toRatio: 0.42, route: "same-row", labelDx: -34, labelDy: -34 },
             { from: "apply-parameters", to: "apply-timeline", label: "dao_apply_parameters", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -74, labelDy: -24, labelWidth: 170 }
           ];
 
