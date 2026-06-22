@@ -14353,6 +14353,11 @@ const LOCATION_GEO_OPTIONS = {
   maximumAge: 0
 };
 const LOCATION_PERMISSION_DENIED_MESSAGE = 'Location permission was denied. Enable location access in your browser or device settings, then try again.';
+/**
+ * Format a voice timer value with tenths-of-a-second precision.
+ * @param {number|string} seconds - Duration or playback position in seconds.
+ * @returns {string} Timer formatted as mm:ss.t.
+ */
 function formatVoiceTimer(seconds) {
   const duration = Number(seconds);
   if (!Number.isFinite(duration) || duration <= 0) return '00:00.0';
@@ -21316,11 +21321,22 @@ class ChatModal {
 
   // ========== Voice Message Methods ==========
 
+  /**
+   * Normalize a duration-like value to a positive finite number of seconds.
+   * @param {number|string} seconds - Duration value to normalize.
+   * @returns {number} Positive duration in seconds, or 0 when invalid.
+   */
   getPositiveDurationSeconds(seconds) {
     const duration = Number(seconds);
     return Number.isFinite(duration) && duration > 0 ? duration : 0;
   }
 
+  /**
+   * Format the current voice playback position, capped by total duration when known.
+   * @param {number|string} seconds - Current playback or seek position in seconds.
+   * @param {number|string} totalSeconds - Total voice message duration in seconds.
+   * @returns {string} Current playback time formatted as mm:ss.t.
+   */
   formatVoiceProgressTime(seconds, totalSeconds) {
     const current = Math.max(0, Number(seconds) || 0);
     const total = this.getPositiveDurationSeconds(totalSeconds);
