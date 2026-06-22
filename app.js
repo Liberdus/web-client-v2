@@ -24826,6 +24826,7 @@ class VoiceRecordingModal {
       // Calculate actual recording duration (excluding processing time)
       if (this.recordingStartTime) {
         this.actualDuration = (this.recordingStopTime - this.recordingStartTime) / 1000;
+        this.recordingTimer.textContent = this.formatDuration(this.actualDuration);
       }
       this.stopRecordingTimer();
       this.recordingIndicator.classList.remove('recording');
@@ -24837,9 +24838,9 @@ class VoiceRecordingModal {
    * @returns {void}
    */
   startRecordingTimer() {
-    this.recordingInterval = setInterval(() => {
+    const updateTimer = () => {
       const elapsed = Date.now() - this.recordingStartTime;
-      const seconds = Math.floor(elapsed / 1000);
+      const seconds = elapsed / 1000;
       this.recordingTimer.textContent = this.formatDuration(seconds);
       
       // Stop recording after 5 minutes
@@ -24847,7 +24848,10 @@ class VoiceRecordingModal {
         this.stopVoiceRecording();
         showToast('Maximum recording time reached (5 minutes)', 3000, 'warning');
       }
-    }, 1000);
+    };
+
+    updateTimer();
+    this.recordingInterval = setInterval(updateTimer, 100);
   }
 
   /**
@@ -24911,7 +24915,7 @@ class VoiceRecordingModal {
       
       // Start playback timer
       this.playbackStartTime = Date.now();
-      this.recordingTimer.textContent = '00:00'; // Reset to 0:00 when starting
+      this.recordingTimer.textContent = this.formatDuration(0);
       this.startPlaybackTimer();
       
       const audioUrl = URL.createObjectURL(this.recordedBlob);
@@ -24920,6 +24924,7 @@ class VoiceRecordingModal {
       
       audio.onended = () => {
         URL.revokeObjectURL(audioUrl);
+        this.recordingTimer.textContent = this.formatDuration(this.actualDuration || audio.duration || audio.currentTime || 0);
         // Disable buttons before returning
         this.pauseResumeButton.disabled = true;
         this.stopListeningButton.disabled = true;
@@ -24950,12 +24955,17 @@ class VoiceRecordingModal {
    * @returns {void}
    */
   startPlaybackTimer() {
-    this.recordingInterval = setInterval(() => {
+    const updateTimer = () => {
       const elapsed = Date.now() - this.playbackStartTime;
-      const seconds = Math.floor(elapsed / 1000);
+      const seconds = this.currentAudio
+        ? this.currentAudio.currentTime
+        : elapsed / 1000;
       
       this.recordingTimer.textContent = this.formatDuration(seconds);
-    }, 1000);
+    };
+
+    updateTimer();
+    this.recordingInterval = setInterval(updateTimer, 100);
   }
 
   /**
