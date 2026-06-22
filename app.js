@@ -21307,19 +21307,19 @@ class ChatModal {
   // ========== Voice Message Methods ==========
 
   /**
-   * Format duration from seconds to m:ss, with tenths for sub-second clips.
+   * Format duration from seconds to MM:SS.t for stable voice timers.
    * @param {number} seconds - Duration in seconds
    * @returns {string} Formatted duration
    */
   formatDuration(seconds) {
     const duration = Number(seconds);
-    if (!Number.isFinite(duration) || duration <= 0) return '0:00';
-    if (duration < 1) return `${Math.max(0.1, duration).toFixed(1)}s`;
+    if (!Number.isFinite(duration) || duration <= 0) return '00:00.0';
 
-    const wholeSeconds = Math.floor(duration);
-    const mins = Math.floor(wholeSeconds / 60);
-    const secs = wholeSeconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    const totalTenths = Math.round(duration * 10);
+    const mins = Math.floor(totalTenths / 600);
+    const secs = Math.floor((totalTenths % 600) / 10);
+    const tenths = totalTenths % 10;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${tenths}`;
   }
 
   getPositiveDurationSeconds(seconds) {
@@ -21328,14 +21328,9 @@ class ChatModal {
   }
 
   formatVoiceProgressTime(seconds, totalSeconds) {
-    const total = this.getPositiveDurationSeconds(totalSeconds);
     const current = Math.max(0, Number(seconds) || 0);
-    if (total > 0 && total < 1) {
-      const clampedCurrent = Math.min(current, total);
-      const visibleCurrent = clampedCurrent > 0 ? Math.max(0.1, clampedCurrent) : 0;
-      return `${visibleCurrent.toFixed(1)}s`;
-    }
-    return this.formatDuration(Math.floor(current));
+    const total = this.getPositiveDurationSeconds(totalSeconds);
+    return this.formatDuration(total ? Math.min(current, total) : current);
   }
 
   /**
@@ -24740,7 +24735,7 @@ class VoiceRecordingModal {
     this.recordingControls.style.display = 'none';
     this.recordedControls.style.display = 'none';
     this.listeningControls.style.display = 'none';
-    this.recordingTimer.textContent = '00:00';
+    this.recordingTimer.textContent = this.formatDuration(0);
     this.recordingIndicator.classList.remove('recording');
     this.voiceMessageSendStarted = false;
   }
@@ -25110,19 +25105,19 @@ class VoiceRecordingModal {
   }
 
   /**
-   * Format duration from seconds to mm:ss, with tenths for sub-second clips.
+   * Format duration from seconds to MM:SS.t for stable voice timers.
    * @param {number} seconds - Duration in seconds
    * @returns {string} Formatted duration
    */
   formatDuration(seconds) {
     const duration = Number(seconds);
-    if (!Number.isFinite(duration) || duration <= 0) return '00:00';
-    if (duration < 1) return `${Math.max(0.1, duration).toFixed(1)}s`;
+    if (!Number.isFinite(duration) || duration <= 0) return '00:00.0';
 
-    const wholeSeconds = Math.floor(duration);
-    const mins = Math.floor(wholeSeconds / 60);
-    const secs = wholeSeconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    const totalTenths = Math.round(duration * 10);
+    const mins = Math.floor(totalTenths / 600);
+    const secs = Math.floor((totalTenths % 600) / 10);
+    const tenths = totalTenths % 10;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${tenths}`;
   }
 
   /**
