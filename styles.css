@@ -2319,6 +2319,27 @@ input[type='file'].form-control::file-selector-button {
   border-bottom-right-radius: 0rem;
 }
 
+.message.status-change-message {
+  align-self: center;
+  max-width: 92%;
+  cursor: default;
+  background: transparent;
+  color: var(--secondary-text-color);
+  text-align: center;
+  padding: 0.375rem 0.75rem;
+}
+
+.status-change-content {
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  font-weight: 500;
+}
+
+.message.status-change-message .message-time {
+  text-align: center;
+  margin-top: 0.125rem;
+}
+
 /* Make links white in sent messages for contrast */
 .message.sent a {
   color: white;
