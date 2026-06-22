@@ -18723,7 +18723,7 @@ class ChatModal {
       if (replyOption) replyOption.style.display = 'flex';
       if (editOption) editOption.style.display = 'none';
     } else if (isLocation) {
-      if (copyOption) copyOption.style.display = 'none';
+      if (copyOption) copyOption.style.display = 'flex';
       if (inviteOption) inviteOption.style.display = 'none';
       if (joinOption) joinOption.style.display = 'none';
       if (replyOption) replyOption.style.display = 'flex';
@@ -20636,6 +20636,23 @@ class ChatModal {
     }
 
     const isPayment = messageEl.classList.contains('payment-info');
+    const locationLink = messageEl.querySelector('.location-message-summary');
+    if (locationLink) {
+      const mapUrl = locationLink.getAttribute('href')?.trim();
+      if (!mapUrl) {
+        return showToast('No location URL to copy', 2000, 'info');
+      }
+
+      try {
+        await navigator.clipboard.writeText(mapUrl);
+        showToast('Location URL copied to clipboard', 2000, 'success');
+      } catch (err) {
+        console.error('Failed to copy:', err);
+        showToast('Failed to copy location URL', 0, 'error');
+      }
+      return;
+    }
+
     const selector = isPayment ? '.payment-memo' : '.message-content';
     const contentType = isPayment ? 'Memo' : 'Message';
     const contentEl = messageEl.querySelector(selector);
