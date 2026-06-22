@@ -3122,8 +3122,8 @@ class ChatSettingsModal {
   constructor() {
     this.storageKey = 'chat_font_size_px';
     this.defaultFontSizePx = 16;
-    this.minFontSizePx = 14;
-    this.maxFontSizePx = 20;
+    this.minFontSizePx = 12;
+    this.maxFontSizePx = 30;
     this.savedFontSizePx = this.defaultFontSizePx;
     this.draftFontSizePx = this.defaultFontSizePx;
     this.warningShown = false;
@@ -3142,7 +3142,7 @@ class ChatSettingsModal {
 
     this.savedFontSizePx = this.readSavedFontSize();
     this.draftFontSizePx = this.savedFontSizePx;
-    this.fontSizeSlider.value = String(this.savedFontSizePx);
+    this.setSliderValue(this.savedFontSizePx);
     this.updatePreview();
     this.applyChatFontSize();
   }
@@ -3150,13 +3150,14 @@ class ChatSettingsModal {
   open() {
     this.draftFontSizePx = this.savedFontSizePx;
     this.warningShown = false;
-    this.fontSizeSlider.value = String(this.draftFontSizePx);
+    this.setSliderValue(this.draftFontSizePx);
     this.updatePreview();
     this.modal.classList.add('active');
   }
 
   handleSliderInput() {
     this.draftFontSizePx = this.clampFontSize(Number(this.fontSizeSlider.value));
+    this.syncSliderPosition(this.draftFontSizePx);
     this.warningShown = false;
     this.updatePreview();
   }
@@ -3172,6 +3173,17 @@ class ChatSettingsModal {
   updatePreview() {
     this.preview.style.setProperty('--chat-settings-preview-message-font-size', this.draftFontSizePx + 'px');
     this.preview.style.setProperty('--chat-settings-preview-message-meta-font-size', this.metaFontSizePx(this.draftFontSizePx) + 'px');
+  }
+
+  setSliderValue(value) {
+    this.fontSizeSlider.value = String(value);
+    this.syncSliderPosition(value);
+  }
+
+  syncSliderPosition(value) {
+    const range = this.maxFontSizePx - this.minFontSizePx;
+    const position = range === 0 ? 0 : ((value - this.minFontSizePx) / range) * 100;
+    this.fontSizeSlider.style.setProperty('--chat-settings-slider-position', position + '%');
   }
 
   applyChatFontSize() {
@@ -3217,7 +3229,7 @@ class ChatSettingsModal {
     this.modal.classList.remove('active');
     this.draftFontSizePx = this.savedFontSizePx;
     this.warningShown = false;
-    this.fontSizeSlider.value = String(this.savedFontSizePx);
+    this.setSliderValue(this.savedFontSizePx);
     this.updatePreview();
   }
 

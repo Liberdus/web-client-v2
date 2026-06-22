@@ -2507,10 +2507,70 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #chatSettingsFontSizeSlider {
-  accent-color: var(--primary-color);
+  --chat-settings-slider-position: 22.222%;
+  --chat-settings-slider-tick-color: rgba(31, 36, 48, 0.28);
+  appearance: none;
+  -webkit-appearance: none;
+  background:
+    repeating-linear-gradient(
+      to right,
+      var(--chat-settings-slider-tick-color) 0 1px,
+      transparent 1px calc(100% / 18)
+    ) center / 100% 14px no-repeat,
+    linear-gradient(
+      to right,
+      var(--primary-color) 0 var(--chat-settings-slider-position),
+      var(--border-color) var(--chat-settings-slider-position) 100%
+    ) center / 100% 4px no-repeat;
+  border-radius: 999px;
+  height: 28px;
   margin: 0;
   min-width: 0;
   width: 100%;
+}
+
+#chatSettingsFontSizeSlider:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 4px;
+}
+
+#chatSettingsFontSizeSlider::-webkit-slider-runnable-track {
+  background: transparent;
+  border: 0;
+  height: 28px;
+}
+
+#chatSettingsFontSizeSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--primary-color);
+  border: 0;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(31, 36, 48, 0.22);
+  cursor: pointer;
+  height: 22px;
+  margin-top: 3px;
+  width: 22px;
+}
+
+#chatSettingsFontSizeSlider::-moz-range-track {
+  background: transparent;
+  border: 0;
+  height: 28px;
+}
+
+#chatSettingsFontSizeSlider::-moz-range-progress {
+  background: transparent;
+}
+
+#chatSettingsFontSizeSlider::-moz-range-thumb {
+  background: var(--primary-color);
+  border: 0;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(31, 36, 48, 0.22);
+  cursor: pointer;
+  height: 22px;
+  width: 22px;
 }
 
 .chat-settings-slider-labels {
