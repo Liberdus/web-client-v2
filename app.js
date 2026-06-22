@@ -14355,6 +14355,21 @@ const LOCATION_GEO_OPTIONS = {
   maximumAge: 0
 };
 const LOCATION_PERMISSION_DENIED_MESSAGE = 'Location permission was denied. Enable location access in your browser or device settings, then try again.';
+/**
+ * Format a voice timer value with tenths-of-a-second precision.
+ * @param {number|string} seconds - Duration or playback position in seconds.
+ * @returns {string} Timer formatted as mm:ss.t.
+ */
+function formatVoiceTimer(seconds) {
+  const duration = Number(seconds);
+  if (!Number.isFinite(duration) || duration <= 0) return '00:00.0';
+
+  const totalTenths = Math.round(duration * 10);
+  const mins = Math.floor(totalTenths / 600);
+  const secs = Math.floor((totalTenths % 600) / 10);
+  const tenths = totalTenths % 10;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${tenths}`;
+}
 const CHAT_REACTION_SHEET_TAB_ICONS = {
   recent: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/></svg>',
   smileys: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>',
@@ -15266,11 +15281,12 @@ class ChatModal {
 
       const newTime = Number(seekEl.value || 0);
 
-      const totalSeconds = Math.floor(Number(seekEl.max) || Number(voiceMessageElement.dataset.duration) || 0);
+      const totalSeconds = this.getPositiveDurationSeconds(seekEl.max) ||
+        this.getPositiveDurationSeconds(voiceMessageElement.dataset.duration);
       // updates the on-screen "current / total" label
       if (timeDisplayElement) {
-        const currentTime = this.formatDuration(newTime);
-        const totalTime = this.formatDuration(totalSeconds);
+        const currentTime = this.formatVoiceProgressTime(newTime, totalSeconds);
+        const totalTime = formatVoiceTimer(totalSeconds);
         timeDisplayElement.textContent = `${currentTime} / ${totalTime}`;
       }
       // ensures playback starts at the chosen position when audio is ready
@@ -15301,8 +15317,10 @@ class ChatModal {
     const timeDisplay = voiceMessageElement.querySelector('.voice-message-time-display');
     if (seekEl) seekEl.value = 0;
     if (timeDisplay && voiceMessageElement.dataset.duration) {
-      const duration = this.formatDuration(Number(voiceMessageElement.dataset.duration) || 0);
-      timeDisplay.textContent = `0:00 / ${duration}`;
+      const totalSeconds = this.getPositiveDurationSeconds(voiceMessageElement.dataset.duration);
+      const currentTime = this.formatVoiceProgressTime(0, totalSeconds);
+      const duration = formatVoiceTimer(totalSeconds);
+      timeDisplay.textContent = `${currentTime} / ${duration}`;
     }
   }
 
@@ -17191,10 +17209,12 @@ class ChatModal {
       }
       case 'vm': {
         // Check for voice message
-        const duration = this.formatDuration(item.duration);
+        const durationSeconds = this.getPositiveDurationSeconds(item.duration);
+        const currentTime = this.formatVoiceProgressTime(0, durationSeconds);
+        const duration = formatVoiceTimer(durationSeconds);
         // Use audio encryption keys for playback, fall back to message encryption keys if not available
         messageTextHTML = `
-              <div class="voice-message" data-url="${item.url || ''}" data-name="voice-message" data-type="audio/webm" data-duration="${item.duration || 0}">
+              <div class="voice-message" data-url="${item.url || ''}" data-name="voice-message" data-type="audio/webm" data-duration="${durationSeconds}">
                 <div class="voice-message-controls">
                   <div class="voice-message-top-row">
                     <button class="voice-message-play-button" aria-label="Play voice message">
@@ -17203,10 +17223,10 @@ class ChatModal {
                       </svg>
                     </button>
                     <div class="voice-message-text">Voice message</div>
-                    <div class="voice-message-time-display">0:00 / ${duration}</div>
+                    <div class="voice-message-time-display">${currentTime} / ${duration}</div>
                   </div>
                   <div class="voice-message-bottom-row">
-                    <input type="range" class="voice-message-seek" min="0" max="${item.duration || 0}" value="0" step="1" aria-label="Seek voice message">
+                    <input type="range" class="voice-message-seek" min="0" max="${durationSeconds}" value="0" step="0.01" aria-label="Seek voice message">
                     <button class="voice-message-speed-button" aria-label="Toggle playback speed" data-speed="1">1x</button>
                   </div>
                 </div>
@@ -21304,14 +21324,25 @@ class ChatModal {
   // ========== Voice Message Methods ==========
 
   /**
-   * Format duration from seconds to mm:ss
-   * @param {number} seconds - Duration in seconds
-   * @returns {string} Formatted duration
+   * Normalize a duration-like value to a positive finite number of seconds.
+   * @param {number|string} seconds - Duration value to normalize.
+   * @returns {number} Positive duration in seconds, or 0 when invalid.
    */
-  formatDuration(seconds) {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  getPositiveDurationSeconds(seconds) {
+    const duration = Number(seconds);
+    return Number.isFinite(duration) && duration > 0 ? duration : 0;
+  }
+
+  /**
+   * Format the current voice playback position, capped by total duration when known.
+   * @param {number|string} seconds - Current playback or seek position in seconds.
+   * @param {number|string} totalSeconds - Total voice message duration in seconds.
+   * @returns {string} Current playback time formatted as mm:ss.t.
+   */
+  formatVoiceProgressTime(seconds, totalSeconds) {
+    const current = Math.max(0, Number(seconds) || 0);
+    const total = this.getPositiveDurationSeconds(totalSeconds);
+    return formatVoiceTimer(total ? Math.min(current, total) : current);
   }
 
   /**
@@ -21587,19 +21618,32 @@ class ChatModal {
       }
       const seekEl = voiceMessageElement.querySelector('.voice-message-seek');
       const timeDisplayElement = voiceMessageElement.querySelector('.voice-message-time-display');
-      // Use stored duration from message object
-      const totalDurationSeconds = (Number.isFinite(message.duration) && message.duration > 0)
-        ? Math.floor(message.duration)
-        : 0;
-      
+      let totalDurationSeconds = this.getPositiveDurationSeconds(message.duration);
+      const updateDurationUi = () => {
+        if (seekEl) seekEl.max = totalDurationSeconds || 0;
+        voiceMessageElement.dataset.duration = String(totalDurationSeconds || 0);
+        if (!timeDisplayElement) return;
+
+        const current = audio?.currentTime || Number(seekEl?.value || 0);
+        const currentTime = this.formatVoiceProgressTime(current, totalDurationSeconds);
+        const totalTime = formatVoiceTimer(totalDurationSeconds);
+        timeDisplayElement.textContent = `${currentTime} / ${totalTime}`;
+      };
+
       // Set max immediately so slider is seekable before playback
-      if (seekEl) seekEl.max = totalDurationSeconds || 0;
+      updateDurationUi();
       
       // Handle pending seeks (if user moved slider before clicking play)
       audio.addEventListener('loadedmetadata', () => {
+        const metadataDuration = this.getPositiveDurationSeconds(audio.duration);
+        if (metadataDuration && Math.abs(metadataDuration - totalDurationSeconds) > 0.05) {
+          totalDurationSeconds = metadataDuration;
+          updateDurationUi();
+        }
+
         if (voiceMessageElement.pendingSeekTime !== undefined) {
           const pst = voiceMessageElement.pendingSeekTime;
-          if (pst >= 0 && pst < totalDurationSeconds) {
+          if (pst >= 0 && (!totalDurationSeconds || pst < totalDurationSeconds)) {
             try { audio.currentTime = pst; } catch (e) { /* ignore */ }
           }
           delete voiceMessageElement.pendingSeekTime;
@@ -21616,11 +21660,11 @@ class ChatModal {
       audio.ontimeupdate = () => {
         if (!voiceMessageElement.isScrubbing) {
           if (seekEl) {
-            seekEl.value = Math.floor(audio.currentTime);
+            seekEl.value = audio.currentTime;
           }
           if (timeDisplayElement) {
-            const currentTime = this.formatDuration(Math.floor(audio.currentTime));
-            const totalTime = this.formatDuration(totalDurationSeconds);
+            const currentTime = this.formatVoiceProgressTime(audio.currentTime, totalDurationSeconds);
+            const totalTime = formatVoiceTimer(totalDurationSeconds);
             timeDisplayElement.textContent = `${currentTime} / ${totalTime}`;
           }
         }
@@ -24703,7 +24747,7 @@ class VoiceRecordingModal {
     this.recordingControls.style.display = 'none';
     this.recordedControls.style.display = 'none';
     this.listeningControls.style.display = 'none';
-    this.recordingTimer.textContent = '00:00';
+    this.recordingTimer.textContent = formatVoiceTimer(0);
     this.recordingIndicator.classList.remove('recording');
     this.voiceMessageSendStarted = false;
   }
@@ -24788,7 +24832,8 @@ class VoiceRecordingModal {
       this.recordingStopTime = Date.now();
       // Calculate actual recording duration (excluding processing time)
       if (this.recordingStartTime) {
-        this.actualDuration = Math.floor((this.recordingStopTime - this.recordingStartTime) / 1000);
+        this.actualDuration = (this.recordingStopTime - this.recordingStartTime) / 1000;
+        this.recordingTimer.textContent = formatVoiceTimer(this.actualDuration);
       }
       this.stopRecordingTimer();
       this.recordingIndicator.classList.remove('recording');
@@ -24800,17 +24845,20 @@ class VoiceRecordingModal {
    * @returns {void}
    */
   startRecordingTimer() {
-    this.recordingInterval = setInterval(() => {
+    const updateTimer = () => {
       const elapsed = Date.now() - this.recordingStartTime;
-      const seconds = Math.floor(elapsed / 1000);
-      this.recordingTimer.textContent = this.formatDuration(seconds);
+      const seconds = elapsed / 1000;
+      this.recordingTimer.textContent = formatVoiceTimer(seconds);
       
       // Stop recording after 5 minutes
       if (elapsed >= 5 * 60 * 1000) {
         this.stopVoiceRecording();
         showToast('Maximum recording time reached (5 minutes)', 3000, 'warning');
       }
-    }, 1000);
+    };
+
+    updateTimer();
+    this.recordingInterval = setInterval(updateTimer, 100);
   }
 
   /**
@@ -24874,7 +24922,7 @@ class VoiceRecordingModal {
       
       // Start playback timer
       this.playbackStartTime = Date.now();
-      this.recordingTimer.textContent = '00:00'; // Reset to 0:00 when starting
+      this.recordingTimer.textContent = formatVoiceTimer(0);
       this.startPlaybackTimer();
       
       const audioUrl = URL.createObjectURL(this.recordedBlob);
@@ -24883,6 +24931,7 @@ class VoiceRecordingModal {
       
       audio.onended = () => {
         URL.revokeObjectURL(audioUrl);
+        this.recordingTimer.textContent = formatVoiceTimer(this.actualDuration || audio.duration || audio.currentTime || 0);
         // Disable buttons before returning
         this.pauseResumeButton.disabled = true;
         this.stopListeningButton.disabled = true;
@@ -24913,12 +24962,17 @@ class VoiceRecordingModal {
    * @returns {void}
    */
   startPlaybackTimer() {
-    this.recordingInterval = setInterval(() => {
+    const updateTimer = () => {
       const elapsed = Date.now() - this.playbackStartTime;
-      const seconds = Math.floor(elapsed / 1000);
+      const seconds = this.currentAudio
+        ? this.currentAudio.currentTime
+        : elapsed / 1000;
       
-      this.recordingTimer.textContent = this.formatDuration(seconds);
-    }, 1000);
+      this.recordingTimer.textContent = formatVoiceTimer(seconds);
+    };
+
+    updateTimer();
+    this.recordingInterval = setInterval(updateTimer, 100);
   }
 
   /**
@@ -24958,7 +25012,7 @@ class VoiceRecordingModal {
     this.stopRecordingTimer();
     
     // Reset timer to show duration immediately
-    this.recordingTimer.textContent = this.formatDuration(this.actualDuration || 0);
+    this.recordingTimer.textContent = formatVoiceTimer(this.actualDuration || 0);
     
     // Hide listening controls and show recorded controls
     this.listeningControls.style.display = 'none';
@@ -25060,17 +25114,6 @@ class VoiceRecordingModal {
     } finally {
       hideToast(loadingToastId);
     }
-  }
-
-  /**
-   * Format duration from seconds to mm:ss
-   * @param {number} seconds - Duration in seconds
-   * @returns {string} Formatted duration
-   */
-  formatDuration(seconds) {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
 
   /**
