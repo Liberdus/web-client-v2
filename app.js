@@ -17336,6 +17336,7 @@ class ChatModal {
 
     // Replace the list once to avoid one DOM mutation per message.
     this.messagesList.innerHTML = range.html;
+    this.syncAllRenderedReactionChips();
     const shouldKeepBottomAnchored = !skipAutoScroll && !highlightNewMessage;
 
     // --- 4.5. Load thumbnails for image attachments (async, non-blocking) ---
@@ -17358,7 +17359,6 @@ class ChatModal {
         if (!skipAutoScroll) {
           this.ensureScrollableChatRenderWindow();
         }
-        this.syncAllRenderedReactionChips();
       });
     });
 
@@ -19109,6 +19109,7 @@ class ChatModal {
     if (existingContainer) {
       existingContainer.remove();
     }
+    messageEl.classList.remove('has-reactions');
 
     const messageRecord = this.getMessageRecordFromElement(messageEl);
     if (messageRecord && isDeleted(messageRecord)) {
@@ -19118,6 +19119,7 @@ class ChatModal {
     const reactionHtml = this.buildReactionChipsHTML(reactionsForTarget);
     if (!reactionHtml) return;
 
+    messageEl.classList.add('has-reactions');
     messageEl.insertAdjacentHTML('beforeend', reactionHtml);
   }
 
