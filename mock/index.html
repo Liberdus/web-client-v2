@@ -346,7 +346,7 @@
       }
 
       .branch-flow-board .flow-row-title.branch-indent {
-        padding-left: 408px;
+        padding-left: 510px;
       }
 
       .branch-spacer {
@@ -358,7 +358,7 @@
         color: var(--text-color);
         font-size: 15px;
         font-weight: var(--font-weight-semibold);
-        margin: 24px 0 8px;
+        margin: 40px 0 14px;
       }
 
       .flow-row-title span {
@@ -369,7 +369,8 @@
       }
 
       .screen-grid.flow-grid {
-        margin-bottom: 20px;
+        gap: 120px;
+        margin-bottom: 128px;
       }
 
       .action-list .mock-list-row.press-target {
@@ -381,12 +382,42 @@
         stroke: rgba(61, 61, 206, 0.56);
         stroke-dasharray: 7 6;
         stroke-linecap: round;
+        stroke-opacity: 0.86;
         stroke-width: 2.5;
+        transition: filter 160ms ease, stroke-dashoffset 160ms ease, stroke-opacity 160ms ease, stroke-width 160ms ease;
+      }
+
+      .branch-transition-arrows .transition-connector {
+        color: var(--connector-color, var(--primary-color));
+        pointer-events: none;
+      }
+
+      .branch-transition-arrows .transition-hit-path {
+        cursor: pointer;
+        fill: none;
+        pointer-events: stroke;
+        stroke: rgba(0, 0, 0, 0.001);
+        stroke-linecap: round;
+        stroke-width: 18;
+      }
+
+      .branch-transition-arrows .transition-label {
+        cursor: pointer;
+        pointer-events: auto;
+      }
+
+      .branch-transition-arrows .transition-connector.is-highlighted .transition-path {
+        animation: connector-dash 800ms linear infinite;
+        filter: drop-shadow(0 0 5px rgba(61, 61, 206, 0.42));
+        stroke-dasharray: 10 5;
+        stroke-opacity: 1;
+        stroke-width: 4.5;
       }
 
       .transition-label rect {
         fill: var(--background-color);
         stroke: rgba(61, 61, 206, 0.24);
+        transition: fill 160ms ease, stroke-width 160ms ease;
       }
 
       .transition-label text {
@@ -394,6 +425,17 @@
         font-family: var(--font-primary);
         font-size: 12px;
         font-weight: var(--font-weight-semibold);
+      }
+
+      .branch-transition-arrows .transition-connector.is-highlighted .transition-label rect {
+        fill: #fff;
+        stroke-width: 2;
+      }
+
+      @keyframes connector-dash {
+        to {
+          stroke-dashoffset: -30;
+        }
       }
 
       .press-target {
@@ -2117,6 +2159,8 @@
         viewport.addEventListener("pointerup", stopDragging);
         viewport.addEventListener("pointercancel", stopDragging);
 
+        const pinnedBranchConnectors = new Set();
+
         const renderBranchArrows = () => {
           const board = document.querySelector("[data-branch-board]");
           const svg = document.querySelector("[data-branch-arrows]");
@@ -2133,9 +2177,9 @@
             { from: "committee-list-row", to: "committee", label: "tap review item", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: -32, labelDy: -34 },
             { from: "committee-accept", to: "committee-tally", label: "dao_committee_vote", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -78, labelDy: -16, labelWidth: 154 },
             { from: "committee-withhold", to: "withhold-reason", label: "withhold reason", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -44, labelDy: -10 },
-            { from: "committee-result", to: "proposal-list", label: "moves to voting", fromSide: "right", toSide: "right", wrapSide: "right", toRatio: 0.42, route: "branch-reverse", labelDx: -94, labelDy: -10, labelWidth: 126 },
-            { from: "dao-committee-category", to: "committee-queue", label: "open committee list", fromSide: "right", toSide: "left", toRatio: 0.55, route: "same-row", labelDx: -104, labelDy: -24, labelWidth: 148 },
-            { from: "dao-voting-category", to: "proposal-list", label: "open voting filter", fromSide: "right", toSide: "right", wrapSide: "right", toRatio: 0.42, route: "branch", labelDx: -96, labelDy: -30, labelWidth: 144 },
+            { from: "committee-result", to: "proposal-list", label: "moves to voting", fromSide: "right", toSide: "right", wrapSide: "right", toRatio: 0.2, route: "branch-reverse", lane: 3, laneOffset: 66, rowOffset: 100, labelDx: -94, labelDy: -10, labelWidth: 126 },
+            { from: "dao-committee-category", to: "committee-queue", label: "open committee list", fromSide: "right", wrapFromSide: "right", toSide: "left", wrapSide: "left", toRatio: 0.34, route: "branch", lane: 0, laneOffset: 30, rowOffset: 68, wrapAround: "bottom", wrapLabelDx: -78, wrapLabelDy: -30, labelWidth: 148 },
+            { from: "dao-voting-category", to: "proposal-list", label: "open voting filter", fromSide: "right", toSide: "left", wrapSide: "left", toRatio: 0.32, route: "branch", lane: 1, laneOffset: 42, rowOffset: 72, labelDx: -96, labelDy: -30, labelWidth: 144 },
             { from: "proposal-list-vote-row", to: "community-vote", label: "tap voting row", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: -34, labelDy: -34, labelWidth: 120 },
             { from: "vote-preview", to: "vote-estimate", label: "shows estimate", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -30, labelDy: -16 },
             { from: "vote-submit", to: "results", label: "dao_vote", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: 2, labelDy: -30 },
@@ -2143,12 +2187,12 @@
             { from: "results", to: "rewards", label: "claim period starts", fromSide: "right", fromRatio: 0.43, toSide: "left", toRatio: 0.43, route: "same-row", labelDx: -34, labelDy: -38 },
             { from: "reward-claim", to: "reward-breakdown", label: "dao_claim_reward", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -48, labelDy: -18, labelWidth: 138 },
             { from: "reward-burn", to: "burn-reward", label: "dao_burn_reward", fromSide: "top", toSide: "left", toRatio: 0.5, route: "same-row", labelDx: -34, labelDy: -34, labelWidth: 132 },
-            { from: "dao-active-category", to: "proposal-list", label: "open active list", fromSide: "left", wrapFromSide: "left", toSide: "left", wrapSide: "left", toRatio: 0.42, route: "branch-low", wrapLabelDx: -70, wrapLabelDy: -30, labelWidth: 126 },
-            { from: "proposal-list-result-row", to: "results", label: "tap result row", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-reverse", labelDx: -54, labelDy: -54, labelWidth: 118 },
-            { from: "dao-reward-category", to: "reward-list", label: "open rewards list", fromSide: "left", wrapFromSide: "left", toSide: "left", toRatio: 0.42, route: "branch-low", wrapLabelDx: -76, wrapLabelDy: -30, labelWidth: 138 },
-            { from: "reward-list-row", to: "rewards", label: "tap claim item", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-reverse", labelDx: -52, labelDy: -50 },
-            { from: "dao-parameters", to: "parameters", label: "tap Parameters", fromSide: "top", toSide: "left", toRatio: 0.8, route: "branch", labelDx: -80, labelDy: -30 },
-            { from: "dao-ready-actions-category", to: "ready-actions", label: "open ready actions", fromSide: "left", wrapFromSide: "left", toSide: "left", toRatio: 0.42, route: "branch-low", wrapLabelDx: -84, wrapLabelDy: -30, labelWidth: 154 },
+            { from: "dao-active-category", to: "proposal-list", label: "open active list", fromSide: "left", wrapFromSide: "left", toSide: "left", wrapSide: "left", toRatio: 0.18, route: "branch-low", lane: 0, laneOffset: 28, rowOffset: 58, wrapLabelDx: -92, wrapLabelDy: -30, labelWidth: 126 },
+            { from: "proposal-list-result-row", to: "results", label: "tap result row", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-reverse", lane: 2, laneOffset: 50, rowOffset: 88, labelDx: -54, labelDy: -54, labelWidth: 118 },
+            { from: "dao-reward-category", to: "reward-list", label: "open rewards list", fromSide: "left", wrapFromSide: "left", toSide: "left", toRatio: 0.42, route: "branch-low", lane: 1, laneOffset: 52, rowOffset: 86, wrapLabelDx: -106, wrapLabelDy: -30, labelWidth: 138 },
+            { from: "reward-list-row", to: "rewards", label: "tap claim item", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-reverse", lane: 0, laneOffset: 24, rowOffset: 62, labelDx: -52, labelDy: -50 },
+            { from: "dao-parameters", to: "parameters", label: "tap Parameters", fromSide: "top", toSide: "left", toRatio: 0.8, route: "branch", lane: 3, laneOffset: 70, rowOffset: 110, labelDx: -80, labelDy: -30 },
+            { from: "dao-ready-actions-category", to: "ready-actions", label: "open ready actions", fromSide: "left", wrapFromSide: "left", toSide: "left", toRatio: 0.42, route: "branch-low", lane: 2, laneOffset: 76, rowOffset: 116, wrapLabelDx: -126, wrapLabelDy: -30, labelWidth: 154 },
             { from: "ready-action-row", to: "apply", label: "tap ready item", fromSide: "top", toSide: "left", toRatio: 0.42, route: "same-row", labelDx: -34, labelDy: -34 },
             { from: "apply-parameters", to: "apply-timeline", label: "dao_apply_parameters", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -74, labelDy: -24, labelWidth: 170 }
           ];
@@ -2206,6 +2250,60 @@
             return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
           };
 
+          const measureTextWidth = (() => {
+            const canvas = document.createElement("canvas");
+            const context = canvas.getContext("2d");
+            return (text, font) => {
+              if (!context) {
+                return text.length * 7;
+              }
+              context.font = font;
+              return context.measureText(text).width;
+            };
+          })();
+
+          const boxesOverlap = (first, second, padding = 0) => !(
+            first.x + first.width + padding < second.x ||
+            second.x + second.width + padding < first.x ||
+            first.y + first.height + padding < second.y ||
+            second.y + second.height + padding < first.y
+          );
+
+          const createReservedBoxes = () => {
+            const boxes = [];
+            board.querySelectorAll(".flow-row-title").forEach((title) => {
+              const box = boxInBoard(title);
+              boxes.push({ ...box, type: "row-title" });
+            });
+
+            board.querySelectorAll(".screen").forEach((screen) => {
+              const box = boxInBoard(screen);
+              const flowLabel = screen.getAttribute("data-flow");
+              if (flowLabel) {
+                boxes.push({
+                  x: box.x,
+                  y: box.y - 104,
+                  width: Math.ceil(measureTextWidth(flowLabel, "600 13px Arial")) + 30,
+                  height: 36,
+                  type: "screen-flow-token"
+                });
+              }
+
+              const dimensionLabel = screen.classList.contains("compact")
+                ? "Narrow render: 390 x 430"
+                : "Narrow render: 390 x 640";
+              const dimensionWidth = Math.ceil(measureTextWidth(dimensionLabel, "11px monospace")) + 20;
+              boxes.push({
+                x: box.x + box.width - dimensionWidth,
+                y: box.y - 58,
+                width: dimensionWidth,
+                height: 24,
+                type: "screen-dimension-token"
+              });
+            });
+            return boxes;
+          };
+
           const connectorPalette = [
             "#d00000",
             "#c2410c",
@@ -2253,6 +2351,31 @@
             return boxInBoard(screen);
           };
 
+          let reservedBoxes = [];
+
+          const avoidReservedHorizontalLane = (laneY, firstX, secondX) => {
+            const x = Math.min(firstX, secondX);
+            const width = Math.abs(secondX - firstX);
+            if (width <= 0) {
+              return laneY;
+            }
+
+            const candidates = [0, -34, 34, -68, 68, -102, 102, -136, 136, -170, 170];
+            const lineBoxFor = (candidateY) => ({
+              x,
+              y: candidateY - 12,
+              width,
+              height: 24
+            });
+            const isClear = (candidateY) => {
+              const lineBox = lineBoxFor(candidateY);
+              return !reservedBoxes.some((reservedBox) => boxesOverlap(lineBox, reservedBox, 4));
+            };
+
+            const clearOffset = candidates.find((offset) => isClear(laneY + offset));
+            return clearOffset === undefined ? laneY : laneY + clearOffset;
+          };
+
           const routeDetailsFor = (from, to, start, end, connector, index, targetLanding) => {
             if (connector.route === "local-up") {
               return {
@@ -2269,8 +2392,8 @@
               const sourceCenterX = sourceBox.x + sourceBox.width / 2;
               const targetCenterX = targetBox.x + targetBox.width / 2;
               const lane = connector.lane ?? (index % 4);
-              const laneOffset = connector.laneOffset ?? 9 + lane * 4;
-              const rowOffset = 34 + lane * 9;
+              const laneOffset = connector.laneOffset ?? 20 + lane * 16;
+              const rowOffset = connector.rowOffset ?? 48 + lane * 18;
               const sourceSide = connector.wrapFromSide ?? (connector.fromSide === "left" || connector.fromSide === "right"
                 ? connector.fromSide
                 : (targetCenterX >= sourceCenterX ? "right" : "left"));
@@ -2288,7 +2411,11 @@
                   ? targetBox.x - laneOffset
                   : targetPoint.x;
               let laneY;
-              if (targetSide === "top") {
+              if (connector.wrapAround === "top") {
+                laneY = Math.min(sourceBox.y, targetBox.y) - rowOffset;
+              } else if (connector.wrapAround === "bottom") {
+                laneY = Math.max(sourceBox.y + sourceBox.height, targetBox.y + targetBox.height) + rowOffset;
+              } else if (targetSide === "top") {
                 laneY = targetBox.y - rowOffset;
               } else if (targetSide === "bottom") {
                 laneY = targetBox.y + targetBox.height + rowOffset;
@@ -2299,6 +2426,7 @@
               } else {
                 laneY = Math.min(sourceBox.y, targetBox.y) - rowOffset;
               }
+              laneY = avoidReservedHorizontalLane(laneY, sourceLaneX, targetLaneX);
               const sourceControlX = sourceSide === "right" ? start.x + 28 : start.x - 28;
               if (targetSide === "top" || targetSide === "bottom") {
                 const targetControlY = targetSide === "top" ? targetPoint.y - 28 : targetPoint.y + 28;
@@ -2361,6 +2489,7 @@
           svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
           svg.style.width = `${width}px`;
           svg.style.height = `${height}px`;
+          reservedBoxes = createReservedBoxes();
 
           const modalTargetCounts = new Map();
           connectors.forEach((connector) => {
@@ -2374,9 +2503,10 @@
             if (!target.classList.contains("screen")) {
               return null;
             }
-            if ((modalTargetCounts.get(connector.to) ?? 0) <= 1) {
+            const hasExplicitLanding = connector.toSide || connector.toRatio !== undefined || connector.wrapSide;
+            if (hasExplicitLanding || (modalTargetCounts.get(connector.to) ?? 0) <= 1) {
               return {
-                side: connector.toSide ?? "left",
+                side: connector.wrapSide ?? connector.toSide ?? "left",
                 ratio: connector.toRatio ?? 0.5,
                 auto: false
               };
@@ -2386,12 +2516,81 @@
             return { ...modalLandingSlots[slotIndex % modalLandingSlots.length], auto: true };
           };
 
+          const attachConnectorInteraction = (group, targets, connectorId) => {
+            const show = () => {
+              group.classList.add("is-hovered", "is-highlighted");
+            };
+            const hide = () => {
+              group.classList.remove("is-hovered");
+              if (!group.classList.contains("is-pinned")) {
+                group.classList.remove("is-highlighted");
+              }
+            };
+            const stopDrag = (event) => {
+              event.stopPropagation();
+            };
+            const togglePinned = (event) => {
+              event.stopPropagation();
+              const pinned = !group.classList.contains("is-pinned");
+              group.classList.toggle("is-pinned", pinned);
+              group.classList.toggle("is-highlighted", pinned || group.classList.contains("is-hovered"));
+              if (pinned) {
+                pinnedBranchConnectors.add(connectorId);
+              } else {
+                pinnedBranchConnectors.delete(connectorId);
+              }
+            };
+
+            targets.forEach((target) => {
+              target.addEventListener("mouseenter", show);
+              target.addEventListener("mouseleave", hide);
+              target.addEventListener("pointerdown", stopDrag);
+              target.addEventListener("click", togglePinned);
+            });
+          };
+
+          const placedLabelBoxes = [];
+          const labelPositionFor = (x, y, width) => {
+            const height = 24;
+            const candidates = [
+              [0, 0],
+              [0, -34],
+              [0, 34],
+              [-42, 0],
+              [42, 0],
+              [-42, -34],
+              [42, -34],
+              [-42, 34],
+              [42, 34],
+              [0, -68],
+              [0, 68],
+              [-84, 0],
+              [84, 0],
+              [-84, -34],
+              [84, -34],
+              [-84, 34],
+              [84, 34],
+              [0, -102],
+              [0, 102]
+            ];
+            const blockedBoxes = [...reservedBoxes, ...placedLabelBoxes];
+            const firstClear = candidates.find(([dx, dy]) => {
+              const box = { x: x + dx, y: y + dy, width, height };
+              return !blockedBoxes.some((blockedBox) => boxesOverlap(box, blockedBox, 6));
+            });
+            const [dx, dy] = firstClear ?? [0, 0];
+            const box = { x: x + dx, y: y + dy, width, height };
+            placedLabelBoxes.push(box);
+            return box;
+          };
+
           connectors.forEach((connector, index) => {
             const from = findAnchor(connector.from);
             const to = findAnchor(connector.to);
             if (!from || !to) {
               return;
             }
+            const connectorId = connector.id ?? `${connector.from}-${connector.to}-${index}`;
             const color = colorForTarget(connector.to);
             const markerId = markerFor(connector.to, color);
             const targetLanding = targetLandingFor(connector, to);
@@ -2400,36 +2599,49 @@
               ? pointFor(to, targetLanding.side, targetLanding.ratio)
               : pointFor(to, connector.toSide, connector.toRatio ?? 0.5);
             const route = routeDetailsFor(from, to, start, end, connector, index, targetLanding);
+            const group = makeSvgElement("g", {
+              class: `transition-connector${pinnedBranchConnectors.has(connectorId) ? " is-pinned is-highlighted" : ""}`,
+              "data-connector": connectorId,
+              style: `--connector-color: ${color};`
+            });
+            const hitPath = makeSvgElement("path", {
+              class: "transition-hit-path",
+              d: route.d
+            });
+            group.appendChild(hitPath);
             const path = makeSvgElement("path", {
               class: "transition-path",
               d: route.d,
-              style: `stroke: ${color}; stroke-opacity: 0.86;`,
+              style: `stroke: ${color};`,
               "marker-end": `url(#${markerId})`
             });
-            svg.appendChild(path);
+            group.appendChild(path);
 
             const labelWidth = connector.labelWidth ?? connector.label.length * 7 + 26;
             const labelDx = route.wrapped ? (connector.wrapLabelDx ?? 0) : (connector.labelDx ?? 0);
             const labelDy = route.wrapped ? (connector.wrapLabelDy ?? -28) : (connector.labelDy ?? 0);
             const x = route.labelX + labelDx;
             const y = route.labelY + labelDy;
+            const labelBox = labelPositionFor(x, y, labelWidth);
             const label = makeSvgElement("g", { class: "transition-label" });
             label.appendChild(makeSvgElement("rect", {
-              x: String(x),
-              y: String(y),
+              x: String(labelBox.x),
+              y: String(labelBox.y),
               width: String(labelWidth),
               height: "24",
               rx: "12",
               style: `stroke: ${hexToRgba(color, 0.42)};`
             }));
             const text = makeSvgElement("text", {
-              x: String(x + 13),
-              y: String(y + 16),
+              x: String(labelBox.x + 13),
+              y: String(labelBox.y + 16),
               style: `fill: ${color};`
             });
             text.textContent = connector.label;
             label.appendChild(text);
-            svg.appendChild(label);
+            group.appendChild(label);
+            attachConnectorInteraction(group, [hitPath, label], connectorId);
+            svg.appendChild(group);
           });
         };
 
