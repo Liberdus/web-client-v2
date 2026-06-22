@@ -2445,6 +2445,7 @@ input[type='file'].form-control::file-selector-button {
 
 .chat-settings-preview {
   --chat-settings-preview-message-font-size: 16px;
+  --chat-settings-preview-message-meta-font-size: 12px;
   background: var(--hover-background);
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -2480,6 +2481,10 @@ input[type='file'].form-control::file-selector-button {
   line-height: 1.35;
 }
 
+.chat-settings-preview .message-time {
+  font-size: var(--chat-settings-preview-message-meta-font-size);
+}
+
 .chat-settings-font-slider-row {
   align-items: center;
   display: grid;
@@ -2502,10 +2507,70 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #chatSettingsFontSizeSlider {
-  accent-color: var(--primary-color);
+  --chat-settings-slider-position: 22.222%;
+  --chat-settings-slider-tick-color: rgba(31, 36, 48, 0.28);
+  appearance: none;
+  -webkit-appearance: none;
+  background:
+    repeating-linear-gradient(
+      to right,
+      var(--chat-settings-slider-tick-color) 0 1px,
+      transparent 1px calc(100% / 18)
+    ) center / 100% 14px no-repeat,
+    linear-gradient(
+      to right,
+      var(--primary-color) 0 var(--chat-settings-slider-position),
+      var(--border-color) var(--chat-settings-slider-position) 100%
+    ) center / 100% 4px no-repeat;
+  border-radius: 999px;
+  height: 28px;
   margin: 0;
   min-width: 0;
   width: 100%;
+}
+
+#chatSettingsFontSizeSlider:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 4px;
+}
+
+#chatSettingsFontSizeSlider::-webkit-slider-runnable-track {
+  background: transparent;
+  border: 0;
+  height: 28px;
+}
+
+#chatSettingsFontSizeSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--primary-color);
+  border: 0;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(31, 36, 48, 0.22);
+  cursor: pointer;
+  height: 22px;
+  margin-top: 3px;
+  width: 22px;
+}
+
+#chatSettingsFontSizeSlider::-moz-range-track {
+  background: transparent;
+  border: 0;
+  height: 28px;
+}
+
+#chatSettingsFontSizeSlider::-moz-range-progress {
+  background: transparent;
+}
+
+#chatSettingsFontSizeSlider::-moz-range-thumb {
+  background: var(--primary-color);
+  border: 0;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(31, 36, 48, 0.22);
+  cursor: pointer;
+  height: 22px;
+  width: 22px;
 }
 
 .chat-settings-slider-labels {
@@ -7836,6 +7901,43 @@ small {
 /* Make time display white on sent messages */
 .message.sent .voice-message-time-display {
   color: rgba(255, 255, 255, 0.9);
+}
+
+.messages-list .message-content,
+.messages-list .payment-header,
+.messages-list .payment-direction,
+.messages-list .payment-amount,
+.messages-list .attachment-label,
+.messages-list .call-message-text,
+.messages-list .voice-message-text,
+.messages-list .location-message-title,
+.message-input-container .message-input {
+  font-size: var(--chat-message-font-size, var(--font-size-base));
+}
+
+.messages-list .deleted-content,
+.messages-list .payment-memo,
+.messages-list .reply-quote-text,
+.messages-list .attachment-meta,
+.messages-list .call-message-schedule,
+.messages-list .voice-message-time-display,
+.message-input-container .attachment-item,
+.message-input-container .reply-preview-text {
+  font-size: var(--chat-message-detail-font-size, var(--font-size-sm));
+}
+
+.messages-list .message-time,
+.messages-list .reply-quote-label,
+.messages-list .attachment-preview-hint,
+.messages-list .location-message-coordinates,
+.messages-list .location-message-accuracy,
+.messages-list .location-message-link,
+.message-input-container .reply-preview-label {
+  font-size: var(--chat-message-meta-font-size, var(--font-size-xs));
+}
+
+.messages-list .voice-message-time-display {
+  font-size: min(var(--chat-message-detail-font-size, var(--font-size-sm)), var(--font-size-sm));
 }
 
 /* Hide pulse rings when not recording */

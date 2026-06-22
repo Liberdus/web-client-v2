@@ -3120,7 +3120,10 @@ const settingsModal = new SettingsModal();
 
 class ChatSettingsModal {
   constructor() {
+    this.storageKey = 'chat_font_size_px';
     this.defaultFontSizePx = 16;
+    this.minFontSizePx = 12;
+    this.maxFontSizePx = 30;
     this.savedFontSizePx = this.defaultFontSizePx;
     this.draftFontSizePx = this.defaultFontSizePx;
     this.warningShown = false;
@@ -3136,30 +3139,76 @@ class ChatSettingsModal {
     this.closeButton.addEventListener('click', () => this.handleClose());
     this.fontSizeSlider.addEventListener('input', () => this.handleSliderInput());
     this.saveButton.addEventListener('click', () => this.save());
+
+    this.savedFontSizePx = this.readSavedFontSize();
+    this.draftFontSizePx = this.savedFontSizePx;
+    this.setSliderValue(this.savedFontSizePx);
+    this.updatePreview();
+    this.applyChatFontSize();
   }
 
   open() {
     this.draftFontSizePx = this.savedFontSizePx;
     this.warningShown = false;
-    this.fontSizeSlider.value = String(this.draftFontSizePx);
+    this.setSliderValue(this.draftFontSizePx);
     this.updatePreview();
     this.modal.classList.add('active');
   }
 
   handleSliderInput() {
-    this.draftFontSizePx = Number(this.fontSizeSlider.value);
+    this.draftFontSizePx = this.clampFontSize(Number(this.fontSizeSlider.value));
+    this.syncSliderPosition(this.draftFontSizePx);
     this.warningShown = false;
     this.updatePreview();
   }
 
   save() {
     this.savedFontSizePx = this.draftFontSizePx;
+    localStorage.setItem(this.storageKey, String(this.savedFontSizePx));
+    this.applyChatFontSize();
     this.warningShown = false;
     this.close();
   }
 
   updatePreview() {
     this.preview.style.setProperty('--chat-settings-preview-message-font-size', this.draftFontSizePx + 'px');
+    this.preview.style.setProperty('--chat-settings-preview-message-meta-font-size', this.metaFontSizePx(this.draftFontSizePx) + 'px');
+  }
+
+  setSliderValue(value) {
+    this.fontSizeSlider.value = String(value);
+    this.syncSliderPosition(value);
+  }
+
+  syncSliderPosition(value) {
+    const range = this.maxFontSizePx - this.minFontSizePx;
+    const position = range === 0 ? 0 : ((value - this.minFontSizePx) / range) * 100;
+    this.fontSizeSlider.style.setProperty('--chat-settings-slider-position', position + '%');
+  }
+
+  applyChatFontSize() {
+    document.documentElement.style.setProperty('--chat-message-font-size', this.savedFontSizePx + 'px');
+    document.documentElement.style.setProperty('--chat-message-detail-font-size', this.detailFontSizePx(this.savedFontSizePx) + 'px');
+    document.documentElement.style.setProperty('--chat-message-meta-font-size', this.metaFontSizePx(this.savedFontSizePx) + 'px');
+  }
+
+  readSavedFontSize() {
+    const storedValue = localStorage.getItem(this.storageKey);
+    if (storedValue === null) return this.defaultFontSizePx;
+    return this.clampFontSize(Number(storedValue));
+  }
+
+  clampFontSize(value) {
+    if (!Number.isFinite(value)) return this.defaultFontSizePx;
+    return Math.min(this.maxFontSizePx, Math.max(this.minFontSizePx, Math.round(value)));
+  }
+
+  detailFontSizePx(value) {
+    return Math.round(value * 0.875);
+  }
+
+  metaFontSizePx(value) {
+    return Math.round(value * 0.75);
   }
 
   hasUnsavedChanges() {
@@ -3180,7 +3229,7 @@ class ChatSettingsModal {
     this.modal.classList.remove('active');
     this.draftFontSizePx = this.savedFontSizePx;
     this.warningShown = false;
-    this.fontSizeSlider.value = String(this.savedFontSizePx);
+    this.setSliderValue(this.savedFontSizePx);
     this.updatePreview();
   }
 
@@ -17087,10 +17136,10 @@ class ChatModal {
                     ${hasThumbnail ? '<div class="attachment-preview-hint">Click for options</div>' : ''}
                   </div>
                   <div style="min-width:0;">
-                    <span class="attachment-label" style="font-weight:500;color:#222;font-size:0.7em;display:block;word-wrap:break-word;">
+                    <span class="attachment-label" style="font-weight:500;color:#222;display:block;word-wrap:break-word;">
                       ${fileName}
                     </span><br>
-                    <span style="font-size: 0.93em; color: #888;">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
+                    <span class="attachment-meta" style="color: #888;">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
                   </div>
                 </div>
               `;
