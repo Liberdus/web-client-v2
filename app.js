@@ -21532,7 +21532,7 @@ class ChatModal {
         const existingSeek = buttonElement.closest('.voice-message')?.querySelector('.voice-message-seek');
         if (existingSeek) {
           const desired = Number(existingSeek.value || 0);
-          if (!isNaN(desired) && Math.abs(existingAudio.currentTime - desired) > 0.01) {
+          if (!isNaN(desired) && Math.abs(existingAudio.currentTime - desired) > 0.25) {
             try { existingAudio.currentTime = desired; } catch (e) { /* ignore */ }
           }
         }
