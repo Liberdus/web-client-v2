@@ -18656,6 +18656,7 @@ class ChatModal {
     // If this is a call message, show call-specific options and hide copy
     const isCall = !!messageEl.querySelector('.call-message');
     const isVoice = !!messageEl.querySelector('.voice-message');
+    const isLocation = !!messageEl.querySelector('.location-message');
     const copyOption = this.contextMenu.querySelector('[data-action="copy"]');
     const joinOption = this.contextMenu.querySelector('[data-action="join"]');
     const inviteOption = this.contextMenu.querySelector('[data-action="call-invite"]');
@@ -18720,6 +18721,13 @@ class ChatModal {
       if (inviteOption) inviteOption.style.display = 'none';
       if (joinOption) joinOption.style.display = 'none';
       if (replyOption) replyOption.style.display = 'flex';
+      if (editOption) editOption.style.display = 'none';
+    } else if (isLocation) {
+      if (copyOption) copyOption.style.display = 'none';
+      if (inviteOption) inviteOption.style.display = 'none';
+      if (joinOption) joinOption.style.display = 'none';
+      if (replyOption) replyOption.style.display = 'flex';
+      if (editResendOption) editResendOption.style.display = 'none';
       if (editOption) editOption.style.display = 'none';
     } else {
       if (copyOption) copyOption.style.display = 'flex';
