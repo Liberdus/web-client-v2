@@ -4999,7 +4999,7 @@ class FriendModal {
     this.warningShown = false;
   }
 
-  async postUpdateTollRequired(address, friend) {
+  async postUpdateTollRequired(address, friend, previousFriendStatus) {
     const feeBalanceStatus = await getFeeBalanceStatus();
     if (!feeBalanceStatus.success) {
       showFeeBalanceFailureToast(feeBalanceStatus.reason);
@@ -5009,6 +5009,7 @@ class FriendModal {
     // 0 = blocked, 1 = Other, 2 = Connection
     // required = 1 if toll required, 0 if not and 2 to block other party
     const requiredNum = friend === 2 ? 0 : friend === 1 ? 1 : friend === 0 ? 2 : 1;
+    const previousRequiredNum = previousFriendStatus === 2 ? 0 : previousFriendStatus === 1 ? 1 : previousFriendStatus === 0 ? 2 : 1;
     const fromAddr = longAddress(myAccount.keys.address);
     const toAddr = longAddress(address);
     const chatId_ = hashBytes([fromAddr, toAddr].sort().join(''));
@@ -5018,6 +5019,7 @@ class FriendModal {
       to: toAddr,
       chatId: chatId_,
       required: requiredNum,
+      previousRequired: previousRequiredNum,
       type: 'update_toll_required',
       timestamp: getTransactionTimestamp(),
       networkId: network.netid,
@@ -5058,7 +5060,7 @@ class FriendModal {
     } else {
       try {
         // send transaction to update chat toll
-        const res = await this.postUpdateTollRequired(this.currentContactAddress, Number(selectedStatus));
+        const res = await this.postUpdateTollRequired(this.currentContactAddress, Number(selectedStatus), prevFriendStatus);
         if (res?.result?.success !== true) {
           console.log(
             `[handleFriendSubmit] update_toll_required transaction failed: ${res?.result?.reason}. Did not update contact status.`
