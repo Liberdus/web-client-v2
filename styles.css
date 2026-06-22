@@ -7936,6 +7936,10 @@ small {
   font-size: var(--chat-message-meta-font-size, var(--font-size-xs));
 }
 
+.messages-list .voice-message-time-display {
+  font-size: min(var(--chat-message-detail-font-size, var(--font-size-sm)), var(--font-size-sm));
+}
+
 /* Hide pulse rings when not recording */
 .recording-indicator:not(.recording) .pulse-ring {
   display: none;
