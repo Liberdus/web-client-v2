@@ -6833,8 +6833,8 @@ function getUpdateTollRequiredPreviewText(item, contact) {
   const statusLabel = getRequiredStatusLabel(item.required);
   const contactName = getContactDisplayName(contact);
   return item.my
-    ? `You changed status to ${statusLabel}`
-    : `${contactName} changed status to ${statusLabel}`;
+    ? `You changed ${contactName}'s status to ${statusLabel}`
+    : `${contactName} changed your status to ${statusLabel}`;
 }
 
 function buildUpdateTollRequiredHistoryItem(tx, txid, currentUserAddress) {
@@ -7335,7 +7335,9 @@ async function processChats(chats, keys) {
           const statusContact = myData.contacts[statusContactAddress];
           const alreadyExists = statusContact.messages.some((messageTx) => messageTx.txid === txidHex);
           const statusHistoryItem = buildUpdateTollRequiredHistoryItem(tx, txidHex, currentUserAddress);
-          applyUpdateTollRequiredState(statusContact, statusHistoryItem);
+          if (!statusHistoryItem.my) {
+            applyUpdateTollRequiredState(statusContact, statusHistoryItem);
+          }
 
           if (!alreadyExists) {
             insertSorted(statusContact.messages, statusHistoryItem, 'timestamp');
@@ -7344,8 +7346,10 @@ async function processChats(chats, keys) {
           }
 
           if (chatModal.isActive() && chatModal.address === statusContactAddress) {
-            chatModal.blockedByRecipient = Number(statusContact.tollRequiredToSend) === 2;
-            chatModal.updateTollAmountUI(statusContactAddress);
+            if (!statusHistoryItem.my) {
+              chatModal.blockedByRecipient = Number(statusContact.tollRequiredToSend) === 2;
+              chatModal.updateTollAmountUI(statusContactAddress);
+            }
             chatModal.appendChatModal();
           }
 
