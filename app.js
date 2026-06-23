@@ -6914,6 +6914,75 @@ function hasPendingEditForTarget(contactAddress, targetTxid) {
 }
 
 /**
+ * Returns whether a delete-for-all control message is already pending for a message.
+ * @param {string} contactAddress
+ * @param {string} targetTxid
+ * @returns {boolean}
+ */
+function hasPendingDeleteForAllForTarget(contactAddress, targetTxid) {
+  if (!contactAddress || !targetTxid || !Array.isArray(myData?.pending)) {
+    return false;
+  }
+
+  const normalizedContactAddress = normalizeAddress(contactAddress);
+  return myData.pending.some((pendingTx) =>
+    pendingTx.type === 'message' &&
+    pendingTx.to === normalizedContactAddress &&
+    pendingTx.deletePending &&
+    pendingTx.deletePending.targetTxid === targetTxid
+  );
+}
+
+/**
+ * Tracks a delete-for-all control message before `/inject` confirms acceptance.
+ * @param {string} deleteTxid
+ * @param {string} contactAddress
+ * @param {string} targetTxid
+ * @returns {void}
+ */
+function trackPendingDeleteForAllBeforeInject(deleteTxid, contactAddress, targetTxid) {
+  assert(deleteTxid, 'Pending delete txid is required');
+  assert(contactAddress, 'Pending delete contact address is required');
+  assert(targetTxid, 'Pending delete target txid is required');
+
+  myData.pending ??= [];
+  const deletePending = { targetTxid };
+  const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === deleteTxid);
+  if (pendingTxInfo) {
+    pendingTxInfo.to = normalizeAddress(contactAddress);
+    pendingTxInfo.deletePending = deletePending;
+    return;
+  }
+
+  myData.pending.push({
+    txid: deleteTxid,
+    type: 'message',
+    submittedts: getCorrectedTimestamp(),
+    checkedts: 0,
+    to: normalizeAddress(contactAddress),
+    deletePending,
+  });
+}
+
+/**
+ * Removes the pre-inject delete-for-all pending marker after an immediate send failure.
+ * @param {string} deleteTxid
+ * @returns {void}
+ */
+function removePendingDeleteForAll(deleteTxid) {
+  if (!deleteTxid || !Array.isArray(myData?.pending)) {
+    return;
+  }
+
+  const pendingIndex = myData.pending.findIndex((pendingTx) =>
+    pendingTx.txid === deleteTxid && pendingTx.deletePending
+  );
+  if (pendingIndex !== -1) {
+    myData.pending.splice(pendingIndex, 1);
+  }
+}
+
+/**
  * Restores local state captured before an optimistic message edit.
  * @param {string} pendingTxid
  * @param {string} contactAddress
@@ -20755,19 +20824,27 @@ class ChatModal {
    */
   async deleteMessageForAll(messageEl) {
     const { txid, messageTimestamp: timestamp } = messageEl.dataset;
+    let deleteTxid = '';
+    let didInjectDelete = false;
     
-    if (!timestamp || !confirm('Delete this message for all participants?')) return;
+    if (!timestamp && !txid) return;
     
     try {
       // Get the message object from contact.messages
       const contact = myData.contacts[this.address];
-      const messageIndex = contact?.messages?.findIndex(msg => 
+      if (!contact?.messages?.length) return;
+
+      const messageIndex = contact.messages.findIndex(msg =>
         msg.timestamp == timestamp || msg.txid === txid
       );
       
       if (messageIndex === -1) return;
       
       const message = contact.messages[messageIndex];
+      const targetTxid = message.txid;
+      if (!targetTxid) {
+        return showToast('Cannot delete message: missing message id', 0, 'error');
+      }
       
       if (isDeletedForAll(message)) {
         return showToast('Message already deleted for everyone', 2000, 'info');
@@ -20777,6 +20854,12 @@ class ChatModal {
       if (!message.my) {
         return showToast('You can only delete your own messages for all', 0, 'error');
       }
+
+      if (hasPendingDeleteForAllForTarget(this.address, targetTxid)) {
+        return showToast('Delete is already pending', 3000, 'info');
+      }
+
+      if (!confirm('Delete this message for all participants?')) return;
 
       // Create and send a "delete" message
       const keys = myAccount.keys;
@@ -20810,7 +20893,7 @@ class ChatModal {
       // Create delete message payload
       const deleteObj = {
         type: 'delete',
-        txid: txid  // ID of the message to delete
+        txid: targetTxid  // ID of the message to delete
       };
 
       // Encrypt the message
@@ -20829,16 +20912,22 @@ class ChatModal {
       // Prepare and send the delete message transaction
       const deleteMessageObj = await this.createChatMessage(this.address, payload, tollInLib, keys);
       await signObj(deleteMessageObj, keys);
-      const deleteTxid = getTxid(deleteMessageObj);
+      deleteTxid = getTxid(deleteMessageObj);
+      trackPendingDeleteForAllBeforeInject(deleteTxid, this.address, targetTxid);
+      saveState();
 
       // Send the delete transaction
       const response = await injectTx(deleteMessageObj, deleteTxid);
 
       if (!response || !response.result || !response.result.success) {
         console.error('Delete message failed to send', response);
+        removePendingDeleteForAll(deleteTxid);
+        saveState();
         return showToast('Failed to delete message: ' + (response?.result?.reason || 'Unknown error'), 0, 'error');
       }
 
+      didInjectDelete = true;
+      saveState();
       showToast('Delete request sent', 5000, 'loading');
       
       // Best effort delete attachments from server
@@ -20854,6 +20943,10 @@ class ChatModal {
       // The message will be deleted when we process the delete tx from the network
       
     } catch (error) {
+      if (deleteTxid && !didInjectDelete) {
+        removePendingDeleteForAll(deleteTxid);
+        saveState();
+      }
       console.error('Delete for all error:', error);
       showToast('Failed to delete message. Please try again.', 0, 'error');
     }
