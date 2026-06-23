@@ -7278,6 +7278,8 @@ async function processChats(chats, keys) {
       let didApplyPendingReaction = false;
       let didChangeReactionPreview = false;
       let didApplyStatusChange = false;
+      let needsStatusChatRefresh = false;
+      const contactStatusStateUpdates = new Map();
       const touchedReactionTargetTxids = new Set();
 
       // This check determines if we're currently chatting with the sender
@@ -7335,8 +7337,15 @@ async function processChats(chats, keys) {
           const statusContact = myData.contacts[statusContactAddress];
           const alreadyExists = statusContact.messages.some((messageTx) => messageTx.txid === txidHex);
           const statusHistoryItem = buildUpdateTollRequiredHistoryItem(tx, txidHex, currentUserAddress);
-          if (!statusHistoryItem.my) {
-            applyUpdateTollRequiredState(statusContact, statusHistoryItem);
+          if (!statusHistoryItem.my && !alreadyExists) {
+            const existingStatusUpdate = contactStatusStateUpdates.get(statusContactAddress);
+            if (
+              !existingStatusUpdate ||
+              statusHistoryItem.timestamp > existingStatusUpdate.timestamp ||
+              (statusHistoryItem.timestamp === existingStatusUpdate.timestamp && statusHistoryItem.txid > existingStatusUpdate.txid)
+            ) {
+              contactStatusStateUpdates.set(statusContactAddress, statusHistoryItem);
+            }
           }
 
           if (!alreadyExists) {
@@ -7346,11 +7355,7 @@ async function processChats(chats, keys) {
           }
 
           if (chatModal.isActive() && chatModal.address === statusContactAddress) {
-            if (!statusHistoryItem.my) {
-              chatModal.blockedByRecipient = Number(statusContact.tollRequiredToSend) === 2;
-              chatModal.updateTollAmountUI(statusContactAddress);
-            }
-            chatModal.appendChatModal();
+            needsStatusChatRefresh = true;
           }
 
           continue;
@@ -7932,6 +7937,22 @@ async function processChats(chats, keys) {
             hasNewTransfer = true;
           }
         }
+      }
+
+      for (const [statusContactAddress, statusHistoryItem] of contactStatusStateUpdates) {
+        const statusContact = myData.contacts[statusContactAddress];
+        if (!statusContact) {
+          continue;
+        }
+        applyUpdateTollRequiredState(statusContact, statusHistoryItem);
+        if (chatModal.isActive() && chatModal.address === statusContactAddress) {
+          chatModal.blockedByRecipient = Number(statusContact.tollRequiredToSend) === 2;
+          chatModal.updateTollAmountUI(statusContactAddress);
+        }
+      }
+
+      if (needsStatusChatRefresh && chatModal.isActive()) {
+        chatModal.appendChatModal();
       }
 
       if (pendingReactionControls.length > 0) {
