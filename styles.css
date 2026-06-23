@@ -6711,14 +6711,6 @@ small {
   background-image: var(--icon-file);
 }
 
-.voice-recording-content.location-share-content {
-  width: min(400px, calc(100vw - 32px));
-}
-
-.location-share-visual {
-  margin-bottom: 1.5rem;
-}
-
 .location-share-icon {
   width: 80px;
   height: 80px;
@@ -6741,10 +6733,6 @@ small {
   background-repeat: no-repeat;
   background-size: 18px;
   flex-shrink: 0;
-}
-
-.location-share-details {
-  min-width: 0;
 }
 
 .location-share-coordinates,

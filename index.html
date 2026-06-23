@@ -1248,24 +1248,20 @@
             <button class="reply-preview-close" id="replyPreviewClose" aria-label="Cancel reply" type="button"></button>
           </div>
           <div class="location-share-panel" id="locationSharePanel" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="locationShareTitle">
-            <div class="voice-recording-content location-share-content">
+            <div class="voice-recording-content">
               <div class="voice-recording-header">
                 <h3 id="locationShareTitle">Share Location</h3>
               </div>
               <div class="voice-recording-body">
-                <div class="voice-recording-visual location-share-visual">
+                <div class="voice-recording-visual">
                   <div class="location-share-icon" aria-hidden="true"></div>
-                  <div class="location-share-details">
-                    <div class="location-share-coordinates" id="locationShareCoordinates"></div>
-                    <div class="location-share-accuracy" id="locationShareAccuracy"></div>
-                    <a class="location-message-link location-share-map-link" id="locationShareMapLink" target="_blank" rel="noopener noreferrer">Open in Google Maps</a>
-                  </div>
+                  <div class="location-share-coordinates" id="locationShareCoordinates"></div>
+                  <div class="location-share-accuracy" id="locationShareAccuracy"></div>
+                  <a class="location-message-link location-share-map-link" id="locationShareMapLink" target="_blank" rel="noopener noreferrer">Open in Google Maps</a>
                 </div>
-                <div class="voice-recording-controls">
-                  <div class="initial-controls location-share-actions">
-                    <button type="button" class="voice-btn voice-btn-secondary" id="cancelLocationShareButton">Cancel</button>
-                    <button type="button" class="voice-btn voice-btn-primary" id="sendLocationShareButton">Send</button>
-                  </div>
+                <div class="voice-recording-controls location-share-actions">
+                  <button type="button" class="voice-btn voice-btn-secondary" id="cancelLocationShareButton">Cancel</button>
+                  <button type="button" class="voice-btn voice-btn-primary" id="sendLocationShareButton">Send</button>
                 </div>
               </div>
             </div>
