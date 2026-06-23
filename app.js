@@ -6867,6 +6867,59 @@ function applyUpdateTollRequiredState(contact, historyItem) {
   contact.tollRequiredToSend = historyItem.required;
 }
 
+function syncPendingUpdateTollRequiredSuccess(pendingTxInfo, receiptTx) {
+  const receiptHasStatusTx = receiptTx?.type === 'update_toll_required'
+    && isValidRequiredValue(receiptTx.required)
+    && receiptTx.from
+    && receiptTx.to;
+  const tx = receiptHasStatusTx
+    ? receiptTx
+    : pendingTxInfo.updateTollRequiredTx;
+
+  if (!tx || !isValidRequiredValue(tx.required)) {
+    const contact = myData.contacts?.[pendingTxInfo.to];
+    if (contact) {
+      contact.friendOld = contact.friend;
+    }
+    return;
+  }
+
+  const currentUserAddress = normalizeAddress(myAccount.keys.address);
+  const txFrom = normalizeAddress(tx.from);
+  const txTo = normalizeAddress(tx.to);
+  const contactAddress = txFrom === currentUserAddress ? txTo : txFrom;
+
+  if (!contactAddress || contactAddress === currentUserAddress) {
+    return;
+  }
+
+  if (!myData.contacts[contactAddress]) {
+    createNewContact(contactAddress, undefined, 1, false);
+  }
+
+  const contact = myData.contacts[contactAddress];
+  contact.messages ??= [];
+
+  const alreadyExists = contact.messages.some((messageTx) => messageTx.txid === pendingTxInfo.txid);
+  const statusHistoryItem = buildUpdateTollRequiredHistoryItem(tx, pendingTxInfo.txid, currentUserAddress);
+  applyUpdateTollRequiredState(contact, statusHistoryItem);
+
+  if (!alreadyExists) {
+    insertSorted(contact.messages, statusHistoryItem, 'timestamp');
+    syncChatLatestActivityTimestamp(contactAddress, contact);
+  }
+
+  if (chatModal.isActive() && chatModal.address === contactAddress) {
+    chatModal.blockedByRecipient = Number(contact.tollRequiredToSend) === 2;
+    chatModal.updateTollAmountUI(contactAddress);
+    chatModal.appendChatModal();
+  }
+
+  if (chatsScreen.isActive()) {
+    chatsScreen.updateChatList();
+  }
+}
+
 /**
  * Returns the newest valid reaction activity for chat-list preview purposes.
  * @param {Object} contact
@@ -8408,6 +8461,9 @@ async function injectTx(tx, txid) {
         pendingTxData.address = tx.from; // User's address (longAddress form)
       } else if (tx.type === 'update_toll_required' || tx.type === 'reclaim_toll') {
         pendingTxData.to = normalizeAddress(tx.to);
+        if (tx.type === 'update_toll_required') {
+          pendingTxData.updateTollRequiredTx = tx;
+        }
       } else if (tx.type === 'read') {
         pendingTxData.oldContactTimestamp = tx.oldContactTimestamp;
       } else if (tx.type === 'message' || tx.type === 'transfer') {
@@ -29649,7 +29705,7 @@ async function checkPendingTransactions() {
         if (type === 'update_toll_required') {
           // log used by e2e tests do not delete
           console.log(`DEBUG: update_toll_required transaction successfully processed!`);
-          myData.contacts[pendingTxInfo.to].friendOld = myData.contacts[pendingTxInfo.to].friend;
+          syncPendingUpdateTollRequiredSuccess(pendingTxInfo, res.transaction);
         }
 
         if (type === 'read') {
