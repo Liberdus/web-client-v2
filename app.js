@@ -18700,8 +18700,11 @@ class ChatModal {
     // Show/hide "Delete for all" option based on whether the message is from the current user
     const deleteForAllOption = this.contextMenu.querySelector('[data-action="delete-for-all"]');
     const canDeleteForAll = this.canDeleteMessageForAll(messageEl, messageRecord);
+    const deleteForAllTargetTxid = messageRecord?.txid || messageEl.dataset.txid || '';
+    const isDeleteForAllPending =
+      canDeleteForAll && hasPendingDeleteForAllForTarget(this.address, deleteForAllTargetTxid);
     if (deleteForAllOption) {
-      deleteForAllOption.style.display = canDeleteForAll ? 'flex' : 'none';
+      this.setDeleteForAllOptionState(deleteForAllOption, canDeleteForAll, isDeleteForAllPending);
     }
 
     // If this is a call message, show call-specific options and hide copy
@@ -19353,6 +19356,23 @@ class ChatModal {
   }
 
   /**
+   * Applies visibility and pending state to a delete-for-all context menu option.
+   * @param {HTMLElement} option
+   * @param {boolean} canDeleteForAll
+   * @param {boolean} isPending
+   * @returns {void}
+   */
+  setDeleteForAllOptionState(option, canDeleteForAll, isPending) {
+    option.style.display = canDeleteForAll ? 'flex' : 'none';
+    option.setAttribute('aria-disabled', isPending ? 'true' : 'false');
+    if (isPending) {
+      option.title = 'Delete is already pending';
+    } else {
+      option.removeAttribute('title');
+    }
+  }
+
+  /**
    * Removes cached thumbnails for any image attachments in an xattach array.
    * Safe to call even if thumbnails don't exist.
    * @param {any} xattach
@@ -19881,8 +19901,12 @@ class ChatModal {
 
     const deleteForAllOption = this.imageAttachmentContextMenu.querySelector('[data-action="delete-for-all"]');
     if (deleteForAllOption) {
-      const canDeleteForAll = this.canDeleteMessageForAll(messageEl);
-      deleteForAllOption.style.display = canDeleteForAll ? 'flex' : 'none';
+      const messageRecord = this.getMessageRecordFromElement(messageEl);
+      const canDeleteForAll = this.canDeleteMessageForAll(messageEl, messageRecord);
+      const deleteForAllTargetTxid = messageRecord?.txid || messageEl.dataset.txid || '';
+      const isDeleteForAllPending =
+        canDeleteForAll && hasPendingDeleteForAllForTarget(this.address, deleteForAllTargetTxid);
+      this.setDeleteForAllOptionState(deleteForAllOption, canDeleteForAll, isDeleteForAllPending);
     }
 
     const isImageAttachment = attachmentRow.dataset.imageAttachment === 'true';
