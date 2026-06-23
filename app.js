@@ -6867,47 +6867,15 @@ function applyUpdateTollRequiredState(contact, historyItem) {
   contact.tollRequiredToSend = historyItem.required;
 }
 
-function compareUpdateTollRequiredHistoryItems(left, right) {
-  const timestampDiff = Number(left?.timestamp || 0) - Number(right?.timestamp || 0);
-  if (timestampDiff !== 0) {
-    return timestampDiff;
-  }
-  return String(left?.txid || '').localeCompare(String(right?.txid || ''));
-}
-
-function upsertLatestUpdateTollRequiredHistoryItem(contact, historyItem) {
+function insertUpdateTollRequiredHistoryItem(contact, historyItem) {
   contact.messages ??= [];
 
-  const existingStatusItems = contact.messages.filter((message) => message.type === 'update_toll_required');
-  let newestStatusItem = historyItem;
-  for (const existingStatusItem of existingStatusItems) {
-    if (compareUpdateTollRequiredHistoryItems(existingStatusItem, newestStatusItem) > 0) {
-      newestStatusItem = existingStatusItem;
-    }
-  }
-
-  const previousMessages = contact.messages;
-  let keptStatusItem = false;
-  contact.messages = previousMessages.filter((message) => {
-    if (message.type !== 'update_toll_required') {
-      return true;
-    }
-    if (!keptStatusItem && message.txid === newestStatusItem.txid) {
-      keptStatusItem = true;
-      return true;
-    }
+  if (contact.messages.some((message) => message.txid === historyItem.txid)) {
     return false;
-  });
-
-  if (!keptStatusItem) {
-    insertSorted(contact.messages, newestStatusItem, 'timestamp');
   }
 
-  return {
-    didChange: previousMessages.length !== contact.messages.length || !keptStatusItem,
-    incomingIsNewest: newestStatusItem.txid === historyItem.txid,
-    storedItem: newestStatusItem
-  };
+  insertSorted(contact.messages, historyItem, 'timestamp');
+  return true;
 }
 
 function syncPendingUpdateTollRequiredSuccess(pendingTxInfo, receiptTx) {
@@ -6944,13 +6912,10 @@ function syncPendingUpdateTollRequiredSuccess(pendingTxInfo, receiptTx) {
   contact.messages ??= [];
 
   const statusHistoryItem = buildUpdateTollRequiredHistoryItem(tx, pendingTxInfo.txid, currentUserAddress);
-  const statusHistoryUpdate = upsertLatestUpdateTollRequiredHistoryItem(contact, statusHistoryItem);
+  const didInsertStatusHistory = insertUpdateTollRequiredHistoryItem(contact, statusHistoryItem);
+  applyUpdateTollRequiredState(contact, statusHistoryItem);
 
-  if (statusHistoryUpdate.incomingIsNewest) {
-    applyUpdateTollRequiredState(contact, statusHistoryItem);
-  }
-
-  if (statusHistoryUpdate.didChange) {
+  if (didInsertStatusHistory) {
     syncChatLatestActivityTimestamp(contactAddress, contact);
   }
 
@@ -7381,8 +7346,8 @@ async function processChats(chats, keys) {
 
           const statusContact = myData.contacts[statusContactAddress];
           const statusHistoryItem = buildUpdateTollRequiredHistoryItem(tx, txidHex, currentUserAddress);
-          const statusHistoryUpdate = upsertLatestUpdateTollRequiredHistoryItem(statusContact, statusHistoryItem);
-          if (!statusHistoryItem.my && statusHistoryUpdate.incomingIsNewest) {
+          const didInsertStatusHistory = insertUpdateTollRequiredHistoryItem(statusContact, statusHistoryItem);
+          if (!statusHistoryItem.my && didInsertStatusHistory) {
             const existingStatusUpdate = contactStatusStateUpdates.get(statusContactAddress);
             if (
               !existingStatusUpdate ||
@@ -7393,7 +7358,7 @@ async function processChats(chats, keys) {
             }
           }
 
-          if (statusHistoryUpdate.didChange) {
+          if (didInsertStatusHistory) {
             syncChatLatestActivityTimestamp(statusContactAddress, statusContact);
             didApplyStatusChange = true;
           }
