@@ -6826,7 +6826,7 @@ function getRequiredStatusLabel(required) {
   const requiredNum = Number(required);
   if (requiredNum === 0) return 'Connection';
   if (requiredNum === 2) return 'Blocked';
-  return 'Other';
+  return 'Tolled';
 }
 
 function getUpdateTollRequiredPreviewText(item, contact) {
