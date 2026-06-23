@@ -14932,6 +14932,7 @@ class ChatModal {
     this.locationSharePanel = document.getElementById('locationSharePanel');
     this.locationShareCoordinates = document.getElementById('locationShareCoordinates');
     this.locationShareAccuracy = document.getElementById('locationShareAccuracy');
+    this.locationShareMapLink = document.getElementById('locationShareMapLink');
     this.cancelLocationShareButton = document.getElementById('cancelLocationShareButton');
     this.sendLocationShareButton = document.getElementById('sendLocationShareButton');
     
@@ -16590,6 +16591,12 @@ class ChatModal {
       this.locationShareAccuracy.textContent = accuracyText;
       this.locationShareAccuracy.style.display = accuracyText ? '' : 'none';
     }
+    if (this.locationShareMapLink) {
+      this.locationShareMapLink.href = this.getLocationMapUrl(
+        this.pendingLocation.latitude,
+        this.pendingLocation.longitude
+      );
+    }
     this.locationSharePanel.style.display = 'flex';
     this.setLocationPanelBusy(this.locationRequestInProgress);
   }
@@ -16616,6 +16623,7 @@ class ChatModal {
     }
     if (this.locationShareCoordinates) this.locationShareCoordinates.textContent = '';
     if (this.locationShareAccuracy) this.locationShareAccuracy.textContent = '';
+    if (this.locationShareMapLink) this.locationShareMapLink.removeAttribute('href');
     this.setLocationPanelBusy(false);
   }
 

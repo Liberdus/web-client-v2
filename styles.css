@@ -6756,6 +6756,11 @@ small {
   text-align: center;
 }
 
+.location-share-map-link {
+  display: inline-block;
+  margin-top: 8px;
+}
+
 .location-share-actions {
   gap: 1rem;
 }
