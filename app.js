@@ -15037,8 +15037,8 @@ class ChatModal {
       if (this.headerContextMenu && !this.headerContextMenu.contains(e.target) && this.headerMenuButton && !this.headerMenuButton.contains(e.target)) {
         this.closeHeaderContextMenu();
       }
-      this.handleLocationUiOutsideClick(e);
     });
+    document.addEventListener('click', (e) => this.handleLocationUiOutsideClick(e), true);
     this.sendButton.addEventListener('click', withButtonCooldown(
       this.sendButton,
       BUTTON_COOLDOWN_MS,
@@ -16454,12 +16454,13 @@ class ChatModal {
   handleLocationUiOutsideClick(e) {
     const target = e.target;
     if (!(target instanceof Element)) return;
+    if (this.locationSharePanel?.style.display === 'none') return;
     if (this.attachmentOptionsContextMenu?.contains(target)) return;
     if (this.locationSharePanel?.contains(target)) return;
 
-    if (this.locationSharePanel?.style.display !== 'none') {
-      this.clearPendingLocation();
-    }
+    this.clearPendingLocation();
+    e.preventDefault();
+    e.stopPropagation();
   }
 
   /**
