@@ -15040,6 +15040,9 @@ class ChatModal {
       }
     });
     this.locationSharePanel?.addEventListener('click', (e) => this.handleLocationUiOutsideClick(e));
+    this.locationSharePanel
+      ?.querySelector('.location-share-content')
+      ?.addEventListener('click', (e) => e.stopPropagation());
     this.sendButton.addEventListener('click', withButtonCooldown(
       this.sendButton,
       BUTTON_COOLDOWN_MS,
