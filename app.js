@@ -15941,6 +15941,10 @@ class ChatModal {
 
     // Find the last relevant message
     const lastChatMessage = contact.messages.find((message) => {
+      if (message.type === 'update_toll_required') {
+        return false;
+      }
+
       // Skip payment-only messages
       if (message.amount) {
         return false;
