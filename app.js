@@ -14932,6 +14932,7 @@ class ChatModal {
     this.locationSharePanel = document.getElementById('locationSharePanel');
     this.locationShareCoordinates = document.getElementById('locationShareCoordinates');
     this.locationShareAccuracy = document.getElementById('locationShareAccuracy');
+    this.locationShareMapLink = document.getElementById('locationShareMapLink');
     this.cancelLocationShareButton = document.getElementById('cancelLocationShareButton');
     this.sendLocationShareButton = document.getElementById('sendLocationShareButton');
     
@@ -15037,8 +15038,8 @@ class ChatModal {
       if (this.headerContextMenu && !this.headerContextMenu.contains(e.target) && this.headerMenuButton && !this.headerMenuButton.contains(e.target)) {
         this.closeHeaderContextMenu();
       }
-      this.handleLocationUiOutsideClick(e);
     });
+    this.locationSharePanel?.addEventListener('click', (e) => this.handleLocationUiOutsideClick(e));
     this.sendButton.addEventListener('click', withButtonCooldown(
       this.sendButton,
       BUTTON_COOLDOWN_MS,
@@ -15100,9 +15101,6 @@ class ChatModal {
 
       if (this.reactionSheetOverlay.classList.contains('active')) {
         requestAnimationFrame(() => this.updateReactionSheetViewport());
-      }
-      if (this.locationSharePanel?.style.display !== 'none') {
-        requestAnimationFrame(() => this.positionLocationSharePanel());
       }
     });
 
@@ -16452,14 +16450,11 @@ class ChatModal {
    * @returns {void}
    */
   handleLocationUiOutsideClick(e) {
-    const target = e.target;
-    if (!(target instanceof Element)) return;
-    if (this.attachmentOptionsContextMenu?.contains(target)) return;
-    if (this.locationSharePanel?.contains(target)) return;
+    if (e.target !== this.locationSharePanel) return;
 
-    if (this.locationSharePanel?.style.display !== 'none') {
-      this.clearPendingLocation();
-    }
+    e.preventDefault();
+    e.stopPropagation();
+    this.clearPendingLocation();
   }
 
   /**
@@ -16468,45 +16463,6 @@ class ChatModal {
    */
   showLocationPermissionDeniedToast() {
     showToast(LOCATION_PERMISSION_DENIED_MESSAGE, 0, 'warning');
-  }
-
-  /**
-   * Positions the staged location popover centered over the chat composer.
-   * @returns {void}
-   */
-  positionLocationSharePanel() {
-    if (!this.locationSharePanel) return;
-
-    const composer = this.modal?.querySelector('.message-input-container');
-    const composerRect = composer?.getBoundingClientRect();
-    const anchorRect = composerRect && composerRect.width > 0
-      ? composerRect
-      : { left: 0, right: window.innerWidth, top: 0, bottom: window.innerHeight, width: window.innerWidth, height: window.innerHeight };
-    const inset = 10;
-    const maxPanelWidth = Math.max(1, anchorRect.width - (inset * 2));
-
-    this.locationSharePanel.style.maxWidth = `${maxPanelWidth}px`;
-    const previousAnimation = this.locationSharePanel.style.animation;
-    this.locationSharePanel.style.animation = 'none';
-    const panelRect = this.locationSharePanel.getBoundingClientRect();
-
-    const minLeft = inset;
-    const maxLeft = window.innerWidth - panelRect.width - inset;
-    const desiredLeft = anchorRect.left + ((anchorRect.width - panelRect.width) / 2);
-    const left = Math.min(Math.max(desiredLeft, minLeft), Math.max(minLeft, maxLeft));
-
-    let top = anchorRect.top - panelRect.height - 8;
-    if (top < inset) {
-      top = anchorRect.bottom + 8;
-    }
-    if (top + panelRect.height > window.innerHeight - inset) {
-      top = window.innerHeight - panelRect.height - inset;
-    }
-    top = Math.max(inset, top);
-
-    this.locationSharePanel.style.left = `${left - anchorRect.left}px`;
-    this.locationSharePanel.style.top = `${top - anchorRect.top}px`;
-    this.locationSharePanel.style.animation = previousAnimation;
   }
 
   /**
@@ -16630,8 +16586,13 @@ class ChatModal {
       this.locationShareAccuracy.textContent = accuracyText;
       this.locationShareAccuracy.style.display = accuracyText ? '' : 'none';
     }
+    if (this.locationShareMapLink) {
+      this.locationShareMapLink.href = this.getLocationMapUrl(
+        this.pendingLocation.latitude,
+        this.pendingLocation.longitude
+      );
+    }
     this.locationSharePanel.style.display = 'flex';
-    this.positionLocationSharePanel();
     this.setLocationPanelBusy(this.locationRequestInProgress);
   }
 
@@ -16654,11 +16615,10 @@ class ChatModal {
     }
     if (this.locationSharePanel) {
       this.locationSharePanel.style.display = 'none';
-      this.locationSharePanel.style.left = '';
-      this.locationSharePanel.style.top = '';
     }
     if (this.locationShareCoordinates) this.locationShareCoordinates.textContent = '';
     if (this.locationShareAccuracy) this.locationShareAccuracy.textContent = '';
+    if (this.locationShareMapLink) this.locationShareMapLink.removeAttribute('href');
     this.setLocationPanelBusy(false);
   }
 
