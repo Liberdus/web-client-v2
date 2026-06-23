@@ -15039,7 +15039,7 @@ class ChatModal {
         this.closeHeaderContextMenu();
       }
     });
-    document.addEventListener('click', (e) => this.handleLocationUiOutsideClick(e), true);
+    this.locationSharePanel?.addEventListener('click', (e) => this.handleLocationUiOutsideClick(e));
     this.sendButton.addEventListener('click', withButtonCooldown(
       this.sendButton,
       BUTTON_COOLDOWN_MS,
@@ -16450,12 +16450,7 @@ class ChatModal {
    * @returns {void}
    */
   handleLocationUiOutsideClick(e) {
-    const target = e.target;
-    if (!(target instanceof Element)) return;
-    if (this.locationSharePanel?.style.display === 'none') return;
-    if (this.attachmentOptionsContextMenu?.contains(target)) return;
-    const locationShareContent = this.locationSharePanel?.querySelector('.location-share-content');
-    if (locationShareContent?.contains(target)) return;
+    if (e.target !== this.locationSharePanel) return;
 
     this.clearPendingLocation();
     e.preventDefault();
