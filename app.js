@@ -1763,6 +1763,8 @@ class ChatsScreen {
         previewHTML = `<span><i>Voice message</i></span>`;
       } else if (latestActivity.type === 'location') {
         previewHTML = `<span><i>Shared location</i></span>`;
+      } else if (latestActivity.type === 'update_toll_required') {
+        previewHTML = truncateMessage(escapeHtml(getUpdateTollRequiredPreviewText(latestActivity, contact)), 50);
       } else if ((!latestActivity.message || String(latestActivity.message).trim() === '') && latestActivity.xattach) {
         previewHTML = `<span><i>Attachment</i></span>`;
       } else if (latestActivity.xattach && latestActivity.message && String(latestActivity.message).trim() !== '') {
@@ -6772,6 +6774,10 @@ function getReactionTargetPreviewText(message) {
     return getDeletedPlaceholderText(message);
   }
 
+  if (message.type === 'update_toll_required') {
+    return 'status change';
+  }
+
   if (message.type === 'call') {
     return 'call';
   }
@@ -6798,6 +6804,67 @@ function getReactionTargetPreviewText(message) {
   }
 
   return '[message]';
+}
+
+function isValidRequiredValue(required) {
+  if (required === null || typeof required === 'undefined') {
+    return false;
+  }
+  if (typeof required === 'string' && required.trim() === '') {
+    return false;
+  }
+  const requiredNum = Number(required);
+  return Number.isInteger(requiredNum) && [0, 1, 2].includes(requiredNum);
+}
+
+function requiredToFriendStatus(required) {
+  const requiredNum = Number(required);
+  return requiredNum === 0 ? 2 : requiredNum === 2 ? 0 : 1;
+}
+
+function getRequiredStatusLabel(required) {
+  const requiredNum = Number(required);
+  if (requiredNum === 0) return 'Connection';
+  if (requiredNum === 2) return 'Blocked';
+  return 'Other';
+}
+
+function getUpdateTollRequiredPreviewText(item, contact) {
+  const statusLabel = getRequiredStatusLabel(item.required);
+  const contactName = getContactDisplayName(contact);
+  return item.my
+    ? `You changed status to ${statusLabel}`
+    : `${contactName} changed status to ${statusLabel}`;
+}
+
+function buildUpdateTollRequiredHistoryItem(tx, txid, currentUserAddress) {
+  const required = Number(tx.required);
+  const item = {
+    type: 'update_toll_required',
+    txid,
+    timestamp: Number(tx.timestamp) || 0,
+    my: normalizeAddress(tx.from) === currentUserAddress,
+    from: normalizeAddress(tx.from),
+    to: normalizeAddress(tx.to),
+    required
+  };
+
+  if (isValidRequiredValue(tx.previousRequired)) {
+    item.previousRequired = Number(tx.previousRequired);
+  }
+
+  return item;
+}
+
+function applyUpdateTollRequiredState(contact, historyItem) {
+  if (historyItem.my) {
+    contact.tollRequiredToReceive = historyItem.required;
+    contact.friend = requiredToFriendStatus(historyItem.required);
+    contact.friendOld = contact.friend;
+    return;
+  }
+
+  contact.tollRequiredToSend = historyItem.required;
 }
 
 /**
@@ -7157,6 +7224,7 @@ async function processChats(chats, keys) {
       const pendingReactionControls = [];
       let didApplyPendingReaction = false;
       let didChangeReactionPreview = false;
+      let didApplyStatusChange = false;
       const touchedReactionTargetTxids = new Set();
 
       // This check determines if we're currently chatting with the sender
@@ -7182,6 +7250,55 @@ async function processChats(chats, keys) {
             useTxTimestamp = true;
           }
         }
+
+        if (tx.type === 'update_toll_required') {
+          if (!isValidRequiredValue(tx.required)) {
+            console.warn('Ignoring update_toll_required with unknown required value', tx);
+            continue;
+          }
+          if (tx.previousRequired !== undefined && !isValidRequiredValue(tx.previousRequired)) {
+            console.warn('Ignoring update_toll_required with unknown previousRequired value', tx);
+            continue;
+          }
+          if (tx.chatId && tx.chatId !== chats[sender]) {
+            console.warn('Ignoring update_toll_required with mismatched chatId', tx);
+            continue;
+          }
+
+          const txFrom = normalizeAddress(tx.from);
+          const txTo = normalizeAddress(tx.to);
+          if (txFrom !== currentUserAddress && txTo !== currentUserAddress) {
+            continue;
+          }
+
+          const statusContactAddress = txFrom === currentUserAddress ? txTo : txFrom;
+          if (!statusContactAddress || statusContactAddress === currentUserAddress) {
+            continue;
+          }
+          if (!myData.contacts[statusContactAddress]) {
+            createNewContact(statusContactAddress, undefined, 1, false);
+          }
+
+          const statusContact = myData.contacts[statusContactAddress];
+          const alreadyExists = statusContact.messages.some((messageTx) => messageTx.txid === txidHex);
+          const statusHistoryItem = buildUpdateTollRequiredHistoryItem(tx, txidHex, currentUserAddress);
+          applyUpdateTollRequiredState(statusContact, statusHistoryItem);
+
+          if (!alreadyExists) {
+            insertSorted(statusContact.messages, statusHistoryItem, 'timestamp');
+            syncChatLatestActivityTimestamp(statusContactAddress, statusContact);
+            didApplyStatusChange = true;
+          }
+
+          if (chatModal.isActive() && chatModal.address === statusContactAddress) {
+            chatModal.blockedByRecipient = Number(statusContact.tollRequiredToSend) === 2;
+            chatModal.updateTollAmountUI(statusContactAddress);
+            chatModal.appendChatModal();
+          }
+
+          continue;
+        }
+
         if (tx.type == 'message') {
           // Handle messages without xmessage (same as transfer handling)
           // Ensure payload is always an object, even if xmessage is null/undefined
@@ -7836,6 +7953,10 @@ async function processChats(chats, keys) {
       }
 
       if (didChangeReactionPreview && chatsScreen.isActive() && !inActiveChatWithSender) {
+        chatsScreen.updateChatList();
+      }
+
+      if (didApplyStatusChange && chatsScreen.isActive()) {
         chatsScreen.updateChatList();
       }
 
@@ -17064,6 +17185,10 @@ class ChatModal {
     // Add txid attribute if available
     const txidAttribute = item.txid ? `data-txid="${item.txid}"` : '';
     const statusAttribute = item.status ? `data-status="${item.status}"` : '';
+
+    if (item.type === 'update_toll_required') {
+      return '';
+    }
 
     // Check if it's a payment based on the presence of the amount property (BigInt)
     if (typeof item.amount === 'bigint') {
