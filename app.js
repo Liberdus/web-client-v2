@@ -6913,98 +6913,62 @@ function hasPendingEditForTarget(contactAddress, targetTxid) {
   );
 }
 
-const pendingDeleteForAllTargetKeys = new Set();
+const DELETE_FOR_ALL_ACTION_GUARD_MS = 9000;
+const recentDeleteForAllTargetKeys = new Map();
 
 /**
- * Builds the in-memory key used to block duplicate delete-for-all starts before a txid exists.
+ * Builds the in-memory key used to block repeated delete actions for a delete-for-all target.
  * @param {string} contactAddress
  * @param {string} targetTxid
  * @returns {string}
  */
-function getPendingDeleteForAllTargetKey(contactAddress, targetTxid) {
-  assert(contactAddress, 'Pending delete contact address is required');
-  assert(targetTxid, 'Pending delete target txid is required');
+function getDeleteForAllTargetKey(contactAddress, targetTxid) {
+  assert(contactAddress, 'Delete guard contact address is required');
+  assert(targetTxid, 'Delete guard target txid is required');
   return `${normalizeAddress(contactAddress)}:${targetTxid}`;
 }
 
 /**
- * Checks if a pending delete-for-all target marker exists in the in-memory pending transactions.
+ * Checks if a recent delete-for-all guard exists for a message target.
  * @param {string} contactAddress
  * @param {string} targetTxid
  * @returns {boolean}
  */
-function hasPendingDeleteForAllForTarget(contactAddress, targetTxid) {
+function hasRecentDeleteForAllForTarget(contactAddress, targetTxid) {
   if (!contactAddress || !targetTxid) {
     return false;
   }
 
-  const normalizedContactAddress = normalizeAddress(contactAddress);
-  if (pendingDeleteForAllTargetKeys.has(getPendingDeleteForAllTargetKey(normalizedContactAddress, targetTxid))) {
-    return true;
-  }
-
-  if (!Array.isArray(myData?.pending)) {
-    return false;
-  }
-
-  return myData.pending.some((pendingTx) =>
-    pendingTx.type === 'message' &&
-    pendingTx.to === normalizedContactAddress &&
-    pendingTx.deletePending &&
-    pendingTx.deletePending.targetTxid === targetTxid
-  );
+  return recentDeleteForAllTargetKeys.has(getDeleteForAllTargetKey(contactAddress, targetTxid));
 }
 
 /**
- * Tracks an accepted delete-for-all control message.
- * @param {string} deleteTxid
+ * Temporarily blocks repeated delete actions for a delete-for-all target.
  * @param {string} contactAddress
  * @param {string} targetTxid
  * @returns {void}
  */
-function trackPendingDeleteForAll(deleteTxid, contactAddress, targetTxid) {
-  assert(deleteTxid, 'Pending delete txid is required');
-  assert(contactAddress, 'Pending delete contact address is required');
-  assert(targetTxid, 'Pending delete target txid is required');
-
-  myData.pending ??= [];
-  const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === deleteTxid);
-  if (pendingTxInfo) {
-    pendingTxInfo.to = normalizeAddress(contactAddress);
-    pendingTxInfo.deletePending = { targetTxid };
+function markRecentDeleteForAllForTarget(contactAddress, targetTxid) {
+  if (!contactAddress || !targetTxid) {
     return;
   }
 
-  myData.pending.push({
-    txid: deleteTxid,
-    type: 'message',
-    submittedts: getCorrectedTimestamp(),
-    checkedts: 0,
-    to: normalizeAddress(contactAddress),
-    deletePending: { targetTxid },
-  });
+  const key = getDeleteForAllTargetKey(contactAddress, targetTxid);
+  clearTimeout(recentDeleteForAllTargetKeys.get(key));
+  const timeoutId = setTimeout(() => {
+    recentDeleteForAllTargetKeys.delete(key);
+  }, DELETE_FOR_ALL_ACTION_GUARD_MS);
+  recentDeleteForAllTargetKeys.set(key, timeoutId);
 }
 
-/**
- * Removes a pending delete-for-all target marker from the in-memory pending transactions.
- * @param {string} contactAddress
- * @param {string} targetTxid
- * @returns {void}
- */
-function removePendingDeleteForAllForTarget(contactAddress, targetTxid) {
-  if (!Array.isArray(myData?.pending) || !contactAddress || !targetTxid) {
-    return;
-  }
+function setContextMenuOptionDisabled(option, disabled) {
+  if (!option) return;
+  option.classList.toggle('is-disabled', disabled);
+  option.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+}
 
-  const normalizedContactAddress = normalizeAddress(contactAddress);
-  myData.pending = myData.pending.filter((pendingTx) =>
-    !(
-      pendingTx.type === 'message' &&
-      pendingTx.to === normalizedContactAddress &&
-      pendingTx.deletePending &&
-      pendingTx.deletePending.targetTxid === targetTxid
-    )
-  );
+function isContextMenuOptionDisabled(option) {
+  return option?.classList?.contains('is-disabled') || option?.getAttribute('aria-disabled') === 'true';
 }
 
 /**
@@ -7408,7 +7372,6 @@ async function processChats(chats, keys) {
                   if (didDeleteMessage) {
                     purgeContactReactionsForTarget(contact, messageToDelete.txid);
                     purgePendingReactionsForTarget(from, messageToDelete.txid);
-                    removePendingDeleteForAllForTarget(from, messageToDelete.txid);
                     syncChatLatestActivityTimestamp(from, contact);
                     didChangeReactionPreview = true;
                     if (wasUnreadIncomingMessage) {
@@ -15061,8 +15024,9 @@ class ChatModal {
         void this.handleReactionPickerClick(reactionButton);
         return;
       }
-      if (e.target.closest('.context-menu-option')) {
-        const action = e.target.closest('.context-menu-option').dataset.action;
+      const option = e.target.closest('.context-menu-option');
+      if (option && !isContextMenuOptionDisabled(option)) {
+        const action = option.dataset.action;
         this.handleContextMenuAction(action);
       }
     });
@@ -15077,7 +15041,7 @@ class ChatModal {
           return;
         }
         const option = e.target.closest('.context-menu-option');
-        if (!option) return;
+        if (!option || isContextMenuOptionDisabled(option)) return;
         const action = option.dataset.action;
         this.handleImageAttachmentContextMenuAction(action);
       });
@@ -18767,6 +18731,7 @@ class ChatModal {
       if (editResendOption) editResendOption.style.display = 'none';
       if (deleteOption) deleteOption.style.display = 'none';
 
+      this.syncDeleteContextMenuDisabledState(this.contextMenu, messageEl, messageRecord);
       this.positionContextMenu(this.contextMenu, messageEl);
       this.contextMenu.style.display = 'block';
       return;
@@ -18836,6 +18801,7 @@ class ChatModal {
       if (editOption) editOption.style.display = 'none';
     }
     
+    this.syncDeleteContextMenuDisabledState(this.contextMenu, messageEl, messageRecord);
     this.positionContextMenu(this.contextMenu, messageEl);
     this.contextMenu.style.display = 'block';
   }
@@ -19376,6 +19342,21 @@ class ChatModal {
     }
 
     return true;
+  }
+
+  hasRecentDeleteForAllForMessage(messageEl, messageRecord = null) {
+    const message = messageRecord || this.getMessageRecordFromElement(messageEl);
+    return hasRecentDeleteForAllForTarget(this.address, message?.txid);
+  }
+
+  syncDeleteContextMenuDisabledState(menu, messageEl, messageRecord = null) {
+    const isDisabled = this.hasRecentDeleteForAllForMessage(messageEl, messageRecord);
+    setContextMenuOptionDisabled(menu?.querySelector('[data-action="delete"]'), isDisabled);
+    setContextMenuOptionDisabled(menu?.querySelector('[data-action="delete-for-all"]'), isDisabled);
+  }
+
+  isDeleteContextMenuActionDisabled(action, messageEl) {
+    return (action === 'delete' || action === 'delete-for-all') && this.hasRecentDeleteForAllForMessage(messageEl);
   }
 
   /**
@@ -19951,6 +19932,7 @@ class ChatModal {
     );
     this.syncReactionPickerActiveState(this.imageAttachmentContextMenuReactions, messageEl);
 
+    this.syncDeleteContextMenuDisabledState(this.imageAttachmentContextMenu, messageEl);
     this.positionContextMenu(this.imageAttachmentContextMenu, attachmentRow);
     this.imageAttachmentContextMenu.style.display = 'block';
   }
@@ -19960,6 +19942,11 @@ class ChatModal {
     if (!row) return;
 
     const { messageEl } = this.getAttachmentContextFromRow(row);
+    if (this.isDeleteContextMenuActionDisabled(action, messageEl)) {
+      this.closeImageAttachmentContextMenu();
+      return;
+    }
+
     switch (action) {
       case 'import-contacts':
         void this.openImportContactsModal(row);
@@ -20086,6 +20073,10 @@ class ChatModal {
   handleContextMenuAction(action) {
     const messageEl = this.currentContextMessage;
     if (!messageEl) return;
+    if (this.isDeleteContextMenuActionDisabled(action, messageEl)) {
+      this.closeContextMenu();
+      return;
+    }
     
     switch (action) {
       case 'save':
@@ -20850,7 +20841,6 @@ class ChatModal {
    */
   async deleteMessageForAll(messageEl) {
     const { txid, messageTimestamp: timestamp } = messageEl.dataset;
-    let pendingTargetKey = '';
     
     if (!timestamp && !txid) return;
     
@@ -20876,13 +20866,12 @@ class ChatModal {
         return showToast('You can only delete your own messages for all', 0, 'error');
       }
 
-      if (hasPendingDeleteForAllForTarget(this.address, targetTxid)) {
-        return showToast('Delete is already pending', 3000, 'info');
+      if (hasRecentDeleteForAllForTarget(this.address, targetTxid)) {
+        return showToast('Delete is temporarily disabled', 2000, 'info');
       }
 
       if (!confirm('Delete this message for all participants?')) return;
-      pendingTargetKey = getPendingDeleteForAllTargetKey(this.address, targetTxid);
-      pendingDeleteForAllTargetKeys.add(pendingTargetKey);
+      markRecentDeleteForAllForTarget(this.address, targetTxid);
 
       // Create and send a "delete" message
       const keys = myAccount.keys;
@@ -20945,7 +20934,6 @@ class ChatModal {
         return showToast('Failed to delete message: ' + (response?.result?.reason || 'Unknown error'), 0, 'error');
       }
 
-      trackPendingDeleteForAll(deleteTxid, this.address, targetTxid);
       showToast('Delete request sent', 5000, 'loading');
       
       // Best effort delete attachments from server
@@ -20963,10 +20951,6 @@ class ChatModal {
     } catch (error) {
       console.error('Delete for all error:', error);
       showToast('Failed to delete message. Please try again.', 0, 'error');
-    } finally {
-      if (pendingTargetKey) {
-        pendingDeleteForAllTargetKeys.delete(pendingTargetKey);
-      }
     }
   }
 
@@ -29514,11 +29498,7 @@ async function checkPendingTransactions() {
     const pendingTxInfo = myData.pending[i];
     const { txid, type, submittedts } = pendingTxInfo;
     const reactionPending = pendingTxInfo.reactionPending;
-    const deletePending = pendingTxInfo.deletePending;
     if (reactionPending && reactionPending.status !== 'pending') {
-      continue;
-    }
-    if (deletePending?.txAccepted) {
       continue;
     }
 
@@ -29553,9 +29533,6 @@ async function checkPendingTransactions() {
       if (res?.transaction?.success === true) {
         if (reactionPending) {
           settleAndQueueReactionCleanup(pendingTxInfo, 'success');
-        } else if (deletePending) {
-          deletePending.txAccepted = true;
-          didMutatePendingState = true;
         } else {
           // comment out to test the pending txs removal logic
           myData.pending.splice(i, 1);
