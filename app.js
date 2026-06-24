@@ -6839,20 +6839,15 @@ function getUpdateTollRequiredPreviewText(item, contact) {
 
 function buildUpdateTollRequiredHistoryItem(tx, txid, currentUserAddress) {
   const required = Number(tx.required);
-  const chatTimestamp = Number(tx.chatTimestamp) || 0;
   const item = {
     type: 'update_toll_required',
     txid,
-    timestamp: chatTimestamp || Number(tx.timestamp) || 0,
+    timestamp: Number(tx.timestamp) || 0,
     my: normalizeAddress(tx.from) === currentUserAddress,
     from: normalizeAddress(tx.from),
     to: normalizeAddress(tx.to),
     required
   };
-
-  if (chatTimestamp) {
-    item.chatTimestamp = chatTimestamp;
-  }
 
   if (isValidRequiredValue(tx.previousRequired)) {
     item.previousRequired = Number(tx.previousRequired);
