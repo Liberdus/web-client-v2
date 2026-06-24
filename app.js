@@ -6914,62 +6914,6 @@ function hasPendingEditForTarget(contactAddress, targetTxid) {
 }
 
 const DELETE_FOR_ALL_ACTION_GUARD_MS = 9000;
-const recentDeleteForAllTargetKeys = new Map();
-
-/**
- * Builds the in-memory key used to block repeated delete actions for a delete-for-all target.
- * @param {string} contactAddress
- * @param {string} targetTxid
- * @returns {string}
- */
-function getDeleteForAllTargetKey(contactAddress, targetTxid) {
-  assert(contactAddress, 'Delete guard contact address is required');
-  assert(targetTxid, 'Delete guard target txid is required');
-  return `${normalizeAddress(contactAddress)}:${targetTxid}`;
-}
-
-/**
- * Checks if a recent delete-for-all guard exists for a message target.
- * @param {string} contactAddress
- * @param {string} targetTxid
- * @returns {boolean}
- */
-function hasRecentDeleteForAllForTarget(contactAddress, targetTxid) {
-  if (!contactAddress || !targetTxid) {
-    return false;
-  }
-
-  return recentDeleteForAllTargetKeys.has(getDeleteForAllTargetKey(contactAddress, targetTxid));
-}
-
-/**
- * Temporarily blocks repeated delete actions for a delete-for-all target.
- * @param {string} contactAddress
- * @param {string} targetTxid
- * @returns {void}
- */
-function markRecentDeleteForAllForTarget(contactAddress, targetTxid) {
-  if (!contactAddress || !targetTxid) {
-    return;
-  }
-
-  const key = getDeleteForAllTargetKey(contactAddress, targetTxid);
-  clearTimeout(recentDeleteForAllTargetKeys.get(key));
-  const timeoutId = setTimeout(() => {
-    recentDeleteForAllTargetKeys.delete(key);
-  }, DELETE_FOR_ALL_ACTION_GUARD_MS);
-  recentDeleteForAllTargetKeys.set(key, timeoutId);
-}
-
-function setContextMenuOptionDisabled(option, disabled) {
-  if (!option) return;
-  option.classList.toggle('is-disabled', disabled);
-  option.setAttribute('aria-disabled', disabled ? 'true' : 'false');
-}
-
-function isContextMenuOptionDisabled(option) {
-  return option?.classList?.contains('is-disabled') || option?.getAttribute('aria-disabled') === 'true';
-}
 
 /**
  * Restores local state captured before an optimistic message edit.
@@ -14496,6 +14440,8 @@ class ChatModal {
     this.dragCounter = 0;
     this.dropOverlay = null;
 
+    this.recentDeleteForAllTargetKeys = new Map();
+
     this.chatRenderedOldestIndex = CHAT_INITIAL_RENDER_COUNT - 1;
   }
 
@@ -15025,7 +14971,7 @@ class ChatModal {
         return;
       }
       const option = e.target.closest('.context-menu-option');
-      if (option && !isContextMenuOptionDisabled(option)) {
+      if (option && !this.isContextMenuOptionDisabled(option)) {
         const action = option.dataset.action;
         this.handleContextMenuAction(action);
       }
@@ -15041,7 +14987,7 @@ class ChatModal {
           return;
         }
         const option = e.target.closest('.context-menu-option');
-        if (!option || isContextMenuOptionDisabled(option)) return;
+        if (!option || this.isContextMenuOptionDisabled(option)) return;
         const action = option.dataset.action;
         this.handleImageAttachmentContextMenuAction(action);
       });
@@ -19344,15 +19290,52 @@ class ChatModal {
     return true;
   }
 
+  getDeleteForAllTargetKey(contactAddress, targetTxid) {
+    assert(contactAddress, 'Delete guard contact address is required');
+    assert(targetTxid, 'Delete guard target txid is required');
+    return `${normalizeAddress(contactAddress)}:${targetTxid}`;
+  }
+
+  hasRecentDeleteForAllForTarget(contactAddress, targetTxid) {
+    if (!contactAddress || !targetTxid) {
+      return false;
+    }
+
+    return this.recentDeleteForAllTargetKeys.has(this.getDeleteForAllTargetKey(contactAddress, targetTxid));
+  }
+
+  markRecentDeleteForAllForTarget(contactAddress, targetTxid) {
+    if (!contactAddress || !targetTxid) {
+      return;
+    }
+
+    const key = this.getDeleteForAllTargetKey(contactAddress, targetTxid);
+    clearTimeout(this.recentDeleteForAllTargetKeys.get(key));
+    const timeoutId = setTimeout(() => {
+      this.recentDeleteForAllTargetKeys.delete(key);
+    }, DELETE_FOR_ALL_ACTION_GUARD_MS);
+    this.recentDeleteForAllTargetKeys.set(key, timeoutId);
+  }
+
+  setContextMenuOptionDisabled(option, disabled) {
+    if (!option) return;
+    option.classList.toggle('is-disabled', disabled);
+    option.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  }
+
+  isContextMenuOptionDisabled(option) {
+    return option?.classList?.contains('is-disabled') || option?.getAttribute('aria-disabled') === 'true';
+  }
+
   hasRecentDeleteForAllForMessage(messageEl, messageRecord = null) {
     const message = messageRecord || this.getMessageRecordFromElement(messageEl);
-    return hasRecentDeleteForAllForTarget(this.address, message?.txid);
+    return this.hasRecentDeleteForAllForTarget(this.address, message?.txid);
   }
 
   syncDeleteContextMenuDisabledState(menu, messageEl, messageRecord = null) {
     const isDisabled = this.hasRecentDeleteForAllForMessage(messageEl, messageRecord);
-    setContextMenuOptionDisabled(menu?.querySelector('[data-action="delete"]'), isDisabled);
-    setContextMenuOptionDisabled(menu?.querySelector('[data-action="delete-for-all"]'), isDisabled);
+    this.setContextMenuOptionDisabled(menu?.querySelector('[data-action="delete"]'), isDisabled);
+    this.setContextMenuOptionDisabled(menu?.querySelector('[data-action="delete-for-all"]'), isDisabled);
   }
 
   isDeleteContextMenuActionDisabled(action, messageEl) {
@@ -20866,12 +20849,12 @@ class ChatModal {
         return showToast('You can only delete your own messages for all', 0, 'error');
       }
 
-      if (hasRecentDeleteForAllForTarget(this.address, targetTxid)) {
+      if (this.hasRecentDeleteForAllForTarget(this.address, targetTxid)) {
         return showToast('Delete is temporarily disabled', 2000, 'info');
       }
 
       if (!confirm('Delete this message for all participants?')) return;
-      markRecentDeleteForAllForTarget(this.address, targetTxid);
+      this.markRecentDeleteForAllForTarget(this.address, targetTxid);
 
       // Create and send a "delete" message
       const keys = myAccount.keys;
