@@ -6913,7 +6913,7 @@ function hasPendingEditForTarget(contactAddress, targetTxid) {
   );
 }
 
-const pendingDeleteForAllTargets = new Set();
+const pendingDeleteForAllTargetKeys = new Set();
 
 /**
  * Builds the in-memory key used to block duplicate delete-for-all starts before a txid exists.
@@ -6927,43 +6927,13 @@ function getPendingDeleteForAllTargetKey(contactAddress, targetTxid) {
   return `${normalizeAddress(contactAddress)}:${targetTxid}`;
 }
 
-/**
- * Marks a delete-for-all target as in-flight before async send preparation starts.
- * @param {string} contactAddress
- * @param {string} targetTxid
- * @returns {void}
- */
-function trackPendingDeleteForAllTarget(contactAddress, targetTxid) {
-  pendingDeleteForAllTargets.add(getPendingDeleteForAllTargetKey(contactAddress, targetTxid));
-}
-
-/**
- * Clears the in-memory delete-for-all target marker.
- * @param {string} contactAddress
- * @param {string} targetTxid
- * @returns {void}
- */
-function removePendingDeleteForAllTarget(contactAddress, targetTxid) {
-  if (!contactAddress || !targetTxid) {
-    return;
-  }
-
-  pendingDeleteForAllTargets.delete(getPendingDeleteForAllTargetKey(contactAddress, targetTxid));
-}
-
-/**
- * Returns whether a delete-for-all control message is already pending for a message.
- * @param {string} contactAddress
- * @param {string} targetTxid
- * @returns {boolean}
- */
 function hasPendingDeleteForAllForTarget(contactAddress, targetTxid) {
   if (!contactAddress || !targetTxid) {
     return false;
   }
 
   const normalizedContactAddress = normalizeAddress(contactAddress);
-  if (pendingDeleteForAllTargets.has(getPendingDeleteForAllTargetKey(normalizedContactAddress, targetTxid))) {
+  if (pendingDeleteForAllTargetKeys.has(getPendingDeleteForAllTargetKey(normalizedContactAddress, targetTxid))) {
     return true;
   }
 
@@ -6980,23 +6950,22 @@ function hasPendingDeleteForAllForTarget(contactAddress, targetTxid) {
 }
 
 /**
- * Tracks a delete-for-all control message before `/inject` confirms acceptance.
+ * Tracks an accepted delete-for-all control message.
  * @param {string} deleteTxid
  * @param {string} contactAddress
  * @param {string} targetTxid
  * @returns {void}
  */
-function trackPendingDeleteForAllBeforeInject(deleteTxid, contactAddress, targetTxid) {
+function trackPendingDeleteForAll(deleteTxid, contactAddress, targetTxid) {
   assert(deleteTxid, 'Pending delete txid is required');
   assert(contactAddress, 'Pending delete contact address is required');
   assert(targetTxid, 'Pending delete target txid is required');
 
   myData.pending ??= [];
-  const deletePending = { targetTxid };
   const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === deleteTxid);
   if (pendingTxInfo) {
     pendingTxInfo.to = normalizeAddress(contactAddress);
-    pendingTxInfo.deletePending = deletePending;
+    pendingTxInfo.deletePending = { targetTxid };
     return;
   }
 
@@ -7006,28 +6975,8 @@ function trackPendingDeleteForAllBeforeInject(deleteTxid, contactAddress, target
     submittedts: getCorrectedTimestamp(),
     checkedts: 0,
     to: normalizeAddress(contactAddress),
-    deletePending,
+    deletePending: { targetTxid },
   });
-}
-
-/**
- * Removes the pre-inject delete-for-all pending marker after an immediate send failure.
- * @param {string} deleteTxid
- * @returns {void}
- */
-function removePendingDeleteForAll(deleteTxid) {
-  if (!deleteTxid || !Array.isArray(myData?.pending)) {
-    return;
-  }
-
-  const pendingIndex = myData.pending.findIndex((pendingTx) =>
-    pendingTx.txid === deleteTxid && pendingTx.deletePending
-  );
-  if (pendingIndex !== -1) {
-    const pendingTxInfo = myData.pending[pendingIndex];
-    myData.pending.splice(pendingIndex, 1);
-    removePendingDeleteForAllTarget(pendingTxInfo.to, pendingTxInfo.deletePending?.targetTxid);
-  }
 }
 
 /**
@@ -19929,8 +19878,7 @@ class ChatModal {
 
     const deleteForAllOption = this.imageAttachmentContextMenu.querySelector('[data-action="delete-for-all"]');
     if (deleteForAllOption) {
-      const messageRecord = this.getMessageRecordFromElement(messageEl);
-      const canDeleteForAll = this.canDeleteMessageForAll(messageEl, messageRecord);
+      const canDeleteForAll = this.canDeleteMessageForAll(messageEl);
       deleteForAllOption.style.display = canDeleteForAll ? 'flex' : 'none';
     }
 
@@ -20873,22 +20821,19 @@ class ChatModal {
    */
   async deleteMessageForAll(messageEl) {
     const { txid, messageTimestamp: timestamp } = messageEl.dataset;
-    let deleteTxid = '';
-    let didInjectDelete = false;
-    let targetTxid = '';
-    let didTrackDeleteForAllTarget = false;
+    let pendingTargetKey = '';
     
     if (!timestamp && !txid) return;
     
     try {
       // Get the message object from contact.messages
       const contact = myData.contacts[this.address];
-      if (!contact?.messages?.length) return;
+      if (!contact) return;
 
       const message = this.getMessageRecordFromElement(messageEl);
       if (!message) return;
 
-      targetTxid = message.txid;
+      const targetTxid = message.txid;
       if (!targetTxid) {
         return showToast('Cannot delete message: missing message id', 0, 'error');
       }
@@ -20907,8 +20852,8 @@ class ChatModal {
       }
 
       if (!confirm('Delete this message for all participants?')) return;
-      trackPendingDeleteForAllTarget(this.address, targetTxid);
-      didTrackDeleteForAllTarget = true;
+      pendingTargetKey = getPendingDeleteForAllTargetKey(this.address, targetTxid);
+      pendingDeleteForAllTargetKeys.add(pendingTargetKey);
 
       // Create and send a "delete" message
       const keys = myAccount.keys;
@@ -20917,7 +20862,7 @@ class ChatModal {
         return;
       }
 
-      const tollInLib = myData.contacts[this.address].tollRequiredToSend == 0 ? 0n : getEffectiveTollLibWei(this.toll);
+      const tollInLib = contact.tollRequiredToSend == 0 ? 0n : getEffectiveTollLibWei(this.toll);
 
       const sufficientBalance = await validateBalance(tollInLib);
       if (!sufficientBalance) {
@@ -20928,8 +20873,8 @@ class ChatModal {
 
       // Ensure recipient keys are available
       const ok = await ensureContactKeys(this.address);
-      const recipientPubKey = myData.contacts[this.address]?.public;
-      const pqRecPubKey = myData.contacts[this.address]?.pqPublic;
+      const recipientPubKey = contact.public;
+      const pqRecPubKey = contact.pqPublic;
       if (!ok || !recipientPubKey || !pqRecPubKey) {
         console.warn(`No public/PQ key found for recipient ${this.address}`);
         showToast('Failed to get recipient key', 0, 'error');
@@ -20961,19 +20906,17 @@ class ChatModal {
       // Prepare and send the delete message transaction
       const deleteMessageObj = await this.createChatMessage(this.address, payload, tollInLib, keys);
       await signObj(deleteMessageObj, keys);
-      deleteTxid = getTxid(deleteMessageObj);
-      trackPendingDeleteForAllBeforeInject(deleteTxid, this.address, targetTxid);
+      const deleteTxid = getTxid(deleteMessageObj);
 
       // Send the delete transaction
       const response = await injectTx(deleteMessageObj, deleteTxid);
 
       if (!response || !response.result || !response.result.success) {
         console.error('Delete message failed to send', response);
-        removePendingDeleteForAll(deleteTxid);
         return showToast('Failed to delete message: ' + (response?.result?.reason || 'Unknown error'), 0, 'error');
       }
 
-      didInjectDelete = true;
+      trackPendingDeleteForAll(deleteTxid, this.address, targetTxid);
       showToast('Delete request sent', 5000, 'loading');
       
       // Best effort delete attachments from server
@@ -20989,14 +20932,11 @@ class ChatModal {
       // The message will be deleted when we process the delete tx from the network
       
     } catch (error) {
-      if (deleteTxid && !didInjectDelete) {
-        removePendingDeleteForAll(deleteTxid);
-      }
       console.error('Delete for all error:', error);
       showToast('Failed to delete message. Please try again.', 0, 'error');
     } finally {
-      if (didTrackDeleteForAllTarget) {
-        removePendingDeleteForAllTarget(this.address, targetTxid);
+      if (pendingTargetKey) {
+        pendingDeleteForAllTargetKeys.delete(pendingTargetKey);
       }
     }
   }
