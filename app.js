@@ -20836,9 +20836,7 @@ class ChatModal {
         return showToast('You can only delete your own messages for all', 0, 'error');
       }
 
-      if (this.hasRecentDeleteForAllForTarget(this.address, targetTxid)) {
-        return showToast('Delete is temporarily disabled', 2000, 'info');
-      }
+      if (this.hasRecentDeleteForAllForTarget(this.address, targetTxid)) return;
 
       if (!confirm('Delete this message for all participants?')) return;
       this.markRecentDeleteForAllForTarget(this.address, targetTxid);
