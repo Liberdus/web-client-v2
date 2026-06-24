@@ -6913,6 +6913,8 @@ function hasPendingEditForTarget(contactAddress, targetTxid) {
   );
 }
 
+const DELETE_FOR_ALL_ACTION_GUARD_MS = 15000;
+
 /**
  * Restores local state captured before an optimistic message edit.
  * @param {string} pendingTxid
@@ -14438,6 +14440,8 @@ class ChatModal {
     this.dragCounter = 0;
     this.dropOverlay = null;
 
+    this.recentDeleteForAllTargetTxids = new Set();
+
     this.chatRenderedOldestIndex = CHAT_INITIAL_RENDER_COUNT - 1;
   }
 
@@ -14966,10 +14970,10 @@ class ChatModal {
         void this.handleReactionPickerClick(reactionButton);
         return;
       }
-      if (e.target.closest('.context-menu-option')) {
-        const action = e.target.closest('.context-menu-option').dataset.action;
-        this.handleContextMenuAction(action);
-      }
+      const option = e.target.closest('.context-menu-option');
+      if (!option || option.getAttribute('aria-disabled') === 'true') return;
+      const action = option.dataset.action;
+      this.handleContextMenuAction(action);
     });
     // Add image attachment context menu option listeners
     if (this.imageAttachmentContextMenu) {
@@ -14982,7 +14986,7 @@ class ChatModal {
           return;
         }
         const option = e.target.closest('.context-menu-option');
-        if (!option) return;
+        if (!option || option.getAttribute('aria-disabled') === 'true') return;
         const action = option.dataset.action;
         this.handleImageAttachmentContextMenuAction(action);
       });
@@ -18672,6 +18676,7 @@ class ChatModal {
       if (editResendOption) editResendOption.style.display = 'none';
       if (deleteOption) deleteOption.style.display = 'none';
 
+      this.syncDeleteContextMenuDisabledState(this.contextMenu, messageEl, messageRecord);
       this.positionContextMenu(this.contextMenu, messageEl);
       this.contextMenu.style.display = 'block';
       return;
@@ -18741,6 +18746,7 @@ class ChatModal {
       if (editOption) editOption.style.display = 'none';
     }
     
+    this.syncDeleteContextMenuDisabledState(this.contextMenu, messageEl, messageRecord);
     this.positionContextMenu(this.contextMenu, messageEl);
     this.contextMenu.style.display = 'block';
   }
@@ -19281,6 +19287,29 @@ class ChatModal {
     }
 
     return true;
+  }
+
+  hasRecentDeleteForAllForTarget(targetTxid) {
+    return !!targetTxid && this.recentDeleteForAllTargetTxids.has(targetTxid);
+  }
+
+  markRecentDeleteForAllForTarget(targetTxid) {
+    if (!targetTxid) {
+      return;
+    }
+
+    this.recentDeleteForAllTargetTxids.add(targetTxid);
+    setTimeout(() => {
+      this.recentDeleteForAllTargetTxids.delete(targetTxid);
+    }, DELETE_FOR_ALL_ACTION_GUARD_MS);
+  }
+
+  syncDeleteContextMenuDisabledState(menu, messageEl, messageRecord = null) {
+    const message = messageRecord || this.getMessageRecordFromElement(messageEl);
+    const isDisabled = this.hasRecentDeleteForAllForTarget(message?.txid);
+    menu?.querySelectorAll('[data-action="delete"], [data-action="delete-for-all"]').forEach((option) => {
+      option.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
+    });
   }
 
   /**
@@ -19856,6 +19885,7 @@ class ChatModal {
     );
     this.syncReactionPickerActiveState(this.imageAttachmentContextMenuReactions, messageEl);
 
+    this.syncDeleteContextMenuDisabledState(this.imageAttachmentContextMenu, messageEl);
     this.positionContextMenu(this.imageAttachmentContextMenu, attachmentRow);
     this.imageAttachmentContextMenu.style.display = 'block';
   }
@@ -20756,18 +20786,20 @@ class ChatModal {
   async deleteMessageForAll(messageEl) {
     const { txid, messageTimestamp: timestamp } = messageEl.dataset;
     
-    if (!timestamp || !confirm('Delete this message for all participants?')) return;
+    if (!timestamp && !txid) return;
     
     try {
       // Get the message object from contact.messages
       const contact = myData.contacts[this.address];
-      const messageIndex = contact?.messages?.findIndex(msg => 
-        msg.timestamp == timestamp || msg.txid === txid
-      );
-      
-      if (messageIndex === -1) return;
-      
-      const message = contact.messages[messageIndex];
+      if (!contact) return;
+
+      const message = this.getMessageRecordFromElement(messageEl);
+      if (!message) return;
+
+      const targetTxid = message.txid;
+      if (!targetTxid) {
+        return showToast('Cannot delete message: missing message id', 0, 'error');
+      }
       
       if (isDeletedForAll(message)) {
         return showToast('Message already deleted for everyone', 2000, 'info');
@@ -20778,6 +20810,11 @@ class ChatModal {
         return showToast('You can only delete your own messages for all', 0, 'error');
       }
 
+      if (this.hasRecentDeleteForAllForTarget(targetTxid)) return;
+
+      if (!confirm('Delete this message for all participants?')) return;
+      this.markRecentDeleteForAllForTarget(targetTxid);
+
       // Create and send a "delete" message
       const keys = myAccount.keys;
       if (!keys) {
@@ -20785,7 +20822,7 @@ class ChatModal {
         return;
       }
 
-      const tollInLib = myData.contacts[this.address].tollRequiredToSend == 0 ? 0n : getEffectiveTollLibWei(this.toll);
+      const tollInLib = contact.tollRequiredToSend == 0 ? 0n : getEffectiveTollLibWei(this.toll);
 
       const sufficientBalance = await validateBalance(tollInLib);
       if (!sufficientBalance) {
@@ -20796,8 +20833,8 @@ class ChatModal {
 
       // Ensure recipient keys are available
       const ok = await ensureContactKeys(this.address);
-      const recipientPubKey = myData.contacts[this.address]?.public;
-      const pqRecPubKey = myData.contacts[this.address]?.pqPublic;
+      const recipientPubKey = contact.public;
+      const pqRecPubKey = contact.pqPublic;
       if (!ok || !recipientPubKey || !pqRecPubKey) {
         console.warn(`No public/PQ key found for recipient ${this.address}`);
         showToast('Failed to get recipient key', 0, 'error');
@@ -20810,7 +20847,7 @@ class ChatModal {
       // Create delete message payload
       const deleteObj = {
         type: 'delete',
-        txid: txid  // ID of the message to delete
+        txid: targetTxid  // ID of the message to delete
       };
 
       // Encrypt the message
