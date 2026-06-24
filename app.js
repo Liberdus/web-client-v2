@@ -14440,7 +14440,7 @@ class ChatModal {
     this.dragCounter = 0;
     this.dropOverlay = null;
 
-    this.recentDeleteForAllTargetKeys = new Map();
+    this.recentDeleteForAllTargetTxids = new Set();
 
     this.chatRenderedOldestIndex = CHAT_INITIAL_RENDER_COUNT - 1;
   }
@@ -14971,10 +14971,9 @@ class ChatModal {
         return;
       }
       const option = e.target.closest('.context-menu-option');
-      if (option && !this.isContextMenuOptionDisabled(option)) {
-        const action = option.dataset.action;
-        this.handleContextMenuAction(action);
-      }
+      if (!option || option.getAttribute('aria-disabled') === 'true') return;
+      const action = option.dataset.action;
+      this.handleContextMenuAction(action);
     });
     // Add image attachment context menu option listeners
     if (this.imageAttachmentContextMenu) {
@@ -14987,7 +14986,7 @@ class ChatModal {
           return;
         }
         const option = e.target.closest('.context-menu-option');
-        if (!option || this.isContextMenuOptionDisabled(option)) return;
+        if (!option || option.getAttribute('aria-disabled') === 'true') return;
         const action = option.dataset.action;
         this.handleImageAttachmentContextMenuAction(action);
       });
@@ -19290,52 +19289,27 @@ class ChatModal {
     return true;
   }
 
-  getDeleteForAllTargetKey(contactAddress, targetTxid) {
-    assert(contactAddress, 'Delete guard contact address is required');
-    assert(targetTxid, 'Delete guard target txid is required');
-    return `${normalizeAddress(contactAddress)}:${targetTxid}`;
+  hasRecentDeleteForAllForTarget(targetTxid) {
+    return !!targetTxid && this.recentDeleteForAllTargetTxids.has(targetTxid);
   }
 
-  hasRecentDeleteForAllForTarget(contactAddress, targetTxid) {
-    if (!contactAddress || !targetTxid) {
-      return false;
-    }
-
-    return this.recentDeleteForAllTargetKeys.has(this.getDeleteForAllTargetKey(contactAddress, targetTxid));
-  }
-
-  markRecentDeleteForAllForTarget(contactAddress, targetTxid) {
-    if (!contactAddress || !targetTxid) {
+  markRecentDeleteForAllForTarget(targetTxid) {
+    if (!targetTxid) {
       return;
     }
 
-    const key = this.getDeleteForAllTargetKey(contactAddress, targetTxid);
-    clearTimeout(this.recentDeleteForAllTargetKeys.get(key));
-    const timeoutId = setTimeout(() => {
-      this.recentDeleteForAllTargetKeys.delete(key);
+    this.recentDeleteForAllTargetTxids.add(targetTxid);
+    setTimeout(() => {
+      this.recentDeleteForAllTargetTxids.delete(targetTxid);
     }, DELETE_FOR_ALL_ACTION_GUARD_MS);
-    this.recentDeleteForAllTargetKeys.set(key, timeoutId);
-  }
-
-  setContextMenuOptionDisabled(option, disabled) {
-    if (!option) return;
-    option.classList.toggle('is-disabled', disabled);
-    option.setAttribute('aria-disabled', disabled ? 'true' : 'false');
-  }
-
-  isContextMenuOptionDisabled(option) {
-    return option?.classList?.contains('is-disabled') || option?.getAttribute('aria-disabled') === 'true';
-  }
-
-  hasRecentDeleteForAllForMessage(messageEl, messageRecord = null) {
-    const message = messageRecord || this.getMessageRecordFromElement(messageEl);
-    return this.hasRecentDeleteForAllForTarget(this.address, message?.txid);
   }
 
   syncDeleteContextMenuDisabledState(menu, messageEl, messageRecord = null) {
-    const isDisabled = this.hasRecentDeleteForAllForMessage(messageEl, messageRecord);
-    this.setContextMenuOptionDisabled(menu?.querySelector('[data-action="delete"]'), isDisabled);
-    this.setContextMenuOptionDisabled(menu?.querySelector('[data-action="delete-for-all"]'), isDisabled);
+    const message = messageRecord || this.getMessageRecordFromElement(messageEl);
+    const isDisabled = this.hasRecentDeleteForAllForTarget(message?.txid);
+    menu?.querySelectorAll('[data-action="delete"], [data-action="delete-for-all"]').forEach((option) => {
+      option.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
+    });
   }
 
   /**
@@ -20836,10 +20810,10 @@ class ChatModal {
         return showToast('You can only delete your own messages for all', 0, 'error');
       }
 
-      if (this.hasRecentDeleteForAllForTarget(this.address, targetTxid)) return;
+      if (this.hasRecentDeleteForAllForTarget(targetTxid)) return;
 
       if (!confirm('Delete this message for all participants?')) return;
-      this.markRecentDeleteForAllForTarget(this.address, targetTxid);
+      this.markRecentDeleteForAllForTarget(targetTxid);
 
       // Create and send a "delete" message
       const keys = myAccount.keys;
