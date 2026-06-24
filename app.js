@@ -6913,7 +6913,7 @@ function hasPendingEditForTarget(contactAddress, targetTxid) {
   );
 }
 
-const DELETE_FOR_ALL_ACTION_GUARD_MS = 9000;
+const DELETE_FOR_ALL_ACTION_GUARD_MS = 15000;
 
 /**
  * Restores local state captured before an optimistic message edit.
