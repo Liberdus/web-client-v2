@@ -6856,11 +6856,24 @@ function buildUpdateTollRequiredHistoryItem(tx, txid, currentUserAddress) {
   return item;
 }
 
-function applyUpdateTollRequiredState(contact, historyItem) {
+function isNewerUpdateTollRequiredHistoryItem(candidate, current) {
+  if (!current) return true;
+  if (candidate.timestamp !== current.timestamp) {
+    return candidate.timestamp > current.timestamp;
+  }
+  return candidate.txid > current.txid;
+}
+
+function applyUpdateTollRequiredState(contact, historyItem, options = {}) {
   if (historyItem.my) {
+    const { preservePendingFriend = false } = options;
     contact.tollRequiredToReceive = historyItem.required;
-    contact.friend = requiredToFriendStatus(historyItem.required);
-    contact.friendOld = contact.friend;
+    if (preservePendingFriend && contact.friend !== contact.friendOld) {
+      return;
+    }
+    const friendStatus = requiredToFriendStatus(historyItem.required);
+    contact.friend = friendStatus;
+    contact.friendOld = friendStatus;
     return;
   }
 
@@ -7289,7 +7302,8 @@ async function processChats(chats, keys) {
       let didChangeReactionPreview = false;
       let didApplyStatusChange = false;
       let needsStatusChatRefresh = false;
-      const contactStatusStateUpdates = new Map();
+      let myStatusUpdate = null;
+      let contactStatusUpdate = null;
       const touchedReactionTargetTxids = new Set();
 
       // This check determines if we're currently chatting with the sender
@@ -7347,14 +7361,11 @@ async function processChats(chats, keys) {
           const statusContact = myData.contacts[statusContactAddress];
           const statusHistoryItem = buildUpdateTollRequiredHistoryItem(tx, txidHex, currentUserAddress);
           const didInsertStatusHistory = insertUpdateTollRequiredHistoryItem(statusContact, statusHistoryItem);
-          if (!statusHistoryItem.my && didInsertStatusHistory) {
-            const existingStatusUpdate = contactStatusStateUpdates.get(statusContactAddress);
-            if (
-              !existingStatusUpdate ||
-              statusHistoryItem.timestamp > existingStatusUpdate.timestamp ||
-              (statusHistoryItem.timestamp === existingStatusUpdate.timestamp && statusHistoryItem.txid > existingStatusUpdate.txid)
-            ) {
-              contactStatusStateUpdates.set(statusContactAddress, statusHistoryItem);
+          if (didInsertStatusHistory) {
+            if (statusHistoryItem.my && isNewerUpdateTollRequiredHistoryItem(statusHistoryItem, myStatusUpdate)) {
+              myStatusUpdate = statusHistoryItem;
+            } else if (!statusHistoryItem.my && isNewerUpdateTollRequiredHistoryItem(statusHistoryItem, contactStatusUpdate)) {
+              contactStatusUpdate = statusHistoryItem;
             }
           }
 
@@ -7948,15 +7959,24 @@ async function processChats(chats, keys) {
         }
       }
 
-      for (const [statusContactAddress, statusHistoryItem] of contactStatusStateUpdates) {
-        const statusContact = myData.contacts[statusContactAddress];
-        if (!statusContact) {
-          continue;
+      if (myStatusUpdate || contactStatusUpdate) {
+        const previousFriend = contact.friend;
+
+        if (myStatusUpdate) {
+          applyUpdateTollRequiredState(contact, myStatusUpdate, { preservePendingFriend: true });
         }
-        applyUpdateTollRequiredState(statusContact, statusHistoryItem);
-        if (chatModal.isActive() && chatModal.address === statusContactAddress) {
-          chatModal.blockedByRecipient = Number(statusContact.tollRequiredToSend) === 2;
-          chatModal.updateTollAmountUI(statusContactAddress);
+
+        if (contactStatusUpdate) {
+          applyUpdateTollRequiredState(contact, contactStatusUpdate);
+        }
+
+        if (chatModal.isActive() && chatModal.address === from) {
+          chatModal.blockedByRecipient = Number(contact.tollRequiredToSend) === 2;
+          chatModal.updateTollAmountUI(from);
+
+          if (myStatusUpdate && contact.friend !== previousFriend) {
+            friendModal.updateFriendButton(contact, 'addFriendButtonChat');
+          }
         }
       }
 
