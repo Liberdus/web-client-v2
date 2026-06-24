@@ -6913,6 +6913,44 @@ function hasPendingEditForTarget(contactAddress, targetTxid) {
   );
 }
 
+const pendingDeleteForAllTargets = new Set();
+
+/**
+ * Builds the in-memory key used to block duplicate delete-for-all starts before a txid exists.
+ * @param {string} contactAddress
+ * @param {string} targetTxid
+ * @returns {string}
+ */
+function getPendingDeleteForAllTargetKey(contactAddress, targetTxid) {
+  assert(contactAddress, 'Pending delete contact address is required');
+  assert(targetTxid, 'Pending delete target txid is required');
+  return `${normalizeAddress(contactAddress)}:${targetTxid}`;
+}
+
+/**
+ * Marks a delete-for-all target as in-flight before async send preparation starts.
+ * @param {string} contactAddress
+ * @param {string} targetTxid
+ * @returns {void}
+ */
+function trackPendingDeleteForAllTarget(contactAddress, targetTxid) {
+  pendingDeleteForAllTargets.add(getPendingDeleteForAllTargetKey(contactAddress, targetTxid));
+}
+
+/**
+ * Clears the in-memory delete-for-all target marker.
+ * @param {string} contactAddress
+ * @param {string} targetTxid
+ * @returns {void}
+ */
+function removePendingDeleteForAllTarget(contactAddress, targetTxid) {
+  if (!contactAddress || !targetTxid) {
+    return;
+  }
+
+  pendingDeleteForAllTargets.delete(getPendingDeleteForAllTargetKey(contactAddress, targetTxid));
+}
+
 /**
  * Returns whether a delete-for-all control message is already pending for a message.
  * @param {string} contactAddress
@@ -6920,11 +6958,19 @@ function hasPendingEditForTarget(contactAddress, targetTxid) {
  * @returns {boolean}
  */
 function hasPendingDeleteForAllForTarget(contactAddress, targetTxid) {
-  if (!contactAddress || !targetTxid || !Array.isArray(myData?.pending)) {
+  if (!contactAddress || !targetTxid) {
     return false;
   }
 
   const normalizedContactAddress = normalizeAddress(contactAddress);
+  if (pendingDeleteForAllTargets.has(getPendingDeleteForAllTargetKey(normalizedContactAddress, targetTxid))) {
+    return true;
+  }
+
+  if (!Array.isArray(myData?.pending)) {
+    return false;
+  }
+
   return myData.pending.some((pendingTx) =>
     pendingTx.type === 'message' &&
     pendingTx.to === normalizedContactAddress &&
@@ -6978,7 +7024,9 @@ function removePendingDeleteForAll(deleteTxid) {
     pendingTx.txid === deleteTxid && pendingTx.deletePending
   );
   if (pendingIndex !== -1) {
+    const pendingTxInfo = myData.pending[pendingIndex];
     myData.pending.splice(pendingIndex, 1);
+    removePendingDeleteForAllTarget(pendingTxInfo.to, pendingTxInfo.deletePending?.targetTxid);
   }
 }
 
@@ -20827,6 +20875,8 @@ class ChatModal {
     const { txid, messageTimestamp: timestamp } = messageEl.dataset;
     let deleteTxid = '';
     let didInjectDelete = false;
+    let targetTxid = '';
+    let didTrackDeleteForAllTarget = false;
     
     if (!timestamp && !txid) return;
     
@@ -20842,7 +20892,7 @@ class ChatModal {
       if (messageIndex === -1) return;
       
       const message = contact.messages[messageIndex];
-      const targetTxid = message.txid;
+      targetTxid = message.txid;
       if (!targetTxid) {
         return showToast('Cannot delete message: missing message id', 0, 'error');
       }
@@ -20861,6 +20911,8 @@ class ChatModal {
       }
 
       if (!confirm('Delete this message for all participants?')) return;
+      trackPendingDeleteForAllTarget(this.address, targetTxid);
+      didTrackDeleteForAllTarget = true;
 
       // Create and send a "delete" message
       const keys = myAccount.keys;
@@ -20946,6 +20998,10 @@ class ChatModal {
       }
       console.error('Delete for all error:', error);
       showToast('Failed to delete message. Please try again.', 0, 'error');
+    } finally {
+      if (didTrackDeleteForAllTarget) {
+        removePendingDeleteForAllTarget(this.address, targetTxid);
+      }
     }
   }
 
