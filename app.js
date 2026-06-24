@@ -20885,13 +20885,9 @@ class ChatModal {
       const contact = myData.contacts[this.address];
       if (!contact?.messages?.length) return;
 
-      const messageIndex = contact.messages.findIndex(msg =>
-        msg.timestamp == timestamp || msg.txid === txid
-      );
-      
-      if (messageIndex === -1) return;
-      
-      const message = contact.messages[messageIndex];
+      const message = this.getMessageRecordFromElement(messageEl);
+      if (!message) return;
+
       targetTxid = message.txid;
       if (!targetTxid) {
         return showToast('Cannot delete message: missing message id', 0, 'error');
