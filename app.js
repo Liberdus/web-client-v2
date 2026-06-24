@@ -19338,10 +19338,6 @@ class ChatModal {
     this.setContextMenuOptionDisabled(menu?.querySelector('[data-action="delete-for-all"]'), isDisabled);
   }
 
-  isDeleteContextMenuActionDisabled(action, messageEl) {
-    return (action === 'delete' || action === 'delete-for-all') && this.hasRecentDeleteForAllForMessage(messageEl);
-  }
-
   /**
    * Removes cached thumbnails for any image attachments in an xattach array.
    * Safe to call even if thumbnails don't exist.
@@ -19925,11 +19921,6 @@ class ChatModal {
     if (!row) return;
 
     const { messageEl } = this.getAttachmentContextFromRow(row);
-    if (this.isDeleteContextMenuActionDisabled(action, messageEl)) {
-      this.closeImageAttachmentContextMenu();
-      return;
-    }
-
     switch (action) {
       case 'import-contacts':
         void this.openImportContactsModal(row);
@@ -20056,10 +20047,6 @@ class ChatModal {
   handleContextMenuAction(action) {
     const messageEl = this.currentContextMessage;
     if (!messageEl) return;
-    if (this.isDeleteContextMenuActionDisabled(action, messageEl)) {
-      this.closeContextMenu();
-      return;
-    }
     
     switch (action) {
       case 'save':
