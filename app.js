@@ -20915,7 +20915,6 @@ class ChatModal {
       await signObj(deleteMessageObj, keys);
       deleteTxid = getTxid(deleteMessageObj);
       trackPendingDeleteForAllBeforeInject(deleteTxid, this.address, targetTxid);
-      saveState();
 
       // Send the delete transaction
       const response = await injectTx(deleteMessageObj, deleteTxid);
@@ -20923,12 +20922,10 @@ class ChatModal {
       if (!response || !response.result || !response.result.success) {
         console.error('Delete message failed to send', response);
         removePendingDeleteForAll(deleteTxid);
-        saveState();
         return showToast('Failed to delete message: ' + (response?.result?.reason || 'Unknown error'), 0, 'error');
       }
 
       didInjectDelete = true;
-      saveState();
       showToast('Delete request sent', 5000, 'loading');
       
       // Best effort delete attachments from server
@@ -20946,7 +20943,6 @@ class ChatModal {
     } catch (error) {
       if (deleteTxid && !didInjectDelete) {
         removePendingDeleteForAll(deleteTxid);
-        saveState();
       }
       console.error('Delete for all error:', error);
       showToast('Failed to delete message. Please try again.', 0, 'error');
