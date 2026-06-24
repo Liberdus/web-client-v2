@@ -17265,7 +17265,12 @@ class ChatModal {
     const statusAttribute = item.status ? `data-status="${item.status}"` : '';
 
     if (item.type === 'update_toll_required') {
-      return '';
+      const statusText = escapeHtml(getUpdateTollRequiredPreviewText(item, contact));
+      return `
+          <div class="update-toll-required-divider" ${timestampAttribute} ${txidAttribute} role="status">
+            <span class="update-toll-required-text">${statusText}</span>
+          </div>
+        `;
     }
 
     // Check if it's a payment based on the presence of the amount property (BigInt)

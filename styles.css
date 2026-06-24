@@ -2287,6 +2287,44 @@ input[type='file'].form-control::file-selector-button {
   margin-top: auto;
 }
 
+.messages-list > .update-toll-required-divider:first-child {
+  margin-top: auto;
+}
+
+.update-toll-required-divider {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 100%;
+  margin: 0.5rem 0;
+  color: var(--secondary-text-color);
+  cursor: default;
+  text-align: center;
+  user-select: text;
+}
+
+.update-toll-required-divider::before,
+.update-toll-required-divider::after {
+  content: '';
+  flex: 1 1 auto;
+  min-width: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.update-toll-required-text {
+  flex: 0 1 auto;
+  max-width: min(80%, 420px);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.update-toll-required-divider.highlighted .update-toll-required-text {
+  color: var(--text-color);
+}
+
 .message {
   max-width: 80%;
   padding: 0.75rem 1rem;
