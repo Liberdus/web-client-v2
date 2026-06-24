@@ -6927,6 +6927,12 @@ function getPendingDeleteForAllTargetKey(contactAddress, targetTxid) {
   return `${normalizeAddress(contactAddress)}:${targetTxid}`;
 }
 
+/**
+ * Checks if a pending delete-for-all target marker exists in the in-memory pending transactions.
+ * @param {string} contactAddress
+ * @param {string} targetTxid
+ * @returns {boolean}
+ */
 function hasPendingDeleteForAllForTarget(contactAddress, targetTxid) {
   if (!contactAddress || !targetTxid) {
     return false;
