@@ -12477,32 +12477,11 @@ class RestoreAccountModal {
       }
     }
 
-    // Ensure we have local accounts registry
-    const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-
-    // Merge accounts registry first
-    const backupAccountsRegistry = parse(backupData.accounts || '{"netids":{}}');
-    Object.keys(backupAccountsRegistry.netids || {}).forEach(netid => {
-      if (!existingAccounts.netids[netid]) existingAccounts.netids[netid] = { usernames: {} };
-      const usernames = backupAccountsRegistry.netids[netid].usernames || {};
-      Object.keys(usernames).forEach(username => {
-        if (overwrite || !existingAccounts.netids[netid].usernames[username]) {
-          existingAccounts.netids[netid].usernames[username] = usernames[username];
-        }
-      });
-    });
-    localStorage.setItem('accounts', stringify(existingAccounts));
-
-
     // Iterate over keys in backupData and copy account entries
-    let restoredCount = 0;
-    for (const key of Object.keys(backupData)) {
-      const parts = key.split('_');
-      if (parts.length !== 2) continue;
-      const username = parts[0];
-      const netid = parts[1];
-      // basic netid check
-      if (netid.length !== 64 || !/^[a-f0-9]+$/.test(netid)) continue;
+    const restoredAccountKeys = new Set();
+    const backupAccountsRegistry = this.parseBackupAccountsRegistry(backupData);
+    const backupAccountEntries = this.getBackupAccountEntries(backupData, backupAccountsRegistry);
+    for (const { key, username, netid, registryAccount } of backupAccountEntries) {
 
       const localKey = `${username}_${netid}`;
       const exists = localStorage.getItem(localKey) !== null;
@@ -12517,7 +12496,7 @@ class RestoreAccountModal {
 
       if (locksMatch) {
         localStorage.setItem(localKey, value);
-        restoredCount++;
+        restoredAccountKeys.add(localKey);
         decryptedAccount = this.tryDecryptWithLocalLock(value);
       } else {
         // Need to decrypt with backupEncKey if available
@@ -12555,11 +12534,13 @@ class RestoreAccountModal {
         }
 
         localStorage.setItem(localKey, finalValue);
-        restoredCount++;
+        restoredAccountKeys.add(localKey);
       }
 
       if (decryptedAccount) {
         this.updateAccountRegistryAddress(netid, username, decryptedAccount);
+      } else if (registryAccount?.address) {
+        this.updateAccountRegistryFromBackup(netid, username, registryAccount);
       }
     }
 
@@ -12581,7 +12562,7 @@ class RestoreAccountModal {
       }
     }
 
-    return restoredCount;
+    return restoredAccountKeys.size;
   }
 
   async handleSubmit(event) {
@@ -12658,16 +12639,19 @@ class RestoreAccountModal {
       if (restoredCount === false) {
         return; // merge failed — keep modal open and do not proceed to reset/close
       }
-      showToast(`${restoredCount} account${restoredCount === 1 ? '' : 's'} restored`, 3000, 'success');
+      const successToastId = showToast(`${restoredCount} account${restoredCount === 1 ? '' : 's'} restored`, 0, 'success');
       
       // handleNativeAppSubscription()
 
-      // Reset form and close modal after delay
-      setTimeout(() => {
+      const finishRestore = () => {
         this.close();
         clearMyData(); // since we already saved to localStore, we want to make sure beforeunload calling saveState does not also save
         window.location.reload(); // need to go through Sign In to make sure imported account exists on network
-      }, 2000);
+      };
+      const successToast = document.getElementById(successToastId);
+      if (successToast) {
+        successToast.addEventListener('click', finishRestore, { once: true });
+      }
     } catch (error) {
       showToast(error.message || 'Import failed. Please check file and password.', 0, 'error');
     }
@@ -12716,6 +12700,54 @@ class RestoreAccountModal {
     cleanup(this.newStringSelect);
   }
 
+  parseBackupAccountsRegistry(backupData) {
+    try {
+      if (!backupData?.accounts) return { netids: {} };
+      const registry = typeof backupData.accounts === 'string'
+        ? parse(backupData.accounts)
+        : backupData.accounts;
+      return registry && typeof registry === 'object' ? registry : { netids: {} };
+    } catch (e) {
+      return { netids: {} };
+    }
+  }
+
+  parseBackupAccountKey(key) {
+    const parts = key.split('_');
+    if (parts.length !== 2) return null;
+
+    const [username, netid] = parts;
+    if (!username || netid.length !== 64 || !/^[a-f0-9]+$/.test(netid)) {
+      return null;
+    }
+
+    return { username, netid };
+  }
+
+  getBackupAccountEntries(backupData, backupAccountsRegistry) {
+    const registryNetids = backupAccountsRegistry?.netids || {};
+    const hasRegistryAccounts = Object.keys(registryNetids).length > 0;
+
+    return Object.keys(backupData)
+      .map(key => {
+        const parsedKey = this.parseBackupAccountKey(key);
+        if (!parsedKey) return null;
+
+        const registryAccount = registryNetids[parsedKey.netid]?.usernames?.[parsedKey.username];
+        if (hasRegistryAccounts && !registryAccount) {
+          return null;
+        }
+
+        return {
+          key,
+          username: parsedKey.username,
+          netid: parsedKey.netid,
+          registryAccount
+        };
+      })
+      .filter(Boolean);
+  }
+
   extractAddress(maybeJson) {
     try {
       const obj = typeof maybeJson === 'string' ? parse(maybeJson) : maybeJson;
@@ -12732,6 +12764,13 @@ class RestoreAccountModal {
     const accountsObj = parse(localStorage.getItem('accounts') || '{"netids":{}}');
     if (!accountsObj.netids[netid]) accountsObj.netids[netid] = { usernames: {} };
     accountsObj.netids[netid].usernames[username] = { address };
+    localStorage.setItem('accounts', stringify(accountsObj));
+  }
+
+  updateAccountRegistryFromBackup(netid, username, registryAccount) {
+    const accountsObj = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+    if (!accountsObj.netids[netid]) accountsObj.netids[netid] = { usernames: {} };
+    accountsObj.netids[netid].usernames[username] = registryAccount;
     localStorage.setItem('accounts', stringify(accountsObj));
   }
 
