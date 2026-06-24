@@ -6980,6 +6980,28 @@ function trackPendingDeleteForAll(deleteTxid, contactAddress, targetTxid) {
 }
 
 /**
+ * Removes a pending delete-for-all target marker from the in-memory pending transactions.
+ * @param {string} contactAddress
+ * @param {string} targetTxid
+ * @returns {void}
+ */
+function removePendingDeleteForAllForTarget(contactAddress, targetTxid) {
+  if (!Array.isArray(myData?.pending) || !contactAddress || !targetTxid) {
+    return;
+  }
+
+  const normalizedContactAddress = normalizeAddress(contactAddress);
+  myData.pending = myData.pending.filter((pendingTx) =>
+    !(
+      pendingTx.type === 'message' &&
+      pendingTx.to === normalizedContactAddress &&
+      pendingTx.deletePending &&
+      pendingTx.deletePending.targetTxid === targetTxid
+    )
+  );
+}
+
+/**
  * Restores local state captured before an optimistic message edit.
  * @param {string} pendingTxid
  * @param {string} contactAddress
@@ -7380,6 +7402,7 @@ async function processChats(chats, keys) {
                   if (didDeleteMessage) {
                     purgeContactReactionsForTarget(contact, messageToDelete.txid);
                     purgePendingReactionsForTarget(from, messageToDelete.txid);
+                    removePendingDeleteForAllForTarget(from, messageToDelete.txid);
                     syncChatLatestActivityTimestamp(from, contact);
                     didChangeReactionPreview = true;
                     if (wasUnreadIncomingMessage) {
@@ -29485,7 +29508,11 @@ async function checkPendingTransactions() {
     const pendingTxInfo = myData.pending[i];
     const { txid, type, submittedts } = pendingTxInfo;
     const reactionPending = pendingTxInfo.reactionPending;
+    const deletePending = pendingTxInfo.deletePending;
     if (reactionPending && reactionPending.status !== 'pending') {
+      continue;
+    }
+    if (deletePending?.txAccepted) {
       continue;
     }
 
@@ -29520,6 +29547,9 @@ async function checkPendingTransactions() {
       if (res?.transaction?.success === true) {
         if (reactionPending) {
           settleAndQueueReactionCleanup(pendingTxInfo, 'success');
+        } else if (deletePending) {
+          deletePending.txAccepted = true;
+          didMutatePendingState = true;
         } else {
           // comment out to test the pending txs removal logic
           myData.pending.splice(i, 1);
