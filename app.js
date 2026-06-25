@@ -12639,12 +12639,12 @@ class RestoreAccountModal {
       if (restoredCount === false) {
         return; // merge failed — keep modal open and do not proceed to reset/close
       }
+      clearMyData(); // Prevent stale signed-in state from saving over restored localStorage before refresh.
       let restoreSuccessToast = null;
       const finishRestore = () => {
         document.removeEventListener('click', handleRestoreOutsideClick, true);
         hideToast(successToastId);
         this.close();
-        clearMyData(); // since we already saved to localStore, we want to make sure beforeunload calling saveState does not also save
         window.location.reload(); // need to go through Sign In to make sure imported account exists on network
       };
       function handleRestoreOutsideClick(event) {
