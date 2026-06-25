@@ -12640,15 +12640,46 @@ class RestoreAccountModal {
         return; // merge failed — keep modal open and do not proceed to reset/close
       }
       clearMyData(); // Prevent stale signed-in state from saving over restored localStorage before refresh.
-      showToast(`${restoredCount} account${restoredCount === 1 ? '' : 's'} restored`, 0, 'success');
+      const successToastId = showToast(`${restoredCount} account${restoredCount === 1 ? '' : 's'} restored`, 0, 'success');
+      let restoreFinished = false;
+      const finishRestore = () => {
+        if (restoreFinished) return;
+        restoreFinished = true;
+        document.removeEventListener('click', handleRestoreOutsideClick, true);
+        hideToast(successToastId);
+        this.close();
+        setTimeout(() => {
+          window.location.reload(); // need to go through Sign In to make sure imported account exists on network
+        }, 300);
+      };
+      function handleRestoreOutsideClick(event) {
+        const successToast = document.getElementById(successToastId);
+        if (successToast?.contains(event.target)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        finishRestore();
+      }
+      const setupRestoreDismissAction = (attempt = 0) => {
+        const successToast = document.getElementById(successToastId);
+        if (!successToast || !successToast.classList.contains('sticky')) {
+          if (attempt < 5) {
+            setTimeout(() => setupRestoreDismissAction(attempt + 1), 10);
+            return;
+          }
+          finishRestore();
+          return;
+        }
+
+        successToast.onclick = (event) => {
+          event.stopPropagation();
+          finishRestore();
+        };
+        setTimeout(() => document.addEventListener('click', handleRestoreOutsideClick, true), 0);
+      };
+      setupRestoreDismissAction();
 
       // handleNativeAppSubscription()
-
-      // Reset form and close modal after delay
-      setTimeout(() => {
-        this.close();
-        window.location.reload(); // need to go through Sign In to make sure imported account exists on network
-      }, 2000);
     } catch (error) {
       showToast(error.message || 'Import failed. Please check file and password.', 0, 'error');
     }
