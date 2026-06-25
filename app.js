@@ -5141,8 +5141,6 @@ class FriendModal {
       await chatsScreen.updateChatList();
     }
 
-    saveState();
-
     // Close the friend modal (skip warning since form was submitted)
     this.close(true);
   }
