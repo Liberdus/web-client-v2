@@ -743,14 +743,6 @@ body {
   overflow-y: auto; /* Ensure scrolling is enabled */
 }
 
-/* Main chat list items */
-#chatList .chat-item {
-  display: flex;
-  padding: 8px 16px;
-  background: var(--background-color);
-  cursor: pointer;
-}
-
 /* Search Results Container */
 #searchResults {
   padding: 0;
