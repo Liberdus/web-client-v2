@@ -12639,6 +12639,7 @@ class RestoreAccountModal {
       if (restoredCount === false) {
         return; // merge failed — keep modal open and do not proceed to reset/close
       }
+      let restoreSuccessToast = null;
       const finishRestore = () => {
         document.removeEventListener('click', handleRestoreOutsideClick, true);
         hideToast(successToastId);
@@ -12646,6 +12647,10 @@ class RestoreAccountModal {
         clearMyData(); // since we already saved to localStore, we want to make sure beforeunload calling saveState does not also save
         window.location.reload(); // need to go through Sign In to make sure imported account exists on network
       };
+      function handleRestoreOutsideClick(event) {
+        if (restoreSuccessToast?.contains(event.target)) return;
+        finishRestore();
+      }
       const successToastId = showToast(
         `${restoredCount} account${restoredCount === 1 ? '' : 's'} restored`,
         0,
@@ -12653,24 +12658,28 @@ class RestoreAccountModal {
         false,
         { className: 'toast-requires-action' }
       );
-      const successToast = document.getElementById(successToastId);
-      const refreshButton = successToast?.querySelector('.toast-close-btn');
-      if (!successToast || !refreshButton) {
-        finishRestore();
-        return;
-      }
+      const setupRestoreRefreshAction = (attempt = 0) => {
+        const successToast = document.getElementById(successToastId);
+        const refreshButton = successToast?.querySelector('.toast-close-btn');
+        if (!successToast || !refreshButton) {
+          if (attempt < 5) {
+            setTimeout(() => setupRestoreRefreshAction(attempt + 1), 10);
+            return;
+          }
+          finishRestore();
+          return;
+        }
 
-      refreshButton.className = 'toast-action-btn';
-      refreshButton.textContent = 'Refresh';
-      refreshButton.setAttribute('aria-label', 'Refresh to finish restore');
-      refreshButton.addEventListener('click', finishRestore, { once: true });
-      successToast.onclick = (event) => event.stopPropagation();
+        restoreSuccessToast = successToast;
+        refreshButton.className = 'toast-action-btn';
+        refreshButton.textContent = 'Refresh';
+        refreshButton.setAttribute('aria-label', 'Refresh to finish restore');
+        refreshButton.addEventListener('click', finishRestore, { once: true });
+        successToast.onclick = (event) => event.stopPropagation();
 
-      function handleRestoreOutsideClick(event) {
-        if (successToast.contains(event.target)) return;
-        finishRestore();
-      }
-      setTimeout(() => document.addEventListener('click', handleRestoreOutsideClick, true), 0);
+        setTimeout(() => document.addEventListener('click', handleRestoreOutsideClick, true), 0);
+      };
+      setupRestoreRefreshAction();
 
       // handleNativeAppSubscription()
     } catch (error) {
