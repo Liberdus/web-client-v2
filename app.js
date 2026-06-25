@@ -6918,7 +6918,7 @@ function insertUpdateTollRequiredHistoryItem(contact, historyItem) {
 function removeUpdateTollRequiredHistoryItem(contactAddress, txid) {
   const contact = myData.contacts?.[contactAddress];
   if (!contact?.messages || !txid) {
-    return;
+    return false;
   }
 
   const previousLength = contact.messages.length;
@@ -6927,10 +6927,25 @@ function removeUpdateTollRequiredHistoryItem(contactAddress, txid) {
   );
 
   if (contact.messages.length === previousLength) {
-    return;
+    return false;
   }
 
   syncChatLatestActivityTimestamp(contactAddress, contact);
+  return true;
+}
+
+function updateRevertedFriendStatusButtons(contactAddress, contact) {
+  if (!contact) {
+    return;
+  }
+
+  if (chatModal.isActive() && chatModal.address === contactAddress) {
+    friendModal.updateFriendButton(contact, 'addFriendButtonChat');
+  }
+
+  if (contactInfoModal.isActive() && contactInfoModal.currentContactAddress === contactAddress) {
+    friendModal.updateFriendButton(contact, 'addFriendButtonContactInfo');
+  }
 }
 
 function revertPendingUpdateTollRequired(pendingTxInfo) {
@@ -6938,15 +6953,18 @@ function revertPendingUpdateTollRequired(pendingTxInfo) {
   const contact = myData.contacts?.[contactAddress];
   const currentFriendStatus = Number(contact?.friend);
   const previousFriendStatus = Number(contact?.friendOld);
-  removeUpdateTollRequiredHistoryItem(contactAddress, pendingTxInfo.txid);
+  const didRemoveStatusHistory = removeUpdateTollRequiredHistoryItem(contactAddress, pendingTxInfo.txid);
 
   if (contact) {
     contact.friend = contact.friendOld;
   }
 
+  updateRevertedFriendStatusButtons(contactAddress, contact);
+
   return {
     currentFriendStatus,
-    previousFriendStatus
+    previousFriendStatus,
+    didRemoveStatusHistory
   };
 }
 
@@ -29843,9 +29861,12 @@ async function checkPendingTransactions() {
           showToast('Edit timed out and was reverted', 0, 'error');
         }
         if (type === 'update_toll_required') {
-          revertPendingUpdateTollRequired(pendingTxInfo);
+          const { currentFriendStatus, previousFriendStatus, didRemoveStatusHistory } = revertPendingUpdateTollRequired(pendingTxInfo);
           showToast('Update contact status timed out. Reverting contact to old status.', 0, 'error');
           await contactsScreen.updateContactsList();
+          if (didRemoveStatusHistory || currentFriendStatus === 0 || previousFriendStatus === 0) {
+            await chatsScreen.updateChatList();
+          }
           chatModal.refreshCurrentView(txid);
         }
         // remove the pending tx from the pending array
@@ -29960,11 +29981,11 @@ async function checkPendingTransactions() {
             }
           } else if (type === 'update_toll_required') {
             showToast(`Update contact status failed: ${userFailureReason}. Reverting contact to old status.`, 0, 'error');
-            const { currentFriendStatus, previousFriendStatus } = revertPendingUpdateTollRequired(pendingTxInfo);
+            const { currentFriendStatus, previousFriendStatus, didRemoveStatusHistory } = revertPendingUpdateTollRequired(pendingTxInfo);
             // update contact list since friend status was reverted
             await contactsScreen.updateContactsList();
-            // Only refresh chats list if the revert enters or exits "blocked"
-            if (currentFriendStatus === 0 || previousFriendStatus === 0) {
+            // Refresh when removing the optimistic divider or when the revert enters/exits "blocked"
+            if (didRemoveStatusHistory || currentFriendStatus === 0 || previousFriendStatus === 0) {
               await chatsScreen.updateChatList();
             }
           } else if (type === 'read') {
