@@ -4273,6 +4273,10 @@ button.about-link {
   display: flex;
 }
 
+.search-modal .form-container {
+  padding: 0;
+}
+
 /* Remove any conflicting styles */
 #messageSearch,
 #contactSearch {
