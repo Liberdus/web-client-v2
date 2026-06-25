@@ -18,7 +18,7 @@
   /* Original color tokens (keeping your existing values) */
   --border-color: #dee2e6;
   --background-color: white;
-  --hover-background: #d8d9da;
+  --hover-background: #f8f9fa;
   --hover-background-purple: rgba(61, 61, 206, 0.08);
   --focus-ring-primary: 0 0 0 2px rgba(61, 61, 206, 0.1);
   --elev-1: 0 1px 3px rgba(0, 0, 0, 0.05);
