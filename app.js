@@ -12477,7 +12477,7 @@ class RestoreAccountModal {
       }
     }
 
-    // Iterate over keys in backupData and copy account entries
+    // Iterate over account payloads and copy account entries.
     const restoredAccountKeys = new Set();
     const backupAccountsRegistry = this.parseBackupAccountsRegistry(backupData);
     const backupAccountEntries = this.getBackupAccountEntries(backupData, backupAccountsRegistry);
@@ -12756,26 +12756,43 @@ class RestoreAccountModal {
 
   getBackupAccountEntries(backupData, backupAccountsRegistry) {
     const registryNetids = backupAccountsRegistry?.netids || {};
-    const hasRegistryAccounts = Object.keys(registryNetids).length > 0;
+    const entries = [];
+    const queuedKeys = new Set();
 
-    return Object.keys(backupData)
-      .map(key => {
+    Object.keys(registryNetids).forEach(netid => {
+      const usernames = registryNetids[netid]?.usernames || {};
+      Object.keys(usernames).forEach(username => {
+        const key = `${username}_${netid}`;
+        if (!Object.prototype.hasOwnProperty.call(backupData, key)) return;
         const parsedKey = this.parseBackupAccountKey(key);
-        if (!parsedKey) return null;
+        if (!parsedKey) return;
 
-        const registryAccount = registryNetids[parsedKey.netid]?.usernames?.[parsedKey.username];
-        if (hasRegistryAccounts && !registryAccount) {
-          return null;
-        }
-
-        return {
+        queuedKeys.add(key);
+        entries.push({
           key,
-          username: parsedKey.username,
-          netid: parsedKey.netid,
-          registryAccount
-        };
-      })
-      .filter(Boolean);
+          username,
+          netid,
+          registryAccount: usernames[username]
+        });
+      });
+    });
+
+    Object.keys(backupData).forEach(key => {
+      if (queuedKeys.has(key)) return;
+
+      const parsedKey = this.parseBackupAccountKey(key);
+      if (!parsedKey) return;
+
+      queuedKeys.add(key);
+      entries.push({
+        key,
+        username: parsedKey.username,
+        netid: parsedKey.netid,
+        registryAccount: registryNetids[parsedKey.netid]?.usernames?.[parsedKey.username]
+      });
+    });
+
+    return entries;
   }
 
   extractAddress(maybeJson) {
