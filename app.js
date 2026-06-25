@@ -10979,14 +10979,12 @@ class RemoveAccountsModal {
       let state = null;
       try {
         state = loadState(storageKey);
-        
-        // If loadState returned null, it could be decryption failure
-        if (!state) {
-          console.warn('Failed to load orphaned account', storageKey, '- likely decryption failure');
-        }
       } catch (e) {
         console.warn('Error loading orphaned account', storageKey, e);
-        result.push({ username, netid, contactsCount: -1, messagesCount: -1, orphan: true });
+        continue;
+      }
+
+      if (state?.account?.username !== username || state?.account?.netid !== netid) {
         continue;
       }
       
