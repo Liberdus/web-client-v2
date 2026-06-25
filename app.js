@@ -5037,8 +5037,10 @@ class FriendModal {
       }
       return { result: { success: false, reason }, toastAlreadyShown: true };
     }
-    res.updateTollRequiredTx = tx;
-    return res;
+    return {
+      ...res,
+      updateTollRequiredTx: tx
+    };
   }
 
   /**
