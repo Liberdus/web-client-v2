@@ -746,7 +746,7 @@ body {
 /* Main chat list items */
 #chatList .chat-item {
   display: flex;
-  padding: 12px 16px;
+  padding: 8px 16px;
   background: var(--background-color);
   cursor: pointer;
 }
