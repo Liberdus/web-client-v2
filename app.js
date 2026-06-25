@@ -5073,6 +5073,8 @@ class FriendModal {
           }
           return;
         }
+        const pendingStatusTx = myData.pending?.find((pendingTx) => pendingTx.txid === res.txid);
+        insertPendingUpdateTollRequiredHistoryItem(pendingStatusTx);
       } catch (error) {
         console.error('Error sending transaction to update chat toll:', error);
         showToast('Failed to update friend status. Please try again.', 0, 'error');
@@ -6889,6 +6891,81 @@ function insertUpdateTollRequiredHistoryItem(contact, historyItem) {
 
   insertSorted(contact.messages, historyItem, 'timestamp');
   return true;
+}
+
+function removeUpdateTollRequiredHistoryItem(contact, txid) {
+  if (!txid || !Array.isArray(contact?.messages)) {
+    return false;
+  }
+
+  const messageIndex = contact.messages.findIndex((message) =>
+    message.type === 'update_toll_required' && message.txid === txid
+  );
+  if (messageIndex === -1) {
+    return false;
+  }
+
+  contact.messages.splice(messageIndex, 1);
+  return true;
+}
+
+function refreshUpdateTollRequiredHistoryUi(contactAddress, contact) {
+  if (getLatestChatMessageActivity(contact)) {
+    syncChatLatestActivityTimestamp(contactAddress, contact);
+  } else {
+    const existingChatIndex = myData.chats.findIndex((chat) => chat.address === contactAddress);
+    if (existingChatIndex !== -1) {
+      myData.chats.splice(existingChatIndex, 1);
+    }
+  }
+
+  if (chatModal.isActive() && chatModal.address === contactAddress) {
+    chatModal.appendChatModal();
+  }
+
+  if (chatsScreen.isActive()) {
+    chatsScreen.updateChatList();
+  }
+}
+
+function insertPendingUpdateTollRequiredHistoryItem(pendingTxInfo) {
+  const tx = pendingTxInfo?.updateTollRequiredTx;
+  if (!tx || !isValidRequiredValue(tx.required)) {
+    return false;
+  }
+
+  const contactAddress = normalizeAddress(pendingTxInfo.to || tx.to);
+  const contact = myData.contacts?.[contactAddress];
+  if (!contact) {
+    return false;
+  }
+
+  const statusHistoryItem = buildUpdateTollRequiredHistoryItem(
+    tx,
+    pendingTxInfo.txid,
+    normalizeAddress(myAccount.keys.address)
+  );
+  const didInsert = insertUpdateTollRequiredHistoryItem(contact, statusHistoryItem);
+  if (didInsert) {
+    refreshUpdateTollRequiredHistoryUi(contactAddress, contact);
+  }
+
+  return didInsert;
+}
+
+function removePendingUpdateTollRequiredHistoryItem(pendingTxInfo) {
+  const contactAddress = normalizeAddress(pendingTxInfo?.to || pendingTxInfo?.updateTollRequiredTx?.to);
+  const contact = myData.contacts?.[contactAddress];
+  if (!contact) {
+    return false;
+  }
+
+  const didRemove = removeUpdateTollRequiredHistoryItem(contact, pendingTxInfo.txid);
+  if (didRemove) {
+    refreshUpdateTollRequiredHistoryUi(contactAddress, contact);
+  }
+
+  return didRemove;
 }
 
 function syncPendingUpdateTollRequiredSuccess(pendingTxInfo, receiptTx) {
@@ -29710,6 +29787,9 @@ async function checkPendingTransactions() {
           reconcilePendingMessageEdit(pendingTxInfo);
           showToast('Edit timed out and was reverted', 0, 'error');
         }
+        if (type === 'update_toll_required') {
+          removePendingUpdateTollRequiredHistoryItem(pendingTxInfo);
+        }
         // remove the pending tx from the pending array
         myData.pending.splice(i, 1);
         didMutatePendingState = true;
@@ -29822,6 +29902,7 @@ async function checkPendingTransactions() {
             }
           } else if (type === 'update_toll_required') {
             showToast(`Update contact status failed: ${userFailureReason}. Reverting contact to old status.`, 0, 'error');
+            removePendingUpdateTollRequiredHistoryItem(pendingTxInfo);
             const currentFriendStatus = Number(myData.contacts?.[pendingTxInfo.to]?.friend);
             const previousFriendStatus = Number(myData.contacts?.[pendingTxInfo.to]?.friendOld);
             // revert the local myData.contacts[toAddress].friend to the old value
