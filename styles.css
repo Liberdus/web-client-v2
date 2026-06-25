@@ -197,6 +197,25 @@
   outline: none;
 }
 
+.toast-action-btn {
+  display: block;
+  margin: 8px auto 0;
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--button-background);
+  color: var(--button-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toast-action-btn:hover,
+.toast-action-btn:focus {
+  background: var(--button-hover-background);
+  outline: none;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -4541,6 +4560,12 @@ mark {
   padding-bottom: 32px;
   cursor: pointer;
   pointer-events: auto;
+}
+
+.toast.sticky.toast-requires-action {
+  padding-top: 16px;
+  padding-bottom: 16px;
+  cursor: default;
 }
 
 /* Toast type styles */

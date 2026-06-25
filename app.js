@@ -10233,18 +10233,33 @@ function showToast(message, duration = 2000, type = 'default', isHTML = false, o
     // Duration determines behavior: <= 0 = sticky (requires close button), > 0 = auto-dismiss
     // Exception: loading toasts are never manually closable by user
     if (duration <= 0 && type !== 'loading') {
-      // Sticky toast - add close button and click handler (but not for loading toasts)
+      // Sticky toast - add close/action button and click handler (but not for loading toasts)
       toast.classList.add('sticky');
       const closeBtn = document.createElement('button');
-      closeBtn.className = 'toast-close-btn';
-      closeBtn.setAttribute('aria-label', 'Close');
-      closeBtn.innerHTML = '&times;';
+      closeBtn.className = options?.closeButtonClassName || 'toast-close-btn';
+      closeBtn.setAttribute('aria-label', options?.closeAriaLabel || 'Close');
+      if (options?.closeButtonLabel) {
+        closeBtn.textContent = options.closeButtonLabel;
+      } else {
+        closeBtn.innerHTML = '&times;';
+      }
       toast.appendChild(closeBtn);
 
-      // Make the whole toast clickable to close
-      toast.onclick = () => {
+      closeBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (typeof options?.onClose === 'function') {
+          options.onClose(toastId);
+          return;
+        }
         hideToast(toastId);
-      };
+      }, { once: true });
+
+      if (options?.closeOnToastClick !== false) {
+        // Make the whole toast clickable to close
+        toast.onclick = () => {
+          hideToast(toastId);
+        };
+      }
     } else if (duration > 0) {
       // Auto-dismiss toast - no close button needed
       setTimeout(() => {
@@ -12639,19 +12654,48 @@ class RestoreAccountModal {
       if (restoredCount === false) {
         return; // merge failed — keep modal open and do not proceed to reset/close
       }
-      const successToastId = showToast(`${restoredCount} account${restoredCount === 1 ? '' : 's'} restored`, 0, 'success');
-      
-      // handleNativeAppSubscription()
-
+      let successToastId = null;
+      let restoreFinished = false;
+      let handleRestoreOutsideClick = null;
       const finishRestore = () => {
+        if (restoreFinished) return;
+        restoreFinished = true;
+        if (handleRestoreOutsideClick) {
+          document.removeEventListener('click', handleRestoreOutsideClick, true);
+        }
+        if (successToastId) {
+          hideToast(successToastId);
+        }
         this.close();
         clearMyData(); // since we already saved to localStore, we want to make sure beforeunload calling saveState does not also save
         window.location.reload(); // need to go through Sign In to make sure imported account exists on network
       };
-      const successToast = document.getElementById(successToastId);
-      if (successToast) {
-        successToast.addEventListener('click', finishRestore, { once: true });
-      }
+      successToastId = showToast(
+        `${restoredCount} account${restoredCount === 1 ? '' : 's'} restored`,
+        0,
+        'success',
+        false,
+        {
+          className: 'toast-requires-action',
+          closeButtonClassName: 'toast-action-btn',
+          closeButtonLabel: 'Refresh',
+          closeAriaLabel: 'Refresh to finish restore',
+          closeOnToastClick: false,
+          onClose: finishRestore
+        }
+      );
+      handleRestoreOutsideClick = (event) => {
+        const successToast = document.getElementById(successToastId);
+        if (successToast?.contains(event.target)) return;
+        finishRestore();
+      };
+      setTimeout(() => {
+        if (!restoreFinished) {
+          document.addEventListener('click', handleRestoreOutsideClick, true);
+        }
+      }, 0);
+
+      // handleNativeAppSubscription()
     } catch (error) {
       showToast(error.message || 'Import failed. Please check file and password.', 0, 'error');
     }
