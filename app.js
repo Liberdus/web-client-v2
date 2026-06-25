@@ -10195,6 +10195,9 @@ function showToast(message, duration = 2000, type = 'default', isHTML = false, o
   if (dedupeEnabled) {
     const existingToast = document.querySelector(`[data-deduplicate-key="${deduplicateKey}"]`);
     if (existingToast) {
+      if (typeof options?.onHidden === 'function') {
+        existingToast.addEventListener('toast:hidden', options.onHidden, { once: true });
+      }
       // Toast with this key already exists, don't create another one
       return existingToast.id;
     }
@@ -10204,6 +10207,9 @@ function showToast(message, duration = 2000, type = 'default', isHTML = false, o
   toast.className = `toast ${type}`;
   if (options?.className) {
     toast.classList.add(...String(options.className).split(/\s+/).filter(Boolean));
+  }
+  if (typeof options?.onHidden === 'function') {
+    toast.addEventListener('toast:hidden', options.onHidden, { once: true });
   }
   
   if (isHTML) {
@@ -10267,6 +10273,7 @@ function hideToast(toastId) {
     const toastContainer = document.getElementById('toastContainer');
     if (toast.parentNode === toastContainer) {
       toastContainer.removeChild(toast);
+      toast.dispatchEvent(new Event('toast:hidden'));
     }
   }, 300); // Match transition duration
 }
@@ -12640,17 +12647,11 @@ class RestoreAccountModal {
         return; // merge failed — keep modal open and do not proceed to reset/close
       }
       clearMyData(); // Prevent stale signed-in state from saving over restored localStorage before refresh.
-      const successToastId = showToast(`${restoredCount} account${restoredCount === 1 ? '' : 's'} restored`, 0, 'success');
-      let restoreFinished = false;
-      const finishRestore = () => {
-        if (restoreFinished) return;
-        restoreFinished = true;
+      let successToastId;
+      const refreshAfterRestoreToast = () => {
         document.removeEventListener('click', handleRestoreOutsideClick, true);
-        hideToast(successToastId);
         this.close();
-        setTimeout(() => {
-          window.location.reload(); // need to go through Sign In to make sure imported account exists on network
-        }, 300);
+        window.location.reload(); // need to go through Sign In to make sure imported account exists on network
       };
       function handleRestoreOutsideClick(event) {
         const successToast = document.getElementById(successToastId);
@@ -12658,26 +12659,16 @@ class RestoreAccountModal {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        finishRestore();
+        hideToast(successToastId);
       }
-      const setupRestoreDismissAction = (attempt = 0) => {
-        const successToast = document.getElementById(successToastId);
-        if (!successToast || !successToast.classList.contains('sticky')) {
-          if (attempt < 5) {
-            setTimeout(() => setupRestoreDismissAction(attempt + 1), 10);
-            return;
-          }
-          finishRestore();
-          return;
-        }
-
-        successToast.onclick = (event) => {
-          event.stopPropagation();
-          finishRestore();
-        };
-        setTimeout(() => document.addEventListener('click', handleRestoreOutsideClick, true), 0);
-      };
-      setupRestoreDismissAction();
+      successToastId = showToast(
+        `${restoredCount} account${restoredCount === 1 ? '' : 's'} restored`,
+        0,
+        'success',
+        false,
+        { onHidden: refreshAfterRestoreToast }
+      );
+      setTimeout(() => document.addEventListener('click', handleRestoreOutsideClick, true), 0);
 
       // handleNativeAppSubscription()
     } catch (error) {
