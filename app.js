@@ -5037,7 +5037,10 @@ class FriendModal {
       }
       return { result: { success: false, reason }, toastAlreadyShown: true };
     }
-    return res;
+    return {
+      ...res,
+      updateTollRequiredTx: tx
+    };
   }
 
   /**
@@ -5051,6 +5054,7 @@ class FriendModal {
     const contact = myData.contacts[this.currentContactAddress];
     const selectedStatus = this.friendForm.querySelector('input[name="friendStatus"]:checked')?.value;
     const prevFriendStatus = Number(contact?.friend);
+    let updateTollRequiredResponse = null;
 
     if (selectedStatus == null || Number(selectedStatus) === contact.friend) {
       console.log('No change in friend status or no status selected.');
@@ -5073,6 +5077,7 @@ class FriendModal {
           }
           return;
         }
+        updateTollRequiredResponse = res;
       } catch (error) {
         console.error('Error sending transaction to update chat toll:', error);
         showToast('Failed to update friend status. Please try again.', 0, 'error');
@@ -5089,6 +5094,22 @@ class FriendModal {
     }
     // Update friend status based on selected value
     contact.friend = Number(selectedStatus);
+    let didInsertOptimisticStatus = false;
+    if (updateTollRequiredResponse) {
+      assert(
+        updateTollRequiredResponse.updateTollRequiredTx && updateTollRequiredResponse.txid,
+        'Missing update_toll_required transaction after inject success'
+      );
+      const statusHistoryItem = buildUpdateTollRequiredHistoryItem(
+        updateTollRequiredResponse.updateTollRequiredTx,
+        updateTollRequiredResponse.txid,
+        normalizeAddress(myAccount.keys.address)
+      );
+      didInsertOptimisticStatus = insertUpdateTollRequiredHistoryItem(contact, statusHistoryItem);
+      if (didInsertOptimisticStatus) {
+        syncChatLatestActivityTimestamp(this.currentContactAddress, contact);
+      }
+    }
     if (contact.friend === 0 && prevFriendStatus !== 0) {
       await this.clearContactAvatar(contact);
     }
@@ -5113,9 +5134,12 @@ class FriendModal {
 
     // Update the contact list
     await contactsScreen.updateContactsList();
+    if (didInsertOptimisticStatus && chatModal.isActive() && chatModal.address === this.currentContactAddress) {
+      chatModal.appendChatModal();
+    }
     // Only refresh chats list if the change enters or exits "blocked"
     const nextFriendStatus = Number(selectedStatus);
-    if (prevFriendStatus === 0 || nextFriendStatus === 0) {
+    if (didInsertOptimisticStatus || prevFriendStatus === 0 || nextFriendStatus === 0) {
       await chatsScreen.updateChatList();
     }
 
@@ -6889,6 +6913,59 @@ function insertUpdateTollRequiredHistoryItem(contact, historyItem) {
 
   insertSorted(contact.messages, historyItem, 'timestamp');
   return true;
+}
+
+function removeUpdateTollRequiredHistoryItem(contactAddress, txid) {
+  const contact = myData.contacts?.[contactAddress];
+  if (!contact?.messages || !txid) {
+    return false;
+  }
+
+  const previousLength = contact.messages.length;
+  contact.messages = contact.messages.filter((message) =>
+    !(message.type === 'update_toll_required' && message.txid === txid)
+  );
+
+  if (contact.messages.length === previousLength) {
+    return false;
+  }
+
+  syncChatLatestActivityTimestamp(contactAddress, contact);
+  return true;
+}
+
+function updateRevertedFriendStatusButtons(contactAddress, contact) {
+  if (!contact) {
+    return;
+  }
+
+  if (chatModal.isActive() && chatModal.address === contactAddress) {
+    friendModal.updateFriendButton(contact, 'addFriendButtonChat');
+  }
+
+  if (contactInfoModal.isActive() && contactInfoModal.currentContactAddress === contactAddress) {
+    friendModal.updateFriendButton(contact, 'addFriendButtonContactInfo');
+  }
+}
+
+function revertPendingUpdateTollRequired(pendingTxInfo) {
+  const contactAddress = pendingTxInfo.to;
+  const contact = myData.contacts?.[contactAddress];
+  const currentFriendStatus = Number(contact?.friend);
+  const previousFriendStatus = Number(contact?.friendOld);
+  const didRemoveStatusHistory = removeUpdateTollRequiredHistoryItem(contactAddress, pendingTxInfo.txid);
+
+  if (contact) {
+    contact.friend = contact.friendOld;
+  }
+
+  updateRevertedFriendStatusButtons(contactAddress, contact);
+
+  return {
+    currentFriendStatus,
+    previousFriendStatus,
+    didRemoveStatusHistory
+  };
 }
 
 function syncPendingUpdateTollRequiredSuccess(pendingTxInfo, receiptTx) {
@@ -29783,6 +29860,15 @@ async function checkPendingTransactions() {
           reconcilePendingMessageEdit(pendingTxInfo);
           showToast('Edit timed out and was reverted', 0, 'error');
         }
+        if (type === 'update_toll_required') {
+          const { currentFriendStatus, previousFriendStatus, didRemoveStatusHistory } = revertPendingUpdateTollRequired(pendingTxInfo);
+          showToast('Update contact status timed out. Reverting contact to old status.', 0, 'error');
+          await contactsScreen.updateContactsList();
+          if (didRemoveStatusHistory || currentFriendStatus === 0 || previousFriendStatus === 0) {
+            await chatsScreen.updateChatList();
+          }
+          chatModal.refreshCurrentView(txid);
+        }
         // remove the pending tx from the pending array
         myData.pending.splice(i, 1);
         didMutatePendingState = true;
@@ -29895,14 +29981,11 @@ async function checkPendingTransactions() {
             }
           } else if (type === 'update_toll_required') {
             showToast(`Update contact status failed: ${userFailureReason}. Reverting contact to old status.`, 0, 'error');
-            const currentFriendStatus = Number(myData.contacts?.[pendingTxInfo.to]?.friend);
-            const previousFriendStatus = Number(myData.contacts?.[pendingTxInfo.to]?.friendOld);
-            // revert the local myData.contacts[toAddress].friend to the old value
-            myData.contacts[pendingTxInfo.to].friend = myData.contacts[pendingTxInfo.to].friendOld;
+            const { currentFriendStatus, previousFriendStatus, didRemoveStatusHistory } = revertPendingUpdateTollRequired(pendingTxInfo);
             // update contact list since friend status was reverted
             await contactsScreen.updateContactsList();
-            // Only refresh chats list if the revert enters or exits "blocked"
-            if (currentFriendStatus === 0 || previousFriendStatus === 0) {
+            // Refresh when removing the optimistic divider or when the revert enters/exits "blocked"
+            if (didRemoveStatusHistory || currentFriendStatus === 0 || previousFriendStatus === 0) {
               await chatsScreen.updateChatList();
             }
           } else if (type === 'read') {
