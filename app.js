@@ -26720,6 +26720,18 @@ class SendAssetFormModal {
   async handleSendFormSubmit(event) {
     event.preventDefault();
 
+    const hasPendingTransfer =
+      Array.isArray(myData?.pending) &&
+      myData.pending.some((pendingTx) => pendingTx?.type === 'transfer');
+    if (hasPendingTransfer) {
+      showToast(
+        'You already have a pending asset transfer. Wait for it to finish before sending another.',
+        5000,
+        'warning'
+      );
+      return;
+    }
+
     // Get form values
     const assetSymbol = this.assetSelectDropdown.options[this.assetSelectDropdown.selectedIndex].text;
     const amount = this.amountInput.value;
