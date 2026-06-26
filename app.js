@@ -29860,6 +29860,30 @@ async function checkPendingTransaction(txid, submittedts){
   return null;
 }
 
+async function refreshActiveBalanceDisplays(didSettlePendingState) {
+  if (createAccountModal.isActive()) {
+    return;
+  }
+
+  if (didSettlePendingState) {
+    myData.wallet.timestamp = 0;
+  }
+
+  if (walletScreen.isActive()) {
+    await walletScreen.updateWalletView();
+  } else {
+    await walletScreen.updateWalletBalances();
+  }
+
+  if (sendAssetFormModal.isActive()) {
+    await sendAssetFormModal.updateAvailableBalance();
+  }
+
+  if (stakeValidatorModal.isActive()) {
+    await stakeValidatorModal.updateStakeBalanceDisplay();
+  }
+}
+
 /**
  * Check pending transactions that are at least 5 seconds old
  * @returns {Promise<void>}
@@ -30096,14 +30120,18 @@ async function checkPendingTransactions() {
   for (const chain of resolvedReactionChains) {
     cleanupResolvedReactionChain(chain.contactAddress, chain.targetTxid);
   }
-  // if createAccountModal is open, skip balance change
-  if (!createAccountModal.isActive()) {
-    walletScreen.updateWalletBalances();
-  }
+
+  const didSettlePendingState = startingPendingCount !== myData.pending.length || didMutatePendingState;
 
   // save state if pending transactions were processed
-  if (startingPendingCount !== myData.pending.length || didMutatePendingState) {
+  if (didSettlePendingState) {
     saveState();
+  }
+
+  try {
+    await refreshActiveBalanceDisplays(didSettlePendingState);
+  } catch (error) {
+    console.error('Error refreshing active balance displays:', error);
   }
 }
 
