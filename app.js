@@ -30080,11 +30080,16 @@ async function checkPendingTransactions() {
   }
 
   const didSettlePendingState = startingPendingCount !== myData.pending.length || didMutatePendingState;
-  await refreshActiveBalanceDisplays(didSettlePendingState);
 
   // save state if pending transactions were processed
   if (didSettlePendingState) {
     saveState();
+  }
+
+  try {
+    await refreshActiveBalanceDisplays(didSettlePendingState);
+  } catch (error) {
+    console.error('Error refreshing active balance displays:', error);
   }
 }
 
