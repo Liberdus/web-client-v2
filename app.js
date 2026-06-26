@@ -14470,6 +14470,14 @@ class StakeValidatorModal {
     this.resetForm();
   }
 
+  /**
+   * Check if the stake modal is active
+   * @returns {boolean}
+   */
+  isActive() {
+    return this.modal?.classList.contains('active') || false;
+  }
+
   async handleSubmit(event) {
     event.preventDefault();
 
