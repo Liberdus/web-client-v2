@@ -2144,7 +2144,7 @@ class WalletScreen {
   }
 
   // refresh wallet balance
-  async updateWalletBalances(forceRefresh = false) {
+  async updateWalletBalances() {
     if (!myAccount || !myData || !myData.wallet || !myData.wallet.assets) {
       console.error('No wallet data available');
       return;
@@ -2160,7 +2160,7 @@ class WalletScreen {
     if (!myData.wallet.timestamp) {
       myData.wallet.timestamp = 0;
     }
-    if (!forceRefresh && now - myData.wallet.timestamp < 5000) {
+    if (now - myData.wallet.timestamp < 5000) {
       return;
     }
 
@@ -29818,12 +29818,20 @@ async function checkPendingTransaction(txid, submittedts){
   return null;
 }
 
-async function refreshActiveBalanceDisplays(forceWalletRefresh) {
+async function refreshActiveBalanceDisplays(didSettlePendingState) {
   if (createAccountModal.isActive()) {
     return;
   }
 
-  await walletScreen.updateWalletBalances(forceWalletRefresh);
+  if (didSettlePendingState) {
+    myData.wallet.timestamp = 0;
+  }
+
+  if (walletScreen.isActive()) {
+    await walletScreen.updateWalletView();
+  } else {
+    await walletScreen.updateWalletBalances();
+  }
 
   if (sendAssetFormModal.isActive()) {
     await sendAssetFormModal.updateAvailableBalance();
