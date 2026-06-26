@@ -8301,7 +8301,9 @@ The main difference between a chat message and an asset transfer is
         * However, this does not gaurantee that the recipient has not already downloaded the message and may read it later
 `;
 
-async function postAssetTransfer(to, amount, memo, keys) {
+async function postAssetTransfer(to, amount, memo, keys, assetIndex) {
+  assert(Number.isInteger(assetIndex) && assetIndex >= 0, 'Transfer assetIndex must be a non-negative integer');
+
   const toAddr = longAddress(to);
   const fromAddr = longAddress(keys.address);
   await getNetworkParams();
@@ -8322,6 +8324,13 @@ async function postAssetTransfer(to, amount, memo, keys) {
 
   const txid = await signObj(tx, keys);
   const res = await injectTx(tx, txid);
+  if (res?.result?.success) {
+    const pendingTx = myData.pending.find((pendingTx) => pendingTx.txid === txid);
+    assert(pendingTx, 'Accepted transfer missing pending entry');
+    pendingTx.amount = tx.amount;
+    pendingTx.fee = tx.fee;
+    pendingTx.assetIndex = assetIndex;
+  }
   return res;
 }
 
@@ -27260,7 +27269,7 @@ class SendAssetConfirmModal {
     }
 
     const wallet = myData.wallet;
-    const assetIndex = sendAssetFormModal.assetSelectDropdown.value; // TODO include the asset id and symbol in the tx
+    const assetIndex = Number(sendAssetFormModal.assetSelectDropdown.value);
     const amount = bigxnum2big(wei, sendAssetFormModal.amountInput.value);
     const memoIn = sendAssetFormModal.memoInput.value || '';
     const memo = memoIn.trim();
@@ -27398,7 +27407,7 @@ class SendAssetConfirmModal {
 
     try {
       // Send the transaction using postAssetTransfer
-      const response = await postAssetTransfer(toAddress, amount, payload, keys);
+      const response = await postAssetTransfer(toAddress, amount, payload, keys, assetIndex);
 
       if (!response || !response.result || !response.result.success) {
         const str = response.result.reason;
