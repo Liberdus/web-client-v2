@@ -19084,7 +19084,7 @@ class ChatModal {
       if (deleteForAllOption) deleteForAllOption.style.display = 'none';
     }
     if (isCall) {
-      if (copyOption) copyOption.style.display = 'none';
+      if (copyOption) copyOption.style.display = 'flex';
       // Determine if join is allowed (not future, not expired > 2h)
       const callTimeAttr = Number(messageEl.getAttribute('data-call-time') || 0);
       const msgTs = Number(messageEl.dataset.messageTimestamp || 0);
@@ -21032,6 +21032,31 @@ class ChatModal {
   }
 
 
+  getShareableCallUrl(messageEl) {
+    const messageRecord = this.getMessageRecordFromElement(messageEl);
+    const recordUrl = messageRecord?.type === 'call' && typeof messageRecord.message === 'string'
+      ? messageRecord.message.trim()
+      : '';
+    const anchorHref = messageEl.querySelector('.call-message a')?.href?.trim() || '';
+    const callUrl = recordUrl || anchorHref.split('#')[0];
+    if (!callUrl) return '';
+
+    const urlToCopy = callUrl.includes('#') ? callUrl : `${callUrl}${callUrlParams}`;
+    return this.removeCallDisplayNameParam(urlToCopy);
+  }
+
+  removeCallDisplayNameParam(callUrl) {
+    const [baseUrl, hash = ''] = callUrl.split('#');
+    if (!hash) return callUrl;
+
+    const filteredHash = hash
+      .split('&')
+      .filter((param) => !param.startsWith('userInfo.displayName='))
+      .join('&');
+
+    return filteredHash ? `${baseUrl}#${filteredHash}` : baseUrl;
+  }
+
     /**
    * Copies message content to clipboard
    * @param {HTMLElement} messageEl - The message element
@@ -21042,6 +21067,23 @@ class ChatModal {
     }
 
     const isPayment = messageEl.classList.contains('payment-info');
+    const callMessage = messageEl.querySelector('.call-message');
+    if (callMessage) {
+      const callUrl = this.getShareableCallUrl(messageEl);
+      if (!callUrl) {
+        return showToast('Call link not found', 2000, 'error');
+      }
+
+      try {
+        await navigator.clipboard.writeText(callUrl);
+        showToast('Call URL copied to clipboard', 2000, 'success');
+      } catch (err) {
+        console.error('Failed to copy:', err);
+        showToast('Failed to copy call URL', 0, 'error');
+      }
+      return;
+    }
+
     const locationLink = messageEl.querySelector('.location-message-summary');
     if (locationLink) {
       const mapUrl = locationLink.getAttribute('href')?.trim();
