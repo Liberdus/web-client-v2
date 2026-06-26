@@ -29818,6 +29818,22 @@ async function checkPendingTransaction(txid, submittedts){
   return null;
 }
 
+async function refreshActiveBalanceDisplays() {
+  if (createAccountModal.isActive()) {
+    return;
+  }
+
+  await walletScreen.updateWalletBalances();
+
+  if (sendAssetFormModal.isActive()) {
+    await sendAssetFormModal.updateAvailableBalance();
+  }
+
+  if (stakeValidatorModal.isActive()) {
+    await stakeValidatorModal.updateStakeBalanceDisplay();
+  }
+}
+
 /**
  * Check pending transactions that are at least 5 seconds old
  * @returns {Promise<void>}
@@ -30054,10 +30070,7 @@ async function checkPendingTransactions() {
   for (const chain of resolvedReactionChains) {
     cleanupResolvedReactionChain(chain.contactAddress, chain.targetTxid);
   }
-  // if createAccountModal is open, skip balance change
-  if (!createAccountModal.isActive()) {
-    walletScreen.updateWalletBalances();
-  }
+  await refreshActiveBalanceDisplays();
 
   // save state if pending transactions were processed
   if (startingPendingCount !== myData.pending.length || didMutatePendingState) {
