@@ -2144,7 +2144,7 @@ class WalletScreen {
   }
 
   // refresh wallet balance
-  async updateWalletBalances() {
+  async updateWalletBalances(forceRefresh = false) {
     if (!myAccount || !myData || !myData.wallet || !myData.wallet.assets) {
       console.error('No wallet data available');
       return;
@@ -2160,7 +2160,7 @@ class WalletScreen {
     if (!myData.wallet.timestamp) {
       myData.wallet.timestamp = 0;
     }
-    if (now - myData.wallet.timestamp < 5000) {
+    if (!forceRefresh && now - myData.wallet.timestamp < 5000) {
       return;
     }
 
@@ -29818,12 +29818,12 @@ async function checkPendingTransaction(txid, submittedts){
   return null;
 }
 
-async function refreshActiveBalanceDisplays() {
+async function refreshActiveBalanceDisplays(forceWalletRefresh) {
   if (createAccountModal.isActive()) {
     return;
   }
 
-  await walletScreen.updateWalletBalances();
+  await walletScreen.updateWalletBalances(forceWalletRefresh);
 
   if (sendAssetFormModal.isActive()) {
     await sendAssetFormModal.updateAvailableBalance();
@@ -30070,10 +30070,12 @@ async function checkPendingTransactions() {
   for (const chain of resolvedReactionChains) {
     cleanupResolvedReactionChain(chain.contactAddress, chain.targetTxid);
   }
-  await refreshActiveBalanceDisplays();
+
+  const didSettlePendingState = startingPendingCount !== myData.pending.length || didMutatePendingState;
+  await refreshActiveBalanceDisplays(didSettlePendingState);
 
   // save state if pending transactions were processed
-  if (startingPendingCount !== myData.pending.length || didMutatePendingState) {
+  if (didSettlePendingState) {
     saveState();
   }
 }
