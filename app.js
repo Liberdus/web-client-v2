@@ -4881,6 +4881,14 @@ class ContactInfoModal {
 // Create a singleton instance
 const contactInfoModal = new ContactInfoModal();
 
+const FRIEND_STATUS_PENDING_STALE_MS = 60 * 1000;
+const VALID_FRIEND_STATUSES = new Set([0, 1, 2]);
+
+function isValidFriendStatus(status) {
+  const statusNumber = Number(status);
+  return Number.isInteger(statusNumber) && VALID_FRIEND_STATUSES.has(statusNumber);
+}
+
 /**
  * Friend Modal
  * Frontend: 0 = blocked, 1 = Other, 2 = Connection
@@ -4921,15 +4929,82 @@ class FriendModal {
     this.modal.querySelector('.back-button').addEventListener('click', () => this.close());
   }
 
+  /**
+   * Checks if a contact already has a friend status update waiting to settle.
+   * @param {string} address
+   * @returns {boolean}
+   */
+  hasPendingFriendStatusUpdate(address) {
+    if (!address) return false;
+    const normalizedAddress = normalizeAddress(address);
+    const contact = myData.contacts?.[normalizedAddress];
+    const hasPendingTx = (myData.pending || []).some((pendingTx) =>
+      pendingTx?.type === 'update_toll_required'
+      && pendingTx.to
+      && normalizeAddress(pendingTx.to) === normalizedAddress
+    );
+    if (hasPendingTx) {
+      return true;
+    }
+
+    if (contact && Number(contact.friend) !== Number(contact.friendOld)) {
+      if (!this.recoverStaleFriendStatusUpdate(contact)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Restores stale local pending friend state so users are not blocked forever.
+   * @param {Object} contact
+   * @returns {boolean}
+   */
+  recoverStaleFriendStatusUpdate(contact) {
+    if (!contact) {
+      return false;
+    }
+
+    const currentFriendStatus = Number(contact.friend);
+    const previousFriendStatus = Number(contact.friendOld);
+
+    if (currentFriendStatus === previousFriendStatus) {
+      return false;
+    }
+
+    if (!isValidFriendStatus(previousFriendStatus)) {
+      if (!isValidFriendStatus(currentFriendStatus)) {
+        return false;
+      }
+      contact.friendOld = currentFriendStatus;
+      return true;
+    }
+
+    if (this.lastChangeTimeStamp >= (Date.now() - FRIEND_STATUS_PENDING_STALE_MS)) {
+      return false;
+    }
+
+    contact.friend = previousFriendStatus;
+    updateRevertedFriendStatusButtons(contact.address, contact);
+    return true;
+  }
+
   // Open the friend modal
   async open() {
-    const contact = myData.contacts[this.currentContactAddress];
+    const contactAddress = this.currentContactAddress ? normalizeAddress(this.currentContactAddress) : '';
+    if (!contactAddress) return;
+    const contact = myData.contacts[contactAddress];
     if (!contact) return;
+    if (this.hasPendingFriendStatusUpdate(contactAddress)) {
+      showToast('You have a pending transaction to update the friend status. Come back to this page later.', 0, 'warning');
+      return;
+    }
 
     // Query network for current toll required status
     try {
       const myAddr = longAddress(myAccount.keys.address);
-      const contactAddr = longAddress(this.currentContactAddress);
+      const contactAddr = longAddress(contactAddress);
       const sortedAddresses = [myAddr, contactAddr].sort();
       const chatId = hashBytes(sortedAddresses.join(''));
       const myIndex = sortedAddresses.indexOf(myAddr);
@@ -5211,13 +5286,13 @@ class FriendModal {
 
     // If there's already a pending tx (friend != friendOld) keep disabled
     if (contact.friend !== contact.friendOld) {
-      const SIXTY_SECONDS = 60 * 1000;
       // if the last change was more than 60 seconds ago, reset the friend status so user does not get stuck
-      if (this.lastChangeTimeStamp < (Date.now() - SIXTY_SECONDS)) {
-        contact.friend = contact.friendOld
+      if (this.recoverStaleFriendStatusUpdate(contact)) {
+        const radio = this.friendForm.querySelector(`input[value="${contact.friend}"]`);
+        if (radio) radio.checked = true;
       } else {
         this.submitButton.disabled = true;
-        showToast('You have a pending transaction to update the friend status. Come back to this page later.', 0, 'error');
+        showToast('You have a pending transaction to update the friend status. Come back to this page later.', 0, 'warning');
         return;
       }
     }
