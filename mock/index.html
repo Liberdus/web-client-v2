@@ -1597,8 +1597,8 @@
                 </div>
               </div>
               <div class="button-row">
-                <div class="mock-button primary press-target" data-flow-source="dao-create">Create</div>
                 <div class="mock-button secondary press-target" data-flow-source="dao-parameters">Parameters</div>
+                <div class="mock-button primary press-target" data-flow-source="dao-create">Create</div>
               </div>
             </div>
           </article>
@@ -1751,7 +1751,7 @@
           </article>
           </div>
 
-          <div class="flow-row-title branch-indent">Proposal list, voting, and result branch <span>Active proposals and Voting now open the same list; Voting now enters with the Voting filter selected.</span></div>
+          <div class="flow-row-title branch-indent">Proposal list, voting, and result branch <span>Active proposals opens the full active list. Voting now opens the same list in its Voting-filtered state, then selecting a proposal opens the weighted vote modal.</span></div>
           <div class="screen-grid flow-grid branch-row">
             <div class="branch-spacer" aria-hidden="true"></div>
           <article class="screen" data-flow-target="proposal-list" data-flow="2a. Active proposals list">
@@ -1765,7 +1765,7 @@
                 <span class="status-pill needed">Needed</span>
                 <span class="status-pill role">Any user</span>
               </div>
-              <div class="screen-context"><strong>Shared proposal list</strong>Active proposals opens this list with all active statuses. Voting now opens the same list with the Voting filter selected, so voting rows are not duplicated in a separate modal.</div>
+              <div class="screen-context"><strong>Full active list</strong>Active proposals opens this full active-status view. It can include voting, accepted, and review proposals; tapping each row opens the status-specific next screen.</div>
               <div class="toggle" aria-label="Proposal filters">
                 <span class="active">All active 22</span>
                 <span>Voting 1</span>
@@ -1791,6 +1791,40 @@
                     <div class="mock-list-meta">review - waiting for committee result</div>
                   </div>
                   <div class="row-role">review</div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow-target="voting-filter-list" data-flow="2b. Voting filter selected">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Voting Proposals</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Eligible voter</span>
+              </div>
+              <div class="screen-context"><strong>Filtered list state</strong>Voting now does not open a unique voting modal. It opens the proposal list with the Voting filter already selected, showing only proposals that can be inspected or voted on now.</div>
+              <div class="toggle" aria-label="Proposal filters">
+                <span>All active 22</span>
+                <span class="active">Voting 1</span>
+              </div>
+              <div class="mock-list action-list">
+                <div class="mock-list-row press-target" data-flow-source="voting-filter-row">
+                  <div>
+                    <div class="mock-list-title">#21 Increase vote exponent</div>
+                    <div class="mock-list-meta">voting - eligible users can open the weighted vote form</div>
+                  </div>
+                  <div class="row-role">vote</div>
+                </div>
+                <div class="mock-list-row">
+                  <div>
+                    <div class="mock-list-title">No other voting proposals</div>
+                    <div class="mock-list-meta">Changing the filter returns to the full active list.</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2179,8 +2213,9 @@
             { from: "committee-withhold", to: "withhold-reason", label: "withhold reason", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -44, labelDy: -10 },
             { from: "committee-result", to: "proposal-list", label: "moves to voting", fromSide: "right", toSide: "right", wrapSide: "right", toRatio: 0.2, route: "branch-reverse", lane: 3, laneOffset: 66, rowOffset: 100, labelDx: -94, labelDy: -10, labelWidth: 126 },
             { from: "dao-committee-category", to: "committee-queue", label: "open committee list", fromSide: "right", wrapFromSide: "right", toSide: "left", wrapSide: "left", toRatio: 0.34, route: "branch", lane: 0, laneOffset: 30, rowOffset: 68, wrapAround: "bottom", wrapLabelDx: -78, wrapLabelDy: -30, labelWidth: 148 },
-            { from: "dao-voting-category", to: "proposal-list", label: "open voting filter", fromSide: "right", toSide: "left", wrapSide: "left", toRatio: 0.32, route: "branch", lane: 1, laneOffset: 42, rowOffset: 72, labelDx: -96, labelDy: -30, labelWidth: 144 },
-            { from: "proposal-list-vote-row", to: "community-vote", label: "tap voting row", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: -34, labelDy: -34, labelWidth: 120 },
+            { from: "dao-voting-category", to: "voting-filter-list", label: "open voting filter", fromSide: "right", toSide: "left", wrapSide: "left", toRatio: 0.32, route: "branch", lane: 1, laneOffset: 42, rowOffset: 72, labelDx: -96, labelDy: -30, labelWidth: 144 },
+            { from: "proposal-list-vote-row", to: "community-vote", label: "tap voting row", fromSide: "top", toSide: "left", toRatio: 0.45, route: "branch", lane: 1, laneOffset: 42, rowOffset: 72, wrapAround: "bottom", labelDx: -34, labelDy: -34, labelWidth: 120 },
+            { from: "voting-filter-row", to: "community-vote", label: "tap voting row", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: -34, labelDy: -34, labelWidth: 120 },
             { from: "vote-preview", to: "vote-estimate", label: "shows estimate", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -30, labelDy: -16 },
             { from: "vote-submit", to: "results", label: "dao_vote", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: 2, labelDy: -30 },
             { from: "results-vote-result", to: "results-audit", label: "dao_vote_result", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -44, labelDy: -22, labelWidth: 130 },
