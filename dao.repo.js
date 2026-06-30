@@ -170,9 +170,41 @@ function storeToUiList(store, groupKey) {
     .filter(Boolean);
 }
 
+function addProposalRecord(store, proposal) {
+  const number = Number(store.meta?.count || 0) + 1;
+  const nonce = proposal.nonce || Math.random().toString(16).slice(2);
+  const id = daoProposalId(number, nonce);
+  const now = Date.now();
+
+  store.meta.count = number;
+  store.activeProposals.push({
+    number,
+    title: proposal.title,
+    state: proposal.state || 'discussion',
+    state_changed: proposal.stateChanged || now,
+    type: proposal.type,
+    nonce,
+  });
+
+  store.proposals[id] = {
+    number,
+    title: proposal.title,
+    summary: proposal.summary,
+    type: proposal.type,
+    state: proposal.state || 'discussion',
+    state_changed: proposal.stateChanged || now,
+    nonce,
+    created: proposal.created || now,
+    createdBy: proposal.createdBy || 'fixture',
+    fields: proposal.fields || {},
+    votes: proposal.votes || { yes: 0, no: 0, by: {} },
+  };
+}
+
 let _mode = 'mock'; // 'mock' | 'backend'
 let _store = null;
 let _loadingPromise = null;
+let _uiStressFixturesAdded = false;
 
 // Optional hooks for future backend integration.
 let _backendFetcher = null;
@@ -183,6 +215,130 @@ export function setDaoRepoMode(mode) {
 
 export function setDaoBackendFetcher(fetcher) {
   _backendFetcher = typeof fetcher === 'function' ? fetcher : null;
+}
+
+export function addDaoUiStressFixtures() {
+  if (_uiStressFixturesAdded || !_store) return 0;
+
+  const now = Date.now();
+  const hour = 60 * 60 * 1000;
+  const day = 24 * hour;
+  const fixtures = [
+    {
+      state: 'voting',
+      type: 'params_governance',
+      title: 'Fixture: long governance vote title that should wrap cleanly',
+      summary: 'Used to confirm long DAO row titles, metadata, summaries, and preview cards stay readable in a narrow modal.',
+      votes: { yes: 48, no: 19, by: {} },
+      stateChanged: now - 2 * hour,
+    },
+    {
+      state: 'voting',
+      type: 'params_economic',
+      title: 'Fixture: economic spend change',
+      summary: 'Shows a voting row for economic parameters with enough text to test two-line summary clamping.',
+      votes: { yes: 14, no: 7, by: {} },
+      stateChanged: now - 5 * hour,
+    },
+    {
+      state: 'voting',
+      type: 'params_protocol',
+      title: 'Fixture: protocol limit update',
+      summary: 'Exercises another voting row so the default Voting filter overflows and scrolls.',
+      votes: { yes: 6, no: 11, by: {} },
+      stateChanged: now - 7 * hour,
+    },
+    {
+      state: 'voting',
+      type: 'treasury_project',
+      title: 'Fixture: treasury project vote',
+      summary: 'Confirms treasury project labels and route chips fit inside the proposal list row.',
+      votes: { yes: 33, no: 4, by: {} },
+      stateChanged: now - 10 * hour,
+    },
+    {
+      state: 'voting',
+      type: 'treasury_mint',
+      title: 'Fixture: treasury mint vote',
+      summary: 'Adds the remaining proposal type to the voting filter for visual coverage.',
+      votes: { yes: 3, no: 12, by: {} },
+      stateChanged: now - 12 * hour,
+    },
+    {
+      state: 'discussion',
+      type: 'params_governance',
+      title: 'Fixture: committee review draft',
+      summary: 'Review-state row used to verify the review preview and review route chip.',
+      stateChanged: now - day,
+    },
+    {
+      state: 'withheld',
+      type: 'params_protocol',
+      title: 'Fixture: withheld committee item',
+      summary: 'Withheld row used to test review-result transition copy.',
+      stateChanged: now - 2 * day,
+    },
+    {
+      state: 'accepted',
+      type: 'params_economic',
+      title: 'Fixture: accepted result row',
+      summary: 'Accepted result row with vote totals and reward details placeholder.',
+      votes: { yes: 28, no: 9, by: {} },
+      stateChanged: now - 3 * day,
+    },
+    {
+      state: 'rejected',
+      type: 'treasury_project',
+      title: 'Fixture: rejected result row',
+      summary: 'Rejected result row used to check result styling and counts.',
+      votes: { yes: 8, no: 31, by: {} },
+      stateChanged: now - 4 * day,
+    },
+    {
+      state: 'applied',
+      type: 'params_protocol',
+      title: 'Fixture: applied parameter update',
+      summary: 'Applied row used to verify final result routing remains readable.',
+      votes: { yes: 45, no: 6, by: {} },
+      stateChanged: now - 5 * day,
+    },
+    {
+      state: 'executing',
+      type: 'treasury_project',
+      title: 'Fixture: executing treasury project',
+      summary: 'Executing row used to test the extra result-like state from the current repo constants.',
+      votes: { yes: 22, no: 5, by: {} },
+      stateChanged: now - 6 * day,
+    },
+    {
+      state: 'terminated',
+      type: 'treasury_mint',
+      title: 'Fixture: terminated mint proposal',
+      summary: 'Terminated row used to verify long status labels and counts remain aligned.',
+      votes: { yes: 11, no: 18, by: {} },
+      stateChanged: now - 7 * day,
+    },
+    {
+      state: 'completed',
+      type: 'treasury_project',
+      title: 'Fixture: completed milestone',
+      summary: 'Completed row used to cover the final DAO state in the active list.',
+      votes: { yes: 19, no: 2, by: {} },
+      stateChanged: now - 8 * day,
+    },
+  ];
+
+  for (const fixture of fixtures) {
+    addProposalRecord(_store, {
+      ...fixture,
+      created: fixture.stateChanged - day,
+      nonce: `ui_stress_${fixture.state}_${fixture.type}_${fixture.stateChanged}`,
+    });
+  }
+
+  _store = normalizeDaoStore(_store);
+  _uiStressFixturesAdded = true;
+  return fixtures.length;
 }
 
 async function fetchDaoStoreFromBackend() {
