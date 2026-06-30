@@ -19674,7 +19674,7 @@ class ChatModal {
   }
 
   /**
-   * Applies active-state styling to the quick reaction tray based on stored reaction state.
+   * Applies active and disabled state to a reaction tray based on stored message state.
    * @param {HTMLElement | null} reactionTray
    * @param {HTMLElement | null} messageEl
    */
@@ -19682,6 +19682,7 @@ class ChatModal {
     if (!reactionTray) return;
 
     const activeEmoji = this.getCurrentUserReactionForMessage(messageEl);
+    const isDisabled = this.isMessageInDeleteForAllGuard(messageEl);
     const reactionButtons = reactionTray.querySelectorAll('.message-context-reaction-button');
     reactionButtons.forEach((button) => {
       const isMorePickerTrigger = button.dataset.reactionPickerTrigger === 'true';
@@ -19691,6 +19692,8 @@ class ChatModal {
       const isActive = !isMorePickerTrigger && !!activeEmoji && buttonEmoji === activeEmoji;
 
       button.classList.toggle('active', isActive);
+      button.disabled = isDisabled;
+      button.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
       button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
   }
@@ -20627,6 +20630,11 @@ class ChatModal {
   async handleReactionPickerSelection(reactionButton, messageEl, closeMenu) {
     if (!reactionButton) return;
     if (!messageEl) return;
+    if (this.isMessageInDeleteForAllGuard(messageEl)) {
+      closeMenu();
+      showToast('This message is being deleted.', 2000, 'warning');
+      return;
+    }
 
     if (reactionButton.dataset.reactionPickerTrigger === 'true') {
       closeMenu();
