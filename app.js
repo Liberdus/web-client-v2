@@ -19811,7 +19811,7 @@ class ChatModal {
     const message = messageRecord || this.getMessageRecordFromElement(messageEl);
     const isDisabled = this.isMessageInDeleteForAllGuard(messageEl, message);
     const guardedActions = '[data-action="delete"], [data-action="delete-for-all"], ' +
-      '[data-action="join"], [data-action="call-invite"]';
+      '[data-action="copy"], [data-action="reply"], [data-action="join"], [data-action="call-invite"]';
     menu?.querySelectorAll(guardedActions).forEach((option) => {
       option.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
     });
