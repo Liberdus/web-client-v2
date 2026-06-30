@@ -15429,6 +15429,12 @@ class ChatModal {
       if (!phoneAnchor) return;
       const messageEl = phoneAnchor.closest('.message');
       if (!messageEl) return;
+      if (this.isMessagePendingDeleteForAll(messageEl)) {
+        e.preventDefault();
+        e.stopPropagation();
+        showToast('This call is being deleted.', 2000, 'warning');
+        return false;
+      }
       if (this.gateScheduledCall(messageEl)) {
         e.preventDefault();
         e.stopPropagation();
@@ -19785,6 +19791,18 @@ class ChatModal {
     return !!targetTxid && this.recentDeleteForAllTargetTxids.has(targetTxid);
   }
 
+  hasPendingDeleteForAllForTarget(targetTxid) {
+    if (!targetTxid) {
+      return false;
+    }
+
+    return this.hasRecentDeleteForAllForTarget(targetTxid) ||
+      (myData?.pending || []).some((pendingTx) =>
+        pendingTx?.type === 'message' &&
+        pendingTx.deletePending?.targetTxid === targetTxid
+      );
+  }
+
   markRecentDeleteForAllForTarget(targetTxid) {
     if (!targetTxid) {
       return;
@@ -19796,10 +19814,29 @@ class ChatModal {
     }, DELETE_FOR_ALL_ACTION_GUARD_MS);
   }
 
+  markPendingDeleteForAllForTarget(deleteTxid, contactAddress, targetTxid) {
+    if (!deleteTxid || !targetTxid || !myData?.pending) {
+      return;
+    }
+
+    const pendingTxInfo = myData.pending.find((pendingTx) => pendingTx.txid === deleteTxid);
+    if (!pendingTxInfo) {
+      return;
+    }
+
+    pendingTxInfo.to = normalizeAddress(contactAddress);
+    pendingTxInfo.deletePending = { targetTxid };
+  }
+
+  isMessagePendingDeleteForAll(messageEl, messageRecord = null) {
+    const message = messageRecord || this.getMessageRecordFromElement(messageEl);
+    return this.hasPendingDeleteForAllForTarget(message?.txid || messageEl?.dataset?.txid);
+  }
+
   syncDeleteContextMenuDisabledState(menu, messageEl, messageRecord = null) {
     const message = messageRecord || this.getMessageRecordFromElement(messageEl);
-    const isDisabled = this.hasRecentDeleteForAllForTarget(message?.txid);
-    menu?.querySelectorAll('[data-action="delete"], [data-action="delete-for-all"]').forEach((option) => {
+    const isDisabled = this.isMessagePendingDeleteForAll(messageEl, message);
+    menu?.querySelectorAll('.context-menu-option').forEach((option) => {
       option.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
     });
   }
@@ -20513,6 +20550,12 @@ class ChatModal {
   handleContextMenuAction(action) {
     const messageEl = this.currentContextMessage;
     if (!messageEl) return;
+
+    if (this.isMessagePendingDeleteForAll(messageEl)) {
+      showToast('This message is being deleted.', 2000, 'warning');
+      this.closeContextMenu();
+      return;
+    }
     
     switch (action) {
       case 'save':
@@ -21226,6 +21269,11 @@ class ChatModal {
    * @param {HTMLElement} messageEl
    */
   handleJoinCall(messageEl) {
+    if (this.isMessagePendingDeleteForAll(messageEl)) {
+      this.closeContextMenu();
+      return showToast('This call is being deleted.', 2000, 'warning');
+    }
+
     const callUrl = messageEl.querySelector('.call-message a')?.href;
     if (!callUrl) return showToast('Call link not found', 2000, 'error');
     // Gate future scheduled calls (context menu path)
@@ -21267,6 +21315,10 @@ class ChatModal {
         if (callTimeNum > 0) {
           reactNativeApp.sendCancelScheduledCall(contact?.username, callTimeNum);
         }
+      }
+
+      if (message.type === 'call') {
+        callInviteModal.cancelIfSourceCall(message.txid);
       }
 
       // Mark as deleted and clear payment info if present
@@ -21348,6 +21400,9 @@ class ChatModal {
 
       if (!confirm('Delete this message for all participants?')) return;
       this.markRecentDeleteForAllForTarget(targetTxid);
+      if (message.type === 'call') {
+        callInviteModal.cancelIfSourceCall(targetTxid);
+      }
 
       // Create and send a "delete" message
       const keys = myAccount.keys;
@@ -21409,6 +21464,8 @@ class ChatModal {
         console.error('Delete message failed to send', response);
         return showToast('Failed to delete message: ' + (response?.result?.reason || 'Unknown error'), 0, 'error');
       }
+
+      this.markPendingDeleteForAllForTarget(deleteTxid, this.address, targetTxid);
 
       showToast('Delete request sent', 5000, 'loading');
       
@@ -22398,6 +22455,8 @@ const chatModal = new ChatModal();
 class CallInviteModal {
   constructor() {
     this.messageEl = null;
+    this.sourceCallTxid = null;
+    this.sourceContactAddress = null;
   }
 
   load() {
@@ -22452,6 +22511,49 @@ class CallInviteModal {
   getInviteCallUrl(messageEl) {
     const anchorHref = messageEl?.querySelector('.call-message a')?.href || '';
     return this.getComparableCallUrl(anchorHref);
+  }
+
+  setSourceCall(messageEl) {
+    this.messageEl = messageEl;
+    const messageRecord = chatModal.getMessageRecordFromElement(messageEl);
+    this.sourceCallTxid = messageRecord?.txid || messageEl?.dataset?.txid || null;
+    this.sourceContactAddress = chatModal.address || null;
+  }
+
+  getSourceCallRecord() {
+    if (!this.sourceContactAddress || !this.sourceCallTxid) {
+      return null;
+    }
+
+    const contact = myData.contacts?.[this.sourceContactAddress];
+    return (contact?.messages || []).find((message) => message?.txid === this.sourceCallTxid) || null;
+  }
+
+  isSourceCallAvailable() {
+    if (!this.messageEl) {
+      return false;
+    }
+
+    if (this.sourceCallTxid) {
+      if (chatModal.hasPendingDeleteForAllForTarget(this.sourceCallTxid)) {
+        return false;
+      }
+
+      const sourceCall = this.getSourceCallRecord();
+      return !!sourceCall && sourceCall.type === 'call' && !isDeleted(sourceCall) && sourceCall.status !== 'failed';
+    }
+
+    return this.messageEl.isConnected && !this.messageEl.classList.contains('deleted-message');
+  }
+
+  cancelIfSourceCall(targetTxid) {
+    if (!this.isActive() || !targetTxid || this.sourceCallTxid !== targetTxid) {
+      return false;
+    }
+
+    this.close();
+    showToast('Call invite canceled because the call is being deleted.', 2500, 'warning');
+    return true;
   }
 
   /**
@@ -22565,7 +22667,11 @@ class CallInviteModal {
    * @param {HTMLElement} messageEl
    */
   async open(messageEl) {
-    this.messageEl = messageEl;
+    this.setSourceCall(messageEl);
+    if (!this.isSourceCallAvailable()) {
+      showToast('This call is being deleted.', 2000, 'warning');
+      return;
+    }
 
     this.contactsList.innerHTML = '';
     this.emptyState.style.display = 'none';
@@ -22632,6 +22738,12 @@ class CallInviteModal {
   }
 
   async sendInvites() {
+    if (!this.isSourceCallAvailable()) {
+      showToast('Call invite canceled because the call is being deleted.', 2500, 'warning');
+      this.close();
+      return;
+    }
+
     const selectedBoxes = Array.from(this.contactsList.querySelectorAll('.call-invite-checkbox:checked'));
     const addresses = selectedBoxes.map(cb => cb.value).slice(0,10);
     // get call link from original message up to the first # so we don't duplicate callUrlParams
@@ -22659,6 +22771,11 @@ class CallInviteModal {
         }
       };
       for (const addr of addresses) {
+        if (!this.isSourceCallAvailable()) {
+          showToast('Call invite canceled because the call is being deleted.', 2500, 'warning');
+          break;
+        }
+
         const keys = myAccount.keys;
         if (!keys) {
           addFailure('keysMissing');
@@ -22724,6 +22841,12 @@ class CallInviteModal {
           messageObj.callType = true
         }
         await signObj(messageObj, keys);
+
+        if (!this.isSourceCallAvailable()) {
+          showToast('Call invite canceled because the call is being deleted.', 2500, 'warning');
+          break;
+        }
+
         const txid = getTxid(messageObj);
 
         // Create new message object for local display immediately
