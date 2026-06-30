@@ -8,6 +8,7 @@ export const DAO_ARCHIVE_AFTER_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 export const DAO_ARCHIVABLE_STATE_KEYS = ['withheld', 'rejected', 'accepted', 'applied'];
 
 export const DAO_TYPE_OPTIONS = [
+  // Server proposal types are the long-term shape; legacy options remain for the current add form.
   { key: 'governance', label: 'Governance', group: 'Server proposal types' },
   { key: 'economic', label: 'Economic', group: 'Server proposal types' },
   { key: 'protocol', label: 'Protocol', group: 'Server proposal types' },
@@ -89,7 +90,7 @@ function normalizeDaoStore(store) {
       meta.state = meta.archivedFromState || full.state;
     }
 
-    const state = getEffectiveDaoState(full) || getEffectiveDaoState(meta);
+    const state = getEffectiveDaoState({ status: full.status || meta.status, state: full.state || meta.state });
     const enteredAt = Number(full.state_changed || meta.state_changed || full.created || 0);
     const isArchivable = DAO_ARCHIVABLE_STATE_KEYS.includes(state);
 
@@ -152,18 +153,21 @@ function storeToUiList(store, groupKey) {
       const id = daoProposalId(m.number, m.nonce);
       const p = safe.proposals?.[id];
       if (!p) return null;
+      const description = p.description || p.summary;
+      const state = getEffectiveDaoState({ status: p.status || m.status, state: p.state || m.state });
+      const type = p.proposalType || p.type;
       return {
         id,
         number: p.number,
         nonce: p.nonce,
         title: p.title,
-        summary: p.description || p.summary,
-        description: p.description || p.summary,
-        type: p.proposalType || p.type,
-        proposalType: p.proposalType || p.type,
+        summary: description,
+        description,
+        type,
+        proposalType: type,
         createdAt: p.created,
-        state: getEffectiveDaoState(p),
-        status: getEffectiveDaoState(p),
+        state,
+        status: state,
         stateEnteredAt: p.state_changed,
         createdBy: p.createdBy,
         fields: p.fields || {},
@@ -191,26 +195,29 @@ function addProposalRecord(store, proposal) {
   const nonce = proposal.nonce || Math.random().toString(16).slice(2);
   const id = daoProposalId(number, nonce);
   const now = Date.now();
+  const state = proposal.status || proposal.state || 'review';
+  const type = proposal.proposalType || proposal.type;
+  const description = proposal.description || proposal.summary || '';
 
   store.meta.count = number;
   store.activeProposals.push({
     number,
     title: proposal.title,
-    state: proposal.state || proposal.status || 'review',
+    state,
     state_changed: proposal.stateChanged || now,
-    type: proposal.proposalType || proposal.type,
+    type,
     nonce,
   });
 
   store.proposals[id] = {
     number,
     title: proposal.title,
-    summary: proposal.summary || proposal.description,
-    description: proposal.description || proposal.summary,
-    type: proposal.proposalType || proposal.type,
-    proposalType: proposal.proposalType || proposal.type,
-    state: proposal.state || proposal.status || 'review',
-    status: proposal.status || proposal.state || 'review',
+    summary: description,
+    description,
+    type,
+    proposalType: type,
+    state,
+    status: state,
     state_changed: proposal.stateChanged || now,
     nonce,
     created: proposal.created || now,
@@ -230,6 +237,8 @@ function addProposalRecord(store, proposal) {
     claimDuration: proposal.claimDuration,
     votes: proposal.votes || { yes: 0, no: 0, by: {} },
   };
+
+  return id;
 }
 
 let _mode = 'mock'; // 'mock' | 'backend'
@@ -257,7 +266,7 @@ export function addDaoUiStressFixtures() {
   const fixtures = [
     {
       state: 'voting',
-      type: 'params_governance',
+      type: 'governance',
       title: 'Fixture: long governance vote title that should wrap cleanly',
       summary: 'Used to confirm long DAO row titles, metadata, summaries, and preview cards stay readable in a narrow modal.',
       votes: { yes: 48, no: 19, by: {} },
@@ -265,7 +274,7 @@ export function addDaoUiStressFixtures() {
     },
     {
       state: 'voting',
-      type: 'params_economic',
+      type: 'economic',
       title: 'Fixture: economic spend change',
       summary: 'Shows a voting row for economic parameters with enough text to test two-line summary clamping.',
       votes: { yes: 14, no: 7, by: {} },
@@ -273,7 +282,7 @@ export function addDaoUiStressFixtures() {
     },
     {
       state: 'voting',
-      type: 'params_protocol',
+      type: 'protocol',
       title: 'Fixture: protocol limit update',
       summary: 'Exercises another voting row so the default Voting filter overflows and scrolls.',
       votes: { yes: 6, no: 11, by: {} },
@@ -281,7 +290,7 @@ export function addDaoUiStressFixtures() {
     },
     {
       state: 'voting',
-      type: 'treasury_project',
+      type: 'economic',
       title: 'Fixture: treasury project vote',
       summary: 'Confirms treasury project labels and route chips fit inside the proposal list row.',
       votes: { yes: 33, no: 4, by: {} },
@@ -289,7 +298,7 @@ export function addDaoUiStressFixtures() {
     },
     {
       state: 'voting',
-      type: 'treasury_mint',
+      type: 'economic',
       title: 'Fixture: treasury mint vote',
       summary: 'Adds the remaining proposal type to the voting filter for visual coverage.',
       votes: { yes: 3, no: 12, by: {} },
@@ -306,7 +315,7 @@ export function addDaoUiStressFixtures() {
     },
     {
       state: 'withheld',
-      type: 'params_protocol',
+      type: 'protocol',
       title: 'Fixture: withheld committee item',
       summary: 'Withheld row used to test review-result transition copy.',
       committeeVotes: [
@@ -319,7 +328,7 @@ export function addDaoUiStressFixtures() {
     },
     {
       state: 'accepted',
-      type: 'params_economic',
+      type: 'economic',
       title: 'Fixture: accepted result row',
       summary: 'Accepted result row with vote totals and reward details placeholder.',
       votes: { yes: 28, no: 9, by: {} },
@@ -327,7 +336,7 @@ export function addDaoUiStressFixtures() {
     },
     {
       state: 'rejected',
-      type: 'treasury_project',
+      type: 'economic',
       title: 'Fixture: rejected result row',
       summary: 'Rejected result row used to check result styling and counts.',
       votes: { yes: 8, no: 31, by: {} },
@@ -335,7 +344,7 @@ export function addDaoUiStressFixtures() {
     },
     {
       state: 'applied',
-      type: 'params_protocol',
+      type: 'protocol',
       title: 'Fixture: applied parameter update',
       summary: 'Applied row used to verify final result routing remains readable.',
       votes: { yes: 45, no: 6, by: {} },
@@ -426,37 +435,15 @@ export const daoRepo = {
     if (!safeSummary) throw new Error('Missing summary');
     if (!safeType) throw new Error('Missing type');
 
-    const now = Date.now();
     const store = _store || createEmptyDaoStore();
-
-    const number = Number(store.meta?.count || 0) + 1;
-    const nonce = Math.random().toString(16).slice(2);
-    const id = daoProposalId(number, nonce);
-
-    store.meta.count = number;
-    store.activeProposals.push({
-      number,
-      title: safeTitle,
-      state: 'review',
-      state_changed: now,
-      type: safeType,
-      nonce,
-    });
-
-    store.proposals[id] = {
-      number,
+    const id = addProposalRecord(store, {
       title: safeTitle,
       summary: safeSummary,
-      type: safeType,
       state: 'review',
-      status: 'review',
-      state_changed: now,
-      nonce,
-      created: now,
+      type: safeType,
       createdBy: createdBy || 'unknown',
       fields: fields && typeof fields === 'object' ? fields : {},
-      votes: { yes: 0, no: 0, by: {} },
-    };
+    });
 
     _store = normalizeDaoStore(store);
     return id;

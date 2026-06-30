@@ -25,29 +25,8 @@ export function buildMockDaoStore() {
 
   const store = createEmptyDaoStore();
 
-  const addMock = ({
-    title,
-    summary,
-    state,
-    enteredAt,
-    createdAt,
-    createdBy,
-    type,
-    fields,
-    votes,
-    options,
-    totalVote,
-    committeeVotes,
-    committeeAddresses,
-    voterRewardPool,
-    claimedReward,
-    initialBurnedReward,
-    finalBurnedReward,
-    startTime,
-    reviewDuration,
-    votingDuration,
-    claimDuration,
-  }) => {
+  const addMock = (proposal) => {
+    const { title, summary, state, enteredAt, createdAt, createdBy, type } = proposal;
     const number = ++store.meta.count;
     const nonce = randNonce();
     const id = daoProposalId(number, nonce);
@@ -77,20 +56,20 @@ export function buildMockDaoStore() {
       nonce,
       created,
       createdBy,
-      fields: fields || {},
-      options: Array.isArray(options) ? options : ['Yes', 'No'],
-      totalVote: Array.isArray(totalVote) ? totalVote : undefined,
-      committeeVotes: Array.isArray(committeeVotes) ? committeeVotes : [],
-      committeeAddresses: Array.isArray(committeeAddresses) ? committeeAddresses : [],
-      voterRewardPool,
-      claimedReward,
-      initialBurnedReward,
-      finalBurnedReward,
-      startTime: startTime || created,
-      reviewDuration,
-      votingDuration,
-      claimDuration,
-      votes: votes || { yes: 0, no: 0, by: {} },
+      fields: proposal.fields || {},
+      options: Array.isArray(proposal.options) ? proposal.options : ['Yes', 'No'],
+      totalVote: Array.isArray(proposal.totalVote) ? proposal.totalVote : undefined,
+      committeeVotes: Array.isArray(proposal.committeeVotes) ? proposal.committeeVotes : [],
+      committeeAddresses: Array.isArray(proposal.committeeAddresses) ? proposal.committeeAddresses : [],
+      voterRewardPool: proposal.voterRewardPool,
+      claimedReward: proposal.claimedReward,
+      initialBurnedReward: proposal.initialBurnedReward,
+      finalBurnedReward: proposal.finalBurnedReward,
+      startTime: proposal.startTime || created,
+      reviewDuration: proposal.reviewDuration,
+      votingDuration: proposal.votingDuration,
+      claimDuration: proposal.claimDuration,
+      votes: proposal.votes || { yes: 0, no: 0, by: {} },
     };
   };
 

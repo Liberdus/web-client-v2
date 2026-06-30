@@ -6760,7 +6760,6 @@ small {
   font-size: 8px;
   font-weight: var(--font-weight-semibold);
   justify-content: flex-start;
-  letter-spacing: 0.02em;
   line-height: 1.05;
   padding: 3px 0;
   text-align: left;
@@ -6795,10 +6794,6 @@ small {
 
 #daoModal .dao-row-compartment--updated {
   align-items: flex-start;
-}
-
-#daoModal .dao-row-options-grid .dao-row-compartment--updated {
-  align-items: center;
 }
 
 #daoModal .dao-row-compartment span {

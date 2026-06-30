@@ -2475,7 +2475,6 @@ function formatDaoRowTimestampParts(ts) {
   }
 }
 
-const DAO_REVIEW_STATE_KEYS = new Set(['review', 'discussion']);
 const DAO_RESULT_STATE_KEYS = new Set(['withheld', 'accepted', 'rejected', 'applied']);
 
 function toDaoDisplayNumber(value) {
@@ -2486,20 +2485,15 @@ function toDaoDisplayNumber(value) {
 }
 
 function getDaoVoteCounts(proposal) {
-  if (Array.isArray(proposal?.totalVote) && proposal.totalVote.length) {
-    const optionCounts = proposal.totalVote.map((value) => toDaoDisplayNumber(value));
-    return {
-      yes: optionCounts[0] || 0,
-      no: optionCounts[1] || 0,
-      optionCounts,
-    };
-  }
-
   const votes = proposal?.votes || {};
+  const optionCounts = Array.isArray(proposal?.totalVote) && proposal.totalVote.length
+    ? proposal.totalVote.map((value) => toDaoDisplayNumber(value))
+    : [Number(votes.yes || 0), Number(votes.no || 0)];
+
   return {
-    yes: Number(votes.yes || 0),
-    no: Number(votes.no || 0),
-    optionCounts: [Number(votes.yes || 0), Number(votes.no || 0)],
+    yes: optionCounts[0] || 0,
+    no: optionCounts[1] || 0,
+    optionCounts,
   };
 }
 
@@ -2523,7 +2517,7 @@ function shouldUseDaoUiStressFixtures() {
 
 function getDaoProposalRouteKey(state) {
   if (state === 'voting') return 'vote';
-  if (DAO_REVIEW_STATE_KEYS.has(state)) return 'review';
+  if (state === 'review') return 'review';
   if (DAO_RESULT_STATE_KEYS.has(state)) return 'result';
   return 'details';
 }
@@ -2582,7 +2576,6 @@ function getDaoCommitteeSummary(proposal) {
   return {
     reviewed,
     total,
-    accept,
     withhold,
     display: total ? `${reviewed}/${total}` : `${reviewed}`,
   };
