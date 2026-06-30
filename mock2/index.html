@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Liberdus DAO Mock Screens</title>
+    <title>Liberdus DAO Mock 2</title>
     <link rel="stylesheet" href="../styles.css" />
     <style>
       html {
@@ -111,6 +111,12 @@
 
       .mock-section {
         margin-top: 22px;
+      }
+
+      section[aria-labelledby="dao-routes-title"],
+      section[aria-labelledby="needed-flow-title"],
+      section[aria-labelledby="backend-title"] {
+        display: none;
       }
 
       .mock-section-header {
@@ -339,6 +345,10 @@
         z-index: 20;
       }
 
+      .simple-transition-arrows {
+        pointer-events: auto;
+      }
+
       .branch-row,
       .branch-flow-board .flow-row-title {
         position: relative;
@@ -387,12 +397,14 @@
         transition: filter 160ms ease, stroke-dashoffset 160ms ease, stroke-opacity 160ms ease, stroke-width 160ms ease;
       }
 
-      .branch-transition-arrows .transition-connector {
+      .branch-transition-arrows .transition-connector,
+      .simple-transition-arrows .transition-connector {
         color: var(--connector-color, var(--primary-color));
         pointer-events: none;
       }
 
-      .branch-transition-arrows .transition-hit-path {
+      .branch-transition-arrows .transition-hit-path,
+      .simple-transition-arrows .transition-hit-path {
         cursor: pointer;
         fill: none;
         pointer-events: stroke;
@@ -401,12 +413,14 @@
         stroke-width: 18;
       }
 
-      .branch-transition-arrows .transition-label {
+      .branch-transition-arrows .transition-label,
+      .simple-transition-arrows .transition-label {
         cursor: pointer;
         pointer-events: auto;
       }
 
-      .branch-transition-arrows .transition-connector.is-highlighted .transition-path {
+      .branch-transition-arrows .transition-connector.is-highlighted .transition-path,
+      .simple-transition-arrows .transition-connector.is-highlighted .transition-path {
         animation: connector-dash 800ms linear infinite;
         filter: drop-shadow(0 0 5px rgba(61, 61, 206, 0.42));
         stroke-dasharray: 10 5;
@@ -427,7 +441,8 @@
         font-weight: var(--font-weight-semibold);
       }
 
-      .branch-transition-arrows .transition-connector.is-highlighted .transition-label rect {
+      .branch-transition-arrows .transition-connector.is-highlighted .transition-label rect,
+      .simple-transition-arrows .transition-connector.is-highlighted .transition-label rect {
         fill: #fff;
         stroke-width: 2;
       }
@@ -452,6 +467,7 @@
         border: 1px solid var(--border-color);
         border-radius: 8px;
         box-shadow: var(--overlay-shadow);
+        cursor: default;
         display: flex;
         flex: 0 0 390px;
         flex-direction: column;
@@ -564,8 +580,11 @@
         flex: 1;
         flex-direction: column;
         gap: 12px;
+        min-height: 0;
+        overscroll-behavior: contain;
         overflow-y: auto;
         padding: 14px;
+        scrollbar-gutter: stable;
       }
 
       .screen-body > .status-line:first-child {
@@ -674,6 +693,60 @@
       .row-role.committee {
         border-color: rgba(220, 53, 69, 0.22);
         color: var(--danger-color);
+      }
+
+      .dao-list-screen .screen-body {
+        overflow: hidden;
+      }
+
+      .dao-list-screen .dao-proposal-list {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        padding-bottom: 68px;
+      }
+
+      .dao-proposal-list .mock-list-row {
+        min-height: 118px;
+      }
+
+      .row-result-preview {
+        background: var(--background-color);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        display: grid;
+        gap: 4px;
+        margin-top: 6px;
+        padding: 6px 8px;
+      }
+
+      .row-result-title {
+        color: var(--text-color);
+        font-size: 11px;
+        font-weight: var(--font-weight-semibold);
+        line-height: 1.2;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .row-result-grid {
+        display: grid;
+        gap: 5px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .row-result-stat {
+        color: var(--secondary-text-color);
+        font-size: 10px;
+        line-height: 1.15;
+      }
+
+      .row-result-stat strong {
+        color: var(--text-color);
+        display: block;
+        font-size: 11px;
+        line-height: 1.1;
       }
 
       .toggle {
@@ -818,6 +891,197 @@
         min-height: 92px;
       }
 
+      .option-builder {
+        display: grid;
+        gap: 7px;
+      }
+
+      .option-row {
+        align-items: center;
+        display: grid;
+        gap: 8px;
+        grid-template-columns: 22px 1fr;
+      }
+
+      .option-index {
+        align-items: center;
+        background: var(--hover-background);
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        color: var(--secondary-text-color);
+        display: inline-flex;
+        font-size: 11px;
+        font-weight: var(--font-weight-semibold);
+        height: 22px;
+        justify-content: center;
+        width: 22px;
+      }
+
+      .mock-select,
+      .mock-input,
+      .mock-textarea {
+        background: var(--background-color);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-color);
+        font: inherit;
+        outline: none;
+        padding: 8px 10px;
+        width: 100%;
+      }
+
+      .mock-select,
+      .mock-input {
+        min-height: 38px;
+      }
+
+      .mock-select {
+        cursor: pointer;
+      }
+
+      .mock-input[readonly] {
+        background: var(--hover-background);
+        color: var(--secondary-text-color);
+      }
+
+      .mock-textarea {
+        min-height: 92px;
+        resize: vertical;
+      }
+
+      .add-option-row {
+        align-items: center;
+        border: 1px dashed var(--border-color);
+        border-radius: 8px;
+        color: var(--primary-color);
+        display: flex;
+        font-size: 13px;
+        font-weight: var(--font-weight-semibold);
+        gap: 8px;
+        justify-content: center;
+        min-height: 38px;
+      }
+
+      .add-option-row::before {
+        align-items: center;
+        background: var(--primary-color);
+        border-radius: 999px;
+        color: #fff;
+        content: "+";
+        display: inline-flex;
+        font-size: 16px;
+        height: 22px;
+        justify-content: center;
+        line-height: 1;
+        width: 22px;
+      }
+
+      .change-builder {
+        background: var(--input-background);
+        border: 1px solid transparent;
+        border-radius: 8px;
+        display: grid;
+        gap: 8px;
+        padding: 10px;
+      }
+
+      .change-row {
+        align-items: center;
+        display: grid;
+        gap: 8px;
+        grid-template-columns: 82px 1fr;
+      }
+
+      .change-label {
+        color: var(--secondary-text-color);
+        font-size: 12px;
+        font-weight: var(--font-weight-medium);
+      }
+
+      .change-value {
+        color: var(--text-color);
+        font-size: 14px;
+        overflow-wrap: anywhere;
+      }
+
+      .payload-code {
+        background: #111827;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        color: #e5e7eb;
+        font-family: var(--font-monospace);
+        font-size: 11px;
+        line-height: 1.45;
+        margin: 0;
+        max-height: 360px;
+        overscroll-behavior: contain;
+        overflow-y: auto;
+        padding: 10px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .payload-code code {
+        font-family: inherit;
+      }
+
+      .payload-annotation {
+        left: 0;
+        pointer-events: auto;
+        position: absolute;
+        top: calc(100% + 18px);
+        width: 560px;
+        z-index: 30;
+      }
+
+      .payload-annotation-label {
+        color: var(--secondary-text-color);
+        font-size: 12px;
+        font-weight: var(--font-weight-medium);
+        margin-bottom: 6px;
+      }
+
+      .submit-summary {
+        display: grid;
+        gap: 10px;
+      }
+
+      .submit-group {
+        background: var(--hover-background);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        display: grid;
+        gap: 8px;
+        padding: 10px;
+      }
+
+      .submit-group-title {
+        font-size: 13px;
+        font-weight: var(--font-weight-semibold);
+      }
+
+      .submit-row {
+        align-items: start;
+        display: grid;
+        gap: 8px;
+        grid-template-columns: 86px 1fr;
+      }
+
+      .submit-key {
+        color: var(--secondary-text-color);
+        font-size: 12px;
+        font-weight: var(--font-weight-medium);
+        line-height: 1.35;
+      }
+
+      .submit-value {
+        color: var(--text-color);
+        font-family: var(--font-monospace);
+        font-size: 12px;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+      }
+
       .button-row {
         background: var(--background-color);
         border-top: 1px solid var(--border-color);
@@ -886,7 +1150,6 @@
 
       .floating-plus {
         align-items: center;
-        align-self: flex-end;
         background: var(--primary-color);
         border-radius: 50%;
         box-shadow: var(--shadow-primary);
@@ -896,8 +1159,12 @@
         font-weight: var(--font-weight-normal);
         height: 48px;
         justify-content: center;
-        margin-top: auto;
+        margin-top: 0;
+        position: absolute;
+        right: 20px;
+        bottom: 18px;
         width: 48px;
+        z-index: 18;
       }
 
       .menu-preview {
@@ -944,11 +1211,29 @@
       }
 
       .screen .message-context-menu.mock-context-menu .context-menu-option {
+        align-items: center;
+        display: flex;
+        gap: 16px;
+        justify-content: space-between;
         min-height: 44px;
       }
 
       .screen .message-context-menu.mock-context-menu .context-menu-text {
         font-size: var(--font-size-base);
+      }
+
+      .filter-count-token {
+        align-items: center;
+        background: var(--hover-background);
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        color: var(--secondary-text-color);
+        display: inline-flex;
+        font-size: 12px;
+        font-weight: var(--font-weight-semibold);
+        justify-content: center;
+        min-width: 28px;
+        padding: 2px 8px;
       }
 
       .mock-underlay-list {
@@ -1204,12 +1489,12 @@
         <div class="mock-brand">
           <img class="mock-logo" src="../media/liberdus_logo_50.png" alt="" />
           <div>
-            <h1 class="mock-title">DAO Screen Mock Board</h1>
-            <div class="mock-subtitle">Single-page HTML version of DAO_SCREEN_FLOW.md</div>
+            <h1 class="mock-title">DAO Mock 2 - Simple Entry Flow</h1>
+            <div class="mock-subtitle">Current DAO menu flow first</div>
           </div>
         </div>
         <div class="mock-subtitle">
-          Current mock screens and possible future screens are shown together so layout, copy, and workflow gaps can be reviewed visually.
+          Starts with the current Menu -> DAO proposal list path. Future role-specific screens and Parameters are intentionally kept out of this mock for now.
         </div>
         <div class="mock-tag-row" aria-label="Legend">
           <span class="mock-tag current">Current</span>
@@ -1308,38 +1593,12 @@
       <section class="mock-section" aria-labelledby="current-flow-title">
         <div class="mock-section-header">
           <div>
-            <h2 class="mock-section-title" id="current-flow-title">Current Entry Flow</h2>
-            <div class="mock-section-note">What exists today in the app, backed by in-memory DAO mock data.</div>
+            <h2 class="mock-section-title" id="current-flow-title">DAO Entry Flow</h2>
+            <div class="mock-section-note">Pressing DAO opens the proposal list first. This mock keeps filter, proposal row, and add-proposal actions visible before adding future role-specific flows.</div>
           </div>
         </div>
-        <div class="screen-grid">
-          <svg class="row-transition-arrows current-row-arrows" viewBox="0 0 2022 760" aria-hidden="true">
-            <defs>
-              <marker id="arrow-current" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(61, 61, 206, 0.56)"></path>
-              </marker>
-            </defs>
-            <path class="transition-path" marker-end="url(#arrow-current)" d="M 389 459 C 430 459 372 220 408 220"></path>
-            <g class="transition-label">
-              <rect x="314" y="400" width="70" height="24" rx="12"></rect>
-              <text x="327" y="416">tap DAO</text>
-            </g>
-            <path class="transition-path" marker-end="url(#arrow-current)" d="M 769 132 C 840 132 910 169 991 169"></path>
-            <g class="transition-label">
-              <rect x="820" y="108" width="78" height="24" rx="12"></rect>
-              <text x="833" y="124">tap filter</text>
-            </g>
-            <path class="transition-path" marker-end="url(#arrow-current)" d="M 797 373 C 1010 330 1350 320 1632 278"></path>
-            <g class="transition-label">
-              <rect x="1018" y="300" width="116" height="24" rx="12"></rect>
-              <text x="1031" y="316">tap proposal row</text>
-            </g>
-            <path class="transition-path" marker-end="url(#arrow-current)" d="M 759 705 C 930 730 1080 650 1224 620"></path>
-            <g class="transition-label">
-              <rect x="906" y="682" width="54" height="24" rx="12"></rect>
-              <text x="919" y="698">tap +</text>
-            </g>
-          </svg>
+        <div class="screen-grid" data-simple-board>
+          <svg class="row-transition-arrows current-row-arrows simple-transition-arrows" data-simple-arrows aria-hidden="true"></svg>
           <article class="screen" data-flow="1. Menu -> DAO">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
@@ -1357,7 +1616,7 @@
                 <li class="menu-item" data-icon="mail">Invite</li>
                 <li class="menu-item" data-icon="trending-up">Farm</li>
                 <li class="menu-item" data-icon="shield">Validator</li>
-                <li class="menu-item press-target" data-icon="dao">DAO</li>
+                <li class="menu-item press-target" data-icon="dao" data-flow-source="simple-menu-dao">DAO</li>
                 <li class="menu-item" data-icon="arrow-right-arrow-left">Bridge</li>
                 <li class="menu-item" data-icon="search">Explorer</li>
                 <li class="menu-item" data-icon="globe">Network</li>
@@ -1369,42 +1628,89 @@
             </div>
           </article>
 
-          <article class="screen" data-flow="2. DAO list">
+          <article class="screen dao-list-screen" data-flow-target="simple-dao-list" data-flow="2. DAO list">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">DAO - Active - Voting</div>
-              <button class="icon-button filter-icon press-target" aria-label="Filter"></button>
+              <button class="icon-button filter-icon press-target" aria-label="Filter" data-flow-source="simple-filter"></button>
             </div>
             <div class="screen-body">
               <div class="status-line">
                 <span class="status-pill current">Current</span>
                 <span class="status-pill mock">Mock data</span>
               </div>
-              <div class="screen-context"><strong>Proposal list</strong>Shows active or archived proposals filtered by status. Tap the filter icon to change status, tap a row for details, or tap + to create a proposal.</div>
+              <div class="screen-context"><strong>Proposal list first</strong>DAO opens the proposal list directly. Rows branch by proposal status: review waits for committee handling, voting opens weighted vote, and accepted/rejected rows open result and reward screens.</div>
               <div class="toggle" aria-label="Proposal group">
                 <span class="active">Active 22</span>
                 <span>Archived 14</span>
               </div>
-              <div class="mock-list">
-                <div class="mock-list-row press-target">
+              <div class="mock-list dao-proposal-list">
+                <div class="mock-list-row press-target" data-flow-source="simple-voting-row">
                   <div>
-                    <div class="mock-list-title">#3 Adjust minimum transaction fee</div>
-                    <div class="mock-list-meta">Change the minimum transaction fee to better match network load.</div>
+                    <div class="mock-list-title">#21 Increase vote exponent</div>
+                    <div class="mock-list-meta">voting - ends in 5d 2h - opens weighted dao_vote</div>
+                    <div class="row-result-preview">
+                      <div class="row-result-title">Vote preview</div>
+                      <div class="row-result-grid">
+                        <div class="row-result-stat"><strong>5d 2h</strong>Ends</div>
+                        <div class="row-result-stat"><strong>Yes/No</strong>Options</div>
+                        <div class="row-result-stat"><strong>12.59</strong>Est. weight</div>
+                      </div>
+                    </div>
                   </div>
-                  <div class="mock-list-meta">9:10 AM</div>
+                  <div class="row-role">vote</div>
                 </div>
-                <div class="mock-list-row">
+                <div class="mock-list-row press-target" data-flow-source="simple-result-row">
                   <div>
-                    <div class="mock-list-title">No proposals found</div>
-                    <div class="mock-list-meta">Use + to create a proposal</div>
+                    <div class="mock-list-title">#19 Adjust minimum spend</div>
+                    <div class="mock-list-meta">accepted - opens result/reward</div>
+                    <div class="row-result-preview">
+                      <div class="row-result-title">Result: Yes accepted</div>
+                      <div class="row-result-grid">
+                        <div class="row-result-stat"><strong>59%</strong>Yes weight</div>
+                        <div class="row-result-stat"><strong>41%</strong>No weight</div>
+                        <div class="row-result-stat"><strong>4.23 LIB</strong>Claimable</div>
+                      </div>
+                    </div>
                   </div>
+                  <div class="row-role">result</div>
+                </div>
+                <div class="mock-list-row press-target" data-flow-source="simple-reward-row">
+                  <div>
+                    <div class="mock-list-title">Reward ready to claim</div>
+                    <div class="mock-list-meta">#19 claim period open - opens reward claim details</div>
+                    <div class="row-result-preview">
+                      <div class="row-result-title">Reward preview</div>
+                      <div class="row-result-grid">
+                        <div class="row-result-stat"><strong>4.23 LIB</strong>Your claim</div>
+                        <div class="row-result-stat"><strong>30d</strong>Claim window</div>
+                        <div class="row-result-stat"><strong>18.40 LIB</strong>Claimed</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="row-role">claim</div>
+                </div>
+                <div class="mock-list-row press-target" data-flow-source="simple-review-row">
+                  <div>
+                    <div class="mock-list-title">#20 Minimum spend update</div>
+                    <div class="mock-list-meta">review - waiting for committee vote/result</div>
+                    <div class="row-result-preview">
+                      <div class="row-result-title">Review preview</div>
+                      <div class="row-result-grid">
+                        <div class="row-result-stat"><strong>1d 3h</strong>Left</div>
+                        <div class="row-result-stat"><strong>2</strong>Accept</div>
+                        <div class="row-result-stat"><strong>0</strong>Withhold</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="row-role committee">review</div>
                 </div>
               </div>
-              <div class="floating-plus press-target">+</div>
+              <div class="floating-plus press-target" data-flow-source="simple-add">+</div>
             </div>
           </article>
 
-          <article class="screen" data-flow="2a. Filter menu open">
+          <article class="screen" data-flow-target="simple-filter-menu" data-flow="2a. Filter menu open">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">DAO - Active - Voting</div>
@@ -1431,29 +1737,35 @@
               </div>
               <div class="message-context-menu mock-context-menu">
                 <div class="context-menu-option" data-state-key="review">
-                  <span class="context-menu-text">Review 2</span>
+                  <span class="context-menu-text">Review</span>
+                  <span class="filter-count-token">2</span>
                 </div>
                 <div class="context-menu-option" data-state-key="withheld">
-                  <span class="context-menu-text">Withheld 7</span>
+                  <span class="context-menu-text">Withheld</span>
+                  <span class="filter-count-token">7</span>
                 </div>
                 <div class="context-menu-option" data-state-key="voting">
-                  <span class="context-menu-text">Voting 1</span>
+                  <span class="context-menu-text">Voting</span>
+                  <span class="filter-count-token">1</span>
                 </div>
                 <div class="context-menu-option" data-state-key="rejected">
-                  <span class="context-menu-text">Rejected 1</span>
+                  <span class="context-menu-text">Rejected</span>
+                  <span class="filter-count-token">1</span>
                 </div>
                 <div class="context-menu-option" data-state-key="accepted">
-                  <span class="context-menu-text">Accepted 2</span>
+                  <span class="context-menu-text">Accepted</span>
+                  <span class="filter-count-token">2</span>
                 </div>
                 <div class="context-menu-option" data-state-key="applied">
-                  <span class="context-menu-text">Applied 3</span>
+                  <span class="context-menu-text">Applied</span>
+                  <span class="filter-count-token">3</span>
                 </div>
               </div>
               <div class="floating-plus">+</div>
             </div>
           </article>
 
-          <article class="screen" data-flow="3a. Add proposal">
+          <article class="screen" data-flow-target="simple-builder" data-flow="3a. Create proposal">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Add Proposal</div>
@@ -1465,68 +1777,301 @@
                 <span class="status-pill mock">Mock data</span>
                 <span class="status-pill partial">Partial</span>
               </div>
-              <div class="screen-context"><strong>Mock proposal creation</strong>Creates an in-memory proposal and does not yet send server DAO transactions. Phase 1 needs dao_proposal_create, committee review, weighted voting, rewards, apply, and burn actions.</div>
+              <div class="screen-context"><strong>dao_proposal_create draft</strong>Regular proposals pay the proposal fee into the voter reward pool and start in review. Emergency proposals are committee-only and skip the proposal fee.</div>
               <div class="field-stack">
                 <div class="field">
-                  <label>Title</label>
-                  <div class="field-box">Increase vote exponent</div>
+                  <label>Type</label>
+                  <select class="mock-select" aria-label="Proposal type">
+                    <option selected>Governance</option>
+                    <option>Economic</option>
+                    <option>Protocol</option>
+                  </select>
+                  <div class="mock-muted">Choose governance, economic, or protocol. This controls which parameters can be selected below.</div>
                 </div>
                 <div class="field">
-                  <label>Type</label>
-                  <div class="field-box">Governance</div>
+                  <label>Options</label>
+                  <div class="option-builder">
+                    <div class="option-row">
+                      <span class="option-index">1</span>
+                      <input class="mock-input" aria-label="Option 1" value="yes" />
+                    </div>
+                    <div class="option-row">
+                      <span class="option-index">2</span>
+                      <input class="mock-input" aria-label="Option 2" value="no" />
+                    </div>
+                    <div class="add-option-row">Add option</div>
+                  </div>
+                  <div class="mock-muted">Requires 2-10 options. Option 1 must be yes, accept, or approve.</div>
+                </div>
+                <div class="field">
+                  <label>Parameter change</label>
+                  <div class="change-builder">
+                    <div class="change-row">
+                      <span class="change-label">Select</span>
+                      <select class="mock-select" aria-label="DAO parameter">
+                        <option selected>voteExponent</option>
+                        <option>minimumSpend</option>
+                        <option>voteThreshold</option>
+                        <option>reviewDuration</option>
+                        <option>votingDuration</option>
+                        <option>claimDuration</option>
+                      </select>
+                    </div>
+                    <div class="change-row">
+                      <span class="change-label">Current</span>
+                      <input class="mock-input" aria-label="Current value" value="1.1" readonly />
+                    </div>
+                    <div class="change-row">
+                      <span class="change-label">Enter</span>
+                      <input class="mock-input" aria-label="Proposed value" value="1.2" />
+                    </div>
+                  </div>
+                  <div class="mock-muted">Tap Select to choose a DAO parameter, then enter the proposed value. Current is read-only and sent for validation.</div>
                 </div>
                 <div class="two-col">
                   <div class="field">
-                    <label>Parameter</label>
-                    <div class="field-box">voteExponent</div>
+                    <label>Fee</label>
+                    <input class="mock-input" aria-label="Proposal fee" value="50.0 USD" readonly />
                   </div>
                   <div class="field">
-                    <label>New value</label>
-                    <div class="field-box">1.2</div>
+                    <label>Emergency</label>
+                    <select class="mock-select" aria-label="Emergency proposal">
+                      <option selected>No</option>
+                      <option>Yes</option>
+                    </select>
                   </div>
                 </div>
                 <div class="field">
-                  <label>Summary</label>
-                  <div class="field-box tall">Change voteExponent from 1.1 to 1.2 and keep yes/no ballot options.</div>
+                  <label>Timing</label>
+                  <div class="two-col">
+                    <div class="field">
+                      <label>Review starts</label>
+                      <select class="mock-select" aria-label="Review start time">
+                        <option selected>Now</option>
+                        <option>Schedule</option>
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label>Grace period</label>
+                      <input class="mock-input" aria-label="Grace period" value="7d" />
+                    </div>
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Description</label>
+                  <textarea class="mock-textarea" aria-label="Proposal description">Increase voteExponent so larger single votes receive the expected spend boost.</textarea>
                 </div>
               </div>
               <div class="button-row">
-                <div class="mock-button primary">Submit</div>
                 <div class="mock-button secondary">Cancel</div>
+                <div class="mock-button primary press-target" data-flow-source="simple-builder-review">Review</div>
               </div>
+            </div>
+            <div class="payload-annotation">
+              <div class="payload-annotation-label">Submit payload</div>
+              <pre class="payload-code"><code>{
+  type: "dao_proposal_create", // required
+  timestamp: 1710000000000, // required - tx creation/sign time
+  networkId: "devnet", // required
+  from: "0xUserAddress", // required - signing account
+  proposalId: "hash('dao proposal #23')", // required - next proposal id
+  metaId: "hash(DAO_PROPOSALS_META_ID_STRING)", // required
+  emergency: false, // required
+  proposalType: "governance", // required: governance | economic | protocol
+  gracePeriod: 604800000, // required by current schema - 7d in ms
+  description: "Increase voteExponent so larger single votes receive the expected spend boost.", // required
+  options: ["yes", "no"], // required - options[0] must be affirmative
+  governance: { // required because proposalType is governance
+    changes: [
+      {
+        key: "voteExponent", // required - resolved inside DAO params
+        current: "1.1", // required - current value snapshot
+        value: "1.2" // required - proposed value as string
+      }
+    ]
+  },
+  // startTime: 1710000000000, // optional - omit to default to timestamp
+  sign: { owner: "0xUserAddress", sig: "0xSignature" } // required before submit
+}
+// Not sent: proposal fee. Server derives it from current DAO params.</code></pre>
             </div>
           </article>
 
-          <article class="screen" data-flow="3b. Proposal detail">
+          <article class="screen" data-flow-target="simple-confirm" data-flow="3b. Confirm create">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Proposal</div>
+              <div class="screen-title">Confirm Proposal</div>
               <span></span>
             </div>
             <div class="screen-body">
               <div class="status-line">
-                <span class="status-pill current">Current</span>
-                <span class="status-pill mock">Mock data</span>
-                <span class="status-pill partial">Partial</span>
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Proposal author</span>
               </div>
-              <div class="screen-context"><strong>Proposal detail</strong>Displays the selected proposal and simple mock Yes/No voting only when status is Voting. Server voting needs weights[], spend, eligibility checks, dao_vote_result, and an audit trail.</div>
-              <div>
-                <div class="mock-muted">Proposal #3</div>
-                <div class="proposal-title">Adjust minimum transaction fee</div>
-                <div class="mock-muted">Type: Economic</div>
-                <div class="mock-muted">Voting - 6/15/2026, 9:10 AM - by carol</div>
+              <div class="screen-context"><strong>Sign dao_proposal_create</strong>Final checkpoint before signing. The server assigns the next proposal number, snapshots DAO parameters, deducts the fee, and creates a review-status proposal.</div>
+              <div class="submit-summary">
+                <div class="submit-group">
+                  <div class="submit-group-title">Cost and initial state</div>
+                  <div class="submit-row"><span class="submit-key">fee</span><span class="submit-value">50.0 USD</span></div>
+                  <div class="submit-row"><span class="submit-key">reward pool</span><span class="submit-value">proposal fee seeds voter rewards</span></div>
+                  <div class="submit-row"><span class="submit-key">starts as</span><span class="submit-value">review</span></div>
+                </div>
+                <div class="submit-group">
+                  <div class="submit-group-title">Transaction</div>
+                  <div class="submit-row"><span class="submit-key">type</span><span class="submit-value">dao_proposal_create</span></div>
+                  <div class="submit-row"><span class="submit-key">networkId</span><span class="submit-value">devnet</span></div>
+                  <div class="submit-row"><span class="submit-key">from</span><span class="submit-value">0xUserAddress</span></div>
+                  <div class="submit-row"><span class="submit-key">proposalId</span><span class="submit-value">hash("dao proposal #23")</span></div>
+                  <div class="submit-row"><span class="submit-key">metaId</span><span class="submit-value">hash(DAO_PROPOSALS_META_ID_STRING)</span></div>
+                </div>
+                <div class="submit-group">
+                  <div class="submit-group-title">Proposal body</div>
+                  <div class="submit-row"><span class="submit-key">proposalType</span><span class="submit-value">governance</span></div>
+                  <div class="submit-row"><span class="submit-key">emergency</span><span class="submit-value">false</span></div>
+                  <div class="submit-row"><span class="submit-key">options</span><span class="submit-value">["yes", "no"]</span></div>
+                  <div class="submit-row"><span class="submit-key">gracePeriod</span><span class="submit-value">604800000 ms</span></div>
+                  <div class="submit-row"><span class="submit-key">description</span><span class="submit-value">Increase voteExponent so larger single votes receive the expected spend boost.</span></div>
+                </div>
+                <div class="submit-group">
+                  <div class="submit-group-title">Parameter change</div>
+                  <div class="submit-row"><span class="submit-key">key</span><span class="submit-value">voteExponent</span></div>
+                  <div class="submit-row"><span class="submit-key">current</span><span class="submit-value">"1.1"</span></div>
+                  <div class="submit-row"><span class="submit-key">value</span><span class="submit-value">"1.2"</span></div>
+                </div>
+                <div class="submit-group">
+                  <div class="submit-group-title">Generated at submit</div>
+                  <div class="submit-row"><span class="submit-key">timestamp</span><span class="submit-value">current signing time</span></div>
+                  <div class="submit-row"><span class="submit-key">sign</span><span class="submit-value">owner + signature from wallet</span></div>
+                  <div class="submit-row"><span class="submit-key">not entered</span><span class="submit-value">proposal fee; server derives it from DAO params</span></div>
+                </div>
               </div>
-              <p class="proposal-body">Change the minimum transaction fee to better match network load.</p>
-              <div class="detail-pair">
-                <div class="detail-line"><span>minTxFee:</span> 0.001</div>
-                <div class="detail-line"><span>nodeRewards:</span> unchanged</div>
-              </div>
-              <div class="proposal-title">Vote</div>
               <div class="button-row">
-                <div class="mock-button primary">Yes</div>
-                <div class="mock-button secondary">No</div>
+                <div class="mock-button secondary">Back</div>
+                <div class="mock-button primary press-target" data-flow-source="simple-confirm-sign">Sign dao_proposal_create</div>
               </div>
-              <div class="mock-muted">Yes: 12 - No: 4</div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow-target="simple-review-status" data-flow="4. Review status">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Proposal Review</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Any user</span>
+              </div>
+              <div class="screen-context"><strong>Review gate</strong>New proposals wait in review. Committee vote buttons render only when the current address is in this proposal's snapshotted committeeAddresses list. After reviewEnd, dao_committee_result is a separate finalize action.</div>
+              <div>
+                <div class="mock-muted">Proposal #22</div>
+                <div class="proposal-title">Increase vote exponent</div>
+                <div class="mock-muted">review ends in 1d 3h</div>
+              </div>
+              <div class="stat-grid">
+                <div class="stat-card"><div class="stat-value">2</div><div class="stat-label">Accept</div></div>
+                <div class="stat-card"><div class="stat-value">0</div><div class="stat-label">Withhold</div></div>
+              </div>
+              <div class="mock-list">
+                <div class="mock-list-row"><div class="mock-list-title">Author can track status</div><div class="mock-list-meta">no committee controls</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">Capability check</div><div class="mock-list-meta">proposal.committeeAddresses includes current address</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">Committee controls</div><div class="mock-list-meta">Accept, Withhold + reason when member</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">Next public state</div><div class="mock-list-meta">voting or withheld</div></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow-target="simple-vote" data-flow="5. Weighted vote">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Vote</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Eligible voter</span>
+              </div>
+              <div class="screen-context"><strong>Weighted dao_vote</strong>Eligible voters submit weights[] for proposal options plus spend. Votes are additive; spend enters the reward pool and gets exponent/time-decay weighting.</div>
+              <div class="mock-muted">Eligibility: balance above 100.0 USD threshold - voting ends in 5d 2h</div>
+              <div class="field-stack">
+                <div class="field"><label>Option[0] yes weight</label><div class="field-box">3</div></div>
+                <div class="field"><label>Option[1] no weight</label><div class="field-box">1</div></div>
+                <div class="field"><label>Spend amount</label><div class="field-box">10.00 USD</div></div>
+              </div>
+              <div class="impact-preview state-target" data-flow-target="simple-vote-estimate">
+                <div class="impact-preview-title">Your vote impact <span>Total 12.59 (12.6x min)</span></div>
+                <div class="impact-row">
+                  <div class="impact-row-header"><span>Yes</span><span>+9.44</span></div>
+                  <div class="progress-bar"><div class="progress-fill" style="width: 75%"></div></div>
+                </div>
+                <div class="impact-row no">
+                  <div class="impact-row-header"><span>No</span><span>+3.15</span></div>
+                  <div class="progress-bar"><div class="progress-fill" style="width: 25%"></div></div>
+                </div>
+                <div class="impact-summary">Before: Yes 124.44 / No 88.10<br />After: Yes 133.88 / No 91.25</div>
+              </div>
+              <div class="button-row">
+                <div class="mock-button secondary press-target" data-flow-source="simple-vote-preview">Preview</div>
+                <div class="mock-button primary press-target" data-flow-source="simple-vote-submit">Submit dao_vote</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow-target="simple-results" data-flow="6. Results / audit">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Results</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Any user</span>
+              </div>
+              <div class="screen-context"><strong>dao_vote_result</strong>After votingEnd, anyone can finalize the winning option. The highest weighted option wins; index 0 means accepted, and pctBurned is burned from the reward pool.</div>
+              <div class="proposal-title">Current winner: Yes</div>
+              <div class="impact-row">
+                <div class="impact-row-header"><span>Yes: 133.88</span><span>59%</span></div>
+                <div class="progress-bar"><div class="progress-fill" style="width: 59%"></div></div>
+              </div>
+              <div class="impact-row no">
+                <div class="impact-row-header"><span>No: 91.25</span><span>41%</span></div>
+                <div class="progress-bar"><div class="progress-fill" style="width: 41%"></div></div>
+              </div>
+              <div class="mock-list state-target" data-flow-target="simple-results-audit">
+                <div class="mock-list-row"><div class="mock-list-title">voter...9f21</div><div class="mock-list-meta">spend 10 - weights 3/1 - 8:42 AM</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">voter...0ac4</div><div class="mock-list-meta">spend 1 - weights 0/1 - 8:10 AM</div></div>
+              </div>
+              <div class="button-row">
+                <div class="mock-button secondary press-target" data-flow-source="simple-vote-result">Run vote result</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="screen" data-flow-target="simple-rewards" data-flow="7. Rewards">
+            <div class="screen-header">
+              <button class="back-button" aria-label="Back"></button>
+              <div class="screen-title">Rewards</div>
+              <span></span>
+            </div>
+            <div class="screen-body">
+              <div class="status-line">
+                <span class="status-pill needed">Needed</span>
+                <span class="status-pill role">Voter</span>
+              </div>
+              <div class="screen-context"><strong>Reward claim</strong>Voters can claim once during claimDuration. Claim amount depends on the gap from the previous voter plus an equal-share component.</div>
+              <div class="proposal-title">Winner: Yes</div>
+              <div class="mock-list state-target" data-flow-target="simple-reward-breakdown">
+                <div class="mock-list-row"><div class="mock-list-title">Initial burn</div><div class="mock-list-meta">50%</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">Claim period</div><div class="mock-list-meta">30d</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">Your reward estimate</div><div class="mock-list-meta">4.23 LIB</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">claimedReward</div><div class="mock-list-meta">18.40 LIB</div></div>
+              </div>
+              <div class="button-row">
+                <div class="mock-button primary press-target" data-flow-source="simple-claim-reward">Claim dao_claim_reward</div>
+              </div>
             </div>
           </article>
         </div>
@@ -1669,14 +2214,16 @@
                 <span class="status-pill needed">Needed</span>
                 <span class="status-pill role">Proposal author</span>
               </div>
-              <div class="screen-context"><strong>Author post-submit view</strong>After dao_proposal_create, non-committee authors see the proposal in review status. They can track timing and votes, but cannot use committee-only controls.</div>
+              <div class="screen-context"><strong>Author post-submit view</strong>After dao_proposal_create, users whose address is not in proposal.committeeAddresses see a read-only review status. Accept and Withhold stay hidden because dao_committee_vote would reject non-members.</div>
               <div>
                 <div class="proposal-title">#21 Increase vote exponent</div>
                 <div class="mock-muted">Status: review</div>
               </div>
               <div class="mock-list">
                 <div class="mock-list-row"><div class="mock-list-title">Review window</div><div class="mock-list-meta">ends in 1d 3h</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">Capability check</div><div class="mock-list-meta">currentAddress not in proposal.committeeAddresses</div></div>
                 <div class="mock-list-row"><div class="mock-list-title">Committee visibility</div><div class="mock-list-meta">appears in committee queue</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">Footer actions</div><div class="mock-list-meta">hidden for non-committee users</div></div>
                 <div class="mock-list-row"><div class="mock-list-title">Next public state</div><div class="mock-list-meta">voting or withheld after dao_committee_result</div></div>
               </div>
             </div>
@@ -1693,7 +2240,7 @@
                 <span class="status-pill needed">Needed</span>
                 <span class="status-pill committee">Committee only</span>
               </div>
-              <div class="screen-context"><strong>Review list</strong>Visible only to committee members. Rows are review-status proposals that need accept, withhold, or result finalization.</div>
+              <div class="screen-context"><strong>Review list</strong>Visible when at least one review proposal has currentAddress in its snapshotted committeeAddresses. Rows needing only dao_committee_result after reviewEnd can also surface in Ready actions.</div>
               <div class="mock-list action-list">
                 <div class="mock-list-row press-target" data-flow-source="committee-list-row">
                   <div>
@@ -1724,7 +2271,7 @@
                 <span class="status-pill needed">Needed</span>
                 <span class="status-pill committee">Committee only</span>
               </div>
-              <div class="screen-context"><strong>Committee review</strong>Committee members vote accept or withhold during review. Withhold requires a reason; regular accepted proposals still wait for reviewEnd.</div>
+              <div class="screen-context"><strong>Committee review</strong>Accept and Withhold render because currentAddress is in this proposal's committeeAddresses snapshot. Withhold requires a reason. Review finalization after reviewEnd is not committee-only.</div>
               <div>
                 <div class="proposal-title">Proposal #21</div>
                 <div class="mock-muted">Review ends in 1d 3h</div>
@@ -1733,12 +2280,16 @@
                 <div class="mock-kpi"><div class="mock-kpi-value">3</div><div class="mock-kpi-label">Accept</div></div>
                 <div class="mock-kpi"><div class="mock-kpi-value">1</div><div class="mock-kpi-label">Withhold</div></div>
               </div>
+              <div class="mock-list">
+                <div class="mock-list-row"><div class="mock-list-title">Capability check</div><div class="mock-list-meta">proposal.committeeAddresses includes currentAddress</div></div>
+                <div class="mock-list-row"><div class="mock-list-title">Vote tx</div><div class="mock-list-meta">dao_committee_vote: Accept or Withhold</div></div>
+              </div>
               <div class="field" data-flow-target="withhold-reason"><label>Withhold reason</label><div class="field-box">Required when withholding</div></div>
               <div class="mock-list action-list">
                 <div class="mock-list-row press-target" data-flow-source="committee-result">
                   <div>
                     <div class="mock-list-title">Finalize review result</div>
-                    <div class="mock-list-meta">dao_committee_result after reviewEnd</div>
+                    <div class="mock-list-meta">dao_committee_result after reviewEnd; separate ready action</div>
                   </div>
                   <div class="row-role">any user</div>
                 </div>
@@ -1782,6 +2333,14 @@
                   <div>
                     <div class="mock-list-title">#19 Adjust minimum spend</div>
                     <div class="mock-list-meta">accepted - claim period open - opens results</div>
+                    <div class="row-result-preview">
+                      <div class="row-result-title">Result: Yes accepted</div>
+                      <div class="row-result-grid">
+                        <div class="row-result-stat"><strong>59%</strong>Yes weight</div>
+                        <div class="row-result-stat"><strong>41%</strong>No weight</div>
+                        <div class="row-result-stat"><strong>4.23 LIB</strong>Claimable</div>
+                      </div>
+                    </div>
                   </div>
                   <div class="row-role">result</div>
                 </div>
@@ -2085,7 +2644,7 @@
           <div class="flow-node">Network state</div>
         </div>
         <div class="flow-note">
-          The live client should read `GET dao/proposals`, `GET dao/proposals/:id`, `GET dao/proposals/meta`, and `GET dao/voters/:proposalId`. Phase 1 writes map to `dao_proposal_create`, `dao_committee_vote`, `dao_committee_result`, `dao_vote`, `dao_vote_result`, `dao_claim_reward`, `dao_apply_parameters`, and `dao_burn_reward`.
+          The live client should read `GET dao/proposals`, `GET dao/proposals/:id`, `GET dao/proposals/meta`, and `GET dao/voters/:proposalId`. Proposal detail should expose proposal.committeeAddresses or capability flags such as canCommitteeVote so the review modal can hide Accept/Withhold for non-members. Phase 1 writes map to `dao_proposal_create`, `dao_committee_vote`, `dao_committee_result`, `dao_vote`, `dao_vote_result`, `dao_claim_reward`, `dao_apply_parameters`, and `dao_burn_reward`.
         </div>
       </section>
       </main>
@@ -2131,10 +2690,29 @@
           zoomAt(nextScale, viewport.clientWidth / 2, viewport.clientHeight / 2);
         };
 
+        const scrollAreaAtPoint = (event) => {
+          const areas = document.elementsFromPoint(event.clientX, event.clientY)
+            .map((element) => element.closest?.(".dao-proposal-list, .screen-body, .payload-code"))
+            .filter(Boolean);
+          return areas[0] ?? event.target.closest(".dao-proposal-list, .screen-body, .payload-code");
+        };
+
+        const scrollArea = (area, event) => {
+          const multiplier = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? area.clientHeight : 1;
+          area.scrollTop += event.deltaY * multiplier;
+          area.scrollLeft += event.deltaX * multiplier;
+          event.preventDefault();
+        };
+
         zoomIn.addEventListener("click", () => zoomTo(scale + step));
         zoomOut.addEventListener("click", () => zoomTo(scale - step));
         viewport.addEventListener("wheel", (event) => {
           if (event.target.closest(".zoom-controls")) {
+            return;
+          }
+          const area = scrollAreaAtPoint(event);
+          if (area) {
+            scrollArea(area, event);
             return;
           }
           event.preventDefault();
@@ -2149,7 +2727,7 @@
         });
 
         viewport.addEventListener("pointerdown", (event) => {
-          if (event.button !== 0 || event.target.closest(".zoom-controls")) {
+          if (event.button !== 0 || event.target.closest(".zoom-controls, .screen")) {
             return;
           }
           dragging = true;
@@ -2192,6 +2770,226 @@
 
         viewport.addEventListener("pointerup", stopDragging);
         viewport.addEventListener("pointercancel", stopDragging);
+
+        const pinnedSimpleConnectors = new Set();
+
+        const renderSimpleArrows = () => {
+          const board = document.querySelector("[data-simple-board]");
+          const svg = document.querySelector("[data-simple-arrows]");
+          if (!board || !svg) {
+            return;
+          }
+
+          const svgNS = "http://www.w3.org/2000/svg";
+          const connectors = [
+            { from: "simple-menu-dao", to: "simple-dao-list", label: "tap DAO", fromSide: "right", toSide: "left", toRatio: 0.35, labelDx: -42, labelDy: -30, labelWidth: 76 },
+            { from: "simple-filter", to: "simple-filter-menu", label: "tap filter", fromSide: "right", toSide: "left", toRatio: 0.2, labelDx: -40, labelDy: -36, labelWidth: 84 },
+            { from: "simple-add", to: "simple-builder", label: "tap +", fromSide: "top", toSide: "left", toRatio: 0.78, route: "bottom", lane: 0, labelDx: -18, labelDy: -30, labelWidth: 58 },
+            { from: "simple-builder-review", to: "simple-confirm", label: "review payload", fromSide: "top", toSide: "left", toRatio: 0.78, labelDx: -58, labelDy: -32, labelWidth: 132 },
+            { from: "simple-confirm-sign", to: "simple-review-status", label: "dao_proposal_create", fromSide: "top", toSide: "left", toRatio: 0.42, labelDx: -72, labelDy: -36, labelWidth: 164 },
+            { from: "simple-review-row", to: "simple-review-status", label: "review state", fromSide: "right", toSide: "left", toRatio: 0.42, route: "bottom", lane: 1, labelDx: -42, labelDy: -30, labelWidth: 116 },
+            { from: "simple-voting-row", to: "simple-vote", label: "tap voting row", fromSide: "right", toSide: "left", toRatio: 0.42, route: "bottom", lane: 2, labelDx: -44, labelDy: -30, labelWidth: 122 },
+            { from: "simple-result-row", to: "simple-results", label: "open result", fromSide: "right", toSide: "left", toRatio: 0.42, route: "bottom", lane: 3, labelDx: -40, labelDy: -30, labelWidth: 108 },
+            { from: "simple-reward-row", to: "simple-rewards", label: "claim reward", fromSide: "right", toSide: "left", toRatio: 0.42, route: "bottom", lane: 4, labelDx: -44, labelDy: -30, labelWidth: 116 },
+            { from: "simple-vote-preview", to: "simple-vote-estimate", label: "shows estimate", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -34, labelDy: -12, labelWidth: 120 },
+            { from: "simple-vote-submit", to: "simple-results", label: "dao_vote", fromSide: "top", toSide: "left", toRatio: 0.42, labelDx: -8, labelDy: -32, labelWidth: 82 },
+            { from: "simple-vote-result", to: "simple-rewards", label: "claim period starts", fromSide: "top", toSide: "left", toRatio: 0.42, labelDx: -64, labelDy: -34, labelWidth: 148 },
+            { from: "simple-claim-reward", to: "simple-reward-breakdown", label: "dao_claim_reward", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -50, labelDy: -14, labelWidth: 142 }
+          ];
+
+          const palette = [
+            "#d00000",
+            "#c2410c",
+            "#9a6700",
+            "#15803d",
+            "#047857",
+            "#0369a1",
+            "#1d4ed8",
+            "#6d28d9",
+            "#be185d"
+          ];
+          const targetColorMap = new Map();
+          const markerMap = new Map();
+
+          const makeSvgElement = (tag, attrs = {}) => {
+            const element = document.createElementNS(svgNS, tag);
+            Object.entries(attrs).forEach(([key, value]) => element.setAttribute(key, value));
+            return element;
+          };
+          const findAnchor = (id) => board.querySelector(`[data-flow-source="${id}"], [data-flow-target="${id}"]`);
+          const boxInBoard = (element) => {
+            let x = 0;
+            let y = 0;
+            let node = element;
+            while (node && node !== board) {
+              x += node.offsetLeft || 0;
+              y += node.offsetTop || 0;
+              node = node.offsetParent;
+            }
+            return { x, y, width: element.offsetWidth, height: element.offsetHeight };
+          };
+          const pointFor = (element, side, ratio = 0.5) => {
+            const box = boxInBoard(element);
+            if (side === "left") return { x: box.x, y: box.y + box.height * ratio };
+            if (side === "right") return { x: box.x + box.width, y: box.y + box.height * ratio };
+            if (side === "top") return { x: box.x + box.width * ratio, y: box.y };
+            if (side === "bottom") return { x: box.x + box.width * ratio, y: box.y + box.height };
+            return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+          };
+          const screenBoxFor = (element) => {
+            const screen = element.closest(".screen") || element;
+            return boxInBoard(screen);
+          };
+          const colorForTarget = (target) => {
+            if (!targetColorMap.has(target)) {
+              targetColorMap.set(target, palette[targetColorMap.size % palette.length]);
+            }
+            return targetColorMap.get(target);
+          };
+          const hexToRgba = (hex, alpha) => {
+            const value = hex.replace("#", "");
+            const red = parseInt(value.slice(0, 2), 16);
+            const green = parseInt(value.slice(2, 4), 16);
+            const blue = parseInt(value.slice(4, 6), 16);
+            return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+          };
+
+          const defs = makeSvgElement("defs");
+          svg.replaceChildren(defs);
+          const width = board.scrollWidth;
+          const height = board.scrollHeight;
+          svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+          svg.style.width = `${width}px`;
+          svg.style.height = `${height}px`;
+
+          const markerFor = (target, color) => {
+            if (markerMap.has(target)) {
+              return markerMap.get(target);
+            }
+            const markerId = `arrow-simple-${target.replace(/[^a-z0-9_-]/gi, "-")}`;
+            const marker = makeSvgElement("marker", {
+              id: markerId,
+              markerWidth: "10",
+              markerHeight: "10",
+              refX: "8",
+              refY: "5",
+              orient: "auto"
+            });
+            marker.appendChild(makeSvgElement("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: color }));
+            defs.appendChild(marker);
+            markerMap.set(target, markerId);
+            return markerId;
+          };
+
+          const routeDetailsFor = (from, to, start, end, connector, index) => {
+            if (connector.route === "local-up") {
+              return {
+                d: `M ${start.x} ${start.y} C ${start.x} ${start.y - 74}, ${end.x} ${end.y + 74}, ${end.x} ${end.y}`,
+                labelX: (start.x + end.x) / 2,
+                labelY: (start.y + end.y) / 2,
+                wrapped: false
+              };
+            }
+            if (connector.route === "bottom") {
+              const sourceBox = screenBoxFor(from);
+              const targetBox = screenBoxFor(to);
+              const lane = connector.lane ?? index;
+              const laneOffset = 42 + lane * 26;
+              const sourceLaneX = sourceBox.x + sourceBox.width + 20 + lane * 4;
+              const targetLaneX = targetBox.x - 20 - lane * 4;
+              const laneY = Math.max(sourceBox.y + sourceBox.height, targetBox.y + targetBox.height) + laneOffset;
+              return {
+                d: `M ${start.x} ${start.y} C ${start.x + 28} ${start.y}, ${sourceLaneX} ${start.y}, ${sourceLaneX} ${start.y} L ${sourceLaneX} ${laneY} L ${targetLaneX} ${laneY} L ${targetLaneX} ${end.y} C ${targetLaneX} ${end.y}, ${end.x - 28} ${end.y}, ${end.x} ${end.y}`,
+                labelX: (sourceLaneX + targetLaneX) / 2,
+                labelY: laneY,
+                wrapped: true
+              };
+            }
+            const distance = Math.abs(end.x - start.x);
+            const control = Math.max(90, Math.min(220, distance * 0.42));
+            return {
+              d: `M ${start.x} ${start.y} C ${start.x + control} ${start.y}, ${end.x - control} ${end.y}, ${end.x} ${end.y}`,
+              labelX: (start.x + end.x) / 2,
+              labelY: (start.y + end.y) / 2,
+              wrapped: false
+            };
+          };
+
+          const attachConnectorInteraction = (group, targets, connectorId) => {
+            const show = () => group.classList.add("is-hovered", "is-highlighted");
+            const hide = () => {
+              group.classList.remove("is-hovered");
+              if (!group.classList.contains("is-pinned")) {
+                group.classList.remove("is-highlighted");
+              }
+            };
+            const stopDrag = (event) => event.stopPropagation();
+            const togglePinned = (event) => {
+              event.stopPropagation();
+              const pinned = !group.classList.contains("is-pinned");
+              group.classList.toggle("is-pinned", pinned);
+              group.classList.toggle("is-highlighted", pinned || group.classList.contains("is-hovered"));
+              if (pinned) {
+                pinnedSimpleConnectors.add(connectorId);
+              } else {
+                pinnedSimpleConnectors.delete(connectorId);
+              }
+            };
+            targets.forEach((target) => {
+              target.addEventListener("mouseenter", show);
+              target.addEventListener("mouseleave", hide);
+              target.addEventListener("pointerdown", stopDrag);
+              target.addEventListener("click", togglePinned);
+            });
+          };
+
+          connectors.forEach((connector, index) => {
+            const from = findAnchor(connector.from);
+            const to = findAnchor(connector.to);
+            if (!from || !to) return;
+            const connectorId = connector.id ?? `${connector.from}-${connector.to}-${index}`;
+            const color = colorForTarget(connector.to);
+            const markerId = markerFor(connector.to, color);
+            const start = pointFor(from, connector.fromSide, connector.fromRatio ?? 0.5);
+            const end = pointFor(to, connector.toSide, connector.toRatio ?? 0.5);
+            const route = routeDetailsFor(from, to, start, end, connector, index);
+            const group = makeSvgElement("g", {
+              class: `transition-connector${pinnedSimpleConnectors.has(connectorId) ? " is-pinned is-highlighted" : ""}`,
+              "data-connector": connectorId,
+              style: `--connector-color: ${color};`
+            });
+            const hitPath = makeSvgElement("path", { class: "transition-hit-path", d: route.d });
+            const path = makeSvgElement("path", {
+              class: "transition-path",
+              d: route.d,
+              style: `stroke: ${color};`,
+              "marker-end": `url(#${markerId})`
+            });
+            group.appendChild(hitPath);
+            group.appendChild(path);
+
+            const labelWidth = connector.labelWidth ?? connector.label.length * 7 + 26;
+            const labelDx = route.wrapped ? (connector.wrapLabelDx ?? connector.labelDx ?? 0) : (connector.labelDx ?? 0);
+            const labelDy = route.wrapped ? (connector.wrapLabelDy ?? connector.labelDy ?? -28) : (connector.labelDy ?? 0);
+            const x = route.labelX + labelDx;
+            const y = route.labelY + labelDy;
+            const label = makeSvgElement("g", { class: "transition-label" });
+            label.appendChild(makeSvgElement("rect", {
+              x: String(x),
+              y: String(y),
+              width: String(labelWidth),
+              height: "24",
+              rx: "12",
+              style: `stroke: ${hexToRgba(color, 0.42)};`
+            }));
+            const text = makeSvgElement("text", { x: String(x + 13), y: String(y + 16), style: `fill: ${color};` });
+            text.textContent = connector.label;
+            label.appendChild(text);
+            group.appendChild(label);
+            attachConnectorInteraction(group, [hitPath, label], connectorId);
+            svg.appendChild(group);
+          });
+        };
 
         const pinnedBranchConnectors = new Set();
 
@@ -2680,8 +3478,13 @@
           });
         };
 
-        renderBranchArrows();
-        window.addEventListener("resize", renderBranchArrows);
+        const renderArrows = () => {
+          renderSimpleArrows();
+          renderBranchArrows();
+        };
+
+        renderArrows();
+        window.addEventListener("resize", renderArrows);
 
         update();
       })();
