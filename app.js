@@ -4947,9 +4947,15 @@ class FriendModal {
       return true;
     }
 
-    if (contact && Number(contact.friend) !== Number(contact.friendOld)) {
-      if (!this.recoverStaleFriendStatusUpdate(contact)) {
-        return true;
+    if (contact) {
+      const currentFriendStatus = Number(contact.friend);
+      const previousFriendStatus = Number(contact.friendOld);
+      const hasKnownFriendStatus =
+        isValidFriendStatus(currentFriendStatus) || isValidFriendStatus(previousFriendStatus);
+      if (hasKnownFriendStatus && currentFriendStatus !== previousFriendStatus) {
+        if (!this.recoverStaleFriendStatusUpdate(contact)) {
+          return true;
+        }
       }
     }
 
