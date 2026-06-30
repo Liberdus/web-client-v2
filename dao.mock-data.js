@@ -25,7 +25,29 @@ export function buildMockDaoStore() {
 
   const store = createEmptyDaoStore();
 
-  const addMock = ({ title, summary, state, enteredAt, createdAt, createdBy, type, fields, votes }) => {
+  const addMock = ({
+    title,
+    summary,
+    state,
+    enteredAt,
+    createdAt,
+    createdBy,
+    type,
+    fields,
+    votes,
+    options,
+    totalVote,
+    committeeVotes,
+    committeeAddresses,
+    voterRewardPool,
+    claimedReward,
+    initialBurnedReward,
+    finalBurnedReward,
+    startTime,
+    reviewDuration,
+    votingDuration,
+    claimDuration,
+  }) => {
     const number = ++store.meta.count;
     const nonce = randNonce();
     const id = daoProposalId(number, nonce);
@@ -46,39 +68,59 @@ export function buildMockDaoStore() {
       number,
       title,
       summary,
+      description: summary,
       type,
+      proposalType: type,
       state,
+      status: state,
       state_changed,
       nonce,
       created,
       createdBy,
       fields: fields || {},
+      options: Array.isArray(options) ? options : ['Yes', 'No'],
+      totalVote: Array.isArray(totalVote) ? totalVote : undefined,
+      committeeVotes: Array.isArray(committeeVotes) ? committeeVotes : [],
+      committeeAddresses: Array.isArray(committeeAddresses) ? committeeAddresses : [],
+      voterRewardPool,
+      claimedReward,
+      initialBurnedReward,
+      finalBurnedReward,
+      startTime: startTime || created,
+      reviewDuration,
+      votingDuration,
+      claimDuration,
       votes: votes || { yes: 0, no: 0, by: {} },
     };
   };
 
-  // Exact counts per plan:
-  // Discussion 2, Withheld 7, Voting 1, Rejected 1, Accepted 2, Applied 3,
-  // Executing 1, Terminated 0, Completed 5, Archived 14 (auto-archived by age rule).
+  // Local UI data mirrors the server DAO account concepts while staying in-memory:
+  // review, withheld, voting, rejected, accepted, applied.
 
-  // Discussion (2)
+  // Review (2)
   addMock({
     title: 'Add community grants working group',
     summary: 'Create a lightweight working group to evaluate community grants and publish monthly reports.',
-    state: 'discussion',
+    state: 'review',
     enteredAt: now - hours(3),
     createdBy: 'alice',
-    type: 'params_governance',
+    type: 'governance',
     fields: { votingThreshold: '60%' },
+    committeeVotes: [{ memberAddress: 'committee-1', vote: 'accept' }],
+    committeeAddresses: ['committee-1', 'committee-2', 'committee-3'],
+    reviewDuration: days(2),
   });
   addMock({
     title: 'Proposal format v2 (standard sections)',
     summary: 'Adopt a standard proposal template: Summary, Motivation, Specification, Risks, Alternatives, Timeline.',
-    state: 'discussion',
+    state: 'review',
     enteredAt: now - hours(18),
     createdBy: 'bob',
-    type: 'params_governance',
+    type: 'governance',
     fields: { votingEligibility: 'validators + stakers' },
+    committeeVotes: [],
+    committeeAddresses: ['committee-1', 'committee-2', 'committee-3'],
+    reviewDuration: days(2),
   });
 
   // Voting (1)
@@ -89,9 +131,12 @@ export function buildMockDaoStore() {
     enteredAt: now - hours(9),
     createdAt: now - days(2),
     createdBy: 'carol',
-    type: 'params_economic',
+    type: 'economic',
     fields: { minTxFee: '0.001', nodeRewards: 'unchanged' },
+    options: ['Yes', 'No'],
+    totalVote: [12, 4],
     votes: { yes: 12, no: 4, by: {} },
+    votingDuration: days(8),
   });
 
   // Withheld (7)
@@ -103,8 +148,14 @@ export function buildMockDaoStore() {
       enteredAt: now - days(2 + i),
       createdAt: now - days(3 + i),
       createdBy: ['dave', 'eve', 'frank', 'gina'][i % 4],
-      type: i % 2 === 0 ? 'params_protocol' : 'params_governance',
+      type: i % 2 === 0 ? 'protocol' : 'governance',
       fields: i % 2 === 0 ? { minActiveNodes: 100, maxActiveNodes: 250 } : { votingThreshold: '55%' },
+      committeeVotes: [
+        { memberAddress: 'committee-1', vote: 'withhold' },
+        { memberAddress: 'committee-2', vote: 'withhold' },
+      ],
+      committeeAddresses: ['committee-1', 'committee-2', 'committee-3'],
+      initialBurnedReward: '50.0 USD',
     });
   }
 
@@ -116,8 +167,12 @@ export function buildMockDaoStore() {
     enteredAt: now - days(6),
     createdAt: now - days(7),
     createdBy: 'henry',
-    type: 'params_economic',
+    type: 'economic',
     fields: { rationale: 'anti-spam' },
+    options: ['Yes', 'No'],
+    totalVote: [8, 31],
+    voterRewardPool: '18.4 LIB',
+    claimedReward: '4.2 LIB',
   });
 
   // Accepted (2)
@@ -128,8 +183,12 @@ export function buildMockDaoStore() {
     enteredAt: now - days(2),
     createdAt: now - days(10),
     createdBy: 'ivy',
-    type: 'params_governance',
+    type: 'governance',
     fields: { cadence: 'weekly' },
+    options: ['Yes', 'No'],
+    totalVote: [44, 12],
+    voterRewardPool: '18.4 LIB',
+    claimedReward: '4.2 LIB',
   });
   addMock({
     title: 'Treasury: fund documentation sprint',
@@ -138,8 +197,12 @@ export function buildMockDaoStore() {
     enteredAt: now - days(4),
     createdAt: now - days(11),
     createdBy: 'jordan',
-    type: 'treasury_project',
+    type: 'economic',
     fields: { amount: '2500', address: 'lib1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' },
+    options: ['Yes', 'No'],
+    totalVote: [39, 17],
+    voterRewardPool: '21.0 LIB',
+    claimedReward: '6.0 LIB',
   });
 
   // Applied (3)
@@ -151,39 +214,17 @@ export function buildMockDaoStore() {
       enteredAt: now - days(3 + i),
       createdAt: now - days(15 + i),
       createdBy: ['kate', 'louis', 'mia'][i % 3],
-      type: 'params_economic',
+      type: 'economic',
       fields: { stakeAmount: `${1000 + i * 250}`, validatorPenalty: `${50 + i * 10}` },
-    });
-  }
-
-  // Executing (1)
-  addMock({
-    title: 'Implement DAO proposal indexer service',
-    summary: 'Executing: build an indexer to expose proposal metadata + voting status to clients.',
-    state: 'executing',
-    enteredAt: now - days(1),
-    createdAt: now - days(20),
-    createdBy: 'nina',
-    type: 'treasury_project',
-    fields: { milestone: 'MVP API', budget: '5000' },
-  });
-
-  // Completed (5)
-  for (let i = 0; i < 5; i += 1) {
-    addMock({
-      title: `Completed: project milestone #${i + 1}`,
-      summary: 'Completed: deliverable shipped and verified.',
-      state: 'completed',
-      enteredAt: now - days(5 + i),
-      createdAt: now - days(30 + i),
-      createdBy: ['oscar', 'pat', 'quinn', 'riley'][i % 4],
-      type: 'treasury_project',
-      fields: { result: 'done' },
+      options: ['Yes', 'No'],
+      totalVote: [45 + i, 6 + i],
+      voterRewardPool: '12.0 LIB',
+      claimedReward: '8.0 LIB',
     });
   }
 
   // Archived (14) seed: older than 30 days in archivable states.
-  const archivedSeedStates = ['withheld', 'rejected', 'applied', 'terminated', 'completed'];
+  const archivedSeedStates = ['withheld', 'rejected', 'accepted', 'applied'];
   for (let i = 0; i < 14; i += 1) {
     const s = archivedSeedStates[i % archivedSeedStates.length];
     addMock({
@@ -193,8 +234,10 @@ export function buildMockDaoStore() {
       enteredAt: now - days(45 + i),
       createdAt: now - days(60 + i),
       createdBy: ['sam', 'taylor', 'uma', 'vic'][i % 4],
-      type: i % 2 === 0 ? 'params_protocol' : 'params_economic',
+      type: i % 2 === 0 ? 'protocol' : 'economic',
       fields: { note: 'archived by age rule' },
+      options: ['Yes', 'No'],
+      totalVote: [20 + i, 7 + i],
     });
   }
 
