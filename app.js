@@ -19810,12 +19810,8 @@ class ChatModal {
   syncDeleteContextMenuDisabledState(menu, messageEl, messageRecord = null) {
     const message = messageRecord || this.getMessageRecordFromElement(messageEl);
     const isDisabled = this.isMessageInDeleteForAllGuard(messageEl, message);
-    const guardedActions = [
-      '[data-action="delete"]',
-      '[data-action="delete-for-all"]',
-      '[data-action="join"]',
-      '[data-action="call-invite"]'
-    ].join(', ');
+    const guardedActions = '[data-action="delete"], [data-action="delete-for-all"], ' +
+      '[data-action="join"], [data-action="call-invite"]';
     menu?.querySelectorAll(guardedActions).forEach((option) => {
       option.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
     });
@@ -22476,8 +22472,10 @@ class CallInviteModal {
     return this.getComparableCallUrl(anchorHref);
   }
 
-  isSourceCallInDeleteForAllGuard() {
-    return chatModal.isMessageInDeleteForAllGuard(this.messageEl);
+  cancelInviteIfSourceCallInDeleteForAllGuard() {
+    if (!chatModal.isMessageInDeleteForAllGuard(this.messageEl)) return false;
+    showToast('Call invite canceled because the call is being deleted.', 2500, 'warning');
+    return true;
   }
 
   /**
@@ -22592,7 +22590,7 @@ class CallInviteModal {
    */
   async open(messageEl) {
     this.messageEl = messageEl;
-    if (this.isSourceCallInDeleteForAllGuard()) {
+    if (chatModal.isMessageInDeleteForAllGuard(this.messageEl)) {
       showToast('This call is being deleted.', 2000, 'warning');
       return;
     }
@@ -22662,8 +22660,7 @@ class CallInviteModal {
   }
 
   async sendInvites() {
-    if (this.isSourceCallInDeleteForAllGuard()) {
-      showToast('Call invite canceled because the call is being deleted.', 2500, 'warning');
+    if (this.cancelInviteIfSourceCallInDeleteForAllGuard()) {
       this.close();
       return;
     }
@@ -22695,10 +22692,7 @@ class CallInviteModal {
         }
       };
       for (const addr of addresses) {
-        if (this.isSourceCallInDeleteForAllGuard()) {
-          showToast('Call invite canceled because the call is being deleted.', 2500, 'warning');
-          break;
-        }
+        if (this.cancelInviteIfSourceCallInDeleteForAllGuard()) break;
 
         const keys = myAccount.keys;
         if (!keys) {
@@ -22766,10 +22760,7 @@ class CallInviteModal {
         }
         await signObj(messageObj, keys);
 
-        if (this.isSourceCallInDeleteForAllGuard()) {
-          showToast('Call invite canceled because the call is being deleted.', 2500, 'warning');
-          break;
-        }
+        if (this.cancelInviteIfSourceCallInDeleteForAllGuard()) break;
 
         const txid = getTxid(messageObj);
 
