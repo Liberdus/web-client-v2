@@ -15429,6 +15429,12 @@ class ChatModal {
       if (!phoneAnchor) return;
       const messageEl = phoneAnchor.closest('.message');
       if (!messageEl) return;
+      if (this.isMessageInDeleteForAllGuard(messageEl)) {
+        e.preventDefault();
+        e.stopPropagation();
+        showToast('This call is being deleted.', 2000, 'warning');
+        return false;
+      }
       if (this.gateScheduledCall(messageEl)) {
         e.preventDefault();
         e.stopPropagation();
@@ -19785,6 +19791,11 @@ class ChatModal {
     return !!targetTxid && this.recentDeleteForAllTargetTxids.has(targetTxid);
   }
 
+  isMessageInDeleteForAllGuard(messageEl, messageRecord = null) {
+    const message = messageRecord || this.getMessageRecordFromElement(messageEl);
+    return this.hasRecentDeleteForAllForTarget(message?.txid || messageEl?.dataset?.txid);
+  }
+
   markRecentDeleteForAllForTarget(targetTxid) {
     if (!targetTxid) {
       return;
@@ -19798,8 +19809,14 @@ class ChatModal {
 
   syncDeleteContextMenuDisabledState(menu, messageEl, messageRecord = null) {
     const message = messageRecord || this.getMessageRecordFromElement(messageEl);
-    const isDisabled = this.hasRecentDeleteForAllForTarget(message?.txid);
-    menu?.querySelectorAll('[data-action="delete"], [data-action="delete-for-all"]').forEach((option) => {
+    const isDisabled = this.isMessageInDeleteForAllGuard(messageEl, message);
+    const guardedActions = [
+      '[data-action="delete"]',
+      '[data-action="delete-for-all"]',
+      '[data-action="join"]',
+      '[data-action="call-invite"]'
+    ].join(', ');
+    menu?.querySelectorAll(guardedActions).forEach((option) => {
       option.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
     });
   }
@@ -21226,6 +21243,11 @@ class ChatModal {
    * @param {HTMLElement} messageEl
    */
   handleJoinCall(messageEl) {
+    if (this.isMessageInDeleteForAllGuard(messageEl)) {
+      this.closeContextMenu();
+      return showToast('This call is being deleted.', 2000, 'warning');
+    }
+
     const callUrl = messageEl.querySelector('.call-message a')?.href;
     if (!callUrl) return showToast('Call link not found', 2000, 'error');
     // Gate future scheduled calls (context menu path)
@@ -22454,6 +22476,10 @@ class CallInviteModal {
     return this.getComparableCallUrl(anchorHref);
   }
 
+  isSourceCallInDeleteForAllGuard() {
+    return chatModal.isMessageInDeleteForAllGuard(this.messageEl);
+  }
+
   /**
    * Checks whether a contact already has this call URL in their call messages.
    * @param {Object} contact
@@ -22566,6 +22592,10 @@ class CallInviteModal {
    */
   async open(messageEl) {
     this.messageEl = messageEl;
+    if (this.isSourceCallInDeleteForAllGuard()) {
+      showToast('This call is being deleted.', 2000, 'warning');
+      return;
+    }
 
     this.contactsList.innerHTML = '';
     this.emptyState.style.display = 'none';
@@ -22632,6 +22662,12 @@ class CallInviteModal {
   }
 
   async sendInvites() {
+    if (this.isSourceCallInDeleteForAllGuard()) {
+      showToast('Call invite canceled because the call is being deleted.', 2500, 'warning');
+      this.close();
+      return;
+    }
+
     const selectedBoxes = Array.from(this.contactsList.querySelectorAll('.call-invite-checkbox:checked'));
     const addresses = selectedBoxes.map(cb => cb.value).slice(0,10);
     // get call link from original message up to the first # so we don't duplicate callUrlParams
@@ -22659,6 +22695,11 @@ class CallInviteModal {
         }
       };
       for (const addr of addresses) {
+        if (this.isSourceCallInDeleteForAllGuard()) {
+          showToast('Call invite canceled because the call is being deleted.', 2500, 'warning');
+          break;
+        }
+
         const keys = myAccount.keys;
         if (!keys) {
           addFailure('keysMissing');
@@ -22724,6 +22765,12 @@ class CallInviteModal {
           messageObj.callType = true
         }
         await signObj(messageObj, keys);
+
+        if (this.isSourceCallInDeleteForAllGuard()) {
+          showToast('Call invite canceled because the call is being deleted.', 2500, 'warning');
+          break;
+        }
+
         const txid = getTxid(messageObj);
 
         // Create new message object for local display immediately
