@@ -5,9 +5,12 @@ import { buildMockDaoStore } from './dao.mock-data.js';
 
 export const DAO_ARCHIVE_AFTER_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-export const DAO_ARCHIVABLE_STATE_KEYS = ['withheld', 'rejected', 'applied', 'terminated', 'completed'];
+export const DAO_ARCHIVABLE_STATE_KEYS = ['withheld', 'rejected', 'accepted', 'applied'];
 
 export const DAO_TYPE_OPTIONS = [
+  { key: 'governance', label: 'Governance', group: 'Server proposal types' },
+  { key: 'economic', label: 'Economic', group: 'Server proposal types' },
+  { key: 'protocol', label: 'Protocol', group: 'Server proposal types' },
   { key: 'treasury_project', label: 'Project', group: 'Treasury' },
   { key: 'treasury_mint', label: 'Mint coins (fund projects)', group: 'Treasury' },
   { key: 'params_governance', label: 'Governance', group: 'Parameters' },
@@ -16,15 +19,12 @@ export const DAO_TYPE_OPTIONS = [
 ];
 
 export const DAO_STATES = [
-  { key: 'discussion', label: 'Discussion' },
+  { key: 'review', label: 'Review' },
   { key: 'withheld', label: 'Withheld' },
   { key: 'voting', label: 'Voting' },
   { key: 'rejected', label: 'Rejected' },
   { key: 'accepted', label: 'Accepted' },
   { key: 'applied', label: 'Applied' },
-  { key: 'executing', label: 'Executing' },
-  { key: 'terminated', label: 'Terminated' },
-  { key: 'completed', label: 'Completed' },
 ];
 
 export function getDaoTypeLabel(typeKey) {
@@ -36,7 +36,8 @@ export function getDaoStateLabel(key) {
 }
 
 export function getEffectiveDaoState(proposal) {
-  return proposal?.state || 'discussion';
+  const state = proposal?.status || proposal?.state || 'review';
+  return state === 'discussion' ? 'review' : state;
 }
 
 // In-memory DAO repository.
@@ -82,13 +83,13 @@ function normalizeDaoStore(store) {
     if (!full) continue;
 
     // Migration: older versions wrote a synthetic `state: 'archived'`.
-    // We cannot reliably recover the original state; map to 'completed' to keep it visible.
-    if ((full.state || meta.state) === 'archived') {
-      full.state = full.archivedFromState || 'completed';
+    // We cannot reliably recover the original state; map to a server-supported final state.
+    if ((full.status || full.state || meta.status || meta.state) === 'archived') {
+      full.state = full.archivedFromState || 'applied';
       meta.state = meta.archivedFromState || full.state;
     }
 
-    const state = full.state || meta.state || 'discussion';
+    const state = getEffectiveDaoState(full) || getEffectiveDaoState(meta);
     const enteredAt = Number(full.state_changed || meta.state_changed || full.created || 0);
     const isArchivable = DAO_ARCHIVABLE_STATE_KEYS.includes(state);
 
@@ -126,8 +127,8 @@ function normalizeDaoStore(store) {
     const id = daoProposalId(meta.number, meta.nonce);
     const full = safe.proposals[id];
     if (!full) continue;
-    if ((full.state || meta.state) === 'archived') {
-      full.state = full.archivedFromState || 'completed';
+    if ((full.status || full.state || meta.status || meta.state) === 'archived') {
+      full.state = full.archivedFromState || 'applied';
       meta.state = meta.archivedFromState || full.state;
     }
   }
@@ -156,13 +157,28 @@ function storeToUiList(store, groupKey) {
         number: p.number,
         nonce: p.nonce,
         title: p.title,
-        summary: p.summary,
-        type: p.type,
+        summary: p.description || p.summary,
+        description: p.description || p.summary,
+        type: p.proposalType || p.type,
+        proposalType: p.proposalType || p.type,
         createdAt: p.created,
-        state: p.state,
+        state: getEffectiveDaoState(p),
+        status: getEffectiveDaoState(p),
         stateEnteredAt: p.state_changed,
         createdBy: p.createdBy,
         fields: p.fields || {},
+        options: Array.isArray(p.options) ? p.options : ['yes', 'no'],
+        totalVote: Array.isArray(p.totalVote) ? p.totalVote : undefined,
+        committeeVotes: Array.isArray(p.committeeVotes) ? p.committeeVotes : [],
+        committeeAddresses: Array.isArray(p.committeeAddresses) ? p.committeeAddresses : [],
+        voterRewardPool: p.voterRewardPool,
+        claimedReward: p.claimedReward,
+        initialBurnedReward: p.initialBurnedReward,
+        finalBurnedReward: p.finalBurnedReward,
+        startTime: p.startTime,
+        reviewDuration: p.reviewDuration,
+        votingDuration: p.votingDuration,
+        claimDuration: p.claimDuration,
         votes: p.votes || { yes: 0, no: 0, by: {} },
         archivedAt: p.archivedAt || 0,
       };
@@ -180,23 +196,38 @@ function addProposalRecord(store, proposal) {
   store.activeProposals.push({
     number,
     title: proposal.title,
-    state: proposal.state || 'discussion',
+    state: proposal.state || proposal.status || 'review',
     state_changed: proposal.stateChanged || now,
-    type: proposal.type,
+    type: proposal.proposalType || proposal.type,
     nonce,
   });
 
   store.proposals[id] = {
     number,
     title: proposal.title,
-    summary: proposal.summary,
-    type: proposal.type,
-    state: proposal.state || 'discussion',
+    summary: proposal.summary || proposal.description,
+    description: proposal.description || proposal.summary,
+    type: proposal.proposalType || proposal.type,
+    proposalType: proposal.proposalType || proposal.type,
+    state: proposal.state || proposal.status || 'review',
+    status: proposal.status || proposal.state || 'review',
     state_changed: proposal.stateChanged || now,
     nonce,
     created: proposal.created || now,
     createdBy: proposal.createdBy || 'fixture',
     fields: proposal.fields || {},
+    options: Array.isArray(proposal.options) ? proposal.options : ['yes', 'no'],
+    totalVote: Array.isArray(proposal.totalVote) ? proposal.totalVote : undefined,
+    committeeVotes: Array.isArray(proposal.committeeVotes) ? proposal.committeeVotes : [],
+    committeeAddresses: Array.isArray(proposal.committeeAddresses) ? proposal.committeeAddresses : [],
+    voterRewardPool: proposal.voterRewardPool,
+    claimedReward: proposal.claimedReward,
+    initialBurnedReward: proposal.initialBurnedReward,
+    finalBurnedReward: proposal.finalBurnedReward,
+    startTime: proposal.startTime,
+    reviewDuration: proposal.reviewDuration,
+    votingDuration: proposal.votingDuration,
+    claimDuration: proposal.claimDuration,
     votes: proposal.votes || { yes: 0, no: 0, by: {} },
   };
 }
@@ -265,10 +296,12 @@ export function addDaoUiStressFixtures() {
       stateChanged: now - 12 * hour,
     },
     {
-      state: 'discussion',
-      type: 'params_governance',
+      state: 'review',
+      type: 'governance',
       title: 'Fixture: committee review draft',
       summary: 'Review-state row used to verify the review preview and review route chip.',
+      committeeVotes: [{ memberAddress: 'committee-1', vote: 'accept' }],
+      committeeAddresses: ['committee-1', 'committee-2', 'committee-3'],
       stateChanged: now - day,
     },
     {
@@ -276,6 +309,12 @@ export function addDaoUiStressFixtures() {
       type: 'params_protocol',
       title: 'Fixture: withheld committee item',
       summary: 'Withheld row used to test review-result transition copy.',
+      committeeVotes: [
+        { memberAddress: 'committee-1', vote: 'withhold' },
+        { memberAddress: 'committee-2', vote: 'withhold' },
+      ],
+      committeeAddresses: ['committee-1', 'committee-2', 'committee-3'],
+      initialBurnedReward: '50.0 USD',
       stateChanged: now - 2 * day,
     },
     {
@@ -303,28 +342,12 @@ export function addDaoUiStressFixtures() {
       stateChanged: now - 5 * day,
     },
     {
-      state: 'executing',
-      type: 'treasury_project',
-      title: 'Fixture: executing treasury project',
-      summary: 'Executing row used to test the extra result-like state from the current repo constants.',
-      votes: { yes: 22, no: 5, by: {} },
-      stateChanged: now - 6 * day,
-    },
-    {
-      state: 'terminated',
-      type: 'treasury_mint',
-      title: 'Fixture: terminated mint proposal',
-      summary: 'Terminated row used to verify long status labels and counts remain aligned.',
-      votes: { yes: 11, no: 18, by: {} },
-      stateChanged: now - 7 * day,
-    },
-    {
-      state: 'completed',
-      type: 'treasury_project',
-      title: 'Fixture: completed milestone',
-      summary: 'Completed row used to cover the final DAO state in the active list.',
+      state: 'applied',
+      type: 'protocol',
+      title: 'Fixture: applied protocol change',
+      summary: 'Applied row used to cover the final server DAO status in the active list.',
       votes: { yes: 19, no: 2, by: {} },
-      stateChanged: now - 8 * day,
+      stateChanged: now - 6 * day,
     },
   ];
 
@@ -414,7 +437,7 @@ export const daoRepo = {
     store.activeProposals.push({
       number,
       title: safeTitle,
-      state: 'discussion',
+      state: 'review',
       state_changed: now,
       type: safeType,
       nonce,
@@ -425,7 +448,8 @@ export const daoRepo = {
       title: safeTitle,
       summary: safeSummary,
       type: safeType,
-      state: 'discussion',
+      state: 'review',
+      status: 'review',
       state_changed: now,
       nonce,
       created: now,
@@ -444,7 +468,7 @@ export const daoRepo = {
 
     const p = _store.proposals?.[proposalId];
     if (!p) return { ok: false, error: 'Proposal not found' };
-    if (p.state !== 'voting') return { ok: false, error: 'Voting not available' };
+    if (getEffectiveDaoState(p) !== 'voting') return { ok: false, error: 'Voting not available' };
 
     const voteChoice = choice === 'yes' ? 'yes' : 'no';
     const who = String(voterId || 'anon');
