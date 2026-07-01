@@ -14920,6 +14920,7 @@ class ChatModal {
     this.dropOverlay = null;
 
     this.recentDeleteForAllTargetTxids = new Set();
+    this.recentDeleteForAllGuardTimeouts = new Map();
 
     this.chatRenderedOldestIndex = CHAT_INITIAL_RENDER_COUNT - 1;
   }
@@ -19805,9 +19806,22 @@ class ChatModal {
     }
 
     this.recentDeleteForAllTargetTxids.add(targetTxid);
-    setTimeout(() => {
+    clearTimeout(this.recentDeleteForAllGuardTimeouts.get(targetTxid));
+    const timeoutId = setTimeout(() => {
       this.recentDeleteForAllTargetTxids.delete(targetTxid);
+      this.recentDeleteForAllGuardTimeouts.delete(targetTxid);
     }, DELETE_FOR_ALL_ACTION_GUARD_MS);
+    this.recentDeleteForAllGuardTimeouts.set(targetTxid, timeoutId);
+  }
+
+  clearRecentDeleteForAllForTarget(targetTxid) {
+    if (!targetTxid) {
+      return;
+    }
+
+    clearTimeout(this.recentDeleteForAllGuardTimeouts.get(targetTxid));
+    this.recentDeleteForAllGuardTimeouts.delete(targetTxid);
+    this.recentDeleteForAllTargetTxids.delete(targetTxid);
   }
 
   syncDeleteContextMenuDisabledState(menu, messageEl, messageRecord = null) {
@@ -21382,6 +21396,7 @@ class ChatModal {
       // Create and send a "delete" message
       const keys = myAccount.keys;
       if (!keys) {
+        this.clearRecentDeleteForAllForTarget(targetTxid);
         showToast('Keys not found', 0, 'error');
         return;
       }
@@ -21390,6 +21405,7 @@ class ChatModal {
 
       const sufficientBalance = await validateBalance(tollInLib);
       if (!sufficientBalance) {
+        this.clearRecentDeleteForAllForTarget(targetTxid);
         const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}. Go to the wallet to add more LIB.`;
         showToast(msg, 0, 'error');
         return;
@@ -21400,6 +21416,7 @@ class ChatModal {
       const recipientPubKey = contact.public;
       const pqRecPubKey = contact.pqPublic;
       if (!ok || !recipientPubKey || !pqRecPubKey) {
+        this.clearRecentDeleteForAllForTarget(targetTxid);
         console.warn(`No public/PQ key found for recipient ${this.address}`);
         showToast('Failed to get recipient key', 0, 'error');
         return;
