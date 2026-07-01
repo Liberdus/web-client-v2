@@ -357,33 +357,70 @@
         </div>
         <div class="modal-content">
           <div class="form-container">
-            <form id="addProposalForm" class="form--narrow">
+            <form id="addProposalForm" class="form--narrow dao-proposal-form" novalidate>
+              <div class="dao-form-grid">
+                <div class="form-group">
+                  <label for="addProposalEmergency">Emergency</label>
+                  <select id="addProposalEmergency" class="form-control" required>
+                    <option value="false">No</option>
+                    <option value="true">Yes</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="addProposalFee">Fee</label>
+                  <input id="addProposalFee" class="form-control dao-form-current-value" type="text" value="50.0 USD" readonly />
+                </div>
+              </div>
               <div class="form-group">
                 <label for="addProposalTitle">Title</label>
-                <input id="addProposalTitle" class="form-control" type="text" maxlength="120" required />
+                <input id="addProposalTitle" class="form-control" type="text" maxlength="120" placeholder="Proposal title" required />
               </div>
               <div class="form-group">
-                <label for="addProposalType">Type</label>
+                <label for="addProposalType">Proposal Type</label>
                 <select id="addProposalType" class="form-control" required>
-                  <optgroup label="Treasury">
-                    <option value="treasury_project">Project</option>
-                    <option value="treasury_mint">Mint coins (fund projects)</option>
-                  </optgroup>
-                  <optgroup label="Parameters">
-                    <option value="params_governance">Governance</option>
-                    <option value="params_economic">Economic</option>
-                    <option value="params_protocol">Protocol</option>
-                  </optgroup>
+                  <option value="governance">Governance</option>
+                  <option value="economic">Economic</option>
+                  <option value="protocol">Protocol</option>
                 </select>
+                <div class="dao-form-help">Choose governance, economic, or protocol. This controls which parameters can be selected below.</div>
               </div>
-              <div id="addProposalTypeFields"></div>
               <div class="form-group">
-                <label for="addProposalSummary">Summary</label>
-                <textarea id="addProposalSummary" class="form-control" rows="6" maxlength="2000" placeholder="Describe the proposal" required></textarea>
+                <label for="addProposalDescription">Description</label>
+                <textarea id="addProposalDescription" class="form-control" rows="6" maxlength="10000" placeholder="Describe the proposal" required></textarea>
+              </div>
+              <div class="form-group dao-form-section">
+                <div class="dao-form-section-header">
+                  <label>Options</label>
+                </div>
+                <div class="dao-form-list" id="addProposalOptionsList"></div>
+                <button type="button" class="btn btn--secondary dao-form-add-button" id="addProposalOptionButton">Add option</button>
+                <div class="dao-form-help">2 to 10 options. The first option must be yes, accept, or approve.</div>
+              </div>
+              <div class="form-group dao-form-section">
+                <div class="dao-form-section-header">
+                  <label>Parameter Changes</label>
+                </div>
+                <div class="dao-form-list" id="addProposalChangesList"></div>
+                <button type="button" class="btn btn--secondary dao-form-add-button" id="addProposalChangeButton">Add parameter change</button>
+              </div>
+              <div class="form-group dao-form-section">
+                <label>Timing</label>
+                <div class="dao-form-grid">
+                  <div class="form-group">
+                    <label for="addProposalStartDelayDays">Review Starts</label>
+                    <input id="addProposalStartDelayDays" class="form-control" type="number" min="0" step="1" value="0" inputmode="numeric" />
+                    <div class="dao-form-help">Days from submission. 0 means now.</div>
+                  </div>
+                  <div class="form-group">
+                    <label for="addProposalGracePeriodDays">Grace Period</label>
+                    <input id="addProposalGracePeriodDays" class="form-control" type="number" min="0" step="1" value="0" inputmode="numeric" />
+                    <div class="dao-form-help">Days after voting. 0 uses the network default later.</div>
+                  </div>
+                </div>
               </div>
               <div class="form-actions">
-                <button type="submit" class="btn btn--primary btn--pill btn--full">Submit</button>
                 <button type="button" id="cancelAddProposal" class="btn btn--secondary btn--pill btn--full">Cancel</button>
+                <button type="submit" class="btn btn--primary btn--pill btn--full">Review Draft</button>
               </div>
             </form>
           </div>

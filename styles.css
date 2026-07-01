@@ -1854,6 +1854,175 @@ input[type='file'].form-control::file-selector-button {
   font-size: var(--font-size-sm);
 }
 
+#addProposalModal .dao-proposal-form {
+  display: grid;
+  gap: 10px;
+}
+
+#addProposalModal .form-group {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 0;
+}
+
+#addProposalModal .form-group label,
+#addProposalModal .dao-form-section-header label,
+#addProposalModal .dao-form-row-title label,
+#addProposalModal .dao-form-change-line label {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+  margin: 0;
+}
+
+#addProposalModal .form-control {
+  border-radius: 8px;
+  font-size: 14px;
+  height: auto;
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+#addProposalModal textarea.form-control {
+  min-height: 92px;
+}
+
+#addProposalModal .dao-form-section,
+#addProposalModal .dao-form-list,
+#addProposalModal .dao-form-row {
+  display: grid;
+  gap: 8px;
+}
+
+#addProposalModal .dao-form-section-header,
+#addProposalModal .dao-form-row-title {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+#addProposalModal .dao-form-add-button {
+  align-items: center;
+  background: transparent;
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+  color: var(--primary-color);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  gap: 8px;
+  justify-content: center;
+  min-height: 38px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+#addProposalModal .dao-form-add-button::before {
+  align-items: center;
+  background: var(--primary-color);
+  border-radius: 999px;
+  color: var(--button-text);
+  content: "+";
+  display: inline-flex;
+  font-size: 16px;
+  height: 22px;
+  justify-content: center;
+  line-height: 1;
+  width: 22px;
+}
+
+#addProposalModal .dao-form-remove-button {
+  border-radius: 8px;
+  flex: 0 0 auto;
+  font-size: 12px;
+  min-height: 32px;
+  padding: 6px 9px;
+  width: auto;
+}
+
+#addProposalModal .dao-form-row-controls {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+}
+
+#addProposalModal .dao-form-index {
+  align-items: center;
+  background: var(--hover-background);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  color: var(--secondary-text-color);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  height: 22px;
+  justify-content: center;
+  width: 22px;
+}
+
+#addProposalModal .dao-form-change-box {
+  background: var(--input-background);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+#addProposalModal .dao-form-change-line {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 82px minmax(0, 1fr);
+}
+
+#addProposalModal .dao-form-meta,
+#addProposalModal .dao-form-help {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+#addProposalModal .dao-form-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#addProposalModal .dao-form-current-value {
+  background: var(--hover-background);
+  color: var(--secondary-text-color);
+}
+
+#addProposalModal .dao-form-error {
+  border-color: var(--danger-color);
+  border-radius: 8px;
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.14);
+  outline: 1px solid var(--danger-color);
+  outline-offset: 2px;
+}
+
+#addProposalModal .dao-form-error .form-control,
+#addProposalModal .form-control[aria-invalid="true"] {
+  border-color: var(--danger-color);
+}
+
+#addProposalModal .form-actions {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+@media (min-width: 480px) {
+  #addProposalModal .dao-form-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
 /* Developer Options Styling */
 .developer-options {
   border: 1px solid var(--border-color);
