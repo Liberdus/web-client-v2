@@ -1,6 +1,6 @@
 # DAO (Proposals) UI
 
-This document describes the DAO / proposals feature as currently implemented in the web client, and what needs to change as live backend endpoints are finalized.
+This document describes the DAO / proposals feature as currently implemented in the web client, and what remains after the proposal list query integration.
 
 ## What’s implemented (current behavior)
 
@@ -96,39 +96,35 @@ Important implementation detail:
 
 ## Backend Data Boundary
 
-- `daoRepo` supports a backend integration hook but does not assume endpoints.
-- You will provide:
-  - `setDaoBackendFetcher(async () => { ... })`
+- `app.js` registers `setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork))`.
+- `dao.repo.js` keeps endpoint querying and backend-to-UI mapping behind the repository boundary.
+- Proposal list loading uses the current server DAO query shape:
+  - `GET /dao/proposals/meta` for `meta.count`
+  - `GET /dao/proposals/:number` for each proposal number from `1..count`
+- The fetcher skips missing numbered proposals so nodes that have not yet surfaced an account do not block the whole list.
 
 ## What must change for a live backend
 
-This section is the integration checklist for moving from the backend fetcher boundary to real DAO proposal endpoints.
+This section is the remaining integration checklist after moving the DAO list to real proposal query endpoints.
 
-### 1) Implement backend fetch in `dao.repo.js`
+### 1) Keep backend fetch in `dao.repo.js`
 
-Right now, `daoRepo` uses an injected fetcher and otherwise returns an empty store.
+`daoRepo` uses an injected fetcher and otherwise returns an empty store.
 
-You should implement one of these approaches:
-
-- **Approach A (recommended): keep the fetcher injection**
-  - In the app bootstrap, call:
-    - `setDaoBackendFetcher(async () => fetchAndMapStore())`
-
-- **Approach B: hardcode network calls inside `dao.repo.js`**
-  - Not recommended because this app typically keeps network logic centralized.
-
-Either way, the backend response must be mapped into the store shape the UI expects.
+The app passes `queryNetwork` into `createDaoBackendFetcher(...)`; the repository maps backend `DaoProposalAccount` payloads into the store shape the UI expects.
 
 ### 2) Define backend endpoints / payloads
 
-The repository currently does not guess endpoints. You’ll need to decide:
+Known read endpoints:
 
-- List proposals endpoint (likely paginated)
-- Single proposal endpoint (optional if the list includes full detail)
-- Create proposal endpoint
-- Cast vote endpoint
+- `GET /dao/proposals/meta`
+- `GET /dao/proposals/:number`
 
-If the backend returns a different model than the UI store shape, add a mapping layer in the fetcher (or a mapper helper).
+Still needed for later phases:
+
+- Create proposal endpoint/action
+- Cast vote endpoint/action
+- Proposal detail capability data for review, reward, and ready actions
 
 ### 3) Wire create + vote to backend
 

@@ -77,11 +77,13 @@ async function forceReload(urls) {
 import { stringify, parse } from './external/stringify-shardus.js';
 
 import {
+  createDaoBackendFetcher,
   daoRepo,
   DAO_STATES,
   getDaoStateLabel,
   getDaoTypeLabel,
   getEffectiveDaoState,
+  setDaoBackendFetcher,
 } from './dao.repo.js';
 
 // Import crypto functions from crypto.js
@@ -2444,6 +2446,7 @@ const menuModal = new MenuModal();
 // =====================
 
 // DAO proposals are loaded via `daoRepo` and kept in memory (no localStorage persistence).
+setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork));
 
 function getDaoVoterId() {
   return myAccount?.address || myData?.account?.address || myAccount?.username || myData?.account?.username || 'anon';
