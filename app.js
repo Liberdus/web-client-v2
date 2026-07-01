@@ -38,7 +38,6 @@ async function checkVersion() {
       'styles.css',
       'app.js',
       'dao.repo.js',
-      'dao.mock-data.js',
       'data/emoji-picker-data.js',
       'lib.js',
       'network.js',
@@ -78,12 +77,13 @@ async function forceReload(urls) {
 import { stringify, parse } from './external/stringify-shardus.js';
 
 import {
+  createDaoBackendFetcher,
   daoRepo,
   DAO_STATES,
-  addDaoUiStressFixtures,
   getDaoStateLabel,
   getDaoTypeLabel,
   getEffectiveDaoState,
+  setDaoBackendFetcher,
 } from './dao.repo.js';
 
 // Import crypto functions from crypto.js
@@ -2446,6 +2446,7 @@ const menuModal = new MenuModal();
 // =====================
 
 // DAO proposals are loaded via `daoRepo` and kept in memory (no localStorage persistence).
+setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork));
 
 function getDaoVoterId() {
   return myAccount?.address || myData?.account?.address || myAccount?.username || myData?.account?.username || 'anon';
@@ -2479,19 +2480,6 @@ const DAO_RESULT_STATE_KEYS = new Set(['withheld', 'accepted', 'rejected', 'appl
 function getDaoUiStateLabel(key) {
   if (key === 'discussion') return 'Review';
   return getDaoStateLabel(key);
-}
-
-function shouldUseDaoUiStressFixtures() {
-  try {
-    const params = new URLSearchParams(window.location.search);
-    return (
-      params.get('daoFixtures') === '1' ||
-      params.get('daoStress') === '1' ||
-      localStorage.getItem('daoUiStressFixtures') === '1'
-    );
-  } catch {
-    return false;
-  }
 }
 
 function getDaoProposalRouteKey(state) {
@@ -2589,10 +2577,6 @@ class DaoModal {
 
     try {
       await daoRepo.refresh({ force: true });
-      if (shouldUseDaoUiStressFixtures()) {
-        const added = addDaoUiStressFixtures();
-        if (added) console.info(`Added ${added} DAO UI stress fixture proposals`);
-      }
     } catch (e) {
       console.warn('Failed to refresh DAO proposals:', e);
       showToast('Failed to load proposals', 2500, 'error');
@@ -2755,7 +2739,7 @@ class DaoModal {
         if (sublineEl) {
           sublineEl.textContent = isArchived
             ? 'Archived proposals appear here after they age out'
-            : 'Use + to create a proposal';
+            : 'Proposal data appears here when available';
         }
       }
     }
@@ -2872,7 +2856,7 @@ class AddProposalModal {
     if (!this.typeFieldsContainer) return;
     const typeKey = this.typeSelect?.value || 'treasury_project';
 
-    // Minimal, mock-only dynamic fields.
+    // Minimal dynamic fields until the full DAO proposal form is connected.
     if (typeKey === 'treasury_project' || typeKey === 'treasury_mint') {
       this.typeFieldsContainer.innerHTML = `
         <div class="form-group">
