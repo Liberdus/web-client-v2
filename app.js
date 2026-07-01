@@ -19814,7 +19814,8 @@ class ChatModal {
     const message = messageRecord || this.getMessageRecordFromElement(messageEl);
     const isDeleteGuardDisabled = this.isMessageInDeleteForAllGuard(messageEl, message);
     const guardedActions = '[data-action="delete"], [data-action="delete-for-all"], ' +
-      '[data-action="copy"], [data-action="reply"], [data-action="join"], [data-action="call-invite"]';
+      '[data-action="copy"], [data-action="reply"], [data-action="join"], [data-action="call-invite"], ' +
+      '[data-action="edit"]';
     menu?.querySelectorAll(guardedActions).forEach((option) => {
       const isOfflineDisabled =
         option.classList.contains('offline-disabled') ||
