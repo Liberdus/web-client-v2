@@ -19812,11 +19812,14 @@ class ChatModal {
 
   syncDeleteContextMenuDisabledState(menu, messageEl, messageRecord = null) {
     const message = messageRecord || this.getMessageRecordFromElement(messageEl);
-    const isDisabled = this.isMessageInDeleteForAllGuard(messageEl, message);
+    const isDeleteGuardDisabled = this.isMessageInDeleteForAllGuard(messageEl, message);
     const guardedActions = '[data-action="delete"], [data-action="delete-for-all"], ' +
       '[data-action="copy"], [data-action="reply"], [data-action="join"], [data-action="call-invite"]';
     menu?.querySelectorAll(guardedActions).forEach((option) => {
-      option.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
+      const isOfflineDisabled =
+        option.classList.contains('offline-disabled') ||
+        (option.dataset.requiresConnection === 'true' && !isOnline);
+      option.setAttribute('aria-disabled', (isDeleteGuardDisabled || isOfflineDisabled) ? 'true' : 'false');
     });
   }
 
