@@ -7214,7 +7214,7 @@ function hasPendingEditForTarget(contactAddress, targetTxid) {
   );
 }
 
-const DELETE_FOR_ALL_ACTION_GUARD_MS = 15000;
+const DELETE_FOR_ALL_ACTION_GUARD_MS = 10000;
 
 /**
  * Restores local state captured before an optimistic message edit.
@@ -14919,7 +14919,7 @@ class ChatModal {
     this.dragCounter = 0;
     this.dropOverlay = null;
 
-    this.recentDeleteForAllTargetTxids = new Set();
+    this.recentDeleteForAllGuardsByTxid = new Map();
 
     this.chatRenderedOldestIndex = CHAT_INITIAL_RENDER_COUNT - 1;
   }
@@ -19791,7 +19791,7 @@ class ChatModal {
   }
 
   hasRecentDeleteForAllForTarget(targetTxid) {
-    return !!targetTxid && this.recentDeleteForAllTargetTxids.has(targetTxid);
+    return !!targetTxid && this.recentDeleteForAllGuardsByTxid.has(targetTxid);
   }
 
   isMessageInDeleteForAllGuard(messageEl, messageRecord = null) {
@@ -19800,14 +19800,30 @@ class ChatModal {
   }
 
   markRecentDeleteForAllForTarget(targetTxid) {
-    if (!targetTxid) {
+    assert(targetTxid, 'Delete-for-all target txid is required');
+
+    const existingGuard = this.recentDeleteForAllGuardsByTxid.get(targetTxid);
+    clearTimeout(existingGuard?.timeoutId);
+
+    const guard = { targetTxid };
+    guard.timeoutId = setTimeout(() => {
+      if (this.recentDeleteForAllGuardsByTxid.get(targetTxid) !== guard) {
+        return;
+      }
+
+      this.recentDeleteForAllGuardsByTxid.delete(targetTxid);
+    }, DELETE_FOR_ALL_ACTION_GUARD_MS);
+    this.recentDeleteForAllGuardsByTxid.set(targetTxid, guard);
+    return guard;
+  }
+
+  clearRecentDeleteForAllGuard(guard) {
+    if (this.recentDeleteForAllGuardsByTxid.get(guard.targetTxid) !== guard) {
       return;
     }
 
-    this.recentDeleteForAllTargetTxids.add(targetTxid);
-    setTimeout(() => {
-      this.recentDeleteForAllTargetTxids.delete(targetTxid);
-    }, DELETE_FOR_ALL_ACTION_GUARD_MS);
+    clearTimeout(guard.timeoutId);
+    this.recentDeleteForAllGuardsByTxid.delete(guard.targetTxid);
   }
 
   syncDeleteContextMenuDisabledState(menu, messageEl, messageRecord = null) {
@@ -21377,11 +21393,12 @@ class ChatModal {
       if (this.hasRecentDeleteForAllForTarget(targetTxid)) return;
 
       if (!confirm('Delete this message for all participants?')) return;
-      this.markRecentDeleteForAllForTarget(targetTxid);
+      const deleteForAllGuard = this.markRecentDeleteForAllForTarget(targetTxid);
 
       // Create and send a "delete" message
       const keys = myAccount.keys;
       if (!keys) {
+        this.clearRecentDeleteForAllGuard(deleteForAllGuard);
         showToast('Keys not found', 0, 'error');
         return;
       }
@@ -21390,6 +21407,7 @@ class ChatModal {
 
       const sufficientBalance = await validateBalance(tollInLib);
       if (!sufficientBalance) {
+        this.clearRecentDeleteForAllGuard(deleteForAllGuard);
         const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}. Go to the wallet to add more LIB.`;
         showToast(msg, 0, 'error');
         return;
@@ -21400,6 +21418,7 @@ class ChatModal {
       const recipientPubKey = contact.public;
       const pqRecPubKey = contact.pqPublic;
       if (!ok || !recipientPubKey || !pqRecPubKey) {
+        this.clearRecentDeleteForAllGuard(deleteForAllGuard);
         console.warn(`No public/PQ key found for recipient ${this.address}`);
         showToast('Failed to get recipient key', 0, 'error');
         return;
