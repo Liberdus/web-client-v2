@@ -6678,17 +6678,18 @@ small {
 #daoModal .dao-proposal-row {
   align-items: stretch;
   border-bottom: 1px solid var(--border-color, rgba(0,0,0,0.08));
+  border-top: 1px solid var(--border-color, rgba(0,0,0,0.08));
   box-sizing: border-box;
   height: auto;
-  min-height: 112px;
+  min-height: 72px;
   overflow: visible;
-  padding: 7px 12px;
+  padding: 9px 12px;
 }
 
 #daoModal .dao-row-content {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   justify-content: flex-start;
   min-width: 0;
   overflow: visible;
@@ -6696,8 +6697,7 @@ small {
 }
 
 #daoModal .dao-row-header {
-  align-items: start;
-  gap: 8px;
+  align-items: center;
   margin-bottom: 0;
 }
 
@@ -6713,83 +6713,10 @@ small {
   white-space: normal;
 }
 
-#daoModal .dao-row-summary {
-  display: block;
-  font-size: var(--font-size-xs);
-  line-height: 1.18;
-  overflow: visible;
-  overflow-wrap: anywhere;
-  text-overflow: clip;
-  white-space: normal;
-}
-
-#daoModal .dao-row-action {
-  align-items: center;
-  border: 1px solid var(--border-color, rgba(0,0,0,0.14));
-  border-radius: 999px;
-  color: var(--secondary-text-color);
-  display: inline-flex;
-  flex: 0 0 auto;
-  font-family: var(--font-primary);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  line-height: 1;
-  min-height: 22px;
-  padding: 0 8px;
-  text-transform: capitalize;
-  white-space: nowrap;
-}
-
-#daoModal .dao-row-action--vote {
-  border-color: var(--primary-tint-20);
-  color: var(--primary-color);
-}
-
-#daoModal .dao-row-action--review {
-  border-color: rgba(239, 108, 0, 0.25);
-  color: var(--warning-color);
-}
-
-#daoModal .dao-row-action--result {
-  border-color: rgba(40, 167, 69, 0.24);
-  color: var(--success-color);
-}
-
 #daoModal .dao-row-compartments {
   display: grid;
-  gap: 4px;
-  grid-template-columns: minmax(74px, 0.82fr) minmax(120px, 1.42fr) minmax(88px, 1fr);
-}
-
-#daoModal .dao-row-options-row {
-  align-items: stretch;
-  display: grid;
-  gap: 4px;
-  grid-template-columns: minmax(54px, auto) 1fr;
-}
-
-#daoModal .dao-row-options-label {
-  align-items: center;
-  color: var(--muted-text-color, var(--secondary-text-color));
-  display: flex;
-  font-family: var(--font-primary);
-  font-size: 8px;
-  font-weight: var(--font-weight-semibold);
-  justify-content: flex-start;
-  line-height: 1.05;
-  padding: 3px 0;
-  text-align: left;
-  text-transform: uppercase;
-}
-
-#daoModal .dao-row-options-grid {
-  display: grid;
-  gap: 4px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-#daoModal .dao-row-options-grid .dao-row-compartment {
-  height: 100%;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 #daoModal .dao-row-compartment {
@@ -6806,10 +6733,6 @@ small {
   overflow: visible;
   overflow-wrap: anywhere;
   padding: 3px 6px;
-}
-
-#daoModal .dao-row-compartment--updated {
-  align-items: flex-start;
 }
 
 #daoModal .dao-row-compartment span {
@@ -6844,8 +6767,8 @@ small {
 
 #daoModal .dao-row-updated-value {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  flex-direction: row;
+  gap: 4px;
 }
 
 #daoModal .dao-row-updated-value span {
@@ -6855,19 +6778,6 @@ small {
   font-size: 10px;
   font-weight: var(--font-weight-semibold);
   line-height: 1.05;
-}
-
-#daoModal .dao-row-compartment--vote,
-#daoModal .dao-row-compartment--positive {
-  border-color: rgba(40, 167, 69, 0.2);
-}
-
-#daoModal .dao-row-compartment--review {
-  border-color: rgba(239, 108, 0, 0.22);
-}
-
-#daoModal .dao-row-compartment--negative {
-  border-color: rgba(220, 53, 69, 0.2);
 }
 
 #daoStatusContextMenu {

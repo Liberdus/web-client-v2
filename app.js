@@ -2481,26 +2481,6 @@ function formatDaoRowTimestampParts(ts) {
 
 const DAO_RESULT_STATE_KEYS = new Set(['withheld', 'accepted', 'rejected', 'applied']);
 
-function toDaoDisplayNumber(value) {
-  if (value === undefined || value === null || value === '') return 0;
-  if (typeof value === 'bigint') return Number(value);
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function getDaoVoteCounts(proposal) {
-  const votes = proposal?.votes || {};
-  const optionCounts = Array.isArray(proposal?.totalVote) && proposal.totalVote.length
-    ? proposal.totalVote.map((value) => toDaoDisplayNumber(value))
-    : [Number(votes.yes || 0), Number(votes.no || 0)];
-
-  return {
-    yes: optionCounts[0] || 0,
-    no: optionCounts[1] || 0,
-    optionCounts,
-  };
-}
-
 function getDaoUiStateLabel(key) {
   if (key === 'discussion') return 'Review';
   return getDaoStateLabel(key);
@@ -2533,24 +2513,15 @@ function getDaoProposalRouteLabel(routeKey) {
   return 'details';
 }
 
-function getDaoRowContextLabel(state) {
-  if (state === 'voting') return 'Options';
-  if (state === 'review') return 'Committee';
-  if (state === 'withheld') return 'Decision';
-  if (DAO_RESULT_STATE_KEYS.has(state)) return 'Result';
-  return 'Details';
-}
-
-function renderDaoRowCompartment(label, value, tone = '') {
+function renderDaoRowCompartment(label, value) {
   const displayValue = value === undefined || value === null || value === '' ? '—' : value;
   const key = String(label || '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '') || 'value';
   const keyClass = ` dao-row-compartment--${escapeHtml(key)}`;
-  const toneClass = tone ? ` dao-row-compartment--${escapeHtml(tone)}` : '';
   return `
-    <div class="dao-row-compartment${keyClass}${toneClass}">
+    <div class="dao-row-compartment${keyClass}">
       <span>${escapeHtml(String(label || ''))}</span>
       <strong>${escapeHtml(String(displayValue))}</strong>
     </div>
@@ -2567,109 +2538,6 @@ function renderDaoUpdatedCompartment(parts) {
       </strong>
     </div>
   `;
-}
-
-function getDaoCommitteeSummary(proposal) {
-  const votes = Array.isArray(proposal?.committeeVotes) ? proposal.committeeVotes : [];
-  const addresses = Array.isArray(proposal?.committeeAddresses) ? proposal.committeeAddresses : [];
-  const total = addresses.length || Number(proposal?.fields?.committeeSize || 0);
-  const accept = votes.filter((vote) => vote?.vote === 'accept').length;
-  const withhold = votes.filter((vote) => vote?.vote === 'withhold').length;
-  const reviewed = accept + withhold;
-
-  return {
-    reviewed,
-    total,
-    withhold,
-    display: total ? `${reviewed}/${total}` : `${reviewed}`,
-  };
-}
-
-function formatDaoDurationLabel(ms) {
-  const n = Number(ms || 0);
-  if (!n) return '';
-  const abs = Math.abs(n);
-  const day = 24 * 60 * 60 * 1000;
-  const hour = 60 * 60 * 1000;
-  if (abs >= day) return `${Math.round(abs / day)}d`;
-  if (abs >= hour) return `${Math.round(abs / hour)}h`;
-  return '<1h';
-}
-
-function getDaoReviewEndsLabel(proposal) {
-  const start = Number(proposal?.startTime || proposal?.createdAt || 0);
-  const duration = Number(proposal?.reviewDuration || proposal?.fields?.reviewDuration || 0);
-  if (start && duration) {
-    const remaining = start + duration - Date.now();
-    return remaining > 0 ? `${formatDaoDurationLabel(remaining)} left` : 'Ready';
-  }
-  return proposal?.fields?.reviewEnds || 'Review window';
-}
-
-function getDaoRewardPoolLabel(proposal) {
-  const value = proposal?.initialBurnedReward || proposal?.voterRewardPool || proposal?.fields?.rewardPool;
-  if (value !== undefined && value !== null && value !== '') return String(value);
-  return 'Open details';
-}
-
-function getDaoWinningOptionLabel(proposal, state, votes) {
-  const options = Array.isArray(proposal?.options) && proposal.options.length ? proposal.options : ['Yes', 'No'];
-  if (state === 'accepted') return options[0] || 'Accepted';
-  if (state === 'rejected') {
-    const optionCounts = votes.optionCounts || [];
-    let winnerIndex = optionCounts.length > 1 ? 1 : 0;
-    for (let i = 0; i < optionCounts.length; i += 1) {
-      if ((optionCounts[i] || 0) > (optionCounts[winnerIndex] || 0)) winnerIndex = i;
-    }
-    return options[winnerIndex] || 'Rejected';
-  }
-  if (state === 'applied') return 'Applied';
-  return 'Result';
-}
-
-function renderDaoRowPreview(proposal, state) {
-  const votes = getDaoVoteCounts(proposal);
-
-  if (state === 'voting') {
-    const total = votes.yes + votes.no;
-    const options = Array.isArray(proposal?.options) && proposal.options.length ? proposal.options : ['Yes', 'No'];
-    return `
-      ${renderDaoRowCompartment(options[0] || 'Yes', votes.yes, 'positive')}
-      ${renderDaoRowCompartment(options[1] || 'No', votes.no, 'negative')}
-      ${renderDaoRowCompartment('Total weight', total)}
-    `;
-  }
-
-  if (state === 'review') {
-    const committee = getDaoCommitteeSummary(proposal);
-    return `
-      ${renderDaoRowCompartment('Reviewed', committee.display)}
-      ${renderDaoRowCompartment('Review ends', getDaoReviewEndsLabel(proposal))}
-      ${renderDaoRowCompartment('Next', 'Voting')}
-    `;
-  }
-
-  if (state === 'withheld') {
-    const committee = getDaoCommitteeSummary(proposal);
-    return `
-      ${renderDaoRowCompartment('Decision', 'Withheld', 'negative')}
-      ${renderDaoRowCompartment('Withheld', committee.total ? `${committee.withhold}/${committee.total}` : committee.withhold)}
-      ${renderDaoRowCompartment('Reward pool', getDaoRewardPoolLabel(proposal))}
-    `;
-  }
-
-  if (DAO_RESULT_STATE_KEYS.has(state)) {
-    const optionCounts = votes.optionCounts || [votes.yes, votes.no];
-    const total = optionCounts.reduce((sum, value) => sum + Number(value || 0), 0);
-    const winner = getDaoWinningOptionLabel(proposal, state, votes);
-    return `
-      ${renderDaoRowCompartment(state === 'applied' ? 'Change' : 'Winner', winner, state === 'accepted' || state === 'applied' ? 'positive' : 'negative')}
-      ${renderDaoRowCompartment('Total weight', total)}
-      ${renderDaoRowCompartment('Claim', getDaoRewardPoolLabel(proposal))}
-    `;
-  }
-
-  return '';
 }
 
 class DaoModal {
@@ -2930,40 +2798,29 @@ class DaoModal {
       const li = document.createElement('li');
       li.classList.add('chat-item', 'dao-proposal-row');
 
-      const title = escapeHtml(p.title || 'Untitled Proposal');
-      const summary = escapeHtml((p.description || p.summary || '').trim());
+      const titleText = p.title || (p.number ? `Proposal #${p.number}` : 'Proposal');
+      const title = escapeHtml(titleText);
       const updatedParts = formatDaoRowTimestampParts(p.stateEnteredAt || p.createdAt);
       const state = getEffectiveDaoState(p);
-      const stateLabel = getDaoUiStateLabel(state);
       const typeLabel = getDaoTypeLabel(p.proposalType || p.type);
       const routeKey = getDaoProposalRouteKey(state);
       const routeLabel = getDaoProposalRouteLabel(routeKey);
 
-      const numberPrefix = p.number ? `#${p.number} ` : '';
       const factCompartments = [
-        renderDaoRowCompartment('Status', stateLabel, routeKey),
         renderDaoRowCompartment('Type', typeLabel || 'Proposal'),
         renderDaoUpdatedCompartment(updatedParts),
       ].join('');
-      const actionCompartments = renderDaoRowPreview(p, state);
-      const actionLabel = getDaoRowContextLabel(state);
 
       li.tabIndex = 0;
       li.setAttribute('role', 'button');
       li.dataset.daoRoute = routeKey;
-      li.setAttribute('aria-label', `Open ${routeLabel} for ${numberPrefix}${p.title || 'Untitled Proposal'}`);
+      li.setAttribute('aria-label', `Open ${routeLabel} for ${titleText}`);
       li.innerHTML = `
         <div class="chat-content dao-row-content">
           <div class="chat-header dao-row-header">
-            <div class="chat-name dao-row-title">${escapeHtml(numberPrefix)}${title}</div>
-            <div class="dao-row-action dao-row-action--${escapeHtml(routeKey)}">${escapeHtml(routeLabel)}</div>
+            <div class="chat-name dao-row-title">${title}</div>
           </div>
-          <div class="chat-message dao-row-summary">${summary || '-'}</div>
           <div class="dao-row-compartments dao-row-facts">${factCompartments}</div>
-          <div class="dao-row-options-row">
-            <div class="dao-row-options-label">${escapeHtml(actionLabel)}</div>
-            <div class="dao-row-options-grid">${actionCompartments}</div>
-          </div>
         </div>
       `;
       li.onclick = () => this.openProposal(p);
