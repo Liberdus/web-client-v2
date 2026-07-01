@@ -6,16 +6,58 @@ export const DAO_ARCHIVE_AFTER_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 export const DAO_ARCHIVABLE_STATE_KEYS = ['withheld', 'rejected', 'accepted', 'applied'];
 
 export const DAO_TYPE_OPTIONS = [
-  // Server proposal types are the long-term shape; legacy options remain for the current add form.
   { key: 'governance', label: 'Governance', group: 'Server proposal types' },
   { key: 'economic', label: 'Economic', group: 'Server proposal types' },
   { key: 'protocol', label: 'Protocol', group: 'Server proposal types' },
-  { key: 'treasury_project', label: 'Project', group: 'Treasury' },
-  { key: 'treasury_mint', label: 'Mint coins (fund projects)', group: 'Treasury' },
-  { key: 'params_governance', label: 'Governance', group: 'Parameters' },
-  { key: 'params_economic', label: 'Economic', group: 'Parameters' },
-  { key: 'params_protocol', label: 'Protocol', group: 'Parameters' },
 ];
+
+export const DAO_CONFIG_CHANGE_OPTIONS = {
+  governance: [
+    { key: 'claimDuration', path: 'current.dao.claimDuration', label: 'Claim Duration', valueType: 'integer', current: 2592000000 },
+    { key: 'graceDuration', path: 'current.dao.graceDuration', label: 'Grace Duration', valueType: 'integer', current: 604800000 },
+    { key: 'pctBurned', path: 'current.dao.pctBurned', label: 'Percent Burned', valueType: 'integer', current: 50 },
+    { key: 'reviewDuration', path: 'current.dao.reviewDuration', label: 'Review Duration', valueType: 'integer', current: 172800000 },
+    { key: 'voteExponent', path: 'current.dao.voteExponent', label: 'Vote Exponent', valueType: 'float', current: 1.1 },
+    { key: 'votingDuration', path: 'current.dao.votingDuration', label: 'Voting Duration', valueType: 'integer', current: 691200000 },
+  ],
+  economic: [
+    { key: 'certCycleDuration', path: 'current.certCycleDuration', label: 'Certificate Cycle Duration', valueType: 'integer', current: 30 },
+    { key: 'enableNodeSlashing', path: 'current.enableNodeSlashing', label: 'Enable Node Slashing', valueType: 'boolean', current: true },
+    { key: 'maintenanceInterval', path: 'current.maintenanceInterval', label: 'Maintenance Interval', valueType: 'integer', current: 86400000 },
+    { key: 'messageMaxLength', path: 'current.messageMaxLength', label: 'Message Max Length', valueType: 'integer', current: 500 },
+    { key: 'messageRetentionDays', path: 'current.messageRetentionDays', label: 'Message Retention Days', valueType: 'integer', current: 7 },
+    { key: 'nodeRewardInterval', path: 'current.nodeRewardInterval', label: 'Node Reward Interval', valueType: 'integer', current: 3600000 },
+    { key: 'restakeCooldown', path: 'current.restakeCooldown', label: 'Restake Cooldown', valueType: 'integer', current: 1800000 },
+    { key: 'enableLeftNetworkEarlySlashing', path: 'current.slashing.enableLeftNetworkEarlySlashing', label: 'Enable Left Network Early Slashing', valueType: 'boolean', current: true },
+    { key: 'enableNodeRefutedSlashing', path: 'current.slashing.enableNodeRefutedSlashing', label: 'Enable Node Refuted Slashing', valueType: 'boolean', current: true },
+    { key: 'enableSyncTimeoutSlashing', path: 'current.slashing.enableSyncTimeoutSlashing', label: 'Enable Sync Timeout Slashing', valueType: 'boolean', current: true },
+    { key: 'leftNetworkEarlyPenaltyPercent', path: 'current.slashing.leftNetworkEarlyPenaltyPercent', label: 'Left Network Early Penalty Percent', valueType: 'float', current: 0.2 },
+    { key: 'nodeRefutedPenaltyPercent', path: 'current.slashing.nodeRefutedPenaltyPercent', label: 'Node Refuted Penalty Percent', valueType: 'float', current: 0.2 },
+    { key: 'syncTimeoutPenaltyPercent', path: 'current.slashing.syncTimeoutPenaltyPercent', label: 'Sync Timeout Penalty Percent', valueType: 'float', current: 0.2 },
+    { key: 'stabilityScaleDiv', path: 'current.stabilityScaleDiv', label: 'Stability Scale Divisor', valueType: 'integer', current: 1 },
+    { key: 'stabilityScaleMul', path: 'current.stabilityScaleMul', label: 'Stability Scale Multiplier', valueType: 'integer', current: 125 },
+    { key: 'stakeLockTime', path: 'current.stakeLockTime', label: 'Stake Lock Time', valueType: 'integer', current: 1800000 },
+    { key: 'tollNetworkTaxPercent', path: 'current.tollNetworkTaxPercent', label: 'Toll Network Tax Percent', valueType: 'integer', current: 1 },
+    { key: 'tollTimeout', path: 'current.tollTimeout', label: 'Toll Timeout', valueType: 'integer', current: 60000 },
+    { key: 'txPause', path: 'current.txPause', label: 'Pause Transactions', valueType: 'boolean', current: false },
+  ],
+  protocol: [
+    { key: 'minNodes', path: 'config.p2p.minNodes', label: 'Min Nodes', valueType: 'integer', current: 32 },
+    { key: 'maxNodes', path: 'config.p2p.maxNodes', label: 'Max Nodes', valueType: 'integer', current: 1100 },
+    { key: 'baselineNodes', path: 'config.p2p.baselineNodes', label: 'Baseline Nodes', valueType: 'integer', current: 32 },
+    { key: 'cycleDuration', path: 'config.p2p.cycleDuration', label: 'Cycle Duration', valueType: 'integer', current: 60 },
+    { key: 'allowEndUserTxnInjections', path: 'config.p2p.allowEndUserTxnInjections', label: 'Allow End User Transactions', valueType: 'boolean', current: true },
+    { key: 'amountToGrow', path: 'config.p2p.amountToGrow', label: 'Amount To Grow', valueType: 'integer', current: 30 },
+    { key: 'amountToShrink', path: 'config.p2p.amountToShrink', label: 'Amount To Shrink', valueType: 'integer', current: 5 },
+    { key: 'maxJoinedPerCycle', path: 'config.p2p.maxJoinedPerCycle', label: 'Max Joined Per Cycle', valueType: 'integer', current: 10 },
+    { key: 'maxDesiredMultiplier', path: 'config.p2p.maxDesiredMultiplier', label: 'Max Desired Multiplier', valueType: 'float', current: 1.2 },
+    { key: 'maxShrinkMultiplier', path: 'config.p2p.maxShrinkMultiplier', label: 'Max Shrink Multiplier', valueType: 'float', current: 0.02 },
+    { key: 'syncBoostEnabled', path: 'config.p2p.syncBoostEnabled', label: 'Sync Boost Enabled', valueType: 'boolean', current: false },
+    { key: 'limitRate', path: 'config.rateLimiting.limitRate', label: 'Limit Rate', valueType: 'boolean', current: true },
+    { key: 'nodesPerConsensusGroup', path: 'config.sharding.nodesPerConsensusGroup', label: 'Nodes Per Consensus Group', valueType: 'integer', current: 16 },
+    { key: 'voterPercentage', path: 'config.stateManager.voterPercentage', label: 'Voter Percentage', valueType: 'float', current: 0.1 },
+  ],
+};
 
 export const DAO_STATES = [
   { key: 'review', label: 'Review' },
