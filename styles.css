@@ -6582,14 +6582,19 @@ small {
   right: 16px;
 }
 
-/* DAO modal: ensure list has room for the + button */
+/* DAO modal: keep the header fixed while the proposal list scrolls. */
 #daoModal .modal-content {
-  padding-bottom: 120px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: 0;
+  position: relative;
 }
 
 /* DAO modal: Active/Archived toggle */
 #daoModal .dao-toolbar {
-  padding: 0px 16px 10px;
+  padding: 0 16px 10px;
   position: sticky;
   top: 0;
   z-index: 2;
@@ -6602,15 +6607,15 @@ small {
   gap: 6px;
   padding: 6px;
   border: 1px solid var(--border-color, rgba(0,0,0,0.12));
-  border-radius: 14px;
+  border-radius: 8px;
   background: var(--hover-background-purple);
 }
 
 #daoModal .dao-group-toggle-button {
   appearance: none;
   border: 0;
-  border-radius: 10px;
-  padding: 10px 10px;
+  border-radius: 6px;
+  padding: 9px 10px;
   font-family: var(--font-primary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
@@ -6627,6 +6632,159 @@ small {
 #daoModal .dao-group-toggle-button.active {
   background: var(--button-background);
   color: var(--button-text);
+  box-shadow: var(--elev-1, 0 1px 2px rgba(0,0,0,0.1));
+}
+
+#daoModal #daoProposalList {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+}
+
+#daoModal #daoAddProposalButton {
+  background-color: var(--primary-color);
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  color: var(--button-text);
+  flex: 0 0 auto;
+  font-size: 24px;
+  font-weight: var(--font-weight-medium);
+  height: 56px;
+  line-height: 1;
+  min-height: 56px;
+  min-width: 56px;
+  position: absolute;
+  right: 16px;
+  width: 56px;
+  z-index: 3;
+}
+
+#daoModal .dao-proposal-row {
+  align-items: center;
+  border-top: 1px solid var(--border-color, rgba(0,0,0,0.08));
+  box-sizing: border-box;
+  height: auto;
+  min-height: 68px;
+  overflow: visible;
+  padding: 10px 16px;
+}
+
+#daoModal .dao-row-content {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  justify-content: center;
+  min-width: 0;
+  overflow: visible;
+  width: 100%;
+}
+
+#daoModal .dao-row-title {
+  display: block;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  min-width: 0;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+#daoModal .dao-row-meta {
+  align-items: center;
+  color: var(--secondary-text-color);
+  display: flex;
+  gap: 18px;
+  min-width: 0;
+  width: 100%;
+}
+
+#daoModal .dao-row-meta-item {
+  align-items: baseline;
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+}
+
+#daoModal .dao-row-meta-item--type {
+  flex: 1 1 auto;
+}
+
+#daoModal .dao-row-meta-item--updated {
+  flex: 0 0 auto;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+#daoModal .dao-row-meta-label {
+  flex: 0 0 auto;
+  font-family: var(--font-primary);
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.2;
+}
+
+#daoModal .dao-row-meta-value {
+  color: var(--text-color);
+  display: block;
+  font-family: var(--font-primary);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#daoModal .dao-row-meta-item--updated .dao-row-meta-value {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+#daoStatusContextMenu {
+  background: var(--background-color);
+  border: 1px solid var(--border-color, rgba(0,0,0,0.1));
+  border-radius: 12px;
+  box-shadow: var(--overlay-shadow-large);
+  max-width: calc(100vw - 24px);
+  min-width: 176px;
+  padding: 8px;
+  width: 176px;
+}
+
+#daoStatusContextMenu .dao-status-option {
+  border-radius: 8px;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 40px;
+  padding: 8px 10px;
+}
+
+#daoStatusContextMenu .dao-status-option:hover,
+#daoStatusContextMenu .dao-status-option.active {
+  background: var(--hover-background-purple);
+}
+
+#daoStatusContextMenu .dao-status-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+#daoStatusContextMenu .dao-status-count {
+  align-items: center;
+  background: var(--hover-background);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  color: var(--secondary-text-color);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-family: var(--font-primary);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  justify-content: center;
+  min-height: 20px;
+  min-width: 28px;
+  padding: 2px 8px;
 }
 
 #lockModal p {

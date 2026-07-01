@@ -80,6 +80,7 @@ import { stringify, parse } from './external/stringify-shardus.js';
 import {
   daoRepo,
   DAO_STATES,
+  addDaoUiStressFixtures,
   getDaoStateLabel,
   getDaoTypeLabel,
   getEffectiveDaoState,
@@ -2460,6 +2461,53 @@ function formatDaoTimestamp(ts) {
   }
 }
 
+function formatDaoRowTimestampLabel(ts) {
+  const n = Number(ts || 0);
+  if (!n) return '—';
+  const date = new Date(n);
+  try {
+    const dateLabel = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const timeLabel = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return `${dateLabel} ${timeLabel}`;
+  } catch {
+    return '—';
+  }
+}
+
+const DAO_RESULT_STATE_KEYS = new Set(['withheld', 'accepted', 'rejected', 'applied']);
+
+function getDaoUiStateLabel(key) {
+  if (key === 'discussion') return 'Review';
+  return getDaoStateLabel(key);
+}
+
+function shouldUseDaoUiStressFixtures() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return (
+      params.get('daoFixtures') === '1' ||
+      params.get('daoStress') === '1' ||
+      localStorage.getItem('daoUiStressFixtures') === '1'
+    );
+  } catch {
+    return false;
+  }
+}
+
+function getDaoProposalRouteKey(state) {
+  if (state === 'voting') return 'vote';
+  if (state === 'review') return 'review';
+  if (DAO_RESULT_STATE_KEYS.has(state)) return 'result';
+  return 'details';
+}
+
+function getDaoProposalRouteLabel(routeKey) {
+  if (routeKey === 'vote') return 'vote';
+  if (routeKey === 'review') return 'review';
+  if (routeKey === 'result') return 'result';
+  return 'details';
+}
+
 class DaoModal {
   constructor() {
     this.selectedGroupKey = 'active';
@@ -2491,11 +2539,13 @@ class DaoModal {
       this.groupActiveButton.addEventListener('click', () => {
         this.setGroupFilter('active');
       });
+      this.groupActiveButton.setAttribute('role', 'tab');
     }
     if (this.groupArchivedButton) {
       this.groupArchivedButton.addEventListener('click', () => {
         this.setGroupFilter('archived');
       });
+      this.groupArchivedButton.setAttribute('role', 'tab');
     }
 
     if (this.statusMenu) {
@@ -2539,6 +2589,10 @@ class DaoModal {
 
     try {
       await daoRepo.refresh({ force: true });
+      if (shouldUseDaoUiStressFixtures()) {
+        const added = addDaoUiStressFixtures();
+        if (added) console.info(`Added ${added} DAO UI stress fixture proposals`);
+      }
     } catch (e) {
       console.warn('Failed to refresh DAO proposals:', e);
       showToast('Failed to load proposals', 2500, 'error');
@@ -2582,8 +2636,8 @@ class DaoModal {
   showStatusMenu() {
     if (!this.statusMenu || !this.statusMenuButton) return;
     const buttonRect = this.statusMenuButton.getBoundingClientRect();
-    const menuWidth = 200;
-    const approxMenuHeight = 8 + DAO_STATES.length * 44; // padding + items
+    const menuWidth = 176;
+    const approxMenuHeight = 16 + DAO_STATES.length * 40; // padding + items
 
     let left = buttonRect.right - menuWidth;
     let top = buttonRect.bottom + 8;
@@ -2598,11 +2652,14 @@ class DaoModal {
       top: `${top}px`,
       display: 'block',
     });
+
+    if (this.statusMenuButton) this.statusMenuButton.setAttribute('aria-expanded', 'true');
   }
 
   closeStatusMenu() {
     if (!this.statusMenu) return;
     this.statusMenu.style.display = 'none';
+    if (this.statusMenuButton) this.statusMenuButton.setAttribute('aria-expanded', 'false');
   }
 
   setStateFilter(key) {
@@ -2635,22 +2692,38 @@ class DaoModal {
 
     // Update header title
     const groupLabel = this.selectedGroupKey === 'archived' ? 'Archived' : 'Active';
-    const label = getDaoStateLabel(this.selectedStateKey);
-    if (this.titleEl) this.titleEl.textContent = `DAO · ${groupLabel} · ${label}`;
+    const label = getDaoUiStateLabel(this.selectedStateKey);
+    if (this.titleEl) this.titleEl.textContent = `DAO - ${groupLabel} - ${label}`;
 
     // Update group toggle labels + selection
     if (this.groupActiveButton) {
       this.groupActiveButton.textContent = `Active ${proposalsActive.length}`;
       this.groupActiveButton.classList.toggle('active', this.selectedGroupKey !== 'archived');
+      this.groupActiveButton.setAttribute('aria-selected', this.selectedGroupKey !== 'archived' ? 'true' : 'false');
     }
     if (this.groupArchivedButton) {
       this.groupArchivedButton.textContent = `Archived ${proposalsArchived.length}`;
       this.groupArchivedButton.classList.toggle('active', this.selectedGroupKey === 'archived');
+      this.groupArchivedButton.setAttribute('aria-selected', this.selectedGroupKey === 'archived' ? 'true' : 'false');
     }
 
     for (const s of DAO_STATES) {
-      const el = document.getElementById(`daoStatusOption${s.label.replace(/\s+/g, '')}`);
-      if (el) el.textContent = `${s.label} ${counts[s.key] || 0}`;
+      const option = this.statusMenu?.querySelector(`[data-state-key="${s.key}"]`);
+      const labelEl = document.getElementById(`daoStatusOption${s.label.replace(/\s+/g, '')}`);
+      const countEl = option?.querySelector('.dao-status-count');
+      const count = counts[s.key] || 0;
+      const displayLabel = getDaoUiStateLabel(s.key);
+
+      if (labelEl) labelEl.textContent = displayLabel;
+      if (countEl) {
+        countEl.textContent = String(count);
+        countEl.setAttribute('aria-label', `${count} ${displayLabel.toLowerCase()} proposals`);
+      }
+      if (option) {
+        const selected = s.key === this.selectedStateKey;
+        option.classList.toggle('active', selected);
+        option.setAttribute('aria-checked', selected ? 'true' : 'false');
+      }
     }
 
     // Filter + sort (newest entered into state first)
@@ -2691,24 +2764,41 @@ class DaoModal {
 
     for (const p of filtered) {
       const li = document.createElement('li');
-      li.classList.add('chat-item');
+      li.classList.add('chat-item', 'dao-proposal-row');
 
-      const title = escapeHtml(p.title || 'Untitled Proposal');
-      const summary = escapeHtml((p.summary || '').trim());
-      const time = formatDaoTimestamp(p.stateEnteredAt || p.createdAt);
+      const titleText = p.title || (p.number ? `Proposal #${p.number}` : 'Proposal');
+      const title = escapeHtml(titleText);
+      const updatedLabel = escapeHtml(formatDaoRowTimestampLabel(p.stateEnteredAt || p.createdAt));
+      const state = getEffectiveDaoState(p);
+      const typeLabel = escapeHtml(getDaoTypeLabel(p.proposalType || p.type) || 'Proposal');
+      const routeKey = getDaoProposalRouteKey(state);
+      const routeLabel = getDaoProposalRouteLabel(routeKey);
 
-      const numberPrefix = p.number ? `#${p.number} ` : '';
-
+      li.tabIndex = 0;
+      li.setAttribute('role', 'button');
+      li.dataset.daoRoute = routeKey;
+      li.setAttribute('aria-label', `Open ${routeLabel} for ${titleText}`);
       li.innerHTML = `
-        <div class="chat-content">
-          <div class="chat-header">
-            <div class="chat-name">${escapeHtml(numberPrefix)}${title}</div>
-            <div class="chat-time">${escapeHtml(time)}</div>
+        <div class="dao-row-content">
+          <div class="dao-row-title">${title}</div>
+          <div class="dao-row-meta">
+            <span class="dao-row-meta-item dao-row-meta-item--type">
+              <span class="dao-row-meta-label">Type</span>
+              <strong class="dao-row-meta-value">${typeLabel}</strong>
+            </span>
+            <span class="dao-row-meta-item dao-row-meta-item--updated">
+              <span class="dao-row-meta-label">Updated</span>
+              <strong class="dao-row-meta-value">${updatedLabel}</strong>
+            </span>
           </div>
-          <div class="chat-message">${truncateMessage(summary || '—', 70)}</div>
         </div>
       `;
-      li.onclick = () => proposalInfoModal.open(p.id);
+      li.onclick = () => this.openProposal(p);
+      li.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        this.openProposal(p);
+      });
       this.list.appendChild(li);
     }
 
@@ -2716,6 +2806,10 @@ class DaoModal {
     if (this.addButton) {
       this.addButton.classList.toggle('visible', this.isActive());
     }
+  }
+
+  openProposal(proposal) {
+    proposalInfoModal.open(proposal.id);
   }
 }
 
@@ -2900,13 +2994,13 @@ class AddProposalModal {
     }
 
     this.close();
-    // Ensure DAO modal shows the new proposal (Discussion by default for new proposals)
-    daoModal.selectedStateKey = 'discussion';
+    // Ensure DAO modal shows the new proposal (Review by default for new proposals)
+    daoModal.selectedStateKey = 'review';
     daoModal.selectedGroupKey = 'active';
     if (!daoModal.isActive()) daoModal.open();
     else daoModal.render();
 
-    showToast('Proposal submitted (Discussion)', 2000, 'success');
+    showToast('Proposal submitted (Review)', 2000, 'success');
   }
 }
 
