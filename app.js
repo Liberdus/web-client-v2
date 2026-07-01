@@ -2461,17 +2461,16 @@ function formatDaoTimestamp(ts) {
   }
 }
 
-function formatDaoRowTimestampParts(ts) {
+function formatDaoRowTimestampLabel(ts) {
   const n = Number(ts || 0);
-  if (!n) return null;
+  if (!n) return '—';
   const date = new Date(n);
   try {
-    return {
-      date: date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-      time: date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
-    };
+    const dateLabel = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const timeLabel = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return `${dateLabel} ${timeLabel}`;
   } catch {
-    return null;
+    return '—';
   }
 }
 
@@ -2507,33 +2506,6 @@ function getDaoProposalRouteLabel(routeKey) {
   if (routeKey === 'review') return 'review';
   if (routeKey === 'result') return 'result';
   return 'details';
-}
-
-function renderDaoRowCompartment(label, value) {
-  const displayValue = value === undefined || value === null || value === '' ? '—' : value;
-  const key = String(label || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '') || 'value';
-  const keyClass = ` dao-row-compartment--${escapeHtml(key)}`;
-  return `
-    <div class="dao-row-compartment${keyClass}">
-      <span>${escapeHtml(String(label || ''))}</span>
-      <strong>${escapeHtml(String(displayValue))}</strong>
-    </div>
-  `;
-}
-
-function renderDaoUpdatedCompartment(parts) {
-  return `
-    <div class="dao-row-compartment dao-row-compartment--updated">
-      <span>Updated</span>
-      <strong class="dao-row-updated-value">
-        <span>${escapeHtml(parts?.date || '—')}</span>
-        ${parts?.time ? `<span>${escapeHtml(parts.time)}</span>` : ''}
-      </strong>
-    </div>
-  `;
 }
 
 class DaoModal {
@@ -2796,27 +2768,29 @@ class DaoModal {
 
       const titleText = p.title || (p.number ? `Proposal #${p.number}` : 'Proposal');
       const title = escapeHtml(titleText);
-      const updatedParts = formatDaoRowTimestampParts(p.stateEnteredAt || p.createdAt);
+      const updatedLabel = escapeHtml(formatDaoRowTimestampLabel(p.stateEnteredAt || p.createdAt));
       const state = getEffectiveDaoState(p);
-      const typeLabel = getDaoTypeLabel(p.proposalType || p.type);
+      const typeLabel = escapeHtml(getDaoTypeLabel(p.proposalType || p.type) || 'Proposal');
       const routeKey = getDaoProposalRouteKey(state);
       const routeLabel = getDaoProposalRouteLabel(routeKey);
-
-      const factCompartments = [
-        renderDaoRowCompartment('Type', typeLabel || 'Proposal'),
-        renderDaoUpdatedCompartment(updatedParts),
-      ].join('');
 
       li.tabIndex = 0;
       li.setAttribute('role', 'button');
       li.dataset.daoRoute = routeKey;
       li.setAttribute('aria-label', `Open ${routeLabel} for ${titleText}`);
       li.innerHTML = `
-        <div class="chat-content dao-row-content">
-          <div class="chat-header dao-row-header">
-            <div class="chat-name dao-row-title">${title}</div>
+        <div class="dao-row-content">
+          <div class="dao-row-title">${title}</div>
+          <div class="dao-row-meta">
+            <span class="dao-row-meta-item dao-row-meta-item--type">
+              <span class="dao-row-meta-label">Type</span>
+              <strong class="dao-row-meta-value">${typeLabel}</strong>
+            </span>
+            <span class="dao-row-meta-item dao-row-meta-item--updated">
+              <span class="dao-row-meta-label">Updated</span>
+              <strong class="dao-row-meta-value">${updatedLabel}</strong>
+            </span>
           </div>
-          <div class="dao-row-compartments dao-row-facts">${factCompartments}</div>
         </div>
       `;
       li.onclick = () => this.openProposal(p);
