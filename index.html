@@ -366,6 +366,11 @@
                     <option value="true">Yes</option>
                   </select>
                 </div>
+                <div class="form-group">
+                  <label for="addProposalFee">Proposal Fee</label>
+                  <input id="addProposalFee" class="form-control dao-form-current-value" type="text" value="Loading..." readonly />
+                  <div class="dao-form-help">Derived from DAO params. Emergency proposals use 0.</div>
+                </div>
               </div>
               <div class="form-group">
                 <label for="addProposalTitle">Title</label>
@@ -383,11 +388,6 @@
               <div class="form-group">
                 <label for="addProposalDescription">Description</label>
                 <textarea id="addProposalDescription" class="form-control" rows="6" maxlength="10000" placeholder="Describe the proposal" required></textarea>
-              </div>
-              <div class="form-group">
-                <label for="addProposalFee">Proposal Fee</label>
-                <input id="addProposalFee" class="form-control dao-form-current-value" type="text" value="Loading..." readonly />
-                <div class="dao-form-help">Derived from DAO params. Emergency proposals use 0.</div>
               </div>
               <div class="form-group dao-form-section">
                 <div class="dao-form-section-header">
