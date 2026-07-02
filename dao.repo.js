@@ -68,6 +68,9 @@ export const DAO_STATES = [
   { key: 'applied', label: 'Applied' },
 ];
 
+const DAO_PROPOSAL_DAY_MS = 24 * 60 * 60 * 1000;
+const DAO_AFFIRMATIVE_OPTION_STRINGS = ['yes', 'accept', 'approve'];
+
 export function getDaoTypeLabel(typeKey) {
   return DAO_TYPE_OPTIONS.find((t) => t.key === typeKey)?.label || typeKey || '';
 }
@@ -82,6 +85,89 @@ export function getEffectiveDaoState(proposal) {
 }
 
 const DAO_PROPOSAL_QUERY_BATCH_SIZE = 10;
+
+function requireDaoDraftString(value, label) {
+  const text = String(value ?? '').trim();
+  if (!text) throw new Error(`${label} is required`);
+  return text;
+}
+
+function normalizeDaoDraftDayCount(value, label) {
+  const n = Number(value || 0);
+  if (!Number.isInteger(n) || n < 0) {
+    throw new Error(`${label} must be a non-negative whole number`);
+  }
+  return n;
+}
+
+function normalizeDaoDraftChanges(changes) {
+  if (!Array.isArray(changes) || changes.length === 0) {
+    throw new Error('At least one DAO parameter change is required');
+  }
+
+  return changes.map((change) => ({
+    key: requireDaoDraftString(change?.key, 'DAO parameter key'),
+    value: String(change?.value ?? '').trim(),
+    current: String(change?.current ?? ''),
+  }));
+}
+
+function normalizeDaoDraftOptions(options) {
+  if (!Array.isArray(options) || options.length < 2 || options.length > 10) {
+    throw new Error('DAO proposal options must contain 2 to 10 entries');
+  }
+
+  const safeOptions = options.map((option) => requireDaoDraftString(option, 'DAO proposal option'));
+  if (!DAO_AFFIRMATIVE_OPTION_STRINGS.includes(safeOptions[0].toLowerCase())) {
+    throw new Error('The first DAO proposal option must be yes, accept, or approve');
+  }
+  return safeOptions;
+}
+
+export function buildDaoProposalCreateDraft({
+  from,
+  displayTitle,
+  emergency,
+  proposalType,
+  description,
+  options,
+  changes,
+  proposalFeeUsdStr,
+  startDelayDays,
+  gracePeriodDays,
+} = {}) {
+  const safeProposalType = requireDaoDraftString(proposalType, 'DAO proposal type');
+  if (!DAO_CONFIG_CHANGE_OPTIONS[safeProposalType]) {
+    throw new Error('DAO proposal type is not supported');
+  }
+
+  const isEmergency = emergency === true;
+  const feeUsdStr = isEmergency ? '0' : requireDaoDraftString(proposalFeeUsdStr, 'DAO proposal fee');
+  const startDelayMs = normalizeDaoDraftDayCount(startDelayDays, 'Review start delay') * DAO_PROPOSAL_DAY_MS;
+  const gracePeriodMs = normalizeDaoDraftDayCount(gracePeriodDays, 'Grace period') * DAO_PROPOSAL_DAY_MS;
+  const safeOptions = normalizeDaoDraftOptions(options);
+  const safeChanges = normalizeDaoDraftChanges(changes);
+
+  const transaction = {
+    from: requireDaoDraftString(from, 'DAO proposal sender'),
+    emergency: isEmergency,
+    proposalType: safeProposalType,
+    description: requireDaoDraftString(description, 'DAO proposal description'),
+    options: safeOptions,
+    [safeProposalType]: { changes: safeChanges },
+  };
+
+  if (gracePeriodMs > 0) {
+    transaction.gracePeriod = gracePeriodMs;
+  }
+
+  return {
+    displayTitle: requireDaoDraftString(displayTitle, 'DAO proposal title'),
+    proposalFeeUsdStr: feeUsdStr,
+    startDelayMs,
+    transaction,
+  };
+}
 
 // In-memory DAO repository.
 // Goal: UI uses this API while backend data loading stays behind this boundary.
