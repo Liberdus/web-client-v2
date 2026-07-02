@@ -3391,13 +3391,15 @@ class AddProposalModal {
 
 const addProposalModal = new AddProposalModal();
 
-function formatDaoDraftDuration(ms, zeroLabel) {
+function formatDaoDurationSummary(ms) {
   const n = Number(ms || 0);
-  if (!n) return zeroLabel;
+  if (!n) return '0 ms (now)';
   const dayMs = 24 * 60 * 60 * 1000;
   const days = n / dayMs;
-  if (Number.isInteger(days)) return `${days} day${days === 1 ? '' : 's'}`;
-  return `${n} ms`;
+  const human = Number.isInteger(days)
+    ? `${days} day${days === 1 ? '' : 's'}`
+    : `${n} ms`;
+  return `${n} ms (${human})`;
 }
 
 function formatDaoConfirmValue(value) {
@@ -3465,8 +3467,8 @@ class ConfirmProposalModal {
         ['Emergency', tx.emergency ? 'Yes' : 'No'],
         ['Description', tx.description],
         ['Options', tx.options],
-        ['Review starts', formatDaoDraftDuration(draft.startDelayMs, 'Now')],
-        ['Grace period', tx.gracePeriod ? formatDaoDraftDuration(tx.gracePeriod, 'Custom') : 'Network default'],
+        ['Review starts', formatDaoDurationSummary(draft.startDelayMs)],
+        ['Grace period', tx.gracePeriod ? formatDaoDurationSummary(tx.gracePeriod) : 'Network default'],
       ]),
       this.renderChanges(changes),
       this.renderSection('Transaction Fields', [
@@ -3476,13 +3478,7 @@ class ConfirmProposalModal {
         ['description', tx.description],
         ['options', tx.options],
         [`${proposalType}.changes`, `${changes.length} change${changes.length === 1 ? '' : 's'}`],
-        ['gracePeriod', tx.gracePeriod],
-      ]),
-      this.renderSection('Generated at Signing', [
-        ['proposalId', 'Generated when signing'],
-        ['metaId', 'Generated when signing'],
-        ['timestamp', 'Generated when signing'],
-        ['signature', 'Generated when signing'],
+        ['gracePeriod', tx.gracePeriod ? formatDaoDurationSummary(tx.gracePeriod) : 'Network default'],
       ]),
       '<div class="dao-confirm-help">The proposal fee is derived from DAO params and seeds the voter reward pool for regular proposals. This screen does not submit yet.</div>',
     ].join('');
