@@ -210,9 +210,15 @@ function buildStoreFromBackendProposals(meta, proposals) {
 async function fetchBackendProposal(queryDaoApi, proposalNumber) {
   const body = await queryDaoApi(`/dao/proposals/${proposalNumber}`);
   if (!body) {
-    throw new Error(`Failed to load DAO proposal #${proposalNumber}`);
+    console.warn(`Skipping DAO proposal #${proposalNumber}: no response`);
+    // TODO: Retry skipped proposal accounts after the initial list render.
+    return null;
   }
-  if (body.error || !body.proposal) return null;
+  if (body.error || !body.proposal) {
+    console.warn(`Skipping DAO proposal #${proposalNumber}: proposal unavailable`, body.error || body);
+    // TODO: Retry skipped proposal accounts after the initial list render.
+    return null;
+  }
   return body.proposal;
 }
 
