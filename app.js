@@ -2830,6 +2830,7 @@ class AddProposalModal {
     this.emergencySelect = document.getElementById('addProposalEmergency');
     this.startDelayInput = document.getElementById('addProposalStartDelayDays');
     this.gracePeriodInput = document.getElementById('addProposalGracePeriodDays');
+    this.gracePeriodHelp = document.getElementById('addProposalGracePeriodHelp');
     this.submitButton = this.form?.querySelector('button[type="submit"]');
     this.resetConfigCache();
 
@@ -2875,14 +2876,16 @@ class AddProposalModal {
     this.resetConfigCache();
     this.currentDraft = null;
     this.proposalFeeUsdStr = null;
+    this.defaultGracePeriodMs = null;
     if (this.titleInput) this.titleInput.value = '';
     if (this.typeSelect) this.typeSelect.value = 'governance';
     if (this.descriptionInput) this.descriptionInput.value = '';
     if (this.emergencySelect) this.emergencySelect.value = 'false';
     if (this.startDelayInput) this.startDelayInput.value = '0';
-    if (this.gracePeriodInput) this.gracePeriodInput.value = '0';
+    if (this.gracePeriodInput) this.gracePeriodInput.value = '';
     this.renderOptions(['yes', 'no']);
     this.renderProposalFee();
+    this.renderGracePeriodDefaultHint();
     this.refreshProposalFee();
     this.renderConfigLoadingState();
     this.refreshSelectedConfigOptions();
@@ -2947,20 +2950,38 @@ class AddProposalModal {
       : 'Unavailable';
   }
 
+  renderGracePeriodDefaultHint() {
+    const defaultSummary = this.defaultGracePeriodMs === null
+      ? ''
+      : formatDaoDurationHuman(this.defaultGracePeriodMs);
+    if (this.gracePeriodInput) {
+      this.gracePeriodInput.placeholder = 'Enter to change default';
+    }
+    if (this.gracePeriodHelp) {
+      this.gracePeriodHelp.textContent = defaultSummary
+        ? `Default: ${defaultSummary}`
+        : 'Default: loading...';
+    }
+  }
+
   async refreshProposalFee() {
     const requestId = ++this.proposalFeeRequestId;
     this.renderProposalFee();
 
     try {
-      const fee = await this.loadProposalFee();
+      const { proposalFeeUsdStr, defaultGracePeriodMs } = await this.loadDaoProposalDefaults();
       if (!this.isActive() || requestId !== this.proposalFeeRequestId) return;
-      this.proposalFeeUsdStr = fee;
+      this.proposalFeeUsdStr = proposalFeeUsdStr;
+      this.defaultGracePeriodMs = defaultGracePeriodMs;
       this.renderProposalFee();
+      this.renderGracePeriodDefaultHint();
     } catch (error) {
       console.warn('Could not refresh DAO proposal fee:', error);
       if (!this.isActive() || requestId !== this.proposalFeeRequestId) return;
       this.proposalFeeUsdStr = '';
+      this.defaultGracePeriodMs = null;
       this.renderProposalFee();
+      this.renderGracePeriodDefaultHint();
       showToast('Could not refresh DAO proposal fee', 2500, 'warning');
     }
   }
@@ -3068,13 +3089,20 @@ class AddProposalModal {
     return options;
   }
 
-  async loadProposalFee() {
+  async loadDaoProposalDefaults() {
     const account = await this.fetchNetworkAccountConfig();
     const fee = account?.current?.dao?.proposalFeeUsdStr;
     if (fee === undefined || fee === null || String(fee).trim() === '') {
       throw new Error('Missing DAO proposal fee');
     }
-    return String(fee).trim();
+    const graceDuration = Number(account?.current?.dao?.graceDuration);
+    if (!Number.isFinite(graceDuration) || graceDuration < 0) {
+      throw new Error('Missing DAO default grace duration');
+    }
+    return {
+      proposalFeeUsdStr: String(fee).trim(),
+      defaultGracePeriodMs: graceDuration,
+    };
   }
 
   async fetchNetworkAccountConfig() {
@@ -3281,6 +3309,16 @@ class AddProposalModal {
     return n;
   }
 
+  getOptionalDaysValue(input, label) {
+    const value = String(input?.value ?? '').trim();
+    if (!value) return null;
+    const n = Number(value);
+    if (!Number.isInteger(n) || n < 0) {
+      throw this.createValidationError(`${label} must be a non-negative whole number`, input);
+    }
+    return n;
+  }
+
   getValidatedOptions() {
     const inputs = this.getOptionInputs();
     const options = inputs.map((input) => input.value.trim());
@@ -3362,10 +3400,13 @@ class AddProposalModal {
       const options = this.getValidatedOptions();
       const changes = this.getValidatedChanges();
       const startDelayDays = this.getDaysValue(this.startDelayInput, 'Start delay');
-      const gracePeriodDays = this.getDaysValue(this.gracePeriodInput, 'Grace period');
+      const gracePeriodDays = this.getOptionalDaysValue(this.gracePeriodInput, 'Grace period');
       const emergency = this.emergencySelect?.value === 'true';
       if (!emergency && !this.proposalFeeUsdStr) {
         throw this.createValidationError('Current DAO proposal fee is not loaded yet', this.proposalFeeInput);
+      }
+      if (gracePeriodDays === null && this.defaultGracePeriodMs === null) {
+        throw this.createValidationError('Current DAO default grace period is not loaded yet', this.gracePeriodInput);
       }
 
       this.currentDraft = buildDaoProposalCreateDraft({
@@ -3379,6 +3420,7 @@ class AddProposalModal {
         proposalFeeUsdStr: this.proposalFeeUsdStr,
         startDelayDays,
         gracePeriodDays,
+        defaultGracePeriodMs: this.defaultGracePeriodMs,
       });
     } catch (e) {
       this.showValidationError(e);
@@ -3400,6 +3442,25 @@ function formatDaoDurationSummary(ms) {
     ? `${days} day${days === 1 ? '' : 's'}`
     : `${n} ms`;
   return `${n} ms (${human})`;
+}
+
+function formatDaoDurationHuman(ms) {
+  const n = Number(ms || 0);
+  if (!n) return '0 seconds';
+
+  const units = [
+    [24 * 60 * 60 * 1000, 'day'],
+    [60 * 60 * 1000, 'hour'],
+    [60 * 1000, 'minute'],
+    [1000, 'second'],
+  ];
+
+  const [unitMs, label] = units.find(([size]) => n >= size) || units[units.length - 1];
+  const rawValue = n / unitMs;
+  const value = Number.isInteger(rawValue)
+    ? rawValue
+    : Number(rawValue.toFixed(2));
+  return `${value} ${label}${value === 1 ? '' : 's'}`;
 }
 
 function formatDaoConfirmValue(value) {
@@ -3546,6 +3607,9 @@ class ConfirmProposalModal {
     const tx = draft.transaction;
     const proposalType = tx.proposalType;
     const changes = Array.isArray(tx[proposalType]?.changes) ? tx[proposalType].changes : [];
+    const hasCustomGracePeriod = tx.gracePeriod !== undefined;
+    const effectiveGracePeriod = tx.gracePeriod ?? draft.defaultGracePeriodMs ?? 0;
+    const gracePeriodSummary = formatDaoDurationSummary(effectiveGracePeriod);
 
     this.setTitle('Review Proposal');
     this.content.innerHTML = [
@@ -3561,7 +3625,7 @@ class ConfirmProposalModal {
         ['Description', tx.description],
         ['Options', tx.options],
         ['Review starts', formatDaoDurationSummary(draft.startDelayMs)],
-        ['Grace period', tx.gracePeriod ? formatDaoDurationSummary(tx.gracePeriod) : 'Network default'],
+        ['Grace period', hasCustomGracePeriod ? gracePeriodSummary : `Network default (${gracePeriodSummary})`],
       ]),
       this.renderChanges(changes),
       '<div class="dao-confirm-help">The proposal fee is derived from DAO params and seeds the voter reward pool for regular proposals. Signing submits this proposal for review.</div>',
