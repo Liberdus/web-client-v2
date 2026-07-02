@@ -77,6 +77,7 @@ async function forceReload(urls) {
 import { stringify, parse } from './external/stringify-shardus.js';
 
 import {
+  buildDaoProposalCreateDraft,
   createDaoBackendFetcher,
   DAO_CONFIG_CHANGE_OPTIONS,
   daoRepo,
@@ -2820,6 +2821,7 @@ class AddProposalModal {
     this.titleInput = document.getElementById('addProposalTitle');
     this.typeSelect = document.getElementById('addProposalType');
     this.descriptionInput = document.getElementById('addProposalDescription');
+    this.proposalFeeInput = document.getElementById('addProposalFee');
     this.optionsList = document.getElementById('addProposalOptionsList');
     this.addOptionButton = document.getElementById('addProposalOptionButton');
     this.changesList = document.getElementById('addProposalChangesList');
@@ -2852,6 +2854,10 @@ class AddProposalModal {
       });
     }
 
+    if (this.emergencySelect) {
+      this.emergencySelect.addEventListener('change', () => this.renderProposalFee());
+    }
+
     if (this.optionsList) {
       this.optionsList.addEventListener('click', (event) => this.handleOptionListClick(event));
     }
@@ -2866,6 +2872,8 @@ class AddProposalModal {
     this.modal.classList.add('active');
     enterFullscreen();
     this.resetConfigCache();
+    this.currentDraft = null;
+    this.proposalFeeUsdStr = null;
     if (this.titleInput) this.titleInput.value = '';
     if (this.typeSelect) this.typeSelect.value = 'governance';
     if (this.descriptionInput) this.descriptionInput.value = '';
@@ -2873,6 +2881,8 @@ class AddProposalModal {
     if (this.startDelayInput) this.startDelayInput.value = '0';
     if (this.gracePeriodInput) this.gracePeriodInput.value = '0';
     this.renderOptions(['yes', 'no']);
+    this.renderProposalFee();
+    this.refreshProposalFee();
     this.renderConfigLoadingState();
     this.refreshSelectedConfigOptions();
     setTimeout(() => {
@@ -2895,6 +2905,7 @@ class AddProposalModal {
     this.networkAccountConfigPromise = null;
     this.protocolConfigPromise = null;
     this.configRequestId = 0;
+    this.proposalFeeRequestId = 0;
   }
 
   getConfigOptions() {
@@ -2914,6 +2925,43 @@ class AddProposalModal {
       this.changesList.innerHTML = '<div class="dao-form-help">Current DAO config values are unavailable. Try again when the network responds.</div>';
     }
     if (this.addChangeButton) this.addChangeButton.disabled = true;
+  }
+
+  renderProposalFee() {
+    if (!this.proposalFeeInput) return;
+
+    if (this.emergencySelect?.value === 'true') {
+      this.proposalFeeInput.value = '0 USD';
+      this.clearValidationError(this.proposalFeeInput);
+      return;
+    }
+
+    if (this.proposalFeeUsdStr === null) {
+      this.proposalFeeInput.value = 'Loading...';
+      return;
+    }
+
+    this.proposalFeeInput.value = this.proposalFeeUsdStr
+      ? `${this.proposalFeeUsdStr} USD`
+      : 'Unavailable';
+  }
+
+  async refreshProposalFee() {
+    const requestId = ++this.proposalFeeRequestId;
+    this.renderProposalFee();
+
+    try {
+      const fee = await this.loadProposalFee();
+      if (!this.isActive() || requestId !== this.proposalFeeRequestId) return;
+      this.proposalFeeUsdStr = fee;
+      this.renderProposalFee();
+    } catch (error) {
+      console.warn('Could not refresh DAO proposal fee:', error);
+      if (!this.isActive() || requestId !== this.proposalFeeRequestId) return;
+      this.proposalFeeUsdStr = '';
+      this.renderProposalFee();
+      showToast('Could not refresh DAO proposal fee', 2500, 'warning');
+    }
   }
 
   createValidationError(message, target) {
@@ -3019,6 +3067,23 @@ class AddProposalModal {
     return options;
   }
 
+  async loadProposalFee() {
+    const account = await this.fetchNetworkAccountConfig();
+    const fee = account?.current?.dao?.proposalFeeUsdStr;
+    if (fee === undefined || fee === null || String(fee).trim() === '') {
+      throw new Error('Missing DAO proposal fee');
+    }
+    return String(fee).trim();
+  }
+
+  async fetchNetworkAccountConfig() {
+    if (!this.networkAccountConfigPromise) {
+      this.networkAccountConfigPromise = queryNetwork(`/account/${NETWORK_ACCOUNT_ID}`)
+        .then((result) => result?.account || null);
+    }
+    return this.networkAccountConfigPromise;
+  }
+
   async fetchConfigSource(proposalType) {
     if (proposalType === 'protocol') {
       if (!this.protocolConfigPromise) {
@@ -3027,11 +3092,7 @@ class AddProposalModal {
       return this.protocolConfigPromise;
     }
 
-    if (!this.networkAccountConfigPromise) {
-      this.networkAccountConfigPromise = queryNetwork(`/account/${NETWORK_ACCOUNT_ID}`)
-        .then((result) => result?.account || null);
-    }
-    return this.networkAccountConfigPromise;
+    return this.fetchNetworkAccountConfig();
   }
 
   getOptionValues() {
@@ -3297,10 +3358,27 @@ class AddProposalModal {
     }
 
     try {
-      this.getValidatedOptions();
-      this.getValidatedChanges();
-      this.getDaysValue(this.startDelayInput, 'Start delay');
-      this.getDaysValue(this.gracePeriodInput, 'Grace period');
+      const options = this.getValidatedOptions();
+      const changes = this.getValidatedChanges();
+      const startDelayDays = this.getDaysValue(this.startDelayInput, 'Start delay');
+      const gracePeriodDays = this.getDaysValue(this.gracePeriodInput, 'Grace period');
+      const emergency = this.emergencySelect?.value === 'true';
+      if (!emergency && !this.proposalFeeUsdStr) {
+        throw this.createValidationError('Current DAO proposal fee is not loaded yet', this.proposalFeeInput);
+      }
+
+      this.currentDraft = buildDaoProposalCreateDraft({
+        from: myAccount?.keys?.address ? longAddress(myAccount.keys.address) : '',
+        displayTitle: title,
+        emergency,
+        proposalType,
+        description,
+        options,
+        changes,
+        proposalFeeUsdStr: this.proposalFeeUsdStr,
+        startDelayDays,
+        gracePeriodDays,
+      });
     } catch (e) {
       this.showValidationError(e);
       return;
