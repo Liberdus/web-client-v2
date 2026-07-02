@@ -3627,7 +3627,6 @@ class ConfirmProposalModal {
       this.renderSection('Cost and State', [
         ['Proposal fee', `${draft.proposalFeeUsdStr || '0'} USD`],
         ['Initial state', 'Review after signing'],
-        ['Next screen', tx.emergency ? 'Review/status with emergency rules' : 'Review/status'],
       ]),
       this.renderSection('Proposal Body', [
         ['Title', draft.displayTitle],
