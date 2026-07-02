@@ -2829,7 +2829,7 @@ class AddProposalModal {
     this.addChangeButton = document.getElementById('addProposalChangeButton');
     this.emergencySelect = document.getElementById('addProposalEmergency');
     this.startDelayInput = document.getElementById('addProposalStartDelayDays');
-    this.gracePeriodInput = document.getElementById('addProposalGracePeriodDays');
+    this.gracePeriodInput = document.getElementById('addProposalGracePeriodMs');
     this.gracePeriodHelp = document.getElementById('addProposalGracePeriodHelp');
     this.submitButton = this.form?.querySelector('button[type="submit"]');
     this.resetConfigCache();
@@ -2858,6 +2858,9 @@ class AddProposalModal {
 
     if (this.emergencySelect) {
       this.emergencySelect.addEventListener('change', () => this.renderProposalFee());
+    }
+    if (this.gracePeriodInput) {
+      this.gracePeriodInput.addEventListener('input', () => this.renderGracePeriodDefaultHint());
     }
 
     if (this.optionsList) {
@@ -2953,14 +2956,24 @@ class AddProposalModal {
   renderGracePeriodDefaultHint() {
     const defaultSummary = this.defaultGracePeriodMs === null
       ? ''
-      : formatDaoDurationHuman(this.defaultGracePeriodMs);
+      : `${formatDaoDurationMsInput(this.defaultGracePeriodMs)} ms (${formatDaoDurationDaysEstimate(this.defaultGracePeriodMs)})`;
+    const currentValue = String(this.gracePeriodInput?.value ?? '').trim();
+    const currentSummary = currentValue
+      ? formatDaoDurationDaysEstimate(currentValue)
+      : '';
     if (this.gracePeriodInput) {
-      this.gracePeriodInput.placeholder = defaultSummary ? 'Custom days' : 'Loading default...';
+      this.gracePeriodInput.placeholder = defaultSummary ? 'Custom ms' : 'Loading default...';
     }
     if (this.gracePeriodHelp) {
-      this.gracePeriodHelp.textContent = defaultSummary
-        ? `Default: ${defaultSummary}`
-        : 'Default: loading...';
+      if (currentSummary && defaultSummary) {
+        this.gracePeriodHelp.textContent = `Estimate: ${currentSummary}. Default: ${defaultSummary}`;
+      } else if (currentSummary) {
+        this.gracePeriodHelp.textContent = `Estimate: ${currentSummary}. Default: loading...`;
+      } else if (defaultSummary) {
+        this.gracePeriodHelp.textContent = `Default: ${defaultSummary}`;
+      } else {
+        this.gracePeriodHelp.textContent = 'Default: loading...';
+      }
     }
   }
 
@@ -2974,7 +2987,7 @@ class AddProposalModal {
       this.proposalFeeUsdStr = proposalFeeUsdStr;
       this.defaultGracePeriodMs = defaultGracePeriodMs;
       if (this.gracePeriodInput && !String(this.gracePeriodInput.value || '').trim()) {
-        this.gracePeriodInput.value = formatDaoDurationDaysInput(defaultGracePeriodMs);
+        this.gracePeriodInput.value = formatDaoDurationMsInput(defaultGracePeriodMs);
       }
       this.renderProposalFee();
       this.renderGracePeriodDefaultHint();
@@ -3100,7 +3113,7 @@ class AddProposalModal {
       throw new Error('Missing DAO proposal fee');
     }
     const graceDuration = Number(account?.current?.dao?.graceDuration);
-    if (!Number.isFinite(graceDuration) || graceDuration < 0) {
+    if (!Number.isInteger(graceDuration) || graceDuration < 0) {
       throw new Error('Missing DAO default grace duration');
     }
     return {
@@ -3313,12 +3326,12 @@ class AddProposalModal {
     return n;
   }
 
-  getDecimalDaysValue(input, label) {
+  getMillisecondsValue(input, label) {
     const value = String(input?.value ?? '').trim();
     if (!value) throw this.createValidationError(`${label} is not loaded yet`, input);
     const n = Number(value);
-    if (!Number.isFinite(n) || n < 0) {
-      throw this.createValidationError(`${label} must be a non-negative number`, input);
+    if (!Number.isInteger(n) || n < 0) {
+      throw this.createValidationError(`${label} must be a non-negative whole number of milliseconds`, input);
     }
     return n;
   }
@@ -3404,7 +3417,7 @@ class AddProposalModal {
       const options = this.getValidatedOptions();
       const changes = this.getValidatedChanges();
       const startDelayDays = this.getDaysValue(this.startDelayInput, 'Start delay');
-      const gracePeriodDays = this.getDecimalDaysValue(this.gracePeriodInput, 'Grace period');
+      const gracePeriodMs = this.getMillisecondsValue(this.gracePeriodInput, 'Grace period');
       const emergency = this.emergencySelect?.value === 'true';
       if (!emergency && !this.proposalFeeUsdStr) {
         throw this.createValidationError('Current DAO proposal fee is not loaded yet', this.proposalFeeInput);
@@ -3420,7 +3433,7 @@ class AddProposalModal {
         changes,
         proposalFeeUsdStr: this.proposalFeeUsdStr,
         startDelayDays,
-        gracePeriodDays,
+        gracePeriodMs,
       });
     } catch (e) {
       this.showValidationError(e);
@@ -3444,30 +3457,22 @@ function formatDaoDurationSummary(ms) {
   return `${n} ms (${human})`;
 }
 
-function formatDaoDurationHuman(ms) {
+function formatDaoDurationMsInput(ms) {
   const n = Number(ms || 0);
-  if (!n) return '0 seconds';
-
-  const units = [
-    [24 * 60 * 60 * 1000, 'day'],
-    [60 * 60 * 1000, 'hour'],
-    [60 * 1000, 'minute'],
-    [1000, 'second'],
-  ];
-
-  const [unitMs, label] = units.find(([size]) => n >= size) || units[units.length - 1];
-  const rawValue = n / unitMs;
-  const value = Number.isInteger(rawValue)
-    ? rawValue
-    : Number(rawValue.toFixed(2));
-  return `${value} ${label}${value === 1 ? '' : 's'}`;
+  if (!Number.isInteger(n) || n < 0) return '';
+  return String(n);
 }
 
-function formatDaoDurationDaysInput(ms) {
-  const days = Number(ms || 0) / (24 * 60 * 60 * 1000);
-  if (!Number.isFinite(days) || days < 0) return '';
-  if (Number.isInteger(days)) return String(days);
-  return String(Number(days.toFixed(10)));
+function formatDaoDurationDaysEstimate(ms) {
+  const n = Number(ms);
+  if (!Number.isFinite(n) || n < 0) return '';
+  const days = n / (24 * 60 * 60 * 1000);
+  const value = days === 0
+    ? '0'
+    : days >= 1
+    ? String(Number(days.toFixed(4)))
+    : String(Number(days.toPrecision(3)));
+  return `about ${value} day${value === '1' ? '' : 's'}`;
 }
 
 function formatDaoConfirmValue(value) {
