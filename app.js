@@ -131,7 +131,6 @@ import {
   bin2hex,
   linkifyUrls,
   escapeHtml,
-  escapeHtmlAttribute,
   debounce,
   withButtonCooldown,
   BUTTON_COOLDOWN_MS,
@@ -2483,25 +2482,9 @@ function formatDaoRowTimestampLabel(ts) {
   }
 }
 
-const DAO_RESULT_STATE_KEYS = new Set(['withheld', 'accepted', 'rejected', 'applied']);
-
 function getDaoUiStateLabel(key) {
   if (key === 'discussion') return 'Review';
   return getDaoStateLabel(key);
-}
-
-function getDaoProposalRouteKey(state) {
-  if (state === 'voting') return 'vote';
-  if (state === 'review') return 'review';
-  if (DAO_RESULT_STATE_KEYS.has(state)) return 'result';
-  return 'details';
-}
-
-function getDaoProposalRouteLabel(routeKey) {
-  if (routeKey === 'vote') return 'vote';
-  if (routeKey === 'review') return 'review';
-  if (routeKey === 'result') return 'result';
-  return 'details';
 }
 
 class DaoModal {
@@ -2761,15 +2744,11 @@ class DaoModal {
       const titleText = p.title || (p.number ? `Proposal #${p.number}` : 'Proposal');
       const title = escapeHtml(titleText);
       const updatedLabel = escapeHtml(formatDaoRowTimestampLabel(p.stateEnteredAt || p.createdAt));
-      const state = getEffectiveDaoState(p);
       const typeLabel = escapeHtml(getDaoTypeLabel(p.proposalType || p.type) || 'Proposal');
-      const routeKey = getDaoProposalRouteKey(state);
-      const routeLabel = getDaoProposalRouteLabel(routeKey);
 
       li.tabIndex = 0;
       li.setAttribute('role', 'button');
-      li.dataset.daoRoute = routeKey;
-      li.setAttribute('aria-label', `Open ${routeLabel} for ${titleText}`);
+      li.setAttribute('aria-label', `Open ${titleText}`);
       li.innerHTML = `
         <div class="dao-row-content">
           <div class="dao-row-title">${title}</div>
@@ -2812,6 +2791,10 @@ function getPathValue(source, path) {
     if (value == null || typeof value !== 'object') return undefined;
     return value[key];
   }, source);
+}
+
+function escapeDaoFormAttribute(value) {
+  return escapeHtml(value).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 class AddProposalModal {
@@ -2878,7 +2861,6 @@ class AddProposalModal {
     this.modal.classList.add('active');
     enterFullscreen();
     this.resetConfigCache();
-    this.currentDraft = null;
     this.proposalFeeUsdStr = null;
     this.defaultGracePeriodMs = null;
     if (this.titleInput) this.titleInput.value = '';
@@ -3159,7 +3141,7 @@ class AddProposalModal {
         <div class="dao-form-row" data-dao-option-row>
           <div class="dao-form-row-controls">
             <span class="dao-form-index">${index + 1}</span>
-            <input id="${id}" class="form-control" data-dao-option-input type="text" maxlength="80" value="${escapeHtmlAttribute(value)}" aria-label="Option ${index + 1}" required />
+            <input id="${id}" class="form-control" data-dao-option-input type="text" maxlength="80" value="${escapeDaoFormAttribute(value)}" aria-label="Option ${index + 1}" required />
             <button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-option="${index}" ${disabled}>Remove</button>
           </div>
         </div>
@@ -3248,7 +3230,7 @@ class AddProposalModal {
           </div>
           <div class="dao-form-change-line">
             <label for="${currentId}">Current</label>
-            <input id="${currentId}" class="form-control dao-form-current-value" type="text" value="${escapeHtml(String(option.current))}" readonly />
+            <input id="${currentId}" class="form-control dao-form-current-value" type="text" value="${escapeDaoFormAttribute(option.current)}" readonly />
           </div>
           <div class="dao-form-change-line">
             <label for="${proposedId}">Enter</label>
@@ -3273,7 +3255,7 @@ class AddProposalModal {
 
     const step = option.valueType === 'integer' ? '1' : 'any';
     const inputmode = option.valueType === 'integer' ? 'numeric' : 'decimal';
-    return `<input id="${id}" class="form-control" data-dao-change-value type="number" step="${step}" inputmode="${inputmode}" value="${escapeHtmlAttribute(value)}" required />`;
+    return `<input id="${id}" class="form-control" data-dao-change-value type="number" step="${step}" inputmode="${inputmode}" value="${escapeDaoFormAttribute(value)}" required />`;
   }
 
   addParameterChangeRow() {
@@ -3424,7 +3406,7 @@ class AddProposalModal {
         throw this.createValidationError('Current DAO proposal fee is not loaded yet', this.proposalFeeInput);
       }
 
-      this.currentDraft = buildDaoProposalCreateDraft({
+      const draft = buildDaoProposalCreateDraft({
         from: myAccount?.keys?.address ? longAddress(myAccount.keys.address) : '',
         displayTitle: title,
         emergency,
@@ -3436,12 +3418,11 @@ class AddProposalModal {
         startDelayDays,
         gracePeriodMs,
       });
+      confirmProposalModal.open(draft);
     } catch (e) {
       this.showValidationError(e);
       return;
     }
-
-    confirmProposalModal.open(this.currentDraft);
   }
 }
 
