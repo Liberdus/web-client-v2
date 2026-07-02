@@ -2844,7 +2844,6 @@ class AddProposalModal {
 
     if (this.typeSelect) {
       this.typeSelect.addEventListener('change', () => {
-        this.renderParameterChanges();
         this.refreshSelectedConfigOptions();
       });
     }
@@ -2870,7 +2869,7 @@ class AddProposalModal {
     if (this.startDelayInput) this.startDelayInput.value = '0';
     if (this.gracePeriodInput) this.gracePeriodInput.value = '0';
     this.renderOptions(['yes', 'no']);
-    this.renderParameterChanges([{ key: this.getConfigOptions()[0]?.key || '', value: '' }]);
+    this.renderConfigLoadingState();
     this.refreshSelectedConfigOptions();
     setTimeout(() => {
       this.titleInput?.focus();
@@ -2896,7 +2895,21 @@ class AddProposalModal {
 
   getConfigOptions() {
     const proposalType = this.typeSelect?.value || 'governance';
-    return this.configOptionsByType?.[proposalType] || DAO_CONFIG_CHANGE_OPTIONS[proposalType] || [];
+    return this.configOptionsByType?.[proposalType] || [];
+  }
+
+  renderConfigLoadingState() {
+    if (this.changesList) {
+      this.changesList.innerHTML = '<div class="dao-form-help">Loading current DAO config values...</div>';
+    }
+    if (this.addChangeButton) this.addChangeButton.disabled = true;
+  }
+
+  renderConfigUnavailableState() {
+    if (this.changesList) {
+      this.changesList.innerHTML = '<div class="dao-form-help">Current DAO config values are unavailable. Try again when the network responds.</div>';
+    }
+    if (this.addChangeButton) this.addChangeButton.disabled = true;
   }
 
   createValidationError(message, target) {
@@ -2943,14 +2956,21 @@ class AddProposalModal {
   async refreshSelectedConfigOptions() {
     const proposalType = this.typeSelect?.value || 'governance';
     const requestId = ++this.configRequestId;
+    this.renderConfigLoadingState();
 
-    await this.loadConfigOptions(proposalType);
+    const options = await this.loadConfigOptions(proposalType);
 
     if (!this.isActive() || requestId !== this.configRequestId || this.typeSelect?.value !== proposalType) {
       return;
     }
 
-    this.renderParameterChanges();
+    if (options.length === 0) {
+      this.renderConfigUnavailableState();
+      return;
+    }
+
+    if (this.addChangeButton) this.addChangeButton.disabled = false;
+    this.renderParameterChanges([{ key: options[0].key, value: '' }]);
   }
 
   async loadConfigOptions(proposalType) {
@@ -2965,7 +2985,7 @@ class AddProposalModal {
       .catch((error) => {
         console.warn(`Could not refresh DAO ${proposalType} config values:`, error);
         showToast('Could not refresh current DAO config values', 2500, 'warning');
-        return DAO_CONFIG_CHANGE_OPTIONS[proposalType] || [];
+        return [];
       })
       .finally(() => {
         delete this.configOptionPromises[proposalType];
@@ -2981,10 +3001,18 @@ class AddProposalModal {
     const source = await this.fetchConfigSource(proposalType);
     if (!source) throw new Error(`Missing ${proposalType} config source`);
 
-    return catalog.map((option) => {
-      const current = getPathValue(source, option.path);
-      return current === undefined ? option : { ...option, current };
-    });
+    const options = catalog
+      .map((option) => {
+        const current = getPathValue(source, option.path);
+        return current === undefined ? null : { ...option, current };
+      })
+      .filter(Boolean);
+
+    if (options.length === 0) {
+      throw new Error(`No current ${proposalType} config values found`);
+    }
+
+    return options;
   }
 
   async fetchConfigSource(proposalType) {
@@ -3142,7 +3170,10 @@ class AddProposalModal {
     const nextOption = this.getConfigOptions().find((option) => !usedKeys.has(option.key));
 
     if (!nextOption) {
-      showToast('All available configs are already selected', 2500, 'warning');
+      const message = this.getConfigOptions().length === 0
+        ? 'Current DAO config values are not loaded yet'
+        : 'All available configs are already selected';
+      showToast(message, 2500, 'warning');
       return;
     }
 
@@ -3205,6 +3236,9 @@ class AddProposalModal {
   getValidatedChanges() {
     const rowEls = Array.from(this.changesList?.querySelectorAll('[data-dao-change-row]') || []);
     const rows = this.getParameterChanges();
+    if (this.getConfigOptions().length === 0) {
+      throw this.createValidationError('Current DAO config values are not loaded yet', this.changesList);
+    }
     if (rows.length === 0) throw this.createValidationError('Add at least one parameter change', this.changesList);
 
     const seenKeys = new Set();
