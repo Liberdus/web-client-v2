@@ -801,6 +801,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // DAO Modals
   daoModal.load();
   addProposalModal.load();
+  confirmProposalModal.load();
   proposalInfoModal.load();
 
   // Settings Modal
@@ -3384,11 +3385,152 @@ class AddProposalModal {
       return;
     }
 
-    showToast('Proposal draft ready. Confirmation is not connected yet.', 3000, 'info');
+    confirmProposalModal.open(this.currentDraft);
   }
 }
 
 const addProposalModal = new AddProposalModal();
+
+function formatDaoDraftDuration(ms, zeroLabel) {
+  const n = Number(ms || 0);
+  if (!n) return zeroLabel;
+  const dayMs = 24 * 60 * 60 * 1000;
+  const days = n / dayMs;
+  if (Number.isInteger(days)) return `${days} day${days === 1 ? '' : 's'}`;
+  return `${n} ms`;
+}
+
+function formatDaoConfirmValue(value) {
+  if (value === undefined || value === null || value === '') return '—';
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'object') return stringify(value);
+  return String(value);
+}
+
+class ConfirmProposalModal {
+  load() {
+    this.modal = document.getElementById('confirmProposalModal');
+    this.closeButton = document.getElementById('closeConfirmProposalModal');
+    this.backButton = document.getElementById('backConfirmProposal');
+    this.signButton = document.getElementById('signConfirmProposal');
+    this.content = document.getElementById('confirmProposalContent');
+    this.currentDraft = null;
+
+    if (this.closeButton) this.closeButton.addEventListener('click', () => this.close());
+    if (this.backButton) this.backButton.addEventListener('click', () => this.close());
+    if (this.signButton) {
+      this.signButton.addEventListener('click', () => {
+        showToast('Signing is not connected yet', 3000, 'info');
+      });
+    }
+  }
+
+  open(draft) {
+    this.currentDraft = draft;
+    this.render();
+    this.modal.classList.add('active');
+    enterFullscreen();
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+    enterFullscreen();
+  }
+
+  isActive() {
+    return this.modal.classList.contains('active');
+  }
+
+  render() {
+    if (!this.content) return;
+    const draft = this.currentDraft;
+    if (!draft?.transaction?.from) {
+      this.content.innerHTML = '<div class="dao-confirm-empty">Proposal draft is unavailable.</div>';
+      return;
+    }
+
+    const tx = draft.transaction;
+    const proposalType = tx.proposalType;
+    const changes = Array.isArray(tx[proposalType]?.changes) ? tx[proposalType].changes : [];
+
+    this.content.innerHTML = [
+      this.renderSection('Cost and State', [
+        ['Proposal fee', `${draft.proposalFeeUsdStr || '0'} USD`],
+        ['Initial state', 'Review after signing'],
+        ['Next screen', tx.emergency ? 'Review/status with emergency rules' : 'Review/status'],
+      ]),
+      this.renderSection('Proposal Body', [
+        ['Title', draft.displayTitle],
+        ['Type', getDaoTypeLabel(proposalType)],
+        ['Emergency', tx.emergency ? 'Yes' : 'No'],
+        ['Description', tx.description],
+        ['Options', tx.options],
+        ['Review starts', formatDaoDraftDuration(draft.startDelayMs, 'Now')],
+        ['Grace period', tx.gracePeriod ? formatDaoDraftDuration(tx.gracePeriod, 'Custom') : 'Network default'],
+      ]),
+      this.renderChanges(changes),
+      this.renderSection('Transaction Fields', [
+        ['from', tx.from],
+        ['emergency', tx.emergency],
+        ['proposalType', tx.proposalType],
+        ['description', tx.description],
+        ['options', tx.options],
+        [`${proposalType}.changes`, `${changes.length} change${changes.length === 1 ? '' : 's'}`],
+        ['gracePeriod', tx.gracePeriod],
+      ]),
+      this.renderSection('Generated at Signing', [
+        ['proposalId', 'Generated when signing'],
+        ['metaId', 'Generated when signing'],
+        ['timestamp', 'Generated when signing'],
+        ['signature', 'Generated when signing'],
+      ]),
+      '<div class="dao-confirm-help">The proposal fee is derived from DAO params and seeds the voter reward pool for regular proposals. This screen does not submit yet.</div>',
+    ].join('');
+  }
+
+  renderSection(title, rows) {
+    const rowHtml = rows
+      .map(([label, value]) => `
+        <div class="dao-confirm-row">
+          <span class="dao-confirm-label">${escapeHtml(label)}</span>
+          <strong class="dao-confirm-value">${escapeHtml(formatDaoConfirmValue(value))}</strong>
+        </div>
+      `)
+      .join('');
+
+    return `
+      <section class="dao-confirm-section">
+        <h3>${escapeHtml(title)}</h3>
+        ${rowHtml}
+      </section>
+    `;
+  }
+
+  renderChanges(changes) {
+    const changeRows = changes.length
+      ? changes.map((change, index) => `
+          <div class="dao-confirm-change">
+            <div class="dao-confirm-change-title">Change ${index + 1}: ${escapeHtml(change.key)}</div>
+            <div class="dao-confirm-change-grid">
+              <span>Current</span>
+              <strong>${escapeHtml(formatDaoConfirmValue(change.current))}</strong>
+              <span>Proposed</span>
+              <strong>${escapeHtml(formatDaoConfirmValue(change.value))}</strong>
+            </div>
+          </div>
+        `).join('')
+      : '<div class="dao-confirm-empty">No parameter changes included.</div>';
+
+    return `
+      <section class="dao-confirm-section">
+        <h3>Parameter Changes</h3>
+        ${changeRows}
+      </section>
+    `;
+  }
+}
+
+const confirmProposalModal = new ConfirmProposalModal();
 
 class ProposalInfoModal {
   load() {
@@ -32464,6 +32606,9 @@ function closeTopModal(topModal){
       break;
     case 'addProposalModal':
       addProposalModal.close();
+      break;
+    case 'confirmProposalModal':
+      confirmProposalModal.close();
       break;
     case 'proposalInfoModal':
       proposalInfoModal.close();
