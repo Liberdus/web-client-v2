@@ -112,6 +112,16 @@ function normalizeDaoDraftDayCount(value, label) {
   return n;
 }
 
+function normalizeDaoDraftDurationDayCount(value, label) {
+  const text = String(value ?? '').trim();
+  if (!text) throw new Error(`${label} is required`);
+  const n = Number(text);
+  if (!Number.isFinite(n) || n < 0) {
+    throw new Error(`${label} must be a non-negative number`);
+  }
+  return n;
+}
+
 function normalizeDaoDraftChanges(changes) {
   if (!Array.isArray(changes) || changes.length === 0) {
     throw new Error('At least one DAO parameter change is required');
@@ -161,7 +171,6 @@ export function buildDaoProposalCreateDraft({
   proposalFeeUsdStr,
   startDelayDays,
   gracePeriodDays,
-  defaultGracePeriodMs,
 } = {}) {
   const safeProposalType = requireDaoDraftString(proposalType, 'DAO proposal type');
   if (!DAO_CONFIG_CHANGE_OPTIONS[safeProposalType]) {
@@ -171,19 +180,7 @@ export function buildDaoProposalCreateDraft({
   const isEmergency = emergency === true;
   const feeUsdStr = isEmergency ? '0' : requireDaoDraftString(proposalFeeUsdStr, 'DAO proposal fee');
   const startDelayMs = normalizeDaoDraftDayCount(startDelayDays, 'Review start delay') * DAO_PROPOSAL_DAY_MS;
-  const usesDefaultGracePeriod = gracePeriodDays === undefined
-    || gracePeriodDays === null
-    || String(gracePeriodDays).trim() === '';
-  const gracePeriodMs = usesDefaultGracePeriod
-    ? 0
-    : normalizeDaoDraftDayCount(gracePeriodDays, 'Grace period') * DAO_PROPOSAL_DAY_MS;
-  if (usesDefaultGracePeriod && (defaultGracePeriodMs === undefined || defaultGracePeriodMs === null)) {
-    throw new Error('Network default grace period is required');
-  }
-  const networkDefaultGracePeriodMs = requireDaoNonNegativeNumber(
-    defaultGracePeriodMs ?? 0,
-    'Network default grace period'
-  );
+  const gracePeriodMs = normalizeDaoDraftDurationDayCount(gracePeriodDays, 'Grace period') * DAO_PROPOSAL_DAY_MS;
   const safeOptions = normalizeDaoDraftOptions(options);
   const safeChanges = normalizeDaoDraftChanges(changes);
 
@@ -197,15 +194,12 @@ export function buildDaoProposalCreateDraft({
     [safeProposalType]: { changes: safeChanges },
   };
 
-  if (!usesDefaultGracePeriod) {
-    transaction.gracePeriod = gracePeriodMs;
-  }
+  transaction.gracePeriod = gracePeriodMs;
 
   return {
     displayTitle: requireDaoDraftString(displayTitle, 'DAO proposal title'),
     proposalFeeUsdStr: feeUsdStr,
     startDelayMs,
-    defaultGracePeriodMs: networkDefaultGracePeriodMs,
     transaction,
   };
 }
@@ -230,10 +224,7 @@ export function buildDaoProposalCreateTransaction({
   const txTimestamp = requireDaoNonNegativeNumber(timestamp, 'DAO proposal timestamp');
   if (txTimestamp <= 0) throw new Error('DAO proposal timestamp is required');
   const startDelayMs = requireDaoNonNegativeNumber(draft.startDelayMs ?? 0, 'Review start delay');
-  const gracePeriod = requireDaoNonNegativeNumber(
-    draftTx.gracePeriod ?? draft.defaultGracePeriodMs,
-    'Grace period'
-  );
+  const gracePeriod = requireDaoNonNegativeNumber(draftTx.gracePeriod, 'Grace period');
 
   const transaction = {
     ...draftTx,

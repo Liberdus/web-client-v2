@@ -2955,7 +2955,7 @@ class AddProposalModal {
       ? ''
       : formatDaoDurationHuman(this.defaultGracePeriodMs);
     if (this.gracePeriodInput) {
-      this.gracePeriodInput.placeholder = 'Enter to change default';
+      this.gracePeriodInput.placeholder = defaultSummary ? 'Custom days' : 'Loading default...';
     }
     if (this.gracePeriodHelp) {
       this.gracePeriodHelp.textContent = defaultSummary
@@ -2973,6 +2973,9 @@ class AddProposalModal {
       if (!this.isActive() || requestId !== this.proposalFeeRequestId) return;
       this.proposalFeeUsdStr = proposalFeeUsdStr;
       this.defaultGracePeriodMs = defaultGracePeriodMs;
+      if (this.gracePeriodInput && !String(this.gracePeriodInput.value || '').trim()) {
+        this.gracePeriodInput.value = formatDaoDurationDaysInput(defaultGracePeriodMs);
+      }
       this.renderProposalFee();
       this.renderGracePeriodDefaultHint();
     } catch (error) {
@@ -2980,6 +2983,7 @@ class AddProposalModal {
       if (!this.isActive() || requestId !== this.proposalFeeRequestId) return;
       this.proposalFeeUsdStr = '';
       this.defaultGracePeriodMs = null;
+      if (this.gracePeriodInput) this.gracePeriodInput.value = '';
       this.renderProposalFee();
       this.renderGracePeriodDefaultHint();
       showToast('Could not refresh DAO proposal fee', 2500, 'warning');
@@ -3309,12 +3313,12 @@ class AddProposalModal {
     return n;
   }
 
-  getOptionalDaysValue(input, label) {
+  getDecimalDaysValue(input, label) {
     const value = String(input?.value ?? '').trim();
-    if (!value) return null;
+    if (!value) throw this.createValidationError(`${label} is not loaded yet`, input);
     const n = Number(value);
-    if (!Number.isInteger(n) || n < 0) {
-      throw this.createValidationError(`${label} must be a non-negative whole number`, input);
+    if (!Number.isFinite(n) || n < 0) {
+      throw this.createValidationError(`${label} must be a non-negative number`, input);
     }
     return n;
   }
@@ -3400,13 +3404,10 @@ class AddProposalModal {
       const options = this.getValidatedOptions();
       const changes = this.getValidatedChanges();
       const startDelayDays = this.getDaysValue(this.startDelayInput, 'Start delay');
-      const gracePeriodDays = this.getOptionalDaysValue(this.gracePeriodInput, 'Grace period');
+      const gracePeriodDays = this.getDecimalDaysValue(this.gracePeriodInput, 'Grace period');
       const emergency = this.emergencySelect?.value === 'true';
       if (!emergency && !this.proposalFeeUsdStr) {
         throw this.createValidationError('Current DAO proposal fee is not loaded yet', this.proposalFeeInput);
-      }
-      if (gracePeriodDays === null && this.defaultGracePeriodMs === null) {
-        throw this.createValidationError('Current DAO default grace period is not loaded yet', this.gracePeriodInput);
       }
 
       this.currentDraft = buildDaoProposalCreateDraft({
@@ -3420,7 +3421,6 @@ class AddProposalModal {
         proposalFeeUsdStr: this.proposalFeeUsdStr,
         startDelayDays,
         gracePeriodDays,
-        defaultGracePeriodMs: this.defaultGracePeriodMs,
       });
     } catch (e) {
       this.showValidationError(e);
@@ -3461,6 +3461,13 @@ function formatDaoDurationHuman(ms) {
     ? rawValue
     : Number(rawValue.toFixed(2));
   return `${value} ${label}${value === 1 ? '' : 's'}`;
+}
+
+function formatDaoDurationDaysInput(ms) {
+  const days = Number(ms || 0) / (24 * 60 * 60 * 1000);
+  if (!Number.isFinite(days) || days < 0) return '';
+  if (Number.isInteger(days)) return String(days);
+  return String(Number(days.toFixed(10)));
 }
 
 function formatDaoConfirmValue(value) {
@@ -3607,9 +3614,7 @@ class ConfirmProposalModal {
     const tx = draft.transaction;
     const proposalType = tx.proposalType;
     const changes = Array.isArray(tx[proposalType]?.changes) ? tx[proposalType].changes : [];
-    const hasCustomGracePeriod = tx.gracePeriod !== undefined;
-    const effectiveGracePeriod = tx.gracePeriod ?? draft.defaultGracePeriodMs ?? 0;
-    const gracePeriodSummary = formatDaoDurationSummary(effectiveGracePeriod);
+    const gracePeriodSummary = formatDaoDurationSummary(tx.gracePeriod);
 
     this.setTitle('Review Proposal');
     this.content.innerHTML = [
@@ -3625,7 +3630,7 @@ class ConfirmProposalModal {
         ['Description', tx.description],
         ['Options', tx.options],
         ['Review starts', formatDaoDurationSummary(draft.startDelayMs)],
-        ['Grace period', hasCustomGracePeriod ? gracePeriodSummary : `Network default (${gracePeriodSummary})`],
+        ['Grace period', gracePeriodSummary],
       ]),
       this.renderChanges(changes),
       '<div class="dao-confirm-help">The proposal fee is derived from DAO params and seeds the voter reward pool for regular proposals. Signing submits this proposal for review.</div>',

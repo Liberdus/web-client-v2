@@ -2024,6 +2024,12 @@ input[type='file'].form-control::file-selector-button {
   }
 }
 
+@media (max-width: 560px) {
+  #addProposalModal .dao-form-grid--timing {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 #confirmProposalModal .form-container {
   padding-left: 8px;
   padding-right: 8px;
