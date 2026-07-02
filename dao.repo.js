@@ -152,6 +152,7 @@ export function buildDaoProposalCreateDraft({
     from: requireDaoDraftString(from, 'DAO proposal sender'),
     emergency: isEmergency,
     proposalType: safeProposalType,
+    // TODO: Add title here when DaoProposalCreate supports a server title field.
     description: requireDaoDraftString(description, 'DAO proposal description'),
     options: safeOptions,
     [safeProposalType]: { changes: safeChanges },
