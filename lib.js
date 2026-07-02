@@ -270,6 +270,10 @@ export function escapeHtml(str) {
     return div.innerHTML;
 }
 
+export function escapeHtmlAttribute(str) {
+    return escapeHtml(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 export const BUTTON_COOLDOWN_MS = 2000;
 export const FAUCET_COOLDOWN_MS = 5000;
 

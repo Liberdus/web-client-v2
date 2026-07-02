@@ -1922,25 +1922,45 @@ input[type='file'].form-control::file-selector-button {
 
 #addProposalModal .dao-form-add-button::before {
   align-items: center;
-  background: var(--primary-color);
+  background-color: var(--primary-tint-60);
   border-radius: 999px;
-  color: var(--button-text);
+  border: none;
+  box-shadow: var(--shadow-primary);
+  color: var(--text-color);
   content: "+";
   display: inline-flex;
   font-size: 16px;
+  font-weight: 400;
   height: 22px;
   justify-content: center;
   line-height: 1;
+  padding: 0;
   width: 22px;
 }
 
 #addProposalModal .dao-form-remove-button {
+  background: #f6dddd;
+  border: 1px solid #e8bbbb;
   border-radius: 8px;
+  color: #8f3d3d;
   flex: 0 0 auto;
   font-size: 12px;
-  min-height: 32px;
-  padding: 6px 9px;
+  height: 38px;
+  min-height: 38px;
+  padding: 8px 10px;
   width: auto;
+}
+
+#addProposalModal .dao-form-remove-button:not(:disabled):hover {
+  background: #efcccc;
+  color: #7a3030;
+  opacity: 1;
+}
+
+#addProposalModal .dao-form-remove-button:disabled {
+  background: #f3e1e1;
+  border-color: #ead0d0;
+  color: #a66a6a;
 }
 
 #addProposalModal .dao-form-row-controls {
@@ -6918,24 +6938,37 @@ small {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
 }
 
 #daoModal #daoAddProposalButton {
-  background-color: var(--primary-color);
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  color: var(--button-text);
+  background-color: var(--primary-tint-60);
+  border: none;
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px) + 16px);
+  box-shadow: var(--shadow-primary);
+  color: var(--text-color);
   flex: 0 0 auto;
   font-size: 24px;
-  font-weight: var(--font-weight-medium);
+  font-weight: 400;
   height: 56px;
   line-height: 1;
   min-height: 56px;
   min-width: 56px;
+  padding: 0;
   position: absolute;
   right: 16px;
   width: 56px;
   z-index: 3;
+}
+
+@media (min-width: 769px) {
+  #daoModal #daoProposalList {
+    padding-bottom: 176px;
+  }
+
+  #daoModal #daoAddProposalButton {
+    bottom: 120px;
+  }
 }
 
 #daoModal .dao-proposal-row {

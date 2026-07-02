@@ -131,6 +131,7 @@ import {
   bin2hex,
   linkifyUrls,
   escapeHtml,
+  escapeHtmlAttribute,
   debounce,
   withButtonCooldown,
   BUTTON_COOLDOWN_MS,
@@ -3158,7 +3159,7 @@ class AddProposalModal {
         <div class="dao-form-row" data-dao-option-row>
           <div class="dao-form-row-controls">
             <span class="dao-form-index">${index + 1}</span>
-            <input id="${id}" class="form-control" data-dao-option-input type="text" maxlength="80" value="${escapeHtml(value)}" aria-label="Option ${index + 1}" required />
+            <input id="${id}" class="form-control" data-dao-option-input type="text" maxlength="80" value="${escapeHtmlAttribute(value)}" aria-label="Option ${index + 1}" required />
             <button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-option="${index}" ${disabled}>Remove</button>
           </div>
         </div>
@@ -3272,7 +3273,7 @@ class AddProposalModal {
 
     const step = option.valueType === 'integer' ? '1' : 'any';
     const inputmode = option.valueType === 'integer' ? 'numeric' : 'decimal';
-    return `<input id="${id}" class="form-control" data-dao-change-value type="number" step="${step}" inputmode="${inputmode}" value="${escapeHtml(value)}" required />`;
+    return `<input id="${id}" class="form-control" data-dao-change-value type="number" step="${step}" inputmode="${inputmode}" value="${escapeHtmlAttribute(value)}" required />`;
   }
 
   addParameterChangeRow() {
