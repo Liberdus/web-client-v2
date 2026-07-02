@@ -1,3 +1,6 @@
+import { hashBytes } from './crypto.js';
+import { utf82bin } from './lib.js';
+
 // Shared DAO constants and light helper functions.
 // Kept here so UI + repo can share one import surface.
 
@@ -70,6 +73,7 @@ export const DAO_STATES = [
 
 const DAO_PROPOSAL_DAY_MS = 24 * 60 * 60 * 1000;
 const DAO_AFFIRMATIVE_OPTION_STRINGS = ['yes', 'accept', 'approve'];
+const DAO_PROPOSALS_META_ID_STRING = 'dao proposals meta';
 
 export function getDaoTypeLabel(typeKey) {
   return DAO_TYPE_OPTIONS.find((t) => t.key === typeKey)?.label || typeKey || '';
@@ -90,6 +94,14 @@ function requireDaoDraftString(value, label) {
   const text = String(value ?? '').trim();
   if (!text) throw new Error(`${label} is required`);
   return text;
+}
+
+function requireDaoNonNegativeNumber(value, label) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) {
+    throw new Error(`${label} must be a non-negative number`);
+  }
+  return n;
 }
 
 function normalizeDaoDraftDayCount(value, label) {
@@ -122,6 +134,20 @@ function normalizeDaoDraftOptions(options) {
     throw new Error('The first DAO proposal option must be yes, accept, or approve');
   }
   return safeOptions;
+}
+
+function hashDaoString(value) {
+  return hashBytes(utf82bin(value));
+}
+
+export function getDaoProposalsMetaId() {
+  return hashDaoString(DAO_PROPOSALS_META_ID_STRING);
+}
+
+export function getDaoProposalAccountId(proposalNumber) {
+  const n = normalizeDaoPositiveInteger(proposalNumber);
+  if (!n) throw new Error('DAO proposal number must be a positive integer');
+  return hashDaoString(`dao proposal #${n}`);
 }
 
 export function buildDaoProposalCreateDraft({
@@ -168,6 +194,45 @@ export function buildDaoProposalCreateDraft({
     startDelayMs,
     transaction,
   };
+}
+
+export function buildDaoProposalCreateTransaction({
+  draft,
+  timestamp,
+  networkId,
+  proposalNumber,
+} = {}) {
+  const draftTx = draft?.transaction;
+  if (!draftTx || typeof draftTx !== 'object') {
+    throw new Error('DAO proposal draft is required');
+  }
+
+  const proposalType = requireDaoDraftString(draftTx.proposalType, 'DAO proposal type');
+  if (!DAO_CONFIG_CHANGE_OPTIONS[proposalType]) {
+    throw new Error('DAO proposal type is not supported');
+  }
+
+  const proposalId = getDaoProposalAccountId(proposalNumber);
+  const txTimestamp = requireDaoNonNegativeNumber(timestamp, 'DAO proposal timestamp');
+  if (txTimestamp <= 0) throw new Error('DAO proposal timestamp is required');
+  const startDelayMs = requireDaoNonNegativeNumber(draft.startDelayMs ?? 0, 'Review start delay');
+  const gracePeriod = requireDaoNonNegativeNumber(draftTx.gracePeriod ?? 0, 'Grace period');
+
+  const transaction = {
+    ...draftTx,
+    type: 'dao_proposal_create',
+    timestamp: txTimestamp,
+    networkId: requireDaoDraftString(networkId, 'Network ID'),
+    proposalId,
+    metaId: getDaoProposalsMetaId(),
+    gracePeriod,
+  };
+
+  if (startDelayMs > 0) {
+    transaction.startTime = txTimestamp + startDelayMs;
+  }
+
+  return transaction;
 }
 
 // In-memory DAO repository.
@@ -531,8 +596,54 @@ export const daoRepo = {
     return storeToUiList(_store, groupKey || 'active');
   },
 
-  async createProposal() {
-    throw new Error('Proposal creation is not connected yet');
+  async createProposal({ draft, timestamp, networkId, submitTransaction } = {}) {
+    let transaction = null;
+    let proposalNumber = 0;
+    let proposalStoreId = '';
+
+    try {
+      if (typeof submitTransaction !== 'function') {
+        throw new Error('DAO proposal submit handler is required');
+      }
+
+      const store = await refreshInternal({ force: true });
+      proposalNumber = normalizeDaoPositiveInteger(store?.meta?.count) + 1;
+      transaction = buildDaoProposalCreateTransaction({
+        draft,
+        timestamp,
+        networkId,
+        proposalNumber,
+      });
+      proposalStoreId = daoProposalId(proposalNumber, transaction.proposalId);
+
+      const response = await submitTransaction(transaction);
+      if (!response?.result?.success) {
+        return {
+          ok: false,
+          error: response?.result?.reason || 'Proposal submission failed',
+          response,
+          proposalNumber,
+          proposalStoreId,
+          transaction,
+        };
+      }
+
+      return {
+        ok: true,
+        response,
+        proposalNumber,
+        proposalStoreId,
+        transaction,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        error: error?.message || 'Proposal submission failed',
+        proposalNumber,
+        proposalStoreId,
+        transaction,
+      };
+    }
   },
 
   async castVote() {

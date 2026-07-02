@@ -3418,30 +3418,120 @@ class ConfirmProposalModal {
     this.signButton = document.getElementById('signConfirmProposal');
     this.content = document.getElementById('confirmProposalContent');
     this.currentDraft = null;
+    this.isSubmitting = false;
+    this.signButtonLabel = this.signButton?.textContent || 'Sign Proposal';
 
     if (this.closeButton) this.closeButton.addEventListener('click', () => this.close());
     if (this.backButton) this.backButton.addEventListener('click', () => this.close());
-    if (this.signButton) {
-      this.signButton.addEventListener('click', () => {
-        showToast('Signing is not connected yet', 3000, 'info');
-      });
-    }
+    if (this.signButton) this.signButton.addEventListener('click', () => this.handleSign());
   }
 
   open(draft) {
     this.currentDraft = draft;
+    this.setSubmitting(false);
     this.render();
     this.modal.classList.add('active');
     enterFullscreen();
   }
 
   close() {
+    if (this.isSubmitting) return;
     this.modal.classList.remove('active');
     enterFullscreen();
   }
 
   isActive() {
     return this.modal.classList.contains('active');
+  }
+
+  setSubmitting(isSubmitting) {
+    this.isSubmitting = Boolean(isSubmitting);
+    if (this.closeButton) this.closeButton.disabled = this.isSubmitting;
+    if (this.backButton) this.backButton.disabled = this.isSubmitting;
+    if (this.signButton) {
+      this.signButton.disabled = this.isSubmitting;
+      this.signButton.textContent = this.isSubmitting ? 'Signing...' : this.signButtonLabel;
+    }
+  }
+
+  async handleSign() {
+    if (this.isSubmitting) return;
+    if (!this.currentDraft?.transaction?.from) {
+      showToast('Proposal draft is unavailable', 3000, 'warning');
+      return;
+    }
+
+    this.setSubmitting(true);
+    let loadingToastId = showToast('Submitting proposal...', 0, 'loading');
+
+    try {
+      const result = await daoRepo.createProposal({
+        draft: this.currentDraft,
+        timestamp: getTransactionTimestamp(),
+        networkId: network?.netid || '',
+        submitTransaction: async (transaction) => {
+          if (!myAccount?.keys) throw new Error('Wallet keys unavailable');
+          const txid = await signObj(transaction, myAccount.keys);
+          return injectTx(transaction, txid);
+        },
+      });
+
+      if (!result.ok) {
+        if (loadingToastId) {
+          hideToast(loadingToastId);
+          loadingToastId = null;
+        }
+        const message = result.response
+          ? 'Proposal was not submitted. You can retry or go back to edit.'
+          : result.error || 'Proposal submission failed';
+        showToast(message, 3000, 'warning');
+        return;
+      }
+
+      const proposalReady = await this.refreshSubmittedProposal(result.proposalStoreId);
+      if (loadingToastId) {
+        hideToast(loadingToastId);
+        loadingToastId = null;
+      }
+      this.setSubmitting(false);
+      this.close();
+      addProposalModal.close();
+
+      if (proposalReady) {
+        showToast('Proposal submitted', 3000, 'success');
+        proposalInfoModal.open(result.proposalStoreId);
+      } else {
+        showToast('Proposal submitted. It may take a moment to appear in the DAO list.', 5000, 'success');
+      }
+    } catch (error) {
+      console.warn('Failed to submit DAO proposal:', error);
+      if (loadingToastId) {
+        hideToast(loadingToastId);
+        loadingToastId = null;
+      }
+      showToast(error?.message || 'Proposal submission failed', 3000, 'warning');
+    } finally {
+      if (loadingToastId) hideToast(loadingToastId);
+      if (this.isActive()) this.setSubmitting(false);
+    }
+  }
+
+  async refreshSubmittedProposal(proposalStoreId) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await daoRepo.refresh({ force: true });
+        if (daoModal?.isActive?.()) daoModal.render();
+        if (daoRepo.getProposalById(proposalStoreId)) return true;
+      } catch (error) {
+        console.warn('Failed to refresh DAO proposals after submit:', error);
+      }
+
+      if (attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
+
+    return false;
   }
 
   render() {
@@ -3474,7 +3564,7 @@ class ConfirmProposalModal {
         ['Grace period', tx.gracePeriod ? formatDaoDurationSummary(tx.gracePeriod) : 'Network default'],
       ]),
       this.renderChanges(changes),
-      '<div class="dao-confirm-help">The proposal fee is derived from DAO params and seeds the voter reward pool for regular proposals. This screen does not submit yet.</div>',
+      '<div class="dao-confirm-help">The proposal fee is derived from DAO params and seeds the voter reward pool for regular proposals. Signing submits this proposal for review.</div>',
     ].join('');
   }
 
