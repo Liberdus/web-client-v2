@@ -2211,14 +2211,16 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-info,
 #proposalInfoModal .proposal-committee-actions {
   display: grid;
-  gap: 12px;
+  gap: 18px;
   margin: 0 auto;
   max-width: 720px;
   width: 100%;
 }
 
-#proposalInfoModal .proposal-info-hero,
-#proposalInfoModal .proposal-info-section,
+#proposalInfoModal .proposal-info + .proposal-committee-actions {
+  margin-top: 12px;
+}
+
 #proposalInfoModal .proposal-committee-actions {
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -2227,18 +2229,23 @@ input[type='file'].form-control::file-selector-button {
   padding: 12px;
 }
 
-#proposalInfoModal .proposal-info-hero h2,
+#proposalInfoModal .proposal-info-section {
+  display: grid;
+  gap: 10px;
+}
+
+#proposalInfoModal .proposal-info-title,
 #proposalInfoModal .proposal-info-section h3,
 #proposalInfoModal .proposal-committee-actions h3 {
   color: var(--text-color);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: var(--font-weight-semibold);
   line-height: 1.25;
   margin: 0;
   overflow-wrap: anywhere;
+  text-align: center;
 }
 
-#proposalInfoModal .proposal-info-kicker,
 #proposalInfoModal .proposal-info-muted,
 #proposalInfoModal .proposal-committee-actions p,
 #proposalInfoModal .proposal-change-row small {
@@ -2250,13 +2257,24 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-info-grid {
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 #proposalInfoModal .proposal-info-row {
+  background: var(--input-background);
+  border-radius: 8px;
   display: grid;
-  gap: 4px;
-  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 8px;
+  grid-column: span 2;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 76px;
+  padding: 10px;
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-info-row--full {
+  grid-column: 1 / -1;
 }
 
 #proposalInfoModal .proposal-info-row span,
@@ -2265,6 +2283,7 @@ input[type='file'].form-control::file-selector-button {
   font-size: 12px;
   font-weight: var(--font-weight-medium);
   line-height: 1.35;
+  text-align: center;
 }
 
 #proposalInfoModal .proposal-info-row strong,
@@ -2275,10 +2294,30 @@ input[type='file'].form-control::file-selector-button {
   line-height: 1.35;
   min-width: 0;
   overflow-wrap: anywhere;
+  text-align: center;
   white-space: pre-wrap;
 }
 
-#proposalInfoModal .proposal-payload,
+#proposalInfoModal .proposal-info-row span {
+  align-self: start;
+  justify-self: center;
+}
+
+#proposalInfoModal .proposal-info-row strong {
+  align-self: center;
+  justify-self: center;
+}
+
+@media (max-width: 420px) {
+  #proposalInfoModal .proposal-info-row {
+    grid-column: span 3;
+  }
+
+  #proposalInfoModal .proposal-info-row--full {
+    grid-column: 1 / -1;
+  }
+}
+
 #proposalInfoModal .proposal-change-row {
   background: var(--input-background);
   border-radius: 8px;
@@ -2287,17 +2326,124 @@ input[type='file'].form-control::file-selector-button {
   padding: 10px;
 }
 
+#proposalInfoModal .proposal-payload {
+  display: grid;
+  gap: 10px;
+}
+
 #proposalInfoModal .proposal-payload-title {
   color: var(--text-color);
   font-size: 13px;
   font-weight: var(--font-weight-semibold);
   line-height: 1.3;
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-change-values {
+  align-items: center;
+  display: grid;
+  column-gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr);
+  width: 100%;
+}
+
+#proposalInfoModal .proposal-change-arrow {
+  color: var(--secondary-text-color);
+  font-size: 15px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-change-values small,
+#proposalInfoModal .proposal-change-values strong {
+  color: var(--text-color);
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+}
+
+#proposalInfoModal .proposal-change-values small {
+  text-align: right;
+}
+
+#proposalInfoModal .proposal-change-values strong {
+  text-align: left;
+}
+
+#proposalInfoModal .proposal-decision-field {
+  display: grid;
+  gap: 8px;
+}
+
+#proposalInfoModal .proposal-decision-label {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
 }
 
 #proposalInfoModal .proposal-action-toggle {
+  background: var(--input-background);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
   display: grid;
-  gap: 10px;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  padding: 4px;
+}
+
+#proposalInfoModal .proposal-decision-option {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: var(--secondary-text-color);
+  cursor: pointer;
+  display: flex;
+  font-family: var(--font-primary);
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+  height: 36px;
+  justify-content: center;
+  line-height: 1;
+  transition: background-color 0.2s, box-shadow 0.2s, color 0.2s;
+}
+
+#proposalInfoModal .proposal-decision-option--selected {
+  background: var(--primary-color);
+  box-shadow: 0 2px 8px rgba(68, 60, 221, 0.22);
+  color: var(--background-color);
+}
+
+#proposalInfoModal .proposal-committee-actions .btn {
+  font-size: 14px;
+  height: 40px;
+  padding: 8px 14px;
+}
+
+#proposalInfoModal .proposal-committee-actions .btn--pill.btn--full {
+  margin: 0;
+  width: 100%;
+}
+
+#proposalInfoModal .proposal-committee-actions .form-group {
+  margin-bottom: 0;
+}
+
+#proposalInfoModal .proposal-committee-actions .form-control {
+  border-radius: 8px;
+  font-size: 14px;
+  height: 44px;
+  padding: 10px 12px;
+}
+
+#proposalInfoModal .proposal-committee-actions select.form-control {
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+#proposalInfoModal .proposal-committee-actions textarea.form-control {
+  min-height: 84px;
 }
 
 #proposalInfoModal .proposal-withhold-fields {
@@ -2307,12 +2453,6 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .hidden {
   display: none !important;
-}
-
-@media (max-width: 560px) {
-  #proposalInfoModal .proposal-info-row {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 /* Developer Options Styling */

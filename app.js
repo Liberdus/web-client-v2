@@ -3727,7 +3727,8 @@ function getDaoProposalReviewWindow(proposal) {
 }
 
 function formatDaoDetailTimestamp(ts) {
-  return formatDaoTimestamp(ts) || 'Unavailable';
+  const formatted = formatDaoTimestamp(ts);
+  return formatted ? formatted.replace(', ', '\n') : 'Unavailable';
 }
 
 function formatDaoDetailValue(value) {
@@ -3758,9 +3759,9 @@ class ProposalInfoModal {
     this.committeeChoice = 'accept';
 
     if (this.closeButton) this.closeButton.addEventListener('click', () => this.close());
-    if (this.acceptButton) this.acceptButton.addEventListener('click', () => this.setCommitteeChoice('accept'));
-    if (this.withholdButton) this.withholdButton.addEventListener('click', () => this.setCommitteeChoice('withhold'));
-    if (this.withholdReasonSelect) this.withholdReasonSelect.addEventListener('change', () => this.renderWithholdReasonInput());
+    if (this.acceptButton) this.acceptButton.addEventListener('click', () => this.setCommitteeChoice('accept', true));
+    if (this.withholdButton) this.withholdButton.addEventListener('click', () => this.setCommitteeChoice('withhold', true));
+    if (this.withholdReasonSelect) this.withholdReasonSelect.addEventListener('change', () => this.renderWithholdReasonInput(true));
     if (this.submitButton) this.submitButton.addEventListener('click', () => this.handleCommitteeSubmit());
 
     if (this.withholdReasonSelect) {
@@ -3821,7 +3822,7 @@ class ProposalInfoModal {
 
     if (this.content) {
       this.content.innerHTML = [
-        this.renderHeader(proposal, state),
+        this.renderHeader(proposal),
         this.renderSection('Overview', [
           ['Number', proposal.number ? `#${proposal.number}` : 'Unavailable'],
           ['Type', getDaoTypeLabel(proposalType) || 'Unavailable'],
@@ -3850,13 +3851,9 @@ class ProposalInfoModal {
     this.renderCommitteeActions({ isCommitteeMember, reviewWindow, currentVote, state });
   }
 
-  renderHeader(proposal, state) {
+  renderHeader(proposal) {
     const title = proposal.title || (proposal.number ? `Proposal #${proposal.number}` : 'Proposal');
-    return `
-      <section class="proposal-info-hero">
-        <h2>${escapeHtml(title)}</h2>
-      </section>
-    `;
+    return `<h2 class="proposal-info-title">${escapeHtml(title)}</h2>`;
   }
 
   setTitle(title) {
@@ -3865,12 +3862,16 @@ class ProposalInfoModal {
 
   renderSection(title, rows) {
     const rowHtml = rows
-      .map(([label, value]) => `
-        <div class="proposal-info-row">
+      .map(([label, value]) => {
+        const displayValue = formatDaoDetailValue(value);
+        const rowClass = this.getSectionRowClass(label, displayValue);
+        return `
+        <div class="${rowClass}">
           <span>${escapeHtml(label)}</span>
-          <strong>${escapeHtml(formatDaoDetailValue(value))}</strong>
+          <strong>${escapeHtml(displayValue)}</strong>
         </div>
-      `)
+      `;
+      })
       .join('');
 
     return `
@@ -3879,6 +3880,20 @@ class ProposalInfoModal {
         <div class="proposal-info-grid">${rowHtml}</div>
       </section>
     `;
+  }
+
+  getSectionRowClass(label, value) {
+    if (!['Description', 'Options'].includes(label)) {
+      return 'proposal-info-row';
+    }
+
+    const lines = String(value).split('\n');
+    const longestLineLength = Math.max(...lines.map((line) => line.length));
+    if (lines.length > 4 || longestLineLength > 42 || String(value).length > 120) {
+      return 'proposal-info-row proposal-info-row--full';
+    }
+
+    return 'proposal-info-row';
   }
 
   renderProposalBody(proposal) {
@@ -3926,8 +3941,11 @@ class ProposalInfoModal {
         .map((change) => `
           <div class="proposal-change-row">
             <span>${escapeHtml(change?.key || 'Unknown key')}</span>
-            <strong>${escapeHtml(formatDaoDetailValue(change?.value))}</strong>
-            <small>Current: ${escapeHtml(formatDaoDetailValue(change?.current))}</small>
+            <div class="proposal-change-values">
+              <small>Current: ${escapeHtml(formatDaoDetailValue(change?.current))}</small>
+              <span class="proposal-change-arrow" aria-hidden="true">&rarr;</span>
+              <strong>New: ${escapeHtml(formatDaoDetailValue(change?.value))}</strong>
+            </div>
           </div>
         `)
         .join('');
@@ -3970,7 +3988,7 @@ class ProposalInfoModal {
     if (this.submitButton) this.submitButton.disabled = !canSubmit;
     if (this.committeeActionHelp) {
       this.committeeActionHelp.textContent = canSubmit
-        ? 'Choose a committee review action. Submission is connected in Phase 4.B.'
+        ? 'Choose a review decision, then submit. Submission is connected in Phase 4.B.'
         : state === 'review'
         ? `${reviewWindow.label}. Committee review submission is unavailable.`
         : 'Committee review is only available while the proposal is in review.';
@@ -3982,20 +4000,31 @@ class ProposalInfoModal {
     if (this.submitButton) this.submitButton.disabled = true;
   }
 
-  setCommitteeChoice(choice) {
+  setCommitteeChoice(choice, scrollToBottom = false) {
     this.committeeChoice = choice === 'withhold' ? 'withhold' : 'accept';
     const isWithhold = this.committeeChoice === 'withhold';
-    this.acceptButton?.classList.toggle('btn--primary', !isWithhold);
-    this.acceptButton?.classList.toggle('btn--secondary', isWithhold);
-    this.withholdButton?.classList.toggle('btn--primary', isWithhold);
-    this.withholdButton?.classList.toggle('btn--secondary', !isWithhold);
+    this.acceptButton?.classList.toggle('proposal-decision-option--selected', !isWithhold);
+    this.acceptButton?.setAttribute('aria-checked', String(!isWithhold));
+    this.withholdButton?.classList.toggle('proposal-decision-option--selected', isWithhold);
+    this.withholdButton?.setAttribute('aria-checked', String(isWithhold));
     this.withholdFields?.classList.toggle('hidden', !isWithhold);
     this.renderWithholdReasonInput();
+    if (scrollToBottom) this.scrollToCommitteeActionBottom();
   }
 
-  renderWithholdReasonInput() {
+  renderWithholdReasonInput(scrollToBottom = false) {
     const isCustom = this.withholdReasonSelect?.value === DAO_CUSTOM_WITHHOLD_REASON;
     this.customReasonGroup?.classList.toggle('hidden', !isCustom);
+    if (isCustom && scrollToBottom) {
+      this.customReasonInput?.focus({ preventScroll: true });
+      this.scrollToCommitteeActionBottom();
+    }
+  }
+
+  scrollToCommitteeActionBottom() {
+    requestAnimationFrame(() => {
+      (this.submitButton || this.committeeActionSection)?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    });
   }
 
   handleCommitteeSubmit() {

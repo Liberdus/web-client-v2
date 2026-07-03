@@ -461,9 +461,12 @@
                 <h3>Committee action</h3>
                 <p id="proposalCommitteeActionHelp"></p>
               </div>
-              <div class="proposal-action-toggle" role="group" aria-label="Committee vote">
-                <button type="button" class="btn btn--secondary btn--pill" id="proposalCommitteeAccept">Accept</button>
-                <button type="button" class="btn btn--secondary btn--pill" id="proposalCommitteeWithhold">Withhold</button>
+              <div class="proposal-decision-field">
+                <div class="proposal-decision-label">Review decision</div>
+                <div class="proposal-action-toggle" role="radiogroup" aria-label="Committee review decision">
+                  <button type="button" class="proposal-decision-option" id="proposalCommitteeAccept" role="radio" aria-checked="true">Accept</button>
+                  <button type="button" class="proposal-decision-option" id="proposalCommitteeWithhold" role="radio" aria-checked="false">Withhold</button>
+                </div>
               </div>
               <div class="proposal-withhold-fields hidden" id="proposalWithholdFields">
                 <div class="form-group">
