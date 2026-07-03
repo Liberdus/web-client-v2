@@ -2050,12 +2050,15 @@ input[type='file'].form-control::file-selector-button {
   }
 }
 
-#confirmProposalModal .form-container {
+#confirmProposalModal .form-container,
+#proposalInfoModal .form-container {
   padding-left: 8px;
   padding-right: 8px;
 }
 
-#confirmProposalModal .dao-confirm {
+#confirmProposalModal .dao-confirm,
+#proposalInfoModal .proposal-info,
+#proposalInfoModal .proposal-committee-actions {
   display: grid;
   gap: 18px;
   margin: 0 auto;
@@ -2063,12 +2066,15 @@ input[type='file'].form-control::file-selector-button {
   width: 100%;
 }
 
-#confirmProposalModal .dao-confirm-section {
+#confirmProposalModal .dao-confirm-section,
+#proposalInfoModal .proposal-info-section {
   display: grid;
   gap: 10px;
 }
 
-#confirmProposalModal .dao-confirm-section h3 {
+#confirmProposalModal .dao-confirm-section h3,
+#proposalInfoModal .proposal-info-section h3,
+#proposalInfoModal .proposal-committee-actions h3 {
   color: var(--text-color);
   font-size: 16px;
   font-weight: var(--font-weight-semibold);
@@ -2078,13 +2084,15 @@ input[type='file'].form-control::file-selector-button {
   text-align: center;
 }
 
-#confirmProposalModal .dao-confirm-grid {
+#confirmProposalModal .dao-confirm-grid,
+#proposalInfoModal .proposal-info-grid {
   display: grid;
   gap: 10px;
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
-#confirmProposalModal .dao-confirm-row {
+#confirmProposalModal .dao-confirm-row,
+#proposalInfoModal .proposal-info-row {
   background: var(--input-background);
   border-radius: 8px;
   display: grid;
@@ -2100,12 +2108,19 @@ input[type='file'].form-control::file-selector-button {
   grid-column: 2 / span 2;
 }
 
-#confirmProposalModal .dao-confirm-row--full {
+#proposalInfoModal .proposal-info-row:nth-last-child(2):nth-child(3n+1) {
+  grid-column: 2 / span 2;
+}
+
+#confirmProposalModal .dao-confirm-row--full,
+#proposalInfoModal .proposal-info-row--full {
   grid-column: 1 / -1;
 }
 
 #confirmProposalModal .dao-confirm-label,
-#confirmProposalModal .dao-confirm-change-title {
+#confirmProposalModal .dao-confirm-change-title,
+#proposalInfoModal .proposal-info-row span,
+#proposalInfoModal .proposal-change-row span {
   color: var(--secondary-text-color);
   font-size: 12px;
   font-weight: var(--font-weight-medium);
@@ -2116,7 +2131,9 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #confirmProposalModal .dao-confirm-value,
-#confirmProposalModal .dao-confirm-change-values strong {
+#confirmProposalModal .dao-confirm-change-values strong,
+#proposalInfoModal .proposal-info-row strong,
+#proposalInfoModal .proposal-change-row strong {
   color: var(--text-color);
   font-size: 13px;
   font-weight: var(--font-weight-semibold);
@@ -2127,17 +2144,20 @@ input[type='file'].form-control::file-selector-button {
   white-space: pre-wrap;
 }
 
-#confirmProposalModal .dao-confirm-label {
+#confirmProposalModal .dao-confirm-label,
+#proposalInfoModal .proposal-info-row span {
   align-self: start;
   justify-self: center;
 }
 
-#confirmProposalModal .dao-confirm-value {
+#confirmProposalModal .dao-confirm-value,
+#proposalInfoModal .proposal-info-row strong {
   align-self: center;
   justify-self: center;
 }
 
-#confirmProposalModal .dao-confirm-change {
+#confirmProposalModal .dao-confirm-change,
+#proposalInfoModal .proposal-change-row {
   background: var(--input-background);
   border-radius: 8px;
   display: grid;
@@ -2145,7 +2165,8 @@ input[type='file'].form-control::file-selector-button {
   padding: 10px;
 }
 
-#confirmProposalModal .dao-confirm-change-values {
+#confirmProposalModal .dao-confirm-change-values,
+#proposalInfoModal .proposal-change-values {
   align-items: center;
   display: grid;
   column-gap: 10px;
@@ -2154,22 +2175,27 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #confirmProposalModal .dao-confirm-change-values small,
-#confirmProposalModal .dao-confirm-change-values strong {
+#confirmProposalModal .dao-confirm-change-values strong,
+#proposalInfoModal .proposal-change-values small,
+#proposalInfoModal .proposal-change-values strong {
   color: var(--text-color);
   font-size: 13px;
   font-weight: var(--font-weight-semibold);
   line-height: 1.35;
 }
 
-#confirmProposalModal .dao-confirm-change-values small {
+#confirmProposalModal .dao-confirm-change-values small,
+#proposalInfoModal .proposal-change-values small {
   text-align: right;
 }
 
-#confirmProposalModal .dao-confirm-change-values strong {
+#confirmProposalModal .dao-confirm-change-values strong,
+#proposalInfoModal .proposal-change-values strong {
   text-align: left;
 }
 
-#confirmProposalModal .dao-confirm-change-arrow {
+#confirmProposalModal .dao-confirm-change-arrow,
+#proposalInfoModal .proposal-change-arrow {
   color: var(--secondary-text-color);
   font-size: 15px;
   font-weight: var(--font-weight-semibold);
@@ -2178,10 +2204,14 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #confirmProposalModal .dao-confirm-empty,
-#confirmProposalModal .dao-confirm-help {
+#confirmProposalModal .dao-confirm-help,
+#proposalInfoModal .proposal-info-muted,
+#proposalInfoModal .proposal-committee-actions p,
+#proposalInfoModal .proposal-change-row small {
   color: var(--secondary-text-color);
   font-size: 12px;
   line-height: 1.35;
+  margin: 0;
 }
 
 #confirmProposalModal .dao-confirm-actions {
@@ -2194,27 +2224,19 @@ input[type='file'].form-control::file-selector-button {
 }
 
 @media (max-width: 420px) {
-  #confirmProposalModal .dao-confirm-row {
+  #confirmProposalModal .dao-confirm-row,
+  #proposalInfoModal .proposal-info-row {
     grid-column: span 3;
   }
 
-  #confirmProposalModal .dao-confirm-row--full {
+  #proposalInfoModal .proposal-info-row:nth-last-child(2):nth-child(3n+1) {
+    grid-column: span 3;
+  }
+
+  #confirmProposalModal .dao-confirm-row--full,
+  #proposalInfoModal .proposal-info-row--full {
     grid-column: 1 / -1;
   }
-}
-
-#proposalInfoModal .form-container {
-  padding-left: 8px;
-  padding-right: 8px;
-}
-
-#proposalInfoModal .proposal-info,
-#proposalInfoModal .proposal-committee-actions {
-  display: grid;
-  gap: 18px;
-  margin: 0 auto;
-  max-width: 720px;
-  width: 100%;
 }
 
 #proposalInfoModal .proposal-info + .proposal-committee-actions {
@@ -2229,102 +2251,6 @@ input[type='file'].form-control::file-selector-button {
   padding: 12px;
 }
 
-#proposalInfoModal .proposal-info-section {
-  display: grid;
-  gap: 10px;
-}
-
-#proposalInfoModal .proposal-info-section h3,
-#proposalInfoModal .proposal-committee-actions h3 {
-  color: var(--text-color);
-  font-size: 16px;
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.25;
-  margin: 0;
-  overflow-wrap: anywhere;
-  text-align: center;
-}
-
-#proposalInfoModal .proposal-info-muted,
-#proposalInfoModal .proposal-committee-actions p,
-#proposalInfoModal .proposal-change-row small {
-  color: var(--secondary-text-color);
-  font-size: 12px;
-  line-height: 1.35;
-  margin: 0;
-}
-
-#proposalInfoModal .proposal-info-grid {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-}
-
-#proposalInfoModal .proposal-info-row {
-  background: var(--input-background);
-  border-radius: 8px;
-  display: grid;
-  gap: 8px;
-  grid-column: span 2;
-  grid-template-rows: auto minmax(0, 1fr);
-  min-height: 76px;
-  padding: 10px;
-  text-align: center;
-}
-
-#proposalInfoModal .proposal-info-row--full {
-  grid-column: 1 / -1;
-}
-
-#proposalInfoModal .proposal-info-row span,
-#proposalInfoModal .proposal-change-row span {
-  color: var(--secondary-text-color);
-  font-size: 12px;
-  font-weight: var(--font-weight-medium);
-  line-height: 1.35;
-  text-align: center;
-}
-
-#proposalInfoModal .proposal-info-row strong,
-#proposalInfoModal .proposal-change-row strong {
-  color: var(--text-color);
-  font-size: 13px;
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.35;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  text-align: center;
-  white-space: pre-wrap;
-}
-
-#proposalInfoModal .proposal-info-row span {
-  align-self: start;
-  justify-self: center;
-}
-
-#proposalInfoModal .proposal-info-row strong {
-  align-self: center;
-  justify-self: center;
-}
-
-@media (max-width: 420px) {
-  #proposalInfoModal .proposal-info-row {
-    grid-column: span 3;
-  }
-
-  #proposalInfoModal .proposal-info-row--full {
-    grid-column: 1 / -1;
-  }
-}
-
-#proposalInfoModal .proposal-change-row {
-  background: var(--input-background);
-  border-radius: 8px;
-  display: grid;
-  gap: 8px;
-  padding: 10px;
-}
-
 #proposalInfoModal .proposal-payload {
   display: grid;
   gap: 10px;
@@ -2336,38 +2262,6 @@ input[type='file'].form-control::file-selector-button {
   font-weight: var(--font-weight-semibold);
   line-height: 1.3;
   text-align: center;
-}
-
-#proposalInfoModal .proposal-change-values {
-  align-items: center;
-  display: grid;
-  column-gap: 10px;
-  grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr);
-  width: 100%;
-}
-
-#proposalInfoModal .proposal-change-arrow {
-  color: var(--secondary-text-color);
-  font-size: 15px;
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.35;
-  text-align: center;
-}
-
-#proposalInfoModal .proposal-change-values small,
-#proposalInfoModal .proposal-change-values strong {
-  color: var(--text-color);
-  font-size: 13px;
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.35;
-}
-
-#proposalInfoModal .proposal-change-values small {
-  text-align: right;
-}
-
-#proposalInfoModal .proposal-change-values strong {
-  text-align: left;
 }
 
 #proposalInfoModal .proposal-decision-field {

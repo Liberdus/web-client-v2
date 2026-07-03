@@ -3759,9 +3759,9 @@ class ProposalInfoModal {
     this.committeeChoice = 'accept';
 
     if (this.closeButton) this.closeButton.addEventListener('click', () => this.close());
-    if (this.acceptButton) this.acceptButton.addEventListener('click', () => this.setCommitteeChoice('accept', true));
-    if (this.withholdButton) this.withholdButton.addEventListener('click', () => this.setCommitteeChoice('withhold', true));
-    if (this.withholdReasonSelect) this.withholdReasonSelect.addEventListener('change', () => this.renderWithholdReasonInput(true));
+    if (this.acceptButton) this.acceptButton.addEventListener('click', () => this.handleCommitteeChoiceClick('accept'));
+    if (this.withholdButton) this.withholdButton.addEventListener('click', () => this.handleCommitteeChoiceClick('withhold'));
+    if (this.withholdReasonSelect) this.withholdReasonSelect.addEventListener('change', () => this.handleWithholdReasonChange());
     if (this.submitButton) this.submitButton.addEventListener('click', () => this.handleCommitteeSubmit());
 
     if (this.withholdReasonSelect) {
@@ -4003,7 +4003,12 @@ class ProposalInfoModal {
     if (this.submitButton) this.submitButton.disabled = true;
   }
 
-  setCommitteeChoice(choice, scrollToBottom = false) {
+  handleCommitteeChoiceClick(choice) {
+    this.setCommitteeChoice(choice);
+    this.scrollToCommitteeActionBottom();
+  }
+
+  setCommitteeChoice(choice) {
     this.committeeChoice = choice === 'withhold' ? 'withhold' : 'accept';
     const isWithhold = this.committeeChoice === 'withhold';
     this.acceptButton?.classList.toggle('proposal-decision-option--selected', !isWithhold);
@@ -4012,16 +4017,22 @@ class ProposalInfoModal {
     this.withholdButton?.setAttribute('aria-checked', String(isWithhold));
     this.withholdFields?.classList.toggle('hidden', !isWithhold);
     this.renderWithholdReasonInput();
-    if (scrollToBottom) this.scrollToCommitteeActionBottom();
   }
 
-  renderWithholdReasonInput(scrollToBottom = false) {
-    const isCustom = this.withholdReasonSelect?.value === DAO_CUSTOM_WITHHOLD_REASON;
-    this.customReasonGroup?.classList.toggle('hidden', !isCustom);
-    if (isCustom && scrollToBottom) {
+  handleWithholdReasonChange() {
+    this.renderWithholdReasonInput();
+    if (this.isCustomWithholdReason()) {
       this.customReasonInput?.focus({ preventScroll: true });
       this.scrollToCommitteeActionBottom();
     }
+  }
+
+  renderWithholdReasonInput() {
+    this.customReasonGroup?.classList.toggle('hidden', !this.isCustomWithholdReason());
+  }
+
+  isCustomWithholdReason() {
+    return this.withholdReasonSelect?.value === DAO_CUSTOM_WITHHOLD_REASON;
   }
 
   scrollToCommitteeActionBottom() {
@@ -4032,7 +4043,7 @@ class ProposalInfoModal {
 
   handleCommitteeSubmit() {
     if (this.committeeChoice === 'withhold') {
-      const reason = this.withholdReasonSelect?.value === DAO_CUSTOM_WITHHOLD_REASON
+      const reason = this.isCustomWithholdReason()
         ? String(this.customReasonInput?.value || '').trim()
         : String(this.withholdReasonSelect?.value || '').trim();
       if (!reason) {
