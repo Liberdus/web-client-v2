@@ -487,6 +487,23 @@
               </div>
               <button type="button" class="btn btn--primary btn--pill btn--full" id="proposalReviewResultSubmit">Finalize review result</button>
             </section>
+            <section class="proposal-vote-actions hidden" id="proposalVoteActionSection" aria-label="Proposal voting actions">
+              <div class="proposal-committee-actions-header">
+                <h3>Vote preview</h3>
+                <p id="proposalVoteActionHelp"></p>
+              </div>
+              <div class="proposal-vote-status-grid" id="proposalVoteStatusGrid"></div>
+              <div class="proposal-vote-options" id="proposalVoteOptions"></div>
+              <div class="proposal-vote-spend-row">
+                <div class="form-group">
+                  <label for="proposalVoteSpend">Spend amount</label>
+                  <input type="number" id="proposalVoteSpend" class="form-control" min="0" step="0.000001" inputmode="decimal" placeholder="0.000000">
+                </div>
+                <span>LIB</span>
+              </div>
+              <div class="proposal-vote-preview" id="proposalVotePreview"></div>
+              <button type="button" class="btn btn--primary btn--pill btn--full" id="proposalVoteSubmit" disabled>Submit vote</button>
+            </section>
           </div>
         </div>
         <a class="last-item" href="#"> </a>

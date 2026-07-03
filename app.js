@@ -3699,6 +3699,7 @@ const DAO_WITHHOLD_REASON_OPTIONS = [
   { value: DAO_CUSTOM_WITHHOLD_REASON, label: 'Custom reason' },
 ];
 const DAO_WITHHOLD_REASON_MAX_LENGTH = 1000;
+const DAO_VOTE_WEIGHT_MAX = 1_000_000;
 
 function getDaoCurrentAccountAddress() {
   return myAccount?.keys?.address ? longAddress(myAccount.keys.address) : '';
@@ -3746,9 +3747,81 @@ function getDaoProposalReviewWindow(proposal) {
   };
 }
 
+function getDaoProposalVotingWindow(proposal) {
+  const reviewStart = Number(proposal?.startTime || proposal?.created || proposal?.creationTime || 0);
+  const reviewDuration = Number(proposal?.reviewDuration);
+  const votingDuration = Number(proposal?.votingDuration);
+  if (
+    !reviewStart ||
+    !Number.isFinite(reviewDuration) ||
+    reviewDuration < 0 ||
+    !Number.isFinite(votingDuration) ||
+    votingDuration < 0
+  ) {
+    return {
+      start: 0,
+      end: 0,
+      label: 'Voting timing unavailable',
+      canPreviewVote: false,
+      timeMultiplier: null,
+    };
+  }
+
+  const start = reviewStart + reviewDuration;
+  const end = start + votingDuration;
+  const now = Date.now();
+  if (now < start) {
+    return {
+      start,
+      end,
+      label: 'Voting has not started',
+      canPreviewVote: false,
+      timeMultiplier: 1,
+    };
+  }
+  if (now <= end) {
+    return {
+      start,
+      end,
+      label: 'Voting open',
+      canPreviewVote: true,
+      timeMultiplier: getDaoVoteTimeMultiplier(now, start, end),
+    };
+  }
+  return {
+    start,
+    end,
+    label: 'Voting ended',
+    canPreviewVote: false,
+    timeMultiplier: 0,
+  };
+}
+
+function getDaoVoteTimeMultiplier(now, start, end) {
+  const halfDuration = (end - start) / 2;
+  if (!Number.isFinite(halfDuration) || halfDuration <= 0) return 1;
+  if (now - start <= halfDuration) return 1;
+  return Math.max(0, (end - now) / halfDuration);
+}
+
 function formatDaoDetailTimestamp(ts) {
   const formatted = formatDaoTimestamp(ts);
   return formatted ? formatted.replace(', ', '\n') : 'Unavailable';
+}
+
+function formatDaoShortNumber(value, decimals = 6) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 'Unavailable';
+  return Number(n.toFixed(decimals)).toLocaleString(undefined, { maximumFractionDigits: decimals });
+}
+
+function formatDaoLibWei(value) {
+  try {
+    const weiValue = typeof value === 'bigint' ? value : BigInt(value || 0);
+    return `${formatDaoShortNumber(EthNum.toStr(weiValue))} LIB`;
+  } catch {
+    return 'Unavailable';
+  }
 }
 
 function formatDaoDetailValue(value) {
@@ -3761,6 +3834,17 @@ function formatDaoDetailValue(value) {
 
 function getDaoBooleanCapability(proposal, key) {
   return typeof proposal?.[key] === 'boolean' ? proposal[key] : null;
+}
+
+function parseDaoPositiveLibAmount(value) {
+  const text = String(value || '').trim();
+  if (!/^\d+(?:\.\d{1,18})?$/.test(text)) return null;
+  try {
+    const weiAmount = EthNum.toWei(text);
+    return weiAmount > 0n ? weiAmount : null;
+  } catch {
+    return null;
+  }
 }
 
 class ProposalInfoModal {
@@ -3781,10 +3865,19 @@ class ProposalInfoModal {
     this.reviewResultSection = document.getElementById('proposalReviewResultSection');
     this.reviewResultHelp = document.getElementById('proposalReviewResultHelp');
     this.reviewResultButton = document.getElementById('proposalReviewResultSubmit');
+    this.voteActionSection = document.getElementById('proposalVoteActionSection');
+    this.voteActionHelp = document.getElementById('proposalVoteActionHelp');
+    this.voteStatusGrid = document.getElementById('proposalVoteStatusGrid');
+    this.voteOptions = document.getElementById('proposalVoteOptions');
+    this.voteSpendInput = document.getElementById('proposalVoteSpend');
+    this.votePreview = document.getElementById('proposalVotePreview');
+    this.voteSubmitButton = document.getElementById('proposalVoteSubmit');
 
     this._currentProposalId = null;
     this.committeeChoice = 'accept';
     this.currentCommitteeVote = '';
+    this.voteWeights = [];
+    this.voteSpendLib = '';
     this.isSubmitting = false;
     this.canSubmitCommitteeReview = false;
     this.canSubmitReviewResult = false;
@@ -3797,6 +3890,8 @@ class ProposalInfoModal {
     if (this.withholdReasonSelect) this.withholdReasonSelect.addEventListener('change', () => this.handleWithholdReasonChange());
     if (this.submitButton) this.submitButton.addEventListener('click', () => this.handleCommitteeSubmit());
     if (this.reviewResultButton) this.reviewResultButton.addEventListener('click', () => this.handleReviewResultSubmit());
+    if (this.voteSpendInput) this.voteSpendInput.addEventListener('input', () => this.handleVoteSpendInput());
+    if (this.voteOptions) this.voteOptions.addEventListener('input', (event) => this.handleVoteWeightInput(event));
 
     if (this.withholdReasonSelect) {
       this.withholdReasonSelect.innerHTML = DAO_WITHHOLD_REASON_OPTIONS
@@ -3830,6 +3925,7 @@ class ProposalInfoModal {
 
     this.setSubmitting(false);
     this.committeeChoice = 'accept';
+    this.resetVoteState(p);
     this.renderProposal(p);
   }
 
@@ -3840,6 +3936,7 @@ class ProposalInfoModal {
     }
     this.hideCommitteeActions();
     this.hideReviewResultAction();
+    this.hideVoteActions();
   }
 
   renderProposal(proposal) {
@@ -3894,8 +3991,14 @@ class ProposalInfoModal {
       ].join('');
     }
 
-    this.renderCommitteeActions({ capabilities, reviewWindow, currentVote, state });
-    this.renderReviewResultAction({ capabilities, reviewWindow });
+    if (state === 'review') {
+      this.renderCommitteeActions({ capabilities, reviewWindow, currentVote, state });
+      this.renderReviewResultAction({ capabilities, reviewWindow });
+    } else {
+      this.hideCommitteeActions();
+      this.hideReviewResultAction();
+    }
+    this.renderVoteActions({ proposal, state });
   }
 
   getReviewCapabilities({ proposal, state, reviewWindow, currentAddress, committeeAddressSet }) {
@@ -4128,6 +4231,240 @@ class ProposalInfoModal {
     this.canSubmitReviewResult = false;
     this.reviewResultSection?.classList.add('hidden');
     this.updateSubmitButtons();
+  }
+
+  resetVoteState(proposal) {
+    const options = this.getVoteOptions(proposal);
+    this.voteWeights = options.map(() => 0);
+    this.voteSpendLib = '';
+    if (this.voteSpendInput) this.voteSpendInput.value = '';
+  }
+
+  getVoteOptions(proposal) {
+    return Array.isArray(proposal?.options) && proposal.options.length
+      ? proposal.options.map((option) => String(option))
+      : ['Yes', 'No'];
+  }
+
+  renderVoteActions({ proposal, state }) {
+    if (!this.voteActionSection) return;
+    if (state !== 'voting') {
+      this.hideVoteActions();
+      return;
+    }
+
+    const options = this.getVoteOptions(proposal);
+    if (this.voteWeights.length !== options.length) {
+      this.voteWeights = options.map(() => 0);
+    }
+
+    this.voteActionSection.classList.remove('hidden');
+    if (this.voteActionHelp) {
+      this.voteActionHelp.textContent = 'Enter option weights and spend amount to preview your voting power. Submission is connected in Phase 5.B.';
+    }
+    if (this.voteSubmitButton) {
+      this.voteSubmitButton.disabled = true;
+      this.voteSubmitButton.textContent = 'Submit vote (Phase 5.B)';
+    }
+    if (this.voteSpendInput) {
+      this.voteSpendInput.value = this.voteSpendLib;
+    }
+    if (this.voteOptions) {
+      this.voteOptions.innerHTML = options.map((option, index) => this.renderVoteOption(option, index)).join('');
+    }
+
+    this.renderVoteStatus(proposal);
+    this.updateVotePreview(proposal);
+  }
+
+  hideVoteActions() {
+    this.voteActionSection?.classList.add('hidden');
+  }
+
+  renderVoteOption(option, index) {
+    const weight = this.voteWeights[index] || 0;
+    return `
+      <label class="proposal-vote-option">
+        <span>${escapeHtml(option)}</span>
+        <input
+          type="number"
+          class="form-control"
+          min="0"
+          max="${DAO_VOTE_WEIGHT_MAX}"
+          step="1"
+          inputmode="numeric"
+          data-vote-option-index="${index}"
+          value="${escapeDaoFormAttribute(String(weight))}"
+        >
+      </label>
+    `;
+  }
+
+  renderVoteStatus(proposal) {
+    if (!this.voteStatusGrid) return;
+    const votingWindow = getDaoProposalVotingWindow(proposal);
+    const totalVote = Array.isArray(proposal.totalVote) ? proposal.totalVote : [];
+    const totalVoteText = totalVote.length
+      ? totalVote.map((value, index) => `${index + 1}: ${formatDaoDetailValue(value)}`).join('\n')
+      : 'No votes yet';
+    this.voteStatusGrid.innerHTML = [
+      ['Voting state', votingWindow.label],
+      ['Voting ends', formatDaoDetailTimestamp(votingWindow.end)],
+      ['Current totals', totalVoteText],
+    ].map(([label, value]) => `
+      <div class="proposal-vote-status-card">
+        <span>${escapeHtml(label)}</span>
+        <strong>${escapeHtml(value)}</strong>
+      </div>
+    `).join('');
+  }
+
+  handleVoteWeightInput(event) {
+    const input = event.target?.closest?.('input[data-vote-option-index]');
+    if (!input) return;
+    const index = Number(input.dataset.voteOptionIndex);
+    if (!Number.isInteger(index) || index < 0 || index >= this.voteWeights.length) return;
+    this.voteWeights[index] = this.normalizeVoteWeight(input.value);
+    input.value = String(this.voteWeights[index]);
+    this.updateVotePreview(this.getCurrentProposal());
+  }
+
+  handleVoteSpendInput() {
+    this.voteSpendLib = String(this.voteSpendInput?.value || '');
+    this.updateVotePreview(this.getCurrentProposal());
+  }
+
+  normalizeVoteWeight(value) {
+    const n = Number(value);
+    if (!Number.isSafeInteger(n) || n < 0) return 0;
+    return Math.min(n, DAO_VOTE_WEIGHT_MAX);
+  }
+
+  updateVotePreview(proposal) {
+    if (!this.votePreview || !proposal) return;
+
+    const validation = this.getVotePreviewValidation(proposal);
+    if (!validation.ok) {
+      this.votePreview.innerHTML = this.renderVotePreviewMessage(validation.message, 'warning');
+      return;
+    }
+
+    const estimate = this.getVoteWeightEstimate(proposal, validation.spendWei, validation.totalWeight);
+    if (!estimate.ok) {
+      this.votePreview.innerHTML = this.renderVotePreviewMessage(estimate.message, 'muted');
+      return;
+    }
+
+    const optionRows = this.getVoteOptions(proposal)
+      .map((option, index) => {
+        const weight = this.voteWeights[index] || 0;
+        const applied = validation.totalWeight > 0
+          ? estimate.totalAppliedWeight * (weight / validation.totalWeight)
+          : 0;
+        return `
+          <div class="proposal-vote-preview-row">
+            <span>${escapeHtml(option)}</span>
+            <strong>${escapeHtml(formatDaoShortNumber(applied))}</strong>
+          </div>
+        `;
+      })
+      .join('');
+
+    this.votePreview.innerHTML = `
+      <div class="proposal-vote-preview-total">
+        <span>Estimated applied weight</span>
+        <strong>${escapeHtml(formatDaoShortNumber(estimate.totalAppliedWeight))}</strong>
+      </div>
+      <div class="proposal-vote-preview-meter">
+        <span style="width: ${Math.min(100, Math.max(4, estimate.timeMultiplier * 100))}%"></span>
+      </div>
+      <div class="proposal-vote-preview-note">
+        Time multiplier: ${escapeHtml(formatDaoShortNumber(estimate.timeMultiplier, 3))}
+      </div>
+      <div class="proposal-vote-preview-options">${optionRows}</div>
+    `;
+  }
+
+  getVotePreviewValidation(proposal) {
+    if (getEffectiveDaoState(proposal) !== 'voting') {
+      return { ok: false, message: 'Voting is only available while the proposal is in voting status.' };
+    }
+    if (!myAccount?.keys?.address) {
+      return { ok: false, message: 'Sign in with a wallet to preview vote eligibility.' };
+    }
+
+    const totalWeight = this.voteWeights.reduce((sum, weight) => sum + weight, 0);
+    if (totalWeight <= 0) {
+      return { ok: false, message: 'Enter at least one positive option weight.' };
+    }
+
+    const spendWei = parseDaoPositiveLibAmount(this.voteSpendLib);
+    if (spendWei === null) {
+      return { ok: false, message: 'Enter a positive LIB spend amount.' };
+    }
+
+    const votingWindow = getDaoProposalVotingWindow(proposal);
+    if (!votingWindow.canPreviewVote) {
+      return { ok: false, message: votingWindow.label };
+    }
+
+    const balanceWei = getLibBalanceWei();
+    const feeWei = getTransactionFeeWei({ allowNull: true }) || 0n;
+    if (balanceWei < spendWei + feeWei) {
+      return { ok: false, message: `Balance is below spend plus fee. Available: ${formatDaoLibWei(balanceWei)}.` };
+    }
+
+    const thresholdUsd = Number(proposal.voteThresholdUsdStr || 0);
+    const libUsdPrice = getLibUsdPriceFromParameters();
+    if (thresholdUsd > 0 && libUsdPrice !== null) {
+      const balanceUsd = Number(EthNum.toStr(balanceWei)) * libUsdPrice;
+      if (balanceUsd < thresholdUsd) {
+        return { ok: false, message: `Balance is below the ${formatDaoShortNumber(thresholdUsd)} USD vote threshold.` };
+      }
+    }
+
+    return { ok: true, spendWei, totalWeight };
+  }
+
+  getVoteWeightEstimate(proposal, spendWei, totalWeight) {
+    const libUsdPrice = getLibUsdPriceFromParameters();
+    const minimumSpendUsd = Number(proposal.minimumSpendUsdStr);
+    const voteExponent = Number(proposal.voteExponent);
+    const votingWindow = getDaoProposalVotingWindow(proposal);
+    if (
+      libUsdPrice === null ||
+      !Number.isFinite(minimumSpendUsd) ||
+      minimumSpendUsd <= 0 ||
+      !Number.isFinite(voteExponent) ||
+      votingWindow.timeMultiplier === null
+    ) {
+      return { ok: false, message: 'Applied-weight estimate is unavailable until proposal voting parameters are loaded.' };
+    }
+
+    const spendLib = Number(EthNum.toStr(spendWei));
+    const minimumSpendLib = minimumSpendUsd / libUsdPrice;
+    if (!Number.isFinite(spendLib) || !Number.isFinite(minimumSpendLib) || minimumSpendLib <= 0) {
+      return { ok: false, message: 'Applied-weight estimate is unavailable for this spend amount.' };
+    }
+    if (spendLib < minimumSpendLib) {
+      return { ok: false, message: `Spend must be at least ${formatDaoShortNumber(minimumSpendLib)} LIB.` };
+    }
+
+    const spendBoost = Math.pow(spendLib / minimumSpendLib, voteExponent);
+    const totalAppliedWeight = spendLib * spendBoost * votingWindow.timeMultiplier;
+    if (!Number.isFinite(totalAppliedWeight) || totalAppliedWeight <= 0 || totalWeight <= 0) {
+      return { ok: false, message: 'Applied-weight estimate is unavailable for these inputs.' };
+    }
+
+    return {
+      ok: true,
+      totalAppliedWeight,
+      timeMultiplier: votingWindow.timeMultiplier,
+    };
+  }
+
+  renderVotePreviewMessage(message, tone) {
+    return `<div class="proposal-vote-preview-message proposal-vote-preview-message--${tone}">${escapeHtml(message)}</div>`;
   }
 
   setSubmitting(isSubmitting) {

@@ -2059,7 +2059,8 @@ input[type='file'].form-control::file-selector-button {
 #confirmProposalModal .dao-confirm,
 #proposalInfoModal .proposal-info,
 #proposalInfoModal .proposal-committee-actions,
-#proposalInfoModal .proposal-review-result-actions {
+#proposalInfoModal .proposal-review-result-actions,
+#proposalInfoModal .proposal-vote-actions {
   display: grid;
   gap: 18px;
   margin: 0 auto;
@@ -2076,7 +2077,8 @@ input[type='file'].form-control::file-selector-button {
 #confirmProposalModal .dao-confirm-section h3,
 #proposalInfoModal .proposal-info-section h3,
 #proposalInfoModal .proposal-committee-actions h3,
-#proposalInfoModal .proposal-review-result-actions h3 {
+#proposalInfoModal .proposal-review-result-actions h3,
+#proposalInfoModal .proposal-vote-actions h3 {
   color: var(--text-color);
   font-size: 16px;
   font-weight: var(--font-weight-semibold);
@@ -2240,6 +2242,7 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-info-muted,
 #proposalInfoModal .proposal-committee-actions p,
 #proposalInfoModal .proposal-review-result-actions p,
+#proposalInfoModal .proposal-vote-actions p,
 #proposalInfoModal .proposal-change-row small {
   color: var(--secondary-text-color);
   font-size: 12px;
@@ -2278,12 +2281,15 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-info + .proposal-committee-actions,
 #proposalInfoModal .proposal-info + .proposal-review-result-actions,
-#proposalInfoModal .proposal-committee-actions + .proposal-review-result-actions {
+#proposalInfoModal .proposal-info + .proposal-vote-actions,
+#proposalInfoModal .proposal-committee-actions + .proposal-review-result-actions,
+#proposalInfoModal .proposal-review-result-actions + .proposal-vote-actions {
   margin-top: 12px;
 }
 
 #proposalInfoModal .proposal-committee-actions,
-#proposalInfoModal .proposal-review-result-actions {
+#proposalInfoModal .proposal-review-result-actions,
+#proposalInfoModal .proposal-vote-actions {
   border: 1px solid var(--border-color);
   border-radius: 8px;
   display: grid;
@@ -2349,23 +2355,27 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-committee-actions .btn,
-#proposalInfoModal .proposal-review-result-actions .btn {
+#proposalInfoModal .proposal-review-result-actions .btn,
+#proposalInfoModal .proposal-vote-actions .btn {
   font-size: 14px;
   height: 40px;
   padding: 8px 14px;
 }
 
 #proposalInfoModal .proposal-committee-actions .btn--pill.btn--full,
-#proposalInfoModal .proposal-review-result-actions .btn--pill.btn--full {
+#proposalInfoModal .proposal-review-result-actions .btn--pill.btn--full,
+#proposalInfoModal .proposal-vote-actions .btn--pill.btn--full {
   margin: 0;
   width: 100%;
 }
 
-#proposalInfoModal .proposal-committee-actions .form-group {
+#proposalInfoModal .proposal-committee-actions .form-group,
+#proposalInfoModal .proposal-vote-actions .form-group {
   margin-bottom: 0;
 }
 
-#proposalInfoModal .proposal-committee-actions .form-control {
+#proposalInfoModal .proposal-committee-actions .form-control,
+#proposalInfoModal .proposal-vote-actions .form-control {
   border-radius: 8px;
   font-size: 14px;
   height: 44px;
@@ -2384,6 +2394,119 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-withhold-fields {
   display: grid;
   gap: 10px;
+}
+
+#proposalInfoModal .proposal-vote-status-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#proposalInfoModal .proposal-vote-status-card,
+#proposalInfoModal .proposal-vote-preview {
+  background: var(--input-background);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+#proposalInfoModal .proposal-vote-status-card span,
+#proposalInfoModal .proposal-vote-option span,
+#proposalInfoModal .proposal-vote-preview-total span,
+#proposalInfoModal .proposal-vote-preview-row span,
+#proposalInfoModal .proposal-vote-preview-note {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+}
+
+#proposalInfoModal .proposal-vote-status-card strong,
+#proposalInfoModal .proposal-vote-preview-total strong,
+#proposalInfoModal .proposal-vote-preview-row strong {
+  color: var(--text-color);
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+#proposalInfoModal .proposal-vote-options {
+  display: grid;
+  gap: 10px;
+}
+
+#proposalInfoModal .proposal-vote-option,
+#proposalInfoModal .proposal-vote-spend-row {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 104px;
+}
+
+#proposalInfoModal .proposal-vote-spend-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+#proposalInfoModal .proposal-vote-spend-row > span {
+  color: var(--secondary-text-color);
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 44px;
+}
+
+#proposalInfoModal .proposal-vote-preview-total,
+#proposalInfoModal .proposal-vote-preview-row {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+#proposalInfoModal .proposal-vote-preview-meter {
+  background: var(--border-color);
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+}
+
+#proposalInfoModal .proposal-vote-preview-meter span {
+  background: var(--primary-color);
+  display: block;
+  height: 100%;
+}
+
+#proposalInfoModal .proposal-vote-preview-options {
+  display: grid;
+  gap: 6px;
+}
+
+#proposalInfoModal .proposal-vote-preview-message {
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+  padding: 10px;
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-vote-preview-message--warning {
+  background: rgba(196, 45, 45, 0.12);
+  color: #8f1d16;
+}
+
+#proposalInfoModal .proposal-vote-preview-message--muted {
+  background: var(--input-background);
+  color: var(--secondary-text-color);
+}
+
+@media (max-width: 520px) {
+  #proposalInfoModal .proposal-vote-status-grid,
+  #proposalInfoModal .proposal-vote-option {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 #proposalInfoModal .hidden {
