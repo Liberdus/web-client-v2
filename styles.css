@@ -2203,6 +2203,118 @@ input[type='file'].form-control::file-selector-button {
   }
 }
 
+#proposalInfoModal .form-container {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+#proposalInfoModal .proposal-info,
+#proposalInfoModal .proposal-committee-actions {
+  display: grid;
+  gap: 12px;
+  margin: 0 auto;
+  max-width: 720px;
+  width: 100%;
+}
+
+#proposalInfoModal .proposal-info-hero,
+#proposalInfoModal .proposal-info-section,
+#proposalInfoModal .proposal-committee-actions {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+#proposalInfoModal .proposal-info-hero h2,
+#proposalInfoModal .proposal-info-section h3,
+#proposalInfoModal .proposal-committee-actions h3 {
+  color: var(--text-color);
+  font-size: 15px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+#proposalInfoModal .proposal-info-kicker,
+#proposalInfoModal .proposal-info-muted,
+#proposalInfoModal .proposal-committee-actions p,
+#proposalInfoModal .proposal-change-row small {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  line-height: 1.35;
+  margin: 0;
+}
+
+#proposalInfoModal .proposal-info-grid {
+  display: grid;
+  gap: 8px;
+}
+
+#proposalInfoModal .proposal-info-row {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: 112px minmax(0, 1fr);
+}
+
+#proposalInfoModal .proposal-info-row span,
+#proposalInfoModal .proposal-change-row span {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+}
+
+#proposalInfoModal .proposal-info-row strong,
+#proposalInfoModal .proposal-change-row strong {
+  color: var(--text-color);
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+#proposalInfoModal .proposal-payload,
+#proposalInfoModal .proposal-change-row {
+  background: var(--input-background);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+#proposalInfoModal .proposal-payload-title {
+  color: var(--text-color);
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.3;
+}
+
+#proposalInfoModal .proposal-action-toggle {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+#proposalInfoModal .proposal-withhold-fields {
+  display: grid;
+  gap: 10px;
+}
+
+#proposalInfoModal .hidden {
+  display: none !important;
+}
+
+@media (max-width: 560px) {
+  #proposalInfoModal .proposal-info-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Developer Options Styling */
 .developer-options {
   border: 1px solid var(--border-color);

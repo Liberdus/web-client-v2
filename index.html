@@ -455,24 +455,28 @@
         </div>
         <div class="modal-content">
           <div class="form-container">
-            <div style="padding: 1rem">
-              <div style="color: var(--secondary-text-color); font-size: 0.9rem; margin-bottom: 6px" id="proposalInfoNumber"></div>
-              <div style="font-weight: 600; margin-bottom: 6px" id="proposalInfoTitle"></div>
-              <div style="color: var(--secondary-text-color); font-size: 0.9rem; margin-bottom: 10px" id="proposalInfoType"></div>
-              <div style="color: var(--secondary-text-color); font-size: 0.9rem; margin-bottom: 10px" id="proposalInfoMeta"></div>
-              <div style="white-space: pre-wrap" id="proposalInfoSummary"></div>
-
-              <div id="proposalInfoFields" style="margin-top: 12px"></div>
-
-              <div id="proposalVoteSection" style="margin-top: 16px; display: none">
-                <div style="font-weight: 600; margin-bottom: 8px">Vote</div>
-                <div class="form-actions" style="gap: 10px">
-                  <button type="button" id="proposalVoteYes" class="btn btn--secondary btn--pill btn--full">Yes</button>
-                  <button type="button" id="proposalVoteNo" class="btn btn--secondary btn--pill btn--full">No</button>
-                </div>
-                <div style="color: var(--secondary-text-color); font-size: 0.9rem; margin-top: 8px" id="proposalVoteCounts"></div>
+            <div class="proposal-info" id="proposalInfoContent"></div>
+            <section class="proposal-committee-actions hidden" id="proposalCommitteeActionSection" aria-label="Committee review actions">
+              <div class="proposal-committee-actions-header">
+                <h3>Committee action</h3>
+                <p id="proposalCommitteeActionHelp"></p>
               </div>
-            </div>
+              <div class="proposal-action-toggle" role="group" aria-label="Committee vote">
+                <button type="button" class="btn btn--secondary btn--pill" id="proposalCommitteeAccept">Accept</button>
+                <button type="button" class="btn btn--secondary btn--pill" id="proposalCommitteeWithhold">Withhold</button>
+              </div>
+              <div class="proposal-withhold-fields hidden" id="proposalWithholdFields">
+                <div class="form-group">
+                  <label for="proposalWithholdReason">Withhold reason</label>
+                  <select id="proposalWithholdReason" class="form-control"></select>
+                </div>
+                <div class="form-group hidden" id="proposalWithholdCustomGroup">
+                  <label for="proposalWithholdCustomReason">Custom reason</label>
+                  <textarea id="proposalWithholdCustomReason" class="form-control" rows="4" maxlength="1000"></textarea>
+                </div>
+              </div>
+              <button type="button" class="btn btn--primary btn--pill btn--full" id="proposalCommitteeSubmit">Submit review</button>
+            </section>
           </div>
         </div>
         <a class="last-item" href="#"> </a>
