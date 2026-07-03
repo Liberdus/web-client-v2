@@ -4090,11 +4090,16 @@ class ProposalInfoModal {
 
     this.committeeActionSection.classList.remove('hidden');
     this.currentCommitteeVote = currentVote?.vote || '';
-    this.setCommitteeChoice(currentVote?.vote === 'withhold' ? 'withhold' : 'accept');
+    this.setCommitteeChoice(this.getDefaultCommitteeChoice(currentVote));
 
     this.canSubmitCommitteeReview = state === 'review' && capabilities.canCommitteeVote;
     this.updateSubmitButtons();
     this.setCommitteeActionHelp(state, reviewWindow);
+  }
+
+  getDefaultCommitteeChoice(currentVote) {
+    if (currentVote?.vote === 'accept') return 'withhold';
+    return 'accept';
   }
 
   hideCommitteeActions() {
