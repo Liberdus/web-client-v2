@@ -243,6 +243,87 @@ export function buildDaoProposalCreateTransaction({
   return transaction;
 }
 
+function getDaoProposalTransactionId(proposal) {
+  return requireDaoDraftString(proposal?.accountId || proposal?.proposalId || proposal?.id, 'DAO proposal account ID');
+}
+
+export function buildDaoCommitteeVoteTransaction({
+  from,
+  proposal,
+  vote,
+  withheldReason,
+  timestamp,
+  networkId,
+} = {}) {
+  const safeVote = requireDaoDraftString(vote, 'Committee review vote');
+  if (safeVote !== 'accept' && safeVote !== 'withhold') {
+    throw new Error('Committee review vote must be accept or withhold');
+  }
+  const txTimestamp = requireDaoNonNegativeNumber(timestamp, 'Committee review timestamp');
+  if (txTimestamp <= 0) throw new Error('Committee review timestamp is required');
+
+  const transaction = {
+    type: 'dao_committee_vote',
+    timestamp: txTimestamp,
+    networkId: requireDaoDraftString(networkId, 'Network ID'),
+    from: requireDaoDraftString(from, 'Committee review sender'),
+    proposalId: getDaoProposalTransactionId(proposal),
+    vote: safeVote,
+  };
+
+  if (safeVote === 'withhold') {
+    const reason = requireDaoDraftString(withheldReason, 'Withhold reason');
+    if (reason.length > 1000) throw new Error('Withhold reason must be 1000 characters or less');
+    transaction.withheldReason = reason;
+  }
+
+  return transaction;
+}
+
+export function buildDaoCommitteeResultTransaction({
+  from,
+  proposal,
+  timestamp,
+  networkId,
+} = {}) {
+  const txTimestamp = requireDaoNonNegativeNumber(timestamp, 'Review result timestamp');
+  if (txTimestamp <= 0) throw new Error('Review result timestamp is required');
+
+  return {
+    type: 'dao_committee_result',
+    timestamp: txTimestamp,
+    networkId: requireDaoDraftString(networkId, 'Network ID'),
+    from: requireDaoDraftString(from, 'Review result sender'),
+    proposalId: getDaoProposalTransactionId(proposal),
+  };
+}
+
+async function submitDaoTransaction({ transaction, submitTransaction, errorMessage }) {
+  try {
+    if (typeof submitTransaction !== 'function') {
+      throw new Error('DAO submit handler is required');
+    }
+
+    const response = await submitTransaction(transaction);
+    if (!response?.result?.success) {
+      return {
+        ok: false,
+        error: response?.result?.reason || errorMessage,
+        response,
+        transaction,
+      };
+    }
+
+    return { ok: true, response, transaction };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error?.message || errorMessage,
+      transaction,
+    };
+  }
+}
+
 // In-memory DAO repository.
 // Goal: UI uses this API while backend data loading stays behind this boundary.
 
@@ -517,6 +598,7 @@ function storeToUiList(store, groupKey) {
       return {
         id,
         number: p.number,
+        accountId: p.accountId,
         nonce: p.nonce,
         title: p.title,
         summary: description,
@@ -656,5 +738,43 @@ export const daoRepo = {
 
   async castVote() {
     return { ok: false, error: 'Voting is not connected yet' };
+  },
+
+  async submitCommitteeVote({ from, proposal, vote, withheldReason, timestamp, networkId, submitTransaction } = {}) {
+    try {
+      const transaction = buildDaoCommitteeVoteTransaction({
+        from,
+        proposal,
+        vote,
+        withheldReason,
+        timestamp,
+        networkId,
+      });
+      return submitDaoTransaction({
+        transaction,
+        submitTransaction,
+        errorMessage: 'Committee review submission failed',
+      });
+    } catch (error) {
+      return { ok: false, error: error?.message || 'Committee review submission failed', transaction: null };
+    }
+  },
+
+  async finalizeCommitteeResult({ from, proposal, timestamp, networkId, submitTransaction } = {}) {
+    try {
+      const transaction = buildDaoCommitteeResultTransaction({
+        from,
+        proposal,
+        timestamp,
+        networkId,
+      });
+      return submitDaoTransaction({
+        transaction,
+        submitTransaction,
+        errorMessage: 'Review result finalization failed',
+      });
+    } catch (error) {
+      return { ok: false, error: error?.message || 'Review result finalization failed', transaction: null };
+    }
   },
 };

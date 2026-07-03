@@ -2058,7 +2058,8 @@ input[type='file'].form-control::file-selector-button {
 
 #confirmProposalModal .dao-confirm,
 #proposalInfoModal .proposal-info,
-#proposalInfoModal .proposal-committee-actions {
+#proposalInfoModal .proposal-committee-actions,
+#proposalInfoModal .proposal-review-result-actions {
   display: grid;
   gap: 18px;
   margin: 0 auto;
@@ -2074,7 +2075,8 @@ input[type='file'].form-control::file-selector-button {
 
 #confirmProposalModal .dao-confirm-section h3,
 #proposalInfoModal .proposal-info-section h3,
-#proposalInfoModal .proposal-committee-actions h3 {
+#proposalInfoModal .proposal-committee-actions h3,
+#proposalInfoModal .proposal-review-result-actions h3 {
   color: var(--text-color);
   font-size: 16px;
   font-weight: var(--font-weight-semibold);
@@ -2112,9 +2114,23 @@ input[type='file'].form-control::file-selector-button {
   grid-column: 2 / span 2;
 }
 
+#proposalInfoModal .proposal-info-row--center-pair {
+  grid-column: 2 / span 2;
+}
+
 #confirmProposalModal .dao-confirm-row--full,
 #proposalInfoModal .proposal-info-row--full {
   grid-column: 1 / -1;
+}
+
+#proposalInfoModal .proposal-info-row--accept {
+  background: rgba(30, 126, 52, 0.16);
+  border: 1px solid rgba(30, 126, 52, 0.34);
+}
+
+#proposalInfoModal .proposal-info-row--withhold {
+  background: rgba(196, 45, 45, 0.14);
+  border: 1px solid rgba(196, 45, 45, 0.32);
 }
 
 #confirmProposalModal .dao-confirm-label,
@@ -2130,6 +2146,14 @@ input[type='file'].form-control::file-selector-button {
   text-align: center;
 }
 
+#proposalInfoModal .proposal-info-row--accept span {
+  color: #1e7e34;
+}
+
+#proposalInfoModal .proposal-info-row--withhold span {
+  color: #b42318;
+}
+
 #confirmProposalModal .dao-confirm-value,
 #confirmProposalModal .dao-confirm-change-values strong,
 #proposalInfoModal .proposal-info-row strong,
@@ -2142,6 +2166,14 @@ input[type='file'].form-control::file-selector-button {
   overflow-wrap: anywhere;
   text-align: center;
   white-space: pre-wrap;
+}
+
+#proposalInfoModal .proposal-info-row--accept strong {
+  color: #0f5f27;
+}
+
+#proposalInfoModal .proposal-info-row--withhold strong {
+  color: #8f1d16;
 }
 
 #confirmProposalModal .dao-confirm-label,
@@ -2207,6 +2239,7 @@ input[type='file'].form-control::file-selector-button {
 #confirmProposalModal .dao-confirm-help,
 #proposalInfoModal .proposal-info-muted,
 #proposalInfoModal .proposal-committee-actions p,
+#proposalInfoModal .proposal-review-result-actions p,
 #proposalInfoModal .proposal-change-row small {
   color: var(--secondary-text-color);
   font-size: 12px;
@@ -2233,17 +2266,24 @@ input[type='file'].form-control::file-selector-button {
     grid-column: span 3;
   }
 
+  #proposalInfoModal .proposal-info-row--center-pair {
+    grid-column: span 3;
+  }
+
   #confirmProposalModal .dao-confirm-row--full,
   #proposalInfoModal .proposal-info-row--full {
     grid-column: 1 / -1;
   }
 }
 
-#proposalInfoModal .proposal-info + .proposal-committee-actions {
+#proposalInfoModal .proposal-info + .proposal-committee-actions,
+#proposalInfoModal .proposal-info + .proposal-review-result-actions,
+#proposalInfoModal .proposal-committee-actions + .proposal-review-result-actions {
   margin-top: 12px;
 }
 
-#proposalInfoModal .proposal-committee-actions {
+#proposalInfoModal .proposal-committee-actions,
+#proposalInfoModal .proposal-review-result-actions {
   border: 1px solid var(--border-color);
   border-radius: 8px;
   display: grid;
@@ -2308,13 +2348,15 @@ input[type='file'].form-control::file-selector-button {
   color: var(--background-color);
 }
 
-#proposalInfoModal .proposal-committee-actions .btn {
+#proposalInfoModal .proposal-committee-actions .btn,
+#proposalInfoModal .proposal-review-result-actions .btn {
   font-size: 14px;
   height: 40px;
   padding: 8px 14px;
 }
 
-#proposalInfoModal .proposal-committee-actions .btn--pill.btn--full {
+#proposalInfoModal .proposal-committee-actions .btn--pill.btn--full,
+#proposalInfoModal .proposal-review-result-actions .btn--pill.btn--full {
   margin: 0;
   width: 100%;
 }
