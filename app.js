@@ -3624,6 +3624,7 @@ class ConfirmProposalModal {
   }
 
   renderSection(title, rows) {
+    const gridClass = rows.length === 2 ? 'dao-confirm-grid dao-confirm-grid--two' : 'dao-confirm-grid';
     const rowHtml = rows
       .map(([label, value]) => {
         const displayValue = formatDaoConfirmValue(value);
@@ -3640,7 +3641,7 @@ class ConfirmProposalModal {
     return `
       <section class="dao-confirm-section">
         <h3>${escapeHtml(title)}</h3>
-        <div class="dao-confirm-grid">${rowHtml}</div>
+        <div class="${gridClass}">${rowHtml}</div>
       </section>
     `;
   }

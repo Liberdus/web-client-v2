@@ -2096,6 +2096,10 @@ input[type='file'].form-control::file-selector-button {
   text-align: center;
 }
 
+#confirmProposalModal .dao-confirm-grid--two .dao-confirm-row:first-child {
+  grid-column: 2 / span 2;
+}
+
 #confirmProposalModal .dao-confirm-row--full {
   grid-column: 1 / -1;
 }
