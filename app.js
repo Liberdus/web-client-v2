@@ -3614,7 +3614,7 @@ class ConfirmProposalModal {
         ['Type', getDaoTypeLabel(proposalType)],
         ['Emergency', tx.emergency ? 'Yes' : 'No'],
         ['Description', tx.description],
-        ['Options', tx.options],
+        ['Options', this.formatProposalOptions(tx.options)],
         ['Review starts', formatDaoDurationSummary(draft.startDelayMs)],
         ['Grace period', gracePeriodSummary],
       ]),
@@ -3625,20 +3625,43 @@ class ConfirmProposalModal {
 
   renderSection(title, rows) {
     const rowHtml = rows
-      .map(([label, value]) => `
-        <div class="dao-confirm-row">
+      .map(([label, value]) => {
+        const displayValue = formatDaoConfirmValue(value);
+        const rowClass = this.getSectionRowClass(label, displayValue);
+        return `
+        <div class="${rowClass}">
           <span class="dao-confirm-label">${escapeHtml(label)}</span>
-          <strong class="dao-confirm-value">${escapeHtml(formatDaoConfirmValue(value))}</strong>
+          <strong class="dao-confirm-value">${escapeHtml(displayValue)}</strong>
         </div>
-      `)
+      `;
+      })
       .join('');
 
     return `
       <section class="dao-confirm-section">
         <h3>${escapeHtml(title)}</h3>
-        ${rowHtml}
+        <div class="dao-confirm-grid">${rowHtml}</div>
       </section>
     `;
+  }
+
+  getSectionRowClass(label, value) {
+    const fullWidthLabels = ['Description', 'Options', 'from', 'description', 'options'];
+    if (!fullWidthLabels.includes(label)) return 'dao-confirm-row';
+
+    const text = String(value);
+    const lines = text.split('\n');
+    const longestLineLength = Math.max(...lines.map((line) => line.length));
+    if (lines.length > 4 || longestLineLength > 42 || text.length > 120) {
+      return 'dao-confirm-row dao-confirm-row--full';
+    }
+    return 'dao-confirm-row';
+  }
+
+  formatProposalOptions(options) {
+    return Array.isArray(options) && options.length
+      ? options.map((option, index) => `${index + 1}. ${option}`).join('\n')
+      : options;
   }
 
   renderChanges(changes) {
@@ -3646,11 +3669,10 @@ class ConfirmProposalModal {
       ? changes.map((change, index) => `
           <div class="dao-confirm-change">
             <div class="dao-confirm-change-title">Change ${index + 1}: ${escapeHtml(change.key)}</div>
-            <div class="dao-confirm-change-grid">
-              <span>Current</span>
-              <strong>${escapeHtml(formatDaoConfirmValue(change.current))}</strong>
-              <span>Proposed</span>
-              <strong>${escapeHtml(formatDaoConfirmValue(change.value))}</strong>
+            <div class="dao-confirm-change-values">
+              <small>Current: ${escapeHtml(formatDaoConfirmValue(change.current))}</small>
+              <span class="dao-confirm-change-arrow" aria-hidden="true">&rarr;</span>
+              <strong>New: ${escapeHtml(formatDaoConfirmValue(change.value))}</strong>
             </div>
           </div>
         `).join('')

@@ -2057,52 +2057,78 @@ input[type='file'].form-control::file-selector-button {
 
 #confirmProposalModal .dao-confirm {
   display: grid;
-  gap: 12px;
+  gap: 18px;
   margin: 0 auto;
   max-width: 720px;
   width: 100%;
 }
 
 #confirmProposalModal .dao-confirm-section {
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
   display: grid;
-  gap: 8px;
-  padding: 12px;
+  gap: 10px;
 }
 
 #confirmProposalModal .dao-confirm-section h3 {
   color: var(--text-color);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: var(--font-weight-semibold);
   line-height: 1.25;
   margin: 0;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 
-#confirmProposalModal .dao-confirm-row,
-#confirmProposalModal .dao-confirm-change-grid {
+#confirmProposalModal .dao-confirm-grid {
   display: grid;
-  gap: 4px;
-  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 10px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+#confirmProposalModal .dao-confirm-row {
+  background: var(--input-background);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-column: span 2;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 76px;
+  padding: 10px;
+  text-align: center;
+}
+
+#confirmProposalModal .dao-confirm-row--full {
+  grid-column: 1 / -1;
 }
 
 #confirmProposalModal .dao-confirm-label,
-#confirmProposalModal .dao-confirm-change-grid span {
+#confirmProposalModal .dao-confirm-change-title {
   color: var(--secondary-text-color);
   font-size: 12px;
   font-weight: var(--font-weight-medium);
   line-height: 1.35;
+  text-align: center;
 }
 
 #confirmProposalModal .dao-confirm-value,
-#confirmProposalModal .dao-confirm-change-grid strong {
+#confirmProposalModal .dao-confirm-change-values strong {
   color: var(--text-color);
   font-size: 13px;
   font-weight: var(--font-weight-semibold);
   line-height: 1.35;
   min-width: 0;
   overflow-wrap: anywhere;
+  text-align: center;
   white-space: pre-wrap;
+}
+
+#confirmProposalModal .dao-confirm-label {
+  align-self: start;
+  justify-self: center;
+}
+
+#confirmProposalModal .dao-confirm-value {
+  align-self: center;
+  justify-self: center;
 }
 
 #confirmProposalModal .dao-confirm-change {
@@ -2113,12 +2139,36 @@ input[type='file'].form-control::file-selector-button {
   padding: 10px;
 }
 
-#confirmProposalModal .dao-confirm-change-title {
+#confirmProposalModal .dao-confirm-change-values {
+  align-items: center;
+  display: grid;
+  column-gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr);
+  width: 100%;
+}
+
+#confirmProposalModal .dao-confirm-change-values small,
+#confirmProposalModal .dao-confirm-change-values strong {
   color: var(--text-color);
   font-size: 13px;
   font-weight: var(--font-weight-semibold);
-  line-height: 1.3;
-  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+#confirmProposalModal .dao-confirm-change-values small {
+  text-align: right;
+}
+
+#confirmProposalModal .dao-confirm-change-values strong {
+  text-align: left;
+}
+
+#confirmProposalModal .dao-confirm-change-arrow {
+  color: var(--secondary-text-color);
+  font-size: 15px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+  text-align: center;
 }
 
 #confirmProposalModal .dao-confirm-empty,
@@ -2135,6 +2185,16 @@ input[type='file'].form-control::file-selector-button {
   margin: 12px auto 0;
   max-width: 720px;
   width: 100%;
+}
+
+@media (max-width: 420px) {
+  #confirmProposalModal .dao-confirm-row {
+    grid-column: span 3;
+  }
+
+  #confirmProposalModal .dao-confirm-row--full {
+    grid-column: 1 / -1;
+  }
 }
 
 /* Developer Options Styling */
