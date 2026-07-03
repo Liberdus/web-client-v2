@@ -3413,6 +3413,7 @@ class ConfirmProposalModal {
   load() {
     this.modal = document.getElementById('confirmProposalModal');
     this.closeButton = document.getElementById('closeConfirmProposalModal');
+    this.title = document.getElementById('confirmProposalModalTitle');
     this.backButton = document.getElementById('backConfirmProposal');
     this.signButton = document.getElementById('signConfirmProposal');
     this.content = document.getElementById('confirmProposalContent');
@@ -3447,6 +3448,7 @@ class ConfirmProposalModal {
     if (!this.content) return;
     const draft = this.currentDraft;
     if (!draft?.transaction?.from) {
+      this.setTitle('Review Proposal');
       this.content.innerHTML = '<div class="dao-confirm-empty">Proposal draft is unavailable.</div>';
       return;
     }
@@ -3455,6 +3457,7 @@ class ConfirmProposalModal {
     const proposalType = tx.proposalType;
     const changes = Array.isArray(tx[proposalType]?.changes) ? tx[proposalType].changes : [];
 
+    this.setTitle('Review Proposal');
     this.content.innerHTML = [
       this.renderSection('Cost and State', [
         ['Proposal fee', `${draft.proposalFeeUsdStr || '0'} USD`],
@@ -3471,15 +3474,6 @@ class ConfirmProposalModal {
         ['Grace period', tx.gracePeriod ? formatDaoDurationSummary(tx.gracePeriod) : 'Network default'],
       ]),
       this.renderChanges(changes),
-      this.renderSection('Transaction Fields', [
-        ['from', tx.from],
-        ['emergency', tx.emergency],
-        ['proposalType', tx.proposalType],
-        ['description', tx.description],
-        ['options', tx.options],
-        [`${proposalType}.changes`, `${changes.length} change${changes.length === 1 ? '' : 's'}`],
-        ['gracePeriod', tx.gracePeriod ? formatDaoDurationSummary(tx.gracePeriod) : 'Network default'],
-      ]),
       '<div class="dao-confirm-help">The proposal fee is derived from DAO params and seeds the voter reward pool for regular proposals. This screen does not submit yet.</div>',
     ].join('');
   }
@@ -3524,6 +3518,10 @@ class ConfirmProposalModal {
       </section>
     `;
   }
+
+  setTitle(title) {
+    if (this.title) this.title.textContent = title || 'Review Proposal';
+  }
 }
 
 const confirmProposalModal = new ConfirmProposalModal();
@@ -3532,6 +3530,7 @@ class ProposalInfoModal {
   load() {
     this.modal = document.getElementById('proposalInfoModal');
     this.closeButton = document.getElementById('closeProposalInfoModal');
+    this.modalTitle = document.getElementById('proposalInfoModalTitle');
     this.numberEl = document.getElementById('proposalInfoNumber');
     this.titleEl = document.getElementById('proposalInfoTitle');
     this.typeEl = document.getElementById('proposalInfoType');
@@ -3570,6 +3569,7 @@ class ProposalInfoModal {
     }
 
     if (!p) {
+      if (this.modalTitle) this.modalTitle.textContent = 'Proposal not found';
       if (this.numberEl) this.numberEl.textContent = '';
       if (this.titleEl) this.titleEl.textContent = 'Proposal not found';
       if (this.typeEl) this.typeEl.textContent = '';
@@ -3585,6 +3585,7 @@ class ProposalInfoModal {
     const createdBy = p.createdBy ? ` · by ${p.createdBy}` : '';
     const typeLabel = getDaoTypeLabel(p.type);
 
+    if (this.modalTitle) this.modalTitle.textContent = uiState || 'Proposal';
     if (this.numberEl) this.numberEl.textContent = p.number ? `Proposal #${p.number}` : 'Proposal';
     if (this.titleEl) this.titleEl.textContent = p.title || 'Untitled Proposal';
     if (this.typeEl) this.typeEl.textContent = typeLabel ? `Type: ${typeLabel}` : '';
