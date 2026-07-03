@@ -2234,7 +2234,6 @@ input[type='file'].form-control::file-selector-button {
   gap: 10px;
 }
 
-#proposalInfoModal .proposal-info-title,
 #proposalInfoModal .proposal-info-section h3,
 #proposalInfoModal .proposal-committee-actions h3 {
   color: var(--text-color);

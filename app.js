@@ -3743,7 +3743,7 @@ class ProposalInfoModal {
   load() {
     this.modal = document.getElementById('proposalInfoModal');
     this.closeButton = document.getElementById('closeProposalInfoModal');
-    this.modalTitle = document.getElementById('proposalInfoModalTitle');
+    this.title = document.getElementById('proposalInfoModalTitle');
     this.content = document.getElementById('proposalInfoContent');
     this.committeeActionSection = document.getElementById('proposalCommitteeActionSection');
     this.committeeActionHelp = document.getElementById('proposalCommitteeActionHelp');
@@ -3822,7 +3822,7 @@ class ProposalInfoModal {
 
     if (this.content) {
       this.content.innerHTML = [
-        this.renderHeader(proposal),
+        this.renderProposalTitle(proposal),
         this.renderSection('Overview', [
           ['Number', proposal.number ? `#${proposal.number}` : 'Unavailable'],
           ['Type', getDaoTypeLabel(proposalType) || 'Unavailable'],
@@ -3851,13 +3851,16 @@ class ProposalInfoModal {
     this.renderCommitteeActions({ isCommitteeMember, reviewWindow, currentVote, state });
   }
 
-  renderHeader(proposal) {
-    const title = proposal.title || (proposal.number ? `Proposal #${proposal.number}` : 'Proposal');
-    return `<h2 class="proposal-info-title">${escapeHtml(title)}</h2>`;
+  renderProposalTitle(proposal) {
+    return `<h2 class="proposal-info-title">${escapeHtml(this.getProposalTitle(proposal))}</h2>`;
+  }
+
+  getProposalTitle(proposal) {
+    return proposal.title || (proposal.number ? `Proposal #${proposal.number}` : 'Proposal');
   }
 
   setTitle(title) {
-    if (this.modalTitle) this.modalTitle.textContent = title || 'Proposal';
+    if (this.title) this.title.textContent = title || 'Proposal';
   }
 
   renderSection(title, rows) {
