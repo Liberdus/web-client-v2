@@ -3817,7 +3817,7 @@ function formatDaoShortNumber(value, decimals = 6) {
 }
 
 function formatDaoVotingPower(value) {
-  const n = typeof value === 'bigint' ? Number(value) : Number(value);
+  const n = Number(value);
   if (!Number.isFinite(n)) return 'Unavailable';
   return `${formatDaoShortNumber(n / DAO_VOTE_WEIGHT_PRECISION, 3)} power`;
 }
@@ -3889,7 +3889,6 @@ class ProposalInfoModal {
     this.currentCommitteeVote = '';
     this.voteWeights = [];
     this.voteSpendLib = '';
-    this.showVotePowerHelp = false;
     this.isSubmitting = false;
     this.canSubmitCommitteeReview = false;
     this.canSubmitReviewResult = false;
@@ -3904,7 +3903,6 @@ class ProposalInfoModal {
     if (this.reviewResultButton) this.reviewResultButton.addEventListener('click', () => this.handleReviewResultSubmit());
     if (this.voteSpendInput) this.voteSpendInput.addEventListener('input', () => this.handleVoteSpendInput());
     if (this.voteOptions) this.voteOptions.addEventListener('input', (event) => this.handleVoteWeightInput(event));
-    if (this.votePreview) this.votePreview.addEventListener('click', (event) => this.handleVotePreviewClick(event));
 
     if (this.withholdReasonSelect) {
       this.withholdReasonSelect.innerHTML = DAO_WITHHOLD_REASON_OPTIONS
@@ -4250,7 +4248,6 @@ class ProposalInfoModal {
     const options = this.getVoteOptions(proposal);
     this.voteWeights = options.map(() => 0);
     this.voteSpendLib = '';
-    this.showVotePowerHelp = false;
     if (this.voteSpendInput) this.voteSpendInput.value = '';
   }
 
@@ -4382,38 +4379,27 @@ class ProposalInfoModal {
     const optionRows = this.getVoteOptions(proposal)
       .map((option, index) => {
         const weight = this.voteWeights[index] || 0;
-        const share = validation.totalWeight > 0 ? weight / validation.totalWeight : 0;
-        const applied = validation.totalWeight > 0
-          ? estimate.totalAppliedWeight * share
-          : 0;
+        const share = weight / validation.totalWeight;
+        const applied = estimate.totalAppliedWeight * share;
         return `
           <div class="proposal-vote-preview-row">
-            <span class="proposal-vote-preview-percent">${escapeHtml(formatDaoPercent(share))}</span>
+            <span>${escapeHtml(formatDaoPercent(share))}</span>
             <span>${escapeHtml(option)}</span>
             <strong>${escapeHtml(formatDaoVotingPower(applied))}</strong>
           </div>
         `;
       })
       .join('');
-    const helpHidden = this.showVotePowerHelp ? '' : ' hidden';
 
     this.votePreview.innerHTML = `
       <div class="proposal-vote-preview-total">
-        <span>
-          Estimated voting power
-          <button
-            type="button"
-            class="proposal-vote-info-button"
-            data-vote-power-help
-            aria-label="Explain voting power"
-            aria-expanded="${this.showVotePowerHelp ? 'true' : 'false'}"
-          ></button>
-        </span>
+        <span>Estimated voting power</span>
         <strong>${escapeHtml(formatDaoVotingPower(estimate.totalAppliedWeight))}</strong>
       </div>
-      <div class="proposal-vote-power-help${helpHidden}">
-        Voting power is the normalized weight from your LIB spend and timing. Percentages split that power across options.
-      </div>
+      <details class="proposal-vote-power-help">
+        <summary>What is voting power?</summary>
+        <p>Voting power is the normalized weight from your LIB spend and timing. Percentages split that power across options.</p>
+      </details>
       <div class="proposal-vote-preview-meter">
         <span style="width: ${Math.min(100, Math.max(4, estimate.timeMultiplier * 100))}%"></span>
       </div>
@@ -4422,13 +4408,6 @@ class ProposalInfoModal {
       </div>
       <div class="proposal-vote-preview-options">${optionRows}</div>
     `;
-  }
-
-  handleVotePreviewClick(event) {
-    const button = event.target?.closest?.('[data-vote-power-help]');
-    if (!button) return;
-    this.showVotePowerHelp = !this.showVotePowerHelp;
-    this.updateVotePreview(this.getCurrentProposal());
   }
 
   getVotePreviewValidation(proposal) {
