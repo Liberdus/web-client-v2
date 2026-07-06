@@ -3700,6 +3700,7 @@ const DAO_WITHHOLD_REASON_OPTIONS = [
 ];
 const DAO_WITHHOLD_REASON_MAX_LENGTH = 1000;
 const DAO_VOTE_WEIGHT_MAX = 1_000_000;
+const DAO_VOTE_WEIGHT_PRECISION = 1_000_000_000_000;
 
 function getDaoCurrentAccountAddress() {
   return myAccount?.keys?.address ? longAddress(myAccount.keys.address) : '';
@@ -4451,7 +4452,7 @@ class ProposalInfoModal {
     }
 
     const spendBoost = Math.pow(spendLib / minimumSpendLib, voteExponent);
-    const totalAppliedWeight = spendLib * spendBoost * votingWindow.timeMultiplier;
+    const totalAppliedWeight = spendLib * spendBoost * votingWindow.timeMultiplier * DAO_VOTE_WEIGHT_PRECISION;
     if (!Number.isFinite(totalAppliedWeight) || totalAppliedWeight <= 0 || totalWeight <= 0) {
       return { ok: false, message: 'Applied-weight estimate is unavailable for these inputs.' };
     }
