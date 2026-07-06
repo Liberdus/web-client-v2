@@ -3823,6 +3823,12 @@ function formatDaoVotingPower(value) {
   return `${formatDaoShortNumber(n / DAO_VOTE_WEIGHT_PRECISION, 3)} power`;
 }
 
+function formatDaoWeightedVotes(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 'Unavailable';
+  return `${formatDaoShortNumber(n / DAO_VOTE_WEIGHT_PRECISION, 3)} votes`;
+}
+
 function formatDaoPercent(value) {
   return `${formatDaoShortNumber(value * 100, 1)}%`;
 }
@@ -3834,12 +3840,6 @@ function formatDaoLibWei(value) {
   } catch {
     return 'Unavailable';
   }
-}
-
-function formatDaoShortAddress(address) {
-  const text = String(address || '').trim();
-  if (text.length <= 18) return text || 'Unavailable';
-  return `${text.slice(0, 10)}...${text.slice(-6)}`;
 }
 
 function formatDaoDetailValue(value) {
@@ -4010,7 +4010,6 @@ class ProposalInfoModal {
           ],
           ['Next state', this.getNextStateHint(proposal, acceptCount, withholdCount)],
         ]),
-        state === 'voting' ? this.renderVoteAudit(proposal) : '',
       ].join('');
     }
 
@@ -4193,31 +4192,6 @@ class ProposalInfoModal {
     `;
   }
 
-  renderVoteAudit(proposal) {
-    const voterList = Array.isArray(proposal.voterList) ? proposal.voterList : [];
-    if (!voterList.length) {
-      return '<section class="proposal-info-section"><h3>Recent Votes</h3><p class="proposal-info-muted">No vote submissions yet.</p></section>';
-    }
-
-    const rows = voterList
-      .slice(-3)
-      .reverse()
-      .map((vote) => `
-        <div class="proposal-change-row">
-          <span>${escapeHtml(formatDaoShortAddress(vote?.address))}</span>
-          <strong>${escapeHtml(formatDaoDetailTimestamp(vote?.timestamp))}</strong>
-        </div>
-      `)
-      .join('');
-
-    return `
-      <section class="proposal-info-section">
-        <h3>Recent Votes</h3>
-        ${rows}
-      </section>
-    `;
-  }
-
   renderPayloadRows(payload, payloadTitle = '') {
     const titleHtml = payloadTitle
       ? `<div class="proposal-payload-title">${escapeHtml(payloadTitle)}</div>`
@@ -4349,12 +4323,12 @@ class ProposalInfoModal {
     }
     if (this.voteOptions) {
       this.voteOptions.innerHTML = `
-        <div class="proposal-vote-options-help">Allocation is a ratio. 1 / 1 splits evenly; 3 / 1 gives 75% / 25%.</div>
         <div class="proposal-vote-options-header">
           <span>Option</span>
           <span>Allocation</span>
         </div>
         ${options.map((option, index) => this.renderVoteOption(option, index)).join('')}
+        <div class="proposal-vote-options-help">Allocation is a ratio. 1 / 1 splits evenly; 3 / 1 gives 75% / 25%.</div>
       `;
     }
 
