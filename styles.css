@@ -2108,6 +2108,11 @@ input[type='file'].form-control::file-selector-button {
   text-align: center;
 }
 
+#proposalInfoModal .proposal-info-row {
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 2px rgba(28, 28, 33, 0.05);
+}
+
 #confirmProposalModal .dao-confirm-grid--two .dao-confirm-row:first-child {
   grid-column: 2 / span 2;
 }
@@ -2438,6 +2443,24 @@ input[type='file'].form-control::file-selector-button {
   gap: 10px;
 }
 
+#proposalInfoModal .proposal-vote-options-help,
+#proposalInfoModal .proposal-vote-options-header {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+#proposalInfoModal .proposal-vote-options-header {
+  display: grid;
+  font-weight: var(--font-weight-semibold);
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 104px;
+}
+
+#proposalInfoModal .proposal-vote-options-header span:last-child {
+  text-align: center;
+}
+
 #proposalInfoModal .proposal-vote-option,
 #proposalInfoModal .proposal-vote-spend-row {
   align-items: end;
@@ -2463,6 +2486,52 @@ input[type='file'].form-control::file-selector-button {
   display: grid;
   gap: 10px;
   grid-template-columns: minmax(0, 1fr) auto;
+}
+
+#proposalInfoModal .proposal-vote-preview-row {
+  grid-template-columns: 52px minmax(72px, 1fr) minmax(96px, auto);
+}
+
+#proposalInfoModal .proposal-vote-preview-percent,
+#proposalInfoModal .proposal-vote-preview-row small {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+}
+
+#proposalInfoModal .proposal-vote-preview-row > span:nth-child(2) {
+  justify-self: center;
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-vote-preview-row > strong {
+  justify-self: end;
+  text-align: right;
+}
+
+#proposalInfoModal .proposal-vote-preview-total > span {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+#proposalInfoModal .proposal-vote-info-button {
+  background-color: transparent;
+  background-image: var(--icon-info);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  border: 0;
+  cursor: pointer;
+  height: 22px;
+  padding: 0;
+  width: 22px;
+}
+
+#proposalInfoModal .proposal-vote-power-help {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 #proposalInfoModal .proposal-vote-preview-meter {
