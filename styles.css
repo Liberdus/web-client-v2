@@ -2422,7 +2422,7 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-vote-status-grid {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 #proposalInfoModal .proposal-vote-status-grid:empty {
@@ -2458,6 +2458,86 @@ input[type='file'].form-control::file-selector-button {
   line-height: 1.35;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+#proposalInfoModal .proposal-vote-status-card--totals {
+  align-items: stretch;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+#proposalInfoModal .proposal-vote-status-card--totals > span {
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-vote-total-content {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+#proposalInfoModal .proposal-vote-total-pie {
+  --vote-total-chart: conic-gradient(rgba(67, 56, 202, 0.12) 0 100%);
+  align-items: center;
+  aspect-ratio: 1;
+  background: var(--vote-total-chart);
+  border-radius: 50%;
+  display: grid;
+  justify-items: center;
+  padding: 8px;
+  place-items: center;
+  position: relative;
+  width: 82px;
+}
+
+#proposalInfoModal .proposal-vote-total-pie::before {
+  background: var(--input-background);
+  border: 2px solid rgba(67, 56, 202, 0.08);
+  border-radius: inherit;
+  content: "";
+  inset: 8px;
+  position: absolute;
+}
+
+#proposalInfoModal .proposal-vote-total-pie strong {
+  font-size: 12px;
+  line-height: 1.1;
+  position: relative;
+  text-align: center;
+  white-space: normal;
+  z-index: 1;
+}
+
+#proposalInfoModal .proposal-vote-total-legend {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+}
+
+#proposalInfoModal .proposal-vote-total-legend-row {
+  align-items: center;
+  display: grid;
+  gap: 5px;
+  grid-template-columns: 8px minmax(0, 1fr) auto auto;
+}
+
+#proposalInfoModal .proposal-vote-total-legend-row i {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  display: block;
+}
+
+#proposalInfoModal .proposal-vote-total-legend-row small {
+  color: var(--secondary-text-color);
+  font-size: 11px;
+  line-height: 1;
+}
+
+#proposalInfoModal .proposal-vote-total-legend-row strong {
+  font-size: 12px;
+  justify-self: end;
+  white-space: nowrap;
 }
 
 #proposalInfoModal .proposal-vote-options {
@@ -2596,6 +2676,11 @@ input[type='file'].form-control::file-selector-button {
 @media (max-width: 520px) {
   #proposalInfoModal .proposal-vote-status-grid,
   #proposalInfoModal .proposal-vote-option {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #proposalInfoModal .proposal-vote-total-content {
+    justify-items: center;
     grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -18,9 +18,12 @@ export const DAO_CONFIG_CHANGE_OPTIONS = {
   governance: [
     { key: 'claimDuration', path: 'current.dao.claimDuration', label: 'Claim Duration', valueType: 'integer' },
     { key: 'graceDuration', path: 'current.dao.graceDuration', label: 'Grace Duration', valueType: 'integer' },
+    { key: 'minimumSpendUsdStr', path: 'current.dao.minimumSpendUsdStr', label: 'Minimum Vote Spend', valueType: 'float' },
     { key: 'pctBurned', path: 'current.dao.pctBurned', label: 'Percent Burned', valueType: 'integer' },
+    { key: 'proposalFeeUsdStr', path: 'current.dao.proposalFeeUsdStr', label: 'Proposal Fee', valueType: 'float' },
     { key: 'reviewDuration', path: 'current.dao.reviewDuration', label: 'Review Duration', valueType: 'integer' },
     { key: 'voteExponent', path: 'current.dao.voteExponent', label: 'Vote Exponent', valueType: 'float' },
+    { key: 'voteThresholdUsdStr', path: 'current.dao.voteThresholdUsdStr', label: 'Vote Threshold', valueType: 'float' },
     { key: 'votingDuration', path: 'current.dao.votingDuration', label: 'Voting Duration', valueType: 'integer' },
   ],
   economic: [
@@ -188,7 +191,7 @@ export function buildDaoProposalCreateDraft({
     from: requireDaoDraftString(from, 'DAO proposal sender'),
     emergency: isEmergency,
     proposalType: safeProposalType,
-    // TODO: Add title here when DaoProposalCreate supports a server title field.
+    title: requireDaoDraftString(displayTitle, 'DAO proposal title'),
     description: requireDaoDraftString(description, 'DAO proposal description'),
     options: safeOptions,
     [safeProposalType]: { changes: safeChanges },
@@ -197,7 +200,7 @@ export function buildDaoProposalCreateDraft({
   transaction.gracePeriod = safeGracePeriodMs;
 
   return {
-    displayTitle: requireDaoDraftString(displayTitle, 'DAO proposal title'),
+    displayTitle: transaction.title,
     proposalFeeUsdStr: feeUsdStr,
     startDelayMs,
     transaction,
@@ -295,6 +298,50 @@ export function buildDaoCommitteeResultTransaction({
     networkId: requireDaoDraftString(networkId, 'Network ID'),
     from: requireDaoDraftString(from, 'Review result sender'),
     proposalId: getDaoProposalTransactionId(proposal),
+  };
+}
+
+export function buildDaoVoteTransaction({
+  from,
+  proposal,
+  weights,
+  spend,
+  timestamp,
+  networkId,
+} = {}) {
+  const txTimestamp = requireDaoNonNegativeNumber(timestamp, 'Vote timestamp');
+  if (txTimestamp <= 0) throw new Error('Vote timestamp is required');
+
+  const options = Array.isArray(proposal?.options) ? proposal.options : [];
+  if (options.length < 2 || options.length > 10) {
+    throw new Error('DAO vote proposal options are required');
+  }
+  if (!Array.isArray(weights) || weights.length !== options.length) {
+    throw new Error('Vote weights must match proposal options');
+  }
+
+  let totalWeight = 0;
+  for (const weight of weights) {
+    if (!Number.isSafeInteger(weight) || weight < 0) {
+      throw new Error('Vote weights must be non-negative whole numbers');
+    }
+    totalWeight += weight;
+  }
+  if (!Number.isSafeInteger(totalWeight) || totalWeight <= 0) {
+    throw new Error('Vote weights must include at least one positive weight');
+  }
+  if (typeof spend !== 'bigint' || spend <= 0n) {
+    throw new Error('Vote spend must be a positive LIB amount');
+  }
+
+  return {
+    type: 'dao_vote',
+    timestamp: txTimestamp,
+    networkId: requireDaoDraftString(networkId, 'Network ID'),
+    from: requireDaoDraftString(from, 'Vote sender'),
+    proposalId: getDaoProposalTransactionId(proposal),
+    weights: weights.slice(),
+    spend,
   };
 }
 
@@ -409,6 +456,7 @@ function mapBackendProposalToStoreProposal(proposal) {
     createdBy: proposal.createdBy || proposal.creator || proposal.from || '',
     fields: getDaoProposalFields(proposal),
     votes: getDaoProposalVotes(proposal),
+    voterList: Array.isArray(proposal.voterList) ? proposal.voterList : [],
   };
 }
 
@@ -615,6 +663,7 @@ function storeToUiList(store, groupKey) {
         totalVote: Array.isArray(p.totalVote) ? p.totalVote : undefined,
         committeeVotes: Array.isArray(p.committeeVotes) ? p.committeeVotes : [],
         committeeAddresses: Array.isArray(p.committeeAddresses) ? p.committeeAddresses : [],
+        voterList: Array.isArray(p.voterList) ? p.voterList : [],
         voterRewardPool: p.voterRewardPool,
         claimedReward: p.claimedReward,
         initialBurnedReward: p.initialBurnedReward,
@@ -736,8 +785,24 @@ export const daoRepo = {
     }
   },
 
-  async castVote() {
-    return { ok: false, error: 'Voting is not connected yet' };
+  async castVote({ from, proposal, weights, spend, timestamp, networkId, submitTransaction } = {}) {
+    try {
+      const transaction = buildDaoVoteTransaction({
+        from,
+        proposal,
+        weights,
+        spend,
+        timestamp,
+        networkId,
+      });
+      return submitDaoTransaction({
+        transaction,
+        submitTransaction,
+        errorMessage: 'Vote submission failed',
+      });
+    } catch (error) {
+      return { ok: false, error: error?.message || 'Vote submission failed', transaction: null };
+    }
   },
 
   async submitCommitteeVote({ from, proposal, vote, withheldReason, timestamp, networkId, submitTransaction } = {}) {
