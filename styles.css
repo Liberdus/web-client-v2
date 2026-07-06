@@ -2103,6 +2103,13 @@ input[type='file'].form-control::file-selector-button {
   line-height: 1.25;
   margin: 0;
   overflow-wrap: anywhere;
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-info-section h3,
+#proposalInfoModal .proposal-committee-actions h3,
+#proposalInfoModal .proposal-review-result-actions h3,
+#proposalInfoModal .proposal-vote-actions h3 {
   text-align: left;
 }
 
@@ -2473,8 +2480,8 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-vote-total-content {
   align-items: center;
   display: grid;
-  gap: 22px;
-  grid-template-columns: 82px 150px;
+  gap: 28px;
+  grid-template-columns: 82px max-content;
   justify-content: center;
 }
 
@@ -2515,14 +2522,14 @@ input[type='file'].form-control::file-selector-button {
   display: grid;
   gap: 8px;
   justify-self: center;
-  width: 150px;
 }
 
 #proposalInfoModal .proposal-vote-total-legend-row {
-  align-items: baseline;
+  align-items: center;
   display: grid;
-  gap: 4px;
-  grid-template-columns: 45px 6px 95px;
+  gap: 8px;
+  grid-template-columns: 58px 6px max-content 6px 36px;
+  line-height: 1.2;
 }
 
 #proposalInfoModal .proposal-vote-total-option {
@@ -2542,34 +2549,21 @@ input[type='file'].form-control::file-selector-button {
   width: 8px;
 }
 
-#proposalInfoModal .proposal-vote-total-metric {
-  align-items: baseline;
-  display: inline-flex;
-  gap: 4px;
-  justify-content: space-between;
-  line-height: 1.2;
-}
-
-#proposalInfoModal .proposal-vote-total-metric > span:first-child {
+#proposalInfoModal .proposal-vote-total-votes {
+  color: var(--text-color);
   font-size: 12px;
-  font-weight: var(--font-weight-medium);
-  min-width: 58px;
   white-space: nowrap;
 }
 
-#proposalInfoModal .proposal-vote-total-metric small {
+#proposalInfoModal .proposal-vote-total-share {
   color: var(--secondary-text-color);
   font-size: 11px;
-  line-height: 1.2;
-  min-width: 28px;
   text-align: right;
 }
 
-#proposalInfoModal .proposal-vote-total-separator,
-#proposalInfoModal .proposal-vote-total-metric > span {
+#proposalInfoModal .proposal-vote-total-separator {
   color: var(--secondary-text-color);
   font-size: 11px;
-  line-height: 1.2;
   text-align: center;
 }
 

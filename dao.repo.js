@@ -456,7 +456,6 @@ function mapBackendProposalToStoreProposal(proposal) {
     createdBy: proposal.createdBy || proposal.creator || proposal.from || '',
     fields: getDaoProposalFields(proposal),
     votes: getDaoProposalVotes(proposal),
-    voterList: Array.isArray(proposal.voterList) ? proposal.voterList : [],
   };
 }
 
@@ -663,7 +662,6 @@ function storeToUiList(store, groupKey) {
         totalVote: Array.isArray(p.totalVote) ? p.totalVote : undefined,
         committeeVotes: Array.isArray(p.committeeVotes) ? p.committeeVotes : [],
         committeeAddresses: Array.isArray(p.committeeAddresses) ? p.committeeAddresses : [],
-        voterList: Array.isArray(p.voterList) ? p.voterList : [],
         voterRewardPool: p.voterRewardPool,
         claimedReward: p.claimedReward,
         initialBurnedReward: p.initialBurnedReward,
