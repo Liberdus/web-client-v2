@@ -82,6 +82,7 @@ import {
   buildDaoProposalCreateDraft,
   createDaoBackendFetcher,
   DAO_CONFIG_CHANGE_OPTIONS,
+  DAO_PROPOSAL_TITLE_MAX_LENGTH,
   daoRepo,
   DAO_STATES,
   getDaoStateLabel,
@@ -3383,6 +3384,10 @@ class AddProposalModal {
 
     if (!title) {
       this.showValidationError(this.createValidationError('Please enter a title', this.titleInput));
+      return;
+    }
+    if (title.length > DAO_PROPOSAL_TITLE_MAX_LENGTH) {
+      this.showValidationError(this.createValidationError(`Title must be ${DAO_PROPOSAL_TITLE_MAX_LENGTH} characters or less`, this.titleInput));
       return;
     }
     if (!DAO_CONFIG_CHANGE_OPTIONS[proposalType]) {

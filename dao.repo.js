@@ -77,6 +77,7 @@ export const DAO_STATES = [
 const DAO_PROPOSAL_DAY_MS = 24 * 60 * 60 * 1000;
 const DAO_AFFIRMATIVE_OPTION_STRINGS = ['yes', 'accept', 'approve'];
 const DAO_PROPOSALS_META_ID_STRING = 'dao proposals meta';
+export const DAO_PROPOSAL_TITLE_MAX_LENGTH = 100;
 
 export function getDaoTypeLabel(typeKey) {
   return DAO_TYPE_OPTIONS.find((t) => t.key === typeKey)?.label || typeKey || '';
@@ -93,9 +94,12 @@ export function getEffectiveDaoState(proposal) {
 
 const DAO_PROPOSAL_QUERY_BATCH_SIZE = 10;
 
-function requireDaoDraftString(value, label) {
+function requireDaoDraftString(value, label, maxLength) {
   const text = String(value ?? '').trim();
   if (!text) throw new Error(`${label} is required`);
+  if (Number.isSafeInteger(maxLength) && text.length > maxLength) {
+    throw new Error(`${label} must be ${maxLength} characters or less`);
+  }
   return text;
 }
 
@@ -191,7 +195,7 @@ export function buildDaoProposalCreateDraft({
     from: requireDaoDraftString(from, 'DAO proposal sender'),
     emergency: isEmergency,
     proposalType: safeProposalType,
-    title: requireDaoDraftString(displayTitle, 'DAO proposal title'),
+    title: requireDaoDraftString(displayTitle, 'DAO proposal title', DAO_PROPOSAL_TITLE_MAX_LENGTH),
     description: requireDaoDraftString(description, 'DAO proposal description'),
     options: safeOptions,
     [safeProposalType]: { changes: safeChanges },
