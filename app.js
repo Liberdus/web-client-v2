@@ -38,6 +38,7 @@ async function checkVersion() {
       'styles.css',
       'app.js',
       'dao.repo.js',
+      'external/decimal.mjs',
       'data/emoji-picker-data.js',
       'lib.js',
       'network.js',
@@ -75,6 +76,7 @@ async function forceReload(urls) {
 // Needed to stringify and parse bigints; also deterministic stringify
 //   modified to use export
 import { stringify, parse } from './external/stringify-shardus.js';
+import Decimal from './external/decimal.mjs';
 
 import {
   buildDaoProposalCreateDraft,
@@ -3701,6 +3703,10 @@ const DAO_WITHHOLD_REASON_OPTIONS = [
 const DAO_WITHHOLD_REASON_MAX_LENGTH = 1000;
 const DAO_VOTE_WEIGHT_MAX = 1_000_000;
 const DAO_VOTE_WEIGHT_PRECISION = 1_000_000_000_000;
+const DAO_VOTE_WEIGHT_PRECISION_BIGINT = 1_000_000_000_000n;
+const DaoVoteDecimal = Decimal.clone({ precision: 40 });
+const DAO_WEI_PER_LIB_DECIMAL = new DaoVoteDecimal('1e18');
+const DAO_VOTE_WEIGHT_PRECISION_DECIMAL = new DaoVoteDecimal('1e12');
 const DAO_VOTE_TOTAL_COLORS = ['#4338ca', '#0f766e', '#c2410c', '#be123c', '#7c3aed', '#0369a1', '#4d7c0f', '#a16207', '#6d28d9', '#0f172a'];
 
 function getDaoCurrentAccountAddress() {
@@ -3805,6 +3811,13 @@ function getDaoVoteTimeMultiplier(now, start, end) {
   return Math.max(0, (end - now) / halfDuration);
 }
 
+function getDaoVoteTimeMultiplierDecimal(now, start, end) {
+  const halfDuration = (end - start) / 2;
+  if (!Number.isFinite(halfDuration) || halfDuration <= 0) return new DaoVoteDecimal(1);
+  if (now - start <= halfDuration) return new DaoVoteDecimal(1);
+  return DaoVoteDecimal.max(0, new DaoVoteDecimal(end - now).dividedBy(halfDuration));
+}
+
 function formatDaoDetailTimestamp(ts) {
   const formatted = formatDaoTimestamp(ts);
   return formatted ? formatted.replace(', ', '\n') : 'Unavailable';
@@ -3816,10 +3829,33 @@ function formatDaoShortNumber(value, decimals = 6) {
   return Number(n.toFixed(decimals)).toLocaleString(undefined, { maximumFractionDigits: decimals });
 }
 
-function formatDaoVotingPower(value) {
+function formatDaoScaledBigInt(value, scale, decimals = 3) {
+  if (typeof value !== 'bigint' || typeof scale !== 'bigint' || scale <= 0n) return null;
+  const sign = value < 0n ? '-' : '';
+  const absValue = value < 0n ? -value : value;
+  const factor = 10n ** BigInt(Math.max(0, decimals));
+  const rounded = (absValue * factor + (scale / 2n)) / scale;
+  const whole = rounded / factor;
+  const fraction = rounded % factor;
+  const wholeText = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  if (decimals <= 0 || fraction === 0n) return `${sign}${wholeText}`;
+  const fractionText = fraction.toString().padStart(decimals, '0').replace(/0+$/, '');
+  return `${sign}${wholeText}.${fractionText}`;
+}
+
+function formatDaoVoteWeightUnits(value, suffix) {
+  if (typeof value === 'bigint') {
+    const formatted = formatDaoScaledBigInt(value, DAO_VOTE_WEIGHT_PRECISION_BIGINT, 3);
+    return formatted === null ? 'Unavailable' : `${formatted} ${suffix}`;
+  }
+
   const n = Number(value);
   if (!Number.isFinite(n)) return 'Unavailable';
-  return `${formatDaoShortNumber(n / DAO_VOTE_WEIGHT_PRECISION, 3)} power`;
+  return `${formatDaoShortNumber(n / DAO_VOTE_WEIGHT_PRECISION, 3)} ${suffix}`;
+}
+
+function formatDaoVotingPower(value) {
+  return formatDaoVoteWeightUnits(value, 'power');
 }
 
 function formatDaoEstimatedVotingPower(value) {
@@ -3828,9 +3864,7 @@ function formatDaoEstimatedVotingPower(value) {
 }
 
 function formatDaoWeightedVotes(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return 'Unavailable';
-  return `${formatDaoShortNumber(n / DAO_VOTE_WEIGHT_PRECISION, 3)} votes`;
+  return formatDaoVoteWeightUnits(value, 'votes');
 }
 
 function formatDaoPercent(value) {
@@ -3864,6 +3898,34 @@ function parseDaoPositiveLibAmount(value) {
   try {
     const weiAmount = EthNum.toWei(text);
     return weiAmount > 0n ? weiAmount : null;
+  } catch {
+    return null;
+  }
+}
+
+function getDaoUsdAsLibWei(usdValue) {
+  const usdText = String(usdValue ?? '').trim();
+  const stabilityText = String(parameters?.current?.stabilityFactorStr ?? '').trim();
+  if (!usdText || !stabilityText) return null;
+  try {
+    const weiAmount = EthNum.toWei(EthNum.div(usdText, stabilityText));
+    return weiAmount >= 0n ? weiAmount : null;
+  } catch {
+    return null;
+  }
+}
+
+function floorDaoVoteWeightEstimate(value) {
+  if (value && typeof value.floor === 'function' && typeof value.toFixed === 'function') {
+    const floored = value.floor();
+    if (!floored.isFinite() || floored.isNeg()) return null;
+    return BigInt(floored.toFixed(0));
+  }
+
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return null;
+  try {
+    return BigInt(Math.floor(n));
   } catch {
     return null;
   }
@@ -4412,7 +4474,7 @@ class ProposalInfoModal {
       .map((option, index) => {
         const weight = this.voteWeights[index] || 0;
         const share = weight / submission.totalWeight;
-        const applied = submission.estimate.totalAppliedWeight * share;
+        const applied = submission.estimate.optionAppliedWeights[index] ?? 0n;
         return `
           <div class="proposal-vote-preview-row">
             <span>${escapeHtml(formatDaoPercent(share))}</span>
@@ -4430,7 +4492,7 @@ class ProposalInfoModal {
       </div>
       <details class="proposal-vote-power-help">
         <summary>What is voting power?</summary>
-        <p>Voting power is the normalized weight from your LIB spend and timing. Percentages split that power across options.</p>
+        <p>Voting power is the normalized weight from your LIB spend and timing. Final weight can shift slightly if the transaction lands later or network pricing changes before validation.</p>
       </details>
       <div class="proposal-vote-preview-meter">
         <span style="width: ${Math.min(100, Math.max(4, submission.estimate.timeMultiplier * 100))}%"></span>
@@ -4496,11 +4558,13 @@ class ProposalInfoModal {
     }
 
     const thresholdUsd = Number(proposal.voteThresholdUsdStr || 0);
-    const libUsdPrice = getLibUsdPriceFromParameters();
-    if (thresholdUsd > 0 && libUsdPrice !== null) {
-      const balanceUsd = Number(EthNum.toStr(balanceWei)) * libUsdPrice;
-      if (balanceUsd < thresholdUsd) {
-        return { ok: false, message: `Wallet balance must be at least ${formatDaoShortNumber(thresholdUsd)} USD to vote. Current balance: ${formatDaoShortNumber(balanceUsd)} USD.` };
+    if (thresholdUsd > 0) {
+      const thresholdWei = getDaoUsdAsLibWei(proposal.voteThresholdUsdStr);
+      if (thresholdWei === null) {
+        return { ok: false, message: 'Vote threshold is unavailable until network pricing is loaded.' };
+      }
+      if (balanceWei < thresholdWei) {
+        return { ok: false, message: `Wallet balance must be at least ${formatDaoLibWei(thresholdWei)} to vote. Current balance: ${formatDaoLibWei(balanceWei)}.` };
       }
     }
 
@@ -4508,39 +4572,61 @@ class ProposalInfoModal {
   }
 
   getVoteWeightEstimate(proposal, spendWei, totalWeight, timestamp) {
-    const libUsdPrice = getLibUsdPriceFromParameters();
-    const minimumSpendUsd = Number(proposal.minimumSpendUsdStr);
+    const minimumSpendWei = getDaoUsdAsLibWei(proposal.minimumSpendUsdStr);
     const voteExponent = Number(proposal.voteExponent);
     const votingWindow = getDaoProposalVotingWindow(proposal, timestamp);
     if (
-      libUsdPrice === null ||
-      !Number.isFinite(minimumSpendUsd) ||
-      minimumSpendUsd <= 0 ||
+      minimumSpendWei === null ||
+      minimumSpendWei <= 0n ||
       !Number.isFinite(voteExponent) ||
       votingWindow.timeMultiplier === null
     ) {
       return { ok: false, message: 'Applied-weight estimate is unavailable until proposal voting parameters are loaded.' };
     }
 
-    const spendLib = Number(EthNum.toStr(spendWei));
-    const minimumSpendLib = minimumSpendUsd / libUsdPrice;
-    if (!Number.isFinite(spendLib) || !Number.isFinite(minimumSpendLib) || minimumSpendLib <= 0) {
-      return { ok: false, message: 'Applied-weight estimate is unavailable for this spend amount.' };
+    if (spendWei < minimumSpendWei) {
+      return { ok: false, message: `Spend must be at least ${formatDaoLibWei(minimumSpendWei)}.` };
     }
-    if (spendLib < minimumSpendLib) {
-      return { ok: false, message: `Spend must be at least ${formatDaoShortNumber(minimumSpendLib)} LIB.` };
+    if (totalWeight <= 0) {
+      return { ok: false, message: 'Applied-weight estimate is unavailable for these inputs.' };
     }
 
-    const spendBoost = Math.pow(spendLib / minimumSpendLib, voteExponent);
-    const totalAppliedWeight = spendLib * spendBoost * votingWindow.timeMultiplier * DAO_VOTE_WEIGHT_PRECISION;
-    if (!Number.isFinite(totalAppliedWeight) || totalAppliedWeight <= 0 || totalWeight <= 0) {
+    let timeMultiplierDecimal;
+    let baseAppliedWeight;
+    try {
+      timeMultiplierDecimal = getDaoVoteTimeMultiplierDecimal(timestamp, votingWindow.start, votingWindow.end);
+      const spendInLib = new DaoVoteDecimal(spendWei.toString()).dividedBy(DAO_WEI_PER_LIB_DECIMAL);
+      const spendBoost = new DaoVoteDecimal(spendWei.toString()).dividedBy(minimumSpendWei.toString()).pow(voteExponent);
+      baseAppliedWeight = spendInLib
+        .times(spendBoost)
+        .times(timeMultiplierDecimal)
+        .times(DAO_VOTE_WEIGHT_PRECISION_DECIMAL)
+        .dividedBy(totalWeight);
+    } catch {
       return { ok: false, message: 'Applied-weight estimate is unavailable for these inputs.' };
+    }
+    if (!baseAppliedWeight.isFinite() || baseAppliedWeight.lte(0)) {
+      return { ok: false, message: 'Applied-weight estimate is unavailable for these inputs.' };
+    }
+
+    const optionAppliedWeights = this.voteWeights.map((weight) => {
+      if (weight <= 0) return 0n;
+      return floorDaoVoteWeightEstimate(baseAppliedWeight.times(weight));
+    });
+    if (optionAppliedWeights.some((weight) => weight === null)) {
+      return { ok: false, message: 'Applied-weight estimate is unavailable for these inputs.' };
+    }
+
+    const totalAppliedWeight = optionAppliedWeights.reduce((sum, weight) => sum + weight, 0n);
+    if (totalAppliedWeight <= 0n) {
+      return { ok: false, message: 'Applied-weight estimate is too small to affect vote totals.' };
     }
 
     return {
       ok: true,
       totalAppliedWeight,
-      timeMultiplier: votingWindow.timeMultiplier,
+      optionAppliedWeights,
+      timeMultiplier: Number(timeMultiplierDecimal.toString()),
     };
   }
 
