@@ -3749,7 +3749,7 @@ function getDaoProposalReviewWindow(proposal) {
   };
 }
 
-function getDaoProposalVotingWindow(proposal) {
+function getDaoProposalVotingWindow(proposal, now = Date.now()) {
   const reviewStart = Number(proposal?.startTime || proposal?.created || proposal?.creationTime || 0);
   const reviewDuration = Number(proposal?.reviewDuration);
   const votingDuration = Number(proposal?.votingDuration);
@@ -3771,7 +3771,6 @@ function getDaoProposalVotingWindow(proposal) {
 
   const start = reviewStart + reviewDuration;
   const end = start + votingDuration;
-  const now = Date.now();
   if (now < start) {
     return {
       start,
@@ -3821,6 +3820,11 @@ function formatDaoVotingPower(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 'Unavailable';
   return `${formatDaoShortNumber(n / DAO_VOTE_WEIGHT_PRECISION, 3)} power`;
+}
+
+function formatDaoEstimatedVotingPower(value) {
+  const formatted = formatDaoVotingPower(value);
+  return formatted === 'Unavailable' ? formatted : `~${formatted}`;
 }
 
 function formatDaoWeightedVotes(value) {
@@ -4413,7 +4417,7 @@ class ProposalInfoModal {
           <div class="proposal-vote-preview-row">
             <span>${escapeHtml(formatDaoPercent(share))}</span>
             <span>${escapeHtml(option)}</span>
-            <strong>${escapeHtml(formatDaoVotingPower(applied))}</strong>
+            <strong>${escapeHtml(formatDaoEstimatedVotingPower(applied))}</strong>
           </div>
         `;
       })
@@ -4422,7 +4426,7 @@ class ProposalInfoModal {
     this.votePreview.innerHTML = `
       <div class="proposal-vote-preview-total">
         <span>Estimated voting power</span>
-        <strong>${escapeHtml(formatDaoVotingPower(submission.estimate.totalAppliedWeight))}</strong>
+        <strong>${escapeHtml(formatDaoEstimatedVotingPower(submission.estimate.totalAppliedWeight))}</strong>
       </div>
       <details class="proposal-vote-power-help">
         <summary>What is voting power?</summary>
@@ -4436,17 +4440,19 @@ class ProposalInfoModal {
       </div>
       <div class="proposal-vote-preview-options">${optionRows}</div>
     `;
+    // Server-side DAO votes are additive, including repeat votes from the same wallet;
+    // this flag only gates locally invalid form/timing/balance inputs before submit.
     this.canSubmitVote = true;
     this.updateSubmitButtons();
   }
 
-  getVoteSubmission(proposal) {
-    const validation = this.getVotePreviewValidation(proposal);
+  getVoteSubmission(proposal, timestamp = getTransactionTimestamp()) {
+    const validation = this.getVotePreviewValidation(proposal, timestamp);
     if (!validation.ok) {
       return { ok: false, message: validation.message, tone: 'warning' };
     }
 
-    const estimate = this.getVoteWeightEstimate(proposal, validation.spendWei, validation.totalWeight);
+    const estimate = this.getVoteWeightEstimate(proposal, validation.spendWei, validation.totalWeight, timestamp);
     if (!estimate.ok) {
       return { ok: false, message: estimate.message, tone: 'muted' };
     }
@@ -4455,11 +4461,12 @@ class ProposalInfoModal {
       ok: true,
       spendWei: validation.spendWei,
       totalWeight: validation.totalWeight,
+      timestamp,
       estimate,
     };
   }
 
-  getVotePreviewValidation(proposal) {
+  getVotePreviewValidation(proposal, timestamp) {
     if (getEffectiveDaoState(proposal) !== 'voting') {
       return { ok: false, message: 'Voting is only available while the proposal is in voting status.' };
     }
@@ -4477,7 +4484,7 @@ class ProposalInfoModal {
       return { ok: false, message: 'Enter a positive LIB spend amount.' };
     }
 
-    const votingWindow = getDaoProposalVotingWindow(proposal);
+    const votingWindow = getDaoProposalVotingWindow(proposal, timestamp);
     if (!votingWindow.canPreviewVote) {
       return { ok: false, message: votingWindow.label };
     }
@@ -4500,11 +4507,11 @@ class ProposalInfoModal {
     return { ok: true, spendWei, totalWeight };
   }
 
-  getVoteWeightEstimate(proposal, spendWei, totalWeight) {
+  getVoteWeightEstimate(proposal, spendWei, totalWeight, timestamp) {
     const libUsdPrice = getLibUsdPriceFromParameters();
     const minimumSpendUsd = Number(proposal.minimumSpendUsdStr);
     const voteExponent = Number(proposal.voteExponent);
-    const votingWindow = getDaoProposalVotingWindow(proposal);
+    const votingWindow = getDaoProposalVotingWindow(proposal, timestamp);
     if (
       libUsdPrice === null ||
       !Number.isFinite(minimumSpendUsd) ||
@@ -4810,7 +4817,7 @@ class ProposalInfoModal {
         proposal,
         weights: this.voteWeights.slice(),
         spend: submission.spendWei,
-        timestamp: getTransactionTimestamp(),
+        timestamp: submission.timestamp,
         networkId: network?.netid || '',
         submitTransaction: (transaction) => this.submitDaoTransaction(transaction),
       });
