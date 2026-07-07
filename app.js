@@ -38,7 +38,6 @@ async function checkVersion() {
       'styles.css',
       'app.js',
       'dao.repo.js',
-      'external/decimal.mjs',
       'data/emoji-picker-data.js',
       'lib.js',
       'network.js',
@@ -76,7 +75,6 @@ async function forceReload(urls) {
 // Needed to stringify and parse bigints; also deterministic stringify
 //   modified to use export
 import { stringify, parse } from './external/stringify-shardus.js';
-import Decimal from './external/decimal.mjs';
 
 import {
   buildDaoProposalCreateDraft,
@@ -3709,10 +3707,6 @@ const DAO_WITHHOLD_REASON_MAX_LENGTH = 1000;
 const DAO_VOTE_WEIGHT_MAX = 1_000_000;
 const DAO_VOTE_WEIGHT_PRECISION = 1_000_000_000_000;
 const DAO_VOTE_WEIGHT_PRECISION_BIGINT = 1_000_000_000_000n;
-const DaoVoteDecimal = Decimal.clone({ precision: 40 });
-const DAO_WEI_PER_LIB_DECIMAL = new DaoVoteDecimal('1e18');
-const DAO_VOTE_WEIGHT_PRECISION_DECIMAL = new DaoVoteDecimal('1e12');
-const DAO_VOTE_TOTAL_COLORS = ['#4338ca', '#0f766e', '#c2410c', '#be123c', '#7c3aed', '#0369a1', '#4d7c0f', '#a16207', '#6d28d9', '#0f172a'];
 
 function getDaoCurrentAccountAddress() {
   return myAccount?.keys?.address ? longAddress(myAccount.keys.address) : '';
@@ -3816,13 +3810,6 @@ function getDaoVoteTimeMultiplier(now, start, end) {
   return Math.max(0, (end - now) / halfDuration);
 }
 
-function getDaoVoteTimeMultiplierDecimal(now, start, end) {
-  const halfDuration = (end - start) / 2;
-  if (!Number.isFinite(halfDuration) || halfDuration <= 0) return new DaoVoteDecimal(1);
-  if (now - start <= halfDuration) return new DaoVoteDecimal(1);
-  return DaoVoteDecimal.max(0, new DaoVoteDecimal(end - now).dividedBy(halfDuration));
-}
-
 function formatDaoDetailTimestamp(ts) {
   const formatted = formatDaoTimestamp(ts);
   return formatted ? formatted.replace(', ', '\n') : 'Unavailable';
@@ -3866,10 +3853,6 @@ function formatDaoVotingPower(value) {
 function formatDaoEstimatedVotingPower(value) {
   const formatted = formatDaoVotingPower(value);
   return formatted === 'Unavailable' ? formatted : `~${formatted}`;
-}
-
-function formatDaoWeightedVotes(value) {
-  return formatDaoVoteWeightUnits(value, 'votes');
 }
 
 function formatDaoPercent(value) {
@@ -3921,12 +3904,6 @@ function getDaoUsdAsLibWei(usdValue) {
 }
 
 function floorDaoVoteWeightEstimate(value) {
-  if (value && typeof value.floor === 'function' && typeof value.toFixed === 'function') {
-    const floored = value.floor();
-    if (!floored.isFinite() || floored.isNeg()) return null;
-    return BigInt(floored.toFixed(0));
-  }
-
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0) return null;
   try {
@@ -4475,11 +4452,20 @@ class ProposalInfoModal {
       return;
     }
 
+    this.canSubmitVote = true;
+    this.updateSubmitButtons();
+
+    const estimate = this.getVoteWeightEstimate(proposal, submission.spendWei, submission.totalWeight, submission.timestamp);
+    if (!estimate.ok) {
+      this.votePreview.innerHTML = this.renderVotePreviewMessage(`${estimate.message} You can still submit; final weight is calculated by the network.`, 'muted');
+      return;
+    }
+
     const optionRows = this.getVoteOptions(proposal)
       .map((option, index) => {
         const weight = this.voteWeights[index] || 0;
         const share = weight / submission.totalWeight;
-        const applied = submission.estimate.optionAppliedWeights[index] ?? 0n;
+        const applied = estimate.optionAppliedWeights[index] ?? 0n;
         return `
           <div class="proposal-vote-preview-row">
             <span>${escapeHtml(formatDaoPercent(share))}</span>
@@ -4493,24 +4479,20 @@ class ProposalInfoModal {
     this.votePreview.innerHTML = `
       <div class="proposal-vote-preview-total">
         <span>Estimated voting power</span>
-        <strong>${escapeHtml(formatDaoEstimatedVotingPower(submission.estimate.totalAppliedWeight))}</strong>
+        <strong>${escapeHtml(formatDaoEstimatedVotingPower(estimate.totalAppliedWeight))}</strong>
       </div>
       <details class="proposal-vote-power-help">
         <summary>What is voting power?</summary>
         <p>Voting power is the normalized weight from your LIB spend and timing. Final weight can shift slightly if the transaction lands later or network pricing changes before validation.</p>
       </details>
       <div class="proposal-vote-preview-meter">
-        <span style="width: ${Math.min(100, Math.max(4, submission.estimate.timeMultiplier * 100))}%"></span>
+        <span style="width: ${Math.min(100, Math.max(4, estimate.timeMultiplier * 100))}%"></span>
       </div>
       <div class="proposal-vote-preview-note">
-        Timing weight: ${escapeHtml(formatDaoPercent(submission.estimate.timeMultiplier))} of full power
+        Timing weight: ${escapeHtml(formatDaoPercent(estimate.timeMultiplier))} of full power
       </div>
       <div class="proposal-vote-preview-options">${optionRows}</div>
     `;
-    // Server-side DAO votes are additive, including repeat votes from the same wallet;
-    // this flag only gates locally invalid form/timing/balance inputs before submit.
-    this.canSubmitVote = true;
-    this.updateSubmitButtons();
   }
 
   getVoteSubmission(proposal, timestamp = getTransactionTimestamp()) {
@@ -4519,17 +4501,11 @@ class ProposalInfoModal {
       return { ok: false, message: validation.message, tone: 'warning' };
     }
 
-    const estimate = this.getVoteWeightEstimate(proposal, validation.spendWei, validation.totalWeight, timestamp);
-    if (!estimate.ok) {
-      return { ok: false, message: estimate.message, tone: 'muted' };
-    }
-
     return {
       ok: true,
       spendWei: validation.spendWei,
       totalWeight: validation.totalWeight,
       timestamp,
-      estimate,
     };
   }
 
@@ -4596,27 +4572,17 @@ class ProposalInfoModal {
       return { ok: false, message: 'Applied-weight estimate is unavailable for these inputs.' };
     }
 
-    let timeMultiplierDecimal;
-    let baseAppliedWeight;
-    try {
-      timeMultiplierDecimal = getDaoVoteTimeMultiplierDecimal(timestamp, votingWindow.start, votingWindow.end);
-      const spendInLib = new DaoVoteDecimal(spendWei.toString()).dividedBy(DAO_WEI_PER_LIB_DECIMAL);
-      const spendBoost = new DaoVoteDecimal(spendWei.toString()).dividedBy(minimumSpendWei.toString()).pow(voteExponent);
-      baseAppliedWeight = spendInLib
-        .times(spendBoost)
-        .times(timeMultiplierDecimal)
-        .times(DAO_VOTE_WEIGHT_PRECISION_DECIMAL)
-        .dividedBy(totalWeight);
-    } catch {
-      return { ok: false, message: 'Applied-weight estimate is unavailable for these inputs.' };
-    }
-    if (!baseAppliedWeight.isFinite() || baseAppliedWeight.lte(0)) {
+    const spendLib = Number(EthNum.toStr(spendWei));
+    const minimumSpendLib = Number(EthNum.toStr(minimumSpendWei));
+    const spendBoost = Math.pow(spendLib / minimumSpendLib, voteExponent);
+    const baseAppliedWeight = spendLib * spendBoost * votingWindow.timeMultiplier * DAO_VOTE_WEIGHT_PRECISION / totalWeight;
+    if (!Number.isFinite(baseAppliedWeight) || baseAppliedWeight <= 0) {
       return { ok: false, message: 'Applied-weight estimate is unavailable for these inputs.' };
     }
 
     const optionAppliedWeights = this.voteWeights.map((weight) => {
       if (weight <= 0) return 0n;
-      return floorDaoVoteWeightEstimate(baseAppliedWeight.times(weight));
+      return floorDaoVoteWeightEstimate(baseAppliedWeight * weight);
     });
     if (optionAppliedWeights.some((weight) => weight === null)) {
       return { ok: false, message: 'Applied-weight estimate is unavailable for these inputs.' };
@@ -4631,7 +4597,7 @@ class ProposalInfoModal {
       ok: true,
       totalAppliedWeight,
       optionAppliedWeights,
-      timeMultiplier: Number(timeMultiplierDecimal.toString()),
+      timeMultiplier: votingWindow.timeMultiplier,
     };
   }
 

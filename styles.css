@@ -2106,13 +2106,6 @@ input[type='file'].form-control::file-selector-button {
   text-align: center;
 }
 
-#proposalInfoModal .proposal-info-section h3,
-#proposalInfoModal .proposal-committee-actions h3,
-#proposalInfoModal .proposal-review-result-actions h3,
-#proposalInfoModal .proposal-vote-actions h3 {
-  text-align: left;
-}
-
 #confirmProposalModal .dao-confirm-grid,
 #proposalInfoModal .proposal-info-grid {
   display: grid;
@@ -2429,7 +2422,7 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-vote-status-grid {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 #proposalInfoModal .proposal-vote-status-grid:empty {
@@ -2467,117 +2460,9 @@ input[type='file'].form-control::file-selector-button {
   white-space: pre-wrap;
 }
 
-#proposalInfoModal .proposal-vote-status-card--totals {
-  align-items: stretch;
-  gap: 8px;
-  grid-column: 1 / -1;
-}
-
-#proposalInfoModal .proposal-vote-status-card--totals > span {
-  text-align: center;
-}
-
-#proposalInfoModal .proposal-vote-total-content {
-  align-items: center;
-  display: grid;
-  gap: 28px;
-  grid-template-columns: 82px max-content;
-  justify-content: center;
-}
-
-#proposalInfoModal .proposal-vote-total-pie {
-  --vote-total-chart: conic-gradient(rgba(67, 56, 202, 0.12) 0 100%);
-  align-items: center;
-  aspect-ratio: 1;
-  background: var(--vote-total-chart);
-  border-radius: 50%;
-  display: grid;
-  justify-items: center;
-  padding: 8px;
-  place-items: center;
-  position: relative;
-  width: 82px;
-}
-
-#proposalInfoModal .proposal-vote-total-pie::before {
-  background: var(--input-background);
-  border: 2px solid rgba(67, 56, 202, 0.08);
-  border-radius: inherit;
-  content: "";
-  inset: 8px;
-  position: absolute;
-}
-
-#proposalInfoModal .proposal-vote-total-pie strong {
-  font-size: 10px;
-  line-height: 1.1;
-  max-width: 54px;
-  position: relative;
-  text-align: center;
-  white-space: normal;
-  z-index: 1;
-}
-
-#proposalInfoModal .proposal-vote-total-legend {
-  display: grid;
-  gap: 8px;
-  justify-self: center;
-}
-
-#proposalInfoModal .proposal-vote-total-legend-row {
-  align-items: center;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 58px 6px max-content 6px 36px;
-  line-height: 1.2;
-}
-
-#proposalInfoModal .proposal-vote-total-option {
-  align-items: center;
-  color: var(--secondary-text-color);
-  display: inline-flex;
-  font-size: 12px;
-  gap: 6px;
-  line-height: 1.2;
-  min-width: 0;
-}
-
-#proposalInfoModal .proposal-vote-total-option i {
-  border-radius: 50%;
-  flex: 0 0 8px;
-  height: 8px;
-  width: 8px;
-}
-
-#proposalInfoModal .proposal-vote-total-votes {
-  color: var(--text-color);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-#proposalInfoModal .proposal-vote-total-share {
-  color: var(--secondary-text-color);
-  font-size: 11px;
-  text-align: right;
-}
-
-#proposalInfoModal .proposal-vote-total-separator {
-  color: var(--secondary-text-color);
-  font-size: 11px;
-  text-align: center;
-}
-
-#proposalInfoModal .proposal-vote-total-note {
-  color: var(--secondary-text-color);
-  font-size: 10px;
-  justify-self: center;
-  line-height: 1.2;
-  text-align: right;
-}
-
 #proposalInfoModal .proposal-vote-options {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 #proposalInfoModal .proposal-vote-options-help,
@@ -2590,38 +2475,20 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-vote-options-header {
   display: grid;
   font-weight: var(--font-weight-semibold);
-  gap: 12px;
-  grid-template-columns: minmax(0, 1fr) 84px;
-  padding: 0 4px;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 104px;
 }
 
 #proposalInfoModal .proposal-vote-options-header span:last-child {
-  text-align: right;
+  text-align: center;
 }
 
 #proposalInfoModal .proposal-vote-option,
 #proposalInfoModal .proposal-vote-spend-row {
-  align-items: center;
+  align-items: end;
   display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(0, 1fr) 84px;
-}
-
-#proposalInfoModal .proposal-vote-option {
-  min-height: 42px;
-  padding: 0 4px;
-}
-
-#proposalInfoModal .proposal-vote-option > span {
-  justify-self: center;
-  text-align: center;
-}
-
-#proposalInfoModal .proposal-vote-option input.form-control {
-  height: 38px;
-  min-height: 38px;
-  padding: 8px 10px;
-  text-align: right;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 104px;
 }
 
 #proposalInfoModal .proposal-vote-spend-row {
@@ -2727,18 +2594,9 @@ input[type='file'].form-control::file-selector-button {
 }
 
 @media (max-width: 520px) {
-  #proposalInfoModal .proposal-vote-status-grid {
+  #proposalInfoModal .proposal-vote-status-grid,
+  #proposalInfoModal .proposal-vote-option {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  #proposalInfoModal .proposal-vote-total-content {
-    gap: 8px;
-    justify-items: center;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  #proposalInfoModal .proposal-vote-total-legend {
-    justify-self: center;
   }
 }
 
