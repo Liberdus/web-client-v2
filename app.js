@@ -15452,6 +15452,7 @@ class ChatModal {
       if (reactionButton) {
         e.preventDefault();
         e.stopPropagation();
+        if (this.isMessageInDeleteForAllGuard(this.currentContextMessage)) return;
         void this.handleReactionPickerClick(reactionButton);
         return;
       }
@@ -15467,6 +15468,7 @@ class ChatModal {
         if (reactionButton) {
           e.preventDefault();
           e.stopPropagation();
+          if (this.isMessageInDeleteForAllGuard(this.currentImageAttachmentRow?.closest('.message'))) return;
           void this.handleImageAttachmentReactionPickerClick(reactionButton);
           return;
         }
@@ -19149,7 +19151,8 @@ class ChatModal {
     const editOption = this.contextMenu.querySelector('[data-action="edit"]');
     const saveOption = this.contextMenu.querySelector('[data-action="save"]');
     const isFailedPayment = messageEl.dataset.status === 'failed' && messageEl.classList.contains('payment-info');
-    const canShowReactionRow = !isDeletedLocalOnly && !isFailedPayment;
+    const isDeleteGuardDisabled = this.isMessageInDeleteForAllGuard(messageEl, messageRecord);
+    const canShowReactionRow = !isDeletedLocalOnly && !isFailedPayment && !isDeleteGuardDisabled;
 
     if (this.contextMenuReactions) {
       this.contextMenuReactions.style.display = canShowReactionRow ? 'flex' : 'none';
@@ -19829,9 +19832,7 @@ class ChatModal {
   syncDeleteContextMenuDisabledState(menu, messageEl, messageRecord = null) {
     const message = messageRecord || this.getMessageRecordFromElement(messageEl);
     const isDeleteGuardDisabled = this.isMessageInDeleteForAllGuard(messageEl, message);
-    const guardedActions = '[data-action="delete"], [data-action="delete-for-all"], ' +
-      '[data-action="copy"], [data-action="reply"], [data-action="join"], [data-action="call-invite"], ' +
-      '[data-action="edit"]';
+    const guardedActions = '.context-menu-option';
     menu?.querySelectorAll(guardedActions).forEach((option) => {
       const isOfflineDisabled =
         option.classList.contains('offline-disabled') ||
@@ -20407,11 +20408,16 @@ class ChatModal {
     }
 
     assert(this.imageAttachmentContextMenuReactions, 'Image attachment reaction tray is required');
+    const isDeleteGuardDisabled = this.isMessageInDeleteForAllGuard(messageEl);
+    this.imageAttachmentContextMenuReactions.style.display = isDeleteGuardDisabled ? 'none' : 'flex';
     this.syncContextReactionTrayDisplay(
       this.imageAttachmentContextMenuReactions,
-      messageEl
+      isDeleteGuardDisabled ? null : messageEl
     );
-    this.syncReactionPickerActiveState(this.imageAttachmentContextMenuReactions, messageEl);
+    this.syncReactionPickerActiveState(
+      this.imageAttachmentContextMenuReactions,
+      isDeleteGuardDisabled ? null : messageEl
+    );
 
     this.syncDeleteContextMenuDisabledState(this.imageAttachmentContextMenu, messageEl);
     this.positionContextMenu(this.imageAttachmentContextMenu, attachmentRow);
