@@ -4383,7 +4383,6 @@ class ProposalInfoModal {
           ['Number', proposal.number ? `#${proposal.number}` : 'Unavailable'],
           ['Type', getDaoTypeLabel(proposalType) || 'Unavailable'],
           ['Status', getDaoStateLabel(state) || state],
-          ['Creator', proposal.createdBy || proposal.from || 'Unavailable'],
           ['Created', formatDaoDetailTimestamp(proposal.created || proposal.creationTime)],
           ['Updated', formatDaoDetailTimestamp(proposal.state_changed || proposal.timestamp || proposal.created)],
         ]),

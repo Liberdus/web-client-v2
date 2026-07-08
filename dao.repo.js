@@ -457,7 +457,6 @@ function mapBackendProposalToStoreProposal(proposal) {
     status: state,
     state_changed: stateChanged,
     created,
-    createdBy: proposal.createdBy || proposal.creator || proposal.from || '',
     fields: getDaoProposalFields(proposal),
     votes: getDaoProposalVotes(proposal),
   };
@@ -660,7 +659,6 @@ function storeToUiList(store, groupKey) {
         state,
         status: state,
         stateEnteredAt: p.state_changed,
-        createdBy: p.createdBy,
         fields: p.fields || {},
         options: Array.isArray(p.options) ? p.options : ['yes', 'no'],
         totalVote: Array.isArray(p.totalVote) ? p.totalVote : undefined,
