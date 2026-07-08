@@ -4249,6 +4249,7 @@ class ProposalInfoModal {
     this.closeButton = document.getElementById('closeProposalInfoModal');
     this.title = document.getElementById('proposalInfoModalTitle');
     this.content = document.getElementById('proposalInfoContent');
+    this.detailsContent = document.getElementById('proposalDetailsContent');
     this.committeeActionSection = document.getElementById('proposalCommitteeActionSection');
     this.committeeActionHelp = document.getElementById('proposalCommitteeActionHelp');
     this.acceptButton = document.getElementById('proposalCommitteeAccept');
@@ -4333,6 +4334,9 @@ class ProposalInfoModal {
     if (this.content) {
       this.content.innerHTML = '<section class="proposal-info-section"><h3>Proposal not found</h3><p class="proposal-info-muted">The proposal data is unavailable.</p></section>';
     }
+    if (this.detailsContent) {
+      this.detailsContent.innerHTML = '';
+    }
     this.hideCommitteeActions();
     this.hideReviewResultAction();
     this.hideVoteActions();
@@ -4379,23 +4383,18 @@ class ProposalInfoModal {
         this.renderParameterChanges(proposal),
         state === 'voting' ? this.renderCurrentVoteTotals(proposal) : '',
         this.renderProposalResultSummary(resultSummary),
-        this.renderSection('Overview', [
-          ['Number', proposal.number ? `#${proposal.number}` : 'Unavailable'],
-          ['Type', getDaoTypeLabel(proposalType) || 'Unavailable'],
-          ['Status', getDaoStateLabel(state) || state],
-          ['Created', formatDaoDetailTimestamp(proposal.created || proposal.creationTime)],
-          ['Updated', formatDaoDetailTimestamp(proposal.state_changed || proposal.timestamp || proposal.created)],
-        ]),
-        this.renderSection('Review Timeline', [
-          ['Window state', reviewWindow.label],
-          ['Review starts', formatDaoDetailTimestamp(reviewWindow.start)],
-          ['Review ends', formatDaoDetailTimestamp(reviewWindow.end)],
-        ]),
-        this.renderProposalBody(proposal),
         committeeReviewSection,
-        this.renderProposalResults(resultSummary),
-        this.renderProposalRewards(rewardSummary),
       ].filter(Boolean).join('');
+    }
+    if (this.detailsContent) {
+      this.detailsContent.innerHTML = this.renderProposalDetails({
+        proposal,
+        proposalType,
+        state,
+        reviewWindow,
+        resultSummary,
+        rewardSummary,
+      });
     }
 
     if (state === 'review') {
@@ -4621,6 +4620,65 @@ class ProposalInfoModal {
       ['Initial burn', formatDaoRewardAmount(reward.initialBurned)],
       ['Final burn', formatDaoRewardAmount(reward.finalBurned)],
     ]);
+  }
+
+  getVoteStatusData(proposal) {
+    const votingWindow = getDaoProposalVotingWindow(proposal);
+    const totalVote = Array.isArray(proposal.totalVote) ? proposal.totalVote : [];
+    const options = this.getVoteOptions(proposal);
+    const totalVoteText = totalVote.length
+      ? totalVote.map((value, index) => `${options[index] || `Option ${index + 1}`}: ${formatDaoVotingPower(value)}`).join('\n')
+      : 'No votes yet';
+    return { votingWindow, totalVoteText };
+  }
+
+  renderVotingDetails(proposal) {
+    const { votingWindow, totalVoteText } = this.getVoteStatusData(proposal);
+    return this.renderSection('Voting Details', [
+      ['Voting state', votingWindow.label],
+      ['Current totals', totalVoteText],
+    ]);
+  }
+
+  renderProposalDetails({ proposal, proposalType, state, reviewWindow, resultSummary, rewardSummary }) {
+    const sections = [
+      this.renderSection('Overview', [
+        ['Number', proposal.number ? `#${proposal.number}` : 'Unavailable'],
+        ['Type', getDaoTypeLabel(proposalType) || 'Unavailable'],
+        ['Status', getDaoStateLabel(state) || state],
+        ['Created', formatDaoDetailTimestamp(proposal.created || proposal.creationTime)],
+        ['Updated', formatDaoDetailTimestamp(proposal.state_changed || proposal.timestamp || proposal.created)],
+      ]),
+      this.renderSection('Review Timeline', [
+        ['Window state', reviewWindow.label],
+        ['Review starts', formatDaoDetailTimestamp(reviewWindow.start)],
+        ['Review ends', formatDaoDetailTimestamp(reviewWindow.end)],
+      ]),
+      state === 'voting' ? this.renderVotingDetails(proposal) : '',
+      this.renderProposalBody(proposal),
+      this.renderProposalResults(resultSummary),
+      this.renderProposalRewards(rewardSummary),
+    ].filter(Boolean);
+
+    if (sections.length === 0) return '';
+
+    return `
+      <details class="proposal-more">
+        <summary>
+          <span class="proposal-more-title">Show proposal details</span>
+          <span class="proposal-more-note">${escapeHtml(this.getProposalDetailsSummary(state, resultSummary, rewardSummary))}</span>
+        </summary>
+        <div class="proposal-more-content">${sections.join('')}</div>
+      </details>
+    `;
+  }
+
+  getProposalDetailsSummary(state, resultSummary, rewardSummary) {
+    const parts = ['Overview', 'review timeline', 'proposal body'];
+    if (state === 'voting') parts.push('voting totals');
+    if (resultSummary) parts.push('result breakdown');
+    if (rewardSummary) parts.push('reward accounting');
+    return parts.join(', ');
   }
 
   setTitle(title) {

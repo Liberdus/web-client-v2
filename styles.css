@@ -2471,6 +2471,81 @@ input[type='file'].form-control::file-selector-button {
   gap: 2px;
 }
 
+#proposalInfoModal .proposal-details {
+  display: grid;
+  margin: 12px auto 0;
+  max-width: 720px;
+  width: 100%;
+}
+
+#proposalInfoModal .proposal-details:empty {
+  display: none;
+}
+
+#proposalInfoModal .proposal-more {
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  display: grid;
+  overflow: hidden;
+}
+
+#proposalInfoModal .proposal-more summary {
+  align-items: center;
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  list-style: none;
+  padding: 12px;
+}
+
+#proposalInfoModal .proposal-more summary::-webkit-details-marker {
+  display: none;
+}
+
+#proposalInfoModal .proposal-more summary::after {
+  align-self: center;
+  border-bottom: 2px solid var(--secondary-text-color);
+  border-right: 2px solid var(--secondary-text-color);
+  content: "";
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  height: 8px;
+  justify-self: center;
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+  width: 8px;
+}
+
+#proposalInfoModal .proposal-more[open] summary {
+  border-bottom: 1px solid var(--border-color);
+}
+
+#proposalInfoModal .proposal-more[open] summary::after {
+  transform: rotate(225deg);
+}
+
+#proposalInfoModal .proposal-more-title {
+  color: var(--text-color);
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+  grid-column: 1;
+  line-height: 1.25;
+}
+
+#proposalInfoModal .proposal-more-note {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  grid-column: 1;
+  line-height: 1.35;
+}
+
+#proposalInfoModal .proposal-more-content {
+  display: grid;
+  gap: 18px;
+  padding: 12px;
+}
+
 #proposalInfoModal .proposal-payload {
   display: grid;
   gap: 8px;
@@ -2675,6 +2750,10 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-vote-current-segment--empty {
   background: rgba(101, 103, 107, 0.18);
+}
+
+#proposalInfoModal .proposal-vote-status-card--full {
+  grid-column: 1 / -1;
 }
 
 #proposalInfoModal .proposal-vote-status-card,
