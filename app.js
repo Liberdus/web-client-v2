@@ -4361,7 +4361,7 @@ class ProposalInfoModal {
 
     this.voteActionSection.classList.remove('hidden');
     if (this.voteActionHelp) {
-      this.voteActionHelp.textContent = 'Enter allocation numbers and LIB spend to preview voting power before submitting.';
+      this.voteActionHelp.textContent = 'Allocate options and spend LIB to preview voting power.';
     }
     if (this.voteSubmitButton) {
       this.voteSubmitButton.textContent = this.voteSubmitButtonLabel;
@@ -4448,6 +4448,7 @@ class ProposalInfoModal {
     if (!submission.ok) {
       this.canSubmitVote = false;
       this.updateSubmitButtons();
+      this.votePreview.classList.add('proposal-vote-preview--message');
       this.votePreview.innerHTML = this.renderVotePreviewMessage(submission.message, submission.tone);
       return;
     }
@@ -4457,9 +4458,11 @@ class ProposalInfoModal {
 
     const estimate = this.getVoteWeightEstimate(proposal, submission.spendWei, submission.totalWeight, submission.timestamp);
     if (!estimate.ok) {
+      this.votePreview.classList.add('proposal-vote-preview--message');
       this.votePreview.innerHTML = this.renderVotePreviewMessage(`${estimate.message} You can still submit; final weight is calculated by the network.`, 'muted');
       return;
     }
+    this.votePreview.classList.remove('proposal-vote-preview--message');
 
     const optionRows = this.getVoteOptions(proposal)
       .map((option, index) => {
