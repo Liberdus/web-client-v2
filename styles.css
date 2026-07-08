@@ -2213,6 +2213,101 @@ input[type='file'].form-control::file-selector-button {
   justify-self: center;
 }
 
+#proposalInfoModal .proposal-result-banner {
+  background: var(--input-background);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-result-banner--accepted {
+  background: rgba(30, 126, 52, 0.14);
+  border-color: rgba(30, 126, 52, 0.34);
+}
+
+#proposalInfoModal .proposal-result-banner--rejected {
+  background: rgba(196, 45, 45, 0.12);
+  border-color: rgba(196, 45, 45, 0.3);
+}
+
+#proposalInfoModal .proposal-result-banner span,
+#proposalInfoModal .proposal-result-banner small,
+#proposalInfoModal .proposal-result-card span,
+#proposalInfoModal .proposal-result-row small {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+#proposalInfoModal .proposal-result-banner strong {
+  color: var(--text-color);
+  font-size: 16px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+#proposalInfoModal .proposal-result-overview {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#proposalInfoModal .proposal-result-card,
+#proposalInfoModal .proposal-result-row {
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(28, 28, 33, 0.05);
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
+#proposalInfoModal .proposal-result-card {
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-result-card strong,
+#proposalInfoModal .proposal-result-row strong {
+  color: var(--text-color);
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+#proposalInfoModal .proposal-result-list {
+  display: grid;
+  gap: 8px;
+}
+
+#proposalInfoModal .proposal-result-row {
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) minmax(96px, auto) 52px;
+}
+
+#proposalInfoModal .proposal-result-row > span {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#proposalInfoModal .proposal-result-row > strong,
+#proposalInfoModal .proposal-result-row > small {
+  justify-self: end;
+  text-align: right;
+}
+
+#proposalInfoModal .proposal-result-row--winner {
+  border: 1px solid var(--primary-tint-40);
+}
+
 #confirmProposalModal .dao-confirm-change,
 #proposalInfoModal .proposal-change-row {
   background: var(--input-background);
@@ -2778,8 +2873,19 @@ input[type='file'].form-control::file-selector-button {
 }
 
 @media (max-width: 520px) {
+  #proposalInfoModal .proposal-result-overview,
+  #proposalInfoModal .proposal-result-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   #proposalInfoModal .proposal-vote-option {
     grid-template-columns: minmax(0, 1fr) 92px;
+  }
+
+  #proposalInfoModal .proposal-result-row > strong,
+  #proposalInfoModal .proposal-result-row > small {
+    justify-self: start;
+    text-align: left;
   }
 }
 
@@ -7701,6 +7807,52 @@ small {
 #daoModal .dao-row-meta-item--updated .dao-row-meta-value {
   overflow-wrap: normal;
   white-space: nowrap;
+}
+
+#daoModal .dao-row-previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+#daoModal .dao-row-preview {
+  align-items: baseline;
+  background: var(--input-background);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: inline-flex;
+  gap: 5px;
+  max-width: 100%;
+  padding: 5px 7px;
+}
+
+#daoModal .dao-row-preview--accepted,
+#daoModal .dao-row-preview--accept {
+  background: rgba(30, 126, 52, 0.12);
+  border-color: rgba(30, 126, 52, 0.3);
+}
+
+#daoModal .dao-row-preview--rejected {
+  background: rgba(196, 45, 45, 0.1);
+  border-color: rgba(196, 45, 45, 0.28);
+}
+
+#daoModal .dao-row-preview span {
+  color: var(--secondary-text-color);
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.2;
+}
+
+#daoModal .dao-row-preview strong {
+  color: var(--text-color);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 #daoStatusContextMenu {

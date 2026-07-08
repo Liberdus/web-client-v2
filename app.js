@@ -2742,6 +2742,7 @@ class DaoModal {
       const title = escapeHtml(titleText);
       const updatedLabel = escapeHtml(formatDaoRowTimestampLabel(p.stateEnteredAt || p.createdAt));
       const typeLabel = escapeHtml(getDaoTypeLabel(p.proposalType || p.type) || 'Proposal');
+      const previewHtml = this.renderProposalRowPreview(p);
 
       li.tabIndex = 0;
       li.setAttribute('role', 'button');
@@ -2759,6 +2760,7 @@ class DaoModal {
               <strong class="dao-row-meta-value">${updatedLabel}</strong>
             </span>
           </div>
+          ${previewHtml}
         </div>
       `;
       li.onclick = () => this.openProposal(p);
@@ -2774,6 +2776,39 @@ class DaoModal {
     if (this.addButton) {
       this.addButton.classList.toggle('visible', this.isActive());
     }
+  }
+
+  renderProposalRowPreview(proposal) {
+    const chips = [];
+    const result = getDaoProposalResultSummary(proposal);
+    const reward = getDaoProposalRewardSummary(proposal);
+
+    if (result) {
+      chips.push({
+        label: 'Result',
+        value: result.headline,
+        tone: result.tone,
+      });
+    }
+    if (reward) {
+      chips.push({
+        label: 'Reward',
+        value: reward.previewLabel,
+        tone: reward.statusTone,
+      });
+    }
+
+    if (chips.length === 0) return '';
+    return `
+      <div class="dao-row-previews">
+        ${chips.map((chip) => `
+          <span class="dao-row-preview dao-row-preview--${escapeDaoFormAttribute(chip.tone || 'neutral')}">
+            <span>${escapeHtml(chip.label)}</span>
+            <strong>${escapeHtml(chip.value)}</strong>
+          </span>
+        `).join('')}
+      </div>
+    `;
   }
 
   openProposal(proposal) {
@@ -3707,6 +3742,7 @@ const DAO_WITHHOLD_REASON_MAX_LENGTH = 1000;
 const DAO_VOTE_WEIGHT_MAX = 1_000_000;
 const DAO_VOTE_WEIGHT_PRECISION = 1_000_000_000_000;
 const DAO_VOTE_WEIGHT_PRECISION_BIGINT = 1_000_000_000_000n;
+const DAO_CLAIM_REWARD_PRECISION = 10n ** 18n;
 
 function getDaoCurrentAccountAddress() {
   return myAccount?.keys?.address ? longAddress(myAccount.keys.address) : '';
@@ -3868,6 +3904,300 @@ function formatDaoLibWei(value) {
   }
 }
 
+function parseDaoUnsignedBigInt(value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value === 'bigint') return value >= 0n ? value : null;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value < 0) return null;
+    return BigInt(Math.trunc(value));
+  }
+
+  const text = String(value).trim();
+  if (!text) return null;
+  try {
+    const parsed = BigInt(text);
+    return parsed >= 0n ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function formatDaoRewardAmount(value) {
+  return value === null ? 'Unavailable' : formatDaoLibWei(value);
+}
+
+function formatDaoBigIntPercent(part, total) {
+  if (typeof part !== 'bigint' || typeof total !== 'bigint' || total <= 0n) return '0%';
+  const tenths = (part * 1000n + total / 2n) / total;
+  const whole = tenths / 10n;
+  const fraction = tenths % 10n;
+  return fraction === 0n ? `${whole}%` : `${whole}.${fraction}%`;
+}
+
+function getDaoProposalOptions(proposal) {
+  if (!Array.isArray(proposal?.options) || proposal.options.length === 0) return ['Yes', 'No'];
+  return proposal.options.map((option, index) => String(option || `Option ${index + 1}`));
+}
+
+function getDaoVoteTotals(proposal) {
+  const totalVote = Array.isArray(proposal?.totalVote) ? proposal.totalVote : [];
+  if (totalVote.length === 0) return [];
+
+  const options = getDaoProposalOptions(proposal);
+  const rowCount = Math.max(options.length, totalVote.length);
+  return Array.from({ length: rowCount }, (_, index) => ({
+    index,
+    option: options[index] || `Option ${index + 1}`,
+    total: parseDaoUnsignedBigInt(totalVote[index]) ?? 0n,
+  }));
+}
+
+function getDaoVoteWinner(totals) {
+  const totalWeight = totals.reduce((sum, row) => sum + row.total, 0n);
+  if (totalWeight <= 0n) return { totalWeight, winner: null };
+
+  const winner = totals.reduce((current, row) => (row.total > current.total ? row : current), totals[0]);
+  return { totalWeight, winner };
+}
+
+function isDaoFinalResultState(state) {
+  return state === 'accepted' || state === 'rejected' || state === 'applied';
+}
+
+function getDaoFinalOutcome(proposal) {
+  const state = getEffectiveDaoState(proposal);
+  const label = getDaoStateLabel(state) || state || 'Unavailable';
+  const tone = state === 'withheld' || state === 'rejected' ? 'rejected' : 'accepted';
+  return { label, tone };
+}
+
+function getDaoCommitteeReviewResultSummary(proposal) {
+  const state = getEffectiveDaoState(proposal);
+  if (state !== 'withheld' && !(proposal?.emergency && isDaoFinalResultState(state))) return null;
+
+  const committeeVotes = Array.isArray(proposal?.committeeVotes) ? proposal.committeeVotes : [];
+  const committeeAddresses = Array.isArray(proposal?.committeeAddresses) ? proposal.committeeAddresses : [];
+  const committeeAddressSet = new Set(committeeAddresses);
+  const acceptCount = committeeVotes.filter((vote) => vote?.vote === 'accept' && committeeAddressSet.has(vote.memberAddress)).length;
+  const withholdCount = committeeVotes.filter((vote) => vote?.vote === 'withhold' && committeeAddressSet.has(vote.memberAddress)).length;
+  const outcome = getDaoFinalOutcome(proposal);
+
+  return {
+    detail: `Committee review: ${acceptCount} accept, ${withholdCount} withhold.`,
+    headline: outcome.label,
+    label: 'Final result',
+    source: 'committee',
+    tone: outcome.tone,
+    rows: [
+      ['Decision source', 'Committee review'],
+      ['Outcome', outcome.label, outcome.tone === 'accepted' ? 'accept' : 'withhold'],
+      ['Accept votes', String(acceptCount), 'accept'],
+      ['Withhold votes', String(withholdCount), withholdCount > 0 ? 'withhold' : ''],
+      ['Committee size', committeeAddresses.length ? String(committeeAddresses.length) : 'Unavailable'],
+    ],
+  };
+}
+
+function getDaoVoteResultSummary(proposal) {
+  const state = getEffectiveDaoState(proposal);
+  if (!isDaoFinalResultState(state)) return null;
+
+  const totals = getDaoVoteTotals(proposal);
+  if (totals.length === 0) return null;
+
+  const { totalWeight, winner } = getDaoVoteWinner(totals);
+  if (totalWeight <= 0n) return null;
+
+  const outcome = winner
+    ? winner.index === 0 ? 'Accepted' : 'Rejected'
+    : 'No votes yet';
+  const label = 'Final result';
+  const headline = winner
+    ? outcome
+    : 'No votes yet';
+  const detail = winner
+    ? `${winner.option} has ${formatDaoVotingPower(winner.total)} (${formatDaoBigIntPercent(winner.total, totalWeight)}).`
+    : 'No weighted votes are recorded yet.';
+  const tone = winner
+    ? winner.index === 0 ? 'accepted' : 'rejected'
+    : 'pending';
+
+  return { detail, headline, label, outcome, source: 'vote', tone, totalWeight, totals, winner };
+}
+
+function getDaoProposalResultSummary(proposal) {
+  return getDaoCommitteeReviewResultSummary(proposal) || getDaoVoteResultSummary(proposal);
+}
+
+function normalizeDaoAddress(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function getDaoVoterEntries(proposal) {
+  if (!Array.isArray(proposal?.voterList)) return [];
+  return proposal.voterList
+    .map((entry) => ({
+      address: normalizeDaoAddress(entry?.address),
+      timestamp: Number(entry?.timestamp || 0),
+    }))
+    .filter((entry) => entry.address && Number.isFinite(entry.timestamp) && entry.timestamp > 0);
+}
+
+function getDaoClaimList(proposal) {
+  if (!Array.isArray(proposal?.claimList)) return [];
+  return proposal.claimList.map(normalizeDaoAddress).filter(Boolean);
+}
+
+function getDaoProposalClaimWindow(proposal) {
+  const reviewStart = Number(proposal?.startTime || proposal?.created || proposal?.creationTime || 0);
+  const reviewDuration = Number(proposal?.reviewDuration);
+  const votingDuration = Number(proposal?.votingDuration);
+  const claimDuration = Number(proposal?.claimDuration);
+  if (
+    !Number.isFinite(reviewStart) ||
+    !Number.isFinite(reviewDuration) ||
+    !Number.isFinite(votingDuration) ||
+    !Number.isFinite(claimDuration)
+  ) {
+    return { start: null, end: null, votingStart: null, votingDuration: null };
+  }
+
+  const votingStart = reviewStart + reviewDuration;
+  const votingEnd = proposal?.emergency ? votingStart : votingStart + votingDuration;
+  return {
+    start: votingEnd,
+    end: votingEnd + claimDuration,
+    votingStart,
+    votingDuration,
+  };
+}
+
+function formatDaoClaimWindowLabel(claimWindow, now) {
+  if (!claimWindow.start || !claimWindow.end) return 'Unavailable';
+  const start = formatDaoTimestamp(claimWindow.start) || 'Unavailable';
+  const end = formatDaoTimestamp(claimWindow.end) || 'Unavailable';
+  if (now < claimWindow.start) return `Opens ${start}\nEnds ${end}`;
+  if (now <= claimWindow.end) return `Open until ${end}`;
+  return `Ended ${end}`;
+}
+
+function getDaoClaimRewardEstimate({ pool, claimed, voterEntries, voterIndex, votingStart, votingDuration }) {
+  if (pool <= 0n || claimed >= pool || voterIndex < 0 || voterEntries.length === 0) return null;
+  if (!Number.isFinite(votingStart) || !Number.isFinite(votingDuration) || votingDuration <= 0) return null;
+
+  const voter = voterEntries[voterIndex];
+  const previousTimestamp = voterIndex === 0 ? votingStart : voterEntries[voterIndex - 1]?.timestamp;
+  if (!Number.isFinite(voter?.timestamp) || !Number.isFinite(previousTimestamp)) return null;
+
+  const timeDelta = BigInt(Math.max(0, Math.trunc(voter.timestamp - previousTimestamp)));
+  const duration = BigInt(Math.trunc(votingDuration));
+  const voterCount = BigInt(voterEntries.length);
+  const timePart = (timeDelta * DAO_CLAIM_REWARD_PRECISION) / duration;
+  const equalPart = DAO_CLAIM_REWARD_PRECISION / voterCount;
+  let reward = (pool * (timePart + equalPart)) / (2n * DAO_CLAIM_REWARD_PRECISION);
+  const remaining = pool > claimed ? pool - claimed : 0n;
+  if (reward > remaining) reward = remaining;
+  return reward;
+}
+
+function getDaoRewardClaimStatus({ state, currentAddress, voterIndex, hasClaimed, pool, claimed, claimWindow, now }) {
+  if (!currentAddress) return 'Sign in to check rewards';
+  if (state === 'withheld') return 'Reward pool burned';
+  if (voterIndex < 0) return 'Not eligible';
+  if (hasClaimed) return 'Already claimed';
+  if (pool <= 0n) return 'Reward pool empty';
+  if (claimed >= pool) return 'Reward pool fully claimed';
+  if (!claimWindow.end) return 'Claim timing unavailable';
+  if (now > claimWindow.end) return 'Claim window ended';
+  if (now < claimWindow.start) return 'Claim window not open';
+  return 'Claimable';
+}
+
+function getDaoRewardPreviewLabel(summary) {
+  if (summary.claimStatus === 'Claimable' && summary.claimEstimate !== null) {
+    return `${formatDaoLibWei(summary.claimEstimate)} claimable`;
+  }
+  if (summary.claimStatus === 'Already claimed') return 'Reward claimed';
+  if (summary.initialBurned !== null && summary.initialBurned > 0n) {
+    return `${formatDaoLibWei(summary.initialBurned)} burned`;
+  }
+  if (summary.finalBurned !== null && summary.finalBurned > 0n) {
+    return `${formatDaoLibWei(summary.finalBurned)} burned`;
+  }
+  if (summary.unclaimed !== null && summary.unclaimed > 0n) {
+    return `${formatDaoLibWei(summary.unclaimed)} unclaimed`;
+  }
+  return summary.claimStatus;
+}
+
+function getDaoProposalRewardSummary(proposal, currentAddress = getDaoCurrentAccountAddress(), now = Date.now()) {
+  const state = getEffectiveDaoState(proposal);
+  const isRewardState = state === 'accepted' || state === 'rejected' || state === 'applied' || state === 'withheld';
+  if (!isRewardState) return null;
+
+  const pool = parseDaoUnsignedBigInt(proposal?.voterRewardPool);
+  const claimed = parseDaoUnsignedBigInt(proposal?.claimedReward);
+  const initialBurned = parseDaoUnsignedBigInt(proposal?.initialBurnedReward);
+  const finalBurned = parseDaoUnsignedBigInt(proposal?.finalBurnedReward);
+  const voterEntries = getDaoVoterEntries(proposal);
+  const claimList = getDaoClaimList(proposal);
+  const hasRewardData = (
+    pool !== null ||
+    claimed !== null ||
+    initialBurned !== null ||
+    finalBurned !== null ||
+    voterEntries.length > 0 ||
+    claimList.length > 0
+  );
+  if (!hasRewardData) return null;
+
+  const safePool = pool ?? 0n;
+  const safeClaimed = claimed ?? 0n;
+  const claimWindow = getDaoProposalClaimWindow(proposal);
+  const normalizedAddress = normalizeDaoAddress(currentAddress);
+  const voterIndex = normalizedAddress ? voterEntries.findIndex((entry) => entry.address === normalizedAddress) : -1;
+  const hasClaimed = normalizedAddress ? claimList.includes(normalizedAddress) : false;
+  const claimStatus = getDaoRewardClaimStatus({
+    state,
+    currentAddress: normalizedAddress,
+    voterIndex,
+    hasClaimed,
+    pool: safePool,
+    claimed: safeClaimed,
+    claimWindow,
+    now,
+  });
+  const claimEstimate = hasClaimed
+    ? null
+    : getDaoClaimRewardEstimate({
+        pool: safePool,
+        claimed: safeClaimed,
+        voterEntries,
+        voterIndex,
+        votingStart: claimWindow.votingStart,
+        votingDuration: claimWindow.votingDuration,
+      });
+  const unclaimed = pool !== null && claimed !== null
+    ? safePool > safeClaimed ? safePool - safeClaimed : 0n
+    : null;
+
+  const summary = {
+    claimEstimate,
+    claimStatus,
+    claimWindowLabel: formatDaoClaimWindowLabel(claimWindow, now),
+    claimed,
+    finalBurned,
+    initialBurned,
+    pool,
+    unclaimed,
+  };
+  return {
+    ...summary,
+    previewLabel: getDaoRewardPreviewLabel(summary),
+    statusTone: claimStatus === 'Claimable' ? 'accept' : '',
+  };
+}
+
 function formatDaoDetailValue(value) {
   if (value === undefined || value === null || value === '') return 'Unavailable';
   if (typeof value === 'bigint') return value.toString();
@@ -4027,12 +4357,28 @@ class ProposalInfoModal {
       committeeAddressSet,
     });
     const proposalType = proposal.proposalType || proposal.type;
+    const resultSummary = getDaoProposalResultSummary(proposal);
+    const rewardSummary = getDaoProposalRewardSummary(proposal, currentAddress);
+    const committeeReviewSection = state === 'review'
+      ? this.renderSection('Committee Review', [
+        ['Committee size', committeeAddresses.length ? String(committeeAddresses.length) : 'Unavailable'],
+        ['Accept votes', String(acceptCount)],
+        ['Withhold votes', String(withholdCount)],
+        [
+          'Your vote',
+          currentVote ? this.formatCommitteeVote(currentVote) : capabilities.isCommitteeMember ? 'Not submitted' : 'Not a committee member',
+          this.getCommitteeVoteTone(currentVote),
+        ],
+        ['Next state', this.getNextStateHint(proposal, acceptCount, withholdCount)],
+      ])
+      : '';
 
     if (this.content) {
       this.content.innerHTML = [
         this.renderProposalTitle(proposal),
         this.renderParameterChanges(proposal),
         state === 'voting' ? this.renderCurrentVoteTotals(proposal) : '',
+        this.renderProposalResultSummary(resultSummary),
         this.renderSection('Overview', [
           ['Number', proposal.number ? `#${proposal.number}` : 'Unavailable'],
           ['Type', getDaoTypeLabel(proposalType) || 'Unavailable'],
@@ -4047,18 +4393,10 @@ class ProposalInfoModal {
           ['Review ends', formatDaoDetailTimestamp(reviewWindow.end)],
         ]),
         this.renderProposalBody(proposal),
-        this.renderSection('Committee Review', [
-          ['Committee size', committeeAddresses.length ? String(committeeAddresses.length) : 'Unavailable'],
-          ['Accept votes', String(acceptCount)],
-          ['Withhold votes', String(withholdCount)],
-          [
-            'Your vote',
-            currentVote ? this.formatCommitteeVote(currentVote) : capabilities.isCommitteeMember ? 'Not submitted' : 'Not a committee member',
-            this.getCommitteeVoteTone(currentVote),
-          ],
-          ['Next state', this.getNextStateHint(proposal, acceptCount, withholdCount)],
-        ]),
-      ].join('');
+        committeeReviewSection,
+        this.renderProposalResults(resultSummary),
+        this.renderProposalRewards(rewardSummary),
+      ].filter(Boolean).join('');
     }
 
     if (state === 'review') {
@@ -4220,6 +4558,70 @@ class ProposalInfoModal {
 
   getProposalTitle(proposal) {
     return proposal.title || (proposal.number ? `Proposal #${proposal.number}` : 'Proposal');
+  }
+
+  renderProposalResultSummary(result) {
+    if (!result) return '';
+    return `
+      <section class="proposal-result-banner proposal-result-banner--${escapeDaoFormAttribute(result.tone)}">
+        <span>${escapeHtml(result.label)}</span>
+        <strong>${escapeHtml(result.headline)}</strong>
+        <small>${escapeHtml(result.detail)}</small>
+      </section>
+    `;
+  }
+
+  renderProposalResults(result) {
+    if (!result) return '';
+    if (result.source === 'committee') {
+      return this.renderSection('Results', result.rows);
+    }
+
+    const winnerLabel = result.winner ? `${result.winner.option} (${result.outcome})` : 'Unavailable';
+    const totalLabel = result.totalWeight > 0n ? formatDaoVotingPower(result.totalWeight) : 'No votes yet';
+    const rows = result.totals
+      .map((row) => {
+        const isWinner = result.winner?.index === row.index;
+        return `
+          <div class="proposal-result-row${isWinner ? ' proposal-result-row--winner' : ''}">
+            <span>${escapeHtml(row.option)}</span>
+            <strong>${escapeHtml(formatDaoVotingPower(row.total))}</strong>
+            <small>${escapeHtml(formatDaoBigIntPercent(row.total, result.totalWeight))}</small>
+          </div>
+        `;
+      })
+      .join('');
+
+    return `
+      <section class="proposal-info-section">
+        <h3>Results</h3>
+        <div class="proposal-result-overview">
+          <div class="proposal-result-card">
+            <span>Winner</span>
+            <strong>${escapeHtml(winnerLabel)}</strong>
+          </div>
+          <div class="proposal-result-card">
+            <span>Total voting power</span>
+            <strong>${escapeHtml(totalLabel)}</strong>
+          </div>
+        </div>
+        <div class="proposal-result-list">${rows}</div>
+      </section>
+    `;
+  }
+
+  renderProposalRewards(reward) {
+    if (!reward) return '';
+    return this.renderSection('Rewards', [
+      ['Claim status', reward.claimStatus, reward.statusTone],
+      ['Claim estimate', reward.claimEstimate === null ? 'Unavailable' : formatDaoLibWei(reward.claimEstimate), reward.statusTone],
+      ['Claim window', reward.claimWindowLabel],
+      ['Reward pool', formatDaoRewardAmount(reward.pool)],
+      ['Claimed', formatDaoRewardAmount(reward.claimed)],
+      ['Unclaimed pool', formatDaoRewardAmount(reward.unclaimed)],
+      ['Initial burn', formatDaoRewardAmount(reward.initialBurned)],
+      ['Final burn', formatDaoRewardAmount(reward.finalBurned)],
+    ]);
   }
 
   setTitle(title) {
@@ -4436,9 +4838,7 @@ class ProposalInfoModal {
   }
 
   getVoteOptions(proposal) {
-    return Array.isArray(proposal?.options) && proposal.options.length
-      ? proposal.options.map((option) => String(option))
-      : ['Yes', 'No'];
+    return getDaoProposalOptions(proposal);
   }
 
   renderVoteActions({ proposal, state }) {

@@ -670,6 +670,8 @@ function storeToUiList(store, groupKey) {
         claimedReward: p.claimedReward,
         initialBurnedReward: p.initialBurnedReward,
         finalBurnedReward: p.finalBurnedReward,
+        voterList: Array.isArray(p.voterList) ? p.voterList : [],
+        claimList: Array.isArray(p.claimList) ? p.claimList : [],
         startTime: p.startTime,
         reviewDuration: p.reviewDuration,
         votingDuration: p.votingDuration,
