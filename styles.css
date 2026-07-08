@@ -2128,7 +2128,7 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-info-row {
   background: rgba(255, 255, 255, 0.92);
-  border: 2px solid var(--border-color);
+  border: 1px solid var(--border-color);
   box-shadow: 0 1px 2px rgba(28, 28, 33, 0.05);
 }
 
@@ -2150,17 +2150,17 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-info-row--accept {
   background: rgba(30, 126, 52, 0.16);
-  border: 2px solid rgba(30, 126, 52, 0.34);
+  border: 1px solid rgba(30, 126, 52, 0.34);
 }
 
 #proposalInfoModal .proposal-info-row--withhold {
   background: rgba(196, 45, 45, 0.14);
-  border: 2px solid rgba(196, 45, 45, 0.32);
+  border: 1px solid rgba(196, 45, 45, 0.32);
 }
 
 #confirmProposalModal .dao-confirm-label,
 #confirmProposalModal .dao-confirm-change-title,
-#proposalInfoModal .proposal-info-row span,
+#proposalInfoModal .proposal-info-row > span:not(.proposal-info-value),
 #proposalInfoModal .proposal-change-row span {
   color: var(--secondary-text-color);
   font-size: 12px;
@@ -2181,7 +2181,6 @@ input[type='file'].form-control::file-selector-button {
 
 #confirmProposalModal .dao-confirm-value,
 #confirmProposalModal .dao-confirm-change-values strong,
-#proposalInfoModal .proposal-info-row strong,
 #proposalInfoModal .proposal-change-row strong {
   color: var(--text-color);
   font-size: 13px;
@@ -2193,22 +2192,33 @@ input[type='file'].form-control::file-selector-button {
   white-space: pre-wrap;
 }
 
-#proposalInfoModal .proposal-info-row--accept strong {
+#proposalInfoModal .proposal-info-value {
+  color: var(--text-color);
+  font-size: 13px;
+  font-weight: var(--font-weight-normal);
+  line-height: 1.35;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: center;
+  white-space: pre-wrap;
+}
+
+#proposalInfoModal .proposal-info-row--accept .proposal-info-value {
   color: #0f5f27;
 }
 
-#proposalInfoModal .proposal-info-row--withhold strong {
+#proposalInfoModal .proposal-info-row--withhold .proposal-info-value {
   color: #8f1d16;
 }
 
 #confirmProposalModal .dao-confirm-label,
-#proposalInfoModal .proposal-info-row span {
+#proposalInfoModal .proposal-info-row > span:not(.proposal-info-value) {
   align-self: start;
   justify-self: center;
 }
 
 #confirmProposalModal .dao-confirm-value,
-#proposalInfoModal .proposal-info-row strong {
+#proposalInfoModal .proposal-info-value {
   align-self: center;
   justify-self: center;
 }
@@ -2270,11 +2280,10 @@ input[type='file'].form-control::file-selector-button {
   text-align: center;
 }
 
-#proposalInfoModal .proposal-result-card strong,
-#proposalInfoModal .proposal-result-row strong {
+#proposalInfoModal .proposal-result-value {
   color: var(--text-color);
   font-size: 13px;
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-normal);
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
@@ -2298,7 +2307,7 @@ input[type='file'].form-control::file-selector-button {
   overflow-wrap: anywhere;
 }
 
-#proposalInfoModal .proposal-result-row > strong,
+#proposalInfoModal .proposal-result-row > .proposal-result-value,
 #proposalInfoModal .proposal-result-row > small {
   justify-self: end;
   text-align: right;
@@ -2327,6 +2336,34 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values strong {
   overflow-wrap: anywhere;
   white-space: normal;
+}
+
+#proposalInfoModal .proposal-change-row {
+  flex: 0 1 calc(50% - 5px);
+  min-width: min(100%, 180px);
+}
+
+#proposalInfoModal .proposal-change-row--single {
+  background: rgba(255, 255, 255, 0.92);
+  border: 0 solid var(--border-color);
+  border-radius: 0 0 8px 8px;
+  border-width: 0 1px 1px;
+  box-shadow: 0 2px 2px rgba(28, 28, 33, 0.04);
+  flex-basis: calc(66.666% - 4px);
+}
+
+#proposalInfoModal .proposal-change-row--wide {
+  flex-basis: 100%;
+}
+
+#proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values {
+  grid-template-columns: max-content 16px max-content;
+  justify-content: center;
+}
+
+#proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values small,
+#proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values strong {
+  white-space: nowrap;
 }
 
 #confirmProposalModal .dao-confirm-change-values,
@@ -2455,7 +2492,7 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-committee-actions,
 #proposalInfoModal .proposal-review-result-actions,
 #proposalInfoModal .proposal-vote-actions {
-  border: 2px solid var(--border-color);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   display: grid;
   gap: 8px;
@@ -2483,7 +2520,7 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-more {
-  border: 2px solid var(--border-color);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   display: grid;
   overflow: hidden;
@@ -2547,14 +2584,16 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-payload {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+  justify-content: center;
 }
 
 #proposalInfoModal .proposal-payload-title {
   color: var(--text-color);
+  flex: 0 0 100%;
   font-size: 13px;
-  font-weight: var(--font-weight-semibold);
   line-height: 1.3;
   text-align: center;
 }
@@ -2780,8 +2819,20 @@ input[type='file'].form-control::file-selector-button {
   padding: 8px 10px;
 }
 
+#proposalInfoModal .proposal-vote-status-card--full {
+  justify-self: center;
+  justify-items: center;
+  width: calc(66.666% - 4px);
+  grid-template-columns: minmax(0, 1fr);
+  text-align: center;
+}
+
 #proposalInfoModal .proposal-vote-status-card strong {
   text-align: right;
+}
+
+#proposalInfoModal .proposal-vote-status-card--full strong {
+  text-align: center;
 }
 
 #proposalInfoModal .proposal-vote-status-card span,
@@ -2961,7 +3012,7 @@ input[type='file'].form-control::file-selector-button {
     grid-template-columns: minmax(0, 1fr) 92px;
   }
 
-  #proposalInfoModal .proposal-result-row > strong,
+  #proposalInfoModal .proposal-result-row > .proposal-result-value,
   #proposalInfoModal .proposal-result-row > small {
     justify-self: start;
     text-align: left;

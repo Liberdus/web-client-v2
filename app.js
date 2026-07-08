@@ -4583,7 +4583,7 @@ class ProposalInfoModal {
         return `
           <div class="proposal-result-row${isWinner ? ' proposal-result-row--winner' : ''}">
             <span>${escapeHtml(row.option)}</span>
-            <strong>${escapeHtml(formatDaoVotingPower(row.total))}</strong>
+            <span class="proposal-result-value">${escapeHtml(formatDaoVotingPower(row.total))}</span>
             <small>${escapeHtml(formatDaoBigIntPercent(row.total, result.totalWeight))}</small>
           </div>
         `;
@@ -4596,11 +4596,11 @@ class ProposalInfoModal {
         <div class="proposal-result-overview">
           <div class="proposal-result-card">
             <span>Winner</span>
-            <strong>${escapeHtml(winnerLabel)}</strong>
+            <span class="proposal-result-value">${escapeHtml(winnerLabel)}</span>
           </div>
           <div class="proposal-result-card">
             <span>Total voting power</span>
-            <strong>${escapeHtml(totalLabel)}</strong>
+            <span class="proposal-result-value">${escapeHtml(totalLabel)}</span>
           </div>
         </div>
         <div class="proposal-result-list">${rows}</div>
@@ -4705,7 +4705,7 @@ class ProposalInfoModal {
       .map((row) => `
         <div class="${row.classes.join(' ')}">
           <span>${escapeHtml(row.label)}</span>
-          <strong>${escapeHtml(row.value)}</strong>
+          <span class="proposal-info-value">${escapeHtml(row.value)}</span>
         </div>
       `)
       .join('');
@@ -4793,36 +4793,66 @@ class ProposalInfoModal {
     `;
   }
 
+  getParameterChangeRowClass(parts, { isSingleRow = false } = {}) {
+    const normalizedParts = parts.map((part) => String(part ?? '').trim());
+    const shouldUseWideRow = normalizedParts.some((part) => part.length > 22)
+      || normalizedParts.join(' ').length > 52;
+    return [
+      'proposal-change-row',
+      shouldUseWideRow ? 'proposal-change-row--wide' : '',
+      !shouldUseWideRow && isSingleRow ? 'proposal-change-row--single' : '',
+    ].filter(Boolean).join(' ');
+  }
+
   renderPayloadRows(payload, payloadTitle = '') {
     const titleHtml = payloadTitle
       ? `<div class="proposal-payload-title">${escapeHtml(payloadTitle)}</div>`
       : '';
 
     if (Array.isArray(payload?.changes)) {
-      return payload.changes
-        .map((change) => `
-          <div class="proposal-change-row">
+      const changes = payload.changes;
+      return changes
+        .map((change, index) => {
+          const key = change?.key || 'Unknown key';
+          const current = formatDaoDetailValue(change?.current);
+          const next = formatDaoDetailValue(change?.value);
+          const rowClass = this.getParameterChangeRowClass(
+            [key, `Current: ${current}`, `New: ${next}`],
+            { isSingleRow: index === changes.length - 1 && changes.length % 2 === 1 },
+          );
+          return `
+          <div class="${rowClass}">
             ${titleHtml}
-            <span>${escapeHtml(change?.key || 'Unknown key')}</span>
+            <span>${escapeHtml(key)}</span>
             <div class="proposal-change-values">
-              <small><span>Current:</span><strong>${escapeHtml(formatDaoDetailValue(change?.current))}</strong></small>
+              <small><span>Current:</span><strong>${escapeHtml(current)}</strong></small>
               <span class="proposal-change-arrow" aria-hidden="true">&rarr;</span>
-              <strong><span>New:</span><span>${escapeHtml(formatDaoDetailValue(change?.value))}</span></strong>
+              <strong><span>New:</span><span>${escapeHtml(next)}</span></strong>
             </div>
           </div>
-        `)
+        `;
+        })
         .join('');
     }
 
-    return Object.entries(payload)
-      .filter(([, value]) => value !== undefined && value !== null && String(value).length > 0)
-      .map(([key, value]) => `
-        <div class="proposal-change-row">
+    const entries = Object.entries(payload)
+      .filter(([, value]) => value !== undefined && value !== null && String(value).length > 0);
+
+    return entries
+      .map(([key, value], index) => {
+        const displayValue = formatDaoDetailValue(value);
+        const rowClass = this.getParameterChangeRowClass(
+          [key, displayValue],
+          { isSingleRow: index === entries.length - 1 && entries.length % 2 === 1 },
+        );
+        return `
+        <div class="${rowClass}">
           ${titleHtml}
           <span>${escapeHtml(key)}</span>
-          <strong>${escapeHtml(formatDaoDetailValue(value))}</strong>
+          <strong>${escapeHtml(displayValue)}</strong>
         </div>
-      `)
+      `;
+      })
       .join('');
   }
 
