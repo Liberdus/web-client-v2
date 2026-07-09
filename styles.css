@@ -2425,6 +2425,10 @@ input[type='file'].form-control::file-selector-button {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+#proposalInfoModal .proposal-vote-status-grid:empty {
+  display: none;
+}
+
 #proposalInfoModal .proposal-vote-status-card,
 #proposalInfoModal .proposal-vote-preview {
   background: var(--input-background);

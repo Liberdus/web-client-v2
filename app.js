@@ -3974,6 +3974,7 @@ class ProposalInfoModal {
       this.content.innerHTML = [
         this.renderProposalTitle(proposal),
         this.renderParameterChanges(proposal),
+        state === 'voting' ? this.renderCurrentVoteTotals(proposal) : '',
         this.renderSection('Overview', [
           ['Number', proposal.number ? `#${proposal.number}` : 'Unavailable'],
           ['Type', getDaoTypeLabel(proposalType) || 'Unavailable'],
@@ -4053,6 +4054,20 @@ class ProposalInfoModal {
 
   getProposalTitle(proposal) {
     return proposal.title || (proposal.number ? `Proposal #${proposal.number}` : 'Proposal');
+  }
+
+  renderCurrentVoteTotals(proposal) {
+    const votingWindow = getDaoProposalVotingWindow(proposal);
+    const totalVote = Array.isArray(proposal.totalVote) ? proposal.totalVote : [];
+    const options = this.getVoteOptions(proposal);
+    const totalVoteText = totalVote.length
+      ? totalVote.map((value, index) => `${options[index] || `Option ${index + 1}`}: ${formatDaoVotingPower(value)}`).join('\n')
+      : 'No votes yet';
+
+    return this.renderSection('Current Vote', [
+      ['Voting ends', formatDaoDetailTimestamp(votingWindow.end)],
+      ['Current totals', totalVoteText],
+    ]);
   }
 
   setTitle(title) {
@@ -4339,22 +4354,7 @@ class ProposalInfoModal {
 
   renderVoteStatus(proposal) {
     if (!this.voteStatusGrid) return;
-    const votingWindow = getDaoProposalVotingWindow(proposal);
-    const totalVote = Array.isArray(proposal.totalVote) ? proposal.totalVote : [];
-    const options = this.getVoteOptions(proposal);
-    const totalVoteText = totalVote.length
-      ? totalVote.map((value, index) => `${options[index] || `Option ${index + 1}`}: ${formatDaoVotingPower(value)}`).join('\n')
-      : 'No votes yet';
-    this.voteStatusGrid.innerHTML = [
-      ['Voting state', votingWindow.label],
-      ['Voting ends', formatDaoDetailTimestamp(votingWindow.end)],
-      ['Current totals', totalVoteText],
-    ].map(([label, value]) => `
-      <div class="proposal-vote-status-card">
-        <span>${escapeHtml(label)}</span>
-        <strong>${escapeHtml(value)}</strong>
-      </div>
-    `).join('');
+    this.voteStatusGrid.innerHTML = '';
   }
 
   handleVoteWeightInput(event) {
