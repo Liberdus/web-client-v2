@@ -3967,19 +3967,10 @@ function getDaoCommitteeReviewResultSummary(proposal) {
   return {
     acceptCount,
     committeeSize: committeeAddresses.length,
-    detail: `Committee review: ${acceptCount} accept, ${withholdCount} withhold.`,
     headline: outcome.label,
-    label: 'Final result',
     source: 'committee',
     tone: outcome.tone,
     withholdCount,
-    rows: [
-      ['Decision source', 'Committee review'],
-      ['Outcome', outcome.label, outcome.tone === 'accepted' ? 'accept' : 'withhold'],
-      ['Accept votes', String(acceptCount), 'accept'],
-      ['Withhold votes', String(withholdCount), withholdCount > 0 ? 'withhold' : ''],
-      ['Committee size', committeeAddresses.length ? String(committeeAddresses.length) : 'Unavailable'],
-    ],
   };
 }
 
@@ -3993,21 +3984,10 @@ function getDaoVoteResultSummary(proposal) {
   const { totalWeight, winner } = getDaoVoteWinner(totals);
   if (totalWeight <= 0n) return null;
 
-  const outcome = winner
-    ? winner.index === 0 ? 'Accepted' : 'Rejected'
-    : 'No votes yet';
-  const label = 'Final result';
-  const headline = winner
-    ? outcome
-    : 'No votes yet';
-  const detail = winner
-    ? `${winner.option} has ${formatDaoVotingPower(winner.total)} (${formatDaoBigIntPercent(winner.total, totalWeight)}).`
-    : 'No weighted votes are recorded yet.';
-  const tone = winner
-    ? winner.index === 0 ? 'accepted' : 'rejected'
-    : 'pending';
+  const outcome = winner.index === 0 ? 'Accepted' : 'Rejected';
+  const tone = winner.index === 0 ? 'accepted' : 'rejected';
 
-  return { detail, headline, label, outcome, source: 'vote', tone, totalWeight, totals, winner };
+  return { headline: outcome, outcome, source: 'vote', tone, totalWeight, totals, winner };
 }
 
 function getDaoProposalResultSummary(proposal) {
@@ -4367,7 +4347,7 @@ class ProposalInfoModal {
         this.renderProposalTitle(proposal),
         this.renderParameterChanges(proposal),
         state === 'voting' ? this.renderCurrentVoteTotals(proposal) : '',
-        this.renderProposalResultSummary(resultSummary),
+        this.renderProposalResults(resultSummary),
         committeeReviewSection,
       ].filter(Boolean).join('');
     }
@@ -4541,11 +4521,6 @@ class ProposalInfoModal {
 
   getProposalTitle(proposal) {
     return proposal.title || (proposal.number ? `Proposal #${proposal.number}` : 'Proposal');
-  }
-
-  renderProposalResultSummary(result) {
-    if (!result) return '';
-    return this.renderProposalResults(result);
   }
 
   renderProposalResults(result) {
