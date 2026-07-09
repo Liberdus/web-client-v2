@@ -4038,7 +4038,17 @@ class ProposalInfoModal {
   }
 
   renderProposalTitle(proposal) {
-    return `<h2 class="proposal-info-title">${escapeHtml(this.getProposalTitle(proposal))}</h2>`;
+    const description = proposal.description || proposal.summary || '';
+    const descriptionHtml = description
+      ? `<p class="proposal-info-description">${escapeHtml(description)}</p>`
+      : '';
+
+    return `
+      <div class="proposal-info-heading">
+        <h2 class="proposal-info-title">${escapeHtml(this.getProposalTitle(proposal))}</h2>
+        ${descriptionHtml}
+      </div>
+    `;
   }
 
   getProposalTitle(proposal) {
@@ -4123,7 +4133,6 @@ class ProposalInfoModal {
       : 'Unavailable';
 
     return this.renderSection('Proposal Body', [
-      ['Description', proposal.description || proposal.summary || 'Unavailable'],
       ['Emergency', proposal.emergency ? 'Yes' : 'No'],
       ['Options', options],
     ]);

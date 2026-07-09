@@ -2068,6 +2068,24 @@ input[type='file'].form-control::file-selector-button {
   width: 100%;
 }
 
+#proposalInfoModal .proposal-info-heading {
+  display: grid;
+  gap: 4px;
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-info-title {
+  margin-bottom: 0;
+}
+
+#proposalInfoModal .proposal-info-description {
+  color: var(--secondary-text-color);
+  font-size: 14px;
+  line-height: 1.35;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 #confirmProposalModal .dao-confirm-section,
 #proposalInfoModal .proposal-info-section {
   display: grid;
