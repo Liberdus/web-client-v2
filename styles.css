@@ -2326,6 +2326,30 @@ input[type='file'].form-control::file-selector-button {
   color: #8f1d16;
 }
 
+#proposalInfoModal .proposal-result-meter-label--palette-0 > span {
+  color: #3d3dce;
+}
+
+#proposalInfoModal .proposal-result-meter-label--palette-1 > span {
+  color: #65676b;
+}
+
+#proposalInfoModal .proposal-result-meter-label--palette-2 > span {
+  color: #6f68e8;
+}
+
+#proposalInfoModal .proposal-result-meter-label--palette-3 > span {
+  color: #838a93;
+}
+
+#proposalInfoModal .proposal-result-meter-label--palette-4 > span {
+  color: #2f2fa8;
+}
+
+#proposalInfoModal .proposal-result-meter-label--palette-5 > span {
+  color: #4e555f;
+}
+
 #proposalInfoModal .proposal-result-meter-track {
   background: var(--input-background);
   border: 1px solid var(--border-color);
@@ -2348,6 +2372,30 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-result-meter-segment--winner {
   background: var(--primary-color);
+}
+
+#proposalInfoModal .proposal-result-meter-segment--palette-0 {
+  background: #3d3dce;
+}
+
+#proposalInfoModal .proposal-result-meter-segment--palette-1 {
+  background: #aeb3ba;
+}
+
+#proposalInfoModal .proposal-result-meter-segment--palette-2 {
+  background: #6f68e8;
+}
+
+#proposalInfoModal .proposal-result-meter-segment--palette-3 {
+  background: #c4c8ce;
+}
+
+#proposalInfoModal .proposal-result-meter-segment--palette-4 {
+  background: #2f2fa8;
+}
+
+#proposalInfoModal .proposal-result-meter-segment--palette-5 {
+  background: #8d949e;
 }
 
 #proposalInfoModal .proposal-result-meter-segment--accept {

@@ -4560,6 +4560,9 @@ class ProposalInfoModal {
     const segments = result.totals
       .map((row, rowPosition) => {
         const isWinner = result.winner?.index === row.index;
+        const paletteClass = result.totals.length > 1
+          ? ` proposal-result-meter-label--palette-${rowPosition % 6}`
+          : '';
         const units = this.getResultSegmentUnits(row.total, result.totalWeight);
         const power = formatDaoVotingPower(row.total);
         const displayPower = power.endsWith(' power') ? power.slice(0, -6) : power;
@@ -4573,7 +4576,7 @@ class ProposalInfoModal {
         const label = `${row.option}: ${power}, ${percent}`;
         return `
           <div
-            class="proposal-result-meter-label proposal-result-meter-label--${position}${isWinner ? ' proposal-result-meter-label--winner' : ''}"
+            class="proposal-result-meter-label proposal-result-meter-label--${position}${paletteClass}${isWinner ? ' proposal-result-meter-label--winner' : ''}"
             style="${escapeDaoFormAttribute(style)}"
             title="${escapeDaoFormAttribute(label)}"
             aria-label="${escapeDaoFormAttribute(label)}"
@@ -4585,13 +4588,15 @@ class ProposalInfoModal {
       })
       .join('');
     const bars = result.totals
-      .map((row) => {
-        const isWinner = result.winner?.index === row.index;
+      .map((row, rowPosition) => {
+        const paletteClass = result.totals.length > 1
+          ? ` proposal-result-meter-segment--palette-${rowPosition % 6}`
+          : ' proposal-result-meter-segment--palette-0';
         const units = this.getResultSegmentUnits(row.total, result.totalWeight);
         const style = `--result-segment-units: ${units};`;
         return `
           <span
-            class="proposal-result-meter-segment${isWinner ? ' proposal-result-meter-segment--winner' : ''}${row.total === 0n ? ' proposal-result-meter-segment--empty' : ''}"
+            class="proposal-result-meter-segment${paletteClass}${row.total === 0n ? ' proposal-result-meter-segment--empty' : ''}"
             style="${escapeDaoFormAttribute(style)}"
           ></span>
         `;
