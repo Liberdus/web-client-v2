@@ -4357,6 +4357,7 @@ class ProposalInfoModal {
         this.renderParameterChanges(proposal),
         state === 'voting' ? this.renderCurrentVoteTotals(proposal) : '',
         this.renderProposalResults(resultSummary),
+        state === 'review' ? this.renderProposalBody(proposal) : '',
         committeeReviewSection,
       ].filter(Boolean).join('');
     }
@@ -4736,7 +4737,7 @@ class ProposalInfoModal {
         ['Review ends', formatDaoDetailTimestamp(reviewWindow.end)],
       ]),
       state === 'voting' ? this.renderVotingDetails(proposal) : '',
-      this.renderProposalBody(proposal),
+      state === 'review' ? '' : this.renderProposalBody(proposal),
       this.renderProposalRewards(rewardSummary),
     ].filter(Boolean);
 
@@ -4754,7 +4755,8 @@ class ProposalInfoModal {
   }
 
   getProposalDetailsSummary(state, resultSummary, rewardSummary) {
-    const parts = ['Overview', 'review timeline', 'proposal body'];
+    const parts = ['Overview', 'review timeline'];
+    if (state !== 'review') parts.push('proposal body');
     if (state === 'voting') parts.push('voting totals');
     if (rewardSummary) parts.push('reward accounting');
     return parts.join(', ');
