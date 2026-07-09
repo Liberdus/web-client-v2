@@ -2062,7 +2062,7 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-review-result-actions,
 #proposalInfoModal .proposal-vote-actions {
   display: grid;
-  gap: 18px;
+  gap: 14px;
   margin: 0 auto;
   max-width: 720px;
   width: 100%;
@@ -2089,7 +2089,7 @@ input[type='file'].form-control::file-selector-button {
 #confirmProposalModal .dao-confirm-section,
 #proposalInfoModal .proposal-info-section {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 #confirmProposalModal .dao-confirm-section h3,
@@ -2109,7 +2109,7 @@ input[type='file'].form-control::file-selector-button {
 #confirmProposalModal .dao-confirm-grid,
 #proposalInfoModal .proposal-info-grid {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
@@ -2121,8 +2121,8 @@ input[type='file'].form-control::file-selector-button {
   gap: 8px;
   grid-column: span 2;
   grid-template-rows: auto minmax(0, 1fr);
-  min-height: 76px;
-  padding: 10px;
+  min-height: 68px;
+  padding: 8px;
   text-align: center;
 }
 
@@ -2218,16 +2218,29 @@ input[type='file'].form-control::file-selector-button {
   background: var(--input-background);
   border-radius: 8px;
   display: grid;
-  gap: 8px;
-  padding: 10px;
+  gap: 6px;
+  min-inline-size: 0;
+  padding: 8px;
+}
+
+#proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values {
+  grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr);
+  justify-content: center;
+}
+
+#proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values small,
+#proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values strong {
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 #confirmProposalModal .dao-confirm-change-values,
 #proposalInfoModal .proposal-change-values {
   align-items: center;
   display: grid;
-  column-gap: 10px;
+  column-gap: 8px;
   grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr);
+  min-width: 0;
   width: 100%;
 }
 
@@ -2241,14 +2254,48 @@ input[type='file'].form-control::file-selector-button {
   line-height: 1.35;
 }
 
-#confirmProposalModal .dao-confirm-change-values small,
-#proposalInfoModal .proposal-change-values small {
+#proposalInfoModal .proposal-change-values small,
+#proposalInfoModal .proposal-change-values strong {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  min-width: 0;
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-change-values small > span,
+#proposalInfoModal .proposal-change-values small > strong,
+#proposalInfoModal .proposal-change-values strong > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#proposalInfoModal .proposal-change-values small > span,
+#proposalInfoModal .proposal-change-values strong > span:first-child {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+}
+
+#proposalInfoModal .proposal-change-values small > strong,
+#proposalInfoModal .proposal-change-values strong > span:last-child {
+  color: var(--text-color);
+  font-size: 13px;
+}
+
+#confirmProposalModal .dao-confirm-change-values small {
   text-align: right;
 }
 
-#confirmProposalModal .dao-confirm-change-values strong,
-#proposalInfoModal .proposal-change-values strong {
+#proposalInfoModal .proposal-change-values small {
+  text-align: center;
+}
+
+#confirmProposalModal .dao-confirm-change-values strong {
   text-align: left;
+}
+
+#proposalInfoModal .proposal-change-values strong {
+  text-align: center;
 }
 
 #confirmProposalModal .dao-confirm-change-arrow,
@@ -2307,7 +2354,7 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-info + .proposal-vote-actions,
 #proposalInfoModal .proposal-committee-actions + .proposal-review-result-actions,
 #proposalInfoModal .proposal-review-result-actions + .proposal-vote-actions {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 #proposalInfoModal .proposal-committee-actions,
@@ -2316,8 +2363,8 @@ input[type='file'].form-control::file-selector-button {
   border: 1px solid var(--border-color);
   border-radius: 8px;
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  padding: 10px;
 }
 
 #proposalInfoModal .proposal-vote-actions {
@@ -2331,7 +2378,7 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-payload {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 #proposalInfoModal .proposal-payload-title {

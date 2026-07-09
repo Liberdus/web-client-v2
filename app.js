@@ -4346,9 +4346,9 @@ class ProposalInfoModal {
             ${titleHtml}
             <span>${escapeHtml(change?.key || 'Unknown key')}</span>
             <div class="proposal-change-values">
-              <small>Current: ${escapeHtml(formatDaoDetailValue(change?.current))}</small>
+              <small><span>Current:</span><strong>${escapeHtml(formatDaoDetailValue(change?.current))}</strong></small>
               <span class="proposal-change-arrow" aria-hidden="true">&rarr;</span>
-              <strong>New: ${escapeHtml(formatDaoDetailValue(change?.value))}</strong>
+              <strong><span>New:</span><span>${escapeHtml(formatDaoDetailValue(change?.value))}</span></strong>
             </div>
           </div>
         `)
