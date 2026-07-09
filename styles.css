@@ -7931,7 +7931,7 @@ small {
   align-items: center;
   color: var(--secondary-text-color);
   display: flex;
-  gap: 18px;
+  gap: 10px;
   min-width: 0;
   width: 100%;
 }
@@ -7944,13 +7944,8 @@ small {
 }
 
 #daoModal .dao-row-meta-item--type {
-  flex: 1 1 auto;
-}
-
-#daoModal .dao-row-meta-item--updated {
   flex: 0 0 auto;
-  margin-left: auto;
-  white-space: nowrap;
+  max-width: 34%;
 }
 
 #daoModal .dao-row-meta-label {
@@ -7969,18 +7964,18 @@ small {
   font-weight: var(--font-weight-semibold);
   line-height: 1.2;
   min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-#daoModal .dao-row-meta-item--updated .dao-row-meta-value {
-  overflow-wrap: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 #daoModal .dao-row-previews {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  gap: 4px;
+  justify-content: flex-end;
+  margin-left: auto;
   min-width: 0;
 }
 
@@ -7990,9 +7985,11 @@ small {
   border: 1px solid var(--border-color);
   border-radius: 8px;
   display: inline-flex;
-  gap: 5px;
+  flex: 0 1 auto;
+  gap: 4px;
   max-width: 100%;
-  padding: 5px 7px;
+  min-width: 0;
+  padding: 4px 6px;
 }
 
 #daoModal .dao-row-preview--accepted,
@@ -8012,6 +8009,7 @@ small {
   font-size: 11px;
   font-weight: var(--font-weight-medium);
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 #daoModal .dao-row-preview strong {
@@ -8020,7 +8018,9 @@ small {
   font-weight: var(--font-weight-semibold);
   line-height: 1.2;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #daoStatusContextMenu {

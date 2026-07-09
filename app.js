@@ -2466,19 +2466,6 @@ function formatDaoTimestamp(ts) {
   }
 }
 
-function formatDaoRowTimestampLabel(ts) {
-  const n = Number(ts || 0);
-  if (!n) return '—';
-  const date = new Date(n);
-  try {
-    const dateLabel = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    const timeLabel = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-    return `${dateLabel} ${timeLabel}`;
-  } catch {
-    return '—';
-  }
-}
-
 function getDaoUiStateLabel(key) {
   if (key === 'discussion') return 'Review';
   return getDaoStateLabel(key);
@@ -2740,7 +2727,6 @@ class DaoModal {
 
       const titleText = p.title || (p.number ? `Proposal #${p.number}` : 'Proposal');
       const title = escapeHtml(titleText);
-      const updatedLabel = escapeHtml(formatDaoRowTimestampLabel(p.stateEnteredAt || p.createdAt));
       const typeLabel = escapeHtml(getDaoTypeLabel(p.proposalType || p.type) || 'Proposal');
       const previewHtml = this.renderProposalRowPreview(p);
 
@@ -2755,12 +2741,8 @@ class DaoModal {
               <span class="dao-row-meta-label">Type</span>
               <strong class="dao-row-meta-value">${typeLabel}</strong>
             </span>
-            <span class="dao-row-meta-item dao-row-meta-item--updated">
-              <span class="dao-row-meta-label">Updated</span>
-              <strong class="dao-row-meta-value">${updatedLabel}</strong>
-            </span>
+            ${previewHtml}
           </div>
-          ${previewHtml}
         </div>
       `;
       li.onclick = () => this.openProposal(p);
