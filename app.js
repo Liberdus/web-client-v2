@@ -2762,6 +2762,7 @@ class DaoModal {
 
   renderProposalRowPreview(proposal) {
     const chips = [];
+    const state = getEffectiveDaoState(proposal);
     const result = getDaoProposalResultSummary(proposal);
     const reward = getDaoProposalRewardSummary(proposal);
 
@@ -2772,7 +2773,15 @@ class DaoModal {
         tone: result.tone,
       });
     }
-    if (reward) {
+    if (state === 'review') {
+      const reviewWindow = getDaoProposalReviewWindow(proposal);
+
+      chips.push({
+        label: 'Review',
+        value: reviewWindow.canFinalizeReviewResult ? 'Ready to finalize' : reviewWindow.label,
+        tone: 'neutral',
+      });
+    } else if (reward) {
       chips.push({
         label: 'Reward',
         value: reward.previewLabel,
@@ -4338,7 +4347,7 @@ class ProposalInfoModal {
           currentVote ? this.formatCommitteeVote(currentVote) : capabilities.isCommitteeMember ? 'Not submitted' : 'Not a committee member',
           this.getCommitteeVoteTone(currentVote),
         ],
-        ['Next state', this.getNextStateHint(proposal, acceptCount, withholdCount)],
+        ['Next state', this.getNextStateHint(proposal, acceptCount, withholdCount, reviewWindow)],
       ])
       : '';
 
@@ -4364,7 +4373,7 @@ class ProposalInfoModal {
 
     if (state === 'review') {
       this.renderCommitteeActions({ capabilities, reviewWindow, currentVote, state });
-      this.renderReviewResultAction({ capabilities, reviewWindow });
+      this.renderReviewResultAction({ capabilities, reviewWindow, proposal, acceptCount, withholdCount });
     } else {
       this.hideCommitteeActions();
       this.hideReviewResultAction();
@@ -4931,8 +4940,16 @@ class ProposalInfoModal {
     return vote.withheldReason ? `Withhold - ${vote.withheldReason}` : 'Withhold';
   }
 
-  getNextStateHint(proposal, acceptCount, withholdCount) {
+  getReviewFinalizedStateLabel(proposal, acceptCount, withholdCount) {
+    if (withholdCount > acceptCount) return 'Withheld';
+    return proposal.emergency ? 'Accepted' : 'Voting';
+  }
+
+  getNextStateHint(proposal, acceptCount, withholdCount, reviewWindow) {
     if (proposal.status && proposal.status !== 'review') return getDaoStateLabel(proposal.status) || proposal.status;
+    if (reviewWindow?.canFinalizeReviewResult) {
+      return `${this.getReviewFinalizedStateLabel(proposal, acceptCount, withholdCount)} if finalized`;
+    }
     if (withholdCount > acceptCount) return 'Likely withheld after review result';
     if (acceptCount > withholdCount) return proposal.emergency ? 'Accepted if finalized' : 'Voting if finalized';
     return 'Waiting for committee review';
@@ -4966,7 +4983,7 @@ class ProposalInfoModal {
     this.updateSubmitButtons();
   }
 
-  renderReviewResultAction({ capabilities, reviewWindow }) {
+  renderReviewResultAction({ capabilities, reviewWindow, proposal, acceptCount, withholdCount }) {
     if (!this.reviewResultSection) return;
     if (!capabilities.canFinalizeReviewResult) {
       this.hideReviewResultAction();
@@ -4976,7 +4993,10 @@ class ProposalInfoModal {
     this.canSubmitReviewResult = true;
     this.reviewResultSection.classList.remove('hidden');
     if (this.reviewResultHelp) {
-      this.reviewResultHelp.textContent = `${reviewWindow.label}. Finalize the review result to move this proposal to its next state.`;
+      const nextState = proposal
+        ? this.getReviewFinalizedStateLabel(proposal, acceptCount, withholdCount)
+        : 'its next state';
+      this.reviewResultHelp.textContent = `${reviewWindow.label}. Finalize the review result to move this proposal to ${nextState}.`;
     }
     this.updateSubmitButtons();
   }
