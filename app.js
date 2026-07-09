@@ -1689,12 +1689,17 @@ class ChatsScreen {
     if (emptyStateEl) emptyStateEl.style.display = 'none';
 
     const chatItems = [];
+    const renderedChatAddresses = new Set();
     for (const chat of chats) {
-      if (isFaucetAddress(chat.address)) {
+      const chatAddress = normalizeAddress(chat.address);
+      if (renderedChatAddresses.has(chatAddress)) {
+        continue;
+      }
+      if (isFaucetAddress(chatAddress)) {
         continue;
       }
       
-      const contact = contacts[chat.address];
+      const contact = contacts[chatAddress];
       if (!contact) continue;
       // In chat list don't show people that are blocked
       if (Number(contact?.friend) === 0) continue;
@@ -1704,6 +1709,7 @@ class ChatsScreen {
       if (!latestActivity) continue;
 
       chatItems.push({ chat, contact, latestActivity });
+      renderedChatAddresses.add(chatAddress);
     }
 
     // If everything was filtered out (e.g. all chats are blocked), show empty state
