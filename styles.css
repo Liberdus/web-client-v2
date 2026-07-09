@@ -2372,20 +2372,10 @@ input[type='file'].form-control::file-selector-button {
   padding: 8px;
 }
 
-#proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values {
-  grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr);
-  justify-content: center;
-}
-
-#proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values small,
-#proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values strong {
-  overflow-wrap: anywhere;
-  white-space: normal;
-}
-
 #proposalInfoModal .proposal-change-row {
-  flex: 0 1 calc(50% - 5px);
+  flex: 0 1 calc(50% - 4px);
   min-width: min(100%, 180px);
+  min-inline-size: 0;
 }
 
 #proposalInfoModal .proposal-change-row--single {
@@ -2402,13 +2392,14 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values {
-  grid-template-columns: max-content 16px max-content;
+  grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr);
   justify-content: center;
 }
 
 #proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values small,
 #proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values strong {
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 #confirmProposalModal .dao-confirm-change-values,
@@ -2555,7 +2546,7 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-details {
   display: grid;
-  margin: 12px auto 0;
+  margin: 10px auto 0;
   max-width: 720px;
   width: 100%;
 }
@@ -2578,7 +2569,7 @@ input[type='file'].form-control::file-selector-button {
   gap: 4px;
   grid-template-columns: minmax(0, 1fr) 18px;
   list-style: none;
-  padding: 12px;
+  padding: 10px;
 }
 
 #proposalInfoModal .proposal-more summary::-webkit-details-marker {
@@ -2624,8 +2615,8 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-more-content {
   display: grid;
-  gap: 18px;
-  padding: 12px;
+  gap: 14px;
+  padding: 10px;
 }
 
 #proposalInfoModal .proposal-payload {
