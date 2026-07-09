@@ -4110,22 +4110,116 @@ class ProposalInfoModal {
     `;
   }
 
-  getProposalTitle(proposal) {
-    return proposal.title || (proposal.number ? `Proposal #${proposal.number}` : 'Proposal');
-  }
-
   renderCurrentVoteTotals(proposal) {
     const votingWindow = getDaoProposalVotingWindow(proposal);
-    const totalVote = Array.isArray(proposal.totalVote) ? proposal.totalVote : [];
-    const options = this.getVoteOptions(proposal);
-    const totalVoteText = totalVote.length
-      ? totalVote.map((value, index) => `${options[index] || `Option ${index + 1}`}: ${formatDaoVotingPower(value)}`).join('\n')
-      : 'No votes yet';
+    const rows = this.getCurrentVoteTotalRows(proposal);
+    if (rows.length === 0) return '';
 
-    return this.renderSection('Current Vote', [
-      ['Voting ends', formatDaoDetailTimestamp(votingWindow.end)],
-      ['Current totals', totalVoteText],
-    ]);
+    const totalWeight = rows.reduce((sum, row) => sum + row.total, 0n);
+    const winnerIndex = totalWeight > 0n
+      ? rows.reduce((winner, row, index) => (row.total > rows[winner].total ? index : winner), 0)
+      : -1;
+    const labelLayout = rows.length === 2 ? 'balanced' : 'segmented';
+
+    const labels = rows
+      .map((row, index) => {
+        const position = index === 0 ? 'start' : index === rows.length - 1 ? 'end' : 'center';
+        const isWinner = index === winnerIndex;
+        const units = this.getCurrentVoteSegmentUnits(row.total, totalWeight);
+        const power = formatDaoVotingPower(row.total);
+        const percent = this.formatCurrentVotePercent(row.total, totalWeight);
+        const valueLabel = totalWeight > 0n ? `${power} / ${percent}` : power;
+        const title = totalWeight > 0n
+          ? `${row.option}: ${power}, ${percent}`
+          : `${row.option}: ${power}`;
+
+        return `
+          <div
+            class="proposal-vote-current-label proposal-vote-current-label--${position}${isWinner ? ' proposal-vote-current-label--winner' : ''}"
+            style="--vote-total-segment-units: ${units};"
+            title="${escapeDaoFormAttribute(title)}"
+            aria-label="${escapeDaoFormAttribute(title)}"
+          >
+            <span>${escapeHtml(row.option)}</span>
+            <small>${escapeHtml(valueLabel)}</small>
+          </div>
+        `;
+      })
+      .join('');
+
+    const segments = rows
+      .map((row, index) => {
+        const isWinner = index === winnerIndex;
+        const units = this.getCurrentVoteSegmentUnits(row.total, totalWeight);
+        return `
+          <span
+            class="proposal-vote-current-segment${isWinner ? ' proposal-vote-current-segment--winner' : ''}${row.total === 0n ? ' proposal-vote-current-segment--empty' : ''}"
+            style="--vote-total-segment-units: ${units};"
+          ></span>
+        `;
+      })
+      .join('');
+
+    return `
+      <section class="proposal-info-section proposal-vote-current-section">
+        <h3>Current Vote</h3>
+        <div class="proposal-vote-current-meter" aria-label="Current vote totals">
+          <div class="proposal-vote-current-labels proposal-vote-current-labels--${labelLayout}">${labels}</div>
+          <div class="proposal-vote-current-track" aria-hidden="true">${segments}</div>
+        </div>
+        <div class="proposal-vote-status-grid proposal-vote-status-grid--current">
+          <div class="proposal-vote-status-card">
+            <span>Voting ends</span>
+            <strong>${escapeHtml(formatDaoDetailTimestamp(votingWindow.end))}</strong>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  getCurrentVoteTotalRows(proposal) {
+    const options = this.getVoteOptions(proposal);
+    const totalVote = Array.isArray(proposal?.totalVote) ? proposal.totalVote : [];
+    return options.map((option, index) => ({
+      option,
+      total: this.parseCurrentVoteTotal(totalVote[index]),
+    }));
+  }
+
+  parseCurrentVoteTotal(value) {
+    if (typeof value === 'bigint') return value >= 0n ? value : 0n;
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value) || value <= 0) return 0n;
+      return BigInt(Math.trunc(value));
+    }
+
+    const text = String(value ?? '').trim();
+    if (!text) return 0n;
+    try {
+      const parsed = BigInt(text);
+      return parsed >= 0n ? parsed : 0n;
+    } catch {
+      return 0n;
+    }
+  }
+
+  getCurrentVoteSegmentUnits(part, total) {
+    if (typeof part !== 'bigint' || typeof total !== 'bigint' || total <= 0n) return 1;
+    if (part <= 0n) return 0;
+    const units = Number((part * 1000n) / total);
+    return Math.max(1, units);
+  }
+
+  formatCurrentVotePercent(part, total) {
+    if (typeof part !== 'bigint' || typeof total !== 'bigint' || total <= 0n) return '0%';
+    const tenths = (part * 1000n + total / 2n) / total;
+    const whole = tenths / 10n;
+    const fraction = tenths % 10n;
+    return fraction === 0n ? `${whole}%` : `${whole}.${fraction}%`;
+  }
+
+  getProposalTitle(proposal) {
+    return proposal.title || (proposal.number ? `Proposal #${proposal.number}` : 'Proposal');
   }
 
   setTitle(title) {

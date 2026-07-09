@@ -2442,6 +2442,99 @@ input[type='file'].form-control::file-selector-button {
   display: none;
 }
 
+#proposalInfoModal .proposal-vote-current-meter {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+#proposalInfoModal .proposal-vote-current-labels,
+#proposalInfoModal .proposal-vote-current-track {
+  align-items: center;
+  display: flex;
+  min-width: 0;
+  width: 100%;
+}
+
+#proposalInfoModal .proposal-vote-current-label {
+  display: grid;
+  flex: var(--vote-total-segment-units) 1 0;
+  gap: 4px;
+  min-width: 0;
+  padding: 0 4px;
+}
+
+#proposalInfoModal .proposal-vote-current-labels--balanced .proposal-vote-current-label {
+  flex: 1 1 0;
+}
+
+#proposalInfoModal .proposal-vote-current-label--start {
+  justify-items: start;
+  text-align: left;
+}
+
+#proposalInfoModal .proposal-vote-current-label--center {
+  justify-items: center;
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-vote-current-label--end {
+  justify-items: end;
+  text-align: right;
+}
+
+#proposalInfoModal .proposal-vote-current-label > span,
+#proposalInfoModal .proposal-vote-current-label > small {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#proposalInfoModal .proposal-vote-current-label > span {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+}
+
+#proposalInfoModal .proposal-vote-current-label > small {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+#proposalInfoModal .proposal-vote-current-label--winner > span {
+  color: var(--primary-color);
+}
+
+#proposalInfoModal .proposal-vote-current-track {
+  background: var(--input-background);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  height: 16px;
+  overflow: hidden;
+}
+
+#proposalInfoModal .proposal-vote-current-segment {
+  align-self: stretch;
+  background: rgba(101, 103, 107, 0.34);
+  border-left: 1px solid rgba(255, 255, 255, 0.72);
+  flex: var(--vote-total-segment-units) 1 0;
+  min-width: 0;
+}
+
+#proposalInfoModal .proposal-vote-current-segment:first-child {
+  border-left: 0;
+}
+
+#proposalInfoModal .proposal-vote-current-segment--winner {
+  background: var(--primary-color);
+}
+
+#proposalInfoModal .proposal-vote-current-segment--empty {
+  background: rgba(101, 103, 107, 0.18);
+}
+
 #proposalInfoModal .proposal-vote-status-card,
 #proposalInfoModal .proposal-vote-preview {
   background: var(--input-background);
