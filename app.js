@@ -1690,14 +1690,8 @@ class ChatsScreen {
     if (emptyStateEl) emptyStateEl.style.display = 'none';
 
     const chatItems = [];
-    const renderedChatAddresses = new Set();
-    let didPruneDuplicateChats = false;
     for (const chat of chats) {
       const chatAddress = normalizeAddress(chat.address);
-      if (renderedChatAddresses.has(chatAddress)) {
-        didPruneDuplicateChats = true;
-        continue;
-      }
       if (isFaucetAddress(chatAddress)) {
         continue;
       }
@@ -1712,15 +1706,6 @@ class ChatsScreen {
       if (!latestActivity) continue;
 
       chatItems.push({ chat, contact, latestActivity });
-      renderedChatAddresses.add(chatAddress);
-    }
-
-    if (didPruneDuplicateChats) {
-      myData.chats = chats.filter((chat, index) => {
-        const chatAddress = normalizeAddress(chat.address);
-        return chats.findIndex((item) => normalizeAddress(item.address) === chatAddress) === index;
-      });
-      saveState();
     }
 
     // If everything was filtered out (e.g. all chats are blocked), show empty state
@@ -7192,19 +7177,12 @@ function syncChatLatestActivityTimestamp(chatAddress, contact) {
 
   const latestReaction = getLatestChatReactionActivity(contact);
 
-  const existingChatIndex = myData.chats.findIndex((chat) => chat.address === chatAddress);
-  const chat = existingChatIndex === -1
-    ? { address: chatAddress, timestamp: latestMessage.timestamp }
-    : myData.chats.splice(existingChatIndex, 1)[0];
-
   if (!latestReaction || latestReaction.timestamp <= latestMessage.timestamp) {
-    chat.timestamp = latestMessage.timestamp;
-    insertSorted(myData.chats, chat, 'timestamp');
+    upsertSortedChatListEntry(myData.chats, chatAddress, latestMessage.timestamp);
     return;
   }
 
-  chat.timestamp = latestReaction.timestamp;
-  insertSorted(myData.chats, chat, 'timestamp');
+  upsertSortedChatListEntry(myData.chats, chatAddress, latestReaction.timestamp);
 }
 
 /**
@@ -7283,7 +7261,8 @@ function restorePendingMessageEdit(pendingTxid, contactAddress, editPending) {
     delete message.edited_timestamp;
   }
 
-  const existingChatIndex = myData.chats.findIndex((chat) => chat.address === contactAddress);
+  const normalizedContactAddress = normalizeAddress(contactAddress);
+  const existingChatIndex = myData.chats.findIndex((chat) => normalizeAddress(chat.address) === normalizedContactAddress);
   if (existingChatIndex !== -1 && myData.chats[existingChatIndex].txid === pendingTxid) {
     myData.chats.splice(existingChatIndex, 1);
   }
@@ -8212,30 +8191,13 @@ async function processChats(chats, keys) {
           }
         }
 
-        // Add sender to the top of the chats tab
-        // Remove existing chat for this contact if it exists
-        const existingChatIndex = myData.chats.findIndex((chat) => chat.address === from);
-        const existingChat = existingChatIndex === -1
-          ? null
-          : myData.chats.splice(existingChatIndex, 1)[0];
         // Get the most recent message (index 0 because it's sorted descending)
         const latestMessage = contact.messages[0];
         const latestReaction = getLatestChatReactionActivity(contact);
-        const chatUpdate = existingChat || { address: from };
-        if (!latestReaction || latestReaction.timestamp <= latestMessage.timestamp) {
-          chatUpdate.timestamp = latestMessage.timestamp;
-        } else {
-          chatUpdate.timestamp = latestReaction.timestamp;
-        }
-        // Find insertion point to maintain timestamp order (newest first)
-        const insertIndex = myData.chats.findIndex((chat) => chat.timestamp < chatUpdate.timestamp);
-        if (insertIndex === -1) {
-          // If no earlier timestamp found, append to end
-          myData.chats.push(chatUpdate);
-        } else {
-          // Insert at correct position to maintain order
-          myData.chats.splice(insertIndex, 0, chatUpdate);
-        }
+        const chatTimestamp = !latestReaction || latestReaction.timestamp <= latestMessage.timestamp
+          ? latestMessage.timestamp
+          : latestReaction.timestamp;
+        upsertSortedChatListEntry(myData.chats, from, chatTimestamp);
 
         // Add bubble to chats tab if we are not on it
         // Only suppress notification if we're ACTIVELY viewing this chat and if not a transfer
@@ -10870,6 +10832,25 @@ function insertSorted(array, item, timestampField = 'timestamp') {
     // Otherwise, insert the new item at the found index.
     array.splice(index, 0, item);
   }
+}
+
+function upsertSortedChatListEntry(chats, address, timestamp, txid) {
+  if (!Array.isArray(chats) || !address) return null;
+
+  const normalizedAddress = normalizeAddress(address);
+  const existingChatIndex = chats.findIndex((chat) => normalizeAddress(chat.address) === normalizedAddress);
+  const chat = existingChatIndex === -1
+    ? { address: normalizedAddress }
+    : chats.splice(existingChatIndex, 1)[0];
+
+  chat.address = normalizedAddress;
+  chat.timestamp = timestamp;
+  if (typeof txid !== 'undefined') {
+    chat.txid = txid;
+  }
+
+  insertSorted(chats, chat, 'timestamp');
+  return chat;
 }
 
 /**
@@ -16745,7 +16726,7 @@ class ChatModal {
       if (isEdit) {
         // Optimistic update of original message (record original so we can revert on failure)
         assert(editMessage, `Missing edit message for ${editTargetTxId}`);
-        chatIndex = chatsData.chats.findIndex((chat) => chat.address === currentAddress);
+        chatIndex = chatsData.chats.findIndex((chat) => normalizeAddress(chat.address) === normalizeAddress(currentAddress));
         assert(chatIndex !== -1, `Missing chat list entry for pending edit: ${currentAddress}`);
 
         const previousHistoryIndex = myData.wallet.history.findIndex((item) => item.txid === editTargetTxId);
@@ -16819,15 +16800,7 @@ class ChatModal {
         txid: txid,
       };
 
-      // Remove existing chat for this contact if it exists. Not handling in removeFailedTx anymore.
-      if (!isEdit) {
-        chatIndex = chatsData.chats.findIndex((chat) => chat.address === currentAddress);
-      }
-      if (chatIndex !== -1) {
-        chatsData.chats.splice(chatIndex, 1);
-      }
-
-      insertSorted(chatsData.chats, chatUpdate, 'timestamp');
+      upsertSortedChatListEntry(chatsData.chats, chatUpdate.address, chatUpdate.timestamp, chatUpdate.txid);
 
       // Clear input and reset height, and delete any saved draft
            this.messageInput.value = '';
@@ -17275,15 +17248,7 @@ class ChatModal {
 
       insertSorted(contact.messages, newMessage, 'timestamp');
 
-      const chatIndex = myData.chats.findIndex((chat) => chat.address === currentAddress);
-      if (chatIndex !== -1) {
-        myData.chats.splice(chatIndex, 1);
-      }
-      insertSorted(myData.chats, {
-        address: currentAddress,
-        timestamp: newMessage.sent_timestamp,
-        txid
-      }, 'timestamp');
+      upsertSortedChatListEntry(myData.chats, currentAddress, newMessage.sent_timestamp, txid);
 
       this.clearPendingLocation();
       this.appendChatModal();
@@ -21924,11 +21889,7 @@ class ChatModal {
         txid: txid,
       };
 
-      const existingChatIndex = chatsData.chats.findIndex((chat) => chat.address === currentAddress);
-      if (existingChatIndex !== -1) {
-        chatsData.chats.splice(existingChatIndex, 1);
-      }
-      insertSorted(chatsData.chats, chatUpdate, 'timestamp');
+      upsertSortedChatListEntry(chatsData.chats, chatUpdate.address, chatUpdate.timestamp, chatUpdate.txid);
 
       // Update the chat modal UI immediately
       this.appendChatModal();
@@ -22100,22 +22061,7 @@ class ChatModal {
       this.appendChatModal();
       
       // Update chats list
-      const existingChatIndex = myData.chats.findIndex((chat) => chat.address === this.address);
-      if (existingChatIndex !== -1) {
-        myData.chats.splice(existingChatIndex, 1);
-      }
-      
-      const chatUpdate = {
-        address: this.address,
-        timestamp: newMessage.timestamp,
-      };
-      
-      const insertIndex = myData.chats.findIndex((chat) => chat.timestamp < chatUpdate.timestamp);
-      if (insertIndex === -1) {
-        myData.chats.push(chatUpdate);
-      } else {
-        myData.chats.splice(insertIndex, 0, chatUpdate);
-      }
+      upsertSortedChatListEntry(myData.chats, this.address, newMessage.timestamp);
     }
 
     // Send to network (injectTx may either throw OR return { result: { success:false } })
@@ -22845,11 +22791,7 @@ class CallInviteModal {
           txid: txid,
         };
 
-        const existingChatIndex = myData.chats.findIndex((chat) => chat.address === addr);
-        if (existingChatIndex !== -1) {
-          myData.chats.splice(existingChatIndex, 1);
-        }
-        insertSorted(myData.chats, chatUpdate, 'timestamp');
+        upsertSortedChatListEntry(myData.chats, chatUpdate.address, chatUpdate.timestamp, chatUpdate.txid);
 
         // Update the chat modal UI immediately
         if (chatModal.isActive() && chatModal.address === addr) {
@@ -23291,11 +23233,7 @@ class ShareAttachmentModal {
           txid: txid,
         };
 
-        const existingChatIndex = myData.chats.findIndex((chat) => chat.address === addr);
-        if (existingChatIndex !== -1) {
-          myData.chats.splice(existingChatIndex, 1);
-        }
-        insertSorted(myData.chats, chatUpdate, 'timestamp');
+        upsertSortedChatListEntry(myData.chats, chatUpdate.address, chatUpdate.timestamp, chatUpdate.txid);
 
         // Update the chat modal UI if open
         if (chatModal.isActive() && chatModal.address === addr) {
@@ -27727,18 +27665,7 @@ class SendAssetConfirmModal {
       // --------------------------------------------------------------
 
       // --- Update myData.chats to reflect the new message ---
-      const existingChatIndex = myData.chats.findIndex((chat) => chat.address === toAddress);
-      if (existingChatIndex !== -1) {
-        myData.chats.splice(existingChatIndex, 1); // Remove existing entry
-      }
-      // Create the new chat entry
-      const chatUpdate = {
-        address: toAddress,
-        timestamp: currentTime,
-        txid: response.txid,
-      };
-      // Find insertion point to maintain timestamp order (newest first)
-      insertSorted(myData.chats, chatUpdate, 'timestamp');
+      upsertSortedChatListEntry(myData.chats, toAddress, currentTime, response.txid);
       // --- End Update myData.chats ---
 
       // Update the chat modal to show the newly sent transfer message
