@@ -30114,6 +30114,11 @@ async function checkPendingTransactions() {
           }
           chatModal.refreshCurrentView(txid);
         }
+        if (type === 'message') {
+          updateTransactionStatus(txid, pendingTxInfo.to, 'failed', type);
+          chatModal.refreshCurrentView(txid);
+          await chatsScreen.updateChatList();
+        }
         // remove the pending tx from the pending array
         myData.pending.splice(i, 1);
         didMutatePendingState = true;
