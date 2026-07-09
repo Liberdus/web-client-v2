@@ -3973,6 +3973,7 @@ class ProposalInfoModal {
     if (this.content) {
       this.content.innerHTML = [
         this.renderProposalTitle(proposal),
+        this.renderParameterChanges(proposal),
         this.renderSection('Overview', [
           ['Number', proposal.number ? `#${proposal.number}` : 'Unavailable'],
           ['Type', getDaoTypeLabel(proposalType) || 'Unavailable'],
@@ -3987,7 +3988,6 @@ class ProposalInfoModal {
           ['Review ends', formatDaoDetailTimestamp(reviewWindow.end)],
         ]),
         this.renderProposalBody(proposal),
-        this.renderParameterChanges(proposal),
         this.renderSection('Committee Review', [
           ['Committee size', committeeAddresses.length ? String(committeeAddresses.length) : 'Unavailable'],
           ['Accept votes', String(acceptCount)],
@@ -4149,12 +4149,14 @@ class ProposalInfoModal {
     }
 
     const payloadHtml = payloads
-      .map(([key, payload]) => `
+      .map(([key, payload]) => {
+        const payloadTitle = getDaoTypeLabel(key) || key;
+        return `
         <div class="proposal-payload">
-          <div class="proposal-payload-title">${escapeHtml(getDaoTypeLabel(key) || key)}</div>
-          ${this.renderPayloadRows(payload)}
+          ${this.renderPayloadRows(payload, payloadTitle)}
         </div>
-      `)
+      `;
+      })
       .join('');
 
     return `
@@ -4165,11 +4167,16 @@ class ProposalInfoModal {
     `;
   }
 
-  renderPayloadRows(payload) {
+  renderPayloadRows(payload, payloadTitle = '') {
+    const titleHtml = payloadTitle
+      ? `<div class="proposal-payload-title">${escapeHtml(payloadTitle)}</div>`
+      : '';
+
     if (Array.isArray(payload?.changes)) {
       return payload.changes
         .map((change) => `
           <div class="proposal-change-row">
+            ${titleHtml}
             <span>${escapeHtml(change?.key || 'Unknown key')}</span>
             <div class="proposal-change-values">
               <small>Current: ${escapeHtml(formatDaoDetailValue(change?.current))}</small>
@@ -4185,6 +4192,7 @@ class ProposalInfoModal {
       .filter(([, value]) => value !== undefined && value !== null && String(value).length > 0)
       .map(([key, value]) => `
         <div class="proposal-change-row">
+          ${titleHtml}
           <span>${escapeHtml(key)}</span>
           <strong>${escapeHtml(formatDaoDetailValue(value))}</strong>
         </div>
