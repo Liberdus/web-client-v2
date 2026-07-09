@@ -1606,7 +1606,7 @@ const footer = new Footer();
 
 class ChatsScreen {
   constructor() {
-
+    this.updateChatListRenderId = 0;
   }
 
   load() {
@@ -1669,6 +1669,7 @@ class ChatsScreen {
 
   // Update chat list UI
   async updateChatList() {
+    const renderId = ++this.updateChatListRenderId;
     const chatList = this.chatList;
     const contacts = myData.contacts;
     const chats = myData.chats;
@@ -1690,9 +1691,11 @@ class ChatsScreen {
 
     const chatItems = [];
     const renderedChatAddresses = new Set();
+    let didPruneDuplicateChats = false;
     for (const chat of chats) {
       const chatAddress = normalizeAddress(chat.address);
       if (renderedChatAddresses.has(chatAddress)) {
+        didPruneDuplicateChats = true;
         continue;
       }
       if (isFaucetAddress(chatAddress)) {
@@ -1712,6 +1715,14 @@ class ChatsScreen {
       renderedChatAddresses.add(chatAddress);
     }
 
+    if (didPruneDuplicateChats) {
+      myData.chats = chats.filter((chat, index) => {
+        const chatAddress = normalizeAddress(chat.address);
+        return chats.findIndex((item) => normalizeAddress(item.address) === chatAddress) === index;
+      });
+      saveState();
+    }
+
     // If everything was filtered out (e.g. all chats are blocked), show empty state
     if (chatItems.length === 0) {
       if (emptyStateEl) emptyStateEl.style.display = 'block';
@@ -1721,6 +1732,9 @@ class ChatsScreen {
     const avatarHtmlList = await Promise.all(
       chatItems.map(({ contact }) => getContactAvatarHtml(contact))
     );
+    if (renderId !== this.updateChatListRenderId) {
+      return;
+    }
 
     chatItems.forEach(({ chat, contact, latestActivity }, index) => {
       const avatarHtml = avatarHtmlList[index];
