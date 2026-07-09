@@ -2223,41 +2223,11 @@ input[type='file'].form-control::file-selector-button {
   justify-self: center;
 }
 
-#proposalInfoModal .proposal-result-banner {
-  background: var(--input-background);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  display: grid;
-  gap: 6px;
-  padding: 12px;
-  text-align: center;
-}
-
-#proposalInfoModal .proposal-result-banner--accepted {
-  background: rgba(30, 126, 52, 0.14);
-  border-color: rgba(30, 126, 52, 0.34);
-}
-
-#proposalInfoModal .proposal-result-banner--rejected {
-  background: rgba(196, 45, 45, 0.12);
-  border-color: rgba(196, 45, 45, 0.3);
-}
-
-#proposalInfoModal .proposal-result-banner span,
-#proposalInfoModal .proposal-result-banner small,
 #proposalInfoModal .proposal-result-card span,
-#proposalInfoModal .proposal-result-row small {
+#proposalInfoModal .proposal-result-meter-label small {
   color: var(--secondary-text-color);
   font-size: 12px;
   line-height: 1.35;
-}
-
-#proposalInfoModal .proposal-result-banner strong {
-  color: var(--text-color);
-  font-size: 16px;
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.25;
-  overflow-wrap: anywhere;
 }
 
 #proposalInfoModal .proposal-result-overview {
@@ -2266,8 +2236,7 @@ input[type='file'].form-control::file-selector-button {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-#proposalInfoModal .proposal-result-card,
-#proposalInfoModal .proposal-result-row {
+#proposalInfoModal .proposal-result-card {
   background: rgba(255, 255, 255, 0.92);
   border-radius: 8px;
   box-shadow: 0 1px 2px rgba(28, 28, 33, 0.05);
@@ -2288,33 +2257,102 @@ input[type='file'].form-control::file-selector-button {
   overflow-wrap: anywhere;
 }
 
-#proposalInfoModal .proposal-result-list {
+#proposalInfoModal .proposal-result-meter {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
-#proposalInfoModal .proposal-result-row {
+#proposalInfoModal .proposal-result-meter-labels,
+#proposalInfoModal .proposal-result-meter-track {
   align-items: center;
-  grid-template-columns: minmax(0, 1fr) minmax(96px, auto) 52px;
+  display: flex;
+  min-width: 0;
+  width: 100%;
 }
 
-#proposalInfoModal .proposal-result-row > span {
+#proposalInfoModal .proposal-result-meter-label {
+  display: grid;
+  flex: var(--result-segment-units) 1 0;
+  gap: 2px;
+  min-width: 0;
+  padding: 0 4px;
+}
+
+#proposalInfoModal .proposal-result-meter-labels--balanced .proposal-result-meter-label {
+  flex: 1 1 0;
+}
+
+#proposalInfoModal .proposal-result-meter-label--center {
+  justify-items: center;
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-result-meter-label--end {
+  justify-items: end;
+  text-align: right;
+}
+
+#proposalInfoModal .proposal-result-meter-label > span {
   color: var(--secondary-text-color);
   font-size: 12px;
   font-weight: var(--font-weight-medium);
   line-height: 1.35;
+}
+
+#proposalInfoModal .proposal-result-meter-label > span,
+#proposalInfoModal .proposal-result-meter-label > small {
+  max-width: 100%;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-#proposalInfoModal .proposal-result-row > .proposal-result-value,
-#proposalInfoModal .proposal-result-row > small {
-  justify-self: end;
-  text-align: right;
+#proposalInfoModal .proposal-result-meter-label--winner > span {
+  color: var(--text-color);
 }
 
-#proposalInfoModal .proposal-result-row--winner {
-  border: 1px solid var(--primary-tint-40);
+#proposalInfoModal .proposal-result-meter-label--accept.proposal-result-meter-label--winner > span {
+  color: #0f5f27;
+}
+
+#proposalInfoModal .proposal-result-meter-label--withhold.proposal-result-meter-label--winner > span {
+  color: #8f1d16;
+}
+
+#proposalInfoModal .proposal-result-meter-track {
+  background: var(--input-background);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  height: 16px;
+  overflow: hidden;
+}
+
+#proposalInfoModal .proposal-result-meter-segment {
+  align-self: stretch;
+  background: rgba(101, 103, 107, 0.34);
+  border-left: 1px solid rgba(255, 255, 255, 0.72);
+  flex: var(--result-segment-units) 1 0;
+  min-width: 0;
+}
+
+#proposalInfoModal .proposal-result-meter-segment:first-child {
+  border-left: 0;
+}
+
+#proposalInfoModal .proposal-result-meter-segment--winner {
+  background: var(--primary-color);
+}
+
+#proposalInfoModal .proposal-result-meter-segment--accept {
+  background: #1e7e34;
+}
+
+#proposalInfoModal .proposal-result-meter-segment--withhold {
+  background: #c42d2d;
+}
+
+#proposalInfoModal .proposal-result-meter-segment--empty {
+  background: rgba(101, 103, 107, 0.18);
 }
 
 #confirmProposalModal .dao-confirm-change,
@@ -3003,19 +3041,12 @@ input[type='file'].form-control::file-selector-button {
 }
 
 @media (max-width: 520px) {
-  #proposalInfoModal .proposal-result-overview,
-  #proposalInfoModal .proposal-result-row {
+  #proposalInfoModal .proposal-result-overview {
     grid-template-columns: minmax(0, 1fr);
   }
 
   #proposalInfoModal .proposal-vote-option {
     grid-template-columns: minmax(0, 1fr) 92px;
-  }
-
-  #proposalInfoModal .proposal-result-row > .proposal-result-value,
-  #proposalInfoModal .proposal-result-row > small {
-    justify-self: start;
-    text-align: left;
   }
 }
 

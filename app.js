@@ -3983,11 +3983,14 @@ function getDaoCommitteeReviewResultSummary(proposal) {
   const outcome = getDaoFinalOutcome(proposal);
 
   return {
+    acceptCount,
+    committeeSize: committeeAddresses.length,
     detail: `Committee review: ${acceptCount} accept, ${withholdCount} withhold.`,
     headline: outcome.label,
     label: 'Final result',
     source: 'committee',
     tone: outcome.tone,
+    withholdCount,
     rows: [
       ['Decision source', 'Committee review'],
       ['Outcome', outcome.label, outcome.tone === 'accepted' ? 'accept' : 'withhold'],
@@ -4560,32 +4563,55 @@ class ProposalInfoModal {
 
   renderProposalResultSummary(result) {
     if (!result) return '';
-    return `
-      <section class="proposal-result-banner proposal-result-banner--${escapeDaoFormAttribute(result.tone)}">
-        <span>${escapeHtml(result.label)}</span>
-        <strong>${escapeHtml(result.headline)}</strong>
-        <small>${escapeHtml(result.detail)}</small>
-      </section>
-    `;
+    return this.renderProposalResults(result);
   }
 
   renderProposalResults(result) {
     if (!result) return '';
     if (result.source === 'committee') {
-      return this.renderSection('Results', result.rows);
+      return this.renderCommitteeResults(result);
     }
 
     const winnerLabel = result.winner ? `${result.winner.option} (${result.outcome})` : 'Unavailable';
     const totalLabel = result.totalWeight > 0n ? formatDaoVotingPower(result.totalWeight) : 'No votes yet';
-    const rows = result.totals
+    const labelLayout = result.totals.length === 2 ? 'balanced' : 'segmented';
+    const segments = result.totals
+      .map((row, rowPosition) => {
+        const isWinner = result.winner?.index === row.index;
+        const units = this.getResultSegmentUnits(row.total, result.totalWeight);
+        const power = formatDaoVotingPower(row.total);
+        const displayPower = power.endsWith(' power') ? power.slice(0, -6) : power;
+        const percent = formatDaoBigIntPercent(row.total, result.totalWeight);
+        const position = rowPosition === 0
+          ? 'start'
+          : rowPosition === result.totals.length - 1
+            ? 'end'
+            : 'center';
+        const style = `--result-segment-units: ${units};`;
+        const label = `${row.option}: ${power}, ${percent}`;
+        return `
+          <div
+            class="proposal-result-meter-label proposal-result-meter-label--${position}${isWinner ? ' proposal-result-meter-label--winner' : ''}"
+            style="${escapeDaoFormAttribute(style)}"
+            title="${escapeDaoFormAttribute(label)}"
+            aria-label="${escapeDaoFormAttribute(label)}"
+          >
+            <span>${escapeHtml(row.option)}</span>
+            <small>${escapeHtml(displayPower)} / ${escapeHtml(percent)}</small>
+          </div>
+        `;
+      })
+      .join('');
+    const bars = result.totals
       .map((row) => {
         const isWinner = result.winner?.index === row.index;
+        const units = this.getResultSegmentUnits(row.total, result.totalWeight);
+        const style = `--result-segment-units: ${units};`;
         return `
-          <div class="proposal-result-row${isWinner ? ' proposal-result-row--winner' : ''}">
-            <span>${escapeHtml(row.option)}</span>
-            <span class="proposal-result-value">${escapeHtml(formatDaoVotingPower(row.total))}</span>
-            <small>${escapeHtml(formatDaoBigIntPercent(row.total, result.totalWeight))}</small>
-          </div>
+          <span
+            class="proposal-result-meter-segment${isWinner ? ' proposal-result-meter-segment--winner' : ''}${row.total === 0n ? ' proposal-result-meter-segment--empty' : ''}"
+            style="${escapeDaoFormAttribute(style)}"
+          ></span>
         `;
       })
       .join('');
@@ -4603,9 +4629,93 @@ class ProposalInfoModal {
             <span class="proposal-result-value">${escapeHtml(totalLabel)}</span>
           </div>
         </div>
-        <div class="proposal-result-list">${rows}</div>
+        <div class="proposal-result-meter" aria-label="Vote result breakdown">
+          <div class="proposal-result-meter-labels proposal-result-meter-labels--${labelLayout}">${segments}</div>
+          <div class="proposal-result-meter-track" aria-hidden="true">${bars}</div>
+        </div>
       </section>
     `;
+  }
+
+  renderCommitteeResults(result) {
+    const acceptCount = Number(result.acceptCount || 0);
+    const withholdCount = Number(result.withholdCount || 0);
+    const submittedCount = acceptCount + withholdCount;
+    const committeeSize = Number(result.committeeSize || 0);
+    const committeeSizeLabel = committeeSize > 0 ? String(committeeSize) : 'Unavailable';
+    const acceptPercent = this.formatCountPercent(acceptCount, submittedCount);
+    const withholdPercent = this.formatCountPercent(withholdCount, submittedCount);
+    const acceptUnits = this.getCountResultSegmentUnits(acceptCount, submittedCount);
+    const withholdUnits = this.getCountResultSegmentUnits(withholdCount, submittedCount);
+    const acceptWinnerClass = result.tone === 'accepted' ? ' proposal-result-meter-label--winner' : '';
+    const withholdWinnerClass = result.tone === 'rejected' ? ' proposal-result-meter-label--winner' : '';
+    const acceptSegmentWinnerClass = result.tone === 'accepted' ? ' proposal-result-meter-segment--winner' : '';
+    const withholdSegmentWinnerClass = result.tone === 'rejected' ? ' proposal-result-meter-segment--winner' : '';
+
+    return `
+      <section class="proposal-info-section">
+        <h3>Results</h3>
+        <div class="proposal-result-overview">
+          <div class="proposal-result-card">
+            <span>Outcome</span>
+            <span class="proposal-result-value">${escapeHtml(result.headline || 'Unavailable')}</span>
+          </div>
+          <div class="proposal-result-card">
+            <span>Committee size</span>
+            <span class="proposal-result-value">${escapeHtml(committeeSizeLabel)}</span>
+          </div>
+        </div>
+        <div class="proposal-result-meter" aria-label="Committee result breakdown">
+          <div class="proposal-result-meter-labels proposal-result-meter-labels--balanced">
+            <div
+              class="proposal-result-meter-label proposal-result-meter-label--start proposal-result-meter-label--accept${acceptWinnerClass}"
+              style="--result-segment-units: ${acceptUnits};"
+              title="${escapeDaoFormAttribute(`Accept: ${acceptCount}, ${acceptPercent}`)}"
+              aria-label="${escapeDaoFormAttribute(`Accept: ${acceptCount}, ${acceptPercent}`)}"
+            >
+              <span>Accept</span>
+              <small>${escapeHtml(`${acceptCount} / ${acceptPercent}`)}</small>
+            </div>
+            <div
+              class="proposal-result-meter-label proposal-result-meter-label--end proposal-result-meter-label--withhold${withholdWinnerClass}"
+              style="--result-segment-units: ${withholdUnits};"
+              title="${escapeDaoFormAttribute(`Withhold: ${withholdCount}, ${withholdPercent}`)}"
+              aria-label="${escapeDaoFormAttribute(`Withhold: ${withholdCount}, ${withholdPercent}`)}"
+            >
+              <span>Withhold</span>
+              <small>${escapeHtml(`${withholdCount} / ${withholdPercent}`)}</small>
+            </div>
+          </div>
+          <div class="proposal-result-meter-track" aria-hidden="true">
+            <span
+              class="proposal-result-meter-segment proposal-result-meter-segment--accept${acceptSegmentWinnerClass}${acceptCount === 0 ? ' proposal-result-meter-segment--empty' : ''}"
+              style="--result-segment-units: ${acceptUnits};"
+            ></span>
+            <span
+              class="proposal-result-meter-segment proposal-result-meter-segment--withhold${withholdSegmentWinnerClass}${withholdCount === 0 ? ' proposal-result-meter-segment--empty' : ''}"
+              style="--result-segment-units: ${withholdUnits};"
+            ></span>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  getResultSegmentUnits(part, total) {
+    if (typeof part !== 'bigint' || typeof total !== 'bigint' || total <= 0n) return 1;
+    const units = Number((part * 1000n + total / 2n) / total);
+    return Math.max(1, units);
+  }
+
+  getCountResultSegmentUnits(part, total) {
+    if (!Number.isFinite(part) || !Number.isFinite(total) || total <= 0) return 1;
+    if (part <= 0) return 0;
+    return Math.max(1, Math.round((part / total) * 1000));
+  }
+
+  formatCountPercent(part, total) {
+    if (!Number.isFinite(part) || !Number.isFinite(total) || total <= 0) return '0%';
+    return formatDaoPercent(part / total);
   }
 
   renderProposalRewards(reward) {
@@ -4656,7 +4766,6 @@ class ProposalInfoModal {
       ]),
       state === 'voting' ? this.renderVotingDetails(proposal) : '',
       this.renderProposalBody(proposal),
-      this.renderProposalResults(resultSummary),
       this.renderProposalRewards(rewardSummary),
     ].filter(Boolean);
 
@@ -4676,7 +4785,6 @@ class ProposalInfoModal {
   getProposalDetailsSummary(state, resultSummary, rewardSummary) {
     const parts = ['Overview', 'review timeline', 'proposal body'];
     if (state === 'voting') parts.push('voting totals');
-    if (resultSummary) parts.push('result breakdown');
     if (rewardSummary) parts.push('reward accounting');
     return parts.join(', ');
   }
