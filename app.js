@@ -4083,7 +4083,7 @@ class ProposalInfoModal {
 
   renderCommitteeActions({ capabilities, reviewWindow, currentVote, state }) {
     if (!this.committeeActionSection) return;
-    if (!capabilities.isCommitteeMember) {
+    if (!capabilities.isCommitteeMember || capabilities.canFinalizeReviewResult) {
       this.hideCommitteeActions();
       return;
     }
