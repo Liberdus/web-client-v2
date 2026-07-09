@@ -696,18 +696,62 @@
       }
 
       .dao-list-screen .screen-body {
+        gap: 0;
         overflow: hidden;
+        padding: 0;
       }
 
       .dao-list-screen .dao-proposal-list {
+        border-bottom: 0;
         flex: 1 1 auto;
+        margin: 0;
         min-height: 0;
         overflow-y: auto;
-        padding-bottom: 68px;
+        padding-bottom: 88px;
       }
 
       .dao-proposal-list .mock-list-row {
-        min-height: 118px;
+        align-items: center;
+        border-bottom: 0;
+        border-top: 1px solid var(--border-color);
+        gap: 10px;
+        grid-template-columns: minmax(0, 1fr);
+        min-height: 68px;
+        padding: 10px 16px;
+      }
+
+      .dao-row-content {
+        display: grid;
+        gap: 7px;
+        min-width: 0;
+      }
+
+      .dao-row-title {
+        font-size: 14px;
+        font-weight: var(--font-weight-semibold);
+        line-height: 1.2;
+        overflow-wrap: anywhere;
+      }
+
+      .dao-row-meta {
+        align-items: center;
+        color: var(--secondary-text-color);
+        display: flex;
+        font-size: 12px;
+        gap: 18px;
+        line-height: 1.25;
+        min-width: 0;
+      }
+
+      .dao-row-meta-item {
+        min-width: 0;
+      }
+
+      .dao-row-meta-item:first-child {
+        flex: 1 1 auto;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .row-result-preview {
@@ -757,6 +801,10 @@
         gap: 6px;
         grid-template-columns: 1fr 1fr;
         padding: 6px;
+      }
+
+      .dao-list-screen .toggle {
+        margin: 0 16px 10px;
       }
 
       .toggle span {
@@ -863,6 +911,160 @@
         gap: 10px;
       }
 
+      .add-proposal-screen .screen-body {
+        padding: 14px 0;
+      }
+
+      .add-proposal-screen .dao-proposal-form {
+        display: grid;
+        gap: 10px;
+        margin: 0 auto;
+        max-width: 390px;
+        padding: 0 16px;
+        width: 100%;
+      }
+
+      .add-proposal-screen .form-group,
+      .add-proposal-screen .dao-form-section,
+      .add-proposal-screen .dao-form-list,
+      .add-proposal-screen .dao-form-row {
+        display: grid;
+        gap: 8px;
+        margin: 0;
+      }
+
+      .add-proposal-screen .form-group {
+        gap: 5px;
+      }
+
+      .add-proposal-screen .form-group label,
+      .add-proposal-screen .dao-form-section-header label,
+      .add-proposal-screen .dao-form-row-title label,
+      .add-proposal-screen .dao-form-change-line label {
+        color: var(--secondary-text-color);
+        font-size: 12px;
+        font-weight: var(--font-weight-medium);
+        line-height: 1.25;
+        margin: 0;
+      }
+
+      .add-proposal-screen .dao-form-grid {
+        align-items: start;
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .add-proposal-screen .dao-form-row-controls {
+        align-items: center;
+        display: grid;
+        gap: 8px;
+        grid-template-columns: 22px minmax(0, 1fr) auto;
+      }
+
+      .add-proposal-screen .dao-form-section-header,
+      .add-proposal-screen .dao-form-row-title {
+        align-items: center;
+        display: flex;
+        gap: 10px;
+        justify-content: space-between;
+      }
+
+      .add-proposal-screen .dao-form-index {
+        align-items: center;
+        background: var(--hover-background);
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        color: var(--secondary-text-color);
+        display: inline-flex;
+        font-size: 11px;
+        font-weight: var(--font-weight-semibold);
+        height: 22px;
+        justify-content: center;
+        width: 22px;
+      }
+
+      .add-proposal-screen .dao-form-change-box {
+        background: var(--input-background);
+        border: 1px solid transparent;
+        border-radius: 8px;
+        display: grid;
+        gap: 8px;
+        padding: 10px;
+      }
+
+      .add-proposal-screen .dao-form-change-line {
+        align-items: center;
+        display: grid;
+        gap: 8px;
+        grid-template-columns: 82px minmax(0, 1fr);
+      }
+
+      .add-proposal-screen .dao-form-meta,
+      .add-proposal-screen .dao-form-help {
+        color: var(--secondary-text-color);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
+      .add-proposal-screen .dao-form-add-button {
+        align-items: center;
+        background: transparent;
+        border: 1px dashed var(--border-color);
+        border-radius: 8px;
+        color: var(--primary-color);
+        display: inline-flex;
+        font-size: 13px;
+        font-weight: var(--font-weight-semibold);
+        gap: 8px;
+        justify-content: center;
+        min-height: 38px;
+        padding: 8px 10px;
+        width: 100%;
+      }
+
+      .add-proposal-screen .dao-form-add-button::before {
+        align-items: center;
+        background: var(--primary-color);
+        border-radius: 999px;
+        color: #fff;
+        content: "+";
+        display: inline-flex;
+        font-size: 16px;
+        height: 22px;
+        justify-content: center;
+        line-height: 1;
+        width: 22px;
+      }
+
+      .add-proposal-screen .dao-form-remove-button {
+        border-radius: 8px;
+        font-size: 12px;
+        min-height: 32px;
+        padding: 6px 9px;
+      }
+
+      .add-proposal-screen .form-actions {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .add-proposal-screen .dao-default-control {
+        display: grid;
+        gap: 0;
+      }
+
+      .add-proposal-screen .dao-default-button {
+        border-radius: 8px;
+        min-height: 38px;
+        width: 100%;
+      }
+
+      .add-proposal-screen .dao-default-control [hidden] {
+        display: none;
+      }
+
       .field {
         display: grid;
         gap: 5px;
@@ -923,6 +1125,7 @@
         background: var(--background-color);
         border: 1px solid var(--border-color);
         border-radius: 8px;
+        box-sizing: border-box;
         color: var(--text-color);
         font: inherit;
         outline: none;
@@ -1639,78 +1842,57 @@
                 <span class="status-pill current">Current</span>
                 <span class="status-pill mock">Mock data</span>
               </div>
-              <div class="screen-context"><strong>Proposal list first</strong>DAO opens the proposal list directly. Rows branch by proposal status: review waits for committee handling, voting opens weighted vote, and accepted/rejected rows open result and reward screens.</div>
               <div class="toggle" aria-label="Proposal group">
-                <span class="active">Active 22</span>
-                <span>Archived 14</span>
+                <span class="active">Active</span>
+                <span>Archived</span>
               </div>
               <div class="mock-list dao-proposal-list">
                 <div class="mock-list-row press-target" data-flow-source="simple-voting-row">
-                  <div>
-                    <div class="mock-list-title">#21 Increase vote exponent</div>
-                    <div class="mock-list-meta">voting - ends in 5d 2h - opens weighted dao_vote</div>
-                    <div class="row-result-preview">
-                      <div class="row-result-title">Vote preview</div>
-                      <div class="row-result-grid">
-                        <div class="row-result-stat"><strong>5d 2h</strong>Ends</div>
-                        <div class="row-result-stat"><strong>Yes/No</strong>Options</div>
-                        <div class="row-result-stat"><strong>12.59</strong>Est. weight</div>
-                      </div>
+                  <div class="dao-row-content">
+                    <div class="dao-row-title">#21 Increase vote exponent</div>
+                    <div class="dao-row-meta">
+                      <span class="dao-row-meta-item">Governance</span>
+                      <span class="dao-row-meta-item">Voting</span>
+                      <span class="dao-row-meta-item">5d 2h left</span>
                     </div>
                   </div>
-                  <div class="row-role">vote</div>
                 </div>
                 <div class="mock-list-row press-target" data-flow-source="simple-result-row">
-                  <div>
-                    <div class="mock-list-title">#19 Adjust minimum spend</div>
-                    <div class="mock-list-meta">accepted - opens result/reward</div>
-                    <div class="row-result-preview">
-                      <div class="row-result-title">Result: Yes accepted</div>
-                      <div class="row-result-grid">
-                        <div class="row-result-stat"><strong>59%</strong>Yes weight</div>
-                        <div class="row-result-stat"><strong>41%</strong>No weight</div>
-                        <div class="row-result-stat"><strong>4.23 LIB</strong>Claimable</div>
-                      </div>
+                  <div class="dao-row-content">
+                    <div class="dao-row-title">#19 Adjust minimum spend</div>
+                    <div class="dao-row-meta">
+                      <span class="dao-row-meta-item">Economic</span>
+                      <span class="dao-row-meta-item">Accepted</span>
+                      <span class="dao-row-meta-item">2d ago</span>
                     </div>
                   </div>
-                  <div class="row-role">result</div>
                 </div>
                 <div class="mock-list-row press-target" data-flow-source="simple-reward-row">
-                  <div>
-                    <div class="mock-list-title">Reward ready to claim</div>
-                    <div class="mock-list-meta">#19 claim period open - opens reward claim details</div>
-                    <div class="row-result-preview">
-                      <div class="row-result-title">Reward preview</div>
-                      <div class="row-result-grid">
-                        <div class="row-result-stat"><strong>4.23 LIB</strong>Your claim</div>
-                        <div class="row-result-stat"><strong>30d</strong>Claim window</div>
-                        <div class="row-result-stat"><strong>18.40 LIB</strong>Claimed</div>
-                      </div>
+                  <div class="dao-row-content">
+                    <div class="dao-row-title">#18 Emergency endpoint patch</div>
+                    <div class="dao-row-meta">
+                      <span class="dao-row-meta-item">Protocol</span>
+                      <span class="dao-row-meta-item">Applied</span>
+                      <span class="dao-row-meta-item">4d ago</span>
                     </div>
                   </div>
-                  <div class="row-role">claim</div>
                 </div>
                 <div class="mock-list-row press-target" data-flow-source="simple-review-row">
-                  <div>
-                    <div class="mock-list-title">#20 Minimum spend update</div>
-                    <div class="mock-list-meta">review - waiting for committee vote/result</div>
-                    <div class="row-result-preview">
-                      <div class="row-result-title">Review preview</div>
-                      <div class="row-result-grid">
-                        <div class="row-result-stat"><strong>1d 3h</strong>Left</div>
-                        <div class="row-result-stat"><strong>2</strong>Accept</div>
-                        <div class="row-result-stat"><strong>0</strong>Withhold</div>
-                      </div>
+                  <div class="dao-row-content">
+                    <div class="dao-row-title">#20 Minimum spend update</div>
+                    <div class="dao-row-meta">
+                      <span class="dao-row-meta-item">Economic</span>
+                      <span class="dao-row-meta-item">Review</span>
+                      <span class="dao-row-meta-item">1d 3h left</span>
                     </div>
                   </div>
-                  <div class="row-role committee">review</div>
                 </div>
               </div>
               <div class="floating-plus press-target" data-flow-source="simple-add">+</div>
             </div>
           </article>
 
-          <article class="screen" data-flow-target="simple-filter-menu" data-flow="2a. Filter menu open">
+          <article class="screen dao-list-screen" data-flow-target="simple-filter-menu" data-flow="2a. Filter menu open">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">DAO - Active - Voting</div>
@@ -1721,18 +1903,20 @@
                 <span class="status-pill current">Current</span>
                 <span class="status-pill mock">Mock data</span>
               </div>
-              <div class="screen-context"><strong>Filter overlay</strong>This is the existing DAO status menu opened from the funnel icon. Counts are calculated from the current group, not a separate modal route.</div>
               <div class="toggle" aria-label="Proposal group">
-                <span class="active">Active 22</span>
-                <span>Archived 14</span>
+                <span class="active">Active</span>
+                <span>Archived</span>
               </div>
-              <div class="mock-list mock-underlay-list">
+              <div class="mock-list dao-proposal-list mock-underlay-list">
                 <div class="mock-list-row">
-                  <div>
-                    <div class="mock-list-title">#3 Adjust minimum transaction fee</div>
-                    <div class="mock-list-meta">Change the minimum transaction fee to better match network load.</div>
+                  <div class="dao-row-content">
+                    <div class="dao-row-title">#3 Adjust minimum transaction fee</div>
+                    <div class="dao-row-meta">
+                      <span class="dao-row-meta-item">Economic</span>
+                      <span class="dao-row-meta-item">Voting</span>
+                      <span class="dao-row-meta-item">9:10 AM</span>
+                    </div>
                   </div>
-                  <div class="mock-list-meta">9:10 AM</div>
                 </div>
               </div>
               <div class="message-context-menu mock-context-menu">
@@ -1765,7 +1949,7 @@
             </div>
           </article>
 
-          <article class="screen" data-flow-target="simple-builder" data-flow="3a. Create proposal">
+          <article class="screen add-proposal-screen" data-flow-target="simple-builder" data-flow="3a. Create proposal">
             <div class="screen-header">
               <button class="back-button" aria-label="Back"></button>
               <div class="screen-title">Add Proposal</div>
@@ -1777,123 +1961,149 @@
                 <span class="status-pill mock">Mock data</span>
                 <span class="status-pill partial">Partial</span>
               </div>
-              <div class="screen-context"><strong>dao_proposal_create draft</strong>Regular proposals pay the proposal fee into the voter reward pool and start in review. Emergency proposals are committee-only and skip the proposal fee.</div>
-              <div class="field-stack">
-                <div class="field">
-                  <label>Type</label>
-                  <select class="mock-select" aria-label="Proposal type">
-                    <option selected>Governance</option>
-                    <option>Economic</option>
-                    <option>Protocol</option>
-                  </select>
-                  <div class="mock-muted">Choose governance, economic, or protocol. This controls which parameters can be selected below.</div>
-                </div>
-                <div class="field">
-                  <label>Options</label>
-                  <div class="option-builder">
-                    <div class="option-row">
-                      <span class="option-index">1</span>
-                      <input class="mock-input" aria-label="Option 1" value="yes" />
-                    </div>
-                    <div class="option-row">
-                      <span class="option-index">2</span>
-                      <input class="mock-input" aria-label="Option 2" value="no" />
-                    </div>
-                    <div class="add-option-row">Add option</div>
-                  </div>
-                  <div class="mock-muted">Requires 2-10 options. Option 1 must be yes, accept, or approve.</div>
-                </div>
-                <div class="field">
-                  <label>Parameter change</label>
-                  <div class="change-builder">
-                    <div class="change-row">
-                      <span class="change-label">Select</span>
-                      <select class="mock-select" aria-label="DAO parameter">
-                        <option selected>voteExponent</option>
-                        <option>minimumSpend</option>
-                        <option>voteThreshold</option>
-                        <option>reviewDuration</option>
-                        <option>votingDuration</option>
-                        <option>claimDuration</option>
-                      </select>
-                    </div>
-                    <div class="change-row">
-                      <span class="change-label">Current</span>
-                      <input class="mock-input" aria-label="Current value" value="1.1" readonly />
-                    </div>
-                    <div class="change-row">
-                      <span class="change-label">Enter</span>
-                      <input class="mock-input" aria-label="Proposed value" value="1.2" />
-                    </div>
-                  </div>
-                  <div class="mock-muted">Tap Select to choose a DAO parameter, then enter the proposed value. Current is read-only and sent for validation.</div>
-                </div>
-                <div class="two-col">
-                  <div class="field">
-                    <label>Fee</label>
-                    <input class="mock-input" aria-label="Proposal fee" value="50.0 USD" readonly />
-                  </div>
-                  <div class="field">
-                    <label>Emergency</label>
-                    <select class="mock-select" aria-label="Emergency proposal">
+              <form class="dao-proposal-form">
+                <div class="dao-form-grid">
+                  <div class="form-group">
+                    <label for="mockAddProposalEmergency">Emergency</label>
+                    <select id="mockAddProposalEmergency" class="mock-select" aria-label="Emergency proposal">
                       <option selected>No</option>
                       <option>Yes</option>
                     </select>
                   </div>
+                  <div class="form-group">
+                    <label for="mockAddProposalFee">Proposal Fee</label>
+                    <input id="mockAddProposalFee" class="mock-input" aria-label="Proposal fee" value="50.0 USD" readonly />
+                    <div class="dao-form-help">Derived from DAO params. Emergency proposals use 0.</div>
+                  </div>
                 </div>
-                <div class="field">
-                  <label>Timing</label>
-                  <div class="two-col">
-                    <div class="field">
-                      <label>Review starts</label>
-                      <select class="mock-select" aria-label="Review start time">
-                        <option selected>Now</option>
-                        <option>Schedule</option>
-                      </select>
+                <div class="form-group">
+                  <label for="mockAddProposalTitle">Title</label>
+                  <input id="mockAddProposalTitle" class="mock-input" aria-label="Proposal title" value="Increase vote exponent" />
+                </div>
+                <div class="form-group">
+                  <label for="mockAddProposalType">Proposal Type</label>
+                  <select id="mockAddProposalType" class="mock-select" aria-label="Proposal type">
+                    <option selected>Governance</option>
+                    <option>Economic</option>
+                    <option>Protocol</option>
+                  </select>
+                  <div class="dao-form-help">Choose governance, economic, or protocol. This controls which parameters can be selected below.</div>
+                </div>
+                <div class="form-group">
+                  <label for="mockAddProposalDescription">Description</label>
+                  <textarea id="mockAddProposalDescription" class="mock-textarea" aria-label="Proposal description">Increase voteExponent so larger single votes receive the expected spend boost.</textarea>
+                </div>
+                <div class="form-group dao-form-section">
+                  <div class="dao-form-section-header">
+                    <label>Options</label>
+                  </div>
+                  <div class="dao-form-list">
+                    <div class="dao-form-row">
+                      <div class="dao-form-row-controls">
+                        <span class="dao-form-index">1</span>
+                        <input class="mock-input" aria-label="Option 1" value="yes" />
+                        <button type="button" class="mock-button secondary dao-form-remove-button" disabled>Remove</button>
+                      </div>
                     </div>
-                    <div class="field">
-                      <label>Grace period</label>
-                      <input class="mock-input" aria-label="Grace period" value="7d" />
+                    <div class="dao-form-row">
+                      <div class="dao-form-row-controls">
+                        <span class="dao-form-index">2</span>
+                        <input class="mock-input" aria-label="Option 2" value="no" />
+                        <button type="button" class="mock-button secondary dao-form-remove-button" disabled>Remove</button>
+                      </div>
+                    </div>
+                  </div>
+                  <button type="button" class="dao-form-add-button">Add option</button>
+                  <div class="dao-form-help">2 to 10 options. The first option must be yes, accept, or approve.</div>
+                </div>
+                <div class="form-group dao-form-section">
+                  <div class="dao-form-section-header">
+                    <label>Parameter Changes</label>
+                  </div>
+                  <div class="dao-form-list">
+                    <div class="dao-form-row">
+                      <div class="dao-form-row-title">
+                        <label>Parameter change 1</label>
+                        <button type="button" class="mock-button secondary dao-form-remove-button" disabled>Remove</button>
+                      </div>
+                      <div class="dao-form-change-box">
+                        <div class="dao-form-change-line">
+                          <label for="mockAddProposalConfig1">Select</label>
+                          <select id="mockAddProposalConfig1" class="mock-select" aria-label="DAO parameter">
+                            <option>Claim Duration</option>
+                            <option>Grace Duration</option>
+                            <option>Percent Burned</option>
+                            <option>Review Duration</option>
+                            <option selected>Vote Exponent</option>
+                            <option>Voting Duration</option>
+                          </select>
+                        </div>
+                        <div class="dao-form-change-line">
+                          <label for="mockAddProposalCurrent1">Current</label>
+                          <input id="mockAddProposalCurrent1" class="mock-input" aria-label="Current value" value="1.1" readonly />
+                        </div>
+                        <div class="dao-form-change-line">
+                          <label for="mockAddProposalProposed1">Enter</label>
+                          <input id="mockAddProposalProposed1" class="mock-input" aria-label="Proposed value" value="1.2" />
+                        </div>
+                        <div class="dao-form-meta">current.dao.voteExponent · float</div>
+                      </div>
+                    </div>
+                  </div>
+                  <button type="button" class="dao-form-add-button">Add parameter change</button>
+                </div>
+                <div class="form-group dao-form-section">
+                  <label>Timing</label>
+                  <div class="dao-form-grid">
+                    <div class="form-group">
+                      <label for="mockAddProposalStartDelayDays">Review Starts</label>
+                      <div class="dao-default-control" data-default-control>
+                        <button type="button" class="mock-button secondary dao-default-button" data-default-change>Change default</button>
+                        <input id="mockAddProposalStartDelayDays" class="mock-input dao-default-input" aria-label="Review start delay" placeholder="Days from submission" hidden data-default-input />
+                      </div>
+                      <div class="dao-form-help">Default: now</div>
+                    </div>
+                    <div class="form-group">
+                      <label for="mockAddProposalGracePeriodDays">Grace Period</label>
+                      <div class="dao-default-control" data-default-control>
+                        <button type="button" class="mock-button secondary dao-default-button" data-default-change>Change default</button>
+                        <input id="mockAddProposalGracePeriodDays" class="mock-input dao-default-input" aria-label="Grace period" placeholder="Days after voting" hidden data-default-input />
+                      </div>
+                      <div class="dao-form-help">Default: 7 days</div>
                     </div>
                   </div>
                 </div>
-                <div class="field">
-                  <label>Description</label>
-                  <textarea class="mock-textarea" aria-label="Proposal description">Increase voteExponent so larger single votes receive the expected spend boost.</textarea>
+                <div class="form-actions">
+                  <button type="button" class="mock-button secondary">Cancel</button>
+                  <button type="button" class="mock-button primary press-target" data-flow-source="simple-builder-review">Review Draft</button>
                 </div>
-              </div>
-              <div class="button-row">
-                <div class="mock-button secondary">Cancel</div>
-                <div class="mock-button primary press-target" data-flow-source="simple-builder-review">Review</div>
-              </div>
+              </form>
             </div>
             <div class="payload-annotation">
-              <div class="payload-annotation-label">Submit payload</div>
+              <div class="payload-annotation-label">Draft model</div>
               <pre class="payload-code"><code>{
-  type: "dao_proposal_create", // required
-  timestamp: 1710000000000, // required - tx creation/sign time
-  networkId: "devnet", // required
-  from: "0xUserAddress", // required - signing account
-  proposalId: "hash('dao proposal #23')", // required - next proposal id
-  metaId: "hash(DAO_PROPOSALS_META_ID_STRING)", // required
-  emergency: false, // required
-  proposalType: "governance", // required: governance | economic | protocol
-  gracePeriod: 604800000, // required by current schema - 7d in ms
-  description: "Increase voteExponent so larger single votes receive the expected spend boost.", // required
-  options: ["yes", "no"], // required - options[0] must be affirmative
-  governance: { // required because proposalType is governance
-    changes: [
-      {
-        key: "voteExponent", // required - resolved inside DAO params
-        current: "1.1", // required - current value snapshot
-        value: "1.2" // required - proposed value as string
-      }
-    ]
-  },
-  // startTime: 1710000000000, // optional - omit to default to timestamp
-  sign: { owner: "0xUserAddress", sig: "0xSignature" } // required before submit
+  displayTitle: "Increase vote exponent", // local until server title field exists
+  proposalFeeUsdStr: "50.0", // derived from current DAO params
+  startDelayMs: 0,
+  transaction: {
+    from: "0xUserAddress",
+    emergency: false,
+    proposalType: "governance",
+    description: "Increase voteExponent so larger single votes receive the expected spend boost.",
+    options: ["yes", "no"],
+    governance: {
+      changes: [
+        {
+          key: "voteExponent",
+          current: "1.1",
+          value: "1.2"
+        }
+      ]
+    }
+  }
 }
-// Not sent: proposal fee. Server derives it from current DAO params.</code></pre>
+// Added later by sign/submit: timestamp, networkId, proposalId, metaId, sign.
+// Added only when > 0: transaction.gracePeriod.</code></pre>
             </div>
           </article>
 
@@ -1908,28 +2118,21 @@
                 <span class="status-pill needed">Needed</span>
                 <span class="status-pill role">Proposal author</span>
               </div>
-              <div class="screen-context"><strong>Sign dao_proposal_create</strong>Final checkpoint before signing. The server assigns the next proposal number, snapshots DAO parameters, deducts the fee, and creates a review-status proposal.</div>
+              <div class="screen-context"><strong>Sign dao_proposal_create</strong>The confirm step receives the draft from Add Proposal. Signing later adds generated transaction fields; the proposal fee remains derived from DAO params and is not entered by the user.</div>
               <div class="submit-summary">
                 <div class="submit-group">
-                  <div class="submit-group-title">Cost and initial state</div>
+                  <div class="submit-group-title">Draft metadata</div>
+                  <div class="submit-row"><span class="submit-key">displayTitle</span><span class="submit-value">Increase vote exponent</span></div>
                   <div class="submit-row"><span class="submit-key">fee</span><span class="submit-value">50.0 USD</span></div>
                   <div class="submit-row"><span class="submit-key">reward pool</span><span class="submit-value">proposal fee seeds voter rewards</span></div>
-                  <div class="submit-row"><span class="submit-key">starts as</span><span class="submit-value">review</span></div>
+                  <div class="submit-row"><span class="submit-key">startDelayMs</span><span class="submit-value">0</span></div>
                 </div>
                 <div class="submit-group">
                   <div class="submit-group-title">Transaction</div>
-                  <div class="submit-row"><span class="submit-key">type</span><span class="submit-value">dao_proposal_create</span></div>
-                  <div class="submit-row"><span class="submit-key">networkId</span><span class="submit-value">devnet</span></div>
                   <div class="submit-row"><span class="submit-key">from</span><span class="submit-value">0xUserAddress</span></div>
-                  <div class="submit-row"><span class="submit-key">proposalId</span><span class="submit-value">hash("dao proposal #23")</span></div>
-                  <div class="submit-row"><span class="submit-key">metaId</span><span class="submit-value">hash(DAO_PROPOSALS_META_ID_STRING)</span></div>
-                </div>
-                <div class="submit-group">
-                  <div class="submit-group-title">Proposal body</div>
                   <div class="submit-row"><span class="submit-key">proposalType</span><span class="submit-value">governance</span></div>
                   <div class="submit-row"><span class="submit-key">emergency</span><span class="submit-value">false</span></div>
                   <div class="submit-row"><span class="submit-key">options</span><span class="submit-value">["yes", "no"]</span></div>
-                  <div class="submit-row"><span class="submit-key">gracePeriod</span><span class="submit-value">604800000 ms</span></div>
                   <div class="submit-row"><span class="submit-key">description</span><span class="submit-value">Increase voteExponent so larger single votes receive the expected spend boost.</span></div>
                 </div>
                 <div class="submit-group">
@@ -1939,10 +2142,12 @@
                   <div class="submit-row"><span class="submit-key">value</span><span class="submit-value">"1.2"</span></div>
                 </div>
                 <div class="submit-group">
-                  <div class="submit-group-title">Generated at submit</div>
-                  <div class="submit-row"><span class="submit-key">timestamp</span><span class="submit-value">current signing time</span></div>
-                  <div class="submit-row"><span class="submit-key">sign</span><span class="submit-value">owner + signature from wallet</span></div>
-                  <div class="submit-row"><span class="submit-key">not entered</span><span class="submit-value">proposal fee; server derives it from DAO params</span></div>
+                  <div class="submit-group-title">Later generated fields</div>
+                  <div class="submit-row"><span class="submit-key">tx type</span><span class="submit-value">dao_proposal_create</span></div>
+                  <div class="submit-row"><span class="submit-key">networkId</span><span class="submit-value">devnet</span></div>
+                  <div class="submit-row"><span class="submit-key">proposalId/metaId</span><span class="submit-value">generated outside the form</span></div>
+                  <div class="submit-row"><span class="submit-key">timestamp/sign</span><span class="submit-value">added by wallet signing</span></div>
+                  <div class="submit-row"><span class="submit-key">server title</span><span class="submit-value">TODO in DaoProposalCreate</span></div>
                 </div>
               </div>
               <div class="button-row">
@@ -2160,16 +2365,16 @@
                 <span class="status-pill partial">Expands current add</span>
                 <span class="status-pill role">Proposal author</span>
               </div>
-              <div class="screen-context"><strong>Phase 1 proposal draft</strong>Builds a governance, economic, or protocol proposal with 2-10 ballot options. Emergency creation is committee-only and pays no proposal fee.</div>
+              <div class="screen-context"><strong>Phase 1 proposal draft</strong>Uses the same draft model as the current Add Proposal modal: local title, derived fee, start delay, and a normalized transaction body.</div>
               <div class="field-stack">
-                <div class="field"><label>Step 1: Type</label><div class="field-box">Governance</div></div>
-                <div class="field"><label>Step 2: Ballot options</label><div class="field-box">yes, no, add option</div></div>
-                <div class="field"><label>Step 3: Payload</label><div class="field-box">governance.voteExponent: 1.1 -&gt; 1.2</div></div>
-                <div class="field"><label>Step 4: Timing and fee</label><div class="field-box">fee: 50.0 USD, emergency: no</div></div>
+                <div class="field"><label>Step 1: Emergency and fee</label><div class="field-box">emergency: no, proposalFeeUsdStr: 50.0</div></div>
+                <div class="field"><label>Step 2: Title and type</label><div class="field-box">Increase vote exponent, Governance</div></div>
+                <div class="field"><label>Step 3: Description and options</label><div class="field-box">description plus yes/no ballot options</div></div>
+                <div class="field"><label>Step 4: Parameter changes and timing</label><div class="field-box">governance.voteExponent: 1.1 -&gt; 1.2, startDelayMs: 0</div></div>
               </div>
               <div class="button-row">
                 <div class="mock-button secondary">Back</div>
-                <div class="mock-button primary press-target" data-flow-source="builder-review">Review</div>
+                <div class="mock-button primary press-target" data-flow-source="builder-review">Review Draft</div>
               </div>
             </div>
           </article>
@@ -2185,7 +2390,7 @@
                 <span class="status-pill needed">Needed</span>
                 <span class="status-pill role">Proposal author</span>
               </div>
-              <div class="screen-context"><strong>Confirm dao_proposal_create</strong>Final checkpoint before signing. Non-committee authors land on review status after submit; committee-only controls stay in the committee queue.</div>
+              <div class="screen-context"><strong>Confirm dao_proposal_create</strong>Reviews the draft before signing adds tx type, generated IDs, networkId, timestamp, and signature. Non-committee authors land on review status after submit.</div>
               <div class="mock-kpi">
                 <div class="mock-kpi-value">50.0 USD</div>
                 <div class="mock-kpi-label">Proposal fee / reward pool</div>
@@ -2197,7 +2402,7 @@
                 <div class="detail-line"><span>Options:</span> yes, no</div>
                 <div class="detail-line"><span>Next:</span> author review status</div>
               </div>
-              <div class="field"><label>Payload preview</label><div class="field-box tall">description, options, governance changes, fee, signature request</div></div>
+              <div class="field"><label>Draft preview</label><div class="field-box tall">displayTitle, proposalFeeUsdStr, startDelayMs, transaction.from, transaction.options, governance changes</div></div>
               <div class="mock-button primary press-target" data-flow-source="confirm-sign">Sign dao_proposal_create</div>
             </div>
           </article>
@@ -2552,7 +2757,7 @@
               </div>
               <div class="screen-context"><strong>DAO parameter reference</strong>Shows current server DAO params and committee size before users create, review, vote, apply, or claim rewards.</div>
               <div class="mock-kpi-grid parameter-grid">
-                <div class="mock-kpi"><div class="mock-kpi-value">50.0 USD</div><div class="mock-kpi-label">proposalFee</div></div>
+                <div class="mock-kpi"><div class="mock-kpi-value">50.0 USD</div><div class="mock-kpi-label">proposalFeeUsdStr</div></div>
                 <div class="mock-kpi"><div class="mock-kpi-value">100.0 USD</div><div class="mock-kpi-label">voteThreshold</div></div>
                 <div class="mock-kpi"><div class="mock-kpi-value">1.0 USD</div><div class="mock-kpi-label">minimumSpend</div></div>
                 <div class="mock-kpi"><div class="mock-kpi-value">1.1</div><div class="mock-kpi-label">voteExponent</div></div>
@@ -2631,7 +2836,7 @@
         <div class="mock-section-header">
           <div>
             <h2 class="mock-section-title" id="backend-title">Backend Integration Shape</h2>
-            <div class="mock-section-note">Same repo abstraction as the current mock, with live fetchers and transaction actions behind it.</div>
+            <div class="mock-section-note">Same repo abstraction as the current app, with live fetchers and transaction drafts behind it.</div>
           </div>
         </div>
         <div class="mock-flow">
@@ -2639,12 +2844,12 @@
           <div class="flow-arrow">-&gt;</div>
           <div class="flow-node">dao.repo.js</div>
           <div class="flow-arrow">-&gt;</div>
-          <div class="flow-node">Backend fetcher</div>
+          <div class="flow-node">createDaoBackendFetcher</div>
           <div class="flow-arrow">-&gt;</div>
           <div class="flow-node">Network state</div>
         </div>
         <div class="flow-note">
-          The live client should read `GET dao/proposals`, `GET dao/proposals/:id`, `GET dao/proposals/meta`, and `GET dao/voters/:proposalId`. Proposal detail should expose proposal.committeeAddresses or capability flags such as canCommitteeVote so the review modal can hide Accept/Withhold for non-members. Phase 1 writes map to `dao_proposal_create`, `dao_committee_vote`, `dao_committee_result`, `dao_vote`, `dao_vote_result`, `dao_claim_reward`, `dao_apply_parameters`, and `dao_burn_reward`.
+          The current repo path reads `/dao/proposals/meta`, then batches `/dao/proposals/:number` detail fetches through `dao.repo.js`. Backend proposals are mapped into row/detail state with accountId, number, nonce, title, description/summary, type/proposalType, status/state, createdBy, fields, and votes. Add Proposal builds a draft with displayTitle, proposalFeeUsdStr, startDelayMs, and transaction; generated IDs, timestamp, networkId, and signature belong to the later signing/submission step.
         </div>
       </section>
       </main>
@@ -2724,6 +2929,17 @@
           offsetX = 0;
           offsetY = 0;
           update();
+        });
+
+        document.querySelectorAll("[data-default-change]").forEach((button) => {
+          button.addEventListener("click", () => {
+            const control = button.closest("[data-default-control]");
+            const input = control?.querySelector("[data-default-input]");
+            if (!input) return;
+            button.hidden = true;
+            input.hidden = false;
+            input.focus();
+          });
         });
 
         viewport.addEventListener("pointerdown", (event) => {
