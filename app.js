@@ -1723,6 +1723,7 @@ class ChatsScreen {
       const isShowingReactionPreview = !!reactionPreview && reactionPreview.timestamp > latestActivity.timestamp;
       const latestItemTimestamp = isShowingReactionPreview ? reactionPreview.timestamp : latestActivity.timestamp;
       const unreadCount = contact.unread;
+      const isFailedOutgoingActivity = !isShowingReactionPreview && latestActivity.my && latestActivity.status === 'failed';
 
       let previewHTML = '';
       if (isShowingReactionPreview) {
@@ -1811,6 +1812,15 @@ class ChatsScreen {
           : `📎 ${attachmentCount} attachments`;
         displayPrefix = '< ';
       }
+      const isShowingDraftPreview = !!(
+        (contact.draft && contact.draft.trim() !== '') ||
+        contact.draftReplyTxid ||
+        (hasDraftAttachment && !contact.draft)
+      );
+      const failedIndicatorHTML = isFailedOutgoingActivity && !isShowingDraftPreview
+        ? '<span class="chat-failed-indicator" title="Not sent" aria-label="Not sent">!</span>'
+        : '';
+      const chatMessageClass = failedIndicatorHTML ? 'chat-message chat-message--failed' : 'chat-message';
       // Create the list item element
       const li = document.createElement('li');
       li.classList.add('chat-item');
@@ -1822,9 +1832,9 @@ class ChatsScreen {
                   <div class="chat-name">${escapeHtml(contactName)}</div>
                   <div class="chat-time">${timeDisplay}</div>
               </div>
-              <div class="chat-message">
+              <div class="${chatMessageClass}">
                 ${unreadCount ? `<span class="chat-unread">${unreadCount}</span>` : ((contact.draft || contact.draftReplyTxid || hasDraftAttachment) ? `<span class="chat-draft" title="Draft"></span>` : '')}
-                ${displayPrefix}${displayPreview}
+                ${failedIndicatorHTML}${displayPrefix}${displayPreview}
               </div>
           </div>
       `;

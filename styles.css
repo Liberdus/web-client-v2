@@ -1012,6 +1012,26 @@ body {
   text-align: left;
 }
 
+.chat-message--failed {
+  color: var(--text-color);
+}
+
+.chat-failed-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background-color: var(--secondary-warning-color);
+  color: var(--text-color);
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  vertical-align: text-bottom;
+}
+
 .chat-unread {
   background-color: var(--primary-color);
   color: var(--background-color);
