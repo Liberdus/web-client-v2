@@ -2813,8 +2813,7 @@ class DaoModal {
       <div class="dao-row-previews">
         ${chips.map((chip) => `
           <span class="dao-row-preview dao-row-preview--${escapeDaoFormAttribute(chip.tone || 'neutral')}">
-            <span>${escapeHtml(chip.label)}</span>
-            <strong>${escapeHtml(chip.value)}</strong>
+            ${escapeHtml(chip.value)}
           </span>
         `).join('')}
       </div>

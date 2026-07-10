@@ -8032,17 +8032,21 @@ small {
 }
 
 #daoModal .dao-row-preview {
-  align-items: baseline;
+  align-items: center;
   background: var(--input-background);
   border: 1px solid var(--border-color);
   border-radius: 8px;
+  color: var(--text-color);
   display: inline-flex;
   flex: 0 1 auto;
-  gap: 4px;
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.2;
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
   padding: 4px 6px;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -8055,26 +8059,6 @@ small {
 #daoModal .dao-row-preview--rejected {
   background: rgba(196, 45, 45, 0.1);
   border-color: rgba(196, 45, 45, 0.28);
-}
-
-#daoModal .dao-row-preview span {
-  color: var(--secondary-text-color);
-  flex: 0 0 auto;
-  font-size: 11px;
-  font-weight: var(--font-weight-medium);
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-#daoModal .dao-row-preview strong {
-  color: var(--text-color);
-  font-size: 12px;
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.2;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 #daoStatusContextMenu {
