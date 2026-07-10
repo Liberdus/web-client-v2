@@ -7979,6 +7979,7 @@ small {
   min-width: 0;
   overflow: visible;
   overflow-wrap: anywhere;
+  text-align: left;
   text-overflow: clip;
   white-space: normal;
 }

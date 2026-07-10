@@ -2735,14 +2735,15 @@ class DaoModal {
       const li = document.createElement('li');
       li.classList.add('chat-item', 'dao-proposal-row');
 
-      const titleText = p.title || (p.number ? `Proposal #${p.number}` : 'Proposal');
-      const title = escapeHtml(titleText);
+      const titleText = String(p.title || '').trim() || 'Proposal';
+      const rowTitleText = p.number ? `${p.number}: ${titleText}` : titleText;
+      const title = escapeHtml(rowTitleText);
       const typeLabel = escapeHtml(getDaoTypeLabel(p.proposalType || p.type) || 'Proposal');
       const previewHtml = this.renderProposalRowPreview(p);
 
       li.tabIndex = 0;
       li.setAttribute('role', 'button');
-      li.setAttribute('aria-label', `Open ${titleText}`);
+      li.setAttribute('aria-label', `Open ${rowTitleText}`);
       li.innerHTML = `
         <div class="dao-row-content">
           <div class="dao-row-title">${title}</div>
