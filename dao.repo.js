@@ -513,12 +513,10 @@ async function fetchBackendProposal(queryDaoApi, proposalNumber) {
   return body.proposal;
 }
 
-export function createDaoBackendFetcher(queryDaoApi, { batchSize = DAO_PROPOSAL_QUERY_BATCH_SIZE } = {}) {
+export function createDaoBackendFetcher(queryDaoApi) {
   if (typeof queryDaoApi !== 'function') {
     return async () => createEmptyDaoStore();
   }
-
-  const safeBatchSize = normalizeDaoPositiveInteger(batchSize) || DAO_PROPOSAL_QUERY_BATCH_SIZE;
 
   return async () => {
     const body = await queryDaoApi('/dao/proposals/meta');
@@ -534,8 +532,8 @@ export function createDaoBackendFetcher(queryDaoApi, { batchSize = DAO_PROPOSAL_
     if (!count) return buildStoreFromBackendProposals(meta, []);
 
     const proposals = [];
-    for (let start = 1; start <= count; start += safeBatchSize) {
-      const end = Math.min(start + safeBatchSize - 1, count);
+    for (let start = 1; start <= count; start += DAO_PROPOSAL_QUERY_BATCH_SIZE) {
+      const end = Math.min(start + DAO_PROPOSAL_QUERY_BATCH_SIZE - 1, count);
       const batch = await Promise.all(
         Array.from({ length: end - start + 1 }, (_, index) => fetchBackendProposal(queryDaoApi, start + index))
       );
@@ -655,6 +653,7 @@ function storeToUiList(store, groupKey) {
         description,
         type,
         proposalType: type,
+        emergency: Boolean(p.emergency),
         createdAt: p.created,
         state,
         status: state,
