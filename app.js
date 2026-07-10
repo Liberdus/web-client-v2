@@ -2765,36 +2765,34 @@ class DaoModal {
     const state = getEffectiveDaoState(proposal);
     const result = getDaoProposalResultSummary(proposal);
     const reward = getDaoProposalRewardSummary(proposal);
-    const lifecycleAction = getDaoProposalLifecycleAction(proposal, reward);
 
     if (state === 'review') {
       const reviewWindow = getDaoProposalReviewWindow(proposal);
 
       chips.push({
-        label: 'Review',
         value: reviewWindow.canFinalizeReviewResult ? 'Ready to finalize' : reviewWindow.label,
         tone: 'neutral',
       });
     } else {
-      const applyAction = getDaoProposalApplyLifecycleAction(proposal);
+      const lifecycleAction = getDaoProposalLifecycleAction(proposal, reward);
+      const applyAction = lifecycleAction?.kind === 'apply_parameters'
+        ? lifecycleAction
+        : getDaoProposalApplyLifecycleAction(proposal);
 
       if (reward?.claimStatus === 'Claimable') {
         chips.push({
-          label: 'Reward',
           value: 'Ready to claim',
           tone: reward.statusTone,
         });
       }
       if (lifecycleAction?.kind === 'burn_reward') {
         chips.push({
-          label: 'Reward',
           value: 'Ready to burn',
           tone: 'neutral',
         });
       }
       if (applyAction?.rowPreviewLabel) {
         chips.push({
-          label: 'Action',
           value: applyAction.rowPreviewLabel,
           tone: 'neutral',
         });
@@ -2802,7 +2800,6 @@ class DaoModal {
     }
     if (result) {
       chips.push({
-        label: 'Result',
         value: result.headline,
         tone: result.tone,
       });
@@ -4119,16 +4116,13 @@ function getDaoApplyParametersLifecycleAction(help, rowPreviewLabel = '') {
 function getDaoProposalApplyLifecycleAction(proposal, currentAddress = getDaoCurrentAccountAddress(), now = Date.now()) {
   if (getEffectiveDaoState(proposal) !== 'accepted' || !isDaoParameterProposalType(proposal)) return null;
 
-  const applyWindow = getDaoProposalApplyWindow(proposal, now);
-  const isEmergency = Boolean(proposal?.emergency);
-  const isCommitteeMember = isDaoProposalCommitteeMember(proposal, currentAddress);
-
-  if (isEmergency && !isCommitteeMember) {
+  if (proposal?.emergency && !isDaoProposalCommitteeMember(proposal, currentAddress)) {
     return getDaoApplyParametersLifecycleAction(
       'Emergency proposal parameters can only be applied by a proposal committee member.',
     );
   }
 
+  const applyWindow = getDaoProposalApplyWindow(proposal, now);
   if (!applyWindow.isReady) {
     const eligibleAt = applyWindow.eligibleAt ? formatDaoTimestamp(applyWindow.eligibleAt) : '';
     return getDaoApplyParametersLifecycleAction(
