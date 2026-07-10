@@ -2605,6 +2605,11 @@ input[type='file'].form-control::file-selector-button {
   gap: 8px;
 }
 
+#proposalInfoModal .proposal-lifecycle-action {
+  display: grid;
+  gap: 8px;
+}
+
 #proposalInfoModal .proposal-lifecycle-actions .proposal-committee-actions-header,
 #proposalInfoModal .proposal-vote-actions .proposal-committee-actions-header {
   display: grid;

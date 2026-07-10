@@ -420,6 +420,23 @@ export function buildDaoBurnRewardTransaction({
   });
 }
 
+export function buildDaoApplyParametersTransaction({
+  from,
+  proposal,
+  timestamp,
+  networkId,
+} = {}) {
+  return buildDaoProposalActionTransaction({
+    type: 'dao_apply_parameters',
+    from,
+    proposal,
+    timestamp,
+    networkId,
+    timestampLabel: 'Apply parameters timestamp',
+    fromLabel: 'Apply parameters sender',
+  });
+}
+
 async function submitDaoTransaction({ transaction, submitTransaction, errorMessage }) {
   try {
     if (typeof submitTransaction !== 'function') {
@@ -971,6 +988,18 @@ export const daoRepo = {
       networkId,
       submitTransaction,
       errorMessage: 'Reward burn failed',
+    });
+  },
+
+  async applyParameters({ from, proposal, timestamp, networkId, submitTransaction } = {}) {
+    return submitDaoProposalAction({
+      buildTransaction: buildDaoApplyParametersTransaction,
+      from,
+      proposal,
+      timestamp,
+      networkId,
+      submitTransaction,
+      errorMessage: 'Apply parameters failed',
     });
   },
 };
