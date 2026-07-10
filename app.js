@@ -2775,24 +2775,30 @@ class DaoModal {
         value: reviewWindow.canFinalizeReviewResult ? 'Ready to finalize' : reviewWindow.label,
         tone: 'neutral',
       });
-    } else if (reward?.claimStatus === 'Claimable') {
-      chips.push({
-        label: 'Reward',
-        value: 'Ready to claim',
-        tone: reward.statusTone,
-      });
-    } else if (lifecycleAction?.kind === 'burn_reward') {
-      chips.push({
-        label: 'Reward',
-        value: 'Ready to burn',
-        tone: 'neutral',
-      });
-    } else if (lifecycleAction?.kind === 'apply_parameters' && lifecycleAction.rowPreviewLabel) {
-      chips.push({
-        label: 'Action',
-        value: lifecycleAction.rowPreviewLabel,
-        tone: 'neutral',
-      });
+    } else {
+      const applyAction = getDaoProposalApplyLifecycleAction(proposal);
+
+      if (reward?.claimStatus === 'Claimable') {
+        chips.push({
+          label: 'Reward',
+          value: 'Ready to claim',
+          tone: reward.statusTone,
+        });
+      }
+      if (lifecycleAction?.kind === 'burn_reward') {
+        chips.push({
+          label: 'Reward',
+          value: 'Ready to burn',
+          tone: 'neutral',
+        });
+      }
+      if (applyAction?.rowPreviewLabel) {
+        chips.push({
+          label: 'Action',
+          value: applyAction.rowPreviewLabel,
+          tone: 'neutral',
+        });
+      }
     }
     if (result) {
       chips.push({
@@ -4111,6 +4117,34 @@ function getDaoApplyParametersLifecycleAction(help, rowPreviewLabel = '') {
   return action;
 }
 
+function getDaoProposalApplyLifecycleAction(proposal, currentAddress = getDaoCurrentAccountAddress(), now = Date.now()) {
+  if (getEffectiveDaoState(proposal) !== 'accepted' || !isDaoParameterProposalType(proposal)) return null;
+
+  const applyWindow = getDaoProposalApplyWindow(proposal, now);
+  const isEmergency = Boolean(proposal?.emergency);
+  const isCommitteeMember = isDaoProposalCommitteeMember(proposal, currentAddress);
+
+  if (isEmergency && !isCommitteeMember) {
+    return getDaoApplyParametersLifecycleAction(
+      'Emergency proposal parameters can only be applied by a proposal committee member.',
+    );
+  }
+
+  if (!applyWindow.isReady) {
+    const eligibleAt = applyWindow.eligibleAt ? formatDaoTimestamp(applyWindow.eligibleAt) : '';
+    return getDaoApplyParametersLifecycleAction(
+      eligibleAt
+        ? `Apply becomes available after the grace period ends: ${eligibleAt}.`
+        : 'Apply timing is unavailable until the proposal includes grace-period timing.',
+    );
+  }
+
+  return getDaoApplyParametersLifecycleAction(
+    'This proposal is ready to apply. Backend submission for applying parameters lands in the next phase.',
+    'Ready to apply',
+  );
+}
+
 function formatDaoClaimWindowLabel(claimWindow, now) {
   if (!claimWindow.start || !claimWindow.end) return 'Unavailable';
   const start = formatDaoTimestamp(claimWindow.start) || 'Unavailable';
@@ -4273,33 +4307,7 @@ function getDaoProposalLifecycleAction(proposal, rewardSummary, currentAddress =
     };
   }
 
-  if (state === 'accepted' && isDaoParameterProposalType(proposal)) {
-    const applyWindow = getDaoProposalApplyWindow(proposal, now);
-    const isEmergency = Boolean(proposal?.emergency);
-    const isCommitteeMember = isDaoProposalCommitteeMember(proposal, currentAddress);
-
-    if (isEmergency && !isCommitteeMember) {
-      return getDaoApplyParametersLifecycleAction(
-        'Emergency proposal parameters can only be applied by a proposal committee member.',
-      );
-    }
-
-    if (!applyWindow.isReady) {
-      const eligibleAt = applyWindow.eligibleAt ? formatDaoTimestamp(applyWindow.eligibleAt) : '';
-      return getDaoApplyParametersLifecycleAction(
-        eligibleAt
-          ? `Apply becomes available after the grace period ends: ${eligibleAt}.`
-          : 'Apply timing is unavailable until the proposal includes grace-period timing.',
-      );
-    }
-
-    return getDaoApplyParametersLifecycleAction(
-      'This proposal is ready to apply. Backend submission for applying parameters lands in the next phase.',
-      'Ready to apply',
-    );
-  }
-
-  return null;
+  return getDaoProposalApplyLifecycleAction(proposal, currentAddress, now);
 }
 
 function formatDaoDetailValue(value) {

@@ -8028,6 +8028,7 @@ small {
   justify-content: flex-end;
   margin-left: auto;
   min-width: 0;
+  overflow: hidden;
 }
 
 #daoModal .dao-row-preview {
@@ -8040,7 +8041,9 @@ small {
   gap: 4px;
   max-width: 100%;
   min-width: 0;
+  overflow: hidden;
   padding: 4px 6px;
+  white-space: nowrap;
 }
 
 #daoModal .dao-row-preview--accepted,
