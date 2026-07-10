@@ -2902,29 +2902,9 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-vote-status-card--deadline {
-  display: flex;
   justify-self: end;
   max-width: 100%;
   width: fit-content;
-}
-
-#proposalInfoModal .proposal-vote-status-card--deadline > span {
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
-
-#proposalInfoModal .proposal-vote-deadline {
-  display: flex;
-  flex: 1 1 auto;
-  flex-wrap: wrap;
-  gap: 0 4px;
-  justify-content: flex-end;
-  min-width: 0;
-}
-
-#proposalInfoModal .proposal-vote-deadline span {
-  color: inherit;
-  white-space: nowrap;
 }
 
 #proposalInfoModal .proposal-vote-status-card span,

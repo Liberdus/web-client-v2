@@ -3842,21 +3842,6 @@ function formatDaoDetailTimestamp(ts) {
   return formatted ? formatted.replace(', ', '\n') : 'Unavailable';
 }
 
-function renderDaoVotingEndsTimestamp(ts) {
-  const formatted = formatDaoTimestamp(ts);
-  if (!formatted) return 'Unavailable';
-
-  const [datePart, ...timeParts] = formatted.split(', ');
-  if (timeParts.length === 0) {
-    return escapeHtml(formatted);
-  }
-
-  return [
-    `<span>${escapeHtml(datePart)}</span>`,
-    `<span>${escapeHtml(timeParts.join(', '))}</span>`,
-  ].join(' ');
-}
-
 function formatDaoShortNumber(value, decimals = 6) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 'Unavailable';
@@ -4496,7 +4481,7 @@ class ProposalInfoModal {
         <div class="proposal-vote-status-grid proposal-vote-status-grid--current">
           <div class="proposal-vote-status-card proposal-vote-status-card--deadline">
             <span>Voting ends</span>
-            <strong class="proposal-vote-deadline">${renderDaoVotingEndsTimestamp(votingWindow.end)}</strong>
+            <strong>${escapeHtml(formatDaoDetailTimestamp(votingWindow.end))}</strong>
           </div>
         </div>
       </section>
@@ -4964,7 +4949,7 @@ class ProposalInfoModal {
 
   getNextStateHint(proposal, acceptCount, withholdCount, reviewWindow) {
     if (proposal.status && proposal.status !== 'review') return getDaoStateLabel(proposal.status) || proposal.status;
-    if (reviewWindow?.canFinalizeReviewResult) {
+    if (reviewWindow.canFinalizeReviewResult) {
       return `${this.getReviewFinalizedStateLabel(proposal, acceptCount, withholdCount)} if finalized`;
     }
     if (withholdCount > acceptCount) return 'Likely withheld after review result';
@@ -5010,9 +4995,7 @@ class ProposalInfoModal {
     this.canSubmitReviewResult = true;
     this.reviewResultSection.classList.remove('hidden');
     if (this.reviewResultHelp) {
-      const nextState = proposal
-        ? this.getReviewFinalizedStateLabel(proposal, acceptCount, withholdCount)
-        : 'its next state';
+      const nextState = this.getReviewFinalizedStateLabel(proposal, acceptCount, withholdCount);
       this.reviewResultHelp.textContent = `${reviewWindow.label}. Finalize the review result to move this proposal to ${nextState}.`;
     }
     this.updateSubmitButtons();
