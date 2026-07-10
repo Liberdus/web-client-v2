@@ -771,6 +771,8 @@ function storeToUiList(store, groupKey) {
         reviewDuration: p.reviewDuration,
         votingDuration: p.votingDuration,
         claimDuration: p.claimDuration,
+        gracePeriod: p.gracePeriod,
+        applyEligibleAt: p.applyEligibleAt,
         votes: p.votes || { yes: 0, no: 0, by: {} },
         archivedAt: p.archivedAt || 0,
       };

@@ -2765,6 +2765,7 @@ class DaoModal {
     const state = getEffectiveDaoState(proposal);
     const result = getDaoProposalResultSummary(proposal);
     const reward = getDaoProposalRewardSummary(proposal);
+    const lifecycleAction = getDaoProposalLifecycleAction(proposal, reward);
 
     if (state === 'review') {
       const reviewWindow = getDaoProposalReviewWindow(proposal);
@@ -2780,10 +2781,16 @@ class DaoModal {
         value: 'Ready to claim',
         tone: reward.statusTone,
       });
-    } else if (getDaoProposalLifecycleAction(proposal, reward)?.kind === 'burn_reward') {
+    } else if (lifecycleAction?.kind === 'burn_reward') {
       chips.push({
         label: 'Reward',
         value: 'Ready to burn',
+        tone: 'neutral',
+      });
+    } else if (lifecycleAction?.kind === 'apply_parameters' && lifecycleAction.rowPreviewLabel) {
+      chips.push({
+        label: 'Action',
+        value: lifecycleAction.rowPreviewLabel,
         tone: 'neutral',
       });
     }
@@ -4054,6 +4061,56 @@ function getDaoProposalClaimWindow(proposal) {
   };
 }
 
+function getDaoProposalApplyWindow(proposal, now = Date.now()) {
+  if (proposal?.emergency) {
+    return { eligibleAt: null, isReady: true };
+  }
+
+  const backendEligibleAt = Number(proposal?.applyEligibleAt);
+  if (Number.isFinite(backendEligibleAt) && backendEligibleAt > 0) {
+    return { eligibleAt: backendEligibleAt, isReady: now >= backendEligibleAt };
+  }
+
+  const reviewStart = Number(proposal?.startTime || proposal?.created || proposal?.creationTime || 0);
+  const reviewDuration = Number(proposal?.reviewDuration);
+  const votingDuration = Number(proposal?.votingDuration);
+  const gracePeriod = Number(proposal?.gracePeriod);
+  if (
+    !Number.isFinite(reviewStart) ||
+    !Number.isFinite(reviewDuration) ||
+    !Number.isFinite(votingDuration) ||
+    !Number.isFinite(gracePeriod)
+  ) {
+    return { eligibleAt: null, isReady: false };
+  }
+
+  const eligibleAt = reviewStart + reviewDuration + votingDuration + gracePeriod;
+  return { eligibleAt, isReady: now >= eligibleAt };
+}
+
+function isDaoParameterProposalType(proposal) {
+  const type = String(proposal?.proposalType || proposal?.type || '').toLowerCase();
+  return type === 'governance' || type === 'economic' || type === 'protocol';
+}
+
+function isDaoProposalCommitteeMember(proposal, currentAddress) {
+  const normalizedAddress = normalizeDaoAddress(currentAddress);
+  if (!normalizedAddress || !Array.isArray(proposal?.committeeAddresses)) return false;
+  return proposal.committeeAddresses.some((address) => normalizeDaoAddress(address) === normalizedAddress);
+}
+
+function getDaoApplyParametersLifecycleAction(help, rowPreviewLabel = '') {
+  const action = {
+    kind: 'apply_parameters',
+    title: 'Apply parameters',
+    help,
+    buttonLabel: 'Apply parameters',
+    canSubmit: false,
+  };
+  if (rowPreviewLabel) action.rowPreviewLabel = rowPreviewLabel;
+  return action;
+}
+
 function formatDaoClaimWindowLabel(claimWindow, now) {
   if (!claimWindow.start || !claimWindow.end) return 'Unavailable';
   const start = formatDaoTimestamp(claimWindow.start) || 'Unavailable';
@@ -4214,6 +4271,32 @@ function getDaoProposalLifecycleAction(proposal, rewardSummary, currentAddress =
       successMessage: 'Reward claimed',
       refreshWarning: 'Reward claimed, but proposal refresh failed',
     };
+  }
+
+  if (state === 'accepted' && isDaoParameterProposalType(proposal)) {
+    const applyWindow = getDaoProposalApplyWindow(proposal, now);
+    const isEmergency = Boolean(proposal?.emergency);
+    const isCommitteeMember = isDaoProposalCommitteeMember(proposal, currentAddress);
+
+    if (isEmergency && !isCommitteeMember) {
+      return getDaoApplyParametersLifecycleAction(
+        'Emergency proposal parameters can only be applied by a proposal committee member.',
+      );
+    }
+
+    if (!applyWindow.isReady) {
+      const eligibleAt = applyWindow.eligibleAt ? formatDaoTimestamp(applyWindow.eligibleAt) : '';
+      return getDaoApplyParametersLifecycleAction(
+        eligibleAt
+          ? `Apply becomes available after the grace period ends: ${eligibleAt}.`
+          : 'Apply timing is unavailable until the proposal includes grace-period timing.',
+      );
+    }
+
+    return getDaoApplyParametersLifecycleAction(
+      'This proposal is ready to apply. Backend submission for applying parameters lands in the next phase.',
+      'Ready to apply',
+    );
   }
 
   return null;
@@ -5347,7 +5430,8 @@ class ProposalInfoModal {
     const disableCommittee = this.isSubmitting || !this.canSubmitCommitteeReview;
     const isSameVote = Boolean(this.currentCommitteeVote && this.committeeChoice === this.currentCommitteeVote);
     const disableResult = this.isSubmitting || !this.canSubmitReviewResult;
-    const disableLifecycle = this.isSubmitting || !this.currentLifecycleAction;
+    const canSubmitLifecycle = this.currentLifecycleAction?.canSubmit !== false;
+    const disableLifecycle = this.isSubmitting || !this.currentLifecycleAction || !canSubmitLifecycle;
     const disableVote = this.isSubmitting || !this.canSubmitVote;
 
     if (this.acceptButton) this.acceptButton.disabled = disableCommittee || this.currentCommitteeVote === 'accept';
@@ -5364,7 +5448,7 @@ class ProposalInfoModal {
     }
     if (this.lifecycleActionButton) {
       this.lifecycleActionButton.disabled = disableLifecycle;
-      this.lifecycleActionButton.textContent = this.isSubmitting && this.currentLifecycleAction
+      this.lifecycleActionButton.textContent = this.isSubmitting && this.currentLifecycleAction && canSubmitLifecycle
         ? this.currentLifecycleAction.loadingLabel
         : this.currentLifecycleAction?.buttonLabel || '';
     }
