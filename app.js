@@ -2789,9 +2789,9 @@ class DaoModal {
       const lifecycleActions = getDaoProposalLifecycleActions(proposal, reward, getDaoCurrentAccountAddress(), now);
       const endDate = formatDaoDate(votingWindow.end);
 
-      if (endDate) {
+      if (endDate && now <= votingWindow.end) {
         chips.push({
-          value: `${now > votingWindow.end ? 'Ended' : 'Ends'} ${endDate}`,
+          value: `Ends ${endDate}`,
           tone: 'neutral',
         });
       }
