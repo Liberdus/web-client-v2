@@ -2749,8 +2749,7 @@ class DaoModal {
           <div class="dao-row-title">${title}</div>
           <div class="dao-row-meta">
             <span class="dao-row-meta-item dao-row-meta-item--type">
-              <span class="dao-row-meta-label">Type</span>
-              <strong class="dao-row-meta-value">${typeLabel}</strong>
+              ${typeLabel}
             </span>
             ${previewHtml}
           </div>

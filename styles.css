@@ -8005,27 +8005,6 @@ small {
   max-width: 34%;
 }
 
-#daoModal .dao-row-meta-label {
-  flex: 0 0 auto;
-  font-family: var(--font-primary);
-  font-size: 11px;
-  font-weight: var(--font-weight-medium);
-  line-height: 1.2;
-}
-
-#daoModal .dao-row-meta-value {
-  color: var(--text-color);
-  display: block;
-  font-family: var(--font-primary);
-  font-size: 12px;
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.2;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 #daoModal .dao-row-previews {
   display: flex;
   flex: 1 1 auto;
