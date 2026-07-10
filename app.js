@@ -2765,6 +2765,7 @@ class DaoModal {
     const state = getEffectiveDaoState(proposal);
     const result = getDaoProposalResultSummary(proposal);
     const reward = getDaoProposalRewardSummary(proposal);
+    const lifecycleAction = getDaoProposalLifecycleAction(proposal, reward);
 
     if (state === 'review') {
       const reviewWindow = getDaoProposalReviewWindow(proposal);
@@ -2779,6 +2780,12 @@ class DaoModal {
         label: 'Reward',
         value: 'Ready to claim',
         tone: reward.statusTone,
+      });
+    } else if (lifecycleAction?.kind === 'burn_reward') {
+      chips.push({
+        label: 'Reward',
+        value: 'Ready to burn',
+        tone: 'neutral',
       });
     }
     if (result) {
