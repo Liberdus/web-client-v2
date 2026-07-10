@@ -2736,7 +2736,7 @@ class DaoModal {
       li.classList.add('chat-item', 'dao-proposal-row');
 
       const titleText = String(p.title || '').trim() || 'Proposal';
-      const rowTitleText = p.number ? `${p.number}: ${titleText}` : titleText;
+      const rowTitleText = p.number ? `#${p.number}: ${titleText}` : titleText;
       const title = escapeHtml(rowTitleText);
       const typeLabel = escapeHtml(getDaoTypeLabel(p.proposalType || p.type) || 'Proposal');
       const previewHtml = this.renderProposalRowPreview(p);
