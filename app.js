@@ -3842,6 +3842,21 @@ function formatDaoDetailTimestamp(ts) {
   return formatted ? formatted.replace(', ', '\n') : 'Unavailable';
 }
 
+function renderDaoVotingEndsTimestamp(ts) {
+  const formatted = formatDaoTimestamp(ts);
+  if (!formatted) return 'Unavailable';
+
+  const [datePart, ...timeParts] = formatted.split(', ');
+  if (timeParts.length === 0) {
+    return escapeHtml(formatted);
+  }
+
+  return [
+    `<span>${escapeHtml(datePart)}</span>`,
+    `<span>${escapeHtml(timeParts.join(', '))}</span>`,
+  ].join(' ');
+}
+
 function formatDaoShortNumber(value, decimals = 6) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 'Unavailable';
@@ -4479,9 +4494,9 @@ class ProposalInfoModal {
           <div class="proposal-vote-current-track" aria-hidden="true">${segments}</div>
         </div>
         <div class="proposal-vote-status-grid proposal-vote-status-grid--current">
-          <div class="proposal-vote-status-card">
+          <div class="proposal-vote-status-card proposal-vote-status-card--deadline">
             <span>Voting ends</span>
-            <strong>${escapeHtml(formatDaoDetailTimestamp(votingWindow.end))}</strong>
+            <strong class="proposal-vote-deadline">${renderDaoVotingEndsTimestamp(votingWindow.end)}</strong>
           </div>
         </div>
       </section>
@@ -4908,7 +4923,7 @@ class ProposalInfoModal {
             <div class="proposal-change-values">
               <small><span>Current:</span><strong>${escapeHtml(current)}</strong></small>
               <span class="proposal-change-arrow" aria-hidden="true">&rarr;</span>
-              <strong><span>New:</span><span>${escapeHtml(next)}</span></strong>
+              <small><span>New:</span><strong>${escapeHtml(next)}</strong></small>
             </div>
           </div>
         `;
