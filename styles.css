@@ -2121,6 +2121,7 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-info-section h3,
 #proposalInfoModal .proposal-committee-actions h3,
 #proposalInfoModal .proposal-review-result-actions h3,
+#proposalInfoModal .proposal-lifecycle-actions h3,
 #proposalInfoModal .proposal-vote-actions h3 {
   color: var(--text-color);
   font-size: 16px;
@@ -2548,6 +2549,7 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-info-muted,
 #proposalInfoModal .proposal-committee-actions p,
 #proposalInfoModal .proposal-review-result-actions p,
+#proposalInfoModal .proposal-lifecycle-actions p,
 #proposalInfoModal .proposal-vote-actions p,
 #proposalInfoModal .proposal-change-row small {
   color: var(--secondary-text-color);
@@ -2603,6 +2605,7 @@ input[type='file'].form-control::file-selector-button {
   gap: 8px;
 }
 
+#proposalInfoModal .proposal-lifecycle-actions .proposal-committee-actions-header,
 #proposalInfoModal .proposal-vote-actions .proposal-committee-actions-header {
   display: grid;
   gap: 2px;

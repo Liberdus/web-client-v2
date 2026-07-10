@@ -5107,6 +5107,12 @@ class ProposalInfoModal {
       return;
     }
 
+    const votingWindow = getDaoProposalVotingWindow(proposal);
+    if (votingWindow.end && Date.now() > votingWindow.end) {
+      this.hideVoteActions();
+      return;
+    }
+
     const options = this.getVoteOptions(proposal);
     if (this.voteWeights.length !== options.length) {
       this.voteWeights = options.map(() => 0);
