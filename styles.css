@@ -8002,7 +8002,13 @@ small {
 
 #daoModal .dao-row-meta-item--type {
   flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.2;
   max-width: 34%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #daoModal .dao-row-previews {
