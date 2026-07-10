@@ -254,6 +254,27 @@ function getDaoProposalTransactionId(proposal) {
   return requireDaoDraftString(proposal?.accountId || proposal?.proposalId || proposal?.id, 'DAO proposal account ID');
 }
 
+function buildDaoProposalActionTransaction({
+  type,
+  from,
+  proposal,
+  timestamp,
+  networkId,
+  timestampLabel,
+  fromLabel,
+} = {}) {
+  const txTimestamp = requireDaoNonNegativeNumber(timestamp, timestampLabel);
+  if (txTimestamp <= 0) throw new Error(`${timestampLabel} is required`);
+
+  return {
+    type: requireDaoDraftString(type, 'DAO transaction type'),
+    timestamp: txTimestamp,
+    networkId: requireDaoDraftString(networkId, 'Network ID'),
+    from: requireDaoDraftString(from, fromLabel),
+    proposalId: getDaoProposalTransactionId(proposal),
+  };
+}
+
 export function buildDaoCommitteeVoteTransaction({
   from,
   proposal,
@@ -293,16 +314,15 @@ export function buildDaoCommitteeResultTransaction({
   timestamp,
   networkId,
 } = {}) {
-  const txTimestamp = requireDaoNonNegativeNumber(timestamp, 'Review result timestamp');
-  if (txTimestamp <= 0) throw new Error('Review result timestamp is required');
-
-  return {
+  return buildDaoProposalActionTransaction({
     type: 'dao_committee_result',
-    timestamp: txTimestamp,
-    networkId: requireDaoDraftString(networkId, 'Network ID'),
-    from: requireDaoDraftString(from, 'Review result sender'),
-    proposalId: getDaoProposalTransactionId(proposal),
-  };
+    from,
+    proposal,
+    timestamp,
+    networkId,
+    timestampLabel: 'Review result timestamp',
+    fromLabel: 'Review result sender',
+  });
 }
 
 export function buildDaoVoteTransaction({
@@ -349,6 +369,57 @@ export function buildDaoVoteTransaction({
   };
 }
 
+export function buildDaoVoteResultTransaction({
+  from,
+  proposal,
+  timestamp,
+  networkId,
+} = {}) {
+  return buildDaoProposalActionTransaction({
+    type: 'dao_vote_result',
+    from,
+    proposal,
+    timestamp,
+    networkId,
+    timestampLabel: 'Vote result timestamp',
+    fromLabel: 'Vote result sender',
+  });
+}
+
+export function buildDaoClaimRewardTransaction({
+  from,
+  proposal,
+  timestamp,
+  networkId,
+} = {}) {
+  return buildDaoProposalActionTransaction({
+    type: 'dao_claim_reward',
+    from,
+    proposal,
+    timestamp,
+    networkId,
+    timestampLabel: 'Reward claim timestamp',
+    fromLabel: 'Reward claim sender',
+  });
+}
+
+export function buildDaoBurnRewardTransaction({
+  from,
+  proposal,
+  timestamp,
+  networkId,
+} = {}) {
+  return buildDaoProposalActionTransaction({
+    type: 'dao_burn_reward',
+    from,
+    proposal,
+    timestamp,
+    networkId,
+    timestampLabel: 'Reward burn timestamp',
+    fromLabel: 'Reward burn sender',
+  });
+}
+
 async function submitDaoTransaction({ transaction, submitTransaction, errorMessage }) {
   try {
     if (typeof submitTransaction !== 'function') {
@@ -372,6 +443,32 @@ async function submitDaoTransaction({ transaction, submitTransaction, errorMessa
       error: error?.message || errorMessage,
       transaction,
     };
+  }
+}
+
+async function submitDaoProposalAction({
+  buildTransaction,
+  from,
+  proposal,
+  timestamp,
+  networkId,
+  submitTransaction,
+  errorMessage,
+} = {}) {
+  try {
+    const transaction = buildTransaction({
+      from,
+      proposal,
+      timestamp,
+      networkId,
+    });
+    return submitDaoTransaction({
+      transaction,
+      submitTransaction,
+      errorMessage,
+    });
+  } catch (error) {
+    return { ok: false, error: error?.message || errorMessage, transaction: null };
   }
 }
 
@@ -436,7 +533,8 @@ function mapBackendProposalToStoreProposal(proposal) {
   const number = normalizeDaoPositiveInteger(proposal.number);
   if (!number) return null;
 
-  const nonce = String(proposal.id || proposal.nonce || number);
+  const accountId = proposal.id || proposal.accountId || proposal.proposalId;
+  const nonce = String(accountId || proposal.nonce || number);
   const type = proposal.proposalType || proposal.type || '';
   const state = getEffectiveDaoState(proposal);
   const created = normalizeDaoTimestamp(proposal.creationTime || proposal.created || proposal.timestamp);
@@ -445,7 +543,7 @@ function mapBackendProposalToStoreProposal(proposal) {
 
   return {
     ...proposal,
-    accountId: proposal.id,
+    accountId,
     number,
     nonce,
     title: String(proposal.title || '').trim(),
@@ -827,20 +925,50 @@ export const daoRepo = {
   },
 
   async finalizeCommitteeResult({ from, proposal, timestamp, networkId, submitTransaction } = {}) {
-    try {
-      const transaction = buildDaoCommitteeResultTransaction({
-        from,
-        proposal,
-        timestamp,
-        networkId,
-      });
-      return submitDaoTransaction({
-        transaction,
-        submitTransaction,
-        errorMessage: 'Review result finalization failed',
-      });
-    } catch (error) {
-      return { ok: false, error: error?.message || 'Review result finalization failed', transaction: null };
-    }
+    return submitDaoProposalAction({
+      buildTransaction: buildDaoCommitteeResultTransaction,
+      from,
+      proposal,
+      timestamp,
+      networkId,
+      submitTransaction,
+      errorMessage: 'Review result finalization failed',
+    });
+  },
+
+  async finalizeVoteResult({ from, proposal, timestamp, networkId, submitTransaction } = {}) {
+    return submitDaoProposalAction({
+      buildTransaction: buildDaoVoteResultTransaction,
+      from,
+      proposal,
+      timestamp,
+      networkId,
+      submitTransaction,
+      errorMessage: 'Vote result finalization failed',
+    });
+  },
+
+  async claimReward({ from, proposal, timestamp, networkId, submitTransaction } = {}) {
+    return submitDaoProposalAction({
+      buildTransaction: buildDaoClaimRewardTransaction,
+      from,
+      proposal,
+      timestamp,
+      networkId,
+      submitTransaction,
+      errorMessage: 'Reward claim failed',
+    });
+  },
+
+  async burnReward({ from, proposal, timestamp, networkId, submitTransaction } = {}) {
+    return submitDaoProposalAction({
+      buildTransaction: buildDaoBurnRewardTransaction,
+      from,
+      proposal,
+      timestamp,
+      networkId,
+      submitTransaction,
+      errorMessage: 'Reward burn failed',
+    });
   },
 };

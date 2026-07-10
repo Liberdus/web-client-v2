@@ -4172,6 +4172,83 @@ function getDaoProposalRewardSummary(proposal, currentAddress = getDaoCurrentAcc
   };
 }
 
+function getDaoProposalLifecycleAction(proposal, rewardSummary, currentAddress = getDaoCurrentAccountAddress(), now = Date.now()) {
+  const state = getEffectiveDaoState(proposal);
+  const hasWallet = Boolean(currentAddress);
+
+  if (state === 'voting') {
+    const votingWindow = getDaoProposalVotingWindow(proposal, now);
+    if (votingWindow.end && now > votingWindow.end) {
+      return {
+        kind: 'vote_result',
+        title: 'Vote result',
+        help: hasWallet
+          ? 'Voting has ended. Finalize the vote result to move this proposal to accepted or rejected.'
+          : 'Voting has ended. Sign in with a funded wallet to finalize the vote result.',
+        buttonLabel: 'Finalize vote result',
+        loadingLabel: 'Finalizing vote result...',
+        successMessage: 'Vote result finalized',
+        refreshWarning: 'Vote result finalized, but proposal refresh failed',
+        canSubmit: hasWallet,
+      };
+    }
+    return null;
+  }
+
+  if (!isDaoFinalResultState(state)) return null;
+
+  const claimWindow = getDaoProposalClaimWindow(proposal);
+  const pool = parseDaoUnsignedBigInt(proposal?.voterRewardPool) ?? 0n;
+  const claimed = parseDaoUnsignedBigInt(proposal?.claimedReward) ?? 0n;
+  const unclaimed = pool > claimed ? pool - claimed : 0n;
+
+  if (claimWindow.end && now > claimWindow.end && unclaimed > 0n) {
+    return {
+      kind: 'burn_reward',
+      title: 'Reward burn',
+      help: hasWallet
+        ? 'The claim window has ended. Burn the unclaimed reward pool so the proposal accounting is finalized.'
+        : 'The claim window has ended. Sign in with a funded wallet to burn the unclaimed reward pool.',
+      buttonLabel: 'Burn unclaimed reward',
+      loadingLabel: 'Burning reward...',
+      successMessage: 'Unclaimed reward burned',
+      refreshWarning: 'Reward burned, but proposal refresh failed',
+      canSubmit: hasWallet,
+    };
+  }
+
+  if (claimWindow.start && claimWindow.end && now >= claimWindow.start && now <= claimWindow.end && unclaimed > 0n) {
+    if (!hasWallet) {
+      return {
+        kind: 'claim_reward',
+        title: 'Reward claim',
+        help: 'Sign in with the wallet that voted on this proposal to check and claim rewards.',
+        buttonLabel: 'Claim reward',
+        loadingLabel: 'Claiming reward...',
+        successMessage: 'Reward claimed',
+        refreshWarning: 'Reward claimed, but proposal refresh failed',
+        canSubmit: false,
+      };
+    }
+    if (rewardSummary?.claimStatus !== 'Claimable') return null;
+
+    return {
+      kind: 'claim_reward',
+      title: 'Reward claim',
+      help: rewardSummary.claimEstimate === null
+        ? 'Your reward is claimable. Submit the claim and refresh proposal accounting.'
+        : `Your estimated claim is ${formatDaoLibWei(rewardSummary.claimEstimate)}. Submit the claim and refresh proposal accounting.`,
+      buttonLabel: 'Claim reward',
+      loadingLabel: 'Claiming reward...',
+      successMessage: 'Reward claimed',
+      refreshWarning: 'Reward claimed, but proposal refresh failed',
+      canSubmit: true,
+    };
+  }
+
+  return null;
+}
+
 function formatDaoDetailValue(value) {
   if (value === undefined || value === null || value === '') return 'Unavailable';
   if (typeof value === 'bigint') return value.toString();
@@ -4236,6 +4313,10 @@ class ProposalInfoModal {
     this.reviewResultSection = document.getElementById('proposalReviewResultSection');
     this.reviewResultHelp = document.getElementById('proposalReviewResultHelp');
     this.reviewResultButton = document.getElementById('proposalReviewResultSubmit');
+    this.lifecycleActionSection = document.getElementById('proposalLifecycleActionSection');
+    this.lifecycleActionTitle = document.getElementById('proposalLifecycleActionTitle');
+    this.lifecycleActionHelp = document.getElementById('proposalLifecycleActionHelp');
+    this.lifecycleActionButton = document.getElementById('proposalLifecycleActionSubmit');
     this.voteActionSection = document.getElementById('proposalVoteActionSection');
     this.voteActionHelp = document.getElementById('proposalVoteActionHelp');
     this.voteStatusGrid = document.getElementById('proposalVoteStatusGrid');
@@ -4252,6 +4333,7 @@ class ProposalInfoModal {
     this.isSubmitting = false;
     this.canSubmitCommitteeReview = false;
     this.canSubmitReviewResult = false;
+    this.currentLifecycleAction = null;
     this.canSubmitVote = false;
     this.submitButtonLabel = this.submitButton?.textContent || 'Submit review';
     this.reviewResultButtonLabel = this.reviewResultButton?.textContent || 'Finalize review result';
@@ -4263,6 +4345,7 @@ class ProposalInfoModal {
     if (this.withholdReasonSelect) this.withholdReasonSelect.addEventListener('change', () => this.handleWithholdReasonChange());
     if (this.submitButton) this.submitButton.addEventListener('click', () => this.handleCommitteeSubmit());
     if (this.reviewResultButton) this.reviewResultButton.addEventListener('click', () => this.handleReviewResultSubmit());
+    if (this.lifecycleActionButton) this.lifecycleActionButton.addEventListener('click', () => this.handleLifecycleActionSubmit());
     if (this.voteSpendInput) this.voteSpendInput.addEventListener('input', () => this.handleVoteSpendInput());
     if (this.voteOptions) this.voteOptions.addEventListener('input', (event) => this.handleVoteWeightInput(event));
     if (this.voteSubmitButton) this.voteSubmitButton.addEventListener('click', () => this.handleVoteSubmit());
@@ -4313,6 +4396,7 @@ class ProposalInfoModal {
     }
     this.hideCommitteeActions();
     this.hideReviewResultAction();
+    this.hideLifecycleAction();
     this.hideVoteActions();
   }
 
@@ -4337,6 +4421,7 @@ class ProposalInfoModal {
     const proposalType = proposal.proposalType || proposal.type;
     const resultSummary = getDaoProposalResultSummary(proposal);
     const rewardSummary = getDaoProposalRewardSummary(proposal, currentAddress);
+    const lifecycleAction = getDaoProposalLifecycleAction(proposal, rewardSummary, currentAddress);
     const committeeReviewSection = state === 'review'
       ? this.renderSection('Committee Review', [
         ['Committee size', committeeAddresses.length ? String(committeeAddresses.length) : 'Unavailable'],
@@ -4379,6 +4464,7 @@ class ProposalInfoModal {
       this.hideCommitteeActions();
       this.hideReviewResultAction();
     }
+    this.renderLifecycleAction(lifecycleAction);
     this.renderVoteActions({ proposal, state });
   }
 
@@ -4983,6 +5069,26 @@ class ProposalInfoModal {
     this.updateSubmitButtons();
   }
 
+  renderLifecycleAction(action) {
+    this.currentLifecycleAction = action;
+    if (!this.lifecycleActionSection || !action) {
+      this.hideLifecycleAction();
+      return;
+    }
+
+    this.lifecycleActionSection.classList.remove('hidden');
+    if (this.lifecycleActionTitle) this.lifecycleActionTitle.textContent = action.title;
+    if (this.lifecycleActionHelp) this.lifecycleActionHelp.textContent = action.help;
+    if (this.lifecycleActionButton) this.lifecycleActionButton.textContent = action.buttonLabel;
+    this.updateSubmitButtons();
+  }
+
+  hideLifecycleAction() {
+    this.currentLifecycleAction = null;
+    this.lifecycleActionSection?.classList.add('hidden');
+    this.updateSubmitButtons();
+  }
+
   resetVoteState(proposal) {
     const options = this.getVoteOptions(proposal);
     this.voteWeights = options.map(() => 0);
@@ -5265,6 +5371,7 @@ class ProposalInfoModal {
     const disableCommittee = this.isSubmitting || !this.canSubmitCommitteeReview;
     const isSameVote = Boolean(this.currentCommitteeVote && this.committeeChoice === this.currentCommitteeVote);
     const disableResult = this.isSubmitting || !this.canSubmitReviewResult;
+    const disableLifecycle = this.isSubmitting || !this.currentLifecycleAction?.canSubmit;
     const disableVote = this.isSubmitting || !this.canSubmitVote;
 
     if (this.acceptButton) this.acceptButton.disabled = disableCommittee || this.currentCommitteeVote === 'accept';
@@ -5278,6 +5385,12 @@ class ProposalInfoModal {
     if (this.reviewResultButton) {
       this.reviewResultButton.disabled = disableResult;
       this.reviewResultButton.textContent = this.isSubmitting && this.canSubmitReviewResult ? 'Finalizing...' : this.reviewResultButtonLabel;
+    }
+    if (this.lifecycleActionButton) {
+      this.lifecycleActionButton.disabled = disableLifecycle;
+      this.lifecycleActionButton.textContent = this.isSubmitting && this.currentLifecycleAction?.canSubmit
+        ? this.currentLifecycleAction.loadingLabel
+        : this.currentLifecycleAction?.buttonLabel || '';
     }
     if (this.voteSubmitButton) {
       this.voteSubmitButton.disabled = disableVote;
@@ -5489,6 +5602,62 @@ class ProposalInfoModal {
     } catch (error) {
       console.warn('Failed to finalize review result:', error);
       showToast(error?.message || 'Review result finalization failed', 3000, 'warning');
+    } finally {
+      if (loadingToastId) hideToast(loadingToastId);
+      this.setSubmitting(false);
+    }
+  }
+
+  async handleLifecycleActionSubmit() {
+    const action = this.currentLifecycleAction;
+    if (this.isSubmitting || !action?.canSubmit) return;
+
+    const proposal = this.getCurrentProposal();
+    if (!proposal) {
+      showToast('Proposal data is unavailable', 2500, 'warning');
+      return;
+    }
+    if (!myAccount?.keys?.address) {
+      showToast('Wallet keys unavailable', 2500, 'warning');
+      return;
+    }
+
+    this.setSubmitting(true);
+    const loadingToastId = showToast(action.loadingLabel, 0, 'loading');
+
+    try {
+      const request = {
+        from: getDaoCurrentAccountAddress(),
+        proposal,
+        timestamp: getTransactionTimestamp(),
+        networkId: network?.netid || '',
+        submitTransaction: (transaction) => this.submitDaoTransaction(transaction),
+      };
+      let result;
+      switch (action.kind) {
+        case 'vote_result':
+          result = await daoRepo.finalizeVoteResult(request);
+          break;
+        case 'claim_reward':
+          result = await daoRepo.claimReward(request);
+          break;
+        case 'burn_reward':
+          result = await daoRepo.burnReward(request);
+          break;
+        default:
+          throw new Error(`Unknown DAO lifecycle action: ${action.kind}`);
+      }
+
+      if (!result.ok) {
+        showToast(result.error || `${action.title} failed`, 3000, 'warning');
+        return;
+      }
+
+      showToast(action.successMessage, 3000, 'success');
+      await this.refreshAfterDaoAction(action.refreshWarning);
+    } catch (error) {
+      console.warn('Failed to submit DAO lifecycle action:', error);
+      showToast(error?.message || `${action.title} failed`, 3000, 'warning');
     } finally {
       if (loadingToastId) hideToast(loadingToastId);
       this.setSubmitting(false);

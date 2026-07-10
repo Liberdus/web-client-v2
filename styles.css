@@ -2084,6 +2084,7 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-info,
 #proposalInfoModal .proposal-committee-actions,
 #proposalInfoModal .proposal-review-result-actions,
+#proposalInfoModal .proposal-lifecycle-actions,
 #proposalInfoModal .proposal-vote-actions {
   display: grid;
   gap: 14px;
@@ -2578,14 +2579,18 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-info + .proposal-committee-actions,
 #proposalInfoModal .proposal-info + .proposal-review-result-actions,
+#proposalInfoModal .proposal-info + .proposal-lifecycle-actions,
 #proposalInfoModal .proposal-info + .proposal-vote-actions,
 #proposalInfoModal .proposal-committee-actions + .proposal-review-result-actions,
+#proposalInfoModal .proposal-review-result-actions + .proposal-lifecycle-actions,
+#proposalInfoModal .proposal-lifecycle-actions + .proposal-vote-actions,
 #proposalInfoModal .proposal-review-result-actions + .proposal-vote-actions {
   margin-top: 10px;
 }
 
 #proposalInfoModal .proposal-committee-actions,
 #proposalInfoModal .proposal-review-result-actions,
+#proposalInfoModal .proposal-lifecycle-actions,
 #proposalInfoModal .proposal-vote-actions {
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -2739,6 +2744,7 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-committee-actions .btn,
 #proposalInfoModal .proposal-review-result-actions .btn,
+#proposalInfoModal .proposal-lifecycle-actions .btn,
 #proposalInfoModal .proposal-vote-actions .btn {
   font-size: 14px;
   height: 40px;
@@ -2747,6 +2753,7 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-committee-actions .btn--pill.btn--full,
 #proposalInfoModal .proposal-review-result-actions .btn--pill.btn--full,
+#proposalInfoModal .proposal-lifecycle-actions .btn--pill.btn--full,
 #proposalInfoModal .proposal-vote-actions .btn--pill.btn--full {
   margin: 0;
   width: 100%;
