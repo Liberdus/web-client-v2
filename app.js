@@ -2466,6 +2466,16 @@ function formatDaoTimestamp(ts) {
   }
 }
 
+function formatDaoDate(ts) {
+  const n = Number(ts || 0);
+  if (!n) return '';
+  try {
+    return new Date(n).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {
+    return '';
+  }
+}
+
 function getDaoUiStateLabel(key) {
   if (key === 'discussion') return 'Review';
   return getDaoStateLabel(key);
@@ -2773,6 +2783,24 @@ class DaoModal {
         value: reviewWindow.canFinalizeReviewResult ? 'Ready to finalize' : reviewWindow.label,
         tone: 'neutral',
       });
+    } else if (state === 'voting') {
+      const now = Date.now();
+      const votingWindow = getDaoProposalVotingWindow(proposal, now);
+      const lifecycleActions = getDaoProposalLifecycleActions(proposal, reward, getDaoCurrentAccountAddress(), now);
+      const endDate = formatDaoDate(votingWindow.end);
+
+      if (endDate) {
+        chips.push({
+          value: `${now > votingWindow.end ? 'Ended' : 'Ends'} ${endDate}`,
+          tone: 'neutral',
+        });
+      }
+      if (lifecycleActions.some((action) => action.kind === 'vote_result')) {
+        chips.push({
+          value: 'Ready to finalize',
+          tone: 'neutral',
+        });
+      }
     } else {
       const lifecycleActions = getDaoProposalLifecycleActions(proposal, reward);
       const claimAction = lifecycleActions.find((action) => action.kind === 'claim_reward');
