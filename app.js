@@ -2766,13 +2766,6 @@ class DaoModal {
     const result = getDaoProposalResultSummary(proposal);
     const reward = getDaoProposalRewardSummary(proposal);
 
-    if (result) {
-      chips.push({
-        label: 'Result',
-        value: result.headline,
-        tone: result.tone,
-      });
-    }
     if (state === 'review') {
       const reviewWindow = getDaoProposalReviewWindow(proposal);
 
@@ -2786,6 +2779,13 @@ class DaoModal {
         label: 'Reward',
         value: 'Ready to claim',
         tone: reward.statusTone,
+      });
+    }
+    if (result) {
+      chips.push({
+        label: 'Result',
+        value: result.headline,
+        tone: result.tone,
       });
     }
 
