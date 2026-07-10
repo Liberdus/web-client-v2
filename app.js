@@ -2786,16 +2786,16 @@ class DaoModal {
     } else if (state === 'voting') {
       const now = Date.now();
       const votingWindow = getDaoProposalVotingWindow(proposal, now);
-      const lifecycleActions = getDaoProposalLifecycleActions(proposal, reward, getDaoCurrentAccountAddress(), now);
       const endDate = formatDaoDate(votingWindow.end);
+      const votingEnded = Boolean(votingWindow.end && now > votingWindow.end);
 
-      if (endDate && now <= votingWindow.end) {
+      if (endDate && !votingEnded) {
         chips.push({
           value: `Ends ${endDate}`,
           tone: 'neutral',
         });
       }
-      if (lifecycleActions.some((action) => action.kind === 'vote_result')) {
+      if (votingEnded) {
         chips.push({
           value: 'Ready to finalize',
           tone: 'neutral',
