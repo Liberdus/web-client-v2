@@ -2781,10 +2781,10 @@ class DaoModal {
         value: reviewWindow.canFinalizeReviewResult ? 'Ready to finalize' : reviewWindow.label,
         tone: 'neutral',
       });
-    } else if (reward) {
+    } else if (reward?.claimStatus === 'Claimable') {
       chips.push({
         label: 'Reward',
-        value: reward.previewLabel,
+        value: 'Ready to claim',
         tone: reward.statusTone,
       });
     }
@@ -4004,7 +4004,13 @@ function getDaoProposalResultSummary(proposal) {
 }
 
 function normalizeDaoAddress(value) {
-  return String(value || '').trim().toLowerCase();
+  const text = String(value || '').trim();
+  if (!text) return '';
+  try {
+    return normalizeAddress(text);
+  } catch {
+    return text.toLowerCase();
+  }
 }
 
 function getDaoVoterEntries(proposal) {
@@ -4087,23 +4093,6 @@ function getDaoRewardClaimStatus({ state, currentAddress, voterIndex, hasClaimed
   return 'Claimable';
 }
 
-function getDaoRewardPreviewLabel(summary) {
-  if (summary.claimStatus === 'Claimable' && summary.claimEstimate !== null) {
-    return `${formatDaoLibWei(summary.claimEstimate)} claimable`;
-  }
-  if (summary.claimStatus === 'Already claimed') return 'Reward claimed';
-  if (summary.initialBurned !== null && summary.initialBurned > 0n) {
-    return `${formatDaoLibWei(summary.initialBurned)} burned`;
-  }
-  if (summary.finalBurned !== null && summary.finalBurned > 0n) {
-    return `${formatDaoLibWei(summary.finalBurned)} burned`;
-  }
-  if (summary.unclaimed !== null && summary.unclaimed > 0n) {
-    return `${formatDaoLibWei(summary.unclaimed)} unclaimed`;
-  }
-  return summary.claimStatus;
-}
-
 function getDaoProposalRewardSummary(proposal, currentAddress = getDaoCurrentAccountAddress(), now = Date.now()) {
   const state = getEffectiveDaoState(proposal);
   const isRewardState = state === 'accepted' || state === 'rejected' || state === 'applied' || state === 'withheld';
@@ -4167,7 +4156,6 @@ function getDaoProposalRewardSummary(proposal, currentAddress = getDaoCurrentAcc
   };
   return {
     ...summary,
-    previewLabel: getDaoRewardPreviewLabel(summary),
     statusTone: claimStatus === 'Claimable' ? 'accept' : '',
   };
 }
@@ -4218,19 +4206,7 @@ function getDaoProposalLifecycleAction(proposal, rewardSummary, currentAddress =
   }
 
   if (claimWindow.start && claimWindow.end && now >= claimWindow.start && now <= claimWindow.end && unclaimed > 0n) {
-    if (!hasWallet) {
-      return {
-        kind: 'claim_reward',
-        title: 'Reward claim',
-        help: 'Sign in with the wallet that voted on this proposal to check and claim rewards.',
-        buttonLabel: 'Claim reward',
-        loadingLabel: 'Claiming reward...',
-        successMessage: 'Reward claimed',
-        refreshWarning: 'Reward claimed, but proposal refresh failed',
-        canSubmit: false,
-      };
-    }
-    if (rewardSummary?.claimStatus !== 'Claimable') return null;
+    if (!hasWallet || rewardSummary?.claimStatus !== 'Claimable') return null;
 
     return {
       kind: 'claim_reward',
