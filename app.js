@@ -3698,9 +3698,9 @@ class ConfirmProposalModal {
           <div class="dao-confirm-change">
             <div class="dao-confirm-change-title">Change ${index + 1}: ${escapeHtml(change.key)}</div>
             <div class="dao-confirm-change-values">
-              <small>Current: ${escapeHtml(formatDaoConfirmValue(change.current))}</small>
+              <small><span>Current:</span><strong>${escapeHtml(formatDaoConfirmValue(change.current))}</strong></small>
               <span class="dao-confirm-change-arrow" aria-hidden="true">&rarr;</span>
-              <strong>New: ${escapeHtml(formatDaoConfirmValue(change.value))}</strong>
+              <small><span>New:</span><strong>${escapeHtml(formatDaoConfirmValue(change.value))}</strong></small>
             </div>
           </div>
         `).join('')
@@ -4767,28 +4767,22 @@ class ProposalInfoModal {
   }
 
   renderSection(title, rows) {
-    const renderedRows = rows.map(([label, value, tone]) => {
-      const displayValue = formatDaoDetailValue(value);
-      const rowClass = this.getSectionRowClass(label, displayValue);
-      return {
-        label,
-        value: displayValue,
-        classes: [
+    const rowHtml = rows
+      .map(([label, value, tone]) => {
+        const displayValue = formatDaoDetailValue(value);
+        const rowClass = this.getSectionRowClass(label, displayValue);
+        const classes = [
           rowClass,
           tone ? `proposal-info-row--${tone}` : '',
-        ].filter(Boolean),
-        isFull: rowClass.includes('proposal-info-row--full'),
-      };
-    });
-    this.centerTwoCardRows(renderedRows);
+        ].filter(Boolean);
 
-    const rowHtml = renderedRows
-      .map((row) => `
-        <div class="${row.classes.join(' ')}">
-          <span>${escapeHtml(row.label)}</span>
-          <span class="proposal-info-value">${escapeHtml(row.value)}</span>
+        return `
+        <div class="${classes.join(' ')}">
+          <span>${escapeHtml(label)}</span>
+          <span class="proposal-info-value">${escapeHtml(displayValue)}</span>
         </div>
-      `)
+      `;
+      })
       .join('');
 
     return `
@@ -4797,24 +4791,6 @@ class ProposalInfoModal {
         <div class="proposal-info-grid">${rowHtml}</div>
       </section>
     `;
-  }
-
-  centerTwoCardRows(renderedRows) {
-    let row = [];
-    const flush = () => {
-      if (row.length === 2) row[0].classes.push('proposal-info-row--center-pair');
-      row = [];
-    };
-
-    for (const renderedRow of renderedRows) {
-      if (renderedRow.isFull) {
-        flush();
-        continue;
-      }
-      row.push(renderedRow);
-      if (row.length === 3) flush();
-    }
-    flush();
   }
 
   getSectionRowClass(label, value) {
