@@ -4012,11 +4012,7 @@ function getDaoProposalResultSummary(proposal) {
 function normalizeDaoAddress(value) {
   const text = String(value || '').trim();
   if (!text) return '';
-  try {
-    return normalizeAddress(text);
-  } catch {
-    return text.toLowerCase();
-  }
+  return normalizeAddress(text);
 }
 
 function getDaoVoterEntries(proposal) {
