@@ -4164,7 +4164,6 @@ function getDaoProposalRewardSummary(proposal, currentAddress = getDaoCurrentAcc
 
 function getDaoProposalLifecycleAction(proposal, rewardSummary, currentAddress = getDaoCurrentAccountAddress(), now = Date.now()) {
   const state = getEffectiveDaoState(proposal);
-  const hasWallet = Boolean(currentAddress);
 
   if (state === 'voting') {
     const votingWindow = getDaoProposalVotingWindow(proposal, now);
@@ -4172,14 +4171,11 @@ function getDaoProposalLifecycleAction(proposal, rewardSummary, currentAddress =
       return {
         kind: 'vote_result',
         title: 'Vote result',
-        help: hasWallet
-          ? 'Voting has ended. Finalize the vote result to move this proposal to accepted or rejected.'
-          : 'Voting has ended. Sign in with a funded wallet to finalize the vote result.',
+        help: 'Voting has ended. Finalize the vote result to move this proposal to accepted or rejected.',
         buttonLabel: 'Finalize vote result',
         loadingLabel: 'Finalizing vote result...',
         successMessage: 'Vote result finalized',
         refreshWarning: 'Vote result finalized, but proposal refresh failed',
-        canSubmit: hasWallet,
       };
     }
     return null;
@@ -4196,19 +4192,16 @@ function getDaoProposalLifecycleAction(proposal, rewardSummary, currentAddress =
     return {
       kind: 'burn_reward',
       title: 'Reward burn',
-      help: hasWallet
-        ? 'The claim window has ended. Burn the unclaimed reward pool so the proposal accounting is finalized.'
-        : 'The claim window has ended. Sign in with a funded wallet to burn the unclaimed reward pool.',
+      help: 'The claim window has ended. Burn the unclaimed reward pool so the proposal accounting is finalized.',
       buttonLabel: 'Burn unclaimed reward',
       loadingLabel: 'Burning reward...',
       successMessage: 'Unclaimed reward burned',
       refreshWarning: 'Reward burned, but proposal refresh failed',
-      canSubmit: hasWallet,
     };
   }
 
   if (claimWindow.start && claimWindow.end && now >= claimWindow.start && now <= claimWindow.end && unclaimed > 0n) {
-    if (!hasWallet || rewardSummary?.claimStatus !== 'Claimable') return null;
+    if (!currentAddress || rewardSummary?.claimStatus !== 'Claimable') return null;
 
     return {
       kind: 'claim_reward',
@@ -4220,7 +4213,6 @@ function getDaoProposalLifecycleAction(proposal, rewardSummary, currentAddress =
       loadingLabel: 'Claiming reward...',
       successMessage: 'Reward claimed',
       refreshWarning: 'Reward claimed, but proposal refresh failed',
-      canSubmit: true,
     };
   }
 
@@ -5355,7 +5347,7 @@ class ProposalInfoModal {
     const disableCommittee = this.isSubmitting || !this.canSubmitCommitteeReview;
     const isSameVote = Boolean(this.currentCommitteeVote && this.committeeChoice === this.currentCommitteeVote);
     const disableResult = this.isSubmitting || !this.canSubmitReviewResult;
-    const disableLifecycle = this.isSubmitting || !this.currentLifecycleAction?.canSubmit;
+    const disableLifecycle = this.isSubmitting || !this.currentLifecycleAction;
     const disableVote = this.isSubmitting || !this.canSubmitVote;
 
     if (this.acceptButton) this.acceptButton.disabled = disableCommittee || this.currentCommitteeVote === 'accept';
@@ -5372,7 +5364,7 @@ class ProposalInfoModal {
     }
     if (this.lifecycleActionButton) {
       this.lifecycleActionButton.disabled = disableLifecycle;
-      this.lifecycleActionButton.textContent = this.isSubmitting && this.currentLifecycleAction?.canSubmit
+      this.lifecycleActionButton.textContent = this.isSubmitting && this.currentLifecycleAction
         ? this.currentLifecycleAction.loadingLabel
         : this.currentLifecycleAction?.buttonLabel || '';
     }
@@ -5594,7 +5586,7 @@ class ProposalInfoModal {
 
   async handleLifecycleActionSubmit() {
     const action = this.currentLifecycleAction;
-    if (this.isSubmitting || !action?.canSubmit) return;
+    if (this.isSubmitting || !action) return;
 
     const proposal = this.getCurrentProposal();
     if (!proposal) {
