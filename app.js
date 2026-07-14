@@ -2477,7 +2477,6 @@ function formatDaoDate(ts) {
 }
 
 function getDaoUiStateLabel(key) {
-  if (key === 'discussion') return 'Review';
   return getDaoStateLabel(key);
 }
 
@@ -2738,7 +2737,7 @@ class DaoModal {
       const titleText = String(p.title || '').trim() || 'Proposal';
       const rowTitleText = p.number ? `#${p.number}: ${titleText}` : titleText;
       const title = escapeHtml(rowTitleText);
-      const typeLabel = escapeHtml(getDaoTypeLabel(p.proposalType || p.type) || 'Proposal');
+      const typeLabel = escapeHtml(getDaoTypeLabel(p.proposalType) || 'Proposal');
       const previewHtml = this.renderProposalRowPreview(p);
 
       li.tabIndex = 0;
@@ -4118,7 +4117,7 @@ function getDaoProposalApplyWindow(proposal, now = Date.now()) {
 }
 
 function isDaoParameterProposalType(proposal) {
-  const type = String(proposal?.proposalType || proposal?.type || '').toLowerCase();
+  const type = String(proposal?.proposalType || '').toLowerCase();
   return type === 'governance' || type === 'economic' || type === 'protocol';
 }
 
@@ -4520,7 +4519,7 @@ class ProposalInfoModal {
       currentAddress,
       committeeAddressSet,
     });
-    const proposalType = proposal.proposalType || proposal.type;
+    const proposalType = proposal.proposalType;
     const resultSummary = getDaoProposalResultSummary(proposal);
     const rewardSummary = getDaoProposalRewardSummary(proposal, currentAddress);
     const lifecycleActions = getDaoProposalLifecycleActions(proposal, rewardSummary, currentAddress);
@@ -4596,7 +4595,7 @@ class ProposalInfoModal {
   }
 
   renderProposalTitle(proposal) {
-    const description = proposal.description || proposal.summary || '';
+    const description = proposal.description || '';
     const descriptionHtml = description
       ? `<p class="proposal-info-description">${escapeHtml(description)}</p>`
       : '';
@@ -5010,9 +5009,8 @@ class ProposalInfoModal {
   }
 
   renderParameterChanges(proposal) {
-    const fields = proposal.fields && typeof proposal.fields === 'object' ? proposal.fields : {};
     const payloads = ['governance', 'economic', 'protocol']
-      .map((key) => [key, proposal[key] || fields[key]])
+      .map((key) => [key, proposal[key]])
       .filter(([, payload]) => payload && typeof payload === 'object');
 
     if (payloads.length === 0) {
