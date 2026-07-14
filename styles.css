@@ -1920,23 +1920,46 @@ input[type='file'].form-control::file-selector-button {
   width: 100%;
 }
 
-#addProposalModal .dao-form-add-button::before {
+.plus-glyph {
+  background-color: currentColor;
+  display: inline-block;
+  flex: 0 0 auto;
+  height: 0.68em;
+  line-height: 1;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M7 2.5h2V7h4.5v2H9v4.5H7V9H2.5V7H7z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M7 2.5h2V7h4.5v2H9v4.5H7V9H2.5V7H7z'/%3E%3C/svg%3E") center / contain no-repeat;
+  overflow: hidden;
+  text-indent: 100%;
+  transform: none;
+  white-space: nowrap;
+  width: 0.68em;
+}
+
+#addProposalModal .dao-form-add-icon {
   align-items: center;
   background-color: var(--primary-tint-60);
-  background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 3.5V12.5M3.5 8H12.5' stroke='%231c1c21' stroke-width='2.25' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: 14px 14px;
   border-radius: 999px;
   border: none;
+  box-sizing: border-box;
   box-shadow: var(--shadow-primary);
-  content: "";
+  color: var(--text-color);
   display: inline-flex;
   flex: 0 0 22px;
+  font-size: 16px;
+  font-weight: 400;
   height: 22px;
   justify-content: center;
+  -webkit-box-align: center;
+  -webkit-box-pack: center;
+  line-height: 1;
   padding: 0;
+  text-align: center;
   width: 22px;
+}
+
+.message-context-reaction-button-more .plus-glyph {
+  position: relative;
+  z-index: 1;
 }
 
 #addProposalModal .dao-form-remove-button {
