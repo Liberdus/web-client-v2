@@ -532,16 +532,17 @@ function mapBackendProposalToStoreProposal(proposal) {
   if (!proposalType) return null;
 
   const state = getEffectiveDaoState(proposal);
-  const created = normalizeDaoTimestamp(proposal.creationTime || proposal.created || proposal.timestamp);
-  const stateChanged = normalizeDaoTimestamp(proposal.timestamp || proposal.state_changed || created);
+  const created = normalizeDaoTimestamp(proposal.creationTime);
+  const stateChanged = normalizeDaoTimestamp(proposal.timestamp);
   const description = getDaoProposalDescription(proposal);
+  const title = String(proposal.title || proposal.description || '').trim();
 
   return {
     ...proposal,
     accountId,
     number,
     nonce,
-    title: String(proposal.title || '').trim(),
+    title,
     description,
     proposalType,
     state,
@@ -725,16 +726,16 @@ function storeToUiList(store, groupKey) {
         state,
         status: state,
         stateEnteredAt: p.state_changed,
-        options: Array.isArray(p.options) ? p.options : ['yes', 'no'],
-        totalVote: Array.isArray(p.totalVote) ? p.totalVote : undefined,
-        committeeVotes: Array.isArray(p.committeeVotes) ? p.committeeVotes : [],
-        committeeAddresses: Array.isArray(p.committeeAddresses) ? p.committeeAddresses : [],
+        options: p.options,
+        totalVote: p.totalVote,
+        committeeVotes: p.committeeVotes,
+        committeeAddresses: p.committeeAddresses,
         voterRewardPool: p.voterRewardPool,
         claimedReward: p.claimedReward,
         initialBurnedReward: p.initialBurnedReward,
         finalBurnedReward: p.finalBurnedReward,
-        voterList: Array.isArray(p.voterList) ? p.voterList : [],
-        claimList: Array.isArray(p.claimList) ? p.claimList : [],
+        voterList: p.voterList,
+        claimList: p.claimList,
         startTime: p.startTime,
         reviewDuration: p.reviewDuration,
         votingDuration: p.votingDuration,
