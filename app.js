@@ -4532,6 +4532,13 @@ class ProposalInfoModal {
         ['Next state', this.getNextStateHint(proposal, acceptCount, withholdCount, reviewWindow)],
       ])
       : '';
+    const committeeReviewReasons = state === 'review'
+      ? this.renderCommitteeWithholdReasons(
+        getDaoCommitteeWithholdReasonEntries(proposal)
+          .filter((entry) => entry.memberAddress !== currentAddress),
+        'Other committee withhold reasons',
+      )
+      : '';
 
     if (this.content) {
       this.content.innerHTML = [
@@ -4541,6 +4548,7 @@ class ProposalInfoModal {
         this.renderProposalResults(resultSummary),
         state === 'review' ? this.renderProposalBody(proposal) : '',
         committeeReviewSection,
+        committeeReviewReasons,
       ].filter(Boolean).join('');
     }
     if (this.detailsContent) {
