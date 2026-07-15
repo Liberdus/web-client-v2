@@ -164,7 +164,7 @@
           <!-- Contact items will be inserted here -->
         </ul>
       </div>
-      <button class="floating-button" id="newChatButton">+</button>
+      <button class="floating-button" id="newChatButton" aria-label="New chat"><span class="plus-glyph" aria-hidden="true">+</span></button>
 
       <div class="app-screen" id="walletScreen">
         <div class="wallet-balance">
@@ -312,10 +312,10 @@
             <div class="empty-state" id="daoProposalEmptyState">
               <div></div>
               <div>No proposals found</div>
-              <div>Use + to create a proposal</div>
+              <div>Proposal data appears here when available</div>
             </div>
           </ul>
-          <button class="floating-button" id="daoAddProposalButton" aria-label="Add proposal">+</button>
+          <button class="floating-button" id="daoAddProposalButton" aria-label="Add proposal"><span class="plus-glyph" aria-hidden="true">+</span></button>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
@@ -357,35 +357,97 @@
         </div>
         <div class="modal-content">
           <div class="form-container">
-            <form id="addProposalForm" class="form--narrow">
+            <form id="addProposalForm" class="form--narrow dao-proposal-form" novalidate>
+              <div class="dao-form-grid">
+                <div class="form-group">
+                  <label for="addProposalEmergency">Emergency</label>
+                  <select id="addProposalEmergency" class="form-control" required>
+                    <option value="false">No</option>
+                    <option value="true">Yes</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="addProposalFee">Proposal Fee</label>
+                  <input id="addProposalFee" class="form-control dao-form-current-value" type="text" value="Loading..." readonly />
+                  <div class="dao-form-help">Derived from DAO params. Emergency proposals use 0.</div>
+                </div>
+              </div>
               <div class="form-group">
                 <label for="addProposalTitle">Title</label>
-                <input id="addProposalTitle" class="form-control" type="text" maxlength="120" required />
+                <input id="addProposalTitle" class="form-control" type="text" maxlength="100" placeholder="Proposal title" required />
               </div>
               <div class="form-group">
-                <label for="addProposalType">Type</label>
+                <label for="addProposalType">Proposal Type</label>
                 <select id="addProposalType" class="form-control" required>
-                  <optgroup label="Treasury">
-                    <option value="treasury_project">Project</option>
-                    <option value="treasury_mint">Mint coins (fund projects)</option>
-                  </optgroup>
-                  <optgroup label="Parameters">
-                    <option value="params_governance">Governance</option>
-                    <option value="params_economic">Economic</option>
-                    <option value="params_protocol">Protocol</option>
-                  </optgroup>
+                  <option value="governance">Governance</option>
+                  <option value="economic">Economic</option>
+                  <option value="protocol">Protocol</option>
                 </select>
+                <div class="dao-form-help">Choose governance, economic, or protocol. This controls which parameters can be selected below.</div>
               </div>
-              <div id="addProposalTypeFields"></div>
               <div class="form-group">
-                <label for="addProposalSummary">Summary</label>
-                <textarea id="addProposalSummary" class="form-control" rows="6" maxlength="2000" placeholder="Describe the proposal" required></textarea>
+                <label for="addProposalDescription">Description</label>
+                <textarea id="addProposalDescription" class="form-control" rows="6" maxlength="10000" placeholder="Describe the proposal" required></textarea>
+              </div>
+              <div class="form-group dao-form-section">
+                <div class="dao-form-section-header">
+                  <label>Parameter Changes</label>
+                </div>
+                <div class="dao-form-list" id="addProposalChangesList"></div>
+                <button type="button" class="btn btn--secondary dao-form-add-button" id="addProposalChangeButton">
+                  <span class="dao-form-add-icon" aria-hidden="true"><span class="plus-glyph">+</span></span>
+                  <span>Add parameter change</span>
+                </button>
+              </div>
+              <div class="form-group dao-form-section">
+                <div class="dao-form-section-header">
+                  <label>Options</label>
+                </div>
+                <div class="dao-form-list" id="addProposalOptionsList"></div>
+                <button type="button" class="btn btn--secondary dao-form-add-button" id="addProposalOptionButton">
+                  <span class="dao-form-add-icon" aria-hidden="true"><span class="plus-glyph">+</span></span>
+                  <span>Add option</span>
+                </button>
+                <div class="dao-form-help">2 to 10 options. The first option must be yes, accept, or approve.</div>
+              </div>
+              <div class="form-group dao-form-section">
+                <label>Timing</label>
+                <div class="dao-form-grid dao-form-grid--timing">
+                  <div class="form-group">
+                    <label for="addProposalStartDelayDays">Review Starts (days)</label>
+                    <input id="addProposalStartDelayDays" class="form-control" type="number" min="0" step="1" value="0" inputmode="numeric" />
+                    <div class="dao-form-help">Days from submission. 0 means now.</div>
+                  </div>
+                  <div class="form-group">
+                    <label for="addProposalGracePeriodMs">Grace Period (ms)</label>
+                    <input id="addProposalGracePeriodMs" class="form-control" type="number" min="0" step="1" inputmode="numeric" placeholder="Loading default..." />
+                    <div class="dao-form-help" id="addProposalGracePeriodHelp">Default: loading...</div>
+                  </div>
+                </div>
               </div>
               <div class="form-actions">
-                <button type="submit" class="btn btn--primary btn--pill btn--full">Submit</button>
                 <button type="button" id="cancelAddProposal" class="btn btn--secondary btn--pill btn--full">Cancel</button>
+                <button type="submit" class="btn btn--primary btn--pill btn--full">Review Draft</button>
               </div>
             </form>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Confirm Proposal Modal -->
+      <div class="modal fixed-header" id="confirmProposalModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeConfirmProposalModal"></button>
+          <div class="modal-title" id="confirmProposalModalTitle">Review Proposal</div>
+        </div>
+        <div class="modal-content">
+          <div class="form-container">
+            <div class="dao-confirm" id="confirmProposalContent"></div>
+            <div class="form-actions dao-confirm-actions">
+              <button type="button" id="backConfirmProposal" class="btn btn--secondary btn--pill btn--full">Back</button>
+              <button type="button" id="signConfirmProposal" class="btn btn--primary btn--pill btn--full">Sign Proposal</button>
+            </div>
           </div>
         </div>
         <a class="last-item" href="#"> </a>
@@ -395,28 +457,60 @@
       <div class="modal fixed-header" id="proposalInfoModal">
         <div class="modal-header">
           <button class="back-button" id="closeProposalInfoModal"></button>
-          <div class="modal-title">Proposal</div>
+          <div class="modal-title" id="proposalInfoModalTitle">Proposal</div>
         </div>
         <div class="modal-content">
           <div class="form-container">
-            <div style="padding: 1rem">
-              <div style="color: var(--secondary-text-color); font-size: 0.9rem; margin-bottom: 6px" id="proposalInfoNumber"></div>
-              <div style="font-weight: 600; margin-bottom: 6px" id="proposalInfoTitle"></div>
-              <div style="color: var(--secondary-text-color); font-size: 0.9rem; margin-bottom: 10px" id="proposalInfoType"></div>
-              <div style="color: var(--secondary-text-color); font-size: 0.9rem; margin-bottom: 10px" id="proposalInfoMeta"></div>
-              <div style="white-space: pre-wrap" id="proposalInfoSummary"></div>
-
-              <div id="proposalInfoFields" style="margin-top: 12px"></div>
-
-              <div id="proposalVoteSection" style="margin-top: 16px; display: none">
-                <div style="font-weight: 600; margin-bottom: 8px">Vote</div>
-                <div class="form-actions" style="gap: 10px">
-                  <button type="button" id="proposalVoteYes" class="btn btn--secondary btn--pill btn--full">Yes</button>
-                  <button type="button" id="proposalVoteNo" class="btn btn--secondary btn--pill btn--full">No</button>
-                </div>
-                <div style="color: var(--secondary-text-color); font-size: 0.9rem; margin-top: 8px" id="proposalVoteCounts"></div>
+            <div class="proposal-info" id="proposalInfoContent"></div>
+            <section class="proposal-committee-actions hidden" id="proposalCommitteeActionSection" aria-label="Committee review actions">
+              <div class="proposal-committee-actions-header">
+                <h3>Committee action</h3>
+                <p id="proposalCommitteeActionHelp"></p>
               </div>
-            </div>
+              <div class="proposal-decision-field">
+                <div class="proposal-decision-label">Review decision</div>
+                <div class="proposal-action-toggle" role="radiogroup" aria-label="Committee review decision">
+                  <button type="button" class="proposal-decision-option" id="proposalCommitteeAccept" role="radio" aria-checked="true">Accept</button>
+                  <button type="button" class="proposal-decision-option" id="proposalCommitteeWithhold" role="radio" aria-checked="false">Withhold</button>
+                </div>
+              </div>
+              <div class="proposal-withhold-fields hidden" id="proposalWithholdFields">
+                <div class="form-group">
+                  <label for="proposalWithholdReason">Withhold reason</label>
+                  <select id="proposalWithholdReason" class="form-control"></select>
+                </div>
+                <div class="form-group hidden" id="proposalWithholdCustomGroup">
+                  <label for="proposalWithholdCustomReason">Custom reason</label>
+                  <textarea id="proposalWithholdCustomReason" class="form-control" rows="4" maxlength="1000"></textarea>
+                </div>
+              </div>
+              <button type="button" class="btn btn--primary btn--pill btn--full" id="proposalCommitteeSubmit">Submit review</button>
+            </section>
+            <section class="proposal-review-result-actions hidden" id="proposalReviewResultSection" aria-label="Review result action">
+              <div class="proposal-committee-actions-header">
+                <h3>Review result</h3>
+                <p id="proposalReviewResultHelp"></p>
+              </div>
+              <button type="button" class="btn btn--primary btn--pill btn--full" id="proposalReviewResultSubmit">Finalize review result</button>
+            </section>
+            <section class="proposal-lifecycle-actions hidden" id="proposalLifecycleActionSection" aria-label="Proposal lifecycle action"></section>
+            <section class="proposal-vote-actions hidden" id="proposalVoteActionSection" aria-label="Proposal voting actions">
+              <div class="proposal-committee-actions-header">
+                <h3>Vote preview</h3>
+                <p id="proposalVoteActionHelp"></p>
+              </div>
+              <div class="proposal-vote-options" id="proposalVoteOptions"></div>
+              <div class="proposal-vote-spend-row">
+                <div class="form-group">
+                  <label for="proposalVoteSpend">Spend amount</label>
+                  <input type="number" id="proposalVoteSpend" class="form-control" min="0" step="0.000001" inputmode="decimal" placeholder="0.000000">
+                </div>
+                <span>LIB</span>
+              </div>
+              <div class="proposal-vote-preview" id="proposalVotePreview"></div>
+              <button type="button" class="btn btn--primary btn--pill btn--full" id="proposalVoteSubmit" disabled>Submit vote</button>
+            </section>
+            <div class="proposal-details" id="proposalDetailsContent"></div>
           </div>
         </div>
         <a class="last-item" href="#"> </a>
@@ -1453,7 +1547,7 @@
           <button class="message-context-reaction-button" type="button" data-emoji="😂" data-default-emoji="😂" data-default-aria-label="React with tears of joy" aria-label="React with tears of joy">😂</button>
           <button class="message-context-reaction-button" type="button" data-emoji="😮" data-default-emoji="😮" data-default-aria-label="React with surprised face" aria-label="React with surprised face">😮</button>
           <button class="message-context-reaction-button" type="button" data-emoji="👎" data-default-emoji="👎" data-default-aria-label="React with thumbs down" aria-label="React with thumbs down">👎</button>
-          <button class="message-context-reaction-button message-context-reaction-button-more" type="button" data-reaction-picker-trigger="true" aria-label="Add reaction">+</button>
+          <button class="message-context-reaction-button message-context-reaction-button-more" type="button" data-reaction-picker-trigger="true" aria-label="Add reaction"><span class="plus-glyph" aria-hidden="true">+</span></button>
         </div>
         <!-- Voice message specific action: Save -->
         <div class="context-menu-option" data-action="save" data-icon="download" style="display: none;">
@@ -1507,7 +1601,7 @@
           <button class="message-context-reaction-button" type="button" data-emoji="😂" data-default-emoji="😂" data-default-aria-label="React with tears of joy" aria-label="React with tears of joy">😂</button>
           <button class="message-context-reaction-button" type="button" data-emoji="😮" data-default-emoji="😮" data-default-aria-label="React with surprised face" aria-label="React with surprised face">😮</button>
           <button class="message-context-reaction-button" type="button" data-emoji="👎" data-default-emoji="👎" data-default-aria-label="React with thumbs down" aria-label="React with thumbs down">👎</button>
-          <button class="message-context-reaction-button message-context-reaction-button-more" type="button" data-reaction-picker-trigger="true" aria-label="Add reaction">+</button>
+          <button class="message-context-reaction-button message-context-reaction-button-more" type="button" data-reaction-picker-trigger="true" aria-label="Add reaction"><span class="plus-glyph" aria-hidden="true">+</span></button>
         </div>
         <div class="context-menu-option" data-action="import-contacts" data-icon="contacts" style="display: none;">
           <span class="context-menu-icon"></span>

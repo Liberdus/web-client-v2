@@ -1,6 +1,6 @@
 # DAO (Proposals) UI
 
-This document describes the DAO / proposals feature as currently implemented in the web client, and what needs to change when moving from mock data to a live backend.
+This document describes the DAO / proposals feature as currently implemented in the web client, and what remains after the proposal list query integration.
 
 ## What’s implemented (current behavior)
 
@@ -25,8 +25,7 @@ This document describes the DAO / proposals feature as currently implemented in 
      - Summary
      - Type
      - Type-specific fields (minimal dynamic fields)
-   - New proposals are created in the `discussion` state.
-   - After create, the DAO Modal is set to **Active + Discussion** so the new proposal is immediately visible.
+   - Proposal creation is present in the UI shell but is not connected to a backend transaction yet.
 
 3. **Proposal Info Modal**
    - Displays proposal:
@@ -44,23 +43,20 @@ This document describes the DAO / proposals feature as currently implemented in 
 
 The UI uses these statuses:
 
-- `discussion`
+- `review`
 - `withheld`
 - `voting`
 - `rejected`
 - `accepted`
 - `applied`
-- `executing`
-- `terminated`
-- `completed`
 
 ### Archived is a group, not a status
 
 - “Archived” is a **category/group** in the UI (Active vs Archived), not a status.
-- Archived proposals keep their underlying status (e.g. `completed`) and can still be filtered by status.
+- Archived proposals keep their underlying status (e.g. `applied`) and can still be filtered by status.
 - Auto-archiving rule:
   - Proposals in these statuses are eligible to be auto-archived after 30 days in that state:
-    - `withheld`, `rejected`, `applied`, `terminated`, `completed`
+    - `withheld`, `rejected`, `accepted`, `applied`
 
 ## Data model used by the UI
 
@@ -91,7 +87,6 @@ Full proposal fields (current shape in memory):
 
 - DAO UI implementation: [app.js](app.js)
 - In-memory repository abstraction: [dao.repo.js](dao.repo.js)
-- Mock dataset generator: [dao.mock-data.js](dao.mock-data.js)
 - Shared constants/helpers (states, type labels, archiving constants): [dao.repo.js](dao.repo.js)
 
 Important implementation detail:
@@ -99,56 +94,41 @@ Important implementation detail:
 - The DAO UI no longer persists proposals to localStorage.
 - On DAO modal open, the UI calls `daoRepo.refresh()` and renders from the in-memory store.
 
-## Mock mode vs Backend mode
+## Backend Data Boundary
 
-### Current mode: mock
-
-- `daoRepo` defaults to mock mode.
-- Mock mode uses [dao.mock-data.js](dao.mock-data.js) to generate proposal data.
-- Data is kept in module memory and survives modal open/close while the page is running.
-- Reloading the page resets the DAO data (by design).
-
-### Backend mode (planned)
-
-- `daoRepo` supports a backend integration hook but does not assume endpoints.
-- You will provide:
-  - `setDaoRepoMode('backend')`
-  - `setDaoBackendFetcher(async () => { ... })`
+- `app.js` registers `setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork))`.
+- `dao.repo.js` keeps endpoint querying and backend-to-UI mapping behind the repository boundary.
+- Proposal list loading uses the current server DAO query shape:
+  - `GET /dao/proposals/meta` for `meta.count`
+  - `GET /dao/proposals/:number` for each proposal number from `1..count`
+- The fetcher skips missing numbered proposals so nodes that have not yet surfaced an account do not block the whole list.
 
 ## What must change for a live backend
 
-This section is the “integration checklist” for moving from mock data to real DAO proposals.
+This section is the remaining integration checklist after moving the DAO list to real proposal query endpoints.
 
-### 1) Implement backend fetch in `dao.repo.js`
+### 1) Keep backend fetch in `dao.repo.js`
 
-Right now, backend mode uses an injected fetcher and otherwise returns an empty store.
+`daoRepo` uses an injected fetcher and otherwise returns an empty store.
 
-You should implement one of these approaches:
-
-- **Approach A (recommended): keep the fetcher injection**
-  - In the app bootstrap, call:
-    - `setDaoRepoMode('backend')`
-    - `setDaoBackendFetcher(async () => fetchAndMapStore())`
-
-- **Approach B: hardcode network calls inside `dao.repo.js`**
-  - Not recommended because this app typically keeps network logic centralized.
-
-Either way, the backend response must be mapped into the store shape the UI expects.
+The app passes `queryNetwork` into `createDaoBackendFetcher(...)`; the repository maps backend `DaoProposalAccount` payloads into the store shape the UI expects.
 
 ### 2) Define backend endpoints / payloads
 
-The repository currently does not guess endpoints. You’ll need to decide:
+Known read endpoints:
 
-- List proposals endpoint (likely paginated)
-- Single proposal endpoint (optional if the list includes full detail)
-- Create proposal endpoint
-- Cast vote endpoint
+- `GET /dao/proposals/meta`
+- `GET /dao/proposals/:number`
 
-If the backend returns a different model than the UI store shape, add a mapping layer in the fetcher (or a mapper helper).
+Still needed for later phases:
+
+- Create proposal endpoint/action
+- Cast vote endpoint/action
+- Proposal detail capability data for review, reward, and ready actions
 
 ### 3) Wire create + vote to backend
 
-Currently these operations are purely local/in-memory:
+Currently these operations are placeholders until their backend transactions are wired:
 
 - `daoRepo.createProposal(...)`
 - `daoRepo.castVote(...)`
