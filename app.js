@@ -3989,6 +3989,25 @@ function getDaoFinalOutcome(proposal) {
   return { label, tone };
 }
 
+function getDaoCommitteeWithholdReasonEntries(proposal) {
+  const committeeAddresses = Array.isArray(proposal?.committeeAddresses) ? proposal.committeeAddresses : [];
+  const committeeAddressSet = new Set(committeeAddresses);
+  const committeeVotes = Array.isArray(proposal?.committeeVotes) ? proposal.committeeVotes : [];
+  const entries = [];
+
+  for (const vote of committeeVotes) {
+    if (vote?.vote !== 'withhold' || !committeeAddressSet.has(vote.memberAddress)) continue;
+    if (typeof vote.withheldReason !== 'string') continue;
+
+    const reason = vote.withheldReason.trim();
+    if (!reason) continue;
+
+    entries.push({ memberAddress: vote.memberAddress, reason });
+  }
+
+  return entries;
+}
+
 function getDaoCommitteeReviewResultSummary(proposal) {
   const state = getEffectiveDaoState(proposal);
   if (state !== 'withheld' && !(proposal?.emergency && isDaoFinalResultState(state))) return null;
@@ -4007,6 +4026,7 @@ function getDaoCommitteeReviewResultSummary(proposal) {
     source: 'committee',
     tone: outcome.tone,
     withholdCount,
+    withholdReasonEntries: state === 'withheld' ? getDaoCommitteeWithholdReasonEntries(proposal) : [],
   };
 }
 
@@ -4512,6 +4532,13 @@ class ProposalInfoModal {
         ['Next state', this.getNextStateHint(proposal, acceptCount, withholdCount, reviewWindow)],
       ])
       : '';
+    const committeeReviewReasons = state === 'review'
+      ? this.renderCommitteeWithholdReasons(
+        getDaoCommitteeWithholdReasonEntries(proposal)
+          .filter((entry) => entry.memberAddress !== currentAddress),
+        'Other committee withhold reasons',
+      )
+      : '';
 
     if (this.content) {
       this.content.innerHTML = [
@@ -4521,6 +4548,7 @@ class ProposalInfoModal {
         this.renderProposalResults(resultSummary),
         state === 'review' ? this.renderProposalBody(proposal) : '',
         committeeReviewSection,
+        committeeReviewReasons,
       ].filter(Boolean).join('');
     }
     if (this.detailsContent) {
@@ -4743,6 +4771,10 @@ class ProposalInfoModal {
     const withholdUnits = this.getCountResultSegmentUnits(withholdCount, submittedCount);
     const acceptWinnerClass = result.tone === 'accepted' ? ' proposal-result-meter-label--winner' : '';
     const withholdWinnerClass = result.tone === 'rejected' ? ' proposal-result-meter-label--winner' : '';
+    const withholdReasons = this.renderCommitteeWithholdReasons(
+      result.withholdReasonEntries,
+      'Committee withhold reasons',
+    );
 
     return `
       <section class="proposal-info-section">
@@ -4789,7 +4821,34 @@ class ProposalInfoModal {
             ></span>
           </div>
         </div>
+        ${withholdReasons}
       </section>
+    `;
+  }
+
+  renderCommitteeWithholdReasons(entries, heading) {
+    if (entries.length === 0) return '';
+
+    const reasonCounts = new Map();
+    for (const entry of entries) {
+      reasonCounts.set(entry.reason, (reasonCounts.get(entry.reason) || 0) + 1);
+    }
+
+    const rows = Array.from(reasonCounts, ([reason, count]) => {
+      const countLabel = `${count} ${count === 1 ? 'vote' : 'votes'}`;
+      return `
+        <li class="proposal-withhold-reason-row">
+          <span class="proposal-withhold-reason-text">${escapeHtml(reason)}</span>
+          <span class="proposal-withhold-reason-count">${escapeHtml(countLabel)}</span>
+        </li>
+      `;
+    }).join('');
+
+    return `
+      <div class="proposal-withhold-reasons">
+        <h4>${escapeHtml(heading)}</h4>
+        <ul class="proposal-withhold-reason-list">${rows}</ul>
+      </div>
     `;
   }
 
