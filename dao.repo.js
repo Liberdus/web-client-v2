@@ -514,10 +514,6 @@ function normalizeDaoTimestamp(value) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-function getDaoProposalDescription(proposal) {
-  return String(proposal?.description || '').trim();
-}
-
 function mapBackendProposalToStoreProposal(proposal) {
   if (!proposal || typeof proposal !== 'object') return null;
 
@@ -534,7 +530,6 @@ function mapBackendProposalToStoreProposal(proposal) {
   const state = getEffectiveDaoState(proposal);
   const created = normalizeDaoTimestamp(proposal.creationTime);
   const stateChanged = normalizeDaoTimestamp(proposal.timestamp);
-  const description = getDaoProposalDescription(proposal);
   const title = String(proposal.title || proposal.description || '').trim();
 
   return {
@@ -543,7 +538,7 @@ function mapBackendProposalToStoreProposal(proposal) {
     number,
     nonce,
     title,
-    description,
+    description: String(proposal.description || '').trim(),
     proposalType,
     state,
     status: state,
@@ -591,12 +586,10 @@ async function fetchBackendProposal(queryDaoApi, proposalNumber) {
   const body = await queryDaoApi(`/dao/proposals/${proposalNumber}`);
   if (!body) {
     console.warn(`Skipping DAO proposal #${proposalNumber}: no response`);
-    // TODO: Retry skipped proposal accounts after the initial list render.
     return null;
   }
   if (body.error || !body.proposal) {
     console.warn(`Skipping DAO proposal #${proposalNumber}: proposal unavailable`, body.error || body);
-    // TODO: Retry skipped proposal accounts after the initial list render.
     return null;
   }
   return body.proposal;
@@ -711,7 +704,6 @@ function storeToUiList(store, groupKey) {
       const id = daoProposalId(m.number, m.nonce);
       const p = safe.proposals?.[id];
       if (!p) return null;
-      const description = p.description;
       const state = getEffectiveDaoState({ status: p.status || m.status, state: p.state || m.state });
       return {
         id,
@@ -719,7 +711,7 @@ function storeToUiList(store, groupKey) {
         accountId: p.accountId,
         nonce: p.nonce,
         title: p.title,
-        description,
+        description: p.description,
         proposalType: p.proposalType,
         emergency: Boolean(p.emergency),
         createdAt: p.created,
@@ -759,7 +751,7 @@ export function setDaoBackendFetcher(fetcher) {
   _backendFetcher = typeof fetcher === 'function' ? fetcher : null;
 }
 
-async function refreshInternal({ force } = {}) {
+async function refreshInternal({ force }) {
   if (_loadingPromise && !force) return _loadingPromise;
   if (_store && !force) return _store;
 
@@ -801,7 +793,7 @@ export const daoRepo = {
   },
 
   getProposalsForUi(groupKey) {
-    return storeToUiList(_store, groupKey || 'active');
+    return storeToUiList(_store, groupKey);
   },
 
   async createProposal({ draft, timestamp, networkId, submitTransaction } = {}) {
