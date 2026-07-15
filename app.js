@@ -77,8 +77,10 @@ async function forceReload(urls) {
 import { stringify, parse } from './external/stringify-shardus.js';
 
 import {
+  buildDaoProposalCreateDraft,
   createDaoBackendFetcher,
   DAO_CONFIG_CHANGE_OPTIONS,
+  DAO_PROPOSAL_TITLE_MAX_LENGTH,
   daoRepo,
   DAO_STATES,
   getDaoStateLabel,
@@ -800,6 +802,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // DAO Modals
   daoModal.load();
   addProposalModal.load();
+  confirmProposalModal.load();
   proposalInfoModal.load();
 
   // Settings Modal
@@ -2453,10 +2456,6 @@ const menuModal = new MenuModal();
 // DAO proposals are loaded via `daoRepo` and kept in memory (no localStorage persistence).
 setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork));
 
-function getDaoVoterId() {
-  return myAccount?.address || myData?.account?.address || myAccount?.username || myData?.account?.username || 'anon';
-}
-
 function formatDaoTimestamp(ts) {
   const n = Number(ts || 0);
   if (!n) return '';
@@ -2467,38 +2466,14 @@ function formatDaoTimestamp(ts) {
   }
 }
 
-function formatDaoRowTimestampLabel(ts) {
+function formatDaoDate(ts) {
   const n = Number(ts || 0);
-  if (!n) return '—';
-  const date = new Date(n);
+  if (!n) return '';
   try {
-    const dateLabel = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    const timeLabel = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-    return `${dateLabel} ${timeLabel}`;
+    return new Date(n).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   } catch {
-    return '—';
+    return '';
   }
-}
-
-const DAO_RESULT_STATE_KEYS = new Set(['withheld', 'accepted', 'rejected', 'applied']);
-
-function getDaoUiStateLabel(key) {
-  if (key === 'discussion') return 'Review';
-  return getDaoStateLabel(key);
-}
-
-function getDaoProposalRouteKey(state) {
-  if (state === 'voting') return 'vote';
-  if (state === 'review') return 'review';
-  if (DAO_RESULT_STATE_KEYS.has(state)) return 'result';
-  return 'details';
-}
-
-function getDaoProposalRouteLabel(routeKey) {
-  if (routeKey === 'vote') return 'vote';
-  if (routeKey === 'review') return 'review';
-  if (routeKey === 'result') return 'result';
-  return 'details';
 }
 
 class DaoModal {
@@ -2662,10 +2637,6 @@ class DaoModal {
     this.render();
   }
 
-  getProposals() {
-    return daoRepo.getProposalsForUi(this.selectedGroupKey);
-  }
-
   render() {
     const proposalsActive = daoRepo.getProposalsForUi('active');
     const proposalsArchived = daoRepo.getProposalsForUi('archived');
@@ -2681,7 +2652,7 @@ class DaoModal {
 
     // Update header title
     const groupLabel = this.selectedGroupKey === 'archived' ? 'Archived' : 'Active';
-    const label = getDaoUiStateLabel(this.selectedStateKey);
+    const label = getDaoStateLabel(this.selectedStateKey);
     if (this.titleEl) this.titleEl.textContent = `DAO - ${groupLabel} - ${label}`;
 
     // Update group toggle labels + selection
@@ -2701,7 +2672,7 @@ class DaoModal {
       const labelEl = document.getElementById(`daoStatusOption${s.label.replace(/\s+/g, '')}`);
       const countEl = option?.querySelector('.dao-status-count');
       const count = counts[s.key] || 0;
-      const displayLabel = getDaoUiStateLabel(s.key);
+      const displayLabel = getDaoStateLabel(s.key);
 
       if (labelEl) labelEl.textContent = displayLabel;
       if (countEl) {
@@ -2755,30 +2726,23 @@ class DaoModal {
       const li = document.createElement('li');
       li.classList.add('chat-item', 'dao-proposal-row');
 
-      const titleText = p.title || (p.number ? `Proposal #${p.number}` : 'Proposal');
-      const title = escapeHtml(titleText);
-      const updatedLabel = escapeHtml(formatDaoRowTimestampLabel(p.stateEnteredAt || p.createdAt));
-      const state = getEffectiveDaoState(p);
-      const typeLabel = escapeHtml(getDaoTypeLabel(p.proposalType || p.type) || 'Proposal');
-      const routeKey = getDaoProposalRouteKey(state);
-      const routeLabel = getDaoProposalRouteLabel(routeKey);
+      const titleText = String(p.title || '').trim() || 'Proposal';
+      const rowTitleText = p.number ? `#${p.number}: ${titleText}` : titleText;
+      const title = escapeHtml(rowTitleText);
+      const typeLabel = escapeHtml(getDaoTypeLabel(p.proposalType) || 'Proposal');
+      const previewHtml = this.renderProposalRowPreview(p);
 
       li.tabIndex = 0;
       li.setAttribute('role', 'button');
-      li.dataset.daoRoute = routeKey;
-      li.setAttribute('aria-label', `Open ${routeLabel} for ${titleText}`);
+      li.setAttribute('aria-label', `Open ${rowTitleText}`);
       li.innerHTML = `
         <div class="dao-row-content">
           <div class="dao-row-title">${title}</div>
           <div class="dao-row-meta">
             <span class="dao-row-meta-item dao-row-meta-item--type">
-              <span class="dao-row-meta-label">Type</span>
-              <strong class="dao-row-meta-value">${typeLabel}</strong>
+              ${typeLabel}
             </span>
-            <span class="dao-row-meta-item dao-row-meta-item--updated">
-              <span class="dao-row-meta-label">Updated</span>
-              <strong class="dao-row-meta-value">${updatedLabel}</strong>
-            </span>
+            ${previewHtml}
           </div>
         </div>
       `;
@@ -2797,6 +2761,80 @@ class DaoModal {
     }
   }
 
+  renderProposalRowPreview(proposal) {
+    const chips = [];
+    const state = getEffectiveDaoState(proposal);
+    const result = getDaoProposalResultSummary(proposal);
+    const reward = getDaoProposalRewardSummary(proposal);
+
+    if (state === 'review') {
+      const reviewWindow = getDaoProposalReviewWindow(proposal);
+
+      chips.push({
+        value: reviewWindow.canFinalizeReviewResult ? 'Ready to finalize' : reviewWindow.label,
+        tone: 'neutral',
+      });
+    } else if (state === 'voting') {
+      const now = Date.now();
+      const votingWindow = getDaoProposalVotingWindow(proposal, now);
+      const endDate = formatDaoDate(votingWindow.end);
+      const votingEnded = Boolean(votingWindow.end && now > votingWindow.end);
+
+      if (endDate && !votingEnded) {
+        chips.push({
+          value: `Ends ${endDate}`,
+          tone: 'neutral',
+        });
+      }
+      if (votingEnded) {
+        chips.push({
+          value: 'Ready to finalize',
+          tone: 'neutral',
+        });
+      }
+    } else {
+      const lifecycleActions = getDaoProposalLifecycleActions(proposal, reward);
+      const claimAction = lifecycleActions.find((action) => action.kind === 'claim_reward');
+      const applyAction = lifecycleActions.find((action) => action.kind === 'apply_parameters');
+
+      if (claimAction) {
+        chips.push({
+          value: 'Ready to claim',
+          tone: reward?.statusTone,
+        });
+      }
+      if (lifecycleActions.some((action) => action.kind === 'burn_reward')) {
+        chips.push({
+          value: 'Ready to burn',
+          tone: 'neutral',
+        });
+      }
+      if (applyAction?.rowPreviewLabel) {
+        chips.push({
+          value: applyAction.rowPreviewLabel,
+          tone: 'neutral',
+        });
+      }
+    }
+    if (result) {
+      chips.push({
+        value: result.headline,
+        tone: result.tone,
+      });
+    }
+
+    if (chips.length === 0) return '';
+    return `
+      <div class="dao-row-previews">
+        ${chips.map((chip) => `
+          <span class="dao-row-preview dao-row-preview--${escapeDaoFormAttribute(chip.tone || 'neutral')}">
+            ${escapeHtml(chip.value)}
+          </span>
+        `).join('')}
+      </div>
+    `;
+  }
+
   openProposal(proposal) {
     proposalInfoModal.open(proposal.id);
   }
@@ -2811,6 +2849,10 @@ function getPathValue(source, path) {
   }, source);
 }
 
+function escapeDaoFormAttribute(value) {
+  return escapeHtml(value).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 class AddProposalModal {
   load() {
     this.modal = document.getElementById('addProposalModal');
@@ -2820,13 +2862,15 @@ class AddProposalModal {
     this.titleInput = document.getElementById('addProposalTitle');
     this.typeSelect = document.getElementById('addProposalType');
     this.descriptionInput = document.getElementById('addProposalDescription');
+    this.proposalFeeInput = document.getElementById('addProposalFee');
     this.optionsList = document.getElementById('addProposalOptionsList');
     this.addOptionButton = document.getElementById('addProposalOptionButton');
     this.changesList = document.getElementById('addProposalChangesList');
     this.addChangeButton = document.getElementById('addProposalChangeButton');
     this.emergencySelect = document.getElementById('addProposalEmergency');
     this.startDelayInput = document.getElementById('addProposalStartDelayDays');
-    this.gracePeriodInput = document.getElementById('addProposalGracePeriodDays');
+    this.gracePeriodInput = document.getElementById('addProposalGracePeriodMs');
+    this.gracePeriodHelp = document.getElementById('addProposalGracePeriodHelp');
     this.submitButton = this.form?.querySelector('button[type="submit"]');
     this.resetConfigCache();
 
@@ -2852,6 +2896,13 @@ class AddProposalModal {
       });
     }
 
+    if (this.emergencySelect) {
+      this.emergencySelect.addEventListener('change', () => this.renderProposalFee());
+    }
+    if (this.gracePeriodInput) {
+      this.gracePeriodInput.addEventListener('input', () => this.renderGracePeriodDefaultHint());
+    }
+
     if (this.optionsList) {
       this.optionsList.addEventListener('click', (event) => this.handleOptionListClick(event));
     }
@@ -2866,14 +2917,17 @@ class AddProposalModal {
     this.modal.classList.add('active');
     enterFullscreen();
     this.resetConfigCache();
+    this.proposalFeeUsdStr = null;
+    this.defaultGracePeriodMs = null;
     if (this.titleInput) this.titleInput.value = '';
     if (this.typeSelect) this.typeSelect.value = 'governance';
     if (this.descriptionInput) this.descriptionInput.value = '';
     if (this.emergencySelect) this.emergencySelect.value = 'false';
     if (this.startDelayInput) this.startDelayInput.value = '0';
-    if (this.gracePeriodInput) this.gracePeriodInput.value = '0';
+    if (this.gracePeriodInput) this.gracePeriodInput.value = '';
     this.renderOptions(['yes', 'no']);
-    this.renderConfigLoadingState();
+    this.renderGracePeriodDefaultHint();
+    this.refreshProposalFee();
     this.refreshSelectedConfigOptions();
     setTimeout(() => {
       this.titleInput?.focus();
@@ -2895,6 +2949,7 @@ class AddProposalModal {
     this.networkAccountConfigPromise = null;
     this.protocolConfigPromise = null;
     this.configRequestId = 0;
+    this.proposalFeeRequestId = 0;
   }
 
   getConfigOptions() {
@@ -2914,6 +2969,75 @@ class AddProposalModal {
       this.changesList.innerHTML = '<div class="dao-form-help">Current DAO config values are unavailable. Try again when the network responds.</div>';
     }
     if (this.addChangeButton) this.addChangeButton.disabled = true;
+  }
+
+  renderProposalFee() {
+    if (!this.proposalFeeInput) return;
+
+    if (this.emergencySelect?.value === 'true') {
+      this.proposalFeeInput.value = '0 USD';
+      this.clearValidationError(this.proposalFeeInput);
+      return;
+    }
+
+    if (this.proposalFeeUsdStr === null) {
+      this.proposalFeeInput.value = 'Loading...';
+      return;
+    }
+
+    this.proposalFeeInput.value = this.proposalFeeUsdStr
+      ? `${this.proposalFeeUsdStr} USD`
+      : 'Unavailable';
+  }
+
+  renderGracePeriodDefaultHint() {
+    const defaultSummary = this.defaultGracePeriodMs === null
+      ? ''
+      : `${formatDaoDurationMsInput(this.defaultGracePeriodMs)} ms (${formatDaoDurationDaysEstimate(this.defaultGracePeriodMs)})`;
+    const currentValue = String(this.gracePeriodInput?.value ?? '').trim();
+    const currentSummary = currentValue
+      ? formatDaoDurationDaysEstimate(currentValue)
+      : '';
+    if (this.gracePeriodInput) {
+      this.gracePeriodInput.placeholder = defaultSummary ? 'Custom ms' : 'Loading default...';
+    }
+    if (this.gracePeriodHelp) {
+      if (currentSummary && defaultSummary) {
+        this.gracePeriodHelp.textContent = `Estimate: ${currentSummary}. Default: ${defaultSummary}`;
+      } else if (currentSummary) {
+        this.gracePeriodHelp.textContent = `Estimate: ${currentSummary}. Default: loading...`;
+      } else if (defaultSummary) {
+        this.gracePeriodHelp.textContent = `Default: ${defaultSummary}`;
+      } else {
+        this.gracePeriodHelp.textContent = 'Default: loading...';
+      }
+    }
+  }
+
+  async refreshProposalFee() {
+    const requestId = ++this.proposalFeeRequestId;
+    this.renderProposalFee();
+
+    try {
+      const { proposalFeeUsdStr, defaultGracePeriodMs } = await this.loadDaoProposalDefaults();
+      if (!this.isActive() || requestId !== this.proposalFeeRequestId) return;
+      this.proposalFeeUsdStr = proposalFeeUsdStr;
+      this.defaultGracePeriodMs = defaultGracePeriodMs;
+      if (this.gracePeriodInput && !String(this.gracePeriodInput.value || '').trim()) {
+        this.gracePeriodInput.value = formatDaoDurationMsInput(defaultGracePeriodMs);
+      }
+      this.renderProposalFee();
+      this.renderGracePeriodDefaultHint();
+    } catch (error) {
+      console.warn('Could not refresh DAO proposal fee:', error);
+      if (!this.isActive() || requestId !== this.proposalFeeRequestId) return;
+      this.proposalFeeUsdStr = '';
+      this.defaultGracePeriodMs = null;
+      if (this.gracePeriodInput) this.gracePeriodInput.value = '';
+      this.renderProposalFee();
+      this.renderGracePeriodDefaultHint();
+      showToast('Could not refresh DAO proposal fee', 2500, 'warning');
+    }
   }
 
   createValidationError(message, target) {
@@ -3019,6 +3143,30 @@ class AddProposalModal {
     return options;
   }
 
+  async loadDaoProposalDefaults() {
+    const account = await this.fetchNetworkAccountConfig();
+    const fee = account?.current?.dao?.proposalFeeUsdStr;
+    if (fee === undefined || fee === null || String(fee).trim() === '') {
+      throw new Error('Missing DAO proposal fee');
+    }
+    const graceDuration = Number(account?.current?.dao?.graceDuration);
+    if (!Number.isInteger(graceDuration) || graceDuration < 0) {
+      throw new Error('Missing DAO default grace duration');
+    }
+    return {
+      proposalFeeUsdStr: String(fee).trim(),
+      defaultGracePeriodMs: graceDuration,
+    };
+  }
+
+  async fetchNetworkAccountConfig() {
+    if (!this.networkAccountConfigPromise) {
+      this.networkAccountConfigPromise = queryNetwork(`/account/${NETWORK_ACCOUNT_ID}`)
+        .then((result) => result?.account || null);
+    }
+    return this.networkAccountConfigPromise;
+  }
+
   async fetchConfigSource(proposalType) {
     if (proposalType === 'protocol') {
       if (!this.protocolConfigPromise) {
@@ -3027,11 +3175,7 @@ class AddProposalModal {
       return this.protocolConfigPromise;
     }
 
-    if (!this.networkAccountConfigPromise) {
-      this.networkAccountConfigPromise = queryNetwork(`/account/${NETWORK_ACCOUNT_ID}`)
-        .then((result) => result?.account || null);
-    }
-    return this.networkAccountConfigPromise;
+    return this.fetchNetworkAccountConfig();
   }
 
   getOptionValues() {
@@ -3051,7 +3195,7 @@ class AddProposalModal {
         <div class="dao-form-row" data-dao-option-row>
           <div class="dao-form-row-controls">
             <span class="dao-form-index">${index + 1}</span>
-            <input id="${id}" class="form-control" data-dao-option-input type="text" maxlength="80" value="${escapeHtml(value)}" aria-label="Option ${index + 1}" required />
+            <input id="${id}" class="form-control" data-dao-option-input type="text" maxlength="80" value="${escapeDaoFormAttribute(value)}" aria-label="Option ${index + 1}" required />
             <button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-option="${index}" ${disabled}>Remove</button>
           </div>
         </div>
@@ -3096,12 +3240,11 @@ class AddProposalModal {
     return this.getConfigOptions().find((option) => option.key === key) || null;
   }
 
-  renderParameterChanges(rows = null) {
+  renderParameterChanges(rows) {
     if (!this.changesList) return;
 
     const options = this.getConfigOptions();
-    const sourceRows = rows || this.getParameterChanges();
-    const validRows = sourceRows
+    const validRows = rows
       .filter((row) => options.some((option) => option.key === row.key))
       .map((row) => ({ key: row.key, value: row.value }));
 
@@ -3140,7 +3283,7 @@ class AddProposalModal {
           </div>
           <div class="dao-form-change-line">
             <label for="${currentId}">Current</label>
-            <input id="${currentId}" class="form-control dao-form-current-value" type="text" value="${escapeHtml(String(option.current))}" readonly />
+            <input id="${currentId}" class="form-control dao-form-current-value" type="text" value="${escapeDaoFormAttribute(option.current)}" readonly />
           </div>
           <div class="dao-form-change-line">
             <label for="${proposedId}">Enter</label>
@@ -3165,7 +3308,7 @@ class AddProposalModal {
 
     const step = option.valueType === 'integer' ? '1' : 'any';
     const inputmode = option.valueType === 'integer' ? 'numeric' : 'decimal';
-    return `<input id="${id}" class="form-control" data-dao-change-value type="number" step="${step}" inputmode="${inputmode}" value="${escapeHtml(value)}" required />`;
+    return `<input id="${id}" class="form-control" data-dao-change-value type="number" step="${step}" inputmode="${inputmode}" value="${escapeDaoFormAttribute(value)}" required />`;
   }
 
   addParameterChangeRow() {
@@ -3215,6 +3358,16 @@ class AddProposalModal {
     const n = Number(value);
     if (!Number.isInteger(n) || n < 0) {
       throw this.createValidationError(`${label} must be a non-negative whole number`, input);
+    }
+    return n;
+  }
+
+  getMillisecondsValue(input, label) {
+    const value = String(input?.value ?? '').trim();
+    if (!value) throw this.createValidationError(`${label} is not loaded yet`, input);
+    const n = Number(value);
+    if (!Number.isInteger(n) || n < 0) {
+      throw this.createValidationError(`${label} must be a non-negative whole number of milliseconds`, input);
     }
     return n;
   }
@@ -3287,6 +3440,10 @@ class AddProposalModal {
       this.showValidationError(this.createValidationError('Please enter a title', this.titleInput));
       return;
     }
+    if (title.length > DAO_PROPOSAL_TITLE_MAX_LENGTH) {
+      this.showValidationError(this.createValidationError(`Title must be ${DAO_PROPOSAL_TITLE_MAX_LENGTH} characters or less`, this.titleInput));
+      return;
+    }
     if (!DAO_CONFIG_CHANGE_OPTIONS[proposalType]) {
       this.showValidationError(this.createValidationError('Please select a DAO proposal type', this.typeSelect));
       return;
@@ -3297,42 +3454,986 @@ class AddProposalModal {
     }
 
     try {
-      this.getValidatedOptions();
-      this.getValidatedChanges();
-      this.getDaysValue(this.startDelayInput, 'Start delay');
-      this.getDaysValue(this.gracePeriodInput, 'Grace period');
+      const options = this.getValidatedOptions();
+      const changes = this.getValidatedChanges();
+      const startDelayDays = this.getDaysValue(this.startDelayInput, 'Start delay');
+      const gracePeriodMs = this.getMillisecondsValue(this.gracePeriodInput, 'Grace period');
+      const emergency = this.emergencySelect?.value === 'true';
+      if (!emergency && !this.proposalFeeUsdStr) {
+        throw this.createValidationError('Current DAO proposal fee is not loaded yet', this.proposalFeeInput);
+      }
+
+      const draft = buildDaoProposalCreateDraft({
+        from: myAccount?.keys?.address ? longAddress(myAccount.keys.address) : '',
+        displayTitle: title,
+        emergency,
+        proposalType,
+        description,
+        options,
+        changes,
+        proposalFeeUsdStr: this.proposalFeeUsdStr,
+        startDelayDays,
+        gracePeriodMs,
+      });
+      confirmProposalModal.open(draft);
     } catch (e) {
       this.showValidationError(e);
-      return;
     }
-
-    showToast('Proposal draft ready. Confirmation is not connected yet.', 3000, 'info');
   }
 }
 
 const addProposalModal = new AddProposalModal();
 
+function formatDaoDurationSummary(ms) {
+  const n = Number(ms || 0);
+  if (!n) return '0 ms (now)';
+  const dayMs = 24 * 60 * 60 * 1000;
+  const days = n / dayMs;
+  const human = Number.isInteger(days)
+    ? `${days} day${days === 1 ? '' : 's'}`
+    : `${n} ms`;
+  return `${n} ms (${human})`;
+}
+
+function formatDaoDurationMsInput(ms) {
+  const n = Number(ms || 0);
+  if (!Number.isInteger(n) || n < 0) return '';
+  return String(n);
+}
+
+function formatDaoDurationDaysEstimate(ms) {
+  const n = Number(ms);
+  if (!Number.isFinite(n) || n < 0) return '';
+  const days = n / (24 * 60 * 60 * 1000);
+  const value = days === 0
+    ? '0'
+    : days >= 1
+    ? String(Number(days.toFixed(4)))
+    : String(Number(days.toPrecision(3)));
+  return `about ${value} day${value === '1' ? '' : 's'}`;
+}
+
+function formatDaoConfirmValue(value) {
+  if (value === undefined || value === null || value === '') return '—';
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'object') return stringify(value);
+  return String(value);
+}
+
+class ConfirmProposalModal {
+  load() {
+    this.modal = document.getElementById('confirmProposalModal');
+    this.closeButton = document.getElementById('closeConfirmProposalModal');
+    this.title = document.getElementById('confirmProposalModalTitle');
+    this.backButton = document.getElementById('backConfirmProposal');
+    this.signButton = document.getElementById('signConfirmProposal');
+    this.content = document.getElementById('confirmProposalContent');
+    this.currentDraft = null;
+    this.isSubmitting = false;
+    this.signButtonLabel = this.signButton?.textContent || 'Sign Proposal';
+
+    if (this.closeButton) this.closeButton.addEventListener('click', () => this.close());
+    if (this.backButton) this.backButton.addEventListener('click', () => this.close());
+    if (this.signButton) this.signButton.addEventListener('click', () => this.handleSign());
+  }
+
+  open(draft) {
+    this.currentDraft = draft;
+    this.setSubmitting(false);
+    this.render();
+    this.modal.classList.add('active');
+    enterFullscreen();
+  }
+
+  close() {
+    if (this.isSubmitting) return;
+    this.modal.classList.remove('active');
+    enterFullscreen();
+  }
+
+  isActive() {
+    return this.modal.classList.contains('active');
+  }
+
+  setSubmitting(isSubmitting) {
+    this.isSubmitting = Boolean(isSubmitting);
+    if (this.closeButton) this.closeButton.disabled = this.isSubmitting;
+    if (this.backButton) this.backButton.disabled = this.isSubmitting;
+    if (this.signButton) {
+      this.signButton.disabled = this.isSubmitting;
+      this.signButton.textContent = this.isSubmitting ? 'Signing...' : this.signButtonLabel;
+    }
+  }
+
+  async handleSign() {
+    if (this.isSubmitting) return;
+    if (!this.currentDraft?.transaction?.from) {
+      showToast('Proposal draft is unavailable', 3000, 'warning');
+      return;
+    }
+
+    this.setSubmitting(true);
+    let loadingToastId = showToast('Submitting proposal...', 0, 'loading');
+
+    try {
+      const result = await daoRepo.createProposal({
+        draft: this.currentDraft,
+        timestamp: getTransactionTimestamp(),
+        networkId: network?.netid || '',
+        submitTransaction: async (transaction) => {
+          if (!myAccount?.keys) throw new Error('Wallet keys unavailable');
+          const txid = await signObj(transaction, myAccount.keys);
+          return injectTx(transaction, txid);
+        },
+      });
+
+      if (!result.ok) {
+        if (loadingToastId) {
+          hideToast(loadingToastId);
+          loadingToastId = null;
+        }
+        const message = result.response
+          ? 'Proposal was not submitted. You can retry or go back to edit.'
+          : result.error || 'Proposal submission failed';
+        showToast(message, 3000, 'warning');
+        return;
+      }
+
+      const proposalReady = await this.refreshSubmittedProposal(result.proposalStoreId);
+      if (loadingToastId) {
+        hideToast(loadingToastId);
+        loadingToastId = null;
+      }
+      this.setSubmitting(false);
+      this.close();
+      addProposalModal.close();
+
+      if (proposalReady) {
+        showToast('Proposal submitted', 3000, 'success');
+        proposalInfoModal.open(result.proposalStoreId);
+      } else {
+        showToast('Proposal submitted. It may take a moment to appear in the DAO list.', 5000, 'success');
+      }
+    } catch (error) {
+      console.warn('Failed to submit DAO proposal:', error);
+      if (loadingToastId) {
+        hideToast(loadingToastId);
+        loadingToastId = null;
+      }
+      showToast(error?.message || 'Proposal submission failed', 3000, 'warning');
+    } finally {
+      if (loadingToastId) hideToast(loadingToastId);
+      if (this.isActive()) this.setSubmitting(false);
+    }
+  }
+
+  async refreshSubmittedProposal(proposalStoreId) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await daoRepo.refresh({ force: true });
+        if (daoModal?.isActive?.()) daoModal.render();
+        if (daoRepo.getProposalById(proposalStoreId)) return true;
+      } catch (error) {
+        console.warn('Failed to refresh DAO proposals after submit:', error);
+      }
+
+      if (attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
+
+    return false;
+  }
+
+  render() {
+    if (!this.content) return;
+    const draft = this.currentDraft;
+    if (!draft?.transaction?.from) {
+      this.setTitle('Review Proposal');
+      this.content.innerHTML = '<div class="dao-confirm-empty">Proposal draft is unavailable.</div>';
+      return;
+    }
+
+    const tx = draft.transaction;
+    const proposalType = tx.proposalType;
+    const changes = Array.isArray(tx[proposalType]?.changes) ? tx[proposalType].changes : [];
+    const gracePeriodSummary = formatDaoDurationSummary(tx.gracePeriod);
+    const formattedOptions = tx.options
+      .map((option, index) => `${index + 1}. ${option}`)
+      .join('\n');
+
+    this.setTitle('Review Proposal');
+    this.content.innerHTML = [
+      this.renderSection('Cost and State', [
+        ['Proposal fee', `${draft.proposalFeeUsdStr || '0'} USD`],
+        ['Initial state', 'Review after signing'],
+      ]),
+      this.renderSection('Proposal Body', [
+        ['Title', tx.title || draft.displayTitle],
+        ['Type', getDaoTypeLabel(proposalType)],
+        ['Emergency', tx.emergency ? 'Yes' : 'No'],
+        ['Description', tx.description],
+        ['Options', formattedOptions],
+        ['Review starts', formatDaoDurationSummary(draft.startDelayMs)],
+        ['Grace period', gracePeriodSummary],
+      ]),
+      this.renderChanges(changes),
+      '<div class="dao-confirm-help">The proposal fee is derived from DAO params and seeds the voter reward pool for regular proposals. Signing submits this proposal for review.</div>',
+    ].join('');
+  }
+
+  renderSection(title, rows) {
+    const rowHtml = rows
+      .map(([label, value]) => {
+        const displayValue = formatDaoConfirmValue(value);
+        const rowClass = this.getSectionRowClass(label, displayValue);
+        return `
+        <div class="${rowClass}">
+          <span class="dao-confirm-label">${escapeHtml(label)}</span>
+          <strong class="dao-confirm-value">${escapeHtml(displayValue)}</strong>
+        </div>
+      `;
+      })
+      .join('');
+
+    return `
+      <section class="dao-confirm-section">
+        <h3>${escapeHtml(title)}</h3>
+        <div class="dao-confirm-grid">${rowHtml}</div>
+      </section>
+    `;
+  }
+
+  getSectionRowClass(label, value) {
+    const fullWidthLabels = ['Description', 'Options'];
+    if (!fullWidthLabels.includes(label)) return 'dao-confirm-row';
+
+    const text = String(value);
+    const lines = text.split('\n');
+    const longestLineLength = Math.max(...lines.map((line) => line.length));
+    if (lines.length > 4 || longestLineLength > 42 || text.length > 120) {
+      return 'dao-confirm-row dao-confirm-row--full';
+    }
+    return 'dao-confirm-row';
+  }
+
+  renderChanges(changes) {
+    const changeRows = changes.length
+      ? changes.map((change, index) => `
+          <div class="dao-confirm-change">
+            <div class="dao-confirm-change-title">Change ${index + 1}: ${escapeHtml(change.key)}</div>
+            <div class="dao-confirm-change-values">
+              <small><span>Current:</span><strong>${escapeHtml(formatDaoConfirmValue(change.current))}</strong></small>
+              <span class="dao-confirm-change-arrow" aria-hidden="true">&rarr;</span>
+              <small><span>New:</span><strong>${escapeHtml(formatDaoConfirmValue(change.value))}</strong></small>
+            </div>
+          </div>
+        `).join('')
+      : '<div class="dao-confirm-empty">No parameter changes included.</div>';
+
+    return `
+      <section class="dao-confirm-section">
+        <h3>Parameter Changes</h3>
+        ${changeRows}
+      </section>
+    `;
+  }
+
+  setTitle(title) {
+    if (this.title) this.title.textContent = title || 'Review Proposal';
+  }
+}
+
+const confirmProposalModal = new ConfirmProposalModal();
+
+const DAO_CUSTOM_WITHHOLD_REASON = 'custom';
+const DAO_WITHHOLD_REASON_OPTIONS = [
+  { value: 'Missing information', label: 'Missing information' },
+  { value: 'Invalid parameter change', label: 'Invalid parameter change' },
+  { value: 'Unsafe or risky change', label: 'Unsafe or risky change' },
+  { value: 'Duplicate or already addressed', label: 'Duplicate or already addressed' },
+  { value: DAO_CUSTOM_WITHHOLD_REASON, label: 'Custom reason' },
+];
+const DAO_WITHHOLD_REASON_MAX_LENGTH = 1000;
+const DAO_VOTE_WEIGHT_MAX = 1_000_000;
+const DAO_VOTE_WEIGHT_PRECISION = 1_000_000_000_000;
+const DAO_VOTE_WEIGHT_PRECISION_BIGINT = 1_000_000_000_000n;
+const DAO_CLAIM_REWARD_PRECISION = 10n ** 18n;
+
+function getDaoCurrentAccountAddress() {
+  return myAccount?.keys?.address ? longAddress(myAccount.keys.address) : '';
+}
+
+function getDaoProposalReviewWindow(proposal) {
+  const start = Number(proposal?.startTime || 0);
+  const duration = Number(proposal?.reviewDuration);
+  if (!start || !Number.isFinite(duration) || duration < 0) {
+    return {
+      start: 0,
+      end: 0,
+      label: 'Review timing unavailable',
+      canCommitteeVote: false,
+      canFinalizeReviewResult: false,
+    };
+  }
+
+  const end = start + duration;
+  const now = Date.now();
+  if (now < start) {
+    return {
+      start,
+      end,
+      label: 'Review has not started',
+      canCommitteeVote: false,
+      canFinalizeReviewResult: false,
+    };
+  }
+  if (now <= end) {
+    return {
+      start,
+      end,
+      label: 'In committee review',
+      canCommitteeVote: true,
+      canFinalizeReviewResult: false,
+    };
+  }
+  return {
+    start,
+    end,
+    label: 'Review window ended',
+    canCommitteeVote: false,
+    canFinalizeReviewResult: true,
+  };
+}
+
+function getDaoProposalVotingWindow(proposal, now = Date.now()) {
+  const reviewStart = Number(proposal?.startTime || 0);
+  const reviewDuration = Number(proposal?.reviewDuration);
+  const votingDuration = Number(proposal?.votingDuration);
+  if (
+    !reviewStart ||
+    !Number.isFinite(reviewDuration) ||
+    reviewDuration < 0 ||
+    !Number.isFinite(votingDuration) ||
+    votingDuration < 0
+  ) {
+    return {
+      start: 0,
+      end: 0,
+      label: 'Voting timing unavailable',
+      canPreviewVote: false,
+      timeMultiplier: null,
+    };
+  }
+
+  const start = reviewStart + reviewDuration;
+  const end = start + votingDuration;
+  if (now < start) {
+    return {
+      start,
+      end,
+      label: 'Voting has not started',
+      canPreviewVote: false,
+      timeMultiplier: 1,
+    };
+  }
+  if (now <= end) {
+    return {
+      start,
+      end,
+      label: 'Voting open',
+      canPreviewVote: true,
+      timeMultiplier: getDaoVoteTimeMultiplier(now, start, end),
+    };
+  }
+  return {
+    start,
+    end,
+    label: 'Voting ended',
+    canPreviewVote: false,
+    timeMultiplier: 0,
+  };
+}
+
+function getDaoVoteTimeMultiplier(now, start, end) {
+  const halfDuration = (end - start) / 2;
+  if (!Number.isFinite(halfDuration) || halfDuration <= 0) return 1;
+  if (now - start <= halfDuration) return 1;
+  return Math.max(0, (end - now) / halfDuration);
+}
+
+function formatDaoDetailTimestamp(ts) {
+  const formatted = formatDaoTimestamp(ts);
+  return formatted ? formatted.replace(', ', '\n') : 'Unavailable';
+}
+
+function formatDaoShortNumber(value, decimals = 6) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 'Unavailable';
+  return Number(n.toFixed(decimals)).toLocaleString(undefined, { maximumFractionDigits: decimals });
+}
+
+function formatDaoScaledBigInt(value, scale, decimals = 3) {
+  if (typeof value !== 'bigint' || typeof scale !== 'bigint' || scale <= 0n) return null;
+  const sign = value < 0n ? '-' : '';
+  const absValue = value < 0n ? -value : value;
+  const factor = 10n ** BigInt(Math.max(0, decimals));
+  const rounded = (absValue * factor + (scale / 2n)) / scale;
+  const whole = rounded / factor;
+  const fraction = rounded % factor;
+  const wholeText = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  if (decimals <= 0 || fraction === 0n) return `${sign}${wholeText}`;
+  const fractionText = fraction.toString().padStart(decimals, '0').replace(/0+$/, '');
+  return `${sign}${wholeText}.${fractionText}`;
+}
+
+function formatDaoVoteWeightUnits(value, suffix) {
+  const bigintValue = parseDaoUnsignedBigInt(value);
+  if (bigintValue === null) return 'Unavailable';
+  const formatted = formatDaoScaledBigInt(bigintValue, DAO_VOTE_WEIGHT_PRECISION_BIGINT, 3);
+  return formatted === null ? 'Unavailable' : `${formatted} ${suffix}`;
+}
+
+function formatDaoVotingPower(value) {
+  return formatDaoVoteWeightUnits(value, 'power');
+}
+
+function formatDaoEstimatedVotingPower(value) {
+  const formatted = formatDaoVotingPower(value);
+  return formatted === 'Unavailable' ? formatted : `~${formatted}`;
+}
+
+function formatDaoPercent(value) {
+  return `${formatDaoShortNumber(value * 100, 1)}%`;
+}
+
+function formatDaoLibWei(value) {
+  const weiValue = parseDaoUnsignedBigInt(value);
+  if (weiValue === null) return 'Unavailable';
+  return `${formatDaoShortNumber(EthNum.toStr(weiValue))} LIB`;
+}
+
+function parseDaoUnsignedBigInt(value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value === 'bigint') return value >= 0n ? value : null;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value < 0) return null;
+    return BigInt(Math.trunc(value));
+  }
+  if (typeof value === 'object') {
+    if (value.dataType !== 'bi') return null;
+    const hexText = String(value.value ?? '').trim();
+    if (!/^[0-9a-f]+$/i.test(hexText)) return null;
+    try {
+      return BigInt(`0x${hexText}`);
+    } catch {
+      return null;
+    }
+  }
+
+  const text = String(value).trim();
+  if (!text) return null;
+  try {
+    const parsed = BigInt(text);
+    return parsed >= 0n ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function formatDaoRewardAmount(value) {
+  return value === null ? 'Unavailable' : formatDaoLibWei(value);
+}
+
+function formatDaoBigIntPercent(part, total) {
+  if (typeof part !== 'bigint' || typeof total !== 'bigint' || total <= 0n) return '0%';
+  const tenths = (part * 1000n + total / 2n) / total;
+  const whole = tenths / 10n;
+  const fraction = tenths % 10n;
+  return fraction === 0n ? `${whole}%` : `${whole}.${fraction}%`;
+}
+
+function getDaoProposalOptions(proposal) {
+  return proposal.options.map((option) => String(option));
+}
+
+function getDaoVoteTotals(proposal) {
+  const totalVote = proposal.totalVote;
+  if (totalVote.length === 0) return [];
+
+  const options = getDaoProposalOptions(proposal);
+  const rowCount = Math.max(options.length, totalVote.length);
+  return Array.from({ length: rowCount }, (_, index) => ({
+    index,
+    option: options[index] || `Option ${index + 1}`,
+    total: parseDaoUnsignedBigInt(totalVote[index]) ?? 0n,
+  }));
+}
+
+function getDaoVoteWinner(totals) {
+  const totalWeight = totals.reduce((sum, row) => sum + row.total, 0n);
+  if (totalWeight <= 0n) return { totalWeight, winner: null };
+
+  const winner = totals.reduce((current, row) => (row.total > current.total ? row : current), totals[0]);
+  return { totalWeight, winner };
+}
+
+function isDaoFinalResultState(state) {
+  return state === 'accepted' || state === 'rejected' || state === 'applied';
+}
+
+function getDaoFinalOutcome(proposal) {
+  const state = getEffectiveDaoState(proposal);
+  const label = getDaoStateLabel(state) || state || 'Unavailable';
+  const tone = state === 'withheld' || state === 'rejected' ? 'rejected' : 'accepted';
+  return { label, tone };
+}
+
+function getDaoCommitteeReviewResultSummary(proposal) {
+  const state = getEffectiveDaoState(proposal);
+  if (state !== 'withheld' && !(proposal?.emergency && isDaoFinalResultState(state))) return null;
+
+  const committeeVotes = Array.isArray(proposal?.committeeVotes) ? proposal.committeeVotes : [];
+  const committeeAddresses = Array.isArray(proposal?.committeeAddresses) ? proposal.committeeAddresses : [];
+  const committeeAddressSet = new Set(committeeAddresses);
+  const acceptCount = committeeVotes.filter((vote) => vote?.vote === 'accept' && committeeAddressSet.has(vote.memberAddress)).length;
+  const withholdCount = committeeVotes.filter((vote) => vote?.vote === 'withhold' && committeeAddressSet.has(vote.memberAddress)).length;
+  const outcome = getDaoFinalOutcome(proposal);
+
+  return {
+    acceptCount,
+    committeeSize: committeeAddresses.length,
+    headline: outcome.label,
+    source: 'committee',
+    tone: outcome.tone,
+    withholdCount,
+  };
+}
+
+function getDaoVoteResultSummary(proposal) {
+  const state = getEffectiveDaoState(proposal);
+  if (!isDaoFinalResultState(state)) return null;
+
+  const totals = getDaoVoteTotals(proposal);
+  if (totals.length === 0) return null;
+
+  const { totalWeight, winner } = getDaoVoteWinner(totals);
+  if (totalWeight <= 0n) return null;
+
+  const outcome = winner.index === 0 ? 'Accepted' : 'Rejected';
+  const tone = winner.index === 0 ? 'accepted' : 'rejected';
+
+  return { headline: outcome, outcome, source: 'vote', tone, totalWeight, totals, winner };
+}
+
+function getDaoProposalResultSummary(proposal) {
+  return getDaoCommitteeReviewResultSummary(proposal) || getDaoVoteResultSummary(proposal);
+}
+
+function normalizeDaoAddress(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  return normalizeAddress(text);
+}
+
+function getDaoVoterEntries(proposal) {
+  if (!Array.isArray(proposal?.voterList)) return [];
+  return proposal.voterList
+    .map((entry) => ({
+      address: normalizeDaoAddress(entry?.address),
+      timestamp: Number(entry?.timestamp || 0),
+    }))
+    .filter((entry) => entry.address && Number.isFinite(entry.timestamp) && entry.timestamp > 0);
+}
+
+function getDaoClaimList(proposal) {
+  if (!Array.isArray(proposal?.claimList)) return [];
+  return proposal.claimList.map(normalizeDaoAddress).filter(Boolean);
+}
+
+function getDaoProposalClaimWindow(proposal) {
+  const reviewStart = Number(proposal?.startTime || 0);
+  const reviewDuration = Number(proposal?.reviewDuration);
+  const votingDuration = Number(proposal?.votingDuration);
+  const claimDuration = Number(proposal?.claimDuration);
+  if (
+    !Number.isFinite(reviewStart) ||
+    !Number.isFinite(reviewDuration) ||
+    !Number.isFinite(votingDuration) ||
+    !Number.isFinite(claimDuration)
+  ) {
+    return { start: null, end: null, votingStart: null, votingDuration: null };
+  }
+
+  const votingStart = reviewStart + reviewDuration;
+  const votingEnd = proposal?.emergency ? votingStart : votingStart + votingDuration;
+  return {
+    start: votingEnd,
+    end: votingEnd + claimDuration,
+    votingStart,
+    votingDuration,
+  };
+}
+
+function getDaoProposalApplyWindow(proposal, now = Date.now()) {
+  if (proposal?.emergency) {
+    return { eligibleAt: null, isReady: true };
+  }
+
+  const backendEligibleAt = Number(proposal?.applyEligibleAt);
+  if (Number.isFinite(backendEligibleAt) && backendEligibleAt > 0) {
+    return { eligibleAt: backendEligibleAt, isReady: now >= backendEligibleAt };
+  }
+
+  const reviewStart = Number(proposal?.startTime || 0);
+  const reviewDuration = Number(proposal?.reviewDuration);
+  const votingDuration = Number(proposal?.votingDuration);
+  const gracePeriod = Number(proposal?.gracePeriod);
+  if (
+    !Number.isFinite(reviewStart) ||
+    !Number.isFinite(reviewDuration) ||
+    !Number.isFinite(votingDuration) ||
+    !Number.isFinite(gracePeriod)
+  ) {
+    return { eligibleAt: null, isReady: false };
+  }
+
+  const eligibleAt = reviewStart + reviewDuration + votingDuration + gracePeriod;
+  return { eligibleAt, isReady: now >= eligibleAt };
+}
+
+function isDaoParameterProposalType(proposal) {
+  const type = String(proposal?.proposalType || '').toLowerCase();
+  return type === 'governance' || type === 'economic' || type === 'protocol';
+}
+
+function isDaoProposalCommitteeMember(proposal, currentAddress) {
+  const normalizedAddress = normalizeDaoAddress(currentAddress);
+  if (!normalizedAddress || !Array.isArray(proposal?.committeeAddresses)) return false;
+  return proposal.committeeAddresses.some((address) => normalizeDaoAddress(address) === normalizedAddress);
+}
+
+function getDaoApplyParametersLifecycleAction(help, canSubmit, rowPreviewLabel = '') {
+  const action = {
+    kind: 'apply_parameters',
+    title: 'Apply parameters',
+    help,
+    buttonLabel: 'Apply parameters',
+    loadingLabel: 'Applying parameters...',
+    successMessage: 'Parameters applied',
+    refreshWarning: 'Parameters applied, but proposal or parameter refresh failed',
+    refreshNetworkParams: true,
+    canSubmit,
+  };
+  if (rowPreviewLabel) action.rowPreviewLabel = rowPreviewLabel;
+  return action;
+}
+
+function getDaoProposalApplyLifecycleAction(proposal, currentAddress = getDaoCurrentAccountAddress(), now = Date.now()) {
+  if (getEffectiveDaoState(proposal) !== 'accepted') return null;
+
+  if (!isDaoParameterProposalType(proposal)) {
+    return getDaoApplyParametersLifecycleAction(
+      'This proposal type does not support parameter application.',
+      false,
+    );
+  }
+
+  if (proposal?.emergency && !isDaoProposalCommitteeMember(proposal, currentAddress)) {
+    return getDaoApplyParametersLifecycleAction(
+      'Emergency proposal parameters can only be applied by a proposal committee member.',
+      false,
+    );
+  }
+
+  const applyWindow = getDaoProposalApplyWindow(proposal, now);
+  if (!applyWindow.isReady) {
+    const eligibleAt = applyWindow.eligibleAt ? formatDaoTimestamp(applyWindow.eligibleAt) : '';
+    return getDaoApplyParametersLifecycleAction(
+      eligibleAt
+        ? `Apply becomes available after the grace period ends: ${eligibleAt}.`
+        : 'Apply timing is unavailable until the proposal includes grace-period timing.',
+      false,
+    );
+  }
+
+  return getDaoApplyParametersLifecycleAction(
+    'This proposal is ready to apply. Submit the transaction to apply the accepted parameter changes.',
+    true,
+    'Ready to apply',
+  );
+}
+
+function formatDaoClaimWindowLabel(claimWindow, now) {
+  if (!claimWindow.start || !claimWindow.end) return 'Unavailable';
+  const start = formatDaoTimestamp(claimWindow.start) || 'Unavailable';
+  const end = formatDaoTimestamp(claimWindow.end) || 'Unavailable';
+  if (now < claimWindow.start) return `Opens ${start}\nEnds ${end}`;
+  if (now <= claimWindow.end) return `Open until ${end}`;
+  return `Ended ${end}`;
+}
+
+function getDaoClaimRewardEstimate({ pool, claimed, voterEntries, voterIndex, votingStart, votingDuration }) {
+  if (pool <= 0n || claimed >= pool || voterIndex < 0 || voterEntries.length === 0) return null;
+  if (!Number.isFinite(votingStart) || !Number.isFinite(votingDuration) || votingDuration <= 0) return null;
+
+  const voter = voterEntries[voterIndex];
+  const previousTimestamp = voterIndex === 0 ? votingStart : voterEntries[voterIndex - 1]?.timestamp;
+  if (!Number.isFinite(voter?.timestamp) || !Number.isFinite(previousTimestamp)) return null;
+
+  const timeDelta = BigInt(Math.max(0, Math.trunc(voter.timestamp - previousTimestamp)));
+  const duration = BigInt(Math.trunc(votingDuration));
+  const voterCount = BigInt(voterEntries.length);
+  const timePart = (timeDelta * DAO_CLAIM_REWARD_PRECISION) / duration;
+  const equalPart = DAO_CLAIM_REWARD_PRECISION / voterCount;
+  let reward = (pool * (timePart + equalPart)) / (2n * DAO_CLAIM_REWARD_PRECISION);
+  const remaining = pool > claimed ? pool - claimed : 0n;
+  if (reward > remaining) reward = remaining;
+  return reward;
+}
+
+function getDaoRewardClaimStatus({ state, currentAddress, voterIndex, hasClaimed, pool, claimed, claimWindow, now }) {
+  if (!currentAddress) return 'Sign in to check rewards';
+  if (state === 'withheld') return 'Reward pool burned';
+  if (voterIndex < 0) return 'Not eligible';
+  if (hasClaimed) return 'Already claimed';
+  if (pool <= 0n) return 'Reward pool empty';
+  if (claimed >= pool) return 'Reward pool fully claimed';
+  if (!claimWindow.end) return 'Claim timing unavailable';
+  if (now > claimWindow.end) return 'Claim window ended';
+  if (now < claimWindow.start) return 'Claim window not open';
+  return 'Claimable';
+}
+
+function getDaoProposalRewardSummary(proposal, currentAddress = getDaoCurrentAccountAddress(), now = Date.now()) {
+  const state = getEffectiveDaoState(proposal);
+  const isRewardState = state === 'accepted' || state === 'rejected' || state === 'applied' || state === 'withheld';
+  if (!isRewardState) return null;
+
+  const pool = parseDaoUnsignedBigInt(proposal?.voterRewardPool);
+  const claimed = parseDaoUnsignedBigInt(proposal?.claimedReward);
+  const initialBurned = parseDaoUnsignedBigInt(proposal?.initialBurnedReward);
+  const finalBurned = parseDaoUnsignedBigInt(proposal?.finalBurnedReward);
+  const voterEntries = getDaoVoterEntries(proposal);
+  const claimList = getDaoClaimList(proposal);
+  const hasRewardData = (
+    pool !== null ||
+    claimed !== null ||
+    initialBurned !== null ||
+    finalBurned !== null ||
+    voterEntries.length > 0 ||
+    claimList.length > 0
+  );
+  if (!hasRewardData) return null;
+
+  const safePool = pool ?? 0n;
+  const safeClaimed = claimed ?? 0n;
+  const claimWindow = getDaoProposalClaimWindow(proposal);
+  const normalizedAddress = normalizeDaoAddress(currentAddress);
+  const voterIndex = normalizedAddress ? voterEntries.findIndex((entry) => entry.address === normalizedAddress) : -1;
+  const hasClaimed = normalizedAddress ? claimList.includes(normalizedAddress) : false;
+  const claimStatus = getDaoRewardClaimStatus({
+    state,
+    currentAddress: normalizedAddress,
+    voterIndex,
+    hasClaimed,
+    pool: safePool,
+    claimed: safeClaimed,
+    claimWindow,
+    now,
+  });
+  const claimEstimate = hasClaimed
+    ? null
+    : getDaoClaimRewardEstimate({
+        pool: safePool,
+        claimed: safeClaimed,
+        voterEntries,
+        voterIndex,
+        votingStart: claimWindow.votingStart,
+        votingDuration: claimWindow.votingDuration,
+      });
+  const unclaimed = pool !== null && claimed !== null
+    ? safePool > safeClaimed ? safePool - safeClaimed : 0n
+    : null;
+
+  return {
+    claimEstimate,
+    claimStatus,
+    claimWindowLabel: formatDaoClaimWindowLabel(claimWindow, now),
+    claimed,
+    finalBurned,
+    initialBurned,
+    pool,
+    unclaimed,
+    statusTone: claimStatus === 'Claimable' ? 'accept' : '',
+  };
+}
+
+function getDaoProposalLifecycleActions(proposal, rewardSummary, currentAddress = getDaoCurrentAccountAddress(), now = Date.now()) {
+  const state = getEffectiveDaoState(proposal);
+
+  if (state === 'voting') {
+    const votingWindow = getDaoProposalVotingWindow(proposal, now);
+    if (votingWindow.end && now > votingWindow.end) {
+      return [{
+        kind: 'vote_result',
+        title: 'Vote result',
+        help: 'Voting has ended. Finalize the vote result to move this proposal to accepted or rejected.',
+        buttonLabel: 'Finalize vote result',
+        loadingLabel: 'Finalizing vote result...',
+        successMessage: 'Vote result finalized',
+        refreshWarning: 'Vote result finalized, but proposal refresh failed',
+      }];
+    }
+    return [];
+  }
+
+  if (!isDaoFinalResultState(state)) return [];
+
+  const actions = [];
+  const claimWindow = getDaoProposalClaimWindow(proposal);
+  const pool = parseDaoUnsignedBigInt(proposal?.voterRewardPool) ?? 0n;
+  const claimed = parseDaoUnsignedBigInt(proposal?.claimedReward) ?? 0n;
+  const unclaimed = pool > claimed ? pool - claimed : 0n;
+
+  if (claimWindow.end && now > claimWindow.end && unclaimed > 0n) {
+    actions.push({
+      kind: 'burn_reward',
+      title: 'Reward burn',
+      help: 'The claim window has ended. Burn the unclaimed reward pool so the proposal accounting is finalized.',
+      buttonLabel: 'Burn unclaimed reward',
+      loadingLabel: 'Burning reward...',
+      successMessage: 'Unclaimed reward burned',
+      refreshWarning: 'Reward burned, but proposal refresh failed',
+    });
+  }
+
+  if (
+    claimWindow.start &&
+    claimWindow.end &&
+    now >= claimWindow.start &&
+    now <= claimWindow.end &&
+    unclaimed > 0n &&
+    currentAddress &&
+    rewardSummary?.claimStatus === 'Claimable'
+  ) {
+    actions.push({
+      kind: 'claim_reward',
+      title: 'Reward claim',
+      help: rewardSummary.claimEstimate === null
+        ? 'Your reward is claimable. Submit the claim and refresh proposal accounting.'
+        : `Your estimated claim is ${formatDaoLibWei(rewardSummary.claimEstimate)}. Submit the claim and refresh proposal accounting.`,
+      buttonLabel: 'Claim reward',
+      loadingLabel: 'Claiming reward...',
+      successMessage: 'Reward claimed',
+      refreshWarning: 'Reward claimed, but proposal refresh failed',
+    });
+  }
+
+  const applyAction = getDaoProposalApplyLifecycleAction(proposal, currentAddress, now);
+  if (applyAction) actions.push(applyAction);
+  return actions;
+}
+
+function formatDaoDetailValue(value) {
+  if (value === undefined || value === null || value === '') return 'Unavailable';
+  if (typeof value === 'bigint') return value.toString();
+  if (Array.isArray(value)) return value.map(formatDaoDetailValue).join(', ');
+  if (typeof value === 'object') return stringify(value);
+  return String(value);
+}
+
+function parseDaoPositiveLibAmount(value) {
+  const text = String(value || '').trim();
+  if (!/^\d+(?:\.\d{1,18})?$/.test(text)) return null;
+  try {
+    const weiAmount = EthNum.toWei(text);
+    return weiAmount > 0n ? weiAmount : null;
+  } catch {
+    return null;
+  }
+}
+
+function getDaoUsdAsLibWei(usdValue) {
+  const usdText = String(usdValue ?? '').trim();
+  const stabilityText = String(parameters?.current?.stabilityFactorStr ?? '').trim();
+  if (!usdText || !stabilityText) return null;
+  try {
+    const weiAmount = EthNum.toWei(EthNum.div(usdText, stabilityText));
+    return weiAmount >= 0n ? weiAmount : null;
+  } catch {
+    return null;
+  }
+}
+
+function floorDaoVoteWeightEstimate(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return null;
+  try {
+    return BigInt(Math.floor(n));
+  } catch {
+    return null;
+  }
+}
+
 class ProposalInfoModal {
   load() {
     this.modal = document.getElementById('proposalInfoModal');
     this.closeButton = document.getElementById('closeProposalInfoModal');
-    this.numberEl = document.getElementById('proposalInfoNumber');
-    this.titleEl = document.getElementById('proposalInfoTitle');
-    this.typeEl = document.getElementById('proposalInfoType');
-    this.metaEl = document.getElementById('proposalInfoMeta');
-    this.summaryEl = document.getElementById('proposalInfoSummary');
-    this.fieldsEl = document.getElementById('proposalInfoFields');
-    this.voteSection = document.getElementById('proposalVoteSection');
-    this.voteYesBtn = document.getElementById('proposalVoteYes');
-    this.voteNoBtn = document.getElementById('proposalVoteNo');
-    this.voteCountsEl = document.getElementById('proposalVoteCounts');
+    this.title = document.getElementById('proposalInfoModalTitle');
+    this.content = document.getElementById('proposalInfoContent');
+    this.detailsContent = document.getElementById('proposalDetailsContent');
+    this.committeeActionSection = document.getElementById('proposalCommitteeActionSection');
+    this.committeeActionHelp = document.getElementById('proposalCommitteeActionHelp');
+    this.acceptButton = document.getElementById('proposalCommitteeAccept');
+    this.withholdButton = document.getElementById('proposalCommitteeWithhold');
+    this.withholdFields = document.getElementById('proposalWithholdFields');
+    this.withholdReasonSelect = document.getElementById('proposalWithholdReason');
+    this.customReasonGroup = document.getElementById('proposalWithholdCustomGroup');
+    this.customReasonInput = document.getElementById('proposalWithholdCustomReason');
+    this.submitButton = document.getElementById('proposalCommitteeSubmit');
+    this.reviewResultSection = document.getElementById('proposalReviewResultSection');
+    this.reviewResultHelp = document.getElementById('proposalReviewResultHelp');
+    this.reviewResultButton = document.getElementById('proposalReviewResultSubmit');
+    this.lifecycleActionSection = document.getElementById('proposalLifecycleActionSection');
+    this.voteActionSection = document.getElementById('proposalVoteActionSection');
+    this.voteActionHelp = document.getElementById('proposalVoteActionHelp');
+    this.voteOptions = document.getElementById('proposalVoteOptions');
+    this.voteSpendInput = document.getElementById('proposalVoteSpend');
+    this.votePreview = document.getElementById('proposalVotePreview');
+    this.voteSubmitButton = document.getElementById('proposalVoteSubmit');
 
     this._currentProposalId = null;
+    this.committeeChoice = 'accept';
+    this.currentCommitteeVote = '';
+    this.voteWeights = [];
+    this.voteSpendLib = '';
+    this.isSubmitting = false;
+    this.canSubmitCommitteeReview = false;
+    this.canSubmitReviewResult = false;
+    this.currentLifecycleActions = [];
+    this.submittingLifecycleAction = null;
+    this.canSubmitVote = false;
+    this.submitButtonLabel = this.submitButton?.textContent || 'Submit review';
+    this.reviewResultButtonLabel = this.reviewResultButton?.textContent || 'Finalize review result';
+    this.voteSubmitButtonLabel = this.voteSubmitButton?.textContent || 'Submit vote';
 
     if (this.closeButton) this.closeButton.addEventListener('click', () => this.close());
+    if (this.acceptButton) this.acceptButton.addEventListener('click', () => this.handleCommitteeChoiceClick('accept'));
+    if (this.withholdButton) this.withholdButton.addEventListener('click', () => this.handleCommitteeChoiceClick('withhold'));
+    if (this.withholdReasonSelect) this.withholdReasonSelect.addEventListener('change', () => this.handleWithholdReasonChange());
+    if (this.submitButton) this.submitButton.addEventListener('click', () => this.handleCommitteeSubmit());
+    if (this.reviewResultButton) this.reviewResultButton.addEventListener('click', () => this.handleReviewResultSubmit());
+    if (this.lifecycleActionSection) this.lifecycleActionSection.addEventListener('click', (event) => this.handleLifecycleActionClick(event));
+    if (this.voteSpendInput) this.voteSpendInput.addEventListener('input', () => this.handleVoteSpendInput());
+    if (this.voteOptions) this.voteOptions.addEventListener('input', (event) => this.handleVoteWeightInput(event));
+    if (this.voteSubmitButton) this.voteSubmitButton.addEventListener('click', () => this.handleVoteSubmit());
 
-    if (this.voteYesBtn) this.voteYesBtn.addEventListener('click', () => this.castVote('yes'));
-    if (this.voteNoBtn) this.voteNoBtn.addEventListener('click', () => this.castVote('no'));
+    if (this.withholdReasonSelect) {
+      this.withholdReasonSelect.innerHTML = DAO_WITHHOLD_REASON_OPTIONS
+        .map((option) => `<option value="${escapeDaoFormAttribute(option.value)}">${escapeHtml(option.label)}</option>`)
+        .join('');
+    }
   }
 
   open(proposalId) {
@@ -3354,96 +4455,1317 @@ class ProposalInfoModal {
     }
 
     if (!p) {
-      if (this.numberEl) this.numberEl.textContent = '';
-      if (this.titleEl) this.titleEl.textContent = 'Proposal not found';
-      if (this.typeEl) this.typeEl.textContent = '';
-      if (this.metaEl) this.metaEl.textContent = '';
-      if (this.summaryEl) this.summaryEl.textContent = '';
-      if (this.fieldsEl) this.fieldsEl.innerHTML = '';
-      if (this.voteSection) this.voteSection.style.display = 'none';
+      this.renderNotFound();
       return;
     }
 
-    const uiState = getDaoStateLabel(getEffectiveDaoState({ state: p.state, stateEnteredAt: p.state_changed, createdAt: p.created }));
-    const entered = formatDaoTimestamp(p.state_changed || p.created);
-    const createdBy = p.createdBy ? ` · by ${p.createdBy}` : '';
-    const typeLabel = getDaoTypeLabel(p.type);
+    this.setSubmitting(false);
+    this.committeeChoice = 'accept';
+    this.resetVoteState(p);
+    this.renderProposal(p);
+  }
 
-    if (this.numberEl) this.numberEl.textContent = p.number ? `Proposal #${p.number}` : 'Proposal';
-    if (this.titleEl) this.titleEl.textContent = p.title || 'Untitled Proposal';
-    if (this.typeEl) this.typeEl.textContent = typeLabel ? `Type: ${typeLabel}` : '';
-    if (this.metaEl) this.metaEl.textContent = `${uiState} · ${entered}${createdBy}`;
-    if (this.summaryEl) this.summaryEl.textContent = p.summary || '';
+  renderNotFound() {
+    this.setTitle('Proposal not found');
+    if (this.content) {
+      this.content.innerHTML = '<section class="proposal-info-section"><h3>Proposal not found</h3><p class="proposal-info-muted">The proposal data is unavailable.</p></section>';
+    }
+    if (this.detailsContent) {
+      this.detailsContent.innerHTML = '';
+    }
+    this.hideCommitteeActions();
+    this.hideReviewResultAction();
+    this.hideLifecycleAction();
+    this.hideVoteActions();
+  }
 
-    if (this.fieldsEl) {
-      const entries = Object.entries(p.fields || {}).filter(([, v]) => v !== undefined && v !== null && String(v).length > 0);
-      if (entries.length === 0) {
-        this.fieldsEl.innerHTML = '';
-      } else {
-        this.fieldsEl.innerHTML = entries
-          .map(([k, v]) => {
-            const key = escapeHtml(String(k));
-            const val = escapeHtml(String(v));
-            return `<div><span style="color: var(--secondary-text-color)">${key}</span>: ${val}</div>`;
-          })
-          .join('');
+  renderProposal(proposal) {
+    const state = getEffectiveDaoState(proposal);
+    this.setTitle(getDaoStateLabel(state) || state || 'Proposal');
+    const reviewWindow = getDaoProposalReviewWindow(proposal);
+    const committeeVotes = Array.isArray(proposal.committeeVotes) ? proposal.committeeVotes : [];
+    const committeeAddresses = Array.isArray(proposal.committeeAddresses) ? proposal.committeeAddresses : [];
+    const committeeAddressSet = new Set(committeeAddresses);
+    const acceptCount = committeeVotes.filter((vote) => vote?.vote === 'accept' && committeeAddressSet.has(vote.memberAddress)).length;
+    const withholdCount = committeeVotes.filter((vote) => vote?.vote === 'withhold' && committeeAddressSet.has(vote.memberAddress)).length;
+    const currentAddress = getDaoCurrentAccountAddress();
+    const currentVote = committeeVotes.find((vote) => vote?.memberAddress === currentAddress) || null;
+    const capabilities = this.getReviewCapabilities({
+      state,
+      reviewWindow,
+      currentAddress,
+      committeeAddressSet,
+    });
+    const resultSummary = getDaoProposalResultSummary(proposal);
+    const rewardSummary = getDaoProposalRewardSummary(proposal, currentAddress);
+    const lifecycleActions = getDaoProposalLifecycleActions(proposal, rewardSummary, currentAddress);
+    const committeeReviewSection = state === 'review'
+      ? this.renderSection('Committee Review', [
+        ['Committee size', committeeAddresses.length ? String(committeeAddresses.length) : 'Unavailable'],
+        ['Accept votes', String(acceptCount)],
+        ['Withhold votes', String(withholdCount)],
+        [
+          'Your vote',
+          currentVote ? this.formatCommitteeVote(currentVote) : capabilities.isCommitteeMember ? 'Not submitted' : 'Not a committee member',
+          this.getCommitteeVoteTone(currentVote),
+        ],
+        ['Next state', this.getNextStateHint(proposal, acceptCount, withholdCount, reviewWindow)],
+      ])
+      : '';
+
+    if (this.content) {
+      this.content.innerHTML = [
+        this.renderProposalTitle(proposal),
+        this.renderParameterChanges(proposal),
+        state === 'voting' ? this.renderCurrentVoteTotals(proposal) : '',
+        this.renderProposalResults(resultSummary),
+        state === 'review' ? this.renderProposalBody(proposal) : '',
+        committeeReviewSection,
+      ].filter(Boolean).join('');
+    }
+    if (this.detailsContent) {
+      this.detailsContent.innerHTML = this.renderProposalDetails({
+        proposal,
+        state,
+        reviewWindow,
+        rewardSummary,
+      });
+    }
+
+    if (state === 'review') {
+      this.renderCommitteeActions({ capabilities, reviewWindow, currentVote, state });
+      this.renderReviewResultAction({ capabilities, reviewWindow, proposal, acceptCount, withholdCount });
+    } else {
+      this.hideCommitteeActions();
+      this.hideReviewResultAction();
+    }
+    this.renderLifecycleActions(lifecycleActions);
+    this.renderVoteActions(proposal, state);
+  }
+
+  getReviewCapabilities({ state, reviewWindow, currentAddress, committeeAddressSet }) {
+    const isCommitteeMember = Boolean(currentAddress && committeeAddressSet.has(currentAddress));
+    const canCommitteeVote = state === 'review' && reviewWindow.canCommitteeVote && isCommitteeMember;
+    const canFinalizeReviewResult = Boolean(currentAddress) && state === 'review' && reviewWindow.canFinalizeReviewResult;
+
+    return { isCommitteeMember, canCommitteeVote, canFinalizeReviewResult };
+  }
+
+  getCommitteeVoteTone(vote) {
+    if (vote?.vote === 'accept') return 'accept';
+    if (vote?.vote === 'withhold') return 'withhold';
+    return '';
+  }
+
+  renderProposalTitle(proposal) {
+    const description = proposal.description || '';
+    const title = proposal.title || (proposal.number ? `Proposal #${proposal.number}` : 'Proposal');
+    const descriptionHtml = description
+      ? `<p class="proposal-info-description">${escapeHtml(description)}</p>`
+      : '';
+
+    return `
+      <div class="proposal-info-heading">
+        <h2 class="proposal-info-title">${escapeHtml(title)}</h2>
+        ${descriptionHtml}
+      </div>
+    `;
+  }
+
+  renderCurrentVoteTotals(proposal) {
+    const votingWindow = getDaoProposalVotingWindow(proposal);
+    const rows = this.getCurrentVoteTotalRows(proposal);
+    if (rows.length === 0) return '';
+
+    const totalWeight = rows.reduce((sum, row) => sum + row.total, 0n);
+    const winnerIndex = totalWeight > 0n
+      ? rows.reduce((winner, row, index) => (row.total > rows[winner].total ? index : winner), 0)
+      : -1;
+    const labelLayout = rows.length === 2 ? 'balanced' : 'segmented';
+
+    const labels = rows
+      .map((row, index) => {
+        const position = index === 0 ? 'start' : index === rows.length - 1 ? 'end' : 'center';
+        const isWinner = index === winnerIndex;
+        const units = this.getCurrentVoteSegmentUnits(row.total, totalWeight);
+        const power = formatDaoVotingPower(row.total);
+        const percent = formatDaoBigIntPercent(row.total, totalWeight);
+        const valueLabel = totalWeight > 0n ? `${power} / ${percent}` : power;
+        const title = totalWeight > 0n
+          ? `${row.option}: ${power}, ${percent}`
+          : `${row.option}: ${power}`;
+
+        return `
+          <div
+            class="proposal-vote-current-label proposal-vote-current-label--${position}${isWinner ? ' proposal-vote-current-label--winner' : ''}"
+            style="--vote-total-segment-units: ${units};"
+            title="${escapeDaoFormAttribute(title)}"
+            aria-label="${escapeDaoFormAttribute(title)}"
+          >
+            <span>${escapeHtml(row.option)}</span>
+            <small>${escapeHtml(valueLabel)}</small>
+          </div>
+        `;
+      })
+      .join('');
+
+    const segments = rows
+      .map((row, index) => {
+        const isWinner = index === winnerIndex;
+        const units = this.getCurrentVoteSegmentUnits(row.total, totalWeight);
+        return `
+          <span
+            class="proposal-vote-current-segment${isWinner ? ' proposal-vote-current-segment--winner' : ''}${row.total === 0n ? ' proposal-vote-current-segment--empty' : ''}"
+            style="--vote-total-segment-units: ${units};"
+          ></span>
+        `;
+      })
+      .join('');
+
+    return `
+      <section class="proposal-info-section proposal-vote-current-section">
+        <h3>Current Vote</h3>
+        <div class="proposal-vote-current-meter" aria-label="Current vote totals">
+          <div class="proposal-vote-current-labels proposal-vote-current-labels--${labelLayout}">${labels}</div>
+          <div class="proposal-vote-current-track" aria-hidden="true">${segments}</div>
+        </div>
+        <div class="proposal-vote-status-grid proposal-vote-status-grid--current">
+          <div class="proposal-vote-status-card proposal-vote-status-card--deadline">
+            <span>Voting ends</span>
+            <strong>${escapeHtml(formatDaoDetailTimestamp(votingWindow.end))}</strong>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  getCurrentVoteTotalRows(proposal) {
+    const options = getDaoProposalOptions(proposal);
+    const totalVote = proposal.totalVote;
+    return options.map((option, index) => ({
+      option,
+      total: parseDaoUnsignedBigInt(totalVote[index]) ?? 0n,
+    }));
+  }
+
+  getCurrentVoteSegmentUnits(part, total) {
+    if (typeof part !== 'bigint' || typeof total !== 'bigint' || total <= 0n) return 1;
+    if (part <= 0n) return 0;
+    const units = Number((part * 1000n) / total);
+    return Math.max(1, units);
+  }
+
+  renderProposalResults(result) {
+    if (!result) return '';
+    if (result.source === 'committee') {
+      return this.renderCommitteeResults(result);
+    }
+
+    const winnerLabel = result.winner ? `${result.winner.option} (${result.outcome})` : 'Unavailable';
+    const totalLabel = result.totalWeight > 0n ? formatDaoVotingPower(result.totalWeight) : 'No votes yet';
+    const labelLayout = result.totals.length === 2 ? 'balanced' : 'segmented';
+    const segments = result.totals
+      .map((row, rowPosition) => {
+        const isWinner = result.winner?.index === row.index;
+        const paletteClass = result.totals.length > 1
+          ? ` proposal-result-meter-label--palette-${rowPosition % 6}`
+          : '';
+        const units = this.getResultSegmentUnits(row.total, result.totalWeight);
+        const power = formatDaoVotingPower(row.total);
+        const displayPower = power.endsWith(' power') ? power.slice(0, -6) : power;
+        const percent = formatDaoBigIntPercent(row.total, result.totalWeight);
+        const position = rowPosition === 0
+          ? 'start'
+          : rowPosition === result.totals.length - 1
+            ? 'end'
+            : 'center';
+        const style = `--result-segment-units: ${units};`;
+        const label = `${row.option}: ${power}, ${percent}`;
+        return `
+          <div
+            class="proposal-result-meter-label proposal-result-meter-label--${position}${paletteClass}${isWinner ? ' proposal-result-meter-label--winner' : ''}"
+            style="${escapeDaoFormAttribute(style)}"
+            title="${escapeDaoFormAttribute(label)}"
+            aria-label="${escapeDaoFormAttribute(label)}"
+          >
+            <span>${escapeHtml(row.option)}</span>
+            <small>${escapeHtml(displayPower)} / ${escapeHtml(percent)}</small>
+          </div>
+        `;
+      })
+      .join('');
+    const bars = result.totals
+      .map((row, rowPosition) => {
+        const paletteClass = result.totals.length > 1
+          ? ` proposal-result-meter-segment--palette-${rowPosition % 6}`
+          : ' proposal-result-meter-segment--palette-0';
+        const units = this.getResultSegmentUnits(row.total, result.totalWeight);
+        const style = `--result-segment-units: ${units};`;
+        return `
+          <span
+            class="proposal-result-meter-segment${paletteClass}${row.total === 0n ? ' proposal-result-meter-segment--empty' : ''}"
+            style="${escapeDaoFormAttribute(style)}"
+          ></span>
+        `;
+      })
+      .join('');
+
+    return `
+      <section class="proposal-info-section">
+        <h3>Results</h3>
+        <div class="proposal-result-overview">
+          <div class="proposal-result-card">
+            <span>Winner</span>
+            <span class="proposal-result-value">${escapeHtml(winnerLabel)}</span>
+          </div>
+          <div class="proposal-result-card">
+            <span>Total voting power</span>
+            <span class="proposal-result-value">${escapeHtml(totalLabel)}</span>
+          </div>
+        </div>
+        <div class="proposal-result-meter" aria-label="Vote result breakdown">
+          <div class="proposal-result-meter-labels proposal-result-meter-labels--${labelLayout}">${segments}</div>
+          <div class="proposal-result-meter-track" aria-hidden="true">${bars}</div>
+        </div>
+      </section>
+    `;
+  }
+
+  renderCommitteeResults(result) {
+    const acceptCount = Number(result.acceptCount || 0);
+    const withholdCount = Number(result.withholdCount || 0);
+    const submittedCount = acceptCount + withholdCount;
+    const committeeSize = Number(result.committeeSize || 0);
+    const committeeSizeLabel = committeeSize > 0 ? String(committeeSize) : 'Unavailable';
+    const acceptPercent = this.formatCountPercent(acceptCount, submittedCount);
+    const withholdPercent = this.formatCountPercent(withholdCount, submittedCount);
+    const acceptUnits = this.getCountResultSegmentUnits(acceptCount, submittedCount);
+    const withholdUnits = this.getCountResultSegmentUnits(withholdCount, submittedCount);
+    const acceptWinnerClass = result.tone === 'accepted' ? ' proposal-result-meter-label--winner' : '';
+    const withholdWinnerClass = result.tone === 'rejected' ? ' proposal-result-meter-label--winner' : '';
+
+    return `
+      <section class="proposal-info-section">
+        <h3>Results</h3>
+        <div class="proposal-result-overview">
+          <div class="proposal-result-card">
+            <span>Outcome</span>
+            <span class="proposal-result-value">${escapeHtml(result.headline || 'Unavailable')}</span>
+          </div>
+          <div class="proposal-result-card">
+            <span>Committee size</span>
+            <span class="proposal-result-value">${escapeHtml(committeeSizeLabel)}</span>
+          </div>
+        </div>
+        <div class="proposal-result-meter" aria-label="Committee result breakdown">
+          <div class="proposal-result-meter-labels proposal-result-meter-labels--balanced">
+            <div
+              class="proposal-result-meter-label proposal-result-meter-label--start proposal-result-meter-label--accept${acceptWinnerClass}"
+              style="--result-segment-units: ${acceptUnits};"
+              title="${escapeDaoFormAttribute(`Accept: ${acceptCount}, ${acceptPercent}`)}"
+              aria-label="${escapeDaoFormAttribute(`Accept: ${acceptCount}, ${acceptPercent}`)}"
+            >
+              <span>Accept</span>
+              <small>${escapeHtml(`${acceptCount} / ${acceptPercent}`)}</small>
+            </div>
+            <div
+              class="proposal-result-meter-label proposal-result-meter-label--end proposal-result-meter-label--withhold${withholdWinnerClass}"
+              style="--result-segment-units: ${withholdUnits};"
+              title="${escapeDaoFormAttribute(`Withhold: ${withholdCount}, ${withholdPercent}`)}"
+              aria-label="${escapeDaoFormAttribute(`Withhold: ${withholdCount}, ${withholdPercent}`)}"
+            >
+              <span>Withhold</span>
+              <small>${escapeHtml(`${withholdCount} / ${withholdPercent}`)}</small>
+            </div>
+          </div>
+          <div class="proposal-result-meter-track" aria-hidden="true">
+            <span
+              class="proposal-result-meter-segment proposal-result-meter-segment--accept${acceptCount === 0 ? ' proposal-result-meter-segment--empty' : ''}"
+              style="--result-segment-units: ${acceptUnits};"
+            ></span>
+            <span
+              class="proposal-result-meter-segment proposal-result-meter-segment--withhold${withholdCount === 0 ? ' proposal-result-meter-segment--empty' : ''}"
+              style="--result-segment-units: ${withholdUnits};"
+            ></span>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  getResultSegmentUnits(part, total) {
+    if (typeof part !== 'bigint' || typeof total !== 'bigint' || total <= 0n) return 1;
+    const units = Number((part * 1000n + total / 2n) / total);
+    return Math.max(1, units);
+  }
+
+  getCountResultSegmentUnits(part, total) {
+    if (!Number.isFinite(part) || !Number.isFinite(total) || total <= 0) return 1;
+    if (part <= 0) return 0;
+    return Math.max(1, Math.round((part / total) * 1000));
+  }
+
+  formatCountPercent(part, total) {
+    if (!Number.isFinite(part) || !Number.isFinite(total) || total <= 0) return '0%';
+    return formatDaoPercent(part / total);
+  }
+
+  renderProposalRewards(reward) {
+    if (!reward) return '';
+    return this.renderSection('Rewards', [
+      ['Claim status', reward.claimStatus, reward.statusTone],
+      ['Claim estimate', reward.claimEstimate === null ? 'Unavailable' : formatDaoLibWei(reward.claimEstimate), reward.statusTone],
+      ['Claim window', reward.claimWindowLabel],
+      ['Reward pool', formatDaoRewardAmount(reward.pool)],
+      ['Claimed', formatDaoRewardAmount(reward.claimed)],
+      ['Unclaimed pool', formatDaoRewardAmount(reward.unclaimed)],
+      ['Initial burn', formatDaoRewardAmount(reward.initialBurned)],
+      ['Final burn', formatDaoRewardAmount(reward.finalBurned)],
+    ]);
+  }
+
+  renderVotingDetails(proposal) {
+    const votingWindow = getDaoProposalVotingWindow(proposal);
+    const totalVote = Array.isArray(proposal.totalVote) ? proposal.totalVote : [];
+    const options = getDaoProposalOptions(proposal);
+    const totalVoteText = totalVote.length
+      ? totalVote.map((value, index) => `${options[index] || `Option ${index + 1}`}: ${formatDaoVotingPower(value)}`).join('\n')
+      : 'No votes yet';
+    return this.renderSection('Voting Details', [
+      ['Voting state', votingWindow.label],
+      ['Current totals', totalVoteText],
+    ]);
+  }
+
+  renderProposalDetails({ proposal, state, reviewWindow, rewardSummary }) {
+    const sections = [
+      this.renderSection('Overview', [
+        ['Number', proposal.number ? `#${proposal.number}` : 'Unavailable'],
+        ['Type', getDaoTypeLabel(proposal.proposalType) || 'Unavailable'],
+        ['Status', getDaoStateLabel(state) || state],
+        ['Created', formatDaoDetailTimestamp(proposal.created)],
+        ['Updated', formatDaoDetailTimestamp(proposal.state_changed)],
+      ]),
+      this.renderSection('Review Timeline', [
+        ['Window state', reviewWindow.label],
+        ['Review starts', formatDaoDetailTimestamp(reviewWindow.start)],
+        ['Review ends', formatDaoDetailTimestamp(reviewWindow.end)],
+      ]),
+      state === 'voting' ? this.renderVotingDetails(proposal) : '',
+      state === 'review' ? '' : this.renderProposalBody(proposal),
+      this.renderProposalRewards(rewardSummary),
+    ].filter(Boolean);
+
+    return `
+      <details class="proposal-more">
+        <summary>
+          <span class="proposal-more-title">Show proposal details</span>
+          <span class="proposal-more-note">${escapeHtml(this.getProposalDetailsSummary(state, rewardSummary))}</span>
+        </summary>
+        <div class="proposal-more-content">${sections.join('')}</div>
+      </details>
+    `;
+  }
+
+  getProposalDetailsSummary(state, rewardSummary) {
+    const parts = ['Overview', 'review timeline'];
+    if (state !== 'review') parts.push('proposal body');
+    if (state === 'voting') parts.push('voting totals');
+    if (rewardSummary) parts.push('reward accounting');
+    return parts.join(', ');
+  }
+
+  setTitle(title) {
+    if (this.title) this.title.textContent = title || 'Proposal';
+  }
+
+  renderSection(title, rows) {
+    const rowHtml = rows
+      .map(([label, value, tone]) => {
+        const displayValue = formatDaoDetailValue(value);
+        const rowClass = this.getSectionRowClass(label, displayValue);
+        const classes = [
+          rowClass,
+          tone ? `proposal-info-row--${tone}` : '',
+        ].filter(Boolean);
+
+        return `
+        <div class="${classes.join(' ')}">
+          <span>${escapeHtml(label)}</span>
+          <span class="proposal-info-value">${escapeHtml(displayValue)}</span>
+        </div>
+      `;
+      })
+      .join('');
+
+    return `
+      <section class="proposal-info-section">
+        <h3>${escapeHtml(title)}</h3>
+        <div class="proposal-info-grid">${rowHtml}</div>
+      </section>
+    `;
+  }
+
+  getSectionRowClass(label, value) {
+    if (label === 'Description') {
+      return 'proposal-info-row proposal-info-row--full';
+    }
+    if (label !== 'Options') {
+      return 'proposal-info-row';
+    }
+
+    const lines = String(value).split('\n');
+    const longestLineLength = Math.max(...lines.map((line) => line.length));
+    if (lines.length > 4 || longestLineLength > 42 || String(value).length > 120) {
+      return 'proposal-info-row proposal-info-row--full';
+    }
+
+    return 'proposal-info-row';
+  }
+
+  renderProposalBody(proposal) {
+    const options = proposal.options.map((option, index) => `${index + 1}. ${option}`).join('\n');
+
+    return this.renderSection('Proposal Body', [
+      ['Emergency', proposal.emergency ? 'Yes' : 'No'],
+      ['Options', options],
+    ]);
+  }
+
+  renderParameterChanges(proposal) {
+    const payloads = ['governance', 'economic', 'protocol']
+      .map((key) => [key, proposal[key]])
+      .filter(([, payload]) => payload && typeof payload === 'object');
+
+    if (payloads.length === 0) {
+      return '<section class="proposal-info-section"><h3>Parameter Changes</h3><p class="proposal-info-muted">No parameter changes are available.</p></section>';
+    }
+
+    const payloadHtml = payloads
+      .map(([key, payload]) => {
+        const payloadTitle = getDaoTypeLabel(key) || key;
+        return `
+        <div class="proposal-payload">
+          ${this.renderPayloadRows(payload, payloadTitle)}
+        </div>
+      `;
+      })
+      .join('');
+
+    return `
+      <section class="proposal-info-section">
+        <h3>Parameter Changes</h3>
+        ${payloadHtml}
+      </section>
+    `;
+  }
+
+  getParameterChangeRowClass(parts, isSingleRow) {
+    const normalizedParts = parts.map((part) => String(part ?? '').trim());
+    const shouldUseWideRow = normalizedParts.some((part) => part.length > 22)
+      || normalizedParts.join(' ').length > 52;
+    return [
+      'proposal-change-row',
+      shouldUseWideRow ? 'proposal-change-row--wide' : '',
+      !shouldUseWideRow && isSingleRow ? 'proposal-change-row--single' : '',
+    ].filter(Boolean).join(' ');
+  }
+
+  renderPayloadRows(payload, payloadTitle) {
+    const titleHtml = payloadTitle
+      ? `<div class="proposal-payload-title">${escapeHtml(payloadTitle)}</div>`
+      : '';
+
+    if (Array.isArray(payload?.changes)) {
+      const changes = payload.changes;
+      return changes
+        .map((change, index) => {
+          const key = change?.key || 'Unknown key';
+          const current = formatDaoDetailValue(change?.current);
+          const next = formatDaoDetailValue(change?.value);
+          const rowClass = this.getParameterChangeRowClass(
+            [key, `Current: ${current}`, `New: ${next}`],
+            index === changes.length - 1 && changes.length % 2 === 1,
+          );
+          return `
+          <div class="${rowClass}">
+            ${titleHtml}
+            <span>${escapeHtml(key)}</span>
+            <div class="proposal-change-values">
+              <small><span>Current:</span><strong>${escapeHtml(current)}</strong></small>
+              <span class="proposal-change-arrow" aria-hidden="true">&rarr;</span>
+              <small><span>New:</span><strong>${escapeHtml(next)}</strong></small>
+            </div>
+          </div>
+        `;
+        })
+        .join('');
+    }
+
+    const entries = Object.entries(payload)
+      .filter(([, value]) => value !== undefined && value !== null && String(value).length > 0);
+
+    return entries
+      .map(([key, value], index) => {
+        const displayValue = formatDaoDetailValue(value);
+        const rowClass = this.getParameterChangeRowClass(
+          [key, displayValue],
+          index === entries.length - 1 && entries.length % 2 === 1,
+        );
+        return `
+        <div class="${rowClass}">
+          ${titleHtml}
+          <span>${escapeHtml(key)}</span>
+          <strong>${escapeHtml(displayValue)}</strong>
+        </div>
+      `;
+      })
+      .join('');
+  }
+
+  formatCommitteeVote(vote) {
+    if (vote.vote !== 'withhold') return 'Accept';
+    return vote.withheldReason ? `Withhold - ${vote.withheldReason}` : 'Withhold';
+  }
+
+  getReviewFinalizedStateLabel(proposal, acceptCount, withholdCount) {
+    if (withholdCount > acceptCount) return 'Withheld';
+    return proposal.emergency ? 'Accepted' : 'Voting';
+  }
+
+  getNextStateHint(proposal, acceptCount, withholdCount, reviewWindow) {
+    if (proposal.status && proposal.status !== 'review') return getDaoStateLabel(proposal.status) || proposal.status;
+    if (reviewWindow.canFinalizeReviewResult) {
+      return `${this.getReviewFinalizedStateLabel(proposal, acceptCount, withholdCount)} if finalized`;
+    }
+    if (withholdCount > acceptCount) return 'Likely withheld after review result';
+    if (acceptCount > withholdCount) return proposal.emergency ? 'Accepted if finalized' : 'Voting if finalized';
+    return 'Waiting for committee review';
+  }
+
+  renderCommitteeActions({ capabilities, reviewWindow, currentVote, state }) {
+    if (!this.committeeActionSection) return;
+    if (!capabilities.isCommitteeMember || capabilities.canFinalizeReviewResult) {
+      this.hideCommitteeActions();
+      return;
+    }
+
+    this.committeeActionSection.classList.remove('hidden');
+    this.currentCommitteeVote = currentVote?.vote || '';
+    this.setCommitteeChoice(this.getDefaultCommitteeChoice(currentVote));
+
+    this.canSubmitCommitteeReview = state === 'review' && capabilities.canCommitteeVote;
+    this.updateSubmitButtons();
+    this.setCommitteeActionHelp(state, reviewWindow);
+  }
+
+  getDefaultCommitteeChoice(currentVote) {
+    if (currentVote?.vote === 'accept') return 'withhold';
+    return 'accept';
+  }
+
+  hideCommitteeActions() {
+    this.canSubmitCommitteeReview = false;
+    this.currentCommitteeVote = '';
+    this.committeeActionSection?.classList.add('hidden');
+    this.updateSubmitButtons();
+  }
+
+  renderReviewResultAction({ capabilities, reviewWindow, proposal, acceptCount, withholdCount }) {
+    if (!this.reviewResultSection) return;
+    if (!capabilities.canFinalizeReviewResult) {
+      this.hideReviewResultAction();
+      return;
+    }
+
+    this.canSubmitReviewResult = true;
+    this.reviewResultSection.classList.remove('hidden');
+    if (this.reviewResultHelp) {
+      const nextState = this.getReviewFinalizedStateLabel(proposal, acceptCount, withholdCount);
+      this.reviewResultHelp.textContent = `${reviewWindow.label}. Finalize the review result to move this proposal to ${nextState}.`;
+    }
+    this.updateSubmitButtons();
+  }
+
+  hideReviewResultAction() {
+    this.canSubmitReviewResult = false;
+    this.reviewResultSection?.classList.add('hidden');
+    this.updateSubmitButtons();
+  }
+
+  renderLifecycleActions(actions) {
+    this.currentLifecycleActions = actions;
+    if (!this.lifecycleActionSection || this.currentLifecycleActions.length === 0) {
+      this.hideLifecycleAction();
+      return;
+    }
+
+    this.lifecycleActionSection.innerHTML = this.currentLifecycleActions
+      .map((action, index) => `
+        <div class="proposal-lifecycle-action">
+          <div class="proposal-committee-actions-header">
+            <h3>${escapeHtml(action.title)}</h3>
+            <p>${escapeHtml(action.help)}</p>
+          </div>
+          <button
+            type="button"
+            class="btn btn--primary btn--pill btn--full"
+            data-lifecycle-action-index="${index}"
+          >${escapeHtml(action.buttonLabel)}</button>
+        </div>
+      `)
+      .join('');
+    this.lifecycleActionSection.classList.remove('hidden');
+    this.updateSubmitButtons();
+  }
+
+  hideLifecycleAction() {
+    this.currentLifecycleActions = [];
+    this.submittingLifecycleAction = null;
+    if (this.lifecycleActionSection) {
+      this.lifecycleActionSection.innerHTML = '';
+      this.lifecycleActionSection.classList.add('hidden');
+    }
+    this.updateSubmitButtons();
+  }
+
+  resetVoteState(proposal) {
+    const options = getDaoProposalOptions(proposal);
+    this.voteWeights = options.map(() => 0);
+    this.voteSpendLib = '';
+    if (this.voteSpendInput) this.voteSpendInput.value = '';
+  }
+
+  renderVoteActions(proposal, state) {
+    if (!this.voteActionSection) return;
+    if (state !== 'voting') {
+      this.hideVoteActions();
+      return;
+    }
+
+    const votingWindow = getDaoProposalVotingWindow(proposal);
+    if (votingWindow.end && Date.now() > votingWindow.end) {
+      this.hideVoteActions();
+      return;
+    }
+
+    const options = getDaoProposalOptions(proposal);
+    if (this.voteWeights.length !== options.length) {
+      this.voteWeights = options.map(() => 0);
+    }
+
+    this.voteActionSection.classList.remove('hidden');
+    if (this.voteActionHelp) {
+      this.voteActionHelp.textContent = 'Allocate options and spend LIB to preview voting power.';
+    }
+    if (this.voteSubmitButton) {
+      this.voteSubmitButton.textContent = this.voteSubmitButtonLabel;
+    }
+    if (this.voteSpendInput) {
+      this.voteSpendInput.value = this.voteSpendLib;
+    }
+    if (this.voteOptions) {
+      this.voteOptions.innerHTML = `
+        <div class="proposal-vote-options-header">
+          <span>Option</span>
+          <span>Allocation</span>
+        </div>
+        ${options.map((option, index) => this.renderVoteOption(option, index)).join('')}
+        <div class="proposal-vote-options-help">Allocation is a ratio. 1 / 1 splits evenly; 3 / 1 gives 75% / 25%.</div>
+      `;
+    }
+
+    this.updateVotePreview(proposal);
+  }
+
+  hideVoteActions() {
+    this.canSubmitVote = false;
+    this.voteActionSection?.classList.add('hidden');
+    this.updateSubmitButtons();
+  }
+
+  renderVoteOption(option, index) {
+    const weight = this.voteWeights[index] || 0;
+    return `
+      <label class="proposal-vote-option">
+        <span>${escapeHtml(option)}</span>
+        <input
+          type="number"
+          class="form-control"
+          min="0"
+          max="${DAO_VOTE_WEIGHT_MAX}"
+          step="1"
+          inputmode="numeric"
+          placeholder="0"
+          aria-label="${escapeDaoFormAttribute(`${option} allocation`)}"
+          data-vote-option-index="${index}"
+          value="${escapeDaoFormAttribute(String(weight))}"
+        >
+      </label>
+    `;
+  }
+
+  handleVoteWeightInput(event) {
+    const input = event.target?.closest?.('input[data-vote-option-index]');
+    if (!input) return;
+    const index = Number(input.dataset.voteOptionIndex);
+    if (!Number.isInteger(index) || index < 0 || index >= this.voteWeights.length) return;
+    this.voteWeights[index] = this.normalizeVoteWeight(input.value);
+    input.value = String(this.voteWeights[index]);
+    this.updateVotePreview(this.getCurrentProposal());
+  }
+
+  handleVoteSpendInput() {
+    this.voteSpendLib = String(this.voteSpendInput?.value || '');
+    this.updateVotePreview(this.getCurrentProposal());
+  }
+
+  normalizeVoteWeight(value) {
+    const n = Number(value);
+    if (!Number.isSafeInteger(n) || n < 0) return 0;
+    return Math.min(n, DAO_VOTE_WEIGHT_MAX);
+  }
+
+  updateVotePreview(proposal) {
+    if (!this.votePreview || !proposal) {
+      this.canSubmitVote = false;
+      this.updateSubmitButtons();
+      return;
+    }
+
+    const submission = this.getVoteSubmission(proposal);
+    if (!submission.ok) {
+      this.canSubmitVote = false;
+      this.updateSubmitButtons();
+      this.votePreview.classList.add('proposal-vote-preview--message');
+      this.votePreview.innerHTML = this.renderVotePreviewMessage(submission.message, submission.tone);
+      return;
+    }
+
+    this.canSubmitVote = true;
+    this.updateSubmitButtons();
+
+    const estimate = this.getVoteWeightEstimate(proposal, submission.spendWei, submission.totalWeight, submission.timestamp);
+    if (!estimate.ok) {
+      this.votePreview.classList.add('proposal-vote-preview--message');
+      this.votePreview.innerHTML = this.renderVotePreviewMessage(`${estimate.message} You can still submit; final weight is calculated by the network.`, 'muted');
+      return;
+    }
+    this.votePreview.classList.remove('proposal-vote-preview--message');
+
+    const optionRows = getDaoProposalOptions(proposal)
+      .map((option, index) => {
+        const weight = this.voteWeights[index] || 0;
+        const share = weight / submission.totalWeight;
+        const applied = estimate.optionAppliedWeights[index] ?? 0n;
+        return `
+          <div class="proposal-vote-preview-row">
+            <span>${escapeHtml(formatDaoPercent(share))}</span>
+            <span>${escapeHtml(option)}</span>
+            <strong>${escapeHtml(formatDaoEstimatedVotingPower(applied))}</strong>
+          </div>
+        `;
+      })
+      .join('');
+
+    this.votePreview.innerHTML = `
+      <div class="proposal-vote-preview-total">
+        <span>Estimated voting power</span>
+        <strong>${escapeHtml(formatDaoEstimatedVotingPower(estimate.totalAppliedWeight))}</strong>
+      </div>
+      <details class="proposal-vote-power-help">
+        <summary>What is voting power?</summary>
+        <p>Voting power is the normalized weight from your LIB spend and timing. Final weight can shift slightly if the transaction lands later or network pricing changes before validation.</p>
+      </details>
+      <div class="proposal-vote-preview-meter">
+        <span style="width: ${Math.min(100, Math.max(4, estimate.timeMultiplier * 100))}%"></span>
+      </div>
+      <div class="proposal-vote-preview-note">
+        Timing weight: ${escapeHtml(formatDaoPercent(estimate.timeMultiplier))} of full power
+      </div>
+      <div class="proposal-vote-preview-options">${optionRows}</div>
+    `;
+  }
+
+  getVoteSubmission(proposal) {
+    const timestamp = getTransactionTimestamp();
+    const validation = this.getVotePreviewValidation(proposal, timestamp);
+    if (!validation.ok) {
+      return { ok: false, message: validation.message, tone: 'warning' };
+    }
+
+    return {
+      ok: true,
+      spendWei: validation.spendWei,
+      totalWeight: validation.totalWeight,
+      timestamp,
+    };
+  }
+
+  getVotePreviewValidation(proposal, timestamp) {
+    if (getEffectiveDaoState(proposal) !== 'voting') {
+      return { ok: false, message: 'Voting is only available while the proposal is in voting status.' };
+    }
+    if (!myAccount?.keys?.address) {
+      return { ok: false, message: 'Sign in with a wallet to preview vote eligibility.' };
+    }
+
+    const totalWeight = this.voteWeights.reduce((sum, weight) => sum + weight, 0);
+    if (totalWeight <= 0) {
+      return { ok: false, message: 'Enter at least one positive option weight.' };
+    }
+
+    const spendWei = parseDaoPositiveLibAmount(this.voteSpendLib);
+    if (spendWei === null) {
+      return { ok: false, message: 'Enter a positive LIB spend amount.' };
+    }
+
+    const votingWindow = getDaoProposalVotingWindow(proposal, timestamp);
+    if (!votingWindow.canPreviewVote) {
+      return { ok: false, message: votingWindow.label };
+    }
+
+    const balanceWei = getLibBalanceWei();
+    const feeWei = getTransactionFeeWei({ allowNull: true }) || 0n;
+    if (balanceWei < spendWei + feeWei) {
+      return { ok: false, message: `Balance is below spend plus fee. Available: ${formatDaoLibWei(balanceWei)}.` };
+    }
+
+    const thresholdUsd = Number(proposal.voteThresholdUsdStr || 0);
+    if (thresholdUsd > 0) {
+      const thresholdWei = getDaoUsdAsLibWei(proposal.voteThresholdUsdStr);
+      if (thresholdWei === null) {
+        return { ok: false, message: 'Vote threshold is unavailable until network pricing is loaded.' };
+      }
+      if (balanceWei < thresholdWei) {
+        return { ok: false, message: `Wallet balance must be at least ${formatDaoLibWei(thresholdWei)} to vote. Current balance: ${formatDaoLibWei(balanceWei)}.` };
       }
     }
 
-    this.renderVotingSection(p);
+    return { ok: true, spendWei, totalWeight };
   }
 
-  renderVotingSection(p) {
-    if (!this.voteSection) return;
-    const effective = getEffectiveDaoState({ state: p.state, stateEnteredAt: p.state_changed, createdAt: p.created });
-    const showVoting = effective === 'voting';
-    this.voteSection.style.display = showVoting ? 'block' : 'none';
-    if (!showVoting) return;
-
-    const voterId = getDaoVoterId();
-    const votes = p.votes || { yes: 0, no: 0, by: {} };
-    const myVote = votes.by?.[voterId] || '';
-
-    if (this.voteCountsEl) this.voteCountsEl.textContent = `Yes: ${votes.yes || 0} · No: ${votes.no || 0}`;
-
-    if (this.voteYesBtn) {
-      this.voteYesBtn.classList.toggle('btn--primary', myVote === 'yes');
-      this.voteYesBtn.classList.toggle('btn--secondary', myVote !== 'yes');
+  getVoteWeightEstimate(proposal, spendWei, totalWeight, timestamp) {
+    const minimumSpendWei = getDaoUsdAsLibWei(proposal.minimumSpendUsdStr);
+    const voteExponent = Number(proposal.voteExponent);
+    const votingWindow = getDaoProposalVotingWindow(proposal, timestamp);
+    if (
+      minimumSpendWei === null ||
+      minimumSpendWei <= 0n ||
+      !Number.isFinite(voteExponent) ||
+      votingWindow.timeMultiplier === null
+    ) {
+      return { ok: false, message: 'Applied-weight estimate is unavailable until proposal voting parameters are loaded.' };
     }
-    if (this.voteNoBtn) {
-      this.voteNoBtn.classList.toggle('btn--primary', myVote === 'no');
-      this.voteNoBtn.classList.toggle('btn--secondary', myVote !== 'no');
+
+    if (spendWei < minimumSpendWei) {
+      return { ok: false, message: `Spend must be at least ${formatDaoLibWei(minimumSpendWei)}.` };
     }
-  }
+    if (totalWeight <= 0) {
+      return { ok: false, message: 'Applied-weight estimate is unavailable for these inputs.' };
+    }
 
-  async castVote(choice) {
-    if (!this._currentProposalId) return;
+    const spendLib = Number(EthNum.toStr(spendWei));
+    const minimumSpendLib = Number(EthNum.toStr(minimumSpendWei));
+    const spendBoost = Math.pow(spendLib / minimumSpendLib, voteExponent);
+    const baseAppliedWeight = spendLib * spendBoost * votingWindow.timeMultiplier * DAO_VOTE_WEIGHT_PRECISION / totalWeight;
+    if (!Number.isFinite(baseAppliedWeight) || baseAppliedWeight <= 0) {
+      return { ok: false, message: 'Applied-weight estimate is unavailable for these inputs.' };
+    }
 
-    const voterId = getDaoVoterId();
-    const result = await daoRepo.castVote({
-      proposalId: this._currentProposalId,
-      voterId,
-      choice,
+    const optionAppliedWeights = this.voteWeights.map((weight) => {
+      if (weight <= 0) return 0n;
+      return floorDaoVoteWeightEstimate(baseAppliedWeight * weight);
     });
+    if (optionAppliedWeights.some((weight) => weight === null)) {
+      return { ok: false, message: 'Applied-weight estimate is unavailable for these inputs.' };
+    }
 
-    if (!result?.ok) {
-      showToast(result?.error || 'Failed to vote', 2000, 'warning');
+    const totalAppliedWeight = optionAppliedWeights.reduce((sum, weight) => sum + weight, 0n);
+    if (totalAppliedWeight <= 0n) {
+      return { ok: false, message: 'Applied-weight estimate is too small to affect vote totals.' };
+    }
+
+    return {
+      ok: true,
+      totalAppliedWeight,
+      optionAppliedWeights,
+      timeMultiplier: votingWindow.timeMultiplier,
+    };
+  }
+
+  renderVotePreviewMessage(message, tone) {
+    return `<div class="proposal-vote-preview-message proposal-vote-preview-message--${tone}">${escapeHtml(message)}</div>`;
+  }
+
+  setSubmitting(isSubmitting) {
+    this.isSubmitting = Boolean(isSubmitting);
+    if (this.closeButton) this.closeButton.disabled = this.isSubmitting;
+    this.updateSubmitButtons();
+  }
+
+  updateSubmitButtons() {
+    const disableCommittee = this.isSubmitting || !this.canSubmitCommitteeReview;
+    const isSameVote = Boolean(this.currentCommitteeVote && this.committeeChoice === this.currentCommitteeVote);
+    const disableResult = this.isSubmitting || !this.canSubmitReviewResult;
+    const disableVote = this.isSubmitting || !this.canSubmitVote;
+
+    if (this.acceptButton) this.acceptButton.disabled = disableCommittee || this.currentCommitteeVote === 'accept';
+    if (this.withholdButton) this.withholdButton.disabled = disableCommittee || this.currentCommitteeVote === 'withhold';
+    if (this.withholdReasonSelect) this.withholdReasonSelect.disabled = disableCommittee || isSameVote;
+    if (this.customReasonInput) this.customReasonInput.disabled = disableCommittee || isSameVote;
+    if (this.submitButton) {
+      this.submitButton.disabled = disableCommittee || isSameVote;
+      this.submitButton.textContent = this.isSubmitting && this.canSubmitCommitteeReview ? 'Submitting...' : this.submitButtonLabel;
+    }
+    if (this.reviewResultButton) {
+      this.reviewResultButton.disabled = disableResult;
+      this.reviewResultButton.textContent = this.isSubmitting && this.canSubmitReviewResult ? 'Finalizing...' : this.reviewResultButtonLabel;
+    }
+    for (const button of this.lifecycleActionSection?.querySelectorAll('button[data-lifecycle-action-index]') || []) {
+      const action = this.currentLifecycleActions[Number(button.dataset.lifecycleActionIndex)];
+      const isSubmittingAction = this.isSubmitting && action === this.submittingLifecycleAction;
+      const canSubmitLifecycle = action?.canSubmit !== false;
+      button.disabled = this.isSubmitting || !action || !canSubmitLifecycle;
+      button.textContent = isSubmittingAction ? action.loadingLabel : action?.buttonLabel || '';
+    }
+    if (this.voteSubmitButton) {
+      this.voteSubmitButton.disabled = disableVote;
+      this.voteSubmitButton.textContent = this.isSubmitting && this.canSubmitVote ? 'Submitting...' : this.voteSubmitButtonLabel;
+    }
+    if (this.voteSpendInput) this.voteSpendInput.disabled = this.isSubmitting;
+    if (this.voteOptions) {
+      for (const input of this.voteOptions.querySelectorAll('input[data-vote-option-index]')) {
+        input.disabled = this.isSubmitting;
+      }
+    }
+  }
+
+  handleCommitteeChoiceClick(choice) {
+    if (this.isSubmitting || !this.canSubmitCommitteeReview) return;
+    if (choice === this.currentCommitteeVote) return;
+    this.setCommitteeChoice(choice);
+    this.scrollToCommitteeActionBottom();
+  }
+
+  setCommitteeChoice(choice) {
+    this.committeeChoice = choice === 'withhold' ? 'withhold' : 'accept';
+    const isWithhold = this.committeeChoice === 'withhold';
+    this.acceptButton?.classList.toggle('proposal-decision-option--selected', !isWithhold);
+    this.acceptButton?.setAttribute('aria-checked', String(!isWithhold));
+    this.withholdButton?.classList.toggle('proposal-decision-option--selected', isWithhold);
+    this.withholdButton?.setAttribute('aria-checked', String(isWithhold));
+    this.withholdFields?.classList.toggle('hidden', !isWithhold);
+    this.renderWithholdReasonInput();
+    this.updateSubmitButtons();
+    this.setCommitteeActionHelp();
+  }
+
+  setCommitteeActionHelp(state, reviewWindow) {
+    if (!this.committeeActionHelp) return;
+    if (!this.canSubmitCommitteeReview) {
+      this.committeeActionHelp.textContent = state === 'review'
+        ? `${reviewWindow?.label || 'Committee review unavailable'}. Committee review submission is unavailable.`
+        : 'Committee review is only available while the proposal is in review.';
+      return;
+    }
+    if (this.currentCommitteeVote && this.committeeChoice === this.currentCommitteeVote) {
+      const nextChoice = this.currentCommitteeVote === 'accept' ? 'withhold' : 'accept';
+      this.committeeActionHelp.textContent = `You already submitted ${this.formatCommitteeChoice(this.currentCommitteeVote)}. Choose ${this.formatCommitteeChoice(nextChoice)} to change your review decision.`;
+      return;
+    }
+    this.committeeActionHelp.textContent = 'Choose a review decision, then submit.';
+  }
+
+  formatCommitteeChoice(choice) {
+    return choice === 'withhold' ? 'Withhold' : 'Accept';
+  }
+
+  handleWithholdReasonChange() {
+    this.renderWithholdReasonInput();
+    if (this.isCustomWithholdReason() && !this.customReasonInput?.disabled) {
+      this.customReasonInput?.focus({ preventScroll: true });
+      this.scrollToCommitteeActionBottom();
+    }
+  }
+
+  renderWithholdReasonInput() {
+    this.customReasonGroup?.classList.toggle('hidden', !this.isCustomWithholdReason());
+  }
+
+  isCustomWithholdReason() {
+    return this.withholdReasonSelect?.value === DAO_CUSTOM_WITHHOLD_REASON;
+  }
+
+  scrollToCommitteeActionBottom() {
+    requestAnimationFrame(() => {
+      (this.submitButton || this.committeeActionSection)?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    });
+  }
+
+  getWithholdReason() {
+    return this.isCustomWithholdReason()
+      ? String(this.customReasonInput?.value || '').trim()
+      : String(this.withholdReasonSelect?.value || '').trim();
+  }
+
+  getCurrentProposal() {
+    return this._currentProposalId ? daoRepo.getProposalById(this._currentProposalId) : null;
+  }
+
+  async submitDaoTransaction(transaction) {
+    if (!myAccount?.keys) throw new Error('Wallet keys unavailable');
+    const txid = await signObj(transaction, myAccount.keys);
+    return injectTx(transaction, txid);
+  }
+
+  async refreshAfterDaoAction(warningMessage, { refreshNetworkParams = false } = {}) {
+    try {
+      await daoRepo.refresh({ force: true });
+      if (daoModal?.isActive?.()) daoModal.render();
+
+      const proposal = this.getCurrentProposal();
+      if (proposal) {
+        this.renderProposal(proposal);
+      } else {
+        this.renderNotFound();
+      }
+
+      if (refreshNetworkParams) {
+        const refreshed = await getNetworkParams(true);
+        if (!refreshed) throw new Error('Network parameter refresh failed');
+      }
+    } catch (error) {
+      console.warn('Failed to refresh proposal after DAO action:', error);
+      showToast(warningMessage, 4000, 'warning');
+    }
+  }
+
+  async handleCommitteeSubmit() {
+    if (this.isSubmitting || !this.canSubmitCommitteeReview) return;
+    if (this.currentCommitteeVote && this.committeeChoice === this.currentCommitteeVote) {
+      showToast(`You already submitted ${this.formatCommitteeChoice(this.currentCommitteeVote)}`, 2500, 'info');
       return;
     }
 
-    // Re-render this modal and the list counts.
-    this.open(this._currentProposalId);
-    if (daoModal?.isActive?.()) daoModal.render();
+    const proposal = this.getCurrentProposal();
+    if (!proposal) {
+      showToast('Proposal data is unavailable', 2500, 'warning');
+      return;
+    }
+    if (!myAccount?.keys?.address) {
+      showToast('Wallet keys unavailable', 2500, 'warning');
+      return;
+    }
+
+    let withheldReason;
+    if (this.committeeChoice === 'withhold') {
+      withheldReason = this.getWithholdReason();
+      if (!withheldReason) {
+        showToast('Choose a withhold reason', 2500, 'warning');
+        return;
+      }
+      if (withheldReason.length > DAO_WITHHOLD_REASON_MAX_LENGTH) {
+        showToast('Withhold reason must be 1000 characters or less', 2500, 'warning');
+        return;
+      }
+    }
+
+    this.setSubmitting(true);
+    const loadingToastId = showToast('Submitting committee review...', 0, 'loading');
+
+    try {
+      const result = await daoRepo.submitCommitteeVote({
+        from: getDaoCurrentAccountAddress(),
+        proposal,
+        vote: this.committeeChoice,
+        withheldReason,
+        timestamp: getTransactionTimestamp(),
+        networkId: network?.netid || '',
+        submitTransaction: (transaction) => this.submitDaoTransaction(transaction),
+      });
+
+      if (!result.ok) {
+        showToast(result.error || 'Committee review submission failed', 3000, 'warning');
+        return;
+      }
+
+      showToast('Committee review submitted', 3000, 'success');
+      await this.refreshAfterDaoAction('Committee review submitted, but proposal refresh failed');
+    } catch (error) {
+      console.warn('Failed to submit committee review:', error);
+      showToast(error?.message || 'Committee review submission failed', 3000, 'warning');
+    } finally {
+      if (loadingToastId) hideToast(loadingToastId);
+      this.setSubmitting(false);
+    }
+  }
+
+  async handleReviewResultSubmit() {
+    if (this.isSubmitting || !this.canSubmitReviewResult) return;
+
+    const proposal = this.getCurrentProposal();
+    if (!proposal) {
+      showToast('Proposal data is unavailable', 2500, 'warning');
+      return;
+    }
+    if (!myAccount?.keys?.address) {
+      showToast('Wallet keys unavailable', 2500, 'warning');
+      return;
+    }
+
+    this.setSubmitting(true);
+    const loadingToastId = showToast('Finalizing review result...', 0, 'loading');
+
+    try {
+      const result = await daoRepo.finalizeCommitteeResult({
+        from: getDaoCurrentAccountAddress(),
+        proposal,
+        timestamp: getTransactionTimestamp(),
+        networkId: network?.netid || '',
+        submitTransaction: (transaction) => this.submitDaoTransaction(transaction),
+      });
+
+      if (!result.ok) {
+        showToast(result.error || 'Review result finalization failed', 3000, 'warning');
+        return;
+      }
+
+      showToast('Review result finalized', 3000, 'success');
+      await this.refreshAfterDaoAction('Review result finalized, but proposal refresh failed');
+    } catch (error) {
+      console.warn('Failed to finalize review result:', error);
+      showToast(error?.message || 'Review result finalization failed', 3000, 'warning');
+    } finally {
+      if (loadingToastId) hideToast(loadingToastId);
+      this.setSubmitting(false);
+    }
+  }
+
+  handleLifecycleActionClick(event) {
+    const button = event.target?.closest?.('button[data-lifecycle-action-index]');
+    if (!button || !this.lifecycleActionSection?.contains(button)) return;
+
+    const action = this.currentLifecycleActions[Number(button.dataset.lifecycleActionIndex)];
+    this.handleLifecycleActionSubmit(action);
+  }
+
+  async handleLifecycleActionSubmit(action) {
+    if (this.isSubmitting || !action || action.canSubmit === false) return;
+
+    const proposal = this.getCurrentProposal();
+    if (!proposal) {
+      showToast('Proposal data is unavailable', 2500, 'warning');
+      return;
+    }
+    if (!myAccount?.keys?.address) {
+      showToast('Wallet keys unavailable', 2500, 'warning');
+      return;
+    }
+
+    this.submittingLifecycleAction = action;
+    this.setSubmitting(true);
+    const loadingToastId = showToast(action.loadingLabel, 0, 'loading');
+
+    try {
+      const request = {
+        from: getDaoCurrentAccountAddress(),
+        proposal,
+        timestamp: getTransactionTimestamp(),
+        networkId: network?.netid || '',
+        submitTransaction: (transaction) => this.submitDaoTransaction(transaction),
+      };
+      let result;
+      switch (action.kind) {
+        case 'vote_result':
+          result = await daoRepo.finalizeVoteResult(request);
+          break;
+        case 'claim_reward':
+          result = await daoRepo.claimReward(request);
+          break;
+        case 'burn_reward':
+          result = await daoRepo.burnReward(request);
+          break;
+        case 'apply_parameters':
+          result = await daoRepo.applyParameters(request);
+          break;
+        default:
+          throw new Error(`Unknown DAO lifecycle action: ${action.kind}`);
+      }
+
+      if (!result.ok) {
+        showToast(result.error || `${action.title} failed`, 3000, 'warning');
+        return;
+      }
+
+      showToast(action.successMessage, 3000, 'success');
+      await this.refreshAfterDaoAction(action.refreshWarning, { refreshNetworkParams: action.refreshNetworkParams });
+    } catch (error) {
+      console.warn('Failed to submit DAO lifecycle action:', error);
+      showToast(error?.message || `${action.title} failed`, 3000, 'warning');
+    } finally {
+      if (loadingToastId) hideToast(loadingToastId);
+      this.submittingLifecycleAction = null;
+      this.setSubmitting(false);
+    }
+  }
+
+  async handleVoteSubmit() {
+    if (this.isSubmitting || !this.canSubmitVote) return;
+
+    const proposal = this.getCurrentProposal();
+    if (!proposal) {
+      showToast('Proposal data is unavailable', 2500, 'warning');
+      return;
+    }
+    if (!myAccount?.keys?.address) {
+      showToast('Wallet keys unavailable', 2500, 'warning');
+      return;
+    }
+
+    const submission = this.getVoteSubmission(proposal);
+    if (!submission.ok) {
+      showToast(submission.message, 3000, 'warning');
+      this.updateVotePreview(proposal);
+      return;
+    }
+
+    this.setSubmitting(true);
+    const loadingToastId = showToast('Submitting vote...', 0, 'loading');
+
+    try {
+      const result = await daoRepo.castVote({
+        from: getDaoCurrentAccountAddress(),
+        proposal,
+        weights: this.voteWeights.slice(),
+        spend: submission.spendWei,
+        timestamp: submission.timestamp,
+        networkId: network?.netid || '',
+        submitTransaction: (transaction) => this.submitDaoTransaction(transaction),
+      });
+
+      if (!result.ok) {
+        showToast(result.error || 'Vote submission failed', 3000, 'warning');
+        return;
+      }
+
+      showToast('Vote submitted', 3000, 'success');
+      await this.refreshAfterDaoAction('Vote submitted, but proposal refresh failed');
+    } catch (error) {
+      console.warn('Failed to submit vote:', error);
+      showToast(error?.message || 'Vote submission failed', 3000, 'warning');
+    } finally {
+      if (loadingToastId) hideToast(loadingToastId);
+      this.setSubmitting(false);
+    }
   }
 
   close() {
+    if (this.isSubmitting) return;
     this.modal.classList.remove('active');
     enterFullscreen();
   }
 
-  isActive() {
-    return this.modal.classList.contains('active');
-  }
 }
 
 const proposalInfoModal = new ProposalInfoModal();
@@ -32386,6 +34708,9 @@ function closeTopModal(topModal){
       break;
     case 'addProposalModal':
       addProposalModal.close();
+      break;
+    case 'confirmProposalModal':
+      confirmProposalModal.close();
       break;
     case 'proposalInfoModal':
       proposalInfoModal.close();

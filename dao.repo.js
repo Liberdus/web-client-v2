@@ -1,3 +1,6 @@
+import { hashBytes } from './crypto.js';
+import { utf82bin } from './lib.js';
+
 // Shared DAO constants and light helper functions.
 // Kept here so UI + repo can share one import surface.
 
@@ -15,9 +18,12 @@ export const DAO_CONFIG_CHANGE_OPTIONS = {
   governance: [
     { key: 'claimDuration', path: 'current.dao.claimDuration', label: 'Claim Duration', valueType: 'integer' },
     { key: 'graceDuration', path: 'current.dao.graceDuration', label: 'Grace Duration', valueType: 'integer' },
+    { key: 'minimumSpendUsdStr', path: 'current.dao.minimumSpendUsdStr', label: 'Minimum Vote Spend', valueType: 'float' },
     { key: 'pctBurned', path: 'current.dao.pctBurned', label: 'Percent Burned', valueType: 'integer' },
+    { key: 'proposalFeeUsdStr', path: 'current.dao.proposalFeeUsdStr', label: 'Proposal Fee', valueType: 'float' },
     { key: 'reviewDuration', path: 'current.dao.reviewDuration', label: 'Review Duration', valueType: 'integer' },
     { key: 'voteExponent', path: 'current.dao.voteExponent', label: 'Vote Exponent', valueType: 'float' },
+    { key: 'voteThresholdUsdStr', path: 'current.dao.voteThresholdUsdStr', label: 'Vote Threshold', valueType: 'float' },
     { key: 'votingDuration', path: 'current.dao.votingDuration', label: 'Voting Duration', valueType: 'integer' },
   ],
   economic: [
@@ -68,6 +74,11 @@ export const DAO_STATES = [
   { key: 'applied', label: 'Applied' },
 ];
 
+const DAO_PROPOSAL_DAY_MS = 24 * 60 * 60 * 1000;
+const DAO_AFFIRMATIVE_OPTION_STRINGS = ['yes', 'accept', 'approve'];
+const DAO_PROPOSALS_META_ID_STRING = 'dao proposals meta';
+export const DAO_PROPOSAL_TITLE_MAX_LENGTH = 100;
+
 export function getDaoTypeLabel(typeKey) {
   return DAO_TYPE_OPTIONS.find((t) => t.key === typeKey)?.label || typeKey || '';
 }
@@ -77,11 +88,405 @@ export function getDaoStateLabel(key) {
 }
 
 export function getEffectiveDaoState(proposal) {
-  const state = proposal?.status || proposal?.state || 'review';
-  return state === 'discussion' ? 'review' : state;
+  return proposal?.status || proposal?.state || 'review';
 }
 
 const DAO_PROPOSAL_QUERY_BATCH_SIZE = 10;
+
+function requireDaoDraftString(value, label, maxLength) {
+  const text = String(value ?? '').trim();
+  if (!text) throw new Error(`${label} is required`);
+  if (Number.isSafeInteger(maxLength) && text.length > maxLength) {
+    throw new Error(`${label} must be ${maxLength} characters or less`);
+  }
+  return text;
+}
+
+function requireDaoNonNegativeNumber(value, label) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) {
+    throw new Error(`${label} must be a non-negative number`);
+  }
+  return n;
+}
+
+function normalizeDaoDraftDayCount(value, label) {
+  const n = Number(value || 0);
+  if (!Number.isInteger(n) || n < 0) {
+    throw new Error(`${label} must be a non-negative whole number`);
+  }
+  return n;
+}
+
+function normalizeDaoDraftDurationMs(value, label) {
+  const text = String(value ?? '').trim();
+  if (!text) throw new Error(`${label} is required`);
+  const n = Number(text);
+  if (!Number.isInteger(n) || n < 0) {
+    throw new Error(`${label} must be a non-negative whole number of milliseconds`);
+  }
+  return n;
+}
+
+function normalizeDaoDraftChanges(changes) {
+  if (!Array.isArray(changes) || changes.length === 0) {
+    throw new Error('At least one DAO parameter change is required');
+  }
+
+  return changes.map((change) => ({
+    key: requireDaoDraftString(change?.key, 'DAO parameter key'),
+    value: String(change?.value ?? '').trim(),
+    current: String(change?.current ?? ''),
+  }));
+}
+
+function normalizeDaoDraftOptions(options) {
+  if (!Array.isArray(options) || options.length < 2 || options.length > 10) {
+    throw new Error('DAO proposal options must contain 2 to 10 entries');
+  }
+
+  const safeOptions = options.map((option) => requireDaoDraftString(option, 'DAO proposal option'));
+  if (!DAO_AFFIRMATIVE_OPTION_STRINGS.includes(safeOptions[0].toLowerCase())) {
+    throw new Error('The first DAO proposal option must be yes, accept, or approve');
+  }
+  return safeOptions;
+}
+
+function hashDaoString(value) {
+  return hashBytes(utf82bin(value));
+}
+
+export function getDaoProposalsMetaId() {
+  return hashDaoString(DAO_PROPOSALS_META_ID_STRING);
+}
+
+export function getDaoProposalAccountId(proposalNumber) {
+  const n = normalizeDaoPositiveInteger(proposalNumber);
+  if (!n) throw new Error('DAO proposal number must be a positive integer');
+  return hashDaoString(`dao proposal #${n}`);
+}
+
+export function buildDaoProposalCreateDraft({
+  from,
+  displayTitle,
+  emergency,
+  proposalType,
+  description,
+  options,
+  changes,
+  proposalFeeUsdStr,
+  startDelayDays,
+  gracePeriodMs,
+} = {}) {
+  const safeProposalType = requireDaoDraftString(proposalType, 'DAO proposal type');
+  if (!DAO_CONFIG_CHANGE_OPTIONS[safeProposalType]) {
+    throw new Error('DAO proposal type is not supported');
+  }
+
+  const isEmergency = emergency === true;
+  const feeUsdStr = isEmergency ? '0' : requireDaoDraftString(proposalFeeUsdStr, 'DAO proposal fee');
+  const startDelayMs = normalizeDaoDraftDayCount(startDelayDays, 'Review start delay') * DAO_PROPOSAL_DAY_MS;
+  const safeGracePeriodMs = normalizeDaoDraftDurationMs(gracePeriodMs, 'Grace period');
+  const safeOptions = normalizeDaoDraftOptions(options);
+  const safeChanges = normalizeDaoDraftChanges(changes);
+
+  const transaction = {
+    from: requireDaoDraftString(from, 'DAO proposal sender'),
+    emergency: isEmergency,
+    proposalType: safeProposalType,
+    title: requireDaoDraftString(displayTitle, 'DAO proposal title', DAO_PROPOSAL_TITLE_MAX_LENGTH),
+    description: requireDaoDraftString(description, 'DAO proposal description'),
+    options: safeOptions,
+    [safeProposalType]: { changes: safeChanges },
+  };
+
+  transaction.gracePeriod = safeGracePeriodMs;
+
+  return {
+    displayTitle: transaction.title,
+    proposalFeeUsdStr: feeUsdStr,
+    startDelayMs,
+    transaction,
+  };
+}
+
+export function buildDaoProposalCreateTransaction({
+  draft,
+  timestamp,
+  networkId,
+  proposalNumber,
+} = {}) {
+  const draftTx = draft?.transaction;
+  if (!draftTx || typeof draftTx !== 'object') {
+    throw new Error('DAO proposal draft is required');
+  }
+
+  const proposalType = requireDaoDraftString(draftTx.proposalType, 'DAO proposal type');
+  if (!DAO_CONFIG_CHANGE_OPTIONS[proposalType]) {
+    throw new Error('DAO proposal type is not supported');
+  }
+
+  const proposalId = getDaoProposalAccountId(proposalNumber);
+  const txTimestamp = requireDaoNonNegativeNumber(timestamp, 'DAO proposal timestamp');
+  if (txTimestamp <= 0) throw new Error('DAO proposal timestamp is required');
+  const startDelayMs = requireDaoNonNegativeNumber(draft.startDelayMs ?? 0, 'Review start delay');
+  const gracePeriod = requireDaoNonNegativeNumber(draftTx.gracePeriod, 'Grace period');
+
+  const transaction = {
+    ...draftTx,
+    type: 'dao_proposal_create',
+    timestamp: txTimestamp,
+    networkId: requireDaoDraftString(networkId, 'Network ID'),
+    proposalId,
+    metaId: getDaoProposalsMetaId(),
+    gracePeriod,
+  };
+
+  if (startDelayMs > 0) {
+    transaction.startTime = txTimestamp + startDelayMs;
+  }
+
+  return transaction;
+}
+
+function getDaoProposalTransactionId(proposal) {
+  return requireDaoDraftString(proposal?.accountId, 'DAO proposal account ID');
+}
+
+function buildDaoProposalActionTransaction({
+  type,
+  from,
+  proposal,
+  timestamp,
+  networkId,
+  timestampLabel,
+  fromLabel,
+} = {}) {
+  const txTimestamp = requireDaoNonNegativeNumber(timestamp, timestampLabel);
+  if (txTimestamp <= 0) throw new Error(`${timestampLabel} is required`);
+
+  return {
+    type: requireDaoDraftString(type, 'DAO transaction type'),
+    timestamp: txTimestamp,
+    networkId: requireDaoDraftString(networkId, 'Network ID'),
+    from: requireDaoDraftString(from, fromLabel),
+    proposalId: getDaoProposalTransactionId(proposal),
+  };
+}
+
+export function buildDaoCommitteeVoteTransaction({
+  from,
+  proposal,
+  vote,
+  withheldReason,
+  timestamp,
+  networkId,
+} = {}) {
+  const safeVote = requireDaoDraftString(vote, 'Committee review vote');
+  if (safeVote !== 'accept' && safeVote !== 'withhold') {
+    throw new Error('Committee review vote must be accept or withhold');
+  }
+  const txTimestamp = requireDaoNonNegativeNumber(timestamp, 'Committee review timestamp');
+  if (txTimestamp <= 0) throw new Error('Committee review timestamp is required');
+
+  const transaction = {
+    type: 'dao_committee_vote',
+    timestamp: txTimestamp,
+    networkId: requireDaoDraftString(networkId, 'Network ID'),
+    from: requireDaoDraftString(from, 'Committee review sender'),
+    proposalId: getDaoProposalTransactionId(proposal),
+    vote: safeVote,
+  };
+
+  if (safeVote === 'withhold') {
+    const reason = requireDaoDraftString(withheldReason, 'Withhold reason');
+    if (reason.length > 1000) throw new Error('Withhold reason must be 1000 characters or less');
+    transaction.withheldReason = reason;
+  }
+
+  return transaction;
+}
+
+export function buildDaoCommitteeResultTransaction({
+  from,
+  proposal,
+  timestamp,
+  networkId,
+} = {}) {
+  return buildDaoProposalActionTransaction({
+    type: 'dao_committee_result',
+    from,
+    proposal,
+    timestamp,
+    networkId,
+    timestampLabel: 'Review result timestamp',
+    fromLabel: 'Review result sender',
+  });
+}
+
+export function buildDaoVoteTransaction({
+  from,
+  proposal,
+  weights,
+  spend,
+  timestamp,
+  networkId,
+} = {}) {
+  const txTimestamp = requireDaoNonNegativeNumber(timestamp, 'Vote timestamp');
+  if (txTimestamp <= 0) throw new Error('Vote timestamp is required');
+
+  const options = Array.isArray(proposal?.options) ? proposal.options : [];
+  if (options.length < 2 || options.length > 10) {
+    throw new Error('DAO vote proposal options are required');
+  }
+  if (!Array.isArray(weights) || weights.length !== options.length) {
+    throw new Error('Vote weights must match proposal options');
+  }
+
+  let totalWeight = 0;
+  for (const weight of weights) {
+    if (!Number.isSafeInteger(weight) || weight < 0) {
+      throw new Error('Vote weights must be non-negative whole numbers');
+    }
+    totalWeight += weight;
+  }
+  if (!Number.isSafeInteger(totalWeight) || totalWeight <= 0) {
+    throw new Error('Vote weights must include at least one positive weight');
+  }
+  if (typeof spend !== 'bigint' || spend <= 0n) {
+    throw new Error('Vote spend must be a positive LIB amount');
+  }
+
+  return {
+    type: 'dao_vote',
+    timestamp: txTimestamp,
+    networkId: requireDaoDraftString(networkId, 'Network ID'),
+    from: requireDaoDraftString(from, 'Vote sender'),
+    proposalId: getDaoProposalTransactionId(proposal),
+    weights: weights.slice(),
+    spend,
+  };
+}
+
+export function buildDaoVoteResultTransaction({
+  from,
+  proposal,
+  timestamp,
+  networkId,
+} = {}) {
+  return buildDaoProposalActionTransaction({
+    type: 'dao_vote_result',
+    from,
+    proposal,
+    timestamp,
+    networkId,
+    timestampLabel: 'Vote result timestamp',
+    fromLabel: 'Vote result sender',
+  });
+}
+
+export function buildDaoClaimRewardTransaction({
+  from,
+  proposal,
+  timestamp,
+  networkId,
+} = {}) {
+  return buildDaoProposalActionTransaction({
+    type: 'dao_claim_reward',
+    from,
+    proposal,
+    timestamp,
+    networkId,
+    timestampLabel: 'Reward claim timestamp',
+    fromLabel: 'Reward claim sender',
+  });
+}
+
+export function buildDaoBurnRewardTransaction({
+  from,
+  proposal,
+  timestamp,
+  networkId,
+} = {}) {
+  return buildDaoProposalActionTransaction({
+    type: 'dao_burn_reward',
+    from,
+    proposal,
+    timestamp,
+    networkId,
+    timestampLabel: 'Reward burn timestamp',
+    fromLabel: 'Reward burn sender',
+  });
+}
+
+export function buildDaoApplyParametersTransaction({
+  from,
+  proposal,
+  timestamp,
+  networkId,
+} = {}) {
+  return buildDaoProposalActionTransaction({
+    type: 'dao_apply_parameters',
+    from,
+    proposal,
+    timestamp,
+    networkId,
+    timestampLabel: 'Apply parameters timestamp',
+    fromLabel: 'Apply parameters sender',
+  });
+}
+
+async function submitDaoTransaction({ transaction, submitTransaction, errorMessage }) {
+  try {
+    if (typeof submitTransaction !== 'function') {
+      throw new Error('DAO submit handler is required');
+    }
+
+    const response = await submitTransaction(transaction);
+    if (!response?.result?.success) {
+      return {
+        ok: false,
+        error: response?.result?.reason || errorMessage,
+        response,
+        transaction,
+      };
+    }
+
+    return { ok: true, response, transaction };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error?.message || errorMessage,
+      transaction,
+    };
+  }
+}
+
+async function submitDaoProposalAction({
+  buildTransaction,
+  from,
+  proposal,
+  timestamp,
+  networkId,
+  submitTransaction,
+  errorMessage,
+} = {}) {
+  try {
+    const transaction = buildTransaction({
+      from,
+      proposal,
+      timestamp,
+      networkId,
+    });
+    return submitDaoTransaction({
+      transaction,
+      submitTransaction,
+      errorMessage,
+    });
+  } catch (error) {
+    return { ok: false, error: error?.message || errorMessage, transaction: null };
+  }
+}
 
 // In-memory DAO repository.
 // Goal: UI uses this API while backend data loading stays behind this boundary.
@@ -109,65 +514,36 @@ function normalizeDaoTimestamp(value) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-function normalizeDaoVoteNumber(value) {
-  if (typeof value === 'bigint') return Number(value);
-  const n = Number(value || 0);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function getDaoProposalDescription(proposal) {
-  return String(proposal?.description || proposal?.summary || '').trim();
-}
-
-function getDaoProposalFields(proposal) {
-  const fields = proposal?.fields && typeof proposal.fields === 'object' ? { ...proposal.fields } : {};
-  if (proposal?.governance) fields.governance = proposal.governance;
-  if (proposal?.economic) fields.economic = proposal.economic;
-  if (proposal?.protocol) fields.protocol = proposal.protocol;
-  return fields;
-}
-
-function getDaoProposalVotes(proposal) {
-  if (proposal?.votes && typeof proposal.votes === 'object') return proposal.votes;
-
-  const totals = Array.isArray(proposal?.totalVote) ? proposal.totalVote : [];
-  return {
-    yes: normalizeDaoVoteNumber(totals[0]),
-    no: normalizeDaoVoteNumber(totals[1]),
-    by: {},
-  };
-}
-
 function mapBackendProposalToStoreProposal(proposal) {
   if (!proposal || typeof proposal !== 'object') return null;
 
   const number = normalizeDaoPositiveInteger(proposal.number);
   if (!number) return null;
 
-  const nonce = String(proposal.id || proposal.nonce || number);
-  const type = proposal.proposalType || proposal.type || '';
+  const accountId = String(proposal.id || '').trim();
+  if (!accountId) return null;
+
+  const nonce = accountId;
+  const proposalType = String(proposal.proposalType || '').trim();
+  if (!proposalType) return null;
+
   const state = getEffectiveDaoState(proposal);
-  const created = normalizeDaoTimestamp(proposal.creationTime || proposal.created || proposal.timestamp);
-  const stateChanged = normalizeDaoTimestamp(proposal.timestamp || proposal.state_changed || created);
-  const description = getDaoProposalDescription(proposal);
+  const created = normalizeDaoTimestamp(proposal.creationTime);
+  const stateChanged = normalizeDaoTimestamp(proposal.timestamp);
+  const title = String(proposal.title || proposal.description || '').trim();
 
   return {
     ...proposal,
-    accountId: proposal.id,
+    accountId,
     number,
     nonce,
-    title: String(proposal.title || '').trim(),
-    summary: description,
-    description,
-    type,
-    proposalType: type,
+    title,
+    description: String(proposal.description || '').trim(),
+    proposalType,
     state,
     status: state,
     state_changed: stateChanged,
     created,
-    createdBy: proposal.createdBy || proposal.creator || proposal.from || '',
-    fields: getDaoProposalFields(proposal),
-    votes: getDaoProposalVotes(proposal),
   };
 }
 
@@ -178,7 +554,6 @@ function getDaoStoreMeta(proposal) {
     state: proposal.state,
     status: proposal.status,
     state_changed: proposal.state_changed,
-    type: proposal.type,
     proposalType: proposal.proposalType,
     nonce: proposal.nonce,
   };
@@ -211,23 +586,19 @@ async function fetchBackendProposal(queryDaoApi, proposalNumber) {
   const body = await queryDaoApi(`/dao/proposals/${proposalNumber}`);
   if (!body) {
     console.warn(`Skipping DAO proposal #${proposalNumber}: no response`);
-    // TODO: Retry skipped proposal accounts after the initial list render.
     return null;
   }
   if (body.error || !body.proposal) {
     console.warn(`Skipping DAO proposal #${proposalNumber}: proposal unavailable`, body.error || body);
-    // TODO: Retry skipped proposal accounts after the initial list render.
     return null;
   }
   return body.proposal;
 }
 
-export function createDaoBackendFetcher(queryDaoApi, { batchSize = DAO_PROPOSAL_QUERY_BATCH_SIZE } = {}) {
+export function createDaoBackendFetcher(queryDaoApi) {
   if (typeof queryDaoApi !== 'function') {
     return async () => createEmptyDaoStore();
   }
-
-  const safeBatchSize = normalizeDaoPositiveInteger(batchSize) || DAO_PROPOSAL_QUERY_BATCH_SIZE;
 
   return async () => {
     const body = await queryDaoApi('/dao/proposals/meta');
@@ -243,8 +614,8 @@ export function createDaoBackendFetcher(queryDaoApi, { batchSize = DAO_PROPOSAL_
     if (!count) return buildStoreFromBackendProposals(meta, []);
 
     const proposals = [];
-    for (let start = 1; start <= count; start += safeBatchSize) {
-      const end = Math.min(start + safeBatchSize - 1, count);
+    for (let start = 1; start <= count; start += DAO_PROPOSAL_QUERY_BATCH_SIZE) {
+      const end = Math.min(start + DAO_PROPOSAL_QUERY_BATCH_SIZE - 1, count);
       const batch = await Promise.all(
         Array.from({ length: end - start + 1 }, (_, index) => fetchBackendProposal(queryDaoApi, start + index))
       );
@@ -281,13 +652,6 @@ function normalizeDaoStore(store) {
     const full = safe.proposals[id];
     if (!full) continue;
 
-    // Migration: older versions wrote a synthetic `state: 'archived'`.
-    // We cannot reliably recover the original state; map to a server-supported final state.
-    if ((full.status || full.state || meta.status || meta.state) === 'archived') {
-      full.state = full.archivedFromState || 'applied';
-      meta.state = meta.archivedFromState || full.state;
-    }
-
     const state = getEffectiveDaoState({ status: full.status || meta.status, state: full.state || meta.state });
     const enteredAt = Number(full.state_changed || meta.state_changed || full.created || 0);
     const isArchivable = DAO_ARCHIVABLE_STATE_KEYS.includes(state);
@@ -302,7 +666,7 @@ function normalizeDaoStore(store) {
           title: meta.title,
           state,
           state_changed: enteredAt,
-          type: meta.type,
+          proposalType: meta.proposalType,
           nonce: meta.nonce,
         });
         archivedIds.add(id);
@@ -320,17 +684,6 @@ function normalizeDaoStore(store) {
     const id = daoProposalId(m.number, m.nonce);
     return Boolean(safe.proposals[id]);
   });
-
-  // Migration: older versions stored `state: 'archived'` for archived items.
-  for (const meta of safe.archivedProposals) {
-    const id = daoProposalId(meta.number, meta.nonce);
-    const full = safe.proposals[id];
-    if (!full) continue;
-    if ((full.status || full.state || meta.status || meta.state) === 'archived') {
-      full.state = full.archivedFromState || 'applied';
-      meta.state = meta.archivedFromState || full.state;
-    }
-  }
 
   safe.meta.active = safe.activeProposals.length;
   safe.meta.archived = safe.archivedProposals.length;
@@ -351,37 +704,36 @@ function storeToUiList(store, groupKey) {
       const id = daoProposalId(m.number, m.nonce);
       const p = safe.proposals?.[id];
       if (!p) return null;
-      const description = p.description || p.summary;
       const state = getEffectiveDaoState({ status: p.status || m.status, state: p.state || m.state });
-      const type = p.proposalType || p.type;
       return {
         id,
         number: p.number,
+        accountId: p.accountId,
         nonce: p.nonce,
         title: p.title,
-        summary: description,
-        description,
-        type,
-        proposalType: type,
+        description: p.description,
+        proposalType: p.proposalType,
+        emergency: Boolean(p.emergency),
         createdAt: p.created,
         state,
         status: state,
         stateEnteredAt: p.state_changed,
-        createdBy: p.createdBy,
-        fields: p.fields || {},
-        options: Array.isArray(p.options) ? p.options : ['yes', 'no'],
-        totalVote: Array.isArray(p.totalVote) ? p.totalVote : undefined,
-        committeeVotes: Array.isArray(p.committeeVotes) ? p.committeeVotes : [],
-        committeeAddresses: Array.isArray(p.committeeAddresses) ? p.committeeAddresses : [],
+        options: p.options,
+        totalVote: p.totalVote,
+        committeeVotes: p.committeeVotes,
+        committeeAddresses: p.committeeAddresses,
         voterRewardPool: p.voterRewardPool,
         claimedReward: p.claimedReward,
         initialBurnedReward: p.initialBurnedReward,
         finalBurnedReward: p.finalBurnedReward,
+        voterList: p.voterList,
+        claimList: p.claimList,
         startTime: p.startTime,
         reviewDuration: p.reviewDuration,
         votingDuration: p.votingDuration,
         claimDuration: p.claimDuration,
-        votes: p.votes || { yes: 0, no: 0, by: {} },
+        gracePeriod: p.gracePeriod,
+        applyEligibleAt: p.applyEligibleAt,
         archivedAt: p.archivedAt || 0,
       };
     })
@@ -399,7 +751,7 @@ export function setDaoBackendFetcher(fetcher) {
   _backendFetcher = typeof fetcher === 'function' ? fetcher : null;
 }
 
-async function refreshInternal({ force } = {}) {
+async function refreshInternal({ force }) {
   if (_loadingPromise && !force) return _loadingPromise;
   if (_store && !force) return _store;
 
@@ -441,14 +793,156 @@ export const daoRepo = {
   },
 
   getProposalsForUi(groupKey) {
-    return storeToUiList(_store, groupKey || 'active');
+    return storeToUiList(_store, groupKey);
   },
 
-  async createProposal() {
-    throw new Error('Proposal creation is not connected yet');
+  async createProposal({ draft, timestamp, networkId, submitTransaction } = {}) {
+    let transaction = null;
+    let proposalNumber = 0;
+    let proposalStoreId = '';
+
+    try {
+      if (typeof submitTransaction !== 'function') {
+        throw new Error('DAO proposal submit handler is required');
+      }
+
+      const store = await refreshInternal({ force: true });
+      proposalNumber = normalizeDaoPositiveInteger(store?.meta?.count) + 1;
+      transaction = buildDaoProposalCreateTransaction({
+        draft,
+        timestamp,
+        networkId,
+        proposalNumber,
+      });
+      proposalStoreId = daoProposalId(proposalNumber, transaction.proposalId);
+
+      const response = await submitTransaction(transaction);
+      if (!response?.result?.success) {
+        return {
+          ok: false,
+          error: response?.result?.reason || 'Proposal submission failed',
+          response,
+          proposalNumber,
+          proposalStoreId,
+          transaction,
+        };
+      }
+
+      return {
+        ok: true,
+        response,
+        proposalNumber,
+        proposalStoreId,
+        transaction,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        error: error?.message || 'Proposal submission failed',
+        proposalNumber,
+        proposalStoreId,
+        transaction,
+      };
+    }
   },
 
-  async castVote() {
-    return { ok: false, error: 'Voting is not connected yet' };
+  async castVote({ from, proposal, weights, spend, timestamp, networkId, submitTransaction } = {}) {
+    try {
+      const transaction = buildDaoVoteTransaction({
+        from,
+        proposal,
+        weights,
+        spend,
+        timestamp,
+        networkId,
+      });
+      return submitDaoTransaction({
+        transaction,
+        submitTransaction,
+        errorMessage: 'Vote submission failed',
+      });
+    } catch (error) {
+      return { ok: false, error: error?.message || 'Vote submission failed', transaction: null };
+    }
+  },
+
+  async submitCommitteeVote({ from, proposal, vote, withheldReason, timestamp, networkId, submitTransaction } = {}) {
+    try {
+      const transaction = buildDaoCommitteeVoteTransaction({
+        from,
+        proposal,
+        vote,
+        withheldReason,
+        timestamp,
+        networkId,
+      });
+      return submitDaoTransaction({
+        transaction,
+        submitTransaction,
+        errorMessage: 'Committee review submission failed',
+      });
+    } catch (error) {
+      return { ok: false, error: error?.message || 'Committee review submission failed', transaction: null };
+    }
+  },
+
+  async finalizeCommitteeResult({ from, proposal, timestamp, networkId, submitTransaction } = {}) {
+    return submitDaoProposalAction({
+      buildTransaction: buildDaoCommitteeResultTransaction,
+      from,
+      proposal,
+      timestamp,
+      networkId,
+      submitTransaction,
+      errorMessage: 'Review result finalization failed',
+    });
+  },
+
+  async finalizeVoteResult({ from, proposal, timestamp, networkId, submitTransaction } = {}) {
+    return submitDaoProposalAction({
+      buildTransaction: buildDaoVoteResultTransaction,
+      from,
+      proposal,
+      timestamp,
+      networkId,
+      submitTransaction,
+      errorMessage: 'Vote result finalization failed',
+    });
+  },
+
+  async claimReward({ from, proposal, timestamp, networkId, submitTransaction } = {}) {
+    return submitDaoProposalAction({
+      buildTransaction: buildDaoClaimRewardTransaction,
+      from,
+      proposal,
+      timestamp,
+      networkId,
+      submitTransaction,
+      errorMessage: 'Reward claim failed',
+    });
+  },
+
+  async burnReward({ from, proposal, timestamp, networkId, submitTransaction } = {}) {
+    return submitDaoProposalAction({
+      buildTransaction: buildDaoBurnRewardTransaction,
+      from,
+      proposal,
+      timestamp,
+      networkId,
+      submitTransaction,
+      errorMessage: 'Reward burn failed',
+    });
+  },
+
+  async applyParameters({ from, proposal, timestamp, networkId, submitTransaction } = {}) {
+    return submitDaoProposalAction({
+      buildTransaction: buildDaoApplyParametersTransaction,
+      from,
+      proposal,
+      timestamp,
+      networkId,
+      submitTransaction,
+      errorMessage: 'Apply parameters failed',
+    });
   },
 };
