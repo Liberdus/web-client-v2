@@ -2384,10 +2384,6 @@ input[type='file'].form-control::file-selector-button {
   border-left: 0;
 }
 
-#proposalInfoModal .proposal-result-meter-segment--winner {
-  background: var(--primary-color);
-}
-
 #proposalInfoModal .proposal-result-meter-segment--palette-0 {
   background: #3d3dce;
 }
@@ -2439,7 +2435,6 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-change-row {
   flex: 0 1 calc(50% - 4px);
   min-width: min(100%, 180px);
-  min-inline-size: 0;
 }
 
 #proposalInfoModal .proposal-change-row--single {
@@ -2519,19 +2514,7 @@ input[type='file'].form-control::file-selector-button {
   font-size: 13px;
 }
 
-#confirmProposalModal .dao-confirm-change-values small {
-  text-align: center;
-}
-
-#proposalInfoModal .proposal-change-values small {
-  text-align: center;
-}
-
 #confirmProposalModal .dao-confirm-change-values strong {
-  text-align: center;
-}
-
-#proposalInfoModal .proposal-change-values strong {
   text-align: center;
 }
 
@@ -2580,13 +2563,9 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-info + .proposal-committee-actions,
-#proposalInfoModal .proposal-info + .proposal-review-result-actions,
-#proposalInfoModal .proposal-info + .proposal-lifecycle-actions,
-#proposalInfoModal .proposal-info + .proposal-vote-actions,
 #proposalInfoModal .proposal-committee-actions + .proposal-review-result-actions,
 #proposalInfoModal .proposal-review-result-actions + .proposal-lifecycle-actions,
-#proposalInfoModal .proposal-lifecycle-actions + .proposal-vote-actions,
-#proposalInfoModal .proposal-review-result-actions + .proposal-vote-actions {
+#proposalInfoModal .proposal-lifecycle-actions + .proposal-vote-actions {
   margin-top: 10px;
 }
 
@@ -2599,10 +2578,6 @@ input[type='file'].form-control::file-selector-button {
   display: grid;
   gap: 8px;
   padding: 10px;
-}
-
-#proposalInfoModal .proposal-vote-actions {
-  gap: 8px;
 }
 
 #proposalInfoModal .proposal-lifecycle-action {
@@ -2802,10 +2777,6 @@ input[type='file'].form-control::file-selector-button {
   display: grid;
   gap: 8px;
   grid-template-columns: minmax(0, 1fr);
-}
-
-#proposalInfoModal .proposal-vote-status-grid:empty {
-  display: none;
 }
 
 #proposalInfoModal .proposal-vote-current-meter {
