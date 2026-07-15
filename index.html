@@ -164,7 +164,7 @@
           <!-- Contact items will be inserted here -->
         </ul>
       </div>
-      <button class="floating-button" id="newChatButton">+</button>
+      <button class="floating-button" id="newChatButton" aria-label="New chat"><span class="plus-glyph" aria-hidden="true">+</span></button>
 
       <div class="app-screen" id="walletScreen">
         <div class="wallet-balance">
@@ -315,7 +315,7 @@
               <div>Proposal data appears here when available</div>
             </div>
           </ul>
-          <button class="floating-button" id="daoAddProposalButton" aria-label="Add proposal">+</button>
+          <button class="floating-button" id="daoAddProposalButton" aria-label="Add proposal"><span class="plus-glyph" aria-hidden="true">+</span></button>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
@@ -374,7 +374,7 @@
               </div>
               <div class="form-group">
                 <label for="addProposalTitle">Title</label>
-                <input id="addProposalTitle" class="form-control" type="text" maxlength="120" placeholder="Proposal title" required />
+                <input id="addProposalTitle" class="form-control" type="text" maxlength="100" placeholder="Proposal title" required />
               </div>
               <div class="form-group">
                 <label for="addProposalType">Proposal Type</label>
@@ -394,14 +394,20 @@
                   <label>Parameter Changes</label>
                 </div>
                 <div class="dao-form-list" id="addProposalChangesList"></div>
-                <button type="button" class="btn btn--secondary dao-form-add-button" id="addProposalChangeButton">Add parameter change</button>
+                <button type="button" class="btn btn--secondary dao-form-add-button" id="addProposalChangeButton">
+                  <span class="dao-form-add-icon" aria-hidden="true"><span class="plus-glyph">+</span></span>
+                  <span>Add parameter change</span>
+                </button>
               </div>
               <div class="form-group dao-form-section">
                 <div class="dao-form-section-header">
                   <label>Options</label>
                 </div>
                 <div class="dao-form-list" id="addProposalOptionsList"></div>
-                <button type="button" class="btn btn--secondary dao-form-add-button" id="addProposalOptionButton">Add option</button>
+                <button type="button" class="btn btn--secondary dao-form-add-button" id="addProposalOptionButton">
+                  <span class="dao-form-add-icon" aria-hidden="true"><span class="plus-glyph">+</span></span>
+                  <span>Add option</span>
+                </button>
                 <div class="dao-form-help">2 to 10 options. The first option must be yes, accept, or approve.</div>
               </div>
               <div class="form-group dao-form-section">
@@ -480,6 +486,31 @@
               </div>
               <button type="button" class="btn btn--primary btn--pill btn--full" id="proposalCommitteeSubmit">Submit review</button>
             </section>
+            <section class="proposal-review-result-actions hidden" id="proposalReviewResultSection" aria-label="Review result action">
+              <div class="proposal-committee-actions-header">
+                <h3>Review result</h3>
+                <p id="proposalReviewResultHelp"></p>
+              </div>
+              <button type="button" class="btn btn--primary btn--pill btn--full" id="proposalReviewResultSubmit">Finalize review result</button>
+            </section>
+            <section class="proposal-lifecycle-actions hidden" id="proposalLifecycleActionSection" aria-label="Proposal lifecycle action"></section>
+            <section class="proposal-vote-actions hidden" id="proposalVoteActionSection" aria-label="Proposal voting actions">
+              <div class="proposal-committee-actions-header">
+                <h3>Vote preview</h3>
+                <p id="proposalVoteActionHelp"></p>
+              </div>
+              <div class="proposal-vote-options" id="proposalVoteOptions"></div>
+              <div class="proposal-vote-spend-row">
+                <div class="form-group">
+                  <label for="proposalVoteSpend">Spend amount</label>
+                  <input type="number" id="proposalVoteSpend" class="form-control" min="0" step="0.000001" inputmode="decimal" placeholder="0.000000">
+                </div>
+                <span>LIB</span>
+              </div>
+              <div class="proposal-vote-preview" id="proposalVotePreview"></div>
+              <button type="button" class="btn btn--primary btn--pill btn--full" id="proposalVoteSubmit" disabled>Submit vote</button>
+            </section>
+            <div class="proposal-details" id="proposalDetailsContent"></div>
           </div>
         </div>
         <a class="last-item" href="#"> </a>
@@ -1516,7 +1547,7 @@
           <button class="message-context-reaction-button" type="button" data-emoji="😂" data-default-emoji="😂" data-default-aria-label="React with tears of joy" aria-label="React with tears of joy">😂</button>
           <button class="message-context-reaction-button" type="button" data-emoji="😮" data-default-emoji="😮" data-default-aria-label="React with surprised face" aria-label="React with surprised face">😮</button>
           <button class="message-context-reaction-button" type="button" data-emoji="👎" data-default-emoji="👎" data-default-aria-label="React with thumbs down" aria-label="React with thumbs down">👎</button>
-          <button class="message-context-reaction-button message-context-reaction-button-more" type="button" data-reaction-picker-trigger="true" aria-label="Add reaction">+</button>
+          <button class="message-context-reaction-button message-context-reaction-button-more" type="button" data-reaction-picker-trigger="true" aria-label="Add reaction"><span class="plus-glyph" aria-hidden="true">+</span></button>
         </div>
         <!-- Voice message specific action: Save -->
         <div class="context-menu-option" data-action="save" data-icon="download" style="display: none;">
@@ -1570,7 +1601,7 @@
           <button class="message-context-reaction-button" type="button" data-emoji="😂" data-default-emoji="😂" data-default-aria-label="React with tears of joy" aria-label="React with tears of joy">😂</button>
           <button class="message-context-reaction-button" type="button" data-emoji="😮" data-default-emoji="😮" data-default-aria-label="React with surprised face" aria-label="React with surprised face">😮</button>
           <button class="message-context-reaction-button" type="button" data-emoji="👎" data-default-emoji="👎" data-default-aria-label="React with thumbs down" aria-label="React with thumbs down">👎</button>
-          <button class="message-context-reaction-button message-context-reaction-button-more" type="button" data-reaction-picker-trigger="true" aria-label="Add reaction">+</button>
+          <button class="message-context-reaction-button message-context-reaction-button-more" type="button" data-reaction-picker-trigger="true" aria-label="Add reaction"><span class="plus-glyph" aria-hidden="true">+</span></button>
         </div>
         <div class="context-menu-option" data-action="import-contacts" data-icon="contacts" style="display: none;">
           <span class="context-menu-icon"></span>

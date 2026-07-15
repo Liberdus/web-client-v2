@@ -1920,22 +1920,46 @@ input[type='file'].form-control::file-selector-button {
   width: 100%;
 }
 
-#addProposalModal .dao-form-add-button::before {
+.plus-glyph {
+  background-color: currentColor;
+  display: inline-block;
+  flex: 0 0 auto;
+  height: 0.68em;
+  line-height: 1;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M7 2.5h2V7h4.5v2H9v4.5H7V9H2.5V7H7z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M7 2.5h2V7h4.5v2H9v4.5H7V9H2.5V7H7z'/%3E%3C/svg%3E") center / contain no-repeat;
+  overflow: hidden;
+  text-indent: 100%;
+  transform: none;
+  white-space: nowrap;
+  width: 0.68em;
+}
+
+#addProposalModal .dao-form-add-icon {
   align-items: center;
   background-color: var(--primary-tint-60);
   border-radius: 999px;
   border: none;
+  box-sizing: border-box;
   box-shadow: var(--shadow-primary);
   color: var(--text-color);
-  content: "+";
   display: inline-flex;
+  flex: 0 0 22px;
   font-size: 16px;
   font-weight: 400;
   height: 22px;
   justify-content: center;
+  -webkit-box-align: center;
+  -webkit-box-pack: center;
   line-height: 1;
   padding: 0;
+  text-align: center;
   width: 22px;
+}
+
+.message-context-reaction-button-more .plus-glyph {
+  position: relative;
+  z-index: 1;
 }
 
 #addProposalModal .dao-form-remove-button {
@@ -2058,23 +2082,47 @@ input[type='file'].form-control::file-selector-button {
 
 #confirmProposalModal .dao-confirm,
 #proposalInfoModal .proposal-info,
-#proposalInfoModal .proposal-committee-actions {
+#proposalInfoModal .proposal-committee-actions,
+#proposalInfoModal .proposal-review-result-actions,
+#proposalInfoModal .proposal-lifecycle-actions,
+#proposalInfoModal .proposal-vote-actions {
   display: grid;
-  gap: 18px;
+  gap: 14px;
   margin: 0 auto;
   max-width: 720px;
   width: 100%;
 }
 
+#proposalInfoModal .proposal-info-heading {
+  display: grid;
+  gap: 4px;
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-info-title {
+  margin-bottom: 0;
+}
+
+#proposalInfoModal .proposal-info-description {
+  color: var(--secondary-text-color);
+  font-size: 14px;
+  line-height: 1.35;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 #confirmProposalModal .dao-confirm-section,
 #proposalInfoModal .proposal-info-section {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 #confirmProposalModal .dao-confirm-section h3,
 #proposalInfoModal .proposal-info-section h3,
-#proposalInfoModal .proposal-committee-actions h3 {
+#proposalInfoModal .proposal-committee-actions h3,
+#proposalInfoModal .proposal-review-result-actions h3,
+#proposalInfoModal .proposal-lifecycle-actions h3,
+#proposalInfoModal .proposal-vote-actions h3 {
   color: var(--text-color);
   font-size: 16px;
   font-weight: var(--font-weight-semibold);
@@ -2086,9 +2134,10 @@ input[type='file'].form-control::file-selector-button {
 
 #confirmProposalModal .dao-confirm-grid,
 #proposalInfoModal .proposal-info-grid {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
 }
 
 #confirmProposalModal .dao-confirm-row,
@@ -2096,30 +2145,39 @@ input[type='file'].form-control::file-selector-button {
   background: var(--input-background);
   border-radius: 8px;
   display: grid;
+  flex: 0 1 calc((100% - 16px) / 3);
   gap: 8px;
-  grid-column: span 2;
   grid-template-rows: auto minmax(0, 1fr);
-  min-height: 76px;
-  padding: 10px;
+  min-width: 0;
+  min-height: 68px;
+  padding: 8px;
   text-align: center;
 }
 
-#confirmProposalModal .dao-confirm-grid--two .dao-confirm-row:first-child {
-  grid-column: 2 / span 2;
-}
-
-#proposalInfoModal .proposal-info-row:nth-last-child(2):nth-child(3n+1) {
-  grid-column: 2 / span 2;
+#proposalInfoModal .proposal-info-row {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 2px rgba(28, 28, 33, 0.05);
 }
 
 #confirmProposalModal .dao-confirm-row--full,
 #proposalInfoModal .proposal-info-row--full {
-  grid-column: 1 / -1;
+  flex-basis: 100%;
+}
+
+#proposalInfoModal .proposal-info-row--accept {
+  background: rgba(30, 126, 52, 0.16);
+  border: 1px solid rgba(30, 126, 52, 0.34);
+}
+
+#proposalInfoModal .proposal-info-row--withhold {
+  background: rgba(196, 45, 45, 0.14);
+  border: 1px solid rgba(196, 45, 45, 0.32);
 }
 
 #confirmProposalModal .dao-confirm-label,
 #confirmProposalModal .dao-confirm-change-title,
-#proposalInfoModal .proposal-info-row span,
+#proposalInfoModal .proposal-info-row > span:not(.proposal-info-value),
 #proposalInfoModal .proposal-change-row span {
   color: var(--secondary-text-color);
   font-size: 12px;
@@ -2130,9 +2188,16 @@ input[type='file'].form-control::file-selector-button {
   text-align: center;
 }
 
+#proposalInfoModal .proposal-info-row--accept span {
+  color: #1e7e34;
+}
+
+#proposalInfoModal .proposal-info-row--withhold span {
+  color: #b42318;
+}
+
 #confirmProposalModal .dao-confirm-value,
 #confirmProposalModal .dao-confirm-change-values strong,
-#proposalInfoModal .proposal-info-row strong,
 #proposalInfoModal .proposal-change-row strong {
   color: var(--text-color);
   font-size: 13px;
@@ -2144,16 +2209,215 @@ input[type='file'].form-control::file-selector-button {
   white-space: pre-wrap;
 }
 
+#proposalInfoModal .proposal-info-value {
+  color: var(--text-color);
+  font-size: 13px;
+  font-weight: var(--font-weight-normal);
+  line-height: 1.35;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: center;
+  white-space: pre-wrap;
+}
+
+#proposalInfoModal .proposal-info-row--accept .proposal-info-value {
+  color: #0f5f27;
+}
+
+#proposalInfoModal .proposal-info-row--withhold .proposal-info-value {
+  color: #8f1d16;
+}
+
 #confirmProposalModal .dao-confirm-label,
-#proposalInfoModal .proposal-info-row span {
+#proposalInfoModal .proposal-info-row > span:not(.proposal-info-value) {
   align-self: start;
   justify-self: center;
 }
 
 #confirmProposalModal .dao-confirm-value,
-#proposalInfoModal .proposal-info-row strong {
+#proposalInfoModal .proposal-info-value {
   align-self: center;
   justify-self: center;
+}
+
+#proposalInfoModal .proposal-result-card span,
+#proposalInfoModal .proposal-result-meter-label small {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+#proposalInfoModal .proposal-result-overview {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#proposalInfoModal .proposal-result-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 0 solid var(--border-color);
+  border-radius: 0 0 8px 8px;
+  border-width: 0 1px 1px;
+  box-shadow: 0 2px 2px rgba(28, 28, 33, 0.04);
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-result-value {
+  color: var(--text-color);
+  font-size: 13px;
+  font-weight: var(--font-weight-normal);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+#proposalInfoModal .proposal-result-meter {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+#proposalInfoModal .proposal-result-meter-labels,
+#proposalInfoModal .proposal-result-meter-track {
+  align-items: center;
+  display: flex;
+  min-width: 0;
+  width: 100%;
+}
+
+#proposalInfoModal .proposal-result-meter-label {
+  display: grid;
+  flex: var(--result-segment-units) 1 0;
+  gap: 2px;
+  min-width: 0;
+  padding: 0 4px;
+}
+
+#proposalInfoModal .proposal-result-meter-labels--balanced .proposal-result-meter-label {
+  flex: 1 1 0;
+}
+
+#proposalInfoModal .proposal-result-meter-label--start {
+  justify-items: start;
+  text-align: left;
+}
+
+#proposalInfoModal .proposal-result-meter-label--center {
+  justify-items: center;
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-result-meter-label--end {
+  justify-items: end;
+  text-align: right;
+}
+
+#proposalInfoModal .proposal-result-meter-label > span {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+}
+
+#proposalInfoModal .proposal-result-meter-label > span,
+#proposalInfoModal .proposal-result-meter-label > small {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#proposalInfoModal .proposal-result-meter-label--winner > span {
+  color: var(--text-color);
+}
+
+#proposalInfoModal .proposal-result-meter-label--accept.proposal-result-meter-label--winner > span {
+  color: #0f5f27;
+}
+
+#proposalInfoModal .proposal-result-meter-label--withhold.proposal-result-meter-label--winner > span {
+  color: #8f1d16;
+}
+
+#proposalInfoModal .proposal-result-meter-label--palette-0 > span {
+  color: #3d3dce;
+}
+
+#proposalInfoModal .proposal-result-meter-label--palette-1 > span {
+  color: #65676b;
+}
+
+#proposalInfoModal .proposal-result-meter-label--palette-2 > span {
+  color: #6f68e8;
+}
+
+#proposalInfoModal .proposal-result-meter-label--palette-3 > span {
+  color: #838a93;
+}
+
+#proposalInfoModal .proposal-result-meter-label--palette-4 > span {
+  color: #2f2fa8;
+}
+
+#proposalInfoModal .proposal-result-meter-label--palette-5 > span {
+  color: #4e555f;
+}
+
+#proposalInfoModal .proposal-result-meter-track {
+  background: var(--input-background);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  height: 16px;
+  overflow: hidden;
+}
+
+#proposalInfoModal .proposal-result-meter-segment {
+  align-self: stretch;
+  background: rgba(101, 103, 107, 0.34);
+  border-left: 1px solid rgba(255, 255, 255, 0.72);
+  flex: var(--result-segment-units) 1 0;
+  min-width: 0;
+}
+
+#proposalInfoModal .proposal-result-meter-segment:first-child {
+  border-left: 0;
+}
+
+#proposalInfoModal .proposal-result-meter-segment--palette-0 {
+  background: #3d3dce;
+}
+
+#proposalInfoModal .proposal-result-meter-segment--palette-1 {
+  background: #aeb3ba;
+}
+
+#proposalInfoModal .proposal-result-meter-segment--palette-2 {
+  background: #6f68e8;
+}
+
+#proposalInfoModal .proposal-result-meter-segment--palette-3 {
+  background: #c4c8ce;
+}
+
+#proposalInfoModal .proposal-result-meter-segment--palette-4 {
+  background: #2f2fa8;
+}
+
+#proposalInfoModal .proposal-result-meter-segment--palette-5 {
+  background: #8d949e;
+}
+
+#proposalInfoModal .proposal-result-meter-segment--accept {
+  background: #1e7e34;
+}
+
+#proposalInfoModal .proposal-result-meter-segment--withhold {
+  background: #c42d2d;
+}
+
+#proposalInfoModal .proposal-result-meter-segment--empty {
+  background: rgba(101, 103, 107, 0.18);
 }
 
 #confirmProposalModal .dao-confirm-change,
@@ -2161,16 +2425,49 @@ input[type='file'].form-control::file-selector-button {
   background: var(--input-background);
   border-radius: 8px;
   display: grid;
-  gap: 8px;
-  padding: 10px;
+  gap: 6px;
+  justify-items: stretch;
+  min-inline-size: 0;
+  padding: 8px;
+  width: 100%;
+}
+
+#proposalInfoModal .proposal-change-row {
+  flex: 0 1 calc(50% - 4px);
+  min-width: min(100%, 180px);
+}
+
+#proposalInfoModal .proposal-change-row--single {
+  background: rgba(255, 255, 255, 0.92);
+  border: 0 solid var(--border-color);
+  border-radius: 0 0 8px 8px;
+  border-width: 0 1px 1px;
+  box-shadow: 0 2px 2px rgba(28, 28, 33, 0.04);
+  flex-basis: calc(66.666% - 4px);
+}
+
+#proposalInfoModal .proposal-change-row--wide {
+  flex-basis: 100%;
+}
+
+#proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values {
+  grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr);
+  justify-content: center;
+}
+
+#proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values small,
+#proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values strong {
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 #confirmProposalModal .dao-confirm-change-values,
 #proposalInfoModal .proposal-change-values {
   align-items: center;
   display: grid;
-  column-gap: 10px;
+  column-gap: 8px;
   grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr);
+  min-width: 0;
   width: 100%;
 }
 
@@ -2185,13 +2482,40 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #confirmProposalModal .dao-confirm-change-values small,
-#proposalInfoModal .proposal-change-values small {
-  text-align: right;
+#proposalInfoModal .proposal-change-values small,
+#proposalInfoModal .proposal-change-values strong {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  min-width: 0;
+  text-align: center;
 }
 
-#confirmProposalModal .dao-confirm-change-values strong,
-#proposalInfoModal .proposal-change-values strong {
-  text-align: left;
+#confirmProposalModal .dao-confirm-change-values small > span,
+#confirmProposalModal .dao-confirm-change-values small > strong,
+#proposalInfoModal .proposal-change-values small > span,
+#proposalInfoModal .proposal-change-values small > strong,
+#proposalInfoModal .proposal-change-values strong > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#confirmProposalModal .dao-confirm-change-values small > span,
+#proposalInfoModal .proposal-change-values small > span,
+#proposalInfoModal .proposal-change-values strong > span:first-child {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+}
+
+#confirmProposalModal .dao-confirm-change-values small > strong,
+#proposalInfoModal .proposal-change-values small > strong,
+#proposalInfoModal .proposal-change-values strong > span:last-child {
+  color: var(--text-color);
+  font-size: 13px;
+}
+
+#confirmProposalModal .dao-confirm-change-values strong {
+  text-align: center;
 }
 
 #confirmProposalModal .dao-confirm-change-arrow,
@@ -2207,6 +2531,9 @@ input[type='file'].form-control::file-selector-button {
 #confirmProposalModal .dao-confirm-help,
 #proposalInfoModal .proposal-info-muted,
 #proposalInfoModal .proposal-committee-actions p,
+#proposalInfoModal .proposal-review-result-actions p,
+#proposalInfoModal .proposal-lifecycle-actions p,
+#proposalInfoModal .proposal-vote-actions p,
 #proposalInfoModal .proposal-change-row small {
   color: var(--secondary-text-color);
   font-size: 12px;
@@ -2226,40 +2553,130 @@ input[type='file'].form-control::file-selector-button {
 @media (max-width: 420px) {
   #confirmProposalModal .dao-confirm-row,
   #proposalInfoModal .proposal-info-row {
-    grid-column: span 3;
-  }
-
-  #proposalInfoModal .proposal-info-row:nth-last-child(2):nth-child(3n+1) {
-    grid-column: span 3;
+    flex-basis: calc((100% - 8px) / 2);
   }
 
   #confirmProposalModal .dao-confirm-row--full,
   #proposalInfoModal .proposal-info-row--full {
-    grid-column: 1 / -1;
+    flex-basis: 100%;
   }
 }
 
-#proposalInfoModal .proposal-info + .proposal-committee-actions {
-  margin-top: 12px;
+#proposalInfoModal .proposal-info + .proposal-committee-actions,
+#proposalInfoModal .proposal-committee-actions + .proposal-review-result-actions,
+#proposalInfoModal .proposal-review-result-actions + .proposal-lifecycle-actions,
+#proposalInfoModal .proposal-lifecycle-actions + .proposal-vote-actions {
+  margin-top: 10px;
 }
 
-#proposalInfoModal .proposal-committee-actions {
+#proposalInfoModal .proposal-committee-actions,
+#proposalInfoModal .proposal-review-result-actions,
+#proposalInfoModal .proposal-lifecycle-actions,
+#proposalInfoModal .proposal-vote-actions {
   border: 1px solid var(--border-color);
   border-radius: 8px;
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  padding: 10px;
+}
+
+#proposalInfoModal .proposal-lifecycle-action {
+  display: grid;
+  gap: 8px;
+}
+
+#proposalInfoModal .proposal-lifecycle-actions .proposal-committee-actions-header,
+#proposalInfoModal .proposal-vote-actions .proposal-committee-actions-header {
+  display: grid;
+  gap: 2px;
+}
+
+#proposalInfoModal .proposal-details {
+  display: grid;
+  margin: 10px auto 0;
+  max-width: 720px;
+  width: 100%;
+}
+
+#proposalInfoModal .proposal-details:empty {
+  display: none;
+}
+
+#proposalInfoModal .proposal-more {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: grid;
+  overflow: hidden;
+}
+
+#proposalInfoModal .proposal-more summary {
+  align-items: center;
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  list-style: none;
+  padding: 10px;
+}
+
+#proposalInfoModal .proposal-more summary::-webkit-details-marker {
+  display: none;
+}
+
+#proposalInfoModal .proposal-more summary::after {
+  align-self: center;
+  border-bottom: 2px solid var(--secondary-text-color);
+  border-right: 2px solid var(--secondary-text-color);
+  content: "";
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  height: 8px;
+  justify-self: center;
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+  width: 8px;
+}
+
+#proposalInfoModal .proposal-more[open] summary {
+  border-bottom: 1px solid var(--border-color);
+}
+
+#proposalInfoModal .proposal-more[open] summary::after {
+  transform: rotate(225deg);
+}
+
+#proposalInfoModal .proposal-more-title {
+  color: var(--text-color);
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+  grid-column: 1;
+  line-height: 1.25;
+}
+
+#proposalInfoModal .proposal-more-note {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  grid-column: 1;
+  line-height: 1.35;
+}
+
+#proposalInfoModal .proposal-more-content {
+  display: grid;
+  gap: 14px;
+  padding: 10px;
 }
 
 #proposalInfoModal .proposal-payload {
-  display: grid;
-  gap: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
 }
 
 #proposalInfoModal .proposal-payload-title {
   color: var(--text-color);
+  flex: 0 0 100%;
   font-size: 13px;
-  font-weight: var(--font-weight-semibold);
   line-height: 1.3;
   text-align: center;
 }
@@ -2308,26 +2725,38 @@ input[type='file'].form-control::file-selector-button {
   color: var(--background-color);
 }
 
-#proposalInfoModal .proposal-committee-actions .btn {
+#proposalInfoModal .proposal-committee-actions .btn,
+#proposalInfoModal .proposal-review-result-actions .btn,
+#proposalInfoModal .proposal-lifecycle-actions .btn,
+#proposalInfoModal .proposal-vote-actions .btn {
   font-size: 14px;
   height: 40px;
   padding: 8px 14px;
 }
 
-#proposalInfoModal .proposal-committee-actions .btn--pill.btn--full {
+#proposalInfoModal .proposal-committee-actions .btn--pill.btn--full,
+#proposalInfoModal .proposal-review-result-actions .btn--pill.btn--full,
+#proposalInfoModal .proposal-lifecycle-actions .btn--pill.btn--full,
+#proposalInfoModal .proposal-vote-actions .btn--pill.btn--full {
   margin: 0;
   width: 100%;
 }
 
-#proposalInfoModal .proposal-committee-actions .form-group {
+#proposalInfoModal .proposal-committee-actions .form-group,
+#proposalInfoModal .proposal-vote-actions .form-group {
   margin-bottom: 0;
 }
 
-#proposalInfoModal .proposal-committee-actions .form-control {
+#proposalInfoModal .proposal-committee-actions .form-control,
+#proposalInfoModal .proposal-vote-actions .form-control {
   border-radius: 8px;
   font-size: 14px;
   height: 44px;
   padding: 10px 12px;
+}
+
+#proposalInfoModal .proposal-vote-actions .form-control {
+  height: 40px;
 }
 
 #proposalInfoModal .proposal-committee-actions select.form-control {
@@ -2342,6 +2771,317 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-withhold-fields {
   display: grid;
   gap: 10px;
+}
+
+#proposalInfoModal .proposal-vote-status-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#proposalInfoModal .proposal-vote-current-meter {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+#proposalInfoModal .proposal-vote-current-labels,
+#proposalInfoModal .proposal-vote-current-track {
+  align-items: center;
+  display: flex;
+  min-width: 0;
+  width: 100%;
+}
+
+#proposalInfoModal .proposal-vote-current-label {
+  display: grid;
+  flex: var(--vote-total-segment-units) 1 0;
+  gap: 4px;
+  min-width: 0;
+  padding: 0 4px;
+}
+
+#proposalInfoModal .proposal-vote-current-labels--balanced .proposal-vote-current-label {
+  flex: 1 1 0;
+}
+
+#proposalInfoModal .proposal-vote-current-label--start {
+  justify-items: start;
+  text-align: left;
+}
+
+#proposalInfoModal .proposal-vote-current-label--center {
+  justify-items: center;
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-vote-current-label--end {
+  justify-items: end;
+  text-align: right;
+}
+
+#proposalInfoModal .proposal-vote-current-label > span,
+#proposalInfoModal .proposal-vote-current-label > small {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#proposalInfoModal .proposal-vote-current-label > span {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+}
+
+#proposalInfoModal .proposal-vote-current-label > small {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+#proposalInfoModal .proposal-vote-current-label--winner > span {
+  color: var(--primary-color);
+}
+
+#proposalInfoModal .proposal-vote-current-track {
+  background: var(--input-background);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  height: 16px;
+  overflow: hidden;
+}
+
+#proposalInfoModal .proposal-vote-current-segment {
+  align-self: stretch;
+  background: rgba(101, 103, 107, 0.34);
+  border-left: 1px solid rgba(255, 255, 255, 0.72);
+  flex: var(--vote-total-segment-units) 1 0;
+  min-width: 0;
+}
+
+#proposalInfoModal .proposal-vote-current-segment:first-child {
+  border-left: 0;
+}
+
+#proposalInfoModal .proposal-vote-current-segment--winner {
+  background: var(--primary-color);
+}
+
+#proposalInfoModal .proposal-vote-current-segment--empty {
+  background: rgba(101, 103, 107, 0.18);
+}
+
+#proposalInfoModal .proposal-vote-status-card,
+#proposalInfoModal .proposal-vote-preview {
+  background: var(--input-background);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+#proposalInfoModal .proposal-vote-preview {
+  padding: 8px;
+}
+
+#proposalInfoModal .proposal-vote-preview--message {
+  background: transparent;
+  padding: 0;
+}
+
+#proposalInfoModal .proposal-vote-status-card {
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 8px 10px;
+}
+
+#proposalInfoModal .proposal-vote-status-card strong {
+  min-width: 0;
+  text-align: right;
+}
+
+#proposalInfoModal .proposal-vote-status-card--deadline {
+  justify-self: end;
+  max-width: 100%;
+  width: fit-content;
+}
+
+#proposalInfoModal .proposal-vote-status-card span,
+#proposalInfoModal .proposal-vote-option span,
+#proposalInfoModal .proposal-vote-preview-total span,
+#proposalInfoModal .proposal-vote-preview-row span,
+#proposalInfoModal .proposal-vote-preview-note {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+}
+
+#proposalInfoModal .proposal-vote-status-card strong,
+#proposalInfoModal .proposal-vote-preview-total strong,
+#proposalInfoModal .proposal-vote-preview-row strong {
+  color: var(--text-color);
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+#proposalInfoModal .proposal-vote-options {
+  display: grid;
+  gap: 8px;
+}
+
+#proposalInfoModal .proposal-vote-options-help,
+#proposalInfoModal .proposal-vote-options-header {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+#proposalInfoModal .proposal-vote-options-header {
+  display: grid;
+  font-weight: var(--font-weight-semibold);
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 92px;
+}
+
+#proposalInfoModal .proposal-vote-options-header span:last-child {
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-vote-option,
+#proposalInfoModal .proposal-vote-spend-row {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 92px;
+}
+
+#proposalInfoModal .proposal-vote-spend-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+#proposalInfoModal .proposal-vote-spend-row .form-group {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+#proposalInfoModal .proposal-vote-spend-row label {
+  margin: 0;
+  white-space: nowrap;
+}
+
+#proposalInfoModal .proposal-vote-spend-row > span {
+  color: var(--secondary-text-color);
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 40px;
+}
+
+#proposalInfoModal .proposal-vote-preview-total,
+#proposalInfoModal .proposal-vote-preview-row {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+#proposalInfoModal .proposal-vote-preview-row {
+  grid-template-columns: 52px minmax(72px, 1fr) minmax(96px, auto);
+}
+
+#proposalInfoModal .proposal-vote-preview-row > span:nth-child(2) {
+  justify-self: center;
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-vote-preview-row > strong {
+  justify-self: end;
+  text-align: right;
+}
+
+#proposalInfoModal .proposal-vote-power-help {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+#proposalInfoModal .proposal-vote-power-help summary {
+  align-items: center;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 6px;
+  list-style: none;
+}
+
+#proposalInfoModal .proposal-vote-power-help summary::-webkit-details-marker {
+  display: none;
+}
+
+#proposalInfoModal .proposal-vote-power-help summary::before {
+  background-image: var(--icon-info);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  content: "";
+  height: 16px;
+  width: 16px;
+}
+
+#proposalInfoModal .proposal-vote-power-help p {
+  margin: 6px 0 0;
+}
+
+#proposalInfoModal .proposal-vote-preview-meter {
+  background: var(--border-color);
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+}
+
+#proposalInfoModal .proposal-vote-preview-meter span {
+  background: var(--primary-color);
+  display: block;
+  height: 100%;
+}
+
+#proposalInfoModal .proposal-vote-preview-options {
+  display: grid;
+  gap: 6px;
+}
+
+#proposalInfoModal .proposal-vote-preview-message {
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+#proposalInfoModal .proposal-vote-preview-message--warning {
+  background: rgba(196, 45, 45, 0.12);
+  color: #8f1d16;
+}
+
+#proposalInfoModal .proposal-vote-preview-message--muted {
+  background: var(--input-background);
+  color: var(--secondary-text-color);
+}
+
+@media (max-width: 520px) {
+  #proposalInfoModal .proposal-result-overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #proposalInfoModal .proposal-vote-option {
+    grid-template-columns: minmax(0, 1fr) 92px;
+  }
 }
 
 #proposalInfoModal .hidden {
@@ -7210,6 +7950,7 @@ small {
   min-width: 0;
   overflow: visible;
   overflow-wrap: anywhere;
+  text-align: left;
   text-overflow: clip;
   white-space: normal;
 }
@@ -7218,7 +7959,7 @@ small {
   align-items: center;
   color: var(--secondary-text-color);
   display: flex;
-  gap: 18px;
+  gap: 10px;
   min-width: 0;
   width: 100%;
 }
@@ -7231,37 +7972,55 @@ small {
 }
 
 #daoModal .dao-row-meta-item--type {
-  flex: 1 1 auto;
-}
-
-#daoModal .dao-row-meta-item--updated {
   flex: 0 0 auto;
-  margin-left: auto;
-  white-space: nowrap;
-}
-
-#daoModal .dao-row-meta-label {
-  flex: 0 0 auto;
-  font-family: var(--font-primary);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: var(--font-weight-medium);
   line-height: 1.2;
-}
-
-#daoModal .dao-row-meta-value {
-  color: var(--text-color);
-  display: block;
-  font-family: var(--font-primary);
-  font-size: 12px;
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.2;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-#daoModal .dao-row-meta-item--updated .dao-row-meta-value {
-  overflow-wrap: normal;
+  max-width: 34%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+#daoModal .dao-row-previews {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  gap: 4px;
+  justify-content: flex-end;
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+#daoModal .dao-row-preview {
+  align-items: center;
+  background: var(--input-background);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-color);
+  display: inline-flex;
+  flex: 0 1 auto;
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.2;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  padding: 4px 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#daoModal .dao-row-preview--accepted,
+#daoModal .dao-row-preview--accept {
+  background: rgba(30, 126, 52, 0.12);
+  border-color: rgba(30, 126, 52, 0.3);
+}
+
+#daoModal .dao-row-preview--rejected {
+  background: rgba(196, 45, 45, 0.1);
+  border-color: rgba(196, 45, 45, 0.28);
 }
 
 #daoStatusContextMenu {
