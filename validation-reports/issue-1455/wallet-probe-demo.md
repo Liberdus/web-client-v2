@@ -61,6 +61,34 @@ WALLET_PROBE_PORT=8788 npm run serve:wallet-probe
 
 The API token is read from the environment, is never returned by the server, and must not be committed.
 
+The supplied endpoint is stored persistently in the macOS Login Keychain:
+
+- Service: `liberdus-ankr-multichain-issue-1455`
+- Account: `codexwallet1455`
+
+Start the server from that stored endpoint without printing it:
+
+```sh
+ANKR_MULTICHAIN_ENDPOINT="$(security find-generic-password \
+  -a codexwallet1455 \
+  -s liberdus-ankr-multichain-issue-1455 \
+  -w)" \
+WALLET_PROBE_PORT=8788 \
+npm run serve:wallet-probe
+```
+
+Unfiltered discovery may include spam assets because any address can receive unsolicited tokens. For a cleaner demo containing only Ankr-whitelisted assets:
+
+```sh
+ANKR_MULTICHAIN_ENDPOINT="$(security find-generic-password \
+  -a codexwallet1455 \
+  -s liberdus-ankr-multichain-issue-1455 \
+  -w)" \
+ANKR_ONLY_WHITELISTED=true \
+WALLET_PROBE_PORT=8788 \
+npm run serve:wallet-probe
+```
+
 ## JSON and health endpoints
 
 ```sh

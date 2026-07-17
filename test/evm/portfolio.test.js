@@ -37,8 +37,8 @@ test('normalizes and paginates Ankr account-balance results', async () => {
         nextPageToken: secondPage ? '' : 'page-2',
         assets: secondPage ? [{
           blockchain: 'eth',
-          tokenName: 'USD Coin',
-          tokenSymbol: 'USDC',
+          tokenName: 'USD\nCoin',
+          tokenSymbol: '\u001b[31mUSDC\u001b[0m',
           tokenDecimals: 6,
           tokenType: 'ERC20',
           contractAddress: '0x0000000000000000000000000000000000000002',
@@ -76,6 +76,8 @@ test('normalizes and paginates Ankr account-balance results', async () => {
   assert.equal(result.assets[0].assetType, 'native');
   assert.equal(result.assets[1].assetType, 'erc20');
   assert.equal(result.assets[1].contractAddress, '0x0000000000000000000000000000000000000002');
+  assert.equal(result.assets[1].tokenName, 'USD Coin');
+  assert.equal(result.assets[1].tokenSymbol, 'USDC');
   assert.equal(result.pagesFetched, 2);
   assert.equal(requests[1].params.pageToken, 'page-2');
   assert.deepEqual(requests[0].params.blockchain, ['eth']);
