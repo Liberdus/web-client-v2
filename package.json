@@ -2,7 +2,13 @@
   "name": "web-client-v2",
   "version": "1.0.0",
   "description": "A transparent, end-to-end encrypted web-based messaging application with a decentralized backend that prioritizes user privacy and security.",
+  "type": "module",
   "main": "app.js",
+  "scripts": {
+    "test": "node --test",
+    "test:evm": "node --test test/evm/*.test.js",
+    "check:evm-balances": "node scripts/check-evm-balances.js"
+  },
   "keywords": [
     "messaging",
     "encryption",
