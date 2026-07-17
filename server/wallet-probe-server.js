@@ -69,12 +69,22 @@ export function createWalletProbeServer({
       }
 
       const route = url.pathname.match(/^\/api\/wallets\/(0x[0-9a-fA-F]{40})\/portfolio$/);
-      if (request.method !== 'GET' || !route) {
+      const walletAddress = route?.[1]
+        || (url.pathname === '/' ? url.searchParams.get('wallet') : null);
+      if (request.method !== 'GET' || !walletAddress) {
+        if (request.method === 'GET' && url.pathname === '/') {
+          sendResponse(
+            response,
+            400,
+            'Usage: curl "http://127.0.0.1:8788/?wallet=0x..."\n',
+          );
+          return;
+        }
         sendResponse(response, 404, 'Not found\n');
         return;
       }
 
-      const portfolio = await probeWallet(route[1], parseNetworks(url, networks));
+      const portfolio = await probeWallet(walletAddress, parseNetworks(url, networks));
       const wantsJson = url.searchParams.get('format') === 'json'
         || request.headers.accept?.includes('application/json');
 
@@ -118,7 +128,7 @@ async function startServer() {
   const actualPort = typeof address === 'object' ? address.port : port;
   console.log(`Wallet probe server listening on http://${host}:${actualPort}`);
   console.log(`Indexed token discovery: ${server.indexedTokenDiscovery ? 'enabled' : 'disabled (native balances only)'}`);
-  console.log(`Demo: curl -fsS http://${host}:${actualPort}/api/wallets/0x0000000000000000000000000000000000000000/portfolio`);
+  console.log(`Demo: curl "http://${host}:${actualPort}/?wallet=0x0000000000000000000000000000000000000000"`);
 
   const shutdown = () => server.close(() => process.exit(0));
   process.once('SIGINT', shutdown);

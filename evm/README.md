@@ -74,22 +74,21 @@ npm run serve:wallet-probe
 It binds to `127.0.0.1:8787` by default. Probe any EVM address with:
 
 ```sh
-curl -fsS \
-  http://127.0.0.1:8787/api/wallets/0x0000000000000000000000000000000000000000/portfolio
+curl "http://127.0.0.1:8787/?wallet=0x0000000000000000000000000000000000000000"
 ```
 
 Limit the output to selected chains:
 
 ```sh
 curl -fsS \
-  'http://127.0.0.1:8787/api/wallets/0x0000000000000000000000000000000000000000/portfolio?chains=ethereum,polygon,base'
+  'http://127.0.0.1:8787/?wallet=0x0000000000000000000000000000000000000000&chains=ethereum,polygon,base'
 ```
 
 Request structured JSON instead of terminal text:
 
 ```sh
 curl -fsS -H 'accept: application/json' \
-  http://127.0.0.1:8787/api/wallets/0x0000000000000000000000000000000000000000/portfolio
+  'http://127.0.0.1:8787/?wallet=0x0000000000000000000000000000000000000000'
 ```
 
 Without an indexed-provider credential, the server explicitly reports native balances only. Enable full Ankr native/ERC-20 discovery and aggregate USD totals without placing the token in a command-line argument:

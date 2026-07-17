@@ -19,14 +19,13 @@ WALLET_PROBE_PORT=8788 npm run serve:wallet-probe
 Replace `[wallet]` with any 20-byte EVM address:
 
 ```sh
-curl -fsS http://127.0.0.1:8788/api/wallets/[wallet]/portfolio
+curl "http://127.0.0.1:8788/?wallet=[wallet]"
 ```
 
 Current test-wallet example:
 
 ```sh
-curl -fsS \
-  http://127.0.0.1:8788/api/wallets/0x2e9d029e7ca193a3b2cb8a447c6f0d74d4983760/portfolio
+curl "http://127.0.0.1:8788/?wallet=0x2e9d029e7ca193a3b2cb8a447c6f0d74d4983760"
 ```
 
 Validated output on 2026-07-17:
@@ -95,5 +94,5 @@ npm run serve:wallet-probe
 curl -fsS http://127.0.0.1:8788/health
 
 curl -fsS -H 'accept: application/json' \
-  http://127.0.0.1:8788/api/wallets/0x2e9d029e7ca193a3b2cb8a447c6f0d74d4983760/portfolio
+  'http://127.0.0.1:8788/?wallet=0x2e9d029e7ca193a3b2cb8a447c6f0d74d4983760'
 ```
