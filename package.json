@@ -7,7 +7,8 @@
   "scripts": {
     "test": "node --test",
     "test:evm": "node --test test/evm/*.test.js",
-    "check:evm-balances": "node scripts/check-evm-balances.js"
+    "check:evm-balances": "node scripts/check-evm-balances.js",
+    "serve:wallet-probe": "node server/wallet-probe-server.js"
   },
   "keywords": [
     "messaging",
