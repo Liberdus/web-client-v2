@@ -77,11 +77,11 @@ It binds to `127.0.0.1:8787` by default. Probe any EVM address with:
 curl "http://127.0.0.1:8787/?wallet=0x0000000000000000000000000000000000000000"
 ```
 
-Limit the output to selected chains:
+The simple `?wallet=` endpoint always scans every configured chain. Advanced callers can limit the legacy endpoint to selected chains:
 
 ```sh
 curl -fsS \
-  'http://127.0.0.1:8787/?wallet=0x0000000000000000000000000000000000000000&chains=ethereum,polygon,base'
+  'http://127.0.0.1:8787/api/wallets/0x0000000000000000000000000000000000000000/portfolio?chains=ethereum,polygon,base'
 ```
 
 JSON is the default response and is ready to pass to the frontend:

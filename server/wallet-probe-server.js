@@ -73,8 +73,9 @@ export function createWalletProbeServer({
       }
 
       const route = url.pathname.match(/^\/api\/wallets\/(0x[0-9a-fA-F]{40})\/portfolio$/);
+      const isSimpleWalletRoute = url.pathname === '/';
       const walletAddress = route?.[1]
-        || (url.pathname === '/' ? url.searchParams.get('wallet') : null);
+        || (isSimpleWalletRoute ? url.searchParams.get('wallet') : null);
       if (request.method !== 'GET' || !walletAddress) {
         if (request.method === 'GET' && url.pathname === '/') {
           sendResponse(
@@ -88,7 +89,10 @@ export function createWalletProbeServer({
         return;
       }
 
-      const portfolio = await probeWallet(walletAddress, parseNetworks(url, networks));
+      const networkIds = isSimpleWalletRoute
+        ? networks.map((network) => network.id)
+        : parseNetworks(url, networks);
+      const portfolio = await probeWallet(walletAddress, networkIds);
       const wantsText = url.searchParams.get('format') === 'text';
 
       if (!wantsText) {

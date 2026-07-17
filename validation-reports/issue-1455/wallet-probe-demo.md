@@ -22,6 +22,8 @@ Replace `[wallet]` with any 20-byte EVM address:
 curl "http://127.0.0.1:8788/?wallet=[wallet]"
 ```
 
+This simple endpoint always checks every configured chain. Any `chains=...` query parameter is intentionally ignored on this route so an old demo command cannot accidentally reduce the response to one chain.
+
 Current test-wallet example:
 
 ```sh
