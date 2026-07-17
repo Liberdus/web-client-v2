@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   calculateTotalBalanceUsd,
+  createPortfolioJson,
   createWalletProbe,
   formatPortfolioText,
 } from '../../server/wallet-probe.js';
@@ -121,4 +122,62 @@ test('formats native-only output with a clear indexed-discovery notice', async (
   assert.match(output, /Ethereum \(1 token\):\n  1 ETH/);
   assert.match(output, /Polygon \(0 tokens\):\n  No balances reported/);
   assert.match(output, /configure ANKR_API_TOKEN/);
+});
+
+test('creates a frontend-ready JSON portfolio without percentages', async () => {
+  const rpcPool = {
+    async getNativeBalances() {
+      return {
+        assets: [asset({
+          provider: 'ankr',
+          tokenPriceUsd: '2000.50',
+          balanceUsd: '2000.50',
+        })],
+        failures: [],
+        complete: true,
+      };
+    },
+  };
+  const probe = createWalletProbe({ rpcPool, networks: NETWORKS });
+  const portfolio = await probe(ADDRESS);
+
+  const json = createPortfolioJson(portfolio, {
+    updatedAt: '2026-07-17T12:00:00.000Z',
+  });
+
+  assert.deepEqual(json.chains, [
+    {
+      chain: 'Ethereum',
+      networkId: 'ethereum',
+      chainId: 1,
+      tokenCount: 1,
+      totalValueUsd: '2000.50',
+    },
+    {
+      chain: 'Polygon',
+      networkId: 'polygon',
+      chainId: 137,
+      tokenCount: 0,
+      totalValueUsd: null,
+    },
+  ]);
+  assert.deepEqual(json.tokens[0], {
+    chain: 'Ethereum',
+    networkId: 'ethereum',
+    chainId: 1,
+    contractAddress: null,
+    tokenType: 'native',
+    tokenName: 'Ether',
+    tokenSymbol: 'ETH',
+    tokenPriceUsd: '2000.50',
+    tokenAmount: '1',
+    tokenValueUsd: '2000.50',
+    tokenDecimals: 18,
+    rawAmount: '1000000000000000000',
+    logoUrl: null,
+  });
+  assert.equal(json.totalValueUsd, '2000.50');
+  assert.equal(json.chainCount, 2);
+  assert.equal(json.tokenCount, 1);
+  assert.equal('portfolioPercentage' in json.tokens[0], false);
 });

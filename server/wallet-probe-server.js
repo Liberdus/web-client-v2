@@ -3,7 +3,11 @@ import { pathToFileURL } from 'node:url';
 
 import { AnkrPortfolioProvider, EvmRpcPool } from '../evm/index.js';
 import { DEFAULT_EVM_NETWORKS } from '../evm/networks.js';
-import { createWalletProbe, formatPortfolioText } from './wallet-probe.js';
+import {
+  createPortfolioJson,
+  createWalletProbe,
+  formatPortfolioText,
+} from './wallet-probe.js';
 
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 8787;
@@ -85,14 +89,13 @@ export function createWalletProbeServer({
       }
 
       const portfolio = await probeWallet(walletAddress, parseNetworks(url, networks));
-      const wantsJson = url.searchParams.get('format') === 'json'
-        || request.headers.accept?.includes('application/json');
+      const wantsText = url.searchParams.get('format') === 'text';
 
-      if (wantsJson) {
+      if (!wantsText) {
         sendResponse(
           response,
           200,
-          `${JSON.stringify(portfolio, null, 2)}\n`,
+          `${JSON.stringify(createPortfolioJson(portfolio), null, 2)}\n`,
           'application/json; charset=utf-8',
         );
       } else {

@@ -192,3 +192,57 @@ export function formatPortfolioText(portfolio) {
 
   return `${lines.join('\n')}\n`;
 }
+
+function assetValueUsd(asset) {
+  if (asset.balanceUsd !== null && asset.balanceUsd !== undefined) {
+    return String(asset.balanceUsd);
+  }
+  return asset.balanceRawInteger === '0' ? '0' : null;
+}
+
+function serializeToken(asset) {
+  return Object.freeze({
+    chain: asset.networkName,
+    networkId: asset.networkId,
+    chainId: asset.chainId,
+    contractAddress: asset.contractAddress,
+    tokenType: asset.assetType,
+    tokenName: asset.tokenName,
+    tokenSymbol: asset.tokenSymbol,
+    tokenPriceUsd: asset.tokenPriceUsd,
+    tokenAmount: asset.balance,
+    tokenValueUsd: assetValueUsd(asset),
+    tokenDecimals: asset.tokenDecimals,
+    rawAmount: asset.balanceRawInteger,
+    logoUrl: asset.thumbnail,
+  });
+}
+
+export function createPortfolioJson(portfolio, { updatedAt = new Date().toISOString() } = {}) {
+  const tokens = portfolio.networks.flatMap((network) => network.assets.map(serializeToken));
+  const chains = portfolio.networks.map((network) => {
+    const chainValues = network.assets.map((asset) => ({
+      balanceUsd: assetValueUsd(asset),
+    }));
+    return Object.freeze({
+      chain: network.networkName,
+      networkId: network.networkId,
+      chainId: network.chainId,
+      tokenCount: network.assets.length,
+      totalValueUsd: calculateTotalBalanceUsd(chainValues),
+    });
+  });
+
+  return Object.freeze({
+    walletAddress: portfolio.address,
+    totalValueUsd: portfolio.totalBalanceUsd,
+    chainCount: chains.length,
+    tokenCount: tokens.length,
+    indexedTokenDiscovery: portfolio.indexedTokenDiscovery,
+    complete: portfolio.complete,
+    updatedAt,
+    chains: Object.freeze(chains),
+    tokens: Object.freeze(tokens),
+    warnings: portfolio.failures,
+  });
+}

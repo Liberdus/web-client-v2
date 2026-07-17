@@ -84,11 +84,16 @@ curl -fsS \
   'http://127.0.0.1:8787/?wallet=0x0000000000000000000000000000000000000000&chains=ethereum,polygon,base'
 ```
 
-Request structured JSON instead of terminal text:
+JSON is the default response and is ready to pass to the frontend:
 
 ```sh
-curl -fsS -H 'accept: application/json' \
-  'http://127.0.0.1:8787/?wallet=0x0000000000000000000000000000000000000000'
+curl 'http://127.0.0.1:8787/?wallet=0x0000000000000000000000000000000000000000'
+```
+
+Request the legacy terminal-text view only when needed:
+
+```sh
+curl 'http://127.0.0.1:8787/?wallet=0x0000000000000000000000000000000000000000&format=text'
 ```
 
 Without an indexed-provider credential, the server explicitly reports native balances only. Enable full Ankr native/ERC-20 discovery and aggregate USD totals without placing the token in a command-line argument:

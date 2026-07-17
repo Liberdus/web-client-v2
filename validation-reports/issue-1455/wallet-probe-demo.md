@@ -28,25 +28,44 @@ Current test-wallet example:
 curl "http://127.0.0.1:8788/?wallet=0x2e9d029e7ca193a3b2cb8a447c6f0d74d4983760"
 ```
 
-Validated output on 2026-07-17:
+The default response is JSON. Its top-level structure is:
 
-```text
-Total value across all chains: unavailable
-Available balances for 0x2e9d029e7ca193a3b2cb8a447c6f0d74d4983760:
-Ethereum (1 token):
-  0 ETH
-Polygon (1 token):
-  0 POL
-Arbitrum One (1 token):
-  0 ETH
-OP Mainnet (1 token):
-  0 ETH
-Base (1 token):
-  0 ETH
-BNB Smart Chain (1 token):
-  0 BNB
-Token discovery: native balances only; configure ANKR_API_TOKEN for ERC-20 holdings and USD totals.
+```json
+{
+  "walletAddress": "0x...",
+  "totalValueUsd": "0.00",
+  "chainCount": 6,
+  "tokenCount": 6,
+  "indexedTokenDiscovery": true,
+  "complete": true,
+  "updatedAt": "2026-07-17T12:00:00.000Z",
+  "chains": [],
+  "tokens": [],
+  "warnings": []
+}
 ```
+
+Every token object contains:
+
+```json
+{
+  "chain": "Ethereum",
+  "networkId": "ethereum",
+  "chainId": 1,
+  "contractAddress": null,
+  "tokenType": "native",
+  "tokenName": "Ether",
+  "tokenSymbol": "ETH",
+  "tokenPriceUsd": "1824.06",
+  "tokenAmount": "7.3687",
+  "tokenValueUsd": "13441.03",
+  "tokenDecimals": 18,
+  "rawAmount": "7368700000000000000",
+  "logoUrl": null
+}
+```
+
+Native assets use `contractAddress: null`. ERC-20 assets use their contract address. Unknown prices and values use `null`. No portfolio-percentage field is returned.
 
 ## Full token and USD demo
 
@@ -88,11 +107,11 @@ WALLET_PROBE_PORT=8788 \
 npm run serve:wallet-probe
 ```
 
-## JSON and health endpoints
+## Text and health endpoints
 
 ```sh
 curl -fsS http://127.0.0.1:8788/health
 
-curl -fsS -H 'accept: application/json' \
-  'http://127.0.0.1:8788/?wallet=0x2e9d029e7ca193a3b2cb8a447c6f0d74d4983760'
+curl -fsS \
+  'http://127.0.0.1:8788/?wallet=0x2e9d029e7ca193a3b2cb8a447c6f0d74d4983760&format=text'
 ```
