@@ -86,6 +86,7 @@ import {
   getDaoStateLabel,
   getDaoTypeLabel,
   getEffectiveDaoState,
+  isDaoAffirmativeOption,
   setDaoBackendFetcher,
 } from './dao.repo.js';
 
@@ -2925,7 +2926,7 @@ class AddProposalModal {
     if (this.emergencySelect) this.emergencySelect.value = 'false';
     if (this.startDelayInput) this.startDelayInput.value = '0';
     if (this.gracePeriodInput) this.gracePeriodInput.value = '';
-    this.renderOptions(['yes', 'no']);
+    this.renderOptions(['no', 'yes']);
     this.renderGracePeriodDefaultHint();
     this.refreshProposalFee();
     this.refreshSelectedConfigOptions();
@@ -3383,9 +3384,8 @@ class AddProposalModal {
       throw this.createValidationError('Every option needs text', inputs[emptyIndex]);
     }
 
-    const firstOption = options[0].toLowerCase();
-    if (!['yes', 'accept', 'approve'].includes(firstOption)) {
-      throw this.createValidationError('The first option must be yes, accept, or approve', inputs[0]);
+    if (!options.some(isDaoAffirmativeOption)) {
+      throw this.createValidationError('Include yes, accept, or approve as an option', inputs[0]);
     }
     return options;
   }
@@ -4040,8 +4040,9 @@ function getDaoVoteResultSummary(proposal) {
   const { totalWeight, winner } = getDaoVoteWinner(totals);
   if (totalWeight <= 0n) return null;
 
-  const outcome = winner.index === 0 ? 'Accepted' : 'Rejected';
-  const tone = winner.index === 0 ? 'accepted' : 'rejected';
+  const accepted = isDaoAffirmativeOption(winner.option);
+  const outcome = accepted ? 'Accepted' : 'Rejected';
+  const tone = accepted ? 'accepted' : 'rejected';
 
   return { headline: outcome, outcome, source: 'vote', tone, totalWeight, totals, winner };
 }

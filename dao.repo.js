@@ -79,6 +79,10 @@ const DAO_AFFIRMATIVE_OPTION_STRINGS = ['yes', 'accept', 'approve'];
 const DAO_PROPOSALS_META_ID_STRING = 'dao proposals meta';
 export const DAO_PROPOSAL_TITLE_MAX_LENGTH = 100;
 
+export function isDaoAffirmativeOption(option) {
+  return DAO_AFFIRMATIVE_OPTION_STRINGS.includes(option.trim().toLowerCase());
+}
+
 export function getDaoTypeLabel(typeKey) {
   return DAO_TYPE_OPTIONS.find((t) => t.key === typeKey)?.label || typeKey || '';
 }
@@ -146,8 +150,8 @@ function normalizeDaoDraftOptions(options) {
   }
 
   const safeOptions = options.map((option) => requireDaoDraftString(option, 'DAO proposal option'));
-  if (!DAO_AFFIRMATIVE_OPTION_STRINGS.includes(safeOptions[0].toLowerCase())) {
-    throw new Error('The first DAO proposal option must be yes, accept, or approve');
+  if (!safeOptions.some(isDaoAffirmativeOption)) {
+    throw new Error('DAO proposal options must include yes, accept, or approve');
   }
   return safeOptions;
 }
