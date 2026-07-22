@@ -83,9 +83,14 @@ import {
   DAO_PROPOSAL_TITLE_MAX_LENGTH,
   daoRepo,
   DAO_STATES,
+  getDaoProposalClaimWindow,
+  getDaoRewardClaimStatus,
   getDaoStateLabel,
   getDaoTypeLabel,
   getEffectiveDaoState,
+  isDaoProposalClaimable,
+  normalizeDaoAddress,
+  parseDaoUnsignedBigInt,
   setDaoBackendFetcher,
 } from './dao.repo.js';
 
@@ -2456,6 +2461,9 @@ const menuModal = new MenuModal();
 // DAO proposals are loaded via `daoRepo` and kept in memory (no localStorage persistence).
 setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork));
 
+const DAO_CLAIMABLE_FILTER = { key: 'claimable', label: 'Claimable' };
+const DAO_FILTER_OPTIONS = [...DAO_STATES, DAO_CLAIMABLE_FILTER];
+
 function formatDaoTimestamp(ts) {
   const n = Number(ts || 0);
   if (!n) return '';
@@ -2479,7 +2487,7 @@ function formatDaoDate(ts) {
 class DaoModal {
   constructor() {
     this.selectedGroupKey = 'active';
-    this.selectedStateKey = 'voting';
+    this.selectedFilterKey = 'voting';
     this._outsideClickHandler = null;
     this.isLoading = false;
   }
@@ -2520,9 +2528,9 @@ class DaoModal {
       this.statusMenu.addEventListener('click', (e) => {
         const option = e.target.closest('.context-menu-option');
         if (!option) return;
-        const key = option.dataset.stateKey;
+        const key = option.dataset.filterKey;
         if (!key) return;
-        this.setStateFilter(key);
+        this.setFilter(key);
       });
     }
 
@@ -2537,6 +2545,7 @@ class DaoModal {
   }
 
   open() {
+    assert(getDaoCurrentAccountAddress(), 'DAO modal requires an active account');
     this._open();
   }
 
@@ -2551,7 +2560,7 @@ class DaoModal {
     enterFullscreen();
 
     // Default filter is Voting
-    this.selectedStateKey = this.selectedStateKey || 'voting';
+    this.selectedFilterKey = this.selectedFilterKey || 'voting';
     this.selectedGroupKey = this.selectedGroupKey || 'active';
     this.render();
 
@@ -2601,7 +2610,7 @@ class DaoModal {
     if (!this.statusMenu || !this.statusMenuButton) return;
     const buttonRect = this.statusMenuButton.getBoundingClientRect();
     const menuWidth = 176;
-    const approxMenuHeight = 16 + DAO_STATES.length * 40; // padding + items
+    const approxMenuHeight = 16 + DAO_FILTER_OPTIONS.length * 40; // padding + items
 
     let left = buttonRect.right - menuWidth;
     let top = buttonRect.bottom + 8;
@@ -2626,8 +2635,8 @@ class DaoModal {
     if (this.statusMenuButton) this.statusMenuButton.setAttribute('aria-expanded', 'false');
   }
 
-  setStateFilter(key) {
-    this.selectedStateKey = key;
+  setFilter(key) {
+    this.selectedFilterKey = key;
     this.closeStatusMenu();
     this.render();
   }
@@ -2642,17 +2651,22 @@ class DaoModal {
     const proposalsArchived = daoRepo.getProposalsForUi('archived');
 
     const proposals = this.selectedGroupKey === 'archived' ? proposalsArchived : proposalsActive;
+    const currentAddress = getDaoCurrentAccountAddress();
+    const now = Date.now();
+    const isClaimableFilter = this.selectedFilterKey === DAO_CLAIMABLE_FILTER.key;
 
-    // Update counts by state (within selected group)
-    const counts = Object.fromEntries(DAO_STATES.map((s) => [s.key, 0]));
+    // Update filter counts within the selected group.
+    const counts = Object.fromEntries(DAO_FILTER_OPTIONS.map((filter) => [filter.key, 0]));
     for (const p of proposals) {
       const state = getEffectiveDaoState(p);
       if (counts[state] !== undefined) counts[state] += 1;
+      if (isDaoProposalClaimable(p, currentAddress, now)) counts[DAO_CLAIMABLE_FILTER.key] += 1;
     }
 
     // Update header title
     const groupLabel = this.selectedGroupKey === 'archived' ? 'Archived' : 'Active';
-    const label = getDaoStateLabel(this.selectedStateKey);
+    const label = DAO_FILTER_OPTIONS.find((filter) => filter.key === this.selectedFilterKey)?.label
+      || this.selectedFilterKey;
     if (this.titleEl) this.titleEl.textContent = `DAO - ${groupLabel} - ${label}`;
 
     // Update group toggle labels + selection
@@ -2667,20 +2681,19 @@ class DaoModal {
       this.groupArchivedButton.setAttribute('aria-selected', this.selectedGroupKey === 'archived' ? 'true' : 'false');
     }
 
-    for (const s of DAO_STATES) {
-      const option = this.statusMenu?.querySelector(`[data-state-key="${s.key}"]`);
-      const labelEl = document.getElementById(`daoStatusOption${s.label.replace(/\s+/g, '')}`);
+    for (const filter of DAO_FILTER_OPTIONS) {
+      const option = this.statusMenu?.querySelector(`[data-filter-key="${filter.key}"]`);
+      const labelEl = option?.querySelector('.dao-status-label');
       const countEl = option?.querySelector('.dao-status-count');
-      const count = counts[s.key] || 0;
-      const displayLabel = getDaoStateLabel(s.key);
+      const count = counts[filter.key] || 0;
 
-      if (labelEl) labelEl.textContent = displayLabel;
+      if (labelEl) labelEl.textContent = filter.label;
       if (countEl) {
         countEl.textContent = String(count);
-        countEl.setAttribute('aria-label', `${count} ${displayLabel.toLowerCase()} proposals`);
+        countEl.setAttribute('aria-label', `${count} ${filter.label.toLowerCase()} proposals`);
       }
       if (option) {
-        const selected = s.key === this.selectedStateKey;
+        const selected = filter.key === this.selectedFilterKey;
         option.classList.toggle('active', selected);
         option.setAttribute('aria-checked', selected ? 'true' : 'false');
       }
@@ -2688,7 +2701,9 @@ class DaoModal {
 
     // Filter + sort (newest entered into state first)
     const filtered = proposals
-      .filter((p) => getEffectiveDaoState(p) === this.selectedStateKey)
+      .filter((p) => isClaimableFilter
+        ? isDaoProposalClaimable(p, currentAddress, now)
+        : getEffectiveDaoState(p) === this.selectedFilterKey)
       .sort((a, b) => Number(b.stateEnteredAt || b.createdAt || 0) - Number(a.stateEnteredAt || a.createdAt || 0));
 
     // Clear old list items
@@ -2710,6 +2725,9 @@ class DaoModal {
       if (this.isLoading) {
         if (headlineEl) headlineEl.textContent = 'Loading proposals…';
         if (sublineEl) sublineEl.textContent = 'Please wait';
+      } else if (isClaimableFilter) {
+        if (headlineEl) headlineEl.textContent = 'No claimable proposals found';
+        if (sublineEl) sublineEl.textContent = 'You have no voter rewards ready to claim';
       } else {
         if (headlineEl) headlineEl.textContent = isArchived ? 'No archived proposals found' : 'No proposals found';
         if (sublineEl) {
@@ -3913,34 +3931,6 @@ function formatDaoLibWei(value) {
   return `${formatDaoShortNumber(EthNum.toStr(weiValue))} LIB`;
 }
 
-function parseDaoUnsignedBigInt(value) {
-  if (value === undefined || value === null || value === '') return null;
-  if (typeof value === 'bigint') return value >= 0n ? value : null;
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value) || value < 0) return null;
-    return BigInt(Math.trunc(value));
-  }
-  if (typeof value === 'object') {
-    if (value.dataType !== 'bi') return null;
-    const hexText = String(value.value ?? '').trim();
-    if (!/^[0-9a-f]+$/i.test(hexText)) return null;
-    try {
-      return BigInt(`0x${hexText}`);
-    } catch {
-      return null;
-    }
-  }
-
-  const text = String(value).trim();
-  if (!text) return null;
-  try {
-    const parsed = BigInt(text);
-    return parsed >= 0n ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
 function formatDaoRewardAmount(value) {
   return value === null ? 'Unavailable' : formatDaoLibWei(value);
 }
@@ -4050,12 +4040,6 @@ function getDaoProposalResultSummary(proposal) {
   return getDaoCommitteeReviewResultSummary(proposal) || getDaoVoteResultSummary(proposal);
 }
 
-function normalizeDaoAddress(value) {
-  const text = String(value || '').trim();
-  if (!text) return '';
-  return normalizeAddress(text);
-}
-
 function getDaoVoterEntries(proposal) {
   if (!Array.isArray(proposal?.voterList)) return [];
   return proposal.voterList
@@ -4064,35 +4048,6 @@ function getDaoVoterEntries(proposal) {
       timestamp: Number(entry?.timestamp || 0),
     }))
     .filter((entry) => entry.address && Number.isFinite(entry.timestamp) && entry.timestamp > 0);
-}
-
-function getDaoClaimList(proposal) {
-  if (!Array.isArray(proposal?.claimList)) return [];
-  return proposal.claimList.map(normalizeDaoAddress).filter(Boolean);
-}
-
-function getDaoProposalClaimWindow(proposal) {
-  const reviewStart = Number(proposal?.startTime || 0);
-  const reviewDuration = Number(proposal?.reviewDuration);
-  const votingDuration = Number(proposal?.votingDuration);
-  const claimDuration = Number(proposal?.claimDuration);
-  if (
-    !Number.isFinite(reviewStart) ||
-    !Number.isFinite(reviewDuration) ||
-    !Number.isFinite(votingDuration) ||
-    !Number.isFinite(claimDuration)
-  ) {
-    return { start: null, end: null, votingStart: null, votingDuration: null };
-  }
-
-  const votingStart = reviewStart + reviewDuration;
-  const votingEnd = proposal?.emergency ? votingStart : votingStart + votingDuration;
-  return {
-    start: votingEnd,
-    end: votingEnd + claimDuration,
-    votingStart,
-    votingDuration,
-  };
 }
 
 function getDaoProposalApplyWindow(proposal, now = Date.now()) {
@@ -4212,19 +4167,6 @@ function getDaoClaimRewardEstimate({ pool, claimed, voterEntries, voterIndex, vo
   return reward;
 }
 
-function getDaoRewardClaimStatus({ state, currentAddress, voterIndex, hasClaimed, pool, claimed, claimWindow, now }) {
-  if (!currentAddress) return 'Sign in to check rewards';
-  if (state === 'withheld') return 'Reward pool burned';
-  if (voterIndex < 0) return 'Not eligible';
-  if (hasClaimed) return 'Already claimed';
-  if (pool <= 0n) return 'Reward pool empty';
-  if (claimed >= pool) return 'Reward pool fully claimed';
-  if (!claimWindow.end) return 'Claim timing unavailable';
-  if (now > claimWindow.end) return 'Claim window ended';
-  if (now < claimWindow.start) return 'Claim window not open';
-  return 'Claimable';
-}
-
 function getDaoProposalRewardSummary(proposal, currentAddress = getDaoCurrentAccountAddress(), now = Date.now()) {
   const state = getEffectiveDaoState(proposal);
   const isRewardState = state === 'accepted' || state === 'rejected' || state === 'applied' || state === 'withheld';
@@ -4235,14 +4177,13 @@ function getDaoProposalRewardSummary(proposal, currentAddress = getDaoCurrentAcc
   const initialBurned = parseDaoUnsignedBigInt(proposal?.initialBurnedReward);
   const finalBurned = parseDaoUnsignedBigInt(proposal?.finalBurnedReward);
   const voterEntries = getDaoVoterEntries(proposal);
-  const claimList = getDaoClaimList(proposal);
   const hasRewardData = (
     pool !== null ||
     claimed !== null ||
     initialBurned !== null ||
     finalBurned !== null ||
     voterEntries.length > 0 ||
-    claimList.length > 0
+    proposal?.claimList?.length > 0
   );
   if (!hasRewardData) return null;
 
@@ -4251,18 +4192,8 @@ function getDaoProposalRewardSummary(proposal, currentAddress = getDaoCurrentAcc
   const claimWindow = getDaoProposalClaimWindow(proposal);
   const normalizedAddress = normalizeDaoAddress(currentAddress);
   const voterIndex = normalizedAddress ? voterEntries.findIndex((entry) => entry.address === normalizedAddress) : -1;
-  const hasClaimed = normalizedAddress ? claimList.includes(normalizedAddress) : false;
-  const claimStatus = getDaoRewardClaimStatus({
-    state,
-    currentAddress: normalizedAddress,
-    voterIndex,
-    hasClaimed,
-    pool: safePool,
-    claimed: safeClaimed,
-    claimWindow,
-    now,
-  });
-  const claimEstimate = hasClaimed
+  const claimStatus = getDaoRewardClaimStatus(proposal, normalizedAddress, now);
+  const claimEstimate = claimStatus === 'Already claimed'
     ? null
     : getDaoClaimRewardEstimate({
         pool: safePool,
@@ -4334,7 +4265,6 @@ function getDaoProposalLifecycleActions(proposal, rewardSummary, currentAddress 
     now >= claimWindow.start &&
     now <= claimWindow.end &&
     unclaimed > 0n &&
-    currentAddress &&
     rewardSummary?.claimStatus === 'Claimable'
   ) {
     actions.push({
@@ -5366,7 +5296,7 @@ class ProposalInfoModal {
       return { ok: false, message: 'Voting is only available while the proposal is in voting status.' };
     }
     if (!myAccount?.keys?.address) {
-      return { ok: false, message: 'Sign in with a wallet to preview vote eligibility.' };
+      return { ok: false, message: 'Wallet address unavailable.' };
     }
 
     const totalWeight = this.voteWeights.reduce((sum, weight) => sum + weight, 0);
