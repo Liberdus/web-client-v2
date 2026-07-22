@@ -2498,6 +2498,7 @@ class DaoModal {
     this.titleEl = document.getElementById('daoModalTitle');
     this.statusMenuButton = document.getElementById('daoFilterButton');
     this.statusMenu = document.getElementById('daoStatusContextMenu');
+    this.groupToolbar = this.modal.querySelector('.dao-toolbar');
     this.groupActiveButton = document.getElementById('daoGroupActiveButton');
     this.groupArchivedButton = document.getElementById('daoGroupArchivedButton');
     this.list = document.getElementById('daoProposalList');
@@ -2649,25 +2650,27 @@ class DaoModal {
   render() {
     const proposalsActive = daoRepo.getProposalsForUi('active');
     const proposalsArchived = daoRepo.getProposalsForUi('archived');
-
-    const proposals = this.selectedGroupKey === 'archived' ? proposalsArchived : proposalsActive;
     const currentAddress = getDaoCurrentAccountAddress();
     const now = Date.now();
     const isClaimableFilter = this.selectedFilterKey === DAO_CLAIMABLE_FILTER.key;
+    const groupedProposals = this.selectedGroupKey === 'archived' ? proposalsArchived : proposalsActive;
+    const claimableProposals = [...proposalsActive, ...proposalsArchived]
+      .filter((proposal) => isDaoProposalClaimable(proposal, currentAddress, now));
 
-    // Update filter counts within the selected group.
+    // State counts follow the selected group; Claimable spans both groups.
     const counts = Object.fromEntries(DAO_FILTER_OPTIONS.map((filter) => [filter.key, 0]));
-    for (const p of proposals) {
+    for (const p of groupedProposals) {
       const state = getEffectiveDaoState(p);
       if (counts[state] !== undefined) counts[state] += 1;
-      if (isDaoProposalClaimable(p, currentAddress, now)) counts[DAO_CLAIMABLE_FILTER.key] += 1;
     }
+    counts[DAO_CLAIMABLE_FILTER.key] = claimableProposals.length;
 
     // Update header title
     const groupLabel = this.selectedGroupKey === 'archived' ? 'Archived' : 'Active';
     const label = DAO_FILTER_OPTIONS.find((filter) => filter.key === this.selectedFilterKey)?.label
       || this.selectedFilterKey;
-    if (this.titleEl) this.titleEl.textContent = `DAO - ${groupLabel} - ${label}`;
+    if (this.titleEl) this.titleEl.textContent = isClaimableFilter ? 'DAO - Claimable' : `DAO - ${groupLabel} - ${label}`;
+    if (this.groupToolbar) this.groupToolbar.classList.toggle('hidden', isClaimableFilter);
 
     // Update group toggle labels + selection
     if (this.groupActiveButton) {
@@ -2700,10 +2703,9 @@ class DaoModal {
     }
 
     // Filter + sort (newest entered into state first)
-    const filtered = proposals
-      .filter((p) => isClaimableFilter
-        ? isDaoProposalClaimable(p, currentAddress, now)
-        : getEffectiveDaoState(p) === this.selectedFilterKey)
+    const filtered = (isClaimableFilter
+      ? claimableProposals
+      : groupedProposals.filter((proposal) => getEffectiveDaoState(proposal) === this.selectedFilterKey))
       .sort((a, b) => Number(b.stateEnteredAt || b.createdAt || 0) - Number(a.stateEnteredAt || a.createdAt || 0));
 
     // Clear old list items
