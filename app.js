@@ -77,31 +77,29 @@ async function forceReload(urls) {
 import { stringify, parse } from './external/stringify-shardus.js';
 
 import {
+  attachDaoPendingMetadata,
+  buildDaoPendingMetadata,
   buildDaoProposalCreateDraft,
   createDaoBackendFetcher,
   DAO_CONFIG_CHANGE_OPTIONS,
+  DAO_PROPOSAL_CREATE_TYPE,
   DAO_PROPOSAL_TITLE_MAX_LENGTH,
+  DAO_SETTLEMENT_OUTCOMES,
   daoRepo,
   DAO_STATES,
+  getDaoPendingToastMessage,
   getDaoProposalClaimWindow,
   getDaoRewardClaimStatus,
   getDaoStateLabel,
   getDaoTypeLabel,
   getEffectiveDaoState,
   isDaoProposalClaimable,
+  isDaoProposalCreatePending,
   normalizeDaoAddress,
   parseDaoUnsignedBigInt,
+  settleDaoPendingTransaction,
   setDaoBackendFetcher,
 } from './dao.repo.js';
-import {
-  attachDaoPendingMetadata,
-  buildDaoPendingMetadata,
-  DAO_PROPOSAL_CREATE_TYPE,
-  DAO_SETTLEMENT_OUTCOMES,
-  getDaoPendingToastMessage,
-  isDaoProposalCreatePending,
-  settleDaoPendingTransaction,
-} from './dao.settlement.js';
 
 // Import crypto functions from crypto.js
 import {
