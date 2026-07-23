@@ -82,6 +82,107 @@ const DAO_PROPOSALS_META_ID_STRING = 'dao proposals meta';
 export const DAO_PROPOSAL_TITLE_MAX_LENGTH = 100;
 export const DAO_PROPOSAL_CREATE_TYPE = 'dao_proposal_create';
 
+export const DAO_ACTION_TYPES = Object.freeze({
+  COMMITTEE_VOTE: 'dao_committee_vote',
+  COMMITTEE_RESULT: 'dao_committee_result',
+  VOTE: 'dao_vote',
+  VOTE_RESULT: 'dao_vote_result',
+  CLAIM_REWARD: 'dao_claim_reward',
+  BURN_REWARD: 'dao_burn_reward',
+  APPLY_PARAMETERS: 'dao_apply_parameters',
+});
+
+const DAO_LIFECYCLE_KIND_TO_TYPE = Object.freeze({
+  vote_result: DAO_ACTION_TYPES.VOTE_RESULT,
+  claim_reward: DAO_ACTION_TYPES.CLAIM_REWARD,
+  burn_reward: DAO_ACTION_TYPES.BURN_REWARD,
+  apply_parameters: DAO_ACTION_TYPES.APPLY_PARAMETERS,
+});
+
+const DAO_TYPE_TOASTS = Object.freeze({
+  [DAO_PROPOSAL_CREATE_TYPE]: {
+    pending: 'Proposal submitted—pending confirmation',
+    success: 'Proposal confirmed',
+    failure: 'Proposal creation failed',
+    timeout: 'Proposal confirmation is taking longer than expected',
+  },
+  [DAO_ACTION_TYPES.COMMITTEE_VOTE]: {
+    pending: 'Committee review submitted—pending confirmation',
+    success: 'Committee review confirmed',
+    failure: 'Committee review failed',
+    timeout: 'Committee review confirmation is taking longer than expected',
+  },
+  [DAO_ACTION_TYPES.COMMITTEE_RESULT]: {
+    pending: 'Review result submitted—pending confirmation',
+    success: 'Review result confirmed',
+    failure: 'Review result failed',
+    timeout: 'Review result confirmation is taking longer than expected',
+  },
+  [DAO_ACTION_TYPES.VOTE]: {
+    pending: 'Vote submitted—pending confirmation',
+    success: 'Vote confirmed',
+    failure: 'Vote failed',
+    timeout: 'Vote confirmation is taking longer than expected',
+  },
+  [DAO_ACTION_TYPES.VOTE_RESULT]: {
+    pending: 'Vote result submitted—pending confirmation',
+    success: 'Vote result confirmed',
+    failure: 'Vote result failed',
+    timeout: 'Vote result confirmation is taking longer than expected',
+  },
+  [DAO_ACTION_TYPES.CLAIM_REWARD]: {
+    pending: 'Reward claim submitted—pending confirmation',
+    success: 'Reward claim confirmed',
+    failure: 'Reward claim failed',
+    timeout: 'Reward claim confirmation is taking longer than expected',
+  },
+  [DAO_ACTION_TYPES.BURN_REWARD]: {
+    pending: 'Reward burn submitted—pending confirmation',
+    success: 'Reward burn confirmed',
+    failure: 'Reward burn failed',
+    timeout: 'Reward burn confirmation is taking longer than expected',
+  },
+  [DAO_ACTION_TYPES.APPLY_PARAMETERS]: {
+    pending: 'Parameter apply submitted—pending confirmation',
+    success: 'Parameters applied',
+    failure: 'Parameter apply failed',
+    timeout: 'Parameter apply confirmation is taking longer than expected',
+  },
+});
+
+const DAO_SETTLED_TYPES = new Set(Object.keys(DAO_TYPE_TOASTS));
+
+export function isDaoSettledPending(pendingTxInfo) {
+  return DAO_SETTLED_TYPES.has(pendingTxInfo?.type);
+}
+
+export function getDaoTypeForLifecycleKind(kind) {
+  return DAO_LIFECYCLE_KIND_TO_TYPE[kind] || '';
+}
+
+export function hasPendingDaoAction(pendingList, { type, proposalStoreId, from = '' } = {}) {
+  if (!Array.isArray(pendingList) || !type || !proposalStoreId) return false;
+
+  const normalizedFrom = from ? String(from) : '';
+  return pendingList.some((entry) => {
+    if (!entry || entry.type !== type) return false;
+    if (entry.proposalStoreId !== proposalStoreId) return false;
+    if (normalizedFrom && entry.from && entry.from !== normalizedFrom) return false;
+    return true;
+  });
+}
+
+export function getDaoPendingToastMessage(type, outcome, { failureReason = '' } = {}) {
+  const toasts = DAO_TYPE_TOASTS[type];
+  if (!toasts) return '';
+
+  if (outcome === 'success') return toasts.success;
+  if (outcome === 'timeout') return toasts.timeout;
+  if (outcome === 'failure') {
+    return failureReason ? `${toasts.failure}: ${failureReason}` : toasts.failure;
+  }
+  return toasts.pending;
+}
 export function getDaoTypeLabel(typeKey) {
   return DAO_TYPE_OPTIONS.find((t) => t.key === typeKey)?.label || typeKey || '';
 }
