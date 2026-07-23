@@ -93,6 +93,15 @@ import {
   parseDaoUnsignedBigInt,
   setDaoBackendFetcher,
 } from './dao.repo.js';
+import {
+  attachDaoPendingMetadata,
+  buildDaoPendingMetadata,
+  DAO_PROPOSAL_CREATE_TYPE,
+  DAO_SETTLEMENT_OUTCOMES,
+  getDaoPendingToastMessage,
+  isDaoProposalCreatePending,
+  settleDaoPendingTransaction,
+} from './dao.settlement.js';
 
 // Import crypto functions from crypto.js
 import {
@@ -3619,7 +3628,21 @@ class ConfirmProposalModal {
         return;
       }
 
-      const proposalReady = await this.refreshSubmittedProposal(result.proposalStoreId);
+      const txid = result.response?.txid;
+      if (txid && myData?.pending) {
+        attachDaoPendingMetadata(
+          myData.pending,
+          buildDaoPendingMetadata({
+            type: DAO_PROPOSAL_CREATE_TYPE,
+            txid,
+            proposalStoreId: result.proposalStoreId,
+            proposalId: result.transaction?.proposalId || '',
+            proposalNumber: result.proposalNumber,
+            from: result.transaction?.from || '',
+          })
+        );
+      }
+
       if (loadingToastId) {
         hideToast(loadingToastId);
         loadingToastId = null;
@@ -3627,13 +3650,7 @@ class ConfirmProposalModal {
       this.setSubmitting(false);
       this.close();
       addProposalModal.close();
-
-      if (proposalReady) {
-        showToast('Proposal submitted', 3000, 'success');
-        proposalInfoModal.open(result.proposalStoreId);
-      } else {
-        showToast('Proposal submitted. It may take a moment to appear in the DAO list.', 5000, 'success');
-      }
+      showToast(getDaoPendingToastMessage(DAO_PROPOSAL_CREATE_TYPE, 'pending'), 4000, 'info');
     } catch (error) {
       console.warn('Failed to submit DAO proposal:', error);
       if (loadingToastId) {
@@ -3645,24 +3662,6 @@ class ConfirmProposalModal {
       if (loadingToastId) hideToast(loadingToastId);
       if (this.isActive()) this.setSubmitting(false);
     }
-  }
-
-  async refreshSubmittedProposal(proposalStoreId) {
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      try {
-        await daoRepo.refresh({ force: true });
-        if (daoModal?.isActive?.()) daoModal.render();
-        if (daoRepo.getProposalById(proposalStoreId)) return true;
-      } catch (error) {
-        console.warn('Failed to refresh DAO proposals after submit:', error);
-      }
-
-      if (attempt < 2) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
-    }
-
-    return false;
   }
 
   render() {
@@ -5755,6 +5754,14 @@ class ProposalInfoModal {
     if (this.isSubmitting) return;
     this.modal.classList.remove('active');
     enterFullscreen();
+  }
+
+  isActive() {
+    return this.modal?.classList.contains('active') === true;
+  }
+
+  getCurrentProposalId() {
+    return this._currentProposalId || null;
   }
 
 }
@@ -11406,6 +11413,9 @@ async function injectTx(tx, txid) {
         pendingTxData.to = normalizeAddress(tx.to);
       } else if (tx.type === 'deposit_stake' || tx.type === 'withdraw_stake') {
         pendingTxData.to = tx.nominee; // Store 64-character address as-is for stake transactions
+      } else if (typeof tx.type === 'string' && tx.type.startsWith('dao_')) {
+        if (tx.proposalId) pendingTxData.proposalId = tx.proposalId;
+        if (tx.from) pendingTxData.from = tx.from;
       }
       const existingPendingIndex = myData.pending.findIndex((pendingTx) => pendingTx.txid === txid);
       if (existingPendingIndex === -1) {
@@ -32756,6 +32766,41 @@ async function refreshActiveBalanceDisplays(didSettlePendingState) {
 }
 
 /**
+ * Settle a pending DAO transaction after receipt success/failure/timeout.
+ * Refreshes DAO data and open surfaces without changing navigation.
+ */
+async function settlePendingDaoTransaction(pendingTxInfo, outcome, { failureReason = '' } = {}) {
+  if (!isDaoProposalCreatePending(pendingTxInfo)) {
+    return null;
+  }
+
+  return settleDaoPendingTransaction({
+    pendingTxInfo,
+    outcome,
+    failureReason,
+    refreshDao: () => daoRepo.refresh({ force: true }),
+    isDaoListOpen: () => daoModal?.isActive?.() === true,
+    getOpenProposalId: () => (
+      proposalInfoModal?.isActive?.() ? proposalInfoModal.getCurrentProposalId() : null
+    ),
+    renderDaoList: () => {
+      if (daoModal?.isActive?.()) daoModal.render();
+    },
+    refreshProposalDetail: async (proposalStoreId) => {
+      if (!proposalInfoModal?.isActive?.()) return;
+      if (proposalInfoModal.getCurrentProposalId() !== proposalStoreId) return;
+      const proposal = daoRepo.getProposalById(proposalStoreId);
+      if (proposal) {
+        proposalInfoModal.renderProposal(proposal);
+      } else {
+        proposalInfoModal.renderNotFound();
+      }
+    },
+    showToast,
+  });
+}
+
+/**
  * Check pending transactions that are at least 5 seconds old
  * @returns {Promise<void>}
  */
@@ -32832,6 +32877,10 @@ async function checkPendingTransactions() {
           chatModal.refreshCurrentView(txid);
           await chatsScreen.updateChatList();
         }
+        if (isDaoProposalCreatePending(pendingTxInfo)) {
+          // Unresolved: clear local pending and reconcile DAO data without success/failure UX.
+          await settlePendingDaoTransaction(pendingTxInfo, DAO_SETTLEMENT_OUTCOMES.TIMEOUT);
+        }
         // remove the pending tx from the pending array
         myData.pending.splice(i, 1);
         didMutatePendingState = true;
@@ -32892,6 +32941,10 @@ async function checkPendingTransactions() {
 
         if (type === 'reclaim_toll') {
           console.log(`DEBUG: reclaim_toll transaction successfully processed!`);
+        }
+
+        if (isDaoProposalCreatePending(pendingTxInfo)) {
+          await settlePendingDaoTransaction(pendingTxInfo, DAO_SETTLEMENT_OUTCOMES.SUCCESS);
         }
       } else if (res?.transaction?.success === false) {
         console.log(`DEBUG: txid ${txid} failed, removing completely`);
@@ -32959,6 +33012,10 @@ async function checkPendingTransactions() {
             if (failureReason !== 'user is trying to reclaim toll but the toll pool is empty') {
               showToast(`Reclaim toll failed: ${userFailureReason}`, 0, 'error');
             }
+          } else if (isDaoProposalCreatePending(pendingTxInfo)) {
+            await settlePendingDaoTransaction(pendingTxInfo, DAO_SETTLEMENT_OUTCOMES.FAILURE, {
+              failureReason: userFailureReason,
+            });
           } else {
             // for messages, transfer etc.
             showToast(userFailureReason, 0, 'error');
