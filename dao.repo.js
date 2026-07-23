@@ -80,6 +80,7 @@ const DAO_PROPOSAL_DAY_MS = 24 * 60 * 60 * 1000;
 const DAO_AFFIRMATIVE_OPTION_STRINGS = ['yes', 'accept', 'approve'];
 const DAO_PROPOSALS_META_ID_STRING = 'dao proposals meta';
 export const DAO_PROPOSAL_TITLE_MAX_LENGTH = 100;
+export const DAO_PROPOSAL_CREATE_TYPE = 'dao_proposal_create';
 
 export function getDaoTypeLabel(typeKey) {
   return DAO_TYPE_OPTIONS.find((t) => t.key === typeKey)?.label || typeKey || '';
@@ -236,7 +237,7 @@ export function buildDaoProposalCreateTransaction({
 
   const transaction = {
     ...draftTx,
-    type: 'dao_proposal_create',
+    type: DAO_PROPOSAL_CREATE_TYPE,
     timestamp: txTimestamp,
     networkId: requireDaoDraftString(networkId, 'Network ID'),
     proposalId,
@@ -836,6 +837,8 @@ function storeToUiList(store, groupKey) {
 
 let _store = null;
 let _loadingPromise = null;
+let _refreshVersion = 0;
+let _latestCommittedRefreshVersion = 0;
 
 // Backend integration hook. The fetcher should return the DAO store shape
 // consumed by this repository: meta, activeProposals, archivedProposals, proposals.
@@ -849,23 +852,32 @@ async function refreshInternal({ force }) {
   if (_loadingPromise && !force) return _loadingPromise;
   if (_store && !force) return _store;
 
+  const refreshVersion = ++_refreshVersion;
   const previousStore = _store;
-
-  _loadingPromise = (async () => {
+  const loadingPromise = (async () => {
     try {
       const next = _backendFetcher ? await _backendFetcher() : createEmptyDaoStore();
-      _store = normalizeDaoStore(next);
+      const normalizedStore = normalizeDaoStore(next);
+      if (refreshVersion > _latestCommittedRefreshVersion) {
+        _store = normalizedStore;
+        _latestCommittedRefreshVersion = refreshVersion;
+      }
       return _store;
     } catch (error) {
-      _store = previousStore || normalizeDaoStore(createEmptyDaoStore());
+      if (!_store) {
+        _store = previousStore || normalizeDaoStore(createEmptyDaoStore());
+      }
       throw error;
     }
   })();
+  _loadingPromise = loadingPromise;
 
   try {
-    return await _loadingPromise;
+    return await loadingPromise;
   } finally {
-    _loadingPromise = null;
+    if (_loadingPromise === loadingPromise) {
+      _loadingPromise = null;
+    }
   }
 }
 

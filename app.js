@@ -80,6 +80,7 @@ import {
   buildDaoProposalCreateDraft,
   createDaoBackendFetcher,
   DAO_CONFIG_CHANGE_OPTIONS,
+  DAO_PROPOSAL_CREATE_TYPE,
   DAO_PROPOSAL_TITLE_MAX_LENGTH,
   daoRepo,
   DAO_STATES,
@@ -2596,6 +2597,17 @@ class DaoModal {
     return this.modal.classList.contains('active');
   }
 
+  async refreshAfterProposalSettlement(proposalId) {
+    try {
+      await daoRepo.refresh({ force: true });
+    } catch (error) {
+      console.warn('DAO settlement refresh failed:', error);
+    }
+
+    if (this.isActive()) this.render();
+    proposalInfoModal.refreshIfOpen(proposalId);
+  }
+
   toggleStatusMenu(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -3619,7 +3631,19 @@ class ConfirmProposalModal {
         return;
       }
 
-      const proposalReady = await this.refreshSubmittedProposal(result.proposalStoreId);
+      const pendingProposal = myData?.pending?.find(
+        (pendingTx) => pendingTx.txid === result.response?.txid
+      );
+      if (pendingProposal) {
+        Object.assign(pendingProposal, {
+          proposalStoreId: result.proposalStoreId,
+          proposalId: result.transaction?.proposalId || '',
+          proposalNumber: result.proposalNumber,
+          from: result.transaction?.from || '',
+          action: '',
+        });
+      }
+
       if (loadingToastId) {
         hideToast(loadingToastId);
         loadingToastId = null;
@@ -3627,13 +3651,7 @@ class ConfirmProposalModal {
       this.setSubmitting(false);
       this.close();
       addProposalModal.close();
-
-      if (proposalReady) {
-        showToast('Proposal submitted', 3000, 'success');
-        proposalInfoModal.open(result.proposalStoreId);
-      } else {
-        showToast('Proposal submitted. It may take a moment to appear in the DAO list.', 5000, 'success');
-      }
+      showToast('Proposal submitted—pending confirmation', 4000, 'info');
     } catch (error) {
       console.warn('Failed to submit DAO proposal:', error);
       if (loadingToastId) {
@@ -3645,24 +3663,6 @@ class ConfirmProposalModal {
       if (loadingToastId) hideToast(loadingToastId);
       if (this.isActive()) this.setSubmitting(false);
     }
-  }
-
-  async refreshSubmittedProposal(proposalStoreId) {
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      try {
-        await daoRepo.refresh({ force: true });
-        if (daoModal?.isActive?.()) daoModal.render();
-        if (daoRepo.getProposalById(proposalStoreId)) return true;
-      } catch (error) {
-        console.warn('Failed to refresh DAO proposals after submit:', error);
-      }
-
-      if (attempt < 2) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
-    }
-
-    return false;
   }
 
   render() {
@@ -5751,6 +5751,17 @@ class ProposalInfoModal {
     if (this.isSubmitting) return;
     this.modal.classList.remove('active');
     enterFullscreen();
+  }
+
+  refreshIfOpen(proposalId) {
+    if (!this.modal.classList.contains('active') || this._currentProposalId !== proposalId) return;
+
+    const proposal = this.getCurrentProposal();
+    if (proposal) {
+      this.renderProposal(proposal);
+    } else {
+      this.renderNotFound();
+    }
   }
 
 }
@@ -32691,17 +32702,25 @@ class ReactNativeApp {
 const reactNativeApp = new ReactNativeApp();
 
 /**
+ * Remove a transaction from the pending list by ID.
+ * @param {string} txid
+ * @returns {boolean} Whether a pending transaction was removed
+ */
+function removePendingTransaction(txid) {
+  const index = myData.pending.findIndex((tx) => tx.txid === txid);
+  if (index === -1) return false;
+
+  myData.pending.splice(index, 1);
+  return true;
+}
+
+/**
  * Remove failed transaction from the contacts messages, pending, and wallet history
  * @param {string} txid - The transaction ID to remove
  * @param {string} currentAddress - The address of the current contact
  */
 function removeFailedTx(txid, currentAddress) {
-  // remove pending tx if exists
-  const index = myData.pending.findIndex((tx) => tx.txid === txid);
-  if (index > -1) {
-    myData.pending.splice(index, 1);
-  }
-
+  removePendingTransaction(txid);
   const contact = myData?.contacts?.[currentAddress];
   if (contact && contact.messages) {
     contact.messages = contact.messages.filter((msg) => msg.txid !== txid);
@@ -32751,11 +32770,24 @@ async function refreshActiveBalanceDisplays(didSettlePendingState) {
   }
 }
 
+let checkPendingTransactionsPromise = null;
+
 /**
  * Check pending transactions that are at least 5 seconds old
  * @returns {Promise<void>}
  */
 async function checkPendingTransactions() {
+  if (!checkPendingTransactionsPromise) {
+    checkPendingTransactionsPromise = checkPendingTransactionsOnce()
+      .finally(() => {
+        checkPendingTransactionsPromise = null;
+      });
+  }
+
+  return checkPendingTransactionsPromise;
+}
+
+async function checkPendingTransactionsOnce() {
   if (!myData || !myAccount) {
     return;
   }
@@ -32810,6 +32842,9 @@ async function checkPendingTransactions() {
           }
           continue;
         }
+        if (!removePendingTransaction(txid)) continue;
+        didMutatePendingState = true;
+
         if (pendingTxInfo.editPending) {
           reconcilePendingMessageEdit(pendingTxInfo);
           showToast('Edit timed out and was reverted', 0, 'error');
@@ -32828,9 +32863,11 @@ async function checkPendingTransactions() {
           chatModal.refreshCurrentView(txid);
           await chatsScreen.updateChatList();
         }
-        // remove the pending tx from the pending array
-        myData.pending.splice(i, 1);
-        didMutatePendingState = true;
+        if (type === DAO_PROPOSAL_CREATE_TYPE) {
+          // Unresolved: clear local pending and reconcile DAO data without success/failure UX.
+          await daoModal.refreshAfterProposalSettlement(pendingTxInfo.proposalStoreId);
+          showToast('Proposal confirmation is taking longer than expected', 0, 'warning');
+        }
         continue;
       }
 
@@ -32838,8 +32875,7 @@ async function checkPendingTransactions() {
         if (reactionPending) {
           settleAndQueueReactionCleanup(pendingTxInfo, 'success');
         } else {
-          // comment out to test the pending txs removal logic
-          myData.pending.splice(i, 1);
+          if (!removePendingTransaction(txid)) continue;
           didMutatePendingState = true;
         }
 
@@ -32889,8 +32925,18 @@ async function checkPendingTransactions() {
         if (type === 'reclaim_toll') {
           console.log(`DEBUG: reclaim_toll transaction successfully processed!`);
         }
+
+        if (type === DAO_PROPOSAL_CREATE_TYPE) {
+          await daoModal.refreshAfterProposalSettlement(pendingTxInfo.proposalStoreId);
+          showToast('Proposal confirmed', 3000, 'success');
+        }
       } else if (res?.transaction?.success === false) {
         console.log(`DEBUG: txid ${txid} failed, removing completely`);
+        if (!reactionPending) {
+          if (!removePendingTransaction(txid)) continue;
+          didMutatePendingState = true;
+        }
+
         // Check for failure reason in the transaction receipt
         const failureReason = res?.transaction?.reason || 'Transaction failed';
         const feeMismatchStatus = await refreshNetworkParamsOnTxFeeMismatch(failureReason);
@@ -32955,6 +33001,9 @@ async function checkPendingTransactions() {
             if (failureReason !== 'user is trying to reclaim toll but the toll pool is empty') {
               showToast(`Reclaim toll failed: ${userFailureReason}`, 0, 'error');
             }
+          } else if (type === DAO_PROPOSAL_CREATE_TYPE) {
+            await daoModal.refreshAfterProposalSettlement(pendingTxInfo.proposalStoreId);
+            showToast(`Proposal creation failed: ${userFailureReason}`, 0, 'error');
           } else {
             // for messages, transfer etc.
             showToast(userFailureReason, 0, 'error');
@@ -32966,12 +33015,6 @@ async function checkPendingTransactions() {
             chatModal.refreshCurrentView(txid);
           }
         }
-        if (!reactionPending) {
-          // Remove from pending array
-          myData.pending.splice(i, 1);
-          didMutatePendingState = true;
-        }
-
         // refresh the validator modal if this is a withdraw_stake/deposit_stake and validator modal is open
         if (type === 'withdraw_stake' || type === 'deposit_stake') {
           // remove from wallet history
