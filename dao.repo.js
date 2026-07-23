@@ -850,9 +850,17 @@ async function refreshInternal({ force }) {
   if (_loadingPromise && !force) return _loadingPromise;
   if (_store && !force) return _store;
 
-  const previousStore = _store;
+  const previousLoad = _loadingPromise;
+  const loadingPromise = (async () => {
+    if (previousLoad) {
+      try {
+        await previousLoad;
+      } catch {
+        // A forced refresh should still run after an earlier refresh fails.
+      }
+    }
 
-  _loadingPromise = (async () => {
+    const previousStore = _store;
     try {
       const next = _backendFetcher ? await _backendFetcher() : createEmptyDaoStore();
       _store = normalizeDaoStore(next);
@@ -862,11 +870,14 @@ async function refreshInternal({ force }) {
       throw error;
     }
   })();
+  _loadingPromise = loadingPromise;
 
   try {
-    return await _loadingPromise;
+    return await loadingPromise;
   } finally {
-    _loadingPromise = null;
+    if (_loadingPromise === loadingPromise) {
+      _loadingPromise = null;
+    }
   }
 }
 
