@@ -4541,13 +4541,10 @@ class ProposalInfoModal {
     const winnerIndex = totalWeight > 0n
       ? rows.reduce((winner, row, index) => (row.total > rows[winner].total ? index : winner), 0)
       : -1;
-    const labelLayout = rows.length === 2 ? 'balanced' : 'segmented';
-
     const labels = rows
       .map((row, index) => {
         const position = index === 0 ? 'start' : index === rows.length - 1 ? 'end' : 'center';
         const isWinner = index === winnerIndex;
-        const units = this.getCurrentVoteSegmentUnits(row.total, totalWeight);
         const power = formatDaoVotingPower(row.total);
         const percent = formatDaoBigIntPercent(row.total, totalWeight);
         const valueLabel = totalWeight > 0n ? `${power} / ${percent}` : power;
@@ -4558,7 +4555,6 @@ class ProposalInfoModal {
         return `
           <div
             class="proposal-vote-current-label proposal-vote-current-label--${position}${isWinner ? ' proposal-vote-current-label--winner' : ''}"
-            style="--vote-total-segment-units: ${units};"
             title="${escapeDaoFormAttribute(title)}"
             aria-label="${escapeDaoFormAttribute(title)}"
           >
@@ -4586,7 +4582,7 @@ class ProposalInfoModal {
       <section class="proposal-info-section proposal-vote-current-section">
         <h3>Current Vote</h3>
         <div class="proposal-vote-current-meter" aria-label="Current vote totals">
-          <div class="proposal-vote-current-labels proposal-vote-current-labels--${labelLayout}">${labels}</div>
+          <div class="proposal-vote-current-labels">${labels}</div>
           <div class="proposal-vote-current-track" aria-hidden="true">${segments}</div>
         </div>
         <div class="proposal-vote-status-grid proposal-vote-status-grid--current">

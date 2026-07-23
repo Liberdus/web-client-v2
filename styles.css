@@ -2844,14 +2844,11 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-vote-current-label {
   display: grid;
-  flex: var(--vote-total-segment-units) 1 0;
+  /* Equal columns; bar segments stay vote-proportional via --vote-total-segment-units. */
+  flex: 1 1 0;
   gap: 4px;
   min-width: 0;
   padding: 0 4px;
-}
-
-#proposalInfoModal .proposal-vote-current-labels--balanced .proposal-vote-current-label {
-  flex: 1 1 0;
 }
 
 #proposalInfoModal .proposal-vote-current-label--start {
@@ -2873,7 +2870,7 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-vote-current-label > small {
   max-width: 100%;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 #proposalInfoModal .proposal-vote-current-label > span {
