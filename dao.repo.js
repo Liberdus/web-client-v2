@@ -837,6 +837,8 @@ function storeToUiList(store, groupKey) {
 
 let _store = null;
 let _loadingPromise = null;
+let _refreshVersion = 0;
+let _latestCommittedRefreshVersion = 0;
 
 // Backend integration hook. The fetcher should return the DAO store shape
 // consumed by this repository: meta, activeProposals, archivedProposals, proposals.
@@ -850,23 +852,21 @@ async function refreshInternal({ force }) {
   if (_loadingPromise && !force) return _loadingPromise;
   if (_store && !force) return _store;
 
-  const previousLoad = _loadingPromise;
+  const refreshVersion = ++_refreshVersion;
+  const previousStore = _store;
   const loadingPromise = (async () => {
-    if (previousLoad) {
-      try {
-        await previousLoad;
-      } catch {
-        // A forced refresh should still run after an earlier refresh fails.
-      }
-    }
-
-    const previousStore = _store;
     try {
       const next = _backendFetcher ? await _backendFetcher() : createEmptyDaoStore();
-      _store = normalizeDaoStore(next);
+      const normalizedStore = normalizeDaoStore(next);
+      if (refreshVersion > _latestCommittedRefreshVersion) {
+        _store = normalizedStore;
+        _latestCommittedRefreshVersion = refreshVersion;
+      }
       return _store;
     } catch (error) {
-      _store = previousStore || normalizeDaoStore(createEmptyDaoStore());
+      if (!_store) {
+        _store = previousStore || normalizeDaoStore(createEmptyDaoStore());
+      }
       throw error;
     }
   })();
