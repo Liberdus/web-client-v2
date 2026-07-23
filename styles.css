@@ -2844,8 +2844,7 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-vote-current-label {
   display: grid;
-  /* Equal label columns so zero/near-zero vote options stay readable.
-     Vote-bar segments keep --vote-total-segment-units for proportion. */
+  /* Equal columns; bar segments stay vote-proportional via --vote-total-segment-units. */
   flex: 1 1 0;
   gap: 4px;
   min-width: 0;
