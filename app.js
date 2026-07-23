@@ -38,7 +38,6 @@ async function checkVersion() {
       'styles.css',
       'app.js',
       'dao.repo.js',
-      'unstake.settlement.js',
       'data/emoji-picker-data.js',
       'lib.js',
       'network.js',
@@ -94,15 +93,6 @@ import {
   parseDaoUnsignedBigInt,
   setDaoBackendFetcher,
 } from './dao.repo.js';
-
-import {
-  createProvisionalUnstakeHistoryEntry,
-  findPendingStakeOrUnstake,
-  getUnstakePendingBarText,
-  settleWithdrawStake,
-  UNSTAKE_PENDING_BAR_TEXT,
-  UNSTAKE_SUBMITTED_TOAST,
-} from './unstake.settlement.js';
 
 // Import crypto functions from crypto.js
 import {
@@ -16566,7 +16556,6 @@ const myProfileModal = new MyProfileModal();
 class ValidatorStakingModal {
   constructor() {
     this.lockInfo = null; // { remainingMs, remainingReason }
-    this.isSubmitting = false;
   }
 
   load() {
@@ -16627,50 +16616,37 @@ class ValidatorStakingModal {
   }
 
   getCurrentPendingStakeTx() {
-    return findPendingStakeOrUnstake(myData?.pending);
+    return myData?.pending?.find(
+      (tx) => tx.type === 'deposit_stake' || tx.type === 'withdraw_stake'
+    ) || null;
   }
 
-  /**
-   * Restore stake/unstake/back button state after brief signing/injection disable.
-   * Pending unstake keeps submit blocked while still allowing the modal to close.
-   */
   revalidateActionButtons() {
-    if (this.isSubmitting) {
-      this.unstakeButton.disabled = true;
-      this.stakeButton.disabled = true;
-      if (this.backButton) this.backButton.disabled = true;
-      return;
-    }
-
     const currentPendingTx = this.getCurrentPendingStakeTx();
-    const nominee = this.nomineeValueElement?.textContent?.trim() || null;
-    if (this.backButton) this.backButton.disabled = false;
+    const nominee = this.nomineeValueElement.textContent.trim() || null;
+    this.backButton.disabled = false;
     this.stakeButton.disabled = Boolean(currentPendingTx);
     this.updateUnstakeLockUI({ nominee, currentPendingTx });
   }
 
-  /**
-   * Update the pending skeleton bar from global pending state.
-   * @param {object|null} [currentPendingTx]
-   */
-  updatePendingTxUi(currentPendingTx = this.getCurrentPendingStakeTx()) {
+  updatePendingTxUi(currentPendingTx) {
     this.nomineeValueElement.style.display = '';
     this.pendingTxTextInBar.style.display = 'none';
     this.pendingSkeletonBar.style.display = 'none';
+    this.stakeButton.disabled = Boolean(currentPendingTx);
 
     if (!currentPendingTx) return;
 
     this.detailsElement.style.display = 'block';
     this.pendingSkeletonBar.style.display = 'flex';
-    this.pendingTxTextInBar.textContent =
-      currentPendingTx.type === 'withdraw_stake'
-        ? (getUnstakePendingBarText(currentPendingTx) || UNSTAKE_PENDING_BAR_TEXT)
-        : 'Pending Stake Transaction';
-    this.pendingTxTextInBar.style.display = 'block';
-
-    if (currentPendingTx.type === 'deposit_stake' || currentPendingTx.type === 'withdraw_stake') {
-      this.stakeButton.disabled = true;
+    let pendingText = 'Pending Stake Transaction';
+    if (currentPendingTx.type === 'withdraw_stake') {
+      pendingText = currentPendingTx.confirmationDelayed
+        ? 'Unstake confirmation taking longer than expected'
+        : 'Pending Unstake Transaction';
     }
+    this.pendingTxTextInBar.textContent = pendingText;
+    this.pendingTxTextInBar.style.display = 'block';
   }
 
   /**
@@ -16680,17 +16656,6 @@ class ValidatorStakingModal {
   async refreshIfOpen() {
     if (!this.isActive()) return;
     await this.open();
-  }
-
-  setSubmitting(isSubmitting) {
-    this.isSubmitting = Boolean(isSubmitting);
-    if (this.isSubmitting) {
-      this.unstakeButton.disabled = true;
-      this.stakeButton.disabled = true;
-      if (this.backButton) this.backButton.disabled = true;
-      return;
-    }
-    this.revalidateActionButtons();
   }
 
   async open() {
@@ -16722,9 +16687,7 @@ class ValidatorStakingModal {
     // Show the modal
     this.modal.classList.add('active');
 
-    // Pending Transaction UI from global pending state (survives close/reopen)
-    const currentPendingTx = this.getCurrentPendingStakeTx();
-    this.updatePendingTxUi(currentPendingTx);
+    this.updatePendingTxUi(this.getCurrentPendingStakeTx());
 
     let nominee = null;
 
@@ -16994,34 +16957,30 @@ class ValidatorStakingModal {
   }
 
   async submitUnstakeTransaction(nodeAddress) {
-    this.setSubmitting(true);
     let loadingToastId = showToast('Submitting unstake transaction...', 0, 'loading');
     try {
       const response = await this.postUnstake(nodeAddress);
       if (response && response.result && response.result.success) {
-        myData.wallet ??= {};
-        myData.wallet.history ??= [];
-        myData.wallet.history.unshift(
-          createProvisionalUnstakeHistoryEntry({
-            nominee: nodeAddress,
-            amount: bigxnum2big(wei, '0'),
-            timestamp: getCorrectedTimestamp(),
-            txid: response.txid,
-          })
-        );
+        myData.wallet.history.unshift({
+          nominee: nodeAddress,
+          amount: bigxnum2big(wei, '0'),
+          type: 'withdraw_stake',
+          sign: 1,
+          status: 'sent',
+          timestamp: getCorrectedTimestamp(),
+          txid: response.txid,
+        });
 
-        if (loadingToastId) {
-          hideToast(loadingToastId);
-          loadingToastId = null;
-        }
-        showToast(UNSTAKE_SUBMITTED_TOAST, 5000, 'info');
+        hideToast(loadingToastId);
+        loadingToastId = null;
+        showToast('Unstake submitted—pending confirmation', 5000, 'info');
 
-        // Keep modal openable/closable; pending state lives in global myData.pending.
         if (this.isActive()) {
-          this.updatePendingTxUi(this.getCurrentPendingStakeTx());
+          const currentPendingTx = this.getCurrentPendingStakeTx();
+          this.updatePendingTxUi(currentPendingTx);
           this.updateUnstakeLockUI({
             nominee: nodeAddress,
-            currentPendingTx: this.getCurrentPendingStakeTx(),
+            currentPendingTx,
           });
         }
       } else {
@@ -17034,7 +16993,6 @@ class ValidatorStakingModal {
       showToast('Unstake transaction failed. Network or server error.', 0, 'error');
     } finally {
       if (loadingToastId) hideToast(loadingToastId);
-      this.setSubmitting(false);
     }
   }
 
@@ -32882,22 +32840,11 @@ async function checkPendingTransactions() {
       const res = await queryNetwork(endpointPath);
       //console.log(`DEBUG: txid ${txid} res: ${JSON.stringify(res)}`);
       if (submittedts < thirtySecondsAgo && (res.transaction === null || Object.keys(res.transaction).length === 0)) {
-        // withdraw_stake: keep pending as unresolved — do not silently treat timeout as success/failure
         if (type === 'withdraw_stake') {
-          const settlement = settleWithdrawStake({
-            outcome: 'timeout',
-            pending: myData.pending,
-            history: myData.wallet?.history || [],
-            txid,
-            modalOpen: validatorStakingModal.isActive(),
-          });
-          myData.pending = settlement.pending;
-          if (myData.wallet) myData.wallet.history = settlement.history;
-          if (settlement.didMutate) didMutatePendingState = true;
-          if (settlement.toast) {
-            showToast(settlement.toast.message, settlement.toast.duration, settlement.toast.type);
-          }
-          if (settlement.refreshModal) {
+          if (!pendingTxInfo.confirmationDelayed) {
+            pendingTxInfo.confirmationDelayed = true;
+            didMutatePendingState = true;
+            showToast('Unstake confirmation is taking longer than expected', 0, 'warning');
             await validatorStakingModal.refreshIfOpen();
           }
           continue;
@@ -32936,31 +32883,6 @@ async function checkPendingTransactions() {
       }
 
       if (res?.transaction?.success === true) {
-        if (type === 'withdraw_stake') {
-          const totalUnstakeAmount = parse(
-            stringify(res.transaction?.additionalInfo?.totalUnstakeAmount)
-          );
-          const settlement = settleWithdrawStake({
-            outcome: 'success',
-            pending: myData.pending,
-            history: myData.wallet?.history || [],
-            txid,
-            modalOpen: validatorStakingModal.isActive(),
-            totalUnstakeAmount,
-          });
-          myData.pending = settlement.pending;
-          myData.wallet ??= {};
-          myData.wallet.history = settlement.history;
-          if (settlement.didMutate) didMutatePendingState = true;
-          if (settlement.toast) {
-            showToast(settlement.toast.message, settlement.toast.duration, settlement.toast.type);
-          }
-          if (settlement.refreshModal) {
-            await validatorStakingModal.refreshIfOpen();
-          }
-          continue;
-        }
-
         if (reactionPending) {
           settleAndQueueReactionCleanup(pendingTxInfo, 'success');
         } else {
@@ -32976,10 +32898,19 @@ async function checkPendingTransactions() {
           });
         }
 
-        if (type === 'deposit_stake') {
-          // show toast notification with the success message
+        if (res?.transaction?.type === 'withdraw_stake') {
+          const index = myData.wallet.history.findIndex((tx) => tx.txid === txid);
+          if (index !== -1) {
+            // covert amount to wei
+            myData.wallet.history[index].amount = parse(stringify(res.transaction.additionalInfo.totalUnstakeAmount));
+          }
+        }
+
+        if (type === 'withdraw_stake') {
+          showToast('Unstake transaction confirmed', 5000, 'success');
+          await validatorStakingModal.refreshIfOpen();
+        } else if (type === 'deposit_stake') {
           showToast('Stake transaction successful', 5000, 'success');
-          // refresh only if validator modal is open
           if (validatorStakingModal.isActive()) {
             validatorStakingModal.close();
             validatorStakingModal.open();
@@ -33008,34 +32939,6 @@ async function checkPendingTransactions() {
           console.log(`DEBUG: reclaim_toll transaction successfully processed!`);
         }
       } else if (res?.transaction?.success === false) {
-        if (type === 'withdraw_stake') {
-          console.log(`DEBUG: txid ${txid} failed, removing completely`);
-          const failureReason = res?.transaction?.reason || 'Transaction failed';
-          const feeMismatchStatus = await refreshNetworkParamsOnTxFeeMismatch(failureReason);
-          const userFailureReason = getUserFacingTxFailureReason(failureReason, feeMismatchStatus);
-          console.log(`DEBUG: failure reason: ${failureReason}`);
-
-          const settlement = settleWithdrawStake({
-            outcome: 'failure',
-            pending: myData.pending,
-            history: myData.wallet?.history || [],
-            txid,
-            modalOpen: validatorStakingModal.isActive(),
-            failureReason: userFailureReason,
-          });
-          myData.pending = settlement.pending;
-          myData.wallet ??= {};
-          myData.wallet.history = settlement.history;
-          if (settlement.didMutate) didMutatePendingState = true;
-          if (settlement.toast) {
-            showToast(settlement.toast.message, settlement.toast.duration, settlement.toast.type);
-          }
-          if (settlement.refreshModal) {
-            await validatorStakingModal.refreshIfOpen();
-          }
-          continue;
-        }
-
         console.log(`DEBUG: txid ${txid} failed, removing completely`);
         // Check for failure reason in the transaction receipt
         const failureReason = res?.transaction?.reason || 'Transaction failed';
@@ -33057,6 +32960,8 @@ async function checkPendingTransactions() {
           } else if (pendingTxInfo.editPending) {
             reconcilePendingMessageEdit(pendingTxInfo);
             showToast(`Edit failed and was reverted: ${userFailureReason}`, 0, 'error');
+          } else if (type === 'withdraw_stake') {
+            showToast(`Unstake failed: ${userFailureReason}`, 0, 'error');
           } else if (type === 'deposit_stake') {
             showToast(`Stake failed: ${userFailureReason}`, 0, 'error');
           } else if (type === 'message') {
@@ -33116,13 +33021,12 @@ async function checkPendingTransactions() {
           didMutatePendingState = true;
         }
 
-        // refresh the validator modal if this is a deposit_stake and validator modal is open
-        if (type === 'deposit_stake') {
-          // remove from wallet history
+        if (type === 'withdraw_stake' || type === 'deposit_stake') {
           myData.wallet.history = myData.wallet.history.filter((tx) => tx.txid !== txid);
 
-          if (validatorStakingModal.isActive()) {
-            // refresh the validator modal
+          if (type === 'withdraw_stake') {
+            await validatorStakingModal.refreshIfOpen();
+          } else if (validatorStakingModal.isActive()) {
             validatorStakingModal.close();
             validatorStakingModal.open();
           }
