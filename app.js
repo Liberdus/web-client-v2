@@ -32706,17 +32706,25 @@ class ReactNativeApp {
 const reactNativeApp = new ReactNativeApp();
 
 /**
+ * Remove a transaction from the pending list by ID.
+ * @param {string} txid
+ * @returns {boolean} Whether a pending transaction was removed
+ */
+function removePendingTransaction(txid) {
+  const index = myData.pending.findIndex((tx) => tx.txid === txid);
+  if (index === -1) return false;
+
+  myData.pending.splice(index, 1);
+  return true;
+}
+
+/**
  * Remove failed transaction from the contacts messages, pending, and wallet history
  * @param {string} txid - The transaction ID to remove
  * @param {string} currentAddress - The address of the current contact
  */
 function removeFailedTx(txid, currentAddress) {
-  // remove pending tx if exists
-  const index = myData.pending.findIndex((tx) => tx.txid === txid);
-  if (index > -1) {
-    myData.pending.splice(index, 1);
-  }
-
+  removePendingTransaction(txid);
   const contact = myData?.contacts?.[currentAddress];
   if (contact && contact.messages) {
     contact.messages = contact.messages.filter((msg) => msg.txid !== txid);
@@ -32766,11 +32774,24 @@ async function refreshActiveBalanceDisplays(didSettlePendingState) {
   }
 }
 
+let checkPendingTransactionsPromise = null;
+
 /**
  * Check pending transactions that are at least 5 seconds old
  * @returns {Promise<void>}
  */
 async function checkPendingTransactions() {
+  if (!checkPendingTransactionsPromise) {
+    checkPendingTransactionsPromise = checkPendingTransactionsOnce()
+      .finally(() => {
+        checkPendingTransactionsPromise = null;
+      });
+  }
+
+  return checkPendingTransactionsPromise;
+}
+
+async function checkPendingTransactionsOnce() {
   if (!myData || !myAccount) {
     return;
   }
@@ -32825,6 +32846,9 @@ async function checkPendingTransactions() {
           }
           continue;
         }
+        if (!removePendingTransaction(txid)) continue;
+        didMutatePendingState = true;
+
         if (pendingTxInfo.editPending) {
           reconcilePendingMessageEdit(pendingTxInfo);
           showToast('Edit timed out and was reverted', 0, 'error');
@@ -32848,9 +32872,6 @@ async function checkPendingTransactions() {
           await daoModal.refreshAfterProposalSettlement(pendingTxInfo.proposalStoreId);
           showToast('Proposal confirmation is taking longer than expected', 0, 'warning');
         }
-        // remove the pending tx from the pending array
-        myData.pending.splice(i, 1);
-        didMutatePendingState = true;
         continue;
       }
 
@@ -32858,8 +32879,7 @@ async function checkPendingTransactions() {
         if (reactionPending) {
           settleAndQueueReactionCleanup(pendingTxInfo, 'success');
         } else {
-          // comment out to test the pending txs removal logic
-          myData.pending.splice(i, 1);
+          if (!removePendingTransaction(txid)) continue;
           didMutatePendingState = true;
         }
 
@@ -32916,6 +32936,11 @@ async function checkPendingTransactions() {
         }
       } else if (res?.transaction?.success === false) {
         console.log(`DEBUG: txid ${txid} failed, removing completely`);
+        if (!reactionPending) {
+          if (!removePendingTransaction(txid)) continue;
+          didMutatePendingState = true;
+        }
+
         // Check for failure reason in the transaction receipt
         const failureReason = res?.transaction?.reason || 'Transaction failed';
         const feeMismatchStatus = await refreshNetworkParamsOnTxFeeMismatch(failureReason);
@@ -32994,12 +33019,6 @@ async function checkPendingTransactions() {
             chatModal.refreshCurrentView(txid);
           }
         }
-        if (!reactionPending) {
-          // Remove from pending array
-          myData.pending.splice(i, 1);
-          didMutatePendingState = true;
-        }
-
         // refresh the validator modal if this is a withdraw_stake/deposit_stake and validator modal is open
         if (type === 'withdraw_stake' || type === 'deposit_stake') {
           // remove from wallet history
