@@ -1,5 +1,5 @@
 import { hashBytes } from './crypto.js';
-import { utf82bin } from './lib.js';
+import { normalizeAddress, utf82bin } from './lib.js';
 
 // Shared DAO constants and light helper functions.
 // Kept here so UI + repo can share one import surface.
@@ -7,6 +7,8 @@ import { utf82bin } from './lib.js';
 export const DAO_ARCHIVE_AFTER_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export const DAO_ARCHIVABLE_STATE_KEYS = ['withheld', 'rejected', 'accepted', 'applied'];
+
+const DAO_REWARD_STATE_KEYS = ['accepted', 'rejected', 'applied'];
 
 export const DAO_TYPE_OPTIONS = [
   { key: 'governance', label: 'Governance', group: 'Server proposal types' },
@@ -514,6 +516,96 @@ function normalizeDaoTimestamp(value) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
+export function normalizeDaoAddress(value) {
+  const address = String(value || '').trim();
+  if (!/^(?:0x)?[0-9a-fA-F]{40}(?:0{24})?$/.test(address)) return '';
+  return normalizeAddress(address);
+}
+
+export function parseDaoUnsignedBigInt(value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value === 'bigint') return value >= 0n ? value : null;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value < 0) return null;
+    return BigInt(Math.trunc(value));
+  }
+  if (typeof value === 'object') {
+    if (value.dataType !== 'bi') return null;
+    const hexText = String(value.value ?? '').trim();
+    if (!/^[0-9a-f]+$/i.test(hexText)) return null;
+    return BigInt(`0x${hexText}`);
+  }
+
+  const text = String(value).trim();
+  if (!text) return null;
+  try {
+    const parsed = BigInt(text);
+    return parsed >= 0n ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function getDaoProposalClaimWindow(proposal) {
+  const votingEndedAt = normalizeDaoTimestamp(proposal?.votingEndedAt);
+  const claimDuration = Number(proposal?.claimDuration);
+  if (!votingEndedAt || !Number.isFinite(claimDuration) || claimDuration < 0) {
+    return { start: null, end: null, votingStart: null, votingDuration: null };
+  }
+
+  const votingDurationValue = Number(proposal?.votingDuration);
+  const votingDuration = Number.isFinite(votingDurationValue) && votingDurationValue >= 0
+    ? votingDurationValue
+    : null;
+  let votingStart = normalizeDaoTimestamp(proposal?.votingStartedAt);
+  if (!votingStart) {
+    const reviewStart = Number(proposal?.startTime);
+    const reviewDuration = Number(proposal?.reviewDuration);
+    if (Number.isFinite(reviewStart) && Number.isFinite(reviewDuration)) {
+      votingStart = reviewStart + reviewDuration;
+    }
+  }
+
+  return {
+    start: votingEndedAt,
+    end: votingEndedAt + claimDuration,
+    votingStart: votingStart || null,
+    votingDuration,
+  };
+}
+
+export function getDaoRewardClaimStatus(proposal, currentAddress, now = Date.now()) {
+  const normalizedAddress = normalizeDaoAddress(currentAddress);
+  if (!normalizedAddress) return 'Account unavailable';
+
+  const state = getEffectiveDaoState(proposal);
+  if (state === 'withheld') return 'Reward pool burned';
+  if (!DAO_REWARD_STATE_KEYS.includes(state)) return 'Voting not finalized';
+
+  const voterList = Array.isArray(proposal?.voterList) ? proposal.voterList : [];
+  const voted = voterList.some((voter) => normalizeDaoAddress(voter?.address) === normalizedAddress);
+  if (!voted) return 'Not eligible';
+
+  const claimList = Array.isArray(proposal?.claimList) ? proposal.claimList : [];
+  const alreadyClaimed = claimList.some((address) => normalizeDaoAddress(address) === normalizedAddress);
+  if (alreadyClaimed) return 'Already claimed';
+
+  const pool = parseDaoUnsignedBigInt(proposal?.voterRewardPool) ?? 0n;
+  const claimed = parseDaoUnsignedBigInt(proposal?.claimedReward) ?? 0n;
+  if (pool <= 0n) return 'Reward pool empty';
+  if (claimed >= pool) return 'Reward pool fully claimed';
+
+  const claimWindow = getDaoProposalClaimWindow(proposal);
+  if (!claimWindow.end) return 'Claim timing unavailable';
+  if (now > claimWindow.end) return 'Claim window ended';
+  if (now < claimWindow.start) return 'Claim window not open';
+  return 'Claimable';
+}
+
+export function isDaoProposalClaimable(proposal, currentAddress, now = Date.now()) {
+  return getDaoRewardClaimStatus(proposal, currentAddress, now) === 'Claimable';
+}
+
 function mapBackendProposalToStoreProposal(proposal) {
   if (!proposal || typeof proposal !== 'object') return null;
 
@@ -730,6 +822,8 @@ function storeToUiList(store, groupKey) {
         claimList: p.claimList,
         startTime: p.startTime,
         reviewDuration: p.reviewDuration,
+        votingStartedAt: p.votingStartedAt,
+        votingEndedAt: p.votingEndedAt,
         votingDuration: p.votingDuration,
         claimDuration: p.claimDuration,
         gracePeriod: p.gracePeriod,

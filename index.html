@@ -321,30 +321,34 @@
       </div>
 
       <!-- DAO Status Context Menu -->
-      <div class="message-context-menu" id="daoStatusContextMenu" role="menu" aria-label="DAO proposal status filter" style="display: none;">
-        <div class="context-menu-option dao-status-option" data-state-key="review" role="menuitemradio" aria-checked="false">
+      <div class="message-context-menu" id="daoStatusContextMenu" role="menu" aria-label="DAO proposal filter" style="display: none;">
+        <div class="context-menu-option dao-status-option" data-filter-key="review" role="menuitemradio" aria-checked="false">
           <span class="context-menu-text dao-status-label" id="daoStatusOptionReview">Review</span>
           <span class="dao-status-count" aria-label="0 review proposals">0</span>
         </div>
-        <div class="context-menu-option dao-status-option" data-state-key="withheld" role="menuitemradio" aria-checked="false">
+        <div class="context-menu-option dao-status-option" data-filter-key="withheld" role="menuitemradio" aria-checked="false">
           <span class="context-menu-text dao-status-label" id="daoStatusOptionWithheld">Withheld</span>
           <span class="dao-status-count" aria-label="0 withheld proposals">0</span>
         </div>
-        <div class="context-menu-option dao-status-option" data-state-key="voting" role="menuitemradio" aria-checked="false">
+        <div class="context-menu-option dao-status-option" data-filter-key="voting" role="menuitemradio" aria-checked="false">
           <span class="context-menu-text dao-status-label" id="daoStatusOptionVoting">Voting</span>
           <span class="dao-status-count" aria-label="0 voting proposals">0</span>
         </div>
-        <div class="context-menu-option dao-status-option" data-state-key="rejected" role="menuitemradio" aria-checked="false">
+        <div class="context-menu-option dao-status-option" data-filter-key="rejected" role="menuitemradio" aria-checked="false">
           <span class="context-menu-text dao-status-label" id="daoStatusOptionRejected">Rejected</span>
           <span class="dao-status-count" aria-label="0 rejected proposals">0</span>
         </div>
-        <div class="context-menu-option dao-status-option" data-state-key="accepted" role="menuitemradio" aria-checked="false">
+        <div class="context-menu-option dao-status-option" data-filter-key="accepted" role="menuitemradio" aria-checked="false">
           <span class="context-menu-text dao-status-label" id="daoStatusOptionAccepted">Accepted</span>
           <span class="dao-status-count" aria-label="0 accepted proposals">0</span>
         </div>
-        <div class="context-menu-option dao-status-option" data-state-key="applied" role="menuitemradio" aria-checked="false">
+        <div class="context-menu-option dao-status-option" data-filter-key="applied" role="menuitemradio" aria-checked="false">
           <span class="context-menu-text dao-status-label" id="daoStatusOptionApplied">Applied</span>
           <span class="dao-status-count" aria-label="0 applied proposals">0</span>
+        </div>
+        <div class="context-menu-option dao-status-option" data-filter-key="claimable" role="menuitemradio" aria-checked="false">
+          <span class="context-menu-text dao-status-label" id="daoStatusOptionClaimable">Claimable</span>
+          <span class="dao-status-count" aria-label="0 claimable proposals">0</span>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
