@@ -99,7 +99,7 @@ const DAO_LIFECYCLE_KIND_TO_TYPE = Object.freeze({
   apply_parameters: DAO_ACTION_TYPES.APPLY_PARAMETERS,
 });
 
-const DAO_TYPE_TOASTS = Object.freeze({
+const DAO_TRANSACTION_MESSAGES = Object.freeze({
   [DAO_PROPOSAL_CREATE_TYPE]: {
     pending: 'Proposal submitted—pending confirmation',
     success: 'Proposal confirmed',
@@ -150,38 +150,34 @@ const DAO_TYPE_TOASTS = Object.freeze({
   },
 });
 
-const DAO_SETTLED_TYPES = new Set(Object.keys(DAO_TYPE_TOASTS));
+const DAO_TRANSACTION_TYPE_SET = new Set(Object.keys(DAO_TRANSACTION_MESSAGES));
 
-export function isDaoSettledPending(pendingTxInfo) {
-  return DAO_SETTLED_TYPES.has(pendingTxInfo?.type);
+export function isDaoTransactionType(type) {
+  return DAO_TRANSACTION_TYPE_SET.has(type);
 }
 
 export function getDaoTypeForLifecycleKind(kind) {
   return DAO_LIFECYCLE_KIND_TO_TYPE[kind] || '';
 }
 
-export function hasPendingDaoAction(pendingList, { type, proposalStoreId, from = '' } = {}) {
-  if (!Array.isArray(pendingList) || !type || !proposalStoreId) return false;
+export function hasPendingDaoAction(pendingList, type, proposalStoreId, from) {
+  if (!Array.isArray(pendingList) || !type || !proposalStoreId || !from) return false;
 
-  const normalizedFrom = from ? String(from) : '';
   return pendingList.some((entry) => {
     if (!entry || entry.type !== type) return false;
     if (entry.proposalStoreId !== proposalStoreId) return false;
-    if (normalizedFrom && entry.from && entry.from !== normalizedFrom) return false;
-    return true;
+    return entry.from === from;
   });
 }
 
-export function getDaoPendingToastMessage(type, outcome, { failureReason = '' } = {}) {
-  const toasts = DAO_TYPE_TOASTS[type];
-  if (!toasts) return '';
+export function getDaoTransactionMessage(type, outcome) {
+  const messages = DAO_TRANSACTION_MESSAGES[type];
+  if (!messages) throw new Error(`Unknown DAO transaction type: ${type}`);
 
-  if (outcome === 'success') return toasts.success;
-  if (outcome === 'timeout') return toasts.timeout;
-  if (outcome === 'failure') {
-    return failureReason ? `${toasts.failure}: ${failureReason}` : toasts.failure;
-  }
-  return toasts.pending;
+  const message = messages[outcome];
+  if (!message) throw new Error(`Unknown DAO transaction outcome: ${outcome}`);
+
+  return message;
 }
 export function getDaoTypeLabel(typeKey) {
   return DAO_TYPE_OPTIONS.find((t) => t.key === typeKey)?.label || typeKey || '';
@@ -394,7 +390,7 @@ export function buildDaoCommitteeVoteTransaction({
   if (txTimestamp <= 0) throw new Error('Committee review timestamp is required');
 
   const transaction = {
-    type: 'dao_committee_vote',
+    type: DAO_ACTION_TYPES.COMMITTEE_VOTE,
     timestamp: txTimestamp,
     networkId: requireDaoDraftString(networkId, 'Network ID'),
     from: requireDaoDraftString(from, 'Committee review sender'),
@@ -418,7 +414,7 @@ export function buildDaoCommitteeResultTransaction({
   networkId,
 } = {}) {
   return buildDaoProposalActionTransaction({
-    type: 'dao_committee_result',
+    type: DAO_ACTION_TYPES.COMMITTEE_RESULT,
     from,
     proposal,
     timestamp,
@@ -462,7 +458,7 @@ export function buildDaoVoteTransaction({
   }
 
   return {
-    type: 'dao_vote',
+    type: DAO_ACTION_TYPES.VOTE,
     timestamp: txTimestamp,
     networkId: requireDaoDraftString(networkId, 'Network ID'),
     from: requireDaoDraftString(from, 'Vote sender'),
@@ -479,7 +475,7 @@ export function buildDaoVoteResultTransaction({
   networkId,
 } = {}) {
   return buildDaoProposalActionTransaction({
-    type: 'dao_vote_result',
+    type: DAO_ACTION_TYPES.VOTE_RESULT,
     from,
     proposal,
     timestamp,
@@ -496,7 +492,7 @@ export function buildDaoClaimRewardTransaction({
   networkId,
 } = {}) {
   return buildDaoProposalActionTransaction({
-    type: 'dao_claim_reward',
+    type: DAO_ACTION_TYPES.CLAIM_REWARD,
     from,
     proposal,
     timestamp,
@@ -513,7 +509,7 @@ export function buildDaoBurnRewardTransaction({
   networkId,
 } = {}) {
   return buildDaoProposalActionTransaction({
-    type: 'dao_burn_reward',
+    type: DAO_ACTION_TYPES.BURN_REWARD,
     from,
     proposal,
     timestamp,
@@ -530,7 +526,7 @@ export function buildDaoApplyParametersTransaction({
   networkId,
 } = {}) {
   return buildDaoProposalActionTransaction({
-    type: 'dao_apply_parameters',
+    type: DAO_ACTION_TYPES.APPLY_PARAMETERS,
     from,
     proposal,
     timestamp,
