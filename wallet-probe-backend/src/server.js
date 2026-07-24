@@ -1,8 +1,8 @@
 import http from 'node:http';
 import { pathToFileURL } from 'node:url';
 
-import { AnkrPortfolioProvider, EvmRpcPool } from '../evm/index.js';
-import { DEFAULT_EVM_NETWORKS } from '../evm/networks.js';
+import { AnkrPortfolioProvider, EvmRpcPool } from '../../evm/index.js';
+import { DEFAULT_EVM_NETWORKS } from '../../evm/networks.js';
 import {
   createPortfolioJson,
   createWalletProbe,

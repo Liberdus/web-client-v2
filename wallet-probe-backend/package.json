@@ -1,0 +1,11 @@
+{
+  "name": "liberdus-wallet-probe-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Backend-only multi-chain wallet portfolio probe for Liberdus Web Client V2.",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js"
+  }
+}

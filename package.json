@@ -6,9 +6,9 @@
   "main": "app.js",
   "scripts": {
     "test": "node --test",
-    "test:evm": "node --test test/evm/*.test.js",
+    "test:evm": "node --test test/evm/*.test.js wallet-probe-backend/test/*.test.js",
     "check:evm-balances": "node scripts/check-evm-balances.js",
-    "serve:wallet-probe": "node server/wallet-probe-server.js"
+    "serve:wallet-probe": "npm --prefix wallet-probe-backend start"
   },
   "keywords": [
     "messaging",

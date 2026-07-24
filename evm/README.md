@@ -65,6 +65,10 @@ The backend endpoint must accept JSON-RPC 2.0 `ankr_getAccountBalance` requests 
 
 ## Wallet probe demo server
 
+The HTTP service is isolated under `wallet-probe-backend/`; it consumes the
+shared modules in this directory without exposing provider credentials to the
+browser.
+
 Start the local terminal-demo server:
 
 ```sh

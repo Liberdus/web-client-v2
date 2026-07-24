@@ -6,7 +6,7 @@ import {
   createPortfolioJson,
   createWalletProbe,
   formatPortfolioText,
-} from '../../server/wallet-probe.js';
+} from '../src/wallet-probe.js';
 
 const ADDRESS = '0x0000000000000000000000000000000000000001';
 const NETWORKS = [

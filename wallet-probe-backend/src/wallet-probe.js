@@ -1,5 +1,5 @@
-import { normalizeEvmAddress } from '../evm/identity.js';
-import { DEFAULT_EVM_NETWORKS } from '../evm/networks.js';
+import { normalizeEvmAddress } from '../../evm/identity.js';
+import { DEFAULT_EVM_NETWORKS } from '../../evm/networks.js';
 
 function assetKey(asset) {
   return `${asset.networkId}:${asset.contractAddress || 'native'}`;
