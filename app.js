@@ -2603,14 +2603,20 @@ class DaoModal {
   }
 
   async refreshAfterDaoSettlement(pendingTxInfo, outcome) {
+    let didRefreshDaoData = false;
     try {
       await daoRepo.refresh({ force: true });
+      didRefreshDaoData = true;
     } catch (error) {
       console.warn('DAO settlement refresh failed:', error);
     }
 
-    if (this.isActive()) this.render();
-    proposalInfoModal.refreshIfOpen(pendingTxInfo.proposalStoreId);
+    // A confirmed action must remain blocked until the UI can render fresh
+    // proposal state. Failed and timed-out actions can safely release the UI.
+    if (didRefreshDaoData || outcome !== 'success') {
+      if (this.isActive()) this.render();
+      proposalInfoModal.refreshIfOpen(pendingTxInfo.proposalStoreId);
+    }
 
     if (outcome === 'success' && pendingTxInfo.type === DAO_ACTION_TYPES.APPLY_PARAMETERS) {
       try {
@@ -2620,6 +2626,8 @@ class DaoModal {
         console.warn('DAO network parameter refresh failed after settlement:', error);
       }
     }
+
+    return didRefreshDaoData;
   }
 
   toggleStatusMenu(e) {
@@ -32997,8 +33005,13 @@ async function checkPendingTransactionsOnce() {
         }
 
         if (isPendingDaoTransaction) {
-          await daoModal.refreshAfterDaoSettlement(pendingTxInfo, 'success');
-          showToast(getDaoTransactionMessage(type, 'success'), 3000, 'success');
+          const didRefreshDaoData = await daoModal.refreshAfterDaoSettlement(pendingTxInfo, 'success');
+          if (didRefreshDaoData) {
+            showToast(getDaoTransactionMessage(type, 'success'), 3000, 'success');
+          } else if (!myData.pending.some((pendingTx) => pendingTx.txid === txid)) {
+            // Keep the pending guard active and retry reconciliation on the next poll.
+            myData.pending.push(pendingTxInfo);
+          }
         }
       } else if (res?.transaction?.success === false) {
         console.log(`DEBUG: txid ${txid} failed, removing completely`);
