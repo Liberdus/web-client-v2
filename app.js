@@ -37,6 +37,7 @@ async function checkVersion() {
       newUrl,
       'styles.css',
       'app.js',
+      'wallet-networks.js',
       'dao.repo.js',
       'data/emoji-picker-data.js',
       'lib.js',
@@ -147,6 +148,13 @@ import {
   CHAT_REACTION_SHEET_RECENT_CATEGORY_KEY,
 } from './data/emoji-picker-data.js';
 
+import {
+  calculateCatalogTotalUsd,
+  createWalletNetworkCatalog,
+  getWalletNetwork,
+  walletProbeAddress,
+} from './wallet-networks.js?v=1455-3';
+
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
 //network.monitor.url = "http://test.liberdus.com:3000"    // URL of the monitor server
@@ -159,6 +167,12 @@ const TRANSACTION_TIMESTAMP_OFFSET_MS = 500; // Transaction offset to allow for 
 
 let myData = null;
 let myAccount = null; // this is set to myData.account for convience
+let connectedWalletPortfolio = null;
+let connectedWalletCatalog = createWalletNetworkCatalog();
+let connectedWalletProbeStatus = 'idle';
+let connectedWalletProbeTimestamp = 0;
+let connectedWalletProbePromise = null;
+let connectedWalletProbeAddress = null;
 let timeSkew = 0;
 let useLongPolling = true;
 let longPollTimeoutId = null;
@@ -431,6 +445,12 @@ function newDataRecord(myAccount) {
 function clearMyData() {
   myData = null;
   myAccount = null;
+  connectedWalletPortfolio = null;
+  connectedWalletCatalog = createWalletNetworkCatalog();
+  connectedWalletProbeStatus = 'idle';
+  connectedWalletProbeTimestamp = 0;
+  connectedWalletProbePromise = null;
+  connectedWalletProbeAddress = null;
 }
 
 /**
@@ -1984,6 +2004,195 @@ class ContactsScreen {
 
 const contactsScreen = new ContactsScreen();
 
+function getLiberdusWalletAsset() {
+  return myData?.wallet?.assets?.find((asset) => isLibAsset(asset))
+    || myData?.wallet?.assets?.[0]
+    || null;
+}
+
+function rebuildConnectedWalletCatalog() {
+  connectedWalletCatalog = createWalletNetworkCatalog({
+    liberdusAsset: getLiberdusWalletAsset(),
+    portfolio: connectedWalletPortfolio,
+  });
+  return connectedWalletCatalog;
+}
+
+function getConnectedWalletCatalog() {
+  return rebuildConnectedWalletCatalog();
+}
+
+function getWalletProbeBaseUrl() {
+  const configured = typeof window.LIBERDUS_WALLET_PROBE_BASE_URL === 'string'
+    ? window.LIBERDUS_WALLET_PROBE_BASE_URL.trim()
+    : '';
+  return (configured || 'http://127.0.0.1:8788').replace(/\/+$/, '');
+}
+
+async function refreshConnectedWalletPortfolio({ force = false } = {}) {
+  if (!myAccount?.keys?.address) {
+    return getConnectedWalletCatalog();
+  }
+
+  const address = walletProbeAddress(myAccount.keys.address);
+  if (connectedWalletProbeAddress !== address) {
+    connectedWalletPortfolio = null;
+    connectedWalletProbeStatus = 'idle';
+    connectedWalletProbeTimestamp = 0;
+    connectedWalletProbeAddress = address;
+  }
+
+  const now = Date.now();
+  if (!force && connectedWalletProbeTimestamp && now - connectedWalletProbeTimestamp < 5000) {
+    return getConnectedWalletCatalog();
+  }
+  if (connectedWalletProbePromise) {
+    return connectedWalletProbePromise;
+  }
+
+  connectedWalletProbeStatus = 'loading';
+  connectedWalletProbePromise = (async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetch(
+        `${getWalletProbeBaseUrl()}/?wallet=${encodeURIComponent(address)}`,
+        {
+          headers: { accept: 'application/json' },
+          cache: 'no-store',
+          signal: controller.signal,
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`Wallet network service returned HTTP ${response.status}`);
+      }
+
+      const portfolio = await response.json();
+      if (!portfolio || !Array.isArray(portfolio.chains) || !Array.isArray(portfolio.tokens)) {
+        throw new TypeError('Wallet network service returned an invalid portfolio');
+      }
+      if (connectedWalletProbeAddress !== address) {
+        return rebuildConnectedWalletCatalog();
+      }
+
+      connectedWalletPortfolio = portfolio;
+      connectedWalletProbeStatus = portfolio.complete ? 'connected' : 'partial';
+      connectedWalletProbeTimestamp = Date.now();
+      return rebuildConnectedWalletCatalog();
+    } catch (error) {
+      connectedWalletProbeStatus = 'unavailable';
+      console.warn('Connected wallet network discovery unavailable:', error);
+      return rebuildConnectedWalletCatalog();
+    } finally {
+      clearTimeout(timeout);
+      connectedWalletProbePromise = null;
+    }
+  })();
+
+  return connectedWalletProbePromise;
+}
+
+function populateWalletNetworkSelect(select, { includeAll = false, selectedId = null } = {}) {
+  if (!select) return;
+
+  const previousValue = selectedId || select.value;
+  const fragment = document.createDocumentFragment();
+  if (includeAll) {
+    const allOption = document.createElement('option');
+    allOption.value = 'all';
+    allOption.textContent = 'All connected networks';
+    fragment.appendChild(allOption);
+  }
+
+  for (const walletNetwork of getConnectedWalletCatalog()) {
+    const option = document.createElement('option');
+    option.value = walletNetwork.id;
+    option.textContent = `${walletNetwork.name} (${walletNetwork.shortName})`;
+    fragment.appendChild(option);
+  }
+
+  select.replaceChildren(fragment);
+  const availableValues = new Set([...select.options].map((option) => option.value));
+  select.value = availableValues.has(previousValue)
+    ? previousValue
+    : (includeAll ? 'all' : 'liberdus');
+}
+
+function populateWalletAssetSelect(select, networkId) {
+  const walletNetwork = getWalletNetwork(getConnectedWalletCatalog(), networkId);
+  if (!select || !walletNetwork) return;
+
+  const fragment = document.createDocumentFragment();
+  for (const asset of walletNetwork.assets) {
+    const option = document.createElement('option');
+    option.value = asset.key;
+    option.textContent = `${asset.tokenName} (${asset.tokenSymbol})`;
+    fragment.appendChild(option);
+  }
+  select.replaceChildren(fragment);
+}
+
+function getSelectedWalletAsset(networkId, select) {
+  const walletNetwork = getWalletNetwork(getConnectedWalletCatalog(), networkId);
+  if (!walletNetwork) return null;
+  return walletNetwork.assets.find((asset) => asset.key === select?.value)
+    || walletNetwork.assets[0]
+    || null;
+}
+
+function walletNetworkConnectionText() {
+  const evmNetworks = getConnectedWalletCatalog().filter(
+    (walletNetwork) => walletNetwork.source === 'evm' && walletNetwork.connected,
+  );
+  if (connectedWalletProbeStatus === 'loading') {
+    return 'Connecting wallet networks…';
+  }
+  if (connectedWalletProbeStatus === 'unavailable') {
+    return 'Wallet network service unavailable';
+  }
+  if (connectedWalletProbeStatus === 'partial') {
+    return `${evmNetworks.length} EVM networks connected with warnings`;
+  }
+  if (connectedWalletProbeStatus === 'connected') {
+    return `${evmNetworks.length} EVM networks connected`;
+  }
+  return 'Liberdus connected';
+}
+
+function formatConnectedTokenAmount(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return String(value ?? '0');
+  if (amount === 0) return '0';
+  if (Math.abs(amount) < 0.000001) {
+    return amount.toExponential(4);
+  }
+  return amount.toLocaleString(undefined, {
+    maximumFractionDigits: 6,
+    minimumFractionDigits: 0,
+  });
+}
+
+function formatConnectedUsd(value) {
+  if (value === null || value === undefined || value === '') {
+    return 'Value unavailable';
+  }
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return 'Value unavailable';
+  return amount.toLocaleString(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: amount > 0 && amount < 0.01 ? 6 : 2,
+  });
+}
+
+function connectedAssetLogoMarkup(asset, walletNetwork) {
+  const logoUrl = typeof asset.logoUrl === 'string' ? asset.logoUrl : '';
+  if (/^(?:https:\/\/|\.\/)/.test(logoUrl)) {
+    return `<img src="${escapeHtml(logoUrl)}" alt="" class="connected-asset-logo-image">`;
+  }
+  return `<span class="connected-asset-logo-fallback">${escapeHtml(walletNetwork.shortName.slice(0, 3))}</span>`;
+}
+
 class WalletScreen {
   constructor() {
     this.firstTimeLoad = true;
@@ -1996,6 +2205,8 @@ class WalletScreen {
     // balance elements
     this.totalBalance = document.getElementById('walletTotalBalance');
     this.refreshBalanceButton = document.getElementById('refreshBalance');
+    this.networkSelect = document.getElementById('walletNetwork');
+    this.connectionSummary = document.getElementById('walletConnectionSummary');
     // assets list
     this.assetsList = document.getElementById('assetsList');
     // action buttons
@@ -2015,6 +2226,7 @@ class WalletScreen {
     this.openHistoryModalButton.addEventListener('click', () => {
       historyModal.open();
     });
+    this.networkSelect.addEventListener('change', () => this.renderConnectedAssets());
 
     // dynamic Faucet/Bridge button label and icon based on mainnet status
     const faucetBridgeLabel = this.openFaucetBridgeButton.querySelector('.action-label');
@@ -2067,7 +2279,7 @@ class WalletScreen {
         this.refreshBalanceButton.blur();
       }, 300);
 
-      this.updateWalletView();
+      this.updateWalletView({ forceNetworkRefresh: true });
     };
     this.refreshBalanceButton.addEventListener('click', withButtonCooldown(
       this.refreshBalanceButton,
@@ -2100,7 +2312,7 @@ class WalletScreen {
   }
 
   // Update wallet view; refresh wallet
-  async updateWalletView() {
+  async updateWalletView({ forceNetworkRefresh = false } = {}) {
     const walletData = myData.wallet;
 
     // Show loading toast if we're about to fetch fresh data
@@ -2112,9 +2324,13 @@ class WalletScreen {
     }
 
     try {
-      await this.updateWalletBalances();
-    } catch (error) {
-      console.error('Error updating wallet balances:', error);
+      const [liberdusResult] = await Promise.allSettled([
+        this.updateWalletBalances(),
+        refreshConnectedWalletPortfolio({ force: forceNetworkRefresh }),
+      ]);
+      if (liberdusResult.status === 'rejected') {
+        console.error('Error updating wallet balances:', liberdusResult.reason);
+      }
     } finally {
       // Always hide loading toast if it was shown, regardless of success or failure
       if (loadingToastId) {
@@ -2122,34 +2338,66 @@ class WalletScreen {
       }
     }
 
-    // Update total networth
-    const walletUsdValue = calculateWalletUsdValue(walletData.assets);
+    const catalog = rebuildConnectedWalletCatalog();
+    const walletUsdValue = calculateCatalogTotalUsd(catalog);
     walletData.networth = walletUsdValue ?? 0.0;
     this.totalBalance.textContent = walletUsdValue === null ? 'N/A' : walletUsdValue.toFixed(2);
 
-    if (!Array.isArray(walletData.assets) || walletData.assets.length === 0) {
-      this.assetsList.querySelector('.empty-state').style.display = 'block';
+    populateWalletNetworkSelect(this.networkSelect, { includeAll: true });
+    this.connectionSummary.textContent = walletNetworkConnectionText();
+    this.connectionSummary.dataset.status = connectedWalletProbeStatus;
+    this.renderConnectedAssets();
+  }
+
+  renderConnectedAssets() {
+    const catalog = getConnectedWalletCatalog();
+    const selectedNetworkId = this.networkSelect?.value || 'all';
+    const visibleNetworks = selectedNetworkId === 'all'
+      ? catalog
+      : catalog.filter((walletNetwork) => walletNetwork.id === selectedNetworkId);
+
+    if (visibleNetworks.length === 0) {
+      this.assetsList.innerHTML = `
+        <div class="empty-state">
+          <div></div>
+          <div>No connected assets</div>
+          <div>Refresh to check this wallet again</div>
+        </div>
+      `;
       return;
     }
 
-    this.assetsList.innerHTML = walletData.assets
-      .map((asset) => {
-        const assetUsdPrice = getAssetUsdPrice(asset);
-        const assetNetworth = calculateAssetUsdValue(asset);
-        const assetPriceText = assetUsdPrice === null ? 'N/A' : `$${assetUsdPrice.toFixed(6)} / ${asset.symbol}`;
-        const assetNetworthText = assetNetworth === null ? 'N/A' : `$${assetNetworth.toFixed(6)}`;
-        return `
-              <div class="asset-item">
-                  <div class="asset-logo"><img src="./media/liberdus_logo_50.png" class="asset-logo"></div>
-                  <div class="asset-info">
-                      <div class="asset-name">${asset.name}</div>
-                      <div class="asset-symbol">${assetPriceText}</div>
-                  </div>
-                  <div class="asset-balance">${(Number(asset.balance) / Number(wei)).toFixed(6)}<br><span class="asset-symbol">${assetNetworthText}</span></div>
+    this.assetsList.innerHTML = visibleNetworks.map((walletNetwork) => `
+      <section class="wallet-network-assets" data-network-id="${escapeHtml(walletNetwork.id)}">
+        <div class="wallet-network-row">
+          <div>
+            <div class="wallet-network-name">${escapeHtml(walletNetwork.name)}</div>
+            <div class="wallet-network-chain">Chain ID ${escapeHtml(String(walletNetwork.chainId ?? '—'))}</div>
+          </div>
+          <span class="wallet-network-status ${walletNetwork.connected ? 'connected' : 'available'}">
+            ${walletNetwork.connected ? 'Connected' : 'Ready'}
+          </span>
+        </div>
+        ${walletNetwork.assets.map((asset) => `
+          <div class="asset-item connected-asset-item">
+            <div class="asset-logo connected-asset-logo">
+              ${connectedAssetLogoMarkup(asset, walletNetwork)}
+            </div>
+            <div class="asset-info">
+              <div class="asset-name">${escapeHtml(asset.tokenName)}</div>
+              <div class="asset-symbol">
+                ${asset.tokenPriceUsd === null ? 'Price unavailable' : `${formatConnectedUsd(asset.tokenPriceUsd)} / ${escapeHtml(asset.tokenSymbol)}`}
               </div>
-          `;
-      })
-      .join('');
+            </div>
+            <div class="asset-balance">
+              ${escapeHtml(formatConnectedTokenAmount(asset.tokenAmount))} ${escapeHtml(asset.tokenSymbol)}
+              <br>
+              <span class="asset-symbol">${escapeHtml(formatConnectedUsd(asset.tokenValueUsd))}</span>
+            </div>
+          </div>
+        `).join('')}
+      </section>
+    `).join('');
   }
 
   // refresh wallet balance
@@ -29396,6 +29644,8 @@ class SendAssetFormModal {
     this.retryTxIdInput = document.getElementById('retryOfPaymentTxId');
     this.usernameAvailable = document.getElementById('sendToAddressError');
     this.submitButton = document.querySelector('#sendForm button[type="submit"]');
+    this.networkSelect = document.getElementById('sendNetwork');
+    this.networkStatus = document.getElementById('sendNetworkStatus');
     this.assetSelectDropdown = document.getElementById('sendAsset');
     this.balanceSymbol = document.getElementById('balanceSymbol');
     this.availableBalance = document.getElementById('availableBalance');
@@ -29422,10 +29672,8 @@ class SendAssetFormModal {
     });
 
     this.availableBalance.addEventListener('click', this.fillAmount.bind(this));
-    this.assetSelectDropdown.addEventListener('change', () => {
-      // updateSendAddresses();
-      this.updateAvailableBalance();
-    });
+    this.networkSelect.addEventListener('change', () => this.handleNetworkChange());
+    this.assetSelectDropdown.addEventListener('change', () => this.handleAssetChange());
     // amount input listener for normalizing
     this.amountInput.addEventListener('input', () => this.amountInput.value = normalizeUnsignedFloat(this.amountInput.value));
     // amount input listener for real-time balance validation
@@ -29485,16 +29733,58 @@ class SendAssetFormModal {
       this.username = null;
     }
 
-    await walletScreen.updateWalletBalances(); // Refresh wallet balances first
-    // Get wallet data
-    const wallet = myData.wallet;
-    // Populate assets dropdown
-    this.assetSelectDropdown.innerHTML = wallet.assets
-      .map((asset, index) => `<option value="${index}">${asset.name} (${asset.symbol})</option>`)
-      .join('');
+    await Promise.allSettled([
+      walletScreen.updateWalletBalances(),
+      refreshConnectedWalletPortfolio(),
+    ]);
+    rebuildConnectedWalletCatalog();
+    populateWalletNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
+    await this.handleNetworkChange({ resetRecipient: false });
+  }
 
-    // Update addresses for first asset
-    this.updateSendAddresses();
+  getSelectedNetwork() {
+    return getWalletNetwork(getConnectedWalletCatalog(), this.networkSelect.value);
+  }
+
+  getSelectedAsset() {
+    return getSelectedWalletAsset(this.networkSelect.value, this.assetSelectDropdown);
+  }
+
+  isLiberdusSelected() {
+    return this.networkSelect.value === 'liberdus';
+  }
+
+  async handleNetworkChange({ resetRecipient = true } = {}) {
+    const walletNetwork = this.getSelectedNetwork();
+    populateWalletAssetSelect(this.assetSelectDropdown, walletNetwork?.id || 'liberdus');
+
+    if (resetRecipient) {
+      this.usernameInput.value = '';
+      this.foundAddressObject.address = null;
+      this.usernameAvailable.style.display = 'none';
+    }
+    this.amountInput.value = '';
+    this.balanceWarning.textContent = '';
+    this.balanceWarning.style.display = 'none';
+
+    if (walletNetwork?.source === 'evm') {
+      this.usernameInput.placeholder = 'Enter 0x wallet address';
+      this.networkStatus.textContent = `${walletNetwork.name} is connected for balances and receiving. Sending is coming in Phase 2.`;
+      this.networkStatus.dataset.status = walletNetwork.connected ? 'connected' : 'ready';
+    } else {
+      this.usernameInput.placeholder = 'Enter username';
+      this.networkStatus.textContent = 'Liberdus transfers are ready.';
+      this.networkStatus.dataset.status = 'connected';
+    }
+
+    await this.handleAssetChange();
+  }
+
+  async handleAssetChange() {
+    const asset = this.getSelectedAsset();
+    this.balanceSymbol.textContent = asset?.tokenSymbol || 'LIB';
+    this.toggleBalanceButton.disabled = !this.isLiberdusSelected();
+    await this.updateAvailableBalance();
   }
 
   /**
@@ -29522,6 +29812,17 @@ class SendAssetFormModal {
     if (this.sendAssetFormModalCheckTimeout) {
       clearTimeout(this.sendAssetFormModalCheckTimeout);
       this.sendAssetFormModalCheckTimeout = null;
+    }
+
+    if (!this.isLiberdusSelected()) {
+      this.clearFormInfo();
+      const isValidAddress = isValidEthereumAddress(rawInput);
+      this.foundAddressObject.address = isValidAddress ? rawInput : null;
+      this.usernameAvailable.textContent = isValidAddress ? 'valid address' : 'enter a valid 0x address';
+      this.usernameAvailable.style.color = isValidAddress ? '#28a745' : '#dc3545';
+      this.usernameAvailable.style.display = rawInput ? 'inline' : 'none';
+      await this.refreshSendButtonDisabledState();
+      return;
     }
 
     if (isValidEthereumAddress(rawInput)) {
@@ -29701,6 +30002,11 @@ class SendAssetFormModal {
   async handleSendFormSubmit(event) {
     event.preventDefault();
 
+    if (!this.isLiberdusSelected()) {
+      showToast('EVM sending will be enabled in Phase 2. Balances and receiving are available now.', 5000, 'info');
+      return;
+    }
+
     const hasPendingTransfer =
       Array.isArray(myData?.pending) &&
       myData.pending.some((pendingTx) => pendingTx?.type === 'transfer');
@@ -29786,8 +30092,17 @@ class SendAssetFormModal {
    * @returns {void}
    */
   async fillAmount() {
+    const selectedAsset = this.getSelectedAsset();
+    if (!selectedAsset) return;
+
+    if (!this.isLiberdusSelected()) {
+      this.amountInput.value = selectedAsset.tokenAmount || '0';
+      this.amountInput.dispatchEvent(new Event('input'));
+      return;
+    }
+
     await getNetworkParams();
-    const asset = myData.wallet.assets[this.assetSelectDropdown.value];
+    const asset = selectedAsset.walletAsset;
     const feeInWei = getTransactionFeeWei();
     const maxAmount = BigInt(asset.balance) - feeInWei;
     const maxAmountStr = big2str(maxAmount > 0n ? maxAmount : 0n, 18).slice(0, -16);
@@ -29811,19 +30126,14 @@ class SendAssetFormModal {
    * @returns {void}
    */
   async updateAvailableBalance() {
-    const walletData = myData.wallet;
-    const assetIndex = this.assetSelectDropdown.value;
-
-    // Check if we have any assets
-    if (!walletData.assets || walletData.assets.length === 0) {
+    const selectedAsset = this.getSelectedAsset();
+    if (!selectedAsset) {
       this.updateBalanceDisplay(null);
-      // If no assets, amount validation will likely fail or be irrelevant.
-      // Button state should reflect this.
       await this.refreshSendButtonDisabledState();
       return;
     }
 
-    this.updateBalanceDisplay(walletData.assets[assetIndex]);
+    await this.updateBalanceDisplay(selectedAsset);
     await this.refreshSendButtonDisabledState();
   }
 
@@ -29839,6 +30149,13 @@ class SendAssetFormModal {
       return;
     }
 
+    if (asset.source === 'evm') {
+      this.balanceSymbol.textContent = asset.tokenSymbol;
+      this.balanceAmount.textContent = `${formatConnectedTokenAmount(asset.tokenAmount)} ${asset.tokenSymbol}`;
+      this.transactionFee.textContent = 'Calculated at send';
+      return;
+    }
+
     await getNetworkParams();
     const txFeeInLIB = getTransactionFeeWei();
     const stabilityFactor = getStabilityFactor();
@@ -29849,10 +30166,10 @@ class SendAssetFormModal {
 
     // Only set to asset symbol if it's empty (initial state)
     if (!currentSymbol) {
-      this.balanceSymbol.textContent = asset.symbol;
+      this.balanceSymbol.textContent = asset.tokenSymbol;
     }
 
-    const balanceInLIB = big2str(BigInt(asset.balance), 18).slice(0, -12);
+    const balanceInLIB = big2str(BigInt(asset.walletAsset.balance), 18).slice(0, -12);
     const feeInLIB = big2str(txFeeInLIB, 18).slice(0, -16);
 
     this.updateBalanceAndFeeDisplay(balanceInLIB, feeInLIB, isCurrentlyUSD, stabilityFactor);
@@ -29863,11 +30180,7 @@ class SendAssetFormModal {
    * @returns {void}
    */
   updateSendAddresses() {
-    const walletData = myData.wallet;
-    // const assetIndex = document.getElementById('sendAsset').value;
-
-    // Check if we have any assets
-    if (!walletData.assets || walletData.assets.length === 0) {
+    if (!this.getSelectedAsset()) {
       showToast('No addresses available', 0, 'error');
       return;
     }
@@ -29881,6 +30194,13 @@ class SendAssetFormModal {
    * @returns {Promise<void>}
    */
   async refreshSendButtonDisabledState() {
+    if (!this.isLiberdusSelected()) {
+      this.balanceWarning.textContent = '';
+      this.balanceWarning.style.display = 'none';
+      this.submitButton.disabled = true;
+      return;
+    }
+
     // If offline, keep button disabled
     if (!isOnline) {
       this.submitButton.disabled = true;
@@ -29900,7 +30220,12 @@ class SendAssetFormModal {
       return;
     }
 
-    const assetIndex = this.assetSelectDropdown.value;
+    const selectedAsset = this.getSelectedAsset();
+    const assetIndex = myData.wallet.assets.indexOf(selectedAsset?.walletAsset);
+    if (assetIndex < 0) {
+      this.submitButton.disabled = true;
+      return;
+    }
 
     // Check if amount is in USD and convert to LIB for validation
     const isUSD = this.balanceSymbol.textContent === 'USD';
@@ -29960,6 +30285,9 @@ class SendAssetFormModal {
     if (e && typeof e.preventDefault === 'function') {
       e.preventDefault();
     }
+    if (!this.isLiberdusSelected()) {
+      return;
+    }
     this.balanceSymbol.textContent = this.balanceSymbol.textContent === 'LIB' ? 'USD' : 'LIB';
 
     // check the context value of the button to determine if it's LIB or USD
@@ -29970,7 +30298,8 @@ class SendAssetFormModal {
     const stabilityFactor = getStabilityFactor();
 
     // Get the raw values in LIB format
-    const asset = myData.wallet.assets[this.assetSelectDropdown.value];
+    const asset = this.getSelectedAsset()?.walletAsset;
+    if (!asset) return;
     const txFeeInWei = getTransactionFeeWei();
     const balanceInLIB = big2str(BigInt(asset.balance), 18).slice(0, -12);
     const feeInLIB = big2str(txFeeInWei, 18).slice(0, -16);
@@ -30249,6 +30578,13 @@ class SendAssetConfirmModal {
    */
   async handleSendAsset(event) {
     event.preventDefault();
+    const selectedAsset = sendAssetFormModal.getSelectedAsset();
+    if (!sendAssetFormModal.isLiberdusSelected() || selectedAsset?.source !== 'liberdus') {
+      showToast('EVM sending will be enabled in Phase 2.', 5000, 'info');
+      this.close();
+      return;
+    }
+
     const rawInput = sendAssetFormModal.usernameInput.value.trim();
     if (isValidEthereumAddress(rawInput)) {
       showToast('Address not supported; enter username instead.', 0, 'error');
@@ -30262,7 +30598,11 @@ class SendAssetConfirmModal {
     }
 
     const wallet = myData.wallet;
-    const assetIndex = Number(sendAssetFormModal.assetSelectDropdown.value);
+    const assetIndex = wallet.assets.indexOf(selectedAsset.walletAsset);
+    if (assetIndex < 0) {
+      showToast('Selected Liberdus asset is unavailable.', 0, 'error');
+      return;
+    }
     const amount = bigxnum2big(wei, sendAssetFormModal.amountInput.value);
     const memoIn = sendAssetFormModal.memoInput.value || '';
     const memo = memoIn.trim();
@@ -30530,6 +30870,8 @@ class ReceiveModal {
 
   load() {
     this.modal = document.getElementById('receiveModal');
+    this.networkSelect = document.getElementById('receiveNetwork');
+    this.networkStatus = document.getElementById('receiveNetworkStatus');
     this.assetSelect = document.getElementById('receiveAsset');
     this.amountInput = document.getElementById('receiveAmount');
     this.memoInput = document.getElementById('receiveMemo');
@@ -30552,53 +30894,53 @@ class ReceiveModal {
     this.displayAddress.addEventListener('click', () => this.copyAddress());
     
     // QR code updates
-    this.assetSelect.addEventListener('change', () => this.updateQRCode());
+    this.networkSelect.addEventListener('change', () => this.handleNetworkChange());
+    this.assetSelect.addEventListener('change', () => this.handleAssetChange());
     this.amountInput.addEventListener('input', () => this.amountInput.value = normalizeUnsignedFloat(this.amountInput.value));
     this.amountInput.addEventListener('input', this.debouncedUpdateQRCode);
     this.memoInput.addEventListener('input', this.debouncedUpdateQRCode);
     this.toggleReceiveBalanceButton.addEventListener('click', this.handleToggleBalance.bind(this));
   }
 
-  open() {
+  async open() {
     this.modal.classList.add('active');
-
-    // Get wallet data
-    const walletData = myData.wallet;
-
-    // Populate assets dropdown
-    // Clear existing options
-    this.assetSelect.innerHTML = '';
-
-    // Check if wallet assets exist
-    if (walletData && walletData.assets && walletData.assets.length > 0) {
-      // Add options for each asset
-      walletData.assets.forEach((asset, index) => {
-        const option = document.createElement('option');
-        option.value = index;
-        option.textContent = `${asset.name} (${asset.symbol})`;
-        this.assetSelect.appendChild(option);
-      });
-    } else {
-      // Add a default option if no assets
-      const option = document.createElement('option');
-      option.value = 0;
-      option.textContent = 'Liberdus (LIB)';
-      this.assetSelect.appendChild(option);
-    }
 
     // Clear input fields
     this.amountInput.value = '';
     this.memoInput.value = '';
 
-    this.receiveBalanceSymbol.textContent = 'LIB';
-
-
-    // Initial update for addresses based on the first asset
-    this.updateReceiveAddresses();
+    await refreshConnectedWalletPortfolio();
+    rebuildConnectedWalletCatalog();
+    populateWalletNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
+    await this.handleNetworkChange();
   }
 
   close() {
     this.modal.classList.remove('active');
+  }
+
+  getSelectedNetwork() {
+    return getWalletNetwork(getConnectedWalletCatalog(), this.networkSelect.value);
+  }
+
+  getSelectedAsset() {
+    return getSelectedWalletAsset(this.networkSelect.value, this.assetSelect);
+  }
+
+  async handleNetworkChange() {
+    const walletNetwork = this.getSelectedNetwork();
+    populateWalletAssetSelect(this.assetSelect, walletNetwork?.id || 'liberdus');
+    this.networkStatus.textContent = walletNetwork?.source === 'evm'
+      ? `Receive on ${walletNetwork.name} using this account's shared EVM address.`
+      : 'Receive Liberdus using your account address.';
+    this.networkStatus.dataset.status = walletNetwork?.connected ? 'connected' : 'ready';
+    await this.handleAssetChange();
+  }
+
+  async handleAssetChange() {
+    const asset = this.getSelectedAsset();
+    this.receiveBalanceSymbol.textContent = asset?.tokenSymbol || 'LIB';
+    this.updateReceiveAddresses();
   }
 
   updateReceiveAddresses() {
@@ -30637,36 +30979,18 @@ class ReceiveModal {
 
   // Create QR payment data object based on form values
   createQRPaymentData() {
-    // Get selected asset
-    const assetIndex = parseInt(this.assetSelect.value, 10) || 0;
-
-    // Default asset info in case we can't find the selected asset
-    let assetId = 'liberdus';
-    let symbol = 'LIB';
-
-    // Try to get the selected asset
-    try {
-      if (myData && myData.wallet && myData.wallet.assets && myData.wallet.assets.length > 0) {
-        const asset = myData.wallet.assets[assetIndex];
-        if (asset) {
-          assetId = asset.id || 'liberdus';
-          symbol = asset.symbol || 'LIB';
-        } else {
-          console.warn(`Asset not found at index ${assetIndex}, using defaults`);
-        }
-      } else {
-        console.warn('Wallet assets not available, using default asset');
-      }
-    } catch (error) {
-      console.error('Error accessing asset data:', error);
-    }
+    const walletNetwork = this.getSelectedNetwork();
+    const asset = this.getSelectedAsset();
 
     // Build payment data object
     const paymentData = {
       u: myAccount.username, // username
-      i: assetId, // assetId
-      s: symbol, // symbol
-      d: String(this.receiveBalanceSymbol.textContent || 'LIB').toUpperCase() //display unit
+      n: walletNetwork?.id || 'liberdus',
+      c: walletNetwork?.chainId || 2220,
+      i: asset?.contractAddress || asset?.key || 'liberdus',
+      s: asset?.tokenSymbol || 'LIB',
+      d: String(this.receiveBalanceSymbol.textContent || asset?.tokenSymbol || 'LIB').toUpperCase(),
+      r: this.fullAddress,
     };
 
     // Add optional fields if they have values
@@ -30757,22 +31081,33 @@ class ReceiveModal {
    */
   async handleToggleBalance() {
     try {
-      this.receiveBalanceSymbol.textContent = this.receiveBalanceSymbol.textContent === 'LIB' ? 'USD' : 'LIB';
+      const asset = this.getSelectedAsset();
+      const tokenSymbol = asset?.tokenSymbol || 'LIB';
+      const isShowingToken = this.receiveBalanceSymbol.textContent !== 'USD';
+      this.receiveBalanceSymbol.textContent = isShowingToken ? 'USD' : tokenSymbol;
+      const tokenPrice = Number(asset?.tokenPriceUsd);
+      let conversionPrice = Number.isFinite(tokenPrice) && tokenPrice > 0 ? tokenPrice : null;
+      if (conversionPrice === null && asset?.source === 'liberdus') {
+        await getNetworkParams();
+        const stabilityFactor = getStabilityFactor();
+        conversionPrice = Number.isFinite(stabilityFactor) && stabilityFactor > 0
+          ? stabilityFactor
+          : null;
+      }
 
-      const isLib = this.receiveBalanceSymbol.textContent === 'LIB';
-
-      await getNetworkParams();
-      const stabilityFactor = getStabilityFactor();
+      if (conversionPrice === null) {
+        this.receiveBalanceSymbol.textContent = tokenSymbol;
+        showToast(`${tokenSymbol}/USD price is unavailable`, 2500, 'warning');
+        return;
+      }
 
       if (this.amountInput && this.amountInput.value.trim() !== '') {
         const currentValue = parseFloat(this.amountInput.value);
         if (!isNaN(currentValue)) {
-          if (!isLib) {
-            // now showing USD, convert LIB -> USD
-            this.amountInput.value = (currentValue * stabilityFactor).toString();
+          if (this.receiveBalanceSymbol.textContent === 'USD') {
+            this.amountInput.value = (currentValue * conversionPrice).toString();
           } else {
-            // now showing LIB, convert USD -> LIB
-            this.amountInput.value = (currentValue / stabilityFactor).toString();
+            this.amountInput.value = (currentValue / conversionPrice).toString();
           }
         }
       }

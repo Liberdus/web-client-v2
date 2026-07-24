@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=1455-3" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js" type="module"></script>
+    <script src="./app.js?v=1455-3" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -173,6 +173,19 @@
             <span id="walletTotalBalance">-.--</span>
             <button class="refresh-button" id="refreshBalance">↻</button>
           </div>
+        </div>
+        <div class="wallet-network-panel">
+          <div class="wallet-network-heading">
+            <label for="walletNetwork">Network</label>
+            <span id="walletConnectionSummary" class="wallet-connection-summary">Connecting wallet networks…</span>
+          </div>
+          <select id="walletNetwork" class="form-control wallet-network-select">
+            <option value="all">All connected networks</option>
+            <option value="liberdus">Liberdus (LIB)</option>
+            <option value="ethereum">Ethereum (ETH)</option>
+            <option value="bsc">BNB Smart Chain (BSC)</option>
+            <option value="polygon">Polygon (POL)</option>
+          </select>
         </div>
         <div class="wallet-actions">
           <button class="wallet-action-button" id="openSendAssetFormModal">
@@ -1991,6 +2004,16 @@
         <div class="modal-content">
           <div class="form-container">
             <div class="form-group">
+              <label for="receiveNetwork">Network</label>
+              <select id="receiveNetwork" class="form-control wallet-network-select">
+                <option value="liberdus">Liberdus (LIB)</option>
+                <option value="ethereum">Ethereum (ETH)</option>
+                <option value="bsc">BNB Smart Chain (BSC)</option>
+                <option value="polygon">Polygon (POL)</option>
+              </select>
+              <div id="receiveNetworkStatus" class="wallet-network-hint">The same account address is used across connected EVM networks.</div>
+            </div>
+            <div class="form-group">
               <label>Your Address</label>
               <div class="address-container">
                 <div
@@ -2082,6 +2105,16 @@
         <div class="modal-content">
           <div class="form-container">
             <form id="sendForm" class="form--narrow">
+              <div class="form-group">
+                <label for="sendNetwork">Network</label>
+                <select id="sendNetwork" class="form-control wallet-network-select" required>
+                  <option value="liberdus">Liberdus (LIB)</option>
+                  <option value="ethereum">Ethereum (ETH)</option>
+                  <option value="bsc">BNB Smart Chain (BSC)</option>
+                  <option value="polygon">Polygon (POL)</option>
+                </select>
+                <div id="sendNetworkStatus" class="wallet-network-hint">Liberdus transfers are ready.</div>
+              </div>
               <div class="form-group">
                 <label for="sendAsset">Asset</label>
                 <select id="sendAsset" class="form-control" required></select>
