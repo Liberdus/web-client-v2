@@ -65,14 +65,15 @@ The backend endpoint must accept JSON-RPC 2.0 `ankr_getAccountBalance` requests 
 
 ## Wallet probe demo server
 
-The HTTP service is isolated under `wallet-probe-backend/`; it consumes the
-shared modules in this directory without exposing provider credentials to the
-browser.
+The local HTTP service is kept outside this Git repository in the sibling
+`wallet-probe-backend` folder so provider configuration cannot be pushed with
+the web client.
 
-Start the local terminal-demo server:
+Start it from that external folder:
 
 ```sh
-npm run serve:wallet-probe
+cd ../wallet-probe-backend
+npm start
 ```
 
 It binds to `127.0.0.1:8787` by default. Probe any EVM address with:
@@ -105,14 +106,14 @@ Without an indexed-provider credential, the server explicitly reports native bal
 ```sh
 read -s ANKR_API_TOKEN
 export ANKR_API_TOKEN
-npm run serve:wallet-probe
+npm start
 ```
 
 Alternatively, point the server at a backend-controlled proxy:
 
 ```sh
 ANKR_MULTICHAIN_ENDPOINT=http://127.0.0.1:9000/api/evm/portfolio \
-  npm run serve:wallet-probe
+  npm start
 ```
 
 Additional configuration:
