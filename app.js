@@ -4952,19 +4952,6 @@ class ProposalInfoModal {
     `;
   }
 
-  getParameterChangeRowClass(parts, values) {
-    const normalizedParts = parts.map((part) => String(part ?? '').trim());
-    const hasLongValue = values
-      .map((value) => String(value ?? '').trim())
-      .some((value) => value.length > 8);
-    const shouldUseWideRow = hasLongValue
-      || normalizedParts.some((part) => part.length > 22)
-      || normalizedParts.join(' ').length > 46;
-    return shouldUseWideRow
-      ? 'proposal-change-row proposal-change-row--wide'
-      : 'proposal-change-row';
-  }
-
   renderPayloadRows(payload, payloadTitle) {
     const titleHtml = payloadTitle
       ? `<div class="proposal-payload-title">${escapeHtml(payloadTitle)}</div>`
@@ -4976,12 +4963,8 @@ class ProposalInfoModal {
           const key = change?.key || 'Unknown key';
           const current = formatDaoDetailValue(change?.current);
           const next = formatDaoDetailValue(change?.value);
-          const rowClass = this.getParameterChangeRowClass(
-            [key, `Current: ${current}`, `New: ${next}`],
-            [current, next],
-          );
           return `
-          <div class="${rowClass}">
+          <div class="proposal-change-row">
             ${titleHtml}
             <span>${escapeHtml(key)}</span>
             <div class="proposal-change-values">
@@ -5001,9 +4984,8 @@ class ProposalInfoModal {
     return entries
       .map(([key, value]) => {
         const displayValue = formatDaoDetailValue(value);
-        const rowClass = this.getParameterChangeRowClass([key, displayValue], [displayValue]);
         return `
-        <div class="${rowClass}">
+        <div class="proposal-change-row">
           ${titleHtml}
           <span>${escapeHtml(key)}</span>
           <strong>${escapeHtml(displayValue)}</strong>

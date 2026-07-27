@@ -2482,27 +2482,7 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-change-row {
-  flex: 0 1 calc(50% - 4px);
-  min-width: min(100%, 180px);
-}
-
-#proposalInfoModal .proposal-change-row--wide {
-  flex-basis: 100%;
-}
-
-#proposalInfoModal .proposal-payload:has(.proposal-change-row--wide) .proposal-change-row {
-  flex-basis: 100%;
-}
-
-#proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values {
-  grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr);
-  justify-content: center;
-}
-
-#proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values small,
-#proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values strong {
-  overflow-wrap: anywhere;
-  white-space: normal;
+  flex: 0 1 100%;
 }
 
 #confirmProposalModal .dao-confirm-change-values,
