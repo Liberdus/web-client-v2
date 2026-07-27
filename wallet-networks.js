@@ -189,6 +189,11 @@ export function getWalletNetwork(catalog, networkId) {
   return catalog.find((network) => network.id === networkId) || catalog[0] || null;
 }
 
+export function getEvmWalletNetworks(catalog) {
+  if (!Array.isArray(catalog)) return Object.freeze([]);
+  return Object.freeze(catalog.filter((network) => network.source === 'evm'));
+}
+
 export function calculateCatalogTotalUsd(catalog) {
   let total = 0;
   let hasValue = false;

@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-3" />
+    <link rel="stylesheet" href="./styles.css?v=1455-4" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-3" type="module"></script>
+    <script src="./app.js?v=1455-4" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -174,19 +174,6 @@
             <button class="refresh-button" id="refreshBalance">↻</button>
           </div>
         </div>
-        <div class="wallet-network-panel">
-          <div class="wallet-network-heading">
-            <label for="walletNetwork">Network</label>
-            <span id="walletConnectionSummary" class="wallet-connection-summary">Connecting wallet networks…</span>
-          </div>
-          <select id="walletNetwork" class="form-control wallet-network-select">
-            <option value="all">All connected networks</option>
-            <option value="liberdus">Liberdus (LIB)</option>
-            <option value="ethereum">Ethereum (ETH)</option>
-            <option value="bsc">BNB Smart Chain (BSC)</option>
-            <option value="polygon">Polygon (POL)</option>
-          </select>
-        </div>
         <div class="wallet-actions">
           <button class="wallet-action-button" id="openSendAssetFormModal">
             <span class="action-icon"></span>
@@ -291,6 +278,7 @@
         <div class="modal-content">
           <ul class="menu-list">
             <li class="menu-item" id="openInvite" data-icon="mail">Invite</li>
+            <li class="menu-item" id="openAssets" data-icon="assets">Assets</li>
             <li class="menu-item" id="openFarm" data-icon="trending-up">Farm</li>
             <li class="menu-item" id="openValidator" data-icon="shield">Validator</li>
             <li class="menu-item" id="openDao" data-icon="dao" style="display: none;">DAO</li>
@@ -303,6 +291,73 @@
             <li class="menu-item" id="openAbout" data-icon="info">About</li>
             <li class="menu-item sign-out" id="handleSignOut" data-icon="log-out">Sign Out</li>
           </ul>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Connected EVM Assets Modal -->
+      <div class="modal fixed-header" id="assetsModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeAssetsModal"></button>
+          <div class="modal-title">Assets</div>
+        </div>
+        <div class="modal-content assets-modal-content">
+          <div class="wallet-balance">
+            <div class="balance-label">Total Balance</div>
+            <div class="balance-amount">
+              <span id="assetsTotalBalance">-.--</span>
+              <button class="refresh-button" id="refreshAssetsBalance">↻</button>
+            </div>
+          </div>
+          <div class="wallet-network-panel">
+            <div class="wallet-network-heading">
+              <label for="assetsNetwork">Network</label>
+              <span id="assetsConnectionSummary" class="wallet-connection-summary">Connecting wallet networks…</span>
+            </div>
+            <select id="assetsNetwork" class="form-control wallet-network-select">
+              <option value="all">All connected networks</option>
+              <option value="ethereum">Ethereum (ETH)</option>
+              <option value="bsc">BNB Smart Chain (BSC)</option>
+              <option value="polygon">Polygon (POL)</option>
+            </select>
+          </div>
+          <div class="wallet-actions">
+            <button class="wallet-action-button" id="assetsOpenSend">
+              <span class="action-icon"></span>
+              <span class="action-label">Send</span>
+            </button>
+            <button class="wallet-action-button" id="assetsOpenReceive">
+              <span class="action-icon"></span>
+              <span class="action-label">Receive</span>
+            </button>
+            <button class="wallet-action-button" id="assetsOpenHistory">
+              <span class="action-icon"></span>
+              <span class="action-label">History</span>
+            </button>
+            <div class="wallet-actions-break"></div>
+            <button class="wallet-action-button" id="assetsOpenBuy">
+              <span class="action-icon"></span>
+              <span class="action-label">Buy</span>
+            </button>
+            <button class="wallet-action-button" id="assetsOpenSell">
+              <span class="action-icon"></span>
+              <span class="action-label">Sell</span>
+            </button>
+            <button class="wallet-action-button" id="assetsOpenBridge">
+              <span class="action-icon"></span>
+              <span class="action-label">Bridge</span>
+            </button>
+          </div>
+          <div class="wallet-assets">
+            <div class="section-title">Assets</div>
+            <div id="connectedAssetsList">
+              <div class="empty-state">
+                <div></div>
+                <div>No EVM Assets Yet</div>
+                <div>Connected assets will appear here</div>
+              </div>
+            </div>
+          </div>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
@@ -2003,7 +2058,7 @@
         </div>
         <div class="modal-content">
           <div class="form-container">
-            <div class="form-group">
+            <div class="form-group connected-wallet-only" id="receiveNetworkGroup" hidden>
               <label for="receiveNetwork">Network</label>
               <select id="receiveNetwork" class="form-control wallet-network-select">
                 <option value="liberdus">Liberdus (LIB)</option>
@@ -2105,7 +2160,7 @@
         <div class="modal-content">
           <div class="form-container">
             <form id="sendForm" class="form--narrow">
-              <div class="form-group">
+              <div class="form-group connected-wallet-only" id="sendNetworkGroup" hidden>
                 <label for="sendNetwork">Network</label>
                 <select id="sendNetwork" class="form-control wallet-network-select" required>
                   <option value="liberdus">Liberdus (LIB)</option>

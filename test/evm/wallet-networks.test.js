@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   calculateCatalogTotalUsd,
   createWalletNetworkCatalog,
+  getEvmWalletNetworks,
   walletProbeAddress,
 } from '../../wallet-networks.js';
 
@@ -20,6 +21,23 @@ test('always exposes Liberdus, Ethereum, BSC, and Polygon', () => {
   assert.equal(catalog[2].assets[0].tokenSymbol, 'BNB');
   assert.equal(catalog[3].assets[0].tokenSymbol, 'POL');
   assert.equal(calculateCatalogTotalUsd(catalog), null);
+});
+
+test('creates an EVM-only view without the Liberdus network or native asset', () => {
+  const evmCatalog = getEvmWalletNetworks(createWalletNetworkCatalog({
+    liberdusAsset: {
+      balance: 50n * (10n ** 18n),
+      price: 0.008,
+    },
+  }));
+
+  assert.deepEqual(evmCatalog.map((network) => network.id), [
+    'ethereum',
+    'bsc',
+    'polygon',
+  ]);
+  assert.equal(evmCatalog.some((network) => network.source === 'liberdus'), false);
+  assert.equal(evmCatalog.some((network) => network.assets.some((asset) => asset.tokenSymbol === 'LIB')), false);
 });
 
 test('adds other EVM networks only when the wallet has a positive asset balance', () => {

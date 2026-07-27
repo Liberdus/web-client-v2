@@ -4060,6 +4060,15 @@ input[type='file'].form-control::file-selector-button {
   font-weight: var(--font-weight-medium);
 }
 
+.assets-modal-content {
+  overflow-y: auto;
+  padding-bottom: 2rem;
+}
+
+.connected-wallet-only[hidden] {
+  display: none !important;
+}
+
 .balance-label {
   font-family: var(--font-primary);
   font-size: var(--font-size-lg);
@@ -4181,27 +4190,32 @@ input[type='file'].form-control::file-selector-button {
 }
 
 /* Send icon (up chevron) */
-#openSendAssetFormModal .action-icon {
+#openSendAssetFormModal .action-icon,
+#assetsOpenSend .action-icon {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='18 15 12 9 6 15'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
 /* Receive icon (down chevron) */
-#openReceiveModal .action-icon {
+#openReceiveModal .action-icon,
+#assetsOpenReceive .action-icon {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
 /* History icon (clock) */
-#openHistoryModal .action-icon {
+#openHistoryModal .action-icon,
+#assetsOpenHistory .action-icon {
   background-image: var(--icon-clock);
 }
 
 /* Buy icon (shopping cart) */
-#openBuyButton .action-icon {
+#openBuyButton .action-icon,
+#assetsOpenBuy .action-icon {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='21' r='1'%3E%3C/circle%3E%3Ccircle cx='20' cy='21' r='1'%3E%3C/circle%3E%3Cpath d='M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6'%3E%3C/path%3E%3C/svg%3E");
 }
 
 /* Sell icon (dollar sign) */
-#openSellButton .action-icon {
+#openSellButton .action-icon,
+#assetsOpenSell .action-icon {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='1' x2='12' y2='23'%3E%3C/line%3E%3Cpath d='M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'%3E%3C/path%3E%3C/svg%3E");
 }
 
@@ -4212,6 +4226,10 @@ input[type='file'].form-control::file-selector-button {
 
 /* Bridge icon when on mainnet (same as menu bridge icon) */
 #openFaucetBridgeButton.bridge-mode .action-icon {
+  background-image: var(--icon-bridge);
+}
+
+#assetsOpenBridge .action-icon {
   background-image: var(--icon-bridge);
 }
 
@@ -7925,6 +7943,10 @@ small {
 /* Individual icon definitions */
 .menu-item[data-icon="user"]::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'%3E%3C/path%3E%3Ccircle cx='12' cy='7' r='4'%3E%3C/circle%3E%3C/svg%3E");
+}
+
+.menu-item[data-icon="assets"]::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='5' width='20' height='14' rx='2'/%3E%3Cpath d='M2 10h20'/%3E%3C/svg%3E");
 }
 
 .menu-item[data-icon="dollar-sign"]::before {

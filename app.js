@@ -151,9 +151,10 @@ import {
 import {
   calculateCatalogTotalUsd,
   createWalletNetworkCatalog,
+  getEvmWalletNetworks,
   getWalletNetwork,
   walletProbeAddress,
-} from './wallet-networks.js?v=1455-3';
+} from './wallet-networks.js?v=1455-4';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
@@ -745,6 +746,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Wallet Screen
   walletScreen.load();
+
+  // Connected EVM Assets Modal
+  assetsModal.load();
 
   // About and Contact Modals
   sourceModal.load();
@@ -2092,10 +2096,15 @@ async function refreshConnectedWalletPortfolio({ force = false } = {}) {
   return connectedWalletProbePromise;
 }
 
-function populateWalletNetworkSelect(select, { includeAll = false, selectedId = null } = {}) {
+function getConnectedEvmCatalog() {
+  return getEvmWalletNetworks(getConnectedWalletCatalog());
+}
+
+function populateWalletNetworkSelect(select, { includeAll = false, selectedId = null, evmOnly = false } = {}) {
   if (!select) return;
 
   const previousValue = selectedId || select.value;
+  const catalog = evmOnly ? getConnectedEvmCatalog() : getConnectedWalletCatalog();
   const fragment = document.createDocumentFragment();
   if (includeAll) {
     const allOption = document.createElement('option');
@@ -2104,7 +2113,7 @@ function populateWalletNetworkSelect(select, { includeAll = false, selectedId = 
     fragment.appendChild(allOption);
   }
 
-  for (const walletNetwork of getConnectedWalletCatalog()) {
+  for (const walletNetwork of catalog) {
     const option = document.createElement('option');
     option.value = walletNetwork.id;
     option.textContent = `${walletNetwork.name} (${walletNetwork.shortName})`;
@@ -2115,7 +2124,7 @@ function populateWalletNetworkSelect(select, { includeAll = false, selectedId = 
   const availableValues = new Set([...select.options].map((option) => option.value));
   select.value = availableValues.has(previousValue)
     ? previousValue
-    : (includeAll ? 'all' : 'liberdus');
+    : (includeAll ? 'all' : (evmOnly ? (catalog[0]?.id || '') : 'liberdus'));
 }
 
 function populateWalletAssetSelect(select, networkId) {
@@ -2205,8 +2214,6 @@ class WalletScreen {
     // balance elements
     this.totalBalance = document.getElementById('walletTotalBalance');
     this.refreshBalanceButton = document.getElementById('refreshBalance');
-    this.networkSelect = document.getElementById('walletNetwork');
-    this.connectionSummary = document.getElementById('walletConnectionSummary');
     // assets list
     this.assetsList = document.getElementById('assetsList');
     // action buttons
@@ -2226,7 +2233,6 @@ class WalletScreen {
     this.openHistoryModalButton.addEventListener('click', () => {
       historyModal.open();
     });
-    this.networkSelect.addEventListener('change', () => this.renderConnectedAssets());
 
     // dynamic Faucet/Bridge button label and icon based on mainnet status
     const faucetBridgeLabel = this.openFaucetBridgeButton.querySelector('.action-label');
@@ -2279,7 +2285,7 @@ class WalletScreen {
         this.refreshBalanceButton.blur();
       }, 300);
 
-      this.updateWalletView({ forceNetworkRefresh: true });
+      this.updateWalletView();
     };
     this.refreshBalanceButton.addEventListener('click', withButtonCooldown(
       this.refreshBalanceButton,
@@ -2312,7 +2318,7 @@ class WalletScreen {
   }
 
   // Update wallet view; refresh wallet
-  async updateWalletView({ forceNetworkRefresh = false } = {}) {
+  async updateWalletView() {
     const walletData = myData.wallet;
 
     // Show loading toast if we're about to fetch fresh data
@@ -2324,13 +2330,9 @@ class WalletScreen {
     }
 
     try {
-      const [liberdusResult] = await Promise.allSettled([
-        this.updateWalletBalances(),
-        refreshConnectedWalletPortfolio({ force: forceNetworkRefresh }),
-      ]);
-      if (liberdusResult.status === 'rejected') {
-        console.error('Error updating wallet balances:', liberdusResult.reason);
-      }
+      await this.updateWalletBalances();
+    } catch (error) {
+      console.error('Error updating wallet balances:', error);
     } finally {
       // Always hide loading toast if it was shown, regardless of success or failure
       if (loadingToastId) {
@@ -2338,66 +2340,33 @@ class WalletScreen {
       }
     }
 
-    const catalog = rebuildConnectedWalletCatalog();
-    const walletUsdValue = calculateCatalogTotalUsd(catalog);
+    const walletUsdValue = calculateWalletUsdValue(walletData.assets);
     walletData.networth = walletUsdValue ?? 0.0;
     this.totalBalance.textContent = walletUsdValue === null ? 'N/A' : walletUsdValue.toFixed(2);
 
-    populateWalletNetworkSelect(this.networkSelect, { includeAll: true });
-    this.connectionSummary.textContent = walletNetworkConnectionText();
-    this.connectionSummary.dataset.status = connectedWalletProbeStatus;
-    this.renderConnectedAssets();
-  }
-
-  renderConnectedAssets() {
-    const catalog = getConnectedWalletCatalog();
-    const selectedNetworkId = this.networkSelect?.value || 'all';
-    const visibleNetworks = selectedNetworkId === 'all'
-      ? catalog
-      : catalog.filter((walletNetwork) => walletNetwork.id === selectedNetworkId);
-
-    if (visibleNetworks.length === 0) {
-      this.assetsList.innerHTML = `
-        <div class="empty-state">
-          <div></div>
-          <div>No connected assets</div>
-          <div>Refresh to check this wallet again</div>
-        </div>
-      `;
+    if (!Array.isArray(walletData.assets) || walletData.assets.length === 0) {
+      this.assetsList.querySelector('.empty-state').style.display = 'block';
       return;
     }
 
-    this.assetsList.innerHTML = visibleNetworks.map((walletNetwork) => `
-      <section class="wallet-network-assets" data-network-id="${escapeHtml(walletNetwork.id)}">
-        <div class="wallet-network-row">
-          <div>
-            <div class="wallet-network-name">${escapeHtml(walletNetwork.name)}</div>
-            <div class="wallet-network-chain">Chain ID ${escapeHtml(String(walletNetwork.chainId ?? '—'))}</div>
-          </div>
-          <span class="wallet-network-status ${walletNetwork.connected ? 'connected' : 'available'}">
-            ${walletNetwork.connected ? 'Connected' : 'Ready'}
-          </span>
-        </div>
-        ${walletNetwork.assets.map((asset) => `
-          <div class="asset-item connected-asset-item">
-            <div class="asset-logo connected-asset-logo">
-              ${connectedAssetLogoMarkup(asset, walletNetwork)}
-            </div>
-            <div class="asset-info">
-              <div class="asset-name">${escapeHtml(asset.tokenName)}</div>
-              <div class="asset-symbol">
-                ${asset.tokenPriceUsd === null ? 'Price unavailable' : `${formatConnectedUsd(asset.tokenPriceUsd)} / ${escapeHtml(asset.tokenSymbol)}`}
+    this.assetsList.innerHTML = walletData.assets
+      .map((asset) => {
+        const assetUsdPrice = getAssetUsdPrice(asset);
+        const assetNetworth = calculateAssetUsdValue(asset);
+        const assetPriceText = assetUsdPrice === null ? 'N/A' : `$${assetUsdPrice.toFixed(6)} / ${asset.symbol}`;
+        const assetNetworthText = assetNetworth === null ? 'N/A' : `$${assetNetworth.toFixed(6)}`;
+        return `
+              <div class="asset-item">
+                  <div class="asset-logo"><img src="./media/liberdus_logo_50.png" class="asset-logo"></div>
+                  <div class="asset-info">
+                      <div class="asset-name">${asset.name}</div>
+                      <div class="asset-symbol">${assetPriceText}</div>
+                  </div>
+                  <div class="asset-balance">${(Number(asset.balance) / Number(wei)).toFixed(6)}<br><span class="asset-symbol">${assetNetworthText}</span></div>
               </div>
-            </div>
-            <div class="asset-balance">
-              ${escapeHtml(formatConnectedTokenAmount(asset.tokenAmount))} ${escapeHtml(asset.tokenSymbol)}
-              <br>
-              <span class="asset-symbol">${escapeHtml(formatConnectedUsd(asset.tokenValueUsd))}</span>
-            </div>
-          </div>
-        `).join('')}
-      </section>
-    `).join('');
+          `;
+      })
+      .join('');
   }
 
   // refresh wallet balance
@@ -2536,6 +2505,127 @@ class WalletScreen {
 
 const walletScreen = new WalletScreen();
 
+class AssetsModal {
+  load() {
+    this.modal = document.getElementById('assetsModal');
+    this.totalBalance = document.getElementById('assetsTotalBalance');
+    this.refreshButton = document.getElementById('refreshAssetsBalance');
+    this.networkSelect = document.getElementById('assetsNetwork');
+    this.connectionSummary = document.getElementById('assetsConnectionSummary');
+    this.assetsList = document.getElementById('connectedAssetsList');
+
+    document.getElementById('closeAssetsModal').addEventListener('click', () => this.close());
+    this.networkSelect.addEventListener('change', () => this.render());
+    this.refreshButton.addEventListener('click', withButtonCooldown(
+      this.refreshButton,
+      BUTTON_COOLDOWN_MS,
+      null,
+      async () => {
+        this.refreshButton.classList.add('active');
+        setTimeout(() => this.refreshButton.classList.remove('active'), 300);
+        await this.update({ force: true });
+      },
+    ));
+
+    document.getElementById('assetsOpenSend').addEventListener('click', () => {
+      sendAssetFormModal.open({ mode: 'evm' });
+    });
+    document.getElementById('assetsOpenReceive').addEventListener('click', () => {
+      receiveModal.open({ mode: 'evm' });
+    });
+    document.getElementById('assetsOpenHistory').addEventListener('click', () => {
+      showToast('EVM transaction history will be available with sending in Phase 2.', 3000, 'info');
+    });
+    document.getElementById('assetsOpenBuy').addEventListener('click', () => {
+      window.open('https://liberdus.com/buy', '_blank');
+    });
+    document.getElementById('assetsOpenSell').addEventListener('click', () => {
+      window.open('https://liberdus.com/sell', '_blank');
+    });
+    document.getElementById('assetsOpenBridge').addEventListener('click', () => bridgeModal.open());
+  }
+
+  async open() {
+    this.modal.classList.add('active');
+    await this.update();
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+  }
+
+  isActive() {
+    return this.modal.classList.contains('active');
+  }
+
+  async update({ force = false } = {}) {
+    this.connectionSummary.textContent = 'Connecting wallet networks…';
+    this.connectionSummary.dataset.status = 'loading';
+    await refreshConnectedWalletPortfolio({ force });
+
+    const catalog = getConnectedEvmCatalog();
+    const totalUsd = calculateCatalogTotalUsd(catalog);
+    this.totalBalance.textContent = totalUsd === null ? 'N/A' : totalUsd.toFixed(2);
+    populateWalletNetworkSelect(this.networkSelect, { includeAll: true, evmOnly: true });
+    this.connectionSummary.textContent = walletNetworkConnectionText();
+    this.connectionSummary.dataset.status = connectedWalletProbeStatus;
+    this.render();
+  }
+
+  render() {
+    const catalog = getConnectedEvmCatalog();
+    const selectedNetworkId = this.networkSelect?.value || 'all';
+    const visibleNetworks = selectedNetworkId === 'all'
+      ? catalog
+      : catalog.filter((walletNetwork) => walletNetwork.id === selectedNetworkId);
+
+    if (visibleNetworks.length === 0) {
+      this.assetsList.innerHTML = `
+        <div class="empty-state">
+          <div></div>
+          <div>No EVM assets yet</div>
+          <div>Refresh to check this wallet again</div>
+        </div>
+      `;
+      return;
+    }
+
+    this.assetsList.innerHTML = visibleNetworks.map((walletNetwork) => `
+      <section class="wallet-network-assets" data-network-id="${escapeHtml(walletNetwork.id)}">
+        <div class="wallet-network-row">
+          <div>
+            <div class="wallet-network-name">${escapeHtml(walletNetwork.name)}</div>
+            <div class="wallet-network-chain">Chain ID ${escapeHtml(String(walletNetwork.chainId ?? '—'))}</div>
+          </div>
+          <span class="wallet-network-status ${walletNetwork.connected ? 'connected' : 'available'}">
+            ${walletNetwork.connected ? 'Connected' : 'Ready'}
+          </span>
+        </div>
+        ${walletNetwork.assets.map((asset) => `
+          <div class="asset-item connected-asset-item">
+            <div class="asset-logo connected-asset-logo">
+              ${connectedAssetLogoMarkup(asset, walletNetwork)}
+            </div>
+            <div class="asset-info">
+              <div class="asset-name">${escapeHtml(asset.tokenName)}</div>
+              <div class="asset-symbol">
+                ${asset.tokenPriceUsd === null ? 'Price unavailable' : `${formatConnectedUsd(asset.tokenPriceUsd)} / ${escapeHtml(asset.tokenSymbol)}`}
+              </div>
+            </div>
+            <div class="asset-balance">
+              ${escapeHtml(formatConnectedTokenAmount(asset.tokenAmount))} ${escapeHtml(asset.tokenSymbol)}
+              <br>
+              <span class="asset-symbol">${escapeHtml(formatConnectedUsd(asset.tokenValueUsd))}</span>
+            </div>
+          </div>
+        `).join('')}
+      </section>
+    `).join('');
+  }
+}
+
+const assetsModal = new AssetsModal();
+
 class MenuModal {
   constructor() {
     this.isSignoutExit = false;
@@ -2555,6 +2645,8 @@ class MenuModal {
     }
     this.inviteButton = document.getElementById('openInvite');
     this.inviteButton.addEventListener('click', () => inviteModal.open());
+    this.assetsButton = document.getElementById('openAssets');
+    this.assetsButton.addEventListener('click', () => assetsModal.open());
     this.explorerButton = document.getElementById('openExplorer');
     this.explorerButton.addEventListener('click', () => this.handleExternalClick('./explorer', 'explorer'));
     this.networkButton = document.getElementById('openMonitor');
@@ -29622,6 +29714,7 @@ const createAccountModal = new CreateAccountModal();
  */
 class SendAssetFormModal {
   constructor() {
+    this.mode = 'liberdus';
     this.username = null;
     this.sendAssetFormModalCheckTimeout = null;
     this.foundAddressObject = { address: null };
@@ -29645,6 +29738,7 @@ class SendAssetFormModal {
     this.usernameAvailable = document.getElementById('sendToAddressError');
     this.submitButton = document.querySelector('#sendForm button[type="submit"]');
     this.networkSelect = document.getElementById('sendNetwork');
+    this.networkGroup = document.getElementById('sendNetworkGroup');
     this.networkStatus = document.getElementById('sendNetworkStatus');
     this.assetSelectDropdown = document.getElementById('sendAsset');
     this.balanceSymbol = document.getElementById('balanceSymbol');
@@ -29707,7 +29801,9 @@ class SendAssetFormModal {
    * Opens the send asset modal
    * @returns {Promise<void>}
    */
-  async open() {
+  async open({ mode = 'liberdus' } = {}) {
+    this.mode = mode;
+    this.networkGroup.hidden = mode !== 'evm';
     this.modal.classList.add('active');
     this.memoValidation = {};
     this.memoByteCounter.textContent = '';
@@ -29733,12 +29829,17 @@ class SendAssetFormModal {
       this.username = null;
     }
 
-    await Promise.allSettled([
-      walletScreen.updateWalletBalances(),
-      refreshConnectedWalletPortfolio(),
-    ]);
-    rebuildConnectedWalletCatalog();
-    populateWalletNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
+    if (this.mode === 'evm') {
+      await refreshConnectedWalletPortfolio();
+      populateWalletNetworkSelect(this.networkSelect, {
+        selectedId: 'ethereum',
+        evmOnly: true,
+      });
+    } else {
+      await walletScreen.updateWalletBalances();
+      rebuildConnectedWalletCatalog();
+      populateWalletNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
+    }
     await this.handleNetworkChange({ resetRecipient: false });
   }
 
@@ -29751,7 +29852,7 @@ class SendAssetFormModal {
   }
 
   isLiberdusSelected() {
-    return this.networkSelect.value === 'liberdus';
+    return this.mode === 'liberdus';
   }
 
   async handleNetworkChange({ resetRecipient = true } = {}) {
@@ -30866,11 +30967,13 @@ const sendAssetConfirmModal = new SendAssetConfirmModal();
 
 class ReceiveModal {
   constructor() {
+    this.mode = 'liberdus';
   }
 
   load() {
     this.modal = document.getElementById('receiveModal');
     this.networkSelect = document.getElementById('receiveNetwork');
+    this.networkGroup = document.getElementById('receiveNetworkGroup');
     this.networkStatus = document.getElementById('receiveNetworkStatus');
     this.assetSelect = document.getElementById('receiveAsset');
     this.amountInput = document.getElementById('receiveAmount');
@@ -30902,16 +31005,25 @@ class ReceiveModal {
     this.toggleReceiveBalanceButton.addEventListener('click', this.handleToggleBalance.bind(this));
   }
 
-  async open() {
+  async open({ mode = 'liberdus' } = {}) {
+    this.mode = mode;
+    this.networkGroup.hidden = mode !== 'evm';
     this.modal.classList.add('active');
 
     // Clear input fields
     this.amountInput.value = '';
     this.memoInput.value = '';
 
-    await refreshConnectedWalletPortfolio();
-    rebuildConnectedWalletCatalog();
-    populateWalletNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
+    if (this.mode === 'evm') {
+      await refreshConnectedWalletPortfolio();
+      populateWalletNetworkSelect(this.networkSelect, {
+        selectedId: 'ethereum',
+        evmOnly: true,
+      });
+    } else {
+      rebuildConnectedWalletCatalog();
+      populateWalletNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
+    }
     await this.handleNetworkChange();
   }
 
@@ -30982,16 +31094,22 @@ class ReceiveModal {
     const walletNetwork = this.getSelectedNetwork();
     const asset = this.getSelectedAsset();
 
-    // Build payment data object
-    const paymentData = {
-      u: myAccount.username, // username
-      n: walletNetwork?.id || 'liberdus',
-      c: walletNetwork?.chainId || 2220,
-      i: asset?.contractAddress || asset?.key || 'liberdus',
-      s: asset?.tokenSymbol || 'LIB',
-      d: String(this.receiveBalanceSymbol.textContent || asset?.tokenSymbol || 'LIB').toUpperCase(),
-      r: this.fullAddress,
-    };
+    const paymentData = this.mode === 'evm'
+      ? {
+          u: myAccount.username,
+          n: walletNetwork?.id || 'ethereum',
+          c: walletNetwork?.chainId || 1,
+          i: asset?.contractAddress || asset?.key || 'native',
+          s: asset?.tokenSymbol || walletNetwork?.nativeSymbol || 'ETH',
+          d: String(this.receiveBalanceSymbol.textContent || asset?.tokenSymbol || 'ETH').toUpperCase(),
+          r: this.fullAddress,
+        }
+      : {
+          u: myAccount.username,
+          i: asset?.walletAsset?.id || 'liberdus',
+          s: asset?.tokenSymbol || 'LIB',
+          d: String(this.receiveBalanceSymbol.textContent || 'LIB').toUpperCase(),
+        };
 
     // Add optional fields if they have values
     const amount = this.amountInput.value.trim();
@@ -35096,6 +35214,9 @@ function closeTopModal(topModal){
       break;
     case 'menuModal':
       menuModal.close();
+      break;
+    case 'assetsModal':
+      assetsModal.close();
       break;
     case 'daoModal':
       daoModal.close();
