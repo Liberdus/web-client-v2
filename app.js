@@ -4955,7 +4955,7 @@ class ProposalInfoModal {
   getParameterChangeRowClass(parts) {
     const normalizedParts = parts.map((part) => String(part ?? '').trim());
     const shouldUseWideRow = normalizedParts.some((part) => part.length > 22)
-      || normalizedParts.join(' ').length > 52;
+      || normalizedParts.join(' ').length > 46;
     return shouldUseWideRow
       ? 'proposal-change-row proposal-change-row--wide'
       : 'proposal-change-row';
