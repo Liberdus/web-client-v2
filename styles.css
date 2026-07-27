@@ -2490,6 +2490,10 @@ input[type='file'].form-control::file-selector-button {
   flex-basis: 100%;
 }
 
+#proposalInfoModal .proposal-payload:has(.proposal-change-row--wide) .proposal-change-row {
+  flex-basis: 100%;
+}
+
 #proposalInfoModal .proposal-change-row:not(.proposal-change-row--wide) .proposal-change-values {
   grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr);
   justify-content: center;

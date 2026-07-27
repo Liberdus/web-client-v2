@@ -4952,7 +4952,7 @@ class ProposalInfoModal {
     `;
   }
 
-  getParameterChangeRowClass(parts, values = []) {
+  getParameterChangeRowClass(parts, values) {
     const normalizedParts = parts.map((part) => String(part ?? '').trim());
     const hasLongValue = values
       .map((value) => String(value ?? '').trim())
@@ -4965,50 +4965,23 @@ class ProposalInfoModal {
       : 'proposal-change-row';
   }
 
-  getParameterChangeRowClasses(rows) {
-    const wideClass = 'proposal-change-row proposal-change-row--wide';
-    const rowClasses = rows.map(({ parts, values }) => this.getParameterChangeRowClass(parts, values));
-    if (!rowClasses.includes(wideClass)) return rowClasses;
-
-    let standardRunStart = -1;
-    for (let index = 0; index <= rowClasses.length; index += 1) {
-      const isStandardRow = index < rowClasses.length && rowClasses[index] !== wideClass;
-      if (isStandardRow && standardRunStart === -1) {
-        standardRunStart = index;
-      } else if (!isStandardRow && standardRunStart !== -1) {
-        if ((index - standardRunStart) % 2 === 1) {
-          rowClasses[index - 1] = wideClass;
-        }
-        standardRunStart = -1;
-      }
-    }
-
-    return rowClasses;
-  }
-
   renderPayloadRows(payload, payloadTitle) {
     const titleHtml = payloadTitle
       ? `<div class="proposal-payload-title">${escapeHtml(payloadTitle)}</div>`
       : '';
 
     if (Array.isArray(payload?.changes)) {
-      const changes = payload.changes.map((change) => {
-        const key = change?.key || 'Unknown key';
-        const current = formatDaoDetailValue(change?.current);
-        const next = formatDaoDetailValue(change?.value);
-        return { key, current, next };
-      });
-      const rowClasses = this.getParameterChangeRowClasses(
-        changes.map(({ key, current, next }) => ({
-          parts: [key, `Current: ${current}`, `New: ${next}`],
-          values: [current, next],
-        })),
-      );
-
-      return changes
-        .map(({ key, current, next }, index) => {
+      return payload.changes
+        .map((change) => {
+          const key = change?.key || 'Unknown key';
+          const current = formatDaoDetailValue(change?.current);
+          const next = formatDaoDetailValue(change?.value);
+          const rowClass = this.getParameterChangeRowClass(
+            [key, `Current: ${current}`, `New: ${next}`],
+            [current, next],
+          );
           return `
-          <div class="${rowClasses[index]}">
+          <div class="${rowClass}">
             ${titleHtml}
             <span>${escapeHtml(key)}</span>
             <div class="proposal-change-values">
@@ -5024,18 +4997,13 @@ class ProposalInfoModal {
 
     const entries = Object.entries(payload)
       .filter(([, value]) => value !== undefined && value !== null && String(value).length > 0);
-    const formattedEntries = entries.map(([key, value]) => [key, formatDaoDetailValue(value)]);
-    const rowClasses = this.getParameterChangeRowClasses(
-      formattedEntries.map(([key, displayValue]) => ({
-        parts: [key, displayValue],
-        values: [displayValue],
-      })),
-    );
 
-    return formattedEntries
-      .map(([key, displayValue], index) => {
+    return entries
+      .map(([key, value]) => {
+        const displayValue = formatDaoDetailValue(value);
+        const rowClass = this.getParameterChangeRowClass([key, displayValue], [displayValue]);
         return `
-        <div class="${rowClasses[index]}">
+        <div class="${rowClass}">
           ${titleHtml}
           <span>${escapeHtml(key)}</span>
           <strong>${escapeHtml(displayValue)}</strong>
