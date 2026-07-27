@@ -4952,15 +4952,13 @@ class ProposalInfoModal {
     `;
   }
 
-  getParameterChangeRowClass(parts, isSingleRow) {
+  getParameterChangeRowClass(parts) {
     const normalizedParts = parts.map((part) => String(part ?? '').trim());
     const shouldUseWideRow = normalizedParts.some((part) => part.length > 22)
       || normalizedParts.join(' ').length > 52;
-    return [
-      'proposal-change-row',
-      shouldUseWideRow ? 'proposal-change-row--wide' : '',
-      !shouldUseWideRow && isSingleRow ? 'proposal-change-row--single' : '',
-    ].filter(Boolean).join(' ');
+    return shouldUseWideRow
+      ? 'proposal-change-row proposal-change-row--wide'
+      : 'proposal-change-row';
   }
 
   renderPayloadRows(payload, payloadTitle) {
@@ -4971,14 +4969,11 @@ class ProposalInfoModal {
     if (Array.isArray(payload?.changes)) {
       const changes = payload.changes;
       return changes
-        .map((change, index) => {
+        .map((change) => {
           const key = change?.key || 'Unknown key';
           const current = formatDaoDetailValue(change?.current);
           const next = formatDaoDetailValue(change?.value);
-          const rowClass = this.getParameterChangeRowClass(
-            [key, `Current: ${current}`, `New: ${next}`],
-            index === changes.length - 1 && changes.length % 2 === 1,
-          );
+          const rowClass = this.getParameterChangeRowClass([key, `Current: ${current}`, `New: ${next}`]);
           return `
           <div class="${rowClass}">
             ${titleHtml}
@@ -4998,12 +4993,9 @@ class ProposalInfoModal {
       .filter(([, value]) => value !== undefined && value !== null && String(value).length > 0);
 
     return entries
-      .map(([key, value], index) => {
+      .map(([key, value]) => {
         const displayValue = formatDaoDetailValue(value);
-        const rowClass = this.getParameterChangeRowClass(
-          [key, displayValue],
-          index === entries.length - 1 && entries.length % 2 === 1,
-        );
+        const rowClass = this.getParameterChangeRowClass([key, displayValue]);
         return `
         <div class="${rowClass}">
           ${titleHtml}
