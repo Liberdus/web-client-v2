@@ -5590,6 +5590,12 @@ class ProposalInfoModal {
     const decision = this.formatCommitteeChoice(this.committeeChoice);
     if (!window.confirm(`Submit review decision: ${decision}?`)) return;
 
+    const reviewWindow = getDaoProposalReviewWindow(proposal);
+    if (!reviewWindow.canCommitteeVote) {
+      showToast(reviewWindow.label, 2500, 'warning');
+      return;
+    }
+
     this.setSubmitting(true);
     const loadingToastId = showToast('Submitting committee review...', 0, 'loading');
 
