@@ -4260,6 +4260,22 @@ input[type='file'].form-control::file-selector-button {
   padding: 1rem;
 }
 
+.assets-portfolio {
+  padding: 0;
+}
+
+.assets-portfolio .assets-section-title {
+  margin-bottom: 0;
+}
+
+.assets-portfolio .wallet-network-panel {
+  margin-bottom: 1rem;
+}
+
+.assets-portfolio #connectedAssetsList {
+  padding: 0 1rem;
+}
+
 .wallet-network-assets {
   overflow: hidden;
   margin-bottom: 14px;

@@ -61,7 +61,7 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-5" />
+    <link rel="stylesheet" href="./styles.css?v=1455-6" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
@@ -309,17 +309,27 @@
               <button class="refresh-button" id="refreshAssetsBalance">↻</button>
             </div>
           </div>
-          <div class="wallet-network-panel">
-            <div class="wallet-network-heading">
-              <label for="assetsNetwork">Network</label>
-              <span id="assetsConnectionSummary" class="wallet-connection-summary">Connecting wallet networks…</span>
+          <div class="wallet-assets assets-portfolio">
+            <div class="section-title assets-section-title">Assets</div>
+            <div class="wallet-network-panel">
+              <div class="wallet-network-heading">
+                <label for="assetsNetwork">Network</label>
+                <span id="assetsConnectionSummary" class="wallet-connection-summary">Connecting wallet networks…</span>
+              </div>
+              <select id="assetsNetwork" class="form-control wallet-network-select">
+                <option value="all">All connected networks</option>
+                <option value="ethereum">Ethereum (ETH)</option>
+                <option value="bsc">BNB Smart Chain (BSC)</option>
+                <option value="polygon">Polygon (POL)</option>
+              </select>
             </div>
-            <select id="assetsNetwork" class="form-control wallet-network-select">
-              <option value="all">All connected networks</option>
-              <option value="ethereum">Ethereum (ETH)</option>
-              <option value="bsc">BNB Smart Chain (BSC)</option>
-              <option value="polygon">Polygon (POL)</option>
-            </select>
+            <div id="connectedAssetsList">
+              <div class="empty-state">
+                <div></div>
+                <div>No EVM Assets Yet</div>
+                <div>Connected assets will appear here</div>
+              </div>
+            </div>
           </div>
           <div class="wallet-actions">
             <button class="wallet-action-button" id="assetsOpenSend">
@@ -347,16 +357,6 @@
               <span class="action-icon"></span>
               <span class="action-label">Bridge</span>
             </button>
-          </div>
-          <div class="wallet-assets">
-            <div class="section-title">Assets</div>
-            <div id="connectedAssetsList">
-              <div class="empty-state">
-                <div></div>
-                <div>No EVM Assets Yet</div>
-                <div>Connected assets will appear here</div>
-              </div>
-            </div>
           </div>
         </div>
         <a class="last-item" href="#"> </a>
