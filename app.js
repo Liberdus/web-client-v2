@@ -168,12 +168,6 @@ const TRANSACTION_TIMESTAMP_OFFSET_MS = 500; // Transaction offset to allow for 
 
 let myData = null;
 let myAccount = null; // this is set to myData.account for convience
-let connectedWalletPortfolio = null;
-let connectedWalletCatalog = createWalletNetworkCatalog();
-let connectedWalletProbeStatus = 'idle';
-let connectedWalletProbeTimestamp = 0;
-let connectedWalletProbePromise = null;
-let connectedWalletProbeAddress = null;
 let timeSkew = 0;
 let useLongPolling = true;
 let longPollTimeoutId = null;
@@ -446,12 +440,7 @@ function newDataRecord(myAccount) {
 function clearMyData() {
   myData = null;
   myAccount = null;
-  connectedWalletPortfolio = null;
-  connectedWalletCatalog = createWalletNetworkCatalog();
-  connectedWalletProbeStatus = 'idle';
-  connectedWalletProbeTimestamp = 0;
-  connectedWalletProbePromise = null;
-  connectedWalletProbeAddress = null;
+  walletDiscovery.reset();
 }
 
 /**
@@ -2009,59 +1998,137 @@ class ContactsScreen {
 
 const contactsScreen = new ContactsScreen();
 
-function getLiberdusWalletAsset() {
-  return myData?.wallet?.assets?.find((asset) => isLibAsset(asset))
-    || myData?.wallet?.assets?.[0]
-    || null;
-}
-
-function rebuildConnectedWalletCatalog() {
-  connectedWalletCatalog = createWalletNetworkCatalog({
-    liberdusAsset: getLiberdusWalletAsset(),
-    portfolio: connectedWalletPortfolio,
-  });
-  return connectedWalletCatalog;
-}
-
-function getConnectedWalletCatalog() {
-  return rebuildConnectedWalletCatalog();
-}
-
-function getWalletProbeBaseUrl() {
-  const configured = typeof window.LIBERDUS_WALLET_PROBE_BASE_URL === 'string'
-    ? window.LIBERDUS_WALLET_PROBE_BASE_URL.trim()
-    : '';
-  return (configured || 'http://127.0.0.1:8788').replace(/\/+$/, '');
-}
-
-async function refreshConnectedWalletPortfolio({ force = false } = {}) {
-  if (!myAccount?.keys?.address) {
-    return getConnectedWalletCatalog();
+class WalletDiscoveryService {
+  constructor({ cacheTtlMs = 5000, requestTimeoutMs = 15000 } = {}) {
+    this.cacheTtlMs = cacheTtlMs;
+    this.requestTimeoutMs = requestTimeoutMs;
+    this.requestController = null;
+    this.reset();
   }
 
-  const address = walletProbeAddress(myAccount.keys.address);
-  if (connectedWalletProbeAddress !== address) {
-    connectedWalletPortfolio = null;
-    connectedWalletProbeStatus = 'idle';
-    connectedWalletProbeTimestamp = 0;
-    connectedWalletProbeAddress = address;
+  reset() {
+    this.requestController?.abort();
+    this.portfolio = null;
+    this.catalog = createWalletNetworkCatalog();
+    this.status = 'idle';
+    this.updatedAt = 0;
+    this.pendingRequest = null;
+    this.address = null;
+    this.requestController = null;
   }
 
-  const now = Date.now();
-  if (!force && connectedWalletProbeTimestamp && now - connectedWalletProbeTimestamp < 5000) {
-    return getConnectedWalletCatalog();
-  }
-  if (connectedWalletProbePromise) {
-    return connectedWalletProbePromise;
+  getLiberdusAsset() {
+    return myData?.wallet?.assets?.find((asset) => isLibAsset(asset))
+      || myData?.wallet?.assets?.[0]
+      || null;
   }
 
-  connectedWalletProbeStatus = 'loading';
-  connectedWalletProbePromise = (async () => {
+  rebuildCatalog() {
+    this.catalog = createWalletNetworkCatalog({
+      liberdusAsset: this.getLiberdusAsset(),
+      portfolio: this.portfolio,
+    });
+    return this.catalog;
+  }
+
+  getCatalog() {
+    return this.rebuildCatalog();
+  }
+
+  getEvmCatalog() {
+    return getEvmWalletNetworks(this.getCatalog());
+  }
+
+  getTotalUsd({ evmOnly = false } = {}) {
+    const catalog = evmOnly ? this.getEvmCatalog() : this.getCatalog();
+    return calculateCatalogTotalUsd(catalog);
+  }
+
+  getStatus() {
+    return this.status;
+  }
+
+  getUpdatedAt() {
+    return this.updatedAt;
+  }
+
+  getNetwork(networkId) {
+    return getWalletNetwork(this.getCatalog(), networkId);
+  }
+
+  getSelectedAsset(networkId, select) {
+    const walletNetwork = this.getNetwork(networkId);
+    if (!walletNetwork) return null;
+    return walletNetwork.assets.find((asset) => asset.key === select?.value)
+      || walletNetwork.assets[0]
+      || null;
+  }
+
+  findAsset(networkId, assetKey, { evmOnly = false } = {}) {
+    const catalog = evmOnly ? this.getEvmCatalog() : this.getCatalog();
+    const walletNetwork = catalog.find((network) => network.id === networkId) || null;
+    const asset = walletNetwork?.assets.find((entry) => entry.key === assetKey) || null;
+    return { walletNetwork, asset };
+  }
+
+  getProbeBaseUrl() {
+    const configured = typeof window.LIBERDUS_WALLET_PROBE_BASE_URL === 'string'
+      ? window.LIBERDUS_WALLET_PROBE_BASE_URL.trim()
+      : '';
+    return (configured || 'http://127.0.0.1:8788').replace(/\/+$/, '');
+  }
+
+  activateAddress(address) {
+    if (this.address === address) return;
+    this.requestController?.abort();
+    this.portfolio = null;
+    this.catalog = createWalletNetworkCatalog();
+    this.status = 'idle';
+    this.updatedAt = 0;
+    this.pendingRequest = null;
+    this.address = address;
+    this.requestController = null;
+  }
+
+  async refresh({ force = false } = {}) {
+    if (!myAccount?.keys?.address) {
+      return this.getCatalog();
+    }
+
+    const address = walletProbeAddress(myAccount.keys.address);
+    this.activateAddress(address);
+
+    const now = Date.now();
+    if (!force && this.updatedAt && now - this.updatedAt < this.cacheTtlMs) {
+      return this.getCatalog();
+    }
+    if (this.pendingRequest) {
+      return this.pendingRequest;
+    }
+
+    this.status = 'loading';
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    this.requestController = controller;
+    const request = this.fetchPortfolio(address, controller);
+    this.pendingRequest = request;
+
+    try {
+      return await request;
+    } finally {
+      if (this.pendingRequest === request) {
+        this.pendingRequest = null;
+      }
+      if (this.requestController === controller) {
+        this.requestController = null;
+      }
+    }
+  }
+
+  async fetchPortfolio(address, controller) {
+    const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMs);
     try {
       const response = await fetch(
-        `${getWalletProbeBaseUrl()}/?wallet=${encodeURIComponent(address)}`,
+        `${this.getProbeBaseUrl()}/?wallet=${encodeURIComponent(address)}`,
         {
           headers: { accept: 'application/json' },
           cache: 'no-store',
@@ -2076,98 +2143,86 @@ async function refreshConnectedWalletPortfolio({ force = false } = {}) {
       if (!portfolio || !Array.isArray(portfolio.chains) || !Array.isArray(portfolio.tokens)) {
         throw new TypeError('Wallet network service returned an invalid portfolio');
       }
-      if (connectedWalletProbeAddress !== address) {
-        return rebuildConnectedWalletCatalog();
+      if (this.address !== address) {
+        return this.rebuildCatalog();
       }
 
-      connectedWalletPortfolio = portfolio;
-      connectedWalletProbeStatus = portfolio.complete ? 'connected' : 'partial';
-      connectedWalletProbeTimestamp = Date.now();
-      return rebuildConnectedWalletCatalog();
+      this.portfolio = portfolio;
+      this.status = portfolio.complete ? 'connected' : 'partial';
+      this.updatedAt = Date.now();
+      return this.rebuildCatalog();
     } catch (error) {
-      connectedWalletProbeStatus = 'unavailable';
-      console.warn('Connected wallet network discovery unavailable:', error);
-      return rebuildConnectedWalletCatalog();
+      if (this.address === address) {
+        this.status = 'unavailable';
+        console.warn('Connected wallet network discovery unavailable:', error);
+      }
+      return this.rebuildCatalog();
     } finally {
       clearTimeout(timeout);
-      connectedWalletProbePromise = null;
     }
-  })();
+  }
 
-  return connectedWalletProbePromise;
+  populateNetworkSelect(select, { includeAll = false, selectedId = null, evmOnly = false } = {}) {
+    if (!select) return;
+
+    const previousValue = selectedId || select.value;
+    const catalog = evmOnly ? this.getEvmCatalog() : this.getCatalog();
+    const fragment = document.createDocumentFragment();
+    if (includeAll) {
+      const allOption = document.createElement('option');
+      allOption.value = 'all';
+      allOption.textContent = 'All connected networks';
+      fragment.appendChild(allOption);
+    }
+
+    for (const walletNetwork of catalog) {
+      const option = document.createElement('option');
+      option.value = walletNetwork.id;
+      option.textContent = `${walletNetwork.name} (${walletNetwork.shortName})`;
+      fragment.appendChild(option);
+    }
+
+    select.replaceChildren(fragment);
+    const availableValues = new Set([...select.options].map((option) => option.value));
+    select.value = availableValues.has(previousValue)
+      ? previousValue
+      : (includeAll ? 'all' : (evmOnly ? (catalog[0]?.id || '') : 'liberdus'));
+  }
+
+  populateAssetSelect(select, networkId) {
+    if (!select) return;
+    const walletNetwork = this.getNetwork(networkId);
+    if (!walletNetwork) return;
+
+    const fragment = document.createDocumentFragment();
+    for (const asset of walletNetwork.assets) {
+      const option = document.createElement('option');
+      option.value = asset.key;
+      option.textContent = `${asset.tokenName} (${asset.tokenSymbol})`;
+      fragment.appendChild(option);
+    }
+    select.replaceChildren(fragment);
+  }
+
+  getConnectionText() {
+    const connectedNetworks = this.getEvmCatalog().filter((walletNetwork) => walletNetwork.connected);
+    if (this.status === 'loading') {
+      return 'Connecting wallet networks…';
+    }
+    if (this.status === 'unavailable') {
+      return 'Wallet network service unavailable';
+    }
+    if (this.status === 'partial') {
+      return `${connectedNetworks.length} EVM networks connected with warnings`;
+    }
+    if (this.status === 'connected') {
+      return `${connectedNetworks.length} EVM networks connected`;
+    }
+    return 'Liberdus connected';
+  }
 }
 
-function getConnectedEvmCatalog() {
-  return getEvmWalletNetworks(getConnectedWalletCatalog());
-}
-
-function populateWalletNetworkSelect(select, { includeAll = false, selectedId = null, evmOnly = false } = {}) {
-  if (!select) return;
-
-  const previousValue = selectedId || select.value;
-  const catalog = evmOnly ? getConnectedEvmCatalog() : getConnectedWalletCatalog();
-  const fragment = document.createDocumentFragment();
-  if (includeAll) {
-    const allOption = document.createElement('option');
-    allOption.value = 'all';
-    allOption.textContent = 'All connected networks';
-    fragment.appendChild(allOption);
-  }
-
-  for (const walletNetwork of catalog) {
-    const option = document.createElement('option');
-    option.value = walletNetwork.id;
-    option.textContent = `${walletNetwork.name} (${walletNetwork.shortName})`;
-    fragment.appendChild(option);
-  }
-
-  select.replaceChildren(fragment);
-  const availableValues = new Set([...select.options].map((option) => option.value));
-  select.value = availableValues.has(previousValue)
-    ? previousValue
-    : (includeAll ? 'all' : (evmOnly ? (catalog[0]?.id || '') : 'liberdus'));
-}
-
-function populateWalletAssetSelect(select, networkId) {
-  const walletNetwork = getWalletNetwork(getConnectedWalletCatalog(), networkId);
-  if (!select || !walletNetwork) return;
-
-  const fragment = document.createDocumentFragment();
-  for (const asset of walletNetwork.assets) {
-    const option = document.createElement('option');
-    option.value = asset.key;
-    option.textContent = `${asset.tokenName} (${asset.tokenSymbol})`;
-    fragment.appendChild(option);
-  }
-  select.replaceChildren(fragment);
-}
-
-function getSelectedWalletAsset(networkId, select) {
-  const walletNetwork = getWalletNetwork(getConnectedWalletCatalog(), networkId);
-  if (!walletNetwork) return null;
-  return walletNetwork.assets.find((asset) => asset.key === select?.value)
-    || walletNetwork.assets[0]
-    || null;
-}
-
-function walletNetworkConnectionText() {
-  const evmNetworks = getConnectedWalletCatalog().filter(
-    (walletNetwork) => walletNetwork.source === 'evm' && walletNetwork.connected,
-  );
-  if (connectedWalletProbeStatus === 'loading') {
-    return 'Connecting wallet networks…';
-  }
-  if (connectedWalletProbeStatus === 'unavailable') {
-    return 'Wallet network service unavailable';
-  }
-  if (connectedWalletProbeStatus === 'partial') {
-    return `${evmNetworks.length} EVM networks connected with warnings`;
-  }
-  if (connectedWalletProbeStatus === 'connected') {
-    return `${evmNetworks.length} EVM networks connected`;
-  }
-  return 'Liberdus connected';
-}
+const walletDiscovery = new WalletDiscoveryService();
 
 function formatConnectedTokenAmount(value) {
   const amount = Number(value);
@@ -2551,19 +2606,18 @@ class AssetsModal {
   async update({ force = false } = {}) {
     this.connectionSummary.textContent = 'Connecting wallet networks…';
     this.connectionSummary.dataset.status = 'loading';
-    await refreshConnectedWalletPortfolio({ force });
+    await walletDiscovery.refresh({ force });
 
-    const catalog = getConnectedEvmCatalog();
-    const totalUsd = calculateCatalogTotalUsd(catalog);
+    const totalUsd = walletDiscovery.getTotalUsd({ evmOnly: true });
     this.totalBalance.textContent = totalUsd === null ? 'N/A' : totalUsd.toFixed(2);
-    populateWalletNetworkSelect(this.networkSelect, { includeAll: true, evmOnly: true });
-    this.connectionSummary.textContent = walletNetworkConnectionText();
-    this.connectionSummary.dataset.status = connectedWalletProbeStatus;
+    walletDiscovery.populateNetworkSelect(this.networkSelect, { includeAll: true, evmOnly: true });
+    this.connectionSummary.textContent = walletDiscovery.getConnectionText();
+    this.connectionSummary.dataset.status = walletDiscovery.getStatus();
     this.render();
   }
 
   render() {
-    const catalog = getConnectedEvmCatalog();
+    const catalog = walletDiscovery.getEvmCatalog();
     const selectedNetworkId = this.networkSelect?.value || 'all';
     const visibleNetworks = selectedNetworkId === 'all'
       ? catalog
@@ -2685,9 +2739,7 @@ class AssetDetailsModal {
   }
 
   getSelection() {
-    const walletNetwork = getConnectedEvmCatalog().find((entry) => entry.id === this.networkId);
-    const asset = walletNetwork?.assets.find((entry) => entry.key === this.assetKey);
-    return { walletNetwork, asset };
+    return walletDiscovery.findAsset(this.networkId, this.assetKey, { evmOnly: true });
   }
 
   open(networkId, assetKey) {
@@ -2714,7 +2766,7 @@ class AssetDetailsModal {
     this.title.textContent = asset.tokenSymbol;
     this.symbol.textContent = asset.tokenName;
     this.price.textContent = priceText;
-    this.updated.textContent = formatAssetDetailsUpdatedAt(connectedWalletProbeTimestamp);
+    this.updated.textContent = formatAssetDetailsUpdatedAt(walletDiscovery.getUpdatedAt());
     this.logo.innerHTML = connectedAssetLogoMarkup(asset, walletNetwork);
     this.name.textContent = asset.tokenName;
     this.balanceSymbol.textContent = asset.tokenSymbol;
@@ -29946,15 +29998,15 @@ class SendAssetFormModal {
     }
 
     if (this.mode === 'evm') {
-      await refreshConnectedWalletPortfolio();
-      populateWalletNetworkSelect(this.networkSelect, {
+      await walletDiscovery.refresh();
+      walletDiscovery.populateNetworkSelect(this.networkSelect, {
         selectedId: networkId || 'ethereum',
         evmOnly: true,
       });
     } else {
       await walletScreen.updateWalletBalances();
-      rebuildConnectedWalletCatalog();
-      populateWalletNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
+      walletDiscovery.rebuildCatalog();
+      walletDiscovery.populateNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
     }
     await this.handleNetworkChange({ resetRecipient: false });
     if (assetKey && [...this.assetSelectDropdown.options].some((option) => option.value === assetKey)) {
@@ -29964,11 +30016,11 @@ class SendAssetFormModal {
   }
 
   getSelectedNetwork() {
-    return getWalletNetwork(getConnectedWalletCatalog(), this.networkSelect.value);
+    return walletDiscovery.getNetwork(this.networkSelect.value);
   }
 
   getSelectedAsset() {
-    return getSelectedWalletAsset(this.networkSelect.value, this.assetSelectDropdown);
+    return walletDiscovery.getSelectedAsset(this.networkSelect.value, this.assetSelectDropdown);
   }
 
   isLiberdusSelected() {
@@ -29977,7 +30029,7 @@ class SendAssetFormModal {
 
   async handleNetworkChange({ resetRecipient = true } = {}) {
     const walletNetwork = this.getSelectedNetwork();
-    populateWalletAssetSelect(this.assetSelectDropdown, walletNetwork?.id || 'liberdus');
+    walletDiscovery.populateAssetSelect(this.assetSelectDropdown, walletNetwork?.id || 'liberdus');
 
     if (resetRecipient) {
       this.usernameInput.value = '';
@@ -31135,14 +31187,14 @@ class ReceiveModal {
     this.memoInput.value = '';
 
     if (this.mode === 'evm') {
-      await refreshConnectedWalletPortfolio();
-      populateWalletNetworkSelect(this.networkSelect, {
+      await walletDiscovery.refresh();
+      walletDiscovery.populateNetworkSelect(this.networkSelect, {
         selectedId: networkId || 'ethereum',
         evmOnly: true,
       });
     } else {
-      rebuildConnectedWalletCatalog();
-      populateWalletNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
+      walletDiscovery.rebuildCatalog();
+      walletDiscovery.populateNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
     }
     await this.handleNetworkChange();
     if (assetKey && [...this.assetSelect.options].some((option) => option.value === assetKey)) {
@@ -31156,16 +31208,16 @@ class ReceiveModal {
   }
 
   getSelectedNetwork() {
-    return getWalletNetwork(getConnectedWalletCatalog(), this.networkSelect.value);
+    return walletDiscovery.getNetwork(this.networkSelect.value);
   }
 
   getSelectedAsset() {
-    return getSelectedWalletAsset(this.networkSelect.value, this.assetSelect);
+    return walletDiscovery.getSelectedAsset(this.networkSelect.value, this.assetSelect);
   }
 
   async handleNetworkChange() {
     const walletNetwork = this.getSelectedNetwork();
-    populateWalletAssetSelect(this.assetSelect, walletNetwork?.id || 'liberdus');
+    walletDiscovery.populateAssetSelect(this.assetSelect, walletNetwork?.id || 'liberdus');
     this.networkStatus.textContent = walletNetwork?.source === 'evm'
       ? `Receive on ${walletNetwork.name} using this account's shared EVM address.`
       : 'Receive Liberdus using your account address.';
