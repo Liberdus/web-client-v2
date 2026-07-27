@@ -2481,10 +2481,6 @@ input[type='file'].form-control::file-selector-button {
   width: 100%;
 }
 
-#proposalInfoModal .proposal-change-row {
-  flex: 0 1 100%;
-}
-
 #confirmProposalModal .dao-confirm-change-values,
 #proposalInfoModal .proposal-change-values {
   align-items: center;
@@ -2691,15 +2687,12 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-payload {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: 8px;
-  justify-content: center;
 }
 
 #proposalInfoModal .proposal-payload-title {
   color: var(--text-color);
-  flex: 0 0 100%;
   font-size: 13px;
   line-height: 1.3;
   text-align: center;
