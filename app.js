@@ -5587,6 +5587,9 @@ class ProposalInfoModal {
       }
     }
 
+    const decision = this.formatCommitteeChoice(this.committeeChoice);
+    if (!window.confirm(`Submit review decision: ${decision}?`)) return;
+
     this.setSubmitting(true);
     const loadingToastId = showToast('Submitting committee review...', 0, 'loading');
 
@@ -5767,6 +5770,8 @@ class ProposalInfoModal {
       this.updateVotePreview(proposal);
       return;
     }
+
+    if (!window.confirm(`Submit this vote and spend ${formatDaoLibWei(submission.spendWei)}?`)) return;
 
     this.setSubmitting(true);
     const loadingToastId = showToast('Submitting vote...', 0, 'loading');
