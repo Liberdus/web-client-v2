@@ -154,7 +154,7 @@ import {
   getEvmWalletNetworks,
   getWalletNetwork,
   walletProbeAddress,
-} from './wallet-networks.js?v=1455-4';
+} from './wallet-networks.js?v=1455-5';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
