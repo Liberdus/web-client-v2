@@ -5764,14 +5764,21 @@ class ProposalInfoModal {
       return;
     }
 
-    const submission = this.getVoteSubmission(proposal);
+    let submission = this.getVoteSubmission(proposal);
     if (!submission.ok) {
       showToast(submission.message, 3000, 'warning');
       this.updateVotePreview(proposal);
       return;
     }
 
-    if (!window.confirm(`Submit this vote and spend ${formatDaoLibWei(submission.spendWei)}?`)) return;
+    if (!window.confirm(`Submit this vote and spend ${EthNum.toStr(submission.spendWei)} LIB?`)) return;
+
+    submission = this.getVoteSubmission(proposal);
+    if (!submission.ok) {
+      showToast(submission.message, 3000, 'warning');
+      this.updateVotePreview(proposal);
+      return;
+    }
 
     this.setSubmitting(true);
     const loadingToastId = showToast('Submitting vote...', 0, 'loading');
