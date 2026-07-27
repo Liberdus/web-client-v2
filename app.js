@@ -2616,7 +2616,9 @@ class DaoModal {
     // proposal state. Failed and timed-out actions can safely release the UI.
     if (didRefreshDaoData || outcome !== 'success') {
       if (this.isActive()) this.render();
-      proposalInfoModal.refreshIfOpen(pendingTxInfo.proposalStoreId);
+      proposalInfoModal.refreshIfOpen(pendingTxInfo.proposalStoreId, {
+        resetVoteForm: outcome === 'success' && pendingTxInfo.type === DAO_ACTION_TYPES.VOTE,
+      });
     }
 
     if (outcome === 'success' && pendingTxInfo.type === DAO_ACTION_TYPES.APPLY_PARAMETERS) {
@@ -5823,11 +5825,12 @@ class ProposalInfoModal {
     enterFullscreen();
   }
 
-  refreshIfOpen(proposalId) {
+  refreshIfOpen(proposalId, { resetVoteForm = false } = {}) {
     if (!this.modal.classList.contains('active') || this._currentProposalId !== proposalId) return;
 
     const proposal = this.getCurrentProposal();
     if (proposal) {
+      if (resetVoteForm) this.resetVoteState(proposal);
       this.renderProposal(proposal);
     } else {
       this.renderNotFound();
