@@ -5590,6 +5590,7 @@ class ProposalInfoModal {
     const reviewWindow = getDaoProposalReviewWindow(proposal);
     if (!reviewWindow.canCommitteeVote) {
       showToast(reviewWindow.label, 2500, 'warning');
+      this.renderProposal(proposal);
       return;
     }
 
@@ -5773,7 +5774,7 @@ class ProposalInfoModal {
     let submission = this.getVoteSubmission(proposal);
     if (!submission.ok) {
       showToast(submission.message, 3000, 'warning');
-      this.updateVotePreview(proposal);
+      this.refreshVoteValidationUi(proposal);
       return;
     }
 
@@ -5782,7 +5783,7 @@ class ProposalInfoModal {
     submission = this.getVoteSubmission(proposal);
     if (!submission.ok) {
       showToast(submission.message, 3000, 'warning');
-      this.updateVotePreview(proposal);
+      this.refreshVoteValidationUi(proposal);
       return;
     }
 
@@ -5815,6 +5816,15 @@ class ProposalInfoModal {
       if (loadingToastId) hideToast(loadingToastId);
       this.setSubmitting(false);
     }
+  }
+
+  refreshVoteValidationUi(proposal) {
+    const votingWindow = getDaoProposalVotingWindow(proposal);
+    if (votingWindow.canPreviewVote) {
+      this.updateVotePreview(proposal);
+      return;
+    }
+    this.renderProposal(proposal);
   }
 
   close() {
