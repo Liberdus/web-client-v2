@@ -4196,31 +4196,29 @@ input[type='file'].form-control::file-selector-button {
 
 /* Send icon (up chevron) */
 #openSendAssetFormModal .action-icon,
-#assetsOpenSend .action-icon {
+#assetDetailsSend .action-icon {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='18 15 12 9 6 15'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
 /* Receive icon (down chevron) */
 #openReceiveModal .action-icon,
-#assetsOpenReceive .action-icon {
+#assetDetailsReceive .action-icon {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
 /* History icon (clock) */
 #openHistoryModal .action-icon,
-#assetsOpenHistory .action-icon {
+#assetDetailsHistory .action-icon {
   background-image: var(--icon-clock);
 }
 
 /* Buy icon (shopping cart) */
-#openBuyButton .action-icon,
-#assetsOpenBuy .action-icon {
+#openBuyButton .action-icon {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='21' r='1'%3E%3C/circle%3E%3Ccircle cx='20' cy='21' r='1'%3E%3C/circle%3E%3Cpath d='M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6'%3E%3C/path%3E%3C/svg%3E");
 }
 
 /* Sell icon (dollar sign) */
-#openSellButton .action-icon,
-#assetsOpenSell .action-icon {
+#openSellButton .action-icon {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='1' x2='12' y2='23'%3E%3C/line%3E%3Cpath d='M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'%3E%3C/path%3E%3C/svg%3E");
 }
 
@@ -4231,10 +4229,6 @@ input[type='file'].form-control::file-selector-button {
 
 /* Bridge icon when on mainnet (same as menu bridge icon) */
 #openFaucetBridgeButton.bridge-mode .action-icon {
-  background-image: var(--icon-bridge);
-}
-
-#assetsOpenBridge .action-icon {
   background-image: var(--icon-bridge);
 }
 
@@ -4355,6 +4349,138 @@ input[type='file'].form-control::file-selector-button {
 
 .connected-asset-item .asset-balance {
   max-width: 46%;
+  overflow-wrap: anywhere;
+}
+
+.connected-asset-button {
+  width: 100%;
+  border: 0;
+  background: var(--background-color);
+  color: inherit;
+  cursor: pointer;
+  font-family: var(--font-primary);
+  text-align: left;
+  transition: background-color 0.2s ease;
+}
+
+.connected-asset-button:hover,
+.connected-asset-button:focus-visible {
+  background: var(--hover-background-purple);
+}
+
+.connected-asset-button:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
+}
+
+.asset-details-content {
+  padding: 0 1rem 2rem;
+  text-align: left;
+}
+
+.asset-detail-hero {
+  padding: 1rem 0 1.25rem;
+}
+
+.asset-detail-symbol {
+  color: var(--secondary-text-color);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: 0.5rem;
+}
+
+.asset-detail-price {
+  color: var(--text-color);
+  font-size: var(--font-size-xxl);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.1;
+}
+
+.asset-detail-updated {
+  color: var(--secondary-text-color);
+  font-size: var(--font-size-sm);
+  margin-top: 0.75rem;
+}
+
+.asset-detail-actions {
+  flex-wrap: nowrap;
+  padding: 0 0 1.25rem;
+}
+
+.asset-detail-actions .wallet-action-button {
+  min-width: 0;
+}
+
+.asset-detail-section {
+  border-top: 1px solid var(--border-color);
+  padding: 1.25rem 0;
+}
+
+.asset-detail-section h2 {
+  color: var(--text-color);
+  font-size: var(--font-size-lg);
+  margin-bottom: 1rem;
+}
+
+.asset-detail-balance-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.asset-detail-balance-card .asset-logo {
+  flex: 0 0 40px;
+  margin-right: 0;
+}
+
+.asset-detail-balance-name,
+.asset-detail-balance-values {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.asset-detail-balance-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.asset-detail-balance-values {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.asset-detail-balance-name span,
+.asset-detail-balance-values span {
+  color: var(--secondary-text-color);
+  font-size: var(--font-size-sm);
+}
+
+.asset-detail-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.asset-detail-list > div {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.asset-detail-list dt {
+  color: var(--secondary-text-color);
+  flex: 0 0 auto;
+}
+
+.asset-detail-list dd {
+  color: var(--text-color);
+  font-weight: var(--font-weight-medium);
+  max-width: 62%;
+  text-align: right;
+}
+
+.asset-detail-address-row dd {
   overflow-wrap: anywhere;
 }
 

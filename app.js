@@ -154,7 +154,7 @@ import {
   getEvmWalletNetworks,
   getWalletNetwork,
   walletProbeAddress,
-} from './wallet-networks.js?v=1455-5';
+} from './wallet-networks.js?v=1455-8';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
@@ -749,6 +749,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Connected EVM Assets Modal
   assetsModal.load();
+  assetDetailsModal.load();
 
   // About and Contact Modals
   sourceModal.load();
@@ -2516,6 +2517,11 @@ class AssetsModal {
 
     document.getElementById('closeAssetsModal').addEventListener('click', () => this.close());
     this.networkSelect.addEventListener('change', () => this.render());
+    this.assetsList.addEventListener('click', (event) => {
+      const assetButton = event.target.closest('.connected-asset-button');
+      if (!assetButton) return;
+      assetDetailsModal.open(assetButton.dataset.networkId, assetButton.dataset.assetKey);
+    });
     this.refreshButton.addEventListener('click', withButtonCooldown(
       this.refreshButton,
       BUTTON_COOLDOWN_MS,
@@ -2527,22 +2533,6 @@ class AssetsModal {
       },
     ));
 
-    document.getElementById('assetsOpenSend').addEventListener('click', () => {
-      sendAssetFormModal.open({ mode: 'evm' });
-    });
-    document.getElementById('assetsOpenReceive').addEventListener('click', () => {
-      receiveModal.open({ mode: 'evm' });
-    });
-    document.getElementById('assetsOpenHistory').addEventListener('click', () => {
-      showToast('EVM transaction history will be available with sending in Phase 2.', 3000, 'info');
-    });
-    document.getElementById('assetsOpenBuy').addEventListener('click', () => {
-      window.open('https://liberdus.com/buy', '_blank');
-    });
-    document.getElementById('assetsOpenSell').addEventListener('click', () => {
-      window.open('https://liberdus.com/sell', '_blank');
-    });
-    document.getElementById('assetsOpenBridge').addEventListener('click', () => bridgeModal.open());
   }
 
   async open() {
@@ -2602,7 +2592,13 @@ class AssetsModal {
           </span>
         </div>
         ${walletNetwork.assets.map((asset) => `
-          <div class="asset-item connected-asset-item">
+          <button
+            type="button"
+            class="asset-item connected-asset-item connected-asset-button"
+            data-network-id="${escapeHtml(walletNetwork.id)}"
+            data-asset-key="${escapeHtml(asset.key)}"
+            aria-label="View ${escapeHtml(asset.tokenName)} details"
+          >
             <div class="asset-logo connected-asset-logo">
               ${connectedAssetLogoMarkup(asset, walletNetwork)}
             </div>
@@ -2617,7 +2613,7 @@ class AssetsModal {
               <br>
               <span class="asset-symbol">${escapeHtml(formatConnectedUsd(asset.tokenValueUsd))}</span>
             </div>
-          </div>
+          </button>
         `).join('')}
       </section>
     `).join('');
@@ -2625,6 +2621,126 @@ class AssetsModal {
 }
 
 const assetsModal = new AssetsModal();
+
+function formatAssetDetailsUpdatedAt(timestamp) {
+  if (!timestamp) return 'Updated just now';
+  return `Updated ${new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(timestamp))}`;
+}
+
+function formatConnectedTokenType(asset) {
+  const type = String(asset?.tokenType || '').toLowerCase();
+  if (type === 'native') return 'Native asset';
+  if (type === 'erc20') return 'ERC-20';
+  return type ? type.toUpperCase() : 'Token';
+}
+
+class AssetDetailsModal {
+  constructor() {
+    this.networkId = null;
+    this.assetKey = null;
+  }
+
+  load() {
+    this.modal = document.getElementById('assetDetailsModal');
+    this.title = document.getElementById('assetDetailsModalTitle');
+    this.symbol = document.getElementById('assetDetailsSymbol');
+    this.price = document.getElementById('assetDetailsPrice');
+    this.updated = document.getElementById('assetDetailsUpdated');
+    this.logo = document.getElementById('assetDetailsLogo');
+    this.name = document.getElementById('assetDetailsName');
+    this.balanceSymbol = document.getElementById('assetDetailsBalanceSymbol');
+    this.value = document.getElementById('assetDetailsValue');
+    this.amount = document.getElementById('assetDetailsAmount');
+    this.network = document.getElementById('assetDetailsNetwork');
+    this.chainId = document.getElementById('assetDetailsChainId');
+    this.type = document.getElementById('assetDetailsType');
+    this.decimals = document.getElementById('assetDetailsDecimals');
+    this.contract = document.getElementById('assetDetailsContract');
+    this.marketPrice = document.getElementById('assetDetailsMarketPrice');
+    this.holdingValue = document.getElementById('assetDetailsHoldingValue');
+
+    document.getElementById('closeAssetDetailsModal').addEventListener('click', () => this.close());
+    document.getElementById('assetDetailsSend').addEventListener('click', () => {
+      sendAssetFormModal.open({
+        mode: 'evm',
+        networkId: this.networkId,
+        assetKey: this.assetKey,
+      });
+    });
+    document.getElementById('assetDetailsReceive').addEventListener('click', () => {
+      receiveModal.open({
+        mode: 'evm',
+        networkId: this.networkId,
+        assetKey: this.assetKey,
+      });
+    });
+    document.getElementById('assetDetailsHistory').addEventListener('click', () => {
+      showToast('EVM transaction history is not available yet.', 3000, 'info');
+    });
+  }
+
+  getSelection() {
+    const walletNetwork = getConnectedEvmCatalog().find((entry) => entry.id === this.networkId);
+    const asset = walletNetwork?.assets.find((entry) => entry.key === this.assetKey);
+    return { walletNetwork, asset };
+  }
+
+  open(networkId, assetKey) {
+    this.networkId = networkId;
+    this.assetKey = assetKey;
+    const { walletNetwork, asset } = this.getSelection();
+    if (!walletNetwork || !asset) {
+      showToast('This asset is no longer available. Refresh and try again.', 3000, 'warning');
+      return;
+    }
+
+    this.render(walletNetwork, asset);
+    this.modal.querySelector('.modal-content').scrollTop = 0;
+    this.modal.classList.add('active');
+  }
+
+  render(walletNetwork, asset) {
+    const priceText = asset.tokenPriceUsd === null
+      ? 'Price unavailable'
+      : formatConnectedUsd(asset.tokenPriceUsd);
+    const valueText = formatConnectedUsd(asset.tokenValueUsd);
+    const amountText = `${formatConnectedTokenAmount(asset.tokenAmount)} ${asset.tokenSymbol}`;
+
+    this.title.textContent = asset.tokenSymbol;
+    this.symbol.textContent = asset.tokenName;
+    this.price.textContent = priceText;
+    this.updated.textContent = formatAssetDetailsUpdatedAt(connectedWalletProbeTimestamp);
+    this.logo.innerHTML = connectedAssetLogoMarkup(asset, walletNetwork);
+    this.name.textContent = asset.tokenName;
+    this.balanceSymbol.textContent = asset.tokenSymbol;
+    this.value.textContent = valueText;
+    this.amount.textContent = amountText;
+    this.network.textContent = walletNetwork.name;
+    this.chainId.textContent = walletNetwork.chainId ?? 'Unavailable';
+    this.type.textContent = formatConnectedTokenType(asset);
+    this.decimals.textContent = Number.isInteger(asset.tokenDecimals)
+      ? String(asset.tokenDecimals)
+      : 'Unavailable';
+    this.contract.textContent = asset.contractAddress || 'Native asset — no contract';
+    this.marketPrice.textContent = priceText;
+    this.holdingValue.textContent = valueText;
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+  }
+
+  isActive() {
+    return this.modal.classList.contains('active');
+  }
+}
+
+const assetDetailsModal = new AssetDetailsModal();
 
 class MenuModal {
   constructor() {
@@ -29801,7 +29917,7 @@ class SendAssetFormModal {
    * Opens the send asset modal
    * @returns {Promise<void>}
    */
-  async open({ mode = 'liberdus' } = {}) {
+  async open({ mode = 'liberdus', networkId = null, assetKey = null } = {}) {
     this.mode = mode;
     this.networkGroup.hidden = mode !== 'evm';
     this.modal.classList.add('active');
@@ -29832,7 +29948,7 @@ class SendAssetFormModal {
     if (this.mode === 'evm') {
       await refreshConnectedWalletPortfolio();
       populateWalletNetworkSelect(this.networkSelect, {
-        selectedId: 'ethereum',
+        selectedId: networkId || 'ethereum',
         evmOnly: true,
       });
     } else {
@@ -29841,6 +29957,10 @@ class SendAssetFormModal {
       populateWalletNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
     }
     await this.handleNetworkChange({ resetRecipient: false });
+    if (assetKey && [...this.assetSelectDropdown.options].some((option) => option.value === assetKey)) {
+      this.assetSelectDropdown.value = assetKey;
+      await this.handleAssetChange();
+    }
   }
 
   getSelectedNetwork() {
@@ -31005,7 +31125,7 @@ class ReceiveModal {
     this.toggleReceiveBalanceButton.addEventListener('click', this.handleToggleBalance.bind(this));
   }
 
-  async open({ mode = 'liberdus' } = {}) {
+  async open({ mode = 'liberdus', networkId = null, assetKey = null } = {}) {
     this.mode = mode;
     this.networkGroup.hidden = mode !== 'evm';
     this.modal.classList.add('active');
@@ -31017,7 +31137,7 @@ class ReceiveModal {
     if (this.mode === 'evm') {
       await refreshConnectedWalletPortfolio();
       populateWalletNetworkSelect(this.networkSelect, {
-        selectedId: 'ethereum',
+        selectedId: networkId || 'ethereum',
         evmOnly: true,
       });
     } else {
@@ -31025,6 +31145,10 @@ class ReceiveModal {
       populateWalletNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
     }
     await this.handleNetworkChange();
+    if (assetKey && [...this.assetSelect.options].some((option) => option.value === assetKey)) {
+      this.assetSelect.value = assetKey;
+      await this.handleAssetChange();
+    }
   }
 
   close() {
@@ -35217,6 +35341,9 @@ function closeTopModal(topModal){
       break;
     case 'assetsModal':
       assetsModal.close();
+      break;
+    case 'assetDetailsModal':
+      assetDetailsModal.close();
       break;
     case 'daoModal':
       daoModal.close();

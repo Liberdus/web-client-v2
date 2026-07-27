@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-7" />
+    <link rel="stylesheet" href="./styles.css?v=1455-8" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-5" type="module"></script>
+    <script src="./app.js?v=1455-8" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -331,33 +331,73 @@
               </div>
             </div>
           </div>
-          <div class="wallet-actions">
-            <button class="wallet-action-button" id="assetsOpenSend">
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Connected EVM Asset Details Modal -->
+      <div class="modal fixed-header" id="assetDetailsModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeAssetDetailsModal"></button>
+          <div class="modal-title" id="assetDetailsModalTitle">Asset Details</div>
+        </div>
+        <div class="modal-content asset-details-content">
+          <section class="asset-detail-hero">
+            <div class="asset-detail-symbol" id="assetDetailsSymbol">—</div>
+            <div class="asset-detail-price" id="assetDetailsPrice">Price unavailable</div>
+            <div class="asset-detail-updated" id="assetDetailsUpdated">Updated —</div>
+          </section>
+
+          <div class="wallet-actions asset-detail-actions">
+            <button class="wallet-action-button" id="assetDetailsSend">
               <span class="action-icon"></span>
               <span class="action-label">Send</span>
             </button>
-            <button class="wallet-action-button" id="assetsOpenReceive">
+            <button class="wallet-action-button" id="assetDetailsReceive">
               <span class="action-icon"></span>
               <span class="action-label">Receive</span>
             </button>
-            <button class="wallet-action-button" id="assetsOpenHistory">
+            <button class="wallet-action-button" id="assetDetailsHistory">
               <span class="action-icon"></span>
               <span class="action-label">History</span>
             </button>
-            <div class="wallet-actions-break" hidden></div>
-            <button class="wallet-action-button" id="assetsOpenBuy" hidden>
-              <span class="action-icon"></span>
-              <span class="action-label">Buy</span>
-            </button>
-            <button class="wallet-action-button" id="assetsOpenSell" hidden>
-              <span class="action-icon"></span>
-              <span class="action-label">Sell</span>
-            </button>
-            <button class="wallet-action-button" id="assetsOpenBridge" hidden>
-              <span class="action-icon"></span>
-              <span class="action-label">Bridge</span>
-            </button>
           </div>
+
+          <section class="asset-detail-section">
+            <h2>Your balance</h2>
+            <div class="asset-detail-balance-card">
+              <div class="asset-logo connected-asset-logo" id="assetDetailsLogo"></div>
+              <div class="asset-detail-balance-name">
+                <strong id="assetDetailsName">—</strong>
+                <span id="assetDetailsBalanceSymbol">—</span>
+              </div>
+              <div class="asset-detail-balance-values">
+                <strong id="assetDetailsValue">Value unavailable</strong>
+                <span id="assetDetailsAmount">0</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="asset-detail-section">
+            <h2>Token details</h2>
+            <dl class="asset-detail-list">
+              <div><dt>Network</dt><dd id="assetDetailsNetwork">—</dd></div>
+              <div><dt>Chain ID</dt><dd id="assetDetailsChainId">—</dd></div>
+              <div><dt>Token type</dt><dd id="assetDetailsType">—</dd></div>
+              <div><dt>Decimals</dt><dd id="assetDetailsDecimals">—</dd></div>
+              <div class="asset-detail-address-row"><dt>Contract</dt><dd id="assetDetailsContract">—</dd></div>
+            </dl>
+          </section>
+
+          <section class="asset-detail-section">
+            <h2>Market details</h2>
+            <dl class="asset-detail-list">
+              <div><dt>Token price</dt><dd id="assetDetailsMarketPrice">Price unavailable</dd></div>
+              <div><dt>Your holding value</dt><dd id="assetDetailsHoldingValue">Value unavailable</dd></div>
+              <div><dt>Data source</dt><dd>Multichain RPC</dd></div>
+              <div><dt>Additional market data</dt><dd>Unavailable from RPC</dd></div>
+            </dl>
+          </section>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
