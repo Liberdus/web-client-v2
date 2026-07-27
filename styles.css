@@ -4155,6 +4155,11 @@ input[type='file'].form-control::file-selector-button {
   position: relative; /* Added for notification dot */
 }
 
+.wallet-action-button[hidden],
+.wallet-actions-break[hidden] {
+  display: none !important;
+}
+
 /* Notification indicator for wallet action buttons */
 .wallet-action-button::after {
   content: '';
