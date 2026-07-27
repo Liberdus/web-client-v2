@@ -87,6 +87,7 @@ import {
   DAO_STATES,
   getDaoTransactionMessage,
   getDaoProposalClaimWindow,
+  getDaoProposalTimeline,
   getDaoRewardClaimStatus,
   getDaoStateLabel,
   getDaoTypeForLifecycleKind,
@@ -2685,7 +2686,7 @@ class DaoModal {
     const proposalsActive = daoRepo.getProposalsForUi('active');
     const proposalsArchived = daoRepo.getProposalsForUi('archived');
     const currentAddress = getDaoCurrentAccountAddress();
-    const now = Date.now();
+    const now = getTransactionTimestamp();
     const isClaimableFilter = this.selectedFilterKey === DAO_CLAIMABLE_FILTER.key;
     const groupedProposals = this.selectedGroupKey === 'archived' ? proposalsArchived : proposalsActive;
     const claimableProposals = [...proposalsActive, ...proposalsArchived]
@@ -2829,7 +2830,7 @@ class DaoModal {
         tone: 'neutral',
       });
     } else if (state === 'voting') {
-      const now = Date.now();
+      const now = getTransactionTimestamp();
       const votingWindow = getDaoProposalVotingWindow(proposal, now);
       const endDate = formatDaoDate(votingWindow.end);
       const votingEnded = Boolean(votingWindow.end && now > votingWindow.end);
@@ -3806,10 +3807,9 @@ function getDaoCurrentAccountAddress() {
   return myAccount?.keys?.address ? longAddress(myAccount.keys.address) : '';
 }
 
-function getDaoProposalReviewWindow(proposal) {
-  const start = Number(proposal?.startTime || 0);
-  const duration = Number(proposal?.reviewDuration);
-  if (!start || !Number.isFinite(duration) || duration < 0) {
+function getDaoProposalReviewWindow(proposal, now = getTransactionTimestamp()) {
+  const timeline = getDaoProposalTimeline(proposal);
+  if (!timeline) {
     return {
       start: 0,
       end: 0,
@@ -3819,8 +3819,8 @@ function getDaoProposalReviewWindow(proposal) {
     };
   }
 
-  const end = start + duration;
-  const now = Date.now();
+  const start = timeline.reviewStart;
+  const end = timeline.reviewEnd;
   if (now < start) {
     return {
       start,
@@ -3848,17 +3848,9 @@ function getDaoProposalReviewWindow(proposal) {
   };
 }
 
-function getDaoProposalVotingWindow(proposal, now = Date.now()) {
-  const reviewStart = Number(proposal?.startTime || 0);
-  const reviewDuration = Number(proposal?.reviewDuration);
-  const votingDuration = Number(proposal?.votingDuration);
-  if (
-    !reviewStart ||
-    !Number.isFinite(reviewDuration) ||
-    reviewDuration < 0 ||
-    !Number.isFinite(votingDuration) ||
-    votingDuration < 0
-  ) {
+function getDaoProposalVotingWindow(proposal, now = getTransactionTimestamp()) {
+  const timeline = getDaoProposalTimeline(proposal);
+  if (!timeline) {
     return {
       start: 0,
       end: 0,
@@ -3868,8 +3860,8 @@ function getDaoProposalVotingWindow(proposal, now = Date.now()) {
     };
   }
 
-  const start = reviewStart + reviewDuration;
-  const end = start + votingDuration;
+  const start = timeline.votingStart;
+  const end = timeline.votingEnd;
   if (now < start) {
     return {
       start,
@@ -4074,30 +4066,17 @@ function getDaoVoterEntries(proposal) {
     .filter((entry) => entry.address && Number.isFinite(entry.timestamp) && entry.timestamp > 0);
 }
 
-function getDaoProposalApplyWindow(proposal, now = Date.now()) {
+function getDaoProposalApplyWindow(proposal, now = getTransactionTimestamp()) {
   if (proposal?.emergency) {
     return { eligibleAt: null, isReady: true };
   }
 
-  const backendEligibleAt = Number(proposal?.applyEligibleAt);
-  if (Number.isFinite(backendEligibleAt) && backendEligibleAt > 0) {
-    return { eligibleAt: backendEligibleAt, isReady: now >= backendEligibleAt };
-  }
-
-  const reviewStart = Number(proposal?.startTime || 0);
-  const reviewDuration = Number(proposal?.reviewDuration);
-  const votingDuration = Number(proposal?.votingDuration);
-  const gracePeriod = Number(proposal?.gracePeriod);
-  if (
-    !Number.isFinite(reviewStart) ||
-    !Number.isFinite(reviewDuration) ||
-    !Number.isFinite(votingDuration) ||
-    !Number.isFinite(gracePeriod)
-  ) {
+  const timeline = getDaoProposalTimeline(proposal);
+  if (!timeline) {
     return { eligibleAt: null, isReady: false };
   }
 
-  const eligibleAt = reviewStart + reviewDuration + votingDuration + gracePeriod;
+  const eligibleAt = timeline.applyEligibleAt;
   return { eligibleAt, isReady: now >= eligibleAt };
 }
 
@@ -4125,7 +4104,11 @@ function getDaoApplyParametersLifecycleAction(help, canSubmit, rowPreviewLabel =
   return action;
 }
 
-function getDaoProposalApplyLifecycleAction(proposal, currentAddress = getDaoCurrentAccountAddress(), now = Date.now()) {
+function getDaoProposalApplyLifecycleAction(
+  proposal,
+  currentAddress = getDaoCurrentAccountAddress(),
+  now = getTransactionTimestamp(),
+) {
   if (getEffectiveDaoState(proposal) !== 'accepted') return null;
 
   if (!isDaoParameterProposalType(proposal)) {
@@ -4188,7 +4171,11 @@ function getDaoClaimRewardEstimate({ pool, claimed, voterEntries, voterIndex, vo
   return reward;
 }
 
-function getDaoProposalRewardSummary(proposal, currentAddress = getDaoCurrentAccountAddress(), now = Date.now()) {
+function getDaoProposalRewardSummary(
+  proposal,
+  currentAddress = getDaoCurrentAccountAddress(),
+  now = getTransactionTimestamp(),
+) {
   const state = getEffectiveDaoState(proposal);
   const isRewardState = state === 'accepted' || state === 'rejected' || state === 'applied' || state === 'withheld';
   if (!isRewardState) return null;
@@ -4241,7 +4228,12 @@ function getDaoProposalRewardSummary(proposal, currentAddress = getDaoCurrentAcc
   };
 }
 
-function getDaoProposalLifecycleActions(proposal, rewardSummary, currentAddress = getDaoCurrentAccountAddress(), now = Date.now()) {
+function getDaoProposalLifecycleActions(
+  proposal,
+  rewardSummary,
+  currentAddress = getDaoCurrentAccountAddress(),
+  now = getTransactionTimestamp(),
+) {
   const state = getEffectiveDaoState(proposal);
 
   if (state === 'voting') {
@@ -5154,7 +5146,7 @@ class ProposalInfoModal {
     }
 
     const votingWindow = getDaoProposalVotingWindow(proposal);
-    if (votingWindow.end && Date.now() > votingWindow.end) {
+    if (!votingWindow.canPreviewVote) {
       this.hideVoteActions();
       return;
     }

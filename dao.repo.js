@@ -614,6 +614,40 @@ function normalizeDaoTimestamp(value) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
+// Mirrors the authoritative helpers in Liberdus/server src/accounts/daoProposalAccount.ts.
+export function getDaoProposalTimeline(proposal) {
+  const reviewStart = Number(proposal?.startTime);
+  const reviewDuration = Number(proposal?.reviewDuration);
+  const votingDuration = Number(proposal?.votingDuration);
+  const claimDuration = Number(proposal?.claimDuration);
+  const gracePeriod = Number(proposal?.gracePeriod);
+  const durations = [reviewDuration, votingDuration, claimDuration, gracePeriod];
+  if (reviewStart <= 0 || !Number.isFinite(reviewStart)
+    || durations.some((duration) => duration < 0 || !Number.isFinite(duration))) {
+    return null;
+  }
+
+  const reviewEnd = reviewStart + reviewDuration;
+  const votingStart = Number(proposal?.votingStartedAt ?? reviewEnd);
+  const votingEnd = proposal?.emergency
+    ? votingStart
+    : votingStart + votingDuration;
+  const claimStart = Number(proposal?.votingEndedAt ?? votingEnd);
+  if (votingStart <= 0 || !Number.isFinite(votingStart)
+    || claimStart <= 0 || !Number.isFinite(claimStart)) return null;
+
+  return {
+    reviewStart,
+    reviewEnd,
+    votingStart,
+    votingEnd,
+    claimStart,
+    claimEnd: claimStart + claimDuration,
+    applyEligibleAt: claimStart + gracePeriod,
+    votingDuration,
+  };
+}
+
 export function normalizeDaoAddress(value) {
   const address = String(value || '').trim();
   if (!/^(?:0x)?[0-9a-fA-F]{40}(?:0{24})?$/.test(address)) return '';
@@ -645,30 +679,16 @@ export function parseDaoUnsignedBigInt(value) {
 }
 
 export function getDaoProposalClaimWindow(proposal) {
-  const votingEndedAt = normalizeDaoTimestamp(proposal?.votingEndedAt);
-  const claimDuration = Number(proposal?.claimDuration);
-  if (!votingEndedAt || !Number.isFinite(claimDuration) || claimDuration < 0) {
+  const timeline = getDaoProposalTimeline(proposal);
+  if (!timeline) {
     return { start: null, end: null, votingStart: null, votingDuration: null };
   }
 
-  const votingDurationValue = Number(proposal?.votingDuration);
-  const votingDuration = Number.isFinite(votingDurationValue) && votingDurationValue >= 0
-    ? votingDurationValue
-    : null;
-  let votingStart = normalizeDaoTimestamp(proposal?.votingStartedAt);
-  if (!votingStart) {
-    const reviewStart = Number(proposal?.startTime);
-    const reviewDuration = Number(proposal?.reviewDuration);
-    if (Number.isFinite(reviewStart) && Number.isFinite(reviewDuration)) {
-      votingStart = reviewStart + reviewDuration;
-    }
-  }
-
   return {
-    start: votingEndedAt,
-    end: votingEndedAt + claimDuration,
-    votingStart: votingStart || null,
-    votingDuration,
+    start: timeline.claimStart,
+    end: timeline.claimEnd,
+    votingStart: timeline.votingStart,
+    votingDuration: timeline.votingDuration,
   };
 }
 
@@ -925,7 +945,6 @@ function storeToUiList(store, groupKey) {
         votingDuration: p.votingDuration,
         claimDuration: p.claimDuration,
         gracePeriod: p.gracePeriod,
-        applyEligibleAt: p.applyEligibleAt,
         archivedAt: p.archivedAt || 0,
       };
     })
