@@ -4011,7 +4011,10 @@ function getDaoCommitteeReview(proposal) {
 
   for (const vote of committeeVotes) {
     if (!vote || !committeeAddressSet.has(vote.memberAddress)) continue;
-    assert(vote.vote === 'accept' || vote.vote === 'withhold', `Unknown committee vote: ${vote.vote}`);
+    if (vote.vote !== 'accept' && vote.vote !== 'withhold') {
+      console.warn('Skipping unknown committee vote:', vote.vote);
+      continue;
+    }
     votes.push(vote);
     if (vote.vote === 'accept') {
       acceptCount += 1;
@@ -4637,16 +4640,12 @@ class ProposalInfoModal {
   renderCommitteeReviewStatus(committeeReview, reviewWindow, currentAddress) {
     const { acceptCount, withholdCount } = committeeReview;
     const submittedCount = acceptCount + withholdCount;
-    let winnerTone = '';
-    if (submittedCount > 0 && acceptCount !== withholdCount) {
-      winnerTone = acceptCount > withholdCount ? 'accept' : 'withhold';
-    }
     const rows = this.getCommitteeTallyRows(acceptCount, withholdCount)
       .map((row) => {
         const valueLabel = submittedCount > 0 ? row.shareLabel : row.countLabel;
         return {
           isEmpty: row.count === 0,
-          isWinner: row.tone === winnerTone,
+          isWinner: false,
           label: row.label,
           title: `${row.label}: ${valueLabel}`,
           tone: row.tone,
