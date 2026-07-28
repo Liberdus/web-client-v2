@@ -4475,14 +4475,6 @@ class ProposalInfoModal {
         ['Next state', this.getNextStateHint(proposal, acceptCount, withholdCount, reviewWindow)],
       ])
       : '';
-    const committeeReviewReasons = state === 'review'
-      ? this.renderCommitteeWithholdReasons(
-        getDaoCommitteeWithholdReasonEntries(proposal)
-          .filter((entry) => entry.memberAddress !== currentAddress),
-        'Other committee withhold reasons',
-      )
-      : '';
-
     if (this.content) {
       this.content.innerHTML = [
         this.renderProposalTitle(proposal),
@@ -4491,8 +4483,18 @@ class ProposalInfoModal {
         state === 'voting' ? this.renderCurrentVoteTotals(proposal) : '',
         this.renderProposalResults(resultSummary),
         state === 'review' ? this.renderProposalBody(proposal) : '',
-        committeeReviewSection,
-        committeeReviewReasons,
+        state === 'review'
+          ? this.renderCommitteeReviewStatus({
+            acceptCount,
+            withholdCount,
+            reviewWindow,
+            committeeVotes,
+            committeeAddressSet,
+            currentAddress,
+            currentVote,
+            capabilities,
+          })
+          : '',
       ].filter(Boolean).join('');
     }
     if (this.detailsContent) {
@@ -4501,6 +4503,7 @@ class ProposalInfoModal {
         state,
         reviewWindow,
         rewardSummary,
+        committeeReviewSection,
       });
     }
 
@@ -4632,6 +4635,101 @@ class ProposalInfoModal {
     if (part <= 0n) return 0;
     const units = Number((part * 1000n) / total);
     return Math.max(1, units);
+  }
+
+  renderCommitteeReviewStatus({ acceptCount, withholdCount, reviewWindow, committeeVotes, committeeAddressSet, currentAddress, currentVote, capabilities }) {
+    const submittedCount = acceptCount + withholdCount;
+    const rows = [
+      { option: 'Accept', total: acceptCount, tone: 'accept' },
+      { option: 'Withhold', total: withholdCount, tone: 'withhold' },
+    ];
+    const topCount = Math.max(...rows.map((row) => row.total));
+    const topRows = rows.filter((row) => row.total === topCount);
+    const winnerIndex = submittedCount > 0 && topRows.length === 1 ? rows.indexOf(topRows[0]) : -1;
+    const labels = rows
+      .map((row, index) => {
+        const position = index === 0 ? 'start' : 'end';
+        const isWinner = index === winnerIndex;
+        const percent = this.formatCountPercent(row.total, submittedCount);
+        const valueLabel = submittedCount > 0 ? `${row.total} / ${percent}` : `${row.total} votes`;
+        const title = `${row.option}: ${valueLabel}`;
+
+        return `
+          <div
+            class="proposal-vote-current-label proposal-vote-current-label--${position} proposal-vote-current-label--${row.tone}${isWinner ? ' proposal-vote-current-label--winner' : ''}"
+            title="${escapeDaoFormAttribute(title)}"
+            aria-label="${escapeDaoFormAttribute(title)}"
+          >
+            <span>${escapeHtml(row.option)}</span>
+            <small>${escapeHtml(valueLabel)}</small>
+          </div>
+        `;
+      })
+      .join('');
+
+    const segments = rows
+      .map((row) => {
+        const units = this.getCountResultSegmentUnits(row.total, submittedCount);
+        return `
+          <span
+            class="proposal-vote-current-segment proposal-vote-current-segment--${row.tone}${row.total === 0 ? ' proposal-vote-current-segment--empty' : ''}"
+            style="--vote-total-segment-units: ${units};"
+          ></span>
+        `;
+      })
+      .join('');
+
+    const yourVoteLabel = currentVote
+      ? this.formatCommitteeVote(currentVote)
+      : capabilities.isCommitteeMember ? 'Not submitted' : 'Not a committee member';
+    const yourVoteTone = this.getCommitteeVoteTone(currentVote);
+    const otherVoteRows = committeeVotes
+      .filter((vote) => vote && committeeAddressSet.has(vote.memberAddress) && vote.memberAddress !== currentAddress)
+      .map((vote) => {
+        const tone = this.getCommitteeVoteTone(vote);
+        return `
+          <li class="proposal-committee-vote-row">
+            <span class="proposal-committee-vote-address">${escapeHtml(this.formatCommitteeAddress(vote.memberAddress))}</span>
+            <span class="proposal-committee-vote-choice${tone ? ` proposal-committee-vote-choice--${tone}` : ''}">${escapeHtml(this.formatCommitteeVote(vote))}</span>
+          </li>
+        `;
+      })
+      .join('');
+    const otherVotesHtml = otherVoteRows
+      ? `
+        <div class="proposal-committee-votes">
+          <h4>Other committee votes</h4>
+          <ul class="proposal-committee-vote-list">${otherVoteRows}</ul>
+        </div>
+      `
+      : '';
+
+    return `
+      <section class="proposal-info-section proposal-vote-current-section">
+        <h3>Committee Review</h3>
+        <div class="proposal-vote-current-meter" aria-label="Committee review vote totals">
+          <div class="proposal-vote-current-labels">${labels}</div>
+          <div class="proposal-vote-current-track" aria-hidden="true">${segments}</div>
+        </div>
+        <div class="proposal-vote-status-grid proposal-vote-status-grid--current">
+          <div class="proposal-vote-status-card">
+            <span>Your vote</span>
+            <strong${yourVoteTone ? ` class="proposal-committee-vote-choice--${yourVoteTone}"` : ''}>${escapeHtml(yourVoteLabel)}</strong>
+          </div>
+          <div class="proposal-vote-status-card proposal-vote-status-card--deadline">
+            <span>Review ends</span>
+            <strong>${escapeHtml(formatDaoDetailTimestamp(reviewWindow.end))}</strong>
+          </div>
+        </div>
+        ${otherVotesHtml}
+      </section>
+    `;
+  }
+
+  formatCommitteeAddress(address) {
+    const value = String(address || '');
+    if (value.length <= 16) return value;
+    return `${value.slice(0, 8)}...${value.slice(-6)}`;
   }
 
   renderProposalResults(result) {
@@ -4847,7 +4945,7 @@ class ProposalInfoModal {
     ]);
   }
 
-  renderProposalDetails({ proposal, state, reviewWindow, rewardSummary }) {
+  renderProposalDetails({ proposal, state, reviewWindow, rewardSummary, committeeReviewSection }) {
     const sections = [
       this.renderSection('Overview', [
         ['Number', proposal.number ? `#${proposal.number}` : 'Unavailable'],
@@ -4861,6 +4959,7 @@ class ProposalInfoModal {
         ['Review starts', formatDaoDetailTimestamp(reviewWindow.start)],
         ['Review ends', formatDaoDetailTimestamp(reviewWindow.end)],
       ]),
+      committeeReviewSection || '',
       state === 'voting' ? this.renderVotingDetails(proposal) : '',
       state === 'review' ? '' : this.renderProposalBody(proposal),
       this.renderProposalRewards(rewardSummary),
@@ -4879,6 +4978,7 @@ class ProposalInfoModal {
 
   getProposalDetailsSummary(state, rewardSummary) {
     const parts = ['Overview', 'review timeline'];
+    if (state === 'review') parts.push('committee review');
     if (state !== 'review') parts.push('proposal body');
     if (state === 'voting') parts.push('voting totals');
     if (rewardSummary) parts.push('reward accounting');
