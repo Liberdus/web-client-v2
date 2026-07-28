@@ -4678,21 +4678,68 @@ class ProposalInfoModal {
     `;
   }
 
-  formatCommitteeAddress(address) {
+  getCommitteeMemberDisplayInfo(address, storedUsernamesByAddress) {
     const value = String(address || '');
-    if (value.length <= 16) return value;
-    return `${value.slice(0, 8)}...${value.slice(-6)}`;
+    let normalizedAddress = value;
+    try {
+      normalizedAddress = normalizeAddress(value);
+    } catch {
+      // Keep the original value as a safe display fallback for malformed data.
+    }
+
+    const currentAccountAddress = myAccount?.keys?.address
+      ? normalizeAddress(myAccount.keys.address)
+      : '';
+    const contact = normalizedAddress === currentAccountAddress
+      ? myAccount
+      : myData?.contacts?.[normalizedAddress] || myData?.contacts?.[value];
+    const storedUsername = storedUsernamesByAddress.get(normalizedAddress) || '';
+    const displayContact = {
+      ...contact,
+      username: contact?.username || storedUsername,
+      address: normalizedAddress,
+    };
+    const name = (displayContact.name || displayContact.username)
+      ? getContactDisplayName(displayContact)
+      : 'Unknown';
+    const shortAddress = normalizedAddress.length > 8
+      ? `${normalizedAddress.slice(0, 4)}…${normalizedAddress.slice(-4)}`
+      : normalizedAddress;
+
+    return { name, shortAddress };
+  }
+
+  getStoredUsernamesByAddress() {
+    const { usernames, netidAccounts } = signInModal.getSignInUsernames();
+    const storedUsernamesByAddress = new Map();
+
+    usernames.forEach((username) => {
+      const address = netidAccounts.usernames[username]?.address;
+      try {
+        storedUsernamesByAddress.set(normalizeAddress(address), username);
+      } catch {
+        // Ignore malformed local account records.
+      }
+    });
+
+    return storedUsernamesByAddress;
   }
 
   renderCommitteeVoteListEntries(committeeVotes, committeeAddressSet, currentAddress) {
+    const storedUsernamesByAddress = this.getStoredUsernamesByAddress();
+
     return committeeVotes
       .filter((vote) => vote && committeeAddressSet.has(vote.memberAddress))
       .map((vote) => {
         const tone = this.getCommitteeVoteTone(vote);
         const youLabel = vote.memberAddress === currentAddress ? ' (you)' : '';
+        const member = this.getCommitteeMemberDisplayInfo(vote.memberAddress, storedUsernamesByAddress);
         return `
           <li class="proposal-committee-vote-row">
-            <span class="proposal-committee-vote-address">${escapeHtml(`${this.formatCommitteeAddress(vote.memberAddress)}${youLabel}`)}</span>
+            <span class="proposal-committee-vote-address">
+              <span class="proposal-committee-vote-name">${escapeHtml(`${member.name}${youLabel}`)}</span>
+              <span class="proposal-committee-vote-short-address">${escapeHtml(member.shortAddress)}</span>
+            </span>
             <span class="proposal-committee-vote-choice${tone ? ` proposal-committee-vote-choice--${tone}` : ''}">${escapeHtml(this.formatCommitteeVote(vote))}</span>
           </li>
         `;

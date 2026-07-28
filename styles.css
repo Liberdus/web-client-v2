@@ -2474,11 +2474,20 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-committee-vote-address {
   color: var(--text-color);
+  display: grid;
   font-size: 13px;
   line-height: 1.35;
   min-width: 0;
   overflow-wrap: anywhere;
-  white-space: pre-wrap;
+}
+
+#proposalInfoModal .proposal-committee-vote-name {
+  font-weight: var(--font-weight-medium);
+}
+
+#proposalInfoModal .proposal-committee-vote-short-address {
+  color: var(--secondary-text-color);
+  font-size: 11px;
 }
 
 #proposalInfoModal .proposal-committee-vote-choice {
