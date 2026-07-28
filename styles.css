@@ -8071,12 +8071,12 @@ small {
 #daoModal .dao-row-previews {
   display: flex;
   flex: 1 1 auto;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 4px;
   justify-content: flex-end;
   margin-left: auto;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 #daoModal .dao-row-preview {
@@ -8086,7 +8086,7 @@ small {
   border-radius: 8px;
   color: var(--text-color);
   display: inline-flex;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   font-size: 12px;
   font-weight: var(--font-weight-medium);
   line-height: 1.2;
@@ -8107,6 +8107,11 @@ small {
 #daoModal .dao-row-preview--rejected {
   background: rgba(196, 45, 45, 0.1);
   border-color: rgba(196, 45, 45, 0.28);
+}
+
+#daoModal .dao-row-preview--emergency {
+  background: rgba(239, 108, 0, 0.12);
+  border-color: rgba(239, 108, 0, 0.32);
 }
 
 #daoStatusContextMenu {

@@ -2791,7 +2791,7 @@ class DaoModal {
 
       li.tabIndex = 0;
       li.setAttribute('role', 'button');
-      li.setAttribute('aria-label', `Open ${rowTitleText}`);
+      li.setAttribute('aria-label', `Open ${p.emergency === true ? 'emergency ' : ''}${rowTitleText}`);
       li.innerHTML = `
         <div class="dao-row-content">
           <div class="dao-row-title">${title}</div>
@@ -2824,8 +2824,25 @@ class DaoModal {
     const result = getDaoProposalResultSummary(proposal);
     const reward = getDaoProposalRewardSummary(proposal);
 
+    if (proposal.emergency === true) {
+      chips.push({
+        value: 'Emergency',
+        tone: 'emergency',
+      });
+    }
+
     if (state === 'review') {
       const reviewWindow = getDaoProposalReviewWindow(proposal);
+
+      if (reviewWindow.canFinalizeReviewResult) {
+        const { acceptCount, withholdCount } = getDaoCommitteeReview(proposal);
+        const isWithheld = withholdCount > acceptCount;
+
+        chips.push({
+          value: isWithheld ? 'Withheld' : 'Approved',
+          tone: isWithheld ? 'rejected' : 'accepted',
+        });
+      }
 
       chips.push({
         value: reviewWindow.canFinalizeReviewResult ? 'Ready to finalize' : reviewWindow.label,
