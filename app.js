@@ -4001,25 +4001,6 @@ function getDaoFinalOutcome(proposal) {
   return { label, tone };
 }
 
-function getDaoCommitteeWithholdReasonEntries(proposal) {
-  const committeeAddresses = Array.isArray(proposal?.committeeAddresses) ? proposal.committeeAddresses : [];
-  const committeeAddressSet = new Set(committeeAddresses);
-  const committeeVotes = Array.isArray(proposal?.committeeVotes) ? proposal.committeeVotes : [];
-  const entries = [];
-
-  for (const vote of committeeVotes) {
-    if (vote?.vote !== 'withhold' || !committeeAddressSet.has(vote.memberAddress)) continue;
-    if (typeof vote.withheldReason !== 'string') continue;
-
-    const reason = vote.withheldReason.trim();
-    if (!reason) continue;
-
-    entries.push({ memberAddress: vote.memberAddress, reason });
-  }
-
-  return entries;
-}
-
 function getDaoCommitteeReviewResultSummary(proposal) {
   const state = getEffectiveDaoState(proposal);
   if (state !== 'withheld' && !(proposal?.emergency && isDaoFinalResultState(state))) return null;
@@ -4038,7 +4019,6 @@ function getDaoCommitteeReviewResultSummary(proposal) {
     source: 'committee',
     tone: outcome.tone,
     withholdCount,
-    withholdReasonEntries: state === 'withheld' ? getDaoCommitteeWithholdReasonEntries(proposal) : [],
   };
 }
 
@@ -4474,7 +4454,7 @@ class ProposalInfoModal {
         isDaoFinalizedState(state) ? this.renderProposalEmergencyStatus(proposal) : '',
         this.renderParameterChanges(proposal),
         state === 'voting' ? this.renderCurrentVoteTotals(proposal) : '',
-        this.renderProposalResults(resultSummary),
+        this.renderProposalResults(resultSummary, proposal),
         state === 'review' ? this.renderProposalBody(proposal) : '',
         state === 'review'
           ? this.renderCommitteeReviewStatus({
@@ -4484,8 +4464,6 @@ class ProposalInfoModal {
             committeeVotes,
             committeeAddressSet,
             currentAddress,
-            currentVote,
-            capabilities,
           })
           : '',
       ].filter(Boolean).join('');
@@ -4630,7 +4608,7 @@ class ProposalInfoModal {
     return Math.max(1, units);
   }
 
-  renderCommitteeReviewStatus({ acceptCount, withholdCount, reviewWindow, committeeVotes, committeeAddressSet, currentAddress, currentVote, capabilities }) {
+  renderCommitteeReviewStatus({ acceptCount, withholdCount, reviewWindow, committeeVotes, committeeAddressSet, currentAddress }) {
     const submittedCount = acceptCount + withholdCount;
     const rows = [
       { option: 'Accept', total: acceptCount, tone: 'accept' },
@@ -4672,27 +4650,12 @@ class ProposalInfoModal {
       })
       .join('');
 
-    const yourVoteLabel = currentVote
-      ? this.formatCommitteeVote(currentVote)
-      : capabilities.isCommitteeMember ? 'Not submitted' : 'Not a committee member';
-    const yourVoteTone = this.getCommitteeVoteTone(currentVote);
-    const otherVoteRows = committeeVotes
-      .filter((vote) => vote && committeeAddressSet.has(vote.memberAddress) && vote.memberAddress !== currentAddress)
-      .map((vote) => {
-        const tone = this.getCommitteeVoteTone(vote);
-        return `
-          <li class="proposal-committee-vote-row">
-            <span class="proposal-committee-vote-address">${escapeHtml(this.formatCommitteeAddress(vote.memberAddress))}</span>
-            <span class="proposal-committee-vote-choice${tone ? ` proposal-committee-vote-choice--${tone}` : ''}">${escapeHtml(this.formatCommitteeVote(vote))}</span>
-          </li>
-        `;
-      })
-      .join('');
-    const otherVotesHtml = otherVoteRows
+    const voteRows = this.renderCommitteeVoteListEntries(committeeVotes, committeeAddressSet, currentAddress);
+    const votesHtml = voteRows
       ? `
         <div class="proposal-committee-votes">
-          <h4>Other committee votes</h4>
-          <ul class="proposal-committee-vote-list">${otherVoteRows}</ul>
+          <h4>Committee votes</h4>
+          <ul class="proposal-committee-vote-list">${voteRows}</ul>
         </div>
       `
       : '';
@@ -4705,16 +4668,12 @@ class ProposalInfoModal {
           <div class="proposal-vote-current-track" aria-hidden="true">${segments}</div>
         </div>
         <div class="proposal-vote-status-grid proposal-vote-status-grid--current">
-          <div class="proposal-vote-status-card">
-            <span>Your vote</span>
-            <strong${yourVoteTone ? ` class="proposal-committee-vote-choice--${yourVoteTone}"` : ''}>${escapeHtml(yourVoteLabel)}</strong>
-          </div>
           <div class="proposal-vote-status-card proposal-vote-status-card--deadline">
             <span>Review ends</span>
             <strong>${escapeHtml(formatDaoDetailTimestamp(reviewWindow.end))}</strong>
           </div>
         </div>
-        ${otherVotesHtml}
+        ${votesHtml}
       </section>
     `;
   }
@@ -4725,10 +4684,26 @@ class ProposalInfoModal {
     return `${value.slice(0, 8)}...${value.slice(-6)}`;
   }
 
-  renderProposalResults(result) {
+  renderCommitteeVoteListEntries(committeeVotes, committeeAddressSet, currentAddress) {
+    return committeeVotes
+      .filter((vote) => vote && committeeAddressSet.has(vote.memberAddress))
+      .map((vote) => {
+        const tone = this.getCommitteeVoteTone(vote);
+        const youLabel = vote.memberAddress === currentAddress ? ' (you)' : '';
+        return `
+          <li class="proposal-committee-vote-row">
+            <span class="proposal-committee-vote-address">${escapeHtml(`${this.formatCommitteeAddress(vote.memberAddress)}${youLabel}`)}</span>
+            <span class="proposal-committee-vote-choice${tone ? ` proposal-committee-vote-choice--${tone}` : ''}">${escapeHtml(this.formatCommitteeVote(vote))}</span>
+          </li>
+        `;
+      })
+      .join('');
+  }
+
+  renderProposalResults(result, proposal) {
     if (!result) return '';
     if (result.source === 'committee') {
-      return this.renderCommitteeResults(result);
+      return this.renderCommitteeResults(result, proposal);
     }
 
     const winnerLabel = result.winner ? `${result.winner.option} (${result.outcome})` : 'Unavailable';
@@ -4801,7 +4776,7 @@ class ProposalInfoModal {
     `;
   }
 
-  renderCommitteeResults(result) {
+  renderCommitteeResults(result, proposal) {
     const acceptCount = Number(result.acceptCount || 0);
     const withholdCount = Number(result.withholdCount || 0);
     const submittedCount = acceptCount + withholdCount;
@@ -4813,10 +4788,17 @@ class ProposalInfoModal {
     const withholdUnits = this.getCountResultSegmentUnits(withholdCount, submittedCount);
     const acceptWinnerClass = result.tone === 'accepted' ? ' proposal-result-meter-label--winner' : '';
     const withholdWinnerClass = result.tone === 'rejected' ? ' proposal-result-meter-label--winner' : '';
-    const withholdReasons = this.renderCommitteeWithholdReasons(
-      result.withholdReasonEntries,
-      'Committee withhold reasons',
-    );
+    const committeeVotes = Array.isArray(proposal?.committeeVotes) ? proposal.committeeVotes : [];
+    const committeeAddressSet = new Set(Array.isArray(proposal?.committeeAddresses) ? proposal.committeeAddresses : []);
+    const voteRows = this.renderCommitteeVoteListEntries(committeeVotes, committeeAddressSet, getDaoCurrentAccountAddress());
+    const votesHtml = voteRows
+      ? `
+        <div class="proposal-committee-votes">
+          <h4>Committee votes</h4>
+          <ul class="proposal-committee-vote-list">${voteRows}</ul>
+        </div>
+      `
+      : '';
 
     return `
       <section class="proposal-info-section">
@@ -4863,34 +4845,8 @@ class ProposalInfoModal {
             ></span>
           </div>
         </div>
-        ${withholdReasons}
+        ${votesHtml}
       </section>
-    `;
-  }
-
-  renderCommitteeWithholdReasons(entries, heading) {
-    if (entries.length === 0) return '';
-
-    const reasonCounts = new Map();
-    for (const entry of entries) {
-      reasonCounts.set(entry.reason, (reasonCounts.get(entry.reason) || 0) + 1);
-    }
-
-    const rows = Array.from(reasonCounts, ([reason, count]) => {
-      const countLabel = `${count} ${count === 1 ? 'vote' : 'votes'}`;
-      return `
-        <li class="proposal-withhold-reason-row">
-          <span class="proposal-withhold-reason-text">${escapeHtml(reason)}</span>
-          <span class="proposal-withhold-reason-count">${escapeHtml(countLabel)}</span>
-        </li>
-      `;
-    }).join('');
-
-    return `
-      <div class="proposal-withhold-reasons">
-        <h4>${escapeHtml(heading)}</h4>
-        <ul class="proposal-withhold-reason-list">${rows}</ul>
-      </div>
     `;
   }
 
@@ -5108,7 +5064,9 @@ class ProposalInfoModal {
 
   formatCommitteeVote(vote) {
     if (vote.vote !== 'withhold') return 'Accept';
-    return vote.withheldReason ? `Withhold - ${vote.withheldReason}` : 'Withhold';
+    const reason = String(vote.withheldReason || '').trim();
+    if (!reason) return 'Withhold';
+    return `Withhold - ${reason}`;
   }
 
   getReviewFinalizedStateLabel(proposal, acceptCount, withholdCount) {

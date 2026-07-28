@@ -2439,7 +2439,6 @@ input[type='file'].form-control::file-selector-button {
   background: rgba(101, 103, 107, 0.18);
 }
 
-#proposalInfoModal .proposal-withhold-reasons,
 #proposalInfoModal .proposal-committee-votes {
   border-top: 1px solid var(--border-color);
   display: grid;
@@ -2447,7 +2446,6 @@ input[type='file'].form-control::file-selector-button {
   padding-top: 10px;
 }
 
-#proposalInfoModal .proposal-withhold-reasons h4,
 #proposalInfoModal .proposal-committee-votes h4 {
   color: var(--text-color);
   font-size: 13px;
@@ -2456,7 +2454,6 @@ input[type='file'].form-control::file-selector-button {
   margin: 0;
 }
 
-#proposalInfoModal .proposal-withhold-reason-list,
 #proposalInfoModal .proposal-committee-vote-list {
   display: grid;
   gap: 6px;
@@ -2465,22 +2462,16 @@ input[type='file'].form-control::file-selector-button {
   padding: 0;
 }
 
-#proposalInfoModal .proposal-withhold-reason-row,
 #proposalInfoModal .proposal-committee-vote-row {
   align-items: start;
   background: var(--input-background);
   border-radius: 8px;
   display: grid;
   gap: 8px;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   padding: 8px 10px;
 }
 
-#proposalInfoModal .proposal-committee-vote-row {
-  grid-template-columns: auto minmax(0, 1fr);
-}
-
-#proposalInfoModal .proposal-withhold-reason-text,
 #proposalInfoModal .proposal-committee-vote-address {
   color: var(--text-color);
   font-size: 13px;
@@ -2488,13 +2479,6 @@ input[type='file'].form-control::file-selector-button {
   min-width: 0;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
-}
-
-#proposalInfoModal .proposal-withhold-reason-count {
-  color: var(--secondary-text-color);
-  font-size: 11px;
-  line-height: 1.35;
-  white-space: nowrap;
 }
 
 #proposalInfoModal .proposal-committee-vote-choice {
@@ -2507,13 +2491,11 @@ input[type='file'].form-control::file-selector-button {
   text-align: right;
 }
 
-#proposalInfoModal .proposal-committee-vote-choice--accept,
-#proposalInfoModal .proposal-vote-status-card strong.proposal-committee-vote-choice--accept {
+#proposalInfoModal .proposal-committee-vote-choice--accept {
   color: #0f5f27;
 }
 
-#proposalInfoModal .proposal-committee-vote-choice--withhold,
-#proposalInfoModal .proposal-vote-status-card strong.proposal-committee-vote-choice--withhold {
+#proposalInfoModal .proposal-committee-vote-choice--withhold {
   color: #8f1d16;
 }
 
@@ -2979,7 +2961,8 @@ input[type='file'].form-control::file-selector-button {
   text-align: right;
 }
 
-#proposalInfoModal .proposal-vote-status-card--deadline {
+#proposalInfoModal .proposal-vote-status-card--deadline,
+#proposalInfoModal .proposal-vote-status-card--fit {
   justify-self: end;
   max-width: 100%;
   width: fit-content;
