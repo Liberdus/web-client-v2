@@ -38,6 +38,7 @@ async function checkVersion() {
       'styles.css',
       'app.js',
       'wallet-networks.js',
+      'wallet.js',
       'dao.repo.js',
       'data/emoji-picker-data.js',
       'lib.js',
@@ -155,6 +156,14 @@ import {
   getWalletNetwork,
   walletProbeAddress,
 } from './wallet-networks.js?v=1455-8';
+
+import {
+  connectedAssetLogoMarkup,
+  formatAssetDetailsUpdatedAt,
+  formatConnectedTokenAmount,
+  formatConnectedTokenType,
+  formatConnectedUsd,
+} from './wallet.js?v=1455-10';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
@@ -2224,40 +2233,6 @@ class WalletDiscoveryService {
 
 const walletDiscovery = new WalletDiscoveryService();
 
-function formatConnectedTokenAmount(value) {
-  const amount = Number(value);
-  if (!Number.isFinite(amount)) return String(value ?? '0');
-  if (amount === 0) return '0';
-  if (Math.abs(amount) < 0.000001) {
-    return amount.toExponential(4);
-  }
-  return amount.toLocaleString(undefined, {
-    maximumFractionDigits: 6,
-    minimumFractionDigits: 0,
-  });
-}
-
-function formatConnectedUsd(value) {
-  if (value === null || value === undefined || value === '') {
-    return 'Value unavailable';
-  }
-  const amount = Number(value);
-  if (!Number.isFinite(amount)) return 'Value unavailable';
-  return amount.toLocaleString(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: amount > 0 && amount < 0.01 ? 6 : 2,
-  });
-}
-
-function connectedAssetLogoMarkup(asset, walletNetwork) {
-  const logoUrl = typeof asset.logoUrl === 'string' ? asset.logoUrl : '';
-  if (/^(?:https:\/\/|\.\/)/.test(logoUrl)) {
-    return `<img src="${escapeHtml(logoUrl)}" alt="" class="connected-asset-logo-image">`;
-  }
-  return `<span class="connected-asset-logo-fallback">${escapeHtml(walletNetwork.shortName.slice(0, 3))}</span>`;
-}
-
 class WalletScreen {
   constructor() {
     this.firstTimeLoad = true;
@@ -2675,23 +2650,6 @@ class AssetsModal {
 }
 
 const assetsModal = new AssetsModal();
-
-function formatAssetDetailsUpdatedAt(timestamp) {
-  if (!timestamp) return 'Updated just now';
-  return `Updated ${new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(timestamp))}`;
-}
-
-function formatConnectedTokenType(asset) {
-  const type = String(asset?.tokenType || '').toLowerCase();
-  if (type === 'native') return 'Native asset';
-  if (type === 'erc20') return 'ERC-20';
-  return type ? type.toUpperCase() : 'Token';
-}
 
 class AssetDetailsModal {
   constructor() {
