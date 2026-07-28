@@ -3990,6 +3990,10 @@ function isDaoFinalResultState(state) {
   return state === 'accepted' || state === 'rejected' || state === 'applied';
 }
 
+function isDaoFinalizedState(state) {
+  return state === 'withheld' || isDaoFinalResultState(state);
+}
+
 function getDaoFinalOutcome(proposal) {
   const state = getEffectiveDaoState(proposal);
   const label = getDaoStateLabel(state) || state || 'Unavailable';
@@ -4482,6 +4486,7 @@ class ProposalInfoModal {
     if (this.content) {
       this.content.innerHTML = [
         this.renderProposalTitle(proposal),
+        isDaoFinalizedState(state) ? this.renderProposalEmergencyStatus(proposal) : '',
         this.renderParameterChanges(proposal),
         state === 'voting' ? this.renderCurrentVoteTotals(proposal) : '',
         this.renderProposalResults(resultSummary),
@@ -4536,6 +4541,17 @@ class ProposalInfoModal {
         <h2 class="proposal-info-title">${escapeHtml(title)}</h2>
         ${descriptionHtml}
       </div>
+    `;
+  }
+
+  renderProposalEmergencyStatus(proposal) {
+    const label = proposal.emergency ? 'Emergency proposal' : 'Standard proposal';
+    const emergencyClass = proposal.emergency ? ' proposal-type-indicator--emergency' : '';
+
+    return `
+      <p class="proposal-type-indicator${emergencyClass}">
+        ${escapeHtml(label)}
+      </p>
     `;
   }
 
