@@ -4544,9 +4544,9 @@ class ProposalInfoModal {
         const isWinner = index === winnerIndex;
         const power = formatDaoVotingPower(row.total);
         const percent = formatDaoBigIntPercent(row.total, totalWeight);
-        const valueLabel = totalWeight > 0n ? `${power} / ${percent}` : power;
+        const valueLabel = totalWeight > 0n ? `${percent} (${power})` : power;
         const title = totalWeight > 0n
-          ? `${row.option}: ${power}, ${percent}`
+          ? `${row.option}: ${percent}, ${power}`
           : `${row.option}: ${power}`;
 
         return `
@@ -4623,7 +4623,7 @@ class ProposalInfoModal {
         const position = index === 0 ? 'start' : 'end';
         const isWinner = index === winnerIndex;
         const percent = this.formatCountPercent(row.total, submittedCount);
-        const valueLabel = submittedCount > 0 ? `${row.total} / ${percent}` : `${row.total} votes`;
+        const valueLabel = submittedCount > 0 ? `${percent} (${row.total} ${row.total === 1 ? 'vote' : 'votes'})` : `${row.total} votes`;
         const title = `${row.option}: ${valueLabel}`;
 
         return `
@@ -4750,7 +4750,7 @@ class ProposalInfoModal {
             ? 'end'
             : 'center';
         const style = `--result-segment-units: ${units};`;
-        const label = `${row.option}: ${power}, ${percent}`;
+        const label = `${row.option}: ${percent}, ${power}`;
         return `
           <div
             class="proposal-result-meter-label proposal-result-meter-label--${position}${paletteClass}${isWinner ? ' proposal-result-meter-label--winner' : ''}"
@@ -4759,7 +4759,7 @@ class ProposalInfoModal {
             aria-label="${escapeDaoFormAttribute(label)}"
           >
             <span>${escapeHtml(row.option)}</span>
-            <small>${escapeHtml(displayPower)} / ${escapeHtml(percent)}</small>
+            <small>${escapeHtml(percent)} (${escapeHtml(displayPower)})</small>
           </div>
         `;
       })
@@ -4839,20 +4839,20 @@ class ProposalInfoModal {
             <div
               class="proposal-result-meter-label proposal-result-meter-label--start proposal-result-meter-label--accept${acceptWinnerClass}"
               style="--result-segment-units: ${acceptUnits};"
-              title="${escapeDaoFormAttribute(`Accept: ${acceptCount}, ${acceptPercent}`)}"
-              aria-label="${escapeDaoFormAttribute(`Accept: ${acceptCount}, ${acceptPercent}`)}"
+              title="${escapeDaoFormAttribute(`Accept: ${acceptPercent} (${acceptCount} votes)`)}"
+              aria-label="${escapeDaoFormAttribute(`Accept: ${acceptPercent} (${acceptCount} votes)`)}"
             >
               <span>Accept</span>
-              <small>${escapeHtml(`${acceptCount} / ${acceptPercent}`)}</small>
+              <small>${escapeHtml(`${acceptPercent} (${acceptCount} votes)`)}</small>
             </div>
             <div
               class="proposal-result-meter-label proposal-result-meter-label--end proposal-result-meter-label--withhold${withholdWinnerClass}"
               style="--result-segment-units: ${withholdUnits};"
-              title="${escapeDaoFormAttribute(`Withhold: ${withholdCount}, ${withholdPercent}`)}"
-              aria-label="${escapeDaoFormAttribute(`Withhold: ${withholdCount}, ${withholdPercent}`)}"
+              title="${escapeDaoFormAttribute(`Withhold: ${withholdPercent} (${withholdCount} votes)`)}"
+              aria-label="${escapeDaoFormAttribute(`Withhold: ${withholdPercent} (${withholdCount} votes)`)}"
             >
               <span>Withhold</span>
-              <small>${escapeHtml(`${withholdCount} / ${withholdPercent}`)}</small>
+              <small>${escapeHtml(`${withholdPercent} (${withholdCount} votes)`)}</small>
             </div>
           </div>
           <div class="proposal-result-meter-track" aria-hidden="true">

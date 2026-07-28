@@ -2377,8 +2377,12 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-result-meter-label > span {
   color: var(--secondary-text-color);
   font-size: 12px;
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-bold);
   line-height: 1.35;
+}
+
+#proposalInfoModal .proposal-result-meter-label > small {
+  font-weight: var(--font-weight-bold);
 }
 
 #proposalInfoModal .proposal-result-meter-label > span,
@@ -2932,13 +2936,14 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-vote-current-label > span {
   color: var(--secondary-text-color);
   font-size: 12px;
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-bold);
   line-height: 1.35;
 }
 
 #proposalInfoModal .proposal-vote-current-label > small {
   color: var(--secondary-text-color);
   font-size: 12px;
+  font-weight: var(--font-weight-bold);
   line-height: 1.35;
 }
 
