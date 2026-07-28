@@ -3570,11 +3570,156 @@ function formatDaoDurationDaysEstimate(ms) {
   return `about ${value} day${value === '1' ? '' : 's'}`;
 }
 
-function formatDaoConfirmValue(value) {
-  if (value === undefined || value === null || value === '') return '—';
-  if (Array.isArray(value)) return value.join(', ');
-  if (typeof value === 'object') return stringify(value);
-  return String(value);
+// Shared proposal display rendering used by both the pre-signing preview
+// (ConfirmProposalModal) and the proposal detail views (ProposalInfoModal).
+// A create draft wraps its fields in `transaction`; a stored proposal is flat.
+function normalizeDaoProposalDisplay(source) {
+  const proposal = source?.transaction && typeof source.transaction === 'object'
+    ? source.transaction
+    : source;
+  const fallbackTitle = proposal?.number ? `Proposal #${proposal.number}` : 'Proposal';
+  return {
+    title: proposal?.title || source?.displayTitle || fallbackTitle,
+    emergency: proposal?.emergency === true,
+    description: typeof proposal?.description === 'string' ? proposal.description : '',
+    options: Array.isArray(proposal?.options) ? proposal.options.map((option) => String(option)) : [],
+    payloads: ['governance', 'economic', 'protocol']
+      .map((key) => [key, proposal?.[key]])
+      .filter(([, payload]) => payload && typeof payload === 'object'),
+  };
+}
+
+function renderDaoProposalHeading(display) {
+  const emergencyLabel = display.emergency ? 'Emergency proposal' : 'Standard proposal';
+  const emergencyClass = display.emergency ? ' proposal-type-indicator--emergency' : '';
+  const descriptionHtml = display.description
+    ? `<p class="proposal-info-description">${escapeHtml(display.description)}</p>`
+    : '';
+
+  return `
+    <div class="proposal-info-heading">
+      <h2 class="proposal-info-title">${escapeHtml(display.title)}</h2>
+      <p class="proposal-type-indicator${emergencyClass}">${escapeHtml(emergencyLabel)}</p>
+      ${descriptionHtml}
+    </div>
+  `;
+}
+
+function renderDaoProposalInfoSection(title, rows) {
+  const rowHtml = rows
+    .map(([label, value, tone]) => {
+      const displayValue = formatDaoDetailValue(value);
+      const classes = [
+        'proposal-info-row',
+        tone ? `proposal-info-row--${tone}` : '',
+      ].filter(Boolean);
+
+      return `
+      <div class="${classes.join(' ')}">
+        <span>${escapeHtml(label)}</span>
+        <span class="proposal-info-value">${escapeHtml(displayValue)}</span>
+      </div>
+    `;
+    })
+    .join('');
+
+  return `
+    <section class="proposal-info-section">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="proposal-info-grid">${rowHtml}</div>
+    </section>
+  `;
+}
+
+function renderDaoProposalOptionsSection(options) {
+  const optionCards = options
+    .map((option, index) => `
+      <div class="proposal-option-card">
+        <span class="proposal-option-card-number">${index + 1}</span>
+        <span class="proposal-option-card-label">${escapeHtml(option)}</span>
+      </div>
+    `)
+    .join('');
+
+  return `
+    <section class="proposal-info-section">
+      <h3>Proposal Options</h3>
+      <div class="proposal-option-cards">${optionCards}</div>
+    </section>
+  `;
+}
+
+function renderDaoProposalChangesSection(payloads) {
+  const hasRows = payloads.some(([, payload]) =>
+    Array.isArray(payload?.changes)
+      ? payload.changes.length > 0
+      : Object.values(payload).some((value) => value !== undefined && value !== null && String(value).length > 0)
+  );
+
+  if (payloads.length === 0 || !hasRows) {
+    return '<section class="proposal-info-section"><h3>Parameter Changes</h3><p class="proposal-info-muted">No parameter changes are available.</p></section>';
+  }
+
+  const payloadHtml = payloads
+    .map(([key, payload]) => {
+      const payloadTitle = getDaoTypeLabel(key) || key;
+      return `
+      <div class="proposal-payload">
+        ${renderDaoProposalPayloadRows(payload, payloadTitle)}
+      </div>
+    `;
+    })
+    .join('');
+
+  return `
+    <section class="proposal-info-section">
+      <h3>Parameter Changes</h3>
+      ${payloadHtml}
+    </section>
+  `;
+}
+
+function renderDaoProposalPayloadRows(payload, payloadTitle) {
+  const titleHtml = payloadTitle
+    ? `<div class="proposal-payload-title">${escapeHtml(payloadTitle)}</div>`
+    : '';
+
+  if (Array.isArray(payload?.changes)) {
+    return payload.changes
+      .map((change) => {
+        const key = change?.key || 'Unknown key';
+        const current = formatDaoDetailValue(change?.current);
+        const next = formatDaoDetailValue(change?.value);
+        return `
+        <div class="proposal-change-row">
+          ${titleHtml}
+          <span>${escapeHtml(key)}</span>
+          <div class="proposal-change-values">
+            <small><span>Current:</span><strong>${escapeHtml(current)}</strong></small>
+            <span class="proposal-change-arrow" aria-hidden="true">&rarr;</span>
+            <small><span>New:</span><strong>${escapeHtml(next)}</strong></small>
+          </div>
+        </div>
+      `;
+      })
+      .join('');
+  }
+
+  const entries = Object.entries(payload)
+    .filter(([, value]) => value !== undefined && value !== null && String(value).length > 0);
+
+  return entries
+    .map(([key, value]) => {
+      const displayValue = formatDaoDetailValue(value);
+      return `
+      <div class="proposal-change-row">
+        ${titleHtml}
+        <span>${escapeHtml(key)}</span>
+        <strong>${escapeHtml(displayValue)}</strong>
+      </div>
+    `;
+    })
+    .join('');
 }
 
 class ConfirmProposalModal {
@@ -3695,93 +3840,29 @@ class ConfirmProposalModal {
     const draft = this.currentDraft;
     if (!draft?.transaction?.from) {
       this.setTitle('Review Proposal');
-      this.content.innerHTML = '<div class="dao-confirm-empty">Proposal draft is unavailable.</div>';
+      this.content.innerHTML = '<section class="proposal-info-section"><h3>Review Proposal</h3><p class="proposal-info-muted">Proposal draft is unavailable.</p></section>';
       return;
     }
 
     const tx = draft.transaction;
-    const proposalType = tx.proposalType;
-    const changes = Array.isArray(tx[proposalType]?.changes) ? tx[proposalType].changes : [];
-    const gracePeriodSummary = formatDaoDurationSummary(tx.gracePeriod);
-    const formattedOptions = tx.options
-      .map((option, index) => `${index + 1}. ${option}`)
-      .join('\n');
+    const display = normalizeDaoProposalDisplay(draft);
 
     this.setTitle('Review Proposal');
     this.content.innerHTML = [
-      this.renderSection('Cost and State', [
+      renderDaoProposalHeading(display),
+      renderDaoProposalChangesSection(display.payloads),
+      renderDaoProposalOptionsSection(display.options),
+      renderDaoProposalInfoSection('Overview', [
+        ['Type', getDaoTypeLabel(tx.proposalType)],
         ['Proposal fee', `${draft.proposalFeeUsdStr || '0'} USD`],
         ['Initial state', 'Review after signing'],
       ]),
-      this.renderSection('Proposal Body', [
-        ['Title', tx.title || draft.displayTitle],
-        ['Type', getDaoTypeLabel(proposalType)],
-        ['Emergency', tx.emergency ? 'Yes' : 'No'],
-        ['Description', tx.description],
-        ['Options', formattedOptions],
+      renderDaoProposalInfoSection('Review Timeline', [
         ['Review starts', formatDaoDurationSummary(draft.startDelayMs)],
-        ['Grace period', gracePeriodSummary],
+        ['Grace period', formatDaoDurationSummary(tx.gracePeriod)],
       ]),
-      this.renderChanges(changes),
-      '<div class="dao-confirm-help">The proposal fee is derived from DAO params and seeds the voter reward pool for regular proposals. Signing submits this proposal for review.</div>',
+      '<p class="proposal-info-muted">The proposal fee is derived from DAO params and seeds the voter reward pool for regular proposals. Signing submits this proposal for review.</p>',
     ].join('');
-  }
-
-  renderSection(title, rows) {
-    const rowHtml = rows
-      .map(([label, value]) => {
-        const displayValue = formatDaoConfirmValue(value);
-        const rowClass = this.getSectionRowClass(label, displayValue);
-        return `
-        <div class="${rowClass}">
-          <span class="dao-confirm-label">${escapeHtml(label)}</span>
-          <strong class="dao-confirm-value">${escapeHtml(displayValue)}</strong>
-        </div>
-      `;
-      })
-      .join('');
-
-    return `
-      <section class="dao-confirm-section">
-        <h3>${escapeHtml(title)}</h3>
-        <div class="dao-confirm-grid">${rowHtml}</div>
-      </section>
-    `;
-  }
-
-  getSectionRowClass(label, value) {
-    const fullWidthLabels = ['Description', 'Options'];
-    if (!fullWidthLabels.includes(label)) return 'dao-confirm-row';
-
-    const text = String(value);
-    const lines = text.split('\n');
-    const longestLineLength = Math.max(...lines.map((line) => line.length));
-    if (lines.length > 4 || longestLineLength > 42 || text.length > 120) {
-      return 'dao-confirm-row dao-confirm-row--full';
-    }
-    return 'dao-confirm-row';
-  }
-
-  renderChanges(changes) {
-    const changeRows = changes.length
-      ? changes.map((change, index) => `
-          <div class="dao-confirm-change">
-            <div class="dao-confirm-change-title">Change ${index + 1}: ${escapeHtml(change.key)}</div>
-            <div class="dao-confirm-change-values">
-              <small><span>Current:</span><strong>${escapeHtml(formatDaoConfirmValue(change.current))}</strong></small>
-              <span class="dao-confirm-change-arrow" aria-hidden="true">&rarr;</span>
-              <small><span>New:</span><strong>${escapeHtml(formatDaoConfirmValue(change.value))}</strong></small>
-            </div>
-          </div>
-        `).join('')
-      : '<div class="dao-confirm-empty">No parameter changes included.</div>';
-
-    return `
-      <section class="dao-confirm-section">
-        <h3>Parameter Changes</h3>
-        ${changeRows}
-      </section>
-    `;
   }
 
   setTitle(title) {
@@ -4467,7 +4548,7 @@ class ProposalInfoModal {
     const rewardSummary = getDaoProposalRewardSummary(proposal, currentAddress);
     const lifecycleActions = getDaoProposalLifecycleActions(proposal, rewardSummary, currentAddress);
     const committeeReviewSection = state === 'review'
-      ? this.renderSection('Committee Review', [
+      ? renderDaoProposalInfoSection('Committee Review', [
         ['Committee size', committeeAddresses.length ? String(committeeAddresses.length) : 'Unavailable'],
         ['Next state', this.getNextStateHint(proposal, acceptCount, withholdCount, reviewWindow)],
       ])
@@ -4514,21 +4595,7 @@ class ProposalInfoModal {
   }
 
   renderProposalTitle(proposal) {
-    const description = proposal.description || '';
-    const title = proposal.title || (proposal.number ? `Proposal #${proposal.number}` : 'Proposal');
-    const emergencyLabel = proposal.emergency ? 'Emergency proposal' : 'Standard proposal';
-    const emergencyClass = proposal.emergency ? ' proposal-type-indicator--emergency' : '';
-    const descriptionHtml = description
-      ? `<p class="proposal-info-description">${escapeHtml(description)}</p>`
-      : '';
-
-    return `
-      <div class="proposal-info-heading">
-        <h2 class="proposal-info-title">${escapeHtml(title)}</h2>
-        <p class="proposal-type-indicator${emergencyClass}">${escapeHtml(emergencyLabel)}</p>
-        ${descriptionHtml}
-      </div>
-    `;
+    return renderDaoProposalHeading(normalizeDaoProposalDisplay(proposal));
   }
 
   renderCurrentVoteTotals(proposal) {
@@ -4884,7 +4951,7 @@ class ProposalInfoModal {
 
   renderProposalRewards(reward) {
     if (!reward) return '';
-    return this.renderSection('Rewards', [
+    return renderDaoProposalInfoSection('Rewards', [
       ['Claim status', reward.claimStatus, reward.statusTone],
       ['Claim estimate', reward.claimEstimate === null ? 'Unavailable' : formatDaoLibWei(reward.claimEstimate), reward.statusTone],
       ['Claim window', reward.claimWindowLabel],
@@ -4903,7 +4970,7 @@ class ProposalInfoModal {
     const totalVoteText = totalVote.length
       ? totalVote.map((value, index) => `${options[index] || `Option ${index + 1}`}: ${formatDaoVotingPower(value)}`).join('\n')
       : 'No votes yet';
-    return this.renderSection('Voting Details', [
+    return renderDaoProposalInfoSection('Voting Details', [
       ['Voting state', votingWindow.label],
       ['Current totals', totalVoteText],
     ]);
@@ -4911,14 +4978,14 @@ class ProposalInfoModal {
 
   renderProposalDetails({ proposal, state, reviewWindow, rewardSummary, committeeReviewSection }) {
     const sections = [
-      this.renderSection('Overview', [
+      renderDaoProposalInfoSection('Overview', [
         ['Number', proposal.number ? `#${proposal.number}` : 'Unavailable'],
         ['Type', getDaoTypeLabel(proposal.proposalType) || 'Unavailable'],
         ['Status', getDaoStateLabel(state) || state],
         ['Created', formatDaoDetailTimestamp(proposal.created)],
         ['Updated', formatDaoDetailTimestamp(proposal.state_changed)],
       ]),
-      this.renderSection('Review Timeline', [
+      renderDaoProposalInfoSection('Review Timeline', [
         ['Window state', reviewWindow.label],
         ['Review starts', formatDaoDetailTimestamp(reviewWindow.start)],
         ['Review ends', formatDaoDetailTimestamp(reviewWindow.end)],
@@ -4953,119 +5020,12 @@ class ProposalInfoModal {
     if (this.title) this.title.textContent = title || 'Proposal';
   }
 
-  renderSection(title, rows) {
-    const rowHtml = rows
-      .map(([label, value, tone]) => {
-        const displayValue = formatDaoDetailValue(value);
-        const classes = [
-          'proposal-info-row',
-          tone ? `proposal-info-row--${tone}` : '',
-        ].filter(Boolean);
-
-        return `
-        <div class="${classes.join(' ')}">
-          <span>${escapeHtml(label)}</span>
-          <span class="proposal-info-value">${escapeHtml(displayValue)}</span>
-        </div>
-      `;
-      })
-      .join('');
-
-    return `
-      <section class="proposal-info-section">
-        <h3>${escapeHtml(title)}</h3>
-        <div class="proposal-info-grid">${rowHtml}</div>
-      </section>
-    `;
-  }
-
   renderProposalBody(proposal) {
-    const optionCards = getDaoProposalOptions(proposal)
-      .map((option, index) => `
-        <div class="proposal-option-card">
-          <span class="proposal-option-card-number">${index + 1}</span>
-          <span class="proposal-option-card-label">${escapeHtml(option)}</span>
-        </div>
-      `)
-      .join('');
-
-    return `
-      <section class="proposal-info-section">
-        <h3>Proposal Options</h3>
-        <div class="proposal-option-cards">${optionCards}</div>
-      </section>
-    `;
+    return renderDaoProposalOptionsSection(normalizeDaoProposalDisplay(proposal).options);
   }
 
   renderParameterChanges(proposal) {
-    const payloads = ['governance', 'economic', 'protocol']
-      .map((key) => [key, proposal[key]])
-      .filter(([, payload]) => payload && typeof payload === 'object');
-
-    if (payloads.length === 0) {
-      return '<section class="proposal-info-section"><h3>Parameter Changes</h3><p class="proposal-info-muted">No parameter changes are available.</p></section>';
-    }
-
-    const payloadHtml = payloads
-      .map(([key, payload]) => {
-        const payloadTitle = getDaoTypeLabel(key) || key;
-        return `
-        <div class="proposal-payload">
-          ${this.renderPayloadRows(payload, payloadTitle)}
-        </div>
-      `;
-      })
-      .join('');
-
-    return `
-      <section class="proposal-info-section">
-        <h3>Parameter Changes</h3>
-        ${payloadHtml}
-      </section>
-    `;
-  }
-
-  renderPayloadRows(payload, payloadTitle) {
-    const titleHtml = payloadTitle
-      ? `<div class="proposal-payload-title">${escapeHtml(payloadTitle)}</div>`
-      : '';
-
-    if (Array.isArray(payload?.changes)) {
-      return payload.changes
-        .map((change) => {
-          const key = change?.key || 'Unknown key';
-          const current = formatDaoDetailValue(change?.current);
-          const next = formatDaoDetailValue(change?.value);
-          return `
-          <div class="proposal-change-row">
-            ${titleHtml}
-            <span>${escapeHtml(key)}</span>
-            <div class="proposal-change-values">
-              <small><span>Current:</span><strong>${escapeHtml(current)}</strong></small>
-              <span class="proposal-change-arrow" aria-hidden="true">&rarr;</span>
-              <small><span>New:</span><strong>${escapeHtml(next)}</strong></small>
-            </div>
-          </div>
-        `;
-        })
-        .join('');
-    }
-
-    const entries = Object.entries(payload)
-      .filter(([, value]) => value !== undefined && value !== null && String(value).length > 0);
-
-    return entries
-      .map(([key, value]) => {
-        const displayValue = formatDaoDetailValue(value);
-        return `
-        <div class="proposal-change-row">
-          ${titleHtml}
-          <span>${escapeHtml(key)}</span>
-          <strong>${escapeHtml(displayValue)}</strong>
-        </div>
-      `;
-      })
-      .join('');
+    return renderDaoProposalChangesSection(normalizeDaoProposalDisplay(proposal).payloads);
   }
 
   formatCommitteeVote(vote) {
