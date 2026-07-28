@@ -4450,8 +4450,7 @@ class ProposalInfoModal {
       : '';
     if (this.content) {
       this.content.innerHTML = [
-        this.renderProposalTitle(proposal),
-        this.renderProposalEmergencyStatus(proposal),
+        this.renderProposalTitle(proposal, this.renderProposalEmergencyStatus(proposal)),
         this.renderParameterChanges(proposal),
         state === 'voting' ? this.renderCurrentVoteTotals(proposal) : '',
         this.renderProposalResults(resultSummary, proposal),
@@ -4503,7 +4502,7 @@ class ProposalInfoModal {
     return '';
   }
 
-  renderProposalTitle(proposal) {
+  renderProposalTitle(proposal, emergencyHtml = '') {
     const description = proposal.description || '';
     const title = proposal.title || (proposal.number ? `Proposal #${proposal.number}` : 'Proposal');
     const descriptionHtml = description
@@ -4513,6 +4512,7 @@ class ProposalInfoModal {
     return `
       <div class="proposal-info-heading">
         <h2 class="proposal-info-title">${escapeHtml(title)}</h2>
+        ${emergencyHtml}
         ${descriptionHtml}
       </div>
     `;
