@@ -4451,7 +4451,7 @@ class ProposalInfoModal {
     if (this.content) {
       this.content.innerHTML = [
         this.renderProposalTitle(proposal),
-        isDaoFinalizedState(state) ? this.renderProposalEmergencyStatus(proposal) : '',
+        this.renderProposalEmergencyStatus(proposal),
         this.renderParameterChanges(proposal),
         state === 'voting' ? this.renderCurrentVoteTotals(proposal) : '',
         this.renderProposalResults(resultSummary, proposal),
@@ -4949,7 +4949,7 @@ class ProposalInfoModal {
   getProposalDetailsSummary(state, rewardSummary) {
     const parts = ['Overview', 'review timeline'];
     if (state === 'review') parts.push('committee review');
-    if (state !== 'review') parts.push('proposal body');
+    if (state !== 'review') parts.push('proposal options');
     if (state === 'voting') parts.push('voting totals');
     if (rewardSummary) parts.push('reward accounting');
     return parts.join(', ');
@@ -5004,12 +5004,21 @@ class ProposalInfoModal {
   }
 
   renderProposalBody(proposal) {
-    const options = proposal.options.map((option, index) => `${index + 1}. ${option}`).join('\n');
+    const optionCards = (Array.isArray(proposal.options) ? proposal.options : [])
+      .map((option, index) => `
+        <div class="proposal-option-card">
+          <span class="proposal-option-card-number">${index + 1}</span>
+          <span class="proposal-option-card-label">${escapeHtml(option)}</span>
+        </div>
+      `)
+      .join('');
 
-    return this.renderSection('Proposal Body', [
-      ['Emergency', proposal.emergency ? 'Yes' : 'No'],
-      ['Options', options],
-    ]);
+    return `
+      <section class="proposal-info-section">
+        <h3>Proposal Options</h3>
+        <div class="proposal-option-cards">${optionCards}</div>
+      </section>
+    `;
   }
 
   renderParameterChanges(proposal) {
