@@ -2274,9 +2274,7 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-result-card {
   background: rgba(255, 255, 255, 0.92);
-  border: 0 solid var(--border-color);
   border-radius: 0 0 8px 8px;
-  border-width: 0 1px 1px;
   box-shadow: 0 2px 2px rgba(28, 28, 33, 0.04);
   display: grid;
   gap: 6px;
@@ -2463,31 +2461,34 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-committee-vote-row {
-  align-items: start;
+  align-items: center;
   background: var(--input-background);
   border-radius: 8px;
   display: grid;
   gap: 8px;
   grid-template-columns: auto minmax(0, 1fr);
-  padding: 8px 10px;
+  padding: 6px 10px;
 }
 
 #proposalInfoModal .proposal-committee-vote-address {
   color: var(--text-color);
   display: grid;
   font-size: 13px;
-  line-height: 1.35;
+  gap: 0;
+  line-height: 1.2;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
 #proposalInfoModal .proposal-committee-vote-address > strong {
   font-weight: var(--font-weight-medium);
+  padding-top: 1px;
 }
 
 #proposalInfoModal .proposal-committee-vote-address > small {
   color: var(--secondary-text-color);
   font-size: 11px;
+  line-height: 1.1;
 }
 
 #proposalInfoModal .proposal-committee-vote-choice {
