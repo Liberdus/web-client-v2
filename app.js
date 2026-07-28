@@ -4614,9 +4614,10 @@ class ProposalInfoModal {
       { option: 'Accept', total: acceptCount, tone: 'accept' },
       { option: 'Withhold', total: withholdCount, tone: 'withhold' },
     ];
-    const topCount = Math.max(...rows.map((row) => row.total));
-    const topRows = rows.filter((row) => row.total === topCount);
-    const winnerIndex = submittedCount > 0 && topRows.length === 1 ? rows.indexOf(topRows[0]) : -1;
+    let winnerIndex = -1;
+    if (submittedCount > 0 && acceptCount !== withholdCount) {
+      winnerIndex = acceptCount > withholdCount ? 0 : 1;
+    }
     const labels = rows
       .map((row, index) => {
         const position = index === 0 ? 'start' : 'end';
@@ -4650,15 +4651,11 @@ class ProposalInfoModal {
       })
       .join('');
 
-    const voteRows = this.renderCommitteeVoteListEntries(committeeVotes, committeeAddressSet, currentAddress);
-    const votesHtml = voteRows
-      ? `
-        <div class="proposal-committee-votes">
-          <h4>Committee votes</h4>
-          <ul class="proposal-committee-vote-list">${voteRows}</ul>
-        </div>
-      `
-      : '';
+    const votesHtml = this.renderCommitteeVoteList(
+      committeeVotes,
+      committeeAddressSet,
+      currentAddress,
+    );
 
     return `
       <section class="proposal-info-section proposal-vote-current-section">
@@ -4678,73 +4675,54 @@ class ProposalInfoModal {
     `;
   }
 
-  getCommitteeMemberDisplayInfo(address, storedUsernamesByAddress) {
-    const value = String(address || '');
-    let normalizedAddress = value;
-    try {
-      normalizedAddress = normalizeAddress(value);
-    } catch {
-      // Keep the original value as a safe display fallback for malformed data.
-    }
+  renderCommitteeVoteList(committeeVotes, committeeAddressSet, currentAddress) {
+    const votes = committeeVotes
+      .filter((vote) => vote && committeeAddressSet.has(vote.memberAddress));
+    if (votes.length === 0) return '';
 
-    const currentAccountAddress = myAccount?.keys?.address
-      ? normalizeAddress(myAccount.keys.address)
-      : '';
-    const contact = normalizedAddress === currentAccountAddress
-      ? myAccount
-      : myData?.contacts?.[normalizedAddress] || myData?.contacts?.[value];
-    const storedUsername = storedUsernamesByAddress.get(normalizedAddress) || '';
-    const displayContact = {
-      ...contact,
-      username: contact?.username || storedUsername,
-      address: normalizedAddress,
-    };
-    const name = (displayContact.name || displayContact.username)
-      ? getContactDisplayName(displayContact)
-      : 'Unknown';
-    const shortAddress = normalizedAddress.length > 8
-      ? `${normalizedAddress.slice(0, 4)}…${normalizedAddress.slice(-4)}`
-      : normalizedAddress;
-
-    return { name, shortAddress };
-  }
-
-  getStoredUsernamesByAddress() {
     const { usernames, netidAccounts } = signInModal.getSignInUsernames();
     const storedUsernamesByAddress = new Map();
 
-    usernames.forEach((username) => {
-      const address = netidAccounts.usernames[username]?.address;
-      try {
-        storedUsernamesByAddress.set(normalizeAddress(address), username);
-      } catch {
-        // Ignore malformed local account records.
-      }
-    });
+    for (const username of usernames) {
+      const address = normalizeDaoAddress(netidAccounts.usernames[username]?.address);
+      if (address) storedUsernamesByAddress.set(address, username);
+    }
 
-    return storedUsernamesByAddress;
-  }
-
-  renderCommitteeVoteListEntries(committeeVotes, committeeAddressSet, currentAddress) {
-    const storedUsernamesByAddress = this.getStoredUsernamesByAddress();
-
-    return committeeVotes
-      .filter((vote) => vote && committeeAddressSet.has(vote.memberAddress))
+    const normalizedCurrentAddress = normalizeDaoAddress(currentAddress);
+    assert(normalizedCurrentAddress, 'Proposal modal requires a valid account address');
+    const rows = votes
       .map((vote) => {
+        const address = normalizeDaoAddress(vote.memberAddress);
+        assert(address, 'Committee vote requires a valid member address');
+
+        const contact = address === normalizedCurrentAddress
+          ? myAccount
+          : myData.contacts[address];
+        const displayContact = {
+          ...contact,
+          username: contact?.username || storedUsernamesByAddress.get(address) || 'Unknown',
+          address,
+        };
         const tone = this.getCommitteeVoteTone(vote);
-        const youLabel = vote.memberAddress === currentAddress ? ' (you)' : '';
-        const member = this.getCommitteeMemberDisplayInfo(vote.memberAddress, storedUsernamesByAddress);
+        const youLabel = address === normalizedCurrentAddress ? ' (you)' : '';
         return `
           <li class="proposal-committee-vote-row">
             <span class="proposal-committee-vote-address">
-              <span class="proposal-committee-vote-name">${escapeHtml(`${member.name}${youLabel}`)}</span>
-              <span class="proposal-committee-vote-short-address">${escapeHtml(member.shortAddress)}</span>
+              <strong>${escapeHtml(`${getContactDisplayName(displayContact)}${youLabel}`)}</strong>
+              <small>${escapeHtml(`${address.slice(0, 4)}…${address.slice(-4)}`)}</small>
             </span>
             <span class="proposal-committee-vote-choice${tone ? ` proposal-committee-vote-choice--${tone}` : ''}">${escapeHtml(this.formatCommitteeVote(vote))}</span>
           </li>
         `;
       })
       .join('');
+
+    return `
+      <div class="proposal-committee-votes">
+        <h4>Committee votes</h4>
+        <ul class="proposal-committee-vote-list">${rows}</ul>
+      </div>
+    `;
   }
 
   renderProposalResults(result, proposal) {
@@ -4835,17 +4813,13 @@ class ProposalInfoModal {
     const withholdUnits = this.getCountResultSegmentUnits(withholdCount, submittedCount);
     const acceptWinnerClass = result.tone === 'accepted' ? ' proposal-result-meter-label--winner' : '';
     const withholdWinnerClass = result.tone === 'rejected' ? ' proposal-result-meter-label--winner' : '';
-    const committeeVotes = Array.isArray(proposal?.committeeVotes) ? proposal.committeeVotes : [];
-    const committeeAddressSet = new Set(Array.isArray(proposal?.committeeAddresses) ? proposal.committeeAddresses : []);
-    const voteRows = this.renderCommitteeVoteListEntries(committeeVotes, committeeAddressSet, getDaoCurrentAccountAddress());
-    const votesHtml = voteRows
-      ? `
-        <div class="proposal-committee-votes">
-          <h4>Committee votes</h4>
-          <ul class="proposal-committee-vote-list">${voteRows}</ul>
-        </div>
-      `
-      : '';
+    const committeeVotes = Array.isArray(proposal.committeeVotes) ? proposal.committeeVotes : [];
+    const committeeAddressSet = new Set(Array.isArray(proposal.committeeAddresses) ? proposal.committeeAddresses : []);
+    const votesHtml = this.renderCommitteeVoteList(
+      committeeVotes,
+      committeeAddressSet,
+      getDaoCurrentAccountAddress(),
+    );
 
     return `
       <section class="proposal-info-section">
@@ -4955,7 +4929,7 @@ class ProposalInfoModal {
         ['Review starts', formatDaoDetailTimestamp(reviewWindow.start)],
         ['Review ends', formatDaoDetailTimestamp(reviewWindow.end)],
       ]),
-      committeeReviewSection || '',
+      committeeReviewSection,
       state === 'voting' ? this.renderVotingDetails(proposal) : '',
       state === 'review' ? '' : this.renderProposalBody(proposal),
       this.renderProposalRewards(rewardSummary),

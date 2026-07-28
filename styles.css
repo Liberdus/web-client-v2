@@ -2481,11 +2481,11 @@ input[type='file'].form-control::file-selector-button {
   overflow-wrap: anywhere;
 }
 
-#proposalInfoModal .proposal-committee-vote-name {
+#proposalInfoModal .proposal-committee-vote-address > strong {
   font-weight: var(--font-weight-medium);
 }
 
-#proposalInfoModal .proposal-committee-vote-short-address {
+#proposalInfoModal .proposal-committee-vote-address > small {
   color: var(--secondary-text-color);
   font-size: 11px;
 }
@@ -2970,8 +2970,7 @@ input[type='file'].form-control::file-selector-button {
   text-align: right;
 }
 
-#proposalInfoModal .proposal-vote-status-card--deadline,
-#proposalInfoModal .proposal-vote-status-card--fit {
+#proposalInfoModal .proposal-vote-status-card--deadline {
   justify-self: end;
   max-width: 100%;
   width: fit-content;
