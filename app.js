@@ -4465,13 +4465,6 @@ class ProposalInfoModal {
     const committeeReviewSection = state === 'review'
       ? this.renderSection('Committee Review', [
         ['Committee size', committeeAddresses.length ? String(committeeAddresses.length) : 'Unavailable'],
-        ['Accept votes', String(acceptCount)],
-        ['Withhold votes', String(withholdCount)],
-        [
-          'Your vote',
-          currentVote ? this.formatCommitteeVote(currentVote) : capabilities.isCommitteeMember ? 'Not submitted' : 'Not a committee member',
-          this.getCommitteeVoteTone(currentVote),
-        ],
         ['Next state', this.getNextStateHint(proposal, acceptCount, withholdCount, reviewWindow)],
       ])
       : '';
