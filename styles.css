@@ -2471,24 +2471,29 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-committee-vote-address {
+  align-self: stretch;
   color: var(--text-color);
-  display: grid;
+  display: flex;
+  flex-direction: column;
   font-size: 13px;
-  gap: 0;
+  gap: 2px;
+  justify-content: flex-start;
   line-height: 1.2;
   min-width: 0;
   overflow-wrap: anywhere;
+  padding: 4px 0 2px;
 }
 
 #proposalInfoModal .proposal-committee-vote-address > strong {
   font-weight: var(--font-weight-medium);
-  padding-top: 1px;
 }
 
 #proposalInfoModal .proposal-committee-vote-address > small {
   color: var(--secondary-text-color);
   font-size: 11px;
   line-height: 1.1;
+  margin: 0;
+  padding: 0;
 }
 
 #proposalInfoModal .proposal-committee-vote-choice {
