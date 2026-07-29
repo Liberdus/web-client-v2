@@ -1355,7 +1355,7 @@ class WelcomeMenuModal {
       this.launchButton.addEventListener('click', () => launchModal.open());
       this.launchButton.style.display = 'block';
       this.updateButton.addEventListener('click', () => aboutModal.openStore());
-      this.updateButton.style.display = 'block';
+      this.updateButton.style.display = 'flex';
     }
   }
 
@@ -2348,7 +2348,7 @@ class MenuModal {
 
       this.updateButton = document.getElementById('openUpdate');
       this.updateButton.addEventListener('click', () => updateWarningModal.open());
-      this.updateButton.style.display = 'block';
+      this.updateButton.style.display = 'flex';
     }
   }
 
