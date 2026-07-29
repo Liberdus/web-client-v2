@@ -37,7 +37,6 @@ async function checkVersion() {
       newUrl,
       'styles.css',
       'app.js',
-      'wallet-networks.js',
       'evm-assets.js',
       'dao.repo.js',
       'data/emoji-picker-data.js',
