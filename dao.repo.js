@@ -192,6 +192,7 @@ export function getEffectiveDaoState(proposal) {
 }
 
 const DAO_PROPOSAL_QUERY_BATCH_SIZE = 10;
+const DAO_DEVNET_EXCLUDED_PROPOSAL_NUMBERS = new Set([1, 3, 4, 5, 6, 31]);
 
 function requireDaoDraftString(value, label, maxLength) {
   const text = String(value ?? '').trim();
@@ -805,7 +806,7 @@ async function fetchBackendProposal(queryDaoApi, proposalNumber) {
   return body.proposal;
 }
 
-export function createDaoBackendFetcher(queryDaoApi) {
+export function createDaoBackendFetcher(queryDaoApi, isDevNetwork) {
   if (typeof queryDaoApi !== 'function') {
     return async () => createEmptyDaoStore();
   }
@@ -823,11 +824,18 @@ export function createDaoBackendFetcher(queryDaoApi) {
     const count = normalizeDaoPositiveInteger(meta?.count);
     if (!count) return buildStoreFromBackendProposals(meta, []);
 
+    const proposalNumbers = Array.from({ length: count }, (_, index) => index + 1)
+      .filter((proposalNumber) => (
+        !isDevNetwork || !DAO_DEVNET_EXCLUDED_PROPOSAL_NUMBERS.has(proposalNumber)
+      ));
     const proposals = [];
-    for (let start = 1; start <= count; start += DAO_PROPOSAL_QUERY_BATCH_SIZE) {
-      const end = Math.min(start + DAO_PROPOSAL_QUERY_BATCH_SIZE - 1, count);
+    for (let batchStart = 0; batchStart < proposalNumbers.length; batchStart += DAO_PROPOSAL_QUERY_BATCH_SIZE) {
+      const batchProposalNumbers = proposalNumbers.slice(
+        batchStart,
+        batchStart + DAO_PROPOSAL_QUERY_BATCH_SIZE
+      );
       const batch = await Promise.all(
-        Array.from({ length: end - start + 1 }, (_, index) => fetchBackendProposal(queryDaoApi, start + index))
+        batchProposalNumbers.map((proposalNumber) => fetchBackendProposal(queryDaoApi, proposalNumber))
       );
       proposals.push(...batch.filter(Boolean));
     }

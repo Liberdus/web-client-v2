@@ -168,6 +168,7 @@ const MENU_NAVIGATION_LOCK_MS = 400;
 const MAX_CHAT_MESSAGE_BYTES = 1000; // 1000 bytes for chat messages
 const BRIDGE_USERNAME = 'liberdusbridge';
 const TRANSACTION_TIMESTAMP_OFFSET_MS = 500; // Transaction offset to allow for slow connections
+const IS_DEV_NETWORK = network?.name === 'Devnet';
 
 let myData = null;
 let myAccount = null; // this is set to myData.account for convience
@@ -2313,7 +2314,7 @@ class MenuModal {
     this.validatorButton = document.getElementById('openValidator');
     this.validatorButton.addEventListener('click', () => validatorStakingModal.open());
     this.daoButton = document.getElementById('openDao');
-    if (network.name === 'Devnet') {
+    if (IS_DEV_NETWORK) {
       this.daoButton.style.display = 'flex';
       this.daoButton.addEventListener('click', () => daoModal.open());
     }
@@ -2466,7 +2467,7 @@ const menuModal = new MenuModal();
 // =====================
 
 // DAO proposals are loaded via `daoRepo` and kept in memory (no localStorage persistence).
-setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork));
+setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork, IS_DEV_NETWORK));
 
 const DAO_CLAIMABLE_FILTER = { key: 'claimable', label: 'Claimable' };
 const DAO_FILTER_OPTIONS = [...DAO_STATES, DAO_CLAIMABLE_FILTER];
