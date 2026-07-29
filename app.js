@@ -149,9 +149,7 @@ import {
   CHAT_REACTION_SHEET_RECENT_CATEGORY_KEY,
 } from './data/emoji-picker-data.js';
 
-import {
-  evmAssets,
-} from './evm-assets.js?v=1455-12';
+import { evmAssets } from './evm-assets.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);

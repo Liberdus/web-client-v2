@@ -9,7 +9,7 @@ import {
   getEvmWalletNetworks,
   getWalletNetwork,
   walletProbeAddress,
-} from './wallet-networks.js?v=1455-11';
+} from './wallet-networks.js';
 
 class WalletDiscoveryService {
   constructor({
