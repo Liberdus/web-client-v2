@@ -38,7 +38,7 @@ async function checkVersion() {
       'styles.css',
       'app.js',
       'wallet-networks.js',
-      'wallet.js',
+      'evm-assets.js',
       'dao.repo.js',
       'data/emoji-picker-data.js',
       'lib.js',
@@ -150,20 +150,13 @@ import {
 } from './data/emoji-picker-data.js';
 
 import {
-  calculateCatalogTotalUsd,
-  createWalletNetworkCatalog,
-  getEvmWalletNetworks,
-  getWalletNetwork,
-  walletProbeAddress,
-} from './wallet-networks.js?v=1455-8';
-
-import {
+  WalletDiscoveryService,
   connectedAssetLogoMarkup,
   formatAssetDetailsUpdatedAt,
   formatConnectedTokenAmount,
   formatConnectedTokenType,
   formatConnectedUsd,
-} from './wallet.js?v=1455-10';
+} from './evm-assets.js?v=1455-11';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
@@ -2007,231 +2000,12 @@ class ContactsScreen {
 
 const contactsScreen = new ContactsScreen();
 
-class WalletDiscoveryService {
-  constructor({ cacheTtlMs = 5000, requestTimeoutMs = 15000 } = {}) {
-    this.cacheTtlMs = cacheTtlMs;
-    this.requestTimeoutMs = requestTimeoutMs;
-    this.requestController = null;
-    this.reset();
-  }
-
-  reset() {
-    this.requestController?.abort();
-    this.portfolio = null;
-    this.catalog = createWalletNetworkCatalog();
-    this.status = 'idle';
-    this.updatedAt = 0;
-    this.pendingRequest = null;
-    this.address = null;
-    this.requestController = null;
-  }
-
-  getLiberdusAsset() {
-    return myData?.wallet?.assets?.find((asset) => isLibAsset(asset))
-      || myData?.wallet?.assets?.[0]
-      || null;
-  }
-
-  rebuildCatalog() {
-    this.catalog = createWalletNetworkCatalog({
-      liberdusAsset: this.getLiberdusAsset(),
-      portfolio: this.portfolio,
-    });
-    return this.catalog;
-  }
-
-  getCatalog() {
-    return this.rebuildCatalog();
-  }
-
-  getEvmCatalog() {
-    return getEvmWalletNetworks(this.getCatalog());
-  }
-
-  getTotalUsd({ evmOnly = false } = {}) {
-    const catalog = evmOnly ? this.getEvmCatalog() : this.getCatalog();
-    return calculateCatalogTotalUsd(catalog);
-  }
-
-  getStatus() {
-    return this.status;
-  }
-
-  getUpdatedAt() {
-    return this.updatedAt;
-  }
-
-  getNetwork(networkId) {
-    return getWalletNetwork(this.getCatalog(), networkId);
-  }
-
-  getSelectedAsset(networkId, select) {
-    const walletNetwork = this.getNetwork(networkId);
-    if (!walletNetwork) return null;
-    return walletNetwork.assets.find((asset) => asset.key === select?.value)
-      || walletNetwork.assets[0]
-      || null;
-  }
-
-  findAsset(networkId, assetKey, { evmOnly = false } = {}) {
-    const catalog = evmOnly ? this.getEvmCatalog() : this.getCatalog();
-    const walletNetwork = catalog.find((network) => network.id === networkId) || null;
-    const asset = walletNetwork?.assets.find((entry) => entry.key === assetKey) || null;
-    return { walletNetwork, asset };
-  }
-
-  getProbeBaseUrl() {
-    const configured = typeof window.LIBERDUS_WALLET_PROBE_BASE_URL === 'string'
-      ? window.LIBERDUS_WALLET_PROBE_BASE_URL.trim()
-      : '';
-    return (configured || 'http://127.0.0.1:8788').replace(/\/+$/, '');
-  }
-
-  activateAddress(address) {
-    if (this.address === address) return;
-    this.requestController?.abort();
-    this.portfolio = null;
-    this.catalog = createWalletNetworkCatalog();
-    this.status = 'idle';
-    this.updatedAt = 0;
-    this.pendingRequest = null;
-    this.address = address;
-    this.requestController = null;
-  }
-
-  async refresh({ force = false } = {}) {
-    if (!myAccount?.keys?.address) {
-      return this.getCatalog();
-    }
-
-    const address = walletProbeAddress(myAccount.keys.address);
-    this.activateAddress(address);
-
-    const now = Date.now();
-    if (!force && this.updatedAt && now - this.updatedAt < this.cacheTtlMs) {
-      return this.getCatalog();
-    }
-    if (this.pendingRequest) {
-      return this.pendingRequest;
-    }
-
-    this.status = 'loading';
-    const controller = new AbortController();
-    this.requestController = controller;
-    const request = this.fetchPortfolio(address, controller);
-    this.pendingRequest = request;
-
-    try {
-      return await request;
-    } finally {
-      if (this.pendingRequest === request) {
-        this.pendingRequest = null;
-      }
-      if (this.requestController === controller) {
-        this.requestController = null;
-      }
-    }
-  }
-
-  async fetchPortfolio(address, controller) {
-    const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMs);
-    try {
-      const response = await fetch(
-        `${this.getProbeBaseUrl()}/?wallet=${encodeURIComponent(address)}`,
-        {
-          headers: { accept: 'application/json' },
-          cache: 'no-store',
-          signal: controller.signal,
-        },
-      );
-      if (!response.ok) {
-        throw new Error(`Wallet network service returned HTTP ${response.status}`);
-      }
-
-      const portfolio = await response.json();
-      if (!portfolio || !Array.isArray(portfolio.chains) || !Array.isArray(portfolio.tokens)) {
-        throw new TypeError('Wallet network service returned an invalid portfolio');
-      }
-      if (this.address !== address) {
-        return this.rebuildCatalog();
-      }
-
-      this.portfolio = portfolio;
-      this.status = portfolio.complete ? 'connected' : 'partial';
-      this.updatedAt = Date.now();
-      return this.rebuildCatalog();
-    } catch (error) {
-      if (this.address === address) {
-        this.status = 'unavailable';
-        console.warn('Connected wallet network discovery unavailable:', error);
-      }
-      return this.rebuildCatalog();
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
-  populateNetworkSelect(select, { includeAll = false, selectedId = null, evmOnly = false } = {}) {
-    if (!select) return;
-
-    const previousValue = selectedId || select.value;
-    const catalog = evmOnly ? this.getEvmCatalog() : this.getCatalog();
-    const fragment = document.createDocumentFragment();
-    if (includeAll) {
-      const allOption = document.createElement('option');
-      allOption.value = 'all';
-      allOption.textContent = 'All connected networks';
-      fragment.appendChild(allOption);
-    }
-
-    for (const walletNetwork of catalog) {
-      const option = document.createElement('option');
-      option.value = walletNetwork.id;
-      option.textContent = `${walletNetwork.name} (${walletNetwork.shortName})`;
-      fragment.appendChild(option);
-    }
-
-    select.replaceChildren(fragment);
-    const availableValues = new Set([...select.options].map((option) => option.value));
-    select.value = availableValues.has(previousValue)
-      ? previousValue
-      : (includeAll ? 'all' : (evmOnly ? (catalog[0]?.id || '') : 'liberdus'));
-  }
-
-  populateAssetSelect(select, networkId) {
-    if (!select) return;
-    const walletNetwork = this.getNetwork(networkId);
-    if (!walletNetwork) return;
-
-    const fragment = document.createDocumentFragment();
-    for (const asset of walletNetwork.assets) {
-      const option = document.createElement('option');
-      option.value = asset.key;
-      option.textContent = `${asset.tokenName} (${asset.tokenSymbol})`;
-      fragment.appendChild(option);
-    }
-    select.replaceChildren(fragment);
-  }
-
-  getConnectionText() {
-    const connectedNetworks = this.getEvmCatalog().filter((walletNetwork) => walletNetwork.connected);
-    if (this.status === 'loading') {
-      return 'Connecting wallet networks…';
-    }
-    if (this.status === 'unavailable') {
-      return 'Wallet network service unavailable';
-    }
-    if (this.status === 'partial') {
-      return `${connectedNetworks.length} EVM networks connected with warnings`;
-    }
-    if (this.status === 'connected') {
-      return `${connectedNetworks.length} EVM networks connected`;
-    }
-    return 'Liberdus connected';
-  }
-}
-
-const walletDiscovery = new WalletDiscoveryService();
+const walletDiscovery = new WalletDiscoveryService({
+  getAccount: () => myAccount,
+  getLiberdusAsset: () => myData?.wallet?.assets?.find((asset) => isLibAsset(asset))
+    || myData?.wallet?.assets?.[0]
+    || null,
+});
 
 class WalletScreen {
   constructor() {
