@@ -2496,6 +2496,8 @@ class DaoModal {
     this.selectedFilterKey = 'voting';
     this._outsideClickHandler = null;
     this.refreshState = 'loading';
+    this.refreshRequestId = 0;
+    this.successfulRefreshVersion = 0;
   }
 
   load() {
@@ -2557,6 +2559,8 @@ class DaoModal {
   }
 
   async _open() {
+    const requestId = ++this.refreshRequestId;
+    const successfulRefreshVersion = this.successfulRefreshVersion;
     this.refreshState = 'loading';
 
     // Close the main menu if opened from it
@@ -2573,17 +2577,31 @@ class DaoModal {
 
     try {
       await daoRepo.refresh({ force: true });
+      this.successfulRefreshVersion += 1;
+      if (requestId !== this.refreshRequestId) {
+        if (this.isActive()) {
+          this.refreshState = 'ready';
+          this.render();
+        }
+        return;
+      }
       this.refreshState = 'ready';
     } catch (e) {
-      this.refreshState = 'error';
-      console.warn('Failed to refresh DAO proposals:', e);
-      showToast('Failed to load proposals', 2500, 'error');
-    } finally {
-      this.render();
+      if (requestId !== this.refreshRequestId) return;
+      if (successfulRefreshVersion !== this.successfulRefreshVersion) {
+        this.refreshState = 'ready';
+      } else {
+        this.refreshState = 'error';
+        console.warn('Failed to refresh DAO proposals:', e);
+        showToast('Failed to load proposals', 2500, 'error');
+      }
     }
+
+    this.render();
   }
 
   close() {
+    this.refreshRequestId += 1;
     this.closeStatusMenu();
     this.modal.classList.remove('active');
     enterFullscreen();
@@ -2610,6 +2628,11 @@ class DaoModal {
       didRefreshDaoData = true;
     } catch (error) {
       console.warn('DAO settlement refresh failed:', error);
+    }
+
+    if (didRefreshDaoData) {
+      this.successfulRefreshVersion += 1;
+      if (this.isActive()) this.refreshState = 'ready';
     }
 
     // A confirmed action must remain blocked until the UI can render fresh
