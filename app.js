@@ -2495,7 +2495,7 @@ class DaoModal {
     this.selectedGroupKey = 'active';
     this.selectedFilterKey = 'voting';
     this._outsideClickHandler = null;
-    this.isLoading = false;
+    this.refreshState = 'loading';
   }
 
   load() {
@@ -2557,7 +2557,7 @@ class DaoModal {
   }
 
   async _open() {
-    this.isLoading = true;
+    this.refreshState = 'loading';
 
     // Close the main menu if opened from it
     if (menuModal?.isActive?.()) menuModal.close();
@@ -2573,11 +2573,12 @@ class DaoModal {
 
     try {
       await daoRepo.refresh({ force: true });
+      this.refreshState = 'ready';
     } catch (e) {
+      this.refreshState = 'error';
       console.warn('Failed to refresh DAO proposals:', e);
       showToast('Failed to load proposals', 2500, 'error');
     } finally {
-      this.isLoading = false;
       this.render();
     }
   }
@@ -2684,8 +2685,11 @@ class DaoModal {
   }
 
   render() {
-    const proposalsActive = daoRepo.getProposalsForUi('active');
-    const proposalsArchived = daoRepo.getProposalsForUi('archived');
+    const hasFreshData = this.refreshState === 'ready';
+    const isLoading = this.refreshState === 'loading';
+    const hasLoadError = this.refreshState === 'error';
+    const proposalsActive = hasFreshData ? daoRepo.getProposalsForUi('active') : [];
+    const proposalsArchived = hasFreshData ? daoRepo.getProposalsForUi('archived') : [];
     const currentAddress = getDaoCurrentAccountAddress();
     const now = getTransactionTimestamp();
     const isClaimableFilter = this.selectedFilterKey === DAO_CLAIMABLE_FILTER.key;
@@ -2710,12 +2714,12 @@ class DaoModal {
 
     // Update group toggle labels + selection
     if (this.groupActiveButton) {
-      this.groupActiveButton.textContent = `Active ${proposalsActive.length}`;
+      this.groupActiveButton.textContent = `Active ${hasFreshData ? proposalsActive.length : '—'}`;
       this.groupActiveButton.classList.toggle('active', this.selectedGroupKey !== 'archived');
       this.groupActiveButton.setAttribute('aria-selected', this.selectedGroupKey !== 'archived' ? 'true' : 'false');
     }
     if (this.groupArchivedButton) {
-      this.groupArchivedButton.textContent = `Archived ${proposalsArchived.length}`;
+      this.groupArchivedButton.textContent = `Archived ${hasFreshData ? proposalsArchived.length : '—'}`;
       this.groupArchivedButton.classList.toggle('active', this.selectedGroupKey === 'archived');
       this.groupArchivedButton.setAttribute('aria-selected', this.selectedGroupKey === 'archived' ? 'true' : 'false');
     }
@@ -2728,8 +2732,11 @@ class DaoModal {
 
       if (labelEl) labelEl.textContent = filter.label;
       if (countEl) {
-        countEl.textContent = String(count);
-        countEl.setAttribute('aria-label', `${count} ${filter.label.toLowerCase()} proposals`);
+        countEl.textContent = hasFreshData ? String(count) : '—';
+        countEl.setAttribute(
+          'aria-label',
+          hasFreshData ? `${count} ${filter.label.toLowerCase()} proposals` : `${filter.label} count unavailable`
+        );
       }
       if (option) {
         const selected = filter.key === this.selectedFilterKey;
@@ -2760,9 +2767,12 @@ class DaoModal {
       const sublineEl = lines[2] || null;
       const isArchived = this.selectedGroupKey === 'archived';
 
-      if (this.isLoading) {
+      if (isLoading) {
         if (headlineEl) headlineEl.textContent = 'Loading proposals…';
         if (sublineEl) sublineEl.textContent = 'Please wait';
+      } else if (hasLoadError) {
+        if (headlineEl) headlineEl.textContent = 'Failed to load proposals';
+        if (sublineEl) sublineEl.textContent = 'Close and reopen the DAO to retry';
       } else if (isClaimableFilter) {
         if (headlineEl) headlineEl.textContent = 'No claimable proposals found';
         if (sublineEl) sublineEl.textContent = 'You have no voter rewards ready to claim';
@@ -2813,7 +2823,7 @@ class DaoModal {
 
     // Show + button when modal is active
     if (this.addButton) {
-      this.addButton.classList.toggle('visible', this.isActive());
+      this.addButton.classList.toggle('visible', hasFreshData && this.isActive());
     }
   }
 
