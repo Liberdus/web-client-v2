@@ -2314,10 +2314,8 @@ class MenuModal {
     this.validatorButton = document.getElementById('openValidator');
     this.validatorButton.addEventListener('click', () => validatorStakingModal.open());
     this.daoButton = document.getElementById('openDao');
-    if (IS_DEV_NETWORK) {
-      this.daoButton.style.display = 'flex';
-      this.daoButton.addEventListener('click', () => daoModal.open());
-    }
+    this.daoButton.style.display = 'flex';
+    this.daoButton.addEventListener('click', () => daoModal.open());
     this.inviteButton = document.getElementById('openInvite');
     this.inviteButton.addEventListener('click', () => inviteModal.open());
     this.explorerButton = document.getElementById('openExplorer');
