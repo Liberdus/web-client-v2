@@ -2577,8 +2577,14 @@ class DaoModal {
 
     try {
       await daoRepo.refresh({ force: true });
-      if (requestId !== this.refreshRequestId) return;
       this.successfulRefreshVersion += 1;
+      if (requestId !== this.refreshRequestId) {
+        if (this.isActive()) {
+          this.refreshState = 'ready';
+          this.render();
+        }
+        return;
+      }
       this.refreshState = 'ready';
     } catch (e) {
       if (requestId !== this.refreshRequestId) return;
