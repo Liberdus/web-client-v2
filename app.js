@@ -2490,6 +2490,11 @@ function formatDaoDate(ts) {
   }
 }
 
+function formatDaoProposalTitle(proposal) {
+  const title = String(proposal.title || '').trim() || 'Proposal';
+  return proposal.number ? `#${proposal.number}: ${title}` : title;
+}
+
 class DaoModal {
   constructor() {
     this.selectedGroupKey = 'active';
@@ -2782,8 +2787,7 @@ class DaoModal {
       const li = document.createElement('li');
       li.classList.add('chat-item', 'dao-proposal-row');
 
-      const titleText = String(p.title || '').trim() || 'Proposal';
-      const rowTitleText = p.number ? `#${p.number}: ${titleText}` : titleText;
+      const rowTitleText = formatDaoProposalTitle(p);
       const title = escapeHtml(rowTitleText);
       const typeLabel = escapeHtml(getDaoTypeLabel(p.proposalType) || 'Proposal');
       const previewHtml = this.renderProposalRowPreview(p);
@@ -3587,7 +3591,7 @@ function formatDaoDurationDaysEstimate(ms) {
 }
 
 function renderDaoProposalHeading(proposal) {
-  const title = proposal.title || (proposal.number ? `Proposal #${proposal.number}` : 'Proposal');
+  const title = formatDaoProposalTitle(proposal);
   const emergencyLabel = proposal.emergency === true ? 'Emergency proposal' : 'Standard proposal';
   const emergencyClass = proposal.emergency === true ? ' proposal-type-indicator--emergency' : '';
   const descriptionHtml = proposal.description
