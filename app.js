@@ -2496,7 +2496,9 @@ class DaoModal {
     this.selectedFilterKey = 'voting';
     this._outsideClickHandler = null;
     this.refreshState = 'loading';
-    this.refreshRequestId = 0;
+    this.refreshSequence = 0;
+    this.openRefreshId = 0;
+    this.lastSuccessfulRefreshId = 0;
   }
 
   load() {
@@ -2558,7 +2560,8 @@ class DaoModal {
   }
 
   async _open() {
-    const requestId = ++this.refreshRequestId;
+    const refreshId = ++this.refreshSequence;
+    this.openRefreshId = refreshId;
     this.refreshState = 'loading';
 
     // Close the main menu if opened from it
@@ -2575,11 +2578,11 @@ class DaoModal {
 
     try {
       await daoRepo.refresh({ force: true });
-      if (!this.isActive()) return;
+      this.lastSuccessfulRefreshId = Math.max(this.lastSuccessfulRefreshId, refreshId);
+      if (!this.isActive() || refreshId !== this.openRefreshId) return;
       this.refreshState = 'ready';
     } catch (e) {
-      // Ignore stale failures and failures superseded by another successful refresh.
-      if (requestId !== this.refreshRequestId || this.refreshState === 'ready') return;
+      if (refreshId !== this.openRefreshId || this.lastSuccessfulRefreshId > refreshId) return;
       this.refreshState = 'error';
       console.warn('Failed to refresh DAO proposals:', e);
       showToast('Failed to load proposals', 2500, 'error');
@@ -2589,7 +2592,7 @@ class DaoModal {
   }
 
   close() {
-    this.refreshRequestId += 1;
+    this.openRefreshId = ++this.refreshSequence;
     this.closeStatusMenu();
     this.modal.classList.remove('active');
     enterFullscreen();
@@ -2610,6 +2613,7 @@ class DaoModal {
   }
 
   async refreshAfterDaoSettlement(pendingTxInfo, outcome) {
+    const refreshId = ++this.refreshSequence;
     let didRefreshDaoData = false;
     try {
       await daoRepo.refresh({ force: true });
@@ -2618,7 +2622,10 @@ class DaoModal {
       console.warn('DAO settlement refresh failed:', error);
     }
 
-    if (didRefreshDaoData && this.isActive()) this.refreshState = 'ready';
+    if (didRefreshDaoData) {
+      this.lastSuccessfulRefreshId = Math.max(this.lastSuccessfulRefreshId, refreshId);
+      if (this.isActive() && refreshId > this.openRefreshId) this.refreshState = 'ready';
+    }
 
     // A confirmed action must remain blocked until the UI can render fresh
     // proposal state. Failed and timed-out actions can safely release the UI.
