@@ -2497,7 +2497,6 @@ class DaoModal {
     this._outsideClickHandler = null;
     this.refreshState = 'loading';
     this.refreshRequestId = 0;
-    this.successfulRefreshVersion = 0;
   }
 
   load() {
@@ -2560,7 +2559,6 @@ class DaoModal {
 
   async _open() {
     const requestId = ++this.refreshRequestId;
-    const successfulRefreshVersion = this.successfulRefreshVersion;
     this.refreshState = 'loading';
 
     // Close the main menu if opened from it
@@ -2577,24 +2575,14 @@ class DaoModal {
 
     try {
       await daoRepo.refresh({ force: true });
-      this.successfulRefreshVersion += 1;
-      if (requestId !== this.refreshRequestId) {
-        if (this.isActive()) {
-          this.refreshState = 'ready';
-          this.render();
-        }
-        return;
-      }
+      if (!this.isActive()) return;
       this.refreshState = 'ready';
     } catch (e) {
-      if (requestId !== this.refreshRequestId) return;
-      if (successfulRefreshVersion !== this.successfulRefreshVersion) {
-        this.refreshState = 'ready';
-      } else {
-        this.refreshState = 'error';
-        console.warn('Failed to refresh DAO proposals:', e);
-        showToast('Failed to load proposals', 2500, 'error');
-      }
+      // Ignore stale failures and failures superseded by another successful refresh.
+      if (requestId !== this.refreshRequestId || this.refreshState === 'ready') return;
+      this.refreshState = 'error';
+      console.warn('Failed to refresh DAO proposals:', e);
+      showToast('Failed to load proposals', 2500, 'error');
     }
 
     this.render();
@@ -2630,10 +2618,7 @@ class DaoModal {
       console.warn('DAO settlement refresh failed:', error);
     }
 
-    if (didRefreshDaoData) {
-      this.successfulRefreshVersion += 1;
-      if (this.isActive()) this.refreshState = 'ready';
-    }
+    if (didRefreshDaoData && this.isActive()) this.refreshState = 'ready';
 
     // A confirmed action must remain blocked until the UI can render fresh
     // proposal state. Failed and timed-out actions can safely release the UI.
@@ -2709,8 +2694,6 @@ class DaoModal {
 
   render() {
     const hasFreshData = this.refreshState === 'ready';
-    const isLoading = this.refreshState === 'loading';
-    const hasLoadError = this.refreshState === 'error';
     const proposalsActive = hasFreshData ? daoRepo.getProposalsForUi('active') : [];
     const proposalsArchived = hasFreshData ? daoRepo.getProposalsForUi('archived') : [];
     const currentAddress = getDaoCurrentAccountAddress();
@@ -2790,10 +2773,10 @@ class DaoModal {
       const sublineEl = lines[2] || null;
       const isArchived = this.selectedGroupKey === 'archived';
 
-      if (isLoading) {
+      if (this.refreshState === 'loading') {
         if (headlineEl) headlineEl.textContent = 'Loading proposals…';
         if (sublineEl) sublineEl.textContent = 'Please wait';
-      } else if (hasLoadError) {
+      } else if (this.refreshState === 'error') {
         if (headlineEl) headlineEl.textContent = 'Failed to load proposals';
         if (sublineEl) sublineEl.textContent = 'Close and reopen the DAO to retry';
       } else if (isClaimableFilter) {
