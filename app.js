@@ -2506,17 +2506,21 @@ function formatDaoTime(ts) {
   }
 }
 
-function formatDaoApplyReadyAtLabel(eligibleAt, now = getTransactionTimestamp()) {
-  const at = Number(eligibleAt || 0);
+function formatDaoDayOrTime(ts, now = getTransactionTimestamp()) {
+  const at = Number(ts || 0);
   if (!at) return '';
-  const eligibleDate = new Date(at);
+  const atDate = new Date(at);
   const nowDate = new Date(now);
   const sameDay = (
-    eligibleDate.getFullYear() === nowDate.getFullYear()
-    && eligibleDate.getMonth() === nowDate.getMonth()
-    && eligibleDate.getDate() === nowDate.getDate()
+    atDate.getFullYear() === nowDate.getFullYear()
+    && atDate.getMonth() === nowDate.getMonth()
+    && atDate.getDate() === nowDate.getDate()
   );
-  const when = sameDay ? formatDaoTime(at) : formatDaoDate(at);
+  return sameDay ? formatDaoTime(at) : formatDaoDate(at);
+}
+
+function formatDaoReadyAtLabel(ts, now = getTransactionTimestamp()) {
+  const when = formatDaoDayOrTime(ts, now);
   return when ? `Ready at ${when}` : '';
 }
 
@@ -2888,7 +2892,8 @@ class DaoModal {
     }
 
     if (state === 'review') {
-      const reviewWindow = getDaoProposalReviewWindow(proposal);
+      const now = getTransactionTimestamp();
+      const reviewWindow = getDaoProposalReviewWindow(proposal, now);
 
       if (reviewWindow.canFinalizeReviewResult) {
         const { acceptCount, withholdCount } = getDaoCommitteeReview(proposal);
@@ -2900,19 +2905,29 @@ class DaoModal {
         });
       }
 
+      let reviewLabel = reviewWindow.label;
+      if (reviewWindow.canFinalizeReviewResult) {
+        reviewLabel = 'Ready to finalize';
+      } else if (now < reviewWindow.start) {
+        reviewLabel = formatDaoReadyAtLabel(reviewWindow.start, now) || reviewLabel;
+      } else if (now <= reviewWindow.end) {
+        const endLabel = formatDaoDayOrTime(reviewWindow.end, now);
+        if (endLabel) reviewLabel = `Ends ${endLabel}`;
+      }
+
       chips.push({
-        value: reviewWindow.canFinalizeReviewResult ? 'Ready to finalize' : reviewWindow.label,
+        value: reviewLabel,
         tone: 'neutral',
       });
     } else if (state === 'voting') {
       const now = getTransactionTimestamp();
       const votingWindow = getDaoProposalVotingWindow(proposal, now);
-      const endDate = formatDaoDate(votingWindow.end);
+      const endLabel = formatDaoDayOrTime(votingWindow.end, now);
       const votingEnded = Boolean(votingWindow.end && now > votingWindow.end);
 
-      if (endDate && !votingEnded) {
+      if (endLabel && !votingEnded) {
         chips.push({
-          value: `Ends ${endDate}`,
+          value: `Ends ${endLabel}`,
           tone: 'neutral',
         });
       }
@@ -4278,7 +4293,7 @@ function getDaoProposalApplyLifecycleAction(
         ? `Apply becomes available after the grace period ends: ${eligibleAt}.`
         : 'Apply timing is unavailable until the proposal includes grace-period timing.',
       false,
-      formatDaoApplyReadyAtLabel(applyWindow.eligibleAt, now),
+      formatDaoReadyAtLabel(applyWindow.eligibleAt, now),
     );
   }
 
