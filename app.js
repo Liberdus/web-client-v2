@@ -2496,17 +2496,7 @@ function formatDaoDate(ts) {
   }
 }
 
-function formatDaoTime(ts) {
-  const n = Number(ts || 0);
-  if (!n) return '';
-  try {
-    return new Date(n).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  } catch {
-    return '';
-  }
-}
-
-function formatDaoDayOrTime(ts, now = getTransactionTimestamp()) {
+function formatDaoDayOrTime(ts, now) {
   const at = Number(ts || 0);
   if (!at) return '';
   const atDate = new Date(at);
@@ -2516,10 +2506,15 @@ function formatDaoDayOrTime(ts, now = getTransactionTimestamp()) {
     && atDate.getMonth() === nowDate.getMonth()
     && atDate.getDate() === nowDate.getDate()
   );
-  return sameDay ? formatDaoTime(at) : formatDaoDate(at);
+  if (!sameDay) return formatDaoDate(at);
+  try {
+    return atDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  } catch {
+    return '';
+  }
 }
 
-function formatDaoReadyAtLabel(ts, now = getTransactionTimestamp()) {
+function formatDaoReadyAtLabel(ts, now) {
   const when = formatDaoDayOrTime(ts, now);
   return when ? `Ready at ${when}` : '';
 }
