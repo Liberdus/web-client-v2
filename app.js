@@ -4439,6 +4439,14 @@ function getDaoUsdAsLibWei(usdValue) {
   }
 }
 
+// Snapshotted proposal USD rule → LIB display. null means the requirement does not apply.
+function formatDaoProposalVoteRequirementLib(usdValue) {
+  if (!(Number(usdValue || 0) > 0)) return null;
+  const weiAmount = getDaoUsdAsLibWei(usdValue);
+  if (weiAmount === null) return 'Unavailable';
+  return formatDaoLibWei(weiAmount);
+}
+
 function floorDaoVoteWeightEstimate(value) {
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0) return null;
