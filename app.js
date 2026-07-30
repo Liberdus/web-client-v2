@@ -2471,7 +2471,10 @@ const menuModal = new MenuModal();
 // =====================
 
 // DAO proposals are loaded via `daoRepo` and kept in memory (no localStorage persistence).
-setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork, IS_DEV_NETWORK));
+setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork, {
+  isDevNetwork: IS_DEV_NETWORK,
+  getCurrentAddress: getDaoCurrentAccountAddress,
+}));
 
 const DAO_CLAIMABLE_FILTER = { key: 'claimable', label: 'Claimable' };
 const DAO_FILTER_OPTIONS = [...DAO_STATES, DAO_CLAIMABLE_FILTER];
@@ -5247,6 +5250,7 @@ class ProposalInfoModal {
       this.voteOptions.innerHTML = `
         <div class="proposal-vote-options-header">
           <span>Option</span>
+          <span>%</span>
           <span class="proposal-vote-weight-label">
             Weight
             <button
@@ -5258,7 +5262,6 @@ class ProposalInfoModal {
               aria-label="About Weight"
             ></button>
           </span>
-          <span>%</span>
         </div>
         ${options.map((option, index) => this.renderVoteOption(option, index, totalWeight)).join('')}
         ${this.renderVoteRequirements(proposal)}
@@ -5324,6 +5327,11 @@ class ProposalInfoModal {
     return `
       <label class="proposal-vote-option">
         <span>${escapeHtml(option)}</span>
+        <span
+          class="proposal-vote-weight-percent"
+          data-vote-weight-percent="${index}"
+          aria-label="${escapeDaoFormAttribute(`${option} percent`)}"
+        >${escapeHtml(this.formatCountPercent(weight, totalWeight))}</span>
         <input
           type="number"
           class="form-control"
@@ -5336,11 +5344,6 @@ class ProposalInfoModal {
           data-vote-option-index="${index}"
           value="${escapeDaoFormAttribute(String(weight))}"
         >
-        <span
-          class="proposal-vote-weight-percent"
-          data-vote-weight-percent="${index}"
-          aria-label="${escapeDaoFormAttribute(`${option} percent`)}"
-        >${escapeHtml(this.formatCountPercent(weight, totalWeight))}</span>
       </label>
     `;
   }
