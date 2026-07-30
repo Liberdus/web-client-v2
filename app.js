@@ -5241,7 +5241,7 @@ class ProposalInfoModal {
     const rows = [
       {
         help: DAO_VOTE_HELP.voteThreshold,
-        label: 'Minimum Balance',
+        label: 'Vote Threshold',
         value: formatDaoProposalVoteRequirementLib(proposal.voteThresholdUsdStr),
       },
       {
