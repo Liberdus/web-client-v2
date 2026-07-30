@@ -2496,6 +2496,30 @@ function formatDaoDate(ts) {
   }
 }
 
+function formatDaoTime(ts) {
+  const n = Number(ts || 0);
+  if (!n) return '';
+  try {
+    return new Date(n).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  } catch {
+    return '';
+  }
+}
+
+function formatDaoApplyReadyAtLabel(eligibleAt, now = getTransactionTimestamp()) {
+  const at = Number(eligibleAt || 0);
+  if (!at) return '';
+  const eligibleDate = new Date(at);
+  const nowDate = new Date(now);
+  const sameDay = (
+    eligibleDate.getFullYear() === nowDate.getFullYear()
+    && eligibleDate.getMonth() === nowDate.getMonth()
+    && eligibleDate.getDate() === nowDate.getDate()
+  );
+  const when = sameDay ? formatDaoTime(at) : formatDaoDate(at);
+  return when ? `Ready at ${when}` : '';
+}
+
 function formatDaoProposalTitle(proposal) {
   const title = String(proposal.title || '').trim() || 'Proposal';
   return proposal.number ? `#${proposal.number}: ${title}` : title;
@@ -4254,7 +4278,7 @@ function getDaoProposalApplyLifecycleAction(
         ? `Apply becomes available after the grace period ends: ${eligibleAt}.`
         : 'Apply timing is unavailable until the proposal includes grace-period timing.',
       false,
-      eligibleAt,
+      formatDaoApplyReadyAtLabel(applyWindow.eligibleAt, now),
     );
   }
 
