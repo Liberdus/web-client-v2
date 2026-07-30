@@ -2650,13 +2650,21 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-committee-actions,
 #proposalInfoModal .proposal-review-result-actions,
-#proposalInfoModal .proposal-lifecycle-actions,
-#proposalInfoModal .proposal-vote-actions {
+#proposalInfoModal .proposal-lifecycle-actions {
   border: 1px solid var(--border-color);
   border-radius: 8px;
   display: grid;
   gap: 8px;
   padding: 10px;
+}
+
+#proposalInfoModal .proposal-vote-actions {
+  border: 0;
+  border-radius: 0;
+  border-top: 1px solid var(--border-color);
+  display: grid;
+  gap: 8px;
+  padding: 10px 0 0;
 }
 
 #proposalInfoModal .proposal-lifecycle-action {
