@@ -211,22 +211,42 @@ function requireDaoNonNegativeNumber(value, label) {
   return n;
 }
 
-function normalizeDaoDraftDayCount(value, label) {
-  const n = Number(value || 0);
-  if (!Number.isInteger(n) || n < 0) {
-    throw new Error(`${label} must be a non-negative whole number`);
+function normalizeDaoDraftInteger(value, label, unit = '') {
+  const text = String(value ?? '').trim();
+  const unitSuffix = unit ? ` of ${unit}` : '';
+  if (!/^\d+$/.test(text)) {
+    throw new Error(`${label} must be a non-negative whole number${unitSuffix}`);
   }
+
+  const n = Number(text);
+  if (!Number.isSafeInteger(n)) throw new Error(`${label} is too large`);
   return n;
 }
 
-function normalizeDaoDraftDurationMs(value, label) {
-  const text = String(value ?? '').trim();
-  if (!text) throw new Error(`${label} is required`);
-  const n = Number(text);
-  if (!Number.isInteger(n) || n < 0) {
-    throw new Error(`${label} must be a non-negative whole number of milliseconds`);
+function normalizeDaoDraftStartDelayMs(value) {
+  const days = normalizeDaoDraftInteger(value, 'Review start delay');
+  const milliseconds = days * DAO_PROPOSAL_DAY_MS;
+  if (!Number.isSafeInteger(milliseconds)) {
+    throw new Error('Review start delay is too large');
   }
-  return n;
+  return milliseconds;
+}
+
+function normalizeDaoDraftGracePeriodMs(value, maxGracePeriodMs) {
+  const gracePeriodMs = normalizeDaoDraftInteger(value, 'Grace period', 'milliseconds');
+  const maximumMs = normalizeDaoDraftInteger(maxGracePeriodMs, 'Maximum grace period', 'milliseconds');
+  if (gracePeriodMs > maximumMs) {
+    throw new Error(`Grace period must not exceed ${maximumMs} milliseconds`);
+  }
+  return gracePeriodMs;
+}
+
+function getDaoProposalStartTime(timestamp, startDelayMs) {
+  const startTime = timestamp + startDelayMs;
+  if (!Number.isSafeInteger(startTime) || Number.isNaN(new Date(startTime).getTime())) {
+    throw new Error('Review start delay produces an invalid date');
+  }
+  return startTime;
 }
 
 function normalizeDaoDraftChanges(changes) {
@@ -278,6 +298,7 @@ export function buildDaoProposalCreateDraft({
   proposalFeeUsdStr,
   startDelayDays,
   gracePeriodMs,
+  maxGracePeriodMs,
 } = {}) {
   const safeProposalType = requireDaoDraftString(proposalType, 'DAO proposal type');
   if (!DAO_CONFIG_CHANGE_OPTIONS[safeProposalType]) {
@@ -286,8 +307,8 @@ export function buildDaoProposalCreateDraft({
 
   const isEmergency = emergency === true;
   const feeUsdStr = isEmergency ? '0' : requireDaoDraftString(proposalFeeUsdStr, 'DAO proposal fee');
-  const startDelayMs = normalizeDaoDraftDayCount(startDelayDays, 'Review start delay') * DAO_PROPOSAL_DAY_MS;
-  const safeGracePeriodMs = normalizeDaoDraftDurationMs(gracePeriodMs, 'Grace period');
+  const startDelayMs = normalizeDaoDraftStartDelayMs(startDelayDays);
+  const safeGracePeriodMs = normalizeDaoDraftGracePeriodMs(gracePeriodMs, maxGracePeriodMs);
   const safeOptions = normalizeDaoDraftOptions(options);
   const safeChanges = normalizeDaoDraftChanges(changes);
 
@@ -298,10 +319,9 @@ export function buildDaoProposalCreateDraft({
     title: requireDaoDraftString(displayTitle, 'DAO proposal title', DAO_PROPOSAL_TITLE_MAX_LENGTH),
     description: requireDaoDraftString(description, 'DAO proposal description'),
     options: safeOptions,
+    gracePeriod: safeGracePeriodMs,
     [safeProposalType]: { changes: safeChanges },
   };
-
-  transaction.gracePeriod = safeGracePeriodMs;
 
   return {
     displayTitle: transaction.title,
@@ -330,8 +350,16 @@ export function buildDaoProposalCreateTransaction({
   const proposalId = getDaoProposalAccountId(proposalNumber);
   const txTimestamp = requireDaoNonNegativeNumber(timestamp, 'DAO proposal timestamp');
   if (txTimestamp <= 0) throw new Error('DAO proposal timestamp is required');
-  const startDelayMs = requireDaoNonNegativeNumber(draft.startDelayMs ?? 0, 'Review start delay');
-  const gracePeriod = requireDaoNonNegativeNumber(draftTx.gracePeriod, 'Grace period');
+  const startDelayMs = normalizeDaoDraftInteger(
+    draft.startDelayMs ?? 0,
+    'Review start delay',
+    'milliseconds'
+  );
+  const gracePeriod = normalizeDaoDraftInteger(
+    draftTx.gracePeriod,
+    'Grace period',
+    'milliseconds'
+  );
 
   const transaction = {
     ...draftTx,
@@ -344,7 +372,7 @@ export function buildDaoProposalCreateTransaction({
   };
 
   if (startDelayMs > 0) {
-    transaction.startTime = txTimestamp + startDelayMs;
+    transaction.startTime = getDaoProposalStartTime(txTimestamp, startDelayMs);
   }
 
   return transaction;
