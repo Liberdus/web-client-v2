@@ -5352,6 +5352,11 @@ class ProposalInfoModal {
     return Math.min(n, DAO_VOTE_WEIGHT_MAX);
   }
 
+  hasStartedVoteInput() {
+    if (this.voteWeights.some((weight) => weight > 0)) return true;
+    return String(this.voteSpendLib || '').trim() !== '';
+  }
+
   updateVotePreview(proposal) {
     if (!this.votePreview || !proposal) {
       this.canSubmitVote = false;
@@ -5364,7 +5369,11 @@ class ProposalInfoModal {
       this.canSubmitVote = false;
       this.updateSubmitButtons();
       this.votePreview.classList.add('proposal-vote-preview--message');
-      this.votePreview.innerHTML = this.renderVotePreviewMessage(submission.message, submission.tone);
+      this.votePreview.innerHTML = this.renderVotePreviewMessage(
+        submission.message,
+        submission.tone,
+        { idle: !this.hasStartedVoteInput() },
+      );
       return;
     }
 
@@ -5520,8 +5529,10 @@ class ProposalInfoModal {
     };
   }
 
-  renderVotePreviewMessage(message, tone) {
-    return `<div class="proposal-vote-preview-message proposal-vote-preview-message--${tone}">${escapeHtml(message)}</div>`;
+  renderVotePreviewMessage(message, tone, { idle = false } = {}) {
+    const idleClass = idle ? ' proposal-vote-preview-message--idle' : '';
+    const ariaHidden = idle ? ' aria-hidden="true"' : '';
+    return `<div class="proposal-vote-preview-message proposal-vote-preview-message--${tone}${idleClass}"${ariaHidden}>${escapeHtml(message)}</div>`;
   }
 
   getCurrentProposal() {

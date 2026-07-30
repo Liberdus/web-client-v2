@@ -3205,6 +3205,10 @@ input[type='file'].form-control::file-selector-button {
   text-align: center;
 }
 
+#proposalInfoModal .proposal-vote-preview-message--idle {
+  visibility: hidden;
+}
+
 #proposalInfoModal .proposal-vote-preview-message--warning {
   background: rgba(196, 45, 45, 0.12);
   color: #8f1d16;
