@@ -5238,12 +5238,12 @@ class ProposalInfoModal {
     const rows = [
       {
         key: 'voteThreshold',
-        label: 'Vote Threshold',
+        label: 'Minimum Balance',
         value: formatDaoProposalVoteRequirementLib(proposal.voteThresholdUsdStr),
       },
       {
         key: 'minimumSpend',
-        label: 'Minimum Vote Spend',
+        label: 'Minimum Spend',
         value: formatDaoProposalVoteRequirementLib(proposal.minimumSpendUsdStr),
       },
     ].filter((row) => row.value !== null);
