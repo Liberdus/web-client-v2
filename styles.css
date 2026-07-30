@@ -2650,20 +2650,22 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-committee-actions,
 #proposalInfoModal .proposal-review-result-actions,
+#proposalInfoModal .proposal-lifecycle-actions,
+#proposalInfoModal .proposal-vote-actions {
+  display: grid;
+  gap: 8px;
+}
+
+#proposalInfoModal .proposal-committee-actions,
+#proposalInfoModal .proposal-review-result-actions,
 #proposalInfoModal .proposal-lifecycle-actions {
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  display: grid;
-  gap: 8px;
   padding: 10px;
 }
 
 #proposalInfoModal .proposal-vote-actions {
-  border: 0;
-  border-radius: 0;
   border-top: 1px solid var(--border-color);
-  display: grid;
-  gap: 8px;
   padding: 10px 0 0;
 }
 
@@ -3042,21 +3044,25 @@ input[type='file'].form-control::file-selector-button {
   text-align: center;
 }
 
-#proposalInfoModal .proposal-vote-allocation-label {
+#proposalInfoModal .proposal-vote-allocation-label,
+#proposalInfoModal .proposal-vote-requirement-label {
   align-items: center;
   display: inline-flex;
   gap: 4px;
+}
+
+#proposalInfoModal .proposal-vote-allocation-label {
   justify-content: center;
   justify-self: center;
 }
 
-#proposalInfoModal .proposal-vote-allocation-help {
+#proposalInfoModal .proposal-vote-help {
   flex: 0 0 auto;
   margin-left: 0;
   transform: none;
 }
 
-#proposalInfoModal button.proposal-vote-allocation-help {
+#proposalInfoModal button.proposal-vote-help {
   background: transparent;
   border: 0;
   color: inherit;
@@ -3076,9 +3082,6 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-vote-requirement-label {
-  align-items: center;
-  display: inline-flex;
-  gap: 4px;
   min-width: 0;
 }
 
@@ -3086,19 +3089,6 @@ input[type='file'].form-control::file-selector-button {
   color: var(--text-color);
   text-align: right;
   white-space: nowrap;
-}
-
-#proposalInfoModal .proposal-vote-requirement-help {
-  flex: 0 0 auto;
-  margin-left: 0;
-  transform: none;
-}
-
-#proposalInfoModal button.proposal-vote-requirement-help {
-  background: transparent;
-  border: 0;
-  color: inherit;
-  padding: 0;
 }
 
 #proposalInfoModal .proposal-vote-option,
@@ -3213,7 +3203,7 @@ input[type='file'].form-control::file-selector-button {
   text-align: center;
 }
 
-#proposalInfoModal .proposal-vote-preview-message--idle {
+#proposalInfoModal .proposal-vote-preview--idle {
   visibility: hidden;
 }
 

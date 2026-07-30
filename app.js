@@ -3907,11 +3907,11 @@ const DAO_VOTE_WEIGHT_MAX = 1_000_000;
 const DAO_VOTE_WEIGHT_PRECISION = 1_000_000_000_000;
 const DAO_VOTE_WEIGHT_PRECISION_BIGINT = 1_000_000_000_000n;
 const DAO_CLAIM_REWARD_PRECISION = 10n ** 18n;
-const DAO_VOTE_REQUIREMENT_HELP = {
+const DAO_VOTE_HELP = {
+  allocation: 'Allocation is a ratio. 1 / 1 splits evenly; 3 / 1 gives 75% / 25%.',
   voteThreshold: 'Minimum wallet balance required to vote on this proposal.',
   minimumSpend: 'Minimum LIB you must spend for a valid vote on this proposal.',
 };
-const DAO_VOTE_ALLOCATION_HELP = 'Allocation is a ratio. 1 / 1 splits evenly; 3 / 1 gives 75% / 25%.';
 
 function getDaoCurrentAccountAddress() {
   return myAccount?.keys?.address ? longAddress(myAccount.keys.address) : '';
@@ -4485,7 +4485,6 @@ class ProposalInfoModal {
     this.voteActionSection = document.getElementById('proposalVoteActionSection');
     this.voteActionHelp = document.getElementById('proposalVoteActionHelp');
     this.voteOptions = document.getElementById('proposalVoteOptions');
-    this.voteRequirements = document.getElementById('proposalVoteRequirements');
     this.voteSpendInput = document.getElementById('proposalVoteSpend');
     this.votePreview = document.getElementById('proposalVotePreview');
     this.voteSubmitButton = document.getElementById('proposalVoteSubmit');
@@ -4512,12 +4511,9 @@ class ProposalInfoModal {
     if (this.submitButton) this.submitButton.addEventListener('click', () => this.handleCommitteeSubmit());
     if (this.reviewResultButton) this.reviewResultButton.addEventListener('click', () => this.handleReviewResultSubmit());
     if (this.lifecycleActionSection) this.lifecycleActionSection.addEventListener('click', (event) => this.handleLifecycleActionClick(event));
-    if (this.voteRequirements) this.voteRequirements.addEventListener('click', (event) => this.handleVoteRequirementHelpClick(event));
+    if (this.voteActionSection) this.voteActionSection.addEventListener('click', (event) => this.handleVoteHelpClick(event));
     if (this.voteSpendInput) this.voteSpendInput.addEventListener('input', () => this.handleVoteSpendInput());
-    if (this.voteOptions) {
-      this.voteOptions.addEventListener('input', (event) => this.handleVoteWeightInput(event));
-      this.voteOptions.addEventListener('click', (event) => this.handleVoteAllocationHelpClick(event));
-    }
+    if (this.voteOptions) this.voteOptions.addEventListener('input', (event) => this.handleVoteWeightInput(event));
     if (this.voteSubmitButton) this.voteSubmitButton.addEventListener('click', () => this.handleVoteSubmit());
 
     if (this.withholdReasonSelect) {
@@ -5219,18 +5215,18 @@ class ProposalInfoModal {
             Allocation
             <button
               type="button"
-              class="toll-info-icon proposal-vote-allocation-help"
+              class="toll-info-icon proposal-vote-help"
               data-icon="info"
-              data-vote-allocation-help
-              title="${escapeDaoFormAttribute(DAO_VOTE_ALLOCATION_HELP)}"
+              data-vote-help
+              title="${escapeDaoFormAttribute(DAO_VOTE_HELP.allocation)}"
               aria-label="About Allocation"
             ></button>
           </span>
         </div>
         ${options.map((option, index) => this.renderVoteOption(option, index)).join('')}
+        ${this.renderVoteRequirements(proposal)}
       `;
     }
-    this.renderVoteRequirements(proposal);
 
     this.updateVotePreview(proposal);
   }
@@ -5238,76 +5234,52 @@ class ProposalInfoModal {
   hideVoteActions() {
     this.canSubmitVote = false;
     this.voteActionSection?.classList.add('hidden');
-    if (this.voteRequirements) {
-      this.voteRequirements.innerHTML = '';
-      this.voteRequirements.classList.add('hidden');
-    }
     this.updateSubmitButtons();
   }
 
   renderVoteRequirements(proposal) {
-    if (!this.voteRequirements) return;
-
     const rows = [
       {
-        key: 'voteThreshold',
+        help: DAO_VOTE_HELP.voteThreshold,
         label: 'Minimum Balance',
         value: formatDaoProposalVoteRequirementLib(proposal.voteThresholdUsdStr),
       },
       {
-        key: 'minimumSpend',
+        help: DAO_VOTE_HELP.minimumSpend,
         label: 'Minimum Spend',
         value: formatDaoProposalVoteRequirementLib(proposal.minimumSpendUsdStr),
       },
     ].filter((row) => row.value !== null);
 
-    if (rows.length === 0) {
-      this.voteRequirements.innerHTML = '';
-      this.voteRequirements.classList.add('hidden');
-      return;
-    }
+    if (rows.length === 0) return '';
 
-    this.voteRequirements.classList.remove('hidden');
-    this.voteRequirements.innerHTML = rows
-      .map((row) => {
-        const help = DAO_VOTE_REQUIREMENT_HELP[row.key];
-        return `
+    return `
+      <div class="proposal-vote-requirements" aria-label="Vote requirements">
+        ${rows.map((row) => `
           <span class="proposal-vote-requirement-label">
             ${escapeHtml(row.label)}
             <button
               type="button"
-              class="toll-info-icon proposal-vote-requirement-help"
+              class="toll-info-icon proposal-vote-help"
               data-icon="info"
-              data-vote-requirement-help="${escapeDaoFormAttribute(row.key)}"
-              title="${escapeDaoFormAttribute(help)}"
+              data-vote-help
+              title="${escapeDaoFormAttribute(row.help)}"
               aria-label="${escapeDaoFormAttribute(`About ${row.label}`)}"
             ></button>
           </span>
           <span class="proposal-vote-requirement-value">${escapeHtml(row.value)}</span>
-        `;
-      })
-      .join('');
+        `).join('')}
+      </div>
+    `;
   }
 
-  handleVoteRequirementHelpClick(event) {
-    const helpButton = event.target?.closest?.('[data-vote-requirement-help]');
-    if (!helpButton || !this.voteRequirements?.contains(helpButton)) return;
+  handleVoteHelpClick(event) {
+    const helpButton = event.target?.closest?.('[data-vote-help]');
+    if (!helpButton) return;
 
     event.preventDefault();
     event.stopPropagation();
-
-    const help = DAO_VOTE_REQUIREMENT_HELP[helpButton.dataset.voteRequirementHelp];
-    if (!help) return;
-    showToast(help, 0, 'info');
-  }
-
-  handleVoteAllocationHelpClick(event) {
-    const helpButton = event.target?.closest?.('[data-vote-allocation-help]');
-    if (!helpButton || !this.voteOptions?.contains(helpButton)) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    showToast(DAO_VOTE_ALLOCATION_HELP, 0, 'info');
+    showToast(helpButton.title, 0, 'info');
   }
 
   renderVoteOption(option, index) {
@@ -5353,8 +5325,7 @@ class ProposalInfoModal {
   }
 
   hasStartedVoteInput() {
-    if (this.voteWeights.some((weight) => weight > 0)) return true;
-    return String(this.voteSpendLib || '').trim() !== '';
+    return this.voteWeights.some((weight) => weight > 0) || this.voteSpendLib.trim() !== '';
   }
 
   updateVotePreview(proposal) {
@@ -5365,15 +5336,12 @@ class ProposalInfoModal {
     }
 
     const submission = this.getVoteSubmission(proposal);
+    this.votePreview.classList.toggle('proposal-vote-preview--idle', !this.hasStartedVoteInput());
     if (!submission.ok) {
       this.canSubmitVote = false;
       this.updateSubmitButtons();
       this.votePreview.classList.add('proposal-vote-preview--message');
-      this.votePreview.innerHTML = this.renderVotePreviewMessage(
-        submission.message,
-        submission.tone,
-        { idle: !this.hasStartedVoteInput() },
-      );
+      this.votePreview.innerHTML = this.renderVotePreviewMessage(submission.message, submission.tone);
       return;
     }
 
@@ -5529,10 +5497,8 @@ class ProposalInfoModal {
     };
   }
 
-  renderVotePreviewMessage(message, tone, { idle = false } = {}) {
-    const idleClass = idle ? ' proposal-vote-preview-message--idle' : '';
-    const ariaHidden = idle ? ' aria-hidden="true"' : '';
-    return `<div class="proposal-vote-preview-message proposal-vote-preview-message--${tone}${idleClass}"${ariaHidden}>${escapeHtml(message)}</div>`;
+  renderVotePreviewMessage(message, tone) {
+    return `<div class="proposal-vote-preview-message proposal-vote-preview-message--${tone}">${escapeHtml(message)}</div>`;
   }
 
   getCurrentProposal() {
