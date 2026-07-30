@@ -3020,22 +3020,39 @@ input[type='file'].form-control::file-selector-button {
   gap: 8px;
 }
 
-#proposalInfoModal .proposal-vote-options-help,
 #proposalInfoModal .proposal-vote-options-header {
   color: var(--secondary-text-color);
-  font-size: 12px;
-  line-height: 1.35;
-}
-
-#proposalInfoModal .proposal-vote-options-header {
   display: grid;
+  font-size: 12px;
   font-weight: var(--font-weight-semibold);
   gap: 8px;
   grid-template-columns: minmax(0, 1fr) 92px;
+  line-height: 1.35;
 }
 
 #proposalInfoModal .proposal-vote-options-header span:last-child {
   text-align: center;
+}
+
+#proposalInfoModal .proposal-vote-allocation-label {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+  justify-content: center;
+  justify-self: center;
+}
+
+#proposalInfoModal .proposal-vote-allocation-help {
+  flex: 0 0 auto;
+  margin-left: 0;
+  transform: none;
+}
+
+#proposalInfoModal button.proposal-vote-allocation-help {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  padding: 0;
 }
 
 #proposalInfoModal .proposal-vote-requirements {

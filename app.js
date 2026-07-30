@@ -3911,6 +3911,7 @@ const DAO_VOTE_REQUIREMENT_HELP = {
   voteThreshold: 'Minimum wallet balance required to vote on this proposal.',
   minimumSpend: 'Minimum LIB you must spend for a valid vote on this proposal.',
 };
+const DAO_VOTE_ALLOCATION_HELP = 'Allocation is a ratio. 1 / 1 splits evenly; 3 / 1 gives 75% / 25%.';
 
 function getDaoCurrentAccountAddress() {
   return myAccount?.keys?.address ? longAddress(myAccount.keys.address) : '';
@@ -4513,7 +4514,10 @@ class ProposalInfoModal {
     if (this.lifecycleActionSection) this.lifecycleActionSection.addEventListener('click', (event) => this.handleLifecycleActionClick(event));
     if (this.voteRequirements) this.voteRequirements.addEventListener('click', (event) => this.handleVoteRequirementHelpClick(event));
     if (this.voteSpendInput) this.voteSpendInput.addEventListener('input', () => this.handleVoteSpendInput());
-    if (this.voteOptions) this.voteOptions.addEventListener('input', (event) => this.handleVoteWeightInput(event));
+    if (this.voteOptions) {
+      this.voteOptions.addEventListener('input', (event) => this.handleVoteWeightInput(event));
+      this.voteOptions.addEventListener('click', (event) => this.handleVoteAllocationHelpClick(event));
+    }
     if (this.voteSubmitButton) this.voteSubmitButton.addEventListener('click', () => this.handleVoteSubmit());
 
     if (this.withholdReasonSelect) {
@@ -5211,10 +5215,19 @@ class ProposalInfoModal {
       this.voteOptions.innerHTML = `
         <div class="proposal-vote-options-header">
           <span>Option</span>
-          <span>Allocation</span>
+          <span class="proposal-vote-allocation-label">
+            Allocation
+            <button
+              type="button"
+              class="toll-info-icon proposal-vote-allocation-help"
+              data-icon="info"
+              data-vote-allocation-help
+              title="${escapeDaoFormAttribute(DAO_VOTE_ALLOCATION_HELP)}"
+              aria-label="About Allocation"
+            ></button>
+          </span>
         </div>
         ${options.map((option, index) => this.renderVoteOption(option, index)).join('')}
-        <div class="proposal-vote-options-help">Allocation is a ratio. 1 / 1 splits evenly; 3 / 1 gives 75% / 25%.</div>
       `;
     }
     this.renderVoteRequirements(proposal);
@@ -5286,6 +5299,15 @@ class ProposalInfoModal {
     const help = DAO_VOTE_REQUIREMENT_HELP[helpButton.dataset.voteRequirementHelp];
     if (!help) return;
     showToast(help, 0, 'info');
+  }
+
+  handleVoteAllocationHelpClick(event) {
+    const helpButton = event.target?.closest?.('[data-vote-allocation-help]');
+    if (!helpButton || !this.voteOptions?.contains(helpButton)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    showToast(DAO_VOTE_ALLOCATION_HELP, 0, 'info');
   }
 
   renderVoteOption(option, index) {
