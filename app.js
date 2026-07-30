@@ -3942,7 +3942,7 @@ const DAO_VOTE_WEIGHT_PRECISION = 1_000_000_000_000;
 const DAO_VOTE_WEIGHT_PRECISION_BIGINT = 1_000_000_000_000n;
 const DAO_CLAIM_REWARD_PRECISION = 10n ** 18n;
 const DAO_VOTE_HELP = {
-  allocation: 'Allocation is a ratio. 1 / 1 splits evenly; 3 / 1 gives 75% / 25%.',
+  weight: 'Weight is a ratio. 1 / 1 splits evenly; 3 / 1 gives 75% / 25%.',
   voteThreshold: 'Minimum wallet balance required to vote on this proposal.',
   minimumSpend: 'Minimum LIB you must spend for a valid vote on this proposal.',
 };
@@ -5246,15 +5246,15 @@ class ProposalInfoModal {
       this.voteOptions.innerHTML = `
         <div class="proposal-vote-options-header">
           <span>Option</span>
-          <span class="proposal-vote-allocation-label">
-            Allocation
+          <span class="proposal-vote-weight-label">
+            Weight
             <button
               type="button"
               class="toll-info-icon proposal-vote-help"
               data-icon="info"
               data-vote-help
-              title="${escapeDaoFormAttribute(DAO_VOTE_HELP.allocation)}"
-              aria-label="About Allocation"
+              title="${escapeDaoFormAttribute(DAO_VOTE_HELP.weight)}"
+              aria-label="About Weight"
             ></button>
           </span>
         </div>
@@ -5330,7 +5330,7 @@ class ProposalInfoModal {
           step="1"
           inputmode="numeric"
           placeholder="0"
-          aria-label="${escapeDaoFormAttribute(`${option} allocation`)}"
+          aria-label="${escapeDaoFormAttribute(`${option} weight`)}"
           data-vote-option-index="${index}"
           value="${escapeDaoFormAttribute(String(weight))}"
         >

@@ -3044,14 +3044,14 @@ input[type='file'].form-control::file-selector-button {
   text-align: center;
 }
 
-#proposalInfoModal .proposal-vote-allocation-label,
+#proposalInfoModal .proposal-vote-weight-label,
 #proposalInfoModal .proposal-vote-requirement-label {
   align-items: center;
   display: inline-flex;
   gap: 4px;
 }
 
-#proposalInfoModal .proposal-vote-allocation-label {
+#proposalInfoModal .proposal-vote-weight-label {
   justify-content: center;
   justify-self: center;
 }
