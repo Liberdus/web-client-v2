@@ -3053,6 +3053,26 @@ input[type='file'].form-control::file-selector-button {
   line-height: 1.35;
 }
 
+#proposalInfoModal .proposal-vote-requirement-label {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+  min-width: 0;
+}
+
+#proposalInfoModal .proposal-vote-requirement-help {
+  flex: 0 0 auto;
+  margin-left: 0;
+  transform: none;
+}
+
+#proposalInfoModal button.proposal-vote-requirement-help {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  padding: 0;
+}
+
 #proposalInfoModal .proposal-vote-requirement strong {
   color: var(--text-color);
   font-size: 13px;

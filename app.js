@@ -3907,6 +3907,10 @@ const DAO_VOTE_WEIGHT_MAX = 1_000_000;
 const DAO_VOTE_WEIGHT_PRECISION = 1_000_000_000_000;
 const DAO_VOTE_WEIGHT_PRECISION_BIGINT = 1_000_000_000_000n;
 const DAO_CLAIM_REWARD_PRECISION = 10n ** 18n;
+const DAO_VOTE_REQUIREMENT_HELP = {
+  voteThreshold: 'Minimum wallet balance required to vote on this proposal.',
+  minimumSpend: 'Minimum LIB you must spend for a valid vote on this proposal.',
+};
 
 function getDaoCurrentAccountAddress() {
   return myAccount?.keys?.address ? longAddress(myAccount.keys.address) : '';
@@ -4507,6 +4511,7 @@ class ProposalInfoModal {
     if (this.submitButton) this.submitButton.addEventListener('click', () => this.handleCommitteeSubmit());
     if (this.reviewResultButton) this.reviewResultButton.addEventListener('click', () => this.handleReviewResultSubmit());
     if (this.lifecycleActionSection) this.lifecycleActionSection.addEventListener('click', (event) => this.handleLifecycleActionClick(event));
+    if (this.voteRequirements) this.voteRequirements.addEventListener('click', (event) => this.handleVoteRequirementHelpClick(event));
     if (this.voteSpendInput) this.voteSpendInput.addEventListener('input', () => this.handleVoteSpendInput());
     if (this.voteOptions) this.voteOptions.addEventListener('input', (event) => this.handleVoteWeightInput(event));
     if (this.voteSubmitButton) this.voteSubmitButton.addEventListener('click', () => this.handleVoteSubmit());
@@ -5231,9 +5236,17 @@ class ProposalInfoModal {
     if (!this.voteRequirements) return;
 
     const rows = [
-      ['Vote Threshold', formatDaoProposalVoteRequirementLib(proposal.voteThresholdUsdStr)],
-      ['Minimum Vote Spend', formatDaoProposalVoteRequirementLib(proposal.minimumSpendUsdStr)],
-    ].filter(([, value]) => value !== null);
+      {
+        key: 'voteThreshold',
+        label: 'Vote Threshold',
+        value: formatDaoProposalVoteRequirementLib(proposal.voteThresholdUsdStr),
+      },
+      {
+        key: 'minimumSpend',
+        label: 'Minimum Vote Spend',
+        value: formatDaoProposalVoteRequirementLib(proposal.minimumSpendUsdStr),
+      },
+    ].filter((row) => row.value !== null);
 
     if (rows.length === 0) {
       this.voteRequirements.innerHTML = '';
@@ -5243,13 +5256,38 @@ class ProposalInfoModal {
 
     this.voteRequirements.classList.remove('hidden');
     this.voteRequirements.innerHTML = rows
-      .map(([label, value]) => `
-        <div class="proposal-vote-requirement">
-          <span>${escapeHtml(label)}</span>
-          <strong>${escapeHtml(value)}</strong>
-        </div>
-      `)
+      .map((row) => {
+        const help = DAO_VOTE_REQUIREMENT_HELP[row.key];
+        return `
+          <div class="proposal-vote-requirement">
+            <span class="proposal-vote-requirement-label">
+              ${escapeHtml(row.label)}
+              <button
+                type="button"
+                class="toll-info-icon proposal-vote-requirement-help"
+                data-icon="info"
+                data-vote-requirement-help="${escapeDaoFormAttribute(row.key)}"
+                title="${escapeDaoFormAttribute(help)}"
+                aria-label="${escapeDaoFormAttribute(`About ${row.label}`)}"
+              ></button>
+            </span>
+            <strong>${escapeHtml(row.value)}</strong>
+          </div>
+        `;
+      })
       .join('');
+  }
+
+  handleVoteRequirementHelpClick(event) {
+    const helpButton = event.target?.closest?.('[data-vote-requirement-help]');
+    if (!helpButton || !this.voteRequirements?.contains(helpButton)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const help = DAO_VOTE_REQUIREMENT_HELP[helpButton.dataset.voteRequirementHelp];
+    if (!help) return;
+    showToast(help, 0, 'info');
   }
 
   renderVoteOption(option, index) {
