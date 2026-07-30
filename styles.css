@@ -3038,6 +3038,28 @@ input[type='file'].form-control::file-selector-button {
   text-align: center;
 }
 
+#proposalInfoModal .proposal-vote-requirements {
+  display: grid;
+  gap: 6px;
+}
+
+#proposalInfoModal .proposal-vote-requirement {
+  align-items: baseline;
+  color: var(--secondary-text-color);
+  display: flex;
+  font-size: 12px;
+  gap: 8px;
+  justify-content: space-between;
+  line-height: 1.35;
+}
+
+#proposalInfoModal .proposal-vote-requirement strong {
+  color: var(--text-color);
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  text-align: right;
+}
+
 #proposalInfoModal .proposal-vote-option,
 #proposalInfoModal .proposal-vote-spend-row {
   align-items: center;

@@ -4480,6 +4480,7 @@ class ProposalInfoModal {
     this.voteActionSection = document.getElementById('proposalVoteActionSection');
     this.voteActionHelp = document.getElementById('proposalVoteActionHelp');
     this.voteOptions = document.getElementById('proposalVoteOptions');
+    this.voteRequirements = document.getElementById('proposalVoteRequirements');
     this.voteSpendInput = document.getElementById('proposalVoteSpend');
     this.votePreview = document.getElementById('proposalVotePreview');
     this.voteSubmitButton = document.getElementById('proposalVoteSubmit');
@@ -5211,6 +5212,7 @@ class ProposalInfoModal {
         <div class="proposal-vote-options-help">Allocation is a ratio. 1 / 1 splits evenly; 3 / 1 gives 75% / 25%.</div>
       `;
     }
+    this.renderVoteRequirements(proposal);
 
     this.updateVotePreview(proposal);
   }
@@ -5218,7 +5220,36 @@ class ProposalInfoModal {
   hideVoteActions() {
     this.canSubmitVote = false;
     this.voteActionSection?.classList.add('hidden');
+    if (this.voteRequirements) {
+      this.voteRequirements.innerHTML = '';
+      this.voteRequirements.classList.add('hidden');
+    }
     this.updateSubmitButtons();
+  }
+
+  renderVoteRequirements(proposal) {
+    if (!this.voteRequirements) return;
+
+    const rows = [
+      ['Vote Threshold', formatDaoProposalVoteRequirementLib(proposal.voteThresholdUsdStr)],
+      ['Minimum Vote Spend', formatDaoProposalVoteRequirementLib(proposal.minimumSpendUsdStr)],
+    ].filter(([, value]) => value !== null);
+
+    if (rows.length === 0) {
+      this.voteRequirements.innerHTML = '';
+      this.voteRequirements.classList.add('hidden');
+      return;
+    }
+
+    this.voteRequirements.classList.remove('hidden');
+    this.voteRequirements.innerHTML = rows
+      .map(([label, value]) => `
+        <div class="proposal-vote-requirement">
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value)}</strong>
+        </div>
+      `)
+      .join('');
   }
 
   renderVoteOption(option, index) {
