@@ -5259,20 +5259,18 @@ class ProposalInfoModal {
       .map((row) => {
         const help = DAO_VOTE_REQUIREMENT_HELP[row.key];
         return `
-          <div class="proposal-vote-requirement">
-            <span class="proposal-vote-requirement-label">
-              ${escapeHtml(row.label)}
-              <button
-                type="button"
-                class="toll-info-icon proposal-vote-requirement-help"
-                data-icon="info"
-                data-vote-requirement-help="${escapeDaoFormAttribute(row.key)}"
-                title="${escapeDaoFormAttribute(help)}"
-                aria-label="${escapeDaoFormAttribute(`About ${row.label}`)}"
-              ></button>
-            </span>
-            <strong>${escapeHtml(row.value)}</strong>
-          </div>
+          <span class="proposal-vote-requirement-label">
+            ${escapeHtml(row.label)}
+            <button
+              type="button"
+              class="toll-info-icon proposal-vote-requirement-help"
+              data-icon="info"
+              data-vote-requirement-help="${escapeDaoFormAttribute(row.key)}"
+              title="${escapeDaoFormAttribute(help)}"
+              aria-label="${escapeDaoFormAttribute(`About ${row.label}`)}"
+            ></button>
+          </span>
+          <span class="proposal-vote-requirement-value">${escapeHtml(row.value)}</span>
         `;
       })
       .join('');
