@@ -2918,11 +2918,11 @@ class DaoModal {
       if (applyAction?.rowPreviewLabel) {
         chips.push({
           value: applyAction.rowPreviewLabel,
-          tone: 'neutral',
+          tone: applyAction.canSubmit ? 'accepted' : 'neutral',
         });
       }
     }
-    if (result) {
+    if (result && state !== 'accepted') {
       chips.push({
         value: result.headline,
         tone: result.tone,
@@ -4254,6 +4254,7 @@ function getDaoProposalApplyLifecycleAction(
         ? `Apply becomes available after the grace period ends: ${eligibleAt}.`
         : 'Apply timing is unavailable until the proposal includes grace-period timing.',
       false,
+      eligibleAt,
     );
   }
 
