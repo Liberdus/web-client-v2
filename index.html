@@ -526,10 +526,9 @@
                 <label>Timing</label>
                 <div class="dao-form-grid dao-form-grid--timing">
                   <div class="form-group">
-                    <label for="addProposalStartDelayDays">Review Starts (days)</label>
-                    <input id="addProposalStartDelayDays" class="form-control" type="number" min="0" step="1" value="0" inputmode="numeric" required />
-                    <div class="dao-form-help">Days from submission. 0 means now.</div>
-                    <div class="dao-form-help dao-form-limit hidden" id="addProposalStartDelayLimit"></div>
+                    <label for="addProposalReviewStartTime">Review Starts</label>
+                    <input id="addProposalReviewStartTime" class="form-control" type="datetime-local" step="60" max="9999-12-31T23:59" />
+                    <div class="dao-form-help">Leave blank to start immediately after signing.</div>
                   </div>
                   <div class="form-group">
                     <label for="addProposalGracePeriodMs">Grace Period (ms)</label>

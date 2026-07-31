@@ -90,7 +90,6 @@ import {
   DAO_STATES,
   getDaoTransactionMessage,
   getDaoProposalClaimWindow,
-  getDaoProposalMaxStartDelayDays,
   getDaoProposalTimeline,
   getDaoRewardClaimStatus,
   getDaoStateLabel,
@@ -2996,6 +2995,12 @@ function escapeDaoFormAttribute(value) {
   return escapeHtml(value).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+function formatDateTimeLocalInput(timestamp) {
+  const date = new Date(timestamp);
+  const localTimestamp = timestamp - date.getTimezoneOffset() * 60 * 1000;
+  return new Date(localTimestamp).toISOString().slice(0, 16);
+}
+
 class AddProposalModal {
   load() {
     this.modal = document.getElementById('addProposalModal');
@@ -3011,8 +3016,7 @@ class AddProposalModal {
     this.changesList = document.getElementById('addProposalChangesList');
     this.addChangeButton = document.getElementById('addProposalChangeButton');
     this.emergencySelect = document.getElementById('addProposalEmergency');
-    this.startDelayInput = document.getElementById('addProposalStartDelayDays');
-    this.startDelayLimit = document.getElementById('addProposalStartDelayLimit');
+    this.reviewStartInput = document.getElementById('addProposalReviewStartTime');
     this.gracePeriodInput = document.getElementById('addProposalGracePeriodMs');
     this.gracePeriodHelp = document.getElementById('addProposalGracePeriodHelp');
     this.gracePeriodLimit = document.getElementById('addProposalGracePeriodLimit');
@@ -3042,12 +3046,8 @@ class AddProposalModal {
     }
 
     if (this.emergencySelect) {
-      this.emergencySelect.addEventListener('change', () => {
-        this.renderProposalFee();
-        this.refreshStartDelayLimit();
-      });
+      this.emergencySelect.addEventListener('change', () => this.renderProposalFee());
     }
-    if (this.startDelayInput) this.startDelayInput.addEventListener('input', () => this.renderStartDelayLimit());
     if (this.gracePeriodInput) {
       this.gracePeriodInput.addEventListener('input', () => {
         const maxLength = String(DAO_PROPOSAL_GRACE_PERIOD_MAX_MS).length;
@@ -3072,20 +3072,19 @@ class AddProposalModal {
     this.resetConfigCache();
     this.proposalFeeUsdStr = null;
     this.maxGracePeriodMs = null;
-    this.proposalDurations = null;
     if (this.titleInput) this.titleInput.value = '';
     if (this.typeSelect) this.typeSelect.value = 'governance';
     if (this.descriptionInput) this.descriptionInput.value = '';
     if (this.emergencySelect) this.emergencySelect.value = 'false';
-    if (this.startDelayInput) {
-      this.startDelayInput.value = '0';
-      this.startDelayInput.removeAttribute('max');
+    if (this.reviewStartInput) {
+      const nextMinute = Math.ceil(getTransactionTimestamp() / (60 * 1000)) * 60 * 1000;
+      this.reviewStartInput.value = '';
+      this.reviewStartInput.min = formatDateTimeLocalInput(nextMinute);
     }
     if (this.gracePeriodInput) {
       this.gracePeriodInput.value = '';
       this.gracePeriodInput.removeAttribute('max');
     }
-    this.refreshStartDelayLimit();
     this.renderOptions(['yes', 'no']);
     this.renderGracePeriodLimitHint();
     this.refreshProposalDefaults();
@@ -3151,33 +3150,6 @@ class AddProposalModal {
       : 'Unavailable';
   }
 
-  refreshStartDelayLimit() {
-    this.maxStartDelayDays = null;
-    if (!this.proposalDurations || !Number.isSafeInteger(this.maxGracePeriodMs)) {
-      this.startDelayInput?.removeAttribute('max');
-      this.renderStartDelayLimit();
-      return;
-    }
-
-    try {
-      this.maxStartDelayDays = getDaoProposalMaxStartDelayDays(getTransactionTimestamp(), {
-        ...this.proposalDurations,
-        emergency: this.emergencySelect?.value === 'true',
-        gracePeriod: this.maxGracePeriodMs,
-      });
-      if (this.startDelayInput) this.startDelayInput.max = String(this.maxStartDelayDays);
-    } catch (error) {
-      console.warn('Could not calculate the DAO proposal review-start limit:', error);
-      this.startDelayInput?.removeAttribute('max');
-    }
-
-    this.renderStartDelayLimit();
-  }
-
-  renderStartDelayLimit() {
-    this.renderMaximumWarning(this.startDelayInput, this.startDelayLimit, `Maximum: ${this.maxStartDelayDays} days`);
-  }
-
   renderMaximumWarning(input, warning, message) {
     if (!warning) return;
     warning.textContent = message;
@@ -3189,7 +3161,9 @@ class AddProposalModal {
       ? ''
       : `${this.maxGracePeriodMs} ms (${formatDaoDurationEstimate(this.maxGracePeriodMs)})`;
     const currentValue = String(this.gracePeriodInput?.value ?? '').trim();
-    const currentSummary = currentValue ? formatDaoDurationEstimate(currentValue) : '';
+    const currentSummary = currentValue
+      ? formatDaoDurationEstimate(currentValue)
+      : '';
     if (this.gracePeriodInput) {
       this.gracePeriodInput.placeholder = maximumSummary ? 'Custom ms' : 'Loading maximum...';
     }
@@ -3208,11 +3182,10 @@ class AddProposalModal {
     this.renderProposalFee();
 
     try {
-      const { proposalFeeUsdStr, maxGracePeriodMs, proposalDurations } = await this.loadDaoProposalDefaults();
+      const { proposalFeeUsdStr, maxGracePeriodMs } = await this.loadDaoProposalDefaults();
       if (!this.isActive() || requestId !== this.proposalDefaultsRequestId) return;
       this.proposalFeeUsdStr = proposalFeeUsdStr;
       this.maxGracePeriodMs = maxGracePeriodMs;
-      this.proposalDurations = proposalDurations;
       if (this.gracePeriodInput) {
         this.gracePeriodInput.max = String(maxGracePeriodMs);
         if (!String(this.gracePeriodInput.value || '').trim()) {
@@ -3220,22 +3193,19 @@ class AddProposalModal {
         }
       }
       this.renderProposalFee();
-      this.refreshStartDelayLimit();
       this.renderGracePeriodLimitHint();
     } catch (error) {
-      console.warn('Could not refresh DAO proposal defaults:', error);
+      console.warn('Could not refresh DAO proposal fee:', error);
       if (!this.isActive() || requestId !== this.proposalDefaultsRequestId) return;
       this.proposalFeeUsdStr = '';
       this.maxGracePeriodMs = null;
-      this.proposalDurations = null;
       if (this.gracePeriodInput) {
         this.gracePeriodInput.value = '';
         this.gracePeriodInput.removeAttribute('max');
       }
       this.renderProposalFee();
-      this.refreshStartDelayLimit();
       this.renderGracePeriodLimitHint();
-      showToast('Could not refresh DAO proposal defaults', 2500, 'warning');
+      showToast('Could not refresh DAO proposal fee', 2500, 'warning');
     }
   }
 
@@ -3344,23 +3314,19 @@ class AddProposalModal {
 
   async loadDaoProposalDefaults({ refresh = false } = {}) {
     const account = await this.fetchNetworkAccountConfig({ refresh });
-    const daoConfig = account?.current?.dao;
-    const proposalFeeUsdStr = String(daoConfig?.proposalFeeUsdStr ?? '').trim();
-    if (!proposalFeeUsdStr) throw new Error('Missing DAO proposal fee');
-    const graceDuration = Number(daoConfig?.graceDuration);
+    const fee = account?.current?.dao?.proposalFeeUsdStr;
+    if (fee === undefined || fee === null || String(fee).trim() === '') {
+      throw new Error('Missing DAO proposal fee');
+    }
+    const graceDuration = Number(account?.current?.dao?.graceDuration);
     if (!Number.isSafeInteger(graceDuration) || graceDuration < 0) {
       throw new Error('Missing DAO maximum grace duration');
     }
-    const proposalDurations = {
-      reviewDuration: Number(daoConfig?.reviewDuration),
-      votingDuration: Number(daoConfig?.votingDuration),
-      claimDuration: Number(daoConfig?.claimDuration),
-    };
-    if (Object.values(proposalDurations).some((duration) => !Number.isSafeInteger(duration) || duration < 0)) {
-      throw new Error('Missing DAO proposal lifecycle durations');
-    }
     const maxGracePeriodMs = Math.min(graceDuration, DAO_PROPOSAL_GRACE_PERIOD_MAX_MS);
-    return { proposalFeeUsdStr, maxGracePeriodMs, proposalDurations };
+    return {
+      proposalFeeUsdStr: String(fee).trim(),
+      maxGracePeriodMs,
+    };
   }
 
   async fetchNetworkAccountConfig({ refresh = false } = {}) {
@@ -3570,25 +3536,21 @@ class AddProposalModal {
     return n;
   }
 
-  getDaysValue(input, label) {
-    const n = this.getIntegerValue(input, label);
-    if (!Number.isSafeInteger(this.maxStartDelayDays) || this.maxStartDelayDays < 0) {
-      throw this.createValidationError(`${label} maximum is not available`, input);
-    }
-    if (n > this.maxStartDelayDays) {
-      throw this.createValidationError(`${label} must not exceed ${this.maxStartDelayDays} days`, input);
-    }
+  getReviewStartTimeMs(input) {
+    const value = String(input?.value ?? '').trim();
+    if (!value) return 0;
 
-    const delayMs = n * DAO_PROPOSAL_DAY_MS;
-    if (!Number.isSafeInteger(delayMs)) {
-      throw this.createValidationError(`${label} is too large`, input);
+    const reviewStartTimeMs = new Date(value).getTime();
+    if (!Number.isSafeInteger(reviewStartTimeMs) || reviewStartTimeMs <= 0) {
+      throw this.createValidationError('Review start time must be a valid date and time', input);
     }
-
-    const startTime = getTransactionTimestamp() + delayMs;
-    if (!Number.isSafeInteger(startTime) || Number.isNaN(new Date(startTime).getTime())) {
-      throw this.createValidationError(`${label} produces an invalid date`, input);
+    if (reviewStartTimeMs < getTransactionTimestamp()) {
+      throw this.createValidationError('Review start time must be in the future', input);
     }
-    return n;
+    if (input.validity.rangeOverflow) {
+      throw this.createValidationError('Review start time must be before the year 10000', input);
+    }
+    return reviewStartTimeMs;
   }
 
   getMillisecondsValue(input, label, maximumMs) {
@@ -3686,8 +3648,12 @@ class AddProposalModal {
     try {
       const options = this.getValidatedOptions();
       const changes = this.getValidatedChanges();
-      const startDelayDays = this.getDaysValue(this.startDelayInput, 'Review start delay');
-      const gracePeriodMs = this.getMillisecondsValue(this.gracePeriodInput, 'Grace period', this.maxGracePeriodMs);
+      const reviewStartTimeMs = this.getReviewStartTimeMs(this.reviewStartInput);
+      const gracePeriodMs = this.getMillisecondsValue(
+        this.gracePeriodInput,
+        'Grace period',
+        this.maxGracePeriodMs
+      );
       const emergency = this.emergencySelect?.value === 'true';
       if (!emergency && !this.proposalFeeUsdStr) {
         throw this.createValidationError('Current DAO proposal fee is not loaded yet', this.proposalFeeInput);
@@ -3702,7 +3668,7 @@ class AddProposalModal {
         options,
         changes,
         proposalFeeUsdStr: this.proposalFeeUsdStr,
-        startDelayDays,
+        reviewStartTimeMs,
         gracePeriodMs,
         maxGracePeriodMs: this.maxGracePeriodMs,
       });
@@ -3930,13 +3896,12 @@ class ConfirmProposalModal {
     let loadingToastId = showToast('Submitting proposal...', 0, 'loading');
 
     try {
-      const { maxGracePeriodMs, proposalDurations } = await addProposalModal.loadDaoProposalDefaults({ refresh: true });
+      const { maxGracePeriodMs } = await addProposalModal.loadDaoProposalDefaults({ refresh: true });
       const result = await daoRepo.createProposal({
         draft: this.currentDraft,
         timestamp: getTransactionTimestamp(),
         networkId: network?.netid || '',
         maxGracePeriodMs,
-        proposalDurations,
         submitTransaction: async (transaction) => {
           if (!myAccount?.keys) throw new Error('Wallet keys unavailable');
           const txid = await signObj(transaction, myAccount.keys);
@@ -4011,7 +3976,9 @@ class ConfirmProposalModal {
         ['Initial state', 'Review after signing'],
       ]),
       renderDaoProposalSection('Review Timeline', [
-        ['Review starts', formatDaoDurationSummary(draft.startDelayMs)],
+        ['Review starts', draft.reviewStartTimeMs
+          ? formatDaoTimestamp(draft.reviewStartTimeMs)
+          : 'Immediately after signing'],
         ['Grace period', formatDaoDurationSummary(tx.gracePeriod)],
       ]),
       '<p class="proposal-info-muted">The proposal fee is derived from DAO params and seeds the voter reward pool for regular proposals. Signing submits this proposal for review.</p>',
