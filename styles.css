@@ -9896,6 +9896,14 @@ small {
   min-width: 0;
 }
 
+#dateTimePickerPreview {
+  line-height: 1.4;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
 /* Drop overlay for drag and drop image attachments */
 .drop-overlay {
   position: absolute;
