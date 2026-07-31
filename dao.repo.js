@@ -388,6 +388,8 @@ export function buildDaoProposalCreateTransaction({
     gracePeriod,
   };
 
+  // startTime is derived from validated inputs and must never be trusted from a draft.
+  delete transaction.startTime;
   if (startDelayMs > 0) {
     transaction.startTime = getDaoProposalStartTime(txTimestamp, startDelayMs);
   }
