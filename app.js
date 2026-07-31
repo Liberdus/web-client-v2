@@ -3714,8 +3714,8 @@ const addProposalModal = new AddProposalModal();
 
 function formatDaoDurationSummary(ms) {
   const n = Number(ms || 0);
-  if (!n) return '0 ms (now)';
-  return `${n} ms (${formatDaoDurationEstimate(n)})`;
+  if (!n) return '0 sec (0 ms)';
+  return `${formatDaoDurationEstimate(n)} (${n} ms)`;
 }
 
 function formatDaoDurationEstimate(ms) {
@@ -3737,7 +3737,7 @@ function formatDaoDurationEstimate(ms) {
     if (value === 0) continue;
     parts.push(`${value} ${unit}${unit === 'day' && value !== 1 ? 's' : ''}`);
     remainingMs -= value * unitMs;
-    if (parts.length === 2) break;
+    if (parts.length === 3) break;
   }
 
   if (parts.length === 0) return `${n} ms`;
