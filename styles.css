@@ -8444,7 +8444,7 @@ small {
   overflow-wrap: anywhere;
   text-align: left;
   text-overflow: clip;
-  white-space: normal;
+  white-space: pre-line;
 }
 
 #daoModal .dao-row-meta {
