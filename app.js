@@ -29650,7 +29650,6 @@ class SendAssetFormModal {
    */
   async open({ mode = 'liberdus', networkId = null, assetKey = null } = {}) {
     this.mode = mode;
-    this.networkGroup.hidden = mode !== 'evm';
     this.modal.classList.add('active');
     this.memoValidation = {};
     this.memoByteCounter.textContent = '';
@@ -29676,20 +29675,17 @@ class SendAssetFormModal {
       this.username = null;
     }
 
-    if (this.mode === 'evm') {
-      await evmAssets.refresh();
-      evmAssets.populateNetworkSelect(this.networkSelect, {
-        selectedId: networkId || 'ethereum',
-        evmOnly: true,
-      });
-    } else {
-      await walletScreen.updateWalletBalances();
-      evmAssets.rebuildCatalog();
-      evmAssets.populateNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
-    }
+    await evmAssets.prepareFormNetwork({
+      mode,
+      networkId,
+      assetKey,
+      networkGroup: this.networkGroup,
+      networkSelect: this.networkSelect,
+      assetSelect: this.assetSelectDropdown,
+      beforeLiberdus: () => walletScreen.updateWalletBalances(),
+    });
     await this.handleNetworkChange({ resetRecipient: false });
-    if (assetKey && [...this.assetSelectDropdown.options].some((option) => option.value === assetKey)) {
-      this.assetSelectDropdown.value = assetKey;
+    if (evmAssets.applySelectedAsset({ mode, assetKey, assetSelect: this.assetSelectDropdown })) {
       await this.handleAssetChange();
     }
   }
@@ -30858,26 +30854,22 @@ class ReceiveModal {
 
   async open({ mode = 'liberdus', networkId = null, assetKey = null } = {}) {
     this.mode = mode;
-    this.networkGroup.hidden = mode !== 'evm';
     this.modal.classList.add('active');
 
     // Clear input fields
     this.amountInput.value = '';
     this.memoInput.value = '';
 
-    if (this.mode === 'evm') {
-      await evmAssets.refresh();
-      evmAssets.populateNetworkSelect(this.networkSelect, {
-        selectedId: networkId || 'ethereum',
-        evmOnly: true,
-      });
-    } else {
-      evmAssets.rebuildCatalog();
-      evmAssets.populateNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
-    }
+    await evmAssets.prepareFormNetwork({
+      mode,
+      networkId,
+      assetKey,
+      networkGroup: this.networkGroup,
+      networkSelect: this.networkSelect,
+      assetSelect: this.assetSelect,
+    });
     await this.handleNetworkChange();
-    if (assetKey && [...this.assetSelect.options].some((option) => option.value === assetKey)) {
-      this.assetSelect.value = assetKey;
+    if (evmAssets.applySelectedAsset({ mode, assetKey, assetSelect: this.assetSelect })) {
       await this.handleAssetChange();
     }
   }

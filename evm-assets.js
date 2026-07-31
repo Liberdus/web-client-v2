@@ -4,6 +4,8 @@ import {
   withButtonCooldown,
 } from './lib.js';
 
+const DEFAULT_WALLET_PROBE_BASE_URL = 'https://163.245.216.178';
+
 const REQUIRED_NETWORKS = Object.freeze([
   Object.freeze({
     id: 'liberdus',
@@ -310,7 +312,7 @@ class WalletDiscoveryService {
     const configured = typeof window.LIBERDUS_WALLET_PROBE_BASE_URL === 'string'
       ? window.LIBERDUS_WALLET_PROBE_BASE_URL.trim()
       : '';
-    return (configured || 'http://127.0.0.1:8788').replace(/\/+$/, '');
+    return (configured || DEFAULT_WALLET_PROBE_BASE_URL).replace(/\/+$/, '');
   }
 
   activateAddress(address) {
@@ -800,6 +802,58 @@ class EvmAssetsController {
   populateAssetSelect(select, networkId) {
     return this.discovery.populateAssetSelect(select, networkId);
   }
+  async prepareFormNetwork({
+    mode = 'liberdus',
+    networkId = null,
+    assetKey = null,
+    networkGroup,
+    networkSelect,
+    assetSelect,
+    beforeLiberdus,
+  } = {}) {
+    const isEvm = mode === 'evm';
+    const hasSelectedNetwork = isEvm && Boolean(networkId);
+
+    if (networkGroup) {
+      networkGroup.hidden = !isEvm || hasSelectedNetwork;
+    }
+    const hasSelectedAsset = isEvm && Boolean(networkId) && Boolean(assetKey);
+    const assetGroup = assetSelect?.closest('.form-group');
+    if (assetGroup) {
+      assetGroup.hidden = hasSelectedAsset;
+    }
+
+    if (isEvm) {
+      await this.refresh();
+      this.populateNetworkSelect(networkSelect, {
+        selectedId: networkId || 'ethereum',
+        evmOnly: true,
+      });
+      return;
+    }
+
+    if (typeof beforeLiberdus === 'function') {
+      await beforeLiberdus();
+    }
+    this.rebuildCatalog();
+    this.populateNetworkSelect(networkSelect, { selectedId: 'liberdus' });
+  }
+
+  applySelectedAsset({ mode = 'liberdus', assetKey = null, assetSelect } = {}) {
+    if (!assetSelect || !assetKey) return false;
+
+    const hasSelectedAsset = mode === 'evm'
+      && [...assetSelect.options].some((option) => option.value === assetKey);
+    const assetGroup = assetSelect.closest('.form-group');
+    if (assetGroup) {
+      assetGroup.hidden = hasSelectedAsset;
+    }
+    if (hasSelectedAsset) {
+      assetSelect.value = assetKey;
+    }
+    return hasSelectedAsset;
+  }
+
   getConnectionText() { return this.discovery.getConnectionText(); }
   formatTokenAmount(value) { return formatConnectedTokenAmount(value); }
 }
