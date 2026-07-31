@@ -3013,6 +3013,7 @@ class AddProposalModal {
     this.addChangeButton = document.getElementById('addProposalChangeButton');
     this.emergencySelect = document.getElementById('addProposalEmergency');
     this.reviewStartButton = document.getElementById('addProposalReviewStartTime');
+    this.reviewStartHelp = document.getElementById('addProposalReviewStartHelp');
     this.gracePeriodInput = document.getElementById('addProposalGracePeriodMs');
     this.gracePeriodHelp = document.getElementById('addProposalGracePeriodHelp');
     this.gracePeriodLimit = document.getElementById('addProposalGracePeriodLimit');
@@ -3559,11 +3560,16 @@ class AddProposalModal {
 
   renderReviewStartTime() {
     if (!this.reviewStartButton) return;
-    const label = this.reviewStartTimeMs > 0
+    const delayMs = this.reviewStartTimeMs > 0
+      ? Math.max(0, this.reviewStartTimeMs - getTransactionTimestamp())
+      : 0;
+    this.reviewStartButton.textContent = `${delayMs} ms`;
+    this.reviewStartButton.title = this.reviewStartTimeMs > 0
       ? formatDaoTimestamp(this.reviewStartTimeMs)
       : 'Start now';
-    this.reviewStartButton.textContent = label;
-    this.reviewStartButton.title = label;
+    if (this.reviewStartHelp) {
+      this.reviewStartHelp.textContent = `Delay: ${formatDaoDurationEstimate(delayMs)}`;
+    }
   }
 
   getReviewStartTimeMs() {

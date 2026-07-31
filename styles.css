@@ -9875,11 +9875,6 @@ small {
 }
 
 /* Shared Date and Time Picker */
-#dateTimePickerModal .dialog-box-content {
-  width: min(440px, calc(100% - 32px));
-  max-width: 440px;
-}
-
 #dateTimePickerModal .modal-title {
   box-sizing: border-box;
   padding: 0 100px;
@@ -9888,6 +9883,7 @@ small {
 #dateTimePickerForm {
   max-width: none;
   min-width: 0;
+  padding-inline: 0;
 }
 
 #confirmDateTimePicker {
