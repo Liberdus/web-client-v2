@@ -3547,7 +3547,7 @@ class AddProposalModal {
       allowImmediate: true,
       previewFormatter: (timestamp) => {
         const delayMs = Math.max(0, timestamp - getTransactionTimestamp());
-        return `Review starts: ${formatDaoTimestamp(timestamp)}\nDelay if submitted now: ${formatDaoDurationSummary(delayMs)}`;
+        return `Scheduled review start: ${formatDaoTimestamp(timestamp)}\nTime until start if submitted now: ${formatDaoDurationSummary(delayMs)}`;
       },
       minError: 'Review start time must be in the future',
       maxError: 'Review start time must be before the year 10000',
@@ -4010,10 +4010,10 @@ class ConfirmProposalModal {
         ['Initial state', 'Review after signing'],
       ]),
       renderDaoProposalSection('Review Timeline', [
-        ['Review starts', draft.reviewStartTimeMs
+        ['Scheduled review start', draft.reviewStartTimeMs
           ? formatDaoTimestamp(draft.reviewStartTimeMs)
           : 'Start now'],
-        ['Delay if submitted now', formatDaoDurationSummary(reviewDelayIfSubmittedNowMs)],
+        ['Time until start if submitted now', formatDaoDurationSummary(reviewDelayIfSubmittedNowMs)],
         ['Grace period', formatDaoDurationSummary(tx.gracePeriod)],
       ]),
       '<p class="proposal-info-muted">The proposal fee is derived from DAO params and seeds the voter reward pool for regular proposals. Signing submits this proposal for review.</p>',
