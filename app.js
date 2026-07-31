@@ -3547,7 +3547,7 @@ class AddProposalModal {
       allowImmediate: true,
       previewFormatter: (timestamp) => {
         const delayMs = Math.max(0, timestamp - getTransactionTimestamp());
-        return `Scheduled review start: ${formatDaoTimestamp(timestamp)}\nTime until start if submitted now: ${formatDaoDurationSummary(delayMs)}`;
+        return `Delay: ${formatDaoDurationSummary(delayMs)}`;
       },
       minError: 'Review start time must be in the future',
       maxError: 'Review start time must be before the year 10000',
