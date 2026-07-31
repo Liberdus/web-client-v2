@@ -3750,7 +3750,7 @@ function formatDaoDurationEstimate(ms) {
   }
 
   if (parts.length === 0) return `${n} ms`;
-  return `${remainingMs > 0 ? 'about ' : ''}${parts.join(' ')}`;
+  return parts.join(' ');
 }
 
 function renderDaoProposalHeading(proposal) {

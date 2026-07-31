@@ -9923,6 +9923,7 @@ small {
 }
 
 #dateTimePickerPreview {
+  color: var(--text-color);
   line-height: 1.4;
   overflow: visible;
   overflow-wrap: anywhere;
