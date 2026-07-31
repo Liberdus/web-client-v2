@@ -3545,9 +3545,12 @@ class AddProposalModal {
       minTimestamp: getTransactionTimestamp(),
       maxTimestamp: DAO_REVIEW_START_MAX_MS,
       allowImmediate: true,
-      previewFormatter: (timestamp) => {
+      selectionFormatter: (timestamp) => {
         const delayMs = Math.max(0, timestamp - getTransactionTimestamp());
-        return `Delay: ${formatDaoDurationSummary(delayMs)}`;
+        return {
+          preview: `Delay: ${formatDaoDurationSummary(delayMs)}`,
+          submitLabel: `Submit: ${delayMs} ms delay`,
+        };
       },
       minError: 'Review start time must be in the future',
       maxError: 'Review start time must be before the year 10000',
@@ -27867,7 +27870,7 @@ class DateTimePickerModal {
     maxTimestamp = 0,
     timestampOffsetMs = 0,
     allowImmediate = false,
-    previewFormatter = null,
+    selectionFormatter = null,
     minError = 'Please choose a date and time in the future',
     maxError = 'Selected date and time is too far in the future',
   }) {
@@ -27878,7 +27881,7 @@ class DateTimePickerModal {
       minTimestamp,
       maxTimestamp,
       timestampOffsetMs,
-      previewFormatter,
+      selectionFormatter,
       minError,
       maxError,
     };
@@ -27963,11 +27966,13 @@ class DateTimePickerModal {
   _updatePreview() {
     if (!this.preview) return;
     const timestamp = this._getSelectedTimestamp();
-    const text = timestamp && typeof this.options?.previewFormatter === 'function'
-      ? this.options.previewFormatter(timestamp)
-      : '';
-    this.preview.textContent = text;
-    this.preview.style.display = text ? '' : 'none';
+    const selection = timestamp && typeof this.options?.selectionFormatter === 'function'
+      ? this.options.selectionFormatter(timestamp)
+      : null;
+    const preview = selection?.preview || '';
+    this.preview.textContent = preview;
+    this.preview.style.display = preview ? '' : 'none';
+    if (this.submitBtn) this.submitBtn.textContent = selection?.submitLabel || 'Submit';
   }
 
   _submitValue() {
@@ -28044,9 +28049,9 @@ function openCallScheduleDatePicker(onDone) {
     minTimestamp: now - 5 * 60 * 1000,
     maxTimestamp: maximum.getTime(),
     timestampOffsetMs: timeSkew,
-    previewFormatter: (timestamp) => {
+    selectionFormatter: (timestamp) => {
       const formatted = formatDateTimeInTimeZone(roundToMinuteMs(timestamp), recipientTimeZone);
-      return formatted ? `Recipient time: ${formatted}` : '';
+      return { preview: formatted ? `Recipient time: ${formatted}` : '' };
     },
     maxError: `Please choose a date within the next ${CALL_SCHEDULE_MAX_DAYS} days`,
   });

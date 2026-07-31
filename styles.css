@@ -9875,6 +9875,36 @@ small {
 }
 
 /* Shared Date and Time Picker */
+#dateTimePickerModal .dialog-box-content {
+  width: min(440px, calc(100% - 32px));
+  max-width: 440px;
+}
+
+#dateTimePickerModal .modal-title {
+  box-sizing: border-box;
+  padding: 0 100px;
+}
+
+#dateTimePickerForm {
+  max-width: none;
+  min-width: 0;
+}
+
+#confirmDateTimePicker {
+  font-size: var(--font-size-sm);
+  padding-inline: 12px;
+}
+
+@media (max-width: 420px) {
+  #dateTimePickerModal .modal-title {
+    padding: 0 48px;
+  }
+
+  #dateTimePickerModal .current-time {
+    display: none;
+  }
+}
+
 .date-time-picker-row {
   display: flex;
   gap: 8px;
