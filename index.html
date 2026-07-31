@@ -527,8 +527,8 @@
                 <div class="dao-form-grid dao-form-grid--timing">
                   <div class="form-group">
                     <label for="addProposalReviewStartTime">Review Starts</label>
-                    <input id="addProposalReviewStartTime" class="form-control" type="datetime-local" step="60" max="9999-12-31T23:59" />
-                    <div class="dao-form-help">Leave blank to start immediately after signing.</div>
+                    <button id="addProposalReviewStartTime" class="form-control dao-review-start-button" type="button" aria-haspopup="dialog" aria-controls="dateTimePickerModal">Immediately after signing</button>
+                    <div class="dao-form-help">Choose a date and time, or leave this set to immediate.</div>
                   </div>
                   <div class="form-group">
                     <label for="addProposalGracePeriodMs">Grace Period (ms)</label>
@@ -1549,35 +1549,36 @@
         <a class="last-item" href="#"></a>
       </div>
 
-      <!-- Call Schedule Date Modal -->
-      <div class="modal modal-dialog" id="callScheduleDateModal">
+      <!-- Shared Date and Time Picker Modal -->
+      <div class="modal modal-dialog" id="dateTimePickerModal">
         <div class="dialog-box-content">
           <div class="modal-header">
-            <button class="back-button" id="closeCallScheduleDateModal"></button>
-            <div class="modal-title">Schedule Call</div>
-            <div class="current-time" id="callScheduleCurrentTime" aria-label="Current time"></div>
+            <button class="back-button" id="closeDateTimePickerModal"></button>
+            <div class="modal-title" id="dateTimePickerModalTitle">Select Date and Time</div>
+            <div class="current-time" id="dateTimePickerCurrentTime" aria-label="Current time"></div>
           </div>
           <div class="modal-content">
             <div class="form-container call-invite-modal-container">
-              <form id="callScheduleDateForm" class="form--narrow">
+              <form id="dateTimePickerForm" class="form--narrow">
                 <div class="form-group">
-                  <label for="callScheduleDate">Select date and time</label>
-                  <div class="call-schedule-form-row">
-                    <input id="callScheduleDate" type="date" class="form-control call-schedule-date-input" />
+                  <label for="dateTimePickerDate">Select date and time</label>
+                  <div class="date-time-picker-row">
+                    <input id="dateTimePickerDate" type="date" class="form-control date-time-picker-date-input" />
                   </div>
-                  <div class="call-schedule-form-row">
-                    <select id="callScheduleHour" class="form-control call-schedule-time-select"></select>
-                    <select id="callScheduleMinute" class="form-control call-schedule-time-select"></select>
-                    <select id="callScheduleAmPm" class="form-control call-schedule-time-select">
+                  <div class="date-time-picker-row">
+                    <select id="dateTimePickerHour" class="form-control date-time-picker-time-select" aria-label="Hour"></select>
+                    <select id="dateTimePickerMinute" class="form-control date-time-picker-time-select" aria-label="Minute"></select>
+                    <select id="dateTimePickerAmPm" class="form-control date-time-picker-time-select" aria-label="AM or PM">
                       <option value="AM">AM</option>
                       <option value="PM">PM</option>
                     </select>
                   </div>
                 </div>
                 <div class="form-actions">
-                  <div class="contact-time" id="callScheduleConvertedTime" aria-label="Recipient time"></div>
-                  <button type="submit" id="confirmCallSchedule" class="btn btn--primary btn--pill btn--full">Submit</button>
-                  <button type="button" id="cancelCallScheduleDate" class="btn btn--secondary btn--pill btn--full">Cancel</button>
+                  <div class="contact-time" id="dateTimePickerPreview" aria-label="Selected time"></div>
+                  <button type="submit" id="confirmDateTimePicker" class="btn btn--primary btn--pill btn--full">Submit</button>
+                  <button type="button" id="clearDateTimePicker" class="btn btn--secondary btn--pill btn--full hidden">Start immediately</button>
+                  <button type="button" id="cancelDateTimePicker" class="btn btn--secondary btn--pill btn--full">Cancel</button>
                 </div>
               </form>
             </div>

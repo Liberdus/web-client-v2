@@ -2042,6 +2042,25 @@ input[type='file'].form-control::file-selector-button {
   grid-template-columns: minmax(0, 1fr);
 }
 
+#addProposalModal .dao-form-grid > .form-group,
+#addProposalModal .dao-form-grid--timing .form-control {
+  min-width: 0;
+}
+
+#addProposalModal .dao-form-grid--timing .form-control {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+#addProposalModal .dao-review-start-button {
+  color: var(--text-color);
+  cursor: pointer;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 #addProposalModal .dao-form-current-value {
   background: var(--hover-background);
   color: var(--secondary-text-color);
@@ -9855,24 +9874,26 @@ small {
   display: none;
 }
 
-/* Call Schedule Form Styles */
-.call-schedule-form-row {
+/* Shared Date and Time Picker */
+.date-time-picker-row {
   display: flex;
   gap: 8px;
   align-items: center;
 }
 
-.call-schedule-form-row:not(:first-child) {
+.date-time-picker-row:not(:first-child) {
   margin-top: 8px;
 }
 
-.call-schedule-date-input {
+.date-time-picker-date-input {
   flex: 1;
+  min-width: 0;
   width: 100%;
 }
 
-.call-schedule-time-select {
-  width: 90px;
+.date-time-picker-time-select {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 /* Drop overlay for drag and drop image attachments */
