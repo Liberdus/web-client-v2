@@ -3314,8 +3314,8 @@ class AddProposalModal {
     return options;
   }
 
-  async loadDaoProposalDefaults() {
-    const account = await this.fetchNetworkAccountConfig();
+  async loadDaoProposalDefaults({ refresh = false } = {}) {
+    const account = await this.fetchNetworkAccountConfig({ refresh });
     const fee = account?.current?.dao?.proposalFeeUsdStr;
     if (fee === undefined || fee === null || String(fee).trim() === '') {
       throw new Error('Missing DAO proposal fee');
@@ -3330,8 +3330,8 @@ class AddProposalModal {
     };
   }
 
-  async fetchNetworkAccountConfig() {
-    if (!this.networkAccountConfigPromise) {
+  async fetchNetworkAccountConfig({ refresh = false } = {}) {
+    if (refresh || !this.networkAccountConfigPromise) {
       this.networkAccountConfigPromise = queryNetwork(`/account/${NETWORK_ACCOUNT_ID}`)
         .then((result) => result?.account || null);
     }
@@ -3911,10 +3911,12 @@ class ConfirmProposalModal {
     let loadingToastId = showToast('Submitting proposal...', 0, 'loading');
 
     try {
+      const { maxGracePeriodMs } = await addProposalModal.loadDaoProposalDefaults({ refresh: true });
       const result = await daoRepo.createProposal({
         draft: this.currentDraft,
         timestamp: getTransactionTimestamp(),
         networkId: network?.netid || '',
+        maxGracePeriodMs,
         submitTransaction: async (transaction) => {
           if (!myAccount?.keys) throw new Error('Wallet keys unavailable');
           const txid = await signObj(transaction, myAccount.keys);

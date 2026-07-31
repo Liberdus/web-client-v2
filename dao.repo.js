@@ -345,7 +345,6 @@ export function buildDaoProposalCreateDraft({
     displayTitle: transaction.title,
     proposalFeeUsdStr: feeUsdStr,
     startDelayMs,
-    maxGracePeriodMs: safeMaxGracePeriodMs,
     transaction,
   };
 }
@@ -355,6 +354,7 @@ export function buildDaoProposalCreateTransaction({
   timestamp,
   networkId,
   proposalNumber,
+  maxGracePeriodMs,
 } = {}) {
   const draftTx = draft?.transaction;
   if (!draftTx || typeof draftTx !== 'object') {
@@ -380,7 +380,7 @@ export function buildDaoProposalCreateTransaction({
   );
   const gracePeriod = normalizeDaoDraftGracePeriodMs(
     draftTx.gracePeriod,
-    draft.maxGracePeriodMs
+    maxGracePeriodMs
   );
 
   const transaction = {
@@ -1076,7 +1076,7 @@ export const daoRepo = {
     return storeToUiList(_store, groupKey);
   },
 
-  async createProposal({ draft, timestamp, networkId, submitTransaction } = {}) {
+  async createProposal({ draft, timestamp, networkId, maxGracePeriodMs, submitTransaction } = {}) {
     let transaction = null;
     let proposalNumber = 0;
     let proposalStoreId = '';
@@ -1093,6 +1093,7 @@ export const daoRepo = {
         timestamp,
         networkId,
         proposalNumber,
+        maxGracePeriodMs,
       });
       proposalStoreId = daoProposalId(proposalNumber, transaction.proposalId);
 
