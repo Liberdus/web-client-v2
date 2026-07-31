@@ -528,12 +528,14 @@
                   <div class="form-group">
                     <label for="addProposalStartDelayDays">Review Starts (days)</label>
                     <input id="addProposalStartDelayDays" class="form-control" type="number" min="0" step="1" value="0" inputmode="numeric" required />
-                    <div class="dao-form-help" id="addProposalStartDelayHelp">Days from submission. 0 means now.<br />Maximum: loading...</div>
+                    <div class="dao-form-help">Days from submission. 0 means now.</div>
+                    <div class="dao-form-help dao-form-limit hidden" id="addProposalStartDelayLimit"></div>
                   </div>
                   <div class="form-group">
                     <label for="addProposalGracePeriodMs">Grace Period (ms)</label>
                     <input id="addProposalGracePeriodMs" class="form-control" type="number" min="0" step="1" inputmode="numeric" placeholder="Loading maximum..." required />
-                    <div class="dao-form-help" id="addProposalGracePeriodHelp">Estimate: loading...<br />Maximum from current DAO grace duration: loading...</div>
+                    <div class="dao-form-help" id="addProposalGracePeriodHelp">Estimate: loading...</div>
+                    <div class="dao-form-help dao-form-limit hidden" id="addProposalGracePeriodLimit"></div>
                   </div>
                 </div>
               </div>

@@ -3010,9 +3010,10 @@ class AddProposalModal {
     this.addChangeButton = document.getElementById('addProposalChangeButton');
     this.emergencySelect = document.getElementById('addProposalEmergency');
     this.startDelayInput = document.getElementById('addProposalStartDelayDays');
-    this.startDelayHelp = document.getElementById('addProposalStartDelayHelp');
+    this.startDelayLimit = document.getElementById('addProposalStartDelayLimit');
     this.gracePeriodInput = document.getElementById('addProposalGracePeriodMs');
     this.gracePeriodHelp = document.getElementById('addProposalGracePeriodHelp');
+    this.gracePeriodLimit = document.getElementById('addProposalGracePeriodLimit');
     this.submitButton = this.form?.querySelector('button[type="submit"]');
     this.resetConfigCache();
 
@@ -3040,6 +3041,9 @@ class AddProposalModal {
 
     if (this.emergencySelect) {
       this.emergencySelect.addEventListener('change', () => this.renderProposalFee());
+    }
+    if (this.startDelayInput) {
+      this.startDelayInput.addEventListener('input', () => this.renderStartDelayLimit());
     }
     if (this.gracePeriodInput) {
       this.gracePeriodInput.addEventListener('input', () => this.renderGracePeriodLimitHint());
@@ -3149,15 +3153,17 @@ class AddProposalModal {
       this.startDelayInput?.removeAttribute('max');
     }
 
-    if (this.startDelayHelp) {
-      const maximum = this.maxStartDelayDays === null
-        ? 'loading...'
-        : `${this.maxStartDelayDays} days`;
-      this.startDelayHelp.textContent = [
-        'Days from submission. 0 means now.',
-        `Maximum: ${maximum}`,
-      ].join('\n');
-    }
+    this.renderStartDelayLimit();
+  }
+
+  renderStartDelayLimit() {
+    if (!this.startDelayLimit) return;
+    const value = Number(this.startDelayInput?.value);
+    const exceedsMaximum = Number.isSafeInteger(this.maxStartDelayDays)
+      && Number.isFinite(value)
+      && value > this.maxStartDelayDays;
+    this.startDelayLimit.textContent = `Maximum: ${this.maxStartDelayDays} days`;
+    this.startDelayLimit.classList.toggle('hidden', !exceedsMaximum);
   }
 
   renderGracePeriodLimitHint() {
@@ -3171,12 +3177,17 @@ class AddProposalModal {
     if (this.gracePeriodInput) {
       this.gracePeriodInput.placeholder = maximumSummary ? 'Custom ms' : 'Loading maximum...';
     }
-    if (!this.gracePeriodHelp) return;
+    if (this.gracePeriodHelp) {
+      this.gracePeriodHelp.textContent = currentSummary ? `Estimate: ${currentSummary}` : '';
+    }
+    if (!this.gracePeriodLimit) return;
 
-    const summaries = [];
-    if (currentSummary) summaries.push(`Estimate: ${currentSummary}`);
-    summaries.push(`Maximum from current DAO grace duration: ${maximumSummary || 'loading...'}`);
-    this.gracePeriodHelp.textContent = summaries.join('\n');
+    const value = Number(currentValue);
+    const exceedsMaximum = Number.isSafeInteger(this.maxGracePeriodMs)
+      && Number.isFinite(value)
+      && value > this.maxGracePeriodMs;
+    this.gracePeriodLimit.textContent = `Maximum from current DAO grace duration: ${maximumSummary}`;
+    this.gracePeriodLimit.classList.toggle('hidden', !exceedsMaximum);
   }
 
   async refreshProposalFee() {
