@@ -77,6 +77,7 @@ export const DAO_STATES = [
 ];
 
 const DAO_PROPOSAL_DAY_MS = 24 * 60 * 60 * 1000;
+// ECMAScript Date max: 100,000,000 days after the Unix epoch (8.64e15 ms).
 const DAO_PROPOSAL_MAX_DATE_MS = 8_640_000_000_000_000;
 const DAO_AFFIRMATIVE_OPTION_STRINGS = ['yes', 'accept', 'approve'];
 const DAO_PROPOSALS_META_ID_STRING = 'dao proposals meta';
