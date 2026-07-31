@@ -364,7 +364,8 @@ export function buildDaoProposalCreateTransaction({
     gracePeriod,
   };
 
-  // startTime is derived from the validated draft field and must never be trusted from transaction data.
+  // The server expects an absolute Unix timestamp, not a duration from txTimestamp.
+  // Derive it from the validated draft field and never trust transaction data.
   delete transaction.startTime;
   if (reviewStartTimeMs > 0) {
     if (reviewStartTimeMs < txTimestamp) {

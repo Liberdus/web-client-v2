@@ -3545,7 +3545,10 @@ class AddProposalModal {
       minTimestamp: getTransactionTimestamp(),
       maxTimestamp: DAO_REVIEW_START_MAX_MS,
       allowImmediate: true,
-      previewFormatter: (timestamp) => `Review starts: ${formatDaoTimestamp(timestamp)}`,
+      previewFormatter: (timestamp) => {
+        const estimatedDelayMs = Math.max(0, timestamp - getTransactionTimestamp());
+        return `Review starts: ${formatDaoTimestamp(timestamp)}. Estimated delay: ${formatDaoDurationSummary(estimatedDelayMs)}`;
+      },
       minError: 'Review start time must be in the future',
       maxError: 'Review start time must be before the year 10000',
     });
@@ -3555,7 +3558,7 @@ class AddProposalModal {
     if (!this.reviewStartButton) return;
     const label = this.reviewStartTimeMs > 0
       ? formatDaoTimestamp(this.reviewStartTimeMs)
-      : 'Immediately after signing';
+      : 'Start now';
     this.reviewStartButton.textContent = label;
     this.reviewStartButton.title = label;
   }
@@ -3993,6 +3996,9 @@ class ConfirmProposalModal {
     }
 
     const tx = draft.transaction;
+    const estimatedReviewDelayMs = draft.reviewStartTimeMs > 0
+      ? Math.max(0, draft.reviewStartTimeMs - getTransactionTimestamp())
+      : 0;
     this.setTitle('Review Proposal');
     this.content.innerHTML = [
       renderDaoProposalHeading(tx),
@@ -4006,7 +4012,8 @@ class ConfirmProposalModal {
       renderDaoProposalSection('Review Timeline', [
         ['Review starts', draft.reviewStartTimeMs
           ? formatDaoTimestamp(draft.reviewStartTimeMs)
-          : 'Immediately after signing'],
+          : 'Start now'],
+        ['Estimated delay', formatDaoDurationSummary(estimatedReviewDelayMs)],
         ['Grace period', formatDaoDurationSummary(tx.gracePeriod)],
       ]),
       '<p class="proposal-info-muted">The proposal fee is derived from DAO params and seeds the voter reward pool for regular proposals. Signing submits this proposal for review.</p>',
