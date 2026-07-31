@@ -77,6 +77,7 @@ export const DAO_STATES = [
 ];
 
 const DAO_PROPOSAL_DAY_MS = 24 * 60 * 60 * 1000;
+const DAO_PROPOSAL_MAX_DATE_MS = 8_640_000_000_000_000;
 const DAO_AFFIRMATIVE_OPTION_STRINGS = ['yes', 'accept', 'approve'];
 const DAO_PROPOSALS_META_ID_STRING = 'dao proposals meta';
 export const DAO_PROPOSAL_TITLE_MAX_LENGTH = 100;
@@ -241,6 +242,18 @@ function normalizeDaoDraftGracePeriodMs(value, maxGracePeriodMs) {
   return gracePeriodMs;
 }
 
+export function getDaoProposalMaxStartDelayDays(timestamp) {
+  const txTimestamp = normalizeDaoDraftInteger(
+    timestamp,
+    'DAO proposal timestamp',
+    'milliseconds'
+  );
+  if (txTimestamp <= 0 || txTimestamp > DAO_PROPOSAL_MAX_DATE_MS) {
+    throw new Error('DAO proposal timestamp must be a valid date');
+  }
+  return Math.floor((DAO_PROPOSAL_MAX_DATE_MS - txTimestamp) / DAO_PROPOSAL_DAY_MS);
+}
+
 function getDaoProposalStartTime(timestamp, startDelayMs) {
   const startTime = timestamp + startDelayMs;
   if (!Number.isSafeInteger(startTime) || Number.isNaN(new Date(startTime).getTime())) {
@@ -308,7 +321,12 @@ export function buildDaoProposalCreateDraft({
   const isEmergency = emergency === true;
   const feeUsdStr = isEmergency ? '0' : requireDaoDraftString(proposalFeeUsdStr, 'DAO proposal fee');
   const startDelayMs = normalizeDaoDraftStartDelayMs(startDelayDays);
-  const safeGracePeriodMs = normalizeDaoDraftGracePeriodMs(gracePeriodMs, maxGracePeriodMs);
+  const safeMaxGracePeriodMs = normalizeDaoDraftInteger(
+    maxGracePeriodMs,
+    'Maximum grace period',
+    'milliseconds'
+  );
+  const safeGracePeriodMs = normalizeDaoDraftGracePeriodMs(gracePeriodMs, safeMaxGracePeriodMs);
   const safeOptions = normalizeDaoDraftOptions(options);
   const safeChanges = normalizeDaoDraftChanges(changes);
 
@@ -327,6 +345,7 @@ export function buildDaoProposalCreateDraft({
     displayTitle: transaction.title,
     proposalFeeUsdStr: feeUsdStr,
     startDelayMs,
+    maxGracePeriodMs: safeMaxGracePeriodMs,
     transaction,
   };
 }
@@ -348,17 +367,20 @@ export function buildDaoProposalCreateTransaction({
   }
 
   const proposalId = getDaoProposalAccountId(proposalNumber);
-  const txTimestamp = requireDaoNonNegativeNumber(timestamp, 'DAO proposal timestamp');
+  const txTimestamp = normalizeDaoDraftInteger(
+    timestamp,
+    'DAO proposal timestamp',
+    'milliseconds'
+  );
   if (txTimestamp <= 0) throw new Error('DAO proposal timestamp is required');
   const startDelayMs = normalizeDaoDraftInteger(
     draft.startDelayMs ?? 0,
     'Review start delay',
     'milliseconds'
   );
-  const gracePeriod = normalizeDaoDraftInteger(
+  const gracePeriod = normalizeDaoDraftGracePeriodMs(
     draftTx.gracePeriod,
-    'Grace period',
-    'milliseconds'
+    draft.maxGracePeriodMs
   );
 
   const transaction = {

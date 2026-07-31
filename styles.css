@@ -2031,6 +2031,11 @@ input[type='file'].form-control::file-selector-button {
   line-height: 1.35;
 }
 
+#addProposalStartDelayHelp,
+#addProposalGracePeriodHelp {
+  white-space: pre-line;
+}
+
 #addProposalModal .dao-form-grid {
   display: grid;
   align-items: start;
