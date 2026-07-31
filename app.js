@@ -83,6 +83,7 @@ import {
   DAO_ACTION_TYPES,
   DAO_CONFIG_CHANGE_OPTIONS,
   DAO_PROPOSAL_CREATE_TYPE,
+  DAO_PROPOSAL_DAY_MS,
   DAO_PROPOSAL_TITLE_MAX_LENGTH,
   daoRepo,
   DAO_STATES,
@@ -3080,7 +3081,7 @@ class AddProposalModal {
     this.refreshStartDelayLimit();
     this.renderOptions(['yes', 'no']);
     this.renderGracePeriodLimitHint();
-    this.refreshProposalFee();
+    this.refreshProposalDefaults();
     this.refreshSelectedConfigOptions();
     setTimeout(() => {
       this.titleInput?.focus();
@@ -3102,7 +3103,7 @@ class AddProposalModal {
     this.networkAccountConfigPromise = null;
     this.protocolConfigPromise = null;
     this.configRequestId = 0;
-    this.proposalFeeRequestId = 0;
+    this.proposalDefaultsRequestId = 0;
   }
 
   getConfigOptions() {
@@ -3157,19 +3158,23 @@ class AddProposalModal {
   }
 
   renderStartDelayLimit() {
-    if (!this.startDelayLimit) return;
-    const value = Number(this.startDelayInput?.value);
-    const exceedsMaximum = Number.isSafeInteger(this.maxStartDelayDays)
-      && Number.isFinite(value)
-      && value > this.maxStartDelayDays;
-    this.startDelayLimit.textContent = `Maximum: ${this.maxStartDelayDays} days`;
-    this.startDelayLimit.classList.toggle('hidden', !exceedsMaximum);
+    this.renderMaximumWarning(
+      this.startDelayInput,
+      this.startDelayLimit,
+      `Maximum: ${this.maxStartDelayDays} days`
+    );
+  }
+
+  renderMaximumWarning(input, warning, message) {
+    if (!warning) return;
+    warning.textContent = message;
+    warning.classList.toggle('hidden', !input?.validity.rangeOverflow);
   }
 
   renderGracePeriodLimitHint() {
     const maximumSummary = this.maxGracePeriodMs === null
       ? ''
-      : `${formatDaoDurationMsInput(this.maxGracePeriodMs)} ms (${formatDaoDurationEstimate(this.maxGracePeriodMs)})`;
+      : `${this.maxGracePeriodMs} ms (${formatDaoDurationEstimate(this.maxGracePeriodMs)})`;
     const currentValue = String(this.gracePeriodInput?.value ?? '').trim();
     const currentSummary = currentValue
       ? formatDaoDurationEstimate(currentValue)
@@ -3180,36 +3185,33 @@ class AddProposalModal {
     if (this.gracePeriodHelp) {
       this.gracePeriodHelp.textContent = currentSummary ? `Estimate: ${currentSummary}` : '';
     }
-    if (!this.gracePeriodLimit) return;
-
-    const value = Number(currentValue);
-    const exceedsMaximum = Number.isSafeInteger(this.maxGracePeriodMs)
-      && Number.isFinite(value)
-      && value > this.maxGracePeriodMs;
-    this.gracePeriodLimit.textContent = `Maximum from current DAO grace duration: ${maximumSummary}`;
-    this.gracePeriodLimit.classList.toggle('hidden', !exceedsMaximum);
+    this.renderMaximumWarning(
+      this.gracePeriodInput,
+      this.gracePeriodLimit,
+      `Maximum from current DAO grace duration: ${maximumSummary}`
+    );
   }
 
-  async refreshProposalFee() {
-    const requestId = ++this.proposalFeeRequestId;
+  async refreshProposalDefaults() {
+    const requestId = ++this.proposalDefaultsRequestId;
     this.renderProposalFee();
 
     try {
       const { proposalFeeUsdStr, maxGracePeriodMs } = await this.loadDaoProposalDefaults();
-      if (!this.isActive() || requestId !== this.proposalFeeRequestId) return;
+      if (!this.isActive() || requestId !== this.proposalDefaultsRequestId) return;
       this.proposalFeeUsdStr = proposalFeeUsdStr;
       this.maxGracePeriodMs = maxGracePeriodMs;
       if (this.gracePeriodInput) {
-        this.gracePeriodInput.max = formatDaoDurationMsInput(maxGracePeriodMs);
+        this.gracePeriodInput.max = String(maxGracePeriodMs);
         if (!String(this.gracePeriodInput.value || '').trim()) {
-          this.gracePeriodInput.value = formatDaoDurationMsInput(maxGracePeriodMs);
+          this.gracePeriodInput.value = String(maxGracePeriodMs);
         }
       }
       this.renderProposalFee();
       this.renderGracePeriodLimitHint();
     } catch (error) {
       console.warn('Could not refresh DAO proposal fee:', error);
-      if (!this.isActive() || requestId !== this.proposalFeeRequestId) return;
+      if (!this.isActive() || requestId !== this.proposalDefaultsRequestId) return;
       this.proposalFeeUsdStr = '';
       this.maxGracePeriodMs = null;
       if (this.gracePeriodInput) {
@@ -3535,15 +3537,21 @@ class AddProposalModal {
     this.renderParameterChanges(rows);
   }
 
-  getDaysValue(input, label) {
+  getIntegerValue(input, label, unit = '') {
     const value = String(input?.value ?? '').trim();
+    const unitSuffix = unit ? ` of ${unit}` : '';
     if (!/^\d+$/.test(value)) {
-      throw this.createValidationError(`${label} must be a non-negative whole number`, input);
+      throw this.createValidationError(`${label} must be a non-negative whole number${unitSuffix}`, input);
     }
     const n = Number(value);
     if (!Number.isSafeInteger(n)) {
       throw this.createValidationError(`${label} is too large`, input);
     }
+    return n;
+  }
+
+  getDaysValue(input, label) {
+    const n = this.getIntegerValue(input, label);
     if (!Number.isSafeInteger(this.maxStartDelayDays) || this.maxStartDelayDays < 0) {
       throw this.createValidationError(`${label} maximum is not available`, input);
     }
@@ -3554,7 +3562,7 @@ class AddProposalModal {
       );
     }
 
-    const delayMs = n * 24 * 60 * 60 * 1000;
+    const delayMs = n * DAO_PROPOSAL_DAY_MS;
     if (!Number.isSafeInteger(delayMs)) {
       throw this.createValidationError(`${label} is too large`, input);
     }
@@ -3567,17 +3575,10 @@ class AddProposalModal {
   }
 
   getMillisecondsValue(input, label, maximumMs) {
-    const value = String(input?.value ?? '').trim();
     if (!Number.isSafeInteger(maximumMs) || maximumMs < 0) {
       throw this.createValidationError(`${label} maximum is not loaded yet`, input);
     }
-    if (!/^\d+$/.test(value)) {
-      throw this.createValidationError(`${label} must be a non-negative whole number of milliseconds`, input);
-    }
-    const n = Number(value);
-    if (!Number.isSafeInteger(n)) {
-      throw this.createValidationError(`${label} is too large`, input);
-    }
+    const n = this.getIntegerValue(input, label, 'milliseconds');
     if (n > maximumMs) {
       throw this.createValidationError(`${label} must not exceed ${maximumMs} milliseconds`, input);
     }
@@ -3707,19 +3708,13 @@ function formatDaoDurationSummary(ms) {
   return `${n} ms (${formatDaoDurationEstimate(n)})`;
 }
 
-function formatDaoDurationMsInput(ms) {
-  const n = Number(ms || 0);
-  if (!Number.isInteger(n) || n < 0) return '';
-  return String(n);
-}
-
 function formatDaoDurationEstimate(ms) {
   const n = Number(ms);
   if (!Number.isFinite(n) || n < 0) return '';
   if (n === 0) return '0 sec';
 
   const units = [
-    ['day', 24 * 60 * 60 * 1000],
+    ['day', DAO_PROPOSAL_DAY_MS],
     ['hr', 60 * 60 * 1000],
     ['min', 60 * 1000],
     ['sec', 1000],

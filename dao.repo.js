@@ -76,9 +76,8 @@ export const DAO_STATES = [
   { key: 'applied', label: 'Applied' },
 ];
 
-const DAO_PROPOSAL_DAY_MS = 24 * 60 * 60 * 1000;
-// ECMAScript Date max: 100,000,000 days after the Unix epoch (8.64e15 ms).
-const DAO_PROPOSAL_MAX_DATE_MS = 8_640_000_000_000_000;
+export const DAO_PROPOSAL_DAY_MS = 24 * 60 * 60 * 1000;
+const DAO_PROPOSAL_MAX_DATE_MS = 100_000_000 * DAO_PROPOSAL_DAY_MS; // ECMAScript Date limit.
 const DAO_AFFIRMATIVE_OPTION_STRINGS = ['yes', 'accept', 'approve'];
 const DAO_PROPOSALS_META_ID_STRING = 'dao proposals meta';
 export const DAO_PROPOSAL_TITLE_MAX_LENGTH = 100;
@@ -322,12 +321,7 @@ export function buildDaoProposalCreateDraft({
   const isEmergency = emergency === true;
   const feeUsdStr = isEmergency ? '0' : requireDaoDraftString(proposalFeeUsdStr, 'DAO proposal fee');
   const startDelayMs = normalizeDaoDraftStartDelayMs(startDelayDays);
-  const safeMaxGracePeriodMs = normalizeDaoDraftInteger(
-    maxGracePeriodMs,
-    'Maximum grace period',
-    'milliseconds'
-  );
-  const safeGracePeriodMs = normalizeDaoDraftGracePeriodMs(gracePeriodMs, safeMaxGracePeriodMs);
+  const safeGracePeriodMs = normalizeDaoDraftGracePeriodMs(gracePeriodMs, maxGracePeriodMs);
   const safeOptions = normalizeDaoDraftOptions(options);
   const safeChanges = normalizeDaoDraftChanges(changes);
 
