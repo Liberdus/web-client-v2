@@ -3041,7 +3041,10 @@ class AddProposalModal {
     }
 
     if (this.emergencySelect) {
-      this.emergencySelect.addEventListener('change', () => this.renderProposalFee());
+      this.emergencySelect.addEventListener('change', () => {
+        this.renderProposalFee();
+        this.refreshStartDelayLimit();
+      });
     }
     if (this.startDelayInput) this.startDelayInput.addEventListener('input', () => this.renderStartDelayLimit());
     if (this.gracePeriodInput) {
@@ -3064,6 +3067,7 @@ class AddProposalModal {
     this.resetConfigCache();
     this.proposalFeeUsdStr = null;
     this.maxGracePeriodMs = null;
+    this.proposalDurations = null;
     if (this.titleInput) this.titleInput.value = '';
     if (this.typeSelect) this.typeSelect.value = 'governance';
     if (this.descriptionInput) this.descriptionInput.value = '';
@@ -3144,8 +3148,18 @@ class AddProposalModal {
 
   refreshStartDelayLimit() {
     this.maxStartDelayDays = null;
+    if (!this.proposalDurations || !Number.isSafeInteger(this.maxGracePeriodMs)) {
+      this.startDelayInput?.removeAttribute('max');
+      this.renderStartDelayLimit();
+      return;
+    }
+
     try {
-      this.maxStartDelayDays = getDaoProposalMaxStartDelayDays(getTransactionTimestamp());
+      this.maxStartDelayDays = getDaoProposalMaxStartDelayDays(getTransactionTimestamp(), {
+        ...this.proposalDurations,
+        emergency: this.emergencySelect?.value === 'true',
+        gracePeriod: this.maxGracePeriodMs,
+      });
       if (this.startDelayInput) this.startDelayInput.max = String(this.maxStartDelayDays);
     } catch (error) {
       console.warn('Could not calculate the DAO proposal review-start limit:', error);
@@ -3189,10 +3203,11 @@ class AddProposalModal {
     this.renderProposalFee();
 
     try {
-      const { proposalFeeUsdStr, maxGracePeriodMs } = await this.loadDaoProposalDefaults();
+      const { proposalFeeUsdStr, maxGracePeriodMs, proposalDurations } = await this.loadDaoProposalDefaults();
       if (!this.isActive() || requestId !== this.proposalDefaultsRequestId) return;
       this.proposalFeeUsdStr = proposalFeeUsdStr;
       this.maxGracePeriodMs = maxGracePeriodMs;
+      this.proposalDurations = proposalDurations;
       if (this.gracePeriodInput) {
         this.gracePeriodInput.max = String(maxGracePeriodMs);
         if (!String(this.gracePeriodInput.value || '').trim()) {
@@ -3200,19 +3215,22 @@ class AddProposalModal {
         }
       }
       this.renderProposalFee();
+      this.refreshStartDelayLimit();
       this.renderGracePeriodLimitHint();
     } catch (error) {
-      console.warn('Could not refresh DAO proposal fee:', error);
+      console.warn('Could not refresh DAO proposal defaults:', error);
       if (!this.isActive() || requestId !== this.proposalDefaultsRequestId) return;
       this.proposalFeeUsdStr = '';
       this.maxGracePeriodMs = null;
+      this.proposalDurations = null;
       if (this.gracePeriodInput) {
         this.gracePeriodInput.value = '';
         this.gracePeriodInput.removeAttribute('max');
       }
       this.renderProposalFee();
+      this.refreshStartDelayLimit();
       this.renderGracePeriodLimitHint();
-      showToast('Could not refresh DAO proposal fee', 2500, 'warning');
+      showToast('Could not refresh DAO proposal defaults', 2500, 'warning');
     }
   }
 
@@ -3321,13 +3339,22 @@ class AddProposalModal {
 
   async loadDaoProposalDefaults({ refresh = false } = {}) {
     const account = await this.fetchNetworkAccountConfig({ refresh });
-    const proposalFeeUsdStr = String(account?.current?.dao?.proposalFeeUsdStr ?? '').trim();
+    const daoConfig = account?.current?.dao;
+    const proposalFeeUsdStr = String(daoConfig?.proposalFeeUsdStr ?? '').trim();
     if (!proposalFeeUsdStr) throw new Error('Missing DAO proposal fee');
-    const graceDuration = Number(account?.current?.dao?.graceDuration);
+    const graceDuration = Number(daoConfig?.graceDuration);
     if (!Number.isSafeInteger(graceDuration) || graceDuration < 0) {
       throw new Error('Missing DAO maximum grace duration');
     }
-    return { proposalFeeUsdStr, maxGracePeriodMs: graceDuration };
+    const proposalDurations = {
+      reviewDuration: Number(daoConfig?.reviewDuration),
+      votingDuration: Number(daoConfig?.votingDuration),
+      claimDuration: Number(daoConfig?.claimDuration),
+    };
+    if (Object.values(proposalDurations).some((duration) => !Number.isSafeInteger(duration) || duration < 0)) {
+      throw new Error('Missing DAO proposal lifecycle durations');
+    }
+    return { proposalFeeUsdStr, maxGracePeriodMs: graceDuration, proposalDurations };
   }
 
   async fetchNetworkAccountConfig({ refresh = false } = {}) {
@@ -3897,12 +3924,13 @@ class ConfirmProposalModal {
     let loadingToastId = showToast('Submitting proposal...', 0, 'loading');
 
     try {
-      const { maxGracePeriodMs } = await addProposalModal.loadDaoProposalDefaults({ refresh: true });
+      const { maxGracePeriodMs, proposalDurations } = await addProposalModal.loadDaoProposalDefaults({ refresh: true });
       const result = await daoRepo.createProposal({
         draft: this.currentDraft,
         timestamp: getTransactionTimestamp(),
         networkId: network?.netid || '',
         maxGracePeriodMs,
+        proposalDurations,
         submitTransaction: async (transaction) => {
           if (!myAccount?.keys) throw new Error('Wallet keys unavailable');
           const txid = await signObj(transaction, myAccount.keys);
