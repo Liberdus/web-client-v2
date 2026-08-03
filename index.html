@@ -407,13 +407,53 @@
         <div class="modal-header">
           <button class="back-button" id="closeDaoModal"></button>
           <div class="modal-title" id="daoModalTitle">DAO</div>
-          <button class="icon-button filter-icon" id="daoFilterButton" aria-label="Filter" aria-haspopup="true" aria-expanded="false"></button>
         </div>
         <div class="modal-content">
           <div class="dao-toolbar">
+            <div class="dao-filter-bar" id="daoFilterBar" role="tablist" aria-label="Proposal filter">
+              <div class="dao-filter-primary">
+                <button class="dao-filter-chip" type="button" role="tab" data-filter-key="review" aria-selected="false">
+                  <span class="dao-filter-chip-label">Review</span>
+                  <span class="dao-filter-chip-count" aria-label="0 review proposals">0</span>
+                </button>
+                <button class="dao-filter-chip" type="button" role="tab" data-filter-key="voting" aria-selected="false">
+                  <span class="dao-filter-chip-label">Vote</span>
+                  <span class="dao-filter-chip-count" aria-label="0 voting proposals">0</span>
+                </button>
+                <button class="dao-filter-chip" type="button" role="tab" data-filter-key="accepted" aria-selected="false">
+                  <span class="dao-filter-chip-label">Accept</span>
+                  <span class="dao-filter-chip-count" aria-label="0 accepted proposals">0</span>
+                </button>
+                <button class="dao-filter-chip" type="button" role="tab" data-filter-key="claimable" aria-selected="false">
+                  <span class="dao-filter-chip-label">Claim</span>
+                  <span class="dao-filter-chip-count" aria-label="0 claimable proposals">0</span>
+                </button>
+                <button class="dao-filter-expand" id="daoFilterExpandButton" type="button" aria-label="Show more filters" aria-expanded="false" aria-controls="daoFilterOverflow"></button>
+              </div>
+              <div class="dao-filter-overflow" id="daoFilterOverflow" hidden>
+                <button class="dao-filter-chip" type="button" role="tab" data-filter-key="withheld" aria-selected="false">
+                  <span class="dao-filter-chip-label">Withheld</span>
+                  <span class="dao-filter-chip-count" aria-label="0 withheld proposals">0</span>
+                </button>
+                <button class="dao-filter-chip" type="button" role="tab" data-filter-key="rejected" aria-selected="false">
+                  <span class="dao-filter-chip-label">Rejected</span>
+                  <span class="dao-filter-chip-count" aria-label="0 rejected proposals">0</span>
+                </button>
+                <button class="dao-filter-chip" type="button" role="tab" data-filter-key="applied" aria-selected="false">
+                  <span class="dao-filter-chip-label">Applied</span>
+                  <span class="dao-filter-chip-count" aria-label="0 applied proposals">0</span>
+                </button>
+              </div>
+            </div>
             <div class="dao-group-toggle" role="tablist" aria-label="Proposal group">
-              <button class="dao-group-toggle-button" id="daoGroupActiveButton" type="button">Active</button>
-              <button class="dao-group-toggle-button" id="daoGroupArchivedButton" type="button">Archived</button>
+              <button class="dao-group-toggle-button" id="daoGroupActiveButton" type="button" role="tab" aria-selected="true">
+                <span class="dao-group-toggle-label">Active</span>
+                <span class="dao-group-toggle-count" aria-label="0 active proposals">0</span>
+              </button>
+              <button class="dao-group-toggle-button" id="daoGroupArchivedButton" type="button" role="tab" aria-selected="false">
+                <span class="dao-group-toggle-label">Archived</span>
+                <span class="dao-group-toggle-count" aria-label="0 archived proposals">0</span>
+              </button>
             </div>
           </div>
           <ul class="chat-list" id="daoProposalList">
@@ -424,39 +464,6 @@
             </div>
           </ul>
           <button class="floating-button" id="daoAddProposalButton" aria-label="Add proposal"><span class="plus-glyph" aria-hidden="true">+</span></button>
-        </div>
-        <a class="last-item" href="#"> </a>
-      </div>
-
-      <!-- DAO Status Context Menu -->
-      <div class="message-context-menu" id="daoStatusContextMenu" role="menu" aria-label="DAO proposal filter" style="display: none;">
-        <div class="context-menu-option dao-status-option" data-filter-key="review" role="menuitemradio" aria-checked="false">
-          <span class="context-menu-text dao-status-label" id="daoStatusOptionReview">Review</span>
-          <span class="dao-status-count" aria-label="0 review proposals">0</span>
-        </div>
-        <div class="context-menu-option dao-status-option" data-filter-key="withheld" role="menuitemradio" aria-checked="false">
-          <span class="context-menu-text dao-status-label" id="daoStatusOptionWithheld">Withheld</span>
-          <span class="dao-status-count" aria-label="0 withheld proposals">0</span>
-        </div>
-        <div class="context-menu-option dao-status-option" data-filter-key="voting" role="menuitemradio" aria-checked="false">
-          <span class="context-menu-text dao-status-label" id="daoStatusOptionVoting">Voting</span>
-          <span class="dao-status-count" aria-label="0 voting proposals">0</span>
-        </div>
-        <div class="context-menu-option dao-status-option" data-filter-key="rejected" role="menuitemradio" aria-checked="false">
-          <span class="context-menu-text dao-status-label" id="daoStatusOptionRejected">Rejected</span>
-          <span class="dao-status-count" aria-label="0 rejected proposals">0</span>
-        </div>
-        <div class="context-menu-option dao-status-option" data-filter-key="accepted" role="menuitemradio" aria-checked="false">
-          <span class="context-menu-text dao-status-label" id="daoStatusOptionAccepted">Accepted</span>
-          <span class="dao-status-count" aria-label="0 accepted proposals">0</span>
-        </div>
-        <div class="context-menu-option dao-status-option" data-filter-key="applied" role="menuitemradio" aria-checked="false">
-          <span class="context-menu-text dao-status-label" id="daoStatusOptionApplied">Applied</span>
-          <span class="dao-status-count" aria-label="0 applied proposals">0</span>
-        </div>
-        <div class="context-menu-option dao-status-option" data-filter-key="claimable" role="menuitemradio" aria-checked="false">
-          <span class="context-menu-text dao-status-label" id="daoStatusOptionClaimable">Claimable</span>
-          <span class="dao-status-count" aria-label="0 claimable proposals">0</span>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
