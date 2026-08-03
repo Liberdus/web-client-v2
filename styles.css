@@ -8363,7 +8363,6 @@ small {
   background: rgba(61, 61, 206, 0.14);
   border-bottom: 1px solid rgba(61, 61, 206, 0.22);
   border-top: 1px solid rgba(61, 61, 206, 0.22);
-  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -8371,27 +8370,27 @@ small {
   width: 100%;
 }
 
-#daoModal .dao-filter-primary {
-  align-items: stretch;
+#daoModal .dao-filter-primary,
+#daoModal .dao-filter-overflow {
   display: flex;
   gap: 6px;
-  min-width: 0;
   width: 100%;
 }
 
+#daoModal .dao-filter-primary {
+  min-width: 0;
+}
+
 #daoModal .dao-filter-overflow {
-  align-items: stretch;
-  display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  width: 100%;
 }
 
 #daoModal .dao-filter-overflow[hidden] {
   display: none;
 }
 
-#daoModal .dao-filter-chip {
+#daoModal .dao-filter-chip,
+#daoModal .dao-group-toggle-button {
   align-items: center;
   appearance: none;
   background: transparent;
@@ -8400,23 +8399,27 @@ small {
   color: var(--text-color);
   cursor: pointer;
   display: inline-flex;
-  flex: 1 1 0;
   font-family: var(--font-primary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   gap: 6px;
   justify-content: center;
-  line-height: 1.2;
   min-height: 36px;
-  min-width: 0;
   overflow: hidden;
-  padding: 8px 6px;
-  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
   white-space: nowrap;
 }
 
-#daoModal .dao-filter-chip:hover {
+#daoModal .dao-filter-chip:hover,
+#daoModal .dao-group-toggle-button:hover {
   background: var(--hover-background-dark);
+}
+
+#daoModal .dao-filter-chip {
+  flex: 1 1 0;
+  line-height: 1.2;
+  min-width: 0;
+  padding: 8px 6px;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 #daoModal .dao-filter-chip.active {
@@ -8425,11 +8428,13 @@ small {
   color: var(--background-color);
 }
 
-#daoModal .dao-filter-chip-label {
+#daoModal .dao-filter-chip-label,
+#daoModal .dao-group-toggle-label {
   flex: 0 0 auto;
 }
 
-#daoModal .dao-filter-chip-count {
+#daoModal .dao-filter-chip-count,
+#daoModal .dao-group-toggle-count {
   align-items: center;
   background: var(--hover-background);
   border: 1px solid var(--border-color);
@@ -8437,7 +8442,6 @@ small {
   color: var(--secondary-text-color);
   display: inline-flex;
   flex: 0 0 auto;
-  font-family: var(--font-primary);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-semibold);
@@ -8445,8 +8449,6 @@ small {
   min-height: 20px;
   min-width: 22px;
   padding: 2px 6px;
-  position: relative;
-  z-index: 1;
 }
 
 #daoModal .dao-filter-chip.active .dao-filter-chip-count {
@@ -8456,7 +8458,6 @@ small {
 }
 
 #daoModal .dao-filter-expand {
-  align-items: center;
   appearance: none;
   background-color: transparent;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='9 18 15 12 9 6'/%3E%3C/svg%3E");
@@ -8466,10 +8467,7 @@ small {
   border: 0;
   border-radius: 6px;
   cursor: pointer;
-  display: inline-flex;
   flex: 0 0 36px;
-  height: auto;
-  justify-content: center;
   min-height: 36px;
   padding: 0;
   transition: background-color 0.2s ease, transform 0.2s ease;
@@ -8496,64 +8494,17 @@ small {
 }
 
 #daoModal .dao-group-toggle-button {
-  align-items: center;
-  appearance: none;
-  background: transparent;
-  border: 0;
-  border-radius: 6px;
-  color: var(--text-color);
-  cursor: pointer;
-  display: inline-flex;
-  font-family: var(--font-primary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  gap: 6px;
-  justify-content: center;
-  min-height: 36px;
-  overflow: hidden;
   padding: 8px 10px;
   transition: background-color 0.15s ease, color 0.15s ease;
-  white-space: nowrap;
-}
-
-#daoModal .dao-group-toggle-button:hover {
-  background: var(--hover-background-dark);
 }
 
 #daoModal .dao-group-toggle-button.active {
   background: var(--hover-background-dark);
-  box-shadow: none;
-  color: var(--text-color);
-}
-
-#daoModal .dao-group-toggle-label {
-  flex: 0 0 auto;
-}
-
-#daoModal .dao-group-toggle-count {
-  align-items: center;
-  background: var(--hover-background);
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  color: var(--secondary-text-color);
-  display: inline-flex;
-  flex: 0 0 auto;
-  font-family: var(--font-primary);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  font-weight: var(--font-weight-semibold);
-  justify-content: center;
-  min-height: 20px;
-  min-width: 22px;
-  padding: 2px 6px;
-  position: relative;
-  z-index: 1;
 }
 
 #daoModal .dao-group-toggle-button.active .dao-group-toggle-count {
   background: rgba(0, 0, 0, 0.08);
   border-color: rgba(0, 0, 0, 0.1);
-  color: var(--secondary-text-color);
 }
 
 #daoModal #daoProposalList {

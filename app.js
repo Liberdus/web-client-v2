@@ -2477,15 +2477,7 @@ setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork, IS_DEV_NETWORK));
 
 const DAO_CLAIMABLE_FILTER = { key: 'claimable', label: 'Claimable' };
 const DAO_FILTER_OPTIONS = [...DAO_STATES, DAO_CLAIMABLE_FILTER];
-const DAO_FILTER_CHIP_LABELS = {
-  review: 'Review',
-  voting: 'Vote',
-  accepted: 'Accept',
-  claimable: 'Claim',
-  withheld: 'Withheld',
-  rejected: 'Rejected',
-  applied: 'Applied',
-};
+const DAO_FILTER_OVERFLOW_KEYS = ['withheld', 'rejected', 'applied'];
 
 function formatDaoTimestamp(ts) {
   const n = Number(ts || 0);
@@ -2535,13 +2527,10 @@ function formatDaoProposalTitle(proposal) {
   return proposal.number ? `#${proposal.number}: ${title}` : title;
 }
 
-const DAO_FILTER_OVERFLOW_KEYS = ['withheld', 'rejected', 'applied'];
-
 class DaoModal {
   constructor() {
     this.selectedGroupKey = 'active';
     this.selectedFilterKey = 'voting';
-    this.filtersExpanded = false;
     this.refreshState = 'loading';
     this.refreshSequence = 0;
     this.openRefreshId = 0;
@@ -2568,7 +2557,7 @@ class DaoModal {
     if (this.filterBar) {
       this.filterBar.addEventListener('click', (e) => {
         const chip = e.target.closest('.dao-filter-chip');
-        if (!chip || !this.filterBar.contains(chip)) return;
+        if (!chip) return;
         const key = chip.dataset.filterKey;
         if (!key) return;
         this.setFilter(key);
@@ -2576,20 +2565,20 @@ class DaoModal {
     }
 
     if (this.filterExpandButton) {
-      this.filterExpandButton.addEventListener('click', () => this.toggleFilterExpand());
+      this.filterExpandButton.addEventListener('click', () => {
+        this.setFiltersExpanded(this.filterOverflow.hidden);
+      });
     }
 
     if (this.groupActiveButton) {
       this.groupActiveButton.addEventListener('click', () => {
         this.setGroupFilter('active');
       });
-      this.groupActiveButton.setAttribute('role', 'tab');
     }
     if (this.groupArchivedButton) {
       this.groupArchivedButton.addEventListener('click', () => {
         this.setGroupFilter('archived');
       });
-      this.groupArchivedButton.setAttribute('role', 'tab');
     }
   }
 
@@ -2686,30 +2675,21 @@ class DaoModal {
     return didRefreshDaoData;
   }
 
-  isOverflowFilter(key) {
-    return DAO_FILTER_OVERFLOW_KEYS.includes(key);
-  }
-
-  toggleFilterExpand() {
-    this.setFiltersExpanded(!this.filtersExpanded);
-  }
-
   setFiltersExpanded(expanded) {
-    this.filtersExpanded = Boolean(expanded);
-    if (this.filterBar) this.filterBar.classList.toggle('expanded', this.filtersExpanded);
-    if (this.filterOverflow) this.filterOverflow.hidden = !this.filtersExpanded;
+    if (this.filterBar) this.filterBar.classList.toggle('expanded', expanded);
+    if (this.filterOverflow) this.filterOverflow.hidden = !expanded;
     if (this.filterExpandButton) {
-      this.filterExpandButton.setAttribute('aria-expanded', this.filtersExpanded ? 'true' : 'false');
+      this.filterExpandButton.setAttribute('aria-expanded', expanded ? 'true' : 'false');
       this.filterExpandButton.setAttribute(
         'aria-label',
-        this.filtersExpanded ? 'Hide extra filters' : 'Show more filters'
+        expanded ? 'Hide extra filters' : 'Show more filters'
       );
     }
   }
 
   setFilter(key) {
     this.selectedFilterKey = key;
-    if (this.isOverflowFilter(key) && !this.filtersExpanded) {
+    if (DAO_FILTER_OVERFLOW_KEYS.includes(key) && this.filterOverflow.hidden) {
       this.setFiltersExpanded(true);
     }
     this.render();
@@ -2747,42 +2727,31 @@ class DaoModal {
     // Claimable spans both groups, so hide Active/Archived while keeping the filter bar.
     if (this.groupToggle) this.groupToggle.classList.toggle('hidden', isClaimableFilter);
 
-    // Sync expand affordance without forcing the overflow open on every render.
-    this.setFiltersExpanded(this.filtersExpanded);
-
     // Update group toggle labels + selection
-    if (this.groupActiveButton) {
-      const activeCountEl = this.groupActiveButton.querySelector('.dao-group-toggle-count');
-      if (activeCountEl) {
-        activeCountEl.textContent = hasFreshData ? String(proposalsActive.length) : '—';
-        activeCountEl.setAttribute(
+    const groups = [
+      { key: 'active', label: 'Active', button: this.groupActiveButton, count: proposalsActive.length },
+      { key: 'archived', label: 'Archived', button: this.groupArchivedButton, count: proposalsArchived.length },
+    ];
+    for (const { key, label: groupName, button, count } of groups) {
+      if (!button) continue;
+      const countEl = button.querySelector('.dao-group-toggle-count');
+      if (countEl) {
+        countEl.textContent = hasFreshData ? String(count) : '—';
+        countEl.setAttribute(
           'aria-label',
-          hasFreshData ? `${proposalsActive.length} active proposals` : 'Active count unavailable'
+          hasFreshData ? `${count} ${key} proposals` : `${groupName} count unavailable`
         );
       }
-      this.groupActiveButton.classList.toggle('active', this.selectedGroupKey !== 'archived');
-      this.groupActiveButton.setAttribute('aria-selected', this.selectedGroupKey !== 'archived' ? 'true' : 'false');
-    }
-    if (this.groupArchivedButton) {
-      const archivedCountEl = this.groupArchivedButton.querySelector('.dao-group-toggle-count');
-      if (archivedCountEl) {
-        archivedCountEl.textContent = hasFreshData ? String(proposalsArchived.length) : '—';
-        archivedCountEl.setAttribute(
-          'aria-label',
-          hasFreshData ? `${proposalsArchived.length} archived proposals` : 'Archived count unavailable'
-        );
-      }
-      this.groupArchivedButton.classList.toggle('active', this.selectedGroupKey === 'archived');
-      this.groupArchivedButton.setAttribute('aria-selected', this.selectedGroupKey === 'archived' ? 'true' : 'false');
+      const selected = this.selectedGroupKey === key;
+      button.classList.toggle('active', selected);
+      button.setAttribute('aria-selected', selected ? 'true' : 'false');
     }
 
     for (const filter of DAO_FILTER_OPTIONS) {
       const chip = this.filterBar?.querySelector(`.dao-filter-chip[data-filter-key="${filter.key}"]`);
-      const labelEl = chip?.querySelector('.dao-filter-chip-label');
       const countEl = chip?.querySelector('.dao-filter-chip-count');
       const count = counts[filter.key] || 0;
 
-      if (labelEl) labelEl.textContent = DAO_FILTER_CHIP_LABELS[filter.key] || filter.label;
       if (countEl) {
         countEl.textContent = hasFreshData ? String(count) : '—';
         countEl.setAttribute(
