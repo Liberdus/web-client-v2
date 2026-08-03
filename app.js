@@ -3199,7 +3199,7 @@ class AddProposalModal {
     this.renderMaximumWarning(
       this.gracePeriodInput,
       this.gracePeriodLimit,
-      `Maximum from current DAO grace duration: ${maximumSummary}`
+      `Maximum: ${maximumSummary}`
     );
   }
 
