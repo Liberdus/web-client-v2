@@ -84,6 +84,7 @@ import {
   DAO_CONFIG_CHANGE_OPTIONS,
   DAO_PROPOSAL_CREATE_TYPE,
   DAO_PROPOSAL_DAY_MS,
+  DAO_PROPOSAL_GRACE_PERIOD_MAX_MS,
   DAO_PROPOSAL_TITLE_MAX_LENGTH,
   daoRepo,
   DAO_STATES,
@@ -3048,7 +3049,11 @@ class AddProposalModal {
     }
     if (this.startDelayInput) this.startDelayInput.addEventListener('input', () => this.renderStartDelayLimit());
     if (this.gracePeriodInput) {
-      this.gracePeriodInput.addEventListener('input', () => this.renderGracePeriodLimitHint());
+      this.gracePeriodInput.addEventListener('input', () => {
+        const maxLength = String(DAO_PROPOSAL_GRACE_PERIOD_MAX_MS).length;
+        this.gracePeriodInput.value = this.gracePeriodInput.value.slice(0, maxLength);
+        this.renderGracePeriodLimitHint();
+      });
     }
 
     if (this.optionsList) {
@@ -3354,7 +3359,8 @@ class AddProposalModal {
     if (Object.values(proposalDurations).some((duration) => !Number.isSafeInteger(duration) || duration < 0)) {
       throw new Error('Missing DAO proposal lifecycle durations');
     }
-    return { proposalFeeUsdStr, maxGracePeriodMs: graceDuration, proposalDurations };
+    const maxGracePeriodMs = Math.min(graceDuration, DAO_PROPOSAL_GRACE_PERIOD_MAX_MS);
+    return { proposalFeeUsdStr, maxGracePeriodMs, proposalDurations };
   }
 
   async fetchNetworkAccountConfig({ refresh = false } = {}) {

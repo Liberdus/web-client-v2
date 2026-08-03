@@ -77,6 +77,7 @@ export const DAO_STATES = [
 ];
 
 export const DAO_PROPOSAL_DAY_MS = 24 * 60 * 60 * 1000;
+export const DAO_PROPOSAL_GRACE_PERIOD_MAX_MS = 999_999_999_999;
 const DAO_PROPOSAL_MAX_DATE_MS = 100_000_000 * DAO_PROPOSAL_DAY_MS; // ECMAScript Date limit.
 const DAO_AFFIRMATIVE_OPTION_STRINGS = ['yes', 'accept', 'approve'];
 const DAO_PROPOSALS_META_ID_STRING = 'dao proposals meta';
@@ -224,7 +225,8 @@ function normalizeDaoDraftInteger(value, label, unit = '') {
 
 function normalizeDaoDraftGracePeriodMs(value, maxGracePeriodMs) {
   const gracePeriodMs = normalizeDaoDraftInteger(value, 'Grace period', 'milliseconds');
-  const maximumMs = normalizeDaoDraftInteger(maxGracePeriodMs, 'Maximum grace period', 'milliseconds');
+  const configuredMaximumMs = normalizeDaoDraftInteger(maxGracePeriodMs, 'Maximum grace period', 'milliseconds');
+  const maximumMs = Math.min(configuredMaximumMs, DAO_PROPOSAL_GRACE_PERIOD_MAX_MS);
   if (gracePeriodMs > maximumMs) {
     throw new Error(`Grace period must not exceed ${maximumMs} milliseconds`);
   }
