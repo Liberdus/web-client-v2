@@ -5,7 +5,6 @@ globalThis.window = {};
 
 const {
   EvmTransactionService,
-  buildAnkrChainRpcUrl,
   encodeErc20Transfer,
   parseEvmTokenAmount,
   signEvmTransaction,
@@ -79,40 +78,27 @@ function tokenAsset(overrides = {}) {
   };
 }
 
-test('derives chain-specific Ankr RPC endpoints from one multichain endpoint', () => {
-  const endpoint = 'https://rpc.ankr.com/multichain/test-api-key';
-  assert.equal(
-    buildAnkrChainRpcUrl(endpoint, 'ethereum'),
-    'https://rpc.ankr.com/eth/test-api-key',
-  );
-  assert.equal(
-    buildAnkrChainRpcUrl(endpoint, 'avalanche'),
-    'https://rpc.ankr.com/avalanche/test-api-key',
-  );
-  assert.equal(buildAnkrChainRpcUrl(endpoint, 'unsupported-chain'), null);
-  assert.equal(buildAnkrChainRpcUrl('https://example.com/multichain/test-api-key', 'bsc'), null);
-
-  globalThis.window.LIBERDUS_ANKR_MULTICHAIN_URL = endpoint;
+test('routes discovered networks through the managed Ankr RPC layer', () => {
   const service = new EvmTransactionService({
     getAccount: () => null,
     refreshAssets: async () => {},
     showToast: () => {},
     confirmTransfer: async () => true,
+    getManagedRpcUrl: (network) => `https://assets.test/api/rpc/${network.id}`,
   });
   assert.deepEqual(service.getRpcUrls({
     id: 'ethereum',
     name: 'Ethereum',
     rpcUrls: ['https://ethereum-rpc.publicnode.com'],
   }), [
-    'https://rpc.ankr.com/eth/test-api-key',
+    'https://assets.test/api/rpc/ethereum',
     'https://ethereum-rpc.publicnode.com',
   ]);
   assert.deepEqual(service.getRpcUrls({
     id: 'avalanche',
     name: 'Avalanche',
     rpcUrls: [],
-  }), ['https://rpc.ankr.com/avalanche/test-api-key']);
-  delete globalThis.window.LIBERDUS_ANKR_MULTICHAIN_URL;
+  }), ['https://assets.test/api/rpc/avalanche']);
 });
 
 test('encodes exact ERC-20 amounts and transfer calldata', () => {

@@ -13,30 +13,6 @@ const ERC20_TRANSFER_SELECTOR = 'a9059cbb';
 const EVM_REQUEST_TIMEOUT_MS = 20_000;
 const EVM_RECEIPT_TIMEOUT_MS = 60_000;
 const EVM_RECEIPT_POLL_MS = 2_000;
-const ANKR_RPC_ORIGIN = 'https://rpc.ankr.com';
-const ANKR_CHAIN_ALIASES = Object.freeze({
-  ethereum: 'eth',
-  eth: 'eth',
-  bsc: 'bsc',
-  polygon: 'polygon',
-  arbitrum: 'arbitrum',
-  optimism: 'optimism',
-  base: 'base',
-  avalanche: 'avalanche',
-  fantom: 'fantom',
-  flare: 'flare',
-  gnosis: 'gnosis',
-  linea: 'linea',
-  scroll: 'scroll',
-  story: 'story_mainnet',
-  story_mainnet: 'story_mainnet',
-  syscoin: 'syscoin',
-  taiko: 'taiko',
-  telos: 'telos',
-  xai: 'xai',
-  xlayer: 'xlayer',
-  'x-layer': 'xlayer',
-});
 const DEFAULT_EVM_RPC_URLS = Object.freeze({
   ethereum: Object.freeze([
     'https://ethereum-rpc.publicnode.com',
@@ -63,26 +39,6 @@ const DEFAULT_EVM_RPC_URLS = Object.freeze({
     'https://bsc-dataseed.binance.org',
   ]),
 });
-
-export function buildAnkrChainRpcUrl(multichainEndpoint, networkId) {
-  const alias = ANKR_CHAIN_ALIASES[String(networkId || '').toLowerCase()];
-  if (!alias || typeof multichainEndpoint !== 'string' || !multichainEndpoint.trim()) {
-    return null;
-  }
-  try {
-    const endpoint = new URL(multichainEndpoint.trim());
-    const pathParts = endpoint.pathname.split('/').filter(Boolean);
-    if (endpoint.origin !== ANKR_RPC_ORIGIN || pathParts[0] !== 'multichain' || !pathParts[1]) {
-      return null;
-    }
-    endpoint.pathname = `/${alias}/${pathParts[1]}`;
-    endpoint.search = '';
-    endpoint.hash = '';
-    return endpoint.toString().replace(/\/$/, '');
-  } catch {
-    return null;
-  }
-}
 
 export class EvmTransferError extends Error {
   constructor(message, code = 'EVM_TRANSFER_ERROR', details = {}) {
@@ -600,6 +556,11 @@ class WalletDiscoveryService {
     return (configured || DEFAULT_WALLET_PROBE_BASE_URL).replace(/\/+$/, '');
   }
 
+  getRpcUrl(networkId) {
+    if (!/^[a-z0-9-]+$/.test(networkId || '')) return null;
+    return `${this.getProbeBaseUrl()}/api/rpc/${networkId}`;
+  }
+
   activateAddress(address) {
     if (this.address === address) return;
     this.requestController?.abort();
@@ -751,12 +712,14 @@ export class EvmTransactionService {
     refreshAssets,
     showToast,
     confirmTransfer,
+    getManagedRpcUrl = () => null,
     fetchFn = (...args) => fetch(...args),
   }) {
     this.getAccount = getAccount;
     this.refreshAssets = refreshAssets;
     this.showToast = showToast;
     this.confirmTransfer = confirmTransfer;
+    this.getManagedRpcUrl = getManagedRpcUrl;
     this.fetchFn = fetchFn;
     this.requestId = 0;
     this.verifiedRpcEndpoints = new Map();
@@ -812,11 +775,10 @@ export class EvmTransactionService {
 
   getRpcUrls(network) {
     const runtimeUrls = globalThis.window?.LIBERDUS_EVM_RPC_URLS?.[network.id];
-    const configuredAnkrEndpoint = globalThis.window?.LIBERDUS_ANKR_MULTICHAIN_URL;
-    const ankrUrl = buildAnkrChainRpcUrl(configuredAnkrEndpoint, network.id);
+    const managedRpcUrl = this.getManagedRpcUrl(network);
     const urls = Array.isArray(runtimeUrls) && runtimeUrls.length > 0
       ? runtimeUrls
-      : [ankrUrl, ...(network.rpcUrls || [])].filter(Boolean);
+      : [managedRpcUrl, ...(network.rpcUrls || [])].filter(Boolean);
     if (!Array.isArray(urls) || urls.length === 0) {
       throw new EvmTransferError(
         `Sending is not configured for ${network.name}`,
@@ -1338,6 +1300,7 @@ class EvmAssetsController {
       refreshAssets: (options) => this.refresh(options),
       showToast: (...args) => this.showToast(...args),
       confirmTransfer: (...args) => this.confirmTransfer(...args),
+      getManagedRpcUrl: (network) => this.discovery.getRpcUrl(network.id),
     });
     this.assetsModal = new AssetsModal(this);
     this.assetDetailsModal = new AssetDetailsModal(this);
