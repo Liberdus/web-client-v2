@@ -215,9 +215,7 @@ function requireDaoNonNegativeNumber(value, label) {
 function normalizeDaoDraftInteger(value, label, unit = '') {
   const text = String(value ?? '').trim();
   const unitSuffix = unit ? ` of ${unit}` : '';
-  if (!/^\d+$/.test(text)) {
-    throw new Error(`${label} must be a non-negative whole number${unitSuffix}`);
-  }
+  if (!/^\d+$/.test(text)) throw new Error(`${label} must be a non-negative whole number${unitSuffix}`);
 
   const n = Number(text);
   if (!Number.isSafeInteger(n)) throw new Error(`${label} is too large`);
@@ -342,17 +340,10 @@ export function buildDaoProposalCreateTransaction({
   }
 
   const proposalId = getDaoProposalAccountId(proposalNumber);
-  const txTimestamp = normalizeDaoDraftInteger(
-    timestamp,
-    'DAO proposal timestamp',
-    'milliseconds'
-  );
+  const txTimestamp = normalizeDaoDraftInteger(timestamp, 'DAO proposal timestamp', 'milliseconds');
   if (txTimestamp <= 0) throw new Error('DAO proposal timestamp is required');
   const reviewStartTimeMs = normalizeDaoDraftReviewStartTime(draft.reviewStartTimeMs ?? 0);
-  const gracePeriod = normalizeDaoDraftGracePeriodMs(
-    draftTx.gracePeriod,
-    maxGracePeriodMs
-  );
+  const gracePeriod = normalizeDaoDraftGracePeriodMs(draftTx.gracePeriod, maxGracePeriodMs);
 
   const transaction = {
     ...draftTx,

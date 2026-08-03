@@ -3045,9 +3045,7 @@ class AddProposalModal {
     if (this.emergencySelect) {
       this.emergencySelect.addEventListener('change', () => this.renderProposalFee());
     }
-    if (this.reviewStartButton) {
-      this.reviewStartButton.addEventListener('click', () => this.openReviewStartPicker());
-    }
+    if (this.reviewStartButton) this.reviewStartButton.addEventListener('click', () => this.openReviewStartPicker());
     if (this.gracePeriodInput) {
       this.gracePeriodInput.addEventListener('input', () => {
         const maxLength = String(DAO_PROPOSAL_GRACE_PERIOD_MAX_MS).length;
@@ -3158,9 +3156,7 @@ class AddProposalModal {
       ? ''
       : `${formatDaoDurationEstimate(this.maxGracePeriodMs)} (${this.maxGracePeriodMs} ms)`;
     const currentValue = String(this.gracePeriodInput?.value ?? '').trim();
-    const currentSummary = currentValue
-      ? formatDaoDurationEstimate(currentValue)
-      : '';
+    const currentSummary = currentValue ? formatDaoDurationEstimate(currentValue) : '';
     if (this.gracePeriodInput) {
       this.gracePeriodInput.placeholder = maximumSummary ? 'Custom ms' : 'Loading maximum...';
     }
@@ -3311,19 +3307,14 @@ class AddProposalModal {
 
   async loadDaoProposalDefaults({ refresh = false } = {}) {
     const account = await this.fetchNetworkAccountConfig({ refresh });
-    const fee = account?.current?.dao?.proposalFeeUsdStr;
-    if (fee === undefined || fee === null || String(fee).trim() === '') {
-      throw new Error('Missing DAO proposal fee');
-    }
+    const proposalFeeUsdStr = String(account?.current?.dao?.proposalFeeUsdStr ?? '').trim();
+    if (!proposalFeeUsdStr) throw new Error('Missing DAO proposal fee');
     const graceDuration = Number(account?.current?.dao?.graceDuration);
     if (!Number.isSafeInteger(graceDuration) || graceDuration < 0) {
       throw new Error('Missing DAO maximum grace duration');
     }
     const maxGracePeriodMs = Math.min(graceDuration, DAO_PROPOSAL_GRACE_PERIOD_MAX_MS);
-    return {
-      proposalFeeUsdStr: String(fee).trim(),
-      maxGracePeriodMs,
-    };
+    return { proposalFeeUsdStr, maxGracePeriodMs };
   }
 
   async fetchNetworkAccountConfig({ refresh = false } = {}) {
@@ -3573,24 +3564,18 @@ class AddProposalModal {
   }
 
   getReviewStartTimeMs() {
-    if (this.reviewStartTimeMs === 0) return 0;
-    if (!Number.isSafeInteger(this.reviewStartTimeMs)
-      || Number.isNaN(new Date(this.reviewStartTimeMs).getTime())) {
-      throw this.createValidationError(
-        'Review start time must be a valid date and time',
-        this.reviewStartButton
-      );
+    const timestamp = this.reviewStartTimeMs;
+    if (timestamp === 0) return 0;
+    if (!Number.isSafeInteger(timestamp) || Number.isNaN(new Date(timestamp).getTime())) {
+      throw this.createValidationError('Review start time must be a valid date and time', this.reviewStartButton);
     }
-    if (this.reviewStartTimeMs < getTransactionTimestamp()) {
+    if (timestamp < getTransactionTimestamp()) {
       throw this.createValidationError('Review start time must be in the future', this.reviewStartButton);
     }
-    if (this.reviewStartTimeMs > DAO_REVIEW_START_MAX_MS) {
-      throw this.createValidationError(
-        'Review start time must be before the year 10000',
-        this.reviewStartButton
-      );
+    if (timestamp > DAO_REVIEW_START_MAX_MS) {
+      throw this.createValidationError('Review start time must be before the year 10000', this.reviewStartButton);
     }
-    return this.reviewStartTimeMs;
+    return timestamp;
   }
 
   getMillisecondsValue(input, label, maximumMs) {
@@ -3689,11 +3674,7 @@ class AddProposalModal {
       const options = this.getValidatedOptions();
       const changes = this.getValidatedChanges();
       const reviewStartTimeMs = this.getReviewStartTimeMs();
-      const gracePeriodMs = this.getMillisecondsValue(
-        this.gracePeriodInput,
-        'Grace period',
-        this.maxGracePeriodMs
-      );
+      const gracePeriodMs = this.getMillisecondsValue(this.gracePeriodInput, 'Grace period', this.maxGracePeriodMs);
       const emergency = this.emergencySelect?.value === 'true';
       if (!emergency && !this.proposalFeeUsdStr) {
         throw this.createValidationError('Current DAO proposal fee is not loaded yet', this.proposalFeeInput);
@@ -27690,11 +27671,12 @@ function roundToMinuteMs(ms) {
   return Math.round(ms / 60000) * 60000;
 }
 
-function formatTimeInTimeZone(ms, tz) {
+function formatTimeInTimeZone(ms, tz, withDate = false) {
   if (!tz || !ms) return '';
   try {
     const fmt = new Intl.DateTimeFormat(undefined, {
       timeZone: tz,
+      ...(withDate ? { year: 'numeric', month: 'short', day: '2-digit' } : {}),
       hour: '2-digit',
       minute: '2-digit',
       timeZoneName: 'short'
@@ -27706,21 +27688,7 @@ function formatTimeInTimeZone(ms, tz) {
 }
 
 function formatDateTimeInTimeZone(ms, tz) {
-  if (!tz || !ms) return '';
-  try {
-    const fmt = new Intl.DateTimeFormat(undefined, {
-      timeZone: tz,
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZoneName: 'short'
-    });
-    return fmt.format(new Date(ms));
-  } catch (e) {
-    return '';
-  }
+  return formatTimeInTimeZone(ms, tz, true);
 }
 
 /**
@@ -27852,9 +27820,7 @@ class DateTimePickerModal {
 
     this._populateTimeOptions();
 
-    const wrappedConfirm = withButtonCooldown(this.submitBtn, BUTTON_COOLDOWN_MS, null, async () => {
-      this._submitValue();
-    });
+    const wrappedConfirm = withButtonCooldown(this.submitBtn, BUTTON_COOLDOWN_MS, null, async () => this._submitValue());
     if (this.form) this.form.addEventListener('submit', wrappedConfirm);
     if (this.immediateBtn) this.immediateBtn.addEventListener('click', () => this._closeWith(0));
     if (this.cancelBtn) this.cancelBtn.addEventListener('click', this._onCancel);
