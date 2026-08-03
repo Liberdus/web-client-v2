@@ -3554,7 +3554,7 @@ class AddProposalModal {
     const delayMs = this.reviewStartTimeMs > 0
       ? Math.max(0, this.reviewStartTimeMs - getTransactionTimestamp())
       : 0;
-    this.reviewStartButton.textContent = `${delayMs} ms`;
+    this.reviewStartButton.textContent = String(delayMs);
     this.reviewStartButton.title = this.reviewStartTimeMs > 0
       ? formatDaoTimestamp(this.reviewStartTimeMs)
       : 'Start now';
