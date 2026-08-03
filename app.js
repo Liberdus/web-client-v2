@@ -2676,22 +2676,25 @@ class DaoModal {
   }
 
   setFiltersExpanded(expanded) {
-    if (this.filterBar) this.filterBar.classList.toggle('expanded', expanded);
-    if (this.filterOverflow) this.filterOverflow.hidden = !expanded;
+    const overflowFilterSelected = DAO_FILTER_OVERFLOW_KEYS.includes(this.selectedFilterKey);
+    const keepExpanded = expanded || overflowFilterSelected;
+    if (this.filterBar) this.filterBar.classList.toggle('expanded', keepExpanded);
+    if (this.filterOverflow) this.filterOverflow.hidden = !keepExpanded;
     if (this.filterExpandButton) {
-      this.filterExpandButton.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      this.filterExpandButton.disabled = overflowFilterSelected;
+      this.filterExpandButton.setAttribute('aria-expanded', keepExpanded ? 'true' : 'false');
       this.filterExpandButton.setAttribute(
         'aria-label',
-        expanded ? 'Hide extra filters' : 'Show more filters'
+        overflowFilterSelected
+          ? 'Extra filters remain visible while selected'
+          : keepExpanded ? 'Hide extra filters' : 'Show more filters'
       );
     }
   }
 
   setFilter(key) {
     this.selectedFilterKey = key;
-    if (DAO_FILTER_OVERFLOW_KEYS.includes(key) && this.filterOverflow.hidden) {
-      this.setFiltersExpanded(true);
-    }
+    this.setFiltersExpanded(!this.filterOverflow.hidden);
     this.render();
   }
 
