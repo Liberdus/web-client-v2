@@ -29650,6 +29650,7 @@ class SendAssetFormModal {
    */
   async open({ mode = 'liberdus', networkId = null, assetKey = null } = {}) {
     this.mode = mode;
+    this.networkGroup.hidden = mode !== 'evm';
     this.modal.classList.add('active');
     this.memoValidation = {};
     this.memoByteCounter.textContent = '';
@@ -29675,17 +29676,20 @@ class SendAssetFormModal {
       this.username = null;
     }
 
-    await evmAssets.prepareFormNetwork({
-      mode,
-      networkId,
-      assetKey,
-      networkGroup: this.networkGroup,
-      networkSelect: this.networkSelect,
-      assetSelect: this.assetSelectDropdown,
-      beforeLiberdus: () => walletScreen.updateWalletBalances(),
-    });
+    if (this.mode === 'evm') {
+      await evmAssets.refresh();
+      evmAssets.populateNetworkSelect(this.networkSelect, {
+        selectedId: networkId || 'ethereum',
+        evmOnly: true,
+      });
+    } else {
+      await walletScreen.updateWalletBalances();
+      evmAssets.rebuildCatalog();
+      evmAssets.populateNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
+    }
     await this.handleNetworkChange({ resetRecipient: false });
-    if (evmAssets.applySelectedAsset({ mode, assetKey, assetSelect: this.assetSelectDropdown })) {
+    if (assetKey && [...this.assetSelectDropdown.options].some((option) => option.value === assetKey)) {
+      this.assetSelectDropdown.value = assetKey;
       await this.handleAssetChange();
     }
   }
@@ -29717,7 +29721,7 @@ class SendAssetFormModal {
 
     if (walletNetwork?.source === 'evm') {
       this.usernameInput.placeholder = 'Enter 0x wallet address';
-      this.networkStatus.textContent = `${walletNetwork.name} is connected for balances, receiving, and sending.`;
+      this.networkStatus.textContent = `${walletNetwork.name} is connected for balances and receiving. Sending is coming in Phase 2.`;
       this.networkStatus.dataset.status = walletNetwork.connected ? 'connected' : 'ready';
     } else {
       this.usernameInput.placeholder = 'Enter username';
@@ -29951,7 +29955,7 @@ class SendAssetFormModal {
     event.preventDefault();
 
     if (!this.isLiberdusSelected()) {
-      await evmAssets.handleSendFormSubmit(this);
+      showToast('EVM sending will be enabled in Phase 2. Balances and receiving are available now.', 5000, 'info');
       return;
     }
 
@@ -30143,7 +30147,9 @@ class SendAssetFormModal {
    */
   async refreshSendButtonDisabledState() {
     if (!this.isLiberdusSelected()) {
-      evmAssets.refreshSendButtonState(this);
+      this.balanceWarning.textContent = '';
+      this.balanceWarning.style.display = 'none';
+      this.submitButton.disabled = true;
       return;
     }
 
@@ -30852,22 +30858,26 @@ class ReceiveModal {
 
   async open({ mode = 'liberdus', networkId = null, assetKey = null } = {}) {
     this.mode = mode;
+    this.networkGroup.hidden = mode !== 'evm';
     this.modal.classList.add('active');
 
     // Clear input fields
     this.amountInput.value = '';
     this.memoInput.value = '';
 
-    await evmAssets.prepareFormNetwork({
-      mode,
-      networkId,
-      assetKey,
-      networkGroup: this.networkGroup,
-      networkSelect: this.networkSelect,
-      assetSelect: this.assetSelect,
-    });
+    if (this.mode === 'evm') {
+      await evmAssets.refresh();
+      evmAssets.populateNetworkSelect(this.networkSelect, {
+        selectedId: networkId || 'ethereum',
+        evmOnly: true,
+      });
+    } else {
+      evmAssets.rebuildCatalog();
+      evmAssets.populateNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
+    }
     await this.handleNetworkChange();
-    if (evmAssets.applySelectedAsset({ mode, assetKey, assetSelect: this.assetSelect })) {
+    if (assetKey && [...this.assetSelect.options].some((option) => option.value === assetKey)) {
+      this.assetSelect.value = assetKey;
       await this.handleAssetChange();
     }
   }

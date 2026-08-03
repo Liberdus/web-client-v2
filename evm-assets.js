@@ -1206,14 +1206,14 @@ class AssetDetailsModal {
 
     document.getElementById('closeAssetDetailsModal').addEventListener('click', () => this.close());
     document.getElementById('assetDetailsSend').addEventListener('click', () => {
-      this.controller.openSend({
+      this.controller.openContextualSend({
         mode: 'evm',
         networkId: this.networkId,
         assetKey: this.assetKey,
       });
     });
     document.getElementById('assetDetailsReceive').addEventListener('click', () => {
-      this.controller.openReceive({
+      this.controller.openContextualReceive({
         mode: 'evm',
         networkId: this.networkId,
         assetKey: this.assetKey,
@@ -1282,6 +1282,103 @@ class AssetDetailsModal {
   }
 }
 
+class EvmSendFormAdapter {
+  constructor(controller) {
+    this.controller = controller;
+    this.loaded = false;
+    this.refreshTimer = null;
+  }
+
+  load() {
+    if (this.loaded) return;
+    this.modal = document.getElementById('sendAssetFormModal');
+    this.sendForm = document.getElementById('sendForm');
+    this.usernameInput = document.getElementById('sendToAddress');
+    this.amountInput = document.getElementById('sendAmount');
+    this.submitButton = this.sendForm?.querySelector('button[type="submit"]');
+    this.networkSelect = document.getElementById('sendNetwork');
+    this.networkGroup = document.getElementById('sendNetworkGroup');
+    this.networkStatus = document.getElementById('sendNetworkStatus');
+    this.assetSelectDropdown = document.getElementById('sendAsset');
+    this.assetGroup = this.assetSelectDropdown?.closest('.form-group');
+    this.balanceWarning = document.getElementById('balanceWarning');
+    this.closeButton = document.getElementById('closeSendAssetFormModal');
+    if (!this.sendForm || !this.usernameInput || !this.amountInput || !this.submitButton) return;
+
+    this.sendForm.addEventListener('submit', (event) => this.handleSubmit(event), true);
+    for (const element of [
+      this.usernameInput,
+      this.amountInput,
+      this.networkSelect,
+      this.assetSelectDropdown,
+    ]) {
+      element?.addEventListener('input', () => this.scheduleRefresh());
+      element?.addEventListener('change', () => this.scheduleRefresh());
+    }
+    this.closeButton?.addEventListener('click', () => this.resetContext());
+    if (this.modal && globalThis.MutationObserver) {
+      this.modalObserver = new MutationObserver(() => {
+        if (!this.modal.classList.contains('active')) this.resetContext();
+      });
+      this.modalObserver.observe(this.modal, { attributes: true, attributeFilter: ['class'] });
+    }
+    this.loaded = true;
+  }
+
+  isEvmSelected() {
+    return this.controller.getNetwork(this.networkSelect?.value)?.source === 'evm';
+  }
+
+  scheduleRefresh() {
+    clearTimeout(this.refreshTimer);
+    this.refreshTimer = setTimeout(() => {
+      if (!this.modal?.classList.contains('active') || !this.isEvmSelected()) return;
+      this.updateNetworkStatus();
+      this.controller.refreshSendButtonState(this);
+    }, 0);
+  }
+
+  updateNetworkStatus() {
+    const network = this.controller.getNetwork(this.networkSelect?.value);
+    if (!this.networkStatus || network?.source !== 'evm') return;
+    this.networkStatus.textContent = `${network.name} is connected for balances, receiving, and sending.`;
+    this.networkStatus.dataset.status = network.connected ? 'connected' : 'ready';
+  }
+
+  applyContext({ networkId = null, assetKey = null } = {}) {
+    if (this.networkGroup) this.networkGroup.hidden = Boolean(networkId);
+    if (this.assetGroup) this.assetGroup.hidden = Boolean(networkId && assetKey);
+    this.updateNetworkStatus();
+    this.scheduleRefresh();
+  }
+
+  resetContext() {
+    clearTimeout(this.refreshTimer);
+    if (this.assetGroup) this.assetGroup.hidden = false;
+  }
+
+  async handleSubmit(event) {
+    if (!this.isEvmSelected()) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    await this.controller.handleSendFormSubmit(this);
+  }
+
+  async close() {
+    this.resetContext();
+    if (this.closeButton) {
+      this.closeButton.click();
+    } else {
+      this.modal?.classList.remove('active');
+      this.sendForm?.reset();
+    }
+  }
+
+  async refreshSendButtonDisabledState() {
+    this.controller.refreshSendButtonState(this);
+  }
+}
+
 class EvmAssetsController {
   constructor() {
     this.getAccount = () => null;
@@ -1304,6 +1401,7 @@ class EvmAssetsController {
     });
     this.assetsModal = new AssetsModal(this);
     this.assetDetailsModal = new AssetDetailsModal(this);
+    this.sendFormAdapter = new EvmSendFormAdapter(this);
   }
 
   configure({
@@ -1326,6 +1424,7 @@ class EvmAssetsController {
     if (this.loaded) return;
     this.assetsModal.load();
     this.assetDetailsModal.load();
+    this.sendFormAdapter.load();
     document.getElementById('openAssets').addEventListener('click', () => this.assetsModal.open());
     this.loaded = true;
   }
@@ -1383,6 +1482,35 @@ class EvmAssetsController {
       recipient,
       amount,
     });
+  }
+  async openContextualSend(options) {
+    await this.openSend(options);
+    this.sendFormAdapter.applyContext(options);
+  }
+  async openContextualReceive(options) {
+    await this.openReceive(options);
+    this.applyContextualSelectors('receive', options);
+  }
+  applyContextualSelectors(prefix, { networkId = null, assetKey = null } = {}) {
+    const modal = document.getElementById(`${prefix}Modal`);
+    const networkGroup = document.getElementById(`${prefix}NetworkGroup`);
+    const assetSelect = document.getElementById(`${prefix}Asset`);
+    const assetGroup = assetSelect?.closest('.form-group');
+    if (networkGroup) networkGroup.hidden = Boolean(networkId);
+    if (assetGroup) assetGroup.hidden = Boolean(networkId && assetKey);
+    const closeButton = document.getElementById(`close${prefix[0].toUpperCase()}${prefix.slice(1)}Modal`);
+    closeButton?.addEventListener('click', () => {
+      if (assetGroup) assetGroup.hidden = false;
+    }, { once: true });
+    if (modal && assetGroup && globalThis.MutationObserver) {
+      const observer = new MutationObserver(() => {
+        if (!modal.classList.contains('active')) {
+          assetGroup.hidden = false;
+          observer.disconnect();
+        }
+      });
+      observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
+    }
   }
   refreshSendButtonState(form) {
     const recipient = form.usernameInput.value.trim();
