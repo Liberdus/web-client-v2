@@ -8826,11 +8826,7 @@ class ClockTimer {
    * @returns {string} Formatted current time string
    */
   formatCurrentTime() {
-    const now = getCorrectedTimestamp();
-    const localMs = now - timeSkew;
-    const date = new Date(localMs);
-    
-    return date.toLocaleTimeString(undefined, {
+    return new Date().toLocaleTimeString(undefined, {
       hour: 'numeric',
       minute: '2-digit',
       second: '2-digit',
@@ -24763,7 +24759,7 @@ class ChatModal {
 
   /**
    * Opens a lightweight chooser to select calling now or scheduling for later.
-   * Returns 0 for immediate call or a corrected future timestamp (ms since epoch) using timeSkew.
+   * Returns 0 for immediate call or an absolute future Unix timestamp in milliseconds.
    * Returns null if user cancels.
    * @returns {Promise<number|null>}
    */
@@ -24836,8 +24832,7 @@ class ChatModal {
         if (chosenCallTime === 0) {
           window.open(callUrl + `${callUrlParams}"${myAccount.username}"`, '_blank');
         } else {
-          const when = new Date(chosenCallTime - timeSkew); // convert back to local wall-clock for display
-          showToast(`Call scheduled for ${when.toLocaleString()}`, 3000, 'success');
+          showToast(`Call scheduled for ${this.formatLocalDateTime(chosenCallTime)}`, 3000, 'success');
         }
       }
       
@@ -24895,7 +24890,7 @@ class ChatModal {
       const callObj = {
         type: 'call',
         url: meetUrl,
-        // callTime: 0 for immediate, or corrected future timestamp (ms since epoch)
+        // callTime: 0 for immediate, or an absolute future Unix timestamp in milliseconds
         callTime: normalizedCallTime
       };
 
@@ -25488,9 +25483,8 @@ class ChatModal {
   }
 
   formatLocalDateTime(ts) {
-    const localMs = (typeof ts === 'number' ? ts : Number(ts)) - timeSkew;
-    const minute = 60 * 1000;
-    const roundedMs = Math.round(localMs / minute) * minute;
+    const minuteMs = 60 * 1000;
+    const roundedMs = Math.round(Number(ts) / minuteMs) * minuteMs;
     return new Date(roundedMs).toLocaleString(undefined, {
       year: 'numeric',
       month: 'numeric',
@@ -27874,7 +27868,6 @@ class DateTimePickerModal {
     initialTimestamp = 0,
     minTimestamp = 0,
     maxTimestamp = 0,
-    timestampOffsetMs = 0,
     allowImmediate = false,
     selectionFormatter = null,
     minError = 'Please choose a date and time in the future',
@@ -27886,7 +27879,6 @@ class DateTimePickerModal {
       onDone,
       minTimestamp,
       maxTimestamp,
-      timestampOffsetMs,
       selectionFormatter,
       minError,
       maxError,
@@ -27895,21 +27887,18 @@ class DateTimePickerModal {
     if (this.title) this.title.textContent = title;
     if (this.immediateBtn) this.immediateBtn.classList.toggle('hidden', !allowImmediate);
 
-    const earliestLocalTimestamp = minTimestamp > 0
-      ? minTimestamp - timestampOffsetMs
-      : 0;
-    const localInitialTimestamp = initialTimestamp > 0
-      ? initialTimestamp - timestampOffsetMs
-      : Math.max(Date.now(), earliestLocalTimestamp);
-    const defaultDate = new Date(this._roundUpToNextFiveMinutes(localInitialTimestamp));
+    const defaultTimestamp = initialTimestamp > 0
+      ? initialTimestamp
+      : Math.max(Date.now(), minTimestamp);
+    const defaultDate = new Date(this._roundUpToNextFiveMinutes(defaultTimestamp));
     this._setFormValue(defaultDate);
 
     if (this.dateInput) {
       this.dateInput.min = minTimestamp > 0
-        ? this._formatDateInput(new Date(minTimestamp - timestampOffsetMs))
+        ? this._formatDateInput(new Date(minTimestamp))
         : '';
       this.dateInput.max = maxTimestamp > 0
-        ? this._formatDateInput(new Date(maxTimestamp - timestampOffsetMs))
+        ? this._formatDateInput(new Date(maxTimestamp))
         : '';
     }
 
@@ -27965,8 +27954,7 @@ class DateTimePickerModal {
 
     const hour24 = this._convert12To24(hour12, ampmVal);
     const { year, month, day } = parsed;
-    const localMs = new Date(year, month - 1, day, hour24, minute, 0, 0).getTime();
-    return localMs + (this.options?.timestampOffsetMs || 0);
+    return new Date(year, month - 1, day, hour24, minute, 0, 0).getTime();
   }
 
   _updatePreview() {
@@ -28052,9 +28040,9 @@ function openCallScheduleDatePicker(onDone) {
   dateTimePickerModal.open({
     onDone,
     title: 'Schedule Call',
+    initialTimestamp: now,
     minTimestamp: now - 5 * 60 * 1000,
     maxTimestamp: maximum.getTime(),
-    timestampOffsetMs: timeSkew,
     selectionFormatter: (timestamp) => {
       const formatted = formatDateTimeInTimeZone(roundToMinuteMs(timestamp), recipientTimeZone);
       return { preview: formatted ? `Recipient time: ${formatted}` : '' };
