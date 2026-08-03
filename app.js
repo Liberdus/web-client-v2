@@ -13630,6 +13630,7 @@ function markConnectivityDependentElements() {
     // Call schedule modals
     '#callScheduleNowBtn',
     '#openCallScheduleDateBtn',
+    '#confirmDateTimePicker',
 
     // Message context menu (disable all except 'Delete for me' and 'Copy' and 'Join')
     '.message-context-menu .context-menu-option:not([data-action="delete"]):not([data-action="copy"]):not([data-action="join"]):not([data-action="location"])',
@@ -27873,15 +27874,16 @@ class DateTimePickerModal {
     if (this.title) this.title.textContent = title;
     if (this.immediateBtn) this.immediateBtn.classList.toggle('hidden', !allowImmediate);
 
+    const currentMinTimestamp = typeof minTimestamp === 'function' ? minTimestamp() : minTimestamp;
     const defaultTimestamp = initialTimestamp > 0
       ? initialTimestamp
-      : Math.max(Date.now(), minTimestamp);
+      : Math.max(Date.now(), currentMinTimestamp);
     const defaultDate = new Date(this._roundUpToNextFiveMinutes(defaultTimestamp));
     this._setFormValue(defaultDate);
 
     if (this.dateInput) {
-      this.dateInput.min = minTimestamp > 0
-        ? this._formatDateInput(new Date(minTimestamp))
+      this.dateInput.min = currentMinTimestamp > 0
+        ? this._formatDateInput(new Date(currentMinTimestamp))
         : '';
       this.dateInput.max = maxTimestamp > 0
         ? this._formatDateInput(new Date(maxTimestamp))
@@ -27975,7 +27977,10 @@ class DateTimePickerModal {
       showToast('Invalid date/time selected', 0, 'error');
       return;
     }
-    if (this.options?.minTimestamp > 0 && timestamp < this.options.minTimestamp) {
+    const minTimestamp = typeof this.options?.minTimestamp === 'function'
+      ? this.options.minTimestamp()
+      : this.options?.minTimestamp;
+    if (minTimestamp > 0 && timestamp < minTimestamp) {
       showToast(this.options.minError, 0, 'error');
       return;
     }
@@ -28041,7 +28046,7 @@ function openCallScheduleDatePicker(onDone) {
     onDone,
     title: 'Schedule Call',
     initialTimestamp: now,
-    minTimestamp: now - 5 * 60 * 1000,
+    minTimestamp: () => getCorrectedTimestamp() - 5 * 60 * 1000,
     maxTimestamp: maximum.getTime(),
     selectionFormatter: (timestamp) => {
       const formatted = formatDateTimeInTimeZone(roundToMinuteMs(timestamp), recipientTimeZone);
