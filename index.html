@@ -472,7 +472,7 @@
             <form id="addProposalForm" class="form--narrow dao-proposal-form" novalidate>
               <div class="dao-form-grid">
                 <div class="form-group">
-                  <label for="addProposalEmergency">Emergency</label>
+                  <label for="addProposalEmergency">Emergency <span class="dao-form-required" aria-hidden="true">*</span></label>
                   <select id="addProposalEmergency" class="form-control" required>
                     <option value="false">No</option>
                     <option value="true">Yes</option>
@@ -485,11 +485,11 @@
                 </div>
               </div>
               <div class="form-group">
-                <label for="addProposalTitle">Title</label>
+                <label for="addProposalTitle">Title <span class="dao-form-required" aria-hidden="true">*</span></label>
                 <input id="addProposalTitle" class="form-control" type="text" maxlength="100" placeholder="Proposal title" required />
               </div>
               <div class="form-group">
-                <label for="addProposalType">Proposal Type</label>
+                <label for="addProposalType">Proposal Type <span class="dao-form-required" aria-hidden="true">*</span></label>
                 <select id="addProposalType" class="form-control" required>
                   <option value="governance">Governance</option>
                   <option value="economic">Economic</option>
@@ -498,12 +498,12 @@
                 <div class="dao-form-help">Choose governance, economic, or protocol. This controls which parameters can be selected below.</div>
               </div>
               <div class="form-group">
-                <label for="addProposalDescription">Description</label>
+                <label for="addProposalDescription">Description <span class="dao-form-required" aria-hidden="true">*</span></label>
                 <textarea id="addProposalDescription" class="form-control" rows="6" maxlength="10000" placeholder="Describe the proposal" required></textarea>
               </div>
               <div class="form-group dao-form-section">
                 <div class="dao-form-section-header">
-                  <label>Parameter Changes</label>
+                  <label>Parameter Changes <span class="dao-form-required" aria-hidden="true">*</span></label>
                 </div>
                 <div class="dao-form-list" id="addProposalChangesList"></div>
                 <button type="button" class="btn btn--secondary dao-form-add-button" id="addProposalChangeButton">
@@ -513,7 +513,7 @@
               </div>
               <div class="form-group dao-form-section">
                 <div class="dao-form-section-header">
-                  <label>Options</label>
+                  <label>Options <span class="dao-form-required" aria-hidden="true">*</span></label>
                 </div>
                 <div class="dao-form-list" id="addProposalOptionsList"></div>
                 <button type="button" class="btn btn--secondary dao-form-add-button" id="addProposalOptionButton">
@@ -542,7 +542,7 @@
                   </div>
                   <div class="form-group">
                     <div class="dao-form-label-with-help">
-                      <label for="addProposalGracePeriodMs">Grace Period (ms)</label>
+                      <label for="addProposalGracePeriodMs">Grace Period (ms) <span class="dao-form-required" aria-hidden="true">*</span></label>
                       <button
                         type="button"
                         class="toll-info-icon dao-form-tooltip"
