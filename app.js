@@ -27954,7 +27954,17 @@ class DateTimePickerModal {
 
     const hour24 = this._convert12To24(hour12, ampmVal);
     const { year, month, day } = parsed;
-    return new Date(year, month - 1, day, hour24, minute, 0, 0).getTime();
+    const selectedDate = new Date(year, month - 1, day, hour24, minute, 0, 0);
+    if (
+      selectedDate.getFullYear() !== year
+      || selectedDate.getMonth() !== month - 1
+      || selectedDate.getDate() !== day
+      || selectedDate.getHours() !== hour24
+      || selectedDate.getMinutes() !== minute
+    ) {
+      return NaN;
+    }
+    return selectedDate.getTime();
   }
 
   _updatePreview() {
@@ -27971,6 +27981,10 @@ class DateTimePickerModal {
 
   _submitValue() {
     const timestamp = this._getSelectedTimestamp();
+    if (Number.isNaN(timestamp)) {
+      showToast('That local time does not exist. Choose another time.', 0, 'error');
+      return;
+    }
     if (!timestamp || !Number.isSafeInteger(timestamp)) {
       showToast('Invalid date/time selected', 0, 'error');
       return;
