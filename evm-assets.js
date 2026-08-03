@@ -13,6 +13,30 @@ const ERC20_TRANSFER_SELECTOR = 'a9059cbb';
 const EVM_REQUEST_TIMEOUT_MS = 20_000;
 const EVM_RECEIPT_TIMEOUT_MS = 60_000;
 const EVM_RECEIPT_POLL_MS = 2_000;
+const ANKR_RPC_ORIGIN = 'https://rpc.ankr.com';
+const ANKR_CHAIN_ALIASES = Object.freeze({
+  ethereum: 'eth',
+  eth: 'eth',
+  bsc: 'bsc',
+  polygon: 'polygon',
+  arbitrum: 'arbitrum',
+  optimism: 'optimism',
+  base: 'base',
+  avalanche: 'avalanche',
+  fantom: 'fantom',
+  flare: 'flare',
+  gnosis: 'gnosis',
+  linea: 'linea',
+  scroll: 'scroll',
+  story: 'story_mainnet',
+  story_mainnet: 'story_mainnet',
+  syscoin: 'syscoin',
+  taiko: 'taiko',
+  telos: 'telos',
+  xai: 'xai',
+  xlayer: 'xlayer',
+  'x-layer': 'xlayer',
+});
 const DEFAULT_EVM_RPC_URLS = Object.freeze({
   ethereum: Object.freeze([
     'https://ethereum-rpc.publicnode.com',
@@ -39,6 +63,26 @@ const DEFAULT_EVM_RPC_URLS = Object.freeze({
     'https://bsc-dataseed.binance.org',
   ]),
 });
+
+export function buildAnkrChainRpcUrl(multichainEndpoint, networkId) {
+  const alias = ANKR_CHAIN_ALIASES[String(networkId || '').toLowerCase()];
+  if (!alias || typeof multichainEndpoint !== 'string' || !multichainEndpoint.trim()) {
+    return null;
+  }
+  try {
+    const endpoint = new URL(multichainEndpoint.trim());
+    const pathParts = endpoint.pathname.split('/').filter(Boolean);
+    if (endpoint.origin !== ANKR_RPC_ORIGIN || pathParts[0] !== 'multichain' || !pathParts[1]) {
+      return null;
+    }
+    endpoint.pathname = `/${alias}/${pathParts[1]}`;
+    endpoint.search = '';
+    endpoint.hash = '';
+    return endpoint.toString().replace(/\/$/, '');
+  } catch {
+    return null;
+  }
+}
 
 export class EvmTransferError extends Error {
   constructor(message, code = 'EVM_TRANSFER_ERROR', details = {}) {
@@ -768,16 +812,18 @@ export class EvmTransactionService {
 
   getRpcUrls(network) {
     const runtimeUrls = globalThis.window?.LIBERDUS_EVM_RPC_URLS?.[network.id];
+    const configuredAnkrEndpoint = globalThis.window?.LIBERDUS_ANKR_MULTICHAIN_URL;
+    const ankrUrl = buildAnkrChainRpcUrl(configuredAnkrEndpoint, network.id);
     const urls = Array.isArray(runtimeUrls) && runtimeUrls.length > 0
       ? runtimeUrls
-      : network.rpcUrls;
+      : [ankrUrl, ...(network.rpcUrls || [])].filter(Boolean);
     if (!Array.isArray(urls) || urls.length === 0) {
       throw new EvmTransferError(
         `Sending is not configured for ${network.name}`,
         'RPC_NOT_CONFIGURED',
       );
     }
-    return urls;
+    return [...new Set(urls)];
   }
 
   async requestEndpoint(endpoint, method, params, networkId) {
