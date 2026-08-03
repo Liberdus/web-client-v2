@@ -215,22 +215,11 @@ function requireDaoNonNegativeNumber(value, label) {
 function normalizeDaoDraftInteger(value, label, unit = '') {
   const text = String(value ?? '').trim();
   const unitSuffix = unit ? ` of ${unit}` : '';
-  if (!/^\d+$/.test(text)) {
-    throw new Error(`${label} must be a non-negative whole number${unitSuffix}`);
-  }
+  if (!/^\d+$/.test(text)) throw new Error(`${label} must be a non-negative whole number${unitSuffix}`);
 
   const n = Number(text);
   if (!Number.isSafeInteger(n)) throw new Error(`${label} is too large`);
   return n;
-}
-
-function normalizeDaoDraftStartDelayMs(value) {
-  const days = normalizeDaoDraftInteger(value, 'Review start delay');
-  const milliseconds = days * DAO_PROPOSAL_DAY_MS;
-  if (!Number.isSafeInteger(milliseconds)) {
-    throw new Error('Review start delay is too large');
-  }
-  return milliseconds;
 }
 
 function normalizeDaoDraftGracePeriodMs(value, maxGracePeriodMs) {
@@ -243,23 +232,11 @@ function normalizeDaoDraftGracePeriodMs(value, maxGracePeriodMs) {
 }
 
 export function getDaoProposalMaxStartDelayDays(timestamp) {
-  const txTimestamp = normalizeDaoDraftInteger(
-    timestamp,
-    'DAO proposal timestamp',
-    'milliseconds'
-  );
+  const txTimestamp = normalizeDaoDraftInteger(timestamp, 'DAO proposal timestamp', 'milliseconds');
   if (txTimestamp <= 0 || txTimestamp > DAO_PROPOSAL_MAX_DATE_MS) {
     throw new Error('DAO proposal timestamp must be a valid date');
   }
   return Math.floor((DAO_PROPOSAL_MAX_DATE_MS - txTimestamp) / DAO_PROPOSAL_DAY_MS);
-}
-
-function getDaoProposalStartTime(timestamp, startDelayMs) {
-  const startTime = timestamp + startDelayMs;
-  if (!Number.isSafeInteger(startTime) || Number.isNaN(new Date(startTime).getTime())) {
-    throw new Error('Review start delay produces an invalid date');
-  }
-  return startTime;
 }
 
 function normalizeDaoDraftChanges(changes) {
@@ -320,7 +297,8 @@ export function buildDaoProposalCreateDraft({
 
   const isEmergency = emergency === true;
   const feeUsdStr = isEmergency ? '0' : requireDaoDraftString(proposalFeeUsdStr, 'DAO proposal fee');
-  const startDelayMs = normalizeDaoDraftStartDelayMs(startDelayDays);
+  const startDelayMs = normalizeDaoDraftInteger(startDelayDays, 'Review start delay') * DAO_PROPOSAL_DAY_MS;
+  if (!Number.isSafeInteger(startDelayMs)) throw new Error('Review start delay is too large');
   const safeGracePeriodMs = normalizeDaoDraftGracePeriodMs(gracePeriodMs, maxGracePeriodMs);
   const safeOptions = normalizeDaoDraftOptions(options);
   const safeChanges = normalizeDaoDraftChanges(changes);
@@ -362,21 +340,10 @@ export function buildDaoProposalCreateTransaction({
   }
 
   const proposalId = getDaoProposalAccountId(proposalNumber);
-  const txTimestamp = normalizeDaoDraftInteger(
-    timestamp,
-    'DAO proposal timestamp',
-    'milliseconds'
-  );
+  const txTimestamp = normalizeDaoDraftInteger(timestamp, 'DAO proposal timestamp', 'milliseconds');
   if (txTimestamp <= 0) throw new Error('DAO proposal timestamp is required');
-  const startDelayMs = normalizeDaoDraftInteger(
-    draft.startDelayMs ?? 0,
-    'Review start delay',
-    'milliseconds'
-  );
-  const gracePeriod = normalizeDaoDraftGracePeriodMs(
-    draftTx.gracePeriod,
-    maxGracePeriodMs
-  );
+  const startDelayMs = normalizeDaoDraftInteger(draft.startDelayMs ?? 0, 'Review start delay', 'milliseconds');
+  const gracePeriod = normalizeDaoDraftGracePeriodMs(draftTx.gracePeriod, maxGracePeriodMs);
 
   const transaction = {
     ...draftTx,
@@ -391,7 +358,11 @@ export function buildDaoProposalCreateTransaction({
   // startTime is derived from validated inputs and must never be trusted from a draft.
   delete transaction.startTime;
   if (startDelayMs > 0) {
-    transaction.startTime = getDaoProposalStartTime(txTimestamp, startDelayMs);
+    const startTime = txTimestamp + startDelayMs;
+    if (!Number.isSafeInteger(startTime) || Number.isNaN(new Date(startTime).getTime())) {
+      throw new Error('Review start delay produces an invalid date');
+    }
+    transaction.startTime = startTime;
   }
 
   return transaction;

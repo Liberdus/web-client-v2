@@ -3043,9 +3043,7 @@ class AddProposalModal {
     if (this.emergencySelect) {
       this.emergencySelect.addEventListener('change', () => this.renderProposalFee());
     }
-    if (this.startDelayInput) {
-      this.startDelayInput.addEventListener('input', () => this.renderStartDelayLimit());
-    }
+    if (this.startDelayInput) this.startDelayInput.addEventListener('input', () => this.renderStartDelayLimit());
     if (this.gracePeriodInput) {
       this.gracePeriodInput.addEventListener('input', () => this.renderGracePeriodLimitHint());
     }
@@ -3158,11 +3156,7 @@ class AddProposalModal {
   }
 
   renderStartDelayLimit() {
-    this.renderMaximumWarning(
-      this.startDelayInput,
-      this.startDelayLimit,
-      `Maximum: ${this.maxStartDelayDays} days`
-    );
+    this.renderMaximumWarning(this.startDelayInput, this.startDelayLimit, `Maximum: ${this.maxStartDelayDays} days`);
   }
 
   renderMaximumWarning(input, warning, message) {
@@ -3176,9 +3170,7 @@ class AddProposalModal {
       ? ''
       : `${this.maxGracePeriodMs} ms (${formatDaoDurationEstimate(this.maxGracePeriodMs)})`;
     const currentValue = String(this.gracePeriodInput?.value ?? '').trim();
-    const currentSummary = currentValue
-      ? formatDaoDurationEstimate(currentValue)
-      : '';
+    const currentSummary = currentValue ? formatDaoDurationEstimate(currentValue) : '';
     if (this.gracePeriodInput) {
       this.gracePeriodInput.placeholder = maximumSummary ? 'Custom ms' : 'Loading maximum...';
     }
@@ -3329,18 +3321,13 @@ class AddProposalModal {
 
   async loadDaoProposalDefaults({ refresh = false } = {}) {
     const account = await this.fetchNetworkAccountConfig({ refresh });
-    const fee = account?.current?.dao?.proposalFeeUsdStr;
-    if (fee === undefined || fee === null || String(fee).trim() === '') {
-      throw new Error('Missing DAO proposal fee');
-    }
+    const proposalFeeUsdStr = String(account?.current?.dao?.proposalFeeUsdStr ?? '').trim();
+    if (!proposalFeeUsdStr) throw new Error('Missing DAO proposal fee');
     const graceDuration = Number(account?.current?.dao?.graceDuration);
     if (!Number.isSafeInteger(graceDuration) || graceDuration < 0) {
       throw new Error('Missing DAO maximum grace duration');
     }
-    return {
-      proposalFeeUsdStr: String(fee).trim(),
-      maxGracePeriodMs: graceDuration,
-    };
+    return { proposalFeeUsdStr, maxGracePeriodMs: graceDuration };
   }
 
   async fetchNetworkAccountConfig({ refresh = false } = {}) {
@@ -3556,10 +3543,7 @@ class AddProposalModal {
       throw this.createValidationError(`${label} maximum is not available`, input);
     }
     if (n > this.maxStartDelayDays) {
-      throw this.createValidationError(
-        `${label} must not exceed ${this.maxStartDelayDays} days`,
-        input
-      );
+      throw this.createValidationError(`${label} must not exceed ${this.maxStartDelayDays} days`, input);
     }
 
     const delayMs = n * DAO_PROPOSAL_DAY_MS;
@@ -3670,11 +3654,7 @@ class AddProposalModal {
       const options = this.getValidatedOptions();
       const changes = this.getValidatedChanges();
       const startDelayDays = this.getDaysValue(this.startDelayInput, 'Review start delay');
-      const gracePeriodMs = this.getMillisecondsValue(
-        this.gracePeriodInput,
-        'Grace period',
-        this.maxGracePeriodMs
-      );
+      const gracePeriodMs = this.getMillisecondsValue(this.gracePeriodInput, 'Grace period', this.maxGracePeriodMs);
       const emergency = this.emergencySelect?.value === 'true';
       if (!emergency && !this.proposalFeeUsdStr) {
         throw this.createValidationError('Current DAO proposal fee is not loaded yet', this.proposalFeeInput);
