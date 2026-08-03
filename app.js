@@ -3156,7 +3156,7 @@ class AddProposalModal {
   renderGracePeriodLimitHint() {
     const maximumSummary = this.maxGracePeriodMs === null
       ? ''
-      : `${this.maxGracePeriodMs} ms (${formatDaoDurationEstimate(this.maxGracePeriodMs)})`;
+      : `${formatDaoDurationEstimate(this.maxGracePeriodMs)} (${this.maxGracePeriodMs} ms)`;
     const currentValue = String(this.gracePeriodInput?.value ?? '').trim();
     const currentSummary = currentValue
       ? formatDaoDurationEstimate(currentValue)
