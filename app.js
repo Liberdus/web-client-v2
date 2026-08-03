@@ -29717,7 +29717,7 @@ class SendAssetFormModal {
 
     if (walletNetwork?.source === 'evm') {
       this.usernameInput.placeholder = 'Enter 0x wallet address';
-      this.networkStatus.textContent = `${walletNetwork.name} is connected for balances and receiving. Sending is coming in Phase 2.`;
+      this.networkStatus.textContent = `${walletNetwork.name} is connected for balances, receiving, and sending.`;
       this.networkStatus.dataset.status = walletNetwork.connected ? 'connected' : 'ready';
     } else {
       this.usernameInput.placeholder = 'Enter username';
@@ -29951,7 +29951,7 @@ class SendAssetFormModal {
     event.preventDefault();
 
     if (!this.isLiberdusSelected()) {
-      showToast('EVM sending will be enabled in Phase 2. Balances and receiving are available now.', 5000, 'info');
+      await evmAssets.handleSendFormSubmit(this);
       return;
     }
 
@@ -30143,9 +30143,7 @@ class SendAssetFormModal {
    */
   async refreshSendButtonDisabledState() {
     if (!this.isLiberdusSelected()) {
-      this.balanceWarning.textContent = '';
-      this.balanceWarning.style.display = 'none';
-      this.submitButton.disabled = true;
+      evmAssets.refreshSendButtonState(this);
       return;
     }
 
