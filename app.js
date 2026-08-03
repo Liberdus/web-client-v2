@@ -3308,14 +3308,23 @@ class AddProposalModal {
 
   async loadDaoProposalDefaults({ refresh = false } = {}) {
     const account = await this.fetchNetworkAccountConfig({ refresh });
-    const proposalFeeUsdStr = String(account?.current?.dao?.proposalFeeUsdStr ?? '').trim();
+    const daoConfig = account?.current?.dao;
+    const proposalFeeUsdStr = String(daoConfig?.proposalFeeUsdStr ?? '').trim();
     if (!proposalFeeUsdStr) throw new Error('Missing DAO proposal fee');
-    const graceDuration = Number(account?.current?.dao?.graceDuration);
+    const graceDuration = Number(daoConfig?.graceDuration);
     if (!Number.isSafeInteger(graceDuration) || graceDuration < 0) {
       throw new Error('Missing DAO maximum grace duration');
     }
+    const proposalDurations = {
+      reviewDuration: Number(daoConfig?.reviewDuration),
+      votingDuration: Number(daoConfig?.votingDuration),
+      claimDuration: Number(daoConfig?.claimDuration),
+    };
+    if (Object.values(proposalDurations).some((duration) => !Number.isSafeInteger(duration) || duration < 0)) {
+      throw new Error('Missing DAO proposal lifecycle durations');
+    }
     const maxGracePeriodMs = Math.min(graceDuration, DAO_PROPOSAL_GRACE_PERIOD_MAX_MS);
-    return { proposalFeeUsdStr, maxGracePeriodMs };
+    return { proposalFeeUsdStr, maxGracePeriodMs, proposalDurations };
   }
 
   async fetchNetworkAccountConfig({ refresh = false } = {}) {
@@ -3927,12 +3936,13 @@ class ConfirmProposalModal {
     let loadingToastId = showToast('Submitting proposal...', 0, 'loading');
 
     try {
-      const { maxGracePeriodMs } = await addProposalModal.loadDaoProposalDefaults({ refresh: true });
+      const { maxGracePeriodMs, proposalDurations } = await addProposalModal.loadDaoProposalDefaults({ refresh: true });
       const result = await daoRepo.createProposal({
         draft: this.currentDraft,
         timestamp: getTransactionTimestamp(),
         networkId: network?.netid || '',
         maxGracePeriodMs,
+        proposalDurations,
         submitTransaction: async (transaction) => {
           if (!myAccount?.keys) throw new Error('Wallet keys unavailable');
           const txid = await signObj(transaction, myAccount.keys);

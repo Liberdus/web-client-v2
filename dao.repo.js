@@ -78,6 +78,7 @@ export const DAO_STATES = [
 
 export const DAO_PROPOSAL_DAY_MS = 24 * 60 * 60 * 1000;
 export const DAO_PROPOSAL_GRACE_PERIOD_MAX_MS = 999_999_999_999;
+const DAO_PROPOSAL_MAX_DATE_MS = 100_000_000 * DAO_PROPOSAL_DAY_MS; // ECMAScript Date limit.
 const DAO_AFFIRMATIVE_OPTION_STRINGS = ['yes', 'accept', 'approve'];
 const DAO_PROPOSALS_META_ID_STRING = 'dao proposals meta';
 export const DAO_PROPOSAL_TITLE_MAX_LENGTH = 100;
@@ -240,6 +241,25 @@ function normalizeDaoDraftReviewStartTime(value) {
   return startTime;
 }
 
+function getDaoProposalLifecycleDurationMs({
+  emergency = false,
+  reviewDuration,
+  votingDuration,
+  claimDuration,
+  gracePeriod,
+} = {}) {
+  const reviewDurationMs = normalizeDaoDraftInteger(reviewDuration, 'Review duration', 'milliseconds');
+  const votingDurationMs = normalizeDaoDraftInteger(votingDuration, 'Voting duration', 'milliseconds');
+  const claimDurationMs = normalizeDaoDraftInteger(claimDuration, 'Claim duration', 'milliseconds');
+  const gracePeriodMs = normalizeDaoDraftInteger(gracePeriod, 'Grace period', 'milliseconds');
+  // claimEnd and applyEligibleAt both start at claimStart, so reserve whichever finishes later.
+  const durationMs = reviewDurationMs
+    + (emergency === true ? 0 : votingDurationMs)
+    + Math.max(claimDurationMs, gracePeriodMs);
+  if (!Number.isSafeInteger(durationMs)) throw new Error('DAO proposal lifecycle duration is too large');
+  return durationMs;
+}
+
 function normalizeDaoDraftChanges(changes) {
   if (!Array.isArray(changes) || changes.length === 0) {
     throw new Error('At least one DAO parameter change is required');
@@ -328,6 +348,7 @@ export function buildDaoProposalCreateTransaction({
   networkId,
   proposalNumber,
   maxGracePeriodMs,
+  proposalDurations,
 } = {}) {
   const draftTx = draft?.transaction;
   if (!draftTx || typeof draftTx !== 'object') {
@@ -358,6 +379,15 @@ export function buildDaoProposalCreateTransaction({
   // The server expects an absolute Unix timestamp, not a duration from txTimestamp.
   // Derive it from the validated draft field and never trust transaction data.
   delete transaction.startTime;
+  const reviewStart = reviewStartTimeMs || txTimestamp;
+  const lifecycleDurationMs = getDaoProposalLifecycleDurationMs({
+    ...proposalDurations,
+    emergency: transaction.emergency,
+    gracePeriod,
+  });
+  if (reviewStart > DAO_PROPOSAL_MAX_DATE_MS - lifecycleDurationMs) {
+    throw new Error('DAO proposal lifecycle must end on a valid date');
+  }
   if (reviewStartTimeMs > 0) {
     if (reviewStartTimeMs < txTimestamp) {
       throw new Error('Review start time must not be earlier than the proposal timestamp');
@@ -1044,7 +1074,14 @@ export const daoRepo = {
     return storeToUiList(_store, groupKey);
   },
 
-  async createProposal({ draft, timestamp, networkId, maxGracePeriodMs, submitTransaction } = {}) {
+  async createProposal({
+    draft,
+    timestamp,
+    networkId,
+    maxGracePeriodMs,
+    proposalDurations,
+    submitTransaction,
+  } = {}) {
     let transaction = null;
     let proposalNumber = 0;
     let proposalStoreId = '';
@@ -1062,6 +1099,7 @@ export const daoRepo = {
         networkId,
         proposalNumber,
         maxGracePeriodMs,
+        proposalDurations,
       });
       proposalStoreId = daoProposalId(proposalNumber, transaction.proposalId);
 
