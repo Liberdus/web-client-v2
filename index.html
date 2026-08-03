@@ -526,12 +526,32 @@
                 <label>Timing</label>
                 <div class="dao-form-grid dao-form-grid--timing">
                   <div class="form-group">
-                    <label for="addProposalReviewStartTime">Review Delay (ms)</label>
+                    <div class="dao-form-label-with-help">
+                      <label for="addProposalReviewStartTime">Review Delay (ms)</label>
+                      <button
+                        type="button"
+                        class="toll-info-icon dao-form-tooltip"
+                        data-icon="info"
+                        data-dao-timing-help
+                        title="How long to wait before proposal review starts. Select a date and time, or use 0 to start immediately."
+                        aria-label="About Review Delay"
+                      ></button>
+                    </div>
                     <button id="addProposalReviewStartTime" class="form-control dao-review-start-button" type="button" aria-haspopup="dialog" aria-controls="dateTimePickerModal">0</button>
                     <div class="dao-form-help" id="addProposalReviewStartHelp">Delay: 0 sec</div>
                   </div>
                   <div class="form-group">
-                    <label for="addProposalGracePeriodMs">Grace Period (ms)</label>
+                    <div class="dao-form-label-with-help">
+                      <label for="addProposalGracePeriodMs">Grace Period (ms)</label>
+                      <button
+                        type="button"
+                        class="toll-info-icon dao-form-tooltip"
+                        data-icon="info"
+                        data-dao-timing-help
+                        title="How long to wait after voting ends before the proposal can be applied. Cannot exceed the DAO grace duration."
+                        aria-label="About Grace Period"
+                      ></button>
+                    </div>
                     <input id="addProposalGracePeriodMs" class="form-control" type="number" min="0" step="1" inputmode="numeric" placeholder="Loading maximum..." required />
                     <div class="dao-form-help" id="addProposalGracePeriodHelp">Estimate: loading...</div>
                     <div class="dao-form-help dao-form-limit hidden" id="addProposalGracePeriodLimit"></div>

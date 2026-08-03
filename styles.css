@@ -1876,6 +1876,25 @@ input[type='file'].form-control::file-selector-button {
   margin: 0;
 }
 
+#addProposalModal .dao-form-label-with-help {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+
+#addProposalModal .dao-form-label-with-help label {
+  width: auto;
+}
+
+#addProposalModal button.dao-form-tooltip {
+  background: transparent;
+  border: 0;
+  flex: 0 0 auto;
+  margin-left: 0;
+  padding: 0;
+  transform: none;
+}
+
 #addProposalModal .form-control {
   border-radius: 8px;
   font-size: 14px;

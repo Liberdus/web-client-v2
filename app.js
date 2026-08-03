@@ -3034,6 +3034,7 @@ class AddProposalModal {
       ));
       this.form.addEventListener('input', (event) => this.clearValidationError(event.target));
       this.form.addEventListener('change', (event) => this.clearValidationError(event.target));
+      this.form.addEventListener('click', (event) => this.handleTimingHelpClick(event));
     }
 
     if (this.typeSelect) {
@@ -3547,6 +3548,15 @@ class AddProposalModal {
       minError: 'Review start time must be in the future',
       maxError: 'Review start time must be before the year 10000',
     });
+  }
+
+  handleTimingHelpClick(event) {
+    const helpButton = event.target?.closest?.('[data-dao-timing-help]');
+    if (!helpButton) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    showToast(helpButton.title, 0, 'info');
   }
 
   renderReviewStartTime() {
