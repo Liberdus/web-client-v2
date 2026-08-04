@@ -31465,7 +31465,9 @@ const bridgeModal = new BridgeModal();
  * @description A modal for migrating accounts from different networks
  */
 class MigrateAccountsModal {
-  constructor() { }
+  constructor() {
+    this.isOpening = false;
+  }
 
   load() {
     this.modal = document.getElementById('migrateAccountsModal');
@@ -31490,8 +31492,20 @@ class MigrateAccountsModal {
   }
 
   async open() {
-    await this.populateAccounts();
-    this.modal.classList.add('active');
+    if (this.isOpening || this.isActive() || createAccountModal.isCreatingAccount) return;
+
+    this.isOpening = true;
+    createAccountModal.migrateAccountsButton.disabled = true;
+    try {
+      await this.populateAccounts();
+      if (createAccountModal.isCreatingAccount) return;
+      this.modal.classList.add('active');
+    } finally {
+      this.isOpening = false;
+      if (!createAccountModal.isCreatingAccount) {
+        createAccountModal.migrateAccountsButton.disabled = false;
+      }
+    }
   }
 
   close() {
