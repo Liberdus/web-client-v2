@@ -1079,6 +1079,7 @@ export class EvmTransactionService {
       asset,
       validation,
       maximumFee,
+      displayAmount: String(amount),
       transaction: prepared,
     };
   }
@@ -1111,6 +1112,7 @@ export class EvmTransactionService {
 
   async send({ network, asset, recipient, recipientLabel = null, amount }) {
     const prepared = await this.prepare({ network, asset, recipient, amount });
+    prepared.recipientLabel = recipientLabel || prepared.validation.recipient;
     const confirmed = await this.confirmTransfer(
       this.confirmationText(prepared, amount, recipientLabel),
       prepared,
@@ -1425,6 +1427,183 @@ class AssetDetailsModal {
   }
 }
 
+export class EvmSendConfirmationModal {
+  constructor() {
+    this.loaded = false;
+    this.pending = null;
+  }
+
+  load() {
+    if (this.loaded) return;
+    this.modal = document.getElementById('sendAssetConfirmModal');
+    this.details = this.modal?.querySelector('.confirmation-details');
+    this.recipient = document.getElementById('confirmRecipient');
+    this.amount = document.getElementById('confirmAmount');
+    this.amountUsd = document.getElementById('confirmAmountUSD');
+    this.asset = document.getElementById('confirmAsset');
+    this.memoGroup = document.getElementById('confirmMemoGroup');
+    this.confirmButton = document.getElementById('confirmSendButton');
+    this.cancelButton = document.getElementById('cancelSendButton');
+    this.closeButton = document.getElementById('closeSendAssetConfirmModal');
+    if (
+      !this.modal
+      || !this.details
+      || !this.recipient
+      || !this.amount
+      || !this.asset
+      || !this.confirmButton
+      || !this.cancelButton
+    ) {
+      return;
+    }
+
+    this.networkGroup = this.createDetailGroup(
+      'evmConfirmNetworkGroup',
+      'Network',
+      'evmConfirmNetwork',
+    );
+    this.feeGroup = this.createDetailGroup(
+      'evmConfirmFeeGroup',
+      'Maximum network fee',
+      'evmConfirmFee',
+    );
+    this.signingNotice = this.createSigningNotice();
+    this.networkValue = this.networkGroup.querySelector('.confirm-value');
+    this.feeValue = this.feeGroup.querySelector('.confirm-value');
+
+    this.confirmButton.addEventListener(
+      'click',
+      (event) => this.handleAction(event, true),
+      true,
+    );
+    this.cancelButton.addEventListener(
+      'click',
+      (event) => this.handleAction(event, false),
+      true,
+    );
+    this.closeButton?.addEventListener(
+      'click',
+      (event) => this.handleAction(event, false),
+      true,
+    );
+
+    if (globalThis.MutationObserver) {
+      this.modalObserver = new MutationObserver(() => {
+        if (this.pending && !this.modal.classList.contains('active')) {
+          this.settle(false, { close: false });
+        }
+      });
+      this.modalObserver.observe(this.modal, { attributes: true, attributeFilter: ['class'] });
+    }
+    this.loaded = true;
+  }
+
+  createDetailGroup(groupId, labelText, valueId) {
+    let group = document.getElementById(groupId);
+    if (group) return group;
+
+    group = document.createElement('div');
+    group.id = groupId;
+    group.className = 'form-group';
+    group.hidden = true;
+    const label = document.createElement('label');
+    label.textContent = labelText;
+    const value = document.createElement('div');
+    value.id = valueId;
+    value.className = 'confirm-value';
+    group.append(label, value);
+    this.details.appendChild(group);
+    return group;
+  }
+
+  createSigningNotice() {
+    let notice = document.getElementById('evmConfirmSigningNotice');
+    if (notice) return notice;
+
+    notice = document.createElement('div');
+    notice.id = 'evmConfirmSigningNotice';
+    notice.hidden = true;
+    notice.style.color = 'var(--secondary-text-color)';
+    notice.style.fontSize = 'var(--font-size-sm)';
+    notice.style.lineHeight = '1.4';
+    notice.style.padding = '4px 0';
+    this.details.appendChild(notice);
+    return notice;
+  }
+
+  render(prepared) {
+    const {
+      network,
+      asset,
+      validation,
+      maximumFee,
+      displayAmount,
+      recipientLabel,
+    } = prepared;
+    this.recipient.textContent = recipientLabel || validation.recipient;
+    this.amount.textContent = `${displayAmount} ${asset.tokenSymbol}`;
+    this.asset.textContent = `${asset.tokenName} (${asset.tokenSymbol})`;
+    this.networkValue.textContent = `${network.name} (Chain ID ${network.chainId})`;
+    this.feeValue.textContent = `${formatUnits(maximumFee, 18)} ${network.nativeSymbol}`;
+    this.signingNotice.textContent = 'Signature: your wallet key signs locally and never leaves this device.';
+
+    const price = Number(asset.tokenPriceUsd);
+    const amount = Number(displayAmount);
+    const usdValue = price * amount;
+    if (this.amountUsd) {
+      const hasUsdValue = Number.isFinite(price) && Number.isFinite(amount) && Number.isFinite(usdValue);
+      this.amountUsd.textContent = hasUsdValue ? `≈ ${formatConnectedUsd(usdValue)}` : '';
+      this.amountUsd.style.display = hasUsdValue ? 'block' : 'none';
+    }
+    if (this.memoGroup) this.memoGroup.style.display = 'none';
+    for (const group of [this.networkGroup, this.feeGroup]) {
+      group.hidden = false;
+    }
+    this.signingNotice.hidden = false;
+  }
+
+  confirm(message, prepared) {
+    if (!this.loaded) this.load();
+    if (!this.modal || !prepared) {
+      return Promise.resolve(globalThis.confirm?.(message) ?? false);
+    }
+    if (this.pending) this.settle(false);
+
+    this.render(prepared);
+    this.confirmButton.disabled = false;
+    this.cancelButton.disabled = false;
+    this.modal.classList.add('active');
+    return new Promise((resolve) => {
+      this.pending = { resolve };
+    });
+  }
+
+  handleAction(event, confirmed) {
+    if (!this.pending) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    this.confirmButton.disabled = true;
+    this.cancelButton.disabled = true;
+    this.settle(confirmed);
+  }
+
+  settle(confirmed, { close = true } = {}) {
+    const pending = this.pending;
+    if (!pending) return;
+    this.pending = null;
+    if (close) this.modal.classList.remove('active');
+    for (const group of [this.networkGroup, this.feeGroup]) {
+      group.hidden = true;
+    }
+    this.signingNotice.hidden = true;
+    pending.resolve(Boolean(confirmed));
+  }
+
+  reset() {
+    if (this.pending) this.settle(false);
+  }
+}
+
 class EvmSendFormAdapter {
   constructor(controller) {
     this.controller = controller;
@@ -1622,7 +1801,8 @@ class EvmAssetsController {
     this.openSend = () => {};
     this.openReceive = () => {};
     this.showToast = () => {};
-    this.confirmTransfer = (message) => globalThis.confirm(message);
+    this.confirmationModal = new EvmSendConfirmationModal();
+    this.confirmTransfer = (...args) => this.confirmationModal.confirm(...args);
     this.loaded = false;
     this.discovery = new WalletDiscoveryService({
       getAccount: () => this.getAccount(),
@@ -1663,6 +1843,7 @@ class EvmAssetsController {
     if (this.loaded) return;
     this.assetsModal.load();
     this.assetDetailsModal.load();
+    this.confirmationModal.load();
     this.sendFormAdapter.load();
     document.getElementById('openAssets').addEventListener('click', () => this.assetsModal.open());
     this.loaded = true;
@@ -1671,6 +1852,7 @@ class EvmAssetsController {
   reset() {
     this.discovery.reset();
     this.recipients.reset();
+    this.confirmationModal.reset();
   }
 
   close(modalId) {
