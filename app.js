@@ -28853,7 +28853,7 @@ class NewChatModal {
     this.recipientInput = document.getElementById('chatRecipient');
     this.submitButton = document.querySelector('#newChatForm button[type="submit"]');
 
-    this.closeNewChatModalButton.addEventListener('click', this.closeNewChatModal.bind(this));
+    this.closeNewChatModalButton.addEventListener('click', this.close.bind(this));
     this.newChatForm.addEventListener('submit', withButtonCooldown(
       this.submitButton,
       BUTTON_COOLDOWN_MS,
@@ -28904,7 +28904,7 @@ class NewChatModal {
    * It will close the modal and reset the form
    * @returns {void}
    */
-  closeNewChatModal() {
+  close() {
     this.modal.classList.remove('active');
     this.newChatForm.reset();
     if (chatsScreen.isActive()) {
@@ -29008,7 +29008,7 @@ class NewChatModal {
     chatsData.contacts[recipientAddress].username = username;
 
     // Close new chat modal and open chat modal
-    this.closeNewChatModal();
+    this.close();
     chatModal.open(recipientAddress);
   }
 
