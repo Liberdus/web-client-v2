@@ -6978,14 +6978,7 @@ class SignInModal {
     this.actionRecreateButton.addEventListener('click', runSheetAction((username) => this.openRecreateFlow(username)));
     this.actionRemoveButton.addEventListener('click', runSheetAction((username) => removeAccountModal.removeAccount(username)));
 
-    this.backButton.addEventListener('click', () => {
-      if (this.isCompletingSignIn) return;
-      if (this.actionSheetOverlay.classList.contains('active')) {
-        this.closeActionSheet();
-        return;
-      }
-      this.close();
-    });
+    this.backButton.addEventListener('click', () => this.close());
   }
 
   /** Hide the account error action sheet. */
@@ -7028,7 +7021,7 @@ class SignInModal {
 
     createAccountModal.usernameInput.value = username;
     createAccountModal.privateKeyInput.value = privateKey;
-    this.close();
+    this.forceClose();
     createAccountModal.open();
     createAccountModal.usernameInput.dispatchEvent(new Event('input'));
   }
@@ -7300,7 +7293,7 @@ class SignInModal {
 
       // No accounts on this device — open Create Account instead.
       if (usernames.length === 0) {
-        this.close();
+        this.forceClose();
         createAccountModal.open();
         return;
       }
@@ -7329,6 +7322,16 @@ class SignInModal {
   }
 
   close() {
+    if (this.isCompletingSignIn) return;
+    if (this.actionSheetOverlay.classList.contains('active')) {
+      this.closeActionSheet();
+      return;
+    }
+
+    this.forceClose();
+  }
+
+  forceClose() {
     this.accountClickSeq++;
     this.selectedUsername = null;
     this.setCompletingSignIn(false);
@@ -7404,7 +7407,7 @@ class SignInModal {
     }
 
     // Close modal and proceed to app
-    this.close();
+    this.forceClose();
     welcomeScreen.close();
     
     // Log storage information after successful sign-in
