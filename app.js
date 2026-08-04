@@ -29300,8 +29300,10 @@ class CreateAccountModal {
   refreshControlStates() {
     this.controls.forEach((control) => {
       const requiresConnection = control.hasAttribute('data-requires-connection');
-      const isMigrationLoading = control === this.migrateAccountsButton && migrateAccountsModal.isOpening;
-      control.disabled = this.isCreatingAccount || isMigrationLoading || (requiresConnection && !isOnline);
+      const isMigrationBusy =
+        control === this.migrateAccountsButton &&
+        (migrateAccountsModal.isOpening || migrateAccountsModal.isMigrating);
+      control.disabled = this.isCreatingAccount || isMigrationBusy || (requiresConnection && !isOnline);
     });
     this.refreshSubmitButton();
   }
@@ -29310,6 +29312,7 @@ class CreateAccountModal {
     this.submitButton.disabled =
       this.isCreatingAccount ||
       migrateAccountsModal.isOpening ||
+      migrateAccountsModal.isMigrating ||
       !this.isUsernameAvailable ||
       !isOnline;
   }
@@ -29426,6 +29429,7 @@ class CreateAccountModal {
     if (
       this.isCreatingAccount ||
       migrateAccountsModal.isOpening ||
+      migrateAccountsModal.isMigrating ||
       migrateAccountsModal.isActive() ||
       !this.isUsernameAvailable
     ) return;
@@ -31486,6 +31490,7 @@ const bridgeModal = new BridgeModal();
 class MigrateAccountsModal {
   constructor() {
     this.isOpening = false;
+    this.isMigrating = false;
   }
 
   load() {
@@ -31511,7 +31516,7 @@ class MigrateAccountsModal {
   }
 
   async open() {
-    if (this.isOpening || this.isActive() || createAccountModal.isCreatingAccount) return;
+    if (this.isOpening || this.isMigrating || this.isActive() || createAccountModal.isCreatingAccount) return;
 
     this.isOpening = true;
     createAccountModal.refreshControlStates();
@@ -31526,6 +31531,8 @@ class MigrateAccountsModal {
   }
 
   close() {
+    if (this.isMigrating) return;
+
     this.modal.classList.remove('active');
     this.clearForm();
   }
@@ -31698,6 +31705,19 @@ class MigrateAccountsModal {
   async handleSubmit(event) {
     event.preventDefault();
 
+    if (this.isMigrating) return;
+
+    this.isMigrating = true;
+    try {
+      createAccountModal.refreshControlStates();
+      await this.migrateSelectedAccounts();
+    } finally {
+      this.isMigrating = false;
+      createAccountModal.refreshControlStates();
+    }
+  }
+
+  async migrateSelectedAccounts() {
     const selectedAccounts = this.accountList.querySelectorAll('input[type="checkbox"]:checked');
   
     const results = {}
