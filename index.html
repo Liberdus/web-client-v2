@@ -445,6 +445,8 @@
                 </button>
               </div>
             </div>
+          </div>
+          <div class="dao-list-pane">
             <div class="dao-group-toggle" role="tablist" aria-label="Proposal group">
               <button class="dao-group-toggle-button" id="daoGroupActiveButton" type="button" role="tab" aria-selected="true">
                 <span class="dao-group-toggle-label">Active</span>
@@ -455,14 +457,14 @@
                 <span class="dao-group-toggle-count" aria-label="0 archived proposals">0</span>
               </button>
             </div>
+            <ul class="chat-list" id="daoProposalList">
+              <div class="empty-state" id="daoProposalEmptyState">
+                <div></div>
+                <div>No proposals found</div>
+                <div>Proposal data appears here when available</div>
+              </div>
+            </ul>
           </div>
-          <ul class="chat-list" id="daoProposalList">
-            <div class="empty-state" id="daoProposalEmptyState">
-              <div></div>
-              <div>No proposals found</div>
-              <div>Proposal data appears here when available</div>
-            </div>
-          </ul>
           <button class="floating-button" id="daoAddProposalButton" aria-label="Add proposal"><span class="plus-glyph" aria-hidden="true">+</span></button>
         </div>
         <a class="last-item" href="#"> </a>

@@ -8327,16 +8327,20 @@ small {
   position: relative;
 }
 
-/* DAO modal: filter bar + Active/Archived toggle */
+/* DAO modal: filter bar stays fixed; Active/Archived scrolls with the list. */
 #daoModal .dao-toolbar {
+  background: var(--background-color);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 0 0 10px;
-  position: sticky;
-  top: 0;
+  flex: 0 0 auto;
   z-index: 2;
-  background: var(--background-color);
+}
+
+#daoModal .dao-list-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 #daoModal .dao-filter-bar {
@@ -8486,7 +8490,7 @@ small {
   display: grid;
   gap: 4px;
   grid-template-columns: 1fr 1fr;
-  margin: 0 16px;
+  margin: 10px 16px;
   padding: 4px;
 }
 
@@ -8505,9 +8509,8 @@ small {
 }
 
 #daoModal #daoProposalList {
-  flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
+  overflow: visible;
   padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
 }
 
