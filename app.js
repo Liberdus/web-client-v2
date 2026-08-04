@@ -2475,8 +2475,9 @@ const menuModal = new MenuModal();
 // DAO proposals are loaded via `daoRepo` and kept in memory (no localStorage persistence).
 setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork, IS_DEV_NETWORK));
 
+const DAO_ALL_FILTER = { key: 'all', label: 'All' };
 const DAO_CLAIMABLE_FILTER = { key: 'claimable', label: 'Claimable' };
-const DAO_FILTER_OPTIONS = [...DAO_STATES, DAO_CLAIMABLE_FILTER];
+const DAO_FILTER_OPTIONS = [DAO_ALL_FILTER, ...DAO_STATES, DAO_CLAIMABLE_FILTER];
 const DAO_FILTER_OVERFLOW_KEYS = ['withheld', 'rejected', 'applied'];
 
 function formatDaoTimestamp(ts) {
@@ -2709,6 +2710,7 @@ class DaoModal {
     const proposalsArchived = hasFreshData ? daoRepo.getProposalsForUi('archived') : [];
     const currentAddress = getDaoCurrentAccountAddress();
     const now = getTransactionTimestamp();
+    const isAllFilter = this.selectedFilterKey === DAO_ALL_FILTER.key;
     const isClaimableFilter = this.selectedFilterKey === DAO_CLAIMABLE_FILTER.key;
     const groupedProposals = this.selectedGroupKey === 'archived' ? proposalsArchived : proposalsActive;
     const claimableProposals = [...proposalsActive, ...proposalsArchived]
@@ -2720,6 +2722,7 @@ class DaoModal {
       const state = getEffectiveDaoState(p);
       if (counts[state] !== undefined) counts[state] += 1;
     }
+    counts[DAO_ALL_FILTER.key] = groupedProposals.length;
     counts[DAO_CLAIMABLE_FILTER.key] = claimableProposals.length;
 
     // Update header title
@@ -2770,9 +2773,12 @@ class DaoModal {
     }
 
     // Filter + sort (newest entered into state first)
-    const filtered = (isClaimableFilter
+    const matchingProposals = isClaimableFilter
       ? claimableProposals
-      : groupedProposals.filter((proposal) => getEffectiveDaoState(proposal) === this.selectedFilterKey))
+      : groupedProposals.filter((proposal) => (
+        isAllFilter || getEffectiveDaoState(proposal) === this.selectedFilterKey
+      ));
+    const filtered = matchingProposals
       .sort((a, b) => Number(b.stateEnteredAt || b.createdAt || 0) - Number(a.stateEnteredAt || a.createdAt || 0));
 
     // Clear old list items

@@ -13,8 +13,9 @@ This document describes the DAO / proposals feature as currently implemented in 
 1. **DAO Modal**
    - Shows a list of proposals.
    - Includes an **Active / Archived** segmented toggle.
-   - Includes a **Status filter** (funnel icon) that filters by proposal status and shows **counts**.
-   - The proposal list is filtered by the selected status.
+   - Includes a **Status filter** that filters by proposal status and shows **counts**.
+   - The **All** status filter displays every proposal in the selected Active / Archived group.
+   - The proposal list is filtered by the selected option.
    - List ordering is **newest to enter the selected state first** (sort by `stateEnteredAt` descending, falling back to `createdAt`).
    - Clicking a proposal opens the Proposal Info modal.
    - A floating **“+”** button opens the Add Proposal modal.
