@@ -27724,12 +27724,10 @@ class CallScheduleChoiceModal {
 
     const onNow = () => this._select('now');
     const onSchedule = () => this._select('schedule');
-    const onCancel = () => this._select(null);
-
     if (this.nowBtn) this.nowBtn.addEventListener('click', withButtonCooldown(this.nowBtn, BUTTON_COOLDOWN_MS, null, onNow));
     if (this.scheduleBtn) this.scheduleBtn.addEventListener('click', withButtonCooldown(this.scheduleBtn, BUTTON_COOLDOWN_MS, null, onSchedule));
-    if (this.cancelBtn) this.cancelBtn.addEventListener('click', onCancel);
-    if (this.closeBtn) this.closeBtn.addEventListener('click', onCancel);
+    if (this.cancelBtn) this.cancelBtn.addEventListener('click', () => this.close());
+    if (this.closeBtn) this.closeBtn.addEventListener('click', () => this.close());
   }
 
   open(onSelect) {
@@ -27744,6 +27742,10 @@ class CallScheduleChoiceModal {
     const cb = this.onSelect;
     this.onSelect = null;
     if (cb) cb(value);
+  }
+
+  close() {
+    this._select(null);
   }
 
   _startRecipientTimeUpdates() {
@@ -27882,6 +27884,10 @@ class DateTimePickerModal {
   }
 
   _onCancel() {
+    this.close();
+  }
+
+  close() {
     this._closeWith(null);
   }
 
@@ -35213,9 +35219,6 @@ function handleBrowserBackButton(event) {
   const topModal = findTopModal();
   
   if (topModal) {
-    const modalId = topModal.id;
-    const modalInstance = window[modalId];
-    
     const closed = closeTopModal(topModal)
     if (closed){
       return true;
@@ -35231,135 +35234,47 @@ function findTopModal() {
   return topModal;
 }
 
-function closeTopModal(topModal){
-  const modalId = topModal.id;
-  switch (modalId) {
-    case 'chatModal':
-      chatModal.close();
-      break;
-    case 'menuModal':
-      menuModal.close();
-      break;
-    case 'assetsModal':
-      evmAssets.close(modalId);
-      break;
-    case 'assetDetailsModal':
-      evmAssets.close(modalId);
-      break;
-    case 'daoModal':
-      daoModal.close();
-      break;
-    case 'addProposalModal':
-      addProposalModal.close();
-      break;
-    case 'confirmProposalModal':
-      confirmProposalModal.close();
-      break;
-    case 'proposalInfoModal':
-      proposalInfoModal.close();
-      break;
-    case 'settingsModal':
-      settingsModal.close();
-      break;
-    case 'chatSettingsModal':
-      chatSettingsModal.handleClose();
-      break;
-    case 'sendAssetFormModal':
-      sendAssetFormModal.close();
-      break;
-    case 'historyModal':
-      historyModal.close();
-      break;
-    case 'scanQRModal':
-      scanQRModal.close();
-      break;
-    case 'newChatModal':
-      newChatModal.close();
-      break;
-    case 'createAccountModal':
-      createAccountModal.close();
-      break;
-    case 'backupModal':
-      backupAccountModal.close();
-      break;
-    case 'restoreAccountModal':
-      restoreAccountModal.close();
-      break;
-    case 'tollModal':
-      tollModal.close();
-      break;
-    case 'inviteModal':
-      inviteModal.close();
-      break;
-    case 'aboutModal':
-      aboutModal.close();
-      break;
-    case 'helpModal':
-      helpModal.close();
-      break;
-    case 'farmModal':
-      farmModal.close();
-      break;
-    case 'logsModal':
-      logsModal.close();
-      break;
-    case 'myProfileModal':
-      myProfileModal.close();
-      break;
-    case 'validatorStakingModal':
-      validatorStakingModal.close();
-      break;
-    case 'stakeValidatorModal':
-      stakeValidatorModal.close();
-      break;
-    case 'contactInfoModal':
-      contactInfoModal.close();
-      break;
-    case 'friendModal':
-      friendModal.close();
-      break;
-    case 'editContactModal':
-      editContactModal.close();
-      break;
-    case 'searchMessagesModal':
-      searchMessagesModal.close();
-      break;
-    case 'searchContactsModal':
-      searchContactsModal.close();
-      break;
-    case 'receiveModal':
-      receiveModal.close();
-      break;
-    case 'sendAssetConfirmModal':
-      sendAssetConfirmModal.close();
-      break;
-    case 'failedTransactionModal':
-      failedTransactionModal.close();
-      break;
-    case 'bridgeModal':
-      bridgeModal.close();
-      break;
-    case 'migrateAccountsModal':
-      migrateAccountsModal.close();
-      break;
-    case 'lockModal':
-      lockModal.close();
-      break;
-    case 'unlockModal':
-      unlockModal.close();
-      break;
-    case 'launchModal':
-      launchModal.close();
-      break;
-    case 'updateWarningModal':
-      updateWarningModal.close();
-      break;
-    case 'removeAccountModal':
-      removeAccountModal.close();
-      break;
-    default:
-      console.warn('Unknown modal:', modalId);
-      return false;
+function createModalCloseHandlers(modals) {
+  return Object.entries(modals).map(([modalId, modal]) => [modalId, () => modal.close()]);
+}
+
+const modalCloseHandlers = new Map([
+  ...createModalCloseHandlers({
+    chatModal, menuModal, daoModal, addProposalModal,
+    confirmProposalModal, proposalInfoModal, settingsModal, manageContactsModal,
+    welcomeMenuModal, sendAssetFormModal, historyModal, newChatModal,
+    createAccountModal, tollModal, inviteModal, aboutModal,
+    sourceModal, helpModal, farmModal, logsModal,
+    signInModal, myInfoModal, contactInfoModal, friendModal,
+    editContactModal, avatarEditModal, receiveModal, sendAssetConfirmModal,
+    failedTransactionModal, bridgeModal, migrateAccountsModal, lockModal,
+    unlockModal, launchModal, updateWarningModal, removeAccountModal,
+    removeAccountsModal, secretModal, callsModal, groupCallParticipantsModal,
+    callScheduleChoiceModal, dateTimePickerModal, callInviteModal, shareAttachmentModal,
+  }),
+  ['assetsModal', () => evmAssets.close('assetsModal')],
+  ['assetDetailsModal', () => evmAssets.close('assetDetailsModal')],
+  ['chatSettingsModal', () => chatSettingsModal.handleClose()],
+  ['qrScanModal', () => scanQRModal.close()],
+  ['backupModal', () => backupAccountModal.close()],
+  ['importModal', () => restoreAccountModal.close()],
+  ['googleDrivePickerModal', () => restoreAccountModal.closeGoogleDrivePicker()],
+  ['accountModal', () => myProfileModal.close()],
+  ['validatorModal', () => validatorStakingModal.close()],
+  ['stakeModal', () => stakeValidatorModal.close()],
+  ['searchModal', () => searchMessagesModal.close()],
+  ['contactSearchModal', () => searchContactsModal.close()],
+  ['importContactsModal', () => importContactsModal.handleClose()],
+  ['shareContactsModal', () => shareContactsModal.handleClose()],
+]);
+
+function closeTopModal({ id: modalId }) {
+  const closeModal = modalCloseHandlers.get(modalId);
+  if (!closeModal) {
+    console.warn('Unknown modal:', modalId);
+    return false;
   }
-  return true; // means we closed a modal
+
+  closeModal();
+  return true;
 }
