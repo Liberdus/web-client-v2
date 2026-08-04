@@ -810,7 +810,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   qrScanModal.load();
 
   // Search Messages Modal
-  searchModal.load();
+  messageSearchModal.load();
 
   // Contact Search Modal
   contactSearchModal.load();
@@ -1644,7 +1644,7 @@ class ChatsScreen {
 
     // Handle search input click that's on the chatsScreen
     this.searchInput.addEventListener('click', () => {
-      searchModal.open();
+      messageSearchModal.open();
     });
   }
 
@@ -11859,7 +11859,7 @@ class SearchMessagesModal {
   }
 
   load() {
-    this.modal = document.getElementById('searchModal');
+    this.modal = document.getElementById('messageSearchModal');
     this.searchInput = document.getElementById('messageSearch');
     this.closeButton = document.getElementById('closeSearchModal');
     this.searchResults = document.getElementById('searchResults');
@@ -12049,7 +12049,7 @@ class SearchMessagesModal {
   }
 }
 
-const searchModal = new SearchMessagesModal();
+const messageSearchModal = new SearchMessagesModal();
 
 class SearchContactsModal {
   constructor() {}
@@ -12075,7 +12075,7 @@ class SearchContactsModal {
 
           const results = this.searchContacts(searchText);
           if (results.length === 0) {
-            searchModal.displayEmptyState('contactSearchResults', 'No contacts found');
+            messageSearchModal.displayEmptyState('contactSearchResults', 'No contacts found');
           } else {
             this.displayContactResults(results, searchText);
           }
@@ -35255,7 +35255,7 @@ const modalCloseHandlers = new Map([
     removeAccountsModal, secretModal, callsModal, groupCallParticipantsModal,
     callScheduleChoiceModal, dateTimePickerModal, callInviteModal, shareAttachmentModal,
     chatSettingsModal, qrScanModal, backupModal, importModal,
-    accountModal, validatorModal, stakeModal, searchModal, contactSearchModal,
+    accountModal, validatorModal, stakeModal, messageSearchModal, contactSearchModal,
     importContactsModal, shareContactsModal,
   }),
   // Structural exceptions require an id or a controller-specific close method.
