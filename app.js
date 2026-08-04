@@ -35214,7 +35214,7 @@ function closeTopModal(topModal){
     case 'createAccountModal':
       createAccountModal.close();
       break;
-    case 'backupAccountModal':
+    case 'backupModal':
       backupAccountModal.close();
       break;
     case 'restoreAccountModal':
