@@ -29163,6 +29163,7 @@ class CreateAccountModal {
   constructor() {
     this.checkTimeout = null;
     this.isCreatingAccount = false;
+    this.isUsernameAvailable = false;
   }
 
   load() {
@@ -29184,22 +29185,10 @@ class CreateAccountModal {
     this.privateAccountCheckbox = document.getElementById('togglePrivateAccount');
     this.privateAccountHelpButton = document.getElementById('privateAccountHelpButton');
     this.privateAccountTemplate = document.getElementById('privateAccountHelpMessageTemplate');
+    this.controls = this.modal.querySelectorAll('button, input');
 
     // Setup event listeners
-    this.form.addEventListener('submit', withButtonCooldown(
-      [
-        this.submitButton,
-        this.migrateAccountsButton,
-        this.toggleButton,
-        this.usernameInput,
-        this.privateKeyInput,
-        this.backButton,
-        this.privateAccountCheckbox
-      ],
-      BUTTON_COOLDOWN_MS,
-      null,
-      (e) => this.handleSubmit(e)
-    ));
+    this.form.addEventListener('submit', (event) => this.handleSubmit(event));
     this.usernameInput.addEventListener('input', (e) => this.handleUsernameInput(e));
     this.toggleButton.addEventListener('change', () => this.handleTogglePrivateKeyInput());
     this.toggleMoreOptions.addEventListener('change', () => this.handleToggleMoreOptions());
@@ -29222,10 +29211,12 @@ class CreateAccountModal {
       showToast(message, 0, 'info', true);
     });
 
-    this.migrateAccountsButton.addEventListener('click', async () => await migrateAccountsModal.open());
+    this.migrateAccountsButton.addEventListener('click', () => migrateAccountsModal.open());
   }
 
   open() {
+    if (this.isCreatingAccount) return;
+
     if (migrateAccountsModal.hasMigratableAccounts()) {
       this.migrateAccountsSection.style.display = 'block';
     } else {
@@ -29242,12 +29233,16 @@ class CreateAccountModal {
 
   // we still need to keep this since it can be called by other modals
   close() {
+    if (this.isCreatingAccount) return;
+
     // reload the welcome page so that if accounts were migrated the signin button will be shown
     this.modal.classList.remove('active');
   }
 
   // this is called by the back button on the create account modal
   closeWithReload() {
+    if (this.isCreatingAccount) return;
+
     // reload the welcome page so that if accounts were migrated the signin button will be shown
     const newUrl = window.location.href.split('?')[0];
     window.location.replace(newUrl);
@@ -29255,11 +29250,15 @@ class CreateAccountModal {
   }
 
   openWithReset() {
+    if (this.isCreatingAccount) return;
+
     // Clear form fields
     this.usernameInput.value = '';
     this.privateKeyInput.value = '';
     this.usernameAvailable.style.display = 'none';
     this.privateKeyError.style.display = 'none';
+    this.isUsernameAvailable = false;
+    this.refreshSubmitButton();
     
     // Reset More Options section
     this.toggleMoreOptions.checked = false;
@@ -29289,12 +29288,16 @@ class CreateAccountModal {
     return this.modal?.classList.contains('active') || false;
   }
 
-  startAccountCreationUnloadWarning() {
-    this.isCreatingAccount = true;
+  setAccountCreationInProgress(isInProgress) {
+    this.isCreatingAccount = isInProgress;
+    this.controls.forEach((control) => {
+      control.disabled = isInProgress;
+    });
+    this.refreshSubmitButton();
   }
 
-  stopAccountCreationUnloadWarning() {
-    this.isCreatingAccount = false;
+  refreshSubmitButton() {
+    this.submitButton.disabled = this.isCreatingAccount || !this.isUsernameAvailable;
   }
 
   handleUsernameInput(e) {
@@ -29308,7 +29311,8 @@ class CreateAccountModal {
 
     // Reset display
     this.usernameAvailable.style.display = 'none';
-    this.submitButton.disabled = true;
+    this.isUsernameAvailable = false;
+    this.refreshSubmitButton();
 
     // Check if username is too short
     if (username.length < 3) {
@@ -29321,22 +29325,25 @@ class CreateAccountModal {
     // Check network availability
     this.checkTimeout = setTimeout(async () => {
       const taken = await checkUsernameAvailability(username);
+      if (username !== normalizeUsername(this.usernameInput.value)) return;
+
       if (taken == 'taken') {
         this.usernameAvailable.textContent = 'taken';
         this.usernameAvailable.style.color = '#dc3545';
         this.usernameAvailable.style.display = 'inline';
-        this.submitButton.disabled = true;
+        this.isUsernameAvailable = false;
       } else if (taken == 'available') {
         this.usernameAvailable.textContent = 'available';
         this.usernameAvailable.style.color = '#28a745';
         this.usernameAvailable.style.display = 'inline';
-        this.submitButton.disabled = false;
+        this.isUsernameAvailable = true;
       } else {
         this.usernameAvailable.textContent = 'network error';
         this.usernameAvailable.style.color = '#dc3545';
         this.usernameAvailable.style.display = 'inline';
-        this.submitButton.disabled = true;
+        this.isUsernameAvailable = false;
       }
+      this.refreshSubmitButton();
     }, 1000);
   }
 
@@ -29401,6 +29408,8 @@ class CreateAccountModal {
 
   async handleSubmit(event) {
     event.preventDefault();
+
+    if (this.isCreatingAccount || migrateAccountsModal.isActive() || !this.isUsernameAvailable) return;
     
     // Validate username at submit time after normalization
     const username = normalizeUsername(this.usernameInput.value);
@@ -29448,8 +29457,6 @@ class CreateAccountModal {
       this.privateKeyError.style.display = 'none'; // Ensure hidden if generated
     }
 
-    this.startAccountCreationUnloadWarning();
-
     // Generate uncompressed public key
     const publicKey = getPublicKey(privateKey);
     const publicKeyHex = bin2hex(publicKey);
@@ -29458,6 +29465,8 @@ class CreateAccountModal {
     // Generate address from public key
     const address = generateAddress(publicKey);
     const addressHex = bin2hex(address);
+
+    this.setAccountCreationInProgress(true);
 
     // If a private key was provided, check if the derived address already exists on the network
     if (providedPrivateKey) {
@@ -29472,7 +29481,7 @@ class CreateAccountModal {
           this.privateKeyError.textContent = 'An account already exists for this private key.';
           this.privateKeyError.style.color = '#dc3545';
           this.privateKeyError.style.display = 'inline';
-          this.stopAccountCreationUnloadWarning();
+          this.setAccountCreationInProgress(false);
           return; // Stop the account creation process
         } else {
           this.privateKeyError.style.display = 'none';
@@ -29482,7 +29491,7 @@ class CreateAccountModal {
         this.privateKeyError.textContent = 'Network error checking key. Please try again.';
         this.privateKeyError.style.color = '#dc3545';
         this.privateKeyError.style.display = 'inline';
-        this.stopAccountCreationUnloadWarning();
+        this.setAccountCreationInProgress(false);
         return; // Stop process on error
       }
     }
@@ -29521,7 +29530,7 @@ class CreateAccountModal {
       if (waitingToastId) hideToast(waitingToastId);
       showToast(`Failed to fetch network parameters, try again later.`, 0, 'error');
       console.error('Failed to fetch network parameters, using defaults:', error);
-      this.stopAccountCreationUnloadWarning();
+      this.setAccountCreationInProgress(false);
       return;
     }
 
@@ -29545,16 +29554,15 @@ class CreateAccountModal {
         await new Promise((resolve) => setTimeout(resolve, 1000));
         if (waitingToastId) hideToast(waitingToastId);
 //        showToast('Account created successfully!', 3000, 'success');
-        this.close();
-        welcomeScreen.close();
         // TODO: may not need to get set since gets set in `getChats`. Need to check signin flow.
         //getChats.lastCall = getCorrectedTimestamp();
         // Store updated accounts back in localStorage
         existingAccounts.netids[netid].usernames[username] = { address: myAccount.keys.address };
         localStorage.setItem('accounts', stringify(existingAccounts));
         saveState();
-        this.stopAccountCreationUnloadWarning();
-
+        this.setAccountCreationInProgress(false);
+        this.close();
+        welcomeScreen.close();
         // Refresh wallet balance immediately after account creation for fee-dependent screens.
         try {
           myData.wallet.timestamp = 0;
@@ -29578,7 +29586,7 @@ class CreateAccountModal {
         }
 
         clearMyData();
-        this.stopAccountCreationUnloadWarning();
+        this.setAccountCreationInProgress(false);
 
         // Note: `checkPendingTransactions` will also remove the item from `myData.pending` if it's rejected by the service.
         return;
@@ -29598,7 +29606,7 @@ class CreateAccountModal {
       }
 
       clearMyData();
-      this.stopAccountCreationUnloadWarning();
+      this.setAccountCreationInProgress(false);
 
       // no toast here since injectTx will show it
       return;
