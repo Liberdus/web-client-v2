@@ -13698,6 +13698,10 @@ function updateUIForConnectivity() {
  * buttons aren't incorrectly enabled if they should remain disabled for other reasons.
  */
 function revalidateButtonStates() {
+  if (typeof createAccountModal !== 'undefined' && createAccountModal.controls) {
+    createAccountModal.refreshControlStates();
+  }
+
   // Check if validator modal is open and refresh it to re-validate all button states
   if (typeof validatorStakingModal !== 'undefined' && validatorStakingModal.isActive()) {
     validatorStakingModal.close();
@@ -29290,14 +29294,24 @@ class CreateAccountModal {
 
   setAccountCreationInProgress(isInProgress) {
     this.isCreatingAccount = isInProgress;
+    this.refreshControlStates();
+  }
+
+  refreshControlStates() {
     this.controls.forEach((control) => {
-      control.disabled = isInProgress;
+      const requiresConnection = control.hasAttribute('data-requires-connection');
+      const isMigrationLoading = control === this.migrateAccountsButton && migrateAccountsModal.isOpening;
+      control.disabled = this.isCreatingAccount || isMigrationLoading || (requiresConnection && !isOnline);
     });
     this.refreshSubmitButton();
   }
 
   refreshSubmitButton() {
-    this.submitButton.disabled = this.isCreatingAccount || !this.isUsernameAvailable;
+    this.submitButton.disabled =
+      this.isCreatingAccount ||
+      migrateAccountsModal.isOpening ||
+      !this.isUsernameAvailable ||
+      !isOnline;
   }
 
   handleUsernameInput(e) {
@@ -31500,16 +31514,14 @@ class MigrateAccountsModal {
     if (this.isOpening || this.isActive() || createAccountModal.isCreatingAccount) return;
 
     this.isOpening = true;
-    createAccountModal.migrateAccountsButton.disabled = true;
+    createAccountModal.refreshControlStates();
     try {
       await this.populateAccounts();
       if (createAccountModal.isCreatingAccount) return;
       this.modal.classList.add('active');
     } finally {
       this.isOpening = false;
-      if (!createAccountModal.isCreatingAccount) {
-        createAccountModal.migrateAccountsButton.disabled = false;
-      }
+      createAccountModal.refreshControlStates();
     }
   }
 
