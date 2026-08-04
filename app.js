@@ -35249,7 +35249,7 @@ const modalCloseHandlers = new Map([
     createAccountModal, tollModal, inviteModal, aboutModal,
     sourceModal, helpModal, farmModal, logsModal,
     signInModal, myInfoModal, contactInfoModal, friendModal,
-    editContactModal, avatarEditModal, receiveModal, sendAssetConfirmModal,
+    editContactModal, avatarEditModal, receiveModal,
     failedTransactionModal, bridgeModal, migrateAccountsModal, lockModal,
     unlockModal, launchModal, updateWarningModal, removeAccountModal,
     removeAccountsModal, secretModal, callsModal, groupCallParticipantsModal,
@@ -35261,6 +35261,10 @@ const modalCloseHandlers = new Map([
   // Structural exceptions require an id or a controller-specific close method.
   ['assetsModal', () => evmAssets.close('assetsModal')],
   ['assetDetailsModal', () => evmAssets.close('assetDetailsModal')],
+  ['sendAssetConfirmModal', () => {
+    evmAssets.confirmationModal.reset();
+    sendAssetConfirmModal.close();
+  }],
   ['googleDrivePickerModal', () => importModal.closeGoogleDrivePicker()],
 ]);
 
