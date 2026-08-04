@@ -760,21 +760,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   createAccountModal.load();
 
   // Account Form Modal
-  myProfileModal.load();
+  accountModal.load();
 
-  restoreAccountModal.load();
+  importModal.load();
 
   // Validator Modals
-  validatorStakingModal.load();
+  validatorModal.load();
 
   // Toll Modal
   tollModal.load();
 
   // Stake Modal
-  stakeValidatorModal.load();
+  stakeModal.load();
 
   // Backup Form Modal
-  backupAccountModal.load();
+  backupModal.load();
 
   // Remove Account Modal
   removeAccountModal.load();
@@ -807,13 +807,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   editContactModal.load();
 
   // Scan QR Modal
-  scanQRModal.load();
+  qrScanModal.load();
 
   // Search Messages Modal
-  searchMessagesModal.load();
+  searchModal.load();
 
   // Contact Search Modal
-  searchContactsModal.load();
+  contactSearchModal.load();
 
   // History Modal
   historyModal.load();
@@ -925,7 +925,7 @@ function handleBeforeUnload(e) {
     return;
   }
   // Check if backup is in progress
-  if (backupAccountModal.isUploading) {
+  if (backupModal.isUploading) {
     reactNativeApp.handleNativeAppSubscribe();
     e.preventDefault();
     e.returnValue = 'A backup is currently being uploaded to Google Drive. Leaving the page will interrupt the backup. Are you sure you want to leave?';
@@ -1273,8 +1273,8 @@ class WelcomeScreen {
     }
 
     const now = getCorrectedTimestamp();
-    const lastBackup = backupAccountModal.getGDriveBackupTs();
-    const lastReminder = backupAccountModal.getGDriveReminderTs();
+    const lastBackup = backupModal.getGDriveBackupTs();
+    const lastReminder = backupModal.getGDriveReminderTs();
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
     const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
 
@@ -1288,7 +1288,7 @@ class WelcomeScreen {
 
     const message = 'Click "Menu" and "Backup" to Google drive. You can restore if anything happens to this device.';
     showToast(message, 0, 'warning');
-    backupAccountModal.setGDriveReminderTs(now);
+    backupModal.setGDriveReminderTs(now);
   }
 
   isActive() {
@@ -1352,8 +1352,8 @@ class WelcomeMenuModal {
     this.updateButton = document.getElementById('welcomeOpenUpdate');
     this.helpButton = document.getElementById('welcomeOpenHelp');
 
-    this.backupButton.addEventListener('click', () => backupAccountModal.open());
-    this.restoreButton.addEventListener('click', () => restoreAccountModal.open());
+    this.backupButton.addEventListener('click', () => backupModal.open());
+    this.restoreButton.addEventListener('click', () => importModal.open());
     this.removeButton.addEventListener('click', () => removeAccountsModal.open());
     this.migrateButton.addEventListener('click', () => migrateAccountsModal.open());
     this.aboutButton.addEventListener('click', () => aboutModal.open());
@@ -1644,7 +1644,7 @@ class ChatsScreen {
 
     // Handle search input click that's on the chatsScreen
     this.searchInput.addEventListener('click', () => {
-      searchMessagesModal.open();
+      searchModal.open();
     });
   }
 
@@ -1889,7 +1889,7 @@ class ContactsScreen {
 
     // Handle search input click that's on the contactsScreen
     this.contactSearchInput.addEventListener('click', () => {
-      searchContactsModal.open();
+      contactSearchModal.open();
     });
   }
 
@@ -2320,7 +2320,7 @@ class MenuModal {
     this.closeButton = document.getElementById('closeMenu');
     this.closeButton.addEventListener('click', () => this.close());
     this.validatorButton = document.getElementById('openValidator');
-    this.validatorButton.addEventListener('click', () => validatorStakingModal.open());
+    this.validatorButton.addEventListener('click', () => validatorModal.open());
     this.daoButton = document.getElementById('openDao');
     this.daoButton.style.display = 'flex';
     this.daoButton.addEventListener('click', () => daoModal.open());
@@ -2395,7 +2395,7 @@ class MenuModal {
   
   async handleSignOut() {
     // Check if backup is in progress
-    if (backupAccountModal.isUploading) {
+    if (backupModal.isUploading) {
       showToast('Please wait for the backup to complete before signing out.', 0, 'warning');
       return;
     }
@@ -2414,8 +2414,8 @@ class MenuModal {
     }
     callsModal.stopPeriodicCallsRefresh();
     // Stop camera if it's running
-    if (typeof scanQRModal !== 'undefined' && scanQRModal.camera.scanInterval) {
-      scanQRModal.stopCamera();
+    if (typeof qrScanModal !== 'undefined' && qrScanModal.camera.scanInterval) {
+      qrScanModal.stopCamera();
     }
 
     // Save myData to localStorage if it exists
@@ -6125,7 +6125,7 @@ class SettingsModal {
     this.chatSettingsButton.addEventListener('click', () => chatSettingsModal.open());
 
     this.profileButton = document.getElementById('openAccountForm');
-    this.profileButton.addEventListener('click', () => myProfileModal.open());
+    this.profileButton.addEventListener('click', () => accountModal.open());
     
     this.tollButton = document.getElementById('openToll');
     this.tollButton.addEventListener('click', () => tollModal.open());
@@ -6134,7 +6134,7 @@ class SettingsModal {
     this.lockButton.addEventListener('click', () => lockModal.open());
     
     this.backupButton = document.getElementById('openBackupForm');
-    this.backupButton.addEventListener('click', () => backupAccountModal.open());
+    this.backupButton.addEventListener('click', () => backupModal.open());
     
     this.removeButton = document.getElementById('openRemoveAccount');
     this.removeButton.addEventListener('click', () => removeAccountModal.open());
@@ -6196,7 +6196,7 @@ class ChatSettingsModal {
     this.fontSizeSlider = document.getElementById('chatSettingsFontSizeSlider');
     this.saveButton = document.getElementById('saveChatSettingsButton');
 
-    this.closeButton.addEventListener('click', () => this.handleClose());
+    this.closeButton.addEventListener('click', () => this.close());
     this.fontSizeSlider.addEventListener('input', () => this.handleSliderInput());
     this.saveButton.addEventListener('click', () => this.save());
 
@@ -6227,7 +6227,7 @@ class ChatSettingsModal {
     localStorage.setItem(this.storageKey, String(this.savedFontSizePx));
     this.applyChatFontSize();
     this.warningShown = false;
-    this.close();
+    this.forceClose();
   }
 
   updatePreview() {
@@ -6275,17 +6275,17 @@ class ChatSettingsModal {
     return this.draftFontSizePx !== this.savedFontSizePx;
   }
 
-  handleClose() {
+  close() {
     if (this.hasUnsavedChanges() && !this.warningShown) {
       this.warningShown = true;
       showToast('Press back again to discard changes.', 5000, 'warning');
       return;
     }
 
-    this.close();
+    this.forceClose();
   }
 
-  close() {
+  forceClose() {
     this.modal.classList.remove('active');
     this.draftFontSizePx = this.savedFontSizePx;
     this.warningShown = false;
@@ -6719,7 +6719,7 @@ class ScanQRModal {
   }
 }
 
-const scanQRModal = new ScanQRModal();
+const qrScanModal = new ScanQRModal();
 
 /**
  * Validate the balance of the user
@@ -7542,7 +7542,7 @@ class MyInfoModal {
     this.avatarEditButton.setAttribute('aria-label', 'Edit photo');
 
     this.backButton.addEventListener('click', () => this.close());
-    this.editButton.addEventListener('click', () => myProfileModal.open());
+    this.editButton.addEventListener('click', () => accountModal.open());
 
     // Copy address functionality
     this.copyButton.addEventListener('click', () => this.copyAddress());
@@ -8756,7 +8756,7 @@ class HistoryModal {
     
     const type = item.querySelector('.transaction-type')?.textContent;
     if (type.includes('stake')) {
-      validatorStakingModal.open();
+      validatorModal.open();
       return;
     }
     
@@ -12049,7 +12049,7 @@ class SearchMessagesModal {
   }
 }
 
-const searchMessagesModal = new SearchMessagesModal();
+const searchModal = new SearchMessagesModal();
 
 class SearchContactsModal {
   constructor() {}
@@ -12075,7 +12075,7 @@ class SearchContactsModal {
 
           const results = this.searchContacts(searchText);
           if (results.length === 0) {
-            searchMessagesModal.displayEmptyState('contactSearchResults', 'No contacts found');
+            searchModal.displayEmptyState('contactSearchResults', 'No contacts found');
           } else {
             this.displayContactResults(results, searchText);
           }
@@ -12290,7 +12290,7 @@ class SearchContactsModal {
   }
 }
 
-const searchContactsModal = new SearchContactsModal();
+const contactSearchModal = new SearchContactsModal();
 
 // Create a display info object from a contact object
 function createDisplayInfo(contact) {
@@ -13712,9 +13712,9 @@ function revalidateButtonStates() {
   }
 
   // Check if validator modal is open and refresh it to re-validate all button states
-  if (typeof validatorStakingModal !== 'undefined' && validatorStakingModal.isActive()) {
-    validatorStakingModal.close();
-    validatorStakingModal.open();
+  if (typeof validatorModal !== 'undefined' && validatorModal.isActive()) {
+    validatorModal.close();
+    validatorModal.open();
   }
 
   // Check if friend modal is open and re-validate submit button
@@ -13999,7 +13999,7 @@ class RemoveAccountModal {
     this.modal = document.getElementById('removeAccountModal');
     document.getElementById('closeRemoveAccountModal').addEventListener('click', () => this.close());
     document.getElementById('confirmRemoveAccount').addEventListener('click', () => this.removeAccount());
-    document.getElementById('openBackupFromRemove').addEventListener('click', () => backupAccountModal.open());
+    document.getElementById('openBackupFromRemove').addEventListener('click', () => backupModal.open());
   }
 
   signin() {
@@ -15225,7 +15225,7 @@ class BackupAccountModal {
     this.updateButtonState();
   }
 }
-const backupAccountModal = new BackupAccountModal();
+const backupModal = new BackupAccountModal();
 
 class RestoreAccountModal {
   constructor() {
@@ -15388,7 +15388,7 @@ class RestoreAccountModal {
     try {
       // Start OAuth flow using the backup modal's auth method
       showToast('Approve Drive access in the Google window.', 3000, 'info');
-      const tokenData = await backupAccountModal.startGoogleDriveAuth();
+      const tokenData = await backupModal.startGoogleDriveAuth();
       
       // Show picker modal and load files
       this.pickerModal.classList.add('active');
@@ -16047,7 +16047,7 @@ class RestoreAccountModal {
     }
   }
 }
-const restoreAccountModal = new RestoreAccountModal();
+const importModal = new RestoreAccountModal();
 
 class TollModal {
   constructor() {
@@ -16578,7 +16578,7 @@ class UpdateWarningModal {
 
     // Set up event listeners
     this.closeButton.addEventListener('click', () => this.close());
-    this.backupFirstBtn.addEventListener('click', () => backupAccountModal.open());
+    this.backupFirstBtn.addEventListener('click', () => backupModal.open());
     this.proceedToStoreBtn.addEventListener('click', withButtonCooldown(
       this.proceedToStoreBtn,
       BUTTON_COOLDOWN_MS,
@@ -16899,7 +16899,7 @@ class MyProfileModal {
     }
   }
 }
-const myProfileModal = new MyProfileModal();
+const accountModal = new MyProfileModal();
 
 class ValidatorStakingModal {
   constructor() {
@@ -17516,7 +17516,7 @@ class ValidatorStakingModal {
     return this.modal?.classList.contains('active') || false;
   }
 }
-const validatorStakingModal = new ValidatorStakingModal();
+const validatorModal = new ValidatorStakingModal();
 
 class StakeValidatorModal {
   constructor() {
@@ -17561,7 +17561,7 @@ class StakeValidatorModal {
       this.amountInput.value = normalizeUnsignedFloat(this.amountInput.value);
     });
     this.amountInput.addEventListener('input', this.debouncedValidateStakeInputs);
-    this.scanStakeQRButton.addEventListener('click', () => scanQRModal.open());
+    this.scanStakeQRButton.addEventListener('click', () => qrScanModal.open());
     this.uploadStakeQRButton.addEventListener('click', () => this.stakeQRFileInput.click());
     this.stakeQRFileInput.addEventListener('change', (event) => sendAssetFormModal.handleQRFileSelect(event, this));
     this.faucetButton.addEventListener('click', withButtonCooldown(
@@ -17579,7 +17579,7 @@ class StakeValidatorModal {
     this.modal.classList.add('active');
 
     // Set the correct fill function for the staking context
-    scanQRModal.fillFunction = this.fillFromQR.bind(this);
+    qrScanModal.fillFunction = this.fillFromQR.bind(this);
 
     // Display Available Balance and Fee
     this.updateStakeBalanceDisplay();
@@ -17656,11 +17656,11 @@ class StakeValidatorModal {
 
         showToast('Submitted stake transaction...', 3000, 'loading');
 
-        validatorStakingModal.close();
+        validatorModal.close();
         this.nodeAddressInput.value = ''; // Clear form
         this.amountInput.value = '';
         this.close();
-        validatorStakingModal.open();
+        validatorModal.open();
       }
     } catch (error) {
       console.error('Stake transaction error:', error);
@@ -17878,7 +17878,7 @@ class StakeValidatorModal {
     }
   }
 }
-const stakeValidatorModal = new StakeValidatorModal();
+const stakeModal = new StakeValidatorModal();
 
 const CHAT_REACTION_SHEET_CATEGORY_MAP = new Map(
   CHAT_REACTION_SHEET_CATEGORIES.map((category) => [category.key, category])
@@ -26444,13 +26444,13 @@ class ShareContactsModal {
     this.closeButton = document.getElementById('closeShareContactsModal');
 
     // Event listeners
-    this.closeButton.addEventListener('click', () => this.handleClose());
+    this.closeButton.addEventListener('click', () => this.close());
     this.allNoneButton.addEventListener('click', () => this.toggleAllNone());
     this.doneButton.addEventListener('click', withButtonCooldown(this.doneButton, BUTTON_COOLDOWN_MS, null, () => this.handleDone()));
     this.contactsList.addEventListener('click', (e) => this.handleContactClick(e));
     this.actionButton.addEventListener('click', () => {
       if (this.recipientAddress) {
-        this.close();
+        this.forceClose();
         friendModal.setAddress(this.recipientAddress);
         friendModal.open();
       }
@@ -26736,19 +26736,19 @@ class ShareContactsModal {
   /**
    * Handles back/close button click with warning if contacts are selected
    */
-  handleClose() {
+  close() {
     if (this.selectedContacts.size > 0 && !this.warningShown) {
       this.warningShown = true;
       showToast('You have contacts selected. Click back again to discard.', 0, 'warning');
       return;
     }
-    this.close();
+    this.forceClose();
   }
 
   /**
    * Closes the modal
    */
-  close() {
+  forceClose() {
     this.modal.classList.remove('active');
     // Reset warning state so it can be shown again on next open
     this.warningShown = false;
@@ -26900,7 +26900,7 @@ class ShareContactsModal {
       // Update attachment preview in chat modal
       chatModal.showAttachmentPreview();
 
-      this.close();
+      this.forceClose();
     } catch (err) {
       console.error('Failed to generate/upload VCF:', err);
       showToast('Failed to share contacts', 0, 'error');
@@ -26936,13 +26936,13 @@ class ImportContactsModal {
     this.closeButton = document.getElementById('closeImportContactsModal');
 
     // Event listeners
-    this.closeButton.addEventListener('click', () => this.handleClose());
+    this.closeButton.addEventListener('click', () => this.close());
     this.allNoneButton.addEventListener('click', () => this.toggleAllNone());
     this.doneButton.addEventListener('click', withButtonCooldown(this.doneButton, BUTTON_COOLDOWN_MS, null, () => this.handleDone()));
     this.contactsList.addEventListener('click', (e) => this.handleContactClick(e));
     this.actionButton.addEventListener('click', () => {
       if (this.recipientAddress) {
-        this.close();
+        this.forceClose();
         friendModal.setAddress(this.recipientAddress);
         friendModal.open();
       }
@@ -27025,7 +27025,7 @@ class ImportContactsModal {
       const netId = this.extractNetId(vcfContent);
       if (netId && netId !== network.netid) {
         showToast('Network ID mismatch - contacts are from a different network', 0, 'error');
-        this.close();
+        this.forceClose();
         return;
       }
 
@@ -27056,7 +27056,7 @@ class ImportContactsModal {
       console.error('Failed to load VCF:', err);
       logsModal.log('❌ Failed to load VCF:', err?.message || String(err));
       showToast('Failed to load contacts file', 0, 'error');
-      this.close();
+      this.forceClose();
     }
   }
 
@@ -27456,19 +27456,19 @@ class ImportContactsModal {
   /**
    * Handles back/close button click with warning if contacts are selected
    */
-  handleClose() {
+  close() {
     if (this.selectedContacts.size > 0 && !this.warningShown) {
       this.warningShown = true;
       showToast('You have contacts selected. Click back again to discard.', 0, 'warning');
       return;
     }
-    this.close();
+    this.forceClose();
   }
 
   /**
    * Closes the modal
    */
-  close() {
+  forceClose() {
     this.modal.classList.remove('active');
     this.warningShown = false;
     this.parsedContacts = [];
@@ -27654,7 +27654,7 @@ class ImportContactsModal {
         showToast('Only 20 contacts can be imported at a time. Please import the remaining contacts in another batch.', 0, 'warning');
       }
 
-      this.close();
+      this.forceClose();
 
     } catch (err) {
       console.error('Failed to import contacts:', err);
@@ -29018,7 +29018,7 @@ class NewChatModal {
   // Open camera scanner and fill username from scanned QR
   scanUsernameFromQR() {
     try {
-      scanQRModal.fillFunction = (data) => {
+      qrScanModal.fillFunction = (data) => {
         const user = this.parseUsernameFromQRData(data);
         if (user) {
           this.recipientInput.value = normalizeUsername(user);
@@ -29027,7 +29027,7 @@ class NewChatModal {
           showToast('QR does not contain a username', 0, 'error');
         }
       };
-      scanQRModal.open();
+      qrScanModal.open();
     } catch (e) {
       console.error('Error starting QR scan:', e);
       showToast('Unable to start camera for scanning.', 0, 'error');
@@ -29740,7 +29740,7 @@ class SendAssetFormModal {
     this.scanQRButton = document.getElementById('scanQRButton');
     this.uploadQRButton = document.getElementById('uploadQRButton');
     this.qrFileInput = document.getElementById('qrFileInput');
-    this.scanQRButton.addEventListener('click', () => scanQRModal.open());
+    this.scanQRButton.addEventListener('click', () => qrScanModal.open());
     this.uploadQRButton.addEventListener('click', () => {this.qrFileInput.click();});
     this.qrFileInput.addEventListener('change', (event) => this.handleQRFileSelect(event, this));
   }
@@ -29767,7 +29767,7 @@ class SendAssetFormModal {
 
     this.usernameAvailable.style.display = 'none';
     this.submitButton.disabled = true;
-    scanQRModal.fillFunction = this.fillFromQR.bind(this); // set function to handle filling the payment form from QR data
+    qrScanModal.fillFunction = this.fillFromQR.bind(this); // set function to handle filling the payment form from QR data
 
     if (this.username) {
       this.usernameInput.value = this.username;
@@ -31806,7 +31806,7 @@ class MigrateAccountsModal {
     let fileContent = loadState(username+'_'+netid, true)
   
     // Perform netid substitution
-    let substitutionResult = restoreAccountModal.performStringSubstitution(fileContent, {
+    let substitutionResult = importModal.performStringSubstitution(fileContent, {
       oldString: netid,
       newString: newNetId
     });
@@ -32375,7 +32375,7 @@ class LaunchModal {
       async (event) => await this.handleSubmit(event)
     ));
     this.urlInput.addEventListener('input', () => this.updateButtonState());
-    this.backupButton.addEventListener('click', () => backupAccountModal.open());
+    this.backupButton.addEventListener('click', () => backupModal.open());
 
     document.addEventListener('click', (event) => {
       const target = event.target;
@@ -32386,7 +32386,7 @@ class LaunchModal {
         if (toastElement && toastElement.id) {
           hideToast(toastElement.id);
         }
-        backupAccountModal.open();
+        backupModal.open();
       }
     }, { capture: true });
   }
@@ -33273,8 +33273,8 @@ async function refreshActiveBalanceDisplays(didSettlePendingState) {
     await sendAssetFormModal.updateAvailableBalance();
   }
 
-  if (stakeValidatorModal.isActive()) {
-    await stakeValidatorModal.updateStakeBalanceDisplay();
+  if (stakeModal.isActive()) {
+    await stakeModal.updateStakeBalanceDisplay();
   }
 }
 
@@ -33406,9 +33406,9 @@ async function checkPendingTransactionsOnce() {
           // show toast notification with the success message
           showToast(`${type === 'deposit_stake' ? 'Stake' : 'Unstake'} transaction successful`, 5000, 'success');
           // refresh only if validator modal is open
-          if (validatorStakingModal.isActive()) {
-            validatorStakingModal.close();
-            validatorStakingModal.open();
+          if (validatorModal.isActive()) {
+            validatorModal.close();
+            validatorModal.open();
           }
         }
 
@@ -33536,10 +33536,10 @@ async function checkPendingTransactionsOnce() {
           // remove from wallet history
           myData.wallet.history = myData.wallet.history.filter((tx) => tx.txid !== txid);
 
-          if (validatorStakingModal.isActive()) {
+          if (validatorModal.isActive()) {
             // refresh the validator modal
-            validatorStakingModal.close();
-            validatorStakingModal.open();
+            validatorModal.close();
+            validatorModal.open();
           }
         }
       } else {
@@ -35254,21 +35254,14 @@ const modalCloseHandlers = new Map([
     unlockModal, launchModal, updateWarningModal, removeAccountModal,
     removeAccountsModal, secretModal, callsModal, groupCallParticipantsModal,
     callScheduleChoiceModal, dateTimePickerModal, callInviteModal, shareAttachmentModal,
+    chatSettingsModal, qrScanModal, backupModal, importModal,
+    accountModal, validatorModal, stakeModal, searchModal, contactSearchModal,
+    importContactsModal, shareContactsModal,
   }),
+  // Structural exceptions require an id or a controller-specific close method.
   ['assetsModal', () => evmAssets.close('assetsModal')],
   ['assetDetailsModal', () => evmAssets.close('assetDetailsModal')],
-  ['chatSettingsModal', () => chatSettingsModal.handleClose()],
-  ['qrScanModal', () => scanQRModal.close()],
-  ['backupModal', () => backupAccountModal.close()],
-  ['importModal', () => restoreAccountModal.close()],
-  ['googleDrivePickerModal', () => restoreAccountModal.closeGoogleDrivePicker()],
-  ['accountModal', () => myProfileModal.close()],
-  ['validatorModal', () => validatorStakingModal.close()],
-  ['stakeModal', () => stakeValidatorModal.close()],
-  ['searchModal', () => searchMessagesModal.close()],
-  ['contactSearchModal', () => searchContactsModal.close()],
-  ['importContactsModal', () => importContactsModal.handleClose()],
-  ['shareContactsModal', () => shareContactsModal.handleClose()],
+  ['googleDrivePickerModal', () => importModal.closeGoogleDrivePicker()],
 ]);
 
 function closeTopModal({ id: modalId }) {
