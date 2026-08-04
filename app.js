@@ -29409,7 +29409,12 @@ class CreateAccountModal {
   async handleSubmit(event) {
     event.preventDefault();
 
-    if (this.isCreatingAccount || migrateAccountsModal.isActive() || !this.isUsernameAvailable) return;
+    if (
+      this.isCreatingAccount ||
+      migrateAccountsModal.isOpening ||
+      migrateAccountsModal.isActive() ||
+      !this.isUsernameAvailable
+    ) return;
     
     // Validate username at submit time after normalization
     const username = normalizeUsername(this.usernameInput.value);
