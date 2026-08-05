@@ -7943,7 +7943,14 @@ class ContactInfoModal {
 const contactInfoModal = new ContactInfoModal();
 
 const FRIEND_STATUS_PENDING_STALE_MS = 60 * 1000;
+const FRIEND_STATUS_REFRESH_TIMEOUT_MS = 10 * 1000;
 const VALID_FRIEND_STATUSES = new Set([0, 1, 2]);
+const FRIEND_STATUS_REFRESH_MESSAGES = Object.freeze({
+  checking: 'Checking current status\u2026',
+  offline: 'You are offline. Showing saved status; editing is unavailable.',
+  failed: 'Could not refresh current status. Showing saved status; editing is unavailable.',
+  ready: '',
+});
 
 function isValidFriendStatus(status) {
   const statusNumber = Number(status);
@@ -7964,12 +7971,15 @@ class FriendModal {
     this.lastChangeTimeStamp = 0; // track the last time the friend status was changed
     this.initialFriendStatus = null; // track the initial friend status when modal opens
     this.warningShown = false; // track if warning has been shown
+    this.statusRefreshState = null;
+    this.statusRefreshAbortController = null;
   }
 
   load() {
     this.modal = document.getElementById('friendModal');
     this.friendForm = document.getElementById('friendForm');
     this.submitButton = document.getElementById('friendSubmitButton');
+    this.statusRefreshMessage = document.getElementById('friendStatusRefreshMessage');
 
     // Friend modal form submission
     this.friendForm.addEventListener('submit', withButtonCooldown(
@@ -8068,7 +8078,32 @@ class FriendModal {
       return;
     }
 
-    // Query network for current toll required status
+    this.statusRefreshAbortController?.abort();
+    this.statusRefreshAbortController = null;
+    this.currentContactAddress = contactAddress;
+
+    this.selectFriendStatus(contact.friend);
+    this.initialFriendStatus = contact.friend;
+    this.warningShown = false;
+    this.modal.classList.add('active');
+
+    await this.refreshStatus(contactAddress, contact);
+  }
+
+  async refreshStatus(contactAddress, contact) {
+    if (!isOnline) {
+      this.setStatusRefreshState('offline');
+      return;
+    }
+
+    this.statusRefreshAbortController?.abort();
+    this.setStatusRefreshState('checking');
+
+    const abortController = new AbortController();
+    this.statusRefreshAbortController = abortController;
+    const timeoutId = setTimeout(() => abortController.abort(), FRIEND_STATUS_REFRESH_TIMEOUT_MS);
+
+    let networkRequired;
     try {
       const myAddr = longAddress(myAccount.keys.address);
       const contactAddr = longAddress(contactAddress);
@@ -8076,51 +8111,86 @@ class FriendModal {
       const chatId = hashBytes(sortedAddresses.join(''));
       const myIndex = sortedAddresses.indexOf(myAddr);
 
-      const tollInfo = await queryNetwork(`/messages/${chatId}/toll`);
-      const networkRequired = tollInfo?.toll?.required?.[myIndex];
-
-      if (networkRequired !== undefined) {
-        // Map backend required value to frontend status
-        // Backend: 1 = toll required, 0 = toll not required, 2 = blocked
-        // Frontend: 0 = blocked, 1 = Other, 2 = Connection
-        let networkFriendStatus;
-        if (networkRequired === 2) {
-          networkFriendStatus = 0; // blocked
-        } else if (networkRequired === 1) {
-          networkFriendStatus = 1; // Other (toll required)
-        } else if (networkRequired === 0) {
-          // toll not required - connection
-          networkFriendStatus = 2;
-        }
-
-        // Update contact's friend status if it differs from network
-        if (networkFriendStatus !== undefined && networkFriendStatus !== contact.friend) {
-          const previousFriendStatus = contact.friend;
-          contact.friend = networkFriendStatus;
-          contact.friendOld = networkFriendStatus;
-          if (networkFriendStatus === 0 && previousFriendStatus !== 0) {
-            await this.clearContactAvatar(contact);
-          }
-          // Update the friend button color
-          this.updateFriendButton(contact, 'addFriendButtonContactInfo');
-          this.updateFriendButton(contact, 'addFriendButtonChat');
-        }
-      }
+      const tollInfo = await queryNetwork(`/messages/${chatId}/toll`, abortController.signal);
+      networkRequired = tollInfo?.toll?.required?.[myIndex];
     } catch (error) {
       console.error('Error querying toll required status:', error);
+    } finally {
+      clearTimeout(timeoutId);
     }
 
-    // Set the current friend status
-    const status = contact.friend.toString();
+    if (this.statusRefreshAbortController !== abortController) {
+      return;
+    }
+    this.statusRefreshAbortController = null;
+
+    if (!this.isActive() || this.currentContactAddress !== contactAddress) {
+      return;
+    }
+
+    const networkFriendStatus = this.getNetworkFriendStatus(networkRequired);
+    if (networkFriendStatus === null) {
+      this.setStatusRefreshState(isOnline ? 'failed' : 'offline');
+      return;
+    }
+
+    const previousFriendStatus = contact.friend;
+    contact.friend = networkFriendStatus;
+    contact.friendOld = networkFriendStatus;
+    this.initialFriendStatus = networkFriendStatus;
+    this.selectFriendStatus(networkFriendStatus);
+    this.updateFriendButton(contact, 'addFriendButtonContactInfo');
+    this.updateFriendButton(contact, 'addFriendButtonChat');
+    this.setStatusRefreshState('ready');
+
+    if (networkFriendStatus === 0 && previousFriendStatus !== 0) {
+      await this.clearContactAvatar(contact);
+    }
+  }
+
+  handleConnectivityChange() {
+    if (!this.isActive()) {
+      return;
+    }
+
+    this.statusRefreshAbortController?.abort();
+    this.statusRefreshAbortController = null;
+
+    if (!isOnline) {
+      this.setStatusRefreshState('offline');
+      return;
+    }
+
+    const contactAddress = normalizeAddress(this.currentContactAddress);
+    const contact = myData.contacts?.[contactAddress];
+    assert(contact, `Missing contact while refreshing friend status: ${contactAddress}`);
+    this.refreshStatus(contactAddress, contact);
+  }
+
+  getNetworkFriendStatus(networkRequired) {
+    switch (networkRequired) {
+      case 0:
+        return 2;
+      case 1:
+        return 1;
+      case 2:
+        return 0;
+      default:
+        return null;
+    }
+  }
+
+  selectFriendStatus(status) {
     const radio = this.friendForm.querySelector(`input[value="${status}"]`);
     if (radio) radio.checked = true;
+  }
 
-    // Store initial friend status for change detection
-    this.initialFriendStatus = contact.friend;
-    this.warningShown = false;
+  setStatusRefreshState(state) {
+    assert(FRIEND_STATUS_REFRESH_MESSAGES[state] !== undefined, `Unknown friend status refresh state: ${state}`);
 
-    this.modal.classList.add('active');
-    // Initialize submit button state after modal is active so updateSubmitButtonState()'s isActive() guard passes
+    this.statusRefreshState = state;
+    this.statusRefreshMessage.textContent = FRIEND_STATUS_REFRESH_MESSAGES[state];
+    this.statusRefreshMessage.hidden = state === 'ready';
     this.updateSubmitButtonState();
   }
 
@@ -8138,8 +8208,11 @@ class FriendModal {
       }
     }
 
+    this.statusRefreshAbortController?.abort();
+    this.statusRefreshAbortController = null;
     this.modal.classList.remove('active');
     this.initialFriendStatus = null;
+    this.statusRefreshState = null;
     this.warningShown = false;
   }
 
@@ -8193,6 +8266,11 @@ class FriendModal {
    */
   async handleFriendSubmit(event) {
     event.preventDefault();
+
+    if (this.statusRefreshState !== 'ready' || !isOnline) {
+      return;
+    }
+
     const contact = myData.contacts[this.currentContactAddress];
     const selectedStatus = this.friendForm.querySelector('input[name="friendStatus"]:checked')?.value;
     const prevFriendStatus = Number(contact?.friend);
@@ -8345,8 +8423,14 @@ class FriendModal {
   updateSubmitButtonState() {
     if (!this.isActive()) return;
     const contact = myData?.contacts?.[this.currentContactAddress];
-    // return early if contact is not found or offline
-    if (!contact || !isOnline) {
+    const canEdit = Boolean(contact) && isOnline && this.statusRefreshState === 'ready';
+    const statusInputs = this.friendForm.querySelectorAll('input[name="friendStatus"]');
+    statusInputs.forEach((input) => {
+      input.disabled = !canEdit;
+      input.setAttribute('aria-disabled', String(!canEdit));
+    });
+
+    if (!canEdit) {
       this.submitButton.disabled = true;
       return;
     }
@@ -13694,6 +13778,10 @@ function updateUIForConnectivity() {
     // Update aria-disabled state
     element.setAttribute('aria-disabled', !isOnline);
   });
+
+  if (typeof friendModal !== 'undefined') {
+    friendModal.handleConnectivityChange();
+  }
 
   // When coming back online, re-validate buttons that may be disabled for reasons other than connectivity
   if (isOnline) {
