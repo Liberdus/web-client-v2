@@ -7946,6 +7946,7 @@ const FRIEND_STATUS_PENDING_STALE_MS = 60 * 1000;
 const FRIEND_STATUS_REFRESH_TIMEOUT_MS = 10 * 1000;
 const VALID_FRIEND_STATUSES = new Set([0, 1, 2]);
 const FRIEND_STATUS_REFRESH_MESSAGES = Object.freeze({
+  pending: 'Status update pending\u2026',
   checking: 'Checking current status\u2026',
   offline: 'You are offline. Showing saved status; editing is unavailable.',
   failed: 'Could not refresh current status. Showing saved status; editing is unavailable.',
@@ -8074,10 +8075,6 @@ class FriendModal {
     if (!contactAddress) return;
     const contact = myData.contacts[contactAddress];
     if (!contact) return;
-    if (this.hasPendingFriendStatusUpdate(contactAddress)) {
-      showToast('You have a pending transaction to update the friend status. Come back to this page later.', 0, 'warning');
-      return;
-    }
 
     this.statusRefreshAbortController?.abort();
     this.statusRefreshAbortController = null;
@@ -8087,6 +8084,10 @@ class FriendModal {
     this.initialFriendStatus = contact.friend;
     this.warningShown = false;
     this.modal.classList.add('active');
+
+    if (this.showPendingStatusIfNeeded(contactAddress)) {
+      return;
+    }
 
     await this.refreshStatus(contactAddress, contact);
   }
@@ -8157,15 +8158,46 @@ class FriendModal {
     this.statusRefreshAbortController?.abort();
     this.statusRefreshAbortController = null;
 
+    const contactAddress = normalizeAddress(this.currentContactAddress);
+    if (this.showPendingStatusIfNeeded(contactAddress)) {
+      return;
+    }
+
     if (!isOnline) {
       this.setStatusRefreshState('offline');
       return;
     }
 
-    const contactAddress = normalizeAddress(this.currentContactAddress);
     const contact = myData.contacts?.[contactAddress];
     assert(contact, `Missing contact while refreshing friend status: ${contactAddress}`);
     this.refreshStatus(contactAddress, contact);
+  }
+
+  handlePendingStatusSettled(address) {
+    const contactAddress = normalizeAddress(address);
+    if (!this.isActive() || this.currentContactAddress !== contactAddress) {
+      return;
+    }
+
+    const contact = myData.contacts?.[contactAddress];
+    assert(contact, `Missing contact after friend status settled: ${contactAddress}`);
+    this.selectFriendStatus(contact.friend);
+    this.initialFriendStatus = contact.friend;
+
+    if (this.showPendingStatusIfNeeded(contactAddress)) {
+      return;
+    }
+
+    this.refreshStatus(contactAddress, contact);
+  }
+
+  showPendingStatusIfNeeded(contactAddress) {
+    if (!this.hasPendingFriendStatusUpdate(contactAddress)) {
+      return false;
+    }
+
+    this.setStatusRefreshState('pending');
+    return true;
   }
 
   getNetworkFriendStatus(networkRequired) {
@@ -8200,7 +8232,7 @@ class FriendModal {
       );
     }
 
-    const showInlineMessage = state === 'offline' || state === 'failed';
+    const showInlineMessage = state === 'pending' || state === 'offline' || state === 'failed';
     this.statusRefreshState = state;
     this.statusRefreshMessage.textContent = showInlineMessage ? FRIEND_STATUS_REFRESH_MESSAGES[state] : '';
     this.statusRefreshMessage.hidden = !showInlineMessage;
@@ -33471,6 +33503,7 @@ async function checkPendingTransactionsOnce() {
         }
         if (type === 'update_toll_required') {
           const { currentFriendStatus, previousFriendStatus, didRemoveStatusHistory } = revertPendingUpdateTollRequired(pendingTxInfo);
+          friendModal.handlePendingStatusSettled(pendingTxInfo.to);
           showToast('Update contact status timed out. Reverting contact to old status.', 0, 'error');
           await contactsScreen.updateContactsList();
           if (didRemoveStatusHistory || currentFriendStatus === 0 || previousFriendStatus === 0) {
@@ -33535,6 +33568,7 @@ async function checkPendingTransactionsOnce() {
           // log used by e2e tests do not delete
           console.log(`DEBUG: update_toll_required transaction successfully processed!`);
           syncPendingUpdateTollRequiredSuccess(pendingTxInfo, res.transaction);
+          friendModal.handlePendingStatusSettled(pendingTxInfo.to);
         }
 
         if (type === 'read') {
@@ -33611,6 +33645,7 @@ async function checkPendingTransactionsOnce() {
           } else if (type === 'update_toll_required') {
             showToast(`Update contact status failed: ${userFailureReason}. Reverting contact to old status.`, 0, 'error');
             const { currentFriendStatus, previousFriendStatus, didRemoveStatusHistory } = revertPendingUpdateTollRequired(pendingTxInfo);
+            friendModal.handlePendingStatusSettled(pendingTxInfo.to);
             // update contact list since friend status was reverted
             await contactsScreen.updateContactsList();
             // Refresh when removing the optimistic divider or when the revert enters/exits "blocked"
