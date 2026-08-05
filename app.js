@@ -7947,6 +7947,7 @@ const FRIEND_STATUS_REFRESH_TIMEOUT_MS = 10 * 1000;
 const VALID_FRIEND_STATUSES = new Set([0, 1, 2]);
 const FRIEND_STATUS_REFRESH_MESSAGES = Object.freeze({
   checking: 'Checking current status\u2026',
+  pending: 'Status update pending\u2026',
   offline: 'You are offline. Showing saved status; editing is unavailable.',
   failed: 'Could not refresh current status. Showing saved status; editing is unavailable.',
   ready: '',
@@ -8034,6 +8035,15 @@ class FriendModal {
     return false;
   }
 
+  showPendingStatusIfNeeded(address) {
+    if (!this.hasPendingFriendStatusUpdate(address)) {
+      return false;
+    }
+
+    this.setStatusRefreshState('pending');
+    return true;
+  }
+
   /**
    * Restores stale local pending friend state so users are not blocked forever.
    * @param {Object} contact
@@ -8074,10 +8084,6 @@ class FriendModal {
     if (!contactAddress) return;
     const contact = myData.contacts[contactAddress];
     if (!contact) return;
-    if (this.hasPendingFriendStatusUpdate(contactAddress)) {
-      showToast('You have a pending transaction to update the friend status. Come back to this page later.', 0, 'warning');
-      return;
-    }
 
     this.statusRefreshAbortController?.abort();
     this.statusRefreshAbortController = null;
@@ -8087,6 +8093,10 @@ class FriendModal {
     this.initialFriendStatus = contact.friend;
     this.warningShown = false;
     this.modal.classList.add('active');
+
+    if (this.showPendingStatusIfNeeded(contactAddress)) {
+      return;
+    }
 
     await this.refreshStatus(contactAddress, contact);
   }
@@ -8157,15 +8167,34 @@ class FriendModal {
     this.statusRefreshAbortController?.abort();
     this.statusRefreshAbortController = null;
 
+    const contactAddress = normalizeAddress(this.currentContactAddress);
+    const contact = myData.contacts?.[contactAddress];
+    assert(contact, `Missing contact while refreshing friend status: ${contactAddress}`);
+    if (this.showPendingStatusIfNeeded(contactAddress)) {
+      return;
+    }
+
     if (!isOnline) {
       this.setStatusRefreshState('offline');
       return;
     }
 
-    const contactAddress = normalizeAddress(this.currentContactAddress);
-    const contact = myData.contacts?.[contactAddress];
-    assert(contact, `Missing contact while refreshing friend status: ${contactAddress}`);
     this.refreshStatus(contactAddress, contact);
+  }
+
+  async refreshAfterPendingStatusSettlement(contactAddress) {
+    if (!this.isActive()) {
+      return;
+    }
+
+    const normalizedAddress = normalizeAddress(contactAddress);
+    if (normalizeAddress(this.currentContactAddress) !== normalizedAddress) {
+      return;
+    }
+
+    const contact = myData.contacts?.[normalizedAddress];
+    assert(contact, `Missing contact after friend status settlement: ${normalizedAddress}`);
+    await this.refreshStatus(normalizedAddress, contact);
   }
 
   getNetworkFriendStatus(networkRequired) {
@@ -8200,8 +8229,9 @@ class FriendModal {
       );
     }
 
-    const showInlineMessage = state === 'offline' || state === 'failed';
+    const showInlineMessage = state === 'pending' || state === 'offline' || state === 'failed';
     this.statusRefreshState = state;
+    this.modal.dataset.statusState = state;
     this.statusRefreshMessage.textContent = showInlineMessage ? FRIEND_STATUS_REFRESH_MESSAGES[state] : '';
     this.statusRefreshMessage.hidden = !showInlineMessage;
     this.updateSubmitButtonState();
@@ -8234,6 +8264,7 @@ class FriendModal {
     this.statusRefreshAbortController = null;
     this.hideStatusRefreshToast();
     this.modal.classList.remove('active');
+    delete this.modal.dataset.statusState;
     this.initialFriendStatus = null;
     this.statusRefreshState = null;
     this.warningShown = false;
@@ -33477,6 +33508,7 @@ async function checkPendingTransactionsOnce() {
             await chatsScreen.updateChatList();
           }
           chatModal.refreshCurrentView(txid);
+          await friendModal.refreshAfterPendingStatusSettlement(pendingTxInfo.to);
         }
         if (type === 'message') {
           updateTransactionStatus(txid, pendingTxInfo.to, 'failed', type);
@@ -33535,6 +33567,7 @@ async function checkPendingTransactionsOnce() {
           // log used by e2e tests do not delete
           console.log(`DEBUG: update_toll_required transaction successfully processed!`);
           syncPendingUpdateTollRequiredSuccess(pendingTxInfo, res.transaction);
+          await friendModal.refreshAfterPendingStatusSettlement(pendingTxInfo.to);
         }
 
         if (type === 'read') {
@@ -33617,6 +33650,7 @@ async function checkPendingTransactionsOnce() {
             if (didRemoveStatusHistory || currentFriendStatus === 0 || previousFriendStatus === 0) {
               await chatsScreen.updateChatList();
             }
+            await friendModal.refreshAfterPendingStatusSettlement(pendingTxInfo.to);
           } else if (type === 'read') {
             showToast(`Read transaction failed: ${userFailureReason}`, 0, 'error');
             // revert the local myData.contacts[toAddress].timestamp to the old value
