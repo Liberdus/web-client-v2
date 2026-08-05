@@ -8078,6 +8078,14 @@ small {
 }
 
 /* Friend Modal Styles */
+.friend-status-refresh-message {
+  margin: 22px auto 0;
+  width: 95%;
+  color: var(--neutral-600);
+  font-size: 0.9em;
+  text-align: center;
+}
+
 .radio-group {
   display: flex;
   flex-direction: column;
@@ -8102,6 +8110,11 @@ small {
 
 .radio-option:hover {
   background-color: var(--hover-color);
+}
+
+.radio-option:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .radio-option input[type='radio'] {
