@@ -7973,6 +7973,7 @@ class FriendModal {
     this.warningShown = false; // track if warning has been shown
     this.statusRefreshState = null;
     this.statusRefreshAbortController = null;
+    this.statusRefreshToastId = null;
   }
 
   load() {
@@ -8188,10 +8189,31 @@ class FriendModal {
   setStatusRefreshState(state) {
     assert(FRIEND_STATUS_REFRESH_MESSAGES[state] !== undefined, `Unknown friend status refresh state: ${state}`);
 
+    this.hideStatusRefreshToast();
+    if (state === 'checking') {
+      this.statusRefreshToastId = showToast(
+        FRIEND_STATUS_REFRESH_MESSAGES.checking,
+        0,
+        'loading',
+        false,
+        { dedupe: false }
+      );
+    }
+
+    const showInlineMessage = state === 'offline' || state === 'failed';
     this.statusRefreshState = state;
-    this.statusRefreshMessage.textContent = FRIEND_STATUS_REFRESH_MESSAGES[state];
-    this.statusRefreshMessage.hidden = state === 'ready';
+    this.statusRefreshMessage.textContent = showInlineMessage ? FRIEND_STATUS_REFRESH_MESSAGES[state] : '';
+    this.statusRefreshMessage.hidden = !showInlineMessage;
     this.updateSubmitButtonState();
+  }
+
+  hideStatusRefreshToast() {
+    if (!this.statusRefreshToastId) {
+      return;
+    }
+
+    hideToast(this.statusRefreshToastId);
+    this.statusRefreshToastId = null;
   }
 
   /**
@@ -8210,6 +8232,7 @@ class FriendModal {
 
     this.statusRefreshAbortController?.abort();
     this.statusRefreshAbortController = null;
+    this.hideStatusRefreshToast();
     this.modal.classList.remove('active');
     this.initialFriendStatus = null;
     this.statusRefreshState = null;
