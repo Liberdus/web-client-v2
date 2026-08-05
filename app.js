@@ -8222,9 +8222,10 @@ class FriendModal {
     assert(FRIEND_STATUS_REFRESH_MESSAGES[state] !== undefined, `Unknown friend status refresh state: ${state}`);
 
     this.hideStatusRefreshToast();
-    if (state === 'checking') {
+    const showLoadingToast = state === 'pending' || state === 'checking';
+    if (showLoadingToast) {
       this.statusRefreshToastId = showToast(
-        FRIEND_STATUS_REFRESH_MESSAGES.checking,
+        FRIEND_STATUS_REFRESH_MESSAGES[state],
         0,
         'loading',
         false,
@@ -8232,7 +8233,7 @@ class FriendModal {
       );
     }
 
-    const showInlineMessage = state === 'pending' || state === 'offline' || state === 'failed';
+    const showInlineMessage = state === 'offline' || state === 'failed';
     this.statusRefreshState = state;
     this.statusRefreshMessage.textContent = showInlineMessage ? FRIEND_STATUS_REFRESH_MESSAGES[state] : '';
     this.statusRefreshMessage.hidden = !showInlineMessage;
