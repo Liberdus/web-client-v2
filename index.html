@@ -2739,6 +2739,16 @@
           <div class="modal-title">Validator Staking</div>
         </div>
         <div class="modal-content">
+          <!-- Pending stake/unstake status -->
+          <div
+            id="pending-nominee-skeleton-1"
+            class="validator-pending-status"
+            role="status"
+            aria-live="polite"
+          >
+            <span id="pending-tx-text-in-bar"></span>
+          </div>
+
           <!-- Loading State -->
           <div id="validator-loading" style="text-align: center; padding: 1rem; display: none">
             <div class="spinner"></div>
@@ -2768,33 +2778,6 @@
             <!-- Your Stake Info - only shown when a nominee exists -->
             <div id="validator-stake-info" class="info-section">
               <h4>Your Stake Info</h4>
-              <!-- New Skeleton Bars for Pending Nominee Info -->
-              <div
-                class="skeleton-item"
-                id="pending-nominee-skeleton-1"
-                style="
-                  display: none;
-                  height: 22px;
-                  width: 100%;
-                  margin-top: 4px;
-                  margin-bottom: 8px;
-                  background-color: #e0e0e0;
-                  padding: 0 5px;
-                  box-sizing: border-box;
-                "
-              >
-                <span
-                  id="pending-tx-text-in-bar"
-                  style="
-                    display: none;
-                    font-size: 0.75em;
-                    color: #333;
-                    line-height: 22px;
-                    width: 100%;
-                    text-align: center;
-                  "
-                ></span>
-              </div>
               <div class="info-item vertical-layout">
                 <span class="info-label" id="validator-nominee-label">Nominated Validator:</span>
                 <span class="info-value code" id="validator-nominee"></span>

@@ -7620,6 +7620,23 @@ small {
   font-size: var(--font-size-base);
 }
 
+.validator-pending-status {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  border: 1px solid var(--primary-tint-20);
+  border-radius: 8px;
+  background-color: var(--primary-tint-12);
+  color: var(--primary-color);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+}
+
 #validatorModal .action-item {
   display: flex;
   flex-direction: column;
@@ -7920,26 +7937,6 @@ small {
   /* display: flex, align-items: center are inherited or default */
   /* Ensure its width is not 100% of screen if it was before */
   width: 100%;
-}
-
-/* Validator Modal Pending Transaction Skeleton */
-
-.skeleton-item {
-  background-color: var(--skeleton-bg); /* Light grey for skeleton */
-  border-radius: 4px; /* Optional: for rounded corners */
-  animation: pulse 1.5s infinite ease-in-out;
-}
-
-@keyframes pulse {
-  0% {
-    background-color: var(--skeleton-bg); /* Initial color */
-  }
-  50% {
-    background-color: var(--skeleton-pulse-bg); /* Slightly darker or different shade for pulse effect */
-  }
-  100% {
-    background-color: var(--skeleton-bg); /* Return to initial color */
-  }
 }
 
 .amount-container {

@@ -17080,7 +17080,7 @@ class ValidatorStakingModal {
     this.learnMoreButton = document.getElementById('validator-learn-more');
     this.rewardsEstimateElement = document.getElementById('validator-rewards-estimate');
 
-    // Skeleton bar elements
+    // Pending transaction status elements
     this.pendingSkeletonBar = document.getElementById('pending-nominee-skeleton-1');
     this.pendingTxTextInBar = document.getElementById('pending-tx-text-in-bar');
 
@@ -17123,19 +17123,17 @@ class ValidatorStakingModal {
 
   updatePendingTxUi(currentPendingTx) {
     this.nomineeValueElement.style.display = '';
-    this.pendingTxTextInBar.style.display = 'none';
+    this.pendingTxTextInBar.textContent = '';
     this.pendingSkeletonBar.style.display = 'none';
     this.stakeButton.disabled = Boolean(currentPendingTx);
 
     if (!currentPendingTx) return;
 
-    this.detailsElement.style.display = 'block';
-    this.pendingSkeletonBar.style.display = 'flex';
     this.pendingTxTextInBar.textContent =
       currentPendingTx.type === 'withdraw_stake'
-        ? 'Pending Unstake Transaction'
-        : 'Pending Stake Transaction';
-    this.pendingTxTextInBar.style.display = 'block';
+        ? 'Unstake submitted — pending confirmation'
+        : 'Stake submitted — pending confirmation';
+    this.pendingSkeletonBar.style.display = 'flex';
   }
 
   /**
