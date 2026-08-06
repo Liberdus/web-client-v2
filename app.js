@@ -17331,6 +17331,10 @@ class ValidatorStakingModal {
         this.lockInfo = null;
       }
 
+      // Re-read pending so settlement changes are reflected after refresh
+      const latestPendingTx = this.getCurrentPendingStakeTx();
+      this.updatePendingTxUi(latestPendingTx);
+      this.updateUnstakeLockUI({ nominee, currentPendingTx: latestPendingTx });
       this.detailsElement.style.display = 'block'; // Or 'flex' if it's a flex container
     } catch (error) {
       console.error('Error fetching validator details:', error);
@@ -17344,10 +17348,6 @@ class ValidatorStakingModal {
     } finally {
       // Hide loading indicator regardless of success or failure
       this.loadingElement.style.display = 'none';
-      // Re-read pending so settlement changes are reflected after refresh
-      const latestPendingTx = this.getCurrentPendingStakeTx();
-      this.updatePendingTxUi(latestPendingTx);
-      this.updateUnstakeLockUI({ nominee, currentPendingTx: latestPendingTx });
     }
   }
 
