@@ -17131,13 +17131,10 @@ class ValidatorStakingModal {
 
     this.detailsElement.style.display = 'block';
     this.pendingSkeletonBar.style.display = 'flex';
-    let pendingText = 'Pending Stake Transaction';
-    if (currentPendingTx.type === 'withdraw_stake') {
-      pendingText = currentPendingTx.confirmationDelayed
-        ? 'Unstake confirmation taking longer than expected'
-        : 'Pending Unstake Transaction';
-    }
-    this.pendingTxTextInBar.textContent = pendingText;
+    this.pendingTxTextInBar.textContent =
+      currentPendingTx.type === 'withdraw_stake'
+        ? 'Pending Unstake Transaction'
+        : 'Pending Stake Transaction';
     this.pendingTxTextInBar.style.display = 'block';
   }
 
@@ -17347,7 +17344,7 @@ class ValidatorStakingModal {
     } finally {
       // Hide loading indicator regardless of success or failure
       this.loadingElement.style.display = 'none';
-      // Re-read pending so delayed/unresolved confirmation is reflected after refresh
+      // Re-read pending so settlement changes are reflected after refresh
       const latestPendingTx = this.getCurrentPendingStakeTx();
       this.updatePendingTxUi(latestPendingTx);
       this.updateUnstakeLockUI({ nominee, currentPendingTx: latestPendingTx });
@@ -33521,16 +33518,6 @@ async function checkPendingTransactionsOnce() {
       const res = await queryNetwork(endpointPath);
       //console.log(`DEBUG: txid ${txid} res: ${JSON.stringify(res)}`);
       if (submittedts < thirtySecondsAgo && (res.transaction === null || Object.keys(res.transaction).length === 0)) {
-        if (type === 'withdraw_stake') {
-          if (!pendingTxInfo.confirmationDelayed) {
-            pendingTxInfo.confirmationDelayed = true;
-            didMutatePendingState = true;
-            showToast('Unstake confirmation is taking longer than expected', 0, 'warning');
-            await validatorModal.refreshIfOpen();
-          }
-          continue;
-        }
-
         console.error(`DEBUG: txid ${txid} timed out, removing completely`);
         if (reactionPending) {
           const outcome = settleAndQueueReactionCleanup(pendingTxInfo, 'failure');
@@ -33541,6 +33528,12 @@ async function checkPendingTransactionsOnce() {
         }
         if (!removePendingTransaction(txid)) continue;
         didMutatePendingState = true;
+
+        if (type === 'withdraw_stake') {
+          myData.wallet.history = myData.wallet.history.filter((tx) => tx.txid !== txid);
+          showToast('Unstake confirmation timed out. Please try again.', 0, 'warning');
+          await validatorModal.refreshIfOpen();
+        }
 
         if (pendingTxInfo.editPending) {
           reconcilePendingMessageEdit(pendingTxInfo);
