@@ -12,9 +12,8 @@ This document describes the DAO / proposals feature as currently implemented in 
 
 1. **DAO Modal**
    - Shows a list of proposals.
-   - Includes an **Active / Archived** segmented toggle.
-   - Includes a **Status filter** that filters by proposal status and shows **counts**.
-   - The **All** status filter displays every proposal in the selected Active / Archived group.
+   - Includes a **Status filter** for server-provided proposal statuses and their **counts**.
+   - The **All** status filter displays every proposal returned by the server summary.
    - The proposal list is filtered by the selected option.
    - List ordering is **newest to enter the selected state first** (sort by `stateEnteredAt` descending, falling back to `createdAt`).
    - Clicking a proposal opens the Proposal Info modal.
@@ -51,21 +50,11 @@ The UI uses these statuses:
 - `accepted`
 - `applied`
 
-### Archived is a group, not a status
-
-- “Archived” is a **category/group** in the UI (Active vs Archived), not a status.
-- Archived proposals keep their underlying status (e.g. `applied`) and can still be filtered by status.
-- Auto-archiving rule:
-  - Proposals in these statuses are eligible to be auto-archived after 30 days in that state:
-    - `withheld`, `rejected`, `accepted`, `applied`
-
 ## Data model used by the UI
 
 The UI consumes an in-memory “store” shape:
 
-- `meta`: `{ count, active, archived }`
-- `activeProposals`: list of lightweight proposal metadata
-- `archivedProposals`: list of lightweight proposal metadata
+- `meta`: `{ count }`
 - `proposals`: map of `proposalId -> full proposal`
 
 Identifiers:
@@ -88,7 +77,7 @@ Full proposal fields (current shape in memory):
 
 - DAO UI implementation: [app.js](app.js)
 - In-memory repository abstraction: [dao.repo.js](dao.repo.js)
-- Shared constants/helpers (states, type labels, archiving constants): [dao.repo.js](dao.repo.js)
+- Shared constants/helpers (states and type labels): [dao.repo.js](dao.repo.js)
 
 Important implementation detail:
 
@@ -144,18 +133,7 @@ For production you likely want:
   - refresh the proposal, or
   - patch the vote totals from server response.
 
-### 4) Decide how “Archived” is represented server-side
-
-The UI rule is “Archived is a group, not a status.”
-
-Options:
-
-- Server only stores status + timestamps; client derives archived group via the 30-day rule.
-- Server stores an explicit archived flag / archivedAt; client uses it.
-
-If you choose server-side archiving, update `normalizeDaoStore()` accordingly.
-
-### 5) Loading / errors / pagination
+### 4) Loading / errors / pagination
 
 The UI already shows a basic loading empty-state while `daoRepo.refresh()` is running.
 
@@ -165,7 +143,7 @@ For production, consider adding:
 - Incremental refresh (don’t blow away list on refresh)
 - Better error states (retry button)
 
-### 6) Auth / permissions
+### 5) Auth / permissions
 
 The UI derives a `voterId` from the account in memory, but a real backend will likely require:
 
