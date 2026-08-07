@@ -2530,7 +2530,6 @@ function formatDaoProposalTitle(proposal) {
 
 class DaoModal {
   constructor() {
-    this.selectedGroupKey = 'active';
     this.selectedFilterKey = 'voting';
     this.refreshState = 'loading';
     this.refreshSequence = 0;
@@ -2545,9 +2544,6 @@ class DaoModal {
     this.filterBar = document.getElementById('daoFilterBar');
     this.filterOverflow = document.getElementById('daoFilterOverflow');
     this.filterExpandButton = document.getElementById('daoFilterExpandButton');
-    this.groupToggle = this.modal.querySelector('.dao-group-toggle');
-    this.groupActiveButton = document.getElementById('daoGroupActiveButton');
-    this.groupArchivedButton = document.getElementById('daoGroupArchivedButton');
     this.list = document.getElementById('daoProposalList');
     this.emptyState = document.getElementById('daoProposalEmptyState');
     this.addButton = document.getElementById('daoAddProposalButton');
@@ -2568,17 +2564,6 @@ class DaoModal {
     if (this.filterExpandButton) {
       this.filterExpandButton.addEventListener('click', () => {
         this.setFiltersExpanded(this.filterOverflow.hidden);
-      });
-    }
-
-    if (this.groupActiveButton) {
-      this.groupActiveButton.addEventListener('click', () => {
-        this.setGroupFilter('active');
-      });
-    }
-    if (this.groupArchivedButton) {
-      this.groupArchivedButton.addEventListener('click', () => {
-        this.setGroupFilter('archived');
       });
     }
   }
@@ -2602,7 +2587,6 @@ class DaoModal {
 
     // Default filter is Voting
     this.selectedFilterKey = this.selectedFilterKey || 'voting';
-    this.selectedGroupKey = this.selectedGroupKey || 'active';
     this.render();
 
     try {
@@ -2699,59 +2683,28 @@ class DaoModal {
     this.render();
   }
 
-  setGroupFilter(key) {
-    this.selectedGroupKey = key;
-    this.render();
-  }
-
   render() {
     const hasFreshData = this.refreshState === 'ready';
-    const proposalsActive = hasFreshData ? daoRepo.getProposalsForUi('active') : [];
-    const proposalsArchived = hasFreshData ? daoRepo.getProposalsForUi('archived') : [];
+    const proposals = hasFreshData ? daoRepo.getProposalsForUi() : [];
     const currentAddress = getDaoCurrentAccountAddress();
     const now = getTransactionTimestamp();
     const isAllFilter = this.selectedFilterKey === DAO_ALL_FILTER.key;
     const isClaimableFilter = this.selectedFilterKey === DAO_CLAIMABLE_FILTER.key;
-    const groupedProposals = this.selectedGroupKey === 'archived' ? proposalsArchived : proposalsActive;
-    const claimableProposals = [...proposalsActive, ...proposalsArchived]
-      .filter((proposal) => isDaoProposalClaimable(proposal, currentAddress, now));
+    const claimableProposals = proposals.filter(
+      (proposal) => isDaoProposalClaimable(proposal, currentAddress, now)
+    );
 
-    // State counts follow the selected group; Claimable spans both groups.
     const counts = Object.fromEntries(DAO_FILTER_OPTIONS.map((filter) => [filter.key, 0]));
-    for (const p of groupedProposals) {
+    for (const p of proposals) {
       const state = getEffectiveDaoState(p);
       if (counts[state] !== undefined) counts[state] += 1;
     }
-    counts[DAO_ALL_FILTER.key] = groupedProposals.length;
+    counts[DAO_ALL_FILTER.key] = proposals.length;
     counts[DAO_CLAIMABLE_FILTER.key] = claimableProposals.length;
 
-    // Update header title
-    const groupLabel = this.selectedGroupKey === 'archived' ? 'Archived' : 'Active';
     const label = DAO_FILTER_OPTIONS.find((filter) => filter.key === this.selectedFilterKey)?.label
       || this.selectedFilterKey;
-    if (this.titleEl) this.titleEl.textContent = isClaimableFilter ? 'DAO - Claimable' : `DAO - ${groupLabel} - ${label}`;
-    // Claimable spans both groups, so hide Active/Archived while keeping the filter bar.
-    if (this.groupToggle) this.groupToggle.classList.toggle('hidden', isClaimableFilter);
-
-    // Update group toggle labels + selection
-    const groups = [
-      { key: 'active', label: 'Active', button: this.groupActiveButton, count: proposalsActive.length },
-      { key: 'archived', label: 'Archived', button: this.groupArchivedButton, count: proposalsArchived.length },
-    ];
-    for (const { key, label: groupName, button, count } of groups) {
-      if (!button) continue;
-      const countEl = button.querySelector('.dao-group-toggle-count');
-      if (countEl) {
-        countEl.textContent = hasFreshData ? String(count) : '—';
-        countEl.setAttribute(
-          'aria-label',
-          hasFreshData ? `${count} ${key} proposals` : `${groupName} count unavailable`
-        );
-      }
-      const selected = this.selectedGroupKey === key;
-      button.classList.toggle('active', selected);
-      button.setAttribute('aria-selected', selected ? 'true' : 'false');
-    }
+    if (this.titleEl) this.titleEl.textContent = `DAO - ${label}`;
 
     for (const filter of DAO_FILTER_OPTIONS) {
       const chip = this.filterBar?.querySelector(`.dao-filter-chip[data-filter-key="${filter.key}"]`);
@@ -2775,7 +2728,7 @@ class DaoModal {
     // Filter + sort (newest entered into state first)
     const matchingProposals = isClaimableFilter
       ? claimableProposals
-      : groupedProposals.filter((proposal) => (
+      : proposals.filter((proposal) => (
         isAllFilter || getEffectiveDaoState(proposal) === this.selectedFilterKey
       ));
     const filtered = matchingProposals
@@ -2789,13 +2742,11 @@ class DaoModal {
     const hasAny = filtered.length > 0;
     if (this.emptyState) this.emptyState.style.display = hasAny ? 'none' : 'block';
 
-    // Update empty state copy based on group.
     if (this.emptyState && !hasAny) {
       const lines = Array.from(this.emptyState.querySelectorAll('div'));
       // Structure is: [0]=spacer, [1]=headline, [2]=subline, [3]=optional third line.
       const headlineEl = lines[1] || null;
       const sublineEl = lines[2] || null;
-      const isArchived = this.selectedGroupKey === 'archived';
 
       if (this.refreshState === 'loading') {
         if (headlineEl) headlineEl.textContent = 'Loading proposals…';
@@ -2807,12 +2758,8 @@ class DaoModal {
         if (headlineEl) headlineEl.textContent = 'No claimable proposals found';
         if (sublineEl) sublineEl.textContent = 'You have no voter rewards ready to claim';
       } else {
-        if (headlineEl) headlineEl.textContent = isArchived ? 'No archived proposals found' : 'No proposals found';
-        if (sublineEl) {
-          sublineEl.textContent = isArchived
-            ? 'Archived proposals appear here after they age out'
-            : 'Proposal data appears here when available';
-        }
+        if (headlineEl) headlineEl.textContent = 'No proposals found';
+        if (sublineEl) sublineEl.textContent = 'Proposal data appears here when available';
       }
     }
 

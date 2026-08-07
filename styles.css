@@ -8343,7 +8343,7 @@ small {
   position: relative;
 }
 
-/* DAO modal: filter bar stays fixed; Active/Archived scrolls with the list. */
+/* DAO modal: filter bar stays fixed while the list scrolls. */
 #daoModal .dao-toolbar {
   background: var(--background-color);
   display: flex;
@@ -8390,8 +8390,7 @@ small {
   display: none;
 }
 
-#daoModal .dao-filter-chip,
-#daoModal .dao-group-toggle-button {
+#daoModal .dao-filter-chip {
   align-items: center;
   appearance: none;
   background: transparent;
@@ -8410,8 +8409,7 @@ small {
   white-space: nowrap;
 }
 
-#daoModal .dao-filter-chip:hover,
-#daoModal .dao-group-toggle-button:hover {
+#daoModal .dao-filter-chip:hover {
   background: var(--hover-background-dark);
 }
 
@@ -8429,13 +8427,11 @@ small {
   color: var(--background-color);
 }
 
-#daoModal .dao-filter-chip-label,
-#daoModal .dao-group-toggle-label {
+#daoModal .dao-filter-chip-label {
   flex: 0 0 auto;
 }
 
-#daoModal .dao-filter-chip-count,
-#daoModal .dao-group-toggle-count {
+#daoModal .dao-filter-chip-count {
   align-items: center;
   background: var(--hover-background);
   border: 1px solid var(--border-color);
@@ -8497,31 +8493,6 @@ small {
   #daoModal .dao-filter-overflow[hidden] {
     display: flex;
   }
-}
-
-#daoModal .dao-group-toggle {
-  background: var(--input-background);
-  border: 1px solid var(--border-color, rgba(0,0,0,0.12));
-  border-radius: 8px;
-  display: grid;
-  gap: 4px;
-  grid-template-columns: 1fr 1fr;
-  margin: 10px 16px;
-  padding: 4px;
-}
-
-#daoModal .dao-group-toggle-button {
-  padding: 8px 10px;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-#daoModal .dao-group-toggle-button.active {
-  background: var(--hover-background-dark);
-}
-
-#daoModal .dao-group-toggle-button.active .dao-group-toggle-count {
-  background: rgba(0, 0, 0, 0.08);
-  border-color: rgba(0, 0, 0, 0.1);
 }
 
 #daoModal #daoProposalList {

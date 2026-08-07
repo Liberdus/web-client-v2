@@ -4,10 +4,6 @@ import { normalizeAddress, utf82bin } from './lib.js';
 // Shared DAO constants and light helper functions.
 // Kept here so UI + repo can share one import surface.
 
-export const DAO_ARCHIVE_AFTER_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-
-export const DAO_ARCHIVABLE_STATE_KEYS = ['withheld', 'rejected', 'accepted', 'applied'];
-
 const DAO_REWARD_STATE_KEYS = ['accepted', 'rejected', 'applied'];
 
 export const DAO_TYPE_OPTIONS = [
@@ -639,9 +635,7 @@ async function submitDaoProposalAction({
 
 function createEmptyDaoStore() {
   return {
-    meta: { count: 0, active: 0, archived: 0 },
-    activeProposals: [],
-    archivedProposals: [],
+    meta: { count: 0 },
     proposals: {},
   };
 }
@@ -820,25 +814,11 @@ function mapBackendProposalToStoreProposal(proposal, summaryEntry) {
   };
 }
 
-function getDaoStoreMeta(proposal) {
-  return {
-    number: proposal.number,
-    title: proposal.title,
-    state: proposal.state,
-    status: proposal.status,
-    state_changed: proposal.state_changed,
-    proposalType: proposal.proposalType,
-    nonce: proposal.nonce,
-  };
-}
-
 function buildStoreFromBackendProposals(count, summaryProposals) {
   const store = createEmptyDaoStore();
 
   store.meta = {
     count: Math.max(normalizeDaoPositiveInteger(count), summaryProposals.length),
-    active: 0,
-    archived: 0,
   };
 
   for (const { proposal: rawProposal, summaryEntry } of summaryProposals) {
@@ -847,7 +827,6 @@ function buildStoreFromBackendProposals(count, summaryProposals) {
 
     const id = daoProposalId(proposal.number, proposal.nonce);
     store.proposals[id] = proposal;
-    store.activeProposals.push(getDaoStoreMeta(proposal));
   }
 
   return store;
@@ -893,114 +872,52 @@ export function createDaoBackendFetcher(queryDaoApi) {
 
 function normalizeDaoStore(store) {
   const safe = store && typeof store === 'object' ? store : createEmptyDaoStore();
-  safe.meta = safe.meta && typeof safe.meta === 'object' ? safe.meta : { count: 0, active: 0, archived: 0 };
-  safe.activeProposals = Array.isArray(safe.activeProposals) ? safe.activeProposals : [];
-  safe.archivedProposals = Array.isArray(safe.archivedProposals) ? safe.archivedProposals : [];
   safe.proposals = safe.proposals && typeof safe.proposals === 'object' ? safe.proposals : {};
 
-  // If store is missing count, reconstruct from proposals.
-  if (!Number.isFinite(Number(safe.meta.count))) {
-    const nums = Object.values(safe.proposals)
-      .map((p) => Number(p?.number || 0))
-      .filter((n) => n > 0);
-    safe.meta.count = nums.length ? Math.max(...nums) : 0;
-  }
-
-  // Auto-archive proposals that have been in certain states for > 30 days.
-  // Archived is a *category* (group), not a proposal state.
-  const now = Date.now();
-  const activeNext = [];
-  const archivedIds = new Set(safe.archivedProposals.map((m) => daoProposalId(m.number, m.nonce)));
-
-  for (const meta of safe.activeProposals) {
-    const id = daoProposalId(meta.number, meta.nonce);
-    const full = safe.proposals[id];
-    if (!full) continue;
-
-    const state = getEffectiveDaoState({ status: full.status || meta.status, state: full.state || meta.state });
-    const enteredAt = Number(full.state_changed || meta.state_changed || full.created || 0);
-    const isArchivable = DAO_ARCHIVABLE_STATE_KEYS.includes(state);
-
-    if (isArchivable && enteredAt && now - enteredAt >= DAO_ARCHIVE_AFTER_MS) {
-      const archivedAt = Number(full.archivedAt || (enteredAt + DAO_ARCHIVE_AFTER_MS));
-      full.archivedAt = archivedAt;
-
-      if (!archivedIds.has(id)) {
-        safe.archivedProposals.push({
-          number: meta.number,
-          title: meta.title,
-          state,
-          state_changed: enteredAt,
-          proposalType: meta.proposalType,
-          nonce: meta.nonce,
-        });
-        archivedIds.add(id);
-      }
-      continue;
-    }
-
-    activeNext.push(meta);
-  }
-
-  safe.activeProposals = activeNext;
-
-  // Remove archived metas whose full proposal no longer exists.
-  safe.archivedProposals = safe.archivedProposals.filter((m) => {
-    const id = daoProposalId(m.number, m.nonce);
-    return Boolean(safe.proposals[id]);
-  });
-
-  safe.meta.active = safe.activeProposals.length;
-  safe.meta.archived = safe.archivedProposals.length;
-  safe.meta.count = Math.max(
-    Number(safe.meta.count || 0),
-    ...safe.activeProposals.map((m) => Number(m.number || 0)),
-    ...safe.archivedProposals.map((m) => Number(m.number || 0))
-  );
+  const proposalNumbers = Object.values(safe.proposals)
+    .map((proposal) => normalizeDaoPositiveInteger(proposal?.number));
+  safe.meta = {
+    count: Math.max(normalizeDaoPositiveInteger(safe.meta?.count), ...proposalNumbers),
+  };
 
   return safe;
 }
 
-function storeToUiList(store, groupKey) {
-  const safe = store || createEmptyDaoStore();
-  const metas = groupKey === 'archived' ? safe.archivedProposals : safe.activeProposals;
-  return metas
-    .map((m) => {
-      const id = daoProposalId(m.number, m.nonce);
-      const p = safe.proposals?.[id];
-      if (!p) return null;
-      const state = getEffectiveDaoState({ status: p.status || m.status, state: p.state || m.state });
+function storeToUiList(store) {
+  return Object.values(store?.proposals || {})
+    .map((proposal) => {
+      if (!proposal || typeof proposal !== 'object') return null;
+      const state = getEffectiveDaoState(proposal);
       return {
-        id,
-        number: p.number,
-        accountId: p.accountId,
-        nonce: p.nonce,
-        title: p.title,
-        description: p.description,
-        proposalType: p.proposalType,
-        emergency: Boolean(p.emergency),
-        createdAt: p.created,
+        id: daoProposalId(proposal.number, proposal.nonce),
+        number: proposal.number,
+        accountId: proposal.accountId,
+        nonce: proposal.nonce,
+        title: proposal.title,
+        description: proposal.description,
+        proposalType: proposal.proposalType,
+        emergency: Boolean(proposal.emergency),
+        createdAt: proposal.created,
         state,
         status: state,
-        stateEnteredAt: p.state_changed,
-        options: p.options,
-        totalVote: p.totalVote,
-        committeeVotes: p.committeeVotes,
-        committeeAddresses: p.committeeAddresses,
-        voterRewardPool: p.voterRewardPool,
-        claimedReward: p.claimedReward,
-        initialBurnedReward: p.initialBurnedReward,
-        finalBurnedReward: p.finalBurnedReward,
-        voterList: p.voterList,
-        claimList: p.claimList,
-        startTime: p.startTime,
-        reviewDuration: p.reviewDuration,
-        votingStartedAt: p.votingStartedAt,
-        votingEndedAt: p.votingEndedAt,
-        votingDuration: p.votingDuration,
-        claimDuration: p.claimDuration,
-        gracePeriod: p.gracePeriod,
-        archivedAt: p.archivedAt || 0,
+        stateEnteredAt: proposal.state_changed,
+        options: proposal.options,
+        totalVote: proposal.totalVote,
+        committeeVotes: proposal.committeeVotes,
+        committeeAddresses: proposal.committeeAddresses,
+        voterRewardPool: proposal.voterRewardPool,
+        claimedReward: proposal.claimedReward,
+        initialBurnedReward: proposal.initialBurnedReward,
+        finalBurnedReward: proposal.finalBurnedReward,
+        voterList: proposal.voterList,
+        claimList: proposal.claimList,
+        startTime: proposal.startTime,
+        reviewDuration: proposal.reviewDuration,
+        votingStartedAt: proposal.votingStartedAt,
+        votingEndedAt: proposal.votingEndedAt,
+        votingDuration: proposal.votingDuration,
+        claimDuration: proposal.claimDuration,
+        gracePeriod: proposal.gracePeriod,
       };
     })
     .filter(Boolean);
@@ -1011,8 +928,7 @@ let _loadingPromise = null;
 let _refreshVersion = 0;
 let _latestCommittedRefreshVersion = 0;
 
-// Backend integration hook. The fetcher should return the DAO store shape
-// consumed by this repository: meta, activeProposals, archivedProposals, proposals.
+// Backend integration hook. The fetcher returns a count and the loaded proposal details.
 let _backendFetcher = null;
 
 export function setDaoBackendFetcher(fetcher) {
@@ -1069,8 +985,8 @@ export const daoRepo = {
     return _store?.proposals?.[proposalId] || null;
   },
 
-  getProposalsForUi(groupKey) {
-    return storeToUiList(_store, groupKey);
+  getProposalsForUi() {
+    return storeToUiList(_store);
   },
 
   async createProposal({
