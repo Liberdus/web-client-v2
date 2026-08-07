@@ -1,6 +1,6 @@
 # DAO (Proposals) UI
 
-This document describes the DAO / proposals feature as currently implemented in the web client, and what remains after the proposal list query integration.
+This document describes the DAO / proposals feature as currently implemented in the web client.
 
 ## What’s implemented (current behavior)
 
@@ -97,13 +97,12 @@ Important implementation detail:
 
 ## Backend Data Boundary
 
-- `app.js` registers `setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork, IS_DEV_NETWORK))`.
+- `app.js` registers `setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork))`.
 - `dao.repo.js` keeps endpoint querying and backend-to-UI mapping behind the repository boundary.
 - Proposal list loading uses the current server DAO query shape:
-  - `GET /dao/proposals/meta` for `meta.count`
-  - `GET /dao/proposals/:number` for each proposal number from `1..count`
-- On Devnet, proposal numbers `1`, `3`, `4`, `5`, `6`, and `31` are removed from the query list before proposal details are fetched.
-- The fetcher skips missing numbered proposals so nodes that have not yet surfaced an account do not block the whole list.
+  - `GET /dao/proposals/summary` for the recent-activity index and total count
+  - `GET /dao/proposals/:number` for each indexed proposal's details
+- The fetcher skips an unavailable detail response so it does not block the remaining indexed proposals from rendering.
 
 ## What must change for a live backend
 
@@ -113,13 +112,13 @@ This section is the remaining integration checklist after moving the DAO list to
 
 `daoRepo` uses an injected fetcher and otherwise returns an empty store.
 
-The app passes `queryNetwork` and its Devnet flag into `createDaoBackendFetcher(...)`; the repository maps backend `DaoProposalAccount` payloads into the store shape the UI expects.
+The app passes `queryNetwork` into `createDaoBackendFetcher(...)`; the repository maps the summary index and `DaoProposalAccount` payloads into the store shape the UI expects.
 
 ### 2) Define backend endpoints / payloads
 
 Known read endpoints:
 
-- `GET /dao/proposals/meta`
+- `GET /dao/proposals/summary`
 - `GET /dao/proposals/:number`
 
 Still needed for later phases:
