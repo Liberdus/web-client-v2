@@ -33157,7 +33157,7 @@ class ReactNativeApp {
         let addresses = [];
         if (netidAccounts?.usernames) {
           // Get addresses from all stored accounts and convert to long format
-          addresses = Object.values(netidAccounts.usernames).map(account => longAddress(account.address));
+          addresses = (netidAccounts[SIGN_IN_USERNAME_ORDER_KEY]?.public || []).map(username => longAddress(netidAccounts.usernames[username].address));
         }
 
         if (addresses.length < 1) return;
@@ -33238,7 +33238,7 @@ class ReactNativeApp {
     const netidAccounts = existingAccounts.netids[netid];
     let allStoredAddresses = [];
     if (netidAccounts?.usernames) {
-      allStoredAddresses = Object.values(netidAccounts.usernames).map(account => longAddress(account.address));
+      allStoredAddresses = (netidAccounts[SIGN_IN_USERNAME_ORDER_KEY]?.public || []).map(username => longAddress(netidAccounts.usernames[username].address));
     }
 
     // Create a list of addresses to keep subscribed, excluding the current user.
