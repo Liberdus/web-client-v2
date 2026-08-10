@@ -35,7 +35,7 @@ This document describes the DAO / proposals feature as currently implemented in 
      - Type label
      - State + timestamp + created-by
      - Summary
-     - Type-specific fields
+     - A card for every option, with each action option displaying only its matching nested parameter change set and its current/proposed values
    - Shows voting controls only when the proposal is in **Voting** state.
    - Voting is **Yes/No**, tracked per “voter id” derived from the current account:
      - `myAccount.address` / `myData.account.address` → fallback to username → fallback to `anon`.
