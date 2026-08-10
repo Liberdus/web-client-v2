@@ -26,7 +26,7 @@ This document describes the DAO / proposals feature as currently implemented in 
      - Type
      - A required **No change** option plus one or more options with parameter changes
      - A separate type-specific change set for each option
-   - The UI validates and previews the nested proposal shape. Submission remains unavailable until the nested transaction payload is wired.
+   - The UI validates the nested proposal shape. Rendering nested change sets in the review modal is tracked in [#1554](https://github.com/Liberdus/web-client-v2/issues/1554); submission remains unavailable until the nested transaction payload is wired.
 
 3. **Proposal Info Modal**
    - Displays proposal:
