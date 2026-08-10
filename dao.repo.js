@@ -75,7 +75,6 @@ export const DAO_STATES = [
 export const DAO_PROPOSAL_DAY_MS = 24 * 60 * 60 * 1000;
 export const DAO_PROPOSAL_GRACE_PERIOD_MAX_MS = 999_999_999_999;
 const DAO_PROPOSAL_MAX_DATE_MS = 100_000_000 * DAO_PROPOSAL_DAY_MS; // ECMAScript Date limit.
-const DAO_AFFIRMATIVE_OPTION_STRINGS = ['yes', 'accept', 'approve'];
 const DAO_PROPOSALS_META_ID_STRING = 'dao proposals meta';
 export const DAO_PROPOSAL_TITLE_MAX_LENGTH = 100;
 export const DAO_PROPOSAL_CREATE_TYPE = 'dao_proposal_create';
@@ -253,26 +252,49 @@ function getDaoProposalLifecycleDurationMs({
   return durationMs;
 }
 
-function normalizeDaoDraftChanges(changes) {
-  if (!Array.isArray(changes) || changes.length === 0) {
-    throw new Error('At least one DAO parameter change is required');
+function normalizeDaoDraftChanges(changes, actionOptionCount) {
+  if (!Array.isArray(changes) || changes.length !== actionOptionCount) {
+    throw new Error('DAO proposal changes must match its action options');
   }
 
-  return changes.map((change) => ({
-    key: requireDaoDraftString(change?.key, 'DAO parameter key'),
-    value: String(change?.value ?? '').trim(),
-    current: String(change?.current ?? ''),
-  }));
+  let templateKeys = null;
+  return changes.map((changeSet, optionIndex) => {
+    if (!Array.isArray(changeSet) || changeSet.length === 0) {
+      throw new Error(`DAO proposal option ${optionIndex + 1} needs parameter changes`);
+    }
+
+    const seenKeys = new Set();
+    const normalizedChangeSet = changeSet.map((change) => {
+      const key = requireDaoDraftString(change?.key, 'DAO parameter key');
+      if (seenKeys.has(key)) throw new Error(`DAO proposal option ${optionIndex + 1} has duplicate ${key} changes`);
+      seenKeys.add(key);
+      return {
+        key,
+        value: requireDaoDraftString(change?.value, 'DAO parameter value'),
+        current: String(change?.current ?? ''),
+      };
+    });
+
+    const keys = normalizedChangeSet.map((change) => change.key);
+    if (templateKeys && (keys.length !== templateKeys.length || keys.some((key, index) => key !== templateKeys[index]))) {
+      throw new Error('DAO proposal action options must use the same parameters');
+    }
+    templateKeys = keys;
+    return normalizedChangeSet;
+  });
 }
 
-function normalizeDaoDraftOptions(options) {
+function normalizeDaoDraftOptions(options, emergency) {
   if (!Array.isArray(options) || options.length < 2 || options.length > 10) {
     throw new Error('DAO proposal options must contain 2 to 10 entries');
   }
 
   const safeOptions = options.map((option) => requireDaoDraftString(option, 'DAO proposal option'));
-  if (!DAO_AFFIRMATIVE_OPTION_STRINGS.includes(safeOptions[0].toLowerCase())) {
-    throw new Error('The first DAO proposal option must be yes, accept, or approve');
+  if (safeOptions[0].toLowerCase() !== 'no') {
+    throw new Error('The first DAO proposal option must be no change');
+  }
+  if (emergency === true && safeOptions.length !== 2) {
+    throw new Error('Emergency DAO proposals need exactly one action option');
   }
   return safeOptions;
 }
@@ -310,12 +332,9 @@ export function buildDaoProposalCreateDraft({
   }
 
   const isEmergency = emergency === true;
+  const safeOptions = normalizeDaoDraftOptions(options, isEmergency);
+  const safeChanges = normalizeDaoDraftChanges(changes, safeOptions.length - 1);
   const feeUsdStr = isEmergency ? '0' : requireDaoDraftString(proposalFeeUsdStr, 'DAO proposal fee');
-  const safeReviewStartTimeMs = normalizeDaoDraftReviewStartTime(reviewStartTimeMs);
-  const safeGracePeriodMs = normalizeDaoDraftGracePeriodMs(gracePeriodMs, maxGracePeriodMs);
-  const safeOptions = normalizeDaoDraftOptions(options);
-  const safeChanges = normalizeDaoDraftChanges(changes);
-
   const transaction = {
     from: requireDaoDraftString(from, 'DAO proposal sender'),
     emergency: isEmergency,
@@ -323,14 +342,14 @@ export function buildDaoProposalCreateDraft({
     title: requireDaoDraftString(displayTitle, 'DAO proposal title', DAO_PROPOSAL_TITLE_MAX_LENGTH),
     description: requireDaoDraftString(description, 'DAO proposal description'),
     options: safeOptions,
-    gracePeriod: safeGracePeriodMs,
+    gracePeriod: normalizeDaoDraftGracePeriodMs(gracePeriodMs, maxGracePeriodMs),
     [safeProposalType]: { changes: safeChanges },
   };
 
   return {
     displayTitle: transaction.title,
     proposalFeeUsdStr: feeUsdStr,
-    reviewStartTimeMs: safeReviewStartTimeMs,
+    reviewStartTimeMs: normalizeDaoDraftReviewStartTime(reviewStartTimeMs),
     transaction,
   };
 }
@@ -353,14 +372,19 @@ export function buildDaoProposalCreateTransaction({
     throw new Error('DAO proposal type is not supported');
   }
 
+  const emergency = draftTx.emergency === true;
+  const options = normalizeDaoDraftOptions(draftTx.options, emergency);
+  const changes = normalizeDaoDraftChanges(draftTx[proposalType]?.changes, options.length - 1);
   const proposalId = getDaoProposalAccountId(proposalNumber);
   const txTimestamp = normalizeDaoDraftInteger(timestamp, 'DAO proposal timestamp', 'milliseconds');
   if (txTimestamp <= 0) throw new Error('DAO proposal timestamp is required');
   const reviewStartTimeMs = normalizeDaoDraftReviewStartTime(draft.reviewStartTimeMs ?? 0);
   const gracePeriod = normalizeDaoDraftGracePeriodMs(draftTx.gracePeriod, maxGracePeriodMs);
-
   const transaction = {
     ...draftTx,
+    emergency,
+    options,
+    [proposalType]: { changes },
     type: DAO_PROPOSAL_CREATE_TYPE,
     timestamp: txTimestamp,
     networkId: requireDaoDraftString(networkId, 'Network ID'),

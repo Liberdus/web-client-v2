@@ -81,10 +81,10 @@ import {
   createDaoBackendFetcher,
   DAO_ACTION_TYPES,
   DAO_CONFIG_CHANGE_OPTIONS,
-  DAO_PROPOSAL_CREATE_TYPE,
   DAO_PROPOSAL_DAY_MS,
   DAO_PROPOSAL_GRACE_PERIOD_MAX_MS,
   DAO_PROPOSAL_TITLE_MAX_LENGTH,
+  buildDaoProposalCreateDraft,
   daoRepo,
   DAO_STATES,
   getDaoTransactionMessage,
@@ -3694,21 +3694,19 @@ class AddProposalModal {
         throw this.createValidationError('Current DAO proposal fee is not loaded yet', this.proposalFeeInput);
       }
 
-      const draft = {
+      const draft = buildDaoProposalCreateDraft({
+        from: myAccount?.keys?.address ? longAddress(myAccount.keys.address) : '',
         displayTitle: title,
-        proposalFeeUsdStr: emergency ? '0' : this.proposalFeeUsdStr,
+        emergency,
+        proposalType,
+        description,
+        options,
+        changes,
+        proposalFeeUsdStr: this.proposalFeeUsdStr,
         reviewStartTimeMs,
-        transaction: {
-          from: myAccount?.keys?.address ? longAddress(myAccount.keys.address) : '',
-          emergency,
-          proposalType,
-          title,
-          description,
-          options,
-          gracePeriod: gracePeriodMs,
-          [proposalType]: { changes },
-        },
-      };
+        gracePeriodMs,
+        maxGracePeriodMs: this.maxGracePeriodMs,
+      });
       confirmProposalModal.open(draft);
     } catch (e) {
       this.showValidationError(e);
@@ -3808,6 +3806,37 @@ function renderDaoProposalOptions(proposal) {
   `;
 }
 
+function renderDaoProposalReviewOptions(proposal) {
+  const options = getDaoProposalOptions(proposal);
+  const changes = proposal[proposal.proposalType].changes;
+  const optionCards = options.map((option, index) => {
+    const optionChanges = index === 0 ? [] : changes[index - 1];
+    const optionLabel = index === 0
+      ? `<span class="proposal-option-card-label">${escapeHtml(option)}</span>`
+      : '';
+    const changesHtml = optionChanges.length
+      ? `<div class="proposal-option-card-changes">${renderDaoProposalChangeRows(optionChanges)}</div>`
+      : '';
+
+    return `
+      <div class="proposal-option-card proposal-option-card--review">
+        <div class="proposal-option-card-header">
+          <span class="proposal-option-card-number">${index + 1}</span>
+          ${optionLabel}
+        </div>
+        ${changesHtml}
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <section class="proposal-info-section">
+      <h3>Proposal Options</h3>
+      <div class="proposal-option-cards">${optionCards}</div>
+    </section>
+  `;
+}
+
 function renderDaoProposalChanges(proposal) {
   const payloadHtml = ['governance', 'economic', 'protocol']
     .map((key) => [key, proposal[key]])
@@ -3840,24 +3869,7 @@ function renderDaoProposalPayloadRows(payload, payloadTitle) {
   const titleHtml = `<div class="proposal-payload-title">${escapeHtml(payloadTitle)}</div>`;
 
   if (Array.isArray(payload?.changes)) {
-    return payload.changes
-      .map((change) => {
-        const key = change?.key || 'Unknown key';
-        const current = formatDaoDetailValue(change?.current);
-        const next = formatDaoDetailValue(change?.value);
-        return `
-        <div class="proposal-change-row">
-          ${titleHtml}
-          <span>${escapeHtml(key)}</span>
-          <div class="proposal-change-values">
-            <small><span>Current:</span><strong>${escapeHtml(current)}</strong></small>
-            <span class="proposal-change-arrow" aria-hidden="true">&rarr;</span>
-            <small><span>New:</span><strong>${escapeHtml(next)}</strong></small>
-          </div>
-        </div>
-      `;
-      })
-      .join('');
+    return renderDaoProposalChangeRows(payload.changes, titleHtml);
   }
 
   const entries = Object.entries(payload)
@@ -3873,6 +3885,27 @@ function renderDaoProposalPayloadRows(payload, payloadTitle) {
         <strong>${escapeHtml(displayValue)}</strong>
       </div>
     `;
+    })
+    .join('');
+}
+
+function renderDaoProposalChangeRows(changes, titleHtml = '') {
+  return changes
+    .map((change) => {
+      const key = change?.key || 'Unknown key';
+      const current = formatDaoDetailValue(change?.current);
+      const next = formatDaoDetailValue(change?.value);
+      return `
+        <div class="proposal-change-row">
+          ${titleHtml}
+          <span>${escapeHtml(key)}</span>
+          <div class="proposal-change-values">
+            <small><span>Current:</span><strong>${escapeHtml(current)}</strong></small>
+            <span class="proposal-change-arrow" aria-hidden="true">&rarr;</span>
+            <small><span>New:</span><strong>${escapeHtml(next)}</strong></small>
+          </div>
+        </div>
+      `;
     })
     .join('');
 }
@@ -4017,11 +4050,11 @@ class ConfirmProposalModal {
     this.setTitle('Review Proposal');
     this.content.innerHTML = [
       renderDaoProposalHeading(tx),
-      renderDaoProposalOptions(tx),
+      renderDaoProposalReviewOptions(tx),
       renderDaoProposalSection('Overview', [
         ['Type', getDaoTypeLabel(tx.proposalType)],
         ['Proposal fee', `${draft.proposalFeeUsdStr || '0'} USD`],
-        ['Initial state', 'Review after signing'],
+        ['Initial state', 'Review after submission'],
       ]),
       renderDaoProposalSection('Review Timeline', [
         ['Scheduled review start', draft.reviewStartTimeMs
@@ -4217,7 +4250,9 @@ function formatDaoBigIntPercent(part, total) {
 }
 
 function getDaoProposalOptions(proposal) {
-  return proposal.options.map((option) => String(option));
+  return proposal.options.map((option, index) => (
+    index === 0 && String(option).toLowerCase() === 'no' ? 'No change' : String(option)
+  ));
 }
 
 function getDaoVoteTotals(proposal) {

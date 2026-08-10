@@ -2275,6 +2275,23 @@ input[type='file'].form-control::file-selector-button {
   overflow-wrap: anywhere;
 }
 
+#confirmProposalModal .proposal-option-card--review {
+  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#confirmProposalModal .proposal-option-card-header {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+#confirmProposalModal .proposal-option-card-changes {
+  display: grid;
+  gap: 8px;
+}
+
 #confirmProposalModal .proposal-info-row,
 #proposalInfoModal .proposal-info-row {
   background: var(--input-background);

@@ -26,7 +26,7 @@ This document describes the DAO / proposals feature as currently implemented in 
      - Type
      - A required **No change** option plus one or more options with parameter changes
      - A separate type-specific change set for each option
-   - The UI validates the nested proposal shape. Rendering nested change sets in the review modal is tracked in [#1554](https://github.com/Liberdus/web-client-v2/issues/1554); submission remains unavailable until the nested transaction payload is wired.
+   - The UI validates and renders the nested proposal shape in the review modal. Submission remains unavailable until phase 5 enables the nested transaction flow.
 
 3. **Proposal Info Modal**
    - Displays proposal:
@@ -125,20 +125,9 @@ Still needed for later phases:
 
 ### 3) Wire create + vote to backend
 
-Currently these operations are placeholders until their backend transactions are wired:
+`daoRepo.createProposal(...)` builds the nested proposal transaction, but submission remains disabled in the UI until phase 5 enables the backend path.
 
-- `daoRepo.createProposal(...)`
-- `daoRepo.castVote(...)`
-
-For production you likely want:
-
-- `createProposal` to POST to backend and then either:
-  - refresh the store, or
-  - insert the created proposal returned by the backend.
-
-- `castVote` to POST to backend and then either:
-  - refresh the proposal, or
-  - patch the vote totals from server response.
+For production, cast-vote submission should refresh the proposal or patch vote totals from the server response.
 
 ### 4) Loading / errors / pagination
 
