@@ -4017,7 +4017,6 @@ class ConfirmProposalModal {
     this.setTitle('Review Proposal');
     this.content.innerHTML = [
       renderDaoProposalHeading(tx),
-      renderDaoProposalChanges(tx),
       renderDaoProposalOptions(tx),
       renderDaoProposalSection('Overview', [
         ['Type', getDaoTypeLabel(tx.proposalType)],
