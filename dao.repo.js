@@ -75,6 +75,7 @@ export const DAO_STATES = [
 export const DAO_PROPOSAL_DAY_MS = 24 * 60 * 60 * 1000;
 export const DAO_PROPOSAL_GRACE_PERIOD_MAX_MS = 999_999_999_999;
 const DAO_PROPOSAL_MAX_DATE_MS = 100_000_000 * DAO_PROPOSAL_DAY_MS; // ECMAScript Date limit.
+const DAO_AFFIRMATIVE_OPTION_STRINGS = ['yes', 'accept', 'approve'];
 const DAO_PROPOSALS_META_ID_STRING = 'dao proposals meta';
 export const DAO_PROPOSAL_TITLE_MAX_LENGTH = 100;
 export const DAO_PROPOSAL_CREATE_TYPE = 'dao_proposal_create';
@@ -252,6 +253,30 @@ function getDaoProposalLifecycleDurationMs({
   return durationMs;
 }
 
+function normalizeDaoDraftChanges(changes) {
+  if (!Array.isArray(changes) || changes.length === 0) {
+    throw new Error('At least one DAO parameter change is required');
+  }
+
+  return changes.map((change) => ({
+    key: requireDaoDraftString(change?.key, 'DAO parameter key'),
+    value: String(change?.value ?? '').trim(),
+    current: String(change?.current ?? ''),
+  }));
+}
+
+function normalizeDaoDraftOptions(options) {
+  if (!Array.isArray(options) || options.length < 2 || options.length > 10) {
+    throw new Error('DAO proposal options must contain 2 to 10 entries');
+  }
+
+  const safeOptions = options.map((option) => requireDaoDraftString(option, 'DAO proposal option'));
+  if (!DAO_AFFIRMATIVE_OPTION_STRINGS.includes(safeOptions[0].toLowerCase())) {
+    throw new Error('The first DAO proposal option must be yes, accept, or approve');
+  }
+  return safeOptions;
+}
+
 function hashDaoString(value) {
   return hashBytes(utf82bin(value));
 }
@@ -264,6 +289,50 @@ export function getDaoProposalAccountId(proposalNumber) {
   const n = normalizeDaoPositiveInteger(proposalNumber);
   if (!n) throw new Error('DAO proposal number must be a positive integer');
   return hashDaoString(`dao proposal #${n}`);
+}
+
+export function buildDaoProposalCreateDraft({
+  from,
+  displayTitle,
+  emergency,
+  proposalType,
+  description,
+  options,
+  changes,
+  proposalFeeUsdStr,
+  reviewStartTimeMs,
+  gracePeriodMs,
+  maxGracePeriodMs,
+} = {}) {
+  const safeProposalType = requireDaoDraftString(proposalType, 'DAO proposal type');
+  if (!DAO_CONFIG_CHANGE_OPTIONS[safeProposalType]) {
+    throw new Error('DAO proposal type is not supported');
+  }
+
+  const isEmergency = emergency === true;
+  const feeUsdStr = isEmergency ? '0' : requireDaoDraftString(proposalFeeUsdStr, 'DAO proposal fee');
+  const safeReviewStartTimeMs = normalizeDaoDraftReviewStartTime(reviewStartTimeMs);
+  const safeGracePeriodMs = normalizeDaoDraftGracePeriodMs(gracePeriodMs, maxGracePeriodMs);
+  const safeOptions = normalizeDaoDraftOptions(options);
+  const safeChanges = normalizeDaoDraftChanges(changes);
+
+  const transaction = {
+    from: requireDaoDraftString(from, 'DAO proposal sender'),
+    emergency: isEmergency,
+    proposalType: safeProposalType,
+    title: requireDaoDraftString(displayTitle, 'DAO proposal title', DAO_PROPOSAL_TITLE_MAX_LENGTH),
+    description: requireDaoDraftString(description, 'DAO proposal description'),
+    options: safeOptions,
+    gracePeriod: safeGracePeriodMs,
+    [safeProposalType]: { changes: safeChanges },
+  };
+
+  return {
+    displayTitle: transaction.title,
+    proposalFeeUsdStr: feeUsdStr,
+    reviewStartTimeMs: safeReviewStartTimeMs,
+    transaction,
+  };
 }
 
 export function buildDaoProposalCreateTransaction({

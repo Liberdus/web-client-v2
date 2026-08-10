@@ -2934,8 +2934,8 @@ class AddProposalModal {
     this.typeSelect = document.getElementById('addProposalType');
     this.descriptionInput = document.getElementById('addProposalDescription');
     this.proposalFeeInput = document.getElementById('addProposalFee');
-    this.actionsList = document.getElementById('addProposalActionsList');
-    this.addActionButton = document.getElementById('addProposalActionButton');
+    this.changeOptionsList = document.getElementById('addProposalOptionsList');
+    this.addOptionButton = document.getElementById('addProposalOptionButton');
     this.emergencySelect = document.getElementById('addProposalEmergency');
     this.reviewStartButton = document.getElementById('addProposalReviewStartTime');
     this.reviewStartHelp = document.getElementById('addProposalReviewStartHelp');
@@ -2947,7 +2947,7 @@ class AddProposalModal {
 
     if (this.closeButton) this.closeButton.addEventListener('click', () => this.close());
     if (this.cancelButton) this.cancelButton.addEventListener('click', () => this.close());
-    if (this.addActionButton) this.addActionButton.addEventListener('click', () => this.addActionOption());
+    if (this.addOptionButton) this.addOptionButton.addEventListener('click', () => this.addChangeOption());
 
     if (this.form && this.submitButton) {
       this.form.addEventListener('submit', withButtonCooldown(
@@ -2963,7 +2963,7 @@ class AddProposalModal {
 
     if (this.typeSelect) {
       this.typeSelect.addEventListener('change', () => {
-        this.actionOptions = this.actionOptions.map((action) => ({ ...action, changes: [] }));
+        this.changeOptions = this.changeOptions.map((changeOption) => ({ ...changeOption, changes: [] }));
         this.refreshSelectedConfigOptions();
       });
     }
@@ -2971,7 +2971,7 @@ class AddProposalModal {
     if (this.emergencySelect) {
       this.emergencySelect.addEventListener('change', () => {
         this.renderProposalFee();
-        this.renderActionOptions();
+        this.renderChangeOptions();
       });
     }
     if (this.reviewStartButton) this.reviewStartButton.addEventListener('click', () => this.openReviewStartPicker());
@@ -2983,10 +2983,10 @@ class AddProposalModal {
       });
     }
 
-    if (this.actionsList) {
-      this.actionsList.addEventListener('click', (event) => this.handleActionListClick(event));
-      this.actionsList.addEventListener('input', (event) => this.handleActionListInput(event));
-      this.actionsList.addEventListener('change', (event) => this.handleActionListChange(event));
+    if (this.changeOptionsList) {
+      this.changeOptionsList.addEventListener('click', (event) => this.handleChangeOptionsClick(event));
+      this.changeOptionsList.addEventListener('input', (event) => this.handleChangeOptionsInput(event));
+      this.changeOptionsList.addEventListener('change', (event) => this.handleChangeOptionsChange(event));
     }
   }
 
@@ -3006,8 +3006,8 @@ class AddProposalModal {
       this.gracePeriodInput.value = '';
       this.gracePeriodInput.removeAttribute('max');
     }
-    this.actionOptions = [this.createActionOption()];
-    this.renderActionOptions('Loading current DAO config values...');
+    this.changeOptions = [this.createChangeOption()];
+    this.renderChangeOptions('Loading current DAO config values...');
     this.renderGracePeriodLimitHint();
     this.refreshProposalDefaults();
     this.refreshSelectedConfigOptions();
@@ -3040,11 +3040,11 @@ class AddProposalModal {
   }
 
   renderConfigLoadingState() {
-    this.renderActionOptions('Loading current DAO config values...');
+    this.renderChangeOptions('Loading current DAO config values...');
   }
 
   renderConfigUnavailableState() {
-    this.renderActionOptions('Current DAO config values are unavailable. Try again when the network responds.');
+    this.renderChangeOptions('Current DAO config values are unavailable. Try again when the network responds.');
   }
 
   renderProposalFee() {
@@ -3147,7 +3147,7 @@ class AddProposalModal {
   }
 
   getValidationHighlight(target) {
-    return target?.closest?.('.dao-form-change-box, .dao-form-row-controls, .dao-form-action, .form-group') || target || null;
+    return target?.closest?.('.dao-form-change-box, .dao-form-row-controls, .dao-form-option, .form-group') || target || null;
   }
 
   showValidationError(error) {
@@ -3180,8 +3180,8 @@ class AddProposalModal {
       return;
     }
 
-    this.ensureActionChanges();
-    this.renderActionOptions();
+    this.synchronizeChangeOptions();
+    this.renderChangeOptions();
   }
 
   async loadConfigOptions(proposalType) {
@@ -3266,28 +3266,28 @@ class AddProposalModal {
     return this.fetchNetworkAccountConfig();
   }
 
-  createActionOption() {
+  createChangeOption() {
     return { changes: [] };
   }
 
-  getActionOptionLabel(actionIndex) {
-    return `Option ${actionIndex + 1}`;
+  getChangeOptionLabel(optionIndex) {
+    return `Option ${optionIndex + 1}`;
   }
 
-  ensureActionChanges() {
+  synchronizeChangeOptions() {
     const configOptions = this.getConfigOptions();
     if (configOptions.length === 0) return;
 
     const validKeys = new Set(configOptions.map((option) => option.key));
-    const templateChanges = this.actionOptions[0].changes.filter((change) => validKeys.has(change.key));
+    const templateChanges = this.changeOptions[0].changes.filter((change) => validKeys.has(change.key));
     const changes = templateChanges.length ? templateChanges : [{ key: configOptions[0].key, value: '' }];
 
-    this.actionOptions = this.actionOptions.map((action, actionIndex) => {
-      if (actionIndex === 0) return { ...action, changes };
+    this.changeOptions = this.changeOptions.map((changeOption, optionIndex) => {
+      if (optionIndex === 0) return { ...changeOption, changes };
 
-      const valuesByKey = new Map(action.changes.map((change) => [change.key, change.value]));
+      const valuesByKey = new Map(changeOption.changes.map((change) => [change.key, change.value]));
       return {
-        ...action,
+        ...changeOption,
         changes: changes.map((change) => ({ key: change.key, value: valuesByKey.get(change.key) ?? '' })),
       };
     });
@@ -3297,13 +3297,13 @@ class AddProposalModal {
     return this.getConfigOptions().find((option) => option.key === key) || null;
   }
 
-  renderActionOptions(unavailableMessage = '') {
-    if (!this.actionsList) return;
+  renderChangeOptions(unavailableMessage = '') {
+    if (!this.changeOptionsList) return;
 
     const configOptions = this.getConfigOptions();
-    this.actionsList.innerHTML = [
+    this.changeOptionsList.innerHTML = [
       `
-        <div class="dao-form-action dao-form-action--no-change">
+        <div class="dao-form-option dao-form-option--no-change">
           <div class="dao-form-row-title"><label>Option: No change</label></div>
           <div class="dao-form-row-controls">
             <span class="dao-form-index">1</span>
@@ -3312,36 +3312,36 @@ class AddProposalModal {
           <p class="dao-form-help">This required first option makes no parameter changes.</p>
         </div>
       `,
-      ...this.actionOptions.map((action, index) => (
-        this.renderActionOption(action, index, configOptions, unavailableMessage)
+      ...this.changeOptions.map((changeOption, index) => (
+        this.renderChangeOption(changeOption, index, configOptions, unavailableMessage)
       )),
     ].join('');
 
-    if (this.addActionButton) {
+    if (this.addOptionButton) {
       const isEmergency = this.emergencySelect?.value === 'true';
-      this.addActionButton.disabled = configOptions.length === 0 || isEmergency || this.actionOptions.length >= 9;
+      this.addOptionButton.disabled = configOptions.length === 0 || isEmergency || this.changeOptions.length >= 9;
     }
   }
 
-  renderActionOption(action, actionIndex, configOptions, unavailableMessage) {
-    const label = this.getActionOptionLabel(actionIndex);
-    const removeDisabled = this.actionOptions.length <= 1 ? 'disabled' : '';
-    const isTemplate = actionIndex === 0;
+  renderChangeOption(changeOption, optionIndex, configOptions, unavailableMessage) {
+    const label = this.getChangeOptionLabel(optionIndex);
+    const removeDisabled = this.changeOptions.length <= 1 ? 'disabled' : '';
+    const isTemplate = optionIndex === 0;
     const changesHtml = configOptions.length
-      ? this.renderActionChangeRows(actionIndex, action.changes, configOptions, isTemplate)
+      ? this.renderOptionChanges(optionIndex, changeOption.changes, configOptions, isTemplate)
       : `<p class="dao-form-help">${escapeHtml(unavailableMessage || 'Current DAO config values are unavailable.')}</p>`;
     const addChangeDisabled = configOptions.length === 0 ? 'disabled' : '';
 
     return `
-      <section class="dao-form-action" data-dao-action="${actionIndex}">
+      <section class="dao-form-option" data-dao-option="${optionIndex}">
         <div class="dao-form-row-title">
           <label>${label}</label>
-          <button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-action="${actionIndex}" ${removeDisabled}>Remove option</button>
+          <button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-option="${optionIndex}" ${removeDisabled}>Remove option</button>
         </div>
         <div class="dao-form-section-header"><label>Parameter Changes</label></div>
         <div class="dao-form-list">${changesHtml}</div>
         ${isTemplate ? `
-        <button type="button" class="btn btn--secondary dao-form-add-button" data-dao-add-change="${actionIndex}" ${addChangeDisabled}>
+        <button type="button" class="btn btn--secondary dao-form-add-button" data-dao-add-parameter-change="${optionIndex}" ${addChangeDisabled}>
           <span class="dao-form-add-icon" aria-hidden="true"><span class="plus-glyph">+</span></span>
           <span>Add parameter change</span>
         </button>` : ''}
@@ -3349,35 +3349,35 @@ class AddProposalModal {
     `;
   }
 
-  renderActionChangeRows(actionIndex, changes, configOptions, isTemplate) {
+  renderOptionChanges(optionIndex, changes, configOptions, isTemplate) {
     return changes.map((change, changeIndex) => (
-      this.renderActionChangeRow(actionIndex, change, changeIndex, changes.length, configOptions, isTemplate)
+      this.renderOptionChange(optionIndex, change, changeIndex, changes.length, configOptions, isTemplate)
     )).join('');
   }
 
-  renderActionChangeRow(actionIndex, change, changeIndex, changeCount, configOptions, isTemplate) {
+  renderOptionChange(optionIndex, change, changeIndex, changeCount, configOptions, isTemplate) {
     const option = configOptions.find((item) => item.key === change.key) || configOptions[0];
     if (!option) return '';
 
-    const actionNumber = actionIndex + 1;
+    const optionNumber = optionIndex + 1;
     const changeNumber = changeIndex + 1;
-    const configId = `addProposalAction${actionNumber}Config${changeNumber}`;
-    const currentId = `addProposalAction${actionNumber}Current${changeNumber}`;
-    const proposedId = `addProposalAction${actionNumber}Proposed${changeNumber}`;
+    const configId = `addProposalOption${optionNumber}Config${changeNumber}`;
+    const currentId = `addProposalOption${optionNumber}Current${changeNumber}`;
+    const proposedId = `addProposalOption${optionNumber}Proposed${changeNumber}`;
     const removeDisabled = changeCount <= 1 ? 'disabled' : '';
-    const dataAttributes = `data-dao-change-value data-dao-action-index="${actionIndex}" data-dao-change-index="${changeIndex}"`;
+    const dataAttributes = `data-dao-change-value data-dao-option-index="${optionIndex}" data-dao-change-index="${changeIndex}"`;
     const selectOptions = isTemplate ? configOptions.map((item) => `
       <option value="${escapeHtml(item.key)}" ${item.key === option.key ? 'selected' : ''}>${escapeHtml(item.label)}</option>
     `).join('') : '';
     const parameterControl = isTemplate
-      ? `<select id="${configId}" class="form-control" data-dao-change-key data-dao-action-index="${actionIndex}" data-dao-change-index="${changeIndex}" required>${selectOptions}</select>`
+      ? `<select id="${configId}" class="form-control" data-dao-change-key data-dao-option-index="${optionIndex}" data-dao-change-index="${changeIndex}" required>${selectOptions}</select>`
       : `<input id="${configId}" class="form-control dao-form-current-value" type="text" value="${escapeDaoFormAttribute(option.label)}" readonly />`;
 
     return `
       <div class="dao-form-row dao-form-row--change" data-dao-change-row>
         <div class="dao-form-row-title">
           <label>Parameter change ${changeNumber}</label>
-          ${isTemplate ? `<button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-change="${actionIndex}:${changeIndex}" ${removeDisabled}>Remove</button>` : ''}
+          ${isTemplate ? `<button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-change="${optionIndex}:${changeIndex}" ${removeDisabled}>Remove</button>` : ''}
         </div>
         <div class="dao-form-change-box">
           <div class="dao-form-change-line">
@@ -3414,12 +3414,12 @@ class AddProposalModal {
     return `<input id="${id}" class="form-control" ${dataAttributes} type="number" step="${step}" inputmode="${inputmode}" value="${escapeDaoFormAttribute(value)}" required />`;
   }
 
-  addActionOption() {
+  addChangeOption() {
     if (this.emergencySelect?.value === 'true') {
       showToast('Emergency proposals allow one additional option', 2500, 'warning');
       return;
     }
-    if (this.actionOptions.length >= 9) {
+    if (this.changeOptions.length >= 9) {
       showToast('DAO proposals can have at most 10 options', 2500, 'warning');
       return;
     }
@@ -3428,82 +3428,82 @@ class AddProposalModal {
       return;
     }
 
-    this.actionOptions.push(this.createActionOption());
-    this.ensureActionChanges();
-    this.renderActionOptions();
-    this.actionsList?.querySelector(`[data-dao-action="${this.actionOptions.length - 1}"] [data-dao-change-value]`)?.focus();
+    this.changeOptions.push(this.createChangeOption());
+    this.synchronizeChangeOptions();
+    this.renderChangeOptions();
+    this.changeOptionsList?.querySelector(`[data-dao-option="${this.changeOptions.length - 1}"] [data-dao-change-value]`)?.focus();
   }
 
-  addActionChange(actionIndex) {
-    if (actionIndex !== 0) return;
+  addParameterChange(optionIndex) {
+    if (optionIndex !== 0) return;
 
-    const template = this.actionOptions[0];
+    const template = this.changeOptions[0];
     if (!template) return;
 
     const usedKeys = new Set(template.changes.map((change) => change.key));
     const nextOption = this.getConfigOptions().find((option) => !usedKeys.has(option.key));
     if (!nextOption) {
-      showToast('All available configs are already selected for this action', 2500, 'warning');
+      showToast('All available configs are already selected for Option 1', 2500, 'warning');
       return;
     }
 
     template.changes.push({ key: nextOption.key, value: '' });
-    this.ensureActionChanges();
-    this.renderActionOptions();
-    this.actionsList?.querySelector(`[data-dao-action="${actionIndex}"] [data-dao-change-row]:last-child [data-dao-change-key]`)?.focus();
+    this.synchronizeChangeOptions();
+    this.renderChangeOptions();
+    this.changeOptionsList?.querySelector(`[data-dao-option="${optionIndex}"] [data-dao-change-row]:last-child [data-dao-change-key]`)?.focus();
   }
 
-  handleActionListClick(event) {
-    const addChangeButton = event.target.closest('[data-dao-add-change]');
+  handleChangeOptionsClick(event) {
+    const addChangeButton = event.target.closest('[data-dao-add-parameter-change]');
     if (addChangeButton) {
-      this.addActionChange(Number(addChangeButton.dataset.daoAddChange));
+      this.addParameterChange(Number(addChangeButton.dataset.daoAddParameterChange));
       return;
     }
 
-    const removeActionButton = event.target.closest('[data-dao-remove-action]');
-    if (removeActionButton) {
-      this.actionOptions.splice(Number(removeActionButton.dataset.daoRemoveAction), 1);
-      this.renderActionOptions();
+    const removeOptionButton = event.target.closest('[data-dao-remove-option]');
+    if (removeOptionButton) {
+      this.changeOptions.splice(Number(removeOptionButton.dataset.daoRemoveOption), 1);
+      this.renderChangeOptions();
       return;
     }
 
     const removeChangeButton = event.target.closest('[data-dao-remove-change]');
     if (!removeChangeButton) return;
 
-    const [actionIndex, changeIndex] = removeChangeButton.dataset.daoRemoveChange.split(':').map(Number);
-    if (actionIndex !== 0) return;
+    const [optionIndex, changeIndex] = removeChangeButton.dataset.daoRemoveChange.split(':').map(Number);
+    if (optionIndex !== 0) return;
 
-    const template = this.actionOptions[0];
+    const template = this.changeOptions[0];
     if (!template || template.changes.length <= 1) return;
     template.changes.splice(changeIndex, 1);
-    this.ensureActionChanges();
-    this.renderActionOptions();
+    this.synchronizeChangeOptions();
+    this.renderChangeOptions();
   }
 
-  handleActionListInput(event) {
-    const actionIndex = Number(event.target.dataset.daoActionIndex);
-    const action = this.actionOptions[actionIndex];
-    if (!action) return;
+  handleChangeOptionsInput(event) {
+    const optionIndex = Number(event.target.dataset.daoOptionIndex);
+    const changeOption = this.changeOptions[optionIndex];
+    if (!changeOption) return;
 
     if (event.target.matches('[data-dao-change-value]')) {
-      const change = action.changes[Number(event.target.dataset.daoChangeIndex)];
+      const change = changeOption.changes[Number(event.target.dataset.daoChangeIndex)];
       if (change) change.value = event.target.value;
     }
   }
 
-  handleActionListChange(event) {
+  handleChangeOptionsChange(event) {
     if (!event.target.matches('[data-dao-change-key]')) return;
 
-    const actionIndex = Number(event.target.dataset.daoActionIndex);
-    if (actionIndex !== 0) return;
+    const optionIndex = Number(event.target.dataset.daoOptionIndex);
+    if (optionIndex !== 0) return;
 
-    const action = this.actionOptions[actionIndex];
-    const change = action?.changes[Number(event.target.dataset.daoChangeIndex)];
+    const changeOption = this.changeOptions[optionIndex];
+    const change = changeOption?.changes[Number(event.target.dataset.daoChangeIndex)];
     if (!change) return;
     change.key = event.target.value;
     change.value = '';
-    this.ensureActionChanges();
-    this.renderActionOptions();
+    this.synchronizeChangeOptions();
+    this.renderChangeOptions();
   }
 
   getIntegerValue(input, label, unit = '') {
@@ -3593,38 +3593,38 @@ class AddProposalModal {
     return n;
   }
 
-  getValidatedActionOptions() {
+  getValidatedChangeOptions() {
     if (this.getConfigOptions().length === 0) {
-      throw this.createValidationError('Current DAO config values are not loaded yet', this.actionsList);
+      throw this.createValidationError('Current DAO config values are not loaded yet', this.changeOptionsList);
     }
-    if (this.actionOptions.length < 1 || this.actionOptions.length > 9) {
-      throw this.createValidationError('DAO proposals need 1 to 9 additional options', this.actionsList);
+    if (this.changeOptions.length < 1 || this.changeOptions.length > 9) {
+      throw this.createValidationError('DAO proposals need 1 to 9 additional options', this.changeOptionsList);
     }
-    if (this.emergencySelect?.value === 'true' && this.actionOptions.length !== 1) {
-      throw this.createValidationError('Emergency proposals need exactly one additional option', this.actionsList);
+    if (this.emergencySelect?.value === 'true' && this.changeOptions.length !== 1) {
+      throw this.createValidationError('Emergency proposals need exactly one additional option', this.changeOptionsList);
     }
 
-    const templateChanges = this.actionOptions[0].changes;
-    const changes = this.actionOptions.map((action, actionIndex) => {
-      const actionEl = this.actionsList?.querySelector(`[data-dao-action="${actionIndex}"]`);
-      const label = this.getActionOptionLabel(actionIndex);
+    const templateChanges = this.changeOptions[0].changes;
+    const changes = this.changeOptions.map((changeOption, optionIndex) => {
+      const optionEl = this.changeOptionsList?.querySelector(`[data-dao-option="${optionIndex}"]`);
+      const label = this.getChangeOptionLabel(optionIndex);
 
-      if (action.changes.length === 0) {
-        throw this.createValidationError(`Add a parameter change for ${label}`, actionEl);
+      if (changeOption.changes.length === 0) {
+        throw this.createValidationError(`Add a parameter change for ${label}`, optionEl);
       }
-      if (actionIndex > 0 && (
-        action.changes.length !== templateChanges.length
-        || action.changes.some((change, changeIndex) => change.key !== templateChanges[changeIndex].key)
+      if (optionIndex > 0 && (
+        changeOption.changes.length !== templateChanges.length
+        || changeOption.changes.some((change, changeIndex) => change.key !== templateChanges[changeIndex].key)
       )) {
-        throw this.createValidationError(`${label} must use the same parameters as Option 1`, actionEl);
+        throw this.createValidationError(`${label} must use the same parameters as Option 1`, optionEl);
       }
 
       const seenKeys = new Set();
-      const actionChanges = action.changes.map((change, changeIndex) => {
-        const keyInput = actionEl?.querySelector(
+      const optionChanges = changeOption.changes.map((change, changeIndex) => {
+        const keyInput = optionEl?.querySelector(
           `[data-dao-change-key][data-dao-change-index="${changeIndex}"]`
         );
-        const valueInput = actionEl?.querySelector(
+        const valueInput = optionEl?.querySelector(
           `[data-dao-change-value][data-dao-change-index="${changeIndex}"]`
         );
         const option = this.getConfigOption(change.key);
@@ -3653,12 +3653,12 @@ class AddProposalModal {
         };
       });
 
-      return { label, changes: actionChanges };
+      return { label, changes: optionChanges };
     });
 
     return {
-      options: ['no', ...changes.map((action) => action.label)],
-      changes: changes.map((action) => action.changes),
+      options: ['no', ...changes.map((changeOption) => changeOption.label)],
+      changes: changes.map((changeOption) => changeOption.changes),
     };
   }
 
@@ -3686,7 +3686,7 @@ class AddProposalModal {
     }
 
     try {
-      const { options, changes } = this.getValidatedActionOptions();
+      const { options, changes } = this.getValidatedChangeOptions();
       const reviewStartTimeMs = this.getReviewStartTimeMs();
       const gracePeriodMs = this.getMillisecondsValue(this.gracePeriodInput, 'Grace period', this.maxGracePeriodMs);
       const emergency = this.emergencySelect?.value === 'true';

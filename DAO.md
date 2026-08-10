@@ -24,8 +24,8 @@ This document describes the DAO / proposals feature as currently implemented in 
      - Title
      - Summary
      - Type
-     - A required **No change** option plus one or more action options
-     - A separate type-specific change set for each action option
+     - A required **No change** option plus one or more options with parameter changes
+     - A separate type-specific change set for each option
    - The UI validates and previews the nested proposal shape. Submission remains unavailable until the nested transaction payload is wired.
 
 3. **Proposal Info Modal**
@@ -77,7 +77,7 @@ Full proposal fields (current shape in memory):
 For current multi-option proposals:
 
 - `options[0]` is the negative/no-change choice.
-- Each later option is an action option, mapped positionally to the selected type payload's nested change sets: `options[1]` → `changes[0]`, `options[2]` → `changes[1]`, and so on.
+- Each later option is mapped positionally to the selected type payload's nested change sets: `options[1]` → `changes[0]`, `options[2]` → `changes[1]`, and so on.
 - The creation UI produces this nested `changes: ParamChange[][]` shape rather than the deprecated flat change list.
 
 ## Where the code lives

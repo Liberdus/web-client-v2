@@ -1916,23 +1916,23 @@ input[type='file'].form-control::file-selector-button {
 #addProposalModal .dao-form-section,
 #addProposalModal .dao-form-list,
 #addProposalModal .dao-form-row,
-#addProposalModal .dao-form-action {
+#addProposalModal .dao-form-option {
   display: grid;
   gap: 8px;
 }
 
-#addProposalModal .dao-form-action {
+#addProposalModal .dao-form-option {
   background: var(--input-background);
   border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 10px;
 }
 
-#addProposalModal .dao-form-action--no-change {
+#addProposalModal .dao-form-option--no-change {
   border-style: dashed;
 }
 
-#addProposalModal .dao-form-action--no-change .dao-form-help {
+#addProposalModal .dao-form-option--no-change .dao-form-help {
   margin: 0;
 }
 
