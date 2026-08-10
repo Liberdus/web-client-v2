@@ -3278,13 +3278,17 @@ class AddProposalModal {
     const configOptions = this.getConfigOptions();
     if (configOptions.length === 0) return;
 
-    this.actionOptions = this.actionOptions.map((action) => {
-      const changes = action.changes.filter((change) => (
-        configOptions.some((option) => option.key === change.key)
-      ));
+    const validKeys = new Set(configOptions.map((option) => option.key));
+    const templateChanges = this.actionOptions[0].changes.filter((change) => validKeys.has(change.key));
+    const changes = templateChanges.length ? templateChanges : [{ key: configOptions[0].key, value: '' }];
+
+    this.actionOptions = this.actionOptions.map((action, actionIndex) => {
+      if (actionIndex === 0) return { ...action, changes };
+
+      const valuesByKey = new Map(action.changes.map((change) => [change.key, change.value]));
       return {
         ...action,
-        changes: changes.length ? changes : [{ key: configOptions[0].key, value: '' }],
+        changes: changes.map((change) => ({ key: change.key, value: valuesByKey.get(change.key) ?? '' })),
       };
     });
   }
@@ -3322,8 +3326,9 @@ class AddProposalModal {
   renderActionOption(action, actionIndex, configOptions, unavailableMessage) {
     const label = this.getActionOptionLabel(actionIndex);
     const removeDisabled = this.actionOptions.length <= 1 ? 'disabled' : '';
+    const isTemplate = actionIndex === 0;
     const changesHtml = configOptions.length
-      ? this.renderActionChangeRows(actionIndex, action.changes, configOptions)
+      ? this.renderActionChangeRows(actionIndex, action.changes, configOptions, isTemplate)
       : `<p class="dao-form-help">${escapeHtml(unavailableMessage || 'Current DAO config values are unavailable.')}</p>`;
     const addChangeDisabled = configOptions.length === 0 ? 'disabled' : '';
 
@@ -3335,21 +3340,22 @@ class AddProposalModal {
         </div>
         <div class="dao-form-section-header"><label>Parameter Changes</label></div>
         <div class="dao-form-list">${changesHtml}</div>
+        ${isTemplate ? `
         <button type="button" class="btn btn--secondary dao-form-add-button" data-dao-add-change="${actionIndex}" ${addChangeDisabled}>
           <span class="dao-form-add-icon" aria-hidden="true"><span class="plus-glyph">+</span></span>
           <span>Add parameter change</span>
-        </button>
+        </button>` : ''}
       </section>
     `;
   }
 
-  renderActionChangeRows(actionIndex, changes, configOptions) {
+  renderActionChangeRows(actionIndex, changes, configOptions, isTemplate) {
     return changes.map((change, changeIndex) => (
-      this.renderActionChangeRow(actionIndex, change, changeIndex, changes.length, configOptions)
+      this.renderActionChangeRow(actionIndex, change, changeIndex, changes.length, configOptions, isTemplate)
     )).join('');
   }
 
-  renderActionChangeRow(actionIndex, change, changeIndex, changeCount, configOptions) {
+  renderActionChangeRow(actionIndex, change, changeIndex, changeCount, configOptions, isTemplate) {
     const option = configOptions.find((item) => item.key === change.key) || configOptions[0];
     if (!option) return '';
 
@@ -3360,20 +3366,23 @@ class AddProposalModal {
     const proposedId = `addProposalAction${actionNumber}Proposed${changeNumber}`;
     const removeDisabled = changeCount <= 1 ? 'disabled' : '';
     const dataAttributes = `data-dao-change-value data-dao-action-index="${actionIndex}" data-dao-change-index="${changeIndex}"`;
-    const selectOptions = configOptions.map((item) => `
+    const selectOptions = isTemplate ? configOptions.map((item) => `
       <option value="${escapeHtml(item.key)}" ${item.key === option.key ? 'selected' : ''}>${escapeHtml(item.label)}</option>
-    `).join('');
+    `).join('') : '';
+    const parameterControl = isTemplate
+      ? `<select id="${configId}" class="form-control" data-dao-change-key data-dao-action-index="${actionIndex}" data-dao-change-index="${changeIndex}" required>${selectOptions}</select>`
+      : `<input id="${configId}" class="form-control dao-form-current-value" type="text" value="${escapeDaoFormAttribute(option.label)}" readonly />`;
 
     return `
       <div class="dao-form-row dao-form-row--change" data-dao-change-row>
         <div class="dao-form-row-title">
           <label>Parameter change ${changeNumber}</label>
-          <button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-change="${actionIndex}:${changeIndex}" ${removeDisabled}>Remove</button>
+          ${isTemplate ? `<button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-change="${actionIndex}:${changeIndex}" ${removeDisabled}>Remove</button>` : ''}
         </div>
         <div class="dao-form-change-box">
           <div class="dao-form-change-line">
-            <label for="${configId}">Select <span class="dao-form-required" aria-hidden="true">*</span></label>
-            <select id="${configId}" class="form-control" data-dao-change-key data-dao-action-index="${actionIndex}" data-dao-change-index="${changeIndex}" required>${selectOptions}</select>
+            <label for="${configId}">${isTemplate ? 'Select' : 'Parameter'}${isTemplate ? ' <span class="dao-form-required" aria-hidden="true">*</span>' : ''}</label>
+            ${parameterControl}
           </div>
           <div class="dao-form-change-line">
             <label for="${currentId}">Current</label>
@@ -3422,23 +3431,26 @@ class AddProposalModal {
     this.actionOptions.push(this.createActionOption());
     this.ensureActionChanges();
     this.renderActionOptions();
-    this.actionsList?.querySelector(`[data-dao-action="${this.actionOptions.length - 1}"] [data-dao-change-key]`)?.focus();
+    this.actionsList?.querySelector(`[data-dao-action="${this.actionOptions.length - 1}"] [data-dao-change-value]`)?.focus();
   }
 
   addActionChange(actionIndex) {
-    const action = this.actionOptions[actionIndex];
-    if (!action) return;
+    if (actionIndex !== 0) return;
 
-    const usedKeys = new Set(action.changes.map((change) => change.key));
+    const template = this.actionOptions[0];
+    if (!template) return;
+
+    const usedKeys = new Set(template.changes.map((change) => change.key));
     const nextOption = this.getConfigOptions().find((option) => !usedKeys.has(option.key));
     if (!nextOption) {
       showToast('All available configs are already selected for this action', 2500, 'warning');
       return;
     }
 
-    action.changes.push({ key: nextOption.key, value: '' });
+    template.changes.push({ key: nextOption.key, value: '' });
+    this.ensureActionChanges();
     this.renderActionOptions();
-    this.actionsList?.querySelector(`[data-dao-action="${actionIndex}"] [data-dao-change-row]:last-child select`)?.focus();
+    this.actionsList?.querySelector(`[data-dao-action="${actionIndex}"] [data-dao-change-row]:last-child [data-dao-change-key]`)?.focus();
   }
 
   handleActionListClick(event) {
@@ -3459,9 +3471,12 @@ class AddProposalModal {
     if (!removeChangeButton) return;
 
     const [actionIndex, changeIndex] = removeChangeButton.dataset.daoRemoveChange.split(':').map(Number);
-    const action = this.actionOptions[actionIndex];
-    if (!action || action.changes.length <= 1) return;
-    action.changes.splice(changeIndex, 1);
+    if (actionIndex !== 0) return;
+
+    const template = this.actionOptions[0];
+    if (!template || template.changes.length <= 1) return;
+    template.changes.splice(changeIndex, 1);
+    this.ensureActionChanges();
     this.renderActionOptions();
   }
 
@@ -3479,11 +3494,15 @@ class AddProposalModal {
   handleActionListChange(event) {
     if (!event.target.matches('[data-dao-change-key]')) return;
 
-    const action = this.actionOptions[Number(event.target.dataset.daoActionIndex)];
+    const actionIndex = Number(event.target.dataset.daoActionIndex);
+    if (actionIndex !== 0) return;
+
+    const action = this.actionOptions[actionIndex];
     const change = action?.changes[Number(event.target.dataset.daoChangeIndex)];
     if (!change) return;
     change.key = event.target.value;
     change.value = '';
+    this.ensureActionChanges();
     this.renderActionOptions();
   }
 
@@ -3585,12 +3604,19 @@ class AddProposalModal {
       throw this.createValidationError('Emergency proposals need exactly one additional option', this.actionsList);
     }
 
+    const templateChanges = this.actionOptions[0].changes;
     const changes = this.actionOptions.map((action, actionIndex) => {
       const actionEl = this.actionsList?.querySelector(`[data-dao-action="${actionIndex}"]`);
       const label = this.getActionOptionLabel(actionIndex);
 
       if (action.changes.length === 0) {
         throw this.createValidationError(`Add a parameter change for ${label}`, actionEl);
+      }
+      if (actionIndex > 0 && (
+        action.changes.length !== templateChanges.length
+        || action.changes.some((change, changeIndex) => change.key !== templateChanges[changeIndex].key)
+      )) {
+        throw this.createValidationError(`${label} must use the same parameters as Option 1`, actionEl);
       }
 
       const seenKeys = new Set();
