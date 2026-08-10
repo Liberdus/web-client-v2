@@ -506,24 +506,15 @@
               </div>
               <div class="form-group dao-form-section">
                 <div class="dao-form-section-header">
-                  <label>Parameter Changes</label>
+                  <label>Options and Parameter Changes <span class="dao-form-required" aria-hidden="true">*</span></label>
                 </div>
-                <div class="dao-form-list" id="addProposalChangesList"></div>
-                <button type="button" class="btn btn--secondary dao-form-add-button" id="addProposalChangeButton">
+                <div class="dao-form-help">The first option is always No change. Each action option needs its own parameter-change set.</div>
+                <div class="dao-form-list" id="addProposalActionsList"></div>
+                <button type="button" class="btn btn--secondary dao-form-add-button" id="addProposalActionButton">
                   <span class="dao-form-add-icon" aria-hidden="true"><span class="plus-glyph">+</span></span>
-                  <span>Add parameter change</span>
+                  <span>Add action option</span>
                 </button>
-              </div>
-              <div class="form-group dao-form-section">
-                <div class="dao-form-section-header">
-                  <label>Options <span class="dao-form-required" aria-hidden="true">*</span></label>
-                </div>
-                <div class="dao-form-list" id="addProposalOptionsList"></div>
-                <button type="button" class="btn btn--secondary dao-form-add-button" id="addProposalOptionButton">
-                  <span class="dao-form-add-icon" aria-hidden="true"><span class="plus-glyph">+</span></span>
-                  <span>Add option</span>
-                </button>
-                <div class="dao-form-help">2 to 10 options. The first option must be yes, accept, or approve.</div>
+                <div class="dao-form-help">2 to 10 total options. Emergency proposals allow one action option.</div>
               </div>
               <div class="form-group dao-form-section">
                 <label>Timing</label>
