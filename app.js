@@ -3304,7 +3304,7 @@ class AddProposalModal {
     this.actionsList.innerHTML = [
       `
         <div class="dao-form-action dao-form-action--no-change">
-          <div class="dao-form-row-title"><label>No change</label></div>
+          <div class="dao-form-row-title"><label>Option: No change</label></div>
           <div class="dao-form-row-controls">
             <span class="dao-form-index">1</span>
             <div class="form-control dao-form-current-value">No change</div>
