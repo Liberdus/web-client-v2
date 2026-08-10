@@ -2478,7 +2478,6 @@ setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork));
 const DAO_ALL_FILTER = { key: 'all', label: 'All' };
 const DAO_CLAIMABLE_FILTER = { key: 'claimable', label: 'Claimable' };
 const DAO_FILTER_OPTIONS = [DAO_ALL_FILTER, ...DAO_STATES, DAO_CLAIMABLE_FILTER];
-const DAO_FILTER_OVERFLOW_KEYS = ['withheld', 'rejected', 'applied', DAO_ALL_FILTER.key];
 
 function formatDaoTimestamp(ts) {
   const n = Number(ts || 0);
@@ -2542,8 +2541,6 @@ class DaoModal {
     this.closeButton = document.getElementById('closeDaoModal');
     this.titleEl = document.getElementById('daoModalTitle');
     this.filterBar = document.getElementById('daoFilterBar');
-    this.filterOverflow = document.getElementById('daoFilterOverflow');
-    this.filterExpandButton = document.getElementById('daoFilterExpandButton');
     this.list = document.getElementById('daoProposalList');
     this.emptyState = document.getElementById('daoProposalEmptyState');
     this.addButton = document.getElementById('daoAddProposalButton');
@@ -2566,12 +2563,6 @@ class DaoModal {
         const key = chip.dataset.filterKey;
         if (!key) return;
         this.setFilter(key);
-      });
-    }
-
-    if (this.filterExpandButton) {
-      this.filterExpandButton.addEventListener('click', () => {
-        this.setFiltersExpanded(this.filterOverflow.hidden);
       });
     }
   }
@@ -2668,26 +2659,8 @@ class DaoModal {
     return didRefreshDaoData;
   }
 
-  setFiltersExpanded(expanded) {
-    const overflowFilterSelected = DAO_FILTER_OVERFLOW_KEYS.includes(this.selectedFilterKey);
-    const keepExpanded = expanded || overflowFilterSelected;
-    if (this.filterBar) this.filterBar.classList.toggle('expanded', keepExpanded);
-    if (this.filterOverflow) this.filterOverflow.hidden = !keepExpanded;
-    if (this.filterExpandButton) {
-      this.filterExpandButton.disabled = overflowFilterSelected;
-      this.filterExpandButton.setAttribute('aria-expanded', keepExpanded ? 'true' : 'false');
-      this.filterExpandButton.setAttribute(
-        'aria-label',
-        overflowFilterSelected
-          ? 'Extra filters remain visible while selected'
-          : keepExpanded ? 'Hide extra filters' : 'Show more filters'
-      );
-    }
-  }
-
   setFilter(key) {
     this.selectedFilterKey = key;
-    this.setFiltersExpanded(!this.filterOverflow.hidden);
     this.render();
   }
 
