@@ -26,7 +26,7 @@ This document describes the DAO / proposals feature as currently implemented in 
      - Type
      - A required **No change** option plus one or more options with parameter changes
      - A separate type-specific change set for each option
-   - The UI validates and renders the nested proposal shape in the review modal. Submission remains unavailable until phase 5 enables the nested transaction flow.
+   - The UI validates and renders the nested proposal shape in the review modal, then signs and submits the nested proposal transaction.
 
 3. **Proposal Info Modal**
    - Displays proposal:
@@ -119,13 +119,12 @@ Known read endpoints:
 
 Still needed for later phases:
 
-- Create proposal endpoint/action
 - Cast vote endpoint/action
 - Proposal detail capability data for review, reward, and ready actions
 
 ### 3) Wire create + vote to backend
 
-`daoRepo.createProposal(...)` builds the nested proposal transaction, but submission remains disabled in the UI until phase 5 enables the backend path.
+`daoRepo.createProposal(...)` builds the nested proposal transaction, and the Proposal Review modal signs and injects it. The transaction contains exactly one type payload matching `proposalType`, with a nested change set for each action option.
 
 For production, cast-vote submission should refresh the proposal or patch vote totals from the server response.
 
