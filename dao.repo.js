@@ -381,21 +381,23 @@ export function buildDaoProposalCreateTransaction({
   const reviewStartTimeMs = normalizeDaoDraftReviewStartTime(draft.reviewStartTimeMs ?? 0);
   const gracePeriod = normalizeDaoDraftGracePeriodMs(draftTx.gracePeriod, maxGracePeriodMs);
   const transaction = {
-    ...draftTx,
-    emergency,
-    options,
-    [proposalType]: { changes },
     type: DAO_PROPOSAL_CREATE_TYPE,
     timestamp: txTimestamp,
     networkId: requireDaoDraftString(networkId, 'Network ID'),
+    from: requireDaoDraftString(draftTx.from, 'DAO proposal sender'),
+    emergency,
+    proposalType,
+    title: requireDaoDraftString(draftTx.title, 'DAO proposal title', DAO_PROPOSAL_TITLE_MAX_LENGTH),
+    description: requireDaoDraftString(draftTx.description, 'DAO proposal description'),
+    options,
+    gracePeriod,
+    [proposalType]: { changes },
     proposalId,
     metaId: getDaoProposalsMetaId(),
-    gracePeriod,
   };
 
   // The server expects an absolute Unix timestamp, not a duration from txTimestamp.
-  // Derive it from the validated draft field and never trust transaction data.
-  delete transaction.startTime;
+  // Derive it from the validated draft field and never include arbitrary draft fields.
   const reviewStart = reviewStartTimeMs || txTimestamp;
   const lifecycleDurationMs = getDaoProposalLifecycleDurationMs({
     ...proposalDurations,

@@ -3920,7 +3920,6 @@ class ConfirmProposalModal {
     this.content = document.getElementById('confirmProposalContent');
     this.currentDraft = null;
     this.isSubmitting = false;
-    this.canSubmit = false;
     this.signButtonLabel = this.signButton?.textContent || 'Sign Proposal';
 
     if (this.closeButton) this.closeButton.addEventListener('click', () => this.close());
@@ -3930,7 +3929,6 @@ class ConfirmProposalModal {
 
   open(draft) {
     this.currentDraft = draft;
-    this.canSubmit = false;
     this.setSubmitting(false);
     this.render();
     this.modal.classList.add('active');
@@ -3952,18 +3950,12 @@ class ConfirmProposalModal {
     if (this.closeButton) this.closeButton.disabled = this.isSubmitting;
     if (this.backButton) this.backButton.disabled = this.isSubmitting;
     if (this.signButton) {
-      this.signButton.disabled = this.isSubmitting || !this.canSubmit;
-      this.signButton.textContent = this.isSubmitting
-        ? 'Signing...'
-        : this.canSubmit ? this.signButtonLabel : 'Submission unavailable';
+      this.signButton.disabled = this.isSubmitting;
+      this.signButton.textContent = this.isSubmitting ? 'Signing...' : this.signButtonLabel;
     }
   }
 
   async handleSign() {
-    if (!this.canSubmit) {
-      showToast('Proposal submission will be enabled with nested transaction support', 3000, 'info');
-      return;
-    }
     if (this.isSubmitting) return;
     if (!this.currentDraft?.transaction?.from) {
       showToast('Proposal draft is unavailable', 3000, 'warning');
@@ -4063,7 +4055,7 @@ class ConfirmProposalModal {
         ['Time until start if submitted now', formatDaoDurationSummary(reviewDelayIfSubmittedNowMs)],
         ['Grace period', formatDaoDurationSummary(tx.gracePeriod)],
       ]),
-      '<p class="proposal-info-muted">The proposal fee is derived from DAO params and seeds the voter reward pool for regular proposals. Submission will be enabled when nested change-set transaction support is available.</p>',
+      '<p class="proposal-info-muted">The proposal fee is derived from DAO params and seeds the voter reward pool for regular proposals. Signing submits this proposal for review.</p>',
     ].join('');
   }
 
