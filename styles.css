@@ -2275,19 +2275,22 @@ input[type='file'].form-control::file-selector-button {
   overflow-wrap: anywhere;
 }
 
-#confirmProposalModal .proposal-option-card--review {
+#confirmProposalModal .proposal-option-card--changes,
+#proposalInfoModal .proposal-option-card--changes {
   align-items: stretch;
   grid-template-columns: minmax(0, 1fr);
 }
 
-#confirmProposalModal .proposal-option-card-header {
+#confirmProposalModal .proposal-option-card-header,
+#proposalInfoModal .proposal-option-card-header {
   align-items: center;
   display: grid;
   gap: 8px;
   grid-template-columns: auto minmax(0, 1fr);
 }
 
-#confirmProposalModal .proposal-option-card-changes {
+#confirmProposalModal .proposal-option-card-changes,
+#proposalInfoModal .proposal-option-card-changes {
   display: grid;
   gap: 8px;
 }
@@ -2834,20 +2837,6 @@ input[type='file'].form-control::file-selector-button {
   display: grid;
   gap: 14px;
   padding: 10px;
-}
-
-#confirmProposalModal .proposal-payload,
-#proposalInfoModal .proposal-payload {
-  display: grid;
-  gap: 8px;
-}
-
-#confirmProposalModal .proposal-payload-title,
-#proposalInfoModal .proposal-payload-title {
-  color: var(--text-color);
-  font-size: 13px;
-  line-height: 1.3;
-  text-align: center;
 }
 
 #proposalInfoModal .proposal-decision-field {

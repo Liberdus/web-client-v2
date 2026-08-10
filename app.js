@@ -3809,42 +3809,16 @@ function renderDaoProposalSection(title, rows) {
 }
 
 function renderDaoProposalOptions(proposal) {
-  const optionCards = getDaoProposalOptions(proposal)
-    .map((option, index) => `
-      <div class="proposal-option-card">
-        <span class="proposal-option-card-number">${index + 1}</span>
-        <span class="proposal-option-card-label">${escapeHtml(option)}</span>
-      </div>
-    `)
-    .join('');
-
-  return `
-    <section class="proposal-info-section">
-      <h3>Proposal Options</h3>
-      <div class="proposal-option-cards">${optionCards}</div>
-    </section>
-  `;
-}
-
-function renderDaoProposalReviewOptions(proposal) {
   const options = getDaoProposalOptions(proposal);
-  const changes = proposal[proposal.proposalType].changes;
+  const changeSets = proposal?.[proposal?.proposalType]?.changes;
   const optionCards = options.map((option, index) => {
-    const optionChanges = index === 0 ? [] : changes[index - 1];
-    const optionLabel = index === 0
-      ? `<span class="proposal-option-card-label">${escapeHtml(option)}</span>`
-      : '';
-    const changesHtml = optionChanges.length
-      ? `<div class="proposal-option-card-changes">${renderDaoProposalChangeRows(optionChanges)}</div>`
-      : '';
-
     return `
-      <div class="proposal-option-card proposal-option-card--review">
+      <div class="proposal-option-card proposal-option-card--changes">
         <div class="proposal-option-card-header">
           <span class="proposal-option-card-number">${index + 1}</span>
-          ${optionLabel}
+          <span class="proposal-option-card-label">${escapeHtml(option)}</span>
         </div>
-        ${changesHtml}
+        ${renderDaoProposalOptionDetails(index, changeSets)}
       </div>
     `;
   }).join('');
@@ -3857,59 +3831,23 @@ function renderDaoProposalReviewOptions(proposal) {
   `;
 }
 
-function renderDaoProposalChanges(proposal) {
-  const payloadHtml = ['governance', 'economic', 'protocol']
-    .map((key) => [key, proposal[key]])
-    .filter(([, payload]) => payload && typeof payload === 'object')
-    .map(([key, payload]) => {
-      const rows = renderDaoProposalPayloadRows(payload, getDaoTypeLabel(key) || key);
-      if (!rows) return '';
-
-      return `
-      <div class="proposal-payload">
-        ${rows}
-      </div>
-    `;
-    })
-    .join('');
-
-  if (!payloadHtml) {
-    return '<section class="proposal-info-section"><h3>Parameter Changes</h3><p class="proposal-info-muted">No parameter changes are available.</p></section>';
+function renderDaoProposalOptionDetails(optionIndex, changeSets) {
+  if (optionIndex === 0) {
+    return '<p class="proposal-info-muted">No parameter changes.</p>';
   }
 
-  return `
-    <section class="proposal-info-section">
-      <h3>Parameter Changes</h3>
-      ${payloadHtml}
-    </section>
-  `;
-}
-
-function renderDaoProposalPayloadRows(payload, payloadTitle) {
-  const titleHtml = `<div class="proposal-payload-title">${escapeHtml(payloadTitle)}</div>`;
-
-  if (Array.isArray(payload?.changes)) {
-    return renderDaoProposalChangeRows(payload.changes, titleHtml);
+  const changes = Array.isArray(changeSets) ? changeSets[optionIndex - 1] : null;
+  if (!Array.isArray(changes)) {
+    return '<div class="proposal-option-card-changes"><p class="proposal-info-muted">Parameter changes are unavailable.</p></div>';
+  }
+  if (changes.length === 0) {
+    return '<div class="proposal-option-card-changes"><p class="proposal-info-muted">No parameter changes.</p></div>';
   }
 
-  const entries = Object.entries(payload)
-    .filter(([, value]) => value !== undefined && value !== null && String(value).length > 0);
-
-  return entries
-    .map(([key, value]) => {
-      const displayValue = formatDaoDetailValue(value);
-      return `
-      <div class="proposal-change-row">
-        ${titleHtml}
-        <span>${escapeHtml(key)}</span>
-        <strong>${escapeHtml(displayValue)}</strong>
-      </div>
-    `;
-    })
-    .join('');
+  return `<div class="proposal-option-card-changes">${renderDaoProposalChangeRows(changes)}</div>`;
 }
 
-function renderDaoProposalChangeRows(changes, titleHtml = '') {
+function renderDaoProposalChangeRows(changes) {
   return changes
     .map((change) => {
       const key = change?.key || 'Unknown key';
@@ -3917,7 +3855,6 @@ function renderDaoProposalChangeRows(changes, titleHtml = '') {
       const next = formatDaoDetailValue(change?.value);
       return `
         <div class="proposal-change-row">
-          ${titleHtml}
           <span>${escapeHtml(key)}</span>
           <div class="proposal-change-values">
             <small><span>Current:</span><strong>${escapeHtml(current)}</strong></small>
@@ -4077,7 +4014,7 @@ class ConfirmProposalModal {
     this.setTitle('Review Proposal');
     this.content.innerHTML = [
       renderDaoProposalHeading(tx),
-      renderDaoProposalReviewOptions(tx),
+      renderDaoProposalOptions(tx),
       renderDaoProposalSection('Overview', [
         ['Type', getDaoTypeLabel(tx.proposalType)],
         ['Proposal fee', `${draft.proposalFeeUsdStr || '0'} USD`],
@@ -4809,10 +4746,9 @@ class ProposalInfoModal {
     if (this.content) {
       this.content.innerHTML = [
         renderDaoProposalHeading(proposal),
-        renderDaoProposalChanges(proposal),
+        renderDaoProposalOptions(proposal),
         state === 'voting' ? this.renderCurrentVoteTotals(proposal) : '',
         this.renderProposalResults(resultSummary, committeeReview, currentAddress),
-        state === 'review' ? renderDaoProposalOptions(proposal) : '',
         state === 'review'
           ? this.renderCommitteeReviewStatus(committeeReview, reviewWindow, currentAddress)
           : '',
@@ -5241,7 +5177,6 @@ class ProposalInfoModal {
       ]),
       committeeReviewSection,
       state === 'voting' ? this.renderVotingDetails(proposal) : '',
-      state === 'review' ? '' : renderDaoProposalOptions(proposal),
       this.renderProposalRewards(rewardSummary),
     ].filter(Boolean);
 
@@ -5259,7 +5194,6 @@ class ProposalInfoModal {
   getProposalDetailsSummary(state, rewardSummary) {
     const parts = ['Overview', 'review timeline'];
     if (state === 'review') parts.push('committee review');
-    if (state !== 'review') parts.push('proposal options');
     if (state === 'voting') parts.push('voting totals');
     if (rewardSummary) parts.push('reward accounting');
     return parts.join(', ');
