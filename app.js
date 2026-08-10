@@ -3267,7 +3267,11 @@ class AddProposalModal {
   }
 
   createActionOption() {
-    return { label: '', changes: [] };
+    return { changes: [] };
+  }
+
+  getActionOptionLabel(actionIndex) {
+    return `Option ${actionIndex + 1}`;
   }
 
   ensureActionChanges() {
@@ -3316,8 +3320,7 @@ class AddProposalModal {
   }
 
   renderActionOption(action, actionIndex, configOptions, unavailableMessage) {
-    const optionNumber = actionIndex + 2;
-    const labelId = `addProposalAction${actionIndex + 1}Label`;
+    const label = this.getActionOptionLabel(actionIndex);
     const removeDisabled = this.actionOptions.length <= 1 ? 'disabled' : '';
     const changesHtml = configOptions.length
       ? this.renderActionChangeRows(actionIndex, action.changes, configOptions)
@@ -3327,12 +3330,8 @@ class AddProposalModal {
     return `
       <section class="dao-form-action" data-dao-action="${actionIndex}">
         <div class="dao-form-row-title">
-          <label for="${labelId}">Action option ${actionIndex + 1} <span class="dao-form-required" aria-hidden="true">*</span></label>
-          <button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-action="${actionIndex}" ${removeDisabled}>Remove action</button>
-        </div>
-        <div class="dao-form-row-controls">
-          <span class="dao-form-index">${optionNumber}</span>
-          <input id="${labelId}" class="form-control" data-dao-action-label data-dao-action-index="${actionIndex}" type="text" maxlength="80" value="${escapeDaoFormAttribute(action.label)}" aria-label="Action option ${actionIndex + 1}" required />
+          <label>${label}</label>
+          <button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-action="${actionIndex}" ${removeDisabled}>Remove option</button>
         </div>
         <div class="dao-form-section-header"><label>Parameter Changes</label></div>
         <div class="dao-form-list">${changesHtml}</div>
@@ -3408,7 +3407,7 @@ class AddProposalModal {
 
   addActionOption() {
     if (this.emergencySelect?.value === 'true') {
-      showToast('Emergency proposals allow one action option', 2500, 'warning');
+      showToast('Emergency proposals allow one additional option', 2500, 'warning');
       return;
     }
     if (this.actionOptions.length >= 9) {
@@ -3423,7 +3422,7 @@ class AddProposalModal {
     this.actionOptions.push(this.createActionOption());
     this.ensureActionChanges();
     this.renderActionOptions();
-    this.actionsList?.querySelector(`[data-dao-action="${this.actionOptions.length - 1}"] [data-dao-action-label]`)?.focus();
+    this.actionsList?.querySelector(`[data-dao-action="${this.actionOptions.length - 1}"] [data-dao-change-key]`)?.focus();
   }
 
   addActionChange(actionIndex) {
@@ -3470,11 +3469,6 @@ class AddProposalModal {
     const actionIndex = Number(event.target.dataset.daoActionIndex);
     const action = this.actionOptions[actionIndex];
     if (!action) return;
-
-    if (event.target.matches('[data-dao-action-label]')) {
-      action.label = event.target.value;
-      return;
-    }
 
     if (event.target.matches('[data-dao-change-value]')) {
       const change = action.changes[Number(event.target.dataset.daoChangeIndex)];
@@ -3585,19 +3579,15 @@ class AddProposalModal {
       throw this.createValidationError('Current DAO config values are not loaded yet', this.actionsList);
     }
     if (this.actionOptions.length < 1 || this.actionOptions.length > 9) {
-      throw this.createValidationError('DAO proposals need 1 to 9 action options', this.actionsList);
+      throw this.createValidationError('DAO proposals need 1 to 9 additional options', this.actionsList);
     }
     if (this.emergencySelect?.value === 'true' && this.actionOptions.length !== 1) {
-      throw this.createValidationError('Emergency proposals need exactly one action option', this.actionsList);
+      throw this.createValidationError('Emergency proposals need exactly one additional option', this.actionsList);
     }
 
     const changes = this.actionOptions.map((action, actionIndex) => {
       const actionEl = this.actionsList?.querySelector(`[data-dao-action="${actionIndex}"]`);
-      const labelInput = actionEl?.querySelector('[data-dao-action-label]');
-      const label = String(action.label || '').trim();
-      if (!label) {
-        throw this.createValidationError(`Enter a label for action option ${actionIndex + 1}`, labelInput);
-      }
+      const label = this.getActionOptionLabel(actionIndex);
 
       if (action.changes.length === 0) {
         throw this.createValidationError(`Add a parameter change for ${label}`, actionEl);
