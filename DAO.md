@@ -83,8 +83,8 @@ For current multi-option proposals:
 ## Where the code lives
 
 - DAO UI implementation: [app.js](app.js)
-- In-memory repository abstraction: [dao.repo.js](dao.repo.js)
-- Shared constants/helpers (states and type labels): [dao.repo.js](dao.repo.js)
+- In-memory repository abstraction: [dao.js](dao.js)
+- Shared constants/helpers (states and type labels): [dao.js](dao.js)
 
 Important implementation detail:
 
@@ -94,7 +94,7 @@ Important implementation detail:
 ## Backend Data Boundary
 
 - `app.js` registers `setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork))`.
-- `dao.repo.js` keeps endpoint querying and backend-to-UI mapping behind the repository boundary.
+- `dao.js` keeps endpoint querying and backend-to-UI mapping behind the repository boundary.
 - Proposal list loading uses the current server DAO query shape:
   - `GET /dao/proposals/summary` for the recent-activity index and total count
   - `GET /dao/proposals/:number` for each indexed proposal's details
@@ -104,7 +104,7 @@ Important implementation detail:
 
 This section is the remaining integration checklist after moving the DAO list to real proposal query endpoints.
 
-### 1) Keep backend fetch in `dao.repo.js`
+### 1) Keep backend fetch in `dao.js`
 
 `daoRepo` uses an injected fetcher and otherwise returns an empty store.
 

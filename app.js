@@ -38,7 +38,7 @@ async function checkVersion() {
       'styles.css',
       'app.js',
       'evm-assets.js',
-      'dao.repo.js',
+      'dao.js',
       'data/emoji-picker-data.js',
       'lib.js',
       'network.js',
@@ -102,7 +102,7 @@ import {
   normalizeDaoAddress,
   parseDaoUnsignedBigInt,
   setDaoBackendFetcher,
-} from './dao.repo.js';
+} from './dao.js';
 
 // Import crypto functions from crypto.js
 import {
