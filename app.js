@@ -4026,13 +4026,13 @@ const DAO_WITHHOLD_REASON_OPTIONS = [
   { value: DAO_CUSTOM_WITHHOLD_REASON, label: 'Custom reason' },
 ];
 const DAO_WITHHOLD_REASON_MAX_LENGTH = 1000;
-const DAO_VOTE_WEIGHT_MAX = 1_000_000;
+const DAO_VOTE_MULTIPLE_MAX = 1_000_000;
 const DAO_VOTE_WEIGHT_PRECISION = 1_000_000_000_000;
 const DAO_VOTE_WEIGHT_PRECISION_BIGINT = 1_000_000_000_000n;
 const DAO_CLAIM_REWARD_PRECISION = 10n ** 18n;
 const DAO_VOTE_HELP = {
+  multiple: 'Each whole number is one minimum-spend multiple. The values also split your voting power across options.',
   votingPower: 'Voting power is the normalized weight from your LIB spend and timing. Final weight can shift slightly if the transaction lands later or network pricing changes before validation.',
-  weight: 'Weight is a ratio. 1 / 1 splits evenly; 3 / 1 gives 75% / 25%.',
   voteThreshold: 'Minimum wallet balance required to vote on this proposal.',
   minimumSpend: 'Base LIB spend for a valid vote. Choose a whole-number multiple of it when voting.',
 };
@@ -4582,13 +4582,6 @@ function formatDaoDetailValue(value) {
   return String(value);
 }
 
-function parseDaoVoteSpendMultiple(value) {
-  const text = String(value || '').trim();
-  if (!/^\d+$/.test(text)) return null;
-  const multiple = Number(text);
-  return Number.isSafeInteger(multiple) && multiple > 0 ? multiple : null;
-}
-
 function getDaoUsdAsLibWei(usdValue) {
   const usdText = String(usdValue ?? '').trim();
   const stabilityText = String(parameters?.current?.stabilityFactorStr ?? '').trim();
@@ -4642,15 +4635,13 @@ class ProposalInfoModal {
     this.voteActionSection = document.getElementById('proposalVoteActionSection');
     this.voteActionHelp = document.getElementById('proposalVoteActionHelp');
     this.voteOptions = document.getElementById('proposalVoteOptions');
-    this.voteSpendMultipleInput = document.getElementById('proposalVoteSpendMultiple');
     this.votePreview = document.getElementById('proposalVotePreview');
     this.voteSubmitButton = document.getElementById('proposalVoteSubmit');
 
     this._currentProposalId = null;
     this.committeeChoice = 'accept';
     this.currentCommitteeVote = '';
-    this.voteWeights = [];
-    this.voteSpendMultiple = '';
+    this.voteMultiples = [];
     this.isSubmitting = false;
     this.canSubmitCommitteeReview = false;
     this.canSubmitReviewResult = false;
@@ -4669,8 +4660,7 @@ class ProposalInfoModal {
     if (this.reviewResultButton) this.reviewResultButton.addEventListener('click', () => this.handleReviewResultSubmit());
     if (this.lifecycleActionSection) this.lifecycleActionSection.addEventListener('click', (event) => this.handleLifecycleActionClick(event));
     if (this.voteActionSection) this.voteActionSection.addEventListener('click', (event) => this.handleVoteHelpClick(event));
-    if (this.voteSpendMultipleInput) this.voteSpendMultipleInput.addEventListener('input', () => this.handleVoteSpendMultipleInput());
-    if (this.voteOptions) this.voteOptions.addEventListener('input', (event) => this.handleVoteWeightInput(event));
+    if (this.voteOptions) this.voteOptions.addEventListener('input', (event) => this.handleVoteMultipleInput(event));
     if (this.voteSubmitButton) this.voteSubmitButton.addEventListener('click', () => this.handleVoteSubmit());
 
     if (this.withholdReasonSelect) {
@@ -5273,9 +5263,7 @@ class ProposalInfoModal {
 
   resetVoteState(proposal) {
     const options = getDaoProposalOptions(proposal);
-    this.voteWeights = options.map(() => 0);
-    this.voteSpendMultiple = '';
-    if (this.voteSpendMultipleInput) this.voteSpendMultipleInput.value = '';
+    this.voteMultiples = options.map(() => 0);
   }
 
   renderVoteActions(proposal, state) {
@@ -5292,41 +5280,38 @@ class ProposalInfoModal {
     }
 
     const options = getDaoProposalOptions(proposal);
-    if (this.voteWeights.length !== options.length) {
-      this.voteWeights = options.map(() => 0);
+    if (this.voteMultiples.length !== options.length) {
+      this.voteMultiples = options.map(() => 0);
     }
 
     this.voteActionSection.classList.remove('hidden');
     if (this.voteActionHelp) {
       this.voteActionHelp.textContent = this.isDaoActionPending(DAO_ACTION_TYPES.VOTE)
         ? getDaoTransactionMessage(DAO_ACTION_TYPES.VOTE, 'pending')
-        : 'Allocate options and choose a whole-number multiple of the minimum spend to preview voting power.';
+        : 'Enter minimum-spend multiples for each option to preview voting power.';
     }
     if (this.voteSubmitButton) {
       this.voteSubmitButton.textContent = this.voteSubmitButtonLabel;
     }
-    if (this.voteSpendMultipleInput) {
-      this.voteSpendMultipleInput.value = this.voteSpendMultiple;
-    }
     if (this.voteOptions) {
-      const totalWeight = this.getVoteWeightsTotal();
+      const totalMultiple = this.getVoteMultipleTotal();
       this.voteOptions.innerHTML = `
         <div class="proposal-vote-options-header">
           <span>Option</span>
           <span>%</span>
-          <span class="proposal-vote-weight-label">
-            Weight
+          <span class="proposal-vote-multiple-label">
+            Multiple
             <button
               type="button"
               class="toll-info-icon proposal-vote-help"
               data-icon="info"
               data-vote-help
-              title="${escapeDaoFormAttribute(DAO_VOTE_HELP.weight)}"
-              aria-label="About Weight"
+              title="${escapeDaoFormAttribute(DAO_VOTE_HELP.multiple)}"
+              aria-label="About spend multiple"
             ></button>
           </span>
         </div>
-        ${options.map((option, index) => this.renderVoteOption(option, index, totalWeight)).join('')}
+        ${options.map((option, index) => this.renderVoteOption(option, index, totalMultiple)).join('')}
         ${this.renderVoteRequirements(proposal)}
       `;
     }
@@ -5385,72 +5370,67 @@ class ProposalInfoModal {
     showToast(helpButton.title, 0, 'info');
   }
 
-  renderVoteOption(option, index, totalWeight) {
-    const weight = this.voteWeights[index] || 0;
+  renderVoteOption(option, index, totalMultiple) {
+    const multiple = this.voteMultiples[index] || 0;
     return `
       <label class="proposal-vote-option">
         <span>${escapeHtml(option)}</span>
         <span
-          class="proposal-vote-weight-percent"
-          data-vote-weight-percent="${index}"
+          class="proposal-vote-multiple-percent"
+          data-vote-multiple-percent="${index}"
           aria-label="${escapeDaoFormAttribute(`${option} percent`)}"
-        >${escapeHtml(this.formatCountPercent(weight, totalWeight))}</span>
+        >${escapeHtml(this.formatCountPercent(multiple, totalMultiple))}</span>
         <input
           type="number"
           class="form-control"
           min="0"
-          max="${DAO_VOTE_WEIGHT_MAX}"
+          max="${DAO_VOTE_MULTIPLE_MAX}"
           step="1"
           inputmode="numeric"
           placeholder="0"
-          aria-label="${escapeDaoFormAttribute(`${option} weight`)}"
-          data-vote-option-index="${index}"
-          value="${escapeDaoFormAttribute(String(weight))}"
+          aria-label="${escapeDaoFormAttribute(`${option} spend multiple`)}"
+          data-vote-multiple-index="${index}"
+          value="${escapeDaoFormAttribute(String(multiple))}"
         >
       </label>
     `;
   }
 
-  handleVoteWeightInput(event) {
-    const input = event.target?.closest?.('input[data-vote-option-index]');
+  handleVoteMultipleInput(event) {
+    const input = event.target?.closest?.('input[data-vote-multiple-index]');
     if (!input) return;
-    const index = Number(input.dataset.voteOptionIndex);
-    if (!Number.isInteger(index) || index < 0 || index >= this.voteWeights.length) return;
-    this.voteWeights[index] = this.normalizeVoteWeight(input.value);
-    input.value = String(this.voteWeights[index]);
-    this.updateVoteWeightPercents();
+    const index = Number(input.dataset.voteMultipleIndex);
+    if (!Number.isInteger(index) || index < 0 || index >= this.voteMultiples.length) return;
+    this.voteMultiples[index] = this.normalizeVoteMultiple(input.value);
+    input.value = String(this.voteMultiples[index]);
+    this.updateVoteMultiplePercents();
     this.updateVotePreview(this.getCurrentProposal());
   }
 
-  updateVoteWeightPercents() {
-    const percentEls = this.voteOptions?.querySelectorAll('[data-vote-weight-percent]');
+  updateVoteMultiplePercents() {
+    const percentEls = this.voteOptions?.querySelectorAll('[data-vote-multiple-percent]');
     if (!percentEls?.length) return;
 
-    const totalWeight = this.getVoteWeightsTotal();
+    const totalMultiple = this.getVoteMultipleTotal();
     for (const el of percentEls) {
-      const index = Number(el.dataset.voteWeightPercent);
-      if (!Number.isInteger(index) || index < 0 || index >= this.voteWeights.length) continue;
-      el.textContent = this.formatCountPercent(this.voteWeights[index] || 0, totalWeight);
+      const index = Number(el.dataset.voteMultiplePercent);
+      if (!Number.isInteger(index) || index < 0 || index >= this.voteMultiples.length) continue;
+      el.textContent = this.formatCountPercent(this.voteMultiples[index] || 0, totalMultiple);
     }
   }
 
-  getVoteWeightsTotal() {
-    return this.voteWeights.reduce((sum, weight) => sum + weight, 0);
+  getVoteMultipleTotal() {
+    return this.voteMultiples.reduce((sum, multiple) => sum + multiple, 0);
   }
 
-  handleVoteSpendMultipleInput() {
-    this.voteSpendMultiple = String(this.voteSpendMultipleInput?.value || '');
-    this.updateVotePreview(this.getCurrentProposal());
-  }
-
-  normalizeVoteWeight(value) {
+  normalizeVoteMultiple(value) {
     const n = Number(value);
     if (!Number.isSafeInteger(n) || n < 0) return 0;
-    return Math.min(n, DAO_VOTE_WEIGHT_MAX);
+    return Math.min(n, DAO_VOTE_MULTIPLE_MAX);
   }
 
   hasStartedVoteInput() {
-    return this.voteWeights.some((weight) => weight > 0) || this.voteSpendMultiple.trim() !== '';
+    return this.voteMultiples.some((multiple) => multiple > 0);
   }
 
   updateVotePreview(proposal) {
@@ -5483,8 +5463,8 @@ class ProposalInfoModal {
 
     const optionRows = getDaoProposalOptions(proposal)
       .map((option, index) => {
-        const weight = this.voteWeights[index] || 0;
-        const share = weight / submission.totalWeight;
+        const multiple = this.voteMultiples[index] || 0;
+        const share = multiple / submission.totalMultiple;
         const applied = estimate.optionAppliedWeights[index] ?? 0n;
         return `
           <div class="proposal-vote-preview-row">
@@ -5543,14 +5523,9 @@ class ProposalInfoModal {
       return { ok: false, message: 'Wallet address unavailable.' };
     }
 
-    const totalWeight = this.getVoteWeightsTotal();
-    if (totalWeight <= 0) {
-      return { ok: false, message: 'Enter at least one positive option weight.' };
-    }
-
-    const spendMultiple = parseDaoVoteSpendMultiple(this.voteSpendMultiple);
-    if (spendMultiple === null) {
-      return { ok: false, message: 'Enter a positive whole-number spend multiple.' };
+    const spendMultiple = this.getVoteMultipleTotal();
+    if (spendMultiple <= 0) {
+      return { ok: false, message: 'Enter at least one positive spend multiple.' };
     }
 
     const minimumSpendWei = getDaoUsdAsLibWei(proposal.minimumSpendUsdStr);
@@ -5581,13 +5556,13 @@ class ProposalInfoModal {
       }
     }
 
-    return { ok: true, minimumSpendWei, spendMultiple, spendWei, totalWeight };
+    return { ok: true, minimumSpendWei, spendMultiple, spendWei, totalMultiple: spendMultiple };
   }
 
   getVoteWeightEstimate(proposal, {
     minimumSpendWei,
     spendWei,
-    totalWeight,
+    totalMultiple,
     timestamp,
   }) {
     const voteExponent = Number(proposal.voteExponent);
@@ -5599,21 +5574,21 @@ class ProposalInfoModal {
       return { ok: false, message: 'Applied-weight estimate is unavailable until proposal voting parameters are loaded.' };
     }
 
-    if (totalWeight <= 0) {
+    if (totalMultiple <= 0) {
       return { ok: false, message: 'Applied-weight estimate is unavailable for these inputs.' };
     }
 
     const spendLib = Number(EthNum.toStr(spendWei));
     const minimumSpendLib = Number(EthNum.toStr(minimumSpendWei));
     const spendBoost = Math.pow(spendLib / minimumSpendLib, voteExponent);
-    const baseAppliedWeight = spendLib * spendBoost * votingWindow.timeMultiplier * DAO_VOTE_WEIGHT_PRECISION / totalWeight;
+    const baseAppliedWeight = spendLib * spendBoost * votingWindow.timeMultiplier * DAO_VOTE_WEIGHT_PRECISION / totalMultiple;
     if (!Number.isFinite(baseAppliedWeight) || baseAppliedWeight <= 0) {
       return { ok: false, message: 'Applied-weight estimate is unavailable for these inputs.' };
     }
 
-    const optionAppliedWeights = this.voteWeights.map((weight) => {
-      if (weight <= 0) return 0n;
-      return floorDaoVoteWeightEstimate(baseAppliedWeight * weight);
+    const optionAppliedWeights = this.voteMultiples.map((multiple) => {
+      if (multiple <= 0) return 0n;
+      return floorDaoVoteWeightEstimate(baseAppliedWeight * multiple);
     });
     if (optionAppliedWeights.some((weight) => weight === null)) {
       return { ok: false, message: 'Applied-weight estimate is unavailable for these inputs.' };
@@ -5724,9 +5699,8 @@ class ProposalInfoModal {
       }
       if (pendingVote) this.voteSubmitButton.textContent = pendingLabel;
     }
-    if (this.voteSpendMultipleInput) this.voteSpendMultipleInput.disabled = this.isSubmitting || pendingVote;
     if (this.voteOptions) {
-      for (const input of this.voteOptions.querySelectorAll('input[data-vote-option-index]')) {
+      for (const input of this.voteOptions.querySelectorAll('input[data-vote-multiple-index]')) {
         input.disabled = this.isSubmitting || pendingVote;
       }
     }
@@ -6052,7 +6026,7 @@ class ProposalInfoModal {
       const result = await daoRepo.castVote({
         from: getDaoCurrentAccountAddress(),
         proposal,
-        weights: this.voteWeights.slice(),
+        weights: this.voteMultiples.slice(),
         spend: submission.spendWei,
         timestamp: submission.timestamp,
         networkId: network?.netid || '',
