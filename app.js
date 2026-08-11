@@ -4033,7 +4033,7 @@ const DAO_CLAIM_REWARD_PRECISION = 10n ** 18n;
 const DAO_VOTE_HELP = {
   weight: 'Weight is a ratio. 1 / 1 splits evenly; 3 / 1 gives 75% / 25%.',
   voteThreshold: 'Minimum wallet balance required to vote on this proposal.',
-  minimumSpend: 'Minimum LIB you must spend for a valid vote on this proposal.',
+  minimumSpend: 'Base LIB spend for a valid vote. Choose a whole-number multiple of it when voting.',
 };
 
 function getDaoCurrentAccountAddress() {
@@ -4581,15 +4581,11 @@ function formatDaoDetailValue(value) {
   return String(value);
 }
 
-function parseDaoPositiveLibAmount(value) {
+function parseDaoVoteSpendMultiple(value) {
   const text = String(value || '').trim();
-  if (!/^\d+(?:\.\d{1,18})?$/.test(text)) return null;
-  try {
-    const weiAmount = EthNum.toWei(text);
-    return weiAmount > 0n ? weiAmount : null;
-  } catch {
-    return null;
-  }
+  if (!/^\d+$/.test(text)) return null;
+  const multiple = Number(text);
+  return Number.isSafeInteger(multiple) && multiple > 0 ? multiple : null;
 }
 
 function getDaoUsdAsLibWei(usdValue) {
@@ -4645,7 +4641,7 @@ class ProposalInfoModal {
     this.voteActionSection = document.getElementById('proposalVoteActionSection');
     this.voteActionHelp = document.getElementById('proposalVoteActionHelp');
     this.voteOptions = document.getElementById('proposalVoteOptions');
-    this.voteSpendInput = document.getElementById('proposalVoteSpend');
+    this.voteSpendMultipleInput = document.getElementById('proposalVoteSpendMultiple');
     this.votePreview = document.getElementById('proposalVotePreview');
     this.voteSubmitButton = document.getElementById('proposalVoteSubmit');
 
@@ -4653,7 +4649,7 @@ class ProposalInfoModal {
     this.committeeChoice = 'accept';
     this.currentCommitteeVote = '';
     this.voteWeights = [];
-    this.voteSpendLib = '';
+    this.voteSpendMultiple = '';
     this.isSubmitting = false;
     this.canSubmitCommitteeReview = false;
     this.canSubmitReviewResult = false;
@@ -4672,7 +4668,7 @@ class ProposalInfoModal {
     if (this.reviewResultButton) this.reviewResultButton.addEventListener('click', () => this.handleReviewResultSubmit());
     if (this.lifecycleActionSection) this.lifecycleActionSection.addEventListener('click', (event) => this.handleLifecycleActionClick(event));
     if (this.voteActionSection) this.voteActionSection.addEventListener('click', (event) => this.handleVoteHelpClick(event));
-    if (this.voteSpendInput) this.voteSpendInput.addEventListener('input', () => this.handleVoteSpendInput());
+    if (this.voteSpendMultipleInput) this.voteSpendMultipleInput.addEventListener('input', () => this.handleVoteSpendMultipleInput());
     if (this.voteOptions) this.voteOptions.addEventListener('input', (event) => this.handleVoteWeightInput(event));
     if (this.voteSubmitButton) this.voteSubmitButton.addEventListener('click', () => this.handleVoteSubmit());
 
@@ -5277,8 +5273,8 @@ class ProposalInfoModal {
   resetVoteState(proposal) {
     const options = getDaoProposalOptions(proposal);
     this.voteWeights = options.map(() => 0);
-    this.voteSpendLib = '';
-    if (this.voteSpendInput) this.voteSpendInput.value = '';
+    this.voteSpendMultiple = '';
+    if (this.voteSpendMultipleInput) this.voteSpendMultipleInput.value = '';
   }
 
   renderVoteActions(proposal, state) {
@@ -5303,13 +5299,13 @@ class ProposalInfoModal {
     if (this.voteActionHelp) {
       this.voteActionHelp.textContent = this.isDaoActionPending(DAO_ACTION_TYPES.VOTE)
         ? getDaoTransactionMessage(DAO_ACTION_TYPES.VOTE, 'pending')
-        : 'Allocate options and spend LIB to preview voting power.';
+        : 'Allocate options and choose a whole-number multiple of the minimum spend to preview voting power.';
     }
     if (this.voteSubmitButton) {
       this.voteSubmitButton.textContent = this.voteSubmitButtonLabel;
     }
-    if (this.voteSpendInput) {
-      this.voteSpendInput.value = this.voteSpendLib;
+    if (this.voteSpendMultipleInput) {
+      this.voteSpendMultipleInput.value = this.voteSpendMultiple;
     }
     if (this.voteOptions) {
       const totalWeight = this.getVoteWeightsTotal();
@@ -5441,8 +5437,8 @@ class ProposalInfoModal {
     return this.voteWeights.reduce((sum, weight) => sum + weight, 0);
   }
 
-  handleVoteSpendInput() {
-    this.voteSpendLib = String(this.voteSpendInput?.value || '');
+  handleVoteSpendMultipleInput() {
+    this.voteSpendMultiple = String(this.voteSpendMultipleInput?.value || '');
     this.updateVotePreview(this.getCurrentProposal());
   }
 
@@ -5453,7 +5449,7 @@ class ProposalInfoModal {
   }
 
   hasStartedVoteInput() {
-    return this.voteWeights.some((weight) => weight > 0) || this.voteSpendLib.trim() !== '';
+    return this.voteWeights.some((weight) => weight > 0) || this.voteSpendMultiple.trim() !== '';
   }
 
   updateVotePreview(proposal) {
@@ -5476,7 +5472,7 @@ class ProposalInfoModal {
     this.canSubmitVote = true;
     this.updateSubmitButtons();
 
-    const estimate = this.getVoteWeightEstimate(proposal, submission.spendWei, submission.totalWeight, submission.timestamp);
+    const estimate = this.getVoteWeightEstimate(proposal, submission);
     if (!estimate.ok) {
       this.votePreview.classList.add('proposal-vote-preview--message');
       this.votePreview.innerHTML = this.renderVotePreviewMessage(`${estimate.message} You can still submit; final weight is calculated by the network.`, 'muted');
@@ -5500,6 +5496,10 @@ class ProposalInfoModal {
       .join('');
 
     this.votePreview.innerHTML = `
+      <div class="proposal-vote-preview-total">
+        <span>Spend</span>
+        <strong>${escapeHtml(`${formatDaoLibWei(submission.spendWei)} (${submission.spendMultiple}× minimum)`)}</strong>
+      </div>
       <div class="proposal-vote-preview-total">
         <span>Estimated voting power</span>
         <strong>${escapeHtml(formatDaoEstimatedVotingPower(estimate.totalAppliedWeight))}</strong>
@@ -5526,9 +5526,7 @@ class ProposalInfoModal {
     }
 
     return {
-      ok: true,
-      spendWei: validation.spendWei,
-      totalWeight: validation.totalWeight,
+      ...validation,
       timestamp,
     };
   }
@@ -5546,10 +5544,16 @@ class ProposalInfoModal {
       return { ok: false, message: 'Enter at least one positive option weight.' };
     }
 
-    const spendWei = parseDaoPositiveLibAmount(this.voteSpendLib);
-    if (spendWei === null) {
-      return { ok: false, message: 'Enter a positive LIB spend amount.' };
+    const spendMultiple = parseDaoVoteSpendMultiple(this.voteSpendMultiple);
+    if (spendMultiple === null) {
+      return { ok: false, message: 'Enter a positive whole-number spend multiple.' };
     }
+
+    const minimumSpendWei = getDaoUsdAsLibWei(proposal.minimumSpendUsdStr);
+    if (minimumSpendWei === null || minimumSpendWei <= 0n) {
+      return { ok: false, message: 'Minimum spend is unavailable until network pricing is loaded.' };
+    }
+    const spendWei = minimumSpendWei * BigInt(spendMultiple);
 
     const votingWindow = getDaoProposalVotingWindow(proposal, timestamp);
     if (!votingWindow.canPreviewVote) {
@@ -5573,25 +5577,24 @@ class ProposalInfoModal {
       }
     }
 
-    return { ok: true, spendWei, totalWeight };
+    return { ok: true, minimumSpendWei, spendMultiple, spendWei, totalWeight };
   }
 
-  getVoteWeightEstimate(proposal, spendWei, totalWeight, timestamp) {
-    const minimumSpendWei = getDaoUsdAsLibWei(proposal.minimumSpendUsdStr);
+  getVoteWeightEstimate(proposal, {
+    minimumSpendWei,
+    spendWei,
+    totalWeight,
+    timestamp,
+  }) {
     const voteExponent = Number(proposal.voteExponent);
     const votingWindow = getDaoProposalVotingWindow(proposal, timestamp);
     if (
-      minimumSpendWei === null ||
-      minimumSpendWei <= 0n ||
       !Number.isFinite(voteExponent) ||
       votingWindow.timeMultiplier === null
     ) {
       return { ok: false, message: 'Applied-weight estimate is unavailable until proposal voting parameters are loaded.' };
     }
 
-    if (spendWei < minimumSpendWei) {
-      return { ok: false, message: `Spend must be at least ${formatDaoLibWei(minimumSpendWei)}.` };
-    }
     if (totalWeight <= 0) {
       return { ok: false, message: 'Applied-weight estimate is unavailable for these inputs.' };
     }
@@ -5717,7 +5720,7 @@ class ProposalInfoModal {
       }
       if (pendingVote) this.voteSubmitButton.textContent = pendingLabel;
     }
-    if (this.voteSpendInput) this.voteSpendInput.disabled = this.isSubmitting || pendingVote;
+    if (this.voteSpendMultipleInput) this.voteSpendMultipleInput.disabled = this.isSubmitting || pendingVote;
     if (this.voteOptions) {
       for (const input of this.voteOptions.querySelectorAll('input[data-vote-option-index]')) {
         input.disabled = this.isSubmitting || pendingVote;
@@ -6023,11 +6026,17 @@ class ProposalInfoModal {
       return;
     }
 
-    if (!window.confirm(`Submit this vote and spend ${EthNum.toStr(submission.spendWei)} LIB?`)) return;
+    const confirmedSpendWei = submission.spendWei;
+    if (!window.confirm(`Submit this vote and spend ${EthNum.toStr(confirmedSpendWei)} LIB?`)) return;
 
     submission = this.getVoteSubmission(proposal);
     if (!submission.ok) {
       showToast(submission.message, 3000, 'warning');
+      this.renderProposal(proposal);
+      return;
+    }
+    if (submission.spendWei !== confirmedSpendWei) {
+      showToast('Minimum spend changed. Review the updated amount before submitting.', 3000, 'info');
       this.renderProposal(proposal);
       return;
     }

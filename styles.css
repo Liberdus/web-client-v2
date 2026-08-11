@@ -3095,7 +3095,7 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-vote-option,
-#proposalInfoModal .proposal-vote-spend-row {
+#proposalInfoModal .proposal-vote-spend-multiple-row {
   align-items: center;
   display: grid;
   gap: 8px;
@@ -3105,7 +3105,7 @@ input[type='file'].form-control::file-selector-button {
   grid-template-columns: minmax(0, 1fr) 52px 92px;
 }
 
-#proposalInfoModal .proposal-vote-spend-row {
+#proposalInfoModal .proposal-vote-spend-multiple-row {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
@@ -3116,19 +3116,19 @@ input[type='file'].form-control::file-selector-button {
   white-space: nowrap;
 }
 
-#proposalInfoModal .proposal-vote-spend-row .form-group {
+#proposalInfoModal .proposal-vote-spend-multiple-row .form-group {
   align-items: center;
   display: grid;
   gap: 8px;
   grid-template-columns: auto minmax(0, 1fr);
 }
 
-#proposalInfoModal .proposal-vote-spend-row label {
+#proposalInfoModal .proposal-vote-spend-multiple-row label {
   margin: 0;
   white-space: nowrap;
 }
 
-#proposalInfoModal .proposal-vote-spend-row > span {
+#proposalInfoModal .proposal-vote-spend-multiple-row > span {
   color: var(--secondary-text-color);
   font-size: 13px;
   font-weight: var(--font-weight-semibold);
