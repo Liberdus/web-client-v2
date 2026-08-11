@@ -4777,33 +4777,48 @@ class ProposalInfoModal {
     const winnerIndex = totalWeight > 0n
       ? totals.reduce((winner, row, index) => (row.total > totals[winner].total ? index : winner), 0)
       : -1;
-    const rows = totals.map((row, index) => {
+    const labels = totals.map((row, index) => {
       const power = formatDaoVotingPower(row.total);
       const percent = formatDaoBigIntPercent(row.total, totalWeight);
-      const valueLabel = totalWeight > 0n ? `${percent} (${power})` : power;
-      const title = totalWeight > 0n
-        ? `${row.option}: ${percent}, ${power}`
-        : `${row.option}: ${power}`;
+      const displayPower = power.endsWith(' power') ? power.slice(0, -6) : power;
+      const position = index === 0 ? 'start' : index === totals.length - 1 ? 'end' : 'center';
+      const paletteClass = ` proposal-result-meter-label--palette-${index % 6}`;
+      const title = `${row.option}: ${percent}, ${power}`;
+      return `
+        <div
+          class="proposal-result-meter-label proposal-result-meter-label--${position}${paletteClass}${index === winnerIndex ? ' proposal-result-meter-label--winner' : ''}"
+          title="${escapeDaoFormAttribute(title)}"
+          aria-label="${escapeDaoFormAttribute(title)}"
+        >
+          <span>${escapeHtml(row.option)}</span>
+          <small>${escapeHtml(percent)} (${escapeHtml(displayPower)})</small>
+        </div>
+      `;
+    }).join('');
+    const bars = totals.map((row, index) => {
+      const units = this.getResultSegmentUnits(row.total, totalWeight);
+      const style = `--result-segment-units: ${units};`;
+      return `
+        <span
+          class="proposal-result-meter-segment proposal-result-meter-segment--palette-${index % 6}${row.total === 0n ? ' proposal-result-meter-segment--empty' : ''}"
+          style="${escapeDaoFormAttribute(style)}"
+        ></span>
+      `;
+    }).join('');
+    const deadlineText = formatDaoCompactTimestamp(votingWindow.end);
 
-      return {
-        isEmpty: row.total === 0n,
-        isWinner: index === winnerIndex,
-        label: row.option,
-        title,
-        tone: index === 0 ? 'no-change' : `option-${((index - 1) % 5) + 1}`,
-        units: this.getCurrentVoteSegmentUnits(row.total, totalWeight),
-        valueLabel,
-      };
-    });
-
-    return this.renderCurrentTallySection({
-      ariaLabel: 'Current vote totals',
-      deadline: votingWindow.end,
-      deadlineLabel: 'Voting ends',
-      footerHtml: '',
-      heading: 'Current Vote',
-      rows,
-    });
+    return `
+      <section class="proposal-info-section proposal-vote-current-section">
+        <div class="proposal-vote-current-heading">
+          <h3>Current Vote</h3>
+          ${deadlineText ? `<span title="${escapeDaoFormAttribute(`Voting ends: ${formatDaoTimestamp(votingWindow.end)}`)}">${escapeHtml(`Voting ends: ${deadlineText}`)}</span>` : ''}
+        </div>
+        <div class="proposal-result-meter" aria-label="Current vote breakdown">
+          <div class="proposal-result-meter-labels">${labels}</div>
+          <div class="proposal-result-meter-track" aria-hidden="true">${bars}</div>
+        </div>
+      </section>
+    `;
   }
 
   getCurrentVoteTotalRows(proposal) {
@@ -4813,13 +4828,6 @@ class ProposalInfoModal {
       option,
       total: parseDaoUnsignedBigInt(totalVote[index]) ?? 0n,
     }));
-  }
-
-  getCurrentVoteSegmentUnits(part, total) {
-    if (typeof part !== 'bigint' || typeof total !== 'bigint' || total <= 0n) return 1;
-    if (part <= 0n) return 0;
-    const units = Number((part * 1000n) / total);
-    return Math.max(1, units);
   }
 
   renderCurrentTallySection({ ariaLabel, deadline, deadlineLabel, footerHtml, heading, rows }) {
@@ -4970,7 +4978,6 @@ class ProposalInfoModal {
 
     const winnerLabel = result.winner ? `${result.winner.option} (${result.outcome})` : 'Unavailable';
     const totalLabel = result.totalWeight > 0n ? formatDaoVotingPower(result.totalWeight) : 'No votes yet';
-    const labelLayout = result.totals.length === 2 ? 'balanced' : 'segmented';
     const segments = result.totals
       .map((row, rowPosition) => {
         const isWinner = result.winner?.index === row.index;
@@ -4986,12 +4993,10 @@ class ProposalInfoModal {
           : rowPosition === result.totals.length - 1
             ? 'end'
             : 'center';
-        const style = `--result-segment-units: ${units};`;
         const label = `${row.option}: ${percent}, ${power}`;
         return `
           <div
             class="proposal-result-meter-label proposal-result-meter-label--${position}${paletteClass}${isWinner ? ' proposal-result-meter-label--winner' : ''}"
-            style="${escapeDaoFormAttribute(style)}"
             title="${escapeDaoFormAttribute(label)}"
             aria-label="${escapeDaoFormAttribute(label)}"
           >
@@ -5031,7 +5036,7 @@ class ProposalInfoModal {
           </div>
         </div>
         <div class="proposal-result-meter" aria-label="Vote result breakdown">
-          <div class="proposal-result-meter-labels proposal-result-meter-labels--${labelLayout}">${segments}</div>
+          <div class="proposal-result-meter-labels">${segments}</div>
           <div class="proposal-result-meter-track" aria-hidden="true">${bars}</div>
         </div>
       </section>

@@ -2387,14 +2387,11 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-result-meter-label {
   display: grid;
-  flex: var(--result-segment-units) 1 0;
+  /* Labels share the available width; only the bar segments reflect vote totals. */
+  flex: 1 1 0;
   gap: 2px;
   min-width: 0;
   padding: 0 4px;
-}
-
-#proposalInfoModal .proposal-result-meter-labels--balanced .proposal-result-meter-label {
-  flex: 1 1 0;
 }
 
 #proposalInfoModal .proposal-result-meter-label--start {
@@ -2431,27 +2428,27 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-result-meter-label--palette-0 > span {
-  color: #3d3dce;
+  color: #c42d2d;
 }
 
 #proposalInfoModal .proposal-result-meter-label--palette-1 > span {
-  color: #65676b;
+  color: #3d3dce;
 }
 
 #proposalInfoModal .proposal-result-meter-label--palette-2 > span {
-  color: #6f68e8;
+  color: #1e7e34;
 }
 
 #proposalInfoModal .proposal-result-meter-label--palette-3 > span {
-  color: #838a93;
+  color: #b36d00;
 }
 
 #proposalInfoModal .proposal-result-meter-label--palette-4 > span {
-  color: #2f2fa8;
+  color: #147a7e;
 }
 
 #proposalInfoModal .proposal-result-meter-label--palette-5 > span {
-  color: #4e555f;
+  color: #7c3dbd;
 }
 
 #proposalInfoModal .proposal-result-meter-track {
@@ -2475,27 +2472,27 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-result-meter-segment--palette-0 {
-  background: #3d3dce;
+  background: #c42d2d;
 }
 
 #proposalInfoModal .proposal-result-meter-segment--palette-1 {
-  background: #aeb3ba;
+  background: #3d3dce;
 }
 
 #proposalInfoModal .proposal-result-meter-segment--palette-2 {
-  background: #6f68e8;
+  background: #1e7e34;
 }
 
 #proposalInfoModal .proposal-result-meter-segment--palette-3 {
-  background: #c4c8ce;
+  background: #b36d00;
 }
 
 #proposalInfoModal .proposal-result-meter-segment--palette-4 {
-  background: #2f2fa8;
+  background: #147a7e;
 }
 
 #proposalInfoModal .proposal-result-meter-segment--palette-5 {
-  background: #8d949e;
+  background: #7c3dbd;
 }
 
 #proposalInfoModal .proposal-committee-votes {
@@ -2961,7 +2958,7 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-vote-current-label > span {
   flex: 0 0 auto;
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-normal);
   max-width: 100%;
   min-width: 0;
   overflow-wrap: break-word;
@@ -3058,7 +3055,6 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-vote-current-label--no-change > span,
-#proposalInfoModal .proposal-vote-current-label--no-change > span,
 #proposalInfoModal .proposal-vote-current-label--option-1 > span,
 #proposalInfoModal .proposal-vote-current-label--option-2 > span,
 #proposalInfoModal .proposal-vote-current-label--option-3 > span,
@@ -3073,7 +3069,6 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-vote-current-label--option-4 > span,
 #proposalInfoModal .proposal-vote-current-label--option-5 > span {
   font-size: 11px;
-  font-weight: var(--font-weight-medium);
 }
 
 #proposalInfoModal .proposal-vote-current-segment--no-change,
