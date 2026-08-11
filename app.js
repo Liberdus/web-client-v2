@@ -4031,6 +4031,7 @@ const DAO_VOTE_WEIGHT_PRECISION = 1_000_000_000_000;
 const DAO_VOTE_WEIGHT_PRECISION_BIGINT = 1_000_000_000_000n;
 const DAO_CLAIM_REWARD_PRECISION = 10n ** 18n;
 const DAO_VOTE_HELP = {
+  votingPower: 'Voting power is the normalized weight from your LIB spend and timing. Final weight can shift slightly if the transaction lands later or network pricing changes before validation.',
   weight: 'Weight is a ratio. 1 / 1 splits evenly; 3 / 1 gives 75% / 25%.',
   voteThreshold: 'Minimum wallet balance required to vote on this proposal.',
   minimumSpend: 'Base LIB spend for a valid vote. Choose a whole-number multiple of it when voting.',
@@ -5501,18 +5502,21 @@ class ProposalInfoModal {
         <strong>${escapeHtml(`${formatDaoLibWei(submission.spendWei)} (${submission.spendMultiple}× minimum)`)}</strong>
       </div>
       <div class="proposal-vote-preview-total">
-        <span>Estimated voting power</span>
-        <strong>${escapeHtml(formatDaoEstimatedVotingPower(estimate.totalAppliedWeight))}</strong>
-      </div>
-      <details class="proposal-vote-power-help">
-        <summary>What is voting power?</summary>
-        <p>Voting power is the normalized weight from your LIB spend and timing. Final weight can shift slightly if the transaction lands later or network pricing changes before validation.</p>
-      </details>
-      <div class="proposal-vote-preview-meter">
-        <span style="width: ${Math.min(100, Math.max(4, estimate.timeMultiplier * 100))}%"></span>
-      </div>
-      <div class="proposal-vote-preview-note">
-        Timing weight: ${escapeHtml(formatDaoPercent(estimate.timeMultiplier))} of full power
+        <span>
+          Estimated voting power
+          <button
+            type="button"
+            class="toll-info-icon proposal-vote-help"
+            data-icon="info"
+            data-vote-help
+            title="${escapeDaoFormAttribute(DAO_VOTE_HELP.votingPower)}"
+            aria-label="About estimated voting power"
+          ></button>
+        </span>
+        <span class="proposal-vote-preview-value">
+          <strong>${escapeHtml(formatDaoEstimatedVotingPower(estimate.totalAppliedWeight))}</strong>
+          <small>Timing weight: ${escapeHtml(formatDaoPercent(estimate.timeMultiplier))} of full power</small>
+        </span>
       </div>
       <div class="proposal-vote-preview-options">${optionRows}</div>
     `;

@@ -3009,9 +3009,8 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-vote-option span,
-#proposalInfoModal .proposal-vote-preview-total span,
-#proposalInfoModal .proposal-vote-preview-row span,
-#proposalInfoModal .proposal-vote-preview-note {
+#proposalInfoModal .proposal-vote-preview-total > span,
+#proposalInfoModal .proposal-vote-preview-row span {
   color: var(--secondary-text-color);
   font-size: 12px;
   font-weight: var(--font-weight-medium);
@@ -3157,49 +3156,19 @@ input[type='file'].form-control::file-selector-button {
   text-align: right;
 }
 
-#proposalInfoModal .proposal-vote-power-help {
+#proposalInfoModal .proposal-vote-preview-value {
+  align-items: center;
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+}
+
+#proposalInfoModal .proposal-vote-preview-value small {
   color: var(--secondary-text-color);
   font-size: 12px;
+  font-weight: var(--font-weight-medium);
   line-height: 1.35;
-}
-
-#proposalInfoModal .proposal-vote-power-help summary {
-  align-items: center;
-  cursor: pointer;
-  display: inline-flex;
-  gap: 6px;
-  list-style: none;
-}
-
-#proposalInfoModal .proposal-vote-power-help summary::-webkit-details-marker {
-  display: none;
-}
-
-#proposalInfoModal .proposal-vote-power-help summary::before {
-  background-image: var(--icon-info);
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: 16px 16px;
-  content: "";
-  height: 16px;
-  width: 16px;
-}
-
-#proposalInfoModal .proposal-vote-power-help p {
-  margin: 6px 0 0;
-}
-
-#proposalInfoModal .proposal-vote-preview-meter {
-  background: var(--border-color);
-  border-radius: 999px;
-  height: 8px;
-  overflow: hidden;
-}
-
-#proposalInfoModal .proposal-vote-preview-meter span {
-  background: var(--primary-color);
-  display: block;
-  height: 100%;
+  text-align: right;
 }
 
 #proposalInfoModal .proposal-vote-preview-options {
