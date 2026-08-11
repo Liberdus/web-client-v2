@@ -2223,16 +2223,15 @@ input[type='file'].form-control::file-selector-button {
 
 #confirmProposalModal .proposal-option-section,
 #proposalInfoModal .proposal-option-section {
-  background: transparent;
+  background: rgba(61, 61, 206, 0.055);
   border: 0;
-  border-bottom: 1px solid var(--border-color);
   border-radius: 0;
   box-shadow: none;
   display: grid;
   gap: 2px;
   grid-template-columns: minmax(0, 1fr);
   min-width: 0;
-  padding: 0 0 10px;
+  padding: 8px 10px 10px;
   text-align: left;
 }
 
@@ -2280,7 +2279,6 @@ input[type='file'].form-control::file-selector-button {
 #confirmProposalModal .proposal-info-row,
 #proposalInfoModal .proposal-info-row {
   background: rgba(255, 255, 255, 0.92);
-  border: 1px solid var(--border-color);
   box-shadow: 0 1px 2px rgba(28, 28, 33, 0.05);
 }
 
@@ -2682,6 +2680,7 @@ input[type='file'].form-control::file-selector-button {
 
 #confirmProposalModal .proposal-option-section--no-change .proposal-info-muted,
 #proposalInfoModal .proposal-option-section--no-change .proposal-info-muted {
+  align-self: center;
   align-items: center;
   color: var(--text-color);
   display: flex;
@@ -2691,6 +2690,12 @@ input[type='file'].form-control::file-selector-button {
   justify-self: end;
   padding: 4px 0;
   text-align: right;
+}
+
+#confirmProposalModal .proposal-option-section--no-change,
+#proposalInfoModal .proposal-option-section--no-change {
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 110px;
 }
 
 #confirmProposalModal .proposal-option-section--no-change .proposal-change-arrow,
