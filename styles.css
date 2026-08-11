@@ -2221,8 +2221,8 @@ input[type='file'].form-control::file-selector-button {
   grid-template-columns: minmax(0, 1fr);
 }
 
-#confirmProposalModal .proposal-option-card,
-#proposalInfoModal .proposal-option-card {
+#confirmProposalModal .proposal-option-section,
+#proposalInfoModal .proposal-option-section {
   background: transparent;
   border: 0;
   border-bottom: 1px solid var(--border-color);
@@ -2236,8 +2236,8 @@ input[type='file'].form-control::file-selector-button {
   text-align: left;
 }
 
-#confirmProposalModal .proposal-option-card-label,
-#proposalInfoModal .proposal-option-card-label {
+#confirmProposalModal .proposal-option-label,
+#proposalInfoModal .proposal-option-label {
   align-items: center;
   color: var(--text-color);
   display: flex;
@@ -2249,21 +2249,16 @@ input[type='file'].form-control::file-selector-button {
   overflow-wrap: anywhere;
 }
 
-#confirmProposalModal .proposal-option-card-label::after,
-#proposalInfoModal .proposal-option-card-label::after {
+#confirmProposalModal .proposal-option-label::after,
+#proposalInfoModal .proposal-option-label::after {
   border-top: 1px solid var(--border-color);
   content: '';
   flex: 1 1 auto;
   min-width: 0;
 }
 
-#confirmProposalModal .proposal-option-card--changes,
-#proposalInfoModal .proposal-option-card--changes {
-  align-items: stretch;
-}
-
-#confirmProposalModal .proposal-option-card-changes,
-#proposalInfoModal .proposal-option-card-changes {
+#confirmProposalModal .proposal-option-changes,
+#proposalInfoModal .proposal-option-changes {
   display: grid;
   gap: 0;
 }
@@ -2685,8 +2680,8 @@ input[type='file'].form-control::file-selector-button {
   margin: 0;
 }
 
-#confirmProposalModal .proposal-option-card--no-change .proposal-info-muted,
-#proposalInfoModal .proposal-option-card--no-change .proposal-info-muted {
+#confirmProposalModal .proposal-option-section--no-change .proposal-info-muted,
+#proposalInfoModal .proposal-option-section--no-change .proposal-info-muted {
   align-items: center;
   color: var(--text-color);
   display: flex;
@@ -2698,8 +2693,8 @@ input[type='file'].form-control::file-selector-button {
   text-align: right;
 }
 
-#confirmProposalModal .proposal-option-card--no-change .proposal-change-arrow,
-#proposalInfoModal .proposal-option-card--no-change .proposal-change-arrow {
+#confirmProposalModal .proposal-option-section--no-change .proposal-change-arrow,
+#proposalInfoModal .proposal-option-section--no-change .proposal-change-arrow {
   align-self: baseline;
   font-size: 12px;
   line-height: 1.2;

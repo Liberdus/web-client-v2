@@ -3785,10 +3785,10 @@ function renderDaoProposalOptions(proposal) {
   const options = getDaoProposalOptions(proposal);
   const changeSets = proposal?.[proposal?.proposalType]?.changes;
   const optionCards = options.map((option, index) => {
-    const noChangeClass = index === 0 ? ' proposal-option-card--no-change' : '';
+    const noChangeClass = index === 0 ? ' proposal-option-section--no-change' : '';
     return `
-      <div class="proposal-option-card proposal-option-card--changes${noChangeClass}">
-        <span class="proposal-option-card-label">${escapeHtml(option)}</span>
+      <div class="proposal-option-section${noChangeClass}">
+        <span class="proposal-option-label">${escapeHtml(option)}</span>
         ${renderDaoProposalOptionDetails(index, changeSets)}
       </div>
     `;
@@ -3809,13 +3809,13 @@ function renderDaoProposalOptionDetails(optionIndex, changeSets) {
 
   const changes = Array.isArray(changeSets) ? changeSets[optionIndex - 1] : null;
   if (!Array.isArray(changes)) {
-    return '<div class="proposal-option-card-changes"><p class="proposal-info-muted">Parameter changes are unavailable.</p></div>';
+    return '<div class="proposal-option-changes"><p class="proposal-info-muted">Parameter changes are unavailable.</p></div>';
   }
   if (changes.length === 0) {
-    return '<div class="proposal-option-card-changes"><p class="proposal-info-muted">No parameter changes.</p></div>';
+    return '<div class="proposal-option-changes"><p class="proposal-info-muted">No parameter changes.</p></div>';
   }
 
-  return `<div class="proposal-option-card-changes">${renderDaoProposalChangeRows(changes)}</div>`;
+  return `<div class="proposal-option-changes">${renderDaoProposalChangeRows(changes)}</div>`;
 }
 
 function renderDaoProposalChangeRows(changes) {
@@ -4904,8 +4904,6 @@ class ProposalInfoModal {
       const valueLabel = submittedCount > 0 ? `${percent} (${countLabel})` : countLabel;
       return {
         ...row,
-        countLabel,
-        shareLabel: `${percent} (${countLabel})`,
         units: this.getCountSegmentUnits(row.count, submittedCount),
         isEmpty: row.count === 0,
         title: `${row.label}: ${valueLabel}`,
