@@ -2363,6 +2363,7 @@ input[type='file'].form-control::file-selector-button {
   box-shadow: 0 2px 2px rgba(28, 28, 33, 0.04);
   display: grid;
   gap: 6px;
+  min-width: 0;
   padding: 10px;
   text-align: center;
 }
@@ -3167,12 +3168,6 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-vote-preview-message--muted {
   background: var(--input-background);
   color: var(--secondary-text-color);
-}
-
-@media (max-width: 520px) {
-  #proposalInfoModal .proposal-result-overview {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 #proposalInfoModal .hidden {
