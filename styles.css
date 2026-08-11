@@ -2897,16 +2897,26 @@ input[type='file'].form-control::file-selector-button {
   gap: 10px;
 }
 
-#proposalInfoModal .proposal-vote-status-grid {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: minmax(0, 1fr);
-}
-
 #proposalInfoModal .proposal-vote-current-meter {
   display: grid;
-  gap: 8px;
+  gap: 4px;
   min-width: 0;
+}
+
+#proposalInfoModal .proposal-vote-current-heading {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+#proposalInfoModal .proposal-vote-current-heading > span {
+  color: var(--secondary-text-color);
+  flex: 0 1 auto;
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+  text-align: right;
 }
 
 #proposalInfoModal .proposal-vote-current-labels,
@@ -2918,44 +2928,47 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-vote-current-label {
-  display: grid;
-  /* Equal columns; bar segments stay vote-proportional via --vote-total-segment-units. */
-  flex: 1 1 0;
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
   gap: 4px;
+  justify-content: flex-start;
   min-width: 0;
-  padding: 0 4px;
+  white-space: nowrap;
 }
 
-#proposalInfoModal .proposal-vote-current-label--start {
-  justify-items: start;
-  text-align: left;
+#proposalInfoModal .proposal-vote-current-labels {
+  display: grid;
+  gap: 6px 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-#proposalInfoModal .proposal-vote-current-label--center {
-  justify-items: center;
-  text-align: center;
+#proposalInfoModal .proposal-vote-current-label::before {
+  background: rgba(101, 103, 107, 0.34);
+  border-radius: 999px;
+  content: '';
+  flex: 0 0 7px;
+  height: 7px;
 }
 
-#proposalInfoModal .proposal-vote-current-label--end {
-  justify-items: end;
-  text-align: right;
+#proposalInfoModal .proposal-vote-current-label--accept::before {
+  background: #1e7e34;
 }
 
-#proposalInfoModal .proposal-vote-current-label > span,
-#proposalInfoModal .proposal-vote-current-label > small {
+#proposalInfoModal .proposal-vote-current-label--withhold::before {
+  background: #c42d2d;
+}
+
+#proposalInfoModal .proposal-vote-current-label > span {
+  flex: 0 0 auto;
   font-weight: var(--font-weight-bold);
   max-width: 100%;
   min-width: 0;
   overflow-wrap: break-word;
+  white-space: nowrap;
 }
 
 #proposalInfoModal .proposal-vote-current-label > span {
-  color: var(--secondary-text-color);
-  font-size: 12px;
-  line-height: 1.35;
-}
-
-#proposalInfoModal .proposal-vote-current-label > small {
   color: var(--secondary-text-color);
   font-size: 12px;
   line-height: 1.35;
@@ -2969,7 +2982,7 @@ input[type='file'].form-control::file-selector-button {
   background: var(--input-background);
   border: 1px solid var(--border-color);
   border-radius: 999px;
-  height: 16px;
+  height: 12px;
   overflow: hidden;
 }
 
@@ -2986,7 +2999,7 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-vote-current-segment--winner {
-  background: var(--primary-color);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.16);
 }
 
 #proposalInfoModal .proposal-result-meter-segment--accept,
@@ -3004,7 +3017,78 @@ input[type='file'].form-control::file-selector-button {
   background: rgba(101, 103, 107, 0.18);
 }
 
-#proposalInfoModal .proposal-vote-status-card,
+/* Community-vote colors: option zero is always the red no-change choice. */
+#proposalInfoModal .proposal-vote-current-label--no-change,
+#proposalInfoModal .proposal-vote-current-segment--no-change {
+  --dao-current-vote-color: #c42d2d;
+}
+
+#proposalInfoModal .proposal-vote-current-label--option-1,
+#proposalInfoModal .proposal-vote-current-segment--option-1 {
+  --dao-current-vote-color: #3d3dce;
+}
+
+#proposalInfoModal .proposal-vote-current-label--option-2,
+#proposalInfoModal .proposal-vote-current-segment--option-2 {
+  --dao-current-vote-color: #1e7e34;
+}
+
+#proposalInfoModal .proposal-vote-current-label--option-3,
+#proposalInfoModal .proposal-vote-current-segment--option-3 {
+  --dao-current-vote-color: #b36d00;
+}
+
+#proposalInfoModal .proposal-vote-current-label--option-4,
+#proposalInfoModal .proposal-vote-current-segment--option-4 {
+  --dao-current-vote-color: #147a7e;
+}
+
+#proposalInfoModal .proposal-vote-current-label--option-5,
+#proposalInfoModal .proposal-vote-current-segment--option-5 {
+  --dao-current-vote-color: #7c3dbd;
+}
+
+#proposalInfoModal .proposal-vote-current-label--no-change::before,
+#proposalInfoModal .proposal-vote-current-label--option-1::before,
+#proposalInfoModal .proposal-vote-current-label--option-2::before,
+#proposalInfoModal .proposal-vote-current-label--option-3::before,
+#proposalInfoModal .proposal-vote-current-label--option-4::before,
+#proposalInfoModal .proposal-vote-current-label--option-5::before {
+  background: var(--dao-current-vote-color);
+}
+
+#proposalInfoModal .proposal-vote-current-label--no-change > span,
+#proposalInfoModal .proposal-vote-current-label--no-change > span,
+#proposalInfoModal .proposal-vote-current-label--option-1 > span,
+#proposalInfoModal .proposal-vote-current-label--option-2 > span,
+#proposalInfoModal .proposal-vote-current-label--option-3 > span,
+#proposalInfoModal .proposal-vote-current-label--option-4 > span,
+#proposalInfoModal .proposal-vote-current-label--option-5 > span {
+  color: var(--dao-current-vote-color);
+}
+
+#proposalInfoModal .proposal-vote-current-label--option-1 > span,
+#proposalInfoModal .proposal-vote-current-label--option-2 > span,
+#proposalInfoModal .proposal-vote-current-label--option-3 > span,
+#proposalInfoModal .proposal-vote-current-label--option-4 > span,
+#proposalInfoModal .proposal-vote-current-label--option-5 > span {
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+}
+
+#proposalInfoModal .proposal-vote-current-segment--no-change,
+#proposalInfoModal .proposal-vote-current-segment--option-1,
+#proposalInfoModal .proposal-vote-current-segment--option-2,
+#proposalInfoModal .proposal-vote-current-segment--option-3,
+#proposalInfoModal .proposal-vote-current-segment--option-4,
+#proposalInfoModal .proposal-vote-current-segment--option-5 {
+  background: var(--dao-current-vote-color);
+}
+
+#proposalInfoModal .proposal-vote-current-segment--no-change.proposal-vote-current-segment--empty {
+  background: rgba(196, 45, 45, 0.35);
+}
+
 #proposalInfoModal .proposal-vote-preview {
   background: var(--input-background);
   border-radius: 8px;
@@ -3022,24 +3106,6 @@ input[type='file'].form-control::file-selector-button {
   padding: 0;
 }
 
-#proposalInfoModal .proposal-vote-status-card {
-  align-items: center;
-  grid-template-columns: minmax(0, 1fr) auto;
-  padding: 8px 10px;
-}
-
-#proposalInfoModal .proposal-vote-status-card strong {
-  min-width: 0;
-  text-align: right;
-}
-
-#proposalInfoModal .proposal-vote-status-card--deadline {
-  justify-self: end;
-  max-width: 100%;
-  width: fit-content;
-}
-
-#proposalInfoModal .proposal-vote-status-card span,
 #proposalInfoModal .proposal-vote-option span,
 #proposalInfoModal .proposal-vote-preview-total span,
 #proposalInfoModal .proposal-vote-preview-row span,
@@ -3050,7 +3116,6 @@ input[type='file'].form-control::file-selector-button {
   line-height: 1.35;
 }
 
-#proposalInfoModal .proposal-vote-status-card strong,
 #proposalInfoModal .proposal-vote-preview-total strong,
 #proposalInfoModal .proposal-vote-preview-row strong {
   color: var(--text-color);

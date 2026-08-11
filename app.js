@@ -4132,6 +4132,21 @@ function formatDaoDetailTimestamp(ts) {
   return formatted ? formatted.replace(', ', '\n') : 'Unavailable';
 }
 
+function formatDaoCompactTimestamp(ts) {
+  const n = Number(ts || 0);
+  if (!n) return '';
+  try {
+    return new Date(n).toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  } catch {
+    return '';
+  }
+}
+
 function formatDaoShortNumber(value, decimals = 6) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 'Unavailable';
@@ -4775,7 +4790,7 @@ class ProposalInfoModal {
         isWinner: index === winnerIndex,
         label: row.option,
         title,
-        tone: '',
+        tone: index === 0 ? 'no-change' : `option-${((index - 1) % 5) + 1}`,
         units: this.getCurrentVoteSegmentUnits(row.total, totalWeight),
         valueLabel,
       };
@@ -4808,20 +4823,19 @@ class ProposalInfoModal {
   }
 
   renderCurrentTallySection({ ariaLabel, deadline, deadlineLabel, footerHtml, heading, rows }) {
+    const deadlineText = formatDaoCompactTimestamp(deadline);
     const labels = rows
-      .map((row, index) => {
-        const position = index === 0 ? 'start' : index === rows.length - 1 ? 'end' : 'center';
+      .map((row) => {
         const toneClass = row.tone ? ` proposal-vote-current-label--${row.tone}` : '';
         const winnerClass = row.isWinner ? ' proposal-vote-current-label--winner' : '';
 
         return `
           <div
-            class="proposal-vote-current-label proposal-vote-current-label--${position}${toneClass}${winnerClass}"
+            class="proposal-vote-current-label${toneClass}${winnerClass}"
             title="${escapeDaoFormAttribute(row.title)}"
             aria-label="${escapeDaoFormAttribute(row.title)}"
           >
-            <span>${escapeHtml(row.label)}</span>
-            <small>${escapeHtml(row.valueLabel)}</small>
+            <span>${escapeHtml(`${row.label} ${row.valueLabel}`)}</span>
           </div>
         `;
       })
@@ -4843,16 +4857,13 @@ class ProposalInfoModal {
 
     return `
       <section class="proposal-info-section proposal-vote-current-section">
-        <h3>${escapeHtml(heading)}</h3>
+        <div class="proposal-vote-current-heading">
+          <h3>${escapeHtml(heading)}</h3>
+          ${deadlineText ? `<span title="${escapeDaoFormAttribute(`${deadlineLabel}: ${formatDaoTimestamp(deadline)}`)}">${escapeHtml(`${deadlineLabel}: ${deadlineText}`)}</span>` : ''}
+        </div>
         <div class="proposal-vote-current-meter" aria-label="${escapeDaoFormAttribute(ariaLabel)}">
           <div class="proposal-vote-current-labels">${labels}</div>
           <div class="proposal-vote-current-track" aria-hidden="true">${segments}</div>
-        </div>
-        <div class="proposal-vote-status-grid proposal-vote-status-grid--current">
-          <div class="proposal-vote-status-card proposal-vote-status-card--deadline">
-            <span>${escapeHtml(deadlineLabel)}</span>
-            <strong>${escapeHtml(formatDaoDetailTimestamp(deadline))}</strong>
-          </div>
         </div>
         ${footerHtml}
       </section>
