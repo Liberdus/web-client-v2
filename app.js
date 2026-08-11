@@ -2525,7 +2525,7 @@ function formatDaoReadyAtLabel(ts, now) {
 
 function formatDaoProposalTitle(proposal) {
   const title = String(proposal.title || '').trim() || 'Proposal';
-  return proposal.number ? `#${proposal.number}: ${title}` : title;
+  return proposal.number ? `${proposal.number}: ${title}` : title;
 }
 
 class DaoModal {
