@@ -3787,10 +3787,7 @@ function renderDaoProposalOptions(proposal) {
   const optionCards = options.map((option, index) => {
     return `
       <div class="proposal-option-card proposal-option-card--changes">
-        <div class="proposal-option-card-header">
-          <span class="proposal-option-card-number">${index + 1}</span>
-          <span class="proposal-option-card-label">${escapeHtml(option)}</span>
-        </div>
+        <span class="proposal-option-card-label">${escapeHtml(option)}</span>
         ${renderDaoProposalOptionDetails(index, changeSets)}
       </div>
     `;

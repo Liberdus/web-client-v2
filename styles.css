@@ -2238,22 +2238,6 @@ input[type='file'].form-control::file-selector-button {
   text-align: left;
 }
 
-#confirmProposalModal .proposal-option-card-number,
-#proposalInfoModal .proposal-option-card-number {
-  align-items: center;
-  background: var(--input-background);
-  border-radius: 999px;
-  color: var(--secondary-text-color);
-  display: inline-flex;
-  font-size: 12px;
-  font-weight: var(--font-weight-semibold);
-  height: 24px;
-  justify-content: center;
-  line-height: 1;
-  min-width: 24px;
-  padding: 0 4px;
-}
-
 #confirmProposalModal .proposal-option-card-label,
 #proposalInfoModal .proposal-option-card-label {
   color: var(--text-color);
@@ -2267,14 +2251,6 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-option-card--changes {
   align-items: stretch;
   grid-template-columns: minmax(0, 1fr);
-}
-
-#confirmProposalModal .proposal-option-card-header,
-#proposalInfoModal .proposal-option-card-header {
-  align-items: center;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: auto minmax(0, 1fr);
 }
 
 #confirmProposalModal .proposal-option-card-changes,
