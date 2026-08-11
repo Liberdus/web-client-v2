@@ -8316,8 +8316,6 @@ small {
 
 #daoModal .dao-filter-bar {
   background: rgba(61, 61, 206, 0.14);
-  border-bottom: 1px solid rgba(61, 61, 206, 0.22);
-  border-top: 1px solid rgba(61, 61, 206, 0.22);
   display: grid;
   gap: 6px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -8367,7 +8365,6 @@ small {
 #daoModal .dao-filter-chip-count {
   align-items: center;
   background: var(--hover-background);
-  border: 1px solid var(--border-color);
   border-radius: 999px;
   color: var(--secondary-text-color);
   display: inline-flex;
@@ -8384,7 +8381,6 @@ small {
 
 #daoModal .dao-filter-chip.active .dao-filter-chip-count {
   background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.28);
   color: var(--background-color);
 }
 
