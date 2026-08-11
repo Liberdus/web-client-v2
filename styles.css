@@ -2564,14 +2564,12 @@ input[type='file'].form-control::file-selector-button {
   text-align: right;
 }
 
-#proposalInfoModal .proposal-result-meter-label--accept.proposal-result-meter-label--winner > span,
-#proposalInfoModal .proposal-vote-current-label--accept.proposal-vote-current-label--winner > span,
+#proposalInfoModal .proposal-result-meter-label--accept > span,
 #proposalInfoModal .proposal-committee-vote-choice--accept {
   color: #0f5f27;
 }
 
-#proposalInfoModal .proposal-result-meter-label--withhold.proposal-result-meter-label--winner > span,
-#proposalInfoModal .proposal-vote-current-label--withhold.proposal-vote-current-label--winner > span,
+#proposalInfoModal .proposal-result-meter-label--withhold > span,
 #proposalInfoModal .proposal-committee-vote-choice--withhold {
   color: #8f1d16;
 }
@@ -2995,12 +2993,6 @@ input[type='file'].form-control::file-selector-button {
   gap: 10px;
 }
 
-#proposalInfoModal .proposal-vote-current-meter {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
 #proposalInfoModal .proposal-vote-current-heading {
   align-items: baseline;
   display: flex;
@@ -3017,172 +3009,16 @@ input[type='file'].form-control::file-selector-button {
   text-align: right;
 }
 
-#proposalInfoModal .proposal-vote-current-labels,
-#proposalInfoModal .proposal-vote-current-track {
-  align-items: center;
-  display: flex;
-  min-width: 0;
-  width: 100%;
-}
-
-#proposalInfoModal .proposal-vote-current-label {
-  align-items: center;
-  display: inline-flex;
-  flex: 0 0 auto;
-  gap: 4px;
-  justify-content: flex-start;
-  min-width: 0;
-  white-space: nowrap;
-}
-
-#proposalInfoModal .proposal-vote-current-labels {
-  display: grid;
-  gap: 6px 12px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-#proposalInfoModal .proposal-vote-current-label::before {
-  background: rgba(101, 103, 107, 0.34);
-  border-radius: 999px;
-  content: '';
-  flex: 0 0 7px;
-  height: 7px;
-}
-
-#proposalInfoModal .proposal-vote-current-label--accept::before {
+#proposalInfoModal .proposal-result-meter-segment--accept {
   background: #1e7e34;
 }
 
-#proposalInfoModal .proposal-vote-current-label--withhold::before {
+#proposalInfoModal .proposal-result-meter-segment--withhold {
   background: #c42d2d;
 }
 
-#proposalInfoModal .proposal-vote-current-label > span {
-  flex: 0 0 auto;
-  font-weight: var(--font-weight-normal);
-  max-width: 100%;
-  min-width: 0;
-  overflow-wrap: break-word;
-  white-space: nowrap;
-}
-
-#proposalInfoModal .proposal-vote-current-label > span {
-  color: var(--secondary-text-color);
-  font-size: 12px;
-  line-height: 1.35;
-}
-
-#proposalInfoModal .proposal-vote-current-label--winner > span {
-  color: var(--primary-color);
-}
-
-#proposalInfoModal .proposal-vote-current-track {
-  background: var(--input-background);
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  height: 12px;
-  overflow: hidden;
-}
-
-#proposalInfoModal .proposal-vote-current-segment {
-  align-self: stretch;
-  background: rgba(101, 103, 107, 0.34);
-  border-left: 1px solid rgba(255, 255, 255, 0.72);
-  flex: var(--vote-total-segment-units) 1 0;
-  min-width: 0;
-}
-
-#proposalInfoModal .proposal-vote-current-segment:first-child {
-  border-left: 0;
-}
-
-#proposalInfoModal .proposal-vote-current-segment--winner {
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.16);
-}
-
-#proposalInfoModal .proposal-result-meter-segment--accept,
-#proposalInfoModal .proposal-vote-current-segment--accept {
-  background: #1e7e34;
-}
-
-#proposalInfoModal .proposal-result-meter-segment--withhold,
-#proposalInfoModal .proposal-vote-current-segment--withhold {
-  background: #c42d2d;
-}
-
-#proposalInfoModal .proposal-result-meter-segment--empty,
-#proposalInfoModal .proposal-vote-current-segment--empty {
+#proposalInfoModal .proposal-result-meter-segment--empty {
   background: rgba(101, 103, 107, 0.18);
-}
-
-/* Community-vote colors: option zero is always the red no-change choice. */
-#proposalInfoModal .proposal-vote-current-label--no-change,
-#proposalInfoModal .proposal-vote-current-segment--no-change {
-  --dao-current-vote-color: #c42d2d;
-}
-
-#proposalInfoModal .proposal-vote-current-label--option-1,
-#proposalInfoModal .proposal-vote-current-segment--option-1 {
-  --dao-current-vote-color: #3d3dce;
-}
-
-#proposalInfoModal .proposal-vote-current-label--option-2,
-#proposalInfoModal .proposal-vote-current-segment--option-2 {
-  --dao-current-vote-color: #1e7e34;
-}
-
-#proposalInfoModal .proposal-vote-current-label--option-3,
-#proposalInfoModal .proposal-vote-current-segment--option-3 {
-  --dao-current-vote-color: #b36d00;
-}
-
-#proposalInfoModal .proposal-vote-current-label--option-4,
-#proposalInfoModal .proposal-vote-current-segment--option-4 {
-  --dao-current-vote-color: #147a7e;
-}
-
-#proposalInfoModal .proposal-vote-current-label--option-5,
-#proposalInfoModal .proposal-vote-current-segment--option-5 {
-  --dao-current-vote-color: #7c3dbd;
-}
-
-#proposalInfoModal .proposal-vote-current-label--no-change::before,
-#proposalInfoModal .proposal-vote-current-label--option-1::before,
-#proposalInfoModal .proposal-vote-current-label--option-2::before,
-#proposalInfoModal .proposal-vote-current-label--option-3::before,
-#proposalInfoModal .proposal-vote-current-label--option-4::before,
-#proposalInfoModal .proposal-vote-current-label--option-5::before {
-  background: var(--dao-current-vote-color);
-}
-
-#proposalInfoModal .proposal-vote-current-label--no-change > span,
-#proposalInfoModal .proposal-vote-current-label--option-1 > span,
-#proposalInfoModal .proposal-vote-current-label--option-2 > span,
-#proposalInfoModal .proposal-vote-current-label--option-3 > span,
-#proposalInfoModal .proposal-vote-current-label--option-4 > span,
-#proposalInfoModal .proposal-vote-current-label--option-5 > span {
-  color: var(--dao-current-vote-color);
-}
-
-#proposalInfoModal .proposal-vote-current-label--option-1 > span,
-#proposalInfoModal .proposal-vote-current-label--option-2 > span,
-#proposalInfoModal .proposal-vote-current-label--option-3 > span,
-#proposalInfoModal .proposal-vote-current-label--option-4 > span,
-#proposalInfoModal .proposal-vote-current-label--option-5 > span {
-  font-size: 11px;
-}
-
-#proposalInfoModal .proposal-vote-current-segment--no-change,
-#proposalInfoModal .proposal-vote-current-segment--option-1,
-#proposalInfoModal .proposal-vote-current-segment--option-2,
-#proposalInfoModal .proposal-vote-current-segment--option-3,
-#proposalInfoModal .proposal-vote-current-segment--option-4,
-#proposalInfoModal .proposal-vote-current-segment--option-5 {
-  background: var(--dao-current-vote-color);
-}
-
-#proposalInfoModal .proposal-vote-current-segment--no-change.proposal-vote-current-segment--empty {
-  background: rgba(196, 45, 45, 0.35);
 }
 
 #proposalInfoModal .proposal-vote-preview {
