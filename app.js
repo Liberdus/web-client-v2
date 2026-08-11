@@ -90,6 +90,7 @@ import {
   DAO_STATES,
   getDaoTransactionMessage,
   getDaoProposalClaimWindow,
+  getDaoPendingFinalizationOutcome,
   getDaoProposalTimeline,
   getDaoRewardClaimStatus,
   getDaoStateLabel,
@@ -2811,15 +2812,22 @@ class DaoModal {
     if (state === 'review') {
       const now = getTransactionTimestamp();
       const reviewWindow = getDaoProposalReviewWindow(proposal, now);
+      const pendingFinalizationOutcome = getDaoPendingFinalizationOutcome(proposal, now);
 
       if (reviewWindow.canFinalizeReviewResult) {
-        const { acceptCount, withholdCount } = getDaoCommitteeReview(proposal);
-        const isWithheld = withholdCount > acceptCount;
-
-        chips.push({
-          value: isWithheld ? 'Withheld' : 'Approved',
-          tone: isWithheld ? 'rejected' : 'accepted',
-        });
+        if (pendingFinalizationOutcome) {
+          chips.push({
+            value: `${getDaoStateLabel(pendingFinalizationOutcome.nextState)} next`,
+            tone: 'neutral',
+          });
+        } else {
+          const { acceptCount, withholdCount } = getDaoCommitteeReview(proposal);
+          const isWithheld = withholdCount > acceptCount;
+          chips.push({
+            value: isWithheld ? 'Withheld' : 'Approved',
+            tone: isWithheld ? 'rejected' : 'accepted',
+          });
+        }
       }
 
       let reviewLabel = reviewWindow.label;
@@ -4304,7 +4312,17 @@ function getDaoVoteResultSummary(proposal) {
   if (totals.length === 0) return null;
 
   const { totalWeight, winner } = getDaoVoteWinner(totals);
-  if (totalWeight <= 0n) return null;
+  if (totalWeight <= 0n) {
+    return {
+      headline: 'Rejected',
+      outcome: 'Rejected',
+      source: 'vote',
+      tone: 'rejected',
+      totalWeight,
+      totals,
+      winner: totals[0],
+    };
+  }
 
   const outcome = winner.index === 0 ? 'Accepted' : 'Rejected';
   const tone = winner.index === 0 ? 'accepted' : 'rejected';
@@ -4500,10 +4518,12 @@ function getDaoProposalLifecycleActions(
   if (state === 'voting') {
     const votingWindow = getDaoProposalVotingWindow(proposal, now);
     if (votingWindow.end && now > votingWindow.end) {
+      const pendingFinalizationOutcome = getDaoPendingFinalizationOutcome(proposal, now);
       return [{
         kind: 'vote_result',
         title: 'Vote result',
-        help: 'Voting has ended. Finalize the vote result to move this proposal to accepted or rejected.',
+        help: pendingFinalizationOutcome?.message
+          || 'Voting has ended. Finalize the vote result to move this proposal to accepted or rejected.',
         buttonLabel: 'Finalize vote result',
         loadingLabel: 'Finalizing vote result...',
       }];
@@ -4707,11 +4727,12 @@ class ProposalInfoModal {
   }
 
   renderProposal(proposal) {
+    const now = getTransactionTimestamp();
     const state = getEffectiveDaoState(proposal);
     this.setTitle(getDaoStateLabel(state) || state || 'Proposal');
-    const reviewWindow = getDaoProposalReviewWindow(proposal);
+    const reviewWindow = getDaoProposalReviewWindow(proposal, now);
     const committeeReview = getDaoCommitteeReview(proposal);
-    const { acceptCount, committeeAddresses, committeeAddressSet, votes, withholdCount } = committeeReview;
+    const { committeeAddresses, committeeAddressSet, votes } = committeeReview;
     const currentAddress = getDaoCurrentAccountAddress();
     const currentVote = votes.find((vote) => vote.memberAddress === currentAddress) || null;
     const capabilities = this.getReviewCapabilities({
@@ -4722,11 +4743,17 @@ class ProposalInfoModal {
     });
     const resultSummary = getDaoProposalResultSummary(proposal);
     const rewardSummary = getDaoProposalRewardSummary(proposal, currentAddress);
-    const lifecycleActions = getDaoProposalLifecycleActions(proposal, rewardSummary, currentAddress);
+    const lifecycleActions = getDaoProposalLifecycleActions(proposal, rewardSummary, currentAddress, now);
+    const pendingFinalizationOutcome = getDaoPendingFinalizationOutcome(proposal, now);
     const committeeReviewSection = state === 'review'
       ? renderDaoProposalSection('Committee Review', [
         ['Committee size', committeeAddresses.length ? String(committeeAddresses.length) : 'Unavailable'],
-        ['Next state', this.getNextStateHint(proposal, acceptCount, withholdCount, reviewWindow)],
+        ['Next state', this.getNextStateHint(
+          proposal,
+          reviewWindow,
+          committeeReview,
+          pendingFinalizationOutcome
+        )],
       ])
       : '';
     if (this.content) {
@@ -4752,7 +4779,13 @@ class ProposalInfoModal {
 
     if (state === 'review') {
       this.renderCommitteeActions({ capabilities, reviewWindow, currentVote, state });
-      this.renderReviewResultAction({ capabilities, reviewWindow, proposal, acceptCount, withholdCount });
+      this.renderReviewResultAction({
+        capabilities,
+        reviewWindow,
+        proposal,
+        committeeReview,
+        pendingFinalizationOutcome,
+      });
     } else {
       this.hideCommitteeActions();
       this.hideReviewResultAction();
@@ -5120,15 +5153,19 @@ class ProposalInfoModal {
     return `Withhold - ${reason}`;
   }
 
-  getReviewFinalizedStateLabel(proposal, acceptCount, withholdCount) {
+  getReviewFinalizedState(proposal, { acceptCount, withholdCount }) {
     if (withholdCount > acceptCount) return 'Withheld';
     return proposal.emergency ? 'Accepted' : 'Voting';
   }
 
-  getNextStateHint(proposal, acceptCount, withholdCount, reviewWindow) {
+  getNextStateHint(proposal, reviewWindow, committeeReview, pendingFinalizationOutcome) {
+    const { acceptCount, withholdCount } = committeeReview;
     if (proposal.status && proposal.status !== 'review') return getDaoStateLabel(proposal.status) || proposal.status;
     if (reviewWindow.canFinalizeReviewResult) {
-      return `${this.getReviewFinalizedStateLabel(proposal, acceptCount, withholdCount)} if finalized`;
+      const nextState = pendingFinalizationOutcome?.nextState
+        ? getDaoStateLabel(pendingFinalizationOutcome.nextState)
+        : this.getReviewFinalizedState(proposal, committeeReview);
+      return `${nextState} if finalized`;
     }
     if (withholdCount > acceptCount) return 'Likely withheld after review result';
     if (acceptCount > withholdCount) return proposal.emergency ? 'Accepted if finalized' : 'Voting if finalized';
@@ -5163,7 +5200,13 @@ class ProposalInfoModal {
     this.updateSubmitButtons();
   }
 
-  renderReviewResultAction({ capabilities, reviewWindow, proposal, acceptCount, withholdCount }) {
+  renderReviewResultAction({
+    capabilities,
+    reviewWindow,
+    proposal,
+    committeeReview,
+    pendingFinalizationOutcome,
+  }) {
     if (!this.reviewResultSection) return;
     if (!capabilities.canFinalizeReviewResult) {
       this.hideReviewResultAction();
@@ -5176,8 +5219,8 @@ class ProposalInfoModal {
       if (this.isDaoActionPending(DAO_ACTION_TYPES.COMMITTEE_RESULT)) {
         this.reviewResultHelp.textContent = getDaoTransactionMessage(DAO_ACTION_TYPES.COMMITTEE_RESULT, 'pending');
       } else {
-        const nextState = this.getReviewFinalizedStateLabel(proposal, acceptCount, withholdCount);
-        this.reviewResultHelp.textContent = `${reviewWindow.label}. Finalize the review result to move this proposal to ${nextState}.`;
+        this.reviewResultHelp.textContent = pendingFinalizationOutcome?.message
+          || `${reviewWindow.label}. Finalize the review result to move this proposal to ${this.getReviewFinalizedState(proposal, committeeReview)}.`;
       }
     }
     this.updateSubmitButtons();

@@ -744,6 +744,48 @@ export function parseDaoUnsignedBigInt(value) {
   }
 }
 
+function hasZeroDaoVoteTotals(proposal) {
+  const totalVote = proposal?.totalVote;
+  return Array.isArray(totalVote)
+    && totalVote.length > 0
+    && totalVote.every((weight) => parseDaoUnsignedBigInt(weight) === 0n);
+}
+
+// Mirrors the server's default finalization behavior when no one participates.
+export function getDaoPendingFinalizationOutcome(proposal, now = Date.now()) {
+  const timeline = getDaoProposalTimeline(proposal);
+  if (!timeline) return null;
+
+  const timestamp = Number(now);
+  if (!Number.isFinite(timestamp)) return null;
+
+  const state = getEffectiveDaoState(proposal);
+  if (state === 'review' && timestamp > timeline.reviewEnd) {
+    const committeeVotes = Array.isArray(proposal?.committeeVotes) ? proposal.committeeVotes : [];
+    if (committeeVotes.length === 0) {
+      if (proposal?.emergency) {
+        return {
+          nextState: 'withheld',
+          message: 'No committee votes were cast. Finalizing the review withholds this proposal.',
+        };
+      }
+      return {
+        nextState: 'voting',
+        message: 'No committee votes were cast. Finalizing the review moves this proposal to Voting.',
+      };
+    }
+  }
+
+  if (state === 'voting' && timestamp > timeline.votingEnd && hasZeroDaoVoteTotals(proposal)) {
+    return {
+      nextState: 'rejected',
+      message: 'No votes were cast. Finalizing the vote result rejects this proposal because the default No change option wins.',
+    };
+  }
+
+  return null;
+}
+
 export function getDaoProposalClaimWindow(proposal) {
   const timeline = getDaoProposalTimeline(proposal);
   if (!timeline) {
