@@ -2168,23 +2168,21 @@ input[type='file'].form-control::file-selector-button {
 
 #confirmProposalModal .proposal-type-indicator,
 #proposalInfoModal .proposal-type-indicator {
-  background: var(--input-background);
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  color: var(--text-color);
+  color: var(--secondary-text-color);
   font-size: 13px;
   font-weight: var(--font-weight-semibold);
   justify-self: center;
   line-height: 1.25;
   margin: 0;
-  padding: 6px 12px;
 }
 
 #confirmProposalModal .proposal-type-indicator--emergency,
 #proposalInfoModal .proposal-type-indicator--emergency {
   background: rgba(196, 45, 45, 0.12);
-  border-color: rgba(196, 45, 45, 0.3);
+  border: 1px solid rgba(196, 45, 45, 0.3);
+  border-radius: 999px;
   color: #8f1d16;
+  padding: 6px 12px;
 }
 
 #confirmProposalModal .proposal-info-section,
@@ -2710,6 +2708,10 @@ input[type='file'].form-control::file-selector-button {
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 10px;
+}
+
+#proposalInfoModal .proposal-review-result-actions {
+  border: 0;
 }
 
 #proposalInfoModal .proposal-vote-actions {
