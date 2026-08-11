@@ -5515,7 +5515,7 @@ class ProposalInfoModal {
         </span>
         <span class="proposal-vote-preview-value">
           <strong>${escapeHtml(formatDaoEstimatedVotingPower(estimate.totalAppliedWeight))}</strong>
-          <small>Timing weight: ${escapeHtml(formatDaoPercent(estimate.timeMultiplier))} of full power</small>
+          <small>Timing: ${escapeHtml(formatDaoPercent(estimate.timeMultiplier))}</small>
         </span>
       </div>
       <div class="proposal-vote-preview-options">${optionRows}</div>

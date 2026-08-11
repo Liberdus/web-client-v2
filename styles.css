@@ -2995,12 +2995,8 @@ input[type='file'].form-control::file-selector-button {
   background: var(--input-background);
   border-radius: 8px;
   display: grid;
-  gap: 8px;
-  padding: 10px;
-}
-
-#proposalInfoModal .proposal-vote-preview {
-  padding: 8px;
+  gap: 4px;
+  padding: 8px 10px;
 }
 
 #proposalInfoModal .proposal-vote-preview--message {
@@ -3009,7 +3005,7 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-vote-option span,
-#proposalInfoModal .proposal-vote-preview-total > span,
+#proposalInfoModal .proposal-vote-preview-total > span:first-child,
 #proposalInfoModal .proposal-vote-preview-row span {
   color: var(--secondary-text-color);
   font-size: 12px;
@@ -3136,9 +3132,9 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-vote-preview-total,
 #proposalInfoModal .proposal-vote-preview-row {
-  align-items: center;
+  align-items: start;
   display: grid;
-  gap: 10px;
+  gap: 8px;
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
@@ -3157,9 +3153,9 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-vote-preview-value {
-  align-items: center;
+  align-items: end;
   display: grid;
-  gap: 2px;
+  gap: 0;
   justify-items: end;
 }
 
@@ -3173,7 +3169,8 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-vote-preview-options {
   display: grid;
-  gap: 6px;
+  gap: 4px;
+  padding-top: 2px;
 }
 
 #proposalInfoModal .proposal-vote-preview-message {
