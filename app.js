@@ -3785,8 +3785,9 @@ function renderDaoProposalOptions(proposal) {
   const options = getDaoProposalOptions(proposal);
   const changeSets = proposal?.[proposal?.proposalType]?.changes;
   const optionCards = options.map((option, index) => {
+    const noChangeClass = index === 0 ? ' proposal-option-card--no-change' : '';
     return `
-      <div class="proposal-option-card proposal-option-card--changes">
+      <div class="proposal-option-card proposal-option-card--changes${noChangeClass}">
         <span class="proposal-option-card-label">${escapeHtml(option)}</span>
         ${renderDaoProposalOptionDetails(index, changeSets)}
       </div>
@@ -3803,7 +3804,7 @@ function renderDaoProposalOptions(proposal) {
 
 function renderDaoProposalOptionDetails(optionIndex, changeSets) {
   if (optionIndex === 0) {
-    return '<p class="proposal-info-muted">No parameter changes.</p>';
+    return '<p class="proposal-info-muted"><span class="proposal-change-arrow" aria-hidden="true">&rarr;</span> No parameter changes.</p>';
   }
 
   const changes = Array.isArray(changeSets) ? changeSets[optionIndex - 1] : null;
