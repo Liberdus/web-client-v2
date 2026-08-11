@@ -2080,7 +2080,7 @@ input[type='file'].form-control::file-selector-button {
   display: grid;
   align-items: start;
   gap: 8px;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 #addProposalModal .dao-form-grid > .form-group,
@@ -2124,18 +2124,6 @@ input[type='file'].form-control::file-selector-button {
   display: grid;
   gap: 10px;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-}
-
-@media (min-width: 480px) {
-  #addProposalModal .dao-form-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 560px) {
-  #addProposalModal .dao-form-grid--timing {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 #confirmProposalModal .form-container,
@@ -8427,8 +8415,8 @@ small {
 }
 
 #daoModal .dao-filter-chip-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 #daoModal .dao-filter-chip-count {
@@ -8456,8 +8444,18 @@ small {
 }
 
 @media (max-width: 640px) {
-  #daoModal .dao-filter-bar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  #daoModal .dao-filter-chip {
+    font-size: clamp(9px, 2.8vw, 12px);
+    gap: 1px;
+    padding-left: 2px;
+    padding-right: 6px;
+  }
+
+  #daoModal .dao-filter-chip-count {
+    font-size: 9px;
+    min-height: 18px;
+    min-width: 16px;
+    padding: 1px 2px;
   }
 }
 
