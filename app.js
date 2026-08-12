@@ -3751,7 +3751,12 @@ function formatDaoDurationEstimate(ms) {
 
 function renderDaoProposalHeading(proposal) {
   const title = formatDaoProposalTitle(proposal);
-  const emergencyLabel = proposal.emergency === true ? 'Emergency proposal' : 'Standard proposal';
+  const proposalKind = proposal.emergency === true ? 'Emergency' : 'Standard';
+  const proposalIndicator = [
+    proposalKind,
+    getDaoTypeLabel(proposal.proposalType),
+    'proposal',
+  ].filter(Boolean).join(' ');
   const emergencyClass = proposal.emergency === true ? ' proposal-type-indicator--emergency' : '';
   const descriptionHtml = proposal.description
     ? `<p class="proposal-info-description">${escapeHtml(proposal.description)}</p>`
@@ -3760,7 +3765,7 @@ function renderDaoProposalHeading(proposal) {
   return `
     <div class="proposal-info-heading">
       <h2 class="proposal-info-title">${escapeHtml(title)}</h2>
-      <p class="proposal-type-indicator${emergencyClass}">${escapeHtml(emergencyLabel)}</p>
+      <p class="proposal-type-indicator${emergencyClass}">${escapeHtml(proposalIndicator)}</p>
       ${descriptionHtml}
     </div>
   `;
