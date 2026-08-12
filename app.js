@@ -5506,7 +5506,7 @@ class ProposalInfoModal {
     this.votePreview.innerHTML = `
       <div class="proposal-vote-preview-total">
         <span>Spend</span>
-        <strong>${escapeHtml(`${formatDaoLibWei(submission.spendWei)} (${submission.spendMultiple}× minimum)`)}</strong>
+        <strong>${escapeHtml(formatDaoLibWei(submission.spendWei))}</strong>
       </div>
       <div class="proposal-vote-preview-total">
         <span>
@@ -5522,7 +5522,7 @@ class ProposalInfoModal {
         </span>
         <span class="proposal-vote-preview-value">
           <strong>${escapeHtml(formatDaoEstimatedVotingPower(estimate.totalAppliedWeight))}</strong>
-          <small>Timing: ${escapeHtml(formatDaoPercent(estimate.timeMultiplier))}</small>
+          <small>Timing multiplier: ${escapeHtml(formatDaoPercent(estimate.timeMultiplier))}</small>
         </span>
       </div>
       <div class="proposal-vote-preview-options">${optionRows}</div>
