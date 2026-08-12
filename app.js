@@ -4031,6 +4031,7 @@ const DAO_VOTE_WEIGHT_PRECISION = 1_000_000_000_000;
 const DAO_VOTE_WEIGHT_PRECISION_BIGINT = 1_000_000_000_000n;
 const DAO_CLAIM_REWARD_PRECISION = 10n ** 18n;
 const DAO_VOTE_HELP = {
+  timeFactor: 'Voting earlier gives more voting power. It does not change your LIB spend.',
   votingPower: 'Voting power is the normalized weight from your LIB spend and timing. Final weight can shift slightly if the transaction lands later or network pricing changes before validation.',
   weight: 'Weight is a ratio. 1 / 1 splits evenly; 3 / 1 gives 75% / 25%.',
   voteThreshold: 'Minimum wallet balance required to vote on this proposal.',
@@ -5509,7 +5510,17 @@ class ProposalInfoModal {
         <strong>${escapeHtml(formatDaoLibWei(submission.spendWei))}</strong>
       </div>
       <div class="proposal-vote-preview-total">
-        <span>Timing multiplier</span>
+        <span>
+          Time factor
+          <button
+            type="button"
+            class="toll-info-icon proposal-vote-help"
+            data-icon="info"
+            data-vote-help
+            title="${escapeDaoFormAttribute(DAO_VOTE_HELP.timeFactor)}"
+            aria-label="About time factor"
+          ></button>
+        </span>
         <strong>${escapeHtml(formatDaoPercent(estimate.timeMultiplier))}</strong>
       </div>
       <div class="proposal-vote-preview-total">
