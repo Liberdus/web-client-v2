@@ -32795,8 +32795,8 @@ class ReactNativeApp {
                     return; // Skip already-processed notifications
                   }
 
-                  // Handle scheduled call notifications - extract address from data.to
-                  if (notification?.data?.type === 'SCHEDULE_CALL' && notification?.data?.to) {
+                  // Extract the recipient address from notification data when available
+                  if (notification?.data?.to) {
                     const normalizedToAddress = normalizeAddress(notification.data.to);
                     // Save notification address to show bell in sign-in modal for accounts with notifications
                     if (normalizedToAddress !== normalizedCurrentUser) {
