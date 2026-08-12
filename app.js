@@ -5509,6 +5509,10 @@ class ProposalInfoModal {
         <strong>${escapeHtml(formatDaoLibWei(submission.spendWei))}</strong>
       </div>
       <div class="proposal-vote-preview-total">
+        <span>Timing multiplier</span>
+        <strong>${escapeHtml(formatDaoPercent(estimate.timeMultiplier))}</strong>
+      </div>
+      <div class="proposal-vote-preview-total">
         <span>
           Estimated voting power
           <button
@@ -5520,10 +5524,7 @@ class ProposalInfoModal {
             aria-label="About estimated voting power"
           ></button>
         </span>
-        <span class="proposal-vote-preview-value">
-          <strong>${escapeHtml(formatDaoEstimatedVotingPower(estimate.totalAppliedWeight))}</strong>
-          <small>Timing multiplier: ${escapeHtml(formatDaoPercent(estimate.timeMultiplier))}</small>
-        </span>
+        <strong>${escapeHtml(formatDaoEstimatedVotingPower(estimate.totalAppliedWeight))}</strong>
       </div>
       <div class="proposal-vote-preview-options">${optionRows}</div>
     `;

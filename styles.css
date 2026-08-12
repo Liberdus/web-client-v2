@@ -3141,21 +3141,6 @@ input[type='file'].form-control::file-selector-button {
   text-align: right;
 }
 
-#proposalInfoModal .proposal-vote-preview-value {
-  align-items: end;
-  display: grid;
-  gap: 0;
-  justify-items: end;
-}
-
-#proposalInfoModal .proposal-vote-preview-value small {
-  color: var(--secondary-text-color);
-  font-size: 12px;
-  font-weight: var(--font-weight-medium);
-  line-height: 1.35;
-  text-align: right;
-}
-
 #proposalInfoModal .proposal-vote-preview-options {
   display: grid;
   gap: 4px;
