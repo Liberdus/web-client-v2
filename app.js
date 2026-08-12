@@ -4643,6 +4643,7 @@ class ProposalInfoModal {
     this.voteActionHelp = document.getElementById('proposalVoteActionHelp');
     this.voteOptions = document.getElementById('proposalVoteOptions');
     this.voteSpendMultipleInput = document.getElementById('proposalVoteSpendMultiple');
+    this.voteMinimumSpendLabel = document.getElementById('proposalVoteMinimumSpend');
     this.votePreview = document.getElementById('proposalVotePreview');
     this.voteSubmitButton = document.getElementById('proposalVoteSubmit');
 
@@ -4650,7 +4651,7 @@ class ProposalInfoModal {
     this.committeeChoice = 'accept';
     this.currentCommitteeVote = '';
     this.voteWeights = [];
-    this.voteSpendMultiple = '';
+    this.voteSpendMultiple = '1';
     this.isSubmitting = false;
     this.canSubmitCommitteeReview = false;
     this.canSubmitReviewResult = false;
@@ -5274,8 +5275,8 @@ class ProposalInfoModal {
   resetVoteState(proposal) {
     const options = getDaoProposalOptions(proposal);
     this.voteWeights = options.map(() => 0);
-    this.voteSpendMultiple = '';
-    if (this.voteSpendMultipleInput) this.voteSpendMultipleInput.value = '';
+    this.voteSpendMultiple = '1';
+    if (this.voteSpendMultipleInput) this.voteSpendMultipleInput.value = '1';
   }
 
   renderVoteActions(proposal, state) {
@@ -5307,6 +5308,12 @@ class ProposalInfoModal {
     }
     if (this.voteSpendMultipleInput) {
       this.voteSpendMultipleInput.value = this.voteSpendMultiple;
+    }
+    if (this.voteMinimumSpendLabel) {
+      const minimumSpend = formatDaoProposalVoteRequirementLib(proposal.minimumSpendUsdStr);
+      this.voteMinimumSpendLabel.textContent = minimumSpend === null
+        ? '× minimum spend'
+        : `× ${minimumSpend} minimum spend`;
     }
     if (this.voteOptions) {
       const totalWeight = this.getVoteWeightsTotal();
@@ -5450,7 +5457,7 @@ class ProposalInfoModal {
   }
 
   hasStartedVoteInput() {
-    return this.voteWeights.some((weight) => weight > 0) || this.voteSpendMultiple.trim() !== '';
+    return this.voteWeights.some((weight) => weight > 0);
   }
 
   updateVotePreview(proposal) {
