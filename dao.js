@@ -1006,7 +1006,6 @@ function storeToUiList(store) {
 let _store = null;
 let _loadingPromise = null;
 let _refreshVersion = 0;
-let _latestCommittedRefreshVersion = 0;
 
 // Backend integration hook. Metadata and full proposal details are fetched separately.
 let _backendFetcher = null;
@@ -1019,6 +1018,11 @@ export function setDaoBackendFetcher(fetcher) {
     : null;
 }
 
+async function fetchNormalizedDaoMeta() {
+  const meta = _backendFetcher ? await _backendFetcher.fetchMeta() : createEmptyDaoStore().meta;
+  return normalizeDaoStore({ meta, proposals: {} }).meta;
+}
+
 async function refreshInternal({ force }) {
   if (_loadingPromise && !force) return _loadingPromise;
   if (_store && !force) return _store;
@@ -1027,16 +1031,15 @@ async function refreshInternal({ force }) {
   const previousStore = _store;
   const loadingPromise = (async () => {
     try {
-      const meta = _backendFetcher ? await _backendFetcher.fetchMeta() : createEmptyDaoStore().meta;
+      const meta = await fetchNormalizedDaoMeta();
       const next = { meta, proposals: {} };
       const normalizedStore = normalizeDaoStore(next);
-      if (refreshVersion > _latestCommittedRefreshVersion) {
+      if (refreshVersion === _refreshVersion) {
         _store = normalizedStore;
-        _latestCommittedRefreshVersion = refreshVersion;
       }
       return _store;
     } catch (error) {
-      if (!_store) {
+      if (!_store && refreshVersion === _refreshVersion) {
         _store = previousStore || normalizeDaoStore(createEmptyDaoStore());
       }
       throw error;
@@ -1057,7 +1060,7 @@ export const daoRepo = {
   reset() {
     _store = null;
     _loadingPromise = null;
-    _latestCommittedRefreshVersion = ++_refreshVersion;
+    _refreshVersion += 1;
   },
 
   async refresh({ force } = {}) {
@@ -1124,8 +1127,8 @@ export const daoRepo = {
         throw new Error('DAO proposal submit handler is required');
       }
 
-      const store = await refreshInternal({ force: true });
-      proposalNumber = normalizeDaoPositiveInteger(store?.meta?.count) + 1;
+      const meta = await fetchNormalizedDaoMeta();
+      proposalNumber = normalizeDaoPositiveInteger(meta.count) + 1;
       transaction = buildDaoProposalCreateTransaction({
         draft,
         timestamp,

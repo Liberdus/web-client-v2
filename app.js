@@ -2537,6 +2537,7 @@ class DaoModal {
     this.lastSuccessfulRefreshId = 0;
     this.visibleProposalCount = DAO_PROPOSAL_PAGE_SIZE;
     this.detailsRequest = null;
+    this.proposalOpenSequence = 0;
   }
 
   load() {
@@ -2580,6 +2581,7 @@ class DaoModal {
   async _open() {
     const refreshId = ++this.refreshSequence;
     this.openRefreshId = refreshId;
+    this.proposalOpenSequence += 1;
     this.refreshState = 'loading';
 
     // Close the main menu if opened from it
@@ -2613,6 +2615,7 @@ class DaoModal {
 
   close() {
     this.openRefreshId = ++this.refreshSequence;
+    this.proposalOpenSequence += 1;
     this.detailsRequest = null;
     this.modal.classList.remove('active');
     enterFullscreen();
@@ -2715,6 +2718,7 @@ class DaoModal {
 
   async setFilter(key) {
     if (key === this.selectedFilterKey || this.detailsRequest) return;
+    this.proposalOpenSequence += 1;
     this.selectedFilterKey = key;
     try {
       await this.loadSelectedFilter({ reset: true });
@@ -2836,7 +2840,7 @@ class DaoModal {
 
     if (this.loadMoreButton) {
       const total = selectedMetadataEntries.length;
-      const hasMore = filtered.length < total;
+      const hasMore = this.visibleProposalCount < total;
       this.loadMoreButton.hidden = !hasMore;
       this.loadMoreButton.disabled = detailsLoading;
       this.loadMoreButton.textContent = detailsLoading ? 'Loading…' : 'Load more';
@@ -2969,11 +2973,14 @@ class DaoModal {
   }
 
   async openProposal(proposal) {
+    const openId = ++this.proposalOpenSequence;
     try {
       const refreshed = await daoRepo.refreshProposal(proposal.number);
+      if (openId !== this.proposalOpenSequence || !this.isActive()) return;
       if (!refreshed) throw new Error(`Proposal #${proposal.number} is unavailable`);
       proposalInfoModal.open(proposal.id);
     } catch (error) {
+      if (openId !== this.proposalOpenSequence || !this.isActive()) return;
       console.warn('Failed to refresh DAO proposal:', error);
       showToast('Failed to load proposal', 2500, 'error');
     }
