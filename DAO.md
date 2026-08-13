@@ -13,9 +13,9 @@ This document describes the DAO / proposals feature as currently implemented in 
 1. **DAO Modal**
    - Shows a list of proposals.
    - Includes a **Status filter** for server-provided proposal statuses and their **counts**.
-   - The **All** status filter displays every proposal returned by the server summary.
+   - The **All** status filter displays every proposal in the cached metadata index.
    - The proposal list is filtered by the selected option.
-   - List ordering is **newest to enter the selected state first** (sort by `stateEnteredAt` descending, falling back to `createdAt`).
+   - Status filters are ordered **newest to enter that state first** (sort by `stateEnteredAt` descending, falling back to `createdAt`). The **All** filter groups by status, then uses that same recency order.
    - Clicking a proposal opens the Proposal Info modal.
    - A floating **“+”** button opens the Add Proposal modal.
 
@@ -88,17 +88,26 @@ For current multi-option proposals:
 
 Important implementation detail:
 
-- The DAO UI no longer persists proposals to localStorage.
-- On DAO modal open, the UI calls `daoRepo.refresh()` and renders from the in-memory store.
+- The DAO UI persists a network-scoped metadata index and proposal-detail cache in localStorage:
+  - `daoProposalMeta:${netid}` — `{ count, proposals: [{ proposal, status, emergencyFlag, timestamp }] }`
+  - `daoProposalDetails:${netid}` — `{ [number]: { timestamp, proposal } }`
+- Cache lifetime is until the summary (or a full meta refresh) reports a newer status-transition timestamp for that proposal. There is no time-based TTL.
+- Network changes use a different `netid` key. Account changes and sign-out keep the cache (proposal data is network-public) and only clear the in-memory store.
+- Failed detail fetches are not written to the detail cache and are retried on the next refresh.
+- After a local DAO action settles, that proposal's cached details are dropped so vote/claim/apply totals refresh even when status did not change.
+- On DAO modal open, the UI calls `daoRepo.refresh({ force: true })` and renders from the in-memory store built from this cache.
 
 ## Backend Data Boundary
 
-- `app.js` registers `setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork))`.
-- `dao.js` keeps endpoint querying and backend-to-UI mapping behind the repository boundary.
-- Proposal list loading uses the current server DAO query shape:
-  - `GET /dao/proposals/summary` for the recent-activity index and total count
-  - `GET /dao/proposals/:number` for each indexed proposal's details
+- `app.js` registers `setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork, { getNetId, storage }))`.
+- `dao.js` keeps endpoint querying, cache invalidation, and backend-to-UI mapping behind the repository boundary.
+- Proposal list loading uses:
+  - `GET /dao/proposals/meta` when the cached index is missing or incomplete (`proposals.length < count`)
+  - `GET /dao/proposals/summary` on later opens to detect new or status-changed proposals
+  - `GET /dao/proposals/:number` only for indexed proposals that are missing from the detail cache or whose status-transition timestamp changed
+- Status, emergency flag, and status-transition ordering always come from the metadata index overlay, not the detail payload.
 - The fetcher skips an unavailable detail response so it does not block the remaining indexed proposals from rendering.
+- The old exhaustive `1..N` list fallback is not used when the metadata index is empty.
 
 ## What must change for a live backend
 
@@ -108,12 +117,13 @@ This section is the remaining integration checklist after moving the DAO list to
 
 `daoRepo` uses an injected fetcher and otherwise returns an empty store.
 
-The app passes `queryNetwork` into `createDaoBackendFetcher(...)`; the repository maps the summary index and `DaoProposalAccount` payloads into the store shape the UI expects.
+The app passes `queryNetwork` into `createDaoBackendFetcher(...)`; the repository maps the metadata index and `DaoProposalAccount` payloads into the store shape the UI expects.
 
 ### 2) Define backend endpoints / payloads
 
 Known read endpoints:
 
+- `GET /dao/proposals/meta`
 - `GET /dao/proposals/summary`
 - `GET /dao/proposals/:number`
 

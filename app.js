@@ -78,6 +78,7 @@ async function forceReload(urls) {
 import { stringify, parse } from './external/stringify-shardus.js';
 
 import {
+  compareDaoProposalsForUi,
   createDaoBackendFetcher,
   DAO_ACTION_TYPES,
   DAO_CONFIG_CHANGE_OPTIONS,
@@ -451,6 +452,7 @@ function clearMyData() {
   myData = null;
   myAccount = null;
   evmAssets.reset();
+  daoRepo.reset();
 }
 
 /**
@@ -2473,8 +2475,11 @@ const menuModal = new MenuModal();
 // DAO / Proposals
 // =====================
 
-// DAO proposals are loaded via `daoRepo` and kept in memory (no localStorage persistence).
-setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork));
+// DAO proposals persist a netid-scoped metadata index and detail cache in localStorage.
+setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork, {
+  getNetId: () => network?.netid || '',
+  storage: localStorage,
+}));
 
 const DAO_ALL_FILTER = { key: 'all', label: 'All' };
 const DAO_CLAIMABLE_FILTER = { key: 'claimable', label: 'Claimable' };
@@ -2628,6 +2633,7 @@ class DaoModal {
     const refreshId = ++this.refreshSequence;
     let didRefreshDaoData = false;
     try {
+      daoRepo.invalidateProposalDetails(pendingTxInfo?.proposalNumber);
       await daoRepo.refresh({ force: true });
       didRefreshDaoData = true;
     } catch (error) {
@@ -2707,14 +2713,14 @@ class DaoModal {
       }
     }
 
-    // Filter + sort (newest entered into state first)
+    // Filter + sort: status chips by recency; All groups by stage, then recency.
     const matchingProposals = isClaimableFilter
       ? claimableProposals
       : proposals.filter((proposal) => (
         isAllFilter || getEffectiveDaoState(proposal) === this.selectedFilterKey
       ));
     const filtered = matchingProposals
-      .sort((a, b) => Number(b.stateEnteredAt || b.createdAt || 0) - Number(a.stateEnteredAt || a.createdAt || 0));
+      .sort((a, b) => compareDaoProposalsForUi(a, b, { groupByState: isAllFilter }));
 
     // Clear old list items
     if (this.list) {
