@@ -13,9 +13,9 @@ This document describes the DAO / proposals feature as currently implemented in 
 1. **DAO Modal**
    - Shows a list of proposals.
    - Includes a **Status filter** for server-provided proposal statuses and their **counts**.
-   - The **All** status filter displays every proposal in the cached metadata index.
+   - The **All** status filter paginates every proposal in the cached metadata index.
    - The proposal list is filtered by the selected option.
-   - Status filters are ordered **newest to enter that state first** (sort by `stateEnteredAt` descending, falling back to `createdAt`). The **All** filter groups by status, then uses that same recency order.
+   - Filters preserve the server metadata index order: status-transition timestamp descending, then proposal number descending.
    - Clicking a proposal opens the Proposal Info modal.
    - A floating **“+”** button opens the Add Proposal modal.
 
@@ -88,26 +88,26 @@ For current multi-option proposals:
 
 Important implementation detail:
 
-- The DAO UI persists a network-scoped metadata index and proposal-detail cache in localStorage:
+- The DAO UI persists only the network-scoped metadata index in localStorage:
   - `daoProposalMeta:${netid}` — `{ count, proposals: [{ proposal, status, emergencyFlag, timestamp }] }`
-  - `daoProposalDetails:${netid}` — `{ [number]: { timestamp, proposal } }`
-- Cache lifetime is until the summary (or a full meta refresh) reports a newer status-transition timestamp for that proposal. There is no time-based TTL.
-- Network changes use a different `netid` key. Account changes and sign-out keep the cache (proposal data is network-public) and only clear the in-memory store.
-- Failed detail fetches are not written to the detail cache and are retried on the next refresh.
-- After a local DAO action settles, that proposal's cached details are dropped so vote/claim/apply totals refresh even when status did not change.
-- On DAO modal open, the UI calls `daoRepo.refresh({ force: true })` and renders from the in-memory store built from this cache.
+- Proposal details are not persisted. Status filters fetch fresh details for the visible 10 entries, “Load more” fetches the next 10, and opening a proposal refreshes that proposal again.
+- The Claimable filter is the exception: eligibility depends on full proposal reward and claim data, so it loads the metadata entries in reward-bearing statuses before paginating the matching results locally.
+- Network changes use a different metadata key. Account changes and sign-out clear the in-memory proposal details.
+- Failed detail fetches are retried the next time their filter page or proposal is opened.
 
 ## Backend Data Boundary
 
 - `app.js` registers `setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork, { getNetId, storage }))`.
-- `dao.js` keeps endpoint querying, cache invalidation, and backend-to-UI mapping behind the repository boundary.
+- `dao.js` keeps endpoint querying, metadata persistence, and backend-to-UI mapping behind the repository boundary.
 - Proposal list loading uses:
-  - `GET /dao/proposals/meta` when the cached index is missing or incomplete (`proposals.length < count`)
-  - `GET /dao/proposals/summary` on later opens to detect new or status-changed proposals
-  - `GET /dao/proposals/:number` only for indexed proposals that are missing from the detail cache or whose status-transition timestamp changed
+  - `GET /dao/proposals/meta` when no metadata is cached
+  - `GET /dao/proposals/summary` on later opens and an exact comparison with the cached index’s first 20 entries
+  - `GET /dao/proposals/meta` whenever that summary or the total count differs, ensuring changes outside the 20-entry summary window are reconciled
+  - `GET /dao/proposals/:number` for each entry on the visible filter page
 - Status, emergency flag, and status-transition ordering always come from the metadata index overlay, not the detail payload.
 - The fetcher skips an unavailable detail response so it does not block the remaining indexed proposals from rendering.
 - The old exhaustive `1..N` list fallback is not used when the metadata index is empty.
+- Below-threshold unapply votes do not change metadata and are not reflected until the applied proposal is queried again; live unapply tracking is outside this flow.
 
 ## What must change for a live backend
 

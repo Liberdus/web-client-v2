@@ -8246,6 +8246,7 @@ small {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
 }
 
 #daoModal .dao-filter-bar {
@@ -8337,7 +8338,15 @@ small {
 #daoModal #daoProposalList {
   min-height: 0;
   overflow: visible;
-  padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: 0;
+}
+
+#daoModal .dao-load-more {
+  margin: 12px auto 0;
+}
+
+#daoModal .dao-load-more[hidden] {
+  display: none;
 }
 
 #daoModal #daoAddProposalButton {
@@ -8361,7 +8370,7 @@ small {
 }
 
 @media (min-width: 769px) {
-  #daoModal #daoProposalList {
+  #daoModal .dao-list-pane {
     padding-bottom: 176px;
   }
 

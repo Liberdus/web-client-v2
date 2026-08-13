@@ -189,19 +189,8 @@ export function getEffectiveDaoState(proposal) {
   return proposal?.status || proposal?.state || 'review';
 }
 
-const DAO_STATE_SORT_INDEX = new Map(DAO_STATES.map((state, index) => [state.key, index]));
 const DAO_PROPOSAL_META_STORAGE_PREFIX = 'daoProposalMeta:';
-const DAO_PROPOSAL_DETAILS_STORAGE_PREFIX = 'daoProposalDetails:';
-
-export function compareDaoProposalsForUi(a, b, { groupByState = false } = {}) {
-  if (groupByState) {
-    const stageA = DAO_STATE_SORT_INDEX.get(getEffectiveDaoState(a)) ?? Number.MAX_SAFE_INTEGER;
-    const stageB = DAO_STATE_SORT_INDEX.get(getEffectiveDaoState(b)) ?? Number.MAX_SAFE_INTEGER;
-    if (stageA !== stageB) return stageA - stageB;
-  }
-
-  return Number(b.stateEnteredAt || b.createdAt || 0) - Number(a.stateEnteredAt || a.createdAt || 0);
-}
+const DAO_PROPOSAL_SUMMARY_SIZE = 20;
 
 function requireDaoDraftString(value, label, maxLength) {
   const text = String(value ?? '').trim();
@@ -676,7 +665,7 @@ async function submitDaoProposalAction({
 
 function createEmptyDaoStore() {
   return {
-    meta: { count: 0 },
+    meta: { count: 0, proposals: [] },
     proposals: {},
   };
 }
@@ -863,21 +852,6 @@ function normalizeDaoProposalSummaryEntry(entry) {
   };
 }
 
-function compareDaoMetaEntries(a, b) {
-  const stageA = DAO_STATE_SORT_INDEX.get(a.status) ?? Number.MAX_SAFE_INTEGER;
-  const stageB = DAO_STATE_SORT_INDEX.get(b.status) ?? Number.MAX_SAFE_INTEGER;
-  if (stageA !== stageB) return stageA - stageB;
-  return b.timestamp - a.timestamp;
-}
-
-function sortDaoMetaEntries(entries) {
-  return [...entries].sort(compareDaoMetaEntries);
-}
-
-function isDaoMetaCacheComplete(meta) {
-  return Boolean(meta) && meta.proposals.length >= meta.count;
-}
-
 function createMemoryDaoCacheStorage() {
   const map = new Map();
   return {
@@ -886,9 +860,6 @@ function createMemoryDaoCacheStorage() {
     },
     setItem(key, value) {
       map.set(key, String(value));
-    },
-    removeItem(key) {
-      map.delete(key);
     },
   };
 }
@@ -908,15 +879,11 @@ function daoProposalMetaStorageKey(netid) {
   return `${DAO_PROPOSAL_META_STORAGE_PREFIX}${netid}`;
 }
 
-function daoProposalDetailsStorageKey(netid) {
-  return `${DAO_PROPOSAL_DETAILS_STORAGE_PREFIX}${netid}`;
-}
-
 function readDaoCacheJson(storage, key) {
   if (!storage || typeof storage.getItem !== 'function') return null;
-  const raw = storage.getItem(key);
-  if (!raw) return null;
   try {
+    const raw = storage.getItem(key);
+    if (!raw) return null;
     return parse(raw);
   } catch {
     return null;
@@ -925,19 +892,23 @@ function readDaoCacheJson(storage, key) {
 
 function writeDaoCacheJson(storage, key, value) {
   if (!storage || typeof storage.setItem !== 'function') return;
-  storage.setItem(key, stringify(value));
+  try {
+    storage.setItem(key, stringify(value));
+  } catch {
+    // Metadata persistence is an optimization; network data should still render when storage is unavailable.
+  }
 }
 
 function loadCachedDaoProposalMeta(storage, netid) {
   const parsed = readDaoCacheJson(storage, daoProposalMetaStorageKey(netid));
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
   const proposals = (Array.isArray(parsed?.proposals) ? parsed.proposals : [])
     .map(normalizeDaoProposalSummaryEntry)
     .filter(Boolean);
-  if (!parsed && proposals.length === 0) return null;
 
   return {
     count: Math.max(normalizeDaoPositiveInteger(parsed?.count), proposals.length),
-    proposals: sortDaoMetaEntries(proposals),
+    proposals,
   };
 }
 
@@ -946,32 +917,6 @@ function saveCachedDaoProposalMeta(storage, netid, meta) {
     count: meta.count,
     proposals: meta.proposals,
   });
-}
-
-function loadCachedDaoProposalDetails(storage, netid) {
-  const parsed = readDaoCacheJson(storage, daoProposalDetailsStorageKey(netid));
-  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-}
-
-function saveCachedDaoProposalDetails(storage, netid, details) {
-  writeDaoCacheJson(storage, daoProposalDetailsStorageKey(netid), details);
-}
-
-function getCachedDaoProposalDetail(details, proposalNumber) {
-  const cached = details?.[String(proposalNumber)] || details?.[proposalNumber];
-  if (!cached || typeof cached !== 'object' || !cached.proposal) return null;
-  return {
-    timestamp: normalizeDaoTimestamp(cached.timestamp),
-    proposal: cached.proposal,
-  };
-}
-
-function mergeSummaryIntoDaoMeta(cachedEntries, summaryEntries) {
-  const byNumber = new Map(cachedEntries.map((entry) => [entry.proposal, entry]));
-  for (const entry of summaryEntries) {
-    byNumber.set(entry.proposal, entry);
-  }
-  return sortDaoMetaEntries([...byNumber.values()]);
 }
 
 function normalizeDaoProposalIndexEntries(entries) {
@@ -993,7 +938,7 @@ async function fetchDaoProposalsMetaIndex(queryDaoApi) {
   const proposals = normalizeDaoProposalIndexEntries(meta.proposals);
   return {
     count: Math.max(normalizeDaoPositiveInteger(meta.count), proposals.length),
-    proposals: sortDaoMetaEntries(proposals),
+    proposals,
   };
 }
 
@@ -1011,6 +956,20 @@ async function fetchDaoProposalsSummaryIndex(queryDaoApi) {
     count: Math.max(normalizeDaoPositiveInteger(body.count), proposals.length),
     proposals,
   };
+}
+
+function daoMetaEntriesMatch(a, b) {
+  return a.proposal === b.proposal
+    && a.status === b.status
+    && a.emergencyFlag === b.emergencyFlag
+    && a.timestamp === b.timestamp;
+}
+
+function daoSummaryMatchesMeta(summary, meta) {
+  if (!meta || summary.count !== meta.count) return false;
+  const cachedSummary = meta.proposals.slice(0, DAO_PROPOSAL_SUMMARY_SIZE);
+  return summary.proposals.length === cachedSummary.length
+    && summary.proposals.every((entry, index) => daoMetaEntriesMatch(entry, cachedSummary[index]));
 }
 
 function mapBackendProposalToStoreProposal(proposal, summaryEntry) {
@@ -1078,83 +1037,42 @@ async function fetchBackendProposal(queryDaoApi, summaryEntry) {
   return { proposal: body.proposal, summaryEntry };
 }
 
-let _daoProposalCacheContext = null;
-
-function invalidateCachedDaoProposalDetails(proposalNumber) {
-  const context = _daoProposalCacheContext;
-  if (!context?.storage) return;
-
-  const netid = getDaoCacheNetId(context.getNetId);
-  const number = normalizeDaoPositiveInteger(proposalNumber);
-  if (!number) {
-    saveCachedDaoProposalDetails(context.storage, netid, {});
-    return;
-  }
-
-  const details = loadCachedDaoProposalDetails(context.storage, netid);
-  delete details[String(number)];
-  delete details[number];
-  saveCachedDaoProposalDetails(context.storage, netid, details);
-}
-
 export function createDaoBackendFetcher(queryDaoApi, options = {}) {
   if (typeof queryDaoApi !== 'function') {
-    return async () => createEmptyDaoStore();
+    return {
+      fetchMeta: async () => createEmptyDaoStore().meta,
+      fetchProposals: async () => [],
+    };
   }
 
   const storage = options.storage || getDefaultDaoCacheStorage();
   const getNetId = typeof options.getNetId === 'function' ? options.getNetId : () => 'default';
-  _daoProposalCacheContext = { storage, getNetId };
 
-  return async () => {
-    const netid = getDaoCacheNetId(getNetId);
-    const cachedMeta = loadCachedDaoProposalMeta(storage, netid);
-    const cachedDetails = loadCachedDaoProposalDetails(storage, netid);
-
-    let meta;
-    if (!isDaoMetaCacheComplete(cachedMeta)) {
-      meta = await fetchDaoProposalsMetaIndex(queryDaoApi);
-    } else {
-      const summary = await fetchDaoProposalsSummaryIndex(queryDaoApi);
-      if (summary.count !== cachedMeta.count) {
-        meta = await fetchDaoProposalsMetaIndex(queryDaoApi);
-      } else {
-        meta = {
-          count: summary.count,
-          proposals: mergeSummaryIntoDaoMeta(cachedMeta.proposals, summary.proposals),
-        };
+  return {
+    async fetchMeta() {
+      const netid = getDaoCacheNetId(getNetId);
+      const cachedMeta = loadCachedDaoProposalMeta(storage, netid);
+      if (!cachedMeta) {
+        const meta = await fetchDaoProposalsMetaIndex(queryDaoApi);
+        saveCachedDaoProposalMeta(storage, netid, meta);
+        return meta;
       }
-    }
 
-    saveCachedDaoProposalMeta(storage, netid, meta);
+      const summary = await fetchDaoProposalsSummaryIndex(queryDaoApi);
+      if (daoSummaryMatchesMeta(summary, cachedMeta)) return cachedMeta;
 
-    const entriesToFetch = meta.proposals.filter((entry) => {
-      const cached = getCachedDaoProposalDetail(cachedDetails, entry.proposal);
-      return !cached || cached.timestamp !== entry.timestamp;
-    });
-    const fetched = await Promise.all(
-      entriesToFetch.map((summaryEntry) => fetchBackendProposal(queryDaoApi, summaryEntry))
-    );
+      const meta = await fetchDaoProposalsMetaIndex(queryDaoApi);
+      saveCachedDaoProposalMeta(storage, netid, meta);
+      return meta;
+    },
 
-    for (const result of fetched) {
-      if (!result) continue;
-      cachedDetails[String(result.summaryEntry.proposal)] = {
-        timestamp: result.summaryEntry.timestamp,
-        proposal: result.proposal,
-      };
-    }
-
-    saveCachedDaoProposalDetails(storage, netid, cachedDetails);
-
-    const loadedProposals = meta.proposals
-      .map((summaryEntry) => {
-        const cached = getCachedDaoProposalDetail(cachedDetails, summaryEntry.proposal);
-        if (!cached) return null;
-        return { proposal: cached.proposal, summaryEntry };
-      })
-      .filter(Boolean);
-
-    return buildStoreFromBackendProposals(meta.count, loadedProposals);
+    async fetchProposals(entries) {
+      const normalizedEntries = normalizeDaoProposalIndexEntries(entries);
+      const proposals = await Promise.all(
+        normalizedEntries.map((entry) => fetchBackendProposal(queryDaoApi, entry))
+      );
+      return proposals.filter(Boolean);
+    },
   };
 }
 
@@ -1166,6 +1084,7 @@ function normalizeDaoStore(store) {
     .map((proposal) => normalizeDaoPositiveInteger(proposal?.number));
   safe.meta = {
     count: Math.max(normalizeDaoPositiveInteger(safe.meta?.count), ...proposalNumbers),
+    proposals: normalizeDaoProposalIndexEntries(safe.meta?.proposals),
   };
 
   return safe;
@@ -1215,12 +1134,17 @@ let _store = null;
 let _loadingPromise = null;
 let _refreshVersion = 0;
 let _latestCommittedRefreshVersion = 0;
+let _proposalLoadVersion = 0;
 
-// Backend integration hook. The fetcher returns a count and the loaded proposal details.
+// Backend integration hook. Metadata and full proposal details are fetched separately.
 let _backendFetcher = null;
 
 export function setDaoBackendFetcher(fetcher) {
-  _backendFetcher = typeof fetcher === 'function' ? fetcher : null;
+  _backendFetcher = fetcher
+    && typeof fetcher.fetchMeta === 'function'
+    && typeof fetcher.fetchProposals === 'function'
+    ? fetcher
+    : null;
 }
 
 async function refreshInternal({ force }) {
@@ -1228,10 +1152,12 @@ async function refreshInternal({ force }) {
   if (_store && !force) return _store;
 
   const refreshVersion = ++_refreshVersion;
+  _proposalLoadVersion += 1;
   const previousStore = _store;
   const loadingPromise = (async () => {
     try {
-      const next = _backendFetcher ? await _backendFetcher() : createEmptyDaoStore();
+      const meta = _backendFetcher ? await _backendFetcher.fetchMeta() : createEmptyDaoStore().meta;
+      const next = { meta, proposals: {} };
       const normalizedStore = normalizeDaoStore(next);
       if (refreshVersion > _latestCommittedRefreshVersion) {
         _store = normalizedStore;
@@ -1256,6 +1182,34 @@ async function refreshInternal({ force }) {
   }
 }
 
+async function loadProposalEntriesInternal(entries, { append }) {
+  if (!_store) await refreshInternal({ force: false });
+
+  const loadVersion = append ? _proposalLoadVersion : ++_proposalLoadVersion;
+  const loaded = _backendFetcher ? await _backendFetcher.fetchProposals(entries) : [];
+  if (loadVersion !== _proposalLoadVersion) return _store;
+
+  const next = buildStoreFromBackendProposals(_store.meta.count, loaded);
+  _store.proposals = append
+    ? { ..._store.proposals, ...next.proposals }
+    : next.proposals;
+  return _store;
+}
+
+async function refreshProposalInternal(proposalNumber) {
+  if (!_store) await refreshInternal({ force: false });
+
+  const number = normalizeDaoPositiveInteger(proposalNumber);
+  const entry = _store.meta.proposals.find((proposal) => proposal.proposal === number);
+  if (!entry || !_backendFetcher) return null;
+
+  const loaded = await _backendFetcher.fetchProposals([entry]);
+  const next = buildStoreFromBackendProposals(_store.meta.count, loaded);
+  const proposal = Object.values(next.proposals)[0] || null;
+  if (proposal) _store.proposals[daoProposalId(proposal.number, proposal.nonce)] = proposal;
+  return proposal;
+}
+
 export const daoRepo = {
   isReady() {
     return Boolean(_store);
@@ -1264,10 +1218,7 @@ export const daoRepo = {
   reset() {
     _store = null;
     _loadingPromise = null;
-  },
-
-  invalidateProposalDetails(proposalNumber) {
-    invalidateCachedDaoProposalDetails(proposalNumber);
+    _proposalLoadVersion += 1;
   },
 
   async refresh({ force } = {}) {
@@ -1278,12 +1229,24 @@ export const daoRepo = {
     return refreshInternal({ force: false });
   },
 
+  async loadProposalEntries(entries, { append = false } = {}) {
+    return loadProposalEntriesInternal(entries, { append: Boolean(append) });
+  },
+
+  async refreshProposal(proposalNumber) {
+    return refreshProposalInternal(proposalNumber);
+  },
+
   getProposalById(proposalId) {
     return _store?.proposals?.[proposalId] || null;
   },
 
   getProposalsForUi() {
     return storeToUiList(_store);
+  },
+
+  getProposalMetaForUi() {
+    return (_store?.meta?.proposals || []).map((entry) => ({ ...entry }));
   },
 
   async createProposal({
