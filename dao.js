@@ -828,10 +828,6 @@ export function getDaoRewardClaimStatus(proposal, currentAddress, now = Date.now
   return 'Claimable';
 }
 
-export function isDaoProposalClaimable(proposal, currentAddress, now = Date.now()) {
-  return getDaoRewardClaimStatus(proposal, currentAddress, now) === 'Claimable';
-}
-
 function normalizeDaoProposalMetadataEntry(entry) {
   if (!entry || typeof entry !== 'object') return null;
 
@@ -905,22 +901,16 @@ function mapBackendProposalToStoreProposal(proposal, metadataEntry) {
   };
 }
 
-function buildStoreFromBackendProposals(count, indexedProposals) {
-  const store = createEmptyDaoStore();
-
-  store.meta = {
-    count: Math.max(normalizeDaoPositiveInteger(count), indexedProposals.length),
-  };
-
+function mapBackendProposals(indexedProposals) {
+  const proposals = {};
   for (const { proposal: rawProposal, metadataEntry } of indexedProposals) {
     const proposal = mapBackendProposalToStoreProposal(rawProposal, metadataEntry);
     if (!proposal) continue;
 
     const id = daoProposalId(proposal.number, proposal.nonce);
-    store.proposals[id] = proposal;
+    proposals[id] = proposal;
   }
-
-  return store;
+  return proposals;
 }
 
 async function fetchBackendProposal(queryDaoApi, metadataEntry) {
@@ -940,7 +930,7 @@ export function createDaoBackendFetcher(queryDaoApi) {
   if (typeof queryDaoApi !== 'function') {
     return {
       fetchMeta: async () => createEmptyDaoStore().meta,
-      fetchProposals: async () => [],
+      fetchProposals: async () => ({}),
     };
   }
 
@@ -954,7 +944,7 @@ export function createDaoBackendFetcher(queryDaoApi) {
       const proposals = await Promise.all(
         normalizedEntries.map((entry) => fetchBackendProposal(queryDaoApi, entry))
       );
-      return proposals.filter(Boolean);
+      return mapBackendProposals(proposals.filter(Boolean));
     },
   };
 }
@@ -1017,7 +1007,6 @@ let _store = null;
 let _loadingPromise = null;
 let _refreshVersion = 0;
 let _latestCommittedRefreshVersion = 0;
-let _proposalLoadVersion = 0;
 
 // Backend integration hook. Metadata and full proposal details are fetched separately.
 let _backendFetcher = null;
@@ -1035,7 +1024,6 @@ async function refreshInternal({ force }) {
   if (_store && !force) return _store;
 
   const refreshVersion = ++_refreshVersion;
-  _proposalLoadVersion += 1;
   const previousStore = _store;
   const loadingPromise = (async () => {
     try {
@@ -1065,47 +1053,11 @@ async function refreshInternal({ force }) {
   }
 }
 
-async function loadProposalEntriesInternal(entries, { append }) {
-  if (!_store) await refreshInternal({ force: false });
-
-  const loadVersion = ++_proposalLoadVersion;
-  const loaded = _backendFetcher ? await _backendFetcher.fetchProposals(entries) : [];
-  if (loadVersion !== _proposalLoadVersion) return _store;
-
-  const next = buildStoreFromBackendProposals(_store.meta.count, loaded);
-  _store.proposals = append
-    ? { ..._store.proposals, ...next.proposals }
-    : next.proposals;
-  return _store;
-}
-
-async function refreshProposalInternal(proposalNumber) {
-  if (!_store) await refreshInternal({ force: false });
-
-  const number = normalizeDaoPositiveInteger(proposalNumber);
-  const entry = _store.meta.proposals.find((proposal) => proposal.proposal === number);
-  if (!entry || !_backendFetcher) return null;
-
-  const loadVersion = ++_proposalLoadVersion;
-  const loaded = await _backendFetcher.fetchProposals([entry]);
-  if (loadVersion !== _proposalLoadVersion) return null;
-
-  const next = buildStoreFromBackendProposals(_store.meta.count, loaded);
-  const proposal = Object.values(next.proposals)[0] || null;
-  if (proposal) _store.proposals[daoProposalId(proposal.number, proposal.nonce)] = proposal;
-  return proposal;
-}
-
 export const daoRepo = {
-  isReady() {
-    return Boolean(_store);
-  },
-
   reset() {
     _store = null;
     _loadingPromise = null;
     _latestCommittedRefreshVersion = ++_refreshVersion;
-    _proposalLoadVersion += 1;
   },
 
   async refresh({ force } = {}) {
@@ -1117,11 +1069,30 @@ export const daoRepo = {
   },
 
   async loadProposalEntries(entries, { append = false } = {}) {
-    return loadProposalEntriesInternal(entries, { append: Boolean(append) });
+    if (!_store) await refreshInternal({ force: false });
+
+    const currentStore = _store;
+    const proposals = _backendFetcher ? await _backendFetcher.fetchProposals(entries) : {};
+    if (_store !== currentStore) return _store;
+
+    _store.proposals = append ? { ..._store.proposals, ...proposals } : proposals;
+    return _store;
   },
 
   async refreshProposal(proposalNumber) {
-    return refreshProposalInternal(proposalNumber);
+    if (!_store) await refreshInternal({ force: false });
+
+    const number = normalizeDaoPositiveInteger(proposalNumber);
+    const entry = _store.meta.proposals.find((proposal) => proposal.proposal === number);
+    if (!entry || !_backendFetcher) return null;
+
+    const currentStore = _store;
+    const proposals = await _backendFetcher.fetchProposals([entry]);
+    if (_store !== currentStore) return null;
+
+    const proposal = Object.values(proposals)[0] || null;
+    if (proposal) _store.proposals[daoProposalId(proposal.number, proposal.nonce)] = proposal;
+    return proposal;
   },
 
   getProposalById(proposalId) {
