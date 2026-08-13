@@ -13,7 +13,7 @@ This document describes the DAO / proposals feature as currently implemented in 
 1. **DAO Modal**
    - Shows a list of proposals.
    - Includes a **Status filter** for server-provided proposal statuses and their **counts**.
-   - The **All** status filter paginates every proposal in the cached metadata index.
+   - The **All** status filter paginates every proposal in the complete metadata index.
    - The proposal list is filtered by the selected option.
    - Filters preserve the server metadata index order: status-transition timestamp descending, then proposal number descending.
    - Clicking a proposal opens the Proposal Info modal.
@@ -88,21 +88,18 @@ For current multi-option proposals:
 
 Important implementation detail:
 
-- The DAO UI persists only the network-scoped metadata index in localStorage:
-  - `daoProposalMeta:${netid}` — `{ count, proposals: [{ proposal, status, emergencyFlag, timestamp }] }`
+- The DAO UI requests the complete metadata index whenever the DAO is refreshed; proposal metadata is not persisted.
 - Proposal details are not persisted. Status filters fetch fresh details for the visible 10 entries, “Load more” fetches the next 10, and opening a proposal refreshes that proposal again.
-- The Claimable filter is the exception: eligibility depends on full proposal reward and claim data, so it loads the metadata entries in reward-bearing statuses before paginating the matching results locally.
-- Network changes use a different metadata key. Account changes and sign-out clear the in-memory proposal details.
+- The Claimable filter is intentionally disabled for this branch. Selecting it performs no proposal-detail requests and displays no proposals.
+- Account changes and sign-out clear the in-memory proposal details.
 - Failed detail fetches are retried the next time their filter page or proposal is opened.
 
 ## Backend Data Boundary
 
-- `app.js` registers `setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork, { getNetId, storage }))`.
-- `dao.js` keeps endpoint querying, metadata persistence, and backend-to-UI mapping behind the repository boundary.
+- `app.js` registers `setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork))`.
+- `dao.js` keeps endpoint querying and backend-to-UI mapping behind the repository boundary.
 - Proposal list loading uses:
-  - `GET /dao/proposals/meta` when no metadata is cached
-  - `GET /dao/proposals/summary` on later opens and an exact comparison with the cached index’s first 20 entries
-  - `GET /dao/proposals/meta` whenever that summary or the total count differs, ensuring changes outside the 20-entry summary window are reconciled
+  - `GET /dao/proposals/meta` on every DAO refresh
   - `GET /dao/proposals/:number` for each entry on the visible filter page
 - Status, emergency flag, and status-transition ordering always come from the metadata index overlay, not the detail payload.
 - The fetcher skips an unavailable detail response so it does not block the remaining indexed proposals from rendering.
@@ -124,7 +121,6 @@ The app passes `queryNetwork` into `createDaoBackendFetcher(...)`; the repositor
 Known read endpoints:
 
 - `GET /dao/proposals/meta`
-- `GET /dao/proposals/summary`
 - `GET /dao/proposals/:number`
 
 Still needed for later phases:
@@ -144,7 +140,6 @@ The UI already shows a basic loading empty-state while `daoRepo.refresh()` is ru
 
 For production, consider adding:
 
-- Pagination or infinite scroll for proposals
 - Incremental refresh (don’t blow away list on refresh)
 - Better error states (retry button)
 

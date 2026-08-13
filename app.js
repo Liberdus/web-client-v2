@@ -98,7 +98,6 @@ import {
   getDaoTypeLabel,
   getEffectiveDaoState,
   hasPendingDaoAction,
-  isDaoProposalClaimable,
   isDaoTransactionType,
   normalizeDaoAddress,
   parseDaoUnsignedBigInt,
@@ -2474,16 +2473,11 @@ const menuModal = new MenuModal();
 // DAO / Proposals
 // =====================
 
-// DAO proposals persist only the netid-scoped metadata index in localStorage.
-setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork, {
-  getNetId: () => network?.netid || '',
-  storage: localStorage,
-}));
+setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork));
 
 const DAO_PROPOSAL_PAGE_SIZE = 10;
 const DAO_ALL_FILTER = { key: 'all', label: 'All' };
 const DAO_CLAIMABLE_FILTER = { key: 'claimable', label: 'Claimable' };
-const DAO_CLAIMABLE_STATUS_KEYS = new Set(['accepted', 'rejected', 'applied']);
 const DAO_FILTER_OPTIONS = [DAO_ALL_FILTER, ...DAO_STATES, DAO_CLAIMABLE_FILTER];
 
 function formatDaoTimestamp(ts) {
@@ -2544,7 +2538,6 @@ class DaoModal {
     this.listLoadSequence = 0;
     this.visibleProposalCount = DAO_PROPOSAL_PAGE_SIZE;
     this.detailsLoading = false;
-    this.claimableCount = null;
   }
 
   load() {
@@ -2600,7 +2593,6 @@ class DaoModal {
     // Default filter is Voting
     this.selectedFilterKey = this.selectedFilterKey || 'voting';
     this.visibleProposalCount = DAO_PROPOSAL_PAGE_SIZE;
-    this.claimableCount = null;
     this.render();
 
     try {
@@ -2645,45 +2637,28 @@ class DaoModal {
 
   getSelectedMetadataEntries(entries) {
     if (this.selectedFilterKey === DAO_ALL_FILTER.key) return entries;
-    if (this.selectedFilterKey === DAO_CLAIMABLE_FILTER.key) {
-      return entries.filter((entry) => DAO_CLAIMABLE_STATUS_KEYS.has(entry.status));
-    }
+    if (this.selectedFilterKey === DAO_CLAIMABLE_FILTER.key) return [];
     return entries.filter((entry) => entry.status === this.selectedFilterKey);
   }
 
   async loadSelectedFilter({ reset }) {
     const loadId = ++this.listLoadSequence;
-    const isClaimableFilter = this.selectedFilterKey === DAO_CLAIMABLE_FILTER.key;
     const entries = this.getSelectedMetadataEntries(daoRepo.getProposalMetaForUi());
 
     if (reset) this.visibleProposalCount = DAO_PROPOSAL_PAGE_SIZE;
     const pageStart = reset ? 0 : Math.max(this.visibleProposalCount - DAO_PROPOSAL_PAGE_SIZE, 0);
-    const entriesToLoad = isClaimableFilter
-      ? entries
-      : entries.slice(pageStart, this.visibleProposalCount);
+    const entriesToLoad = entries.slice(pageStart, this.visibleProposalCount);
 
     this.detailsLoading = true;
     this.render();
 
     try {
-      await daoRepo.loadProposalEntries(entriesToLoad, { append: !reset && !isClaimableFilter });
-    } catch (error) {
-      if (loadId === this.listLoadSequence) {
-        this.detailsLoading = false;
-        this.render();
-      }
-      throw error;
+      await daoRepo.loadProposalEntries(entriesToLoad, { append: !reset });
+    } finally {
+      if (loadId === this.listLoadSequence) this.detailsLoading = false;
     }
     if (loadId !== this.listLoadSequence || !this.isActive()) return false;
 
-    this.detailsLoading = false;
-    if (isClaimableFilter) {
-      const currentAddress = getDaoCurrentAccountAddress();
-      const now = getTransactionTimestamp();
-      this.claimableCount = daoRepo.getProposalsForUi().filter(
-        (proposal) => isDaoProposalClaimable(proposal, currentAddress, now)
-      ).length;
-    }
     this.render();
     return true;
   }
@@ -2691,11 +2666,6 @@ class DaoModal {
   async loadMore() {
     if (this.detailsLoading) return;
     this.visibleProposalCount += DAO_PROPOSAL_PAGE_SIZE;
-
-    if (this.selectedFilterKey === DAO_CLAIMABLE_FILTER.key) {
-      this.render();
-      return;
-    }
 
     try {
       await this.loadSelectedFilter({ reset: false });
@@ -2712,7 +2682,6 @@ class DaoModal {
     let didRefreshDaoData = false;
     try {
       await daoRepo.refresh({ force: true });
-      this.claimableCount = null;
       if (this.isActive()) await this.loadSelectedFilter({ reset: true });
       if (!daoRepo.getProposalById(pendingTxInfo?.proposalStoreId)) {
         await daoRepo.refreshProposal(pendingTxInfo?.proposalNumber);
@@ -2751,7 +2720,6 @@ class DaoModal {
   async setFilter(key) {
     if (key === this.selectedFilterKey || this.detailsLoading) return;
     this.selectedFilterKey = key;
-    this.claimableCount = null;
     try {
       await this.loadSelectedFilter({ reset: true });
     } catch (error) {
@@ -2766,12 +2734,8 @@ class DaoModal {
     const proposals = hasFreshData ? daoRepo.getProposalsForUi() : [];
     const metadataEntries = hasFreshData ? daoRepo.getProposalMetaForUi() : [];
     const currentAddress = getDaoCurrentAccountAddress();
-    const now = getTransactionTimestamp();
     const isAllFilter = this.selectedFilterKey === DAO_ALL_FILTER.key;
     const isClaimableFilter = this.selectedFilterKey === DAO_CLAIMABLE_FILTER.key;
-    const claimableProposals = proposals.filter(
-      (proposal) => isDaoProposalClaimable(proposal, currentAddress, now)
-    );
     const selectedMetadataEntries = this.getSelectedMetadataEntries(metadataEntries);
 
     const counts = Object.fromEntries(DAO_FILTER_OPTIONS.map((filter) => [filter.key, 0]));
@@ -2779,7 +2743,7 @@ class DaoModal {
       if (counts[entry.status] !== undefined) counts[entry.status] += 1;
     }
     counts[DAO_ALL_FILTER.key] = metadataEntries.length;
-    counts[DAO_CLAIMABLE_FILTER.key] = this.claimableCount;
+    counts[DAO_CLAIMABLE_FILTER.key] = 0;
 
     const label = DAO_FILTER_OPTIONS.find((filter) => filter.key === this.selectedFilterKey)?.label
       || this.selectedFilterKey;
@@ -2806,11 +2770,9 @@ class DaoModal {
     }
 
     // Metadata establishes filter membership and recent-transition ordering.
-    const matchingProposals = isClaimableFilter
-      ? claimableProposals
-      : proposals.filter((proposal) => (
-        isAllFilter || getEffectiveDaoState(proposal) === this.selectedFilterKey
-      ));
+    const matchingProposals = proposals.filter((proposal) => (
+      isAllFilter || getEffectiveDaoState(proposal) === this.selectedFilterKey
+    ));
     const proposalOrder = new Map(selectedMetadataEntries.map((entry, index) => [entry.proposal, index]));
     const getProposalOrder = (proposal) => proposalOrder.get(proposal.number) ?? Number.MAX_SAFE_INTEGER;
     const filtered = matchingProposals
@@ -2838,8 +2800,8 @@ class DaoModal {
         if (headlineEl) headlineEl.textContent = 'Failed to load proposals';
         if (sublineEl) sublineEl.textContent = 'Close and reopen the DAO to retry';
       } else if (isClaimableFilter) {
-        if (headlineEl) headlineEl.textContent = 'No claimable proposals found';
-        if (sublineEl) sublineEl.textContent = 'You have no voter rewards ready to claim';
+        if (headlineEl) headlineEl.textContent = 'Claimable proposals coming later';
+        if (sublineEl) sublineEl.textContent = 'Vote tracking will be added in a follow-up';
       } else {
         if (headlineEl) headlineEl.textContent = 'No proposals found';
         if (sublineEl) sublineEl.textContent = 'Proposal data appears here when available';
@@ -2881,7 +2843,7 @@ class DaoModal {
     }
 
     if (this.loadMoreButton) {
-      const total = isClaimableFilter ? claimableProposals.length : selectedMetadataEntries.length;
+      const total = selectedMetadataEntries.length;
       const hasMore = filtered.length < total;
       this.loadMoreButton.hidden = !hasMore;
       this.loadMoreButton.disabled = this.detailsLoading;
@@ -3016,7 +2978,8 @@ class DaoModal {
 
   async openProposal(proposal) {
     try {
-      await daoRepo.refreshProposal(proposal.number);
+      const refreshed = await daoRepo.refreshProposal(proposal.number);
+      if (!refreshed) throw new Error(`Proposal #${proposal.number} is unavailable`);
       proposalInfoModal.open(proposal.id);
     } catch (error) {
       console.warn('Failed to refresh DAO proposal:', error);
