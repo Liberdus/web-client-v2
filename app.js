@@ -175,6 +175,14 @@ import {
 
 import { evmAssets } from './evm-assets.js';
 
+// MLS group chat. All cryptography lives in mlsEngine.js / mlsStore.js; this
+// module only orchestrates transactions and sync. The helpers it needs
+// (queryNetwork, signObj, injectTx, ...) are module-scoped here, so they are
+// handed over explicitly through initGroupManager rather than imported.
+import * as groups from './groupManager.js';
+import { initGroupUI, createGroupModal, groupChatModal, groupInfoModal, refreshOpenGroup } from './groupUI.js';
+import { buildMessageBubble } from './chatRender.js';
+
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
 //network.monitor.url = "http://test.liberdus.com:3000"    // URL of the monitor server
@@ -1733,6 +1741,15 @@ class ChatsScreen {
       } catch (error) {
         console.error('Error updating chat list:', error);
       }
+
+      // Group chat rides the same poll. It is deliberately outside the retry
+      // loop above: group sync is idempotent and self-healing on the next tick,
+      // and a group failure must not stop 1:1 chat from updating.
+      const gotGroups = await updateGroupData();
+      if (gotGroups > 0) {
+        gotChats += gotGroups;
+        saveState();
+      }
     }
     return gotChats;
   }
@@ -1759,11 +1776,19 @@ class ChatsScreen {
     if (emptyStateEl) emptyStateEl.style.display = 'none';
 
     const chatItems = [];
+    // Group conversations live in the same list as DMs but carry no contact, so
+    // they are split out here and rendered separately below.
+    const groupChats = [];
     for (const chat of chats) {
+      if (chat.kind === 'group') {
+        const view = myData.groups?.[chat.groupId];
+        if (view) groupChats.push(view);
+        continue;
+      }
       if (isFaucetAddress(chat.address)) {
         continue;
       }
-      
+
       const contact = contacts[chat.address];
       if (!contact) continue;
       // In chat list don't show people that are blocked
@@ -1777,10 +1802,14 @@ class ChatsScreen {
     }
 
     // If everything was filtered out (e.g. all chats are blocked), show empty state
-    if (chatItems.length === 0) {
+    if (chatItems.length === 0 && groupChats.length === 0) {
       if (emptyStateEl) emptyStateEl.style.display = 'block';
       return;
     }
+
+    // Both kinds are collected with a sort key so they can be interleaved by
+    // recency rather than appended in two blocks.
+    const rendered = [];
 
     const avatarHtmlList = await Promise.all(
       chatItems.map(({ contact }) => getContactAvatarHtml(contact))
@@ -1905,9 +1934,48 @@ class ChatsScreen {
       // Set click handler to open chat modal
       li.onclick = () => chatModal.open(chat.address);
 
-      chatList.appendChild(li);
+      rendered.push({ ts: latestItemTimestamp || 0, li });
     });
-    
+
+    // --- group rows ---------------------------------------------------------
+    for (const view of groupChats) {
+      const latest = (view.messages || []).reduce(
+        (newest, m) => (!newest || m.timestamp > newest.timestamp ? m : newest),
+        null,
+      );
+      const ts = latest ? latest.timestamp : view.lastActivity || 0;
+
+      let preview = '<span><i>No messages yet</i></span>';
+      let prefix = '';
+      if (view.removed) {
+        preview = '<span><i>You were removed</i></span>';
+      } else if (latest) {
+        prefix = latest.mine ? '< ' : '> ';
+        preview = truncateMessage(escapeHtml(latest.message || ''), 50);
+      }
+
+      const li = document.createElement('li');
+      li.classList.add('chat-item', 'chat-item--group');
+      li.innerHTML = `
+          <div class="chat-avatar">${generateIdenticon(view.groupId, 40)}</div>
+          <div class="chat-content">
+              <div class="chat-header">
+                  <div class="chat-name">${escapeHtml(view.name || 'Group')}</div>
+                  <div class="chat-time">${ts ? formatTime(ts, false) : ''}</div>
+              </div>
+              <div class="chat-message">
+                ${view.unread ? `<span class="chat-unread">${view.unread}</span>` : ''}
+                ${prefix}${preview}
+              </div>
+          </div>
+      `;
+      li.onclick = () => groupChatModal.open(view.groupId);
+      rendered.push({ ts, li });
+    }
+
+    rendered.sort((a, b) => b.ts - a.ts);
+    for (const { li } of rendered) chatList.appendChild(li);
+
     // Restore scroll position after DOM manipulation to preserve user's scroll position
     if (scrollContainer && savedScrollTop > 0) {
       // Use requestAnimationFrame to ensure DOM has been updated
@@ -7807,6 +7875,8 @@ class SignInModal {
       reactNativeApp.sendClearNotifications(addressToClear);
     }
 
+    setupGroupChat();
+
     /* requestNotificationPermission(); */
     if (useLongPolling) {
       setTimeout(longPoll, 10);
@@ -9949,6 +10019,60 @@ async function queryNetwork(url, abortSignal = null) {
   }
 }
 
+/**
+ * Wires up MLS group chat for the signed-in account.
+ *
+ * groupManager keeps no reference to app.js, so the helpers it needs are passed
+ * in here. Safe to call on every sign-in; it only re-binds the dependencies.
+ */
+let groupChatReady = false;
+function setupGroupChat() {
+  groups.initGroupManager({
+    queryNetwork,
+    signObj,
+    injectTx,
+    getTransactionTimestamp,
+    getTransactionFeeWei,
+    getMyAccount: () => myAccount,
+    getMyData: () => myData,
+    getNetworkId: () => network.netid,
+    onGroupUpdated: (groupId) => {
+      // Cheap: the chat list re-reads myData.groups on its next render.
+      if (typeof chatsScreen !== 'undefined' && chatsScreen.updateChatList) {
+        chatsScreen.updateChatList();
+      }
+      if (groupId) refreshOpenGroup(groupId);
+    },
+  });
+
+  initGroupUI({
+    queryNetwork,
+    getMyAccount: () => myAccount,
+    getMyData: () => myData,
+    showToast,
+    onChatListChanged: () => chatsScreen.updateChatList(),
+  });
+  groupChatReady = true;
+
+  // Restore the view model for groups this device already holds MLS state for,
+  // then make sure we have KeyPackages published so others can add us.
+  groups
+    .restoreGroups()
+    .then(() => groups.ensureKeyPackages())
+    .catch((e) => console.warn('group chat setup:', e));
+}
+
+/** Pulls new commits and messages for every group. Driven by the chat poll. */
+async function updateGroupData() {
+  if (!groupChatReady || !myAccount?.keys) return 0;
+  try {
+    return await groups.syncAllGroups();
+  } catch (e) {
+    console.error('group sync failed', e);
+    return 0;
+  }
+}
+
 async function getChats(keys, retry = 1) {
   // needs to return the number of chats that need to be processed
   //console.log('keys', keys)
@@ -11063,10 +11187,33 @@ async function processChats(chats, keys) {
   const currentUserAddress = normalizeAddress(keys.address);
 
   for (let sender in chats) {
+    /*
+     * Group conversations share this map, because group_create/group_commit
+     * write a pointer into the member's account so the existing long-poll and
+     * discovery keep working. Those entries are keyed by groupId — a hash, not
+     * an address — so normalizeAddress below would throw on them.
+     *
+     * A group pointer is exactly the entry whose key equals its chatId
+     * (chats[groupId] = { chatId: groupId }). A 1:1 entry never matches, since
+     * its chatId is hash(from, to), which differs from the sender address.
+     * Group messages are fetched separately by groupManager.syncAllGroups().
+     */
+    if (sender === chats[sender]) continue;
+
+    // One malformed entry must not abort the whole sync: the chats map is
+    // shared, and throwing here would stop 1:1 messages updating too.
+    let senderAddress;
+    try {
+      senderAddress = normalizeAddress(sender);
+    } catch (e) {
+      console.warn('processChats: skipping unrecognized chat key', sender, e.message);
+      continue;
+    }
+
     // Fetch messages using the adjusted timestamp
     const res = await queryNetwork(`/messages/${chats[sender]}/${messageQueryTimestamp}`);
     if (res && res.messages) {
-      const from = normalizeAddress(sender);
+      const from = senderAddress;
       if (!myData.contacts[from]) {
         // New inbound chat (not previously in contacts): create as tolled + allow one-time tolled deposit toast
         createNewContact(from, undefined, 1, false);
@@ -21406,14 +21553,18 @@ class ChatModal {
 
     const callTimeAttribute = messageType === 'call' && item.callTime ? `data-call-time="${item.callTime}"` : '';
     const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
-    return `
-            <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute} ${callTimeAttribute}>
-              ${replyHTML}
-              ${attachmentsHTML}
-              ${messageTextHTML}
-              <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
-            </div>
-          `;
+    // Shared with group chat so the two do not drift apart visually.
+    // No senderLabel here: a 1:1 chat has only one other participant.
+    return buildMessageBubble({
+      mine: item.my,
+      timestamp: item.timestamp,
+      txid: item?.txid,
+      status: item?.status,
+      extraAttrs: callTimeAttribute,
+      beforeContent: `${replyHTML}\n${attachmentsHTML}`,
+      contentHTML: messageTextHTML,
+      timeSuffix: `${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}`,
+    });
   }
 
   buildChatMessageRangeHTML(messages, contact, oldestIndex, newestIndex) {
@@ -29639,6 +29790,14 @@ class NewChatModal {
     this.uploadButton.addEventListener('click', () => this.hiddenFileInput.click());
     this.hiddenFileInput.addEventListener('change', (e) => this.handleQRImageUpload(e.target.files?.[0] || null));
     this.inviteButton.addEventListener('click', () => this.handleInviteClick());
+
+    this.groupButton = document.getElementById('newChatGroupButton');
+    if (this.groupButton) {
+      this.groupButton.addEventListener('click', () => {
+        this.modal.classList.remove('active');
+        createGroupModal.open();
+      });
+    }
   }
 
   /**

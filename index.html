@@ -266,6 +266,12 @@
                 <button type="submit" class="btn btn--primary btn--pill btn--full">Continue</button>
               </div>
               <div class="form-group form-group--divider">
+                <p>Or start an encrypted group chat.</p>
+                <button type="button" id="newChatGroupButton" class="btn btn--secondary btn--pill btn--full">
+                  New Group
+                </button>
+              </div>
+              <div class="form-group form-group--divider">
                 <p>Or invite contacts from your other apps.</p>
                 <button type="button" id="newChatInviteButton" class="btn btn--secondary btn--pill btn--full">Invite</button>
               </div>
@@ -2023,6 +2029,150 @@
         <a class="last-item" href="#"> </a>
       </div>
       
+      <!-- ===================== MLS Group Chat ===================== -->
+
+      <!-- Create Group Modal -->
+      <div class="modal fixed-header" id="createGroupModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeCreateGroupModal"></button>
+          <div class="modal-title">New Group</div>
+        </div>
+        <div class="modal-content">
+          <div class="form-container">
+            <form id="createGroupForm" class="form--narrow">
+              <div class="form-group">
+                <label for="groupNameInput"
+                  >Group name <span id="createGroupError" style="color: #dc3545; display: none"></span
+                ></label>
+                <input
+                  type="text"
+                  id="groupNameInput"
+                  class="form-control"
+                  placeholder="e.g. Project team"
+                  maxlength="48"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="createGroupInviteInput">Add members</label>
+                <p class="form-hint">
+                  Add by username, or pick from your contacts. Members cannot read messages sent
+                  before they join.
+                </p>
+                <div class="group-invite-row">
+                  <input
+                    type="text"
+                    id="createGroupInviteInput"
+                    class="form-control"
+                    placeholder="Add by username"
+                    autocomplete="off"
+                  />
+                  <button type="button" class="btn btn--secondary" id="createGroupInviteAdd">Add</button>
+                </div>
+                <div class="group-invite-error" id="createGroupInviteError"></div>
+                <ul class="group-staged" id="createGroupStaged"></ul>
+                <ul class="group-member-picker" id="groupMemberPicker"></ul>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn--primary btn--pill btn--full" id="createGroupSubmit">
+                  Create group
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Group Chat Modal -->
+      <div class="modal fixed-header" id="groupChatModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeGroupChatModal"></button>
+          <div class="chat-user-info" id="groupChatHeaderInfo">
+            <div class="modal-avatar" id="groupChatAvatar"></div>
+            <div>
+              <div class="modal-title" id="groupChatTitle"></div>
+              <div class="group-subtitle" id="groupChatSubtitle"></div>
+            </div>
+          </div>
+          <div class="header-actions">
+            <button class="icon-button menu-icon" id="groupChatInfoButton" aria-label="Group info"></button>
+          </div>
+        </div>
+        <div class="messages-container">
+          <div class="messages-list" id="groupMessagesList"></div>
+        </div>
+        <div class="message-input-container">
+          <div class="message-byte-counter" id="groupByteCounter"></div>
+          <div class="message-input-row">
+            <div class="message-input-wrapper">
+              <textarea class="message-input" id="groupMessageInput" placeholder="Type a message..."></textarea>
+              <!-- .send-button is absolutely positioned inside the wrapper and
+                   hidden by default; groups always show it, as there is no
+                   voice/attachment button to swap with. -->
+              <button class="send-button send-button--always" id="groupSendButton" aria-label="Send">
+                <svg viewBox="0 0 24 24">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group Info Modal -->
+      <div class="modal fixed-header" id="groupInfoModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeGroupInfoModal"></button>
+          <div class="modal-title">Group Info</div>
+        </div>
+        <div class="modal-content">
+          <div class="group-info-summary">
+            <div class="modal-avatar" id="groupInfoAvatar"></div>
+            <div class="group-info-name" id="groupInfoName"></div>
+            <div class="group-info-meta" id="groupInfoMeta"></div>
+          </div>
+
+          <div class="group-info-section">
+            <div class="group-info-section-title">
+              Members <span id="groupInfoMemberCount"></span>
+            </div>
+            <ul class="group-member-list" id="groupInfoMembers"></ul>
+          </div>
+
+          <div class="group-info-section" id="groupInfoAddSection">
+            <div class="group-info-section-title">Add members</div>
+            <div class="group-invite-row">
+              <input
+                type="text"
+                id="groupInfoInviteInput"
+                class="form-control"
+                placeholder="Add by username"
+                autocomplete="off"
+              />
+              <button type="button" class="btn btn--secondary" id="groupInfoInviteAdd">Add</button>
+            </div>
+            <div class="group-invite-error" id="groupInfoInviteError"></div>
+            <ul class="group-staged" id="groupInfoStaged"></ul>
+            <ul class="group-member-picker" id="groupInfoPicker"></ul>
+            <button type="button" class="btn btn--secondary btn--pill btn--full" id="groupInfoAddButton">
+              Add selected
+            </button>
+          </div>
+
+          <div class="group-info-section">
+            <button type="button" class="btn btn--danger btn--pill btn--full" id="groupLeaveButton">
+              Leave group
+            </button>
+            <p class="form-hint">
+              Leaving stops the network accepting your messages, but does not rotate the group keys
+              until a remaining member commits the change.
+            </p>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
       <!-- Contact Info Modal -->
       <div class="modal fixed-header" id="contactInfoModal">
         <div class="modal-header">

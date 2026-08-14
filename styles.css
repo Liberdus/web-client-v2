@@ -10064,3 +10064,219 @@ small {
 .drop-text {
   font-size: 1.5rem;
 }
+
+/* ===================== MLS Group Chat ===================== */
+
+/* Sender attribution. Only groups need this — a 1:1 chat has exactly one
+   other participant, so labelling every bubble would be noise. */
+.message-sender {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 2px;
+}
+.message.sent .message-sender {
+  display: none;
+}
+
+/* Centred notices: the join boundary, empty state, recovery warnings. */
+.message.system-message {
+  align-self: center;
+  max-width: 85%;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--secondary-text-color);
+  font-size: 0.78rem;
+  text-align: center;
+  padding: 6px 10px;
+}
+.message.system-message.join-boundary {
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  width: 100%;
+  max-width: 100%;
+  border-radius: 0;
+  margin: 8px 0;
+}
+.message.system-message.system-warning {
+  color: var(--warning-color);
+  font-weight: 500;
+}
+
+.group-subtitle {
+  font-size: 0.72rem;
+  color: var(--secondary-text-color);
+  line-height: 1.2;
+}
+
+/* Member pickers (create group, add members) */
+.group-member-picker,
+.group-member-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+.group-picker-row label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.group-picker-row label:hover {
+  background: var(--hover-background);
+}
+.group-picker-avatar svg,
+.group-picker-avatar {
+  flex: 0 0 auto;
+  line-height: 0;
+}
+.group-picker-name {
+  flex: 1;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.group-picker-empty {
+  padding: 12px;
+  color: var(--secondary-text-color);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.group-member-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+.group-member-row:last-child {
+  border-bottom: 0;
+}
+.group-admin-badge {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+
+.group-info-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 0;
+}
+.group-info-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.group-info-meta {
+  font-size: 0.75rem;
+  color: var(--secondary-text-color);
+}
+.group-info-section {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+}
+.group-info-section-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--secondary-text-color);
+  font-weight: 600;
+}
+
+.form-hint {
+  font-size: 0.78rem;
+  color: var(--secondary-text-color);
+  margin: 4px 0 0;
+}
+
+.btn--tiny {
+  color: var(--text-color);
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  border-radius: 999px;
+  background: var(--button-background);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+}
+.btn--tiny:hover {
+  background: var(--hover-background-dark);
+}
+
+/* Groups have no voice/attachment button to alternate with, so the send
+   button is always visible rather than appearing only when text is present. */
+.send-button.send-button--always {
+  display: flex;
+}
+
+/* Add-by-username: a group can be created from an account with no contacts,
+   so picking from the contact list alone would be a dead end. */
+.group-invite-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}
+.group-invite-row .form-control {
+  flex: 1;
+  min-width: 0;
+}
+.group-invite-row .btn {
+  /* .btn--secondary carries an explicit width; override it so the button
+     hugs its label and leaves the rest of the row for the input. */
+  flex: 0 0 auto;
+  width: auto;
+  padding: 8px 16px;
+}
+.group-invite-error {
+  display: none;
+  color: var(--danger-color);
+  font-size: 0.78rem;
+  margin-top: 4px;
+}
+
+.group-staged {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.group-staged-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--hover-background-purple);
+  border: 1px solid var(--primary-color);
+  color: var(--primary-color);
+  border-radius: 999px;
+  padding: 3px 6px 3px 12px;
+  font-size: 0.82rem;
+}
+.group-staged-remove {
+  background: none;
+  border: 0;
+  color: inherit;
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+#groupChatHeaderInfo {
+  cursor: pointer;
+}
