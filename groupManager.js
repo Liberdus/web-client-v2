@@ -281,6 +281,8 @@ export async function sendGroupMessage(groupId, text) {
     sent_timestamp: sentTimestamp,
     timestamp: tx.timestamp,
     mine: true,
+    // Settled by reconcilePendingMessages once the receipt is available.
+    status: 'pending',
   });
   return txid;
 }
@@ -304,6 +306,13 @@ function ensureGroupView(groupId) {
       // Set once the chain roster no longer contains us. History stays readable
       // up to the removing commit; nothing after it ever becomes decryptable.
       removed: false,
+      /**
+       * address -> username, resolved from each member's account alias.
+       *
+       * Group members are usually not in your contacts, so without this every
+       * sender label falls back to a truncated address.
+       */
+      memberNames: {},
     };
   }
   if (!Array.isArray(myData.chats)) myData.chats = [];
@@ -369,6 +378,88 @@ function applyMembershipLocally(groupId, { added = [], removed = [] }, epoch) {
   return view;
 }
 
+/**
+ * Resolves member addresses to usernames via each account's `alias`.
+ *
+ * Only fetches addresses not already cached, so this costs one request per new
+ * member and nothing thereafter. Failures are silent: the UI falls back to a
+ * truncated address, which is worse-looking but never wrong.
+ */
+export async function refreshMemberNames(groupId) {
+  const view = ensureGroupView(groupId);
+  view.memberNames ??= {};
+
+  /*
+   * Resolve current members AND anyone who has spoken in the transcript. A
+   * sender who has since been removed is no longer in the roster, but their
+   * messages are still on screen and would otherwise keep showing an address.
+   */
+  const senders = (view.messages || []).map((m) => m.from).filter(Boolean);
+  const candidates = [...new Set([...(view.members || []), ...senders])];
+  const unknown = candidates.filter((a) => a && !view.memberNames[a]);
+  if (unknown.length === 0) return;
+
+  await Promise.all(
+    unknown.map(async (address) => {
+      try {
+        const res = await deps.queryNetwork(`/account/${address}`);
+        const alias = res?.account?.alias;
+        if (alias) view.memberNames[address] = alias;
+      } catch {
+        /* leave it unresolved; displayName falls back to a short address */
+      }
+    }),
+  );
+  if (deps.onGroupUpdated) deps.onGroupUpdated(groupId);
+}
+
+/**
+ * Settles optimistic group messages against their transaction receipts.
+ *
+ * A group message renders immediately from a local echo, because MLS cannot
+ * decrypt our own outbound ciphertext and the transcript replay skips it. That
+ * echo previously stayed on screen forever even when the transaction failed —
+ * insufficient balance, the per-member rate limit, a stale epoch — so the sender
+ * believed a message had been delivered that never was.
+ *
+ * Uses the same endpoints and timings as checkPendingTransactions, but runs from
+ * the group poll rather than threading group cases through that function.
+ */
+async function reconcilePendingMessages(groupId) {
+  const view = ensureGroupView(groupId);
+  const pending = (view.messages || []).filter((m) => m.status === 'pending' && m.txid);
+  if (pending.length === 0) return false;
+
+  const now = Date.now();
+  let changed = false;
+
+  for (const message of pending) {
+    const age = now - (message.timestamp || now);
+    if (age < 8000) continue; // not yet worth asking about
+
+    const endpoint = age > 20000 ? `/collector/api/transaction?appReceiptId=${message.txid}` : `/transaction/${message.txid}`;
+    let res = null;
+    try {
+      res = await deps.queryNetwork(endpoint);
+    } catch {
+      continue; // transient; try again next poll
+    }
+
+    const tx = res?.transaction;
+    if (tx && Object.keys(tx).length > 0) {
+      // The receipt records whether apply() succeeded, not just acceptance.
+      message.status = tx.success === false ? 'failed' : 'sent';
+      changed = true;
+    } else if (age > 30000) {
+      message.status = 'failed';
+      changed = true;
+    }
+  }
+
+  if (changed && deps.onGroupUpdated) deps.onGroupUpdated(groupId);
+  return changed;
+}
+
 /** Refreshes the view model from chain metadata plus local MLS state. */
 async function upsertGroupView(groupId, extra = {}) {
   const view = ensureGroupView(groupId);
@@ -379,6 +470,8 @@ async function upsertGroupView(groupId, extra = {}) {
     view.maxMembers = info.group.maxMembers;
     const meta = await decryptMeta(groupId, info.group.meta);
     if (meta.name) view.name = meta.name;
+    // Fire and forget: a slow directory lookup must not hold up the view.
+    refreshMemberNames(groupId).catch(() => {});
   }
   const local = await mls.getGroupView(myAddress(), groupId);
   if (local) {
@@ -441,8 +534,19 @@ export async function syncGroup(groupId) {
   const current = ensureGroupView(groupId);
   if (current.removed && roster) {
     current.removed = false;
-    current.members = roster;
     if (deps.onGroupUpdated) deps.onGroupUpdated(groupId);
+  }
+
+  /*
+   * Keep the roster and member names current on every sync, not only when
+   * something changed. upsertGroupView runs conditionally at the end of this
+   * function, which is too late and too rare: a quiet group would never resolve
+   * its members' usernames and every sender label would stay an address.
+   */
+  if (roster) {
+    current.members = roster;
+    if (Array.isArray(info.group.admins)) current.admins = info.group.admins;
+    refreshMemberNames(groupId).catch(() => {});
   }
 
   if (!(await mls.hasGroupState(me, groupId))) {
@@ -567,6 +671,18 @@ export async function syncAllGroups() {
 
   let updated = 0;
   for (const groupId of groupIds) {
+    /*
+     * Settling optimistic sends is independent of MLS sync and must not depend
+     * on it. syncGroup returns early in several legitimate cases — no local
+     * state yet, a Welcome not yet available, a removal — and a message stuck
+     * on "pending" forever is exactly the failure this was added to prevent.
+     */
+    try {
+      if (await reconcilePendingMessages(groupId)) updated++;
+    } catch (e) {
+      console.error(`[groups] receipt check failed for ${groupId}`, e);
+    }
+
     try {
       if (await syncGroup(groupId)) updated++;
     } catch (e) {

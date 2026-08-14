@@ -10280,3 +10280,28 @@ small {
 #groupChatHeaderInfo {
   cursor: pointer;
 }
+
+/* Sender avatar sits on the sender line inside the bubble. A gutter avatar
+   would have to start at the message list's left edge, which collides with the
+   app container offset and clips at narrow widths. */
+.message-sender-avatar {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-right: 6px;
+  line-height: 0;
+}
+.message-sender-avatar svg {
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+}
+.message-sender {
+  display: flex;
+  align-items: center;
+}
+
+/* A group message is optimistic until its receipt lands: MLS cannot decrypt our
+   own outbound ciphertext, so the transcript replay never confirms it. */
+.message.sent[data-status='pending'] {
+  opacity: 0.65;
+}

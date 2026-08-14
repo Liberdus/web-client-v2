@@ -46,13 +46,19 @@ const toast = (msg, ms, kind) => deps.showToast && deps.showToast(msg, ms, kind)
  * not a well-formed address, and this runs once per rendered message. A single
  * odd roster entry must not be able to blank the whole conversation.
  */
-function displayName(address) {
+function displayName(address, groupId) {
   const addr = String(address || '').toLowerCase();
   try {
     if (addr === myAddr()) return 'You';
     const contacts = myData().contacts || {};
     const contact = contacts[addr] || contacts[normalizeAddress(addr)] || contacts[longAddress(addr)];
     if (contact && (contact.username || contact.name)) return contact.username || contact.name;
+    // Group members are usually not contacts, so fall back to the username
+    // resolved from their account alias before giving up on an address.
+    if (groupId) {
+      const alias = myData().groups?.[groupId]?.memberNames?.[addr];
+      if (alias) return alias;
+    }
   } catch {
     // Not a canonical address; fall through to the short form.
   }
@@ -329,6 +335,9 @@ class GroupChatModal {
   open(groupId) {
     this.groupId = groupId;
     groups.markGroupRead(groupId);
+    // Resolve any unknown sender names now rather than waiting for the next
+    // poll — this is the moment the user is actually looking at them.
+    groups.refreshMemberNames(groupId).catch(() => {});
     this.render();
     this.modal.classList.add('active');
     // Deliberately no focus() here: ChatModal.open does not either, and
@@ -366,7 +375,10 @@ class GroupChatModal {
     const items = [...(view.messages || [])].sort((a, b) => a.timestamp - b.timestamp);
 
     renderTextConversation(this.list, items, {
-      senderLabelFor: (item) => displayName(item.from),
+      senderLabelFor: (item) => displayName(item.from, this.groupId),
+      // Identicon from the sender's address — the same fallback the rest of the
+      // app uses when a contact has no uploaded avatar.
+      senderAvatarFor: (item) => generateIdenticon(item.from, 28),
       // The "before you joined" separator is a real item in the list, emitted
       // by sync only when history was actually skipped, so nothing is inferred
       // from the epoch here.
@@ -481,7 +493,7 @@ class GroupInfoModal {
         return `
         <li class="group-member-row">
           <span class="group-picker-avatar">${generateIdenticon(address, 28)}</span>
-          <span class="group-picker-name">${escapeHtml(displayName(address))}</span>
+          <span class="group-picker-name">${escapeHtml(displayName(address, this.groupId))}</span>
           ${admin ? '<span class="group-admin-badge">admin</span>' : ''}
           ${canRemove ? `<button class="btn btn--tiny" data-remove="${address}">Remove</button>` : ''}
         </li>`;

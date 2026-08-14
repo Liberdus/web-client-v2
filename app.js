@@ -10102,7 +10102,9 @@ async function getChats(keys, retry = 1) {
   if (senders && senders.chats && chatCount) {
     await processChats(senders.chats, keys);
   } else {
-    console.error('getChats: no senders found')
+    // An empty chats map is an ordinary state, not a failure: a brand-new
+    // account has none, and a member removed from their only group has none
+    // again. Logging it as an error made the console unusable on every poll.
     myAccount.chatTimestamp = timestamp;
   }
   if (chatModal.address) {

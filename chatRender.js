@@ -42,6 +42,7 @@ export function buildTextContent(text, opts = {}) {
  * @param {string}  [o.extraAttrs]    additional data- attributes
  * @param {string}  [o.beforeContent] HTML placed above the content
  * @param {string}  [o.senderLabel]   plain text; escaped here
+ * @param {string}  [o.senderAvatar]  pre-rendered avatar HTML, group chat only
  * @param {string}  [o.timeSuffix]    HTML appended inside the time row
  */
 export function buildMessageBubble(o) {
@@ -49,8 +50,15 @@ export function buildMessageBubble(o) {
   const timestampAttr = `data-message-timestamp="${o.timestamp}"`;
   const txidAttr = o.txid ? `data-txid="${o.txid}"` : '';
   const statusAttr = o.status ? `data-status="${o.status}"` : '';
+  /*
+   * The avatar sits inside the bubble, on the sender line, rather than in a
+   * gutter beside it. A gutter avatar has to start at the very left edge of the
+   * message list, which collides with the app's container offset and clips at
+   * narrow widths. Inline costs a little visual separation and cannot overflow.
+   */
+  const avatar = o.senderAvatar && !o.mine ? `<span class="message-sender-avatar">${o.senderAvatar}</span>` : '';
   const sender = o.senderLabel
-    ? `<div class="message-sender">${escapeHtml(o.senderLabel)}</div>`
+    ? `<div class="message-sender">${avatar}${escapeHtml(o.senderLabel)}</div>`
     : '';
 
   return `
@@ -90,6 +98,7 @@ export function buildSystemMessage(text, extraClass = '') {
  * @param {Array} items          ascending by timestamp
  * @param {Object} opts
  * @param {Function} opts.senderLabelFor  (item) => string|null
+ * @param {Function} [opts.senderAvatarFor] (item) => HTML string|null
  * @param {string}  [opts.emptyHTML]
  */
 export function renderTextConversation(container, items, opts = {}) {
@@ -118,6 +127,7 @@ export function renderTextConversation(container, items, opts = {}) {
         contentHTML: buildTextContent(item.message),
         // Attribution only matters when more than one person can be speaking.
         senderLabel: item.mine ? '' : opts.senderLabelFor && opts.senderLabelFor(item),
+        senderAvatar: item.mine ? '' : opts.senderAvatarFor && opts.senderAvatarFor(item),
       }),
     );
   }
