@@ -90,17 +90,18 @@ Important implementation detail:
 
 - The DAO UI requests the complete metadata index whenever the DAO is refreshed; proposal metadata is not persisted.
 - Proposal details are not persisted. Status filters fetch fresh details for the visible 10 entries, “Load more” fetches the next 10, and opening a proposal refreshes that proposal again.
-- The Claimable filter queries only proposals from the current account's confirmed vote history whose saved reward-claim window is currently open. It does not scan every finalized proposal or pre-filter candidates by metadata status, and it renders a candidate only when fresh details report that it is claimable.
+- The Claimable filter queries only proposals from the current account's confirmed vote history whose authoritative reward-claim window is currently open. It does not scan every finalized proposal, and it renders a candidate only when fresh details report that it is claimable.
 - Account changes and sign-out clear the in-memory proposal details.
 - Failed detail fetches are retried the next time their filter page or proposal is opened.
 
 ### Device-local claim candidates
 
-- Confirmed vote transactions add their proposal number and reward-claim window to `localStorage`, scoped by network ID and account address.
-- Repeated confirmed votes on one proposal keep the original stored entry without rewriting its claim-window timing.
+- Confirmed vote transactions add their proposal number to `localStorage`, scoped by network ID and account address.
+- On each DAO metadata refresh, tracked proposals that have entered a final state are refreshed once and updated with the authoritative claim window derived from `votingEndedAt`.
+- Repeated confirmed votes on one proposal keep a single stored entry.
 - Confirmed reward claims remove their proposal number. Submitted, failed, and timed-out claims leave it available for retry.
-- Proposals are hidden before the saved claim window opens and after it ends, regardless of metadata status. Expired entries can remain in local storage but are excluded from the rendered list.
-- The saved claim window narrows the local candidate list. Fresh proposal details must confirm current eligibility before rendering, and the server remains authoritative when a claim is submitted.
+- Proposals are hidden until their authoritative claim window opens and after it ends. Expired entries are removed from local storage when claim candidates are evaluated.
+- The authoritative saved claim window narrows the local candidate list. Fresh proposal details must confirm current eligibility before rendering, and the server remains authoritative when a claim is submitted.
 - This history is local to this browser and device. It cannot discover votes cast in another browser, and clearing site storage removes the history.
 - Otherwise ineligible candidates can remain stored until a reward is successfully claimed or local storage is cleared, but fresh details exclude them from the rendered list.
 
