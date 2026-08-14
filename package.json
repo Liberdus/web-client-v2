@@ -10,5 +10,18 @@
     "decentralized"
   ],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "scripts": {
+    "build:mls": "node scripts/build-ts-mls.mjs"
+  },
+  "devDependencies": {
+    "@hpke/chacha20poly1305": "1.7.1",
+    "@hpke/hybridkem-x-wing": "0.6.1",
+    "@noble/ciphers": "2.1.1",
+    "@noble/curves": "2.0.1",
+    "@noble/hashes": "^2.2.0",
+    "@noble/post-quantum": "0.5.2",
+    "esbuild": "^0.28.1",
+    "ts-mls": "1.6.2"
+  }
 }
