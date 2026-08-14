@@ -76,6 +76,7 @@ export const DAO_PROPOSAL_DAY_MS = 24 * 60 * 60 * 1000;
 export const DAO_PROPOSAL_GRACE_PERIOD_MAX_MS = 999_999_999_999;
 const DAO_PROPOSAL_MAX_DATE_MS = 100_000_000 * DAO_PROPOSAL_DAY_MS; // ECMAScript Date limit.
 const DAO_PROPOSALS_META_ID_STRING = 'dao proposals meta';
+const DAO_VOTED_PROPOSALS_STORAGE_PREFIX = 'daoVotedProposals';
 export const DAO_PROPOSAL_TITLE_MAX_LENGTH = 100;
 export const DAO_PROPOSAL_CREATE_TYPE = 'dao_proposal_create';
 
@@ -720,6 +721,114 @@ export function normalizeDaoAddress(value) {
   return normalizeAddress(address);
 }
 
+function getDaoVotedProposalsStorageKey(networkId, accountAddress) {
+  const netid = String(networkId || '').trim();
+  const address = normalizeDaoAddress(accountAddress);
+  if (!netid || !address) return '';
+  return `${DAO_VOTED_PROPOSALS_STORAGE_PREFIX}:${encodeURIComponent(netid)}:${address}`;
+}
+
+function normalizeDaoTrackedProposalEntries(value) {
+  if (!Array.isArray(value)) return [];
+
+  const entriesByProposal = new Map();
+  for (const entry of value) {
+    const proposalNumber = normalizeDaoPositiveInteger(entry?.proposalNumber);
+    const claimStart = normalizeDaoTimestamp(entry?.claimStart);
+    const claimEnd = normalizeDaoTimestamp(entry?.claimEnd);
+    if (!proposalNumber || !claimStart || claimEnd < claimStart) continue;
+    entriesByProposal.set(proposalNumber, { proposalNumber, claimStart, claimEnd });
+  }
+  return [...entriesByProposal.values()];
+}
+
+function readDaoTrackedProposalEntries(storage, key) {
+  if (!key || typeof storage?.getItem !== 'function') return null;
+  try {
+    const raw = storage.getItem(key);
+    if (raw === null) return [];
+    return normalizeDaoTrackedProposalEntries(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+function writeDaoTrackedProposalEntries(storage, key, entries) {
+  if (!key || typeof storage?.setItem !== 'function') return;
+  try {
+    storage.setItem(key, JSON.stringify(entries));
+  } catch {
+    // Device-local vote history is optional; storage failures must not block DAO actions.
+  }
+}
+
+function getDefaultDaoVoteTrackingStorage() {
+  try {
+    return globalThis.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+export function createDaoProposalVoteTracker(storage = getDefaultDaoVoteTrackingStorage()) {
+  function getOpenClaimProposalNumbers(networkId, accountAddress, now = Date.now()) {
+    const key = getDaoVotedProposalsStorageKey(networkId, accountAddress);
+    const timestamp = normalizeDaoTimestamp(now);
+    if (!timestamp) return [];
+    return (readDaoTrackedProposalEntries(storage, key) || [])
+      .filter((entry) => timestamp >= entry.claimStart && timestamp <= entry.claimEnd)
+      .map((entry) => entry.proposalNumber);
+  }
+
+  function handleSettlement({
+    type,
+    outcome,
+    networkId,
+    accountAddress,
+    proposalNumber,
+    claimStart,
+    claimEnd,
+  }) {
+    if (outcome !== 'success') return;
+    if (type !== DAO_ACTION_TYPES.VOTE && type !== DAO_ACTION_TYPES.CLAIM_REWARD) return;
+
+    const key = getDaoVotedProposalsStorageKey(networkId, accountAddress);
+    const number = normalizeDaoPositiveInteger(proposalNumber);
+    if (!key || !number) return;
+
+    const current = readDaoTrackedProposalEntries(storage, key);
+    if (!current) return;
+
+    if (type === DAO_ACTION_TYPES.VOTE) {
+      if (current.some((tracked) => tracked.proposalNumber === number)) return;
+
+      const normalizedClaimStart = normalizeDaoTimestamp(claimStart);
+      const normalizedClaimEnd = normalizeDaoTimestamp(claimEnd);
+      if (!normalizedClaimStart || normalizedClaimEnd < normalizedClaimStart) return;
+
+      writeDaoTrackedProposalEntries(storage, key, [...current, {
+        proposalNumber: number,
+        claimStart: normalizedClaimStart,
+        claimEnd: normalizedClaimEnd,
+      }]);
+      return;
+    }
+
+    if (current.some((tracked) => tracked.proposalNumber === number)) {
+      writeDaoTrackedProposalEntries(
+        storage,
+        key,
+        current.filter((tracked) => tracked.proposalNumber !== number),
+      );
+    }
+  }
+
+  return Object.freeze({
+    getOpenClaimProposalNumbers,
+    handleSettlement,
+  });
+}
+
 export function parseDaoUnsignedBigInt(value) {
   if (value === undefined || value === null || value === '') return null;
   if (typeof value === 'bigint') return value >= 0n ? value : null;
@@ -848,6 +957,16 @@ function normalizeDaoProposalIndexEntries(entries) {
   return (Array.isArray(entries) ? entries : [])
     .map(normalizeDaoProposalMetadataEntry)
     .filter(Boolean);
+}
+
+export function getDaoTrackedProposalMetadataEntries(entries, proposalNumbers) {
+  const tracked = new Set(
+    (Array.isArray(proposalNumbers) ? proposalNumbers : [])
+      .map(normalizeDaoPositiveInteger)
+      .filter(Boolean),
+  );
+  return normalizeDaoProposalIndexEntries(entries)
+    .filter((entry) => tracked.has(entry.proposal));
 }
 
 async function fetchDaoProposalMeta(queryDaoApi) {
