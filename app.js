@@ -404,6 +404,7 @@ function newDataRecord(myAccount) {
       defaultGatewayIndex: -1, // -1 means use random selection
     },
     contacts: {},
+    daoUserVotes: {},
     chats: [],
     wallet: {
       networth: 0.0,
@@ -1050,6 +1051,17 @@ function loadState(account, noparse=false){
   }
   if (noparse) return data;
   return parse(data);
+}
+
+function ensureDaoUserVotes(data) {
+  if (!data || typeof data !== 'object') return;
+  const hasVoteMap = data.daoUserVotes
+    && typeof data.daoUserVotes === 'object'
+    && !Array.isArray(data.daoUserVotes);
+  if (hasVoteMap) {
+    return;
+  }
+  data.daoUserVotes = {};
 }
 
 function checkFirstTimeTip(tipName) {
@@ -2477,7 +2489,13 @@ const menuModal = new MenuModal();
 // =====================
 
 setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork));
-const daoProposalVoteTracker = createDaoProposalVoteTracker();
+const daoProposalVoteTracker = createDaoProposalVoteTracker({
+  getDaoUserVotes: () => myData?.daoUserVotes,
+  setDaoUserVotes: (votes) => {
+    if (!myData) return;
+    myData.daoUserVotes = votes;
+  },
+});
 
 const DAO_PROPOSAL_PAGE_SIZE = 10;
 const DAO_ALL_FILTER = { key: 'all', label: 'All' };
@@ -2645,22 +2663,14 @@ class DaoModal {
   }
 
   getClaimCandidateMetadataEntries(entries, now = getTransactionTimestamp()) {
-    const proposalNumbers = daoProposalVoteTracker.getOpenClaimProposalNumbers(
-      network?.netid || '',
-      getDaoCurrentAccountAddress(),
-      now,
-    );
+    const proposalNumbers = daoProposalVoteTracker.getOpenClaimProposalNumbers(now);
     return getDaoTrackedProposalMetadataEntries(entries, proposalNumbers);
   }
 
   async syncTrackedClaimWindows() {
     const refreshedProposalNumbers = new Set();
-    const networkId = network?.netid || '';
-    const accountAddress = getDaoCurrentAccountAddress();
-    const pendingProposalNumbers = daoProposalVoteTracker.getPendingClaimProposalNumbers(
-      networkId,
-      accountAddress,
-    );
+    const accountData = myData;
+    const pendingProposalNumbers = daoProposalVoteTracker.getPendingClaimProposalNumbers();
     if (pendingProposalNumbers.length === 0) return refreshedProposalNumbers;
 
     const entries = getDaoTrackedProposalMetadataEntries(
@@ -2677,12 +2687,11 @@ class DaoModal {
       }
     }));
 
+    if (accountData !== myData) return refreshedProposalNumbers;
     for (const proposal of proposals) {
       if (!proposal || !Number(proposal.votingEndedAt)) continue;
       const claimWindow = getDaoProposalClaimWindow(proposal);
       daoProposalVoteTracker.setAuthoritativeClaimWindow(
-        networkId,
-        accountAddress,
         proposal.number,
         claimWindow.start,
         claimWindow.end,
@@ -2740,8 +2749,6 @@ class DaoModal {
     daoProposalVoteTracker.handleSettlement({
       type: pendingTxInfo?.type,
       outcome,
-      networkId: pendingTxInfo?.networkId || network?.netid || '',
-      accountAddress: pendingTxInfo?.from || getDaoCurrentAccountAddress(),
       proposalNumber: pendingTxInfo?.proposalNumber,
     });
 
@@ -2825,7 +2832,7 @@ class DaoModal {
     const label = DAO_FILTER_OPTIONS.find((filter) => filter.key === this.selectedFilterKey)?.label
       || this.selectedFilterKey;
     if (this.titleEl) {
-      this.titleEl.textContent = isClaimableFilter ? `DAO - ${label} (this device)` : `DAO - ${label}`;
+      this.titleEl.textContent = isClaimableFilter ? `DAO - ${label} (this account)` : `DAO - ${label}`;
     }
 
     for (const filter of DAO_FILTER_OPTIONS) {
@@ -7538,6 +7545,8 @@ class SignInModal {
     myAccount = myData.account;
     logsModal.log(`SignIn as ${username}_${netid}`)
     this.recordRecentSignInUsername(username);
+
+    ensureDaoUserVotes(myData);
 
     // One-time migration: convert legacy friend status to connection
     if (migrateFriendStatusToConnection(myData)) {
