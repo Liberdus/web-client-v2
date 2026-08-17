@@ -404,6 +404,7 @@ function newDataRecord(myAccount) {
       defaultGatewayIndex: -1, // -1 means use random selection
     },
     contacts: {},
+    daoUserVotes: {},
     chats: [],
     wallet: {
       networth: 0.0,
