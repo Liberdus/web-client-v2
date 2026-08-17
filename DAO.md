@@ -96,7 +96,7 @@ Important implementation detail:
 
 ### Account claim candidates
 
-- Confirmed vote transactions add their proposal number to the active account's `daoUserVotes` map.
+- The first confirmed vote creates the active account's `daoUserVotes` map and adds its proposal number.
 - Vote-history changes update `myData` in memory and rely on the normal account save lifecycle; DAO tracking does not trigger an extra save.
 - On each DAO metadata refresh, tracked proposals that have entered a final state are refreshed once and updated with the authoritative claim window derived from `votingEndedAt`.
 - Repeated confirmed votes on one proposal keep a single stored entry.

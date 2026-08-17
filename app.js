@@ -404,7 +404,6 @@ function newDataRecord(myAccount) {
       defaultGatewayIndex: -1, // -1 means use random selection
     },
     contacts: {},
-    daoUserVotes: {},
     chats: [],
     wallet: {
       networth: 0.0,
@@ -1051,17 +1050,6 @@ function loadState(account, noparse=false){
   }
   if (noparse) return data;
   return parse(data);
-}
-
-function ensureDaoUserVotes(data) {
-  if (!data || typeof data !== 'object') return;
-  const hasVoteMap = data.daoUserVotes
-    && typeof data.daoUserVotes === 'object'
-    && !Array.isArray(data.daoUserVotes);
-  if (hasVoteMap) {
-    return;
-  }
-  data.daoUserVotes = {};
 }
 
 function checkFirstTimeTip(tipName) {
@@ -7545,8 +7533,6 @@ class SignInModal {
     myAccount = myData.account;
     logsModal.log(`SignIn as ${username}_${netid}`)
     this.recordRecentSignInUsername(username);
-
-    ensureDaoUserVotes(myData);
 
     // One-time migration: convert legacy friend status to connection
     if (migrateFriendStatusToConnection(myData)) {
