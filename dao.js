@@ -728,16 +728,17 @@ function normalizeDaoUserVotes(value) {
     const proposalNumber = normalizeDaoPositiveInteger(proposalKey);
     if (!proposalNumber || !entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
 
-    normalized[proposalNumber] = {};
-    if (entry.finalized === true) {
-      const claimStart = normalizeDaoTimestamp(entry.claimStart);
-      const claimEnd = normalizeDaoTimestamp(entry.claimEnd);
-      if (claimStart && claimEnd >= claimStart) {
-        normalized[proposalNumber] = { finalized: true, claimStart, claimEnd };
-      }
-    }
+    const claimStart = normalizeDaoTimestamp(entry.claimStart);
+    const claimEnd = normalizeDaoTimestamp(entry.claimEnd);
+    normalized[proposalNumber] = claimStart && claimEnd >= claimStart
+      ? { claimStart, claimEnd }
+      : {};
   }
   return normalized;
+}
+
+function hasDaoUserVoteClaimWindow(entry) {
+  return Boolean(entry?.claimStart && entry.claimEnd >= entry.claimStart);
 }
 
 export function createDaoProposalVoteTracker({
@@ -766,7 +767,7 @@ export function createDaoProposalVoteTracker({
 
   function getPendingClaimProposalNumbers() {
     return Object.entries(readVotes())
-      .filter(([, entry]) => entry.finalized !== true)
+      .filter(([, entry]) => !hasDaoUserVoteClaimWindow(entry))
       .map(([proposalNumber]) => Number(proposalNumber));
   }
 
@@ -777,7 +778,7 @@ export function createDaoProposalVoteTracker({
     const votes = readVotes();
     const unexpiredVotes = Object.fromEntries(
       Object.entries(votes).filter(([, entry]) => (
-        entry.finalized !== true || timestamp <= entry.claimEnd
+        !hasDaoUserVoteClaimWindow(entry) || timestamp <= entry.claimEnd
       )),
     );
     if (Object.keys(unexpiredVotes).length !== Object.keys(votes).length) {
@@ -786,7 +787,7 @@ export function createDaoProposalVoteTracker({
 
     return Object.entries(unexpiredVotes)
       .filter(([, entry]) => (
-        entry.finalized === true
+        hasDaoUserVoteClaimWindow(entry)
         && timestamp >= entry.claimStart
       ))
       .map(([proposalNumber]) => Number(proposalNumber));
@@ -802,14 +803,12 @@ export function createDaoProposalVoteTracker({
     if (!Object.prototype.hasOwnProperty.call(current, number)) return;
 
     const currentWindow = current[number];
-    if (currentWindow.finalized === true
-      && currentWindow.claimStart === normalizedClaimStart
+    if (currentWindow.claimStart === normalizedClaimStart
       && currentWindow.claimEnd === normalizedClaimEnd) return;
 
     writeVotes({
       ...current,
       [number]: {
-        finalized: true,
         claimStart: normalizedClaimStart,
         claimEnd: normalizedClaimEnd,
       },
