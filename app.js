@@ -15062,16 +15062,28 @@ class BackupAccountModal {
       return;
     }
 
-    const isGoogleDrive = this.storageLocationSelect.value === 'google-drive';
+    this.setPreparingState(true);
+    // Allow the browser to paint the loading state before backup preparation begins.
+    await new Promise(resolve => setTimeout(resolve, 0));
+    try {
+      const isGoogleDrive = this.storageLocationSelect.value === 'google-drive';
 
-    // Determine which backup method to use
-    if (myData && !this.backupAllAccountsCheckbox.checked) {
-      // User is signed in and wants to backup only current account
-      await this.handleSubmitOne(isGoogleDrive);
-    } else {
-      // User wants to backup all accounts (either not signed in or checkbox checked)
-      await this.handleSubmitAll(isGoogleDrive);
+      // Determine which backup method to use
+      if (myData && !this.backupAllAccountsCheckbox.checked) {
+        // User is signed in and wants to backup only current account
+        await this.handleSubmitOne(isGoogleDrive);
+      } else {
+        // User wants to backup all accounts (either not signed in or checkbox checked)
+        await this.handleSubmitAll(isGoogleDrive);
+      }
+    } finally {
+      this.setPreparingState(false);
     }
+  }
+
+  setPreparingState(isPreparing) {
+    this.submitButton.classList.toggle('is-preparing', isPreparing);
+    this.submitButton.setAttribute('aria-busy', String(isPreparing));
   }
 
   /**
