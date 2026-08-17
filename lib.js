@@ -482,6 +482,35 @@ export function normalizeAddress(address) {
     return address;
 }
 
+/**
+ * Return a normalized username only when the network maps it to the expected address.
+ * Invalid claims and lookup failures are treated as unverified.
+ * @param {string} username
+ * @param {string} expectedAddress
+ * @param {(username: string) => Promise<string|null>} resolveUsernameAddress
+ * @returns {Promise<string|null>}
+ */
+export async function getVerifiedUsername(username, expectedAddress, resolveUsernameAddress) {
+    if (typeof username !== 'string' || typeof resolveUsernameAddress !== 'function') {
+      return null;
+    }
+
+    const normalizedUsername = normalizeUsername(username);
+    if (!normalizedUsername) {
+      return null;
+    }
+
+    try {
+      const resolvedAddress = await resolveUsernameAddress(normalizedUsername);
+      if (!resolvedAddress || normalizeAddress(resolvedAddress) !== normalizeAddress(expectedAddress)) {
+        return null;
+      }
+      return normalizedUsername;
+    } catch {
+      return null;
+    }
+}
+
 export function longAddress(address){
     // First normalize the address to ensure consistent format
     const normalized = normalizeAddress(address);
