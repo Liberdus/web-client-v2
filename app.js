@@ -2877,8 +2877,8 @@ class DaoModal {
         if (headlineEl) headlineEl.textContent = 'Failed to load proposals';
         if (sublineEl) sublineEl.textContent = 'Close and reopen the DAO to retry';
       } else if (isClaimableFilter) {
-        if (headlineEl) headlineEl.textContent = 'No claimable tracked votes';
-        if (sublineEl) sublineEl.textContent = 'Saved candidates are checked against fresh proposal details';
+        if (headlineEl) headlineEl.textContent = 'No claimable proposals found';
+        if (sublineEl) sublineEl.textContent = 'Claimable proposals appear here when available';
       } else {
         if (headlineEl) headlineEl.textContent = 'No proposals found';
         if (sublineEl) sublineEl.textContent = 'Proposal data appears here when available';
