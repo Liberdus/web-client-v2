@@ -13,7 +13,6 @@ export const DAO_TYPE_OPTIONS = [
 ];
 
 export const DAO_PARAMETER_MAX_WHOLE_DIGITS = 15;
-export const DAO_PARAMETER_MAX_NUMBER = 999_999_999_999_999;
 
 const DAO_DECIMAL_STRING_PATTERN = /^(?:0|[1-9]\d{0,14})(?:\.\d{1,18})?$/;
 

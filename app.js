@@ -86,7 +86,6 @@ import {
   DAO_PROPOSAL_DAY_MS,
   DAO_PROPOSAL_GRACE_PERIOD_MAX_MS,
   DAO_PROPOSAL_TITLE_MAX_LENGTH,
-  DAO_PARAMETER_MAX_NUMBER,
   DAO_PARAMETER_MAX_WHOLE_DIGITS,
   buildDaoProposalCreateDraft,
   daoRepo,
@@ -3086,6 +3085,7 @@ function escapeDaoFormAttribute(value) {
 }
 
 const DAO_REVIEW_START_MAX_MS = new Date(9999, 11, 31, 23, 59, 0, 0).getTime();
+const DAO_PARAMETER_NUMBER_LIMIT = 10 ** DAO_PARAMETER_MAX_WHOLE_DIGITS;
 
 class AddProposalModal {
   load() {
@@ -3562,7 +3562,6 @@ class AddProposalModal {
   }
 
   renderProposedValueControl(option, value, id, dataAttributes) {
-    const numericRange = `min="0" max="${DAO_PARAMETER_MAX_NUMBER}"`;
     switch (`${option.valueType}:${option.validation}`) {
       case 'boolean:boolean':
         return `
@@ -3575,9 +3574,9 @@ class AddProposalModal {
       case 'string:decimalString':
         return `<input id="${id}" class="form-control" ${dataAttributes} type="text" inputmode="decimal" maxlength="34" value="${escapeDaoFormAttribute(value)}" required />`;
       case 'number:integer':
-        return `<input id="${id}" class="form-control" ${dataAttributes} type="number" step="1" inputmode="numeric" ${numericRange} value="${escapeDaoFormAttribute(value)}" required />`;
+        return `<input id="${id}" class="form-control" ${dataAttributes} type="number" step="1" inputmode="numeric" min="0" value="${escapeDaoFormAttribute(value)}" required />`;
       case 'number:decimal':
-        return `<input id="${id}" class="form-control" ${dataAttributes} type="number" step="any" inputmode="decimal" ${numericRange} value="${escapeDaoFormAttribute(value)}" required />`;
+        return `<input id="${id}" class="form-control" ${dataAttributes} type="number" step="any" inputmode="decimal" min="0" value="${escapeDaoFormAttribute(value)}" required />`;
       default:
         throw new Error(`Unsupported DAO parameter validation: ${option.valueType}:${option.validation}`);
     }
@@ -3658,9 +3657,8 @@ class AddProposalModal {
       const change = proposalOption.changes[Number(event.target.dataset.daoChangeIndex)];
       if (!change) return;
 
-      const option = this.getConfigOption(change.key);
       const wholeDigits = event.target.value.split('.')[0].replace(/\D/g, '');
-      if (option?.validation !== 'boolean' && wholeDigits.length > DAO_PARAMETER_MAX_WHOLE_DIGITS) {
+      if (wholeDigits.length > DAO_PARAMETER_MAX_WHOLE_DIGITS) {
         event.target.value = change.value;
         return;
       }
@@ -3822,9 +3820,7 @@ class AddProposalModal {
           throw this.createValidationError(`${option.label} must be a whole number`, valueInput);
         }
         if (parameterType === 'number:integer' && (
-          !Number.isSafeInteger(numericValue)
-          || numericValue < 0
-          || numericValue > DAO_PARAMETER_MAX_NUMBER
+          numericValue < 0 || numericValue >= DAO_PARAMETER_NUMBER_LIMIT
         )) {
           throw this.createValidationError(
             `${option.label} must be a non-negative whole number with up to ${DAO_PARAMETER_MAX_WHOLE_DIGITS} digits`,
@@ -3835,7 +3831,7 @@ class AddProposalModal {
           throw this.createValidationError(`${option.label} must be a number`, valueInput);
         }
         if (parameterType === 'number:decimal' && (
-          numericValue < 0 || numericValue > DAO_PARAMETER_MAX_NUMBER
+          numericValue < 0 || numericValue >= DAO_PARAMETER_NUMBER_LIMIT
         )) {
           throw this.createValidationError(
             `${option.label} must be non-negative with up to ${DAO_PARAMETER_MAX_WHOLE_DIGITS} digits before the decimal point`,
