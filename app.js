@@ -101,6 +101,7 @@ import {
   getDaoTypeLabel,
   getEffectiveDaoState,
   hasPendingDaoAction,
+  isValidDaoDecimalString,
   isDaoTransactionType,
   normalizeDaoAddress,
   parseDaoUnsignedBigInt,
@@ -3559,19 +3560,24 @@ class AddProposalModal {
   }
 
   renderProposedValueControl(option, value, id, dataAttributes) {
-    if (option.valueType === 'boolean') {
-      return `
-        <select id="${id}" class="form-control" ${dataAttributes} required>
-          <option value="">Select value</option>
-          <option value="true" ${value === 'true' ? 'selected' : ''}>True</option>
-          <option value="false" ${value === 'false' ? 'selected' : ''}>False</option>
-        </select>
-      `;
+    switch (`${option.valueType}:${option.validation}`) {
+      case 'boolean:boolean':
+        return `
+          <select id="${id}" class="form-control" ${dataAttributes} required>
+            <option value="">Select value</option>
+            <option value="true" ${value === 'true' ? 'selected' : ''}>True</option>
+            <option value="false" ${value === 'false' ? 'selected' : ''}>False</option>
+          </select>
+        `;
+      case 'string:decimalString':
+        return `<input id="${id}" class="form-control" ${dataAttributes} type="text" inputmode="decimal" value="${escapeDaoFormAttribute(value)}" required />`;
+      case 'number:integer':
+        return `<input id="${id}" class="form-control" ${dataAttributes} type="number" step="1" inputmode="numeric" value="${escapeDaoFormAttribute(value)}" required />`;
+      case 'number:decimal':
+        return `<input id="${id}" class="form-control" ${dataAttributes} type="number" step="any" inputmode="decimal" value="${escapeDaoFormAttribute(value)}" required />`;
+      default:
+        throw new Error(`Unsupported DAO parameter validation: ${option.valueType}:${option.validation}`);
     }
-
-    const step = option.valueType === 'integer' ? '1' : 'any';
-    const inputmode = option.valueType === 'integer' ? 'numeric' : 'decimal';
-    return `<input id="${id}" class="form-control" ${dataAttributes} type="number" step="${step}" inputmode="${inputmode}" value="${escapeDaoFormAttribute(value)}" required />`;
   }
 
   addOption() {
@@ -3795,15 +3801,22 @@ class AddProposalModal {
         seenKeys.add(option.key);
 
         const value = String(change.value || '').trim();
+        const parameterType = `${option.valueType}:${option.validation}`;
         if (!value) throw this.createValidationError(`Enter a proposed value for ${option.label}`, valueInput);
-        if (option.valueType === 'boolean' && value !== 'true' && value !== 'false') {
+        if (parameterType === 'boolean:boolean' && value !== 'true' && value !== 'false') {
           throw this.createValidationError(`${option.label} must be true or false`, valueInput);
         }
-        if (option.valueType === 'integer' && !Number.isInteger(Number(value))) {
+        if (parameterType === 'number:integer' && !Number.isSafeInteger(Number(value))) {
           throw this.createValidationError(`${option.label} must be a whole number`, valueInput);
         }
-        if (option.valueType === 'float' && !Number.isFinite(Number(value))) {
+        if (parameterType === 'number:decimal' && !Number.isFinite(Number(value))) {
           throw this.createValidationError(`${option.label} must be a number`, valueInput);
+        }
+        if (parameterType === 'string:decimalString' && !isValidDaoDecimalString(value)) {
+          throw this.createValidationError(
+            `${option.label} must be a non-negative decimal with up to 18 decimal places`,
+            valueInput,
+          );
         }
 
         return {
