@@ -3840,7 +3840,7 @@ class AddProposalModal {
         }
         if (parameterType === 'string:decimalString' && !isValidDaoDecimalString(value)) {
           throw this.createValidationError(
-            `${option.label} must be non-negative with up to ${DAO_PARAMETER_MAX_WHOLE_DIGITS} whole-number digits and up to 18 decimal places`,
+            `${option.label} must be a non-negative number`,
             valueInput,
           );
         }
