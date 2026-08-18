@@ -30022,6 +30022,7 @@ class SendAssetFormModal {
     this.usernameInput = document.getElementById('sendToAddress');
     this.amountInput = document.getElementById('sendAmount');
     this.memoInput = document.getElementById('sendMemo');
+    this.memoGroup = document.getElementById('sendMemoGroup');
     this.retryTxIdInput = document.getElementById('retryOfPaymentTxId');
     this.usernameAvailable = document.getElementById('sendToAddressError');
     this.submitButton = document.querySelector('#sendForm button[type="submit"]');
@@ -30092,6 +30093,7 @@ class SendAssetFormModal {
   async open({ mode = 'liberdus', networkId = null, assetKey = null } = {}) {
     this.mode = mode;
     this.networkGroup.hidden = mode !== 'evm';
+    this.memoGroup.hidden = mode === 'evm';
     this.modal.classList.add('active');
     this.memoValidation = {};
     this.memoByteCounter.textContent = '';
@@ -30904,7 +30906,7 @@ class SendAssetFormModal {
       if (paymentData.a) {
         this.amountInput.value = paymentData.a;
       }
-      if (paymentData.m) {
+      if (paymentData.m && this.mode !== 'evm') {
         this.memoInput.value = paymentData.m;
       }
 
@@ -31270,6 +31272,7 @@ class ReceiveModal {
     this.assetSelect = document.getElementById('receiveAsset');
     this.amountInput = document.getElementById('receiveAmount');
     this.memoInput = document.getElementById('receiveMemo');
+    this.memoGroup = document.getElementById('receiveMemoGroup');
     this.displayAddress = document.getElementById('displayAddress');
     this.qrcodeContainer = document.getElementById('qrcode');
     this.previewElement = document.getElementById('qrDataPreview');
@@ -31300,6 +31303,7 @@ class ReceiveModal {
   async open({ mode = 'liberdus', networkId = null, assetKey = null } = {}) {
     this.mode = mode;
     this.networkGroup.hidden = mode !== 'evm';
+    this.memoGroup.hidden = mode === 'evm';
     this.modal.classList.add('active');
 
     // Clear input fields
