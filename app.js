@@ -104,6 +104,7 @@ import {
   hasPendingDaoAction,
   isValidDaoDecimalString,
   isDaoTransactionType,
+  limitDaoParameterWholeDigits,
   normalizeDaoAddress,
   parseDaoUnsignedBigInt,
   setDaoBackendFetcher,
@@ -3657,12 +3658,9 @@ class AddProposalModal {
       const change = proposalOption.changes[Number(event.target.dataset.daoChangeIndex)];
       if (!change) return;
 
-      const wholeDigits = event.target.value.split('.')[0].replace(/\D/g, '');
-      if (wholeDigits.length > DAO_PARAMETER_MAX_WHOLE_DIGITS) {
-        event.target.value = change.value;
-        return;
-      }
-      change.value = event.target.value;
+      const value = limitDaoParameterWholeDigits(event.target.value);
+      event.target.value = value;
+      change.value = value;
     }
   }
 
