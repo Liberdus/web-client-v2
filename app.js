@@ -89,6 +89,7 @@ import {
   buildDaoProposalCreateDraft,
   daoRepo,
   DAO_STATES,
+  getDaoFinalVoteResult,
   getDaoTransactionMessage,
   getDaoTrackedProposalMetadataEntries,
   getDaoProposalClaimWindow,
@@ -4398,14 +4399,6 @@ function getDaoVoteTotals(proposal) {
   }));
 }
 
-function getDaoVoteWinner(totals) {
-  const totalWeight = totals.reduce((sum, row) => sum + row.total, 0n);
-  if (totalWeight <= 0n) return { totalWeight, winner: null };
-
-  const winner = totals.reduce((current, row) => (row.total > current.total ? row : current), totals[0]);
-  return { totalWeight, winner };
-}
-
 function isDaoFinalResultState(state) {
   return state === 'accepted' || state === 'rejected' || state === 'applied';
 }
@@ -4470,27 +4463,11 @@ function getDaoCommitteeReviewResultSummary(proposal) {
 }
 
 function getDaoVoteResultSummary(proposal) {
-  const state = getEffectiveDaoState(proposal);
-  if (!isDaoFinalResultState(state)) return null;
-
+  const result = getDaoFinalVoteResult(proposal);
+  if (!result) return null;
   const totals = getDaoVoteTotals(proposal);
-  if (totals.length === 0) return null;
-
-  const { totalWeight, winner } = getDaoVoteWinner(totals);
-  if (totalWeight <= 0n) {
-    return {
-      headline: 'Rejected',
-      outcome: 'Rejected',
-      source: 'vote',
-      tone: 'rejected',
-      totalWeight,
-      totals,
-      winner: totals[0],
-    };
-  }
-
-  const outcome = winner.index === 0 ? 'Accepted' : 'Rejected';
-  const tone = winner.index === 0 ? 'accepted' : 'rejected';
+  const winner = totals.find((row) => row.index === result.winnerIndex) || null;
+  const { outcome, tone, totalWeight } = result;
 
   return { headline: outcome, outcome, source: 'vote', tone, totalWeight, totals, winner };
 }
@@ -5161,7 +5138,7 @@ class ProposalInfoModal {
       return this.renderCommitteeResults(result, committeeReview, currentAddress);
     }
 
-    const winnerLabel = result.winner ? `${result.winner.option} (${result.outcome})` : 'Unavailable';
+    const winnerLabel = result.winner?.option || 'Unavailable';
     const totalLabel = result.totalWeight > 0n ? formatDaoVotingPower(result.totalWeight) : 'No votes yet';
     const winnerPosition = result.totals.findIndex((row) => row.index === result.winner?.index);
     const meter = this.renderVoteResultMeter(

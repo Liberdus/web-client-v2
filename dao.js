@@ -874,6 +874,35 @@ export function parseDaoUnsignedBigInt(value) {
   }
 }
 
+export function getDaoFinalVoteResult(proposal) {
+  const state = getEffectiveDaoState(proposal);
+  if (!DAO_REWARD_STATE_KEYS.includes(state)) return null;
+
+  const totalVote = Array.isArray(proposal?.totalVote)
+    ? proposal.totalVote.map((value) => parseDaoUnsignedBigInt(value) ?? 0n)
+    : [];
+  if (totalVote.length === 0) return null;
+
+  const storedWinnerIndex = proposal?.winningOptionIndex;
+  const winnerIndex = Number.isInteger(storedWinnerIndex)
+    && storedWinnerIndex >= 0
+    && storedWinnerIndex < totalVote.length
+    ? storedWinnerIndex
+    : totalVote.reduce(
+      (winner, total, index) => (total > totalVote[winner] ? index : winner),
+      0
+    );
+  const totalWeight = totalVote.reduce((sum, total) => sum + total, 0n);
+  const isRejected = state === 'rejected';
+
+  return {
+    outcome: isRejected ? 'Rejected' : 'Accepted',
+    tone: isRejected ? 'rejected' : 'accepted',
+    totalWeight,
+    winnerIndex,
+  };
+}
+
 function hasZeroDaoVoteTotals(proposal) {
   const totalVote = proposal?.totalVote;
   return Array.isArray(totalVote)
@@ -1123,6 +1152,7 @@ function storeToUiList(store) {
         stateEnteredAt: proposal.state_changed,
         options: proposal.options,
         totalVote: proposal.totalVote,
+        winningOptionIndex: proposal.winningOptionIndex,
         committeeVotes: proposal.committeeVotes,
         committeeAddresses: proposal.committeeAddresses,
         voterRewardPool: proposal.voterRewardPool,
