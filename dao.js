@@ -16,8 +16,10 @@ export const DAO_PARAMETER_MAX_WHOLE_DIGITS = 15;
 
 const DAO_DECIMAL_STRING_PATTERN = /^(?:0|[1-9]\d{0,14})(?:\.\d{1,18})?$/;
 
-export function limitDaoParameterWholeDigits(value) {
-  const text = String(value ?? '');
+export function normalizeDaoParameterInput(value) {
+  let text = String(value ?? '');
+  if (/^\.\d*$/.test(text)) text = `0${text}`;
+
   const [wholePart, ...decimalParts] = text.split('.');
   if (!/^\d+$/.test(wholePart)) return text;
   return [wholePart.slice(0, DAO_PARAMETER_MAX_WHOLE_DIGITS), ...decimalParts].join('.');

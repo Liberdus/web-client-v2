@@ -104,8 +104,8 @@ import {
   hasPendingDaoAction,
   isValidDaoDecimalString,
   isDaoTransactionType,
-  limitDaoParameterWholeDigits,
   normalizeDaoAddress,
+  normalizeDaoParameterInput,
   parseDaoUnsignedBigInt,
   setDaoBackendFetcher,
 } from './dao.js';
@@ -3658,7 +3658,7 @@ class AddProposalModal {
       const change = proposalOption.changes[Number(event.target.dataset.daoChangeIndex)];
       if (!change) return;
 
-      const value = limitDaoParameterWholeDigits(event.target.value);
+      const value = normalizeDaoParameterInput(event.target.value);
       event.target.value = value;
       change.value = value;
     }
