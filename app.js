@@ -30094,7 +30094,6 @@ class SendAssetFormModal {
     this.mode = mode;
     this.networkGroup.hidden = mode !== 'evm';
     this.memoGroup.hidden = mode === 'evm';
-    this.modal.classList.add('active');
     this.memoValidation = {};
     this.memoByteCounter.textContent = '';
     this.memoByteCounter.style.display = 'none';
@@ -30135,6 +30134,7 @@ class SendAssetFormModal {
       this.assetSelectDropdown.value = assetKey;
       await this.handleAssetChange();
     }
+    this.modal.classList.add('active');
   }
 
   getSelectedNetwork() {
@@ -31304,7 +31304,6 @@ class ReceiveModal {
     this.mode = mode;
     this.networkGroup.hidden = mode !== 'evm';
     this.memoGroup.hidden = mode === 'evm';
-    this.modal.classList.add('active');
 
     // Clear input fields
     this.amountInput.value = '';
@@ -31325,6 +31324,7 @@ class ReceiveModal {
       this.assetSelect.value = assetKey;
       await this.handleAssetChange();
     }
+    this.modal.classList.add('active');
   }
 
   close() {
