@@ -476,6 +476,7 @@
                     <option value="false">No</option>
                     <option value="true">Yes</option>
                   </select>
+                  <div class="dao-form-help">Emergency proposals allow only one additional option.</div>
                 </div>
                 <div class="form-group">
                   <label for="addProposalFee">Proposal Fee</label>
@@ -488,6 +489,10 @@
                 <input id="addProposalTitle" class="form-control" type="text" maxlength="100" placeholder="Proposal title" required />
               </div>
               <div class="form-group">
+                <label for="addProposalDescription">Description <span class="dao-form-required" aria-hidden="true">*</span></label>
+                <textarea id="addProposalDescription" class="form-control" rows="6" maxlength="10000" placeholder="Describe the proposal" required></textarea>
+              </div>
+              <div class="form-group">
                 <label for="addProposalType">Proposal Type <span class="dao-form-required" aria-hidden="true">*</span></label>
                 <select id="addProposalType" class="form-control" required>
                   <option value="governance">Governance</option>
@@ -496,21 +501,23 @@
                 </select>
                 <div class="dao-form-help">Choose governance, economic, or protocol. This controls which parameters can be selected below.</div>
               </div>
-              <div class="form-group">
-                <label for="addProposalDescription">Description <span class="dao-form-required" aria-hidden="true">*</span></label>
-                <textarea id="addProposalDescription" class="form-control" rows="6" maxlength="10000" placeholder="Describe the proposal" required></textarea>
-              </div>
               <div class="form-group dao-form-section">
-                <div class="dao-form-section-header">
+                <div class="dao-form-label-with-help">
                   <label>Options and Parameter Changes <span class="dao-form-required" aria-hidden="true">*</span></label>
+                  <button
+                    type="button"
+                    class="toll-info-icon dao-form-tooltip"
+                    data-icon="info"
+                    data-dao-form-help
+                    title="No change is always the first option. Choose parameters in Option 1; later options provide alternative values for the same parameters."
+                    aria-label="About proposal options"></button>
                 </div>
-                <div class="dao-form-help">No change is always the first option. Choose parameters in Option 1; later options provide alternative values for the same parameters.</div>
+                <div class="dao-form-help" id="addProposalOptionsLimitHelp">2 to 10 total options.</div>
                 <div class="dao-form-list" id="addProposalOptionsList"></div>
                 <button type="button" class="btn btn--secondary dao-form-add-button" id="addProposalOptionButton">
                   <span class="dao-form-add-icon" aria-hidden="true"><span class="plus-glyph">+</span></span>
                   <span>Add option</span>
                 </button>
-                <div class="dao-form-help">2 to 10 total options. Emergency proposals allow one additional option.</div>
               </div>
               <div class="form-group dao-form-section">
                 <label>Timing</label>
@@ -522,7 +529,7 @@
                         type="button"
                         class="toll-info-icon dao-form-tooltip"
                         data-icon="info"
-                        data-dao-timing-help
+                        data-dao-form-help
                         title="How long to wait before proposal review starts. Select a date and time, or use 0 to start immediately."
                         aria-label="About Review Delay"
                       ></button>
@@ -537,7 +544,7 @@
                         type="button"
                         class="toll-info-icon dao-form-tooltip"
                         data-icon="info"
-                        data-dao-timing-help
+                        data-dao-form-help
                         title="How long to wait after voting ends before the proposal can be applied. Cannot exceed the DAO grace duration."
                         aria-label="About Grace Period"
                       ></button>

@@ -3095,6 +3095,7 @@ class AddProposalModal {
     this.descriptionInput = document.getElementById('addProposalDescription');
     this.proposalFeeInput = document.getElementById('addProposalFee');
     this.optionsList = document.getElementById('addProposalOptionsList');
+    this.optionsLimitHelp = document.getElementById('addProposalOptionsLimitHelp');
     this.addOptionButton = document.getElementById('addProposalOptionButton');
     this.emergencySelect = document.getElementById('addProposalEmergency');
     this.reviewStartButton = document.getElementById('addProposalReviewStartTime');
@@ -3118,7 +3119,7 @@ class AddProposalModal {
       ));
       this.form.addEventListener('input', (event) => this.clearValidationError(event.target));
       this.form.addEventListener('change', (event) => this.clearValidationError(event.target));
-      this.form.addEventListener('click', (event) => this.handleTimingHelpClick(event));
+      this.form.addEventListener('click', (event) => this.handleFormHelpClick(event));
     }
 
     if (this.typeSelect) {
@@ -3307,7 +3308,7 @@ class AddProposalModal {
   }
 
   getValidationHighlight(target) {
-    return target?.closest?.('.dao-form-change-box, .dao-form-row-controls, .dao-form-option, .form-group') || target || null;
+    return target?.closest?.('.dao-form-change-box, .dao-form-option, .form-group') || target || null;
   }
 
   showValidationError(error) {
@@ -3461,14 +3462,13 @@ class AddProposalModal {
     if (!this.optionsList) return;
 
     const configOptions = this.getConfigOptions();
+    const isEmergency = this.emergencySelect?.value === 'true';
+    this.optionsLimitHelp?.classList.toggle('hidden', isEmergency);
     this.optionsList.innerHTML = [
       `
         <div class="dao-form-option dao-form-option--no-change">
           <div class="dao-form-row-title"><label>Option: No change</label></div>
-          <div class="dao-form-row-controls">
-            <span class="dao-form-index">1</span>
-            <div class="form-control dao-form-current-value">No change</div>
-          </div>
+          <div class="form-control dao-form-current-value">No change</div>
           <p class="dao-form-help">This required first option makes no parameter changes.</p>
         </div>
       `,
@@ -3478,7 +3478,6 @@ class AddProposalModal {
     ].join('');
 
     if (this.addOptionButton) {
-      const isEmergency = this.emergencySelect?.value === 'true';
       this.addOptionButton.disabled = configOptions.length === 0 || isEmergency || this.options.length >= 9;
     }
   }
@@ -3704,8 +3703,8 @@ class AddProposalModal {
     });
   }
 
-  handleTimingHelpClick(event) {
-    const helpButton = event.target?.closest?.('[data-dao-timing-help]');
+  handleFormHelpClick(event) {
+    const helpButton = event.target?.closest?.('[data-dao-form-help]');
     if (!helpButton) return;
 
     event.preventDefault();

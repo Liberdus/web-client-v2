@@ -2028,27 +2028,6 @@ input[type='file'].form-control::file-selector-button {
   color: #a66a6a;
 }
 
-#addProposalModal .dao-form-row-controls {
-  align-items: center;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 22px minmax(0, 1fr) auto;
-}
-
-#addProposalModal .dao-form-index {
-  align-items: center;
-  background: var(--hover-background);
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  color: var(--secondary-text-color);
-  display: inline-flex;
-  font-size: 11px;
-  font-weight: var(--font-weight-semibold);
-  height: 22px;
-  justify-content: center;
-  width: 22px;
-}
-
 #addProposalModal .dao-form-change-box {
   background: var(--input-background);
   border: 1px solid transparent;
@@ -2070,6 +2049,14 @@ input[type='file'].form-control::file-selector-button {
   color: var(--secondary-text-color);
   font-size: 12px;
   line-height: 1.35;
+}
+
+#addProposalModal .dao-form-meta {
+  text-align: center;
+}
+
+#addProposalModal .dao-form-help {
+  text-align: left;
 }
 
 #addProposalModal .dao-form-limit {
