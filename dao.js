@@ -13,15 +13,9 @@ export const DAO_TYPE_OPTIONS = [
 ];
 
 export const DAO_PARAMETER_MAX_NUMBER = Number.MAX_SAFE_INTEGER;
-export const DAO_PARAMETER_MAX_DECIMAL_PLACES = 18;
-export const DAO_PARAMETER_MAX_DECIMAL_LENGTH = String(DAO_PARAMETER_MAX_NUMBER).length
-  + 1
-  + DAO_PARAMETER_MAX_DECIMAL_PLACES;
 
 const DAO_PARAMETER_MAX_NUMBER_BIGINT = BigInt(DAO_PARAMETER_MAX_NUMBER);
-const DAO_DECIMAL_STRING_PATTERN = new RegExp(
-  `^(0|[1-9]\\d*)(?:\\.(\\d{1,${DAO_PARAMETER_MAX_DECIMAL_PLACES}}))?$`
-);
+const DAO_DECIMAL_STRING_PATTERN = /^(0|[1-9]\d*)(?:\.(\d{1,18}))?$/;
 
 export function isValidDaoDecimalString(value) {
   const match = DAO_DECIMAL_STRING_PATTERN.exec(String(value ?? '').trim());

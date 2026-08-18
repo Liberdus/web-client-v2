@@ -86,8 +86,6 @@ import {
   DAO_PROPOSAL_DAY_MS,
   DAO_PROPOSAL_GRACE_PERIOD_MAX_MS,
   DAO_PROPOSAL_TITLE_MAX_LENGTH,
-  DAO_PARAMETER_MAX_DECIMAL_LENGTH,
-  DAO_PARAMETER_MAX_DECIMAL_PLACES,
   DAO_PARAMETER_MAX_NUMBER,
   buildDaoProposalCreateDraft,
   daoRepo,
@@ -3574,7 +3572,7 @@ class AddProposalModal {
           </select>
         `;
       case 'string:decimalString':
-        return `<input id="${id}" class="form-control" ${dataAttributes} type="text" inputmode="decimal" maxlength="${DAO_PARAMETER_MAX_DECIMAL_LENGTH}" value="${escapeDaoFormAttribute(value)}" required />`;
+        return `<input id="${id}" class="form-control" ${dataAttributes} type="text" inputmode="decimal" maxlength="35" value="${escapeDaoFormAttribute(value)}" required />`;
       case 'number:integer':
         return `<input id="${id}" class="form-control" ${dataAttributes} type="number" step="1" inputmode="numeric" ${numericRange} value="${escapeDaoFormAttribute(value)}" required />`;
       case 'number:decimal':
@@ -3830,7 +3828,7 @@ class AddProposalModal {
         }
         if (parameterType === 'string:decimalString' && !isValidDaoDecimalString(value)) {
           throw this.createValidationError(
-            `${option.label} must be a decimal from 0 to ${DAO_PARAMETER_MAX_NUMBER} with up to ${DAO_PARAMETER_MAX_DECIMAL_PLACES} decimal places`,
+            `${option.label} must be a decimal from 0 to ${DAO_PARAMETER_MAX_NUMBER} with up to 18 decimal places`,
             valueInput,
           );
         }
