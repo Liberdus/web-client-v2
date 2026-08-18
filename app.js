@@ -87,6 +87,7 @@ import {
   DAO_PROPOSAL_GRACE_PERIOD_MAX_MS,
   DAO_PROPOSAL_TITLE_MAX_LENGTH,
   DAO_PARAMETER_MAX_NUMBER,
+  DAO_PARAMETER_MAX_WHOLE_DIGITS,
   buildDaoProposalCreateDraft,
   daoRepo,
   DAO_STATES,
@@ -3572,7 +3573,7 @@ class AddProposalModal {
           </select>
         `;
       case 'string:decimalString':
-        return `<input id="${id}" class="form-control" ${dataAttributes} type="text" inputmode="decimal" maxlength="35" value="${escapeDaoFormAttribute(value)}" required />`;
+        return `<input id="${id}" class="form-control" ${dataAttributes} type="text" inputmode="decimal" maxlength="34" value="${escapeDaoFormAttribute(value)}" required />`;
       case 'number:integer':
         return `<input id="${id}" class="form-control" ${dataAttributes} type="number" step="1" inputmode="numeric" ${numericRange} value="${escapeDaoFormAttribute(value)}" required />`;
       case 'number:decimal':
@@ -3655,7 +3656,15 @@ class AddProposalModal {
 
     if (event.target.matches('[data-dao-change-value]')) {
       const change = proposalOption.changes[Number(event.target.dataset.daoChangeIndex)];
-      if (change) change.value = event.target.value;
+      if (!change) return;
+
+      const option = this.getConfigOption(change.key);
+      const wholeDigits = event.target.value.split('.')[0].replace(/\D/g, '');
+      if (option?.validation !== 'boolean' && wholeDigits.length > DAO_PARAMETER_MAX_WHOLE_DIGITS) {
+        event.target.value = change.value;
+        return;
+      }
+      change.value = event.target.value;
     }
   }
 
@@ -3805,7 +3814,6 @@ class AddProposalModal {
         const value = String(change.value || '').trim();
         const parameterType = `${option.valueType}:${option.validation}`;
         const numericValue = Number(value);
-        const numericRangeMessage = `${option.label} must be between 0 and ${DAO_PARAMETER_MAX_NUMBER}`;
         if (!value) throw this.createValidationError(`Enter a proposed value for ${option.label}`, valueInput);
         if (parameterType === 'boolean:boolean' && value !== 'true' && value !== 'false') {
           throw this.createValidationError(`${option.label} must be true or false`, valueInput);
@@ -3814,9 +3822,14 @@ class AddProposalModal {
           throw this.createValidationError(`${option.label} must be a whole number`, valueInput);
         }
         if (parameterType === 'number:integer' && (
-          !Number.isSafeInteger(numericValue) || numericValue < 0
+          !Number.isSafeInteger(numericValue)
+          || numericValue < 0
+          || numericValue > DAO_PARAMETER_MAX_NUMBER
         )) {
-          throw this.createValidationError(numericRangeMessage, valueInput);
+          throw this.createValidationError(
+            `${option.label} must be a non-negative whole number with up to ${DAO_PARAMETER_MAX_WHOLE_DIGITS} digits`,
+            valueInput,
+          );
         }
         if (parameterType === 'number:decimal' && !Number.isFinite(numericValue)) {
           throw this.createValidationError(`${option.label} must be a number`, valueInput);
@@ -3824,11 +3837,14 @@ class AddProposalModal {
         if (parameterType === 'number:decimal' && (
           numericValue < 0 || numericValue > DAO_PARAMETER_MAX_NUMBER
         )) {
-          throw this.createValidationError(numericRangeMessage, valueInput);
+          throw this.createValidationError(
+            `${option.label} must be non-negative with up to ${DAO_PARAMETER_MAX_WHOLE_DIGITS} digits before the decimal point`,
+            valueInput,
+          );
         }
         if (parameterType === 'string:decimalString' && !isValidDaoDecimalString(value)) {
           throw this.createValidationError(
-            `${option.label} must be a decimal from 0 to ${DAO_PARAMETER_MAX_NUMBER} with up to 18 decimal places`,
+            `${option.label} must be non-negative with up to ${DAO_PARAMETER_MAX_WHOLE_DIGITS} whole-number digits and up to 18 decimal places`,
             valueInput,
           );
         }

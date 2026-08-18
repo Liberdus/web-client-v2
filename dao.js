@@ -12,19 +12,13 @@ export const DAO_TYPE_OPTIONS = [
   { key: 'protocol', label: 'Protocol', group: 'Server proposal types' },
 ];
 
-export const DAO_PARAMETER_MAX_NUMBER = Number.MAX_SAFE_INTEGER;
+export const DAO_PARAMETER_MAX_WHOLE_DIGITS = 15;
+export const DAO_PARAMETER_MAX_NUMBER = 999_999_999_999_999;
 
-const DAO_PARAMETER_MAX_NUMBER_BIGINT = BigInt(DAO_PARAMETER_MAX_NUMBER);
-const DAO_DECIMAL_STRING_PATTERN = /^(0|[1-9]\d*)(?:\.(\d{1,18}))?$/;
+const DAO_DECIMAL_STRING_PATTERN = /^(?:0|[1-9]\d{0,14})(?:\.\d{1,18})?$/;
 
 export function isValidDaoDecimalString(value) {
-  const match = DAO_DECIMAL_STRING_PATTERN.exec(String(value ?? '').trim());
-  if (!match) return false;
-
-  const whole = BigInt(match[1]);
-  if (whole < DAO_PARAMETER_MAX_NUMBER_BIGINT) return true;
-  if (whole > DAO_PARAMETER_MAX_NUMBER_BIGINT) return false;
-  return !match[2] || /^0+$/.test(match[2]);
+  return DAO_DECIMAL_STRING_PATTERN.test(String(value ?? '').trim());
 }
 
 export const DAO_CONFIG_CHANGE_OPTIONS = {
