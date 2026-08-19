@@ -5268,14 +5268,8 @@ class ProposalInfoModal {
 
   renderVotingDetails(proposal) {
     const votingWindow = getDaoProposalVotingWindow(proposal);
-    const totalVote = Array.isArray(proposal.totalVote) ? proposal.totalVote : [];
-    const options = getDaoProposalOptions(proposal);
-    const totalVoteText = totalVote.length
-      ? totalVote.map((value, index) => `${options[index] || `Option ${index + 1}`}: ${formatDaoVotingPower(value)}`).join('\n')
-      : 'No votes yet';
     return renderDaoProposalSection('Voting Details', [
       ['Voting state', votingWindow.label],
-      ['Current totals', totalVoteText],
     ]);
   }
 
@@ -5312,7 +5306,7 @@ class ProposalInfoModal {
   getProposalDetailsSummary(state, rewardSummary) {
     const parts = ['Overview', 'review timeline'];
     if (state === 'review') parts.push('committee review');
-    if (state === 'voting') parts.push('voting totals');
+    if (state === 'voting') parts.push('voting status');
     if (rewardSummary) parts.push('reward accounting');
     return parts.join(', ');
   }
