@@ -3,10 +3,6 @@
   "version": "1.0.0",
   "description": "A transparent, end-to-end encrypted web-based messaging application with a decentralized backend that prioritizes user privacy and security.",
   "main": "app.js",
-  "type": "module",
-  "scripts": {
-    "test": "node --test"
-  },
   "keywords": [
     "messaging",
     "encryption",
