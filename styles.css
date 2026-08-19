@@ -1872,6 +1872,39 @@ select.form-control.is-private {
   }
 }
 
+.popup-select__scroll-indicator {
+  background: var(--primary-tint-12);
+  border-radius: 10px;
+  pointer-events: none;
+  position: fixed;
+  width: 4px;
+  z-index: var(--overlay-z-index-high);
+}
+
+.popup-select__scroll-thumb {
+  background: var(--primary-color);
+  border-radius: inherit;
+  left: 0;
+  position: absolute;
+  width: 100%;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .popup-select__menu {
+    scrollbar-width: none;
+  }
+
+  .popup-select__menu::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .popup-select__scroll-indicator {
+    display: none;
+  }
+}
+
 .popup-select__option {
   align-items: center;
   border-radius: 8px;

@@ -3,6 +3,10 @@ const MAX_MENU_WIDTH = 360;
 const MIN_MENU_WIDTH = 280;
 const TRIGGER_GAP = 6;
 const VIEWPORT_MARGIN = 8;
+const SCROLL_INDICATOR_INSET = 8;
+const SCROLL_INDICATOR_RIGHT_INSET = 3;
+const SCROLL_INDICATOR_WIDTH = 4;
+const MIN_SCROLL_THUMB_HEIGHT = 24;
 
 let generatedId = 0;
 let activePopupSelect = null;
@@ -37,6 +41,7 @@ export class PopupSelect {
 
     this.trigger = this.createTrigger();
     this.menu = this.createMenu();
+    this.scrollIndicator = this.createScrollIndicator();
 
     this.handleTriggerClick = this.handleTriggerClick.bind(this);
     this.handleTriggerKeyDown = this.handleTriggerKeyDown.bind(this);
@@ -46,6 +51,7 @@ export class PopupSelect {
     this.handleDocumentKeyDown = this.handleDocumentKeyDown.bind(this);
     this.schedulePosition = this.schedulePosition.bind(this);
     this.handleSelectChange = this.handleSelectChange.bind(this);
+    this.updateScrollIndicator = this.updateScrollIndicator.bind(this);
 
     select.classList.add('popup-select__native');
     select.setAttribute('aria-hidden', 'true');
@@ -58,6 +64,7 @@ export class PopupSelect {
     this.trigger.addEventListener('keydown', this.handleTriggerKeyDown);
     this.menu.addEventListener('click', this.handleMenuClick);
     this.menu.addEventListener('keydown', this.handleMenuKeyDown);
+    this.menu.addEventListener('scroll', this.updateScrollIndicator);
     select.addEventListener('change', this.handleSelectChange);
 
     this.refresh();
@@ -105,6 +112,18 @@ export class PopupSelect {
     return menu;
   }
 
+  createScrollIndicator() {
+    const indicator = document.createElement('div');
+    indicator.className = 'popup-select__scroll-indicator';
+    indicator.hidden = true;
+    indicator.setAttribute('aria-hidden', 'true');
+
+    this.scrollThumb = document.createElement('span');
+    this.scrollThumb.className = 'popup-select__scroll-thumb';
+    indicator.append(this.scrollThumb);
+    return indicator;
+  }
+
   refresh() {
     const selectedOption = this.select.options[this.select.selectedIndex];
     this.value.textContent = selectedOption?.textContent || '';
@@ -138,7 +157,7 @@ export class PopupSelect {
     this.activeIndex = this.getInitialActiveIndex();
     this.trigger.setAttribute('aria-expanded', 'true');
     this.menu.style.visibility = 'hidden';
-    document.body.append(this.menu);
+    document.body.append(this.menu, this.scrollIndicator);
 
     document.addEventListener('pointerdown', this.handleDocumentPointerDown, true);
     document.addEventListener('keydown', this.handleDocumentKeyDown);
@@ -160,6 +179,8 @@ export class PopupSelect {
     if (activePopupSelect === this) activePopupSelect = null;
     this.trigger.setAttribute('aria-expanded', 'false');
     this.menu.remove();
+    this.scrollIndicator.hidden = true;
+    this.scrollIndicator.remove();
     document.removeEventListener('pointerdown', this.handleDocumentPointerDown, true);
     document.removeEventListener('keydown', this.handleDocumentKeyDown);
     document.removeEventListener('scroll', this.schedulePosition, true);
@@ -182,6 +203,7 @@ export class PopupSelect {
     this.trigger.removeEventListener('keydown', this.handleTriggerKeyDown);
     this.menu.removeEventListener('click', this.handleMenuClick);
     this.menu.removeEventListener('keydown', this.handleMenuKeyDown);
+    this.menu.removeEventListener('scroll', this.updateScrollIndicator);
     this.select.removeEventListener('change', this.handleSelectChange);
     this.trigger.remove();
 
@@ -254,6 +276,7 @@ export class PopupSelect {
     if (optionBottom > this.menu.scrollTop + this.menu.clientHeight) {
       this.menu.scrollTop = optionBottom - this.menu.clientHeight;
     }
+    this.updateScrollIndicator();
   }
 
   selectActiveOption() {
@@ -311,6 +334,37 @@ export class PopupSelect {
     this.menu.dataset.placement = opensAbove ? 'above' : 'below';
     this.menu.style.left = `${Math.round(left)}px`;
     this.menu.style.top = `${Math.round(top)}px`;
+    this.updateScrollIndicator();
+  }
+
+  updateScrollIndicator() {
+    const scrollRange = this.menu.scrollHeight - this.menu.clientHeight;
+    if (!this.isOpen || scrollRange <= 1) {
+      this.scrollIndicator.hidden = true;
+      return;
+    }
+
+    const menuRect = this.menu.getBoundingClientRect();
+    const trackHeight = Math.max(0, menuRect.height - SCROLL_INDICATOR_INSET * 2);
+    const thumbHeight = Math.min(
+      trackHeight,
+      Math.max(
+        MIN_SCROLL_THUMB_HEIGHT,
+        trackHeight * (this.menu.clientHeight / this.menu.scrollHeight),
+      ),
+    );
+    const thumbTravel = Math.max(0, trackHeight - thumbHeight);
+    const scrollProgress = Math.min(1, Math.max(0, this.menu.scrollTop / scrollRange));
+    const thumbTop = thumbTravel * scrollProgress;
+
+    this.scrollIndicator.hidden = false;
+    this.scrollIndicator.style.height = `${Math.round(trackHeight)}px`;
+    this.scrollIndicator.style.left = `${Math.round(
+      menuRect.right - SCROLL_INDICATOR_RIGHT_INSET - SCROLL_INDICATOR_WIDTH,
+    )}px`;
+    this.scrollIndicator.style.top = `${Math.round(menuRect.top + SCROLL_INDICATOR_INSET)}px`;
+    this.scrollThumb.style.height = `${Math.round(thumbHeight)}px`;
+    this.scrollThumb.style.top = `${Math.round(thumbTop)}px`;
   }
 
   schedulePosition(event) {
