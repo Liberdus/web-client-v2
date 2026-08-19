@@ -4988,12 +4988,15 @@ class ProposalInfoModal {
       : -1;
     const meter = this.renderVoteResultMeter(totals, totalWeight, winnerIndex, 'Current vote breakdown');
     const deadlineText = formatDaoCompactTimestamp(votingWindow.end);
+    const votingEnded = votingWindow.label === 'Voting ended';
+    const deadlinePrefix = votingEnded ? 'Vote ended' : 'Voting ends';
+    const deadlineClass = votingEnded ? ' proposal-vote-current-deadline--ended' : '';
 
     return `
       <section class="proposal-info-section proposal-vote-current-section">
         <div class="proposal-vote-current-heading">
           <h3>Current Vote</h3>
-          ${deadlineText ? `<span title="${escapeDaoFormAttribute(`Voting ends: ${formatDaoTimestamp(votingWindow.end)}`)}">${escapeHtml(`Voting ends: ${deadlineText}`)}</span>` : ''}
+          ${deadlineText ? `<span class="proposal-vote-current-deadline${deadlineClass}" title="${escapeDaoFormAttribute(`${deadlinePrefix}: ${formatDaoTimestamp(votingWindow.end)}`)}">${escapeHtml(`${deadlinePrefix}: ${deadlineText}`)}</span>` : ''}
         </div>
         ${meter}
       </section>
