@@ -1762,6 +1762,7 @@ class EvmSendFormAdapter {
 
   updateNetworkStatus() {
     const network = this.controller.getNetwork(this.networkSelect?.value);
+    if (this.maxAmountButton) this.maxAmountButton.hidden = network?.source !== 'evm';
     if (!this.networkStatus || network?.source !== 'evm') return;
     this.networkStatus.textContent = `${network.name} is connected for balances, receiving, and sending.`;
     this.networkStatus.dataset.status = network.connected ? 'connected' : 'ready';
@@ -1779,6 +1780,7 @@ class EvmSendFormAdapter {
   resetContext() {
     clearTimeout(this.refreshTimer);
     this.clearRecipientLookup();
+    if (this.maxAmountButton) this.maxAmountButton.hidden = true;
     if (this.assetGroup) this.assetGroup.hidden = false;
   }
 
