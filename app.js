@@ -37,6 +37,7 @@ async function checkVersion() {
       newUrl,
       'styles.css',
       'app.js',
+      'popup-select.js',
       'evm-assets.js',
       'dao.js',
       'data/emoji-picker-data.js',
@@ -109,6 +110,7 @@ import {
   parseDaoUnsignedBigInt,
   setDaoBackendFetcher,
 } from './dao.js';
+import { PopupSelect } from './popup-select.js';
 
 // Import crypto functions from crypto.js
 import {
@@ -3154,6 +3156,7 @@ class AddProposalModal {
     this.gracePeriodLimit = document.getElementById('addProposalGracePeriodLimit');
     this.gracePeriodLoadError = false;
     this.submitButton = this.form?.querySelector('button[type="submit"]');
+    this.parameterSelects = [];
     this.resetConfigCache();
 
     if (this.closeButton) this.closeButton.addEventListener('click', () => this.close());
@@ -3220,6 +3223,7 @@ class AddProposalModal {
   }
 
   close() {
+    this.parameterSelects.forEach((popupSelect) => popupSelect.dismiss());
     this.modal.classList.remove('active');
     enterFullscreen();
   }
@@ -3336,10 +3340,11 @@ class AddProposalModal {
   }
 
   clearValidationError(target) {
-    const highlight = this.getValidationHighlight(target);
+    const control = PopupSelect.visibleControl(target);
+    const highlight = this.getValidationHighlight(control);
     highlight?.classList.remove('dao-form-error');
-    if (target?.matches?.('input, select, textarea, button')) {
-      target.removeAttribute('aria-invalid');
+    if (control?.matches?.('input, select, textarea, button')) {
+      control.removeAttribute('aria-invalid');
     }
   }
 
@@ -3348,7 +3353,7 @@ class AddProposalModal {
   }
 
   showValidationError(error) {
-    const target = error?.validationTarget;
+    const target = PopupSelect.visibleControl(error?.validationTarget);
     const highlight = this.getValidationHighlight(target);
     if (highlight) {
       highlight.classList.add('dao-form-error');
@@ -3502,6 +3507,9 @@ class AddProposalModal {
   renderOptions(unavailableMessage = '') {
     if (!this.optionsList) return;
 
+    this.parameterSelects.forEach((popupSelect) => popupSelect.destroy());
+    this.parameterSelects = [];
+
     const configOptions = this.getConfigOptions();
     const isEmergency = this.emergencySelect?.value === 'true';
     this.optionsLimitHelp?.classList.toggle('hidden', isEmergency);
@@ -3517,6 +3525,9 @@ class AddProposalModal {
         this.renderOption(proposalOption, index, configOptions, unavailableMessage)
       )),
     ].join('');
+
+    this.parameterSelects = [...this.optionsList.querySelectorAll('[data-dao-change-key]')]
+      .map((select) => new PopupSelect(select));
 
     if (this.addOptionButton) {
       this.addOptionButton.disabled = configOptions.length === 0 || isEmergency || this.options.length >= 9;
@@ -3570,7 +3581,7 @@ class AddProposalModal {
       <option value="${escapeHtml(item.key)}" ${item.key === option.key ? 'selected' : ''}>${escapeHtml(item.label)}</option>
     `).join('') : '';
     const parameterControl = isTemplate
-      ? `<select id="${configId}" class="form-control" data-dao-change-key data-dao-option-index="${optionIndex}" data-dao-change-index="${changeIndex}" required>${selectOptions}</select>`
+      ? `<select id="${configId}" class="form-control" aria-label="Select parameter for Option ${optionNumber}, change ${changeNumber}" data-dao-change-key data-dao-option-index="${optionIndex}" data-dao-change-index="${changeIndex}" required>${selectOptions}</select>`
       : `<input id="${configId}" class="form-control dao-form-current-value" type="text" value="${escapeDaoFormAttribute(option.label)}" readonly />`;
 
     return `
@@ -3655,7 +3666,10 @@ class AddProposalModal {
     template.changes.push({ key: nextOption.key, value: '' });
     this.synchronizeOptions();
     this.renderOptions();
-    this.optionsList?.querySelector(`[data-dao-option="${optionIndex}"] [data-dao-change-row]:last-child [data-dao-change-key]`)?.focus();
+    const parameterSelect = this.optionsList?.querySelector(
+      `[data-dao-option="${optionIndex}"] [data-dao-change-row]:last-child [data-dao-change-key]`
+    );
+    PopupSelect.from(parameterSelect)?.focus();
   }
 
   handleOptionsClick(event) {
@@ -3704,15 +3718,19 @@ class AddProposalModal {
     if (!event.target.matches('[data-dao-change-key]')) return;
 
     const optionIndex = Number(event.target.dataset.daoOptionIndex);
+    const changeIndex = Number(event.target.dataset.daoChangeIndex);
     if (optionIndex !== 0) return;
 
     const proposalOption = this.options[optionIndex];
-    const change = proposalOption?.changes[Number(event.target.dataset.daoChangeIndex)];
+    const change = proposalOption?.changes[changeIndex];
     if (!change) return;
     change.key = event.target.value;
     change.value = '';
     this.synchronizeOptions();
     this.renderOptions();
+    PopupSelect.from(this.optionsList?.querySelector(
+      `[data-dao-change-key][data-dao-option-index="${optionIndex}"][data-dao-change-index="${changeIndex}"]`
+    ))?.focus();
   }
 
   getIntegerValue(input, label, unit = '') {
