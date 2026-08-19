@@ -3090,7 +3090,8 @@ const DAO_REVIEW_START_MAX_MS = new Date(9999, 11, 31, 23, 59, 0, 0).getTime();
 const DURATION_MINUTE_MS = 60 * 1000;
 const DURATION_HOUR_MS = 60 * DURATION_MINUTE_MS;
 const DURATION_DAY_MS = 24 * DURATION_HOUR_MS;
-const DAO_GRACE_PERIOD_PRODUCT_MAX_MS = 30 * DURATION_DAY_MS;
+const DURATION_PICKER_MAX_DAYS = 30;
+const DAO_GRACE_PERIOD_PRODUCT_MAX_MS = DURATION_PICKER_MAX_DAYS * DURATION_DAY_MS;
 const DAO_PARAMETER_NUMBER_LIMIT = 10 ** DAO_PARAMETER_MAX_WHOLE_DIGITS;
 
 function durationPartsToMilliseconds(days, hours, minutes) {
@@ -28286,8 +28287,9 @@ class DurationPickerModal {
     this.daysSelect.replaceChildren();
     this.hoursSelect.replaceChildren();
     this.minutesSelect.replaceChildren();
-    const maxDays = Math.floor(maxDurationMs / DURATION_DAY_MS);
-    for (let day = 0; day <= maxDays; day++) this.daysSelect.add(new Option(String(day), String(day)));
+    for (let day = 0; day <= DURATION_PICKER_MAX_DAYS; day++) {
+      this.daysSelect.add(new Option(String(day), String(day)));
+    }
     for (let hour = 0; hour < 24; hour++) this.hoursSelect.add(new Option(String(hour), String(hour)));
     for (let minute = 0; minute < 60; minute++) this.minutesSelect.add(new Option(String(minute), String(minute)));
   }
@@ -28304,13 +28306,18 @@ class DurationPickerModal {
     const maxDurationMs = this.options?.maxDurationMs ?? 0;
     const days = Number(this.daysSelect?.value || 0);
     const hours = Number(this.hoursSelect?.value || 0);
+    Array.from(this.daysSelect?.options || []).forEach((option) => {
+      option.disabled = durationPartsToMilliseconds(Number(option.value), 0, 0) > maxDurationMs;
+    });
+    if (this.daysSelect?.selectedOptions[0]?.disabled) this.daysSelect.value = '0';
+    const selectedDays = Number(this.daysSelect?.value || days || 0);
     Array.from(this.hoursSelect?.options || []).forEach((option) => {
-      option.disabled = durationPartsToMilliseconds(days, Number(option.value), 0) > maxDurationMs;
+      option.disabled = durationPartsToMilliseconds(selectedDays, Number(option.value), 0) > maxDurationMs;
     });
     if (this.hoursSelect?.selectedOptions[0]?.disabled) this.hoursSelect.value = '0';
     const selectedHours = Number(this.hoursSelect?.value || hours || 0);
     Array.from(this.minutesSelect?.options || []).forEach((option) => {
-      option.disabled = durationPartsToMilliseconds(days, selectedHours, Number(option.value)) > maxDurationMs;
+      option.disabled = durationPartsToMilliseconds(selectedDays, selectedHours, Number(option.value)) > maxDurationMs;
     });
     if (this.minutesSelect?.selectedOptions[0]?.disabled) this.minutesSelect.value = '0';
     this._updatePreview();
