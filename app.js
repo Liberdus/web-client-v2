@@ -30090,12 +30090,9 @@ class SendAssetFormModal {
       this.handleSendToAddressInput(e);
     });
 
-    this.availableBalance.addEventListener('click', this.fillAmount.bind(this));
-    this.availableBalance.addEventListener('keydown', (event) => {
-      if (event.key !== 'Enter' && event.key !== ' ') return;
-      event.preventDefault();
-      this.fillAmount();
-    });
+    this.fillAmountHandler = this.fillAmount.bind(this);
+    this.availableBalance.addEventListener('click', this.fillAmountHandler);
+    this.availableBalance.addEventListener('keydown', this.fillAmountHandler);
     this.networkSelect.addEventListener('change', () => this.handleNetworkChange());
     this.assetSelectDropdown.addEventListener('change', () => this.handleAssetChange());
     // amount input listener for normalizing
@@ -30527,13 +30524,15 @@ class SendAssetFormModal {
    * Fills the amount input with the available balance
    * @returns {void}
    */
-  async fillAmount() {
+  async fillAmount(event) {
+    if (event?.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
+    event?.preventDefault();
+
     const selectedAsset = this.getSelectedAsset();
     if (!selectedAsset) return;
 
     if (!this.isLiberdusSelected()) {
-      this.amountInput.value = selectedAsset.tokenAmount || '0';
-      this.amountInput.dispatchEvent(new Event('input'));
+      await evmAssets.fillSendAmount();
       return;
     }
 

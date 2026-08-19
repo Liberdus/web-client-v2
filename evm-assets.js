@@ -1656,16 +1656,6 @@ class EvmSendFormAdapter {
       element?.addEventListener('change', () => this.scheduleRefresh());
     }
     this.closeButton?.addEventListener('click', () => this.resetContext());
-    this.availableBalance.addEventListener(
-      'click',
-      (event) => this.handleAvailableBalanceActivation(event),
-      true,
-    );
-    this.availableBalance.addEventListener(
-      'keydown',
-      (event) => this.handleAvailableBalanceActivation(event),
-      true,
-    );
     if (this.modal && globalThis.MutationObserver) {
       this.modalObserver = new MutationObserver(() => {
         if (!this.modal.classList.contains('active')) this.resetContext();
@@ -1790,14 +1780,6 @@ class EvmSendFormAdapter {
     clearTimeout(this.refreshTimer);
     this.clearRecipientLookup();
     if (this.assetGroup) this.assetGroup.hidden = false;
-  }
-
-  handleAvailableBalanceActivation(event) {
-    if (!this.isEvmSelected()) return;
-    if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    this.handleMaxAmount();
   }
 
   async handleMaxAmount() {
@@ -1986,6 +1968,9 @@ class EvmAssetsController {
       recipientLabel,
       amount,
     });
+  }
+  async fillSendAmount() {
+    await this.sendFormAdapter.handleMaxAmount();
   }
   async openContextualSend(options) {
     await this.openSend(options);
