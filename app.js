@@ -5269,13 +5269,6 @@ class ProposalInfoModal {
     ]);
   }
 
-  renderVotingDetails(proposal) {
-    const votingWindow = getDaoProposalVotingWindow(proposal);
-    return renderDaoProposalSection('Voting Details', [
-      ['Voting state', votingWindow.label],
-    ]);
-  }
-
   renderProposalDetails({ proposal, state, reviewWindow, rewardSummary, committeeReviewSection }) {
     const sections = [
       renderDaoProposalSection('Overview', [
@@ -5291,7 +5284,6 @@ class ProposalInfoModal {
         ['Review ends', formatDaoDetailTimestamp(reviewWindow.end)],
       ]),
       committeeReviewSection,
-      state === 'voting' ? this.renderVotingDetails(proposal) : '',
       this.renderProposalRewards(rewardSummary),
     ].filter(Boolean);
 
@@ -5309,7 +5301,6 @@ class ProposalInfoModal {
   getProposalDetailsSummary(state, rewardSummary) {
     const parts = ['Overview', 'review timeline'];
     if (state === 'review') parts.push('committee review');
-    if (state === 'voting') parts.push('voting status');
     if (rewardSummary) parts.push('reward accounting');
     return parts.join(', ');
   }
