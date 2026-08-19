@@ -308,6 +308,14 @@ function formatUnits(value, decimals = 18) {
   return `${whole}${fraction ? `.${fraction}` : ''}`;
 }
 
+export function calculateEvmMaxAmountRaw(availableRaw, maximumFee = 0n, isToken = false) {
+  const balance = typeof availableRaw === 'bigint' ? availableRaw : BigInt(availableRaw);
+  const fee = typeof maximumFee === 'bigint' ? maximumFee : BigInt(maximumFee);
+  if (balance <= 0n) return 0n;
+  if (isToken) return balance;
+  return balance > fee ? balance - fee : 0n;
+}
+
 function normalizeLiberdusAsset(asset) {
   const tokenAmount = formatUnits(asset?.balance ?? 0n, 18);
   const price = Number(asset?.price);
@@ -1005,7 +1013,7 @@ export class EvmTransactionService {
     );
   }
 
-  async prepare({ network, asset, recipient, amount }) {
+  async prepare({ network, asset, recipient, amount }, { allowInsufficientGas = false } = {}) {
     const validation = this.validate({ network, asset, recipient, amount });
     if (!validation.valid) throw validation.error;
 
@@ -1066,7 +1074,7 @@ export class EvmTransactionService {
     const maximumFee = preparedGasLimit * feePerGas;
     const nativeBalance = parseHexQuantity(prepared.nativeBalance, 'nativeBalance');
     const requiredNative = maximumFee + value;
-    if (nativeBalance < requiredNative) {
+    if (!allowInsufficientGas && nativeBalance < requiredNative) {
       const requirement = isToken ? 'network fees' : 'the transfer and network fees';
       throw new EvmTransferError(
         `Insufficient ${network.nativeSymbol} for ${requirement}`,
@@ -1620,6 +1628,7 @@ class EvmSendFormAdapter {
     this.sendForm = document.getElementById('sendForm');
     this.usernameInput = document.getElementById('sendToAddress');
     this.amountInput = document.getElementById('sendAmount');
+    this.maxAmountButton = document.getElementById('sendMaxAmount');
     this.submitButton = this.sendForm?.querySelector('button[type="submit"]');
     this.networkSelect = document.getElementById('sendNetwork');
     this.networkGroup = document.getElementById('sendNetworkGroup');
@@ -1629,7 +1638,7 @@ class EvmSendFormAdapter {
     this.balanceWarning = document.getElementById('balanceWarning');
     this.usernameAvailable = document.getElementById('sendToAddressError');
     this.closeButton = document.getElementById('closeSendAssetFormModal');
-    if (!this.sendForm || !this.usernameInput || !this.amountInput || !this.submitButton) return;
+    if (!this.sendForm || !this.usernameInput || !this.amountInput || !this.submitButton || !this.maxAmountButton) return;
 
     this.sendForm.addEventListener('submit', (event) => this.handleSubmit(event), true);
     this.usernameInput.addEventListener(
@@ -1646,6 +1655,7 @@ class EvmSendFormAdapter {
       element?.addEventListener('change', () => this.scheduleRefresh());
     }
     this.closeButton?.addEventListener('click', () => this.resetContext());
+    this.maxAmountButton.addEventListener('click', () => this.handleMaxAmount());
     if (this.modal && globalThis.MutationObserver) {
       this.modalObserver = new MutationObserver(() => {
         if (!this.modal.classList.contains('active')) this.resetContext();
@@ -1770,6 +1780,57 @@ class EvmSendFormAdapter {
     clearTimeout(this.refreshTimer);
     this.clearRecipientLookup();
     if (this.assetGroup) this.assetGroup.hidden = false;
+  }
+
+  async handleMaxAmount() {
+    if (!this.isEvmSelected() || this.maxAmountButton.disabled) return;
+    const networkId = this.networkSelect?.value;
+    const assetKey = this.assetSelectDropdown?.value;
+    let walletNetwork;
+    let asset;
+    try {
+      ({ walletNetwork, asset } = this.controller.findAsset(networkId, assetKey, { evmOnly: true }));
+      const availableRaw = typeof asset.rawAmount === 'string'
+        ? BigInt(asset.rawAmount)
+        : decimalAmountToRaw(asset.tokenAmount || '0', asset.tokenDecimals, { allowZero: true });
+      const isToken = Boolean(asset.contractAddress);
+      let maximumFee = 0n;
+
+      this.maxAmountButton.disabled = true;
+      if (!isToken && availableRaw > 0n) {
+        const resolution = this.getResolvedRecipient()
+          || await this.controller.recipients.resolve(this.usernameInput.value);
+        this.recipientResolution = resolution;
+        const prepared = await this.controller.transactions.prepare({
+          network: walletNetwork,
+          asset,
+          recipient: resolution.address,
+          amount: formatUnits(1n, asset.tokenDecimals),
+        }, { allowInsufficientGas: true });
+        maximumFee = prepared.maximumFee;
+      }
+
+      const maximumRaw = calculateEvmMaxAmountRaw(availableRaw, maximumFee, isToken);
+      if (maximumRaw === 0n) {
+        this.amountInput.value = '';
+        this.controller.showToast(
+          isToken ? `No ${asset.tokenSymbol} is available` : `Balance is not enough to cover the network fee`,
+          3000,
+          'warning',
+        );
+        return;
+      }
+      this.amountInput.value = formatUnits(maximumRaw, asset.tokenDecimals);
+      this.amountInput.dispatchEvent(new Event('input', { bubbles: true }));
+      this.scheduleRefresh();
+    } catch (error) {
+      const message = !String(this.usernameInput?.value || '').trim()
+        ? 'Enter a recipient before using Max for a native asset'
+        : error?.message || 'Could not calculate the maximum amount';
+      this.controller.showToast(message, 3000, 'warning');
+    } finally {
+      this.maxAmountButton.disabled = false;
+    }
   }
 
   async handleSubmit(event) {

@@ -30069,6 +30069,7 @@ class SendAssetFormModal {
     this.balanceSymbol = document.getElementById('balanceSymbol');
     this.availableBalance = document.getElementById('availableBalance');
     this.toggleBalanceButton = document.getElementById('toggleBalance');
+    this.maxAmountButton = document.getElementById('sendMaxAmount');
     this.tollMemoSpan = document.getElementById('tollMemo');
     // Add balance element references
     this.balanceAmount = document.getElementById('balanceAmount');
@@ -30130,6 +30131,7 @@ class SendAssetFormModal {
     this.mode = mode;
     this.networkGroup.hidden = mode !== 'evm';
     this.memoGroup.hidden = mode === 'evm';
+    this.maxAmountButton.hidden = mode !== 'evm';
     this.memoValidation = {};
     this.memoByteCounter.textContent = '';
     this.memoByteCounter.style.display = 'none';
