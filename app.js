@@ -3014,6 +3014,11 @@ class DaoModal {
           tone: 'neutral',
         });
       }
+    } else if (state === 'canceled') {
+      chips.push({
+        value: getDaoStateLabel(state),
+        tone: 'rejected',
+      });
     } else {
       const lifecycleActions = getDaoProposalLifecycleActions(proposal, reward);
       const claimAction = lifecycleActions.find((action) => action.kind === 'claim_reward');

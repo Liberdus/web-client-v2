@@ -89,6 +89,10 @@ export const DAO_STATES = [
   { key: 'applied', label: 'Applied' },
 ];
 
+const DAO_NON_FILTER_STATE_LABELS = new Map([
+  ['canceled', 'Canceled'],
+]);
+
 export const DAO_PROPOSAL_DAY_MS = 24 * 60 * 60 * 1000;
 export const DAO_PROPOSAL_GRACE_PERIOD_MAX_MS = 999_999_999_999;
 const DAO_PROPOSAL_MAX_DATE_MS = 100_000_000 * DAO_PROPOSAL_DAY_MS; // ECMAScript Date limit.
@@ -198,7 +202,9 @@ export function getDaoTypeLabel(typeKey) {
 }
 
 export function getDaoStateLabel(key) {
-  return DAO_STATES.find((s) => s.key === key)?.label || key;
+  return DAO_STATES.find((state) => state.key === key)?.label
+    || DAO_NON_FILTER_STATE_LABELS.get(key)
+    || key;
 }
 
 export function getEffectiveDaoState(proposal) {
