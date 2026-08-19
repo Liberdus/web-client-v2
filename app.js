@@ -30135,7 +30135,6 @@ class SendAssetFormModal {
     this.mode = mode;
     this.networkGroup.hidden = mode !== 'evm';
     this.memoGroup.hidden = mode === 'evm';
-    this.maxAmountButton.hidden = mode !== 'evm';
     this.memoValidation = {};
     this.memoByteCounter.textContent = '';
     this.memoByteCounter.style.display = 'none';
