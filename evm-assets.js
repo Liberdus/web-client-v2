@@ -308,7 +308,7 @@ function formatUnits(value, decimals = 18) {
   return `${whole}${fraction ? `.${fraction}` : ''}`;
 }
 
-export function calculateEvmMaxAmountRaw(availableRaw, maximumFee = 0n, isToken = false) {
+function calculateEvmMaxAmountRaw(availableRaw, maximumFee = 0n, isToken = false) {
   const balance = typeof availableRaw === 'bigint' ? availableRaw : BigInt(availableRaw);
   const fee = typeof maximumFee === 'bigint' ? maximumFee : BigInt(maximumFee);
   if (balance <= 0n) return 0n;
