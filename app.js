@@ -3156,6 +3156,7 @@ class AddProposalModal {
     this.gracePeriodLimit = document.getElementById('addProposalGracePeriodLimit');
     this.gracePeriodLoadError = false;
     this.submitButton = this.form?.querySelector('button[type="submit"]');
+    this.typePopupSelect = this.typeSelect ? new PopupSelect(this.typeSelect) : null;
     this.parameterSelects = [];
     this.resetConfigCache();
 
@@ -3206,7 +3207,10 @@ class AddProposalModal {
     this.maxGracePeriodMs = null;
     this.gracePeriodLoadError = false;
     if (this.titleInput) this.titleInput.value = '';
-    if (this.typeSelect) this.typeSelect.value = 'governance';
+    if (this.typeSelect) {
+      this.typeSelect.value = 'governance';
+      this.typePopupSelect.refresh();
+    }
     if (this.descriptionInput) this.descriptionInput.value = '';
     if (this.emergencySelect) this.emergencySelect.value = 'false';
     this.reviewStartTimeMs = 0;
@@ -3223,6 +3227,7 @@ class AddProposalModal {
   }
 
   close() {
+    this.typePopupSelect?.dismiss();
     this.parameterSelects.forEach((popupSelect) => popupSelect.dismiss());
     this.modal.classList.remove('active');
     enterFullscreen();
