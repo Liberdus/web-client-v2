@@ -2300,13 +2300,12 @@
                     class="form-control"
                     required
                   />
-                  <button type="button" id="sendMaxAmount" class="amount-max-button" hidden>Max</button>
                   <!-- add button to toggle between LIB and USD -->
                   <button id="toggleBalance" class="toggle-balance">
                     <span id="balanceSymbol">LIB</span>
                   </button>
                 </div>
-                <div id="availableBalance" class="available-balance">
+                <div id="availableBalance" class="available-balance" role="button" tabindex="0" aria-label="Use available balance">
                   <div class="balance-info">
                     <span>Available: <span id="balanceAmount">0.00 LIB</span></span>
                     <span class="fee-info">Fee: <span id="transactionFee">0.00 LIB</span></span>

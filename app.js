@@ -30069,7 +30069,6 @@ class SendAssetFormModal {
     this.balanceSymbol = document.getElementById('balanceSymbol');
     this.availableBalance = document.getElementById('availableBalance');
     this.toggleBalanceButton = document.getElementById('toggleBalance');
-    this.maxAmountButton = document.getElementById('sendMaxAmount');
     this.tollMemoSpan = document.getElementById('tollMemo');
     // Add balance element references
     this.balanceAmount = document.getElementById('balanceAmount');
@@ -30092,6 +30091,11 @@ class SendAssetFormModal {
     });
 
     this.availableBalance.addEventListener('click', this.fillAmount.bind(this));
+    this.availableBalance.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      this.fillAmount();
+    });
     this.networkSelect.addEventListener('change', () => this.handleNetworkChange());
     this.assetSelectDropdown.addEventListener('change', () => this.handleAssetChange());
     // amount input listener for normalizing

@@ -1620,6 +1620,7 @@ class EvmSendFormAdapter {
     this.lookupTimer = null;
     this.lookupVersion = 0;
     this.recipientResolution = null;
+    this.isCalculatingMax = false;
   }
 
   load() {
@@ -1628,7 +1629,7 @@ class EvmSendFormAdapter {
     this.sendForm = document.getElementById('sendForm');
     this.usernameInput = document.getElementById('sendToAddress');
     this.amountInput = document.getElementById('sendAmount');
-    this.maxAmountButton = document.getElementById('sendMaxAmount');
+    this.availableBalance = document.getElementById('availableBalance');
     this.submitButton = this.sendForm?.querySelector('button[type="submit"]');
     this.networkSelect = document.getElementById('sendNetwork');
     this.networkGroup = document.getElementById('sendNetworkGroup');
@@ -1638,7 +1639,7 @@ class EvmSendFormAdapter {
     this.balanceWarning = document.getElementById('balanceWarning');
     this.usernameAvailable = document.getElementById('sendToAddressError');
     this.closeButton = document.getElementById('closeSendAssetFormModal');
-    if (!this.sendForm || !this.usernameInput || !this.amountInput || !this.submitButton || !this.maxAmountButton) return;
+    if (!this.sendForm || !this.usernameInput || !this.amountInput || !this.submitButton || !this.availableBalance) return;
 
     this.sendForm.addEventListener('submit', (event) => this.handleSubmit(event), true);
     this.usernameInput.addEventListener(
@@ -1655,7 +1656,16 @@ class EvmSendFormAdapter {
       element?.addEventListener('change', () => this.scheduleRefresh());
     }
     this.closeButton?.addEventListener('click', () => this.resetContext());
-    this.maxAmountButton.addEventListener('click', () => this.handleMaxAmount());
+    this.availableBalance.addEventListener(
+      'click',
+      (event) => this.handleAvailableBalanceActivation(event),
+      true,
+    );
+    this.availableBalance.addEventListener(
+      'keydown',
+      (event) => this.handleAvailableBalanceActivation(event),
+      true,
+    );
     if (this.modal && globalThis.MutationObserver) {
       this.modalObserver = new MutationObserver(() => {
         if (!this.modal.classList.contains('active')) this.resetContext();
@@ -1762,7 +1772,6 @@ class EvmSendFormAdapter {
 
   updateNetworkStatus() {
     const network = this.controller.getNetwork(this.networkSelect?.value);
-    if (this.maxAmountButton) this.maxAmountButton.hidden = network?.source !== 'evm';
     if (!this.networkStatus || network?.source !== 'evm') return;
     this.networkStatus.textContent = `${network.name} is connected for balances, receiving, and sending.`;
     this.networkStatus.dataset.status = network.connected ? 'connected' : 'ready';
@@ -1780,12 +1789,19 @@ class EvmSendFormAdapter {
   resetContext() {
     clearTimeout(this.refreshTimer);
     this.clearRecipientLookup();
-    if (this.maxAmountButton) this.maxAmountButton.hidden = true;
     if (this.assetGroup) this.assetGroup.hidden = false;
   }
 
+  handleAvailableBalanceActivation(event) {
+    if (!this.isEvmSelected()) return;
+    if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    this.handleMaxAmount();
+  }
+
   async handleMaxAmount() {
-    if (!this.isEvmSelected() || this.maxAmountButton.disabled) return;
+    if (!this.isEvmSelected() || this.isCalculatingMax) return;
     const networkId = this.networkSelect?.value;
     const assetKey = this.assetSelectDropdown?.value;
     let walletNetwork;
@@ -1798,7 +1814,8 @@ class EvmSendFormAdapter {
       const isToken = Boolean(asset.contractAddress);
       let maximumFee = 0n;
 
-      this.maxAmountButton.disabled = true;
+      this.isCalculatingMax = true;
+      this.availableBalance.setAttribute('aria-busy', 'true');
       if (!isToken && availableRaw > 0n) {
         const resolution = this.getResolvedRecipient()
           || await this.controller.recipients.resolve(this.usernameInput.value);
@@ -1816,7 +1833,7 @@ class EvmSendFormAdapter {
       if (maximumRaw === 0n) {
         this.amountInput.value = '';
         this.controller.showToast(
-          isToken ? `No ${asset.tokenSymbol} is available` : `Balance is not enough to cover the network fee`,
+          isToken ? `No ${asset.tokenSymbol} is available` : 'Balance is not enough to cover the network fee',
           3000,
           'warning',
         );
@@ -1827,11 +1844,12 @@ class EvmSendFormAdapter {
       this.scheduleRefresh();
     } catch (error) {
       const message = !String(this.usernameInput?.value || '').trim()
-        ? 'Enter a recipient before using Max for a native asset'
+        ? 'Enter a recipient before using the available balance for a native asset'
         : error?.message || 'Could not calculate the maximum amount';
       this.controller.showToast(message, 3000, 'warning');
     } finally {
-      this.maxAmountButton.disabled = false;
+      this.isCalculatingMax = false;
+      this.availableBalance.removeAttribute('aria-busy');
     }
   }
 
