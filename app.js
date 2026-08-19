@@ -3157,6 +3157,7 @@ class AddProposalModal {
     this.gracePeriodLoadError = false;
     this.submitButton = this.form?.querySelector('button[type="submit"]');
     this.typePopupSelect = this.typeSelect ? new PopupSelect(this.typeSelect) : null;
+    this.emergencyPopupSelect = this.emergencySelect ? new PopupSelect(this.emergencySelect) : null;
     this.parameterSelects = [];
     this.resetConfigCache();
 
@@ -3212,7 +3213,10 @@ class AddProposalModal {
       this.typePopupSelect.refresh();
     }
     if (this.descriptionInput) this.descriptionInput.value = '';
-    if (this.emergencySelect) this.emergencySelect.value = 'false';
+    if (this.emergencySelect) {
+      this.emergencySelect.value = 'false';
+      this.emergencyPopupSelect.refresh();
+    }
     this.reviewStartTimeMs = 0;
     this.gracePeriodMs = 0;
     this.renderReviewStartTime();
@@ -3228,6 +3232,7 @@ class AddProposalModal {
 
   close() {
     this.typePopupSelect?.dismiss();
+    this.emergencyPopupSelect?.dismiss();
     this.parameterSelects.forEach((popupSelect) => popupSelect.dismiss());
     this.modal.classList.remove('active');
     enterFullscreen();
