@@ -76,13 +76,6 @@ async function forceReload(urls) {
 // Needed to stringify and parse bigints; also deterministic stringify
 //   modified to use export
 import { stringify, parse } from './external/stringify-shardus.js';
-import {
-  DURATION_DAY_MS,
-  DURATION_MINUTE_MS,
-  durationPartsToMilliseconds,
-  formatDurationParts,
-  millisecondsToDurationParts,
-} from './duration.js';
 
 import {
   createDaoBackendFetcher,
@@ -3094,8 +3087,45 @@ function escapeDaoFormAttribute(value) {
 }
 
 const DAO_REVIEW_START_MAX_MS = new Date(9999, 11, 31, 23, 59, 0, 0).getTime();
+const DURATION_MINUTE_MS = 60 * 1000;
+const DURATION_HOUR_MS = 60 * DURATION_MINUTE_MS;
+const DURATION_DAY_MS = 24 * DURATION_HOUR_MS;
 const DAO_GRACE_PERIOD_PRODUCT_MAX_MS = 30 * DURATION_DAY_MS;
 const DAO_PARAMETER_NUMBER_LIMIT = 10 ** DAO_PARAMETER_MAX_WHOLE_DIGITS;
+
+function durationPartsToMilliseconds(days, hours, minutes) {
+  const parts = [days, hours, minutes].map(Number);
+  if (parts.some((part) => !Number.isInteger(part) || part < 0)) return NaN;
+  if (parts[1] > 23 || parts[2] > 59) return NaN;
+  const milliseconds = (parts[0] * DURATION_DAY_MS)
+    + (parts[1] * DURATION_HOUR_MS)
+    + (parts[2] * DURATION_MINUTE_MS);
+  return Number.isSafeInteger(milliseconds) ? milliseconds : NaN;
+}
+
+function millisecondsToDurationParts(milliseconds) {
+  const value = Number(milliseconds);
+  if (!Number.isSafeInteger(value) || value < 0 || value % DURATION_MINUTE_MS !== 0) return null;
+  const days = Math.floor(value / DURATION_DAY_MS);
+  const remainder = value % DURATION_DAY_MS;
+  const hours = Math.floor(remainder / DURATION_HOUR_MS);
+  const minutes = Math.floor((remainder % DURATION_HOUR_MS) / DURATION_MINUTE_MS);
+  return { days, hours, minutes };
+}
+
+function formatDurationParts(milliseconds) {
+  const parts = millisecondsToDurationParts(milliseconds);
+  if (!parts) return '';
+  if (milliseconds === 0) return '0 minutes';
+  return [
+    [parts.days, 'day'],
+    [parts.hours, 'hour'],
+    [parts.minutes, 'minute'],
+  ]
+    .filter(([value]) => value > 0)
+    .map(([value, unit]) => `${value} ${unit}${value === 1 ? '' : 's'}`)
+    .join(' ');
+}
 
 class AddProposalModal {
   load() {
