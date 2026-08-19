@@ -289,10 +289,11 @@ export class PopupSelect {
 
     const computedStyle = window.getComputedStyle(this.menu);
     const verticalPadding = parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom);
+    const verticalBorder = parseFloat(computedStyle.borderTopWidth) + parseFloat(computedStyle.borderBottomWidth);
     const visibleOptionHeight = [...this.menu.children]
       .slice(0, MAX_VISIBLE_OPTIONS)
       .reduce((height, item) => height + item.getBoundingClientRect().height, 0);
-    const desiredHeight = Math.min(this.menu.scrollHeight, visibleOptionHeight + verticalPadding);
+    const desiredHeight = Math.min(this.menu.scrollHeight, visibleOptionHeight + verticalPadding) + verticalBorder;
     const spaceBelow = Math.max(0, viewport.bottom - VIEWPORT_MARGIN - triggerRect.bottom - TRIGGER_GAP);
     const spaceAbove = Math.max(0, triggerRect.top - viewport.top - VIEWPORT_MARGIN - TRIGGER_GAP);
     const opensAbove = spaceBelow < desiredHeight && spaceAbove > spaceBelow;
@@ -312,7 +313,8 @@ export class PopupSelect {
     this.menu.style.top = `${Math.round(top)}px`;
   }
 
-  schedulePosition() {
+  schedulePosition(event) {
+    if (event?.target === this.menu) return;
     if (!this.isOpen || this.positionFrame !== null) return;
     this.positionFrame = requestAnimationFrame(() => {
       this.positionFrame = null;
