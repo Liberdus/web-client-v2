@@ -1850,6 +1850,28 @@ select.form-control.is-private {
   outline: none;
 }
 
+@supports selector(::-webkit-scrollbar) {
+  .popup-select__menu {
+    scrollbar-width: auto;
+  }
+
+  .popup-select__menu::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .popup-select__menu::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 8px 0;
+  }
+
+  .popup-select__menu::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    background-clip: padding-box;
+    border: 1px solid transparent;
+    border-radius: 10px;
+  }
+}
+
 .popup-select__option {
   align-items: center;
   border-radius: 8px;
