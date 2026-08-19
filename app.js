@@ -76,6 +76,13 @@ async function forceReload(urls) {
 // Needed to stringify and parse bigints; also deterministic stringify
 //   modified to use export
 import { stringify, parse } from './external/stringify-shardus.js';
+import {
+  DURATION_DAY_MS,
+  DURATION_MINUTE_MS,
+  durationPartsToMilliseconds,
+  formatDurationParts,
+  millisecondsToDurationParts,
+} from './duration.js';
 
 import {
   createDaoBackendFetcher,
@@ -902,6 +909,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Call scheduling and shared date/time picker modals
   callScheduleChoiceModal.load();
   dateTimePickerModal.load();
+  durationPickerModal.load();
 
   // Remove Accounts Modal
   removeAccountsModal.load();
@@ -3086,6 +3094,7 @@ function escapeDaoFormAttribute(value) {
 }
 
 const DAO_REVIEW_START_MAX_MS = new Date(9999, 11, 31, 23, 59, 0, 0).getTime();
+const DAO_GRACE_PERIOD_PRODUCT_MAX_MS = 30 * DURATION_DAY_MS;
 const DAO_PARAMETER_NUMBER_LIMIT = 10 ** DAO_PARAMETER_MAX_WHOLE_DIGITS;
 
 class AddProposalModal {
@@ -3104,9 +3113,10 @@ class AddProposalModal {
     this.emergencySelect = document.getElementById('addProposalEmergency');
     this.reviewStartButton = document.getElementById('addProposalReviewStartTime');
     this.reviewStartHelp = document.getElementById('addProposalReviewStartHelp');
-    this.gracePeriodInput = document.getElementById('addProposalGracePeriodMs');
+    this.gracePeriodButton = document.getElementById('addProposalGracePeriodMs');
     this.gracePeriodHelp = document.getElementById('addProposalGracePeriodHelp');
     this.gracePeriodLimit = document.getElementById('addProposalGracePeriodLimit');
+    this.gracePeriodLoadError = false;
     this.submitButton = this.form?.querySelector('button[type="submit"]');
     this.resetConfigCache();
 
@@ -3140,13 +3150,7 @@ class AddProposalModal {
       });
     }
     if (this.reviewStartButton) this.reviewStartButton.addEventListener('click', () => this.openReviewStartPicker());
-    if (this.gracePeriodInput) {
-      this.gracePeriodInput.addEventListener('input', () => {
-        const maxLength = String(DAO_PROPOSAL_GRACE_PERIOD_MAX_MS).length;
-        this.gracePeriodInput.value = this.gracePeriodInput.value.slice(0, maxLength);
-        this.renderGracePeriodLimitHint();
-      });
-    }
+    if (this.gracePeriodButton) this.gracePeriodButton.addEventListener('click', () => this.openGracePeriodPicker());
 
     if (this.optionsList) {
       this.optionsList.addEventListener('click', (event) => this.handleOptionsClick(event));
@@ -3161,16 +3165,14 @@ class AddProposalModal {
     this.resetConfigCache();
     this.proposalFeeUsdStr = null;
     this.maxGracePeriodMs = null;
+    this.gracePeriodLoadError = false;
     if (this.titleInput) this.titleInput.value = '';
     if (this.typeSelect) this.typeSelect.value = 'governance';
     if (this.descriptionInput) this.descriptionInput.value = '';
     if (this.emergencySelect) this.emergencySelect.value = 'false';
     this.reviewStartTimeMs = 0;
+    this.gracePeriodMs = 0;
     this.renderReviewStartTime();
-    if (this.gracePeriodInput) {
-      this.gracePeriodInput.value = '';
-      this.gracePeriodInput.removeAttribute('max');
-    }
     this.options = [this.createOption()];
     this.renderOptions('Loading current DAO config values...');
     this.renderGracePeriodLimitHint();
@@ -3241,19 +3243,21 @@ class AddProposalModal {
     const maximumSummary = this.maxGracePeriodMs === null
       ? ''
       : `${formatDaoDurationEstimate(this.maxGracePeriodMs)} (${this.maxGracePeriodMs} ms)`;
-    const currentValue = String(this.gracePeriodInput?.value ?? '').trim();
-    const currentSummary = currentValue ? formatDaoDurationEstimate(currentValue) : '';
-    if (this.gracePeriodInput) {
-      this.gracePeriodInput.placeholder = maximumSummary ? 'Custom ms' : 'Loading maximum...';
+    const currentSummary = formatDurationParts(this.gracePeriodMs);
+    if (this.gracePeriodButton) {
+      this.gracePeriodButton.textContent = String(this.gracePeriodMs);
+      this.gracePeriodButton.disabled = this.maxGracePeriodMs === null;
+      this.gracePeriodButton.setAttribute('aria-busy', String(this.maxGracePeriodMs === null));
     }
     if (this.gracePeriodHelp) {
-      this.gracePeriodHelp.textContent = currentSummary ? `Estimate: ${currentSummary}` : '';
+      this.gracePeriodHelp.textContent = this.maxGracePeriodMs === null
+        ? (this.gracePeriodLoadError ? 'Duration: maximum unavailable' : 'Duration: loading maximum...')
+        : `Duration: ${currentSummary}`;
     }
-    this.renderMaximumWarning(
-      this.gracePeriodInput,
-      this.gracePeriodLimit,
-      `Maximum: ${maximumSummary}`
-    );
+    if (this.gracePeriodLimit) {
+      this.gracePeriodLimit.textContent = maximumSummary ? `Maximum: ${maximumSummary}` : '';
+      this.gracePeriodLimit.classList.toggle('hidden', !maximumSummary);
+    }
   }
 
   async refreshProposalDefaults() {
@@ -3265,12 +3269,7 @@ class AddProposalModal {
       if (!this.isActive() || requestId !== this.proposalDefaultsRequestId) return;
       this.proposalFeeUsdStr = proposalFeeUsdStr;
       this.maxGracePeriodMs = maxGracePeriodMs;
-      if (this.gracePeriodInput) {
-        this.gracePeriodInput.max = String(maxGracePeriodMs);
-        if (!String(this.gracePeriodInput.value || '').trim()) {
-          this.gracePeriodInput.value = String(maxGracePeriodMs);
-        }
-      }
+      this.gracePeriodLoadError = false;
       this.renderProposalFee();
       this.renderGracePeriodLimitHint();
     } catch (error) {
@@ -3278,10 +3277,7 @@ class AddProposalModal {
       if (!this.isActive() || requestId !== this.proposalDefaultsRequestId) return;
       this.proposalFeeUsdStr = '';
       this.maxGracePeriodMs = null;
-      if (this.gracePeriodInput) {
-        this.gracePeriodInput.value = '';
-        this.gracePeriodInput.removeAttribute('max');
-      }
+      this.gracePeriodLoadError = true;
       this.renderProposalFee();
       this.renderGracePeriodLimitHint();
       showToast('Could not refresh DAO proposal fee', 2500, 'warning');
@@ -3408,7 +3404,12 @@ class AddProposalModal {
     if (Object.values(proposalDurations).some((duration) => !Number.isSafeInteger(duration) || duration < 0)) {
       throw new Error('Missing DAO proposal lifecycle durations');
     }
-    const maxGracePeriodMs = Math.min(graceDuration, DAO_PROPOSAL_GRACE_PERIOD_MAX_MS);
+    const rawMaximumMs = Math.min(
+      graceDuration,
+      DAO_PROPOSAL_GRACE_PERIOD_MAX_MS,
+      DAO_GRACE_PERIOD_PRODUCT_MAX_MS,
+    );
+    const maxGracePeriodMs = Math.floor(rawMaximumMs / DURATION_MINUTE_MS) * DURATION_MINUTE_MS;
     return { proposalFeeUsdStr, maxGracePeriodMs, proposalDurations };
   }
 
@@ -3716,6 +3717,28 @@ class AddProposalModal {
     });
   }
 
+  openGracePeriodPicker() {
+    if (!Number.isSafeInteger(this.maxGracePeriodMs) || this.maxGracePeriodMs < 0) {
+      showToast('Grace period maximum is still loading', 2500, 'warning');
+      return;
+    }
+    durationPickerModal.open({
+      title: 'Choose Grace Period',
+      initialDurationMs: this.gracePeriodMs,
+      maxDurationMs: this.maxGracePeriodMs,
+      selectionFormatter: (durationMs) => ({
+        preview: `Grace period: ${formatDurationParts(durationMs)} (${durationMs} ms)`,
+        submitLabel: `Submit: ${durationMs} ms grace period`,
+      }),
+      onDone: (durationMs) => {
+        if (durationMs === null) return;
+        this.gracePeriodMs = durationMs;
+        this.renderGracePeriodLimitHint();
+        this.clearValidationError(this.gracePeriodButton);
+      },
+    });
+  }
+
   handleFormHelpClick(event) {
     const helpButton = event.target?.closest?.('[data-dao-form-help]');
     if (!helpButton) return;
@@ -3884,7 +3907,13 @@ class AddProposalModal {
     try {
       const { options, changes } = this.getValidatedOptions();
       const reviewStartTimeMs = this.getReviewStartTimeMs();
-      const gracePeriodMs = this.getMillisecondsValue(this.gracePeriodInput, 'Grace period', this.maxGracePeriodMs);
+      const gracePeriodMs = this.gracePeriodMs;
+      if (!Number.isSafeInteger(this.maxGracePeriodMs) || this.maxGracePeriodMs < 0) {
+        throw this.createValidationError('Grace period maximum is not loaded yet', this.gracePeriodButton);
+      }
+      if (!Number.isSafeInteger(gracePeriodMs) || gracePeriodMs < 0 || gracePeriodMs > this.maxGracePeriodMs) {
+        throw this.createValidationError(`Grace period must not exceed ${this.maxGracePeriodMs} milliseconds`, this.gracePeriodButton);
+      }
       const emergency = this.emergencySelect?.value === 'true';
       if (!emergency && !this.proposalFeeUsdStr) {
         throw this.createValidationError('Current DAO proposal fee is not loaded yet', this.proposalFeeInput);
@@ -28167,6 +28196,129 @@ class CallScheduleChoiceModal {
 }
 
 /**
+ * Shared picker for whole-minute durations.
+ */
+class DurationPickerModal {
+  load() {
+    this.modal = document.getElementById('durationPickerModal');
+    if (!this.modal) return;
+    this.title = document.getElementById('durationPickerModalTitle');
+    this.form = document.getElementById('durationPickerForm');
+    this.daysSelect = document.getElementById('durationPickerDays');
+    this.hoursSelect = document.getElementById('durationPickerHours');
+    this.minutesSelect = document.getElementById('durationPickerMinutes');
+    this.preview = document.getElementById('durationPickerPreview');
+    this.submitButton = document.getElementById('confirmDurationPicker');
+    this.cancelButton = document.getElementById('cancelDurationPicker');
+    this.closeButton = document.getElementById('closeDurationPickerModal');
+
+    this.form?.addEventListener('submit', withButtonCooldown(
+      this.submitButton,
+      BUTTON_COOLDOWN_MS,
+      null,
+      () => this._submitValue(),
+    ));
+    this.form?.addEventListener('change', () => this._updateAvailableOptions());
+    this.cancelButton?.addEventListener('click', () => this.close());
+    this.closeButton?.addEventListener('click', () => this.close());
+  }
+
+  open({
+    initialDurationMs = 0,
+    maxDurationMs,
+    onDone,
+    title = 'Select Duration',
+    selectionFormatter = null,
+  }) {
+    if (typeof onDone !== 'function') throw new Error('Duration picker callback is required');
+    if (!Number.isSafeInteger(maxDurationMs) || maxDurationMs < 0) {
+      throw new Error('Duration picker maximum is required');
+    }
+    this.returnFocus = document.activeElement;
+    this.options = { maxDurationMs, onDone, selectionFormatter };
+    if (this.title) this.title.textContent = title;
+    this._populateOptions(maxDurationMs);
+    const safeInitialMs = Math.min(Math.max(0, initialDurationMs), maxDurationMs);
+    const initialParts = millisecondsToDurationParts(safeInitialMs) || { days: 0, hours: 0, minutes: 0 };
+    this.daysSelect.value = String(initialParts.days);
+    this.hoursSelect.value = String(initialParts.hours);
+    this.minutesSelect.value = String(initialParts.minutes);
+    this.modal.classList.add('active');
+    this._updateAvailableOptions();
+    requestAnimationFrame(() => this.daysSelect?.focus());
+  }
+
+  close() {
+    this._closeWith(null);
+  }
+
+  _populateOptions(maxDurationMs) {
+    this.daysSelect.replaceChildren();
+    this.hoursSelect.replaceChildren();
+    this.minutesSelect.replaceChildren();
+    const maxDays = Math.floor(maxDurationMs / DURATION_DAY_MS);
+    for (let day = 0; day <= maxDays; day++) this.daysSelect.add(new Option(String(day), String(day)));
+    for (let hour = 0; hour < 24; hour++) this.hoursSelect.add(new Option(String(hour), String(hour)));
+    for (let minute = 0; minute < 60; minute++) this.minutesSelect.add(new Option(String(minute), String(minute)));
+  }
+
+  _selectedDurationMs() {
+    return durationPartsToMilliseconds(
+      this.daysSelect?.value,
+      this.hoursSelect?.value,
+      this.minutesSelect?.value,
+    );
+  }
+
+  _updateAvailableOptions() {
+    const maxDurationMs = this.options?.maxDurationMs ?? 0;
+    const days = Number(this.daysSelect?.value || 0);
+    const hours = Number(this.hoursSelect?.value || 0);
+    Array.from(this.hoursSelect?.options || []).forEach((option) => {
+      option.disabled = durationPartsToMilliseconds(days, Number(option.value), 0) > maxDurationMs;
+    });
+    if (this.hoursSelect?.selectedOptions[0]?.disabled) this.hoursSelect.value = '0';
+    const selectedHours = Number(this.hoursSelect?.value || hours || 0);
+    Array.from(this.minutesSelect?.options || []).forEach((option) => {
+      option.disabled = durationPartsToMilliseconds(days, selectedHours, Number(option.value)) > maxDurationMs;
+    });
+    if (this.minutesSelect?.selectedOptions[0]?.disabled) this.minutesSelect.value = '0';
+    this._updatePreview();
+  }
+
+  _updatePreview() {
+    const durationMs = this._selectedDurationMs();
+    const selection = typeof this.options?.selectionFormatter === 'function'
+      ? this.options.selectionFormatter(durationMs)
+      : {
+        preview: `Duration: ${formatDurationParts(durationMs)} (${durationMs} ms)`,
+        submitLabel: `Submit: ${durationMs} ms`,
+      };
+    if (this.preview) this.preview.textContent = selection?.preview || '';
+    if (this.submitButton) this.submitButton.textContent = selection?.submitLabel || 'Submit';
+  }
+
+  _submitValue() {
+    const durationMs = this._selectedDurationMs();
+    if (!Number.isSafeInteger(durationMs) || durationMs < 0 || durationMs > this.options.maxDurationMs) {
+      showToast('Choose a duration within the allowed maximum', 2500, 'error');
+      return;
+    }
+    this._closeWith(durationMs);
+  }
+
+  _closeWith(value) {
+    this.modal?.classList.remove('active');
+    const onDone = this.options?.onDone;
+    const returnFocus = this.returnFocus;
+    this.options = null;
+    this.returnFocus = null;
+    if (onDone) onDone(value);
+    returnFocus?.focus();
+  }
+}
+
+/**
  * Shared date/time picker used by scheduling flows.
  */
 class DateTimePickerModal {
@@ -28405,6 +28557,7 @@ class DateTimePickerModal {
 const CALL_SCHEDULE_MAX_DAYS = 400;
 const callScheduleChoiceModal = new CallScheduleChoiceModal();
 const dateTimePickerModal = new DateTimePickerModal();
+const durationPickerModal = new DurationPickerModal();
 
 function openCallScheduleDatePicker(onDone) {
   const now = getCorrectedTimestamp();
@@ -35642,7 +35795,7 @@ const modalCloseHandlers = new Map([
     failedTransactionModal, bridgeModal, migrateAccountsModal, lockModal,
     unlockModal, launchModal, updateWarningModal, removeAccountModal,
     removeAccountsModal, secretModal, callsModal, groupCallParticipantsModal,
-    callScheduleChoiceModal, dateTimePickerModal, callInviteModal, shareAttachmentModal,
+    callScheduleChoiceModal, dateTimePickerModal, durationPickerModal, callInviteModal, shareAttachmentModal,
     chatSettingsModal, qrScanModal, backupModal, importModal,
     accountModal, validatorModal, stakeModal, messageSearchModal, contactSearchModal,
     importContactsModal, shareContactsModal,

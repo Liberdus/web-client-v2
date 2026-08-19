@@ -9807,7 +9807,8 @@ small {
   padding: 0 100px;
 }
 
-#dateTimePickerForm {
+#dateTimePickerForm,
+#durationPickerForm {
   max-width: none;
   min-width: 0;
   padding-inline: 0;
@@ -9828,13 +9829,13 @@ small {
   }
 }
 
-.date-time-picker-row {
+.picker-row {
   display: flex;
   gap: 8px;
   align-items: center;
 }
 
-.date-time-picker-row:not(:first-child) {
+.picker-row:not(:first-child) {
   margin-top: 8px;
 }
 
@@ -9844,12 +9845,21 @@ small {
   width: 100%;
 }
 
-.date-time-picker-time-select {
+.picker-select {
   flex: 1 1 0;
   min-width: 0;
 }
 
-#dateTimePickerPreview {
+.picker-field {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.picker-field label {
+  display: block;
+}
+
+.picker-preview {
   color: var(--text-color);
   line-height: 1.4;
   overflow: visible;

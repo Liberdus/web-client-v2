@@ -549,8 +549,8 @@
                         aria-label="About Grace Period"
                       ></button>
                     </div>
-                    <input id="addProposalGracePeriodMs" class="form-control" type="number" min="0" step="1" inputmode="numeric" placeholder="Loading maximum..." required />
-                    <div class="dao-form-help" id="addProposalGracePeriodHelp">Estimate: loading...</div>
+                    <button id="addProposalGracePeriodMs" class="form-control dao-review-start-button" type="button" aria-haspopup="dialog" aria-controls="durationPickerModal" disabled>0</button>
+                    <div class="dao-form-help" id="addProposalGracePeriodHelp">Duration: loading maximum...</div>
                     <div class="dao-form-help dao-form-limit hidden" id="addProposalGracePeriodLimit"></div>
                   </div>
                 </div>
@@ -1577,23 +1577,61 @@
               <form id="dateTimePickerForm" class="form--narrow">
                 <div class="form-group">
                   <label for="dateTimePickerDate">Select date and time</label>
-                  <div class="date-time-picker-row">
+                  <div class="picker-row">
                     <input id="dateTimePickerDate" type="date" class="form-control date-time-picker-date-input" />
                   </div>
-                  <div class="date-time-picker-row">
-                    <select id="dateTimePickerHour" class="form-control date-time-picker-time-select" aria-label="Hour"></select>
-                    <select id="dateTimePickerMinute" class="form-control date-time-picker-time-select" aria-label="Minute"></select>
-                    <select id="dateTimePickerAmPm" class="form-control date-time-picker-time-select" aria-label="AM or PM">
+                  <div class="picker-row">
+                    <select id="dateTimePickerHour" class="form-control picker-select" aria-label="Hour"></select>
+                    <select id="dateTimePickerMinute" class="form-control picker-select" aria-label="Minute"></select>
+                    <select id="dateTimePickerAmPm" class="form-control picker-select" aria-label="AM or PM">
                       <option value="AM">AM</option>
                       <option value="PM">PM</option>
                     </select>
                   </div>
                 </div>
                 <div class="form-actions">
-                  <div class="contact-time" id="dateTimePickerPreview" aria-label="Selected time"></div>
+                  <div class="contact-time picker-preview" id="dateTimePickerPreview" aria-label="Selected time"></div>
                   <button type="submit" id="confirmDateTimePicker" class="btn btn--primary btn--pill btn--full">Submit</button>
                   <button type="button" id="clearDateTimePicker" class="btn btn--primary btn--pill btn--full hidden">No delay: 0 ms</button>
                   <button type="button" id="cancelDateTimePicker" class="btn btn--secondary btn--pill btn--full">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        <a class="last-item" href="#"></a>
+      </div>
+
+      <!-- Shared Duration Picker Modal -->
+      <div class="modal modal-dialog" id="durationPickerModal">
+        <div class="dialog-box-content">
+          <div class="modal-header">
+            <button class="back-button" id="closeDurationPickerModal"></button>
+            <div class="modal-title" id="durationPickerModalTitle">Select Duration</div>
+          </div>
+          <div class="modal-content">
+            <div class="form-container call-invite-modal-container">
+              <form id="durationPickerForm" class="form--narrow">
+                <div class="form-group">
+                  <div class="picker-row">
+                    <div class="picker-field">
+                      <label for="durationPickerDays">Days</label>
+                      <select id="durationPickerDays" class="form-control picker-select"></select>
+                    </div>
+                    <div class="picker-field">
+                      <label for="durationPickerHours">Hours</label>
+                      <select id="durationPickerHours" class="form-control picker-select"></select>
+                    </div>
+                    <div class="picker-field">
+                      <label for="durationPickerMinutes">Minutes</label>
+                      <select id="durationPickerMinutes" class="form-control picker-select"></select>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-actions">
+                  <div class="contact-time picker-preview" id="durationPickerPreview" aria-live="polite"></div>
+                  <button type="submit" id="confirmDurationPicker" class="btn btn--primary btn--pill btn--full">Submit</button>
+                  <button type="button" id="cancelDurationPicker" class="btn btn--secondary btn--pill btn--full">Cancel</button>
                 </div>
               </form>
             </div>
