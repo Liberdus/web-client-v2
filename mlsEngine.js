@@ -40,6 +40,10 @@ import {
   decodeMlsMessage,
   encodeGroupState,
   decodeGroupState,
+  encodeNode,
+  decodeNode,
+  filteredDirectPath,
+  extendRatchetTree,
   makePskIndex,
   mlsExporter,
   acceptAll,
@@ -294,6 +298,27 @@ async function persist(entry) {
   announceGroupChanged(entry.groupId, Number(entry.clientState.groupContext.epoch));
 }
 
+/**
+ * Captures the stored group record so a failed commit can be undone.
+ *
+ * addMembers/removeMembers advance and persist MLS state before the caller
+ * submits the transaction — they must, because the commit bytes only exist
+ * after the state moves. If the transaction is then rejected, this client sits
+ * an epoch ahead of the chain: every later commit it builds targets an epoch
+ * that does not exist, and ts-mls rejects its own retries.
+ */
+export async function snapshotGroup(address, groupId) {
+  const rec = await mlsStore.get(address, groupId);
+  return rec ? { ...rec } : null;
+}
+
+/** Restores a snapshot taken before a commit that was not accepted. */
+export async function restoreGroup(snapshot) {
+  if (!snapshot) return;
+  await mlsStore.put(snapshot);
+  evictCache(snapshot.address, snapshot.groupId);
+}
+
 /** Drops cached state so the next read comes from IndexedDB. */
 export function evictCache(address, groupId) {
   if (address && groupId) live.delete(cacheKey(address, groupId));
@@ -354,6 +379,244 @@ export async function createGroup(identity, groupId, mlsGroupId) {
   });
 }
 
+
+/*
+ * ---------------------------------------------------------------- tree wire --
+ *
+ * The ratchet tree is published to the chain as an index-addressable array of
+ * per-node base64 blobs, NOT as ts-mls's `encodeRatchetTree` byte string.
+ *
+ * The reason is what the server has to do with it. It maintains the tree by
+ * applying a delta — "node 11 becomes this, node 9 becomes blank" — which is a
+ * plain indexed assignment on opaque strings, deterministic across validators
+ * and requiring no MLS knowledge on the network. `encodeRatchetTree` is
+ * length-prefixed and strips trailing blanks, so patching it in place would mean
+ * teaching the server the codec.
+ *
+ * Only public key material is ever published this way. `encodeGroupState` would
+ * additionally carry the key schedule, the secret tree and the signature private
+ * key, and must never be sent.
+ */
+
+/** One node -> base64, or null for a blank node. */
+const nodeToWire = (node) => (node === undefined ? null : bin2base64(encodeNode(node)));
+
+/** Inverse of nodeToWire. */
+const nodeFromWire = (blob) => (blob === null ? undefined : decodeNode(base642bin(blob), 0)[0]);
+
+/** The whole tree in wire form — a baseline, for a group's first commit. */
+export function treeToWire(ratchetTree) {
+  const nodes = ratchetTree.map(nodeToWire);
+  // Trailing blanks carry no information; the server trims them too, so trimming
+  // here keeps the client's baseline byte-identical to what the server stores.
+  while (nodes.length > 0 && nodes[nodes.length - 1] === null) nodes.pop();
+  return JSON.stringify(nodes);
+}
+
+/**
+ * This member's current ratchet tree, in wire form.
+ *
+ * The network normally supplies this to a joiner; exposed for the self-test and
+ * for a client that needs to publish a baseline.
+ */
+export async function exportRatchetTree(identity, groupId) {
+  const entry = await loadEntry(identity.address, groupId);
+  if (!entry) throw new Error('no local MLS state for this group');
+  return treeToWire(entry.clientState.ratchetTree);
+}
+
+/** Rebuilds a ts-mls ratchet tree from the wire form. */
+export function treeFromWire(wire) {
+  const nodes = JSON.parse(wire);
+  if (!Array.isArray(nodes)) throw new Error('malformed ratchet tree from the network');
+  /*
+   * extendRatchetTree is not optional. Both this and ts-mls's own
+   * encodeRatchetTree drop trailing blank nodes, and ts-mls's decoder restores
+   * the full width on the way back in. Skip it and the array is short, so
+   * leafWidth — and with it every tree hash — is computed against the wrong
+   * size. The symptom is a confirmation-tag mismatch a long way from the cause.
+   */
+  return extendRatchetTree(nodes.map(nodeFromWire));
+}
+
+/**
+ * Nodes that differ between two trees, as the delta a commit publishes.
+ *
+ * An Add-only commit changes exactly one node (the new leaf), and a commit
+ * carrying an UpdatePath changes O(log N) of them — which is why this is sent
+ * instead of the ~1.8 kB-per-member whole tree.
+ */
+export function treeDelta(before, after) {
+  const delta = [];
+  for (let i = 0; i < Math.max(before.length, after.length); i++) {
+    const a = nodeToWire(before[i]);
+    const b = nodeToWire(after[i]);
+    if (a !== b) delta.push({ i, n: b });
+  }
+  return delta;
+}
+
+
+/*
+ * ------------------------------------------------------- path maintenance --
+ *
+ * An UpdatePath populates ONLY the committer's own direct path, so no amount of
+ * committing by an admin can fill the tree — a member has to commit for its own
+ * branch to exist. While parent nodes are blank, RFC 9420 §4.1.1 expands each
+ * copath resolution down to individual leaves, and a removal costs O(N)
+ * ciphertexts instead of O(log N). On an 8-member group that is 6 versus 3.
+ *
+ * Two rules keep the tree in shape (decisions 1 and 2):
+ *   - a new member updates its path right after joining
+ *   - the sibling of a removed member updates its path
+ *
+ * Both reduce to the same locally-checkable question, below.
+ */
+
+/**
+ * Does the member at `leafIndex` need to publish a path update?
+ *
+ * True when either:
+ *   (a) it is unmerged at one of its ancestors — it joined but has never
+ *       committed, so RFC 9420 §7.7 still lists it in `unmerged_leaves` and it
+ *       costs an extra ciphertext in every resolution that covers it; or
+ *   (b) a node on its FILTERED direct path is blank — its sibling subtree was
+ *       disturbed, typically by a removal.
+ *
+ * The filtered path is what makes (b) correct rather than a loop. After a
+ * removal leaves a single occupant under a parent, that parent stays blank
+ * forever — and its resolution is that one leaf, exactly what a populated node
+ * would cost. filteredDirectPath drops precisely those levels (their copath
+ * resolution is empty), so they never trigger an update. Chasing raw blank nodes
+ * would re-update forever for no gain.
+ *
+ * Depends only on public tree structure, so it can be evaluated for ANY member,
+ * which is what lets every client agree on who should go first.
+ */
+function leafNeedsUpdate(tree, leafIndex) {
+  for (const nodeIndex of filteredDirectPath(leafIndex, tree)) {
+    const node = tree[nodeIndex];
+    if (node === undefined) return true; // (b)
+    const unmerged = node.parent?.unmergedLeaves ?? [];
+    if (unmerged.some((l) => Number(l) === Number(leafIndex))) return true; // (a)
+  }
+  return false;
+}
+
+/**
+ * Who should publish a path update, and is it us?
+ *
+ * A removal blanks the whole direct path of the removed leaf, so EVERY member
+ * under those nodes qualifies at once — remove E from A..H and F, G and H all
+ * see blank ancestors. They must not all commit: each is an epoch-advancing
+ * transaction and the server fences on epoch, so the rest would simply be
+ * rejected.
+ *
+ * The tie-break is the lowest eligible leaf index, computed from public tree
+ * structure so every client independently reaches the same answer with no
+ * coordination. One update repairs the shared ancestors, and the others find
+ * they no longer qualify on their next sync.
+ */
+export async function pathUpdateState(identity, groupId) {
+  const entry = await loadEntry(identity.address, groupId);
+  if (!entry) return { needed: false, iAmFirst: false, myLeaf: null, firstLeaf: null };
+
+  const tree = entry.clientState.ratchetTree;
+  const myLeaf = entry.clientState.privatePath.leafIndex;
+
+  let firstLeaf = null;
+  for (let leaf = 0; leaf * 2 < tree.length; leaf++) {
+    if (tree[leaf * 2] === undefined) continue; // vacant slot, no member there
+    if (leafNeedsUpdate(tree, leaf)) {
+      firstLeaf = leaf;
+      break;
+    }
+  }
+
+  const needed = leafNeedsUpdate(tree, myLeaf);
+  return { needed, myLeaf, firstLeaf, iAmFirst: needed && firstLeaf === myLeaf };
+}
+
+/** Convenience wrapper: does THIS member need to update its path? */
+export async function needsPathUpdate(identity, groupId) {
+  return (await pathUpdateState(identity, groupId)).needed;
+}
+
+/**
+ * A commit that carries only this member's UpdatePath — no proposals.
+ *
+ * RFC 9420 §12.4 calls this an "empty" Commit and guarantees it carries a path,
+ * which is what populates our ancestors. It also provides post-compromise
+ * security for this member, which a partial (add-only) commit does not.
+ */
+export async function selfUpdate(identity, groupId) {
+  const cs = await cipherSuite();
+  return withGroupLock(identity.address, groupId, async () => {
+    const entry = await loadEntry(identity.address, groupId);
+    if (!entry) throw new Error('no local MLS state for this group');
+
+    /*
+     * NO PROPOSALS AT ALL — not even a PSK.
+     *
+     * RFC 9420 §12.4 requires a path only for a commit that is empty, or that
+     * covers an update/remove/external_init/group_context_extensions proposal.
+     * Adding a PSK proposal makes the commit "partial" rather than empty, and a
+     * partial commit legally omits the UpdatePath: measured, a psk-only commit
+     * changes zero tree nodes and is 412 bytes, versus 5.5 kB and a real rekey
+     * for an empty one. Since the whole point here is to populate this member's
+     * direct path, the PSK has to go.
+     *
+     * Dropping it does not weaken the post-quantum property. A PSK mixed in at
+     * epoch N is folded into initSecret, which every later epoch derives from,
+     * so the PQ contribution persists — this epoch simply adds no NEW PQ
+     * material. The ratchet is left untouched so the next membership commit
+     * continues it from where it was; applyCommit mirrors that by only
+     * advancing when a commit actually carries a PSK.
+     */
+    const commit = await createCommit(
+      { state: entry.clientState, cipherSuite: cs, pskIndex: makePskIndex(undefined, {}) },
+      {},
+    );
+
+    const priorEpoch = epochOf(entry);
+    const treeBefore = entry.clientState.ratchetTree;
+    const delta = treeDelta(treeBefore, commit.newState.ratchetTree);
+    /*
+     * A path update that changes no tree node did not carry an UpdatePath, which
+     * makes it pointless — and the network rejects a commit with neither a
+     * baseline nor a delta, so it would fail anyway, just further from the cause.
+     * This is exactly what a stray proposal does: it turns the commit from
+     * "empty" into "partial", and RFC 9420 §12.4 lets a partial commit omit the
+     * path.
+     */
+    if (delta.length === 0) {
+      throw new Error('path update produced no tree change; the commit carried no UpdatePath');
+    }
+
+    entry.clientState = commit.newState;
+    entry.lastHandshakeEpoch = epochOf(entry);
+    await persist(entry);
+    commit.consumed.forEach((b) => b.fill(0));
+
+    return {
+      epoch: priorEpoch,
+      commit: bin2base64(encodeMlsMessage(commit.commit)),
+      proposals: [],
+      // Empty: this commit references no PSK, and applyCommit keys off that to
+      // decide whether to advance the ratchet.
+      pskId: '',
+      pskNonce: '',
+      ratchetTree: '',
+      treeDelta: delta,
+      groupInfo: '',
+      welcomes: [],
+      addedMembers: [],
+      removedMembers: [],
+      consumedKeyPackages: [],
+    };
+  });
+}
+
 /**
  * Adds members. Ratchets the post-quantum PSK and seals it to the NEW members
  * only; existing members derive the same value locally.
@@ -386,6 +649,8 @@ export async function addMembers(identity, groupId, newMembers) {
     );
 
     const priorEpoch = epochOf(entry);
+    // Capture the tree before the commit lands, so the delta can be diffed.
+    const treeBefore = entry.clientState.ratchetTree;
     entry.clientState = commit.newState;
     entry.psk = nextPsk;
     entry.pskId = nextPskId;
@@ -394,7 +659,16 @@ export async function addMembers(identity, groupId, newMembers) {
     await persist(entry);
     commit.consumed.forEach((b) => b.fill(0));
 
-    const ratchetTree = bin2base64(encodeGroupState(entry.clientState));
+    /*
+     * ONLY the ratchet tree may be published. encodeGroupState also serializes
+     * the key schedule, the secret tree, the private key path and the signature
+     * private key — putting that on chain would hand every reader the group's
+     * message keys and this member's signing identity.
+     */
+    const delta = treeDelta(treeBefore, entry.clientState.ratchetTree);
+    // A group's first commit has nothing on chain to patch, so it carries the
+    // whole tree once as a baseline; afterwards only deltas are sent.
+    const baseline = priorEpoch === 0 ? treeToWire(entry.clientState.ratchetTree) : '';
     const welcomeB64 = bin2base64(
       encodeMlsMessage({ wireformat: 'mls_welcome', version: 'mls10', welcome: commit.welcome }),
     );
@@ -405,13 +679,27 @@ export async function addMembers(identity, groupId, newMembers) {
       proposals: [],
       pskId: bin2base64(nextPskId),
       pskNonce: bin2base64(nextPskNonce),
-      ratchetTree,
-      groupInfo: ratchetTree,
+      /*
+       * Baseline only (first commit). Every later commit patches the chain's
+       * copy with `treeDelta` instead of retransmitting ~1.8 kB per member.
+       */
+      ratchetTree: baseline,
+      treeDelta: delta,
+      // Placeholder: a real GroupInfo (createGroupInfoWithExternalPub) is the
+      // checkpoint for external re-join, which is not implemented yet. It must
+      // never be group state.
+      groupInfo: '',
       welcomes: newMembers.map((m) => ({
         address: m.address,
         envelope: {
           welcome: welcomeB64,
-          ratchetTree,
+          /*
+           * Empty: the server fills this in from the tree it maintains, at the
+           * joining epoch. Carrying it here cost a full tree PER JOINER, and the
+           * joiner needs the tree as of its own join epoch anyway — which the
+           * live tree stops being the moment the joiner sends its path update.
+           */
+          ratchetTree: '',
           sealedPsk: sealPsk(nextPsk, m.pqPublicKey),
           pskId: bin2base64(nextPskId),
           pskNonce: bin2base64(nextPskNonce),
@@ -455,6 +743,8 @@ export async function removeMembers(identity, groupId, addresses) {
     );
 
     const priorEpoch = epochOf(entry);
+    // Capture the tree before the commit lands, so the delta can be diffed.
+    const treeBefore = entry.clientState.ratchetTree;
     entry.clientState = commit.newState;
     entry.psk = nextPsk;
     entry.pskId = nextPskId;
@@ -463,15 +753,20 @@ export async function removeMembers(identity, groupId, addresses) {
     await persist(entry);
     commit.consumed.forEach((b) => b.fill(0));
 
-    const ratchetTree = bin2base64(encodeGroupState(entry.clientState));
     return {
       epoch: priorEpoch,
       commit: bin2base64(encodeMlsMessage(commit.commit)),
       proposals: [],
       pskId: bin2base64(nextPskId),
       pskNonce: bin2base64(nextPskNonce),
-      ratchetTree,
-      groupInfo: ratchetTree,
+      // No joiner here, so no baseline; the delta keeps the chain's tree current
+      // for whoever joins next.
+      ratchetTree: '',
+      treeDelta: treeDelta(treeBefore, entry.clientState.ratchetTree),
+      // Placeholder: a real GroupInfo (createGroupInfoWithExternalPub) is the
+      // checkpoint for external re-join, which is not implemented yet. It must
+      // never be group state.
+      groupInfo: '',
       welcomes: [],
       addedMembers: [],
       removedMembers: addresses.map((a) => String(a).toLowerCase()),
@@ -487,15 +782,24 @@ export async function applyCommit(identity, groupId, record) {
     const entry = await loadEntry(identity.address, groupId);
     if (!entry) throw new Error('no local MLS state for this group');
 
-    const nextPsk = ratchetPsk(entry.psk);
-    const pskId = base642bin(record.pskId);
-    const res = await processAny(decodeWire(record.commit), entry.clientState, pskIndexFor(pskId, nextPsk), cs);
+    /*
+     * A path update carries no PSK proposal (see selfUpdate), so the ratchet must
+     * NOT advance for it — the committer does not advance either, and a
+     * one-sided step would desync every member's PSK from that point on.
+     */
+    const hasPsk = typeof record.pskId === 'string' && record.pskId.length > 0;
+    const nextPsk = hasPsk ? ratchetPsk(entry.psk) : entry.psk;
+    const pskIndex = hasPsk ? pskIndexFor(base642bin(record.pskId), nextPsk) : makePskIndex(undefined, {});
+
+    const res = await processAny(decodeWire(record.commit), entry.clientState, pskIndex, cs);
     if (res.kind !== 'newState') throw new Error(`expected a commit, got ${res.kind}`);
 
     entry.clientState = res.newState;
-    entry.psk = nextPsk;
-    entry.pskId = pskId;
-    entry.pskNonce = base642bin(record.pskNonce);
+    if (hasPsk) {
+      entry.psk = nextPsk;
+      entry.pskId = base642bin(record.pskId);
+      entry.pskNonce = base642bin(record.pskNonce);
+    }
     entry.lastHandshakeEpoch = epochOf(entry);
     await persist(entry);
     res.consumed.forEach((b) => b.fill(0));
@@ -513,7 +817,17 @@ export async function joinFromWelcome(identity, groupId, envelope) {
     const welcome = decodeWire(envelope.welcome);
     if (!welcome || welcome.wireformat !== 'mls_welcome') throw new Error('not a welcome message');
 
-    const ratchetTree = decodeGroupState(base642bin(envelope.ratchetTree), 0)[0].ratchetTree;
+    /*
+     * The tree comes from the chain in wire form (an index-addressable node
+     * array), not as ts-mls's encodeRatchetTree bytes — see treeToWire. The
+     * server snapshots it into this envelope at the joining epoch, because the
+     * live tree moves on immediately: under the update-on-join rule our own path
+     * update is the very next commit.
+     */
+    if (!envelope.ratchetTree) {
+      throw new Error('welcome envelope carries no ratchet tree; the network has not published one for this epoch');
+    }
+    const ratchetTree = treeFromWire(envelope.ratchetTree);
 
     /*
      * The Welcome is addressed to whichever published KeyPackage the committer

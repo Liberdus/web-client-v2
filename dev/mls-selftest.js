@@ -135,8 +135,24 @@ async function run() {
   result('welcomes are sealed per joiner (O(added), not O(members))',
     commit.welcomes.length === 2 && !!commit.welcomes[0].envelope.sealedPsk);
 
-  await mls.joinFromWelcome(idB, GID, commit.welcomes.find((w) => w.address === idB.address).envelope);
-  await mls.joinFromWelcome(idC, GID, commit.welcomes.find((w) => w.address === idC.address).envelope);
+
+  /*
+   * Stands in for the network.
+   *
+   * A welcome envelope leaves the client with an EMPTY ratchetTree: the tree is
+   * ~1.8 kB per member and shipping it per joiner was the single largest cost in
+   * a commit. The server fills it in from the tree it maintains via each
+   * commit's treeDelta, snapshotting it at the joining epoch. Offline, we do
+   * that here so the join path under test is the real one.
+   */
+  const asDelivered = (envelope, treeWire) => ({
+    ...envelope,
+    ratchetTree: treeWire,
+  });
+
+  const treeAfterAdd = await mls.exportRatchetTree(idA, GID);
+  await mls.joinFromWelcome(idB, GID, asDelivered(commit.welcomes.find((w) => w.address === idB.address).envelope, treeAfterAdd));
+  await mls.joinFromWelcome(idC, GID, asDelivered(commit.welcomes.find((w) => w.address === idC.address).envelope, treeAfterAdd));
   const viewB = await mls.getGroupView(idB.address, GID);
   result('members join from the Welcome and recover the PSK', viewB.epoch === 1,
     `epoch ${viewB.epoch} · roster ${viewB.roster.length}`);
