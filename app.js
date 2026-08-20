@@ -180,7 +180,7 @@ import { evmAssets } from './evm-assets.js';
 // (queryNetwork, signObj, injectTx, ...) are module-scoped here, so they are
 // handed over explicitly through initGroupManager rather than imported.
 import * as groups from './groupManager.js';
-import { initGroupUI, createGroupModal, groupChatModal, groupInfoModal, refreshOpenGroup } from './groupUI.js';
+import { initGroupUI, createGroupModal, groupChatModal, groupInfoModal, joinGroupModal, parseGroupInvite, refreshOpenGroup } from './groupUI.js';
 import { buildMessageBubble } from './chatRender.js';
 
 const weiDigits = 18;
@@ -1742,14 +1742,6 @@ class ChatsScreen {
         console.error('Error updating chat list:', error);
       }
 
-      // Group chat rides the same poll. It is deliberately outside the retry
-      // loop above: group sync is idempotent and self-healing on the next tick,
-      // and a group failure must not stop 1:1 chat from updating.
-      const gotGroups = await updateGroupData();
-      if (gotGroups > 0) {
-        gotChats += gotGroups;
-        saveState();
-      }
     }
     return gotChats;
   }
@@ -7902,6 +7894,9 @@ class SignInModal {
     // Close modal and proceed to app
     this.forceClose();
     welcomeScreen.close();
+
+    // Now that the sign-in screens are down, an invite link can surface.
+    openPendingGroupInvite();
     
     // Log storage information after successful sign-in
     try {
@@ -10026,6 +10021,23 @@ async function queryNetwork(url, abortSignal = null) {
  * in here. Safe to call on every sign-in; it only re-binds the dependencies.
  */
 let groupChatReady = false;
+/** Group id from an invite link, held until the main screen is up. */
+let pendingGroupInvite = null;
+
+/**
+ * Opens the join dialog for a link the app was launched from.
+ *
+ * Deliberately never auto-requests: the link is an invitation to ask, and asking
+ * costs a transaction, so it stays an explicit action by the user.
+ */
+function openPendingGroupInvite() {
+  if (!pendingGroupInvite) return;
+  const groupId = pendingGroupInvite;
+  pendingGroupInvite = null;
+  joinGroupModal.open(groupId);
+}
+
+
 function setupGroupChat() {
   groups.initGroupManager({
     queryNetwork,
@@ -10060,6 +10072,23 @@ function setupGroupChat() {
     .restoreGroups()
     .then(() => groups.ensureKeyPackages())
     .catch((e) => console.warn('group chat setup:', e));
+
+  /*
+   * Launched from an invite link (#group=<id>).
+   *
+   * Only RECORDED here. setupGroupChat runs partway through sign-in, before
+   * `this.forceClose()` and `welcomeScreen.close()` tear the sign-in UI down —
+   * opening a modal at this point leaves it active but buried behind the screen
+   * that is about to close, which is exactly the "active but invisible" state
+   * the back-button handler then trips over. openPendingGroupInvite() is called
+   * once the app is actually on its main screen.
+   *
+   * The fragment is cleared now so a refresh does not reopen the dialog.
+   */
+  pendingGroupInvite = parseGroupInvite(window.location.hash);
+  if (pendingGroupInvite) {
+    window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+  }
 }
 
 /** Pulls new commits and messages for every group. Driven by the chat poll. */
@@ -14241,6 +14270,16 @@ async function handleConnectivityChange() {
         // Update chats with reconnection handling
         const gotChats = await chatsScreen.updateChatData();
         if (gotChats > 0) {
+          chatsScreen.updateChatList();
+        }
+        /*
+         * Groups too, and separately: their sync is not driven by the 1:1 chat
+         * poll (see longPollResult), so coming back online has to catch them up
+         * explicitly rather than waiting for the next tick.
+         */
+        const gotGroups = await updateGroupData();
+        if (gotGroups > 0) {
+          saveState();
           chatsScreen.updateChatList();
         }
 
@@ -29800,6 +29839,13 @@ class NewChatModal {
         createGroupModal.open();
       });
     }
+    this.joinGroupButton = document.getElementById('newChatJoinGroupButton');
+    if (this.joinGroupButton) {
+      this.joinGroupButton.addEventListener('click', () => {
+        this.modal.classList.remove('active');
+        joinGroupModal.open();
+      });
+    }
   }
 
   /**
@@ -34910,6 +34956,30 @@ async function longPollResult(data) {
       console.error('Chat polling error:', error);
     }
   }
+
+  /*
+   * Group sync runs on EVERY tick, not only when the 1:1 poll reports a change.
+   *
+   * Group messages and commits are written to the group's own accounts and never
+   * to a member's UserAccount, so `chatTimestamp` does not move for group-only
+   * activity and the collector correctly answers "no change". Gating group sync
+   * on data.success therefore meant an account with no 1:1 traffic never synced
+   * its groups at all: it silently fell behind the epoch, could not decrypt
+   * anything sent after it, and kept sending messages nobody else could read.
+   *
+   * Deliberately outside the block above and separately guarded: group sync is
+   * idempotent and self-healing, and neither half should be able to stop the
+   * other from running.
+   */
+  try {
+    const gotGroups = await updateGroupData();
+    if (gotGroups > 0) {
+      saveState();
+      chatsScreen.updateChatList();
+    }
+  } catch (error) {
+    console.error('Group polling error:', error);
+  }
 }
 longPollResult.timestamp = 0
 
@@ -36233,6 +36303,9 @@ const modalCloseHandlers = new Map([
     chatSettingsModal, qrScanModal, backupModal, importModal,
     accountModal, validatorModal, stakeModal, messageSearchModal, contactSearchModal,
     importContactsModal, shareContactsModal,
+    // Group chat modals. Without these the hardware/browser back button logs
+    // "Unknown modal" and refuses to close them.
+    createGroupModal, groupChatModal, groupInfoModal, joinGroupModal,
   }),
   // Structural exceptions require an id or a controller-specific close method.
   ['assetsModal', () => evmAssets.close('assetsModal')],

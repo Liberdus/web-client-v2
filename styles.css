@@ -10189,6 +10189,70 @@ small {
   padding: 12px 16px;
   border-top: 1px solid var(--border-color);
 }
+/* A membership commit is injected but not yet confirmed by a receipt. */
+.group-pending-hint {
+  margin-top: 10px;
+  font-size: 0.78rem;
+  color: var(--warning-color);
+}
+/* Invite awaiting a decision: replaces the composer, never sits beside it. */
+.group-invite-bar {
+  padding: 14px 16px;
+  border-top: 1px solid var(--border-color);
+  background: var(--background-color);
+}
+.group-invite-text {
+  font-size: 0.85rem;
+  margin-bottom: 10px;
+  color: var(--text-color);
+}
+.group-invite-actions {
+  display: flex;
+  gap: 10px;
+}
+.group-invite-actions .btn {
+  /* min-width:auto is the default for flex items, which lets each button's own
+     content and padding set its floor — .btn and .btn--secondary carry different
+     padding, so the two ended up different widths despite flex-basis:0. */
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 14px 20px;
+}
+/* Invite link + copy button on one row. */
+.group-invite-link-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.group-invite-link-row .form-control {
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 0.78rem;
+}
+.group-join-preview {
+  text-align: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+  margin-top: 16px;
+}
+.group-join-preview .form-group,
+.group-join-preview .form-actions {
+  text-align: left;
+}
+
+/* One request to join, in the admin's approval queue. */
+.group-request-message {
+  font-size: 0.75rem;
+  color: var(--secondary-text-color);
+  display: block;
+}
+
+/* Explains an intentionally empty control area, e.g. to a non-admin. */
+.group-info-note {
+  margin-top: 10px;
+  font-size: 0.75rem;
+  color: var(--secondary-text-color);
+}
 .group-info-section-title {
   font-size: 0.75rem;
   text-transform: uppercase;

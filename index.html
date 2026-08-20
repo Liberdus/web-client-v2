@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-8" />
+    <link rel="stylesheet" href="./styles.css?v=1455-12" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-12" type="module"></script>
+    <script src="./app.js?v=1455-25" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -269,6 +269,12 @@
                 <p>Or start an encrypted group chat.</p>
                 <button type="button" id="newChatGroupButton" class="btn btn--secondary btn--pill btn--full">
                   New Group
+                </button>
+              </div>
+              <div class="form-group form-group--divider">
+                <p>Or join a group you have a link to.</p>
+                <button type="button" id="newChatJoinGroupButton" class="btn btn--secondary btn--pill btn--full">
+                  Join Group
                 </button>
               </div>
               <div class="form-group form-group--divider">
@@ -2054,6 +2060,21 @@
                 />
               </div>
               <div class="form-group">
+                <label for="createGroupJoinFee">Join fee (optional)</label>
+                <input
+                  type="number"
+                  id="createGroupJoinFee"
+                  class="form-control"
+                  placeholder="0"
+                  min="0"
+                  step="any"
+                />
+                <div class="group-info-note">
+                  Charged to anyone who asks to join. Held until you approve them, and
+                  returned if they withdraw. Leave empty for a free group.
+                </div>
+              </div>
+              <div class="form-group">
                 <label for="createGroupInviteInput">Add members</label>
                 <p class="form-hint">
                   Add by username, or pick from your contacts. Members cannot read messages sent
@@ -2102,7 +2123,27 @@
         <div class="messages-container">
           <div class="messages-list" id="groupMessagesList"></div>
         </div>
-        <div class="message-input-container">
+        <!--
+          Shown instead of the composer when we have been added but have not
+          agreed to join. Accepting is the only thing that spends anything:
+          joining burns one of our KeyPackages and obliges us to pay for a path
+          update, so it must never happen without an explicit action here.
+        -->
+        <!-- Shown while our own join request is waiting for an admin. -->
+        <div class="group-invite-bar" id="groupPendingBar" hidden>
+          <div class="group-invite-text" id="groupPendingText"></div>
+          <div class="group-invite-actions">
+            <button class="btn btn--secondary" id="groupPendingWithdraw">Withdraw request</button>
+          </div>
+        </div>
+        <div class="group-invite-bar" id="groupInviteBar" hidden>
+          <div class="group-invite-text" id="groupInviteText"></div>
+          <div class="group-invite-actions">
+            <button class="btn btn--secondary" id="groupInviteDecline">Decline</button>
+            <button class="btn" id="groupInviteAccept">Join group</button>
+          </div>
+        </div>
+        <div class="message-input-container" id="groupComposer">
           <div class="message-byte-counter" id="groupByteCounter"></div>
           <div class="message-input-row">
             <div class="message-input-wrapper">
@@ -2116,6 +2157,47 @@
                 </svg>
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Join Group Modal -->
+      <div class="modal fixed-header" id="joinGroupModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeJoinGroupModal"></button>
+          <div class="modal-title">Join Group</div>
+        </div>
+        <div class="modal-content">
+          <!-- form--narrow is the app's standard padded body for modal forms. -->
+          <div class="form--narrow">
+          <div class="form-group">
+            <label class="form-label" for="joinGroupLinkInput">Invite link or group id</label>
+            <input type="text" id="joinGroupLinkInput" class="form-control" placeholder="Paste the invite link" />
+            <div class="form-error" id="joinGroupError"></div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn--primary btn--pill btn--full" id="joinGroupLookup">Look up group</button>
+          </div>
+
+          <!--
+            What a non-member can actually be shown. The group's name and avatar
+            are encrypted under the MLS exporter secret, so the network genuinely
+            cannot reveal them to someone outside the group — this is the whole
+            truth that is available, not a placeholder.
+          -->
+          <div class="group-join-preview" id="joinGroupPreview" hidden>
+            <div class="modal-avatar" id="joinGroupAvatar"></div>
+            <div class="group-info-name">Encrypted group</div>
+            <div class="group-info-meta" id="joinGroupMeta"></div>
+            <div class="form-group">
+              <label class="form-label" for="joinGroupMessage">Message to the admins (optional)</label>
+              <input type="text" id="joinGroupMessage" class="form-control" maxlength="200" placeholder="Who you are, why you want in" />
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn--primary btn--pill btn--full" id="joinGroupRequest">Request to join</button>
+            </div>
+            <div class="group-info-note" id="joinGroupNote"></div>
+          </div>
           </div>
         </div>
       </div>
@@ -2138,6 +2220,46 @@
               Members <span id="groupInfoMemberCount"></span>
             </div>
             <ul class="group-member-list" id="groupInfoMembers"></ul>
+            <div class="group-pending-hint" id="groupInfoPendingHint" hidden></div>
+            <div class="group-info-note" id="groupInfoAdminNote" hidden>
+              Only admins can add or remove members.
+            </div>
+          </div>
+
+          <div class="group-info-section" id="groupSyncSection">
+            <div class="group-info-section-title">Sync</div>
+            <div class="group-info-meta" id="groupSyncStatus"></div>
+            <button class="btn btn--secondary btn--pill btn--full" id="groupCatchUpButton" style="margin-top: 10px">
+              Catch up now
+            </button>
+            <div class="group-info-note">
+              Re-applies any group updates this device has not seen yet. It cannot rebuild
+              lost keys — if the updates are gone, reset the group below instead.
+            </div>
+          </div>
+
+          <div class="group-info-section" id="groupInviteLinkSection" hidden>
+            <div class="group-info-section-title">Invite link</div>
+            <div class="group-invite-link-row">
+              <input type="text" id="groupInviteLinkInput" class="form-control" readonly />
+              <button class="btn btn--tiny" id="groupInviteLinkCopy">Copy</button>
+            </div>
+            <div class="group-info-note">
+              Anyone with this link can ask to join. An admin still has to approve them.
+            </div>
+          </div>
+
+          <div class="group-info-section" id="groupFeesSection" hidden>
+            <div class="group-info-section-title">Join fees</div>
+            <div class="group-info-meta" id="groupFeesSummary"></div>
+            <button class="btn btn--secondary btn--pill btn--full" id="groupFeesClaim" style="margin-top: 10px">
+              Collect
+            </button>
+          </div>
+
+          <div class="group-info-section" id="groupJoinRequestsSection" hidden>
+            <div class="group-info-section-title">Requests to join</div>
+            <ul class="group-member-list" id="groupJoinRequests"></ul>
           </div>
 
           <div class="group-info-section" id="groupInfoAddSection">
@@ -2157,6 +2279,14 @@
             <ul class="group-member-picker" id="groupInfoPicker"></ul>
             <button type="button" class="btn btn--secondary btn--pill btn--full" id="groupInfoAddButton">
               Add selected
+            </button>
+          </div>
+
+          <div class="group-info-section" id="groupResetSection" style="display: none">
+            <div class="group-info-section-title">Out of step</div>
+            <p class="form-hint" id="groupResetExplain"></p>
+            <button type="button" class="btn btn--secondary btn--pill btn--full" id="groupResetButton">
+              Reset this group on this device
             </button>
           </div>
 

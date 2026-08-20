@@ -12,7 +12,11 @@
   "author": "",
   "license": "ISC",
   "scripts": {
-    "build:mls": "node scripts/build-ts-mls.mjs"
+    "build:mls": "node scripts/build-ts-mls.mjs",
+    "test:security": "node test/removal-effective.mjs",
+    "test:tree": "node test/tree-delta.mjs",
+    "test:paths": "node test/path-maintenance.mjs",
+    "test:mls": "npm run test:security && npm run test:tree && npm run test:paths"
   },
   "devDependencies": {
     "@hpke/chacha20poly1305": "1.7.1",
