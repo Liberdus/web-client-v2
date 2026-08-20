@@ -276,6 +276,8 @@ export const FAUCET_COOLDOWN_MS = 5000;
 const MODAL_TRANSITION_FALLBACK_MS = 1000;
 let openingModal = null;
 let modalTransitionTimeout = null;
+let modalTransitionPromise = null;
+let resolveModalTransition = null;
 let modalTransitionListenersInstalled = false;
 
 function finishModalTransition(modal) {
@@ -286,8 +288,12 @@ function finishModalTransition(modal) {
         modalTransitionTimeout = null;
     }
 
+    const resolve = resolveModalTransition;
     openingModal = null;
+    modalTransitionPromise = null;
+    resolveModalTransition = null;
     if (modal.classList.contains('active')) modal.classList.add('is-transition-complete');
+    resolve?.();
 }
 
 function handleModalTransitionComplete(event) {
@@ -303,6 +309,17 @@ export function installModalTransitionListeners() {
 }
 
 /**
+ * Waits for the tracked opening transition of a modal, if one is in progress.
+ * @param {HTMLElement|null|undefined} modal - Modal whose transition should complete
+ * @returns {Promise<void>}
+ */
+export function waitForModalTransition(modal) {
+    return modal === openingModal && modalTransitionPromise
+        ? modalTransitionPromise
+        : Promise.resolve();
+}
+
+/**
  * Activates one modal at a time and ignores overlapping requests.
  * @param {HTMLElement|null|undefined} modal - Modal element to activate
  */
@@ -310,6 +327,9 @@ export function openModal(modal) {
     if (!modal || openingModal || modal.classList.contains('active')) return;
 
     openingModal = modal;
+    modalTransitionPromise = new Promise((resolve) => {
+        resolveModalTransition = resolve;
+    });
     modal.classList.remove('is-transition-complete');
     modal.classList.add('active');
     modalTransitionTimeout = setTimeout(() => finishModalTransition(modal), MODAL_TRANSITION_FALLBACK_MS);

@@ -4,6 +4,7 @@ import {
   normalizeUsername,
   openModal,
   utf82bin,
+  waitForModalTransition,
   withButtonCooldown,
 } from './lib.js';
 import { getPublicKey, hashBytes, signMessage } from './crypto.js';
@@ -1353,17 +1354,19 @@ class AssetDetailsModal {
     this.contract = document.getElementById('assetDetailsContract');
     this.marketPrice = document.getElementById('assetDetailsMarketPrice');
     this.holdingValue = document.getElementById('assetDetailsHoldingValue');
+    this.sendModal = document.getElementById('sendAssetFormModal');
+    this.receiveModal = document.getElementById('receiveModal');
 
     document.getElementById('closeAssetDetailsModal').addEventListener('click', () => this.close());
     document.getElementById('assetDetailsSend').addEventListener('click', () => {
-      this.openAction(() => this.controller.openContextualSend({
+      this.openAction(this.sendModal, () => this.controller.openContextualSend({
         mode: 'evm',
         networkId: this.networkId,
         assetKey: this.assetKey,
       }));
     });
     document.getElementById('assetDetailsReceive').addEventListener('click', () => {
-      this.openAction(() => this.controller.openContextualReceive({
+      this.openAction(this.receiveModal, () => this.controller.openContextualReceive({
         mode: 'evm',
         networkId: this.networkId,
         assetKey: this.assetKey,
@@ -1378,12 +1381,13 @@ class AssetDetailsModal {
     return this.controller.findAsset(this.networkId, this.assetKey, { evmOnly: true });
   }
 
-  async openAction(action) {
+  async openAction(modal, action) {
     if (this.isOpeningAction) return;
 
     this.isOpeningAction = true;
     try {
       await action();
+      await waitForModalTransition(modal);
     } finally {
       this.isOpeningAction = false;
     }
