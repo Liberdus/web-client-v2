@@ -291,7 +291,7 @@ function finishModalTransition(modal) {
 }
 
 function handleModalTransitionComplete(event) {
-    if (event.target !== openingModal || event.propertyName !== 'transform') return;
+    if (event.target !== openingModal || event.propertyName !== 'opacity') return;
     finishModalTransition(event.target);
 }
 

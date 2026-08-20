@@ -7933,7 +7933,7 @@ small {
 
 /* Dialog overlay - centered with backdrop */
 .modal.modal-dialog {
-  display: none; /* Hidden by default */
+  display: flex;
   position: fixed; /* Fixed position to overlay everything */
   top: 0;
   left: 0; /* Start from left, no slide-in */
@@ -7943,15 +7943,17 @@ small {
   justify-content: center; /* Center direct child (dialog-box-content) horizontally */
   align-items: center; /* Center direct child (dialog-box-content) vertically */
   z-index: var(--overlay-z-index-base); /* Ensure it's on top */
+  visibility: hidden;
   opacity: 0;
-  transition: var(--overlay-transition);
+  transition: var(--overlay-transition), visibility 0s linear 0.2s;
   /* Override general .modal transition if it interferes */
   transform: none !important; /* Prevent slide-in */
 }
 
 .modal.modal-dialog.active {
-  display: flex; /* Show and use flex for centering */
+  visibility: visible;
   opacity: 1;
+  transition-delay: 0s;
   transform: none !important; /* Ensure no slide-in even when active */
 }
 
