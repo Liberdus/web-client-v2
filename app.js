@@ -3156,7 +3156,6 @@ class AddProposalModal {
     this.submitButton = this.form?.querySelector('button[type="submit"]');
     this.typePopupSelect = this.typeSelect ? new PopupSelect(this.typeSelect) : null;
     this.emergencyPopupSelect = this.emergencySelect ? new PopupSelect(this.emergencySelect) : null;
-    this.parameterSelects = [];
     this.resetConfigCache();
 
     if (this.closeButton) this.closeButton.addEventListener('click', () => this.close());
@@ -3229,9 +3228,7 @@ class AddProposalModal {
   }
 
   close() {
-    this.typePopupSelect?.hide();
-    this.emergencyPopupSelect?.hide();
-    this.parameterSelects.forEach((popupSelect) => popupSelect.hide());
+    PopupSelect.hide();
     this.modal.classList.remove('active');
     enterFullscreen();
   }
@@ -3515,8 +3512,7 @@ class AddProposalModal {
   renderOptions(unavailableMessage = '') {
     if (!this.optionsList) return;
 
-    this.parameterSelects.forEach((popupSelect) => popupSelect.destroy());
-    this.parameterSelects = [];
+    PopupSelect.hide();
 
     const configOptions = this.getConfigOptions();
     const isEmergency = this.emergencySelect?.value === 'true';
@@ -3534,8 +3530,8 @@ class AddProposalModal {
       )),
     ].join('');
 
-    this.parameterSelects = [...this.optionsList.querySelectorAll('[data-dao-change-key]')]
-      .map((select) => new PopupSelect(select));
+    this.optionsList.querySelectorAll('[data-dao-change-key]')
+      .forEach((select) => new PopupSelect(select));
 
     if (this.addOptionButton) {
       this.addOptionButton.disabled = configOptions.length === 0 || isEmergency || this.options.length >= 9;
@@ -35889,19 +35885,47 @@ class PopupSelect {
   static MIN_SCROLL_THUMB_HEIGHT = 24;
   static generatedId = 0;
   static activeInstance = null;
-  static listenersLoaded = false;
   static instances = new WeakMap();
+  static triggers = new WeakMap();
+  static menu = null;
+  static scrollIndicator = null;
+  static scrollThumb = null;
 
   static load() {
-    if (PopupSelect.listenersLoaded) return;
-    PopupSelect.listenersLoaded = true;
+    if (PopupSelect.menu) return;
 
+    PopupSelect.menu = PopupSelect.createMenu();
+    PopupSelect.scrollIndicator = PopupSelect.createScrollIndicator();
     document.addEventListener('pointerdown', PopupSelect.handleDocumentPointerDown, true);
+    document.addEventListener('click', PopupSelect.handleDocumentClick);
     document.addEventListener('keydown', PopupSelect.handleDocumentKeyDown);
+    document.addEventListener('change', PopupSelect.handleDocumentChange, true);
     document.addEventListener('scroll', PopupSelect.handleDocumentScroll, { capture: true, passive: true });
     window.addEventListener('resize', PopupSelect.handleViewportChange);
     window.visualViewport?.addEventListener('scroll', PopupSelect.handleViewportChange, { passive: true });
     window.visualViewport?.addEventListener('resize', PopupSelect.handleViewportChange);
+    PopupSelect.menu.addEventListener('scroll', PopupSelect.handleMenuScroll, { passive: true });
+  }
+
+  static createMenu() {
+    const menu = document.createElement('div');
+    menu.id = 'popupSelectListbox';
+    menu.className = 'popup-select__menu';
+    menu.tabIndex = -1;
+    menu.setAttribute('role', 'listbox');
+    return menu;
+  }
+
+  static createScrollIndicator() {
+    const indicator = document.createElement('div');
+    indicator.className = 'popup-select__scroll-indicator';
+    indicator.hidden = true;
+    indicator.setAttribute('aria-hidden', 'true');
+
+    PopupSelect.scrollThumb = document.createElement('span');
+    PopupSelect.scrollThumb.className = 'popup-select__scroll-thumb';
+    indicator.append(PopupSelect.scrollThumb);
+    return indicator;
   }
 
   static handleDocumentPointerDown(event) {
@@ -35909,26 +35933,65 @@ class PopupSelect {
     if (
       !popupSelect ||
       popupSelect.trigger.contains(event.target) ||
-      popupSelect.menu.contains(event.target)
+      PopupSelect.menu.contains(event.target)
     ) return;
 
-    popupSelect.hide();
+    PopupSelect.hide();
+  }
+
+  static handleDocumentClick(event) {
+    const option = event.target.closest?.('.popup-select__option');
+    if (option && PopupSelect.menu.contains(option)) {
+      const popupSelect = PopupSelect.activeInstance;
+      if (!popupSelect || option.getAttribute('aria-disabled') === 'true') return;
+      popupSelect.setActiveIndex(Number(option.dataset.optionIndex));
+      popupSelect.selectActiveOption();
+      return;
+    }
+
+    const trigger = event.target.closest?.('.popup-select__trigger');
+    const popupSelect = PopupSelect.triggers.get(trigger);
+    if (!popupSelect) return;
+
+    if (PopupSelect.activeInstance === popupSelect) PopupSelect.close();
+    else popupSelect.open();
   }
 
   static handleDocumentKeyDown(event) {
+    const trigger = event.target.closest?.('.popup-select__trigger');
+    const popupSelect = PopupSelect.triggers.get(trigger);
+    if (popupSelect && ['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)) {
+      event.preventDefault();
+      popupSelect.open();
+      return;
+    }
+
+    if (PopupSelect.activeInstance && PopupSelect.menu.contains(event.target)) {
+      PopupSelect.activeInstance.handleMenuKeyDown(event);
+      return;
+    }
+
     if (event.key !== 'Escape' || !PopupSelect.activeInstance) return;
     event.preventDefault();
-    PopupSelect.activeInstance.close();
+    PopupSelect.close();
+  }
+
+  static handleDocumentChange(event) {
+    PopupSelect.getInstance(event.target)?.syncFromSelect();
   }
 
   static handleDocumentScroll(event) {
     const popupSelect = PopupSelect.activeInstance;
-    if (!popupSelect || event.target === popupSelect.menu) return;
-    popupSelect.hide();
+    if (!popupSelect || event.target === PopupSelect.menu) return;
+    PopupSelect.hide();
   }
 
   static handleViewportChange() {
-    PopupSelect.activeInstance?.hide();
+    PopupSelect.hide();
+  }
+
+  static handleMenuScroll() {
+    PopupSelect.activeInstance?.updateScrollIndicator();
   }
 
   static getInstance(select) {
@@ -35939,47 +36002,49 @@ class PopupSelect {
     return PopupSelect.getInstance(control)?.trigger || control;
   }
 
+  static hide() {
+    const popupSelect = PopupSelect.activeInstance;
+    if (!popupSelect) return;
+
+    PopupSelect.activeInstance = null;
+    popupSelect.trigger.setAttribute('aria-expanded', 'false');
+    PopupSelect.menu.remove();
+    PopupSelect.scrollIndicator.hidden = true;
+    PopupSelect.scrollIndicator.remove();
+  }
+
+  static close() {
+    const popupSelect = PopupSelect.activeInstance;
+    if (!popupSelect) return;
+
+    PopupSelect.hide();
+    popupSelect.focus();
+  }
+
   constructor(select) {
     if (!select || select.tagName !== 'SELECT') {
       throw new TypeError('PopupSelect requires a select element');
     }
+    if (!PopupSelect.menu) {
+      throw new Error('PopupSelect.load() must be called before creating controls');
+    }
 
     this.select = select;
-    this.isOpen = false;
     this.activeIndex = -1;
-    this.originalTabIndex = select.getAttribute('tabindex');
-    this.originalAriaHidden = select.getAttribute('aria-hidden');
     this.label = select.labels?.[0] || null;
-    this.originalLabelFor = this.label?.getAttribute('for') ?? null;
-    this.originalLabelId = this.label?.getAttribute('id') ?? null;
 
     if (!select.id) select.id = `popupSelect${++PopupSelect.generatedId}`;
     if (this.label && !this.label.id) this.label.id = `${select.id}PopupLabel`;
 
     this.trigger = this.createTrigger();
-    this.menu = this.createMenu();
-    this.scrollIndicator = this.createScrollIndicator();
-
-    this.handleTriggerClick = this.handleTriggerClick.bind(this);
-    this.handleTriggerKeyDown = this.handleTriggerKeyDown.bind(this);
-    this.handleMenuClick = this.handleMenuClick.bind(this);
-    this.handleMenuKeyDown = this.handleMenuKeyDown.bind(this);
-    this.handleSelectChange = this.handleSelectChange.bind(this);
-    this.updateScrollIndicator = this.updateScrollIndicator.bind(this);
 
     select.classList.add('popup-select__native');
     select.setAttribute('aria-hidden', 'true');
     select.tabIndex = -1;
     PopupSelect.instances.set(select, this);
+    PopupSelect.triggers.set(this.trigger, this);
     select.insertAdjacentElement('afterend', this.trigger);
     if (this.label) this.label.htmlFor = this.trigger.id;
-
-    this.trigger.addEventListener('click', this.handleTriggerClick);
-    this.trigger.addEventListener('keydown', this.handleTriggerKeyDown);
-    this.menu.addEventListener('click', this.handleMenuClick);
-    this.menu.addEventListener('keydown', this.handleMenuKeyDown);
-    this.menu.addEventListener('scroll', this.updateScrollIndicator);
-    select.addEventListener('change', this.handleSelectChange);
 
     this.syncFromSelect();
   }
@@ -35991,7 +36056,7 @@ class PopupSelect {
     trigger.type = 'button';
     trigger.setAttribute('aria-haspopup', 'listbox');
     trigger.setAttribute('aria-expanded', 'false');
-    trigger.setAttribute('aria-controls', `${this.select.id}PopupListbox`);
+    trigger.setAttribute('aria-controls', PopupSelect.menu.id);
     if (this.select.required) trigger.setAttribute('aria-required', 'true');
 
     const accessibleName = this.select.getAttribute('aria-label');
@@ -36012,41 +36077,19 @@ class PopupSelect {
     return trigger;
   }
 
-  createMenu() {
-    const menu = document.createElement('div');
-    menu.id = `${this.select.id}PopupListbox`;
-    menu.className = 'popup-select__menu';
-    menu.tabIndex = -1;
-    menu.setAttribute('role', 'listbox');
-
+  syncMenu() {
     const accessibleName = this.select.getAttribute('aria-label');
-    if (accessibleName) menu.setAttribute('aria-label', accessibleName);
-    else if (this.label) menu.setAttribute('aria-labelledby', this.label.id);
+    PopupSelect.menu.removeAttribute('aria-label');
+    PopupSelect.menu.removeAttribute('aria-labelledby');
+    PopupSelect.menu.removeAttribute('aria-activedescendant');
+    if (accessibleName) PopupSelect.menu.setAttribute('aria-label', accessibleName);
+    else if (this.label) PopupSelect.menu.setAttribute('aria-labelledby', this.label.id);
 
-    return menu;
-  }
-
-  createScrollIndicator() {
-    const indicator = document.createElement('div');
-    indicator.className = 'popup-select__scroll-indicator';
-    indicator.hidden = true;
-    indicator.setAttribute('aria-hidden', 'true');
-
-    this.scrollThumb = document.createElement('span');
-    this.scrollThumb.className = 'popup-select__scroll-thumb';
-    indicator.append(this.scrollThumb);
-    return indicator;
-  }
-
-  syncFromSelect() {
-    const selectedOption = this.select.options[this.select.selectedIndex];
-    this.value.textContent = selectedOption?.textContent || '';
-    this.trigger.disabled = this.select.disabled;
-    this.menu.replaceChildren();
-
+    PopupSelect.menu.replaceChildren();
+    PopupSelect.menu.scrollTop = 0;
     [...this.select.options].forEach((option, index) => {
       const item = document.createElement('div');
-      item.id = `${this.menu.id}Option${index}`;
+      item.id = `${PopupSelect.menu.id}Option${index}`;
       item.className = 'popup-select__option';
       item.dataset.optionIndex = String(index);
       item.setAttribute('role', 'option');
@@ -36057,70 +36100,35 @@ class PopupSelect {
       label.className = 'popup-select__option-label';
       label.textContent = option.textContent;
       item.append(label);
-      this.menu.append(item);
+      PopupSelect.menu.append(item);
     });
   }
 
-  open() {
-    if (this.isOpen || this.select.disabled || this.select.options.length === 0) return;
+  syncFromSelect() {
+    const selectedOption = this.select.options[this.select.selectedIndex];
+    this.value.textContent = selectedOption?.textContent || '';
+    this.trigger.disabled = this.select.disabled;
+    if (PopupSelect.activeInstance !== this) return;
 
-    PopupSelect.activeInstance?.hide();
-    PopupSelect.activeInstance = this;
-    this.isOpen = true;
-    this.syncFromSelect();
+    this.syncMenu();
     this.activeIndex = this.getInitialActiveIndex();
+    if (PopupSelect.menu.isConnected) this.setActiveIndex(this.activeIndex);
+  }
+
+  open() {
+    if (PopupSelect.activeInstance === this || this.select.disabled || this.select.options.length === 0) return;
+
+    PopupSelect.hide();
+    PopupSelect.activeInstance = this;
+    this.syncFromSelect();
     this.trigger.setAttribute('aria-expanded', 'true');
-    this.menu.style.visibility = 'hidden';
-    document.body.append(this.menu, this.scrollIndicator);
+    PopupSelect.menu.style.visibility = 'hidden';
+    document.body.append(PopupSelect.menu, PopupSelect.scrollIndicator);
 
     this.positionMenu();
-    this.menu.style.visibility = '';
-    this.menu.focus({ preventScroll: true });
+    PopupSelect.menu.style.visibility = '';
+    PopupSelect.menu.focus({ preventScroll: true });
     this.setActiveIndex(this.activeIndex);
-  }
-
-  hide() {
-    if (!this.isOpen) return;
-
-    this.isOpen = false;
-    if (PopupSelect.activeInstance === this) PopupSelect.activeInstance = null;
-    this.trigger.setAttribute('aria-expanded', 'false');
-    this.menu.remove();
-    this.scrollIndicator.hidden = true;
-    this.scrollIndicator.remove();
-  }
-
-  close() {
-    if (!this.isOpen) return;
-    this.hide();
-    this.focus();
-  }
-
-  destroy() {
-    this.hide();
-    this.trigger.removeEventListener('click', this.handleTriggerClick);
-    this.trigger.removeEventListener('keydown', this.handleTriggerKeyDown);
-    this.menu.removeEventListener('click', this.handleMenuClick);
-    this.menu.removeEventListener('keydown', this.handleMenuKeyDown);
-    this.menu.removeEventListener('scroll', this.updateScrollIndicator);
-    this.select.removeEventListener('change', this.handleSelectChange);
-    this.trigger.remove();
-
-    this.select.classList.remove('popup-select__native');
-    this.restoreAttribute('tabindex', this.originalTabIndex);
-    this.restoreAttribute('aria-hidden', this.originalAriaHidden);
-    if (this.label) {
-      if (this.originalLabelFor === null) this.label.removeAttribute('for');
-      else this.label.setAttribute('for', this.originalLabelFor);
-      if (this.originalLabelId === null) this.label.removeAttribute('id');
-      else this.label.setAttribute('id', this.originalLabelId);
-    }
-    PopupSelect.instances.delete(this.select);
-  }
-
-  restoreAttribute(name, value) {
-    if (value === null) this.select.removeAttribute(name);
-    else this.select.setAttribute(name, value);
   }
 
   focus() {
@@ -36145,13 +36153,13 @@ class PopupSelect {
     if (index < 0 || this.select.options[index]?.disabled) return;
 
     this.activeIndex = index;
-    this.menu.querySelectorAll('.popup-select__option').forEach((item, itemIndex) => {
+    PopupSelect.menu.querySelectorAll('.popup-select__option').forEach((item, itemIndex) => {
       item.classList.toggle('is-active', itemIndex === index);
     });
 
-    const activeOption = this.menu.querySelector(`[data-option-index="${index}"]`);
+    const activeOption = PopupSelect.menu.querySelector(`[data-option-index="${index}"]`);
     if (!activeOption) return;
-    this.menu.setAttribute('aria-activedescendant', activeOption.id);
+    PopupSelect.menu.setAttribute('aria-activedescendant', activeOption.id);
     this.scrollOptionIntoView(activeOption);
   }
 
@@ -36171,9 +36179,9 @@ class PopupSelect {
   scrollOptionIntoView(option) {
     const optionTop = option.offsetTop;
     const optionBottom = optionTop + option.offsetHeight;
-    if (optionTop < this.menu.scrollTop) this.menu.scrollTop = optionTop;
-    if (optionBottom > this.menu.scrollTop + this.menu.clientHeight) {
-      this.menu.scrollTop = optionBottom - this.menu.clientHeight;
+    if (optionTop < PopupSelect.menu.scrollTop) PopupSelect.menu.scrollTop = optionTop;
+    if (optionBottom > PopupSelect.menu.scrollTop + PopupSelect.menu.clientHeight) {
+      PopupSelect.menu.scrollTop = optionBottom - PopupSelect.menu.clientHeight;
     }
     this.updateScrollIndicator();
   }
@@ -36184,12 +36192,12 @@ class PopupSelect {
 
     const changed = this.select.selectedIndex !== this.activeIndex;
     this.select.selectedIndex = this.activeIndex;
-    this.close();
+    PopupSelect.close();
     if (changed) this.select.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
   positionMenu() {
-    if (!this.isOpen) return;
+    if (PopupSelect.activeInstance !== this) return;
 
     const triggerRect = this.trigger.getBoundingClientRect();
     const visualViewport = window.visualViewport;
@@ -36206,16 +36214,16 @@ class PopupSelect {
       availableWidth,
     );
 
-    this.menu.style.width = `${menuWidth}px`;
-    this.menu.style.maxHeight = '';
+    PopupSelect.menu.style.width = `${menuWidth}px`;
+    PopupSelect.menu.style.maxHeight = '';
 
-    const computedStyle = window.getComputedStyle(this.menu);
+    const computedStyle = window.getComputedStyle(PopupSelect.menu);
     const verticalPadding = parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom);
     const verticalBorder = parseFloat(computedStyle.borderTopWidth) + parseFloat(computedStyle.borderBottomWidth);
-    const visibleOptionHeight = [...this.menu.children]
+    const visibleOptionHeight = [...PopupSelect.menu.children]
       .slice(0, PopupSelect.MAX_VISIBLE_OPTIONS)
       .reduce((height, item) => height + item.getBoundingClientRect().height, 0);
-    const desiredHeight = Math.min(this.menu.scrollHeight, visibleOptionHeight + verticalPadding) + verticalBorder;
+    const desiredHeight = Math.min(PopupSelect.menu.scrollHeight, visibleOptionHeight + verticalPadding) + verticalBorder;
     const spaceBelow = Math.max(
       0,
       viewport.bottom - PopupSelect.VIEWPORT_MARGIN - triggerRect.bottom - PopupSelect.TRIGGER_GAP,
@@ -36227,8 +36235,8 @@ class PopupSelect {
     const opensAbove = spaceBelow < desiredHeight && spaceAbove > spaceBelow;
     const availableHeight = opensAbove ? spaceAbove : spaceBelow;
 
-    this.menu.style.maxHeight = `${Math.floor(Math.min(desiredHeight, availableHeight))}px`;
-    const menuRect = this.menu.getBoundingClientRect();
+    PopupSelect.menu.style.maxHeight = `${Math.floor(Math.min(desiredHeight, availableHeight))}px`;
+    const menuRect = PopupSelect.menu.getBoundingClientRect();
     const minLeft = viewport.left + PopupSelect.VIEWPORT_MARGIN;
     const maxLeft = viewport.right - PopupSelect.VIEWPORT_MARGIN - menuRect.width;
     const left = Math.max(minLeft, Math.min(maxLeft, triggerRect.left));
@@ -36236,63 +36244,40 @@ class PopupSelect {
       ? triggerRect.top - PopupSelect.TRIGGER_GAP - menuRect.height
       : triggerRect.bottom + PopupSelect.TRIGGER_GAP;
 
-    this.menu.dataset.placement = opensAbove ? 'above' : 'below';
-    this.menu.style.left = `${Math.round(left)}px`;
-    this.menu.style.top = `${Math.round(top)}px`;
+    PopupSelect.menu.dataset.placement = opensAbove ? 'above' : 'below';
+    PopupSelect.menu.style.left = `${Math.round(left)}px`;
+    PopupSelect.menu.style.top = `${Math.round(top)}px`;
     this.updateScrollIndicator();
   }
 
   updateScrollIndicator() {
-    const scrollRange = this.menu.scrollHeight - this.menu.clientHeight;
-    if (!this.isOpen || scrollRange <= 1) {
-      this.scrollIndicator.hidden = true;
+    const scrollRange = PopupSelect.menu.scrollHeight - PopupSelect.menu.clientHeight;
+    if (PopupSelect.activeInstance !== this || scrollRange <= 1) {
+      PopupSelect.scrollIndicator.hidden = true;
       return;
     }
 
-    const menuRect = this.menu.getBoundingClientRect();
+    const menuRect = PopupSelect.menu.getBoundingClientRect();
     const trackHeight = Math.max(0, menuRect.height - PopupSelect.SCROLL_INDICATOR_INSET * 2);
     const thumbHeight = Math.min(
       trackHeight,
       Math.max(
         PopupSelect.MIN_SCROLL_THUMB_HEIGHT,
-        trackHeight * (this.menu.clientHeight / this.menu.scrollHeight),
+        trackHeight * (PopupSelect.menu.clientHeight / PopupSelect.menu.scrollHeight),
       ),
     );
     const thumbTravel = Math.max(0, trackHeight - thumbHeight);
-    const scrollProgress = Math.min(1, Math.max(0, this.menu.scrollTop / scrollRange));
+    const scrollProgress = Math.min(1, Math.max(0, PopupSelect.menu.scrollTop / scrollRange));
     const thumbTop = thumbTravel * scrollProgress;
 
-    this.scrollIndicator.hidden = false;
-    this.scrollIndicator.style.height = `${Math.round(trackHeight)}px`;
-    this.scrollIndicator.style.left = `${Math.round(
+    PopupSelect.scrollIndicator.hidden = false;
+    PopupSelect.scrollIndicator.style.height = `${Math.round(trackHeight)}px`;
+    PopupSelect.scrollIndicator.style.left = `${Math.round(
       menuRect.right - PopupSelect.SCROLL_INDICATOR_RIGHT_INSET - PopupSelect.SCROLL_INDICATOR_WIDTH,
     )}px`;
-    this.scrollIndicator.style.top = `${Math.round(menuRect.top + PopupSelect.SCROLL_INDICATOR_INSET)}px`;
-    this.scrollThumb.style.height = `${Math.round(thumbHeight)}px`;
-    this.scrollThumb.style.top = `${Math.round(thumbTop)}px`;
-  }
-
-  handleSelectChange() {
-    this.syncFromSelect();
-    if (this.isOpen) this.setActiveIndex(this.getInitialActiveIndex());
-  }
-
-  handleTriggerClick() {
-    if (this.isOpen) this.close();
-    else this.open();
-  }
-
-  handleTriggerKeyDown(event) {
-    if (!['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)) return;
-    event.preventDefault();
-    this.open();
-  }
-
-  handleMenuClick(event) {
-    const option = event.target.closest('.popup-select__option');
-    if (!option || option.getAttribute('aria-disabled') === 'true') return;
-    this.setActiveIndex(Number(option.dataset.optionIndex));
-    this.selectActiveOption();
+    PopupSelect.scrollIndicator.style.top = `${Math.round(menuRect.top + PopupSelect.SCROLL_INDICATOR_INSET)}px`;
+    PopupSelect.scrollThumb.style.height = `${Math.round(thumbHeight)}px`;
+    PopupSelect.scrollThumb.style.top = `${Math.round(thumbTop)}px`;
   }
 
   handleMenuKeyDown(event) {
@@ -36321,10 +36306,10 @@ class PopupSelect {
       case 'Escape':
         event.preventDefault();
         event.stopPropagation();
-        this.close();
+        PopupSelect.close();
         break;
       case 'Tab':
-        this.close();
+        PopupSelect.close();
         break;
     }
   }
