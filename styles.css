@@ -1780,32 +1780,14 @@ select.form-control.is-private {
   border-color: var(--danger-color);
 }
 
-.popup-select__native {
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  height: 1px;
-  opacity: 0;
-  overflow: hidden;
-  pointer-events: none;
-  position: absolute;
-  white-space: nowrap;
-  width: 1px;
-}
-
 .popup-select__trigger {
   align-items: center;
   background: var(--background-color);
   color: var(--text-color);
-  cursor: pointer;
   display: grid;
   gap: 8px;
   grid-template-columns: minmax(0, 1fr) 16px;
   text-align: left;
-}
-
-.popup-select__trigger:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
 }
 
 .popup-select__value,
@@ -1832,9 +1814,8 @@ select.form-control.is-private {
   border: 1px solid var(--border-color);
   border-radius: 14px;
   box-shadow: var(--overlay-shadow-large);
-  box-sizing: border-box;
   color: var(--text-color);
-  max-width: calc(100vw - 16px);
+  max-height: 458px; /* Ten 44px rows plus menu chrome. */
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -1850,26 +1831,19 @@ select.form-control.is-private {
   outline: none;
 }
 
-@supports selector(::-webkit-scrollbar) {
-  .popup-select__menu {
-    scrollbar-width: auto;
-  }
+.popup-select__menu::-webkit-scrollbar {
+  width: 6px;
+}
 
-  .popup-select__menu::-webkit-scrollbar {
-    width: 6px;
-  }
+.popup-select__menu::-webkit-scrollbar-track {
+  margin: 8px 0;
+}
 
-  .popup-select__menu::-webkit-scrollbar-track {
-    background: transparent;
-    margin: 8px 0;
-  }
-
-  .popup-select__menu::-webkit-scrollbar-thumb {
-    background-color: var(--scrollbar-thumb);
-    background-clip: padding-box;
-    border: 1px solid transparent;
-    border-radius: 10px;
-  }
+.popup-select__menu::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  background-clip: padding-box;
+  border: 1px solid transparent;
+  border-radius: 10px;
 }
 
 .popup-select__scroll-indicator {
@@ -1908,10 +1882,9 @@ select.form-control.is-private {
 .popup-select__option {
   align-items: center;
   border-radius: 8px;
-  box-sizing: border-box;
   cursor: pointer;
   display: grid;
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   gap: 8px;
   grid-template-columns: 20px minmax(0, 1fr);
   line-height: 1.3;
@@ -1920,7 +1893,6 @@ select.form-control.is-private {
 }
 
 .popup-select__option::before {
-  background-color: transparent;
   content: '';
   height: 18px;
   width: 18px;
