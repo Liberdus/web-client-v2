@@ -1607,7 +1607,7 @@ button:disabled {
   min-height: var(--icon-button-height);
 }
 
-.sign-out-header-button.active {
+.modal.active.is-transition-complete .sign-out-header-button {
   pointer-events: auto;
   opacity: 1;
 }

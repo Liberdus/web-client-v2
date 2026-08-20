@@ -154,6 +154,7 @@ import {
   linkifyUrls,
   escapeHtml,
   debounce,
+  installModalTransitionListeners,
   openModal,
   withButtonCooldown,
   BUTTON_COOLDOWN_MS,
@@ -716,6 +717,7 @@ function lockRapidMenuClicks(menuList) {
 
 // Load saved account data and update chat list on page load
 document.addEventListener('DOMContentLoaded', async () => {
+  installModalTransitionListeners();
   markConnectivityDependentElements();
   await checkVersion(); // version needs to be checked before anything else happens
   timeDifference(); // Calculate and log time difference early
@@ -2371,20 +2373,8 @@ class MenuModal {
     }
   }
 
-  enableSignOutButtonWithDelay() {
-    // Disable button initially
-    this.signOutHeaderButton.classList.remove('active');
-    // Re-enable after modal animation completes (300ms) + small buffer to prevent accidental double-taps
-    setTimeout(() => {
-      if (this.isActive()) {
-        this.signOutHeaderButton.classList.add('active');
-      }
-    }, 400); // 400ms = modal animation (300ms) + 100ms buffer
-  }
-
   open() {
     openModal(this.modal);
-    this.enableSignOutButtonWithDelay();
     enterFullscreen();
   }
 
@@ -6416,20 +6406,8 @@ class SettingsModal {
     this.signOutHeaderButton.addEventListener('click', settingsWrappedSignOut);
   }
 
-  enableSignOutButtonWithDelay() {
-    // Disable button initially
-    this.signOutHeaderButton.classList.remove('active');
-    // Re-enable after modal animation completes (300ms) + small buffer to prevent accidental double-taps
-    setTimeout(() => {
-      if (this.isActive()) {
-        this.signOutHeaderButton.classList.add('active');
-      }
-    }, 400); // 400ms = modal animation (300ms) + 100ms buffer
-  }
-
   open() {
     openModal(this.modal);
-    this.enableSignOutButtonWithDelay();
     enterFullscreen();
   }
 

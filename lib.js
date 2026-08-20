@@ -273,24 +273,46 @@ export function escapeHtml(str) {
 export const BUTTON_COOLDOWN_MS = 2000;
 export const FAUCET_COOLDOWN_MS = 5000;
 
-let modalOpening = false;
+const MODAL_TRANSITION_FALLBACK_MS = 1000;
+let openingModal = null;
+let modalTransitionTimeout = null;
+let modalTransitionListenersInstalled = false;
+
+function finishModalTransition(modal) {
+    if (modal !== openingModal) return;
+
+    if (modalTransitionTimeout !== null) {
+        clearTimeout(modalTransitionTimeout);
+        modalTransitionTimeout = null;
+    }
+
+    openingModal = null;
+    if (modal.classList.contains('active')) modal.classList.add('is-transition-complete');
+}
+
+function handleModalTransitionComplete(event) {
+    if (event.target !== openingModal || event.propertyName !== 'transform') return;
+    finishModalTransition(event.target);
+}
+
+export function installModalTransitionListeners() {
+    if (modalTransitionListenersInstalled) return;
+    modalTransitionListenersInstalled = true;
+    document.addEventListener('transitionend', handleModalTransitionComplete);
+    document.addEventListener('transitioncancel', handleModalTransitionComplete);
+}
 
 /**
- * Activates one modal at a time during the opening animation.
- * Exposes begin/end state on data-modal-transition for end-to-end tests.
+ * Activates one modal at a time and ignores overlapping requests.
  * @param {HTMLElement|null|undefined} modal - Modal element to activate
- * @returns {boolean} Whether the modal was activated
  */
 export function openModal(modal) {
-    if (!modal || modalOpening) return false;
-    modalOpening = true;
-    document.documentElement.dataset.modalTransition = 'begin';
+    if (!modal || openingModal || modal.classList.contains('active')) return;
+
+    openingModal = modal;
+    modal.classList.remove('is-transition-complete');
     modal.classList.add('active');
-    setTimeout(() => {
-        modalOpening = false;
-        document.documentElement.dataset.modalTransition = 'end';
-    }, 400);
-    return true;
+    modalTransitionTimeout = setTimeout(() => finishModalTransition(modal), MODAL_TRANSITION_FALLBACK_MS);
 }
 
 /**
