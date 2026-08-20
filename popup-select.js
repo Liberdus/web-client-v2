@@ -10,7 +10,45 @@ const MIN_SCROLL_THUMB_HEIGHT = 24;
 
 let generatedId = 0;
 let activePopupSelect = null;
+let globalListenersInstalled = false;
 const popupSelectInstances = new WeakMap();
+
+function handleGlobalPointerDown(event) {
+  if (
+    !activePopupSelect ||
+    activePopupSelect.trigger.contains(event.target) ||
+    activePopupSelect.menu.contains(event.target)
+  ) return;
+
+  activePopupSelect.dismiss();
+}
+
+function handleGlobalKeyDown(event) {
+  if (event.key !== 'Escape' || !activePopupSelect) return;
+  event.preventDefault();
+  activePopupSelect.close();
+}
+
+function handleGlobalScroll(event) {
+  if (!activePopupSelect || event.target === activePopupSelect.menu) return;
+  activePopupSelect.dismiss();
+}
+
+function handleGlobalViewportChange() {
+  activePopupSelect?.dismiss();
+}
+
+function installGlobalListeners() {
+  if (globalListenersInstalled) return;
+  globalListenersInstalled = true;
+
+  document.addEventListener('pointerdown', handleGlobalPointerDown, true);
+  document.addEventListener('keydown', handleGlobalKeyDown);
+  document.addEventListener('scroll', handleGlobalScroll, { capture: true, passive: true });
+  window.addEventListener('resize', handleGlobalViewportChange);
+  window.visualViewport?.addEventListener('scroll', handleGlobalViewportChange, { passive: true });
+  window.visualViewport?.addEventListener('resize', handleGlobalViewportChange);
+}
 
 export class PopupSelect {
   static from(select) {
@@ -29,7 +67,6 @@ export class PopupSelect {
     this.select = select;
     this.isOpen = false;
     this.activeIndex = -1;
-    this.positionFrame = null;
     this.originalTabIndex = select.getAttribute('tabindex');
     this.originalAriaHidden = select.getAttribute('aria-hidden');
     this.label = select.labels?.[0] || null;
@@ -47,11 +84,10 @@ export class PopupSelect {
     this.handleTriggerKeyDown = this.handleTriggerKeyDown.bind(this);
     this.handleMenuClick = this.handleMenuClick.bind(this);
     this.handleMenuKeyDown = this.handleMenuKeyDown.bind(this);
-    this.handleDocumentPointerDown = this.handleDocumentPointerDown.bind(this);
-    this.handleDocumentKeyDown = this.handleDocumentKeyDown.bind(this);
-    this.schedulePosition = this.schedulePosition.bind(this);
     this.handleSelectChange = this.handleSelectChange.bind(this);
     this.updateScrollIndicator = this.updateScrollIndicator.bind(this);
+
+    installGlobalListeners();
 
     select.classList.add('popup-select__native');
     select.setAttribute('aria-hidden', 'true');
@@ -159,13 +195,6 @@ export class PopupSelect {
     this.menu.style.visibility = 'hidden';
     document.body.append(this.menu, this.scrollIndicator);
 
-    document.addEventListener('pointerdown', this.handleDocumentPointerDown, true);
-    document.addEventListener('keydown', this.handleDocumentKeyDown);
-    document.addEventListener('scroll', this.schedulePosition, true);
-    window.addEventListener('resize', this.schedulePosition);
-    window.visualViewport?.addEventListener('resize', this.schedulePosition);
-    window.visualViewport?.addEventListener('scroll', this.schedulePosition);
-
     this.positionMenu();
     this.menu.style.visibility = '';
     this.menu.focus({ preventScroll: true });
@@ -181,14 +210,6 @@ export class PopupSelect {
     this.menu.remove();
     this.scrollIndicator.hidden = true;
     this.scrollIndicator.remove();
-    document.removeEventListener('pointerdown', this.handleDocumentPointerDown, true);
-    document.removeEventListener('keydown', this.handleDocumentKeyDown);
-    document.removeEventListener('scroll', this.schedulePosition, true);
-    window.removeEventListener('resize', this.schedulePosition);
-    window.visualViewport?.removeEventListener('resize', this.schedulePosition);
-    window.visualViewport?.removeEventListener('scroll', this.schedulePosition);
-    if (this.positionFrame !== null) cancelAnimationFrame(this.positionFrame);
-    this.positionFrame = null;
   }
 
   close() {
@@ -367,15 +388,6 @@ export class PopupSelect {
     this.scrollThumb.style.top = `${Math.round(thumbTop)}px`;
   }
 
-  schedulePosition(event) {
-    if (event?.target === this.menu) return;
-    if (!this.isOpen || this.positionFrame !== null) return;
-    this.positionFrame = requestAnimationFrame(() => {
-      this.positionFrame = null;
-      this.positionMenu();
-    });
-  }
-
   handleSelectChange() {
     this.refresh();
     if (this.isOpen) this.setActiveIndex(this.getInitialActiveIndex());
@@ -431,16 +443,5 @@ export class PopupSelect {
         this.close();
         break;
     }
-  }
-
-  handleDocumentPointerDown(event) {
-    if (this.trigger.contains(event.target) || this.menu.contains(event.target)) return;
-    this.dismiss();
-  }
-
-  handleDocumentKeyDown(event) {
-    if (event.key !== 'Escape') return;
-    event.preventDefault();
-    this.close();
   }
 }
