@@ -38,19 +38,19 @@ function handleGlobalViewportChange() {
   activePopupSelect?.dismiss();
 }
 
-function installGlobalListeners() {
-  if (globalListenersInstalled) return;
-  globalListenersInstalled = true;
-
-  document.addEventListener('pointerdown', handleGlobalPointerDown, true);
-  document.addEventListener('keydown', handleGlobalKeyDown);
-  document.addEventListener('scroll', handleGlobalScroll, { capture: true, passive: true });
-  window.addEventListener('resize', handleGlobalViewportChange);
-  window.visualViewport?.addEventListener('scroll', handleGlobalViewportChange, { passive: true });
-  window.visualViewport?.addEventListener('resize', handleGlobalViewportChange);
-}
-
 export class PopupSelect {
+  static load() {
+    if (globalListenersInstalled) return;
+    globalListenersInstalled = true;
+
+    document.addEventListener('pointerdown', handleGlobalPointerDown, true);
+    document.addEventListener('keydown', handleGlobalKeyDown);
+    document.addEventListener('scroll', handleGlobalScroll, { capture: true, passive: true });
+    window.addEventListener('resize', handleGlobalViewportChange);
+    window.visualViewport?.addEventListener('scroll', handleGlobalViewportChange, { passive: true });
+    window.visualViewport?.addEventListener('resize', handleGlobalViewportChange);
+  }
+
   static from(select) {
     return popupSelectInstances.get(select) || null;
   }
@@ -86,8 +86,6 @@ export class PopupSelect {
     this.handleMenuKeyDown = this.handleMenuKeyDown.bind(this);
     this.handleSelectChange = this.handleSelectChange.bind(this);
     this.updateScrollIndicator = this.updateScrollIndicator.bind(this);
-
-    installGlobalListeners();
 
     select.classList.add('popup-select__native');
     select.setAttribute('aria-hidden', 'true');

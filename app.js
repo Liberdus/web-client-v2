@@ -722,6 +722,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   timeDifference(); // Calculate and log time difference early
 
   setupConnectivityDetection();
+  PopupSelect.load();
 
   // React Native App
   reactNativeApp.load();
