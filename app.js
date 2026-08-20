@@ -3531,7 +3531,7 @@ class AddProposalModal {
       )),
     ].join('');
 
-    this.optionsList.querySelectorAll('[data-dao-change-key]')
+    this.optionsList.querySelectorAll('select')
       .forEach((select) => PopupSelect.enhance(select));
 
     if (this.addOptionButton) {
@@ -3652,7 +3652,9 @@ class AddProposalModal {
     this.options.push(this.createOption());
     this.synchronizeOptions();
     this.renderOptions();
-    this.optionsList?.querySelector(`[data-dao-option="${this.options.length - 1}"] [data-dao-change-value]`)?.focus();
+    PopupSelect.focus(this.optionsList?.querySelector(
+      `[data-dao-option="${this.options.length - 1}"] [data-dao-change-value]`
+    ));
   }
 
   addParameterChange(optionIndex) {
@@ -36098,8 +36100,8 @@ class PopupSelect {
     PopupSelect.setActiveIndex(PopupSelect.activeIndex);
   }
 
-  static focus(select) {
-    PopupSelect.getTrigger(select)?.focus({ preventScroll: true });
+  static focus(control) {
+    PopupSelect.getVisibleControl(control)?.focus({ preventScroll: true });
   }
 
   static findEnabledIndex(index, direction) {
@@ -36139,7 +36141,10 @@ class PopupSelect {
     const changed = select.selectedIndex !== PopupSelect.activeIndex;
     select.selectedIndex = PopupSelect.activeIndex;
     PopupSelect.close();
-    if (changed) select.dispatchEvent(new Event('change', { bubbles: true }));
+    if (changed) {
+      select.dispatchEvent(new Event('input', { bubbles: true }));
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    }
   }
 
   static positionMenu() {
