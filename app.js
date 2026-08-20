@@ -30333,6 +30333,8 @@ class SendAssetFormModal {
     this.submitButton.disabled = true;
     qrScanModal.fillFunction = this.fillFromQR.bind(this); // set function to handle filling the payment form from QR data
 
+    if (!openModal(this.modal)) return;
+
     if (this.username) {
       this.usernameInput.value = this.username;
       setTimeout(() => {
@@ -30357,7 +30359,6 @@ class SendAssetFormModal {
       this.assetSelectDropdown.value = assetKey;
       await this.handleAssetChange();
     }
-    openModal(this.modal);
   }
 
   getSelectedNetwork() {
@@ -31532,6 +31533,8 @@ class ReceiveModal {
     this.amountInput.value = '';
     this.memoInput.value = '';
 
+    if (!openModal(this.modal)) return;
+
     if (this.mode === 'evm') {
       await evmAssets.refresh();
       evmAssets.populateNetworkSelect(this.networkSelect, {
@@ -31547,7 +31550,6 @@ class ReceiveModal {
       this.assetSelect.value = assetKey;
       await this.handleAssetChange();
     }
-    openModal(this.modal);
   }
 
   close() {

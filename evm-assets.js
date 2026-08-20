@@ -4,7 +4,6 @@ import {
   normalizeUsername,
   openModal,
   utf82bin,
-  waitForModalTransition,
   withButtonCooldown,
 } from './lib.js';
 import { getPublicKey, hashBytes, signMessage } from './crypto.js';
@@ -1333,7 +1332,6 @@ class AssetDetailsModal {
     this.controller = controller;
     this.networkId = null;
     this.assetKey = null;
-    this.isOpeningAction = false;
   }
 
   load() {
@@ -1354,23 +1352,21 @@ class AssetDetailsModal {
     this.contract = document.getElementById('assetDetailsContract');
     this.marketPrice = document.getElementById('assetDetailsMarketPrice');
     this.holdingValue = document.getElementById('assetDetailsHoldingValue');
-    this.sendModal = document.getElementById('sendAssetFormModal');
-    this.receiveModal = document.getElementById('receiveModal');
 
     document.getElementById('closeAssetDetailsModal').addEventListener('click', () => this.close());
     document.getElementById('assetDetailsSend').addEventListener('click', () => {
-      this.openAction(this.sendModal, () => this.controller.openContextualSend({
+      this.controller.openContextualSend({
         mode: 'evm',
         networkId: this.networkId,
         assetKey: this.assetKey,
-      }));
+      });
     });
     document.getElementById('assetDetailsReceive').addEventListener('click', () => {
-      this.openAction(this.receiveModal, () => this.controller.openContextualReceive({
+      this.controller.openContextualReceive({
         mode: 'evm',
         networkId: this.networkId,
         assetKey: this.assetKey,
-      }));
+      });
     });
     document.getElementById('assetDetailsHistory').addEventListener('click', () => {
       this.controller.showToast('EVM transaction history is not available yet.', 3000, 'info');
@@ -1379,18 +1375,6 @@ class AssetDetailsModal {
 
   getSelection() {
     return this.controller.findAsset(this.networkId, this.assetKey, { evmOnly: true });
-  }
-
-  async openAction(modal, action) {
-    if (this.isOpeningAction) return;
-
-    this.isOpeningAction = true;
-    try {
-      await action();
-      await waitForModalTransition(modal);
-    } finally {
-      this.isOpeningAction = false;
-    }
   }
 
   open(networkId, assetKey) {
