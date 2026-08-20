@@ -1332,6 +1332,7 @@ class AssetDetailsModal {
     this.controller = controller;
     this.networkId = null;
     this.assetKey = null;
+    this.isOpeningAction = false;
   }
 
   load() {
@@ -1355,18 +1356,18 @@ class AssetDetailsModal {
 
     document.getElementById('closeAssetDetailsModal').addEventListener('click', () => this.close());
     document.getElementById('assetDetailsSend').addEventListener('click', () => {
-      this.controller.openContextualSend({
+      this.openAction(() => this.controller.openContextualSend({
         mode: 'evm',
         networkId: this.networkId,
         assetKey: this.assetKey,
-      });
+      }));
     });
     document.getElementById('assetDetailsReceive').addEventListener('click', () => {
-      this.controller.openContextualReceive({
+      this.openAction(() => this.controller.openContextualReceive({
         mode: 'evm',
         networkId: this.networkId,
         assetKey: this.assetKey,
-      });
+      }));
     });
     document.getElementById('assetDetailsHistory').addEventListener('click', () => {
       this.controller.showToast('EVM transaction history is not available yet.', 3000, 'info');
@@ -1375,6 +1376,17 @@ class AssetDetailsModal {
 
   getSelection() {
     return this.controller.findAsset(this.networkId, this.assetKey, { evmOnly: true });
+  }
+
+  async openAction(action) {
+    if (this.isOpeningAction) return;
+
+    this.isOpeningAction = true;
+    try {
+      await action();
+    } finally {
+      this.isOpeningAction = false;
+    }
   }
 
   open(networkId, assetKey) {
