@@ -263,6 +263,7 @@ const REQUIRED_NETWORKS = Object.freeze([
     chainId: 1,
     nativeSymbol: 'ETH',
     logoUrl: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png',
+    tokenExplorerUrl: 'https://etherscan.io/token/',
     source: 'evm',
     rpcUrls: DEFAULT_EVM_RPC_URLS.ethereum,
   }),
@@ -273,6 +274,7 @@ const REQUIRED_NETWORKS = Object.freeze([
     chainId: 56,
     nativeSymbol: 'BNB',
     logoUrl: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/smartchain/info/logo.png',
+    tokenExplorerUrl: 'https://bscscan.com/token/',
     source: 'evm',
     rpcUrls: DEFAULT_EVM_RPC_URLS.bsc,
   }),
@@ -283,6 +285,7 @@ const REQUIRED_NETWORKS = Object.freeze([
     chainId: 137,
     nativeSymbol: 'POL',
     logoUrl: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/polygon/info/logo.png',
+    tokenExplorerUrl: 'https://polygonscan.com/token/',
     source: 'evm',
     rpcUrls: DEFAULT_EVM_RPC_URLS.polygon,
   }),
@@ -1418,7 +1421,9 @@ class AssetDetailsModal {
     this.decimals.textContent = Number.isInteger(asset.tokenDecimals)
       ? String(asset.tokenDecimals)
       : 'Unavailable';
-    this.contract.textContent = asset.contractAddress || 'Native asset — no contract';
+    this.contract.innerHTML = asset.contractAddress && walletNetwork.tokenExplorerUrl
+      ? `<a href="${escapeHtml(`${walletNetwork.tokenExplorerUrl}${asset.contractAddress}`)}" target="_blank" rel="noopener noreferrer">${escapeHtml(asset.contractAddress)}</a>`
+      : escapeHtml(asset.contractAddress || 'Native asset — no contract');
     this.marketPrice.textContent = priceText;
     this.marketPrice.style.color = this.price.style.color;
     this.holdingValue.textContent = valueText;
