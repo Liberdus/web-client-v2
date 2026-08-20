@@ -36019,6 +36019,7 @@ class PopupSelect {
     trigger.id = `${select.id}PopupTrigger`;
     trigger.className = 'form-control popup-select__trigger';
     trigger.type = 'button';
+    trigger.setAttribute('role', 'combobox');
     trigger.setAttribute('aria-haspopup', 'listbox');
     trigger.setAttribute('aria-expanded', 'false');
     trigger.setAttribute('aria-controls', PopupSelect.menu.id);
@@ -36027,11 +36028,11 @@ class PopupSelect {
     const accessibleName = select.getAttribute('aria-label');
     const describedBy = select.getAttribute('aria-describedby');
     if (accessibleName) trigger.setAttribute('aria-label', accessibleName);
-    else if (label) trigger.setAttribute('aria-labelledby', label.id);
+    else if (label) trigger.setAttribute('aria-labelledby', `${label.id} ${trigger.id}Value`);
     if (describedBy) trigger.setAttribute('aria-describedby', describedBy);
 
     trigger.innerHTML = `
-      <span class="popup-select__value"></span>
+      <span id="${trigger.id}Value" class="popup-select__value"></span>
       <span class="popup-select__chevron" aria-hidden="true"></span>
     `;
 
@@ -36044,7 +36045,7 @@ class PopupSelect {
 
     const trigger = PopupSelect.getTrigger(select);
     const accessibleName = select.getAttribute('aria-label');
-    const labelledBy = trigger?.getAttribute('aria-labelledby');
+    const labelledBy = trigger?.labels?.[0]?.id;
     PopupSelect.menu.removeAttribute('aria-label');
     PopupSelect.menu.removeAttribute('aria-labelledby');
     PopupSelect.menu.removeAttribute('aria-activedescendant');
@@ -36074,7 +36075,10 @@ class PopupSelect {
     const trigger = PopupSelect.getTrigger(select);
     if (!trigger) return;
 
-    trigger.querySelector('.popup-select__value').textContent = select.options[select.selectedIndex]?.textContent || '';
+    const selectedText = select.options[select.selectedIndex]?.textContent || '';
+    trigger.querySelector('.popup-select__value').textContent = selectedText;
+    const accessibleName = select.getAttribute('aria-label');
+    if (accessibleName) trigger.setAttribute('aria-label', `${accessibleName}: ${selectedText}`);
     trigger.disabled = select.disabled;
     if (PopupSelect.activeSelect !== select) return;
 
