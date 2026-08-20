@@ -273,6 +273,26 @@ export function escapeHtml(str) {
 export const BUTTON_COOLDOWN_MS = 2000;
 export const FAUCET_COOLDOWN_MS = 5000;
 
+let modalOpening = false;
+
+/**
+ * Activates one modal at a time during the opening animation.
+ * Exposes begin/end state on data-modal-transition for end-to-end tests.
+ * @param {HTMLElement|null|undefined} modal - Modal element to activate
+ * @returns {boolean} Whether the modal was activated
+ */
+export function openModal(modal) {
+    if (!modal || modalOpening) return false;
+    modalOpening = true;
+    document.documentElement.dataset.modalTransition = 'begin';
+    modal.classList.add('active');
+    setTimeout(() => {
+        modalOpening = false;
+        document.documentElement.dataset.modalTransition = 'end';
+    }, 400);
+    return true;
+}
+
 /**
  * Wraps an async handler so the given buttons are disabled for a minimum cooldown (ms).
  * If the handler takes longer than ms, cooldown lifts as soon as the handler finishes.

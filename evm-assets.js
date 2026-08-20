@@ -2,6 +2,7 @@ import {
   BUTTON_COOLDOWN_MS,
   escapeHtml,
   normalizeUsername,
+  openModal,
   utf82bin,
   withButtonCooldown,
 } from './lib.js';
@@ -1240,7 +1241,7 @@ class AssetsModal {
   }
 
   async open() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
     await this.update();
   }
 
@@ -1388,7 +1389,7 @@ class AssetDetailsModal {
 
     this.render(walletNetwork, asset);
     this.modal.querySelector('.modal-content').scrollTop = 0;
-    this.modal.classList.add('active');
+    openModal(this.modal);
   }
 
   render(walletNetwork, asset) {
@@ -1572,7 +1573,7 @@ export class EvmSendConfirmationModal {
     this.render(prepared);
     this.confirmButton.disabled = false;
     this.cancelButton.disabled = false;
-    this.modal.classList.add('active');
+    openModal(this.modal);
     return new Promise((resolve) => {
       this.pending = { resolve };
     });

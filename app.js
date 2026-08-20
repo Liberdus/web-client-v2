@@ -154,6 +154,7 @@ import {
   linkifyUrls,
   escapeHtml,
   debounce,
+  openModal,
   withButtonCooldown,
   BUTTON_COOLDOWN_MS,
   FAUCET_COOLDOWN_MS,
@@ -1384,7 +1385,7 @@ class WelcomeMenuModal {
       unlockModal.openButtonElementUsed = welcomeScreen.openWelcomeMenuButton;
       unlockModal.open();
     } else {
-      this.modal.classList.add('active');
+      openModal(this.modal);
       enterFullscreen();
     }
   }
@@ -2381,7 +2382,7 @@ class MenuModal {
   }
 
   open() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
     this.enableSignOutButtonWithDelay();
     enterFullscreen();
   }
@@ -2604,7 +2605,7 @@ class DaoModal {
     if (menuModal?.isActive?.()) menuModal.close();
     footer?.closeNewChatButton?.();
 
-    this.modal.classList.add('active');
+    openModal(this.modal);
     enterFullscreen();
 
     // Default filter is Voting
@@ -3196,7 +3197,7 @@ class AddProposalModal {
   }
 
   open() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
     enterFullscreen();
     this.resetConfigCache();
     this.proposalFeeUsdStr = null;
@@ -4132,7 +4133,7 @@ class ConfirmProposalModal {
     this.currentDraft = draft;
     this.setSubmitting(false);
     this.render();
-    this.modal.classList.add('active');
+    openModal(this.modal);
     enterFullscreen();
   }
 
@@ -4930,7 +4931,7 @@ class ProposalInfoModal {
   async _open(proposalId) {
     this._currentProposalId = proposalId;
 
-    this.modal.classList.add('active');
+    openModal(this.modal);
     enterFullscreen();
 
     let p = null;
@@ -6402,7 +6403,7 @@ class SettingsModal {
   }
 
   open() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
     this.enableSignOutButtonWithDelay();
     enterFullscreen();
   }
@@ -6453,7 +6454,7 @@ class ChatSettingsModal {
     this.warningShown = false;
     this.setSliderValue(this.draftFontSizePx);
     this.updatePreview();
-    this.modal.classList.add('active');
+    openModal(this.modal);
   }
 
   handleSliderInput() {
@@ -6570,7 +6571,7 @@ class ManageContactsModal {
    */
   open() {
     this.clearFile();
-    this.modal.classList.add('active');
+    openModal(this.modal);
     enterFullscreen();
   }
 
@@ -6690,7 +6691,7 @@ class SecretModal {
   }
 
   open() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
     enterFullscreen();
     this.resetSecretState();
   }
@@ -6825,7 +6826,7 @@ class ScanQRModal {
   }
 
   open() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
     this.startCamera();
   }
 
@@ -7530,7 +7531,7 @@ class SignInModal {
 
     // Wait for browser to process DOM changes before starting modal transition.
     requestAnimationFrame(async () => {
-      this.modal.classList.add('active');
+      openModal(this.modal);
 
       // No accounts on this device — open Create Account instead.
       if (usernames.length === 0) {
@@ -7892,7 +7893,7 @@ class MyInfoModal {
 
   async open() {
     await this.updateMyInfo();
-    this.modal.classList.add('active');
+    openModal(this.modal);
   }
 
   close() {
@@ -8156,7 +8157,7 @@ class ContactInfoModal {
       friendModal.updateFriendButton(contact, 'addFriendButtonContactInfo');
     }
 
-    this.modal.classList.add('active');
+    openModal(this.modal);
   }
 
   // Close the modal
@@ -8324,7 +8325,7 @@ class FriendModal {
     this.selectFriendStatus(contact.friend);
     this.initialFriendStatus = contact.friend;
     this.warningShown = false;
-    this.modal.classList.add('active');
+    openModal(this.modal);
 
     if (this.showPendingStatusIfNeeded(contactAddress)) {
       return;
@@ -8843,7 +8844,7 @@ class EditContactModal {
     this.notesInput.value = contactNotes;
 
     // Show the edit contact modal
-    this.modal.classList.add('active');
+    openModal(this.modal);
     // Delay focus to ensure transition completes (modal transition is 300ms)
     setTimeout(() => {
       const inputToFocus = focusField === 'notes' ? this.notesInput : this.nameInput;
@@ -8982,7 +8983,7 @@ class HistoryModal {
   }
 
   open() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
     this.populateAssets();
     this.updateTransactionHistory();
     
@@ -9293,7 +9294,7 @@ class CallsModal {
   open() {
     this.refreshCalls();
     this.render();
-    this.modal.classList.add('active');
+    openModal(this.modal);
     this.clockTimer.start();
     // start periodic refresh to update call button states every 5s
     this._stateInterval = setInterval(() => {
@@ -9617,7 +9618,7 @@ class GroupCallParticipantsModal {
       }
     }
 
-    this.modal?.classList.add('active');
+    openModal(this.modal);
   }
 
   onParticipantClick(e) {
@@ -12253,7 +12254,7 @@ class SearchMessagesModal {
   }
 
   open() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
     // Delay focus to ensure transition completes (modal transition is 300ms)
     setTimeout(() => {
       this.searchInput.focus();
@@ -12473,7 +12474,7 @@ class SearchContactsModal {
   }
 
   open() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
     // Delay focus to ensure transition completes (modal transition is 300ms)
     setTimeout(() => {
       this.searchInput.focus();
@@ -12861,7 +12862,7 @@ class AvatarEditModal {
     await this.refreshPreview();
     // populate three-option avatar selector (contact, mine, identicon)
     try { await this.populateOptions(); } catch (e) { console.warn('populateOptions failed', e); }
-    this.modal.classList.add('active');
+    openModal(this.modal);
     enterFullscreen();
   }
 
@@ -14396,7 +14397,7 @@ class RemoveAccountModal {
 
   open() {
     // called when the modal needs to be opened
-    this.modal.classList.add('active');
+    openModal(this.modal);
   }
 
   close() {
@@ -14511,7 +14512,7 @@ class RemoveAccountsModal {
   open() {
     this.renderAccounts();
     this.submitButton.disabled = true;
-    this.modal.classList.add('active');
+    openModal(this.modal);
   }
 
   close() {
@@ -14770,7 +14771,7 @@ class BackupAccountModal {
 
   open() {
     // called when the modal needs to be opened
-    this.modal.classList.add('active');
+    openModal(this.modal);
     
     // Show/hide checkbox based on login status
     if (myData) {
@@ -15727,7 +15728,7 @@ class RestoreAccountModal {
 
     // clear and show modal
     this.clearForm();
-    this.modal.classList.add('active');
+    openModal(this.modal);
   }
 
   close() {
@@ -15791,7 +15792,7 @@ class RestoreAccountModal {
       const tokenData = await backupModal.startGoogleDriveAuth();
       
       // Show picker modal and load files
-      this.pickerModal.classList.add('active');
+      openModal(this.pickerModal);
       this.pickerLoading.style.display = 'block';
       this.pickerFileList.style.display = 'none';
       this.pickerEmpty.style.display = 'none';
@@ -16480,7 +16481,7 @@ class TollModal {
   }
 
   open() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
     // set currentTollValue to the toll value
     const toll = myData.settings.toll || 0n;
     const tollUnit = myData.settings.tollUnit || 'USD';
@@ -16822,7 +16823,7 @@ class InviteModal {
       }
     }
     this.validateInputs(); // Set initial button state
-    this.modal.classList.add('active');
+    openModal(this.modal);
   }
 
   close() {
@@ -16904,7 +16905,7 @@ class SourceModal {
   }
 
   open() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
   }
 
   close() {
@@ -16946,7 +16947,7 @@ class AboutModal {
 
   open() {
     // Show the modal
-    this.modal.classList.add('active');
+    openModal(this.modal);
   }
 
   close() {
@@ -17007,7 +17008,7 @@ class UpdateWarningModal {
     } else {
       this.storeUrl = 'https://play.google.com/store/apps/details?id=com.jairaj.liberdus';
     }
-    this.modal.classList.add('active');
+    openModal(this.modal);
   }
 
   close() {
@@ -17049,7 +17050,7 @@ class HelpModal {
   }
 
   open() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
   }
 
   close() {
@@ -17071,7 +17072,7 @@ class FarmModal {
   }
 
   open() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
     enterFullscreen();
   }
 
@@ -17122,7 +17123,7 @@ class LogsModal {
   }
 
   open() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
     // Fill the textarea with data and position the scroll to the bottom
     this.logsTextarea.value = this.data;
     this.logsTextarea.scrollTop = this.logsTextarea.scrollHeight;
@@ -17259,7 +17260,7 @@ class MyProfileModal {
 
   open() {
     // called when the modal needs to be opened
-    this.modal.classList.add('active');
+    openModal(this.modal);
     if (myData && myData.account) {
       this.name.value = myData.account.name || '';
       // Email and Phone fields hidden - may want to restore later
@@ -17428,7 +17429,7 @@ class ValidatorStakingModal {
     this.stakeButton.disabled = false;
 
     // Show the modal
-    this.modal.classList.add('active');
+    openModal(this.modal);
 
     this.updatePendingTxUi(this.getCurrentPendingStakeTx());
 
@@ -18005,7 +18006,7 @@ class StakeValidatorModal {
   }
 
   open() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
 
     // Set the correct fill function for the staking context
     qrScanModal.fillFunction = this.fillFromQR.bind(this);
@@ -19591,7 +19592,7 @@ class ChatModal {
     this.loadDraft(address);
 
     // Show modal
-    this.modal.classList.add('active');
+    openModal(this.modal);
 
     // Clear unread count
     const totalUnread = contact.unread;
@@ -26116,7 +26117,7 @@ class CallInviteModal {
 
     this.contactsList.innerHTML = '';
     this.emptyState.style.display = 'none';
-    this.modal.classList.add('active');
+    openModal(this.modal);
 
     const currentChatAddress = chatModal.address || '';
     const myAddress = myAccount?.keys?.address || '';
@@ -26462,7 +26463,7 @@ class ShareAttachmentModal {
 
     this.contactsList.innerHTML = '';
     this.emptyState.style.display = 'none';
-    this.modal.classList.add('active');
+    openModal(this.modal);
 
     // Build contacts list (exclude self and current chat contact) and group by status
     const currentChatAddress = chatModal.address;
@@ -26909,7 +26910,7 @@ class ShareContactsModal {
     this.actionButton.style.display = 'none';
 
     // Show modal
-    this.modal.classList.add('active');
+    openModal(this.modal);
 
     // Check if account is private - show restriction message if so
     if (isPrivateAccount()) {
@@ -27407,7 +27408,7 @@ class ImportContactsModal {
     this.actionButton.style.display = 'none';
 
     // Show modal
-    this.modal.classList.add('active');
+    openModal(this.modal);
 
     // Check if account is private - show restriction message if so
     if (isPrivateAccount()) {
@@ -28164,7 +28165,7 @@ class CallScheduleChoiceModal {
 
   open(onSelect) {
     this.onSelect = onSelect;
-    this.modal?.classList.add('active');
+    openModal(this.modal);
     this._startRecipientTimeUpdates();
   }
 
@@ -28267,7 +28268,7 @@ class DurationPickerModal {
     this.daysSelect.value = String(initialParts.days);
     this.hoursSelect.value = String(initialParts.hours);
     this.minutesSelect.value = String(initialParts.minutes);
-    this.modal.classList.add('active');
+    openModal(this.modal);
     this._updateAvailableOptions();
     requestAnimationFrame(() => this.daysSelect?.focus());
   }
@@ -28438,7 +28439,7 @@ class DateTimePickerModal {
         : '';
     }
 
-    this.modal?.classList.add('active');
+    openModal(this.modal);
     this.clockTimer.start();
     this._updatePreview();
     requestAnimationFrame(() => this.dateInput?.focus());
@@ -29450,7 +29451,7 @@ class NewChatModal {
    * @returns {void}
    */
   openNewChatModal() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
     footer.closeNewChatButton();
     this.usernameAvailable.style.display = 'none';
     this.submitButton.disabled = true;
@@ -29801,7 +29802,7 @@ class CreateAccountModal {
       this.migrateAccountsSection.style.display = 'none';
     }
 
-    this.modal.classList.add('active');
+    openModal(this.modal);
     enterFullscreen();
     // Delay focus to ensure transition completes (modal transition is 300ms)
     setTimeout(() => {
@@ -30353,7 +30354,7 @@ class SendAssetFormModal {
       this.assetSelectDropdown.value = assetKey;
       await this.handleAssetChange();
     }
-    this.modal.classList.add('active');
+    openModal(this.modal);
   }
 
   getSelectedNetwork() {
@@ -31173,7 +31174,7 @@ class SendAssetConfirmModal {
   }
 
   open() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
   }
 
   close() {
@@ -31543,7 +31544,7 @@ class ReceiveModal {
       this.assetSelect.value = assetKey;
       await this.handleAssetChange();
     }
-    this.modal.classList.add('active');
+    openModal(this.modal);
   }
 
   close() {
@@ -31837,7 +31838,7 @@ class FailedTransactionModal {
     this.txid = txid;
     //open.assetID = assetID;
 
-    this.modal.classList.add('active');
+    openModal(this.modal);
   }
 
   /**
@@ -32004,7 +32005,7 @@ class BridgeModal {
   }
 
   open() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
     
     // Reset defaults
     this.direction = 'in';
@@ -32101,7 +32102,7 @@ class MigrateAccountsModal {
     try {
       await this.populateAccounts();
       if (createAccountModal.isCreatingAccount) return;
-      this.modal.classList.add('active');
+      openModal(this.modal);
     } finally {
       this.isOpening = false;
       createAccountModal.refreshControlStates();
@@ -32616,7 +32617,7 @@ class LockModal {
     this.clearInputs();
 
     // show the modal
-    this.modal.classList.add('active');
+    openModal(this.modal);
   }
 
   close() {
@@ -32849,7 +32850,7 @@ class UnlockModal {
   }
 
   open() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
     setTimeout(() => this.updateButtonState(), 100);
   }
 
@@ -32955,7 +32956,7 @@ class LaunchModal {
   }
 
   open() {
-    this.modal.classList.add('active');
+    openModal(this.modal);
     this.hasShownBackupReminderThisOpen = false;
     this.urlInput.value = window.location.href.split('?')[0];
     this.updateButtonState();
