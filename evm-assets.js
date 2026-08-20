@@ -1275,7 +1275,7 @@ class AssetsModal {
     if (selectedNetworkId === 'all') {
       this.connectionSummary.textContent = loading
         ? 'Connecting wallet networks…'
-        : this.controller.getConnectionText();
+        : '';
       this.connectionSummary.dataset.status = loading ? 'loading' : this.controller.getStatus();
       return;
     }
