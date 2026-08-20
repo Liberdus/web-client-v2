@@ -1312,7 +1312,7 @@ class AssetsModal {
             <div class="asset-info">
               <div class="asset-name">${escapeHtml(asset.tokenName)}</div>
               <div class="asset-symbol">
-                ${asset.tokenPriceUsd === null ? 'Price unavailable' : `${formatConnectedUsd(asset.tokenPriceUsd)} / ${escapeHtml(asset.tokenSymbol)}`}
+                ${asset.tokenPriceUsd === null ? '<span style="color: var(--danger-color)">$0</span>' : `${formatConnectedUsd(asset.tokenPriceUsd)} / ${escapeHtml(asset.tokenSymbol)}`}
               </div>
             </div>
             <div class="asset-balance">
@@ -1397,7 +1397,7 @@ class AssetDetailsModal {
 
   render(walletNetwork, asset) {
     const priceText = asset.tokenPriceUsd === null
-      ? 'Price unavailable'
+      ? '$0'
       : formatConnectedUsd(asset.tokenPriceUsd);
     const valueText = formatConnectedUsd(asset.tokenValueUsd);
     const amountText = `${formatConnectedTokenAmount(asset.tokenAmount)} ${asset.tokenSymbol}`;
@@ -1405,6 +1405,7 @@ class AssetDetailsModal {
     this.title.textContent = asset.tokenSymbol;
     this.symbol.textContent = asset.tokenName;
     this.price.textContent = priceText;
+    this.price.style.color = asset.tokenPriceUsd === null ? 'var(--danger-color)' : '';
     this.updated.textContent = formatAssetDetailsUpdatedAt(this.controller.getUpdatedAt());
     this.logo.innerHTML = connectedAssetLogoMarkup(asset, walletNetwork);
     this.name.textContent = asset.tokenName;
@@ -1419,6 +1420,7 @@ class AssetDetailsModal {
       : 'Unavailable';
     this.contract.textContent = asset.contractAddress || 'Native asset — no contract';
     this.marketPrice.textContent = priceText;
+    this.marketPrice.style.color = this.price.style.color;
     this.holdingValue.textContent = valueText;
   }
 
