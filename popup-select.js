@@ -13,29 +13,29 @@ let activePopupSelect = null;
 let globalListenersInstalled = false;
 const popupSelectInstances = new WeakMap();
 
-function handleGlobalPointerDown(event) {
+function handleDocumentPointerDown(event) {
   if (
     !activePopupSelect ||
     activePopupSelect.trigger.contains(event.target) ||
     activePopupSelect.menu.contains(event.target)
   ) return;
 
-  activePopupSelect.dismiss();
+  activePopupSelect.hide();
 }
 
-function handleGlobalKeyDown(event) {
+function handleDocumentKeyDown(event) {
   if (event.key !== 'Escape' || !activePopupSelect) return;
   event.preventDefault();
   activePopupSelect.close();
 }
 
-function handleGlobalScroll(event) {
+function handleDocumentScroll(event) {
   if (!activePopupSelect || event.target === activePopupSelect.menu) return;
-  activePopupSelect.dismiss();
+  activePopupSelect.hide();
 }
 
-function handleGlobalViewportChange() {
-  activePopupSelect?.dismiss();
+function handleViewportChange() {
+  activePopupSelect?.hide();
 }
 
 export class PopupSelect {
@@ -43,20 +43,20 @@ export class PopupSelect {
     if (globalListenersInstalled) return;
     globalListenersInstalled = true;
 
-    document.addEventListener('pointerdown', handleGlobalPointerDown, true);
-    document.addEventListener('keydown', handleGlobalKeyDown);
-    document.addEventListener('scroll', handleGlobalScroll, { capture: true, passive: true });
-    window.addEventListener('resize', handleGlobalViewportChange);
-    window.visualViewport?.addEventListener('scroll', handleGlobalViewportChange, { passive: true });
-    window.visualViewport?.addEventListener('resize', handleGlobalViewportChange);
+    document.addEventListener('pointerdown', handleDocumentPointerDown, true);
+    document.addEventListener('keydown', handleDocumentKeyDown);
+    document.addEventListener('scroll', handleDocumentScroll, { capture: true, passive: true });
+    window.addEventListener('resize', handleViewportChange);
+    window.visualViewport?.addEventListener('scroll', handleViewportChange, { passive: true });
+    window.visualViewport?.addEventListener('resize', handleViewportChange);
   }
 
-  static from(select) {
+  static getInstance(select) {
     return popupSelectInstances.get(select) || null;
   }
 
-  static visibleControl(control) {
-    return PopupSelect.from(control)?.trigger || control;
+  static getVisibleControl(control) {
+    return PopupSelect.getInstance(control)?.trigger || control;
   }
 
   constructor(select) {
@@ -101,7 +101,7 @@ export class PopupSelect {
     this.menu.addEventListener('scroll', this.updateScrollIndicator);
     select.addEventListener('change', this.handleSelectChange);
 
-    this.refresh();
+    this.syncFromSelect();
   }
 
   createTrigger() {
@@ -158,7 +158,7 @@ export class PopupSelect {
     return indicator;
   }
 
-  refresh() {
+  syncFromSelect() {
     const selectedOption = this.select.options[this.select.selectedIndex];
     this.value.textContent = selectedOption?.textContent || '';
     this.trigger.disabled = this.select.disabled;
@@ -184,10 +184,10 @@ export class PopupSelect {
   open() {
     if (this.isOpen || this.select.disabled || this.select.options.length === 0) return;
 
-    activePopupSelect?.dismiss();
+    activePopupSelect?.hide();
     activePopupSelect = this;
     this.isOpen = true;
-    this.refresh();
+    this.syncFromSelect();
     this.activeIndex = this.getInitialActiveIndex();
     this.trigger.setAttribute('aria-expanded', 'true');
     this.menu.style.visibility = 'hidden';
@@ -199,7 +199,7 @@ export class PopupSelect {
     this.setActiveIndex(this.activeIndex);
   }
 
-  dismiss() {
+  hide() {
     if (!this.isOpen) return;
 
     this.isOpen = false;
@@ -212,12 +212,12 @@ export class PopupSelect {
 
   close() {
     if (!this.isOpen) return;
-    this.dismiss();
+    this.hide();
     this.focus();
   }
 
   destroy() {
-    this.dismiss();
+    this.hide();
     this.trigger.removeEventListener('click', this.handleTriggerClick);
     this.trigger.removeEventListener('keydown', this.handleTriggerKeyDown);
     this.menu.removeEventListener('click', this.handleMenuClick);
@@ -387,7 +387,7 @@ export class PopupSelect {
   }
 
   handleSelectChange() {
-    this.refresh();
+    this.syncFromSelect();
     if (this.isOpen) this.setActiveIndex(this.getInitialActiveIndex());
   }
 

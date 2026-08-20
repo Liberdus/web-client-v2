@@ -3211,12 +3211,12 @@ class AddProposalModal {
     if (this.titleInput) this.titleInput.value = '';
     if (this.typeSelect) {
       this.typeSelect.value = 'governance';
-      this.typePopupSelect.refresh();
+      this.typePopupSelect.syncFromSelect();
     }
     if (this.descriptionInput) this.descriptionInput.value = '';
     if (this.emergencySelect) {
       this.emergencySelect.value = 'false';
-      this.emergencyPopupSelect.refresh();
+      this.emergencyPopupSelect.syncFromSelect();
     }
     this.reviewStartTimeMs = 0;
     this.gracePeriodMs = 0;
@@ -3232,9 +3232,9 @@ class AddProposalModal {
   }
 
   close() {
-    this.typePopupSelect?.dismiss();
-    this.emergencyPopupSelect?.dismiss();
-    this.parameterSelects.forEach((popupSelect) => popupSelect.dismiss());
+    this.typePopupSelect?.hide();
+    this.emergencyPopupSelect?.hide();
+    this.parameterSelects.forEach((popupSelect) => popupSelect.hide());
     this.modal.classList.remove('active');
     enterFullscreen();
   }
@@ -3351,7 +3351,7 @@ class AddProposalModal {
   }
 
   clearValidationError(target) {
-    const control = PopupSelect.visibleControl(target);
+    const control = PopupSelect.getVisibleControl(target);
     const highlight = this.getValidationHighlight(control);
     highlight?.classList.remove('dao-form-error');
     if (control?.matches?.('input, select, textarea, button')) {
@@ -3364,7 +3364,7 @@ class AddProposalModal {
   }
 
   showValidationError(error) {
-    const target = PopupSelect.visibleControl(error?.validationTarget);
+    const target = PopupSelect.getVisibleControl(error?.validationTarget);
     const highlight = this.getValidationHighlight(target);
     if (highlight) {
       highlight.classList.add('dao-form-error');
@@ -3680,7 +3680,7 @@ class AddProposalModal {
     const parameterSelect = this.optionsList?.querySelector(
       `[data-dao-option="${optionIndex}"] [data-dao-change-row]:last-child [data-dao-change-key]`
     );
-    PopupSelect.from(parameterSelect)?.focus();
+    PopupSelect.getInstance(parameterSelect)?.focus();
   }
 
   handleOptionsClick(event) {
@@ -3739,7 +3739,7 @@ class AddProposalModal {
     change.value = '';
     this.synchronizeOptions();
     this.renderOptions();
-    PopupSelect.from(this.optionsList?.querySelector(
+    PopupSelect.getInstance(this.optionsList?.querySelector(
       `[data-dao-change-key][data-dao-option-index="${optionIndex}"][data-dao-change-index="${changeIndex}"]`
     ))?.focus();
   }
