@@ -1222,7 +1222,10 @@ class AssetsModal {
     this.assetsList = document.getElementById('connectedAssetsList');
 
     document.getElementById('closeAssetsModal').addEventListener('click', () => this.close());
-    this.networkSelect.addEventListener('change', () => this.render());
+    this.networkSelect.addEventListener('change', () => {
+      this.updateConnectionSummary();
+      this.render();
+    });
     this.assetsList.addEventListener('click', (event) => {
       const assetButton = event.target.closest('.connected-asset-button');
       if (!assetButton) return;
@@ -1257,16 +1260,34 @@ class AssetsModal {
   }
 
   async update({ force = false } = {}) {
-    this.connectionSummary.textContent = 'Connecting wallet networks…';
-    this.connectionSummary.dataset.status = 'loading';
+    this.updateConnectionSummary({ loading: true });
     await this.controller.refresh({ force });
 
     const totalUsd = this.controller.getTotalUsd({ evmOnly: true });
     this.totalBalance.textContent = totalUsd === null ? 'N/A' : totalUsd.toFixed(2);
     this.controller.populateNetworkSelect(this.networkSelect, { includeAll: true, evmOnly: true });
-    this.connectionSummary.textContent = this.controller.getConnectionText();
-    this.connectionSummary.dataset.status = this.controller.getStatus();
+    this.updateConnectionSummary();
     this.render();
+  }
+
+  updateConnectionSummary({ loading = false } = {}) {
+    const selectedNetworkId = this.networkSelect?.value || 'all';
+    if (selectedNetworkId === 'all') {
+      this.connectionSummary.textContent = loading
+        ? 'Connecting wallet networks…'
+        : this.controller.getConnectionText();
+      this.connectionSummary.dataset.status = loading ? 'loading' : this.controller.getStatus();
+      return;
+    }
+
+    const network = this.controller.getNetwork(selectedNetworkId);
+    if (!network) return;
+    this.connectionSummary.textContent = loading
+      ? `Connecting to ${network.name}…`
+      : `${network.name} is ${network.connected ? 'connected' : 'ready'}`;
+    this.connectionSummary.dataset.status = loading
+      ? 'loading'
+      : (network.connected ? 'connected' : 'ready');
   }
 
   render() {
