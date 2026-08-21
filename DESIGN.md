@@ -305,6 +305,19 @@ question an existing one already answers (§1.5).
 `ui-row`. Sections cost a heading, a note and vertical space, and imply the
 content is substantial.
 
+**A marker beats a word for anything repeated down a list.** A chat row shows
+what happened to *your* last message with a 14px `.chat-status` glyph — a
+single check for sent, a clock for sending, a filled red badge for failed, and
+nothing at all when the last message was theirs. It replaced `"You: "`, which
+spent five characters of a preview that has none to spare and repeated the same
+word down the whole screen.
+
+Two rules came out of it. **Keep the slot fixed-width**, or rows stop lining up
+— the same defect as putting a variable-width unread badge before the preview
+text. And **never claim more than the system knows**: the message vocabulary
+here is `pending | sent | failed` with no delivered or read state, so a second
+check would assert something nothing in the app can verify.
+
 **Blue means "this does something consequential."** If every control in a run
 of rows is blue, none of them reads as more important than the others. `Collect`
 (moves money) is blue; `Copy` (copies a link) is a muted `ui-row-value`. A
