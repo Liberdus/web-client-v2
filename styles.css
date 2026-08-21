@@ -11048,10 +11048,17 @@ button.ui-row-value:not(:disabled):hover {
    Group chat — what genuinely is group-specific.
    ========================================================================== */
 
+/* The line under a conversation's name in its header: who is in a group, or
+   the username behind a nickname in a 1:1. Named for the slot, not for groups,
+   because both kinds of chat have one. */
+.chat-subtitle,
 .group-subtitle {
   font-size: 0.72rem;
   color: var(--secondary-text-color);
   line-height: 1.2;
+}
+.chat-subtitle:empty {
+  display: none;
 }
 
 .group-info-summary {

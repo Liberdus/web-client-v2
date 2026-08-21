@@ -19433,6 +19433,7 @@ class ChatModal {
     this.cancelEditButton = document.getElementById('cancelEditButton');
     this.modalAvatar = this.modal.querySelector('.modal-avatar');
     this.modalTitle = this.modal.querySelector('.modal-title');
+    this.chatSubtitle = document.getElementById('chatSubtitle');
     this.headerMenuButton = document.getElementById('chatHeaderMenuButton');
     this.headerContextMenu = document.getElementById('chatHeaderContextMenu');
     this.retryOfTxId = document.getElementById('retryOfTxId');
@@ -20002,6 +20003,23 @@ class ChatModal {
 
     this.chatRenderedOldestIndex = nextOldestIndex;
     list.insertAdjacentHTML('afterbegin', range.html);
+
+    /*
+     * Reconcile the seam. The batch just prepended and the messages already on
+     * screen can be the same speaker across the join, and the existing element
+     * cannot know that — it was rendered when it was the oldest thing in the
+     * list and correctly started a run. Without this, scrolling up puts a
+     * visible break in the middle of one person's turn.
+     */
+    const seamPrev = oldFirstMessage?.previousElementSibling;
+    if (
+      oldFirstMessage?.classList.contains('message') &&
+      seamPrev?.classList.contains('message')
+    ) {
+      const sameSpeaker =
+        seamPrev.classList.contains('sent') === oldFirstMessage.classList.contains('sent');
+      oldFirstMessage.classList.toggle('message--continues', sameSpeaker);
+    }
     const prependedThumbnailRows = [];
     for (let messageEl = list.firstElementChild; messageEl && messageEl !== oldFirstMessage; messageEl = messageEl.nextElementSibling) {
       prependedThumbnailRows.push(
@@ -20127,6 +20145,17 @@ class ChatModal {
     friendModal.updateFriendButton(contact, 'addFriendButtonChat');
     // Set user info
     this.modalTitle.textContent = getContactDisplayName(contact);
+    /*
+     * The username, under the name. getContactDisplayName prefers a nickname
+     * you set over the username, so with a nickname in the title the identity
+     * people actually share was nowhere on the screen. Left empty when the
+     * title already IS the username — :empty then hides the line rather than
+     * printing the same thing twice.
+     */
+    if (this.chatSubtitle) {
+      const showsNickname = !!contact?.name && !!contact?.username && contact.name !== contact.username;
+      this.chatSubtitle.textContent = showsNickname ? `@${contact.username}` : '';
+    }
 
     walletScreen.updateWalletBalances();
 
@@ -21590,7 +21619,7 @@ class ChatModal {
     return `https://maps.google.com/?q=${query}`;
   }
 
-  renderChatMessageHTML(item, { contact, lastReadTs }) {
+  renderChatMessageHTML(item, { contact, lastReadTs, continuesRun = false }) {
     const timeString = formatTime(item.timestamp);
     // Use a consistent timestamp attribute for potential future use (e.g., message jumping)
     const timestampAttribute = `data-message-timestamp="${item.timestamp}"`;
@@ -21615,7 +21644,7 @@ class ChatModal {
       const amountNum = parseFloat(amountStr);
       const amountDisplay = `${amountNum.toFixed(6)} ${item.symbol || 'LIB'}`;
       const directionText = item.my ? '-' : '+';
-      const messageClass = item.my ? 'sent' : 'received';
+      const messageClass = `${item.my ? 'sent' : 'received'}${continuesRun ? ' message--continues' : ''}`;
       const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
       // --- Render Payment Transaction ---
       return `
@@ -21631,7 +21660,8 @@ class ChatModal {
     }
 
     // --- Render Chat Message ---
-    const messageClass = item.my ? 'sent' : 'received';
+    const runClass = continuesRun ? ' message--continues' : '';
+    const messageClass = `${item.my ? 'sent' : 'received'}${runClass}`;
     // Check if message was deleted
     if (isDeleted(item)) {
       // Render deleted message with special styling
@@ -21828,9 +21858,24 @@ class ChatModal {
 
     // Iterate backwards through messages (oldest to newest for rendering order)
     // messages are already sorted descending (newest first) in myData
+    /*
+     * Who spoke last, so a run of messages from one person is drawn as one
+     * block rather than as several separate arrivals — the same treatment
+     * group chat gets in renderTextConversation. There are no sender labels
+     * here, so a run only tightens the spacing and squares the shared corner.
+     *
+     * Reset by anything that is not an ordinary bubble: a toll divider or a
+     * date break ends the run, and the speaker starts a new one after it.
+     */
+    let lastSpeaker = null;
+
     for (let i = oldestIndex; i >= newestIndex; i--) {
       const item = messages[i];
-      renderedMessages.push(this.renderChatMessageHTML(item, { contact, lastReadTs }));
+      const speaker = item.type === 'update_toll_required' ? null : (item.my ? 'me' : 'them');
+      const continuesRun = speaker !== null && speaker === lastSpeaker;
+      lastSpeaker = speaker;
+
+      renderedMessages.push(this.renderChatMessageHTML(item, { contact, lastReadTs, continuesRun }));
       if (item.txid) renderedTxids.push(item.txid);
     }
 
