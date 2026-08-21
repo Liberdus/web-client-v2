@@ -1,0 +1,172 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wallet — design options</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <style>
+      body { margin: 0; background: #ececed; font-family: 'Inter', sans-serif; }
+      .page { max-width: 1180px; margin: 0 auto; padding: 28px 20px 90px; }
+      .lede { max-width: 66ch; font-size: 14px; line-height: 1.6; color: #4a4c5c; margin: 0 0 28px; }
+      .row { display: flex; gap: 26px; flex-wrap: wrap; align-items: flex-start; }
+      figure { margin: 0; width: 360px; }
+      figcaption { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+      .why { font-size: 12.5px; line-height: 1.55; color: #65676b; margin: 0 0 10px; min-height: 66px; }
+      .frame { background: #fff; border: 1px solid #dcdce4; border-radius: 12px; overflow: hidden; padding-bottom: 8px; }
+      .tag { display:inline-block; font-size:10px; letter-spacing:.06em; text-transform:uppercase;
+             padding:2px 7px; border-radius:3px; margin-left:6px; font-weight:600; vertical-align:2px;}
+      .now { background:#f3d6d4; color:#8a2018; } .rec { background:#d7e7d8; color:#1f6b2a; }
+
+      /* ---------- proposal-only scaffolding ---------- */
+      .w-balance { padding: 28px 20px 22px; text-align: center; }
+      .w-cap { font-size: 13px; font-weight: 500; color: var(--secondary-text-color); letter-spacing: .02em; }
+      .w-amount { font-size: 44px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-color);
+                  font-variant-numeric: tabular-nums; line-height: 1.1; margin-top: 6px; }
+      .w-native { font-size: 14px; color: var(--secondary-text-color); font-variant-numeric: tabular-nums; margin-top: 4px; }
+      .w-delta { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 6px; color: #1f6b2a; }
+
+      .w-primary { display: flex; gap: 10px; padding: 0 16px 4px; }
+      .w-primary .btn { flex: 1 1 0; height: 46px; border-radius: 23px; font-size: 15px; }
+
+      .w-secondary { display: flex; justify-content: center; gap: 4px; padding: 14px 12px 6px; flex-wrap: wrap; }
+      .w-link { background: none; border: 0; cursor: pointer; font-family: var(--font-primary);
+                font-size: 13.5px; font-weight: 500; color: var(--primary-color); padding: 6px 12px; border-radius: 999px; }
+      .w-link:hover { background: var(--hover-background-purple); }
+      .w-link .ext { color: var(--secondary-text-color); font-size: 11px; margin-left: 3px; }
+
+      .w-card { margin: 16px; padding: 22px 20px 18px; border-radius: 16px;
+                background: linear-gradient(150deg, #3d3dce, #5b4fd6 55%, #7b5bd6); color: #fff; }
+      .w-card .w-cap { color: rgba(255,255,255,.72); }
+      .w-card .w-amount { color: #fff; }
+      .w-card .w-native { color: rgba(255,255,255,.72); }
+      .w-spark { display:block; width:100%; height:38px; margin-top:14px; }
+
+      .w-sect { font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
+                color: var(--secondary-text-color); padding: 0 16px; margin: 18px 0 6px; text-align: left; }
+      .w-asset { display:flex; align-items:center; gap:12px; padding:10px 16px; }
+      .w-asset .lg { width:36px;height:36px;border-radius:50%;background:var(--light-color);flex:none;
+                     display:grid;place-items:center;overflow:hidden }
+      .w-asset .lg img { width:100%;height:100%;object-fit:contain }
+      .w-asset .nm { flex:1; min-width:0; text-align:left }
+      .w-asset .nm b { display:block; font-size:15px; font-weight:600 }
+      .w-asset .nm span { font-size:13px; color:var(--secondary-text-color); font-variant-numeric:tabular-nums }
+      .w-asset .bal { text-align:right; font-variant-numeric:tabular-nums }
+      .w-asset .bal b { display:block; font-size:15px; font-weight:600 }
+      .w-asset .bal span { font-size:13px; color:var(--secondary-text-color) }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <p class="lede">
+        Two things drive every option below. <b>The six action buttons are not six of a kind</b> — Send and
+        Receive act on your money in-app, History is a destination, Buy and Sell open liberdus.com in a new
+        tab, and Faucet becomes Bridge on mainnet. Giving them identical boxes says they are the same kind of
+        thing. And <b>with one asset, the page states the same number twice</b>: once as Total Balance and
+        again as the only row of the asset list.
+      </p>
+      <div class="row" id="row"></div>
+    </div>
+
+    <script type="module">
+      const logo = '../media/liberdus_logo_50.png';
+      const row = document.getElementById('row');
+
+      const assets = (n) => `
+        <div class="w-sect">Assets</div>
+        ${[['Liberdus','$1.02','1,234.50','$1,259.19'],['Ethereum','$3,401.88','0.0074','$25.17']]
+          .slice(0, n).map(([a,b,c,d]) => `
+          <div class="w-asset">
+            <div class="lg"><img src="${logo}" alt=""></div>
+            <div class="nm"><b>${a}</b><span>${b}</span></div>
+            <div class="bal"><b>${c}</b><span>${d}</span></div>
+          </div>`).join('')}`;
+
+      const spark = `<svg class="w-spark" viewBox="0 0 300 38" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 30 L30 27 L60 31 L90 22 L120 25 L150 16 L180 19 L210 11 L240 14 L270 7 L300 4"
+              fill="none" stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M0 30 L30 27 L60 31 L90 22 L120 25 L150 16 L180 19 L210 11 L240 14 L270 7 L300 4 L300 38 L0 38 Z"
+              fill="rgba(255,255,255,.14)"/></svg>`;
+
+      const block = (title, tag, why, body) => `
+        <figure>
+          <figcaption>${title}${tag}</figcaption>
+          <p class="why">${why}</p>
+          <div class="frame">${body}</div>
+        </figure>`;
+
+      row.innerHTML = [
+        block('Today', '<span class="tag now">now</span>',
+          'A tinted box around a number, and six bordered boxes in a 3+3 grid. The box has no job — the balance is already the biggest thing on the page. The buttons are the only bordered-box controls in an app whose button language is pills.',
+          `<div class="wallet-balance" style="margin:16px">
+             <div class="balance-label">Total Balance</div>
+             <div class="balance-amount">$1,284.50 <button class="refresh-button">↻</button></div>
+           </div>
+           <div class="wallet-actions">
+             ${['Send','Receive','History'].map(l=>`<button class="wallet-action-button"><span class="action-icon"></span><span class="action-label">${l}</span></button>`).join('')}
+             <div class="wallet-actions-break"></div>
+             ${['Buy','Sell','Faucet'].map(l=>`<button class="wallet-action-button"><span class="action-icon"></span><span class="action-label">${l}</span></button>`).join('')}
+           </div>
+           ${assets(1)}`),
+
+        block('A — no box, two real actions', '<span class="tag rec">recommended</span>',
+          'The balance is the page, so it gets air instead of a container. Send and Receive become full pills — the app\'s actual button language. Everything else drops to one quiet row, where an arrow marks the two that leave the app.',
+          `<div class="w-balance">
+             <div class="w-cap">Total balance</div>
+             <div class="w-amount">$1,284.50</div>
+             <div class="w-native">1,234.50 LIB</div>
+           </div>
+           <div class="w-primary">
+             <button class="btn btn--primary btn--pill">Send</button>
+             <button class="btn btn--secondary btn--pill">Receive</button>
+           </div>
+           <div class="w-secondary">
+             <button class="w-link">History</button>
+             <button class="w-link">Buy<span class="ext">↗</span></button>
+             <button class="w-link">Sell<span class="ext">↗</span></button>
+             <button class="w-link">Faucet</button>
+           </div>
+           ${assets(2)}`),
+
+        block('B — a card that earns its keep', '',
+          'If there is going to be a panel, it should hold something a bare number cannot: the native amount, the change, and a trend. A gradient tied to the app\'s accent rather than an 8% tint of it.',
+          `<div class="w-card">
+             <div class="w-cap">Total balance</div>
+             <div class="w-amount">$1,284.50</div>
+             <div class="w-native">1,234.50 LIB · <span style="color:#b8f5c4">+2.4% today</span></div>
+             ${spark}
+           </div>
+           <div class="w-primary">
+             <button class="btn btn--primary btn--pill">Send</button>
+             <button class="btn btn--secondary btn--pill">Receive</button>
+           </div>
+           <div class="w-secondary">
+             <button class="w-link">History</button>
+             <button class="w-link">Buy<span class="ext">↗</span></button>
+             <button class="w-link">Sell<span class="ext">↗</span></button>
+             <button class="w-link">Faucet</button>
+           </div>
+           ${assets(2)}`),
+
+        block('C — one asset, one number', '',
+          'What A looks like today, with only LIB. The asset list disappears rather than repeating the balance in smaller type, and the native amount moves up into the balance. The list returns the moment a second asset exists.',
+          `<div class="w-balance">
+             <div class="w-cap">Total balance</div>
+             <div class="w-amount">$1,284.50</div>
+             <div class="w-native">1,234.50 LIB · $1.02 each</div>
+           </div>
+           <div class="w-primary">
+             <button class="btn btn--primary btn--pill">Send</button>
+             <button class="btn btn--secondary btn--pill">Receive</button>
+           </div>
+           <div class="w-secondary">
+             <button class="w-link">History</button>
+             <button class="w-link">Buy<span class="ext">↗</span></button>
+             <button class="w-link">Sell<span class="ext">↗</span></button>
+             <button class="w-link">Faucet</button>
+           </div>
+           <div style="height:120px"></div>`),
+      ].join('');
+    </script>
+  </body>
+</html>

@@ -183,6 +183,9 @@
           const wallet = doc.getElementById('walletScreen').cloneNode(true);
           wallet.style.display = 'block';
           wallet.querySelector('#walletTotalBalance').textContent = '1,284.50';
+          wallet.querySelector('#walletNativeBalance').textContent = '1234.500000 LIB';
+          // History carries an unread marker set by the transaction poll.
+          wallet.querySelector('#openHistoryModal').classList.add('has-notification');
           // Reproduces the asset row from updateWalletView.
           const asset = (name, price, bal, worth) => `
             <div class="asset-item">
