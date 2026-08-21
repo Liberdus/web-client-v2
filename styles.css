@@ -8399,6 +8399,7 @@ small {
 
 #daoModal .dao-filter-bar {
   background: rgba(61, 61, 206, 0.14);
+  border-radius: var(--overlay-border-radius);
   display: grid;
   gap: 6px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
