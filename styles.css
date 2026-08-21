@@ -8530,7 +8530,7 @@ small {
 
 #daoModal .dao-proposal-row {
   align-items: center;
-  border-top: 1px solid var(--border-color, rgba(0,0,0,0.08));
+  border-bottom: 1px solid var(--border-color, rgba(0,0,0,0.08));
   box-sizing: border-box;
   height: auto;
   min-height: 68px;
