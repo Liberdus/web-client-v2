@@ -6626,7 +6626,7 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   flex: 1;
   font-family: var(--font-primary);
   font-size: var(--font-size-base);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--text-color);
   text-align: left;
   min-width: 0;
@@ -6639,9 +6639,7 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   border-color: rgba(220, 53, 69, 0.35);
 }
 
-#signInModal .sign-in-account-item.is-private .sign-in-account-name {
-  color: var(--danger-color);
-}
+
 
 #signInModal .sign-in-account-item.is-private:hover .sign-in-account-card {
   border-color: var(--danger-color);
@@ -6653,13 +6651,17 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   line-height: 1;
 }
 
+/* Section label, matching .ui-section-title and the other lists. It was in
+   --danger-color: a private account is a mode, not an error, and the red made
+   a heading shout at you before you had done anything. */
 #signInModal .sign-in-account-section {
-  padding: 4px 2px 0;
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  padding: 12px 2px 2px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--danger-color);
+  color: var(--secondary-text-color);
+  text-align: left;
   list-style: none;
   cursor: default;
 }

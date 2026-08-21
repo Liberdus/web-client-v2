@@ -9269,8 +9269,11 @@ class SignInModal {
   getSignInAccountFallbackAvatar(address) {
     if (!address) return '';
 
+    // Derived from the ACCOUNT ADDRESS, not from the username, and in the
+    // avatar style the person chose: an avatar that did not match the one
+    // shown after signing in would be worse than no avatar at all.
     try {
-      return generateIdenticon(normalizeAddress(address), 40);
+      return addressAvatar(normalizeAddress(address), 40);
     } catch {
       return '';
     }
