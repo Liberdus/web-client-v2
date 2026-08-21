@@ -518,12 +518,181 @@ body {
   min-height: 100vh;
 }
 
+/* --- create account -------------------------------------------------------
+   The form scrolls; the commit action does not. A primary action that moves
+   when a disclosure opens relocates between deciding to tap and tapping.
+   -------------------------------------------------------------------------- */
+.create-account-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.create-account-body {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 20px 16px 8px;
+  /* .container centres the app; a form reads left — DESIGN.md §4.3. */
+  text-align: left;
+}
+.create-account-actions {
+  flex: none;
+  padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  background: var(--background-color);
+  /* Divides a pinned region from content scrolling under it. Not the
+     rectangle-inside-a-rectangle case: it frames nothing. */
+  border-top: 1px solid var(--border-color);
+}
+.create-account-actions .btn {
+  width: 100%;
+  height: 48px;
+  margin: 0;
+}
+.create-account-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+.create-account-available {
+  display: none;
+  margin-left: 6px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--success-color);
+}
+.create-account-advanced {
+  margin-top: 22px;
+}
+.create-account-key {
+  position: relative;
+  margin-top: 6px;
+}
+
+/* An option with a name and an explanation, ticked on the right. Uses the
+   same .ui-list-check the group member picker does — a native checkbox is a
+   browser default, and this app has the control already. */
+.ui-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 2px;
+  cursor: pointer;
+}
+.ui-option input[type='checkbox'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.ui-option-text {
+  flex: 1;
+  min-width: 0;
+}
+.ui-option-text b {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+/* The help control sits inside a <label>, so a click on it would otherwise
+   toggle the checkbox as well as opening the sheet. */
+.ui-option-text .toll-info-icon {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+.ui-option-text span {
+  display: block;
+  margin-top: 1px;
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  color: var(--secondary-text-color);
+}
+.ui-option input:checked ~ .ui-list-check {
+  border-color: var(--primary-color);
+  background: var(--primary-color) var(--icon-check-white) center / 14px 14px no-repeat;
+}
+.ui-option input:focus-visible ~ .ui-list-check {
+  box-shadow: var(--focus-ring-primary);
+  border-color: var(--primary-color);
+}
+
+/* --- welcome ------------------------------------------------------------- */
+
+/* The brand block, sized as one unit so the logo, name and network stay
+   together instead of each carrying its own margin. */
+.welcome-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+.welcome-logo {
+  width: 104px;
+  height: 104px;
+  object-fit: contain;
+}
+.welcome-brand {
+  margin: 18px 0 0;
+  font-size: 30px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--text-color);
+  /* The global h1 is a 50px rule with a text-shadow. Neither belongs here. */
+  text-shadow: none;
+}
+
+/* The network, as a warning rather than a caption. Empty on mainnet, and
+   :empty then removes it entirely — see the note in index.html. */
+.welcome-network {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--warning-tint);
+  color: var(--warning-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+}
+.welcome-network::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.welcome-network:empty {
+  display: none;
+}
+
 .welcome-screen .welcome-buttons {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  margin-top: 20px;
+  margin-top: 36px;
+  width: 100%;
+}
+/* Third tier: an escape hatch, not a peer of the two real actions. */
+.welcome-screen .welcome-more {
+  height: 40px;
+  font-size: var(--font-size-base);
+}
+
+.welcome-version {
+  margin-top: 28px;
+  font-size: 11.5px;
+  color: var(--muted-text-color);
+  text-align: center;
 }
 
 .welcome-screen .welcome-buttons button {

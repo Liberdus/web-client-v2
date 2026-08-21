@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-43" />
+    <link rel="stylesheet" href="./styles.css?v=1455-45" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-51" type="module"></script>
+    <script src="./app.js?v=1455-52" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -111,23 +111,30 @@
       </header>
 
       <div class="welcome-screen is-booting" id="welcomeScreen">
-        <a href="https://liberdus.com" target="_blank" title="Visit Liberdus website" class="logo-link">
-          <img src="./media/liberdus_logo_250.png" alt="Liberdus Logo" style="margin-bottom: 20px" />
-        </a>
-        <h1>
-          <span id="welcomeBrandTitle">Liberdus</span><br />
-          <div style="font-size: 0.8rem; margin-top: 1px; text-align: center" id="networkNameDisplay"></div>
-        </h1>
+        <div class="welcome-identity">
+          <a href="https://liberdus.com" target="_blank" title="Visit Liberdus website" class="logo-link">
+            <img src="./media/liberdus_logo_250.png" alt="" class="welcome-logo" />
+          </a>
+          <!-- Was a <div> nested inside the <h1>, which is invalid: h1 takes
+               phrasing content. The network is a sibling, not part of the name. -->
+          <h1 class="welcome-brand" id="welcomeBrandTitle">Liberdus</h1>
+          <!--
+            Which network you are on is the most consequential fact on this
+            screen: a testnet mistake with real money is not recoverable. It was
+            0.8rem of grey text carrying exactly the weight of the version
+            string below it. Empty on mainnet, where no warning is due — a
+            warning that is always present is decoration.
+          -->
+          <div class="welcome-network" id="networkNameDisplay"></div>
+        </div>
         <div class="welcome-buttons">
-          <button id="signInButton" class="btn btn--primary btn--pill btn--full hidden">Sign In</button>
-          <button id="createAccountButton" class="btn btn--primary btn--pill btn--full hidden">Create Account</button>
-          <button id="openWelcomeMenu" class="btn btn--secondary btn--pill btn--full hidden">Menu</button>
+          <button id="signInButton" class="btn btn--primary btn--pill btn--full hidden">Sign in</button>
+          <button id="createAccountButton" class="btn btn--primary btn--pill btn--full hidden">Create account</button>
+          <button id="openWelcomeMenu" class="btn btn--text welcome-more hidden">More options</button>
         </div>
-        <div style="font-size: 0.8rem; margin-top: 10px; text-align: center">
-          Version <span id="versionDisplay"></span>
-        </div>
-        <div style="font-size: 0.8rem; margin-top: 5px; text-align: center" id="appVersionDisplay" class="hidden">
-          App Version: <span id="appVersionText"></span>
+        <div class="welcome-version">
+          <span id="versionDisplay"></span>
+          <span id="appVersionDisplay" class="hidden">· app <span id="appVersionText"></span></span>
         </div>
         <!-- Add a unused anchor tag with nothing in it and add a class to it so can't shift and end up on another modal. Should still be displayed but will just show nothing -->
         <a class="last-item" href="#" id="welcomeScreenLastItem"> </a>
@@ -1075,82 +1082,99 @@
           <button class="back-button" id="closeCreateAccountModal"></button>
           <div class="modal-title">Create account</div>
         </div>
-        <div class="modal-content">
-          <div class="form-container">
-            <form id="createAccountForm" class="form--narrow">
-              <div class="form-group">
-                <label for="newUsername">
-                  Username
-                  <span id="newUsernameAvailable" style="color: #28a745; display: none"> available </span>
+        <!--
+          The commit action is pinned, not placed after the form. It used to sit
+          BETWEEN the username field and the rest of the form, so the form
+          carried on past its own submit — and with Advanced expanding below it,
+          the button moved down the screen between deciding to tap and tapping.
+        -->
+        <form id="createAccountForm" class="create-account-form">
+          <div class="create-account-body">
+            <label class="form-label create-account-label" for="newUsername">
+              Username
+              <span id="newUsernameAvailable" class="create-account-available">available</span>
+              <span id="createAccountError" class="form-error"></span>
+            </label>
+            <input
+              type="text"
+              id="newUsername"
+              class="form-control"
+              placeholder="Choose a username"
+              required
+              pattern="[a-zA-Z0-9]*"
+              inputmode="text"
+              maxlength="20"
+              autocomplete="off"
+            />
+            <p class="form-hint">
+              This is how people find you, and it is permanent — a name cannot be changed once it
+              is taken.
+            </p>
+
+            <!--
+              A disclosure, not a checkbox. A checkbox means "this will be true",
+              which is what the two options inside it mean; using one to mean
+              "show me more" made it indistinguishable from them.
+            -->
+            <details class="ui-disclosure create-account-advanced" id="moreOptionsSection">
+              <summary class="ui-row">
+                <span class="ui-row-key">Advanced</span>
+                <span class="ui-row-value" aria-hidden="true">›</span>
+              </summary>
+              <div class="ui-disclosure-body">
+                <label class="ui-option">
+                  <input type="checkbox" id="togglePrivateAccount" />
+                  <span class="ui-option-text">
+                    <b>
+                      Private account
+                      <!-- The full explanation is five points long and includes
+                           advice on choosing and sharing the name, so it keeps
+                           its help sheet; the line below is only the summary. -->
+                      <button
+                        type="button"
+                        class="toll-info-icon private-account-help"
+                        data-icon="info"
+                        id="privateAccountHelpButton"
+                        aria-label="About private accounts"
+                      ></button>
+                    </b>
+                    <span>Can only message and pay other private accounts. Cannot be changed later.</span>
+                  </span>
+                  <span class="ui-list-check" aria-hidden="true"></span>
                 </label>
-                <div style="position: relative">
-                  <input
-                    type="text"
-                    id="newUsername"
-                    class="form-control"
-                    placeholder="Select a username"
-                    required
-                    pattern="[a-zA-Z0-9]*"
-                    inputmode="text"
-                    maxlength="20"
-                  />
-                </div>
-              </div>
-              <div id="privateKeySection" style="display: none">
-                <div class="form-group">
-                  <label for="newPrivateKey"
-                    >Private Key <span id="newPrivateKeyError" style="color: #dc3545; display: none"></span
-                  ></label>
-                  <div style="position: relative">
+                <label class="ui-option">
+                  <input type="checkbox" id="togglePrivateKeyInput" />
+                  <span class="ui-option-text">
+                    <b>Use my own private key</b>
+                    <span>Otherwise one is generated for you.</span>
+                  </span>
+                  <span class="ui-list-check" aria-hidden="true"></span>
+                </label>
+
+                <div id="privateKeySection" hidden>
+                  <label class="form-label" for="newPrivateKey">
+                    Private key
+                    <span id="newPrivateKeyError" class="form-error"></span>
+                  </label>
+                  <div class="create-account-key">
                     <input
                       type="password"
                       id="newPrivateKey"
                       class="form-control"
-                      placeholder="Optional private key in hex format"
+                      placeholder="Your key, in hex"
+                      autocomplete="off"
                     />
                     <button type="button" id="togglePrivateKeyVisibility" class="password-toggle-btn"></button>
                   </div>
-                  <small>
-                    If you want to use an existing private key enter it here. Otherwise you can leave this empty to have a
-                    private key automatically generated.
-                  </small>
                 </div>
               </div>
-              <div class="form-actions">
-                <button type="submit" class="btn btn--primary btn--pill btn--full" disabled>Create Account</button>
-              </div>
-              
-              <div class="form-group u-mt-20">
-                <input type="checkbox" id="toggleMoreOptions" />
-                <label for="toggleMoreOptions" style="display: inline; margin-left: 5px">More Options</label>
-              </div>
-              
-              <div id="moreOptionsSection" style="display: none;">
-                <div class="form-group form-group--checkbox">
-                  <input type="checkbox" id="togglePrivateAccount" />
-                  <label for="togglePrivateAccount">
-                    Make this a private account
-                    <span class="toll-info-icon private-account-help" data-icon="info" id="privateAccountHelpButton"></span>
-                  </label>
-                </div>
-                <div class="form-group form-group--checkbox">
-                  <input type="checkbox" id="togglePrivateKeyInput" />
-                  <label for="togglePrivateKeyInput">
-                    Use my own private key (Advanced)
-                  </label>
-                </div>
-              </div>
-            </form>
-            <div class="form-group" id="migrateAccountsSection" style="display: none; margin-top: 50px; padding: 0 16px">
-              <label for="migrateAccountsButton">Check if you have accounts that can be migrated to this network</label>
-              <div class="form-actions">
-                <button type="button" id="migrateAccountsButton" class="btn btn--secondary btn--pill btn--full">
-                  Migrate Accounts
-                </button>
-              </div>
-            </div>
+            </details>
           </div>
-        </div>
+
+          <div class="create-account-actions">
+            <button type="submit" class="btn btn--primary btn--pill" disabled>Create account</button>
+          </div>
+        </form>
         <a class="last-item" href="#"> </a>
       </div>
 

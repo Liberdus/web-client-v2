@@ -1150,7 +1150,13 @@ class WelcomeScreen {
     
     
     this.versionDisplay.textContent = myVersion + ' ' + version;
-    this.networkNameDisplay.textContent = network.name;
+    /*
+     * The network badge is a warning, so it says nothing on mainnet. A warning
+     * that is always present is decoration, and the one time it matters — a
+     * testnet with real money in it — is the time it has to be unmissable.
+     * :empty removes the badge entirely rather than leaving a blank pill.
+     */
+    this.networkNameDisplay.textContent = network?.name === 'Mainnet' ? '' : (network?.name || '');
 
     if (reactNativeApp?.appVersion) {
       this.updateAppVersionDisplay(reactNativeApp.appVersion);
@@ -14580,7 +14586,6 @@ function markConnectivityDependentElements() {
     '#importForm button[type="submit"]',
     '#newUsername',
     '#newPrivateKey',
-    '#migrateAccountsButton',
 
     // stakeModal
     '#submitStake',
@@ -30453,9 +30458,6 @@ class CreateAccountModal {
     this.usernameAvailable = document.getElementById('newUsernameAvailable');
     this.privateKeyError = document.getElementById('newPrivateKeyError');
     this.togglePrivateKeyVisibility = document.getElementById('togglePrivateKeyVisibility');
-    this.migrateAccountsSection = document.getElementById('migrateAccountsSection');
-    this.migrateAccountsButton = document.getElementById('migrateAccountsButton');
-    this.toggleMoreOptions = document.getElementById('toggleMoreOptions');
     this.moreOptionsSection = document.getElementById('moreOptionsSection');
     this.privateAccountCheckbox = document.getElementById('togglePrivateAccount');
     this.privateAccountHelpButton = document.getElementById('privateAccountHelpButton');
@@ -30466,7 +30468,7 @@ class CreateAccountModal {
     this.form.addEventListener('submit', (event) => this.handleSubmit(event));
     this.usernameInput.addEventListener('input', (e) => this.handleUsernameInput(e));
     this.toggleButton.addEventListener('change', () => this.handleTogglePrivateKeyInput());
-    this.toggleMoreOptions.addEventListener('change', () => this.handleToggleMoreOptions());
+    this.moreOptionsSection.addEventListener('toggle', () => this.handleToggleMoreOptions());
     this.backButton.addEventListener('click', () => this.closeWithReload());
 
     // Add listener for the password visibility toggle
@@ -30486,17 +30488,10 @@ class CreateAccountModal {
       showToast(message, 0, 'info', true);
     });
 
-    this.migrateAccountsButton.addEventListener('click', () => migrateAccountsModal.open());
   }
 
   open() {
     if (this.isCreatingAccount) return;
-
-    if (migrateAccountsModal.hasMigratableAccounts()) {
-      this.migrateAccountsSection.style.display = 'block';
-    } else {
-      this.migrateAccountsSection.style.display = 'none';
-    }
 
     openModal(this.modal);
     enterFullscreen();
@@ -30536,10 +30531,9 @@ class CreateAccountModal {
     this.refreshSubmitButton();
     
     // Reset More Options section
-    this.toggleMoreOptions.checked = false;
-    this.moreOptionsSection.style.display = 'none';
+    this.moreOptionsSection.open = false;
     this.toggleButton.checked = false;
-    this.privateKeySection.style.display = 'none';
+    this.privateKeySection.hidden = true;
     this.privateAccountCheckbox.checked = false;
     
     // Open the modal
@@ -30571,10 +30565,7 @@ class CreateAccountModal {
   refreshControlStates() {
     this.controls.forEach((control) => {
       const requiresConnection = control.hasAttribute('data-requires-connection');
-      const isMigrationBusy =
-        control === this.migrateAccountsButton &&
-        (migrateAccountsModal.isOpening || migrateAccountsModal.isMigrating);
-      control.disabled = this.isCreatingAccount || isMigrationBusy || (requiresConnection && !isOnline);
+      control.disabled = this.isCreatingAccount || (requiresConnection && !isOnline);
     });
     this.refreshSubmitButton();
   }
@@ -30637,7 +30628,7 @@ class CreateAccountModal {
 
   handleTogglePrivateKeyInput() {
     const isChecked = this.toggleButton.checked;
-    this.privateKeySection.style.display = isChecked ? 'block' : 'none';
+    this.privateKeySection.hidden = !isChecked;
     this.privateKeyInput.value = '';
     
     if (!isChecked) {
@@ -30645,18 +30636,14 @@ class CreateAccountModal {
     }
   }
   
+  /* Collapsing Advanced discards what was set inside it, so a hidden option
+     can never be in force without being visible. */
   handleToggleMoreOptions() {
-    const isChecked = this.toggleMoreOptions.checked;
-    this.moreOptionsSection.style.display = isChecked ? 'block' : 'none';
-    
-    if (!isChecked) {
-      // Reset private key options when more options is unchecked
-      this.toggleButton.checked = false;
-      // Hide private key section if More Options is unchecked
-      this.privateKeySection.style.display = 'none';
-      this.privateKeyInput.value = '';
-      this.privateKeyError.style.display = 'none';
-    }
+    if (this.moreOptionsSection.open) return;
+    this.toggleButton.checked = false;
+    this.privateKeySection.hidden = true;
+    this.privateKeyInput.value = '';
+    this.privateKeyError.style.display = 'none';
   }
 
   validatePrivateKey(key) {
