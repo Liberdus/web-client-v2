@@ -175,8 +175,25 @@
         },
         'settings menu': () => {
           listHost.style.display = 'block';
-          listHost.innerHTML = doc.getElementById('settingsModal').querySelector('.menu-list').outerHTML;
+          // `.ui-nav` since the Wave 4 conversion; the welcome menu is still
+          // `.menu-list`, so take whichever this modal has.
+          const nav = doc.getElementById('settingsModal').querySelector('.ui-nav, .menu-list');
+          listHost.innerHTML = nav.outerHTML;
           listHost.style.padding = '12px';
+          // the rows read their value from JS at open() time, which does not run
+          // in the harness — fill them so the row geometry is real
+          const v = { settingsAppearanceValue: 'Gradient', settingsChatValue: 'Medium', settingsLockValue: 'Off' };
+          for (const [id, text] of Object.entries(v)) {
+            const el = listHost.querySelector('#' + id);
+            if (el) el.textContent = text;
+          }
+        },
+        'menu': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('menuModal').querySelector('.ui-nav').outerHTML;
+          listHost.style.padding = '12px';
+          const v = listHost.querySelector('#menuVersionValue');
+          if (v) v.textContent = '2026.08.21';
         },
         '1:1 chat': () => {
           listHost.style.display = 'none';

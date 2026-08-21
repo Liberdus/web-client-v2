@@ -326,6 +326,35 @@ sentence case (`1 wants to join`).
 
 **`.ui-section-title`** — an uppercase label above a list or group of rows.
 
+### 4.3 New primitives — added with the menu and settings conversion
+
+**`.ui-nav` / `.ui-nav-row`** — a list you navigate with. Icon, label, optional
+current value, disclosure chevron. `.ui-nav-title` groups rows; `.ui-nav-value`
+carries the setting; `--danger` and `--flat` are the variants;
+`.ui-nav-gap` separates a destructive row from the list above it.
+
+**This is not `.ui-row`, and the distinction is the point.** A `ui-row` is a
+*settings* row — the label is primary and a muted value trails it, as in
+*Invite link · Copy*. A `ui-nav-row` *goes somewhere*, so it needs an icon slot
+and a chevron a `ui-row` has no reason to carry. The hierarchy is compatible
+(label primary in both), which is why this converts cleanly where
+`contact-info-item` did not: that one was *inverted*, not merely different. When
+a plan says component A maps onto component B, check which element is primary
+before believing it.
+
+Two rules that came out of building it:
+
+- **Every row is one line.** A two-line row centres its icon against the whole
+  block, which drops that icon out of line with every single-line row around it.
+  A row tempted into a sub-label is usually a row whose *value* says it better:
+  "Toll — what strangers pay to message you" becomes `Toll · 1 LIB`, which is
+  shorter and answers the question the caption was only describing.
+- **Show the state in the row.** A settings list whose rows reveal nothing makes
+  you open every one to find out where you stand. Only put a value there if it
+  is local and synchronous — a number that is sometimes wrong is worse in a row
+  than no number at all. The toll is omitted for exactly this reason: it needs
+  the network's stability factor to mean anything.
+
 ---
 
 ## 5. Screen patterns
@@ -489,6 +518,28 @@ one.** The welcome screen carried `padding-bottom: calc(2rem + safe-area +
 — which read as "everything is top-heavy", not as "the bottom padding is
 wrong". When a screen looks pushed up, measure the padding before touching the
 alignment.
+
+**`currentColor` does not reach inside a data-URI SVG.** A background-image
+data URI is its own document, so `stroke='currentColor'` resolves to *that*
+document's black, never to the element's colour. This is how
+`.menu-item.sign-out` ended up as red text above a black icon, and it is why a
+danger row cannot just set `color` and expect the icon to follow. To tint shared
+artwork, publish the URL as a custom property and re-render it as a mask:
+`background-color: currentColor; mask: var(--ui-icon) center / 20px no-repeat`
+with `background-image: none`.
+
+**Watch the specificity when you override a `[data-icon]` rule.** The icon rules
+are `[data-icon="x"]::before` — an attribute plus a class. A plain
+`.ui-nav-row--danger::before` is one class and loses, so `background-image: none`
+silently does nothing and the artwork paints on top of the mask. Match the
+attribute (`.ui-nav-row--danger[data-icon]::before`) so the two are level and
+source order decides.
+
+**Sharing a rule with a second component: `:is()`, not a copy.** The 26
+`[data-icon]` rules are shared between the old `.menu-item` and the new
+`.ui-nav-row` by writing `:is(.menu-item, .ui-nav-row)[data-icon=…]`. Duplicating
+26 data URIs to convert one screen is how a stylesheet doubles in size during a
+migration that is supposed to shrink it.
 
 **`100vh` is not the visible viewport on mobile.** It is the viewport with the
 browser chrome retracted, so a `min-height: 100vh` screen overflows by the
