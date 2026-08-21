@@ -5,6 +5,24 @@
    Note: Organizational headers only; no visual changes
    ============================================= */
 
+/* ========== Generic (base) ========== */
+
+/*
+   `hidden` is only a UA-stylesheet `display: none`, so ANY author `display`
+   rule outranks it — and every layout class in this file sets one. That has
+   produced two visible bugs (the chat composer rendering under the invite bar
+   that is meant to replace it, and a dev-harness pane refusing to close) and
+   eight hand-written `.thing[hidden] { display: none }` rules written to
+   paper over it one class at a time.
+
+   This is the rule those eight were each re-implementing. `!important` is
+   deliberate and is the only way to beat an author `display` from a selector
+   this weak: the alternative is a ninth workaround on the next screen.
+*/
+[hidden] {
+  display: none !important;
+}
+
 /* ========== Generic (font faces) ========== */
 /*
    Inter — self-hosted.
@@ -4428,10 +4446,6 @@ input[type='file'].form-control::file-selector-button {
   padding-bottom: 2rem;
 }
 
-.connected-wallet-only[hidden] {
-  display: none !important;
-}
-
 /* A caption for the number below it, not a second headline. It was 20px
    semibold indigo above a 48px semibold indigo figure on an indigo-tinted
    panel — three helpings of accent for something that is a readout, not an
@@ -4636,10 +4650,6 @@ input[type='file'].form-control::file-selector-button {
   background-repeat: no-repeat;
   background-size: 16px;
 }
-.wallet-link[hidden] {
-  display: none;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .wallet-link,
   .wallet-primary-action {
@@ -4647,10 +4657,6 @@ input[type='file'].form-control::file-selector-button {
   }
 }
 
-.wallet-action-button[hidden],
-.wallet-actions-break[hidden] {
-  display: none !important;
-}
 
 /* Notification indicator for wallet action buttons */
 .wallet-action-button::after {
@@ -10601,9 +10607,6 @@ small {
   font-size: var(--font-size-sm);
   line-height: 1.4;
 }
-.ui-banner[hidden] {
-  display: none;
-}
 .ui-banner-icon {
   flex: none;
   margin-top: 1px;
@@ -10636,9 +10639,6 @@ small {
 }
 .ui-banner-action:not(:disabled):hover {
   background: rgba(0, 0, 0, 0.05);
-}
-.ui-banner-action[hidden] {
-  display: none;
 }
 /* Amber is the app's one "you need to do something" colour, everywhere. */
 .ui-banner--attention {
@@ -10915,9 +10915,6 @@ small {
   font-size: var(--font-size-sm);
   text-align: left;
 }
-.ui-row[hidden] {
-  display: none;
-}
 .ui-row-key {
   flex: 1;
   min-width: 0;
@@ -11124,9 +11121,6 @@ button.ui-row-value:not(:disabled):hover {
   font-family: var(--font-monospace);
   font-size: var(--font-size-xs);
 }
-.ui-fallback-input[hidden] {
-  display: none;
-}
 
 
 
@@ -11294,15 +11288,8 @@ button.ui-row-value:not(:disabled):hover {
   display: flex;
 }
 
-/* The invite bar REPLACES the composer; it must never sit above it.
-   `hidden` is only a UA-stylesheet `display: none`, so the author
-   `display: flex` on .message-input-container silently outranked it and both
-   were on screen at once. Same trap as .ui-banner[hidden] and .ui-row[hidden];
-   a global `[hidden] { display: none !important }` would fix the whole class
-   of it, but that is an app-wide change and belongs with the wider overhaul. */
-.message-input-container[hidden] {
-  display: none;
-}
+/* The invite bar REPLACES the composer; it must never sit above it. That is
+   handled by the global [hidden] rule at the top of this file now. */
 
 #groupChatHeaderInfo {
   cursor: pointer;
