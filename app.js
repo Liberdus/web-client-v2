@@ -2200,6 +2200,7 @@ class WalletScreen {
     this.refreshBalanceButton = document.getElementById('refreshBalance');
     // assets list
     this.assetsList = document.getElementById('assetsList');
+    this.nativeBalance = document.getElementById('walletNativeBalance');
     // action buttons
     this.openSendAssetFormModalButton = document.getElementById('openSendAssetFormModal');
     this.openReceiveModalButton = document.getElementById('openReceiveModal');
@@ -2225,12 +2226,9 @@ class WalletScreen {
     if (faucetBridgeLabel) {
       faucetBridgeLabel.textContent = isMainnet ? 'Bridge' : 'Faucet';
     }
-    // Update icon: add/remove bridge-mode class
-    if (isMainnet) {
-      this.openFaucetBridgeButton.classList.add('bridge-mode');
-    } else {
-      this.openFaucetBridgeButton.classList.remove('bridge-mode');
-    }
+    // The label is the whole signal now. There is no icon on this control since
+    // it moved into the secondary row, so the bridge-mode class it used to
+    // toggle had nothing left to style.
 
     this.openBuyButton.addEventListener('click', () => {
       window.open('https://liberdus.com/buy', '_blank');
@@ -2327,6 +2325,23 @@ class WalletScreen {
     const walletUsdValue = calculateWalletUsdValue(walletData.assets);
     walletData.networth = walletUsdValue ?? 0.0;
     this.totalBalance.textContent = walletUsdValue === null ? 'N/A' : walletUsdValue.toFixed(2);
+
+    /*
+     * How much of it there is, under what it is worth. A wallet gets asked both
+     * questions and this screen only ever answered the second. Shown only for a
+     * single-asset wallet: with several, no one native figure is "the" amount,
+     * and the asset list below already breaks them out.
+     */
+    if (this.nativeBalance) {
+      const assets = Array.isArray(walletData.assets) ? walletData.assets : [];
+      if (assets.length === 1) {
+        const only = assets[0];
+        const amount = Number(only.balance) / Number(wei);
+        this.nativeBalance.textContent = `${amount.toFixed(6)} ${only.symbol || 'LIB'}`;
+      } else {
+        this.nativeBalance.textContent = '';
+      }
+    }
 
     if (!Array.isArray(walletData.assets) || walletData.assets.length === 0) {
       this.assetsList.querySelector('.empty-state').style.display = 'block';

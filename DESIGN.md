@@ -373,6 +373,13 @@ setTimeout(() => input.focus({ preventScroll: true }), 350); // past the 0.3s tr
 `groupManager.js` and friends as bare specifiers, so bumping `app.js?v=` does
 **not** invalidate them. Editing a module means a hard reload.
 
+**Two `.btn--*` variants side by side in a flex row come out different
+widths.** `.btn--primary` and `.btn--secondary` carry different horizontal
+padding, and under `box-sizing: border-box` a `flex-basis: 0` item cannot
+shrink below its own padding — so the free space splits evenly on top of
+*unequal floors*. State the padding on the row's own class. Bitten twice:
+`.group-invite-actions .btn` and `.wallet-primary-action`.
+
 **`.container` centres the entire app.** `.container { text-align: center }`
 cascades into every screen, so any new component holding a name, a sentence or
 a key/value readout must set `text-align: left` itself. Symptom: list rows and

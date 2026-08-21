@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-33" />
+    <link rel="stylesheet" href="./styles.css?v=1455-35" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-45" type="module"></script>
+    <script src="./app.js?v=1455-46" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -184,39 +184,39 @@
       <button class="floating-button" id="newChatButton" aria-label="New chat"><span class="plus-glyph" aria-hidden="true">+</span></button>
 
       <div class="app-screen" id="walletScreen">
+        <!--
+          No panel around the balance: it is the largest thing on the page and
+          does not need a box to be found. The tint it used to sit in was the
+          accent at 8%, and the accent means "this does something".
+        -->
         <div class="wallet-balance">
-          <div class="balance-label">Total Balance</div>
+          <div class="balance-label">Total balance</div>
           <div class="balance-amount">
             <span id="walletTotalBalance">-.--</span>
-            <button class="refresh-button" id="refreshBalance">↻</button>
           </div>
+          <div class="balance-native" id="walletNativeBalance"></div>
         </div>
-        <div class="wallet-actions">
-          <button class="wallet-action-button" id="openSendAssetFormModal">
-            <span class="action-icon"></span>
-            <span class="action-label">Send</span>
+
+        <!--
+          These were six identical bordered boxes, which asserted they were six
+          of a kind. They are three: Send and Receive act on your money in the
+          app, History is a destination, and Buy and Sell open liberdus.com in a
+          new tab. Three tiers, one per kind.
+        -->
+        <div class="wallet-primary-actions">
+          <button class="btn btn--primary btn--pill wallet-primary-action" id="openSendAssetFormModal" data-dir="send">
+            Send
           </button>
-          <button class="wallet-action-button" id="openReceiveModal">
-            <span class="action-icon"></span>
-            <span class="action-label">Receive</span>
+          <button class="btn btn--secondary btn--pill wallet-primary-action" id="openReceiveModal" data-dir="receive">
+            Receive
           </button>
-          <button class="wallet-action-button" id="openHistoryModal">
-            <span class="action-icon"></span>
-            <span class="action-label">History</span>
-          </button>
-          <div class="wallet-actions-break"></div>
-          <button class="wallet-action-button" id="openBuyButton">
-            <span class="action-icon"></span>
-            <span class="action-label">Buy</span>
-          </button>
-          <button class="wallet-action-button" id="openSellButton">
-            <span class="action-icon"></span>
-            <span class="action-label">Sell</span>
-          </button>
-          <button class="wallet-action-button" id="openFaucetBridgeButton">
-            <span class="action-icon"></span>
-            <span class="action-label">Faucet</span>
-          </button>
+        </div>
+        <div class="wallet-secondary-actions">
+          <button class="wallet-link" id="openHistoryModal"><span class="action-label">History</span></button>
+          <button class="wallet-link" id="openBuyButton"><span class="action-label">Buy</span><span class="wallet-link-external" aria-label="Opens a website"></span></button>
+          <button class="wallet-link" id="openSellButton"><span class="action-label">Sell</span><span class="wallet-link-external" aria-label="Opens a website"></span></button>
+          <button class="wallet-link" id="openFaucetBridgeButton"><span class="action-label">Faucet</span></button>
+          <button class="wallet-link wallet-link--icon" id="refreshBalance" aria-label="Refresh balance"></button>
         </div>
         <div class="wallet-assets">
           <div class="section-title">Assets</div>

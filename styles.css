@@ -85,6 +85,12 @@
   /* Icon SVGs */
   --icon-phone: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z'%3E%3C/path%3E%3C/svg%3E");
   --icon-chat: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'%3E%3C/path%3E%3C/svg%3E");
+  /* Diagonals, not chevrons. A chevron is an expand/collapse glyph; an arrow
+     with a shaft leaving or entering the corner reads as money moving out of
+     or into this wallet. */
+  --icon-arrow-out: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='7' y1='17' x2='17' y2='7'/%3E%3Cpolyline points='7 7 17 7 17 17'/%3E%3C/svg%3E");
+  --icon-arrow-in: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%231c1c21' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='17' y1='7' x2='7' y2='17'/%3E%3Cpolyline points='17 17 7 17 7 7'/%3E%3C/svg%3E");
+  --icon-external: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2365676b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'/%3E%3Cpolyline points='15 3 21 3 21 9'/%3E%3Cline x1='10' y1='14' x2='21' y2='3'/%3E%3C/svg%3E");
   --icon-wallet: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='6' width='20' height='12' rx='2'/%3E%3Cpath d='M2 12h20'/%3E%3C/svg%3E");
   --icon-contacts: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'%3E%3C/path%3E%3Ccircle cx='9' cy='7' r='4'%3E%3C/circle%3E%3Cpath d='M23 21v-2a4 4 0 0 0-3-3.87'%3E%3C/path%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'%3E%3C/path%3E%3C/svg%3E");
   --icon-clock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cpolyline points='12 6 12 12 16 14'%3E%3C/polyline%3E%3C/svg%3E");
@@ -4316,15 +4322,25 @@ input[type='file'].form-control::file-selector-button {
 }
 /* Wallet Styles */
 .wallet-balance {
-  padding: 2rem;
-  text-align: center;
-  background-color: var(--hover-background-purple);
-  color: var(--text-color);
-  border-radius: 8px;
-  margin: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  align-items: center;
+  gap: 4px;
+  padding: 28px 20px 20px;
+  color: var(--text-color);
+  text-align: center;
+}
+
+/* The native amount under the fiat one. A wallet is asked two questions —
+   what is it worth, and how much of it is there — and only ever answered the
+   first. */
+.balance-native {
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text-color);
+  font-variant-numeric: tabular-nums;
+}
+.balance-native:empty {
+  display: none;
 }
 
 .wallet-network-panel {
@@ -4401,11 +4417,13 @@ input[type='file'].form-control::file-selector-button {
   font-size: var(--font-size-xxl);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
   color: var(--primary-color);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
+  line-height: 1.1;
 }
 
 .balance-amount::before {
@@ -4445,6 +4463,16 @@ input[type='file'].form-control::file-selector-button {
   transform: rotate(180deg);
 }
 
+
+/* Line break element to force new row in wallet actions */
+.wallet-actions-break {
+  flex-basis: 100%;
+  height: 0;
+}
+
+/* Still used by the asset detail modal, which keeps the icon-box buttons —
+   there the three actions genuinely are three of a kind. The wallet screen's
+   own six-box grid is gone; see .wallet-primary-actions below. */
 .wallet-actions {
   display: flex;
   justify-content: space-between;
@@ -4453,28 +4481,138 @@ input[type='file'].form-control::file-selector-button {
   flex-wrap: wrap;
 }
 
-/* Line break element to force new row in wallet actions */
-.wallet-actions-break {
-  flex-basis: 100%;
-  height: 0;
+/* --- wallet actions ------------------------------------------------------
+   Three tiers for three kinds of thing: the two that move your money, the
+   ones that go somewhere, and the two that leave the app entirely.
+   ------------------------------------------------------------------------ */
+.wallet-primary-actions {
+  display: flex;
+  gap: 10px;
+  padding: 4px 16px 0;
+}
+.wallet-primary-action {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  height: 46px;
+  margin: 0;
+  gap: 8px;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  /*
+   * Padding must be stated here, not inherited from the .btn--* variants.
+   * .btn--primary and .btn--secondary carry different horizontal padding, and
+   * with `flex-basis: 0` under border-box the padding floors each item's base
+   * size — so the free space splits evenly on top of UNEQUAL floors and the two
+   * pills come out different widths (206 vs 182 here). Same trap as
+   * .group-invite-actions .btn.
+   */
+  padding: 0 20px;
+}
+/* The arrow leads the word: direction first, then what it is called. */
+.wallet-primary-action::before {
+  content: '';
+  width: 18px;
+  height: 18px;
+  flex: none;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 18px;
+}
+.wallet-primary-action[data-dir='send']::before {
+  background-image: var(--icon-arrow-out);
+}
+.wallet-primary-action[data-dir='receive']::before {
+  background-image: var(--icon-arrow-in);
 }
 
-.wallet-action-button {
-  flex: 1;
+.wallet-secondary-actions {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
-  gap: 8px;
-  background-color: var(--light-color);
-  border: none;
-  color: #1c1c21;
-  padding: 16px;
+  gap: 2px;
+  padding: 14px 12px 4px;
+}
+.wallet-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--primary-color);
   font-family: var(--font-primary);
   font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-  position: relative; /* Added for notification dot */
+}
+.wallet-link:hover {
+  background: var(--hover-background-purple);
+}
+.wallet-link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-primary);
+}
+/* Marks the two that open a website rather than a screen. Deliberately not a
+   bare diagonal arrow — that is the Send icon, and one glyph must not mean
+   both "send money" and "leaves the app". */
+.wallet-link-external {
+  width: 12px;
+  height: 12px;
+  background-image: var(--icon-external);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 12px;
+  opacity: 0.75;
+}
+/* History carries an unread marker, set by the transaction poll. It used to
+   ride on .wallet-action-button, which this button no longer is. */
+.wallet-link {
+  position: relative;
+}
+.wallet-link::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+.wallet-link.has-notification::after {
+  opacity: 1;
+}
+
+.wallet-link--icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  justify-content: center;
+}
+.wallet-link--icon::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%233d3dce' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3'/%3E%3C/svg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+}
+.wallet-link[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wallet-link,
+  .wallet-primary-action {
+    transition: none;
+  }
 }
 
 .wallet-action-button[hidden],
@@ -4516,42 +4654,23 @@ input[type='file'].form-control::file-selector-button {
   opacity: 0.9;
 }
 
-/* Send icon (up chevron) */
-#openSendAssetFormModal .action-icon,
+/* Asset detail modal only. The wallet screen's six icon-boxes are gone, so the
+   halves of these selectors that pointed at it went with them — along with the
+   Buy, Sell and Faucet icon rules, which nothing can match any more.
+
+   Diagonals rather than chevrons, matching .wallet-primary-action: a chevron is
+   an expand/collapse glyph, and the same action should not have two different
+   icons in two places. */
 #assetDetailsSend .action-icon {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='18 15 12 9 6 15'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='7' y1='17' x2='17' y2='7'/%3E%3Cpolyline points='7 7 17 7 17 17'/%3E%3C/svg%3E");
 }
 
-/* Receive icon (down chevron) */
-#openReceiveModal .action-icon,
 #assetDetailsReceive .action-icon {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='17' y1='7' x2='7' y2='17'/%3E%3Cpolyline points='17 17 7 17 7 7'/%3E%3C/svg%3E");
 }
 
-/* History icon (clock) */
-#openHistoryModal .action-icon,
 #assetDetailsHistory .action-icon {
   background-image: var(--icon-clock);
-}
-
-/* Buy icon (shopping cart) */
-#openBuyButton .action-icon {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='21' r='1'%3E%3C/circle%3E%3Ccircle cx='20' cy='21' r='1'%3E%3C/circle%3E%3Cpath d='M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6'%3E%3C/path%3E%3C/svg%3E");
-}
-
-/* Sell icon (dollar sign) */
-#openSellButton .action-icon {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='1' x2='12' y2='23'%3E%3C/line%3E%3Cpath d='M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'%3E%3C/path%3E%3C/svg%3E");
-}
-
-/* Faucet/Bridge icon - default to water drop (faucet) */
-#openFaucetBridgeButton .action-icon {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z'%3E%3C/path%3E%3C/svg%3E");
-}
-
-/* Bridge icon when on mainnet (same as menu bridge icon) */
-#openFaucetBridgeButton.bridge-mode .action-icon {
-  background-image: var(--icon-bridge);
 }
 
 /* Profile Sharing Note */
