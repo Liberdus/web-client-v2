@@ -178,6 +178,28 @@
           listHost.innerHTML = doc.getElementById('settingsModal').querySelector('.menu-list').outerHTML;
           listHost.style.padding = '12px';
         },
+        'wallet': () => {
+          listHost.hidden = false;
+          const wallet = doc.getElementById('walletScreen').cloneNode(true);
+          wallet.style.display = 'block';
+          wallet.querySelector('#walletTotalBalance').textContent = '1,284.50';
+          // Reproduces the asset row from updateWalletView.
+          const asset = (name, price, bal, worth) => `
+            <div class="asset-item">
+              <div class="asset-logo"><img src="../media/liberdus_logo_50.png" alt=""></div>
+              <div class="asset-info">
+                <div class="asset-name">${name}</div>
+                <div class="asset-symbol ui-num">${price}</div>
+              </div>
+              <div class="asset-balance"><span>${bal}</span><span class="asset-symbol ui-num">${worth}</span></div>
+            </div>`;
+          wallet.querySelector('#assetsList').innerHTML =
+            asset('Liberdus', '$1.02', '1234.500000', '$1,259.19') +
+            asset('Ethereum', '$3,401.88', '0.007400', '$25.17') +
+            asset('USD Coin', '$1.00', '0.140000', '$0.14');
+          listHost.innerHTML = '';
+          listHost.appendChild(wallet);
+        },
         'contacts': () => {
           listHost.hidden = false;
           // Reproduces renderContactItem + the group headings.
