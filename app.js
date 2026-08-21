@@ -1247,7 +1247,13 @@ class WelcomeScreen {
     
     
     this.versionDisplay.textContent = getWebVersionDisplay();
-    this.networkNameDisplay.textContent = network.name;
+    /*
+     * The network badge is a warning, so it says nothing on mainnet. A warning
+     * that is always present is decoration, and the one time it matters — a
+     * testnet with real money in it — is the time it has to be unmissable.
+     * :empty removes the badge entirely rather than leaving a blank pill.
+     */
+    this.networkNameDisplay.textContent = network?.name === 'Mainnet' ? '' : (network?.name || '');
 
     if (reactNativeApp?.appVersion) {
       this.updateAppVersionDisplay(reactNativeApp.appVersion);
@@ -16459,7 +16465,6 @@ function markConnectivityDependentElements() {
     '#importForm button[type="submit"]',
     '#newUsername',
     '#newPrivateKey',
-    '#migrateAccountsButton',
 
     // stakeModal
     '#submitStake',
@@ -33011,10 +33016,8 @@ class CreateAccountModal {
     this.usernameAvailable = document.getElementById('newUsernameAvailable');
     this.privateKeyError = document.getElementById('newPrivateKeyError');
     this.togglePrivateKeyVisibility = document.getElementById('togglePrivateKeyVisibility');
-    this.migrateAccountsSection = document.getElementById('migrateAccountsSection');
-    this.migrateAccountsButton = document.getElementById('migrateAccountsButton');
-    this.advancedSection = document.getElementById('advancedOptions');
-    this.advancedSummary = document.getElementById('advancedOptionsSummary');
+    this.advancedSection = document.getElementById('moreOptionsSection');
+    this.advancedSummary = this.advancedSection.querySelector('summary');
     this.privateAccountCheckbox = document.getElementById('togglePrivateAccount');
     this.privateAccountHelpButton = document.getElementById('privateAccountHelpButton');
     this.privateAccountTemplate = document.getElementById('privateAccountHelpMessageTemplate');
@@ -33043,17 +33046,10 @@ class CreateAccountModal {
       showToast(message, 0, 'info', true);
     });
 
-    this.migrateAccountsButton.addEventListener('click', () => migrateAccountsModal.open());
   }
 
   open() {
     if (this.isCreatingAccount) return;
-
-    if (migrateAccountsModal.hasMigratableAccounts()) {
-      this.migrateAccountsSection.style.display = 'block';
-    } else {
-      this.migrateAccountsSection.style.display = 'none';
-    }
 
     openModal(this.modal);
     enterFullscreen();
@@ -33140,10 +33136,7 @@ class CreateAccountModal {
   refreshControlStates() {
     this.controls.forEach((control) => {
       const requiresConnection = control.hasAttribute('data-requires-connection');
-      const isMigrationBusy =
-        control === this.migrateAccountsButton &&
-        (migrateAccountsModal.isOpening || migrateAccountsModal.isMigrating);
-      control.disabled = this.isCreatingAccount || isMigrationBusy || (requiresConnection && !isOnline);
+      control.disabled = this.isCreatingAccount || (requiresConnection && !isOnline);
     });
     this.advancedSummary.setAttribute('aria-disabled', String(this.isCreatingAccount));
     this.advancedSection.classList.toggle('is-disabled', this.isCreatingAccount);
@@ -33215,6 +33208,8 @@ class CreateAccountModal {
     this.resetPrivateKeyOption();
   }
 
+  /* Collapsing Advanced discards what was set inside it, so a hidden option
+     can never be in force without being visible. */
   handleAdvancedToggle() {
     if (this.advancedSection.open) return;
     this.resetAdvancedOptions();
