@@ -320,12 +320,17 @@ question an existing one already answers (§1.5).
 `ui-row`. Sections cost a heading, a note and vertical space, and imply the
 content is substantial.
 
-**Nothing inside a message bubble gets its own border.** The bubble is
-already a frame; anything bordered inside it reads as a second frame around
-something that is framed. Replies, attachments and quoted content tint the
-bubble's own colour instead — `rgba(255,255,255,.18)` on sent,
-`rgba(0,0,0,.055)` on received — which is quieter on both sides and needs no
-per-owner rules.
+**Nothing inside a message bubble draws a second rectangle.** The bubble is
+already a frame. A filled, rounded block inside it is a rectangle inside a
+rectangle however softly it is tinted — dropping the CSS `border` does not fix
+that, it only makes the second rectangle quieter. Use a single rail
+(`border-left`) where a marker is needed, which draws no shape of its own, or
+nothing at all.
+
+Where a surface genuinely is needed — a file row, something tappable — tint the
+bubble's own colour: `rgba(255,255,255,.18)` on sent, `rgba(0,0,0,.055)` on
+received. Never a fixed light or accent fill, which inverts unpredictably
+against the two bubble colours.
 
 Two corollaries. **A quoted message is subordinate to the message quoting
 it**: it was previously coloured by whoever *wrote* the quote, so replying to

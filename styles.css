@@ -9658,33 +9658,39 @@ small {
 
 /* A quote is subordinate to the message quoting it.
 
-   It used to be a solid box coloured by whoever WROTE the quoted message, so
-   replying to yourself put a saturated indigo block inside a grey bubble and
-   the quote became the loudest thing on screen — read before the message
-   containing it. It tints the bubble's OWN colour now, which is quieter on
-   both sides and needs no per-owner rules at all.
+   No box. A rounded, filled block inside a bubble is a rectangle inside a
+   rectangle however softly it is tinted — removing the CSS `border` did not
+   change that, only made the second rectangle quieter. A single rail is the
+   universal mark for quoted text and draws no shape of its own.
 
-   No left rail and no border. A border inside a bubble is a second frame
-   around something that already has one. */
+   It also used to be coloured by whoever WROTE the quote, so replying to
+   yourself put a saturated accent block inside a grey bubble and the quote
+   became the loudest thing on screen, read before the message containing it.
+   The rail takes the bubble's own contrast instead, so a quote is quieter on
+   both sides with no per-owner rules. */
 .reply-quote {
   display: block;
-  padding: 6px 10px;
-  margin-bottom: 6px;
+  padding: 1px 0 1px 10px;
+  margin-bottom: 7px;
   border: 0;
-  border-radius: 10px;
+  border-left: 2px solid;
+  border-radius: 0;
+  background: none;
   cursor: pointer;
 }
 .message.sent .reply-quote {
-  background: rgba(255, 255, 255, 0.18);
+  border-left-color: rgba(255, 255, 255, 0.55);
 }
 .message.received .reply-quote {
-  background: rgba(0, 0, 0, 0.055);
+  border-left-color: var(--primary-color);
 }
-.message.sent .reply-quote:hover {
-  background: rgba(255, 255, 255, 0.26);
+/* Hover lifts the text, not a background: a block appearing on hover would
+   reintroduce the shape this removed. */
+.message.sent .reply-quote:hover .reply-quote-text {
+  color: rgba(255, 255, 255, 0.95);
 }
-.message.received .reply-quote:hover {
-  background: rgba(0, 0, 0, 0.09);
+.message.received .reply-quote:hover .reply-quote-text {
+  color: var(--text-color);
 }
 
 /* Who said it. Plain small-bold text, not a pill — the pill was a third
@@ -9701,7 +9707,7 @@ small {
   white-space: nowrap;
 }
 .message.sent .reply-quote-label {
-  color: rgba(255, 255, 255, 0.92);
+  color: rgba(255, 255, 255, 0.95);
 }
 .message.received .reply-quote-label {
   color: var(--primary-color);
@@ -9715,6 +9721,7 @@ small {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color 0.15s ease;
 }
 .message.sent .reply-quote-text {
   color: rgba(255, 255, 255, 0.72);
