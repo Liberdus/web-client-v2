@@ -209,6 +209,21 @@ Space in multiples of 4, usually 8. Prefer flex/grid `gap` over per-element
 margins — sibling margins collapse and double, and most of the spacing bugs in
 this stylesheet come from that.
 
+**A screen needs a scale, not a set of individually plausible numbers.** The
+wallet ran 28 / 4 / 4 / 20 / 0 / 40 / 8 — every value a multiple of 4, and no
+system: the section break got more air than the balance, and the two action
+tiers touched. Four steps are enough for a screen:
+
+| step | for |
+| ---: | --- |
+| 8 | inside one unit — a caption and the figure it labels |
+| 16 | between related things — two tiers of the same control |
+| 32 | between blocks — hero to actions, actions to a list |
+| 48 | page entry — above the thing the screen exists for |
+
+Make the entry space the largest value on the page. A hero that is a short
+block of text reads as the first row of a list if nothing sits above it.
+
 ### Layout
 
 The app is a single 480px column with sliding full-height modals. `.form--narrow`
