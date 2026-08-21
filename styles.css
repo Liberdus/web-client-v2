@@ -8386,7 +8386,7 @@ small {
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
-  padding: 8px 16px;
+  padding: 4px 8px;
   z-index: 2;
 }
 
