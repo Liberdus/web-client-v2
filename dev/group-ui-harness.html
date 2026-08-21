@@ -178,6 +178,30 @@
           listHost.innerHTML = doc.getElementById('settingsModal').querySelector('.menu-list').outerHTML;
           listHost.style.padding = '12px';
         },
+        'contacts': () => {
+          listHost.hidden = false;
+          // Reproduces renderContactItem + the group headings.
+          const row = (o) => `
+            <li class="chat-item${o.blocked ? ' blocked' : ''}">
+              <div class="chat-avatar">${addrAvatar(o.addr, 50)}</div>
+              <div class="chat-content">
+                <div class="chat-header">
+                  <div class="chat-name">${o.incomplete ? '<span class="contact-incomplete" title="Incomplete contact"></span>' : ''}${o.name}</div>
+                </div>
+                <div class="contact-list-info${o.address ? ' contact-list-info--address' : ''}">${o.info}</div>
+              </div>
+            </li>`;
+          const head = (l) => `<li class="contact-section-header" role="presentation">${l}</li>`;
+          listHost.innerHTML = `<ul class="chat-list" id="contactsList">
+            ${head('Connections')}
+            ${row({ addr: REAL[1], name: 'ana', info: 'ana@example.com' })}
+            ${row({ addr: REAL[2], name: 'ben', info: '18ed49a5…29d4e7', address: true })}
+            ${head('Tolled')}
+            ${row({ addr: REAL[3], name: 'cleo', info: '+1 555 0134', incomplete: true })}
+            ${head('Blocked')}
+            ${row({ addr: REAL[4], name: 'dana', info: 'dana@example.com', blocked: true })}
+          </ul>`;
+        },
         'app header': () => {
           listHost.hidden = false;
           const hdr = doc.getElementById('header').outerHTML;
