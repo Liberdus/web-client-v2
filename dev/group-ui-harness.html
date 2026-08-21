@@ -35,7 +35,7 @@
       const html = await (await fetch('../index.html')).text();
       const doc = new DOMParser().parseFromString(html, 'text/html');
       const host = document.getElementById('host');
-      for (const id of ['createGroupModal', 'groupChatModal', 'joinGroupModal', 'groupInfoModal', 'appearanceModal']) {
+      for (const id of ['createGroupModal', 'groupChatModal', 'joinGroupModal', 'groupInfoModal', 'appearanceModal', 'chatModal']) {
         host.appendChild(doc.getElementById(id));
       }
 
@@ -47,8 +47,8 @@
        */
       const listHost = document.createElement('div');
       listHost.id = 'listHost';
-      listHost.style.cssText = 'display:block;height:100%;overflow-y:auto;background:#fff';
-      listHost.hidden = true;
+      listHost.style.cssText = 'height:100%;overflow-y:auto;background:#fff';
+      listHost.style.display = 'none';
       host.appendChild(listHost);
 
       /*
@@ -120,7 +120,7 @@
 
       const view = () => myData.groups[GROUP.groupId];
       const reset = () => { myData.groups[GROUP.groupId] = structuredClone(GROUP); };
-      const closeAll = () => document.querySelectorAll('.modal.active').forEach((m) => m.classList.remove('active'));
+      const closeAll = () => { document.querySelectorAll('.modal.active').forEach((m) => m.classList.remove('active')); listHost.style.display = 'none'; };
 
       const scenes = {
         'chat: fine': () => { reset(); groupChatModal.open(GROUP.groupId); },
@@ -147,7 +147,7 @@
         },
         'info: non-admin': () => { reset(); view().admins = [addr(2)]; groupInfoModal.open(GROUP.groupId); },
         'chat list': () => {
-          listHost.hidden = false;
+          listHost.style.display = 'block';
           // Reproduces renderChatList's markup exactly — keep in step with it.
           const row = (o) => `
             <li class="chat-item${o.group ? ' chat-item--group' : ''}">
@@ -174,12 +174,43 @@
           </ul>`;
         },
         'settings menu': () => {
-          listHost.hidden = false;
+          listHost.style.display = 'block';
           listHost.innerHTML = doc.getElementById('settingsModal').querySelector('.menu-list').outerHTML;
           listHost.style.padding = '12px';
         },
+        '1:1 chat': () => {
+          listHost.style.display = 'none';
+          const m = document.getElementById('chatModal');
+          m.querySelector('.modal-title').textContent = 'Ana Ruiz';
+          m.querySelector('#chatSubtitle').textContent = '@ana';
+          m.querySelector('.modal-avatar').innerHTML = addrAvatar(REAL[1], 36);
+          // .message markup as buildMessageBubble emits it, so the bubbles are
+          // the real ones and not an approximation.
+          // Runs are computed the way buildChatMessageRangeHTML does it.
+          const bub = (mine, text, time, run) => `
+            <div class="message ${mine ? 'sent' : 'received'}${run ? ' message--continues' : ''}">
+              <div class="message-content">${text}</div>
+              <div class="message-time">${time}</div>
+            </div>`;
+          const msgs = [
+            [false, 'Are we still on for tomorrow?', '9:41 AM'],
+            [true, 'Yes — 7am at the trailhead.', '9:43 AM'],
+            [true, 'Bringing the extra poles.', '9:43 AM'],
+            [true, 'Parking spot 4 if you are late.', '9:44 AM'],
+            [false, 'Perfect, see you there.', '9:45 AM'],
+          ];
+          let last = null;
+          m.querySelector('.messages-list').innerHTML = msgs
+            .map(([mine, text, time]) => {
+              const run = last !== null && last === mine;
+              last = mine;
+              return bub(mine, text, time, run);
+            })
+            .join('');
+          m.classList.add('active');
+        },
         'wallet': () => {
-          listHost.hidden = false;
+          listHost.style.display = 'block';
           const wallet = doc.getElementById('walletScreen').cloneNode(true);
           wallet.style.display = 'block';
           wallet.querySelector('#walletTotalBalance').textContent = '1,284.50';
@@ -204,7 +235,7 @@
           listHost.appendChild(wallet);
         },
         'contacts': () => {
-          listHost.hidden = false;
+          listHost.style.display = 'block';
           // Reproduces renderContactItem + the group headings.
           const row = (o) => `
             <li class="chat-item${o.blocked ? ' blocked' : ''}">
@@ -228,7 +259,7 @@
           </ul>`;
         },
         'app header': () => {
-          listHost.hidden = false;
+          listHost.style.display = 'block';
           const hdr = doc.getElementById('header').outerHTML;
           const search = doc.getElementById('searchBarContainer').outerHTML;
           // index.html's paths are relative to the app root, not to /dev/.
@@ -247,7 +278,7 @@
           a.setAttribute('aria-label', 'Your profile (private account)');
         },
         'tab bar': () => {
-          listHost.hidden = false;
+          listHost.style.display = 'block';
           listHost.innerHTML = doc.getElementById('footer').outerHTML;
           const f = listHost.querySelector('.footer');
           f.classList.add('active');
@@ -266,7 +297,7 @@
           });
         },
         'appearance': () => {
-          listHost.hidden = true;
+          listHost.style.display = 'none';
           const q = (id) => document.getElementById(id);
           const sample = REAL[0];
           q('avatarStyleSwatchGradient').innerHTML = genAvatar(sample, 28);
@@ -284,7 +315,7 @@
           q('appearanceModal').classList.add('active');
         },
         'join group': () => {
-          listHost.hidden = true;
+          listHost.style.display = 'none';
           joinGroupModal.open();
           // previewGroup() needs the network; fill the preview directly so the
           // resolved state is inspectable without one.
@@ -306,7 +337,7 @@
       for (const [name, run] of Object.entries(scenes)) {
         const b = document.createElement('button');
         b.textContent = name;
-        b.onclick = () => { closeAll(); listHost.hidden = true; run(); };
+        b.onclick = () => { closeAll(); listHost.style.display = 'none'; run(); };
         bar.appendChild(b);
       }
       Object.assign(window, { scenes, closeAll, addrAvatar, setStyle, getStyle, groupChatModal, groupInfoModal, createGroupModal, joinGroupModal, myData, addr, ME });

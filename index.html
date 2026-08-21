@@ -1643,7 +1643,12 @@
           <button class="back-button" id="closeChatModal"></button>
           <div class="chat-user-info">
             <div class="modal-avatar"></div>
-            <div class="modal-title"></div>
+            <div>
+              <div class="modal-title"></div>
+              <!-- The username, when the title above is a nickname you set.
+                   Otherwise empty, and :empty hides it. -->
+              <div class="chat-subtitle" id="chatSubtitle"></div>
+            </div>
           </div>
           <!-- Add header actions container -->
           <div class="header-actions">
