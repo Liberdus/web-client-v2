@@ -389,6 +389,15 @@ Passing a smaller size to the generator leaves a ring of the container's
 background around the avatar — invisible with an identicon, whose own
 background is nearly the same colour, and obvious with a gradient.
 
+**An SVG id must be unique per rendered element, never derived from its
+data.** SVG ids are global to the document and `url(#id)` resolves to the first
+match in document order. `generateAvatar` keyed its gradient id on the address,
+which looked unique until the same person appeared in two lists at once — the
+chat list and the contacts list are both in the DOM, only one is visible, so
+the visible avatar resolved its gradient to the copy inside a `display: none`
+screen and painted nothing. A counter is the only thing that actually
+guarantees uniqueness. Colour stays deterministic; only the internal id varies.
+
 **Renderers must be total.** `render()` runs on every background sync with
 whatever the network returned. One odd roster entry must not be able to blank a
 conversation — see `displayName()`, which is deliberately exception-safe.

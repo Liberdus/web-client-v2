@@ -198,14 +198,27 @@ export function generateIdenticon(address, size = 50) {
  * Colours come from the same getColorFromHash the identicon uses, at different
  * offsets, so an address keeps a recognisable identity across both.
  */
+let avatarSeq = 0;
+
 export function generateAvatarSvg(hash, size = 50) {
     const clean = String(hash || '').replace(/^0x/, '').toLowerCase() || '0'.repeat(64);
     const from = getColorFromHash(clean, 0);
     const to = getColorFromHash(clean, 6);
-    // The gradient id must be unique per avatar: SVG ids are global to the
-    // document, and several avatars render into the same page. A duplicate id
-    // makes every later avatar reuse the first one's colours.
-    const id = `g${clean.slice(0, 12)}${size}`;
+    /*
+     * The gradient id must be unique per RENDERED AVATAR, not per address.
+     *
+     * SVG ids are global to the document and `url(#id)` resolves to the first
+     * match in document order. Deriving the id from the address meant the same
+     * contact rendered twice at the same size produced two identical ids — and
+     * the app does exactly that, because a person can appear in the chat list
+     * and the contacts list at once. Both screens are in the DOM together and
+     * only one is visible, so the visible avatar resolved its gradient to the
+     * copy inside a `display: none` screen and painted nothing at all.
+     *
+     * A counter is the only thing that actually guarantees uniqueness here.
+     * The avatar is still deterministic in colour; only the internal id varies.
+     */
+    const id = `lav${(avatarSeq += 1).toString(36)}`;
     return `
         <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
             <defs>
