@@ -320,6 +320,28 @@ question an existing one already answers (§1.5).
 `ui-row`. Sections cost a heading, a note and vertical space, and imply the
 content is substantial.
 
+**Nothing inside a message bubble gets its own border.** The bubble is
+already a frame; anything bordered inside it reads as a second frame around
+something that is framed. Replies, attachments and quoted content tint the
+bubble's own colour instead — `rgba(255,255,255,.18)` on sent,
+`rgba(0,0,0,.055)` on received — which is quieter on both sides and needs no
+per-owner rules.
+
+Two corollaries. **A quoted message is subordinate to the message quoting
+it**: it was previously coloured by whoever *wrote* the quote, so replying to
+yourself put a saturated accent block inside a grey bubble and the quote became
+the loudest thing on screen. And **an image is its own content**: it runs to
+the bubble's edges rather than sitting in a card inside it, and needs no
+filename or file size. A file you cannot see is the opposite case — there the
+name and size are the point.
+
+**Anything straddling a bubble's edge is opaque, never a tint.** A reaction
+chip sits half over the bubble and half over the page, so a translucent
+background blends into whichever colour is behind that half. Solid white with a
+soft shadow reads on both. And reserve the space it occupies: absolute
+positioning takes it out of flow, so without a matching margin it hangs into
+whatever follows.
+
 **A marker beats a word for anything repeated down a list.** A chat row shows
 what happened to *your* last message with a 14px `.chat-status` glyph — a
 single check for sent, a clock for sending, a filled red badge for failed, and
