@@ -25696,34 +25696,33 @@ class ChatModal {
       return;
     }
 
-    // Format toll display
-    const { text: usdString, libWei } = this.formatTollDisplay(
-      contact.toll,
-      contact.tollUnit
-    );
+    // Only libWei is needed now: the free case no longer quotes an amount.
+    const { libWei } = this.formatTollDisplay(contact.toll, contact.tollUnit);
     const effectiveTollLibWei = getEffectiveTollLibWei(libWei);
     const { text: effectiveUsdString } = this.formatTollDisplay(effectiveTollLibWei, 'LIB');
 
+    /*
+     * One label, and the value carries the state. The label used to change
+     * with it, which produced two readings that contradict themselves:
+     * "Toll free: 0.050000 USD" — free, followed by a price — and
+     * "Toll cost: 0.000000 USD" in green when the effective toll came to zero.
+     *
+     * An amount only appears when there is one to pay. Free is free: a
+     * connection has waived the toll, and quoting the number they waived tells
+     * you nothing you can act on.
+     */
+    tollLabel.textContent = 'Toll:';
+
     let display;
-    if (contact.tollRequiredToSend == 1) {
-      // Toll is required - show as "Toll cost:" with amount in red
-      tollLabel.textContent = 'Toll cost:';
-      display = effectiveUsdString;
-      // if the effective toll is 0, use toll-free class instead
-      if (effectiveTollLibWei == 0n) {
-        tollValue.classList.add('toll-free');
-      } else {
-        tollValue.classList.add('toll-cost');
-      }
-    } else if (contact.tollRequiredToSend == 2) {
-      // User is blocked - show as "Toll cost:" with "blocked" in red
-      tollLabel.textContent = 'Toll cost:';
+    if (contact.tollRequiredToSend == 2) {
       display = 'blocked';
       tollValue.classList.add('toll-cost');
+    } else if (contact.tollRequiredToSend == 1 && effectiveTollLibWei != 0n) {
+      display = effectiveUsdString;
+      tollValue.classList.add('toll-cost');
     } else {
-      // Toll is free - show as "Toll free:" with amount in green
-      tollLabel.textContent = 'Toll free:';
-      display = usdString;
+      // Either they have waived it, or what would be charged rounds to nothing.
+      display = 'free';
       tollValue.classList.add('toll-free');
     }
     tollValue.textContent = display;
@@ -31279,19 +31278,20 @@ class SendAssetFormModal {
     const effectiveTollLibWei = getEffectiveTollLibWei(tollInLibWei);
     const effectiveTollUsd = parseFloat(big2str(effectiveTollLibWei, 18)) * factor;
     const usdString = `${effectiveTollUsd.toFixed(6)} USD (≈ ${parseFloat(big2str(effectiveTollLibWei, 18)).toFixed(6)} LIB)`;
+    /*
+     * Same rule as the chat toll readout: an amount only appears when there is
+     * one to pay. This said "free; 0.050000 USD (≈ 0.050000 LIB)" — the price
+     * of the thing it had just called free.
+     */
     let display;
-    if (this.tollInfo.required == 1) {
-      display = `${usdString}`;
-      if (this.memoInput.value.trim() == '') {
-        display = '';
-      }
-    } else if (this.tollInfo.required == 2) {
+    if (this.tollInfo.required == 2) {
       this.tollMemoSpan.style.color = 'red';
-      display = `blocked`;
+      display = 'blocked';
+    } else if (this.tollInfo.required == 1 && effectiveTollLibWei != 0n) {
+      display = this.memoInput.value.trim() === '' ? '' : usdString;
     } else {
-      // light green used to show success
       this.tollMemoSpan.style.color = '#28a745';
-      display = `free; ${usdString}`;
+      display = 'free';
     }
     //display the container
     if (display != '') {

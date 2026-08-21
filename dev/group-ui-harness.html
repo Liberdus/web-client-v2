@@ -253,7 +253,26 @@
             <div class="message received">${file}
               <div class="message-content">Here's the report.</div>
               <div class="message-time">12:51 PM</div></div>`;
+          // The three toll states, which used to include two self-contradictions.
+          const toll = m.querySelector('#tollValue');
+          toll.textContent = 'free';
+          toll.className = 'toll-value toll-free';
           m.classList.add('active');
+        },
+        'toll states': () => {
+          listHost.style.display = 'block';
+          const row = (label, value, cls) => `
+            <div class="toll-container chat-toll-container" style="justify-content:flex-end">
+              <span class="toll-label">${label}</span>
+              <span class="toll-value ${cls}">${value}</span>
+              <span class="toll-info-icon" data-icon="info"></span>
+            </div>`;
+          listHost.innerHTML = `<div style="padding:16px">
+            ${row('Toll:', 'free', 'toll-free')}
+            ${row('Toll:', '0.050000 USD', 'toll-cost')}
+            ${row('Toll:', 'blocked', 'toll-cost')}
+            ${row('Toll:', 'offline', '')}
+          </div>`;
         },
         'wallet': () => {
           listHost.style.display = 'block';
