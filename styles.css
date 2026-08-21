@@ -5446,24 +5446,6 @@ input[type='file'].form-control {
 }
 
 /* My Info: address display under QR (no border/background) */
-.myinfo-address-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  margin-top: 0.5rem;
-}
-
-.address-display.myinfo-address-display {
-  background-color: transparent !important;
-  border: none !important;
-  border-radius: 0;
-  padding: 0 !important;
-  box-shadow: none !important;
-  font-size: 0.8rem;
-  line-height: 1.2;
-}
-
 
 /* Secret Modal Styles */
 #secretModal .form-group p {
@@ -7479,21 +7461,6 @@ mark {
 /* QR Scan canvas element (kept hidden; used for frame processing) */
 #canvas {
   display: none;
-}
-
-/* ========= MyInfo: Username QR ========= */
-#myInfoQR {
-  margin-top: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-#myInfoQR img {
-  display: block;
-  width: 160px;
-  height: 160px;
-  image-rendering: pixelated;
 }
 
 /* ========= New Chat: QR Scan/Upload icons next to input ========= */
@@ -11366,6 +11333,11 @@ button.ui-row-value:not(:disabled):hover {
   font-weight: var(--font-weight-normal);
   color: var(--secondary-text-color);
 }
+/* An unset field reads as an invitation, not as a blank. Accent, because "Add"
+   is something to do — the muted grey above is for values you already have. */
+.ui-nav-value--empty {
+  color: var(--primary-color);
+}
 .ui-nav-row::after {
   content: '';
   flex: none;
@@ -11408,10 +11380,104 @@ button.ui-row-value:not(:disabled):hover {
 .ui-nav-row--flat::after {
   display: none;
 }
+/* No icon. A field list is already labelled by its section heading; giving
+   Name, LinkedIn and X an icon each would be decoration standing in for
+   meaning. The chevron stays, because the row still opens the editor. */
+.ui-nav-row--plain::before {
+  display: none;
+}
 /* Separates the destructive row from the list above it, so the tap that
    follows a mis-scroll is not the irreversible one. */
 .ui-nav-gap {
   height: 22px;
+}
+
+/* --- ui-identity: who this account is ------------------------------------
+ *
+ * Avatar, display name, handle, address, QR. No container: the identity IS the
+ * screen, and a tinted rectangle around the only thing on a screen is the
+ * wallet's boxed-balance mistake in a different place.
+ *
+ * The DISPLAY NAME is the large text and the username is the handle beneath it.
+ * It used to be the other way round, which put the string you already know
+ * above the one other people actually see.
+ */
+.ui-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 26px 20px 20px;
+  text-align: center;
+}
+.ui-identity-avatar {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--light-color);
+  cursor: pointer;
+}
+/* Fill the frame. A smaller SVG in a fixed circle leaves a ring of the
+   container's background, invisible on an identicon and obvious on a gradient. */
+.ui-identity-avatar svg,
+.ui-identity-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.ui-identity-name {
+  margin-top: 14px;
+  font-size: 22px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.01em;
+  color: var(--text-color);
+}
+.ui-identity-handle {
+  margin-top: 2px;
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text-color);
+}
+/* One line, truncated, on a filled pill — the same shape as the search field,
+   which is this app's answer to "a thing you interact with that holds text". */
+.ui-identity-address {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  margin-top: 16px;
+  padding: 7px 8px 7px 14px;
+  border-radius: 999px;
+  background: var(--input-background);
+}
+.ui-identity-address code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12.5px;
+  color: var(--text-color);
+  cursor: pointer;
+}
+.ui-identity-address .address-copy-button {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+}
+.ui-identity-qr {
+  margin-top: 18px;
+  line-height: 0;
+}
+/* 160px is what `qr.encodeQR(..., { scale: 4 })` actually emits. Matching it
+   exactly keeps the modules on whole pixels — scaling a QR to a size that is
+   not a multiple of its module size is how you get one that will not scan.
+   `pixelated` for the same reason: no smoothing across module edges. */
+.ui-identity-qr img {
+  width: 160px;
+  height: 160px;
+  image-rendering: pixelated;
 }
 
 /* --- small shared bits --------------------------------------------------- */

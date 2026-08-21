@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-49" />
+    <link rel="stylesheet" href="./styles.css?v=1455-51" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-53" type="module"></script>
+    <script src="./app.js?v=1455-54" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -1326,64 +1326,56 @@
       <div class="modal fixed-header" id="myInfoModal">
         <div class="modal-header">
           <button class="back-button" id="closeMyInfoModal"></button>
-          <div class="modal-title">My Info</div>
+          <div class="modal-title">You</div>
         </div>
+        <!--
+          This screen and "My Profile" were one concept as two screens with two
+          names and three ways in (the header avatar, Settings > Profile, and a
+          pencil on the Name row). This is now the single destination; the form
+          is its editor, reached by tapping a field.
+
+          The card is gone. It was a tinted rectangle drawn around content that
+          is already the whole screen — the wallet's boxed-balance problem. The
+          username was also the biggest text with the display name a small field
+          beneath it, which is inverted: the display name is what people see.
+        -->
         <div class="modal-content">
-          <div class="form-container">
-            <div class="contact-info-list">
-              <div class="contact-avatar-section">
-                <div class="avatar" id="myInfoAvatar"></div>
-                <div class="name" id="myInfoDisplayName"></div>
-                <div id="myInfoQR" class="myinfo-qr"></div>
-                <div class="myinfo-address-row">
-                  <div
-                    id="myInfoDisplayUsername"
-                    class="form-control address-display myinfo-address-display"
-                    role="button"
-                    tabindex="0"
-                    aria-label="My address"
-                  ></div>
-                  <button
-                    id="myInfoCopyAddress"
-                    class="icon-button address-copy-button"
-                    aria-label="Copy address"
-                  ></button>
-                </div>
-              </div>
-              <!-- My info fields -->
-              <div class="contact-info-item" style="display: flex">
-                <div class="contact-info-label">Name</div>
-                <div class="contact-info-value-container">
-                  <div class="contact-info-value" id="myInfoName"></div>
-                  <button class="icon-button edit-icon" id="myInfoEditButton" aria-label="Edit profile"></button>
-                </div>
-              </div>
-              <!-- Email and Phone fields hidden - may want to restore later
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">Email</div>
-                <div class="contact-info-value">
-                  <a href="#" id="myInfoEmail" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
-                </div>
-              </div>
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">Phone</div>
-                <div class="contact-info-value" id="myInfoPhone"></div>
-              </div>
-              -->
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">LinkedIn</div>
-                <div class="contact-info-value">
-                  <a href="#" id="myInfoLinkedin" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
-                </div>
-              </div>
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">X-Twitter</div>
-                <div class="contact-info-value">
-                  <a href="#" id="myInfoX" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
-                </div>
-              </div>
+          <div class="ui-identity">
+            <div class="ui-identity-avatar avatar" id="myInfoAvatar"></div>
+            <div class="ui-identity-name" id="myInfoDisplayName"></div>
+            <div class="ui-identity-handle" id="myInfoUsername"></div>
+            <!--
+              Was a .form-control with role="button" — an input's clothes on a
+              read-only value — centred and wrapped over two lines with the copy
+              button beside the second one. One line, truncated in the middle,
+              with the full address on the clipboard.
+            -->
+            <div class="ui-identity-address">
+              <code id="myInfoDisplayUsername" role="button" tabindex="0" aria-label="Copy your address"></code>
+              <button
+                id="myInfoCopyAddress"
+                class="icon-button address-copy-button"
+                aria-label="Copy address"
+              ></button>
             </div>
+            <div id="myInfoQR" class="ui-identity-qr"></div>
           </div>
+
+          <nav class="ui-nav" id="myInfoFields">
+            <div class="ui-nav-title">Shared with your connections</div>
+            <button type="button" class="ui-nav-row ui-nav-row--plain" id="myInfoNameRow">
+              <span class="ui-nav-key">Name</span>
+              <span class="ui-nav-value" id="myInfoName"></span>
+            </button>
+            <button type="button" class="ui-nav-row ui-nav-row--plain" id="myInfoLinkedinRow">
+              <span class="ui-nav-key">LinkedIn</span>
+              <span class="ui-nav-value" id="myInfoLinkedin"></span>
+            </button>
+            <button type="button" class="ui-nav-row ui-nav-row--plain" id="myInfoXRow">
+              <span class="ui-nav-key">X</span>
+              <span class="ui-nav-value" id="myInfoX"></span>
+            </button>
+          </nav>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
@@ -1392,11 +1384,10 @@
       <div class="modal fixed-header" id="accountModal">
         <div class="modal-header">
           <button class="back-button" id="closeAccountForm"></button>
-          <div class="modal-title">My Profile</div>
+          <div class="modal-title">Edit profile</div>
         </div>
         <div class="modal-content">
           <div class="form-container">
-            <div class="profile-sharing-note">This information is shared with your connections</div>
             <form id="accountForm" class="form--narrow">
               <div class="form-group">
                 <label for="name">Name</label>

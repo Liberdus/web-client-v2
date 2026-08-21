@@ -6847,8 +6847,11 @@ class SettingsModal {
     this.chatSettingsButton = document.getElementById('openChatSettingsModal');
     this.chatSettingsButton.addEventListener('click', () => chatSettingsModal.open());
 
+    // Settings > Profile and the header avatar are the same destination now.
+    // This used to open the form directly, which is how one concept ended up
+    // with two screens and two names.
     this.profileButton = document.getElementById('openAccountForm');
-    this.profileButton.addEventListener('click', () => accountModal.open());
+    this.profileButton.addEventListener('click', () => myInfoModal.open());
     
     this.tollButton = document.getElementById('openToll');
     this.tollButton.addEventListener('click', () => tollModal.open());
@@ -8290,14 +8293,13 @@ class MyInfoModal {
   load() {
     this.modal = document.getElementById('myInfoModal');
     this.backButton = document.getElementById('closeMyInfoModal');
-    this.editButton = document.getElementById('myInfoEditButton');
-    this.avatarSection = this.modal.querySelector('.contact-avatar-section');
-    this.avatarDiv = this.avatarSection.querySelector('.avatar');
-    this.nameDiv = this.avatarSection.querySelector('.name');
+    this.avatarDiv = document.getElementById('myInfoAvatar');
+    this.nameDiv = document.getElementById('myInfoDisplayName');
+    this.handleDiv = document.getElementById('myInfoUsername');
     this.addressDiv = document.getElementById('myInfoDisplayUsername');
     this.copyButton = document.getElementById('myInfoCopyAddress');
-    this.qrContainer = this.modal.querySelector('#myInfoQR');
-    this.fullAddress = null; // Store full address for copying
+    this.qrContainer = document.getElementById('myInfoQR');
+    this.fullAddress = null; // the untruncated address, for copying
 
     // Create avatar edit button
     this.avatarEditButton = document.createElement('button');
@@ -8305,25 +8307,25 @@ class MyInfoModal {
     this.avatarEditButton.setAttribute('aria-label', 'Edit photo');
 
     this.backButton.addEventListener('click', () => this.close());
-    this.editButton.addEventListener('click', () => accountModal.open());
 
-    // Copy address functionality
+    // Every profile field opens the same editor. There is no separate pencil:
+    // the row you tapped is the thing you meant to change.
+    for (const id of ['myInfoNameRow', 'myInfoLinkedinRow', 'myInfoXRow']) {
+      document.getElementById(id)?.addEventListener('click', () => accountModal.open());
+    }
+
     this.copyButton.addEventListener('click', () => this.copyAddress());
     this.addressDiv.addEventListener('click', () => this.copyAddress());
 
-    // Avatar edit button click
     this.avatarEditButton.addEventListener('click', (e) => {
       e.stopPropagation();
       this.openAvatarEdit();
     });
-
-    // Make the avatar itself clickable
     this.avatarDiv.addEventListener('click', (e) => {
       e.stopPropagation();
       this.openAvatarEdit();
     });
 
-    // Attach edit button to the avatar div
     if (!this.avatarDiv.contains(this.avatarEditButton)) {
       this.avatarDiv.appendChild(this.avatarEditButton);
     }
@@ -8335,10 +8337,16 @@ class MyInfoModal {
     avatarEditModal.open(myAccount.keys.address, true); // true = isOwnAvatar
   }
 
+  /* An address is 42 characters of hex nobody reads end to end, but the head and
+     tail are what you check against another screen. The middle is the part that
+     can go. */
+  static shortAddress(address) {
+    return address.length > 20 ? `${address.slice(0, 10)}…${address.slice(-8)}` : address;
+  }
+
   async updateMyInfo() {
     if (!myAccount) return;
 
-    // Use getContactAvatarHtml for consistent avatar rendering
     // Include account avatar fields so user preference (`useAvatar`) is respected
     const avatarHtml = await getContactAvatarHtml(
       {
@@ -8346,69 +8354,42 @@ class MyInfoModal {
         hasAvatar: myData?.account?.hasAvatar,
         avatarId: myData?.account?.avatarId,
       },
-      96
+      88
     );
     this.avatarDiv.innerHTML = avatarHtml;
-
-    // Re-append the avatar edit button after setting the avatar content
     if (!this.avatarDiv.contains(this.avatarEditButton)) {
       this.avatarDiv.appendChild(this.avatarEditButton);
     }
 
-    this.nameDiv.textContent = myAccount.username;
+    const { account = {} } = myData ?? {};
+
+    // Display name leads; the username is the handle under it. Fall back to the
+    // username when no display name is set, so the large slot is never empty.
+    this.nameDiv.textContent = account.name || myAccount.username;
+    this.handleDiv.textContent = `@${myAccount.username}`;
+
     const address = myAccount.keys.address;
     const addressWithPrefix = address.startsWith('0x') ? address : `0x${address}`;
-    
-    // Store full address for copying
     this.fullAddress = addressWithPrefix;
-    
-    // Display full address (address is always shown, so no need to check display)
-    this.addressDiv.textContent = addressWithPrefix;
+    this.addressDiv.textContent = MyInfoModal.shortAddress(addressWithPrefix);
 
-    const { account = {} } = myData ?? {};
-    const fields = {
-      name:      { id: 'myInfoName',      label: 'Name' },
-      // Email and Phone fields hidden - may want to restore later
-      // email:     { id: 'myInfoEmail',     label: 'Email',    href: v => `mailto:${v}` },
-      // phone:     { id: 'myInfoPhone',     label: 'Phone' },
-      linkedin:  { id: 'myInfoLinkedin',  label: 'LinkedIn', href: v => `https://linkedin.com/in/${v}` },
-      x:         { id: 'myInfoX',         label: 'X',        href: v => `https://x.com/${v}` },
-    };
-
-    // Cache DOM elements once
-    const elements = Object.fromEntries(
-      Object.values(fields).map(({ id }) => [id, document.getElementById(id)])
-    );
-
-    // Iterate through each profile field to populate or hide it based on whether data exists
-    // For fields with values: display the container, set the text content, and set href if applicable
-    // For fields without values: hide the container
-    for (const [fieldKey, fieldConfig] of Object.entries(fields)) {
-      const element = elements[fieldConfig.id];
-      if (!element) continue; // skip if element not found in DOM
-      
-      // For clickable links (email, linkedin, x), the element is nested deeper in the DOM
-      const container =
-        fieldKey === 'email' || fieldKey === 'linkedin' || fieldKey === 'x'
-          ? element.parentElement.parentElement // label + anchor live two levels up
-          : element.parentElement;
-
-      const value = account[fieldKey] ?? '';
+    /* Every field is always shown, including the empty ones. A row that
+       disappears when unset cannot tell you the field exists — and these three
+       are the whole of what your connections see, so "LinkedIn — Add" is the
+       useful state, not a row to hide. */
+    const fields = [
+      ['myInfoName', account.name],
+      ['myInfoLinkedin', account.linkedin],
+      ['myInfoX', account.x],
+    ];
+    for (const [id, value] of fields) {
+      const el = document.getElementById(id);
+      if (!el) continue;
       const isEmpty = !value;
-
-      // Always show the Name field, hide others when empty
-      container.style.display = (fieldKey === 'name' || !isEmpty) ? 'flex' : 'none';
-      if (isEmpty && fieldKey !== 'name') continue;
-
-      // Populate the field with data
-      if (fieldKey === 'name') {
-        element.textContent = isEmpty ? 'Not Entered' : value;
-        element.classList.toggle('contact-info-value--empty', isEmpty);
-      } else {
-        element.textContent = value;
-        if (fieldConfig.href) element.href = fieldConfig.href(value);
-      }
+      el.textContent = isEmpty ? 'Add' : value;
+      el.classList.toggle('ui-nav-value--empty', isEmpty);
     }
+
     this.renderUsernameQR();
   }
 
@@ -8445,8 +8426,6 @@ class MyInfoModal {
       const dataUrl = 'data:image/gif;base64,' + base64;
       const img = document.createElement('img');
       img.src = dataUrl;
-      img.width = 160;
-      img.height = 160;
       img.alt = 'Username QR code';
       this.qrContainer.appendChild(img);
     } catch (e) {
@@ -17946,7 +17925,8 @@ class MyProfileModal {
 
     showToast('Profile updated successfully', 2000, 'success');
 
-    // if myInfo modal is open update the info
+    // The You screen is normally the screen behind this one, so it has to
+    // re-render before the editor closes over it.
     if (myInfoModal && myInfoModal.isActive()) {
       myInfoModal.updateMyInfo();
     }

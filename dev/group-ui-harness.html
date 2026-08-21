@@ -29,6 +29,9 @@
     <div id="harness-bar"></div>
     <div class="container" id="host"></div>
 
+    <!-- the app's own QR encoder, so the `you` scene sizes its QR the way the
+         app does rather than approximating it -->
+    <script src="../external/qr.js"></script>
     <script type="module">
       // Pull the real modal markup out of index.html so this exercises exactly
       // what ships, not a copy that can drift.
@@ -187,6 +190,26 @@
             const el = listHost.querySelector('#' + id);
             if (el) el.textContent = text;
           }
+        },
+        'you': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('myInfoModal').querySelector('.modal-content').innerHTML;
+          listHost.style.padding = '0';
+          listHost.querySelector('#myInfoAvatar').insertAdjacentHTML('afterbegin', addrAvatar(REAL[0], 88));
+          listHost.querySelector('#myInfoDisplayName').textContent = 'Ana Ruiz';
+          listHost.querySelector('#myInfoUsername').textContent = '@ana';
+          listHost.querySelector('#myInfoDisplayUsername').textContent = '0x18ed49a5…29d4e7';
+          listHost.querySelector('#myInfoName').textContent = 'Ana Ruiz';
+          for (const id of ['#myInfoLinkedin', '#myInfoX']) {
+            const el = listHost.querySelector(id);
+            el.textContent = 'Add';
+            el.classList.add('ui-nav-value--empty');
+          }
+          // real encoder output, so the QR is sized the way the app sizes it
+          const bytes = qr.encodeQR('liberdus://harness', 'gif', { scale: 4 });
+          const b64 = btoa(String.fromCharCode.apply(null, new Uint8Array(bytes)));
+          listHost.querySelector('#myInfoQR').innerHTML =
+            '<img alt="Username QR code" src="data:image/gif;base64,' + b64 + '">';
         },
         'menu': () => {
           listHost.style.display = 'block';
