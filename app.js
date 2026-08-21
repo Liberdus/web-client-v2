@@ -30336,6 +30336,10 @@ class SendAssetFormModal {
     this.submitButton.disabled = true;
     qrScanModal.fillFunction = this.fillFromQR.bind(this); // set function to handle filling the payment form from QR data
 
+    if (this.mode === 'evm') {
+      this.prepareEvmContext(networkId, assetKey);
+    }
+
     if (!openModal(this.modal)) return;
 
     if (this.username) {
@@ -30348,20 +30352,32 @@ class SendAssetFormModal {
 
     if (this.mode === 'evm') {
       await evmAssets.refresh();
-      evmAssets.populateNetworkSelect(this.networkSelect, {
-        selectedId: networkId || 'ethereum',
-        evmOnly: true,
-      });
-    } else {
-      await walletScreen.updateWalletBalances();
-      evmAssets.rebuildCatalog();
-      evmAssets.populateNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
+      if (!['connected', 'partial'].includes(evmAssets.getStatus())) return;
+      await this.updateAvailableBalance();
+      return;
     }
+
+    await walletScreen.updateWalletBalances();
+    evmAssets.rebuildCatalog();
+    evmAssets.populateNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
     await this.handleNetworkChange({ resetRecipient: false });
+  }
+
+  prepareEvmContext(networkId, assetKey) {
+    evmAssets.populateNetworkSelect(this.networkSelect, {
+      selectedId: networkId || 'ethereum',
+      evmOnly: true,
+    });
+    evmAssets.populateAssetSelect(this.assetSelectDropdown, this.networkSelect.value);
     if (assetKey && [...this.assetSelectDropdown.options].some((option) => option.value === assetKey)) {
       this.assetSelectDropdown.value = assetKey;
-      await this.handleAssetChange();
     }
+
+    const asset = this.getSelectedAsset();
+    this.balanceSymbol.textContent = asset?.tokenSymbol || '';
+    this.balanceAmount.textContent = '';
+    this.transactionFee.textContent = 'Calculated at send';
+    this.toggleBalanceButton.disabled = true;
   }
 
   getSelectedNetwork() {
@@ -31539,23 +31555,38 @@ class ReceiveModal {
     this.amountInput.value = '';
     this.memoInput.value = '';
 
+    if (this.mode === 'evm') {
+      this.prepareEvmContext(networkId, assetKey);
+    }
+
     if (!openModal(this.modal)) return;
 
     if (this.mode === 'evm') {
       await evmAssets.refresh();
-      evmAssets.populateNetworkSelect(this.networkSelect, {
-        selectedId: networkId || 'ethereum',
-        evmOnly: true,
-      });
-    } else {
-      evmAssets.rebuildCatalog();
-      evmAssets.populateNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
+      return;
     }
+
+    evmAssets.rebuildCatalog();
+    evmAssets.populateNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
     await this.handleNetworkChange();
+  }
+
+  prepareEvmContext(networkId, assetKey) {
+    evmAssets.populateNetworkSelect(this.networkSelect, {
+      selectedId: networkId || 'ethereum',
+      evmOnly: true,
+    });
+    evmAssets.populateAssetSelect(this.assetSelect, this.networkSelect.value);
     if (assetKey && [...this.assetSelect.options].some((option) => option.value === assetKey)) {
       this.assetSelect.value = assetKey;
-      await this.handleAssetChange();
     }
+
+    const walletNetwork = this.getSelectedNetwork();
+    const asset = this.getSelectedAsset();
+    this.networkStatus.textContent = `Receive on ${walletNetwork.name} using this account's shared EVM address.`;
+    this.networkStatus.dataset.status = walletNetwork.connected ? 'connected' : 'ready';
+    this.receiveBalanceSymbol.textContent = asset?.tokenSymbol || '';
+    this.updateReceiveAddresses();
   }
 
   close() {

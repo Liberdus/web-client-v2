@@ -1837,7 +1837,6 @@ class EvmSendFormAdapter {
     clearTimeout(this.refreshTimer);
     this.refreshTimer = setTimeout(() => {
       if (!this.modal?.classList.contains('active') || !this.isEvmSelected()) return;
-      this.updateNetworkStatus();
       this.controller.refreshSendButtonState(this);
     }, 0);
   }
@@ -1995,9 +1994,10 @@ class EvmAssetsController {
       amount,
     });
   }
-  async openContextualSend(options) {
-    await this.openSend(options);
+  openContextualSend(options) {
+    const opening = this.openSend(options);
     this.sendFormAdapter.applyContext();
+    return opening;
   }
   openContextualReceive(options) { return this.openReceive(options); }
   refreshSendButtonState(form) {
