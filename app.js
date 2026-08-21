@@ -21713,9 +21713,24 @@ class ChatModal {
         const isVideo = att.type && att.type.startsWith('video/');
         const hasThumbnail = isImage || isVideo;
         const fileTypeIcon = this.getFileTypeForIcon(att.type || '', fileName);
-        const paddingStyle = hasThumbnail ? 'padding: 5px 5px;' : 'padding: 10px 12px;';
+        /*
+         * Two shapes, not one.
+         *
+         * A picture you can already see needs no filename and no file size:
+         * "IMG_0717.jpeg / JPEG · 277.6 KB" was two lines of metadata nobody
+         * asked for, in a card nested inside the bubble. The media variant runs
+         * the thumbnail to the bubble's own edges instead — one edge rather
+         * than two — and lets the caption below it do the talking.
+         *
+         * A file you CANNOT see is the case where the name and size are the
+         * whole point, so that variant keeps them.
+         *
+         * The styling is in the stylesheet now. This used to carry inline
+         * background:#f5f5f7, color:#222 and color:#888 — hardcoded colour that
+         * no rule in styles.css could reach and that beat every one of them.
+         */
         return `
-                <div class="attachment-row" style="display: flex; ${hasThumbnail ? 'flex-direction: column;' : 'align-items: center;'} background: #f5f5f7; border-radius: 12px; ${paddingStyle} margin-bottom: 6px;"
+                <div class="attachment-row ${hasThumbnail ? 'attachment-row--media' : 'attachment-row--file'}"
                   data-url="${fileUrl}"
                   data-p-url="${att.pUrl || ''}"
                   data-name="${encodeURIComponent(fileName)}"
@@ -21723,16 +21738,17 @@ class ChatModal {
                   ${isImage ? 'data-image-attachment="true"' : ''}
                   ${isVideo ? 'data-video-attachment="true"' : ''}
                 >
-                  <div class="attachment-icon-container" style="${hasThumbnail ? 'margin-bottom: 10px; flex-direction: column;' : 'margin-right: 14px; flex-shrink: 0;'}">
+                  <div class="attachment-icon-container">
                     <div class="attachment-icon" data-file-type="${fileTypeIcon}"></div>
-                    ${hasThumbnail ? '<div class="attachment-preview-hint">Click for options</div>' : ''}
                   </div>
-                  <div style="min-width:0;">
-                    <span class="attachment-label" style="font-weight:500;color:#222;display:block;word-wrap:break-word;">
-                      ${fileName}
-                    </span><br>
-                    <span class="attachment-meta" style="color: #888;">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
-                  </div>
+                  ${
+                    hasThumbnail
+                      ? ''
+                      : `<div class="attachment-details">
+                    <span class="attachment-label">${fileName}</span>
+                    <span class="attachment-meta">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
+                  </div>`
+                  }
                 </div>
               `;
       }).join('');
@@ -23694,28 +23710,32 @@ class ChatModal {
     }
 
     const currentUserAddress = normalizeAddress(myAccount.keys.address);
-    const contactAddress = normalizeAddress(this.address);
-    const contactChips = [];
-    const myChips = [];
-    const otherChips = [];
 
+    /*
+     * Grouped by emoji, not one chip per person. Three people reacting with the
+     * same emoji used to draw three chips overlapping at -8px each — a smear
+     * that says nothing a single "👍 3" does not say better.
+     *
+     * Insertion order is preserved, so the first emoji anyone used stays first
+     * and chips do not reshuffle underneath someone as reactions arrive.
+     */
+    const byEmoji = new Map();
     for (const reaction of reactionsForTarget) {
-      const sender = reaction.sender;
-      const emoji = reaction.emoji;
-
-      const chipClass = sender === currentUserAddress ? 'message-reaction-chip my-reaction' : 'message-reaction-chip';
-      const chipHtml = `<span class="${chipClass}">${escapeHtml(emoji)}</span>`;
-      if (sender === contactAddress) {
-        contactChips.push(chipHtml);
-      } else if (sender === currentUserAddress) {
-        myChips.push(chipHtml);
-      } else {
-        otherChips.push(chipHtml);
-      }
+      if (!reaction.emoji) continue;
+      const entry = byEmoji.get(reaction.emoji) || { count: 0, mine: false };
+      entry.count += 1;
+      if (normalizeAddress(reaction.sender) === currentUserAddress) entry.mine = true;
+      byEmoji.set(reaction.emoji, entry);
     }
+    if (byEmoji.size === 0) return '';
 
-    const chips = [...contactChips, ...myChips, ...otherChips];
-    if (chips.length === 0) return '';
+    const chips = [...byEmoji.entries()].map(
+      ([emoji, { count, mine }]) => `
+        <span class="message-reaction-chip${mine ? ' my-reaction' : ''}">
+          <span class="message-reaction-emoji">${escapeHtml(emoji)}</span>
+          ${count > 1 ? `<span class="message-reaction-count">${count}</span>` : ''}
+        </span>`,
+    );
 
     return `
       <div class="message-reactions" aria-label="Reactions">

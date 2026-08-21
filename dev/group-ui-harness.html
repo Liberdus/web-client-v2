@@ -209,6 +209,52 @@
             .join('');
           m.classList.add('active');
         },
+        'message parts': () => {
+          listHost.style.display = 'none';
+          const m = document.getElementById('chatModal');
+          m.querySelector('.modal-title').textContent = 'Ana Ruiz';
+          m.querySelector('#chatSubtitle').textContent = '@ana';
+          m.querySelector('.modal-avatar').innerHTML = addrAvatar(REAL[1], 36);
+          // Exactly the markup renderChatMessageHTML and buildReactionChipsHTML
+          // produce, so this verifies what ships rather than a mock of it.
+          const quote = (who, text) =>
+            `<div class="reply-quote"><span class="reply-quote-label">${who}</span>` +
+            `<div class="reply-quote-text">${text}</div></div>`;
+          const rx = (chips) =>
+            `<div class="message-reactions" aria-label="Reactions">${chips}</div>`;
+          const chip = (e, n, mine) =>
+            `<span class="message-reaction-chip${mine ? ' my-reaction' : ''}">` +
+            `<span class="message-reaction-emoji">${e}</span>` +
+            (n > 1 ? `<span class="message-reaction-count">${n}</span>` : '') + '</span>';
+          const media = `<div class="attachment-row attachment-row--media">
+              <div class="attachment-icon-container">
+                <img class="attachment-thumbnail" src="../media/liberdus_logo_512.png" alt="Thumbnail">
+              </div></div>`;
+          const file = `<div class="attachment-row attachment-row--file">
+              <div class="attachment-icon-container"><div class="attachment-icon" data-file-type="pdf"></div></div>
+              <div class="attachment-details">
+                <span class="attachment-label">Q3-report.pdf</span>
+                <span class="attachment-meta">PDF · 1.2 MB</span>
+              </div></div>`;
+          m.querySelector('.messages-list').innerHTML = `
+            <div class="message received">${quote('You', "Hey I'm good.")}
+              <div class="message-content">How's your wife?</div>
+              <div class="message-time">12:48 PM</div></div>
+            <div class="message sent">${quote('ana', "Hey I'm good.")}
+              <div class="message-content">Doing well, thanks.</div>
+              <div class="message-time">12:48 PM</div></div>
+            <div class="message sent">${media}
+              <div class="message-content">They are my friends.</div>
+              <div class="message-time">12:49 PM</div>
+              ${rx(chip('👍', 2, true) + chip('🎉', 1, false))}</div>
+            <div class="message sent">
+              <div class="message-content">The message after a reaction.</div>
+              <div class="message-time">12:50 PM</div></div>
+            <div class="message received">${file}
+              <div class="message-content">Here's the report.</div>
+              <div class="message-time">12:51 PM</div></div>`;
+          m.classList.add('active');
+        },
         'wallet': () => {
           listHost.style.display = 'block';
           const wallet = doc.getElementById('walletScreen').cloneNode(true);

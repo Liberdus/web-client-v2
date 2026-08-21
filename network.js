@@ -1,13 +1,14 @@
 const network = {
   "name": "Testnet",
-  "netid": "08fd9539a3cc8aec7349d604db79af985ac13d0255a0c5cf1c739dcdb5ae0c14",
+  "netid": "52d545708708f41ed7162ff641626de0568b2bd098e5640233ce4a387d9c5aa8",
   "netids": [
     "fd1b56b08fd1e5035aa19eb631f7f1ad0395175c5d3dfc49411dfa528e6af7c3",
     "d76b585f8da6d28555c734144d9c965e6d5cb2d4c7248b92265a926408bfece6",
   ],
   "gateways": [
     {
-      "web": "http://127.0.0.1:3030",
+            "web": "https://dev.liberdus.com:3030",
+      "ws": "wss://dev.liberdus.com:3031"
     },
   ],
   "bridges": [
