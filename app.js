@@ -1891,12 +1891,12 @@ class ChatsScreen {
       let displayPreview = previewHTML;
       const isOutgoingPreview = isShowingReactionPreview ? reactionPreview.my : latestActivity.my;
       /*
-       * "< " and "> " were shorthand for direction that only worked if you
-       * already knew the convention, and worse, a draft used the same "< " as a
-       * sent message — so something you never sent looked exactly like
-       * something you did. Words, and a distinct one for drafts.
+       * Direction is carried by the status marker built below, not by a word:
+       * "You: " on every outgoing row spends five characters of a preview that
+       * has none to spare, and repeats down the whole list. Drafts keep a word
+       * because they are a different statement, not a direction.
        */
-      let displayPrefix = isOutgoingPreview ? 'You: ' : '';
+      let displayPrefix = '';
       let hasDraftAttachment = false;
 
       // Check for draft attachments
@@ -1927,9 +1927,10 @@ class ChatsScreen {
           : `📎 ${attachmentCount} attachments`;
         displayPrefix = 'Draft: ';
       }
-      const failedIndicatorHTML = isFailedOutgoingActivity
-        ? '<span class="chat-failed-indicator" title="Not sent" aria-label="Not sent">!</span>'
-        : '';
+      const statusMarkerHTML = chatStatusMarker(
+        isFailedOutgoingActivity ? 'failed' : latestActivity.status,
+        isOutgoingPreview,
+      );
       // Create the list item element
       const li = document.createElement('li');
       li.classList.add('chat-item');
@@ -1942,7 +1943,7 @@ class ChatsScreen {
                   <div class="chat-time">${timeDisplay}</div>
               </div>
               <div class="chat-message">
-                <span class="chat-preview">${failedIndicatorHTML}${displayPrefix}${displayPreview}</span>
+                <span class="chat-preview">${statusMarkerHTML}${displayPrefix}${displayPreview}</span>
                 ${unreadCount ? `<span class="chat-unread">${unreadCount}</span>` : ((contact.draft || contact.draftReplyTxid || hasDraftAttachment) ? `<span class="chat-draft" title="Draft"></span>` : '')}
               </div>
           </div>
@@ -1968,7 +1969,7 @@ class ChatsScreen {
       } else if (latest) {
         // "You: " rather than "< ". The arrows were shorthand for direction that
         // only made sense if you already knew the convention — DESIGN.md §2.
-        prefix = latest.mine ? 'You: ' : '';
+        prefix = chatStatusMarker(latest.status, latest.mine);
         preview = truncateMessage(escapeHtml(latest.message || ''), 50);
       }
 
@@ -6635,6 +6636,24 @@ const proposalInfoModal = new ProposalInfoModal();
  * options is the confirmation — a Save step would only add a way to lose the
  * change you just made.
  */
+/**
+ * What happened to the reader's own last message, as a marker for a chat-list
+ * row. Empty when the last message was not theirs: there is nothing of theirs
+ * to track, and a marker on every row would distinguish nothing.
+ *
+ * A single check and never a double. The app's message vocabulary is
+ * 'pending' | 'sent' | 'failed' with no delivered or read state, so a second
+ * check would assert something no part of the system actually knows.
+ */
+function chatStatusMarker(status, mine) {
+  if (!mine) return '';
+  const state = status === 'failed' || status === 'pending' ? status : 'sent';
+  const label = { sent: 'Sent', pending: 'Sending', failed: 'Not sent' }[state];
+  return `<span class="chat-status" data-state="${state}" title="${label}" aria-label="${label}">${
+    state === 'failed' ? '!' : ''
+  }</span>`;
+}
+
 class AppearanceModal {
   constructor() {
     this.storageKey = 'avatar_style';

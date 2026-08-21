@@ -158,7 +158,7 @@
                   <div class="chat-time">${o.time}</div>
                 </div>
                 <div class="chat-message">
-                  <span class="chat-preview">${o.failed ? '<span class="chat-failed-indicator">!</span>' : ''}${o.prefix || ''}${o.preview}</span>
+                  <span class="chat-preview">${o.state ? `<span class="chat-status" data-state="${o.state}">${o.state === 'failed' ? '!' : ''}</span>` : ''}${o.prefix || ''}${o.preview}</span>
                   ${o.unread ? `<span class="chat-unread">${o.unread}</span>` : ''}
                   ${o.draft ? '<span class="chat-draft" title="Draft"></span>' : ''}
                 </div>
@@ -166,10 +166,11 @@
             </li>`;
           listHost.innerHTML = `<ul class="chat-list" id="chatList">
             ${row({ addr: addr(2), name: 'ana', time: '9:53 PM', prefix: '', preview: 'see you tomorrow', unread: 3 })}
-            ${row({ addr: '8f3a4b'.padEnd(64, 'c'), name: 'Weekend hikers', time: '10:01 PM', group: true, prefix: '', preview: 'Same. Weather looks clear until 2.' })}
-            ${row({ addr: addr(3), name: 'ben', time: 'Mon', prefix: 'You: ', preview: 'thanks!', failed: true })}
+            ${row({ addr: '8f3a4b'.padEnd(64, 'c'), name: 'Weekend hikers', time: '10:01 PM', group: true, state: 'sent', preview: 'Weather looks clear until 2, see you there.' })}
+            ${row({ addr: addr(3), name: 'ben', time: 'Mon', state: 'failed', preview: 'thanks!' })}
             ${row({ addr: addr(4), name: 'cleo', time: 'Sun', prefix: 'Draft: ', preview: 'half-written thought', draft: true })}
-            ${row({ addr: addr(5), name: 'a-very-long-username-that-should-truncate', time: '12 Aug', prefix: 'You: ', preview: 'a long preview line that has to ellipsis rather than wrap onto a second line' })}
+            ${row({ addr: addr(6), name: 'finn', time: 'now', state: 'pending', preview: 'on my way' })}
+            ${row({ addr: addr(5), name: 'a-very-long-username-that-should-truncate', time: '12 Aug', state: 'sent', preview: 'a long preview line that has to ellipsis rather than wrap onto a second line' })}
           </ul>`;
         },
         'settings menu': () => {
