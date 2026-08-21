@@ -1022,6 +1022,15 @@ async function upsertGroupView(groupId, extra = {}) {
     view.members = (info.group.members || []).map(norm);
     view.admins = info.group.admins || [];
     view.maxMembers = info.group.maxMembers;
+    /*
+     * When the group was made. The creator joined at epoch 0, so their
+     * memberSince entry IS the creation time — both fields are already in this
+     * response, so this costs no extra request and no protocol change. Group
+     * info used to label view.lastActivity as "created", which was the time of
+     * the last message.
+     */
+    const founded = info.group.memberSince?.[info.group.createdBy]?.timestamp;
+    if (founded) view.createdAt = founded;
     const meta = await decryptMeta(groupId, info.group.meta);
     if (meta.name) view.name = meta.name;
     // Fire and forget: a slow directory lookup must not hold up the view.

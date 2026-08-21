@@ -110,14 +110,30 @@ export function renderTextConversation(container, items, opts = {}) {
 
   const parts = [];
 
+  /*
+   * Who spoke last, so a run of messages from one person is attributed once
+   * rather than once per bubble. Repeating the avatar and name on every line
+   * makes three short replies read as three separate arrivals, and it is the
+   * single biggest source of visual noise in a busy group.
+   *
+   * Reset by any system item: a notice between two messages breaks the run, so
+   * the speaker has to be named again on the other side of it.
+   */
+  let lastSpeaker = null;
+
   for (const item of items) {
     if (item.system) {
       // 'gap' is the "before you joined" separator, emitted by sync when
       // history was genuinely skipped. Other system items render as plain
       // centred notices.
       parts.push(item.system === 'gap' ? buildJoinBoundary(item.message) : buildSystemMessage(item.message));
+      lastSpeaker = null;
       continue;
     }
+    const speaker = item.mine ? '__me__' : String(item.from || '');
+    const startsRun = speaker !== lastSpeaker;
+    lastSpeaker = speaker;
+
     parts.push(
       buildMessageBubble({
         mine: !!item.mine,
@@ -125,9 +141,11 @@ export function renderTextConversation(container, items, opts = {}) {
         txid: item.txid,
         status: item.status,
         contentHTML: buildTextContent(item.message),
-        // Attribution only matters when more than one person can be speaking.
-        senderLabel: item.mine ? '' : opts.senderLabelFor && opts.senderLabelFor(item),
-        senderAvatar: item.mine ? '' : opts.senderAvatarFor && opts.senderAvatarFor(item),
+        // Attribution only matters when more than one person can be speaking,
+        // and only on the first message of each person's run.
+        senderLabel: item.mine || !startsRun ? '' : opts.senderLabelFor && opts.senderLabelFor(item),
+        senderAvatar: item.mine || !startsRun ? '' : opts.senderAvatarFor && opts.senderAvatarFor(item),
+        extraClass: startsRun ? '' : 'message--continues',
       }),
     );
   }

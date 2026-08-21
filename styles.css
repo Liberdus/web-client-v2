@@ -5,6 +5,45 @@
    Note: Organizational headers only; no visual changes
    ============================================= */
 
+/* ========== Generic (font faces) ========== */
+/*
+   Inter — self-hosted.
+
+   --font-primary has named Inter for a long time without the font ever being
+   shipped, so the app silently rendered in whatever generic sans-serif the
+   device chose: Helvetica on macOS, Arial on Windows, Roboto on Android.
+
+   Self-hosted rather than linked from Google Fonts: this is a wallet with an
+   offline page, so a webfont needing a third-party request on every cold load
+   is both an offline failure and a signal to another host about when the app
+   is opened.
+
+   One variable file per subset covers weights 400-700 — every weight the
+   tokens below use. font-display: swap paints text immediately in the fallback
+   and swaps when the font lands, so a slow font never blanks the UI.
+   Licence: SIL Open Font License 1.1, see fonts/LICENSE.txt.
+*/
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('./fonts/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('./fonts/inter-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 /* ========== Settings (tokens/variables) ========== */
 /* Unstake lock info under the Unstake button */
 #unstake-lock-info,
@@ -33,6 +72,8 @@
   --danger-color: #dc3545;
   --success-color: #28a745;
   --warning-color: #ef6c00;
+  --warning-tint: rgba(239, 108, 0, 0.08); /* amber background for ui-banner / pending rows */
+  --warning-text: #8a4200; /* amber text that still passes contrast on --warning-tint */
   --secondary-warning-color: #ffc107; /* Yellow color for secondary warnings (e.g., incomplete/newly imported contacts) */
   --info-color: #0066cc;
   --light-color: #f8f9fa;
@@ -64,11 +105,15 @@
   --icon-menu: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='5' r='1'%3E%3C/circle%3E%3Ccircle cx='12' cy='12' r='1'%3E%3C/circle%3E%3Ccircle cx='12' cy='19' r='1'%3E%3C/circle%3E%3C/svg%3E");
   --icon-send-money: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='1' x2='12' y2='23'%3E%3C/line%3E%3Cpath d='M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'%3E%3C/path%3E%3C/svg%3E");
   --icon-checkbox-empty: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3C/svg%3E");
+  --icon-check-white: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
   --icon-checkbox-checked: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Cpolyline points='9 12 11 14 15 10'%3E%3C/polyline%3E%3C/svg%3E");
   --icon-sign-out: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23dc3545' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'%3E%3C/path%3E%3Cpolyline points='16,17 21,12 16,7'%3E%3C/polyline%3E%3Cline x1='21' y1='12' x2='9' y2='12'%3E%3C/line%3E%3C/svg%3E");
 
   /* Typography tokens */
-  --font-primary: 'Inter', sans-serif;
+  /* Inter is self-hosted above. The stack after it is what shows during the
+     swap and if the font ever fails to load — never bare sans-serif. */
+  --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
   --font-monospace: monospace;
   --font-size-xs: 12px;
   --font-size-sm: 14px;
@@ -740,6 +785,15 @@ body {
 }
 
 
+.chat-avatar svg,
+.chat-avatar img {
+  /* The avatar fills its frame. Without this the SVG renders at whatever
+     intrinsic size the caller asked for — a 40px gradient inside a 48px circle
+     left a visible ring of --light-color around it. */
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 .chat-avatar {
   width: 48px;
   height: 48px;
@@ -3850,7 +3904,9 @@ input[type='file'].form-control::file-selector-button {
   font-size: 0.75rem;
   opacity: 0.7;
   margin-top: 0.25rem;
-  text-align: left;
+  /* Trailing the bubble on both sides: the time is the last thing in the
+     message, not a second column starting under the text. */
+  text-align: right;
 }
 
 .message-reactions {
@@ -10104,70 +10160,601 @@ small {
   font-weight: 500;
 }
 
-.group-subtitle {
-  font-size: 0.72rem;
+/* ==========================================================================
+   ui-* primitives — app-wide, not group-specific.
+
+   Introduced with the group chat redesign but deliberately named for the
+   problem rather than the feature, so the wallet, DAO and contact screens can
+   reuse them. The rules they encode are written down in DESIGN.md; read §4
+   before adding a new component here.
+   ========================================================================== */
+
+/* --- section label above a list or a run of rows ------------------------- */
+.ui-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--secondary-text-color);
-  line-height: 1.2;
+}
+/* Supporting detail inside the label — a count, or "optional". Never shouts. */
+.ui-section-title-note {
+  font-weight: var(--font-weight-normal);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
-/* Member pickers (create group, add members) */
-.group-member-picker,
-.group-member-list {
+.ui-badge {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.ui-badge--accent {
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
+  /* A role is a label, so it is set as one. The count badge beside it stays
+     sentence case because it is a sentence. */
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 9.5px;
+}
+.ui-badge--attention {
+  color: var(--warning-text);
+  background: var(--warning-tint);
+}
+
+/* --- ui-banner ----------------------------------------------------------
+   Persistent status pinned to the top of a screen's content.
+
+   Not a toast (which is transient and would be missed) and not a system
+   message in a list (which scrolls away from its own action). One at a time,
+   never stacked. A healthy screen shows none — DESIGN.md §1.2.
+   ------------------------------------------------------------------------ */
+.ui-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex: none;
+  text-align: left;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--light-color);
+  color: var(--secondary-text-color);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+.ui-banner[hidden] {
+  display: none;
+}
+.ui-banner-icon {
+  flex: none;
+  margin-top: 1px;
+  line-height: 1.2;
+}
+.ui-banner-text {
+  flex: 1;
+  min-width: 0;
+}
+.ui-banner-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--font-size-xs);
+}
+.ui-banner-sub:empty {
+  display: none;
+}
+.ui-banner-action {
+  flex: none;
+  padding: 5px 12px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ui-banner-action:not(:disabled):hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+.ui-banner-action[hidden] {
+  display: none;
+}
+/* Amber is the app's one "you need to do something" colour, everywhere. */
+.ui-banner--attention {
+  background: var(--warning-tint);
+  color: var(--warning-text);
+}
+/* Inside a scrolling modal body rather than pinned under a header. */
+.ui-banner--inset {
+  margin-bottom: 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+}
+.ui-banner--attention.ui-banner--inset {
+  border-color: rgba(239, 108, 0, 0.35);
+}
+
+/* --- ui-list ------------------------------------------------------------
+   A bordered list of people or things. Rows that need a decision sort to the
+   top and carry an inset rail; the affordance that adds to the list is the
+   list's own first row, not a separate section — DESIGN.md §1.5.
+   ------------------------------------------------------------------------ */
+.ui-list {
   list-style: none;
-  margin: 0.5rem 0 0;
+  margin: 0;
   padding: 0;
-  max-height: 300px;
+  max-height: 340px;
   overflow-y: auto;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 10px;
 }
-.group-picker-row label {
+/* An empty list should take no space at all rather than draw an empty box. */
+.ui-list:empty {
+  display: none;
+}
+.ui-list-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
-  cursor: pointer;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: var(--font-size-sm);
+  /* .container centres the whole app; anything holding a name or a sentence
+     has to opt out, or it drifts to the middle of its row. */
+  text-align: left;
 }
-.group-picker-row label:hover {
-  background: var(--hover-background);
+.ui-list-row:last-child {
+  border-bottom: 0;
 }
-.group-picker-avatar svg,
-.group-picker-avatar {
+.ui-list-avatar {
+  display: inline-flex;
   flex: 0 0 auto;
   line-height: 0;
+  /* Circular, matching .modal-avatar and .message-sender-avatar. Identicons
+     are square SVGs, so the container has to do the clipping. */
+  border-radius: 50%;
+  overflow: hidden;
 }
-.group-picker-name {
+.ui-list-avatar svg {
+  display: block;
+  flex: 0 0 auto;
+}
+.ui-list-name {
   flex: 1;
-  font-size: 0.9rem;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.group-picker-empty {
-  padding: 12px;
+/* Secondary line under a name — a request's note, a member's status. */
+.ui-list-note {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--font-size-xs);
   color: var(--secondary-text-color);
-  font-size: 0.85rem;
+}
+.ui-list-empty {
+  padding: 12px;
   text-align: center;
+  color: var(--secondary-text-color);
+  font-size: var(--font-size-sm);
 }
 
-.group-member-row {
+/* The row that adds to the list. A row, so it belongs to the list it feeds. */
+.ui-list-action {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
   border-bottom: 1px solid var(--border-color);
-}
-.group-member-row:last-child {
-  border-bottom: 0;
-}
-.group-admin-badge {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  background: none;
   color: var(--primary-color);
+  font-family: var(--font-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-align: left;
+  cursor: pointer;
+}
+.ui-list-action:hover {
+  background: var(--hover-background-purple);
+}
+.ui-list-plus {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--hover-background-purple);
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* Awaiting a decision. The rail is what makes it read as a queue rather than
+   as another member who happens to have a button. */
+.ui-list-row--pending {
+  background: var(--warning-tint);
+  box-shadow: inset 3px 0 0 var(--warning-color);
+}
+.ui-list-label {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--warning-text);
+}
+
+/* Per-row overflow. Removal should not be the most prominent fact about every
+   person in a group, so it lives behind this rather than beside each name. */
+.ui-list-more {
+  flex: none;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--secondary-text-color);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  cursor: pointer;
+}
+.ui-list-more:hover {
+  background: var(--hover-background);
+  color: var(--text-color);
+}
+/* Expands in place beneath its row. An anchored popover would have to track a
+   scrolling list inside a sliding modal; this cannot drift. */
+.ui-list-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--light-color);
+}
+
+/* Pickable row: the whole row is the hit target, not just the checkbox. */
+.ui-list-pick {
+  padding: 0;
+}
+.ui-list-pick label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 9px 12px;
+  cursor: pointer;
+}
+.ui-list-pick label:hover {
+  background: var(--hover-background);
+}
+/* The native box carries the state and the keyboard affordance; it is hidden
+   rather than removed so the label, focus and form semantics all still work. */
+.ui-list-pick input[type='checkbox'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.ui-list-check {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--background-color);
+}
+.ui-list-pick input:checked ~ .ui-list-check {
+  border-color: var(--primary-color);
+  background: var(--primary-color) var(--icon-check-white) center / 14px 14px no-repeat;
+}
+.ui-list-pick input:focus-visible ~ .ui-list-check {
+  box-shadow: var(--focus-ring-primary);
+  border-color: var(--primary-color);
+}
+
+/* --- ui-picker -----------------------------------------------------------
+   Search field, staged chips and results as one stack.
+
+   Spaced with flex gap rather than a margin on each child: the error and the
+   chip list are `display: none` when empty, and a margin would leave a
+   phantom gap wherever one of them is hidden. A gap contributes nothing for a
+   child that is not rendered.
+
+   The gap is also what stops the field's focus ring colliding with the results
+   box below it — flush against each other they read as one control with a
+   doubled border.
+   ------------------------------------------------------------------------ */
+.ui-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* --- ui-chips ------------------------------------------------------------ */
+.ui-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ui-chips:empty {
+  display: none;
+}
+.ui-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px 3px 12px;
   border: 1px solid var(--primary-color);
   border-radius: 999px;
-  padding: 1px 6px;
+  background: var(--hover-background-purple);
+  color: var(--primary-color);
+  font-size: var(--font-size-sm);
+}
+.ui-chip-remove {
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* --- ui-row -------------------------------------------------------------
+   A one-line setting: label, optional sub-label, value or action on the right.
+   Use instead of a section whenever the content really is one line — a
+   heading, a note and a full-width button imply more substance than there is.
+   ------------------------------------------------------------------------ */
+.ui-rows {
+  margin-top: 24px;
+}
+.ui-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 2px;
+  border: 0;
+  border-top: 1px solid var(--border-color);
+  background: none;
+  color: var(--text-color);
+  font-family: var(--font-primary);
+  font-size: var(--font-size-sm);
+  text-align: left;
+}
+.ui-row[hidden] {
+  display: none;
+}
+.ui-row-key {
+  flex: 1;
+  min-width: 0;
+}
+.ui-row-sub {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-normal);
+  color: var(--secondary-text-color);
+}
+.ui-row-value {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--font-primary);
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text-color);
+}
+/* Blue is reserved for a row whose action does something consequential —
+   collecting money, not copying a link. Keeping every row's control blue
+   makes none of them stand out. */
+button.ui-row-value {
+  cursor: pointer;
+}
+button.ui-row-value:not(:disabled):hover {
+  color: var(--text-color);
+}
+/* Destructive actions sit low and quiet, but never inside the drawer: leaving
+   a group is a product action, not a diagnostic. */
+.ui-row--danger {
+  color: var(--danger-color);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+.ui-row--danger:hover {
+  background: rgba(220, 53, 69, 0.05);
+}
+
+/* --- ui-disclosure -------------------------------------------------------
+   An optional input collapsed behind a row that already states its default,
+   so the common case needs no decision — DESIGN.md §1.7. The explanation
+   lives inside, next to the control, not above it — §1.8.
+   ------------------------------------------------------------------------ */
+.ui-disclosure > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.ui-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.ui-disclosure > summary .ui-row {
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+.ui-disclosure[open] > summary .ui-row {
+  border-bottom: 0;
+}
+.ui-disclosure[open] > summary .ui-row-value {
+  color: var(--primary-color);
+}
+.ui-disclosure-body {
+  padding: 14px 2px 0;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 16px;
+}
+
+.ui-amount {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ui-amount .form-control {
+  flex: 1;
+  min-width: 0;
+}
+.ui-amount-unit {
+  flex: none;
+  color: var(--secondary-text-color);
+  font-size: var(--font-size-sm);
+}
+
+/* --- ui-drawer -----------------------------------------------------------
+   Where internal state and recovery tools go. Collapsed, last, and quiet:
+   nobody opens it when things work, and when things do not, a ui-banner
+   carries the action to wherever the person actually is — DESIGN.md §1.3.
+   ------------------------------------------------------------------------ */
+.ui-drawer {
+  margin: 28px 0 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+.ui-drawer-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
+  list-style: none;
+  color: var(--secondary-text-color);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.ui-drawer-summary::-webkit-details-marker {
+  display: none;
+}
+.ui-drawer-summary::before {
+  content: '\25B8';
+  font-size: 10px;
+}
+.ui-drawer[open] .ui-drawer-summary::before {
+  content: '\25BE';
+}
+.ui-drawer-body {
+  padding-top: 12px;
+}
+.ui-drawer-body .btn--pill.btn--full {
+  width: 100%;
+  margin: 0 0 10px;
+}
+
+/* Machine values: ids, hashes, epochs. Monospace is the signal that this is
+   for reporting a problem, not for reading. */
+.ui-kv {
+  margin: 0 0 14px;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--light-color);
+  font-family: var(--font-monospace);
+  font-size: var(--font-size-xs);
+  overflow-x: auto;
+}
+.ui-kv > div {
+  display: flex;
+  gap: 10px;
+  padding: 2px 0;
+}
+.ui-kv dt {
+  flex: 0 0 104px;
+  color: var(--secondary-text-color);
+}
+.ui-kv dd {
+  margin: 0;
+  color: var(--text-color);
+  word-break: break-all;
+}
+
+/* --- small shared bits --------------------------------------------------- */
+.ui-block {
+  margin-top: 24px;
+}
+.ui-block-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+.ui-block-actions .btn--pill {
+  width: auto;
+  height: auto;
+  padding: 11px 24px;
+  margin: 0;
+}
+/* Inline validation text.
+
+   Hidden by :empty rather than by a display toggle every caller has to
+   remember: a `display: none` default silently swallowed the join-by-link
+   errors, which set textContent and nothing else. Emptying the element is now
+   the only thing needed to clear it. */
+.ui-inline-error,
+.form-error {
+  margin-top: 6px;
+  color: var(--danger-color);
+  font-size: var(--font-size-xs);
+  text-align: left;
+}
+/* Inside a picker the stack's gap already spaces it. */
+.ui-picker .ui-inline-error {
+  margin-top: 0;
+}
+.ui-inline-error:empty,
+.form-error:empty {
+  display: none;
+}
+/* A membership commit is injected but not yet confirmed by a receipt. */
+.ui-pending-hint {
+  margin-top: 10px;
+  font-size: var(--font-size-xs);
+  color: var(--warning-text);
+}
+/* Revealed only when the clipboard is refused, so the value stays recoverable
+   by hand rather than being lost to a failed copy. */
+.ui-fallback-input {
+  margin-top: 10px;
+  font-family: var(--font-monospace);
+  font-size: var(--font-size-xs);
+}
+.ui-fallback-input[hidden] {
+  display: none;
+}
+
+
+
+/* ==========================================================================
+   Group chat — what genuinely is group-specific.
+   ========================================================================== */
+
+.group-subtitle {
+  font-size: 0.72rem;
+  color: var(--secondary-text-color);
+  line-height: 1.2;
 }
 
 .group-info-summary {
@@ -10177,24 +10764,22 @@ small {
   gap: 6px;
   padding: 16px 0;
 }
+/* .modal-avatar is 40px for a header row; the identity block at the top of
+   group info is the one place the avatar is the subject, so it gets the 56px
+   it is already generated at. */
+.group-info-summary .modal-avatar {
+  width: 56px;
+  height: 56px;
+}
 .group-info-name {
   font-size: 1.1rem;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 .group-info-meta {
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   color: var(--secondary-text-color);
 }
-.group-info-section {
-  padding: 12px 16px;
-  border-top: 1px solid var(--border-color);
-}
-/* A membership commit is injected but not yet confirmed by a receipt. */
-.group-pending-hint {
-  margin-top: 10px;
-  font-size: 0.78rem;
-  color: var(--warning-color);
-}
+
 /* Invite awaiting a decision: replaces the composer, never sits beside it. */
 .group-invite-bar {
   padding: 14px 16px;
@@ -10203,12 +10788,17 @@ small {
 }
 .group-invite-text {
   font-size: 0.85rem;
-  margin-bottom: 10px;
   color: var(--text-color);
+}
+.group-invite-sub {
+  margin-top: 2px;
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
 }
 .group-invite-actions {
   display: flex;
   gap: 10px;
+  margin-top: 10px;
 }
 .group-invite-actions .btn {
   /* min-width:auto is the default for flex items, which lets each button's own
@@ -10218,53 +10808,58 @@ small {
   min-width: 0;
   padding: 14px 20px;
 }
-/* Invite link + copy button on one row. */
-.group-invite-link-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.group-invite-link-row .form-control {
-  flex: 1 1 0;
-  min-width: 0;
-  font-size: 0.78rem;
-}
+
+/* The preview appears only after a successful lookup, so the rule above it is
+   what separates "what you pasted" from "what it turned out to be". No
+   text-align here: .group-info-summary centres its own contents, and everything
+   after it is an ordinary left-aligned form. */
 .group-join-preview {
-  text-align: center;
   padding-top: 8px;
   border-top: 1px solid var(--border-color);
-  margin-top: 16px;
-}
-.group-join-preview .form-group,
-.group-join-preview .form-actions {
-  text-align: left;
+  margin-top: 28px;
 }
 
-/* One request to join, in the admin's approval queue. */
-.group-request-message {
-  font-size: 0.75rem;
+/* The hint explains the block above it, so it stays close to the summary and
+   takes its space on the far side — 6px up / 8px down read as equally attached
+   to the label below, which it has nothing to do with. */
+.group-join-preview > .form-hint {
+  margin-bottom: 24px;
+}
+
+/* An inline "optional" beside a field label, matching .ui-section-title-note. */
+.ui-label-note {
+  font-weight: var(--font-weight-normal);
   color: var(--secondary-text-color);
-  display: block;
+  font-size: var(--font-size-sm);
 }
 
-/* Explains an intentionally empty control area, e.g. to a non-admin. */
+/* .btn--pill.btn--full carries its own 16px side margins, for screens that drop
+   it straight into a modal body. Inside .form--narrow that padding already
+   exists, so the button came out 32px narrower than the fields above it and
+   offset to the right. Scoped to the group modals rather than to
+   .form--narrow, which many other screens use and none of them have been
+   re-checked against this. */
+#createGroupModal .form--narrow .btn--pill.btn--full,
+#joinGroupModal .form--narrow .btn--pill.btn--full {
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* Explains an intentionally empty control area, e.g. on the join-by-link
+   screen where the group's name genuinely cannot be shown to a non-member. */
 .group-info-note {
   margin-top: 10px;
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   color: var(--secondary-text-color);
-}
-.group-info-section-title {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--secondary-text-color);
-  font-weight: 600;
 }
 
 .form-hint {
   font-size: 0.78rem;
   color: var(--secondary-text-color);
-  margin: 4px 0 0;
+  margin: 6px 0 0;
+  /* .container centres the app; a hint is a sentence and reads left. */
+  text-align: left;
 }
 
 .btn--tiny {
@@ -10279,6 +10874,29 @@ small {
 .btn--tiny:hover {
   background: var(--hover-background-dark);
 }
+.btn--tiny.btn--tiny-primary {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--background-color);
+}
+.btn--tiny.btn--tiny-primary:hover {
+  background: var(--primary-hover);
+}
+.btn--tiny.btn--tiny-danger {
+  color: var(--danger-color);
+  border-color: rgba(220, 53, 69, 0.4);
+}
+
+/* Destructive, but quiet. Solid red is for an action someone came to perform;
+   a recovery tool sitting in a drawer should not outshout the screen. */
+.btn.btn--danger-quiet {
+  background: var(--background-color);
+  color: var(--danger-color);
+  border: 1px solid rgba(220, 53, 69, 0.4);
+}
+.btn.btn--danger-quiet:not(:disabled):hover {
+  background: rgba(220, 53, 69, 0.06);
+}
 
 /* Groups have no voice/attachment button to alternate with, so the send
    button is always visible rather than appearing only when text is present. */
@@ -10286,59 +10904,14 @@ small {
   display: flex;
 }
 
-/* Add-by-username: a group can be created from an account with no contacts,
-   so picking from the contact list alone would be a dead end. */
-.group-invite-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-top: 6px;
-}
-.group-invite-row .form-control {
-  flex: 1;
-  min-width: 0;
-}
-.group-invite-row .btn {
-  /* .btn--secondary carries an explicit width; override it so the button
-     hugs its label and leaves the rest of the row for the input. */
-  flex: 0 0 auto;
-  width: auto;
-  padding: 8px 16px;
-}
-.group-invite-error {
+/* The invite bar REPLACES the composer; it must never sit above it.
+   `hidden` is only a UA-stylesheet `display: none`, so the author
+   `display: flex` on .message-input-container silently outranked it and both
+   were on screen at once. Same trap as .ui-banner[hidden] and .ui-row[hidden];
+   a global `[hidden] { display: none !important }` would fix the whole class
+   of it, but that is an app-wide change and belongs with the wider overhaul. */
+.message-input-container[hidden] {
   display: none;
-  color: var(--danger-color);
-  font-size: 0.78rem;
-  margin-top: 4px;
-}
-
-.group-staged {
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.group-staged-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--hover-background-purple);
-  border: 1px solid var(--primary-color);
-  color: var(--primary-color);
-  border-radius: 999px;
-  padding: 3px 6px 3px 12px;
-  font-size: 0.82rem;
-}
-.group-staged-remove {
-  background: none;
-  border: 0;
-  color: inherit;
-  font-size: 1.05rem;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0 4px;
 }
 
 #groupChatHeaderInfo {
@@ -10368,4 +10941,18 @@ small {
    own outbound ciphertext, so the transcript replay never confirms it. */
 .message.sent[data-status='pending'] {
   opacity: 0.65;
+}
+
+/* A message continuing the same person's run: no avatar, no name, and pulled
+   tighter than the gap between speakers so the run reads as one block. The
+   corner facing the message above squares off, the way the first bubble's
+   corner already does, so the run looks like one shape rather than a stack. */
+.message.message--continues {
+  margin-top: -2px;
+}
+.message.received.message--continues {
+  border-top-left-radius: 4px;
+}
+.message.sent.message--continues {
+  border-top-right-radius: 4px;
 }

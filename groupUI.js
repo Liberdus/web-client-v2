@@ -12,10 +12,10 @@
  */
 
 import * as groups from './groupManager.js';
-import { MLS_CIPHERSUITE_ID } from './mlsEngine.js';
+import { MLS_CIPHERSUITE_ID, MLS_CIPHERSUITE_NAME } from './mlsEngine.js';
 import { renderTextConversation, buildSystemMessage } from './chatRender.js';
 import {
-  generateIdenticon,
+  generateAvatar,
   escapeHtml,
   longAddress,
   normalizeAddress,
@@ -87,29 +87,162 @@ function invitableContacts(excludeAddresses = []) {
     .sort((a, b) => displayName(a.address).localeCompare(displayName(b.address)));
 }
 
-function renderPicker(listEl, candidates) {
-  if (!listEl) return;
-  if (candidates.length === 0) {
-    listEl.innerHTML = '<li class="group-picker-empty">No contacts available to add.</li>';
-    return;
-  }
-  listEl.innerHTML = candidates
-    .map(
-      ({ address }) => `
-      <li class="group-picker-row">
-        <label>
-          <input type="checkbox" value="${address}" />
-          <span class="group-picker-avatar">${generateIdenticon(address, 28)}</span>
-          <span class="group-picker-name">${escapeHtml(displayName(address))}</span>
-        </label>
-      </li>`,
-    )
-    .join('');
+/**
+ * How this device's view of a group stands, in terms a person can act on.
+ *
+ * MLS epochs are protocol state. "Epoch 5" tells someone nothing they can use,
+ * and it had leaked into the chat subtitle, the sync section, the reset copy
+ * and four warnings — twelve sites quoting a counter. Every user-facing status
+ * string now reads from this one value instead; the raw numbers live in the
+ * technical details drawer in group info. See DESIGN.md §1.1.
+ *
+ * The three unhealthy states are ordered by what can be done about them, which
+ * is what makes the repair ladder work: 'catching-up' fixes itself,
+ * 'needs-attention' is worth one catch-up attempt, and 'unrecoverable' has no
+ * route back except a fresh Welcome.
+ */
+function groupHealth(view) {
+  if (!view) return 'fine';
+  if (view.removed) return 'removed';
+  if (view.invitePending) return 'invited';
+  if (view.joinRequested) return 'awaiting';
+  /*
+   * No amount of syncing helps: either the updates we missed have been pruned,
+   * or we committed something the network rejected and are ahead of the chain.
+   * MLS state cannot be rebuilt from the public transcript.
+   */
+  if (view.needsRecovery || view.needsReset) return 'unrecoverable';
+  // A commit would not apply. forceCatchUp clears the marker and retries, so
+  // this one is worth attempting before giving up on it.
+  if (typeof view.applyFailedAtEpoch === 'number') return 'needs-attention';
+  if (typeof view.chainEpoch === 'number' && view.chainEpoch > view.epoch) return 'catching-up';
+  return 'fine';
 }
+
+/**
+ * Banner copy per health state. Consequence first, mechanism never.
+ *
+ * `action` is the label of the one button offered. There is deliberately never
+ * a choice of two: someone who has just been told their device is out of step
+ * has no basis to pick between catching up and resetting — DESIGN.md §1.4.
+ */
+const HEALTH_BANNER = {
+  'catching-up': {
+    icon: '◷',
+    tone: '',
+    title: 'Catching up with the group…',
+    sub: '',
+    action: '',
+  },
+  'needs-attention': {
+    icon: '△',
+    tone: 'ui-banner--attention',
+    title: 'This device is out of step with the group.',
+    sub: 'Your messages won’t reach anyone until it’s fixed.',
+    action: 'Fix this',
+  },
+  unrecoverable: {
+    icon: '△',
+    tone: 'ui-banner--attention',
+    title: 'This device can’t catch up on its own.',
+    sub: 'The updates it missed are no longer stored.',
+    action: 'Reset and rejoin',
+  },
+  removed: {
+    icon: '◦',
+    tone: '',
+    title: 'You’re no longer a member.',
+    sub: 'Messages sent after you left aren’t visible here.',
+    // The one thing still available from here. Burying it in group info would
+    // be exactly the kind of hunt this redesign exists to remove.
+    action: 'Delete',
+  },
+};
+
+/**
+ * Composer placeholder per health state. Only 'fine' can type.
+ *
+ * Kept short on purpose: the banner above carries the explanation, and the
+ * field is ~330px at 430px wide, so anything longer wraps and clips. The
+ * placeholder only has to say that sending is off.
+ */
+const HEALTH_PLACEHOLDER = {
+  fine: 'Type a message...',
+  'catching-up': 'Catching up…',
+  'needs-attention': 'Can’t send right now',
+  unrecoverable: 'Can’t send right now',
+  removed: 'You can no longer send',
+  invited: 'Join the group to send',
+  awaiting: 'Waiting for approval',
+};
 
 const selectedFrom = (listEl) =>
   [...listEl.querySelectorAll('input[type="checkbox"]:checked')].map((el) => el.value);
 
+/**
+ * One row of a person picker.
+ *
+ * `ui-list-pick` puts the label across the whole row so the hit target is the
+ * row rather than a 13px checkbox.
+ */
+function pickerRow(address, checked) {
+  /*
+   * The tick sits after the name, not before the avatar: the row reads "who,
+   * then whether they are picked", and a column of ticks down the right edge
+   * scans as a set of answers rather than as decoration in front of each face.
+   * The native checkbox stays in the markup for state and keyboard access and
+   * is hidden in CSS; .ui-list-check is what is actually seen.
+   */
+  return `
+      <li class="ui-list-row ui-list-pick">
+        <label>
+          <input type="checkbox" value="${address}"${checked ? ' checked' : ''} />
+          <span class="ui-list-avatar">${generateAvatar(address, 28)}</span>
+          <span class="ui-list-name">${escapeHtml(displayName(address))}</span>
+          <span class="ui-list-check" aria-hidden="true"></span>
+        </label>
+      </li>`;
+}
+
+/**
+ * Contact picker, filtered by whatever has been typed.
+ *
+ * One field does both jobs it used to take four controls to do. Typing filters
+ * the contacts; when nothing matches, the list offers to resolve the text as a
+ * username instead. Picking only from contacts is a dead end — a new account
+ * has none — so the fallback is not an edge case, it is how the first group
+ * gets made.
+ */
+function renderPicker(listEl, candidates, query = '') {
+  if (!listEl) return;
+  const q = String(query || '').trim().toLowerCase();
+  const checked = new Set(selectedFrom(listEl));
+  const matches = q
+    ? candidates.filter(({ address }) => displayName(address).toLowerCase().includes(q))
+    : candidates;
+
+  /*
+   * Anyone already ticked stays visible even when they no longer match. The
+   * checkboxes ARE the selection — dropping a row would silently unpick that
+   * person, and the only sign would be a smaller group than was asked for.
+   */
+  const shown = new Set(matches.map((m) => m.address));
+  const rows = [...matches, ...candidates.filter((c) => checked.has(c.address) && !shown.has(c.address))];
+
+  const html = rows.map(({ address }) => pickerRow(address, checked.has(address))).join('');
+
+  if (html) {
+    listEl.innerHTML = html;
+    return;
+  }
+  // Nothing matched. Offer the username route rather than a dead end.
+  listEl.innerHTML = q
+    ? `<li><button type="button" class="ui-list-action" data-resolve="1">
+         <span class="ui-list-plus" aria-hidden="true">+</span>
+         <span class="ui-list-name">Add “${escapeHtml(query.trim())}”</span>
+       </button></li>`
+    : '<li class="ui-list-empty">No contacts yet — type a username to add someone.</li>';
+}
 /**
  * Resolves a username and checks the account can actually be added.
  *
@@ -167,16 +300,28 @@ async function resolveInvitee(input, precheck) {
  * Used by both the create-group form and group info, since both need to gather
  * invitees before committing them in one transaction.
  */
-function makeInviteStaging({ inputEl, addButtonEl, listEl, errorEl, isExcluded }) {
+/**
+ * Gathering people to add: one search field, a contact list and a chip per
+ * person resolved by username.
+ *
+ * Used by both the create-group form and group info, since both need to gather
+ * invitees before committing them in one transaction.
+ *
+ * There is no longer a separate "Add" button. The field filters the contact
+ * list as you type, and when nothing matches, the list itself offers to resolve
+ * what you typed — so one control covers both routes instead of four covering
+ * one each. Enter does the same thing, for anyone who expects it to.
+ */
+function makeInviteStaging({ inputEl, listEl, errorEl, pickerEl, candidates, isExcluded }) {
   const staged = [];
 
-  const render = () => {
+  const renderChips = () => {
     listEl.innerHTML = staged
       .map(
         (s, i) => `
-        <li class="group-staged-chip">
+        <li class="ui-chip">
           <span>${escapeHtml(s.username || displayName(s.address))}</span>
-          <button type="button" class="group-staged-remove" data-index="${i}" aria-label="Remove">×</button>
+          <button type="button" class="ui-chip-remove" data-index="${i}" aria-label="Remove">×</button>
         </li>`,
       )
       .join('');
@@ -187,9 +332,12 @@ function makeInviteStaging({ inputEl, addButtonEl, listEl, errorEl, isExcluded }
     errorEl.style.display = msg ? 'block' : 'none';
   };
 
-  const add = async () => {
+  const renderList = () => renderPicker(pickerEl, candidates(), inputEl.value);
+
+  /** Resolve the typed text as a username and stage whoever it names. */
+  const resolve = async () => {
+    if (!inputEl.value.trim()) return;
     showError('');
-    addButtonEl.disabled = true;
     try {
       const entry = await resolveInvitee(inputEl.value, (address) => {
         if (address === myAddr()) throw new Error('That is you');
@@ -198,35 +346,44 @@ function makeInviteStaging({ inputEl, addButtonEl, listEl, errorEl, isExcluded }
       });
       staged.push(entry);
       inputEl.value = '';
-      render();
+      renderChips();
+      renderList();
     } catch (err) {
       showError(err.message);
-    } finally {
-      addButtonEl.disabled = false;
     }
   };
 
-  addButtonEl.addEventListener('click', add);
+  inputEl.addEventListener('input', () => {
+    showError('');
+    renderList();
+  });
   inputEl.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      add();
+      resolve();
     }
+  });
+  // The "Add <username>" row the picker falls back to when nothing matches.
+  pickerEl.addEventListener('click', (e) => {
+    if (e.target.closest('button[data-resolve]')) resolve();
   });
   listEl.addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-index]');
     if (!btn) return;
     staged.splice(Number(btn.dataset.index), 1);
-    render();
+    renderChips();
   });
 
   return {
-    addresses: () => staged.map((s) => s.address),
+    /** Everyone chosen, by either route, deduplicated. */
+    addresses: () => [...new Set([...selectedFrom(pickerEl), ...staged.map((s) => s.address)])],
+    refresh: renderList,
     reset: () => {
       staged.length = 0;
       inputEl.value = '';
       showError('');
-      render();
+      renderChips();
+      renderList();
     },
   };
 }
@@ -236,30 +393,66 @@ function makeInviteStaging({ inputEl, addButtonEl, listEl, errorEl, isExcluded }
 class CreateGroupModal {
   load() {
     this.modal = $('createGroupModal');
+    if (!this.modal) return;
     this.form = $('createGroupForm');
     this.nameInput = $('groupNameInput');
     this.picker = $('groupMemberPicker');
     this.error = $('createGroupError');
     this.submit = $('createGroupSubmit');
-    if (!this.modal) return;
+    this.fee = $('createGroupFee');
+    this.feeInput = $('createGroupJoinFee');
 
     $('closeCreateGroupModal').addEventListener('click', () => this.close());
     this.form.addEventListener('submit', (e) => this.handleSubmit(e));
 
+    // Only the name is required, so the button says so rather than waiting to
+    // reject an empty form after the fact — DESIGN.md §1.7.
+    this.nameInput.addEventListener('input', () => {
+      this.showError('');
+      this.submit.disabled = !this.nameInput.value.trim();
+    });
+
+    // The row states the group's actual price, so it reads correctly for the
+    // majority who never open it.
+    const syncFeeSummary = () => {
+      const text = (this.feeInput.value || '').trim();
+      const amount = Number(text);
+      $('createGroupFeeSummary').textContent =
+        text && Number.isFinite(amount) && amount > 0 ? `${text} LIB to join` : 'Free to join';
+    };
+    this.feeInput.addEventListener('input', syncFeeSummary);
+    this.fee.addEventListener('toggle', () => {
+      $('createGroupFeeToggle').textContent = this.fee.open ? 'Done' : 'Change';
+      if (!this.fee.open) syncFeeSummary();
+    });
+    this.syncFeeSummary = syncFeeSummary;
+
     this.staging = makeInviteStaging({
       inputEl: $('createGroupInviteInput'),
-      addButtonEl: $('createGroupInviteAdd'),
       listEl: $('createGroupStaged'),
       errorEl: $('createGroupInviteError'),
+      pickerEl: this.picker,
+      candidates: () => invitableContacts(),
     });
   }
 
   open() {
     this.nameInput.value = '';
-    this.error.style.display = 'none';
+    this.feeInput.value = '';
+    this.fee.open = false;
+    this.syncFeeSummary();
+    this.showError('');
+    this.submit.disabled = true;
     this.staging.reset();
-    renderPicker(this.picker, invitableContacts());
     this.modal.classList.add('active');
+    /*
+     * preventScroll is not optional, and neither is the delay. The modal is
+     * still at `left: 100%` when this runs, so a plain focus() scrolls the
+     * off-screen input into view; .container is overflow:hidden, so that
+     * displacement sticks and the modal is left parked off-screen. Deferred
+     * past the 0.3s slide so focus lands once it is actually in place.
+     */
+    setTimeout(() => this.nameInput.focus({ preventScroll: true }), 350);
   }
 
   close() {
@@ -267,25 +460,24 @@ class CreateGroupModal {
   }
 
   showError(message) {
-    this.error.textContent = message;
-    this.error.style.display = 'inline';
+    this.error.textContent = message || '';
+    this.error.style.display = message ? 'block' : 'none';
   }
 
   async handleSubmit(e) {
     e.preventDefault();
     const name = this.nameInput.value.trim();
-    if (!name) return this.showError('required');
+    if (!name) return this.showError('Give the group a name');
 
     /*
      * Join fee, entered in LIB and converted to wei the same way the toll input
-     * is. Blank or zero means an open group.
+     * is. Blank or zero means a free group.
      */
-    const feeInput = $('createGroupJoinFee');
-    const feeText = (feeInput?.value || '').trim();
+    const feeText = (this.feeInput.value || '').trim();
     let joinFee = 0n;
     if (feeText) {
       const parsed = Number(feeText);
-      if (!Number.isFinite(parsed) || parsed < 0) return this.showError('join fee must be a positive number');
+      if (!Number.isFinite(parsed) || parsed < 0) return this.showError('The join fee must be a positive number');
       joinFee = bigxnum2big(WEI, feeText);
     }
 
@@ -296,12 +488,12 @@ class CreateGroupModal {
 
       // Adding is a separate commit, so a failure here still leaves a usable
       // (empty) group rather than losing the creation entirely.
-      const selected = [...new Set([...selectedFrom(this.picker), ...this.staging.addresses()])];
+      const selected = this.staging.addresses();
       if (selected.length > 0) {
         try {
           await groups.addMembers(groupId, selected);
         } catch (err) {
-          toast(`Group created, but adding members failed: ${err.message}`, 6000, 'error');
+          toast(`Group created, but adding people failed: ${err.message}`, 6000, 'error');
         }
       }
 
@@ -310,9 +502,9 @@ class CreateGroupModal {
       groupChatModal.open(groupId);
     } catch (err) {
       this.showError(err.message);
-      toast(`Could not create group: ${err.message}`, 5000, 'error');
+      toast(`Could not create the group: ${err.message}`, 5000, 'error');
     } finally {
-      this.submit.disabled = false;
+      this.submit.disabled = !this.nameInput.value.trim();
       this.submit.textContent = 'Create group';
     }
   }
@@ -339,6 +531,7 @@ class GroupChatModal {
     $('groupInviteAccept').addEventListener('click', () => this.acceptInvite());
     $('groupInviteDecline').addEventListener('click', () => this.declineInvite());
     $('groupPendingWithdraw').addEventListener('click', () => this.withdrawRequest());
+    $('groupStatusAction').addEventListener('click', () => this.repair());
     // Both the ⋮ button and the header itself open group info — that screen is
     // the only route to adding or removing members, so it needs to be easy to
     // reach rather than hidden behind one small icon.
@@ -394,27 +587,33 @@ class GroupChatModal {
     const view = this.view();
     if (!view) return;
 
-    const invite = view.invitePending;
+    const health = groupHealth(view);
+    const invite = health === 'invited';
     /*
      * Waiting on an admin. We asked to join and the request is on chain, but
      * nobody has approved it yet, so there is no MLS state and nothing to read
      * or send. Distinct from an invite: there is no decision for us to make.
      */
-    const awaitingApproval = !invite && !!view.joinRequested;
+    const awaitingApproval = health === 'awaiting';
 
     this.title.textContent = view.name || 'Group';
     const count = view.members?.length || 0;
     /*
-     * Roster size and epoch come from MLS state we do not have until we join, so
-     * before that they read "0 members · epoch 0" — not merely unhelpful but
-     * wrong. Say what is actually true instead.
+     * Roster size is the only durable fact worth this space. Before we join,
+     * it is not even known — MLS state arrives with the Welcome — so those
+     * states say what is actually true instead of counting to zero.
      */
-    this.subtitle.textContent = view.removed
-      ? 'You are no longer a member'
-      : awaitingApproval
-        ? 'Waiting for approval'
-        : `${count} member${count === 1 ? '' : 's'} · epoch ${view.epoch}`;
-    this.avatar.innerHTML = generateIdenticon(this.groupId, 36);
+    this.subtitle.textContent =
+      health === 'removed'
+        ? 'You are no longer a member'
+        : awaitingApproval
+          ? 'Waiting for approval'
+          : invite
+            ? 'You have been invited'
+            : `${count} member${count === 1 ? '' : 's'}`;
+    this.avatar.innerHTML = generateAvatar(this.groupId, 36);
+
+    this.renderStatus(health);
 
     /*
      * An invite we have not accepted. Nothing has been joined and nothing spent:
@@ -436,39 +635,26 @@ class GroupChatModal {
     }
     if (inviteBar && composer) {
       inviteBar.hidden = !invite;
-      composer.hidden = !!invite || awaitingApproval;
+      composer.hidden = invite || awaitingApproval;
       if (invite) {
-        const who = invite.from ? displayName(invite.from, this.groupId) : 'Someone';
-        $('groupInviteText').textContent =
-          `${who} added you to this group. Joining publishes a key update from your account, which costs a transaction fee.`;
+        const who = view.invitePending?.from ? displayName(view.invitePending.from, this.groupId) : 'Someone';
+        $('groupInviteText').textContent = `${who} added you to this group.`;
+        // The cost is real and must be stated, but it is a footnote, not the
+        // headline — DESIGN.md §2.
+        $('groupInviteSub').textContent = 'Joining costs a small network fee.';
       }
     }
 
-    // Once removed, the keys have been rotated: nothing sent after the removing
-    // commit is decryptable, and the network would reject our messages anyway.
     /*
-     * Behind the group. A message is encrypted at OUR epoch, so anything sent
-     * from here is undecryptable by everyone who has moved on — the sender sees
-     * it in their own transcript and nobody else ever does. Better to say we are
-     * catching up than to let them talk into the void.
+     * Anything but a healthy group blocks the composer. A message is encrypted
+     * at OUR epoch, so one sent while behind is undecryptable by everyone who
+     * has moved on: the sender sees it in their own transcript and nobody else
+     * ever does. Better to say we are catching up than to talk into the void.
      */
-    const behind = typeof view.chainEpoch === 'number' && view.chainEpoch > view.epoch;
-    const wedged = typeof view.applyFailedAtEpoch === 'number';
-    const blocked =
-      !!view.removed || !!view.needsReset || !!invite || awaitingApproval || behind || wedged;
+    const blocked = health !== 'fine';
     this.input.disabled = blocked;
     this.sendButton.disabled = blocked;
-    this.input.placeholder = view.removed
-      ? 'You can no longer send messages'
-      : awaitingApproval
-        ? 'Waiting for an admin to approve your request'
-        : wedged
-          ? 'This group needs to be reset before you can send'
-          : behind
-            ? 'Catching up with the group…'
-            : view.needsReset
-              ? 'This group needs to be reset before you can send'
-              : 'Type a message...';
+    this.input.placeholder = HEALTH_PLACEHOLDER[health] || HEALTH_PLACEHOLDER.fine;
 
     const items = [...(view.messages || [])].sort((a, b) => a.timestamp - b.timestamp);
 
@@ -476,13 +662,19 @@ class GroupChatModal {
       senderLabelFor: (item) => displayName(item.from, this.groupId),
       // Identicon from the sender's address — the same fallback the rest of the
       // app uses when a contact has no uploaded avatar.
-      senderAvatarFor: (item) => generateIdenticon(item.from, 28),
+      senderAvatarFor: (item) => generateAvatar(item.from, 28),
       // The "before you joined" separator is a real item in the list, emitted
       // by sync only when history was actually skipped, so nothing is inferred
       // from the epoch here.
       emptyHTML: buildSystemMessage('No messages yet. Say hello.'),
     });
 
+    /*
+     * The only system message left. Every warning that used to be appended here
+     * is now a banner: in the transcript they scrolled away from the button
+     * that fixed them, and mixed with the conversation. This one is not a
+     * warning — it is the whole content of an otherwise empty screen.
+     */
     if (awaitingApproval) {
       this.list.insertAdjacentHTML(
         'beforeend',
@@ -493,55 +685,67 @@ class GroupChatModal {
       );
     }
 
-    if (view.removed) {
-      this.list.insertAdjacentHTML(
-        'beforeend',
-        buildSystemMessage('You were removed from this group. Messages sent after this are not visible to you.', 'system-warning'),
-      );
-    }
-
-    if (view.needsReset) {
-      this.list.insertAdjacentHTML(
-        'beforeend',
-        buildSystemMessage(
-          `This device is out of step with the group (it is at epoch ${view.localEpoch}, the group is at ${view.chainEpoch}). ` +
-            'A change was made here that the network did not accept. Open group info and reset this group to rejoin.',
-          'system-warning',
-        ),
-      );
-    }
-
-    if (wedged) {
-      this.list.insertAdjacentHTML(
-        'beforeend',
-        buildSystemMessage(
-          `This device could not apply the group's update at epoch ${view.applyFailedAtEpoch}, so it is stuck at epoch ` +
-            `${view.localEpoch} while the group is at ${view.chainEpoch}. Message keys cannot be rebuilt from anything ` +
-            'public, so open group info, reset this group, and ask a member to add you back.',
-          'system-warning',
-        ),
-      );
-    } else if (behind) {
-      this.list.insertAdjacentHTML(
-        'beforeend',
-        buildSystemMessage(`Catching up — this device is at epoch ${view.epoch}, the group is at ${view.chainEpoch}.`),
-      );
-    }
-
-    if (view.needsRecovery) {
-      this.list.insertAdjacentHTML(
-        'afterbegin',
-        buildSystemMessage(
-          'This group moved on while you were away and the missed updates are no longer stored. You need to rejoin to catch up.',
-          'system-warning',
-        ),
-      );
-    }
-
     // The scroller is .messages-container, not the list itself — the list
     // carries a large top padding so short conversations sit at the bottom.
     const scroller = this.list.parentElement;
     if (scroller) scroller.scrollTop = scroller.scrollHeight;
+  }
+
+  /**
+   * The status banner. A healthy group shows nothing at all — DESIGN.md §1.2.
+   *
+   * 'invited' and 'awaiting' are deliberately absent: both already have a bar
+   * over the composer carrying their decision, and two things saying the same
+   * thing on one screen is worse than one.
+   */
+  renderStatus(health) {
+    const banner = $('groupStatusBanner');
+    if (!banner) return;
+    const copy = HEALTH_BANNER[health];
+    banner.hidden = !copy;
+    if (!copy) return;
+
+    banner.className = `ui-banner${copy.tone ? ` ${copy.tone}` : ''}`;
+    $('groupStatusIcon').textContent = copy.icon;
+    $('groupStatusTitle').textContent = copy.title;
+    $('groupStatusSub').textContent = copy.sub;
+
+    const action = $('groupStatusAction');
+    action.hidden = !copy.action;
+    action.disabled = false;
+    action.textContent = copy.action;
+  }
+
+  /**
+   * The one button on the banner, whatever the banner currently says.
+   *
+   * This is the repair ladder: 'needs-attention' tries a catch-up, and if that
+   * cannot win the view flips to 'unrecoverable' and the banner re-renders
+   * asking to reset instead. The person is never shown both options at once,
+   * because they have no basis to choose — DESIGN.md §1.4.
+   */
+  async repair() {
+    const health = groupHealth(this.view());
+    if (health === 'removed') return groupInfoModal.leaveFrom(this.groupId);
+    if (health === 'unrecoverable') return groupInfoModal.resetFrom(this.groupId);
+
+    const action = $('groupStatusAction');
+    action.disabled = true;
+    action.textContent = 'Fixing…';
+    try {
+      const r = await groups.forceCatchUp(this.groupId);
+      this.render();
+      if (r.status === 'advanced' || r.status === 'current') {
+        toast('This group is up to date again.', 4000, 'success');
+      } else if (r.status === 'behind') {
+        toast('Still catching up. It will finish on its own.', 5000, 'info');
+      }
+      // 'pruned' and 'stuck' need no toast: the banner has already re-rendered
+      // as "can't catch up on its own" with the reset it now needs.
+    } catch (err) {
+      toast(`Could not fix it: ${err.message}`, 5000, 'error');
+      this.render();
+    }
   }
 
   /**
@@ -561,7 +765,7 @@ class GroupChatModal {
       toast(`Could not join: ${err.message}`, 5000, 'error');
     } finally {
       accept.disabled = decline.disabled = false;
-      accept.textContent = 'Join group';
+      accept.textContent = 'Join';
     }
   }
 
@@ -728,7 +932,7 @@ class JoinGroupModal {
     try {
       const info = await groups.previewGroup(groupId);
       this.groupId = groupId;
-      $('joinGroupAvatar').innerHTML = generateIdenticon(groupId, 56);
+      $('joinGroupAvatar').innerHTML = generateAvatar(groupId, 56);
 
       const fee = BigInt(info.joinFee || '0');
       $('joinGroupMeta').textContent =
@@ -779,41 +983,72 @@ class JoinGroupModal {
 }
 
 class GroupInfoModal {
+  constructor() {
+    this.groupId = null;
+    /** Requests to join, folded into the people list once they arrive. */
+    this.requests = [];
+    /** Address whose row menu is expanded, or null. */
+    this.openMenuFor = null;
+    /** Whether the add-people panel is showing. */
+    this.addOpen = false;
+  }
+
   load() {
     this.modal = $('groupInfoModal');
     if (!this.modal) return;
-    this.membersList = $('groupInfoMembers');
+    this.people = $('groupInfoPeople');
     this.picker = $('groupInfoPicker');
 
     $('closeGroupInfoModal').addEventListener('click', () => this.close());
     $('groupInviteLinkCopy').addEventListener('click', () => this.copyInviteLink());
     $('groupFeesClaim').addEventListener('click', () => this.claimFees());
     $('groupCatchUpButton').addEventListener('click', () => this.catchUp());
-    this.requestsList = $('groupJoinRequests');
-    this.requestsList.addEventListener('click', (e) => {
-      const btn = e.target.closest('button[data-approve]');
-      if (btn) this.approve(btn.getAttribute('data-approve'), btn);
-    });
-    $('groupInfoAddButton').addEventListener('click', () => this.addSelected());
     $('groupResetButton').addEventListener('click', () => this.reset());
+    $('groupInfoAlertAction').addEventListener('click', () => this.repair());
+    $('groupInfoAddButton').addEventListener('click', () => this.addSelected());
+    $('groupInfoAddCancel').addEventListener('click', () => this.toggleAdd(false));
+    $('groupLeaveButton').addEventListener('click', () => this.leave());
+
+    /*
+     * One delegated handler for the whole people list. Members, requests and
+     * the add-people row are one list, so they are also one click target —
+     * the alternative is three listeners kept in sync by hand.
+     */
+    this.people.addEventListener('click', (e) => {
+      const add = e.target.closest('button[data-add-people]');
+      if (add) return this.toggleAdd(true);
+
+      const approve = e.target.closest('button[data-approve]');
+      if (approve) return this.approve(approve.dataset.approve, approve);
+
+      const menu = e.target.closest('button[data-menu]');
+      if (menu) {
+        this.openMenuFor = this.openMenuFor === menu.dataset.menu ? null : menu.dataset.menu;
+        return this.renderPeople();
+      }
+
+      const remove = e.target.closest('button[data-remove]');
+      if (remove) return this.remove(remove.dataset.remove);
+    });
 
     this.staging = makeInviteStaging({
       inputEl: $('groupInfoInviteInput'),
-      addButtonEl: $('groupInfoInviteAdd'),
       listEl: $('groupInfoStaged'),
       errorEl: $('groupInfoInviteError'),
+      pickerEl: this.picker,
+      candidates: () => invitableContacts(this.view()?.members || []),
       isExcluded: (address) => (this.view()?.members || []).includes(address),
-    });
-    $('groupLeaveButton').addEventListener('click', () => this.leave());
-    this.membersList.addEventListener('click', (e) => {
-      const btn = e.target.closest('button[data-remove]');
-      if (btn) this.remove(btn.dataset.remove);
     });
   }
 
   open(groupId) {
     this.groupId = groupId;
-    this.staging.reset();
+    this.requests = [];
+    this.openMenuFor = null;
+    this.toggleAdd(false);
+    const fallback = $('groupInviteLinkInput');
+    fallback.hidden = true;
+    fallback.value = '';
     this.render();
     this.modal.classList.add('active');
   }
@@ -826,21 +1061,82 @@ class GroupInfoModal {
     return myData().groups?.[this.groupId];
   }
 
+  isAdmin() {
+    const view = this.view();
+    // A removed member keeps read access to old history but has no standing to
+    // change membership.
+    return !!view && !view.removed && (view.admins || []).includes(myAddr());
+  }
+
   render() {
     const view = this.view();
     if (!view) return;
 
-    $('groupInfoAvatar').innerHTML = generateIdenticon(this.groupId, 56);
+    $('groupInfoAvatar').innerHTML = generateAvatar(this.groupId, 56);
     $('groupInfoName').textContent = view.name || 'Group';
-    $('groupInfoMeta').textContent = `epoch ${view.epoch} · created ${
-      view.lastActivity ? formatTime(view.lastActivity) : 'recently'
-    }`;
-    $('groupInfoMemberCount').textContent = `(${view.members?.length || 0})`;
+    /*
+     * Member count and nothing else. This line used to read "epoch N · created
+     * <lastActivity>" — the epoch is protocol state, and lastActivity is the
+     * last message, not the creation time, so the label was also wrong. There
+     * is no creation timestamp on the view to put here instead.
+     */
+    const count = view.members?.length || 0;
+    const founded = view.createdAt
+      ? ` · created ${new Date(view.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`
+      : '';
+    $('groupInfoMeta').textContent = `${count} member${count === 1 ? '' : 's'}${founded}`;
 
-    // A removed member keeps read access to old history but has no standing to
-    // change membership, and there is nothing left to leave.
-    const isAdmin = !view.removed && (view.admins || []).includes(myAddr());
-    $('groupLeaveButton').textContent = view.removed ? 'Delete from this device' : 'Leave group';
+    $('groupLeaveLabel').textContent = view.removed ? 'Delete from this device' : 'Leave group';
+
+    this.renderAlert(groupHealth(view));
+    this.renderPeople();
+    this.renderRows();
+    this.renderTech();
+
+    // Fire-and-forget: both are network reads and must not hold up the roster,
+    // which is already in hand.
+    this.loadRequests();
+    this.renderFees();
+  }
+
+  /**
+   * The same banner the chat page shows, repeated here only when the group
+   * needs attention.
+   *
+   * Someone who came looking for a fix should find it without opening the
+   * drawer; someone whose group is healthy should see nothing — which is
+   * exactly what replaced the permanent "Sync" section.
+   */
+  renderAlert(health) {
+    const alert = $('groupInfoAlert');
+    if (!alert) return;
+    const copy = health === 'needs-attention' || health === 'unrecoverable' ? HEALTH_BANNER[health] : null;
+    alert.hidden = !copy;
+    if (!copy) return;
+    alert.className = 'ui-banner ui-banner--attention ui-banner--inset';
+    $('groupInfoAlertTitle').textContent = copy.title;
+    $('groupInfoAlertSub').textContent = copy.sub;
+    const action = $('groupInfoAlertAction');
+    action.disabled = false;
+    action.textContent = copy.action;
+  }
+
+  /**
+   * Members, requests to join and "add people" as one list.
+   *
+   * These were three sections at equal weight, and "who's in" sat three slots
+   * from "who wants in" despite being one thought — DESIGN.md §1.5. Requests
+   * sort to the top because they are the rows carrying a decision.
+   *
+   * It is also what makes the non-admin view read as simple rather than empty:
+   * a list with fewer controls is still a list, where five hidden sections are
+   * five holes.
+   */
+  renderPeople() {
+    const view = this.view();
+    if (!view) return;
+    const isAdmin = this.isAdmin();
+    const count = view.members?.length || 0;
 
     /*
      * A membership commit is in flight. It is NOT applied yet — the receipt
@@ -858,86 +1154,132 @@ class GroupInfoModal {
           : `Adding ${who}… waiting for the network to confirm.`;
     }
 
-    this.membersList.innerHTML = (view.members || [])
-      .map((address) => {
-        const admin = (view.admins || []).includes(address);
-        const isMe = address === myAddr();
-        const canRemove = isAdmin && !isMe && !pending;
-        return `
-        <li class="group-member-row">
-          <span class="group-picker-avatar">${generateIdenticon(address, 28)}</span>
-          <span class="group-picker-name">${escapeHtml(displayName(address, this.groupId))}</span>
-          ${admin ? '<span class="group-admin-badge">admin</span>' : ''}
-          ${canRemove ? `<button class="btn btn--tiny" data-remove="${address}">Remove</button>` : ''}
-        </li>`;
-      })
-      .join('');
+    const canManage = isAdmin && !pending;
+    const rows = [];
 
-    $('groupInfoAddSection').style.display = isAdmin && !pending ? '' : 'none';
-    // Fire-and-forget: the queue is a network read and must not hold up the
-    // roster, which is already in hand.
-    this.renderJoinRequests(isAdmin && !pending);
-    this.renderFees(isAdmin);
+    if (canManage && !this.addOpen) {
+      rows.push(`
+        <li>
+          <button type="button" class="ui-list-action" data-add-people="1">
+            <span class="ui-list-plus" aria-hidden="true">+</span>
+            <span class="ui-list-name">Add people</span>
+          </button>
+        </li>`);
+    }
 
-    /*
-     * Where this device stands. Only meaningful once we actually hold state, so
-     * it is hidden for a pending invite or an unapproved request.
-     */
-    const syncSection = $('groupSyncSection');
-    if (syncSection) {
-      const joined = !view.invitePending && !view.joinRequested;
-      syncSection.hidden = !joined;
-      if (joined) {
-        const chain = view.chainEpoch;
-        $('groupSyncStatus').textContent =
-          typeof chain === 'number' && chain > view.epoch
-            ? `This device is at epoch ${view.epoch}; the group is at ${chain}.`
-            : `Up to date at epoch ${view.epoch}.`;
+    for (const r of this.requests) {
+      rows.push(`
+        <li class="ui-list-row ui-list-row--pending">
+          <span class="ui-list-avatar">${generateAvatar(r.address, 28)}</span>
+          <span class="ui-list-name">
+            ${escapeHtml(displayName(r.address, this.groupId))}
+            <span class="ui-list-label">wants to join</span>
+            ${r.message ? `<span class="ui-list-note">${escapeHtml(r.message)}</span>` : ''}
+          </span>
+          ${canManage ? `<button class="btn--tiny btn--tiny-primary" data-approve="${r.address}">Approve</button>` : ''}
+        </li>`);
+    }
+
+    for (const address of view.members || []) {
+      const admin = (view.admins || []).includes(address);
+      const isMe = address === myAddr();
+      const canRemove = canManage && !isMe;
+      rows.push(`
+        <li class="ui-list-row">
+          <span class="ui-list-avatar">${generateAvatar(address, 28)}</span>
+          <span class="ui-list-name">${escapeHtml(isMe ? 'You' : displayName(address, this.groupId))}</span>
+          ${admin ? '<span class="ui-badge ui-badge--accent">admin</span>' : ''}
+          ${canRemove ? `<button class="ui-list-more" data-menu="${address}" aria-label="More">⋯</button>` : ''}
+        </li>`);
+      /*
+       * The row menu expands in place rather than floating. An anchored popover
+       * would have to track a scrolling list inside a sliding modal; this
+       * cannot drift, and it works the same under a finger as under a mouse.
+       */
+      if (canRemove && this.openMenuFor === address) {
+        rows.push(`
+        <li class="ui-list-actions">
+          <button class="btn--tiny btn--tiny-danger" data-remove="${address}">Remove from group</button>
+        </li>`);
       }
     }
 
+    this.people.innerHTML = rows.join('');
+
+    /*
+     * The count, or the badge in its place. Never both: the header two lines up
+     * already says "5 members", so a second count beside a queue that needs
+     * attention is noise competing with the thing that matters.
+     */
+    const badge = $('groupInfoRequestBadge');
+    const waiting = this.requests.length;
+    badge.hidden = waiting === 0;
+    badge.textContent = `${waiting} ${waiting === 1 ? 'wants' : 'want'} to join`;
+    $('groupInfoMemberCount').textContent = waiting === 0 && count ? String(count) : '';
+  }
+
+  /** Invite link, fees and leave: one line each — DESIGN.md §1.5. */
+  renderRows() {
+    const view = this.view();
     /*
      * Every member can share the link, not just admins — sharing it only lets
      * someone ASK, and an admin still approves. Hidden once we are removed,
      * where handing out an invite we can no longer vouch for would be odd.
      */
     const canInvite = !view.removed && !view.invitePending;
-    $('groupInviteLinkSection').hidden = !canInvite;
-    if (canInvite) $('groupInviteLinkInput').value = groupInviteLink(this.groupId);
-    // Without this, a non-admin just sees a roster with no controls and no
-    // explanation for why.
-    $('groupInfoAdminNote').hidden = isAdmin || !!view.removed;
+    $('groupInviteLinkRow').hidden = !canInvite;
+    /*
+     * The clipboard fallback is NOT reset here. render() runs on every
+     * background sync, which would re-hide the link a second after a failed
+     * copy revealed it — exactly while it is being copied by hand. It is
+     * cleared in open() instead, when the group actually changes.
+     */
+  }
 
-    // Out-of-step recovery: MLS state cannot be rebuilt from the public
-    // transcript, so the only way back is a fresh Welcome from a member.
-    $('groupResetSection').style.display = view.needsReset || view.applyFailedAtEpoch !== undefined ? '' : 'none';
-    if (view.needsReset || view.applyFailedAtEpoch !== undefined) {
-      const cause =
-        view.applyFailedAtEpoch !== undefined
-          ? `This device could not apply the group's update at epoch ${view.applyFailedAtEpoch}, so it is stuck at ` +
-            `epoch ${view.localEpoch} while the group is at ${view.chainEpoch}.`
-          : `This device is at epoch ${view.localEpoch} but the group is at ${view.chainEpoch}.`;
-      $('groupResetExplain').textContent =
-        `${cause} Resetting clears this device\u2019s keys for the group, keeping the messages already on screen. ` +
-        'Another member then needs to add you back, which sends a new invitation.';
+  /** Group id, cipher suite and the epochs — everything §1.1 took off screen. */
+  renderTech() {
+    const view = this.view();
+    const rows = [
+      ['Group id', this.groupId],
+      ['Cipher suite', MLS_CIPHERSUITE_NAME],
+      ['Group epoch', typeof view.chainEpoch === 'number' ? String(view.chainEpoch) : '—'],
+      ['This device', typeof view.epoch === 'number' ? String(view.epoch) : '—'],
+      ['Joined at', typeof view.memberSinceEpoch === 'number' ? `epoch ${view.memberSinceEpoch}` : '—'],
+    ];
+    if (typeof view.applyFailedAtEpoch === 'number') {
+      rows.push(['Stuck at', `epoch ${view.applyFailedAtEpoch}`]);
     }
-    if (isAdmin) renderPicker(this.picker, invitableContacts(view.members || []));
+    $('groupTechDetails').innerHTML = rows
+      .map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(String(v))}</dd></div>`)
+      .join('');
+  }
+
+  /** Shows or hides the add-people panel. */
+  toggleAdd(open) {
+    this.addOpen = !!open;
+    const panel = $('groupInfoAddPanel');
+    if (panel) panel.hidden = !this.addOpen;
+    if (this.addOpen) {
+      this.staging.reset();
+      setTimeout(() => $('groupInfoInviteInput').focus({ preventScroll: true }), 50);
+    }
+    if (this.people) this.renderPeople();
   }
 
   async addSelected() {
-    const selected = [...new Set([...selectedFrom(this.picker), ...this.staging.addresses()])];
+    const selected = this.staging.addresses();
     if (selected.length === 0) {
-      toast('Add someone by username, or tick a contact first', 3000, 'info');
+      toast('Pick someone, or type a username first', 3000, 'info');
       return;
     }
     const button = $('groupInfoAddButton');
     button.disabled = true;
     try {
       await groups.addMembers(this.groupId, selected);
-      this.staging.reset();
+      this.toggleAdd(false);
       this.render();
       groupChatModal.render();
-      toast(`Added ${selected.length} member${selected.length === 1 ? '' : 's'}`, 3000, 'success');
+      toast(`Added ${selected.length} ${selected.length === 1 ? 'person' : 'people'}`, 3000, 'success');
     } catch (err) {
       toast(`Could not add: ${err.message}`, 5000, 'error');
     } finally {
@@ -946,40 +1288,112 @@ class GroupInfoModal {
   }
 
   /**
-   * The admin's approval queue.
+   * The admin's approval queue, folded into the people list.
    *
    * A request is the requester's consent to be added, so approving one is an
    * ordinary add — the server accepts it precisely because the request exists.
    */
-  /**
-   * Manual sync. Reports the outcome plainly, including the cases it cannot fix:
-   * pruned updates and a commit that genuinely will not apply both need a reset,
-   * and saying "done" for those would be a lie.
-   */
-  async catchUp() {
-    const button = $('groupCatchUpButton');
-    button.disabled = true;
-    button.textContent = 'Catching up…';
+  async loadRequests() {
+    if (!this.isAdmin() || this.view()?.pendingChange) {
+      this.requests = [];
+      this.renderPeople();
+      return;
+    }
     try {
-      const r = await groups.forceCatchUp(this.groupId);
+      const requests = await groups.listJoinRequests(this.groupId);
+      // The screen may have moved on while this was in flight.
+      if (!this.modal.classList.contains('active')) return;
+      this.requests = Array.isArray(requests) ? requests : [];
+    } catch {
+      this.requests = [];
+    }
+    this.renderPeople();
+  }
+
+  async approve(address, button) {
+    button.disabled = true;
+    button.textContent = 'Approving…';
+    try {
+      await groups.approveJoinRequest(this.groupId, address);
       this.render();
       groupChatModal.render();
-      if (r.status === 'advanced') {
-        toast(`Caught up to epoch ${r.after}.`, 4000, 'success');
-      } else if (r.status === 'current') {
-        toast('Already up to date.', 3000, 'info');
-      } else if (r.status === 'behind') {
-        toast(`Still behind (epoch ${r.after} of ${r.chainEpoch}). Trying again shortly.`, 5000, 'info');
-      } else if (r.status === 'pruned') {
-        toast('The updates this device missed are no longer stored. Reset the group and ask to be added back.', 8000, 'error');
-      } else {
-        toast(`Could not apply the update at epoch ${r.failedAt}. Reset the group and ask to be added back.`, 8000, 'error');
-      }
+      toast('Approved.', 3000, 'success');
     } catch (err) {
-      toast(`Catch-up failed: ${err.message}`, 5000, 'error');
-    } finally {
+      toast(`Could not approve: ${err.message}`, 5000, 'error');
       button.disabled = false;
-      button.textContent = 'Catch up now';
+      button.textContent = 'Approve';
+    }
+  }
+
+  async remove(address) {
+    this.openMenuFor = null;
+    try {
+      await groups.removeMembers(this.groupId, [address]);
+      this.render();
+      groupChatModal.render();
+    } catch (err) {
+      toast(`Could not remove: ${err.message}`, 5000, 'error');
+    }
+  }
+
+  /**
+   * Join fees this admin has earned in the group.
+   *
+   * Split into collectable and still-vesting, because the difference is the
+   * point: until a fee matures, removing that member returns it to them, so it
+   * is not the admin's money yet. Hidden entirely when there is no money, so a
+   * group nobody pays for never mentions fees.
+   */
+  async renderFees() {
+    const row = $('groupFeesRow');
+    if (!row) return;
+    if (!this.isAdmin()) {
+      row.hidden = true;
+      return;
+    }
+    let status;
+    try {
+      status = await groups.joinFeeStatus(this.groupId);
+    } catch {
+      row.hidden = true;
+      return;
+    }
+    if (status.claimable === 0n && status.vesting === 0n) {
+      row.hidden = true;
+      return;
+    }
+    row.hidden = false;
+
+    const parts = [];
+    if (status.claimable > 0n) parts.push(`${formatLib(status.claimable)} LIB ready`);
+    if (status.vesting > 0n) {
+      const when = status.nextVestingAt
+        ? ` until ${new Date(status.nextVestingAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`
+        : '';
+      parts.push(`${formatLib(status.vesting)} LIB held${when}`);
+    }
+    $('groupFeesSummary').textContent = parts.join(' · ');
+    const claim = $('groupFeesClaim');
+    claim.disabled = status.claimable === 0n;
+    // Blue says "you can act on this". Nothing to collect is a state, not an
+    // action, so it drops to the muted value styling instead.
+    claim.classList.toggle('btn--text', status.claimable > 0n);
+    claim.classList.toggle('ui-row-value', status.claimable === 0n);
+    claim.textContent = status.claimable > 0n ? 'Collect' : 'Nothing yet';
+  }
+
+  async claimFees() {
+    const button = $('groupFeesClaim');
+    button.disabled = true;
+    button.textContent = 'Collecting…';
+    try {
+      await groups.claimJoinFees(this.groupId);
+      this.render();
+      toast('Collected.', 4000, 'success');
+    } catch (err) {
+      toast(`Could not collect: ${err.message}`, 5000, 'error');
+      button.disabled = false;
+      button.textContent = 'Collect';
     }
   }
 
@@ -991,135 +1405,78 @@ class GroupInfoModal {
       button.textContent = 'Copied';
       setTimeout(() => (button.textContent = 'Copy'), 1500);
     } catch {
-      // Clipboard access can be refused (insecure origin, permissions). Select
-      // the text so the user can copy it by hand rather than lose the link.
+      // Clipboard access can be refused (insecure origin, permissions). Reveal
+      // the link and select it so it can be copied by hand rather than lost.
       const input = $('groupInviteLinkInput');
-      input.focus();
+      input.hidden = false;
+      input.value = link;
+      input.focus({ preventScroll: true });
       input.select();
-      toast('Could not copy automatically — the link is selected, copy it manually.', 5000, 'info');
+      toast('Could not copy automatically — the link is selected, copy it by hand.', 5000, 'info');
     }
+  }
+
+  /** The banner's button, when group info is the screen showing it. */
+  async repair() {
+    const health = groupHealth(this.view());
+    if (health === 'unrecoverable') return this.reset();
+    const action = $('groupInfoAlertAction');
+    action.disabled = true;
+    action.textContent = 'Fixing…';
+    await this.catchUp({ silent: true });
   }
 
   /**
-   * Join fees this admin has earned in the group.
+   * Re-applies group updates this device has not seen.
    *
-   * Split into collectable and still-vesting, because the difference is the
-   * point: until a fee matures, removing that member returns it to them, so it
-   * is not the admin's money yet.
+   * Reports the outcomes it cannot fix honestly: pruned updates and a commit
+   * that genuinely will not apply both need a reset, and saying "done" for
+   * those would be a lie.
    */
-  async renderFees(visible) {
-    const section = $('groupFeesSection');
-    if (!section) return;
-    if (!visible) {
-      section.hidden = true;
-      return;
-    }
-    let status;
-    try {
-      status = await groups.joinFeeStatus(this.groupId);
-    } catch {
-      section.hidden = true;
-      return;
-    }
-    // Nothing earned and nothing charged: no reason to show the section at all.
-    if (status.claimable === 0n && status.vesting === 0n) {
-      section.hidden = true;
-      return;
-    }
-    section.hidden = false;
-
-    const parts = [];
-    if (status.claimable > 0n) parts.push(`${formatLib(status.claimable)} LIB ready to collect`);
-    if (status.vesting > 0n) {
-      const when = status.nextVestingAt ? ` (first on ${new Date(status.nextVestingAt).toLocaleDateString()})` : '';
-      parts.push(`${formatLib(status.vesting)} LIB still held${when}`);
-    }
-    $('groupFeesSummary').textContent = parts.join(' · ');
-    $('groupFeesClaim').disabled = status.claimable === 0n;
-    $('groupFeesClaim').textContent =
-      status.claimable > 0n ? `Collect ${formatLib(status.claimable)} LIB` : 'Nothing to collect yet';
-  }
-
-  async claimFees() {
-    const button = $('groupFeesClaim');
+  async catchUp({ silent = false } = {}) {
+    const button = $('groupCatchUpButton');
     button.disabled = true;
-    button.textContent = 'Collecting…';
+    button.textContent = 'Checking…';
     try {
-      await groups.claimJoinFees(this.groupId);
-      this.render();
-      toast('Join fees collected.', 4000, 'success');
-    } catch (err) {
-      toast(`Could not collect: ${err.message}`, 5000, 'error');
-      button.disabled = false;
-    }
-  }
-
-  async renderJoinRequests(visible) {
-    const section = $('groupJoinRequestsSection');
-    if (!section) return;
-    if (!visible) {
-      section.hidden = true;
-      return;
-    }
-    let requests = [];
-    try {
-      requests = await groups.listJoinRequests(this.groupId);
-    } catch {
-      section.hidden = true;
-      return;
-    }
-    // Hide the whole section when empty rather than showing an empty heading.
-    section.hidden = requests.length === 0;
-    if (requests.length === 0) return;
-
-    this.requestsList.innerHTML = requests
-      .map(
-        (r) => `
-        <li class="group-member-row">
-          <span class="group-picker-avatar">${generateIdenticon(r.address, 28)}</span>
-          <span class="group-picker-name">
-            ${escapeHtml(displayName(r.address, this.groupId))}
-            ${r.message ? `<span class="group-request-message">${escapeHtml(r.message)}</span>` : ''}
-          </span>
-          <button class="btn btn--tiny" data-approve="${r.address}">Approve</button>
-        </li>`,
-      )
-      .join('');
-  }
-
-  async approve(address, button) {
-    button.disabled = true;
-    button.textContent = 'Approving…';
-    try {
-      await groups.approveJoinRequest(this.groupId, address);
+      const r = await groups.forceCatchUp(this.groupId);
       this.render();
       groupChatModal.render();
-      toast('Member approved.', 3000, 'success');
+      if (r.status === 'advanced' || r.status === 'current') {
+        toast('This group is up to date.', 4000, 'success');
+      } else if (r.status === 'behind') {
+        toast('Still catching up. It will finish on its own.', 5000, 'info');
+      } else if (!silent) {
+        // The banner now says so too, so a toast is only worth it when the
+        // person pressed the drawer button rather than the banner.
+        toast('This device can’t catch up on its own — it needs a reset.', 6000, 'error');
+      }
     } catch (err) {
-      toast(`Could not approve: ${err.message}`, 5000, 'error');
-      button.disabled = false;
-      button.textContent = 'Approve';
-    }
-  }
-
-  async remove(address) {
-    try {
-      await groups.removeMembers(this.groupId, [address]);
+      toast(`Could not check: ${err.message}`, 5000, 'error');
       this.render();
-      groupChatModal.render();
-    } catch (err) {
-      toast(`Could not remove: ${err.message}`, 5000, 'error');
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Check for updates';
     }
   }
 
   async reset() {
+    if (
+      !window.confirm(
+        'Reset this group on this device?\n\n' +
+          'This clears the keys this device holds for the group. Messages already on screen ' +
+          'stay, and another member then has to add you back before you can take part again.',
+      )
+    ) {
+      this.render();
+      return;
+    }
     const btn = $('groupResetButton');
     btn.disabled = true;
     try {
       await groups.resetGroupState(this.groupId);
       this.render();
       groupChatModal.render();
-      toast('Group reset on this device. Ask a member to add you back.', 6000, 'info');
+      toast('Reset. Ask a member to add you back.', 6000, 'info');
     } catch (err) {
       toast(`Could not reset: ${err.message}`, 5000, 'error');
     } finally {
@@ -1127,14 +1484,35 @@ class GroupInfoModal {
     }
   }
 
+  /** Reset a group from the chat page, without opening this screen first. */
+  async resetFrom(groupId) {
+    this.groupId = groupId;
+    await this.reset();
+  }
+
+  /** Leave or delete a group from the chat page, without opening this screen. */
+  async leaveFrom(groupId) {
+    this.groupId = groupId;
+    await this.leave();
+  }
+
   async leave() {
     const wasRemoved = !!this.view()?.removed;
+    if (
+      !window.confirm(
+        wasRemoved
+          ? 'Delete this group from this device? The messages on screen will be lost.'
+          : 'Leave this group? You will stop receiving messages, and an admin has to add you back to rejoin.',
+      )
+    ) {
+      return;
+    }
     try {
       await groups.leaveGroup(this.groupId);
       this.close();
       groupChatModal.close();
       deps.onChatListChanged && deps.onChatListChanged();
-      toast(wasRemoved ? 'Group removed from this device' : 'You left the group', 3000, 'info');
+      toast(wasRemoved ? 'Deleted from this device' : 'You left the group', 3000, 'info');
     } catch (err) {
       toast(`Could not leave: ${err.message}`, 5000, 'error');
     }

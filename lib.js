@@ -184,6 +184,46 @@ export function generateIdenticon(address, size = 50) {
     return generateIdenticonSvg(address, size);
 }
 
+/**
+ * Gradient avatar: a solid two-tone disc derived from the address.
+ *
+ * Deliberately alongside generateIdenticon rather than replacing it — that one
+ * stays as the fallback and is still exported.
+ *
+ * The identicon paints a small pattern on #f0f0f0, which on a white page reads
+ * as a floating square: the circular container it sits in is invisible because
+ * its background is nearly the page colour. This fills the frame edge to edge,
+ * so the avatar reads as a circle and a row of them scans as a column.
+ *
+ * Colours come from the same getColorFromHash the identicon uses, at different
+ * offsets, so an address keeps a recognisable identity across both.
+ */
+export function generateAvatarSvg(hash, size = 50) {
+    const clean = String(hash || '').replace(/^0x/, '').toLowerCase() || '0'.repeat(64);
+    const from = getColorFromHash(clean, 0);
+    const to = getColorFromHash(clean, 6);
+    // The gradient id must be unique per avatar: SVG ids are global to the
+    // document, and several avatars render into the same page. A duplicate id
+    // makes every later avatar reuse the first one's colours.
+    const id = `g${clean.slice(0, 12)}${size}`;
+    return `
+        <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="${from}"/>
+                    <stop offset="100%" stop-color="${to}"/>
+                </linearGradient>
+            </defs>
+            <rect width="${size}" height="${size}" fill="url(#${id})"/>
+        </svg>
+    `;
+}
+
+/** Gradient avatar from an address. Drop-in shape-compatible with generateIdenticon. */
+export function generateAvatar(address, size = 50) {
+    return generateAvatarSvg(address, size);
+}
+
 // Format timestamp to relative time
 export function formatTime(timestamp, includeTimeForOld = true) {
     if (!timestamp || timestamp == 0){ return ''}

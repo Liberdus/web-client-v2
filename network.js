@@ -1,6 +1,6 @@
 const network = {
   "name": "Testnet",
-  "netid": "24e8b485bde57b54edf2fe0b820ed1729a1ea16a51795dfa0d410778e8942124",
+  "netid": "08fd9539a3cc8aec7349d604db79af985ac13d0255a0c5cf1c739dcdb5ae0c14",
   "netids": [
     "fd1b56b08fd1e5035aa19eb631f7f1ad0395175c5d3dfc49411dfa528e6af7c3",
     "d76b585f8da6d28555c734144d9c965e6d5cb2d4c7248b92265a926408bfece6",
