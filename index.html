@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-28" />
+    <link rel="stylesheet" href="./styles.css?v=1455-30" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-39" type="module"></script>
+    <script src="./app.js?v=1455-40" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -81,10 +81,13 @@
             ><img src="./media/liberdus_logo_50.png"
           /></a>
         </div>
-        <div class="app-name-container">
-          <div class="app-name-avatar"></div>
-          <div class="app-name">Liberdus</div>
-        </div>
+        <!--
+          Centred screen title, matching every modal header in the app:
+          something on the left, a centred title, actions on the right.
+          role=heading rather than <h1> because the global h1 rule is a 50px
+          welcome-screen style that would have to be overridden line by line.
+        -->
+        <div class="header-title" id="headerTitle" role="heading" aria-level="1"></div>
         <div class="header-icons">
           <div class="offline-indicator" id="offlineIndicator">Offline</div>
           <button class="icon-button" id="upcomingCallsBtn" style="display: none;"></button>
@@ -95,6 +98,13 @@
             aria-label="Open DAO notifications"
             hidden
           ></button>
+          <!--
+            Your own identity, as a control rather than a label. It used to be a
+            40px avatar plus your username in the largest, boldest text in the
+            header — the one thing you already know — sitting in the slot the
+            screen title needed.
+          -->
+          <button class="header-avatar" id="openMyInfo" aria-label="Your profile"></button>
           <button class="icon-button" id="toggleSettings"></button>
           <button class="icon-button" id="toggleMenu"></button>
         </div>

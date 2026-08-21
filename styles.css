@@ -622,46 +622,68 @@ body {
   align-items: center;
 }
 
-.app-name-container {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  max-width: calc(100% - 140px);
+/* Which screen you are on. Takes the middle of the header, which previously
+   held your own avatar and username — so the header could not say whether you
+   were on Chats, Contacts or Wallet, and only the tab bar could. */
+.header-title {
+  /* Centred on the HEADER, not on the space left over between the logo and the
+     icons. `flex: 1; text-align: center` puts it 39px off-centre here, because
+     a 40px logo does not balance a ~118px icon row — and the icon row's width
+     changes as the offline and calls indicators come and go, so no fixed
+     spacer would hold either. The header is position: sticky, so it is already
+     a containing block for this. */
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 220px);
+  font-family: var(--font-primary);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color);
+  text-align: center;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
-.app-name-avatar {
-  width: 40px;
-  height: 40px;
+/* The icon row takes the right; the title floats over the middle. */
+.header .header-icons {
+  margin-left: auto;
+}
+
+/* Your identity, as a control. Sized to sit in the icon row without
+   outweighing the glyphs beside it. */
+.header-avatar {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
   border-radius: 50%;
-  flex-shrink: 0;
   overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   background-color: var(--light-color);
+  cursor: pointer;
 }
 
-.app-name-avatar svg {
+.header-avatar svg,
+.header-avatar img {
   width: 100%;
   height: 100%;
   display: block;
 }
 
-.app-name {
-  font-family: var(--font-primary);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-color);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: pointer;
+.header-avatar:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-primary);
 }
 
-.app-name.is-private {
-  color: var(--danger-color);
+/* A private account used to be signalled by turning the username red. The
+   username is gone, so the ring carries it — in the same colour, so the meaning
+   survives for anyone who already learned it. The button's aria-label says so
+   too: colour alone was never a signal a screen reader could read. */
+.header-avatar.is-private {
+  box-shadow: 0 0 0 2px var(--danger-color);
 }
 
 .header-icons {
@@ -6137,20 +6159,36 @@ button.about-link {
   top: 0; /* Header handles safe-area-inset-top */
 }
 
-/* Search Bar - Common styles for all search bars */
+/* Search Bar - Common styles for all search bars
+
+   A filled pill, matching the message composer, which is this app's existing
+   answer to "a place you type". It used to be an 8px purple-tinted rectangle:
+   the odd one out against 12px bordered form fields and a 24px filled
+   composer, and using the accent for a text field when the accent means "this
+   does something" — DESIGN.md §3.
+
+   The input inside is readonly with a pointer cursor: this is really a button
+   that opens the search modal. That is an implementation detail, and it should
+   not be what decides how the control looks. */
 .search-bar {
   display: flex;
   align-items: center;
-  padding: 8px 12px;
-  background: var(--hover-background-purple);
-  border-radius: 8px;
+  padding: 10px 14px;
+  background: var(--input-background);
+  border: none;
+  border-radius: 999px;
   cursor: pointer;
   transition: background-color 0.2s ease;
-  border: none;
 }
 
 .search-bar:hover {
   background: var(--hover-background-dark);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-bar {
+    transition: none;
+  }
 }
 
 /* Search input styles - Common for all search inputs */

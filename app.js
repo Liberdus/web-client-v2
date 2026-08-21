@@ -1438,9 +1438,8 @@ class Header {
 
   load() {
     this.header = document.getElementById('header');
-    this.text = this.header.querySelector('.app-name');
-    this.avatarContainer = this.header.querySelector('.app-name-avatar');
-    this.nameContainer = this.header.querySelector('.app-name-container');
+    this.title = document.getElementById('headerTitle');
+    this.avatarButton = document.getElementById('openMyInfo');
     this.logoLink = this.header.querySelector('.logo-link');
     this.menuButton = document.getElementById('toggleMenu');
     this.settingsButton = document.getElementById('toggleSettings');
@@ -1453,8 +1452,7 @@ class Header {
     this.upcomingCallsBtn.addEventListener('click', () => callsModal.open());
     this.daoNotificationsButton.addEventListener('click', () => daoModal.open());
     
-    // Add click event for whole name container
-    this.nameContainer.addEventListener('click', () => {
+    this.avatarButton.addEventListener('click', () => {
       if (myData && myData.account) {
         myInfoModal.open();
       }
@@ -1473,13 +1471,28 @@ class Header {
     return this.header.classList.contains('active');
   }
 
-  setText(newText) {
-    this.text.textContent = newText;
+  /** Clears the header back to its signed-out state. */
+  reset() {
+    this.setTitle(null);
+    if (this.avatarButton) {
+      this.avatarButton.innerHTML = '';
+      this.avatarButton.classList.remove('is-private');
+      this.avatarButton.setAttribute('aria-label', 'Your profile');
+    }
   }
 
   /**
    * Updates the header avatar for the current user
    */
+  /**
+   * The screen you are on. The tab bar says the same thing at the other end of
+   * the app; the header should not be the one place that cannot tell you.
+   */
+  setTitle(view) {
+    const titles = { chats: 'Chats', contacts: 'Contacts', wallet: 'Wallet' };
+    if (this.title) this.title.textContent = titles[view] || '';
+  }
+
   async updateAvatar() {
     try {
       const avatarHtml = await getContactAvatarHtml(
@@ -1490,7 +1503,19 @@ class Header {
         },
         28 // Small size for header
       );
-      this.avatarContainer.innerHTML = avatarHtml;
+      this.avatarButton.innerHTML = avatarHtml;
+      /*
+       * A private account was previously signalled by turning the username red.
+       * The username is gone from the header, so the ring carries it — and so
+       * does the label, because a colour is not something a screen reader can
+       * report.
+       */
+      const isPrivate = isPrivateAccount();
+      this.avatarButton.classList.toggle('is-private', isPrivate);
+      this.avatarButton.setAttribute(
+        'aria-label',
+        isPrivate ? 'Your profile (private account)' : 'Your profile',
+      );
     } catch (e) {
       console.warn('Failed to update header avatar:', e);
     }
@@ -1598,6 +1623,7 @@ class Footer {
       setTab(this.chatButton, view === 'chats');
       setTab(this.contactsButton, view === 'contacts');
       setTab(this.walletButton, view === 'wallet');
+      header.setTitle(view);
 
       if (view === 'chats') {
         chatsScreen.open();
@@ -1611,21 +1637,13 @@ class Footer {
       header.open();
       footer.open();
   
-      // Update header with username if signed in
-      const appName = document.querySelector('.app-name');
+      // The header shows your avatar once signed in; the username it used to
+      // print alongside is now on the profile screen the avatar opens.
       if (myAccount && myAccount.username) {
-        const accountIsPrivate = isPrivateAccount();
-        appName.textContent = `${myAccount.username}`;
-        appName.classList.toggle('is-private', accountIsPrivate);
-        // Update avatar
         await header.updateAvatar();
-      } else {
-        appName.textContent = '';
-        appName.classList.remove('is-private');
-        // Clear avatar when not signed in
-        if (header.avatarContainer) {
-          header.avatarContainer.innerHTML = '';
-        }
+      } else if (header.avatarButton) {
+        header.avatarButton.innerHTML = '';
+        header.avatarButton.classList.remove('is-private');
       }
   
       // Show/hide new chat button
@@ -1684,6 +1702,7 @@ class Footer {
           else button.removeAttribute('aria-current');
         };
         const known = ['chats', 'contacts', 'wallet'].includes(previousView);
+        header.setTitle(previousView);
         restore(this.chatButton, previousView === 'chats');
         restore(this.contactsButton, previousView === 'contacts');
         restore(this.walletButton, previousView === 'wallet');
@@ -2566,12 +2585,7 @@ class MenuModal {
     footer.close();
     footer.closeNewChatButton();
 
-    // Reset header text
-    header.setText('Liberdus');
-    // Clear avatar on sign out
-    if (header.avatarContainer) {
-      header.avatarContainer.innerHTML = '';
-    }
+    header.reset();
 
     // Hide all app screens
     document.querySelectorAll('.app-screen').forEach((screen) => {
