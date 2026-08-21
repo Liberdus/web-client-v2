@@ -1,0 +1,129 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Primary button height</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <style>
+      body { margin:0; background:#ececed; font-family:'Inter',sans-serif; }
+      .page { max-width:1180px; margin:0 auto; padding:26px 20px 90px; }
+      h2 { font-size:15px; margin:32px 0 4px; }
+      .why { font-size:12.5px; line-height:1.55; color:#65676b; margin:0 0 14px; max-width:74ch; }
+      .why code { background:#e2e2e8; padding:1px 4px; border-radius:3px; font-size:.9em }
+      .pair { display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start; }
+      .col { width:330px; }
+      .lbl { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#797c8c; margin-bottom:6px; }
+      .lbl b.now { color:#8a2018 } .lbl b.rec { color:#1f6b2a }
+      .stage { background:#fff; border:1px solid #dcdce4; border-radius:12px; padding:18px 16px; }
+      .stage--tall { height:520px; display:flex; flex-direction:column; overflow:hidden; padding:0 }
+
+      /* Measurement chrome — a ruler beside each button, so the difference is
+         a number and not a vibe. */
+      .m { position:relative; }
+      .m::after { content:attr(data-h); position:absolute; right:-30px; top:50%;
+                  transform:translateY(-50%); font-size:10.5px; font-weight:600;
+                  color:#9a9daf; font-variant-numeric:tabular-nums }
+      .stack { display:flex; flex-direction:column; gap:10px; padding-right:30px }
+      .stack .btn { width:100%; margin:0; border-radius:999px }
+      .duo { display:flex; gap:10px; padding-right:30px }
+      .duo .btn { flex:1 1 0; margin:0; border-radius:999px; padding:0 20px }
+
+      .tick { display:flex; align-items:baseline; gap:7px; font-size:12.5px; color:#65676b;
+              padding:3px 0 }
+      .tick b { font-variant-numeric:tabular-nums; color:#2b2d3a; font-weight:600; min-width:38px }
+      .bad { color:#8a2018; font-weight:600 } .good { color:#1f6b2a; font-weight:600 }
+
+      /* welcome mock */
+      .w { flex:1; display:flex; flex-direction:column; align-items:center; padding:28px 24px;
+           text-align:center }
+      .w-top { margin-top:auto } .w img { width:96px;height:96px }
+      .w-name { font-size:30px; font-weight:700; letter-spacing:-.02em; margin-top:16px }
+      .w-net { display:inline-flex; align-items:center; gap:6px; margin-top:10px; padding:3px 10px;
+               border-radius:999px; background:var(--warning-tint); color:var(--warning-text);
+               font-size:12px; font-weight:600 }
+      .w-net::before { content:'';width:6px;height:6px;border-radius:50%;background:currentColor }
+      .w-acts { display:flex; flex-direction:column; gap:10px; width:100%; margin-top:34px }
+      .w-acts .btn { width:100%; margin:0; border-radius:999px }
+      .w-ver { margin-top:auto; padding-top:26px; font-size:11.5px; color:var(--muted-text-color) }
+    </style>
+  </head>
+  <body>
+    <div class="page" id="page"></div>
+    <script type="module">
+      const page = document.getElementById('page');
+      const L = '../media/liberdus_logo_250.png';
+
+      const stack = (h, secondary = true) => `
+        <div class="stack">
+          <div class="m" data-h="${h}"><button class="btn btn--primary" style="height:${h}px">Create account</button></div>
+          ${secondary ? `<div class="m" data-h="${h}"><button class="btn btn--secondary" style="height:${h}px">Receive</button></div>` : ''}
+        </div>`;
+
+      const duo = (h) => `
+        <div class="duo">
+          <div class="m" data-h="${h}" style="flex:1"><button class="btn btn--primary" style="height:${h}px;width:100%">Send</button></div>
+          <div class="m" data-h="${h}" style="flex:1"><button class="btn btn--secondary" style="height:${h}px;width:100%">Receive</button></div>
+        </div>`;
+
+      const welcome = (h) => `
+        <div class="w">
+          <div class="w-top"></div>
+          <img src="${L}" alt="">
+          <div class="w-name">Liberdus</div>
+          <div class="w-net">Testnet</div>
+          <div class="w-acts">
+            <button class="btn btn--primary" style="height:${h}px">Sign in</button>
+            <button class="btn btn--secondary" style="height:${h}px">Create account</button>
+            <button class="btn btn--text" style="height:40px">More options</button>
+          </div>
+          <div class="w-ver">2026.08.21.10.15</div>
+        </div>`;
+
+      page.innerHTML = `
+        <h2>What the app actually renders today</h2>
+        <p class="why">Not one height — <b>four</b>, reached by three unrelated mechanisms. Nine separate
+        rules restate <code>height: 48px</code>; a bare <code>.btn--pill</code> has no height rule at all and
+        lands on 48 only because the element selector <code>button { padding: 1rem 2rem }</code> plus
+        <code>line-height: 1</code> on 16px text happens to add up to 48. There is no height token, so
+        "the button height" is not a thing anyone can change in one place.</p>
+        <div class="stage" style="max-width:520px">
+          <div class="tick"><b>48px</b> <span><code>.btn--pill.btn--full</code>, <code>.btn--secondary</code>, create-account bar, modal action rows <span class="good">— the norm</span></span></div>
+          <div class="tick"><b>48px</b> <span>bare <code>.btn--primary.btn--pill</code> <span class="bad">— by accident, via <code>button{padding:1rem 2rem}</code></span></span></div>
+          <div class="tick"><b>46px</b> <span><code>.wallet-primary-action</code> — Send / Receive <span class="bad">— outlier</span></span></div>
+          <div class="tick"><b>38px</b> <span><code>.ui-block-actions .btn--pill</code> <span class="bad">— outlier</span></span></div>
+        </div>
+
+        <h2>Height compared — stacked full-width CTA</h2>
+        <p class="why">48px already clears both platform minimums (Apple 44pt, Material 48dp), so this is not
+        an accessibility fix — it is a question of whether the app's most committed action looks like it.
+        At 358&times;48 the welcome pill is a 7.5:1 sliver. <b>52px</b> is the smallest step that reads as
+        deliberate; <b>56px</b> is where a fintech primary CTA usually sits, and stays on the app's existing
+        8px vertical scale.</p>
+        <div class="pair">
+          <div class="col"><div class="lbl"><b class="now">48 — today</b></div><div class="stage">${stack(48)}</div></div>
+          <div class="col"><div class="lbl"><b class="rec">52 — recommended</b></div><div class="stage">${stack(52)}</div></div>
+          <div class="col"><div class="lbl">56</div><div class="stage">${stack(56)}</div></div>
+        </div>
+
+        <h2>Height compared — paired row (wallet Send / Receive)</h2>
+        <p class="why">The paired row is where a tall button starts to feel heavy: two of them side by side
+        carry twice the visual weight of one. This is the case that argues against 56.</p>
+        <div class="pair">
+          <div class="col"><div class="lbl"><b class="now">46 — today</b></div><div class="stage">${duo(46)}</div></div>
+          <div class="col"><div class="lbl"><b class="rec">52 — recommended</b></div><div class="stage">${duo(52)}</div></div>
+          <div class="col"><div class="lbl">56</div><div class="stage">${duo(56)}</div></div>
+        </div>
+
+        <h2>In place — welcome screen</h2>
+        <p class="why">The cost of a taller button is vertical room, and the welcome screen is the tightest
+        case in the app: three stacked controls. At 52 the stack grows 8px total, which the newly-freed
+        space absorbs. At 56 it grows 16px.</p>
+        <div class="pair">
+          <div class="col"><div class="lbl"><b class="now">48 — today</b></div><div class="stage stage--tall">${welcome(48)}</div></div>
+          <div class="col"><div class="lbl"><b class="rec">52 — recommended</b></div><div class="stage stage--tall">${welcome(52)}</div></div>
+          <div class="col"><div class="lbl">56</div><div class="stage stage--tall">${welcome(56)}</div></div>
+        </div>`;
+    </script>
+  </body>
+</html>

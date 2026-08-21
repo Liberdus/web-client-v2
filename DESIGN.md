@@ -224,6 +224,26 @@ tiers touched. Four steps are enough for a screen:
 Make the entry space the largest value on the page. A hero that is a short
 block of text reads as the first row of a list if nothing sits above it.
 
+**Button height is a token, not a number you retype.** `--btn-height` (48px) is
+the one height for every screen-level CTA: full-width pills, the pinned
+create-account bar, modal action rows, wallet Send/Receive. Before it existed,
+nine rules restated `height: 48px` independently, the wallet sat at 46 for no
+reason, and a bare `.btn--pill` reached 48 only *by accident* — the element
+selector `button { padding: 1rem 2rem }` on 16px text at `line-height: 1` adds
+up to exactly 48. Three mechanisms, one number, and no way to change it in one
+place. If a button's height needs to differ, that is a decision to write down,
+not a value to paste.
+
+Smaller tiers are deliberate and must **not** read the token — size tracks
+commitment, the same rule as §1.8:
+
+| height | for |
+| ---: | --- |
+| 48 (`--btn-height`) | the screen's commit action |
+| ~38 (`.ui-block-actions`) | confirm inside a disclosure panel, beside a text Cancel |
+| ~27 (`.ui-banner-action`) | an action offered by a banner |
+| ~22 (`.btn--text`) | a link wearing a button's clothes |
+
 ### Layout
 
 The app is a single 480px column with sliding full-height modals. `.form--narrow`
@@ -453,6 +473,26 @@ conversation — see `displayName()`, which is deliberately exception-safe.
 
 **Escape everything interpolated into `innerHTML`.** Usernames and join-request
 messages are attacker-controlled. Use `escapeHtml()`.
+
+**Centre a scrollable screen with auto margins, never
+`justify-content: center`.** A centred flex container overflows in *both*
+directions when its content is taller than the box, and the overflow above the
+scroll origin cannot be reached — on a short phone the logo ends up permanently
+off-screen. `margin-top: auto` on the first child collapses to zero instead, so
+the layout falls back to top-aligned and scrolls normally. Same visual result
+when there is room; no trap when there isn't.
+
+**Padding that reserves room for the tab bar belongs only on screens that have
+one.** The welcome screen carried `padding-bottom: calc(2rem + safe-area +
+100px)`. It is the pre-sign-in screen and never shows a tab bar, so that was
+100px of dead space at the bottom holding the whole layout against the top edge
+— which read as "everything is top-heavy", not as "the bottom padding is
+wrong". When a screen looks pushed up, measure the padding before touching the
+alignment.
+
+**`100vh` is not the visible viewport on mobile.** It is the viewport with the
+browser chrome retracted, so a `min-height: 100vh` screen overflows by the
+height of the address bar. Use `100dvh`.
 
 ---
 
