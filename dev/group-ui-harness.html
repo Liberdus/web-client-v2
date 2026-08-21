@@ -191,6 +191,47 @@
             if (el) el.textContent = text;
           }
         },
+        'send': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('sendAssetFormModal').querySelector('.modal-content').innerHTML;
+          listHost.style.padding = '0';
+          listHost.querySelector('#sendAsset').innerHTML = '<option>Liberdus (LIB)</option>';
+          listHost.querySelector('#balanceAmount').textContent = '1,234.50 LIB';
+          listHost.querySelector('#transactionFee').textContent = '0.01 LIB';
+        },
+        'send: bad recipient': () => {
+          scenes['send']();
+          listHost.querySelector('#sendToAddress').value = 'anaa';
+          listHost.querySelector('#sendToAddress').classList.add('is-invalid');
+          listHost.querySelector('#sendToAddressError').textContent = 'not found';
+        },
+        'receive': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('receiveModal').querySelector('.modal-content').innerHTML;
+          listHost.style.padding = '0';
+          listHost.querySelector('#displayAddress').textContent = '0x18ed49a5…29d4e7';
+          listHost.querySelector('#receiveAsset').innerHTML = '<option>Liberdus (LIB)</option>';
+          const bytes = qr.encodeQR('liberdus://' + btoa('{"u":"ana","a":"25.00","s":"LIB"}'), 'gif', { scale: 4 });
+          const b64 = btoa(String.fromCharCode.apply(null, new Uint8Array(bytes)));
+          listHost.querySelector('#qrcode').innerHTML = '<img alt="" src="data:image/gif;base64,' + b64 + '">';
+          listHost.querySelector('#receiveAmount').value = '25.00';
+          listHost.querySelector('#qrCaption').innerHTML = 'This code requests <strong>25.00 LIB</strong>';
+        },
+        'send: confirm': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('sendAssetConfirmModal').querySelector('.modal-content').innerHTML;
+          listHost.style.padding = '0';
+          const set = (id, text) => { listHost.querySelector('#' + id).textContent = text; };
+          set('confirmRecipient', 'ana');
+          set('confirmAmount', '25.00 LIB');
+          set('confirmAmountUSD', '≈ $25.50');
+          set('confirmMemo', 'For lunch');
+          set('confirmFee', '0.01 LIB');
+          set('confirmTotal', '25.01 LIB');
+          for (const id of ['confirmMemoGroup', 'confirmFeeGroup', 'confirmTotalGroup']) {
+            listHost.querySelector('#' + id).hidden = false;
+          }
+        },
         'you': () => {
           listHost.style.display = 'block';
           listHost.innerHTML = doc.getElementById('myInfoModal').querySelector('.modal-content').innerHTML;

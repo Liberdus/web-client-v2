@@ -7237,8 +7237,9 @@ class SecretModal {
       const dataUrl = 'data:image/gif;base64,' + base64;
       const img = document.createElement('img');
       img.src = dataUrl;
-      img.width = 200;
-      img.height = 200;
+      // No forced size: encodeQR emits whole pixels per module, and rescaling
+      // off that grid is how a code stops scanning. Same reason as #qrcode.
+
       img.alt = 'Secret key QR code';
       this.qrContainer.appendChild(img);
     } catch (e) {
@@ -30949,6 +30950,7 @@ class SendAssetFormModal {
     this.memoGroup = document.getElementById('sendMemoGroup');
     this.retryTxIdInput = document.getElementById('retryOfPaymentTxId');
     this.usernameAvailable = document.getElementById('sendToAddressError');
+    this.maxButton = document.getElementById('sendMaxButton');
     this.submitButton = document.querySelector('#sendForm button[type="submit"]');
     this.networkSelect = document.getElementById('sendNetwork');
     this.networkGroup = document.getElementById('sendNetworkGroup');
@@ -30978,7 +30980,13 @@ class SendAssetFormModal {
       this.handleSendToAddressInput(e);
     });
 
-    this.availableBalance.addEventListener('click', this.fillAmount.bind(this));
+    /*
+     * Filling the maximum was bound to the entire Available/Fee line, with no
+     * cursor, no label and nothing on screen saying it existed. Same handler,
+     * moved onto a Max button you can see and aim at — a line of text that
+     * silently rewrites the amount when brushed is worse than no shortcut.
+     */
+    this.maxButton.addEventListener('click', this.fillAmount.bind(this));
     this.networkSelect.addEventListener('change', () => this.handleNetworkChange());
     this.assetSelectDropdown.addEventListener('change', () => this.handleAssetChange());
     // amount input listener for normalizing
@@ -31033,7 +31041,7 @@ class SendAssetFormModal {
     this.tollMemoSpan.textContent = '';
     this.foundAddressObject.address = null;
 
-    this.usernameAvailable.style.display = 'none';
+    this.setRecipientStatus('');
     this.submitButton.disabled = true;
     qrScanModal.fillFunction = this.fillFromQR.bind(this); // set function to handle filling the payment form from QR data
 
@@ -31101,7 +31109,7 @@ class SendAssetFormModal {
     if (resetRecipient) {
       this.usernameInput.value = '';
       this.foundAddressObject.address = null;
-      this.usernameAvailable.style.display = 'none';
+      this.setRecipientStatus('');
     }
     this.amountInput.value = '';
     this.balanceWarning.textContent = '';
@@ -31159,9 +31167,7 @@ class SendAssetFormModal {
       this.clearFormInfo();
       const isValidAddress = isValidEthereumAddress(rawInput);
       this.foundAddressObject.address = isValidAddress ? rawInput : null;
-      this.usernameAvailable.textContent = isValidAddress ? 'valid address' : 'enter a valid 0x address';
-      this.usernameAvailable.style.color = isValidAddress ? '#28a745' : '#dc3545';
-      this.usernameAvailable.style.display = rawInput ? 'inline' : 'none';
+      this.setRecipientStatus(rawInput ? (isValidAddress ? 'valid address' : 'enter a valid 0x address') : '', isValidAddress);
       await this.refreshSendButtonDisabledState();
       return;
     }
@@ -31169,9 +31175,7 @@ class SendAssetFormModal {
     if (isValidEthereumAddress(rawInput)) {
       this.clearFormInfo();
       this.foundAddressObject.address = null;
-      this.usernameAvailable.textContent = 'address not supported';
-      this.usernameAvailable.style.color = '#dc3545';
-      this.usernameAvailable.style.display = 'inline';
+      this.setRecipientStatus('address not supported');
       await this.refreshSendButtonDisabledState();
       return;
     }
@@ -31186,9 +31190,7 @@ class SendAssetFormModal {
 
     // Check if username is too short
     if (username.length < 3) {
-      usernameAvailable.textContent = 'too short';
-      usernameAvailable.style.color = '#dc3545';
-      usernameAvailable.style.display = 'inline';
+      this.setRecipientStatus('too short');
       await this.refreshSendButtonDisabledState();
       return;
     }
@@ -31197,21 +31199,13 @@ class SendAssetFormModal {
     this.sendAssetFormModalCheckTimeout = setTimeout(async () => {
       const taken = await checkUsernameAvailability(username, myAccount.keys.address, this.foundAddressObject);
       if (taken == 'taken') {
-        usernameAvailable.textContent = 'found';
-        usernameAvailable.style.color = '#28a745';
-        usernameAvailable.style.display = 'inline';
+        this.setRecipientStatus('found', true);
       } else if (taken == 'mine') {
-        usernameAvailable.textContent = 'mine';
-        usernameAvailable.style.color = '#dc3545';
-        usernameAvailable.style.display = 'inline';
+        this.setRecipientStatus('mine');
       } else if (taken == 'available') {
-        usernameAvailable.textContent = 'not found';
-        usernameAvailable.style.color = '#dc3545';
-        usernameAvailable.style.display = 'inline';
+        this.setRecipientStatus('not found');
       } else {
-        usernameAvailable.textContent = 'network error';
-        usernameAvailable.style.color = '#dc3545';
-        usernameAvailable.style.display = 'inline';
+        this.setRecipientStatus('network error');
       }
       // check if found
       if (this.foundAddressObject.address) {
@@ -31409,24 +31403,65 @@ class SendAssetFormModal {
       libAmount = amount;
     }
 
-    // Update confirmation modal with values
-    sendAssetConfirmModal.confirmAmountUSD.textContent = `≈ $${parseFloat(usdAmount).toFixed(6)} USD`;
+    // Update confirmation modal with values.
+    // The amount carries its own unit now — it used to read a bare "25" with a
+    // separate Asset row underneath saying "Liberdus (LIB)", so neither line
+    // was a complete statement on its own.
+    sendAssetConfirmModal.confirmAmountUSD.textContent = `≈ $${parseFloat(usdAmount).toFixed(2)}`;
     sendAssetConfirmModal.confirmRecipient.textContent = this.usernameInput.value;
-    sendAssetConfirmModal.confirmAmount.textContent = `${libAmount}`;
-    sendAssetConfirmModal.confirmAsset.textContent = assetSymbol;
+    sendAssetConfirmModal.confirmAmount.textContent = `${libAmount} ${assetSymbol}`;
 
     // Show/hide memo if present
     const memoGroup = sendAssetConfirmModal.confirmMemoGroup;
     if (memo) {
       sendAssetConfirmModal.confirmMemo.textContent = memo;
-      memoGroup.style.display = 'block';
+      memoGroup.hidden = false;
     } else {
-      memoGroup.style.display = 'none';
+      memoGroup.hidden = true;
+    }
+
+    /*
+     * Fee and total. Without them the number you confirm is not the number that
+     * leaves the account — the fee was stated on the form behind this screen
+     * and then never again.
+     *
+     * Liberdus only: an EVM transfer's gas is not known here, and a fee line
+     * that is sometimes a guess is worse than no fee line on a confirmation.
+     */
+    const feeGroup = sendAssetConfirmModal.confirmFeeGroup;
+    const totalGroup = sendAssetConfirmModal.confirmTotalGroup;
+    const feeWei = this.isLiberdusSelected() ? getTransactionFeeWei({ allowNull: true }) : null;
+    if (feeWei !== null && assetSymbol === 'LIB') {
+      const feeStr = big2str(feeWei, 18).slice(0, -16);
+      sendAssetConfirmModal.confirmFee.textContent = `${feeStr} ${assetSymbol}`;
+      // toFixed(6) then trim: fixed-point avoids float notation on small
+      // amounts, and nobody wants to read "25.010000 LIB".
+      const total = (parseFloat(libAmount) + parseFloat(feeStr)).toFixed(6).replace(/\.?0+$/, '');
+      sendAssetConfirmModal.confirmTotal.textContent = `${total} ${assetSymbol}`;
+      feeGroup.hidden = false;
+      totalGroup.hidden = false;
+    } else {
+      feeGroup.hidden = true;
+      totalGroup.hidden = true;
     }
 
     confirmButton.disabled = false;
     cancelButton.disabled = false;
     sendAssetConfirmModal.open();
+  }
+
+  /**
+   * Sets the recipient field's status line. Replaces `style.color` + a
+   * `style.display` toggle repeated across a dozen call sites, in literal hex.
+   * `''` clears it, and `.field-status:empty` does the hiding.
+   * @param {string} text
+   * @param {boolean} ok - true for a good outcome ("found", "valid address")
+   * @returns {void}
+   */
+  setRecipientStatus(text, ok = false) {
+    this.usernameAvailable.textContent = text || '';
+    this.usernameAvailable.classList.toggle('field-status--ok', Boolean(text) && ok);
+    this.usernameInput.classList.toggle('is-invalid', Boolean(text) && !ok);
   }
 
   /**
@@ -31551,7 +31586,7 @@ class SendAssetFormModal {
 
     // Address is valid if its error/status message is visible and set to 'found'.
     const isAddressConsideredValid =
-      this.usernameAvailable.style.display === 'inline' && this.usernameAvailable.textContent === 'found';
+      this.usernameAvailable.textContent === 'found';
 
     const amount = this.amountInput.value.trim();
 
@@ -31882,13 +31917,16 @@ class SendAssetConfirmModal {
     this.modal = document.getElementById('sendAssetConfirmModal');
     this.confirmAmount = document.getElementById('confirmAmount');
     this.confirmAmountUSD = document.getElementById('confirmAmountUSD');
-    this.confirmAsset = document.getElementById('confirmAsset');
     this.confirmMemo = document.getElementById('confirmMemo');
     this.confirmRecipient = document.getElementById('confirmRecipient');
     this.confirmSendButton = document.getElementById('confirmSendButton');
     this.closeButton = document.getElementById('closeSendAssetConfirmModal');
     this.cancelButton = document.getElementById('cancelSendButton');
     this.confirmMemoGroup = document.getElementById('confirmMemoGroup');
+    this.confirmFee = document.getElementById('confirmFee');
+    this.confirmFeeGroup = document.getElementById('confirmFeeGroup');
+    this.confirmTotal = document.getElementById('confirmTotal');
+    this.confirmTotalGroup = document.getElementById('confirmTotalGroup');
 
     // Add event listeners for send asset confirmation modal
     this.closeButton.addEventListener('click', this.close.bind(this));
@@ -32188,7 +32226,7 @@ class SendAssetConfirmModal {
       sendAssetFormModal.usernameInput.value = '';
       sendAssetFormModal.amountInput.value = '';
       sendAssetFormModal.memoInput.value = '';
-      sendAssetFormModal.usernameAvailable.style.display = 'none';
+      sendAssetFormModal.setRecipientStatus('');
 
       // Show history modal after successful transaction
       historyModal.open();
@@ -32222,6 +32260,7 @@ class ReceiveModal {
     this.memoInput = document.getElementById('receiveMemo');
     this.memoGroup = document.getElementById('receiveMemoGroup');
     this.displayAddress = document.getElementById('displayAddress');
+    this.qrCaption = document.getElementById('qrCaption');
     this.qrcodeContainer = document.getElementById('qrcode');
     this.previewElement = document.getElementById('qrDataPreview');
     this.copyButton = document.getElementById('copyAddress');
@@ -32337,9 +32376,10 @@ class ReceiveModal {
     
     // Store full address for copying
     this.fullAddress = addressWithPrefix;
-    
-    // Display full address
-    this.displayAddress.textContent = addressWithPrefix;
+
+    // Shown truncated in the middle — the head and tail are the parts anyone
+    // checks against another screen. Copy still yields the whole thing.
+    this.displayAddress.textContent = MyInfoModal.shortAddress(addressWithPrefix);
 
     // Generate QR code with payment data
     try {
@@ -32394,6 +32434,21 @@ class ReceiveModal {
   }
 
   // Update QR code with current payment data
+  /*
+   * The code silently re-encodes on every keystroke in the amount and memo
+   * fields, which sit BELOW it — so the thing you changed and the thing that
+   * changed were never on screen together. This says what the code currently
+   * is.
+   */
+  updateQRCaption() {
+    if (!this.qrCaption) return;
+    const amount = this.amountInput.value.trim();
+    const unit = escapeHtml(String(this.receiveBalanceSymbol.textContent || 'LIB'));
+    this.qrCaption.innerHTML = amount
+      ? `This code requests <strong>${escapeHtml(amount)} ${unit}</strong>`
+      : 'Scan to send to this account';
+  }
+
   updateQRCode() {
     this.qrcodeContainer.innerHTML = '';
     this.previewElement.style.display = 'none'; // Hide preview/error area initially
@@ -32417,11 +32472,16 @@ class ReceiveModal {
       // Create an image element and set its source to the data URL
       const img = document.createElement('img');
       img.src = dataUrl;
-      img.width = 200;
-      img.height = 200;
-      // Add the image to the container
+      img.alt = 'Payment QR code';
+      /*
+       * No width/height. encodeQR emits 4px per module, so a 45-module code is
+       * 180px; forcing 200 put module edges on fractions (4.44px each) and the
+       * module count moves with the payload, so it was wrong at most memo
+       * lengths. CSS adds image-rendering: pixelated for the same reason.
+       */
       this.qrcodeContainer.appendChild(img);
 
+      this.updateQRCaption();
       return qrText;
     } catch (error) {
       console.error('Error in updateQRCode:', error);
@@ -32443,10 +32503,17 @@ class ReceiveModal {
         // Create an image element and set its source to the data URL
         const img = document.createElement('img');
         img.src = dataUrl;
-        img.width = 200;
-        img.height = 200;
-        // Add the image to the container
+        img.alt = 'Account QR code';
+        // No forced size — see the note on the main path.
         this.qrcodeContainer.appendChild(img);
+
+        /*
+         * This fallback encodes the username ONLY, with no amount or memo. The
+         * caption has to say so: leaving "This code requests 25.00 LIB" over a
+         * code that requests nothing of the sort is worse than the failure it
+         * is recovering from.
+         */
+        if (this.qrCaption) this.qrCaption.textContent = 'Scan to send to this account';
 
         console.error('Error generating full QR', error);
 

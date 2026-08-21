@@ -5467,32 +5467,38 @@ input[type='file'].form-control {
 }
 
 /* QR code container */
+/* No tint, no padding box: the code is the content, not a thing inside a
+   container. `image-rendering` matters more than it looks — see the note on
+   .ui-identity-qr about scaling a QR off its module grid. */
 #qrcode,
 #secretQRCode {
-  margin: 0.75rem auto !important;
-  padding: 0.75rem;
-  background-color: var(--light-color);
-  border-radius: 8px;
+  margin: 16px auto 0;
   width: fit-content;
   display: flex;
   justify-content: center;
   align-items: center;
 }
-
+/*
+ * No forced width/height. `qr.encodeQR(..., { scale: 4 })` emits 4px per
+ * module — 180px for a 45-module code — and the module count changes with the
+ * payload, so pinning the box to 200 lands module edges on fractions
+ * (4.44px each) and produces a code that photographs badly. Let the encoder's
+ * own pixel size stand, and never smooth across a module edge.
+ */
 #qrcode img,
 #qrcode canvas,
 #secretQRCode img,
 #secretQRCode canvas {
   display: block;
-  width: 200px;
-  height: 200px;
   max-width: 100%;
+  image-rendering: pixelated;
 }
 
+/* The colour lives on .balance-available / .balance-fee now, which is the
+   whole point — the two halves of this line are not the same kind of fact.
+   The `!important` here would have flattened them both back to grey. */
 #availableBalance {
   font-family: var(--font-primary);
-  font-size: var(--font-size-sm);
-  color: var(--secondary-text-color) !important;
   margin-bottom: 0.5rem;
 }
 
@@ -7225,20 +7231,6 @@ mark {
 }
 
 /* QR Code Scan Button */
-#scanQRButton {
-  background-color: transparent;
-  border: none;
-  color: var(--info-color);
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-}
-
-#scanQRButton svg {
-  display: block;
-}
-
 /* Match New Chat QR buttons to Send Asset styles */
 #newChatScanQRButton,
 #newChatUploadQRButton {
@@ -7498,9 +7490,6 @@ small {
 
 #sendAssetConfirmModal .confirmation-details {
   margin-bottom: 24px;
-  background-color: var(--hover-background-purple);
-  border-radius: 12px;
-  padding: 16px;
 }
 
 #sendAssetConfirmModal label {
@@ -7511,16 +7500,7 @@ small {
   font-weight: var(--font-weight-medium);
 }
 
-#sendAssetConfirmModal .confirm-value {
-  font-size: var(--font-size-base);
-  color: var(--text-color);
-  padding: 12px 16px;
-  background-color: var(--background-color);
-  border-radius: 8px;
-  word-break: break-all;
-  font-weight: var(--font-weight-medium);
-  border: 1px solid var(--border-color);
-}
+
 
 #sendAssetConfirmModal .btn,
 #sendAssetConfirmModal .btn.btn--secondary {
@@ -7546,14 +7526,13 @@ small {
   color: var(--text-color);
 }
 
-#sendAssetConfirmModal #confirmMemoGroup {
-  opacity: 0.8;
-}
-
-#sendAssetConfirmModal #confirmMemo {
-  font-style: italic;
-  background-color: var(--primary-tint-04);
-}
+/*
+ * Removed: `opacity: .8` on the memo row and `font-style: italic` +
+ * `background-color: var(--primary-tint-04)` on its value. The memo is one of
+ * the facts you are confirming, not an aside — dimming it and tinting it made
+ * it the only row on the screen drawn differently from the rest, which reads as
+ * "this one does not count". Two more id-scoped rules gone with it.
+ */
 
 #sendAssetConfirmModal .usd-equivalent {
   font-size: 0.92em;
@@ -7664,12 +7643,6 @@ small {
 
 .hidden {
   display: none;
-}
-
-/* Explicitly prevent background change on :active for iOS quirks */
-#uploadQRButton:hover,
-#scanQRButton:hover {
-  background-color: transparent !important;
 }
 
 /* Add these styles for the password visibility toggle */
@@ -8513,7 +8486,9 @@ small {
 .amount-container {
   display: flex;
   align-items: center;
-  gap: 18px; /* Add spacing between input and button */
+  /* 10, not 18: at 18 the unit toggle floats away from the input it belongs to
+     and reads as a second control rather than that field's suffix. */
+  gap: 10px;
 }
 
 /* Updated to separate the input and button */
@@ -11478,6 +11453,217 @@ button.ui-row-value:not(:disabled):hover {
   width: 160px;
   height: 160px;
   image-rendering: pixelated;
+}
+
+/* --- form refinements: quiet labels, field buttons, balance line ----------
+ *
+ * Opt-in via `.form--quiet` on the form body. NOT applied to `.form-group
+ * label` globally: that rule serves every form in the app, and the one rule of
+ * this migration is that nothing gets restyled app-wide in a screen's change.
+ */
+
+/* A label at --font-size-base in --text-color is the same size and colour as
+   the value under it, so a field reads as two values rather than a label and
+   its content. */
+.form--quiet .form-group > label {
+  margin-top: 0;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--secondary-text-color);
+  letter-spacing: 0.01em;
+}
+.form--quiet .form-group {
+  margin-bottom: 18px;
+}
+
+/* A square button that sits beside a field at the field's own scale. Replaces
+   two hand-rolled inline SVGs filled #007bff — a blue that appears nowhere else
+   in this app, whose accent is #3d3dce. */
+.field-icon-button {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  /* stated, because the element selector `button { padding: 1rem 2rem }` would
+     otherwise inflate this to 66px wide */
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background-color: var(--background-color);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 20px;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: background-color 0.2s, opacity 0.2s;
+}
+.field-icon-button:hover {
+  background-color: var(--hover-background);
+  opacity: 1;
+}
+/* The [data-icon] rules elsewhere paint a ::before; this button paints its own
+   background, so it needs its own mapping. Two icons, two rules — the shared
+   token is what stops this being another copy of the artwork. */
+.field-icon-button[data-icon='file-image'] {
+  background-image: var(--icon-file-image);
+}
+.field-icon-button[data-icon='camera'] {
+  background-image: var(--icon-camera);
+}
+
+/*
+ * Field status. Was `display: none` plus an inline `style.color` set from about
+ * twenty places in JS, in literal #dc3545 / #28a745 — which are exactly
+ * --danger-color and --success-color.
+ *
+ * `:empty` does the hiding, so setting the text is the only thing any caller
+ * has to get right. It is a STATUS, not only an error: the recipient field
+ * reports "found" and "valid address" through it too, hence the --ok state.
+ */
+.field-status {
+  display: block;
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--danger-color);
+  /* .container centres the whole app; a message under a left-aligned field has
+     to opt out or it floats to the middle of the row. */
+  text-align: left;
+}
+.field-status:empty {
+  display: none;
+}
+.field-status--ok {
+  color: var(--success-color);
+}
+.form-control.is-invalid {
+  border-color: var(--danger-color);
+}
+
+/* Available constrains what you can spend; the fee is a charge on top of it.
+   They were the same colour at the same size on the same line. */
+.balance-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.balance-line > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.balance-available {
+  color: var(--text-color);
+}
+.balance-available .balance-figure {
+  font-weight: var(--font-weight-semibold);
+}
+.balance-fee {
+  color: var(--secondary-text-color);
+}
+/* Clicking to fill the maximum already worked — it was bound to the whole
+   Available/Fee line, with no cursor, no label and nothing on screen admitting
+   it existed. Same behaviour, now something you can see and aim at. */
+.balance-max {
+  margin-left: 8px;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--hover-background-purple);
+  color: var(--primary-color);
+  font-family: var(--font-primary);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+.balance-max:hover {
+  filter: brightness(0.96);
+}
+
+/* --- receive: address readout and QR ------------------------------------- */
+/* Was a .form-control: an input's clothes on a value you cannot type into,
+   wrapped across two lines by word-break: break-all. */
+.address-readout {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 8px 8px 14px;
+  border-radius: 999px;
+  background: var(--input-background);
+}
+.address-readout code {
+  flex: 1;
+  min-width: 0;
+  /* .container centres everything; a truncated address has to opt out or the
+     ellipsis and the two ends stop lining up with the copy button. */
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, Menlo, Monaco, "Courier New", monospace;
+  font-size: 12.5px;
+  color: var(--text-color);
+  cursor: pointer;
+}
+.address-readout .address-copy-button {
+  flex: none;
+}
+
+/* The QR re-encodes as you type an amount, debounced, and nothing on screen
+   said so — the field you changed is below the code it changed. */
+.qr-caption {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--secondary-text-color);
+}
+.qr-caption strong {
+  color: var(--text-color);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- confirm: one frame -------------------------------------------------- */
+/* Every value was a bordered white box inside a purple tinted card: a
+   rectangle inside a rectangle, once per value, and read-only data wearing
+   input clothes. Same rows, same order, one frame. */
+.confirm-list {
+  padding: 4px 0;
+  text-align: left;
+}
+.confirm-row {
+  padding: 12px 0;
+  border-top: 1px solid var(--border-color);
+}
+.confirm-row:first-child {
+  border-top: 0;
+}
+.confirm-row-key {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 12.5px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--secondary-text-color);
+}
+.confirm-row-value {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-color);
+  word-break: break-word;
+  font-variant-numeric: tabular-nums;
+}
+.confirm-row-sub {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--secondary-text-color);
+  font-variant-numeric: tabular-nums;
+}
+.confirm-row--total .confirm-row-value {
+  font-weight: var(--font-weight-bold);
 }
 
 /* --- small shared bits --------------------------------------------------- */

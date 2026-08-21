@@ -544,6 +544,15 @@ artwork, publish the URL as a custom property and re-render it as a mask:
 `background-color: currentColor; mask: var(--ui-icon) center / 20px no-repeat`
 with `background-image: none`.
 
+**A CSS `url("…")` value cannot be interpolated into an inline `style`
+attribute.** The CSSOM hands back `url("data:image/svg+xml,…")` *with* the
+double quotes, and those close the HTML attribute early — the declaration
+silently becomes `background-image: url("")`, which computes to a non-`none`
+value, so a check for `!== 'none'` says everything is fine while the icons are
+blank. Put the name in a `data-icon` attribute and assign
+`el.style.backgroundImage` from JS after insertion. This has bitten twice; both
+times the symptom was "the icons resolved but nothing painted".
+
 **Watch the specificity when you override a `[data-icon]` rule.** The icon rules
 are `[data-icon="x"]::before` — an attribute plus a class. A plain
 `.ui-nav-row--danger::before` is one class and loses, so `background-image: none`
@@ -556,6 +565,17 @@ source order decides.
 `.ui-nav-row` by writing `:is(.menu-item, .ui-nav-row)[data-icon=…]`. Duplicating
 26 data URIs to convert one screen is how a stylesheet doubles in size during a
 migration that is supposed to shrink it.
+
+**A status line under a field is not always an error.** The send screen's
+recipient line reports `found` and `valid address` as well as `not found` and
+`too short`. One `.field-status` element, hidden by `:empty`, with a
+`--ok` state — and never `style.color` set from JS in literal hex, which is
+what twenty call sites were doing with the exact values of `--danger-color` and
+`--success-color`.
+
+Two things that pattern quietly fixes: nobody has to remember to unhide it, and
+nothing else can come to depend on `style.display === 'inline'` as a proxy for
+"the field is valid" — which is what gated the Send button before.
 
 **Do not rescale a QR code to an arbitrary size.** `qr.encodeQR(…, { scale: 4 })`
 emits 160px; displaying it at 132 puts module edges on fractional pixels and

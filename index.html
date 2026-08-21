@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-51" />
+    <link rel="stylesheet" href="./styles.css?v=1455-57" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-54" type="module"></script>
+    <script src="./app.js?v=1455-56" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -2704,7 +2704,7 @@
           <div class="modal-title">Receive</div>
         </div>
         <div class="modal-content">
-          <div class="form-container">
+          <div class="form-container form--quiet">
             <div class="form-group connected-wallet-only" id="receiveNetworkGroup" hidden>
               <label for="receiveNetwork">Network</label>
               <select id="receiveNetwork" class="form-control wallet-network-select">
@@ -2717,17 +2717,25 @@
             </div>
             <div class="form-group">
               <label>Your Address</label>
-              <div class="address-container">
-                <div
-                  id="displayAddress"
-                  class="form-control address-display"
-                ></div>
+              <!--
+                Was a .form-control: an input's clothes on a value you cannot
+                type into, wrapped over two lines by word-break: break-all.
+              -->
+              <div class="address-readout">
+                <code id="displayAddress" role="button" tabindex="0" aria-label="Copy your address"></code>
                 <button
                   id="copyAddress"
                   class="icon-button address-copy-button"
+                  aria-label="Copy address"
                 ></button>
               </div>
               <div id="qrcode"></div>
+              <!--
+                The code re-encodes as you type an amount below, debounced, and
+                nothing on screen said so — the field you changed sits under the
+                code it changed.
+              -->
+              <div id="qrCaption" class="qr-caption">Scan to send to this account</div>
 
               <!-- QR Code Preview (Moved here) -->
               <div id="qrDataPreview" class="form-control qr-data-preview" style="display: none">
@@ -2754,7 +2762,7 @@
                   step="any"
                   min="0"
                 />
-                <button id="toggleReceiveBalance" class="toggle-balance">
+                <button type="button" id="toggleReceiveBalance" class="toggle-balance">
                   <span id="receiveBalanceSymbol">LIB</span>
                 </button>
               </div>
@@ -2806,7 +2814,7 @@
         </div>
         <div class="modal-content">
           <div class="form-container">
-            <form id="sendForm" class="form--narrow">
+            <form id="sendForm" class="form--narrow form--quiet">
               <div class="form-group connected-wallet-only" id="sendNetworkGroup" hidden>
                 <label for="sendNetwork">Network</label>
                 <select id="sendNetwork" class="form-control wallet-network-select" required>
@@ -2822,10 +2830,8 @@
                 <select id="sendAsset" class="form-control" required></select>
               </div>
               <div class="form-group">
-                <label for="sendToAddress"
-                  >Recipient <span id="sendToAddressError" style="color: #dc3545; display: none"></span
-                ></label>
-                <div style="display: flex; align-items: center; gap: 0.5rem">
+                <label for="sendToAddress">Recipient</label>
+                <div class="amount-container">
                   <input
                     type="text"
                     id="sendToAddress"
@@ -2834,66 +2840,75 @@
                     required
                     pattern="[a-zA-Z0-9]*"
                     inputmode="text"
-                    style="flex: 1"
                   />
+                  <!--
+                    Were two hand-rolled inline SVGs filled #007bff, a blue that
+                    appears nowhere else in this app. Same buttons, same place,
+                    drawn from the shared icon set.
+                  -->
                   <button
                     type="button"
                     id="uploadQRButton"
-                    class="icon-button"
-                    title="Upload QR Code"
-                    style="flex-shrink: 0"
-                  >
-                    <svg viewBox="0 0 24 24" width="24" height="24" style="fill: #007bff">
-                      <path
-                        d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"
-                      />
-                    </svg>
-                  </button>
-                  <button type="button" id="scanQRButton" class="icon-button" title="Scan QR Code" style="flex-shrink: 0">
-                    <svg viewBox="0 0 24 24" width="24" height="24" style="fill: #007bff">
-                      <path
-                        d="M3,3 L10,3 L10,10 L3,10 Z M5,5 L5,8 L8,8 L8,5 Z M14,3 L21,3 L21,10 L14,10 Z M16,5 L16,8 L19,8 L19,5 Z M3,14 L10,14 L10,21 L3,21 Z M5,16 L5,19 L8,19 L8,16 Z M14,14 L21,14 L21,21 L14,21 Z M16,16 L16,19 L19,19 L19,16 Z M11,3 L13,3 L13,10 L11,10 Z M11,14 L13,14 L13,21 L11,21 Z M3,11 L10,11 L10,13 L3,13 Z M14,11 L21,11 L21,13 L14,13 Z"
-                      />
-                    </svg>
-                  </button>
+                    class="field-icon-button"
+                    data-icon="file-image"
+                    title="Upload a QR code"
+                    aria-label="Upload a QR code"
+                  ></button>
+                  <button
+                    type="button"
+                    id="scanQRButton"
+                    class="field-icon-button"
+                    data-icon="camera"
+                    title="Scan a QR code"
+                    aria-label="Scan a QR code"
+                  ></button>
                   <!-- File input for QR code upload -->
                   <input
                     type="file"
                     id="qrFileInput"
                     accept="image/*"
-                    style="display: none; position: absolute; width: 1px; height: 1px; overflow: hidden"
+                    hidden
                     aria-hidden="true"
                   />
                 </div>
+                <!-- .field-error is revealed by :empty; setting the text is the
+                     only thing the JS has to get right. -->
+                <span id="sendToAddressError" class="field-status"></span>
               </div>
               <div class="form-group">
-                <label for="sendAmount">
-                  Amount <span id="balanceWarning" class="balance-warning"></span>
-                </label>
+                <label for="sendAmount">Amount</label>
                 <div class="amount-container">
                   <input
-                    inputmode="decimal" 
+                    inputmode="decimal"
                     type="text"
                     id="sendAmount"
                     class="form-control"
+                    placeholder="0.00"
                     required
                   />
                   <!-- add button to toggle between LIB and USD -->
-                  <button id="toggleBalance" class="toggle-balance">
+                  <button type="button" id="toggleBalance" class="toggle-balance">
                     <span id="balanceSymbol">LIB</span>
                   </button>
                 </div>
+                <span id="balanceWarning" class="field-status"></span>
                 <div id="availableBalance" class="available-balance">
-                  <div class="balance-info">
-                    <span>Available: <span id="balanceAmount">0.00 LIB</span></span>
-                    <span class="fee-info">Fee: <span id="transactionFee">0.00 LIB</span></span>
+                  <div class="balance-line">
+                    <span class="balance-available"
+                      >Available <span class="balance-figure" id="balanceAmount">0.00 LIB</span
+                      ><!--
+                        Filling the maximum was already bound to this whole line,
+                        with no cursor and no label. Same behaviour, aimable.
+                      --><button type="button" id="sendMaxButton" class="balance-max">Max</button>
+                    </span>
+                    <span class="balance-fee">Fee <span id="transactionFee">0.00 LIB</span></span>
                   </div>
                 </div>
               </div>
               <div class="form-group" id="sendMemoGroup">
                 <label for="sendMemo">
                   Memo (Optional)
-                  <span class="memo-byte-counter" style="font-size: 12px; margin-left: 8px; font-weight: normal; display: none;"></span>
+                  <span class="memo-byte-counter"></span>
                 </label>
                 <textarea id="sendMemo" class="form-control"></textarea>
                 <div class="toll-container" id="memoTollContainer">
@@ -2906,17 +2921,13 @@
               </div>
             </form>
 
-            <!-- QR Scan Container -->
-            <div id="qrScannerContainer" class="qr-scanner-container" style="display: none">
-              <video id="qrVideo" playsinline autoplay></video>
-              <div class="scanner-overlay">
-                <div class="scanner-guide"></div>
-              </div>
-              <div class="scanner-controls">
-                <button id="closeScanner" class="scanner-button">Cancel</button>
-                <button id="switchCamera" class="scanner-button">Switch Camera</button>
-              </div>
-            </div>
+            <!--
+              Removed: an inline QR scanner — a <video>, an overlay and Cancel /
+              Switch Camera buttons — that nothing referenced. #scanQRButton
+              opens qrScanModal, a separate modal; this was left behind by an
+              earlier implementation. No JS in the app touches qrScannerContainer,
+              qrVideo, closeScanner or switchCamera.
+            -->
           </div>
         </div>
         <a class="last-item" href="#"> </a>
@@ -2928,30 +2939,52 @@
           <button class="back-button" id="closeSendAssetConfirmModal"></button>
           <div class="modal-title">Confirm Transaction</div>
         </div>
+        <!--
+          Same rows, same order, one frame. Every value used to sit in a bordered
+          white box inside a purple tinted card — a rectangle inside a rectangle,
+          once per value, and read-only data wearing input clothes.
+
+          Network fee and Total are new rows of the kind already here: without
+          them the number you confirm is not the number that leaves. The Asset
+          row is gone; it read "Liberdus (LIB)" directly beneath an amount that
+          now carries its own unit.
+        -->
         <div class="modal-content">
           <div class="form-container">
-            <div class="confirmation-details">
-              <div class="form-group">
-                <label>Recipient</label>
-                <div id="confirmRecipient" class="confirm-value"></div>
-              </div>
-              <div class="form-group">
-                <label>Amount</label>
-                <div id="confirmAmount" class="confirm-value"></div>
-                <div id="confirmAmountUSD" class="confirm-value-secondary usd-equivalent"></div>
-              </div>
-              <div class="form-group">
-                <label>Asset</label>
-                <div id="confirmAsset" class="confirm-value"></div>
-              </div>
-              <div class="form-group" id="confirmMemoGroup" style="display: none">
-                <label>Memo</label>
-                <div id="confirmMemo" class="confirm-value"></div>
+            <div class="confirmation-details form--narrow">
+              <div class="confirm-list">
+                <div class="confirm-row">
+                  <span class="confirm-row-key">Recipient</span>
+                  <div id="confirmRecipient" class="confirm-row-value"></div>
+                </div>
+                <div class="confirm-row">
+                  <span class="confirm-row-key">Amount</span>
+                  <div id="confirmAmount" class="confirm-row-value"></div>
+                  <div id="confirmAmountUSD" class="confirm-row-sub"></div>
+                </div>
+                <div class="confirm-row" id="confirmMemoGroup" hidden>
+                  <span class="confirm-row-key">Memo</span>
+                  <div id="confirmMemo" class="confirm-row-value"></div>
+                </div>
+                <div class="confirm-row" id="confirmFeeGroup" hidden>
+                  <span class="confirm-row-key">Network fee</span>
+                  <div id="confirmFee" class="confirm-row-value"></div>
+                </div>
+                <div class="confirm-row confirm-row--total" id="confirmTotalGroup" hidden>
+                  <span class="confirm-row-key">Total</span>
+                  <div id="confirmTotal" class="confirm-row-value"></div>
+                </div>
               </div>
             </div>
             <div class="form-actions">
               <button id="confirmSendButton" class="btn btn--primary btn--pill btn--full">Confirm Send</button>
-              <button id="cancelSendButton" class="btn btn--danger btn--pill btn--full">Cancel</button>
+              <!--
+                Was btn--danger. Red marks the irreversible action everywhere
+                else in this app — it is on Delete this account and nothing
+                else. Cancel is the safe one, on the last screen before money
+                moves.
+              -->
+              <button id="cancelSendButton" class="btn btn--secondary btn--pill btn--full">Cancel</button>
             </div>
           </div>
         </div>
