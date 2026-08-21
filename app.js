@@ -2113,6 +2113,14 @@ class ContactsScreen {
       const incompleteIndicator = isContactIncomplete(contact) 
         ? '<span class="contact-incomplete" title="Incomplete contact"></span>' 
         : '';
+      /*
+       * Whichever identifier they have. Monospace is for machine values only,
+       * so the address fallback gets it and an email or phone number does not —
+       * setting those in mono made them harder to read, not more precise.
+       */
+      const identifier = contact.email || contact.x || contact.phone;
+      const infoText = identifier || `${contact.address.slice(0, 8)}…${contact.address.slice(-6)}`;
+      const infoClass = identifier ? 'contact-list-info' : 'contact-list-info contact-list-info--address';
       return `
             <li class="${itemClass}">
                 <div class="chat-avatar">${avatarHtml}</div>
@@ -2120,8 +2128,8 @@ class ContactsScreen {
                     <div class="chat-header">
                         <div class="chat-name">${incompleteIndicator}${contactName}</div>
                     </div>
-                    <div class="contact-list-info">
-                        ${contact.email || contact.x || contact.phone || `${contact.address.slice(0, 8)}…${contact.address.slice(-6)}`}
+                    <div class="${infoClass}">
+                        ${infoText}
                     </div>
                 </div>
             </li>
@@ -2134,7 +2142,8 @@ class ContactsScreen {
     for (const { key, label, itemClass } of groupMeta) {
       const group = statusGroups[key];
       if (group.length > 0) {
-        html += `<div class="contact-section-header">${label}</div>`;
+        // <li>, not <div>: these sit directly inside <ul id="contactsList">.
+        html += `<li class="contact-section-header" role="presentation">${label}</li>`;
         const items = await Promise.all(group.map((contact) => renderContactItem(contact, itemClass)));
         html += items.join('');
         allContacts = allContacts.concat(group);

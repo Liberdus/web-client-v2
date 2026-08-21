@@ -163,11 +163,31 @@ exactly where switching is cheapest.
 | --- | --- |
 | 1a | Tab bar (`.footer`, `.nav-*`, 15 rules) — shared shell, so doing it first gives the other three PRs a consistent frame |
 | 1b | Chats tab — `.chat-item` → `ui-list` / `ui-list-row`; delete the 10 `#chatList` rules; **includes the avatar decision in §6.1** |
-| 1c | Contacts tab — `contact-info-item` (22 uses) maps almost one-to-one onto `ui-row` |
+| 1c | Contacts tab — the list already reuses `.chat-item`, so it inherits 1b. The work is defect repair, not conversion (see §5.1) |
 | 1d | Wallet tab — needs one new primitive for amounts (`tabular-nums`, unit alignment) |
 
 Every launch of the app lands here. Highest exposure in the product, ~40
 bespoke rules between them.
+
+#### 5.1 Correction: `contact-info-item` does NOT map onto `ui-row`
+
+An earlier draft of this plan claimed it did, off a use count rather than a
+look at the component. They are inverted:
+
+- `ui-row` — the **label** is primary, the value is a muted trailing thing.
+  It is a setting: *Invite link · Copy*.
+- `contact-info-item` — the **label** is muted and fixed-width, the **value**
+  is the primary text. It is a data readout: *Name · Ana*.
+
+Contact info is right as it stands, and forcing it into `ui-row` would demote
+the thing you opened the screen to read. Left alone. If a shared primitive is
+wanted later, the honest one is a new `ui-field` (label + value + optional
+action) that wallet, send and receive can also use — worth doing when a second
+screen actually needs it, not before.
+
+A rename for its own sake was also rejected: 22 markup sites plus JS class
+toggles and `querySelector('.contact-info-value')` lookups, for no visual
+change and a real regression surface.
 
 ### Wave 2 — 1:1 chat
 

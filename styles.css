@@ -6352,14 +6352,20 @@ mark {
 }
 
 /* Contact section headers */
+/* Group label in the contacts list: Connections / Tolled / Blocked.
+   Matches .ui-section-title rather than approximating it — this previously
+   asked for var(--font-size-s), which is not a token that exists, so the size
+   silently fell through to whatever it inherited. */
 .contact-section-header {
-  padding: 3.5px 16px;
-  font-size: var(--font-size-s);
-  font-weight: var(--font-weight-normal);
+  padding: 8px 16px 4px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--secondary-text-color);
   background-color: var(--background-color);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  text-align: left;
+  list-style: none;
 }
 
 /* Edit mode styles */
@@ -7366,15 +7372,33 @@ small {
   display: none;
 }
 
+/* Second line of a contact row: whichever identifier they have. */
 .contact-list-info {
-  font-family: var(--font-monospace);
+  font-family: var(--font-primary);
   font-size: var(--font-size-sm);
   color: var(--secondary-text-color);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: left;
+}
+/* Monospace is for machine values only — DESIGN.md §3. An email or a phone
+   number is not one, and setting them in mono with extra letter-spacing made
+   them harder to read, not more precise. Only the address fallback gets it. */
+.contact-list-info--address {
+  font-family: var(--font-monospace);
   letter-spacing: 0.5px;
+}
+
+/* Blocked. The class was already on the row and styled nowhere at all, so the
+   only thing distinguishing a blocked contact was the heading above it. Muted
+   rather than hidden: you still need to find them to unblock them. */
+.chat-item.blocked .chat-name,
+.chat-item.blocked .contact-list-info {
+  color: var(--muted-text-color);
+}
+.chat-item.blocked .chat-avatar {
+  opacity: 0.5;
 }
 
 /* Call Invite Modal Styles */
