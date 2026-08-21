@@ -910,6 +910,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Contact Avatar Cache
   contactAvatarCache.load();
 
+  /*
+   * Any avatar image that fails to load falls back to the generated one, so a
+   * broken or undecodable blob never leaves an empty circle.
+   *
+   * Capture phase, on document: `error` does not bubble, so a listener on the
+   * document only sees it going down. One listener covers every avatar in the
+   * app, including rows rendered long after this runs.
+   */
+  document.addEventListener(
+    'error',
+    (event) => {
+      const img = event.target;
+      if (!(img instanceof HTMLImageElement)) return;
+      if (!img.hasAttribute('data-avatar-fallback')) return;
+      const address = img.getAttribute('data-avatar-fallback');
+      const size = Number(img.getAttribute('data-avatar-size')) || 50;
+      // Swap rather than hide: the row still needs something in the slot.
+      img.outerHTML = addressAvatar(address, size);
+    },
+    true,
+  );
+
   // Thumbnail Cache
   thumbnailCache.load();
 
@@ -36237,8 +36259,15 @@ async function getContactAvatarHtml(contactOrAddress, size = 50) {
     ? normalizeAddress(contactOrAddress)
     : normalizeAddress(contactOrAddress?.address);
 
-  // Helper to return img HTML when blobUrl available
-  const makeImg = (url) => `<img src="${url}" class="contact-avatar-img" width="${size}" height="${size}" alt="avatar">`;
+  /*
+   * An uploaded avatar. The fallback attributes matter: a stored blob can fail
+   * to decode — an empty or truncated record still yields a valid object URL —
+   * and without them the image simply fails and leaves an empty circle with no
+   * clue why. See the capture-phase handler installed in initApp.
+   */
+  const makeImg = (url) =>
+    `<img src="${url}" class="contact-avatar-img" width="${size}" height="${size}" alt=""` +
+    ` data-avatar-fallback="${address || ''}" data-avatar-size="${size}">`;
   
   const contactObj = typeof contactOrAddress === 'object' && contactOrAddress !== null
     ? contactOrAddress
