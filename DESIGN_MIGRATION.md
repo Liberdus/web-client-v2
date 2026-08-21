@@ -220,9 +220,21 @@ Seen on every cold start, and the first thing a new user ever sees. `#signInModa
 has 17 bespoke rules — the most of any screen in scope — and create account,
 welcome and the lock screens have none, so most of the wave is markup swaps.
 
-### Wave 4 — settings and account
+### Wave 4 — settings and account — DONE
 
 Menu, settings, my info, account.
+
+**Shipped in two parts.** 4a converted Menu and Settings onto a new `ui-nav`
+primitive; 4b merged My Info and My Profile into one **You** screen behind a new
+`ui-identity` primitive, reached from both the header avatar and
+Settings → Profile, with the form retitled *Edit profile* as its editor.
+
+The plan's premise for this wave was wrong in the same way §5.1 was: it assumed
+`menu-item` → `ui-row` off a use count. `ui-row` is a settings row (label
+primary, muted value trailing); a menu row *navigates* and needs an icon and a
+chevron. The hierarchy was compatible, so it converted — but as a sibling
+primitive, not a reuse. **Check which element is primary before believing a
+mapping.**
 
 `menu-item` has 33 uses and 30 CSS rules: the single biggest `ui-row`
 conversion available, and rows are the most mature primitive in the set. Almost

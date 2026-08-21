@@ -355,6 +355,22 @@ Two rules that came out of building it:
   than no number at all. The toll is omitted for exactly this reason: it needs
   the network's stability factor to mean anything.
 
+**`.ui-identity`** — avatar, display name, handle, address, QR. Who an account
+is, with no container around it: the identity *is* the screen, and a tinted
+rectangle around the only thing on a screen is the wallet's boxed-balance
+mistake moved somewhere else.
+
+The **display name is the large text and the username is the handle beneath
+it**. My Info had it the other way round, which put the string you already know
+above the one other people actually see. When a screen shows two names, the
+larger one is the one your audience uses.
+
+An address goes on **one line, truncated in the middle**, with the full value on
+the clipboard. Head and tail are the parts anyone checks against another screen;
+the middle is what can go. It sits on a filled pill — the search field's shape,
+this app's answer to "text you interact with" — and never in a `.form-control`,
+which is an input's clothes on a value you cannot type into.
+
 ---
 
 ## 5. Screen patterns
@@ -540,6 +556,12 @@ source order decides.
 `.ui-nav-row` by writing `:is(.menu-item, .ui-nav-row)[data-icon=…]`. Duplicating
 26 data URIs to convert one screen is how a stylesheet doubles in size during a
 migration that is supposed to shrink it.
+
+**Do not rescale a QR code to an arbitrary size.** `qr.encodeQR(…, { scale: 4 })`
+emits 160px; displaying it at 132 puts module edges on fractional pixels and
+produces a code that photographs badly or will not scan at all. Match the
+encoder's own output and set `image-rendering: pixelated` so nothing smooths
+across the module boundaries.
 
 **`100vh` is not the visible viewport on mobile.** It is the viewport with the
 browser chrome retracted, so a `min-height: 100vh` screen overflows by the
