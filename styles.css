@@ -158,6 +158,22 @@
   --icon-size-24: 24px;
   --icon-button-width: 30px;
   --icon-button-height: 40px;
+
+  /*
+   * One height for every screen-level CTA: the full-width pills, the pinned
+   * create-account bar, modal action rows, wallet Send/Receive.
+   *
+   * It is a token because it was not one. Nine rules restated `height: 48px`
+   * independently, a bare `.btn--pill` reached 48 only by accident (the element
+   * selector `button { padding: 1rem 2rem }` on 16px text at line-height 1), and
+   * the wallet sat at 46. "The button height" was not something anyone could
+   * change in one place.
+   *
+   * Smaller tiers are deliberate and do NOT read this: `.ui-block-actions`
+   * (compact confirm inside a disclosure panel, beside a text Cancel),
+   * `.ui-banner-action`, `.btn--text`. Size tracks commitment.
+   */
+  --btn-height: 48px;
   --icon-button-radius: 8px;
   --icon-opacity-default: 0.7;
   --icon-opacity-hover: 1;
@@ -508,14 +524,28 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
+  /*
+   * Auto margins on the children below do the centring, not
+   * `justify-content: center`. A centred flex container overflows in BOTH
+   * directions when its content is taller than the box, which puts the top of
+   * the logo above the scroll origin where it cannot be reached. Auto margins
+   * collapse to zero instead of overflowing.
+   */
   justify-content: flex-start;
   align-items: center;
   padding: 2rem;
-  padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px) + 100px);
+  /*
+   * No `+ 100px` here. That reserved room for the tab bar, which this screen
+   * never shows — it is the pre-sign-in screen — so it was 100px of dead space
+   * at the bottom holding the whole layout up against the top edge.
+   */
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  min-height: 100vh;
+  /* dvh, not vh: on mobile `100vh` is the viewport with the browser chrome
+     retracted, so it overflows by the height of the address bar. */
+  min-height: 100dvh;
 }
 
 /* --- create account -------------------------------------------------------
@@ -546,7 +576,7 @@ body {
 }
 .create-account-actions .btn {
   width: 100%;
-  height: 48px;
+  height: var(--btn-height);
   margin: 0;
 }
 .create-account-label {
@@ -631,6 +661,8 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 0;
+  /* Takes half the free space above it. */
+  margin-top: auto;
 }
 .welcome-logo {
   width: 104px;
@@ -689,7 +721,10 @@ body {
 }
 
 .welcome-version {
-  margin-top: 28px;
+  /* Takes the other half, which settles it at the bottom and leaves the brand
+     and its actions a touch above true centre — where the eye expects them. */
+  margin-top: auto;
+  padding-top: 28px;
   font-size: 11.5px;
   color: var(--muted-text-color);
   text-align: center;
@@ -697,7 +732,7 @@ body {
 
 .welcome-screen .welcome-buttons button {
   width: 358px;
-  height: 48px;
+  height: var(--btn-height);
   margin: 0;
   border-radius: 24px;
   font-family: var(--font-primary);
@@ -1474,7 +1509,7 @@ button:not(:disabled):hover {
   width: calc(100% - 32px);
   padding: 12px 20px;
   border-radius: 24px;
-  height: 48px;
+  height: var(--btn-height);
 }
 
 /* Button danger */
@@ -1523,7 +1558,7 @@ button:disabled {
 /* Common button styles - pill full width */
 .btn--pill.btn--full {
   width: calc(100% - 32px);
-  height: 48px;
+  height: var(--btn-height);
   border-radius: 24px;
   margin: 1rem 16px;
 }
@@ -4666,7 +4701,9 @@ input[type='file'].form-control::file-selector-button {
   flex: 1 1 0;
   min-width: 0;
   width: auto;
-  height: 46px;
+  /* Was 46px — 2px short of every other primary CTA, for no reason. Send
+     and Receive are the wallet's commit actions; they take the CTA scale. */
+  height: var(--btn-height);
   margin: 0;
   gap: 8px;
   font-size: var(--font-size-base);
@@ -6282,7 +6319,7 @@ button.about-link {
   color: var(--background-color);
   padding: 12px 20px;
   border-radius: 24px;
-  height: 48px;
+  height: var(--btn-height);
   width: auto;
   min-width: 200px;
   max-width: 240px;
@@ -6318,7 +6355,7 @@ button.about-link {
   color: var(--background-color);
   padding: 12px 20px;
   border-radius: 24px;
-  height: 48px;
+  height: var(--btn-height);
   width: auto;
   min-width: 200px;
   max-width: 240px;
@@ -7517,7 +7554,7 @@ small {
 #sendAssetConfirmModal .btn,
 #sendAssetConfirmModal .btn.btn--secondary {
   width: calc(100% - 32px);
-  height: 48px;
+  height: var(--btn-height);
   border-radius: 24px;
   margin: 8px 16px;
   font-family: var(--font-primary);
@@ -8218,7 +8255,7 @@ small {
 #validatorModal .btn.btn--pill.btn--full {
   width: calc(100% - 32px);
   max-width: 360px; /* Max width for larger screens */
-  height: 48px;
+  height: var(--btn-height);
   border-radius: 24px;
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
@@ -8446,7 +8483,7 @@ small {
   padding: 8px 16px; /* Adjust button padding for a more compact look */
   font-size: var(--font-size-sm);
   width: 300px; /* Override general button widths */
-  height: 48px; /* Let padding and content determine height */
+  height: var(--btn-height); /* Let padding and content determine height */
   margin: 0; /* Reset margin, rely on flex gap */
 }
 
