@@ -204,6 +204,18 @@ meaning. That is why `groupUI.js` was kept separate in the first place. See
 
 Welcome, sign-in, create account, unlock.
 
+**Lock and unlock: deferred, not done.** Welcome, sign-in and create account
+shipped. Lock/unlock was skipped as an uncommon feature. The findings stand for
+whenever it is picked up: `#lockModal` runs three modes (set / change / remove)
+through one form switched by four inline `display:none` toggles under a title
+that always reads "Lock"; Change Password and Remove Lock are both
+`btn--primary btn--full`, so the destructive one is indistinguishable from the
+safe one; three paragraphs precede the form, with the consequential sentence
+("if you lose your password you cannot access your accounts") buried as the
+middle one; `#passwordWarning` hardcodes `#dc3545` inline. `#unlockModal` does
+not say which account it is unlocking. Only 2 bespoke CSS rules between them —
+this is markup and hierarchy work, not a stylesheet fight.
+
 Seen on every cold start, and the first thing a new user ever sees. `#signInModal`
 has 17 bespoke rules — the most of any screen in scope — and create account,
 welcome and the lock screens have none, so most of the wave is markup swaps.
