@@ -177,6 +177,7 @@ import {
   normalizeLinkedinUsername,
   normalizeXTwitterUsername,
   generateIdenticon,
+  generateAvatar,
   formatTime,
   isValidEthereumAddress,
   normalizeAddress,
@@ -2095,7 +2096,7 @@ class ChatsScreen {
       const li = document.createElement('li');
       li.classList.add('chat-item', 'chat-item--group');
       li.innerHTML = `
-          <div class="chat-avatar">${generateIdenticon(view.groupId, 40)}</div>
+          <div class="chat-avatar">${generateAvatar(view.groupId, 40)}</div>
           <div class="chat-content">
               <div class="chat-header">
                   <div class="chat-name">${escapeHtml(view.name || 'Group')}</div>
