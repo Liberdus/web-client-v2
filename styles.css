@@ -85,6 +85,7 @@
   /* Icon SVGs */
   --icon-phone: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z'%3E%3C/path%3E%3C/svg%3E");
   --icon-chat: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'%3E%3C/path%3E%3C/svg%3E");
+  --icon-wallet: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='6' width='20' height='12' rx='2'/%3E%3Cpath d='M2 12h20'/%3E%3C/svg%3E");
   --icon-contacts: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'%3E%3C/path%3E%3Ccircle cx='9' cy='7' r='4'%3E%3C/circle%3E%3Cpath d='M23 21v-2a4 4 0 0 0-3-3.87'%3E%3C/path%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'%3E%3C/path%3E%3C/svg%3E");
   --icon-clock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cpolyline points='12 6 12 12 16 14'%3E%3C/polyline%3E%3C/svg%3E");
   --icon-info: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cline x1='12' y1='16' x2='12' y2='12'%3E%3C/line%3E%3Cline x1='12' y1='8' x2='12.01' y2='8'%3E%3C/line%3E%3C/svg%3E");
@@ -272,7 +273,6 @@ background-color: var(--surface-muted);
 #contactsScreen::-webkit-scrollbar,
 #walletScreen::-webkit-scrollbar,
 .chat-list::-webkit-scrollbar,
-#chatList::-webkit-scrollbar,
 .container::-webkit-scrollbar,
 body::-webkit-scrollbar {
   width: 6px; /* Slightly thinner for elegance */
@@ -286,7 +286,6 @@ body::-webkit-scrollbar {
 #contactsScreen::-webkit-scrollbar-track,
 #walletScreen::-webkit-scrollbar-track,
 .chat-list::-webkit-scrollbar-track,
-#chatList::-webkit-scrollbar-track,
 .container::-webkit-scrollbar-track,
 body::-webkit-scrollbar-track {
   background: transparent; /* Completely transparent track */
@@ -300,7 +299,6 @@ body::-webkit-scrollbar-track {
 #contactsScreen::-webkit-scrollbar-thumb,
 #walletScreen::-webkit-scrollbar-thumb,
 .chat-list::-webkit-scrollbar-thumb,
-#chatList::-webkit-scrollbar-thumb,
 .container::-webkit-scrollbar-thumb,
 body::-webkit-scrollbar-thumb {
   background-color: rgba(0, 0, 0, 0.2); /* Lighter for subtlety */
@@ -317,7 +315,6 @@ body::-webkit-scrollbar-thumb {
 #contactsScreen::-webkit-scrollbar-thumb:hover,
 #walletScreen::-webkit-scrollbar-thumb:hover,
 .chat-list::-webkit-scrollbar-thumb:hover,
-#chatList::-webkit-scrollbar-thumb:hover,
 .container::-webkit-scrollbar-thumb:hover,
 body::-webkit-scrollbar-thumb:hover {
   background-color: var(--primary-tint-40); /* Brand color on hover with transparency */
@@ -331,7 +328,6 @@ body::-webkit-scrollbar-thumb:hover {
 #contactsScreen,
 #walletScreen,
 .chat-list,
-#chatList,
 .container,
 body {
   scrollbar-width: thin;
@@ -339,34 +335,29 @@ body {
 }
 
 /* Specific styling for chat list container */
-.chat-list::-webkit-scrollbar,
-#chatList::-webkit-scrollbar {
+.chat-list::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-.chat-list::-webkit-scrollbar-track,
-#chatList::-webkit-scrollbar-track {
+.chat-list::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.05);
   border-radius: 10px;
 }
 
-.chat-list::-webkit-scrollbar-thumb,
-#chatList::-webkit-scrollbar-thumb {
+.chat-list::-webkit-scrollbar-thumb {
   background-color: rgba(0, 0, 0, 0.3);
   border-radius: 10px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 
-.chat-list::-webkit-scrollbar-thumb:hover,
-#chatList::-webkit-scrollbar-thumb:hover {
+.chat-list::-webkit-scrollbar-thumb:hover {
   background-color: var(--overlay-backdrop-color);
 }
 
 /* For Firefox */
-.chat-list,
-#chatList {
+.chat-list {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
@@ -833,7 +824,20 @@ body {
   margin: 0;
 }
 
-/* Hover effects for both */
+/* One row of the chat list. Defined at class specificity rather than as
+   `.chat-list .chat-item`, so a row looks the same wherever it is rendered —
+   search results reuse it, and previously did so through a second, identical
+   descendant rule. */
+.chat-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--background-color);
+  /* .container centres the app; a row is left-reading — DESIGN.md §4.3. */
+  text-align: left;
+  cursor: pointer;
+}
 .chat-item:hover {
   background: var(--hover-background);
 }
@@ -1063,25 +1067,35 @@ body {
   text-align: right;
 }
 
-#searchResults .chat-message {
-  font-family: var(--font-primary);
-  font-size: var(--font-size-sm);
-  color: var(--secondary-text-color);
-  white-space: normal; /* Allow wrapping */
-  overflow: visible; /* Show overflow (or remove line) */
-  word-break: break-all; /* Allow breaking long words/URLs */
-  text-align: left;
-  /* text-overflow: ellipsis; Removed */
+/* Search results wrap instead of truncating — a match is worth reading in
+   full. Targets the preview, which now owns the truncation it is overriding. */
+#searchResults .chat-preview {
+  white-space: normal;
+  overflow: visible;
+  word-break: break-all;
 }
 
+/* Second line of a row: the preview, with the unread count trailing it.
+   The badge used to sit BEFORE the text, which pushed every preview a
+   different distance from the avatar depending on whether that chat had
+   unread messages — so nothing lined up down the list. */
 .chat-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-family: var(--font-primary);
   font-size: var(--font-size-sm);
   color: var(--secondary-text-color);
+  text-align: left;
+}
+/* The truncation lives on the preview, not the row: a bare text node in a
+   flex container is an anonymous item and cannot be given an ellipsis. */
+.chat-preview {
+  flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-align: left;
 }
 
 .chat-failed-indicator {
@@ -1101,25 +1115,27 @@ body {
 }
 
 .chat-unread {
+  flex: none;
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: 12px;
   background-color: var(--primary-color);
   color: var(--background-color);
   font-family: var(--font-primary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  padding: 1px 8px;
-  border-radius: 12px;
-  margin-left: 8px;
 }
 
 /* Orange draft indicator shown when there is a saved draft and no unread messages */
+/* Sits where the unread badge would, for the same reason: it is a marker for
+   the row, not part of the preview text. */
 .chat-draft {
-  display: inline-block;
+  flex: none;
+  margin-left: auto;
   width: 8px;
   height: 8px;
-  background-color: var(--warning-color);
   border-radius: 50%;
-  margin-left: 8px;
-  vertical-align: middle;
+  background-color: var(--warning-color);
 }
 
 .contact-incomplete {
@@ -1424,33 +1440,34 @@ button:disabled {
 
 .nav-button {
   flex: 1;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 8px 8px;
+  padding: 8px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted-text-color);
   font-family: var(--font-primary);
   font-size: var(--font-size-sm);
-  color: var(--muted-text-color);
-  background: none;
-  border: none;
+  /* Centred deliberately, not inherited from .container — see DESIGN.md §4.3. */
+  text-align: center;
   cursor: pointer;
-  transition: all 0.2s ease;
-  flex: 1;
-  border-radius: 8px;
-  position: relative; /* Added for positioning the notification indicator */
+  transition: color 0.2s ease, background-color 0.2s ease;
 }
 
 /* Notification indicator */
 .nav-button::after {
   content: '';
   position: absolute;
-  top: 4px;
-  right: 25%;
+  top: 5px;
+  left: calc(50% + 5px);
   width: 8px;
   height: 8px;
-  background-color: var(--primary-color);
   border-radius: 50%;
+  background-color: var(--primary-color);
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -1471,17 +1488,17 @@ button:disabled {
   transition: all 0.2s ease;
 }
 
-.nav-button#switchToChats::before {
+/* By attribute rather than by id, matching .menu-item[data-icon] and
+   .context-menu-option[data-icon] elsewhere in the app. Three id-scoped rules
+   removed; adding a fourth tab is now markup only. */
+.nav-button[data-icon='chat']::before {
   background-image: var(--icon-chat);
 }
-
-.nav-button#switchToContacts::before {
+.nav-button[data-icon='contacts']::before {
   background-image: var(--icon-contacts);
 }
-
-.nav-button#switchToWallet::before {
-  /* Simple billfold */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='6' width='20' height='12' rx='2'/%3E%3Cpath d='M2 12h20'/%3E%3C/svg%3E");
+.nav-button[data-icon='wallet']::before {
+  background-image: var(--icon-wallet);
 }
 
 /* Hover state */
@@ -1494,11 +1511,13 @@ button:disabled {
   opacity: 0.7;
 }
 
-/* Active state - modified to use bottom border instead of background */
+/* Selected. Colour and weight carry it; deliberately no fill, because hover
+   uses one and a tab that looks hovered when it is merely selected leaves no
+   way to show the difference. The old 20% tint also read as a pressed button
+   rather than as the tab you are on. */
 .nav-button.active {
   color: var(--primary-color);
-  font-weight: 600;
-  background-color: var(--primary-tint-20); /* tokenized */
+  font-weight: var(--font-weight-semibold);
 }
 
 .nav-button.active::before {
@@ -1510,6 +1529,16 @@ button:disabled {
   color: var(--accent-bright-blue);
   background-color: var(--hover-background-purple);
   outline: none;
+  box-shadow: var(--focus-ring-primary);
+}
+
+/* Colour and opacity still change; only the animation between them stops. */
+@media (prefers-reduced-motion: reduce) {
+  .nav-button,
+  .nav-button::before,
+  .nav-button::after {
+    transition: none;
+  }
 }
 
 @media (min-width: 769px) {
@@ -6214,19 +6243,8 @@ mark {
 /* ========== Chat List Consolidation ========== */
 
 /* Base chat item styles - consolidated from multiple instances */
-.chat-list .chat-item,
-#searchResults .chat-list .chat-item {
-  display: flex;
-  padding: 8px 16px;
-  background: var(--background-color);
-  cursor: pointer;
-}
-
-/* Hover effects for all chat items */
-.chat-list .chat-item:hover,
-#searchResults .chat-list .chat-item:hover {
-  background: var(--hover-background);
-}
+/* Search results reuse .chat-item unchanged; the base rule below covers both,
+   so the descendant overrides that used to live here are gone. */
 
 /* Search result specific overrides */
 .chat-list .search-result-item {
@@ -8408,6 +8426,12 @@ small {
 
 .menu-item[data-icon="chat"]::before {
   background-image: var(--icon-chat);
+}
+
+/* Appearance. --icon-eye already existed as a token but nothing mapped it to a
+   menu item, so the row rendered with a 20px gap where its icon should be. */
+.menu-item[data-icon="eye"]::before {
+  background-image: var(--icon-eye);
 }
 
 .menu-item[data-icon="arrow-right-arrow-left"]::before {

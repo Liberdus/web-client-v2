@@ -1584,21 +1584,27 @@ class Footer {
       contactsScreen.close();
       walletScreen.close();
   
-      // Update nav buttons - remove active class from all
-      this.chatButton.classList.remove('active');
-      this.contactsButton.classList.remove('active');
-      this.walletButton.classList.remove('active');
-  
-      // Add active class to selected button and add active or use .open() for relevant screen
+      /*
+       * Update nav buttons. aria-current rides along with .active: the tab you
+       * are on is otherwise conveyed by colour and weight alone, which a screen
+       * reader cannot see.
+       */
+      const setTab = (button, isCurrent) => {
+        button.classList.toggle('active', isCurrent);
+        if (isCurrent) button.setAttribute('aria-current', 'page');
+        else button.removeAttribute('aria-current');
+      };
+
+      setTab(this.chatButton, view === 'chats');
+      setTab(this.contactsButton, view === 'contacts');
+      setTab(this.walletButton, view === 'wallet');
+
       if (view === 'chats') {
         chatsScreen.open();
-        this.chatButton.classList.add('active');
       } else if (view === 'contacts') {
         contactsScreen.open();
-        this.contactsButton.classList.add('active');
       } else if (view === 'wallet') {
         walletScreen.open();
-        this.walletButton.classList.add('active');
       }
   
       // Show header and footer
@@ -1666,22 +1672,24 @@ class Footer {
           previousScreenElement.classList.add('active');
         }
   
-        // Remove active class from all buttons with direct references
-        this.chatButton.classList.remove('active');
-        this.contactsButton.classList.remove('active');
-        this.walletButton.classList.remove('active');
-  
-        // Add active to the correct button based on previousView
-        if (previousView === 'chats') {
-          this.chatButton.classList.add('active');
-        } else if (previousView === 'contacts') {
-          this.contactsButton.classList.add('active');
-        } else if (previousView === 'wallet') {
-          this.walletButton.classList.add('active');
-        } else {
-          // Fallback if previousButton is available
-          previousButton.classList.add('active');
-        }
+        /*
+         * Restore the tab. Goes through the same setTab as the success path so
+         * .active and aria-current cannot drift apart — a rollback that put the
+         * class back but not the attribute would leave the bar telling sighted
+         * and non-sighted users two different things.
+         */
+        const restore = (button, isCurrent) => {
+          button.classList.toggle('active', isCurrent);
+          if (isCurrent) button.setAttribute('aria-current', 'page');
+          else button.removeAttribute('aria-current');
+        };
+        const known = ['chats', 'contacts', 'wallet'].includes(previousView);
+        restore(this.chatButton, previousView === 'chats');
+        restore(this.contactsButton, previousView === 'contacts');
+        restore(this.walletButton, previousView === 'wallet');
+        // previousView was something else entirely; fall back to the element
+        // that was actually marked active before this attempt.
+        if (!known) restore(previousButton, true);
   
         // Display error toast to user
         showToast(`Failed to switch to ${view} view`, 0, 'error');
@@ -1882,7 +1890,13 @@ class ChatsScreen {
 
       let displayPreview = previewHTML;
       const isOutgoingPreview = isShowingReactionPreview ? reactionPreview.my : latestActivity.my;
-      let displayPrefix = isOutgoingPreview ? '< ' : '> ';
+      /*
+       * "< " and "> " were shorthand for direction that only worked if you
+       * already knew the convention, and worse, a draft used the same "< " as a
+       * sent message — so something you never sent looked exactly like
+       * something you did. Words, and a distinct one for drafts.
+       */
+      let displayPrefix = isOutgoingPreview ? 'You: ' : '';
       let hasDraftAttachment = false;
 
       // Check for draft attachments
@@ -1893,7 +1907,7 @@ class ChatsScreen {
       // If there's draft text, show that (prioritize draft text over reply preview)
       if (contact.draft && contact.draft.trim() !== '') {
         displayPreview = truncateMessage(escapeHtml(contact.draft), 50);
-        displayPrefix = '< ';
+        displayPrefix = 'Draft: ';
       } else if (contact.draftReplyTxid) {
         // If there's only reply content (no text), show "Replying to: [message]"
         const replyMessage = contact.draftReplyMessage || '';
@@ -1911,7 +1925,7 @@ class ChatsScreen {
         displayPreview = attachmentCount === 1 
           ? '📎 Attachment' 
           : `📎 ${attachmentCount} attachments`;
-        displayPrefix = '< ';
+        displayPrefix = 'Draft: ';
       }
       const failedIndicatorHTML = isFailedOutgoingActivity
         ? '<span class="chat-failed-indicator" title="Not sent" aria-label="Not sent">!</span>'
@@ -1928,8 +1942,8 @@ class ChatsScreen {
                   <div class="chat-time">${timeDisplay}</div>
               </div>
               <div class="chat-message">
-                ${failedIndicatorHTML}${unreadCount ? `<span class="chat-unread">${unreadCount}</span>` : ((contact.draft || contact.draftReplyTxid || hasDraftAttachment) ? `<span class="chat-draft" title="Draft"></span>` : '')}
-                ${displayPrefix}${displayPreview}
+                <span class="chat-preview">${failedIndicatorHTML}${displayPrefix}${displayPreview}</span>
+                ${unreadCount ? `<span class="chat-unread">${unreadCount}</span>` : ((contact.draft || contact.draftReplyTxid || hasDraftAttachment) ? `<span class="chat-draft" title="Draft"></span>` : '')}
               </div>
           </div>
       `;
@@ -1952,7 +1966,9 @@ class ChatsScreen {
       if (view.removed) {
         preview = '<span><i>You were removed</i></span>';
       } else if (latest) {
-        prefix = latest.mine ? '< ' : '> ';
+        // "You: " rather than "< ". The arrows were shorthand for direction that
+        // only made sense if you already knew the convention — DESIGN.md §2.
+        prefix = latest.mine ? 'You: ' : '';
         preview = truncateMessage(escapeHtml(latest.message || ''), 50);
       }
 
@@ -1966,8 +1982,8 @@ class ChatsScreen {
                   <div class="chat-time">${ts ? formatTime(ts, false) : ''}</div>
               </div>
               <div class="chat-message">
+                <span class="chat-preview">${prefix}${preview}</span>
                 ${view.unread ? `<span class="chat-unread">${view.unread}</span>` : ''}
-                ${prefix}${preview}
               </div>
           </div>
       `;
@@ -12852,7 +12868,7 @@ class SearchMessagesModal {
                       <div class="chat-time">${formatTime(result.timestamp)}</div>
                   </div>
                   <div class="chat-message">
-                      ${messagePreview}
+                      <span class="chat-preview">${messagePreview}</span>
                   </div>
               </div>
           `;
@@ -13128,7 +13144,7 @@ class SearchContactsModal {
                       <span class="chat-name">${displayedName}</span>
                   </div>
                   <div class="chat-message">
-                      <span class="match-label">${matchPreview}</span>
+                      <span class="chat-preview"><span class="match-label">${matchPreview}</span></span>
                   </div>
               </div>
           `;

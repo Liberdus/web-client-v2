@@ -148,20 +148,53 @@
         'info: non-admin': () => { reset(); view().admins = [addr(2)]; groupInfoModal.open(GROUP.groupId); },
         'chat list': () => {
           listHost.hidden = false;
+          // Reproduces renderChatList's markup exactly — keep in step with it.
+          const row = (o) => `
+            <li class="chat-item${o.group ? ' chat-item--group' : ''}">
+              <div class="chat-avatar">${addrAvatar(o.addr, o.group ? 48 : 50)}</div>
+              <div class="chat-content">
+                <div class="chat-header">
+                  <div class="chat-name">${o.name}</div>
+                  <div class="chat-time">${o.time}</div>
+                </div>
+                <div class="chat-message">
+                  <span class="chat-preview">${o.failed ? '<span class="chat-failed-indicator">!</span>' : ''}${o.prefix || ''}${o.preview}</span>
+                  ${o.unread ? `<span class="chat-unread">${o.unread}</span>` : ''}
+                  ${o.draft ? '<span class="chat-draft" title="Draft"></span>' : ''}
+                </div>
+              </div>
+            </li>`;
           listHost.innerHTML = `<ul class="chat-list" id="chatList">
-            <li class="chat-item"><div class="chat-avatar">${genIdenticon(addr(2), 50)}</div>
-              <div class="chat-content"><div class="chat-header"><div class="chat-name">ana</div>
-              <div class="chat-time">9:53 PM</div></div>
-              <div class="chat-message">&gt; see you tomorrow</div></div></li>
-            <li class="chat-item chat-item--group"><div class="chat-avatar">${genAvatar('8f3a4b'.padEnd(64,'c'), 48)}</div>
-              <div class="chat-content"><div class="chat-header"><div class="chat-name">Weekend hikers</div>
-              <div class="chat-time">10:01 PM</div></div>
-              <div class="chat-message"><span class="chat-unread">2</span>&gt; Same. Weather looks clear until 2.</div></div></li>
-            <li class="chat-item"><div class="chat-avatar">${genIdenticon(addr(3), 50)}</div>
-              <div class="chat-content"><div class="chat-header"><div class="chat-name">ben</div>
-              <div class="chat-time">Mon</div></div>
-              <div class="chat-message">&lt; thanks!</div></div></li>
+            ${row({ addr: addr(2), name: 'ana', time: '9:53 PM', prefix: '', preview: 'see you tomorrow', unread: 3 })}
+            ${row({ addr: '8f3a4b'.padEnd(64, 'c'), name: 'Weekend hikers', time: '10:01 PM', group: true, prefix: '', preview: 'Same. Weather looks clear until 2.' })}
+            ${row({ addr: addr(3), name: 'ben', time: 'Mon', prefix: 'You: ', preview: 'thanks!', failed: true })}
+            ${row({ addr: addr(4), name: 'cleo', time: 'Sun', prefix: 'Draft: ', preview: 'half-written thought', draft: true })}
+            ${row({ addr: addr(5), name: 'a-very-long-username-that-should-truncate', time: '12 Aug', prefix: 'You: ', preview: 'a long preview line that has to ellipsis rather than wrap onto a second line' })}
           </ul>`;
+        },
+        'settings menu': () => {
+          listHost.hidden = false;
+          listHost.innerHTML = doc.getElementById('settingsModal').querySelector('.menu-list').outerHTML;
+          listHost.style.padding = '12px';
+        },
+        'tab bar': () => {
+          listHost.hidden = false;
+          listHost.innerHTML = doc.getElementById('footer').outerHTML;
+          const f = listHost.querySelector('.footer');
+          f.classList.add('active');
+          // .footer is position:fixed in the app; pin it inside the harness
+          // frame instead so it can be inspected beside the other scenes.
+          f.style.cssText = 'position:relative;height:auto';
+          const btns = [...f.querySelectorAll('.nav-button')];
+          btns[0].classList.add('active');
+          btns[1].classList.add('has-notification');
+          f.addEventListener('click', (e) => {
+            const b = e.target.closest('.nav-button');
+            if (!b) return;
+            btns.forEach((x) => { x.classList.remove('active'); x.removeAttribute('aria-current'); });
+            b.classList.add('active');
+            b.setAttribute('aria-current', 'page');
+          });
         },
         'appearance': () => {
           listHost.hidden = true;

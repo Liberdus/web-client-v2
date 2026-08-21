@@ -35,19 +35,20 @@ Measured, not estimated.
 
 | signal | count |
 | --- | ---: |
-| id-scoped CSS rules (`#someModal ...`) | **533** |
-| — of which **DAO** | **308** |
-| — everything else | **225** |
-| — **the screens in §1** | **~62** |
+| rule blocks whose selector contains an id | **408** |
+| — of which **DAO** | **207** |
+| — everything else | **201** |
 | colour literals outside `:root` | 224 |
 | hardcoded `font-size` | 140 (against 141 tokenised) |
 | `!important` | 30 |
 
 ### 2.1 The scary number was almost entirely DAO
 
-533 id-scoped overrides reads like a year of work. But **58% of them are three
-DAO modals**, and `#proposalInfoModal` alone holds 196. Take DAO out and the
-screens you actually want converted look like this:
+400-odd id-scoped overrides reads like a year of work. But **half of them are
+DAO**, and `#proposalInfoModal` alone accounts for the largest share. Take DAO
+out and the screens you actually want converted look like this (counted as
+selector lines, which is why these are larger than the rule-block totals above —
+a comma-separated group spans several lines):
 
 | screen | bespoke rules |
 | --- | ---: |
@@ -243,11 +244,25 @@ the result serves neither well.
 - [ ] Harness scenes for every state, including ones that are hard to reach live
 - [ ] Before/after screenshots in the PR description
 - [ ] `?v=` bumped on `app.js` and `styles.css`
-- [ ] Net line count of `styles.css` went **down**
+- [ ] The count of **selectors containing an id** went down
 
-That last one is the health metric. If `styles.css` is growing, components are
-not replacing anything and the migration has added a second way to do things
-instead of removing the first.
+```bash
+# the migration's health metric
+python3 - <<'EOF'
+import re
+s = open('styles.css').read()
+sels = re.findall(r'^\s*([^@{}/][^{}]*)\{', s, re.M)
+print(sum(1 for x in sels if re.search(r'#[A-Za-z]', x)))
+EOF
+```
+
+**Not raw line count.** That was the metric in the first draft of this plan and
+Wave 1a disproved it: the tab bar removed three id-coupled rules, added
+`aria-current`, re-anchored the unread dot and gained a reduced-motion guard —
+and `styles.css` grew by 14 lines, because explanatory comments and an accessibility
+block are lines too. Growing on a small screen is fine. What must never grow is
+id coupling, colour literals and `!important`, because those are what make the
+*next* screen expensive.
 
 ---
 

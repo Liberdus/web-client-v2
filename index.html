@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-24" />
+    <link rel="stylesheet" href="./styles.css?v=1455-27" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-36" type="module"></script>
+    <script src="./app.js?v=1455-38" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -222,11 +222,14 @@
       </div>
 
       <footer class="footer" id="footer">
-        <div class="nav-buttons">
-          <button class="nav-button" id="switchToChats">Chats</button>
-          <button class="nav-button" id="switchToContacts">Contacts</button>
-          <button class="nav-button" id="switchToWallet">Wallet</button>
-        </div>
+        <!-- data-icon rather than an id-scoped CSS rule per tab, matching
+             .menu-item[data-icon] elsewhere. aria-current is set by
+             Footer.switchView alongside the .active class. -->
+        <nav class="nav-buttons" aria-label="Main">
+          <button class="nav-button" id="switchToChats" data-icon="chat">Chats</button>
+          <button class="nav-button" id="switchToContacts" data-icon="contacts">Contacts</button>
+          <button class="nav-button" id="switchToWallet" data-icon="wallet">Wallet</button>
+        </nav>
         <!-- set focus on last-item in the footer -->
         <a class="last-item" href="#"> </a>
       </footer>
