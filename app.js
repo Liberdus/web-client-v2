@@ -178,6 +178,10 @@ import {
   normalizeXTwitterUsername,
   generateIdenticon,
   generateAvatar,
+  addressAvatar,
+  setAvatarStyle,
+  getAvatarStyle,
+  AVATAR_STYLES,
   formatTime,
   isValidEthereumAddress,
   normalizeAddress,
@@ -955,6 +959,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Settings Modal
   settingsModal.load();
+
+  // Appearance Modal. Loaded before anything renders a list: its load() applies
+  // the saved avatar style, and doing it later would draw every avatar once in
+  // the default style and then again in the chosen one.
+  appearanceModal.load();
 
   // Chat Settings Modal
   chatSettingsModal.load();
@@ -2096,7 +2105,7 @@ class ChatsScreen {
       const li = document.createElement('li');
       li.classList.add('chat-item', 'chat-item--group');
       li.innerHTML = `
-          <div class="chat-avatar">${generateAvatar(view.groupId, 40)}</div>
+          <div class="chat-avatar">${addressAvatar(view.groupId, 40)}</div>
           <div class="chat-content">
               <div class="chat-header">
                   <div class="chat-name">${escapeHtml(view.name || 'Group')}</div>
@@ -7954,6 +7963,104 @@ class ProposalInfoModal {
 
 const proposalInfoModal = new ProposalInfoModal();
 
+/**
+ * Appearance: how address-derived avatars are drawn.
+ *
+ * Applies instantly rather than behind a Save button. The choice is a display
+ * preference, it is reversible in one tap, and the preview list below the
+ * options is the confirmation — a Save step would only add a way to lose the
+ * change you just made.
+ */
+class AppearanceModal {
+  constructor() {
+    this.storageKey = 'avatar_style';
+  }
+
+  load() {
+    this.modal = document.getElementById('appearanceModal');
+    if (!this.modal) return;
+    this.options = document.getElementById('avatarStyleOptions');
+    this.preview = document.getElementById('avatarStylePreview');
+
+    document.getElementById('closeAppearanceModal').addEventListener('click', () => this.close());
+    this.options.addEventListener('change', (e) => {
+      const input = e.target.closest('input[name="avatarStyle"]');
+      if (input) this.select(input.value);
+    });
+
+    // Applied at boot, before any list renders, so nothing has to be redrawn.
+    setAvatarStyle(localStorage.getItem(this.storageKey) || 'gradient');
+  }
+
+  open() {
+    const current = getAvatarStyle();
+    for (const input of this.options.querySelectorAll('input[name="avatarStyle"]')) {
+      input.checked = input.value === current;
+    }
+    // Each swatch shows its OWN style, not the selected one — they are what the
+    // choice is between, so they must not both change when one is picked.
+    document.getElementById('avatarStyleSwatchGradient').innerHTML = generateAvatar(this.sampleAddress(), 28);
+    document.getElementById('avatarStyleSwatchIdenticon').innerHTML = generateIdenticon(this.sampleAddress(), 28);
+    this.renderPreview();
+    this.modal.classList.add('active');
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+  }
+
+  /** The user's own address, falling back to a fixed sample before sign-in. */
+  sampleAddress() {
+    try {
+      if (myAccount?.keys?.address) return normalizeAddress(myAccount.keys.address);
+    } catch (e) {
+      // Not signed in, or a malformed address; the sample below still renders.
+    }
+    return '18ed49a5c07b3f61d2904ae8b5731cf0a629d4e7';
+  }
+
+  select(style) {
+    setAvatarStyle(style);
+    localStorage.setItem(this.storageKey, getAvatarStyle());
+    this.renderPreview();
+    this.refreshApp();
+  }
+
+  /**
+   * A few real contacts, so the choice is judged on actual addresses rather
+   * than on one invented swatch.
+   */
+  renderPreview() {
+    if (!this.preview) return;
+    const me = this.sampleAddress();
+    const others = Object.keys(myData?.contacts || {}).slice(0, 3);
+    const rows = [...new Set([me, ...others])].slice(0, 4);
+    this.preview.innerHTML = rows
+      .map((address) => {
+        const contact = myData?.contacts?.[address];
+        const name = contact?.username || contact?.name || (address === me ? 'You' : `${address.slice(0, 8)}…`);
+        return `
+        <li class="ui-list-row">
+          <span class="ui-list-avatar">${addressAvatar(address, 28)}</span>
+          <span class="ui-list-name">${escapeHtml(name)}</span>
+        </li>`;
+      })
+      .join('');
+  }
+
+  /** Redraw anything already on screen; avatars are generated at render time. */
+  refreshApp() {
+    try {
+      chatsScreen.updateChatList();
+      contactsScreen.updateContactsList();
+    } catch (e) {
+      console.warn('Could not refresh lists after an avatar style change:', e);
+    }
+  }
+}
+
+const appearanceModal = new AppearanceModal();
+
 class SettingsModal {
   constructor() { }
 
@@ -7969,6 +8076,9 @@ class SettingsModal {
     this.contactsButton = document.getElementById('openManageContactsModal');
     this.contactsButton.addEventListener('click', () => manageContactsModal.open());
     
+    this.appearanceButton = document.getElementById('openAppearanceModal');
+    this.appearanceButton.addEventListener('click', () => appearanceModal.open());
+
     this.chatSettingsButton = document.getElementById('openChatSettingsModal');
     this.chatSettingsButton.addEventListener('click', () => chatSettingsModal.open());
 
@@ -11110,7 +11220,7 @@ class CallsModal {
         
         // Generate avatars for all participants
         const participantAvatars = callGroup.participants.map(p => 
-          `<div class="participant-avatar" title="${escapeHtml(p.calling)}">${generateIdenticon(p.address)}</div>`
+          `<div class="participant-avatar" title="${escapeHtml(p.calling)}">${addressAvatar(p.address)}</div>`
         ).join('');
         
         // Create participant names list
@@ -11127,7 +11237,7 @@ class CallsModal {
         li = template.content.cloneNode(true).querySelector('li');
         
         const participant = callGroup.participants[0];
-        const identicon = generateIdenticon(participant.address);
+        const identicon = addressAvatar(participant.address);
         
         // Populate template
         li.setAttribute('data-index', String(i));
@@ -11276,7 +11386,7 @@ class GroupCallParticipantsModal {
           const avatar = participantEl.querySelector('.participant-avatar');
           const name = participantEl.querySelector('.participant-name');
           
-          if (avatar) avatar.innerHTML = generateIdenticon(participantAddress);
+          if (avatar) avatar.innerHTML = addressAvatar(participantAddress);
           if (name) name.textContent = participant.calling || participantAddress;
           
           this.participantsList.appendChild(participantEl);
@@ -15244,7 +15354,7 @@ class AvatarEditModal {
       uploadedThumb.innerHTML = '';
     }
 
-    identiconThumb.innerHTML = generateIdenticon(address, 64);
+    identiconThumb.innerHTML = addressAvatar(address, 64);
 
     // hide option entries that don't have an image (don't show empty options)
     if (this.avatarOptionContact) this.avatarOptionContact.style.display = contactUrl ? '' : 'none';
@@ -15277,7 +15387,7 @@ class AvatarEditModal {
             // Replace the <img> with the identicon SVG
             const sizeAttr = parseInt(imgEl.getAttribute('width')) || 40;
             const wrapper = document.createElement('span');
-            wrapper.innerHTML = generateIdenticon(address, sizeAttr);
+            wrapper.innerHTML = addressAvatar(address, sizeAttr);
             imgEl.replaceWith(wrapper.firstChild);
           }
         }
@@ -15421,7 +15531,7 @@ class AvatarEditModal {
       }
 
       // No user-uploaded avatar -> show identicon (never show contact avatar here)
-      const avatarHtml = generateIdenticon(this.currentAddress, 218);
+      const avatarHtml = addressAvatar(this.currentAddress, 218);
       this.previewContainer.innerHTML = avatarHtml;
       this.enableTransform = false;
       this.updateZoomUI();
@@ -29979,7 +30089,7 @@ class ShareContactsModal {
    */
   async getContactAvatarHtmlForShare(contact, size = 40) {
     const address = contact?.address;
-    if (!address) return generateIdenticon('', size);
+    if (!address) return addressAvatar('', size);
 
     const makeImg = (url) => `<img src="${url}" class="contact-avatar-img" width="${size}" height="${size}" alt="avatar">`;
 
@@ -30000,7 +30110,7 @@ class ShareContactsModal {
     }
 
     // Priority 3: Identicon fallback
-    return generateIdenticon(address, size);
+    return addressAvatar(address, size);
   }
 
   /**
@@ -30757,7 +30867,7 @@ class ImportContactsModal {
     }
 
     // Fallback to identicon
-    return generateIdenticon(contact.address || '', size);
+    return addressAvatar(contact.address || '', size);
   }
 
   /**
@@ -38883,7 +38993,7 @@ async function getContactAvatarHtml(contactOrAddress, size = 50) {
     } catch (e) {
       console.warn('Failed to load account avatar, falling back to identicon:', e);
     }
-    return generateIdenticon(address, size);
+    return addressAvatar(address, size);
   }
 
   // useAvatar preference: 'contact' | 'mine' | 'identicon'
@@ -38891,7 +39001,7 @@ async function getContactAvatarHtml(contactOrAddress, size = 50) {
 
   if (address) {
     try {
-      if (usePref === 'identicon') return generateIdenticon(address, size);
+      if (usePref === 'identicon') return addressAvatar(address, size);
 
       // Determine available avatar ids from contact or account
       const contact = typeof contactOrAddress === 'object' && contactOrAddress !== null
@@ -38934,10 +39044,10 @@ async function getContactAvatarHtml(contactOrAddress, size = 50) {
       console.warn('Failed to load avatar, falling back to identicon:', err);
     }
 
-    return generateIdenticon(address, size);
+    return addressAvatar(address, size);
   }
 
-  return generateIdenticon('', size);
+  return addressAvatar('', size);
 }
 
 /**

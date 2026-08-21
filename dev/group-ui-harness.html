@@ -1,0 +1,214 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Group UI harness</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <style>
+      body { margin: 0; }
+      #harness-bar {
+        position: relative; z-index: 99999;
+        display: flex; gap: 6px; flex-wrap: wrap;
+        padding: 6px; background: #111; color: #fff; font: 12px system-ui;
+      }
+      #harness-bar button { font: 12px system-ui; padding: 4px 8px; cursor: pointer; }
+      /* The app sizes .container from its own layout; the harness has to
+         supply the geometry the modals slide within. */
+      /* styles.css centres the app with a flex body, so a shrink-to-fit
+         wrapper collapses to zero. The harness states the geometry outright. */
+      #host {
+        flex: none;
+        width: 430px;
+        height: 820px;
+        margin: 0 auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="harness-bar"></div>
+    <div class="container" id="host"></div>
+
+    <script type="module">
+      // Pull the real modal markup out of index.html so this exercises exactly
+      // what ships, not a copy that can drift.
+      const html = await (await fetch('../index.html')).text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const host = document.getElementById('host');
+      for (const id of ['createGroupModal', 'groupChatModal', 'joinGroupModal', 'groupInfoModal', 'appearanceModal']) {
+        host.appendChild(doc.getElementById(id));
+      }
+
+      /*
+       * A slice of the real chat list, so the group row can be compared against
+       * the 1:1 rows it actually sits beside. The list markup lives in app.js,
+       * which needs a signed-in account, so it is reproduced here rather than
+       * imported — keep it in step with renderChatList if that changes.
+       */
+      const listHost = document.createElement('div');
+      listHost.id = 'listHost';
+      listHost.style.cssText = 'display:block;height:100%;overflow-y:auto;background:#fff';
+      listHost.hidden = true;
+      host.appendChild(listHost);
+
+      /*
+       * normalizeAddress() demands exactly 40 hex chars and longAddress() pads
+       * them back to 64 with zeros, so fixtures have to satisfy both.
+       *
+       * These are deliberately unpatterned. Sequential fixtures ('2'.repeat(40),
+       * '3'.repeat(40)) hash to adjacent hues, so every avatar came out the
+       * same colour and the palette looked broken when it was not.
+       */
+      const REAL = [
+        '18ed49a5c07b3f61d2904ae8b5731cf0a629d4e7',
+        'e195adfc4b8210d6739ce0af52186b3d9c74a018',
+        'b0a1f42b6c95307edf28a4193bd0c6e75f831a24',
+        '4bc12e910d7a5f36b8e204c9137ade65028fb4d1',
+        '011012aa93c7e5b41d80f62a7bc4931e5da06f88',
+        'ccf42901a7e3b5d6820f14c93ba7e05d61f28a37',
+        '7d3b9e15c8a02f47b6d1930e5ac82f7160bd4e92',
+        '2a86f0d4193b7ce5820af61d93c7b04e58a12f6b',
+      ];
+      const long = (c) => c + '0'.repeat(24);
+      const ME = long(REAL[0]);
+      const addr = (n) => long(REAL[(Number(n) - 1) % REAL.length]);
+
+      const GROUP = {
+        groupId: '8f3a4b'.padEnd(64, 'c'),
+        name: 'Weekend hikers',
+        members: [ME, addr(2), addr(3), addr(4), addr(5)],
+        admins: [ME, addr(2)],
+        memberNames: { [addr(2)]: 'ana', [addr(3)]: 'ben', [addr(4)]: 'cleo', [addr(5)]: 'dana' },
+        epoch: 5,
+        chainEpoch: 5,
+        memberSinceEpoch: 2,
+        messages: [
+          { from: addr(2), message: 'Trailhead at 7? Parking fills up fast.', timestamp: Date.now() - 9e5 },
+          // Two in a row from one person, to exercise sender-run grouping.
+          { from: addr(2), message: 'Bring water, there is no tap at the top.', timestamp: Date.now() - 85e4 },
+          { from: ME, mine: true, message: "Works for me. I'll bring the extra poles.", timestamp: Date.now() - 5e5 },
+          { from: ME, mine: true, message: 'Parking spot 4 if anyone is late.', timestamp: Date.now() - 48e4 },
+          { from: addr(3), message: 'Same. Weather looks clear until 2.', timestamp: Date.now() - 4e5 },
+        ],
+        unread: 0,
+        lastActivity: Date.now(),
+        createdAt: new Date('2026-08-12T10:00:00Z').getTime(),
+        removed: false,
+      };
+
+      const myData = {
+        account: { private: false },
+        contacts: {
+          [addr(6)]: { username: 'erin' },
+          [addr(7)]: { username: 'finn' },
+          [addr(8)]: { username: 'gus' },
+        },
+        groups: { [GROUP.groupId]: structuredClone(GROUP) },
+        chats: [],
+      };
+
+      const { initGroupUI, createGroupModal, groupChatModal, groupInfoModal, joinGroupModal } = await import('../groupUI.js');
+      const { generateIdenticon: genIdenticon, generateAvatar: genAvatar, addressAvatar: addrAvatar, setAvatarStyle: setStyle, getAvatarStyle: getStyle } = await import('../lib.js');
+
+      initGroupUI({
+        queryNetwork: async () => ({}),
+        getMyAccount: () => ({ keys: { address: ME } }),
+        getMyData: () => myData,
+        showToast: (m) => console.log('[toast]', m),
+        onChatListChanged: () => {},
+      });
+
+      const view = () => myData.groups[GROUP.groupId];
+      const reset = () => { myData.groups[GROUP.groupId] = structuredClone(GROUP); };
+      const closeAll = () => document.querySelectorAll('.modal.active').forEach((m) => m.classList.remove('active'));
+
+      const scenes = {
+        'chat: fine': () => { reset(); groupChatModal.open(GROUP.groupId); },
+        'chat: catching up': () => { reset(); view().chainEpoch = 7; groupChatModal.open(GROUP.groupId); },
+        'chat: needs attention': () => { reset(); view().applyFailedAtEpoch = 6; view().chainEpoch = 7; groupChatModal.open(GROUP.groupId); },
+        'chat: unrecoverable': () => { reset(); view().needsRecovery = true; groupChatModal.open(GROUP.groupId); },
+        'chat: invited': () => { reset(); view().invitePending = { from: addr(2) }; groupChatModal.open(GROUP.groupId); },
+        'chat: removed': () => { reset(); view().removed = true; groupChatModal.open(GROUP.groupId); },
+        'create': () => { closeAll(); createGroupModal.open(); },
+        'info: admin': () => {
+          reset(); groupInfoModal.open(GROUP.groupId);
+          setTimeout(() => {
+            groupInfoModal.requests = [{ address: addr(6), message: 'met you at the trail meetup' }];
+            groupInfoModal.renderPeople();
+            // renderFees needs a network read the harness cannot serve; drive
+            // the row directly so the Collect state is visible.
+            const row = document.getElementById('groupFeesRow');
+            row.hidden = false;
+            document.getElementById('groupFeesSummary').textContent = '2 LIB ready · 1 LIB held until 27 Aug';
+          }, 900);
+        },
+        'info: admin + add': () => {
+          reset(); groupInfoModal.open(GROUP.groupId); groupInfoModal.toggleAdd(true);
+        },
+        'info: non-admin': () => { reset(); view().admins = [addr(2)]; groupInfoModal.open(GROUP.groupId); },
+        'chat list': () => {
+          listHost.hidden = false;
+          listHost.innerHTML = `<ul class="chat-list" id="chatList">
+            <li class="chat-item"><div class="chat-avatar">${genIdenticon(addr(2), 50)}</div>
+              <div class="chat-content"><div class="chat-header"><div class="chat-name">ana</div>
+              <div class="chat-time">9:53 PM</div></div>
+              <div class="chat-message">&gt; see you tomorrow</div></div></li>
+            <li class="chat-item chat-item--group"><div class="chat-avatar">${genAvatar('8f3a4b'.padEnd(64,'c'), 48)}</div>
+              <div class="chat-content"><div class="chat-header"><div class="chat-name">Weekend hikers</div>
+              <div class="chat-time">10:01 PM</div></div>
+              <div class="chat-message"><span class="chat-unread">2</span>&gt; Same. Weather looks clear until 2.</div></div></li>
+            <li class="chat-item"><div class="chat-avatar">${genIdenticon(addr(3), 50)}</div>
+              <div class="chat-content"><div class="chat-header"><div class="chat-name">ben</div>
+              <div class="chat-time">Mon</div></div>
+              <div class="chat-message">&lt; thanks!</div></div></li>
+          </ul>`;
+        },
+        'appearance': () => {
+          listHost.hidden = true;
+          const q = (id) => document.getElementById(id);
+          const sample = REAL[0];
+          q('avatarStyleSwatchGradient').innerHTML = genAvatar(sample, 28);
+          q('avatarStyleSwatchIdenticon').innerHTML = genIdenticon(sample, 28);
+          const draw = () => {
+            q('avatarStylePreview').innerHTML = REAL.slice(0, 4)
+              .map((a, i) => `<li class="ui-list-row"><span class="ui-list-avatar">${addrAvatar(a, 28)}</span>
+                <span class="ui-list-name">${['You', 'ana', 'ben', 'cleo'][i]}</span></li>`).join('');
+          };
+          q('avatarStyleOptions').querySelectorAll('input').forEach((i) => {
+            i.checked = i.value === getStyle();
+            i.onchange = () => { setStyle(i.value); draw(); };
+          });
+          draw();
+          q('appearanceModal').classList.add('active');
+        },
+        'join group': () => {
+          listHost.hidden = true;
+          joinGroupModal.open();
+          // previewGroup() needs the network; fill the preview directly so the
+          // resolved state is inspectable without one.
+          setTimeout(() => {
+            const q = (id) => document.getElementById(id);
+            q('joinGroupAvatar').innerHTML = genAvatar(REAL[4] + '0'.repeat(24), 56);
+            q('joinGroupMeta').textContent = '4 of 50 members · 10 LIB to join';
+            q('joinGroupNote').textContent =
+              'The fee is held, not spent: an admin only receives it by approving you.';
+            q('joinGroupPreview').hidden = false;
+          }, 400);
+        },
+        'info: needs attention': () => {
+          reset(); view().applyFailedAtEpoch = 6; view().chainEpoch = 7; groupInfoModal.open(GROUP.groupId);
+        },
+      };
+
+      const bar = document.getElementById('harness-bar');
+      for (const [name, run] of Object.entries(scenes)) {
+        const b = document.createElement('button');
+        b.textContent = name;
+        b.onclick = () => { closeAll(); listHost.hidden = true; run(); };
+        bar.appendChild(b);
+      }
+      Object.assign(window, { scenes, closeAll, addrAvatar, setStyle, getStyle, groupChatModal, groupInfoModal, createGroupModal, joinGroupModal, myData, addr, ME });
+      console.log('[harness] ready');
+    </script>
+  </body>
+</html>
