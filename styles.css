@@ -2346,7 +2346,7 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-option-section {
   background: rgba(61, 61, 206, 0.055);
   border: 0;
-  border-radius: 0;
+  border-radius: var(--overlay-border-radius);
   box-shadow: none;
   display: grid;
   gap: 2px;
