@@ -4319,7 +4319,7 @@ input[type='file'].form-control::file-selector-button {
   padding: 2rem;
   text-align: center;
   background-color: var(--hover-background-purple);
-  color: #1c1c21;
+  color: var(--text-color);
   border-radius: 8px;
   margin: 1rem;
   display: flex;
@@ -4384,21 +4384,28 @@ input[type='file'].form-control::file-selector-button {
   display: none !important;
 }
 
+/* A caption for the number below it, not a second headline. It was 20px
+   semibold indigo above a 48px semibold indigo figure on an indigo-tinted
+   panel — three helpings of accent for something that is a readout, not an
+   action. The amount keeps the accent; this steps back. */
 .balance-label {
   font-family: var(--font-primary);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--primary-color);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--secondary-text-color);
+  letter-spacing: 0.02em;
 }
 
 .balance-amount {
   font-family: var(--font-primary);
   font-size: var(--font-size-xxl);
   font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
   color: var(--primary-color);
-  display: flex; /* Use Flexbox */
-  align-items: center; /* Center items vertically */
-  justify-content: center; /* Center items horizontally */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .balance-amount::before {
@@ -4560,13 +4567,20 @@ input[type='file'].form-control::file-selector-button {
   font-weight: 500;
 }
 
+/* Section label, matching .ui-section-title and .contact-section-header. It was
+   a third treatment: 20px semibold in full text colour with a rule under it —
+   heavier than the asset names it introduces, so the heading outweighed the
+   content. */
 .section-title {
   font-family: var(--font-primary);
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  color: var(--text-color);
-  margin: 1rem;
-  padding-bottom: 1rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--secondary-text-color);
+  text-align: left;
+  margin: 1.5rem 0 0.5rem;
+  padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -4832,19 +4846,31 @@ input[type='file'].form-control::file-selector-button {
 }
 
 .asset-logo {
+  flex: none;
   width: 40px;
   height: 40px;
-  border-radius: 20px;
+  border-radius: 50%;
   margin-right: 1rem;
+  overflow: hidden;
   background-color: var(--light-color);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.2rem;
 }
+.asset-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
 
 .asset-info {
   flex: 1;
+  min-width: 0;
+  /* .container centres the whole app, and this screen never opted out — so
+     asset names and prices sat centred in their own column. DESIGN.md §4.3. */
+  text-align: left;
 }
 
 .asset-name {
@@ -4859,11 +4885,18 @@ input[type='file'].form-control::file-selector-button {
   color: var(--secondary-text-color);
 }
 
+/* Amount over its fiat value. A column, not a <br>: the two lines are separate
+   values and the second is a caption for the first. */
 .asset-balance {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex: none;
   text-align: right;
   font-weight: var(--font-weight-semibold);
   color: var(--text-color);
   font-size: var(--font-size-base);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Transaction History Styles */
@@ -10808,6 +10841,13 @@ button.ui-row-value:not(:disabled):hover {
   margin: 0;
   color: var(--text-color);
   word-break: break-all;
+}
+
+/* Aligned numerals. Anything that sits in a column of numbers — balances,
+   amounts, prices — so digits line up instead of drifting with their widths.
+   Proportional digits are for prose; a column of them is a table. */
+.ui-num {
+  font-variant-numeric: tabular-nums;
 }
 
 /* --- small shared bits --------------------------------------------------- */

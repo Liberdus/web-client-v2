@@ -2341,12 +2341,18 @@ class WalletScreen {
         const assetNetworthText = assetNetworth === null ? 'N/A' : `$${assetNetworth.toFixed(6)}`;
         return `
               <div class="asset-item">
-                  <div class="asset-logo"><img src="./media/liberdus_logo_50.png" class="asset-logo"></div>
+                  <!-- The wrapper is the 40px circle; the image just fills it.
+                       Both carried class="asset-logo", so the image was also
+                       being given the circle's size, radius and background. -->
+                  <div class="asset-logo"><img src="./media/liberdus_logo_50.png" alt=""></div>
                   <div class="asset-info">
                       <div class="asset-name">${asset.name}</div>
-                      <div class="asset-symbol">${assetPriceText}</div>
+                      <div class="asset-symbol ui-num">${assetPriceText}</div>
                   </div>
-                  <div class="asset-balance">${(Number(asset.balance) / Number(wei)).toFixed(6)}<br><span class="asset-symbol">${assetNetworthText}</span></div>
+                  <div class="asset-balance">
+                      <span>${(Number(asset.balance) / Number(wei)).toFixed(6)}</span>
+                      <span class="asset-symbol ui-num">${assetNetworthText}</span>
+                  </div>
               </div>
           `;
       })
