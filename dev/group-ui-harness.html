@@ -35,7 +35,7 @@
       const html = await (await fetch('../index.html')).text();
       const doc = new DOMParser().parseFromString(html, 'text/html');
       const host = document.getElementById('host');
-      for (const id of ['createGroupModal', 'groupChatModal', 'joinGroupModal', 'groupInfoModal', 'appearanceModal', 'chatModal']) {
+      for (const id of ['createGroupModal', 'groupChatModal', 'joinGroupModal', 'groupInfoModal', 'appearanceModal', 'chatModal', 'signInModal', 'createAccountModal']) {
         host.appendChild(doc.getElementById(id));
       }
 
@@ -258,6 +258,39 @@
           toll.textContent = 'free';
           toll.className = 'toll-value toll-free';
           m.classList.add('active');
+        },
+        'welcome': () => {
+          listHost.style.display = 'block';
+          const w = doc.getElementById('welcomeScreen').cloneNode(true);
+          w.className = 'welcome-screen';
+          w.innerHTML = w.innerHTML.replaceAll('./media/', '../media/');
+          w.querySelectorAll('.welcome-buttons button').forEach((b) => b.classList.remove('hidden'));
+          w.querySelector('#networkNameDisplay').textContent = 'Testnet';
+          w.querySelector('#versionDisplay').textContent = '2026.08.21.10.15';
+          listHost.innerHTML = '';
+          listHost.appendChild(w);
+        },
+        'sign in': () => {
+          listHost.style.display = 'none';
+          const m = document.getElementById('signInModal');
+          // Exactly what renderListItem produces.
+          const row = (name, opts = {}) => `
+            <li class="sign-in-account-item${opts.priv ? ' is-private' : ''}" data-username="${name}">
+              <div class="sign-in-account-card">
+                <span class="sign-in-account-avatar">${addrAvatar(REAL[opts.i || 1], 40)}</span>
+                <span class="sign-in-account-name">${name}</span>
+                ${opts.bell ? '<span class="sign-in-account-badge" aria-label="Has notifications">🔔</span>' : ''}
+              </div>
+            </li>`;
+          m.querySelector('#signInAccountList').innerHTML =
+            row('thantsintoe', { bell: true, i: 0 }) + row('brave', { i: 2 }) + row('testerarc', { i: 3 }) +
+            '<li class="sign-in-account-section" role="presentation">Private accounts</li>' +
+            row('firefox', { priv: true, i: 4 });
+          m.classList.add('active');
+        },
+        'create account': () => {
+          listHost.style.display = 'none';
+          document.getElementById('createAccountModal').classList.add('active');
         },
         'toll states': () => {
           listHost.style.display = 'block';

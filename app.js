@@ -7943,15 +7943,32 @@ class SignInModal {
 
     const renderListItem = (username) => {
       const isPrivateAccount = isPrivateMap[username];
-      const displayName = isPrivateAccount ? `- ${username}` : username;
       const privateClass = isPrivateAccount ? ' is-private' : '';
       const notificationBadge = notifiedUsernameSet.has(username)
         ? '<span class="sign-in-account-badge" aria-label="Has notifications">🔔</span>'
         : '';
+      /*
+       * The avatar every other list in the app shows for this identity. Sign-in
+       * was a column of bare names, which is the hardest thing to scan and the
+       * one screen where you are picking between identities.
+       *
+       * Derived from the ACCOUNT ADDRESS, not from the username: an avatar
+       * that did not match the one shown after signing in would be worse than
+       * no avatar at all. Omitted entirely if the address is unknown, rather
+       * than drawn from something that would not match.
+       *
+       * The name is plain: it used to be prefixed "- " for a private account,
+       * an unexplained mark directly under a heading that already says
+       * "Private accounts". The heading says it; the hyphen said it again in
+       * a way nobody could read.
+       */
+      const address = netidAccounts.usernames[username]?.address;
+      const avatar = address ? addressAvatar(normalizeAddress(address), 40) : '';
       return `
         <li class="sign-in-account-item${privateClass}" data-username="${username}">
           <div class="sign-in-account-card">
-            <span class="sign-in-account-name">${escapeHtml(displayName)}</span>
+            <span class="sign-in-account-avatar">${avatar}</span>
+            <span class="sign-in-account-name">${escapeHtml(username)}</span>
             ${notificationBadge}
           </div>
         </li>
