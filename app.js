@@ -30315,7 +30315,10 @@ class SendAssetFormModal {
    */
   async open({ mode = 'liberdus', networkId = null, assetKey = null } = {}) {
     this.mode = mode;
-    this.networkGroup.hidden = mode !== 'evm';
+    const hasFixedNetwork = mode === 'evm' && Boolean(networkId);
+    const hasFixedAsset = hasFixedNetwork && Boolean(assetKey);
+    this.networkGroup.hidden = mode !== 'evm' || hasFixedNetwork;
+    this.assetSelectDropdown.closest('.form-group').hidden = hasFixedAsset;
     this.memoGroup.hidden = mode === 'evm';
     this.memoValidation = {};
     this.memoByteCounter.textContent = '';
@@ -31526,7 +31529,10 @@ class ReceiveModal {
 
   async open({ mode = 'liberdus', networkId = null, assetKey = null } = {}) {
     this.mode = mode;
-    this.networkGroup.hidden = mode !== 'evm';
+    const hasFixedNetwork = mode === 'evm' && Boolean(networkId);
+    const hasFixedAsset = hasFixedNetwork && Boolean(assetKey);
+    this.networkGroup.hidden = mode !== 'evm' || hasFixedNetwork;
+    this.assetSelect.closest('.form-group').hidden = hasFixedAsset;
     this.memoGroup.hidden = mode === 'evm';
 
     // Clear input fields

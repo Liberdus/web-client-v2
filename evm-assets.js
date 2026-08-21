@@ -1716,10 +1716,8 @@ class EvmSendFormAdapter {
     this.amountInput = document.getElementById('sendAmount');
     this.submitButton = this.sendForm?.querySelector('button[type="submit"]');
     this.networkSelect = document.getElementById('sendNetwork');
-    this.networkGroup = document.getElementById('sendNetworkGroup');
     this.networkStatus = document.getElementById('sendNetworkStatus');
     this.assetSelectDropdown = document.getElementById('sendAsset');
-    this.assetGroup = this.assetSelectDropdown?.closest('.form-group');
     this.balanceWarning = document.getElementById('balanceWarning');
     this.usernameAvailable = document.getElementById('sendToAddressError');
     this.closeButton = document.getElementById('closeSendAssetFormModal');
@@ -1852,10 +1850,8 @@ class EvmSendFormAdapter {
     this.usernameInput.placeholder = 'Enter username or 0x wallet address';
   }
 
-  applyContext({ networkId = null, assetKey = null } = {}) {
+  applyContext() {
     this.clearRecipientLookup();
-    if (this.networkGroup) this.networkGroup.hidden = Boolean(networkId);
-    if (this.assetGroup) this.assetGroup.hidden = Boolean(networkId && assetKey);
     this.updateNetworkStatus();
     this.scheduleRefresh();
   }
@@ -1863,7 +1859,6 @@ class EvmSendFormAdapter {
   resetContext() {
     clearTimeout(this.refreshTimer);
     this.clearRecipientLookup();
-    if (this.assetGroup) this.assetGroup.hidden = false;
   }
 
   async handleSubmit(event) {
@@ -2002,33 +1997,9 @@ class EvmAssetsController {
   }
   async openContextualSend(options) {
     await this.openSend(options);
-    this.sendFormAdapter.applyContext(options);
+    this.sendFormAdapter.applyContext();
   }
-  async openContextualReceive(options) {
-    await this.openReceive(options);
-    this.applyContextualSelectors('receive', options);
-  }
-  applyContextualSelectors(prefix, { networkId = null, assetKey = null } = {}) {
-    const modal = document.getElementById(`${prefix}Modal`);
-    const networkGroup = document.getElementById(`${prefix}NetworkGroup`);
-    const assetSelect = document.getElementById(`${prefix}Asset`);
-    const assetGroup = assetSelect?.closest('.form-group');
-    if (networkGroup) networkGroup.hidden = Boolean(networkId);
-    if (assetGroup) assetGroup.hidden = Boolean(networkId && assetKey);
-    const closeButton = document.getElementById(`close${prefix[0].toUpperCase()}${prefix.slice(1)}Modal`);
-    closeButton?.addEventListener('click', () => {
-      if (assetGroup) assetGroup.hidden = false;
-    }, { once: true });
-    if (modal && assetGroup && globalThis.MutationObserver) {
-      const observer = new MutationObserver(() => {
-        if (!modal.classList.contains('active')) {
-          assetGroup.hidden = false;
-          observer.disconnect();
-        }
-      });
-      observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
-    }
-  }
+  openContextualReceive(options) { return this.openReceive(options); }
   refreshSendButtonState(form) {
     const resolution = form.getResolvedRecipient();
     const amount = form.amountInput.value.trim();
