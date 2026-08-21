@@ -178,6 +178,25 @@
           listHost.innerHTML = doc.getElementById('settingsModal').querySelector('.menu-list').outerHTML;
           listHost.style.padding = '12px';
         },
+        'app header': () => {
+          listHost.hidden = false;
+          const hdr = doc.getElementById('header').outerHTML;
+          const search = doc.getElementById('searchBarContainer').outerHTML;
+          // index.html's paths are relative to the app root, not to /dev/.
+          listHost.innerHTML = (hdr + search).replaceAll('./media/', '../media/');
+          const h = listHost.querySelector('.header');
+          h.style.display = 'flex';
+          h.style.height = '60px';
+          listHost.querySelector('.search-bar-container').style.position = 'static';
+          listHost.querySelector('#headerTitle').textContent = 'Chats';
+          listHost.querySelector('#openMyInfo').innerHTML = genAvatar(REAL[0] + '0'.repeat(24), 30);
+        },
+        'app header (private)': () => {
+          scenes['app header']();
+          const a = listHost.querySelector('#openMyInfo');
+          a.classList.add('is-private');
+          a.setAttribute('aria-label', 'Your profile (private account)');
+        },
         'tab bar': () => {
           listHost.hidden = false;
           listHost.innerHTML = doc.getElementById('footer').outerHTML;
