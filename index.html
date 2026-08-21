@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-46" />
+    <link rel="stylesheet" href="./styles.css?v=1455-49" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-52" type="module"></script>
+    <script src="./app.js?v=1455-53" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -314,22 +314,64 @@
           <div class="modal-title">Menu</div>
           <button class="sign-out-header-button" id="signOutMenuHeader" data-icon="log-out" title="Sign Out"></button>
         </div>
+        <!--
+          Grouped, not flat. Thirteen rows at one weight mixed four audiences —
+          everyday, DeFi, node operator and diagnostics — so nothing said that
+          Invite is the row almost everyone wants and Logs is the row almost
+          nobody does. Nothing moved to another screen: every id and handler is
+          where it was.
+
+          Sign Out is no longer a row. It was on this screen twice at once, as
+          the red header icon and a red row at the bottom.
+        -->
         <div class="modal-content">
-          <ul class="menu-list">
-            <li class="menu-item" id="openInvite" data-icon="mail">Invite</li>
-            <li class="menu-item" id="openAssets" data-icon="assets">EVM Assets</li>
-            <li class="menu-item" id="openFarm" data-icon="trending-up">Farm</li>
-            <li class="menu-item" id="openValidator" data-icon="shield">Validator</li>
-            <li class="menu-item" id="openDao" data-icon="dao" style="display: none;">DAO</li>
-            <li class="menu-item" id="openBridge" data-icon="arrow-right-arrow-left">Bridge</li>
-            <li class="menu-item" id="openExplorer" data-icon="search">Explorer</li>
-            <li class="menu-item" id="openMonitor" data-icon="globe">Network</li>
-            <li class="menu-item" id="openLogs" data-icon="file-text">Logs</li>
-            <li class="menu-item" id="openHelp" data-icon="github">Help</li>
-            <li class="menu-item" id="openUpdate" data-icon="smartphone" style="display: none;">Update</li>
-            <li class="menu-item" id="openAbout" data-icon="info">About</li>
-            <li class="menu-item sign-out" id="handleSignOut" data-icon="log-out">Sign Out</li>
-          </ul>
+          <nav class="ui-nav" id="menuNav">
+            <button type="button" class="ui-nav-row" id="openInvite" data-icon="mail">
+              <span class="ui-nav-key">Invite someone</span>
+            </button>
+
+            <div class="ui-nav-title">Assets</div>
+            <button type="button" class="ui-nav-row" id="openAssets" data-icon="assets">
+              <span class="ui-nav-key">EVM Assets</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openFarm" data-icon="trending-up">
+              <span class="ui-nav-key">Farm</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openBridge" data-icon="arrow-right-arrow-left">
+              <span class="ui-nav-key">Bridge</span>
+            </button>
+
+            <div class="ui-nav-title">Network</div>
+            <button type="button" class="ui-nav-row" id="openValidator" data-icon="shield">
+              <span class="ui-nav-key">Validator</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openDao" data-icon="dao" hidden>
+              <span class="ui-nav-key">DAO</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openExplorer" data-icon="search">
+              <span class="ui-nav-key">Explorer</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openMonitor" data-icon="globe">
+              <span class="ui-nav-key">Network status</span>
+            </button>
+
+            <div class="ui-nav-title">About</div>
+            <button type="button" class="ui-nav-row" id="openHelp" data-icon="github">
+              <span class="ui-nav-key">Help</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openAbout" data-icon="info">
+              <span class="ui-nav-key">About Liberdus</span>
+              <span class="ui-nav-value" id="menuVersionValue"></span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openUpdate" data-icon="smartphone" hidden>
+              <span class="ui-nav-key">Update</span>
+            </button>
+            <!-- §1.3: diagnostics are not features. Named for what it is, and
+                 last, so it reads as an escape hatch. -->
+            <button type="button" class="ui-nav-row" id="openLogs" data-icon="file-text">
+              <span class="ui-nav-key">Diagnostic logs</span>
+            </button>
+          </nav>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
@@ -690,21 +732,62 @@
           <div class="modal-title">Settings</div>
           <button class="sign-out-header-button" id="signOutSettingsHeader" data-icon="log-out" title="Sign Out"></button>
         </div>
+        <!--
+          Three groups: how the app behaves, your account, and the keys. Rows
+          that hold a setting now show it, so the screen answers "what is my
+          avatar style / is the lock on" without opening each row in turn.
+
+          "Remove" destroyed an account while styled exactly like "Calls", flush
+          under Backup. It is now last, in danger weight, behind a gap.
+          "Secret" was the private key, which is not something a label should
+          make you guess at.
+        -->
         <div class="modal-content">
-          <ul class="menu-list">
-            <li class="menu-item" id="openCallsModal" data-icon="call">Calls</li>
-            <li class="menu-item" id="openAccountForm" data-icon="user">Profile</li>
-            <li class="menu-item" id="openManageContactsModal" data-icon="contacts">Contacts</li>
-            <li class="menu-item" id="openAppearanceModal" data-icon="eye">Appearance</li>
-            <li class="menu-item" id="openChatSettingsModal" data-icon="chat">Chat</li>
-            <li class="menu-item" id="openToll" data-icon="dollar-sign">Toll</li>
-            <li class="menu-item" id="openLockModal" data-icon="lock">Lock</li>
-            <li class="menu-item" id="openSecretModal" data-icon="key">Secret</li>
-            <li class="menu-item" id="openBackupForm" data-icon="download">Backup</li>
-            <li class="menu-item" id="openRemoveAccount" data-icon="trash-2">Remove</li>
-            <li class="menu-item" id="openLaunchUrl" data-icon="launch" style="display: none;">Launch</li>
-            <li class="menu-item sign-out" id="handleSignOutSettings" data-icon="log-out">Sign Out</li>
-          </ul>
+          <nav class="ui-nav" id="settingsNav">
+            <button type="button" class="ui-nav-row" id="openAppearanceModal" data-icon="eye">
+              <span class="ui-nav-key">Appearance</span>
+              <span class="ui-nav-value" id="settingsAppearanceValue"></span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openChatSettingsModal" data-icon="chat">
+              <span class="ui-nav-key">Chat</span>
+              <span class="ui-nav-value" id="settingsChatValue"></span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openCallsModal" data-icon="call">
+              <span class="ui-nav-key">Calls</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openManageContactsModal" data-icon="contacts">
+              <span class="ui-nav-key">Contacts</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openLaunchUrl" data-icon="launch" hidden>
+              <span class="ui-nav-key">Launch</span>
+            </button>
+
+            <div class="ui-nav-title">Your account</div>
+            <button type="button" class="ui-nav-row" id="openAccountForm" data-icon="user">
+              <span class="ui-nav-key">Profile</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openToll" data-icon="dollar-sign">
+              <span class="ui-nav-key">Toll</span>
+            </button>
+
+            <div class="ui-nav-title">Keys and recovery</div>
+            <button type="button" class="ui-nav-row" id="openLockModal" data-icon="lock">
+              <span class="ui-nav-key">App lock</span>
+              <span class="ui-nav-value" id="settingsLockValue"></span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openBackupForm" data-icon="download">
+              <span class="ui-nav-key">Backup account</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openSecretModal" data-icon="key">
+              <span class="ui-nav-key">Show private key</span>
+            </button>
+
+            <div class="ui-nav-gap"></div>
+            <button type="button" class="ui-nav-row ui-nav-row--danger ui-nav-row--flat"
+                    id="openRemoveAccount" data-icon="trash-2">
+              <span class="ui-nav-key">Delete this account</span>
+            </button>
+          </nav>
         </div>
         <a class="last-item" href="#"> </a>
       </div>

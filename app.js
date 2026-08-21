@@ -720,10 +720,15 @@ function isPrivateAccount() {
  * Lock rapid menu clicks to prevent multiple clicks from triggering multiple actions
  * @param {Element} menuList - The menu list element
  */
+// `.menu-item` is still the welcome menu's row; `.ui-nav-row` is the converted
+// one. Both list kinds funnel through here, so it matches either.
+const MENU_ROW_SELECTOR = '.menu-item, .ui-nav-row';
+
 function lockRapidMenuClicks(menuList) {
+  if (!menuList) return;
   let locked = false;
   menuList.addEventListener('click', (event) => {
-    if (!event.target.closest('.menu-item')) return;
+    if (!event.target.closest(MENU_ROW_SELECTOR)) return;
     if (locked) {
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -2523,13 +2528,13 @@ class MenuModal {
 
   load() {
     this.modal = document.getElementById('menuModal');
-    lockRapidMenuClicks(this.modal.querySelector('.menu-list'));
+    lockRapidMenuClicks(this.modal.querySelector('.ui-nav'));
     this.closeButton = document.getElementById('closeMenu');
     this.closeButton.addEventListener('click', () => this.close());
     this.validatorButton = document.getElementById('openValidator');
     this.validatorButton.addEventListener('click', () => validatorModal.open());
     this.daoButton = document.getElementById('openDao');
-    this.daoButton.style.display = 'flex';
+    this.daoButton.hidden = false;
     this.daoButton.addEventListener('click', () => daoModal.open());
     this.inviteButton = document.getElementById('openInvite');
     this.inviteButton.addEventListener('click', () => inviteModal.open());
@@ -2541,10 +2546,10 @@ class MenuModal {
     this.helpButton.addEventListener('click', () => helpModal.open());
     this.aboutButton = document.getElementById('openAbout');
     this.aboutButton.addEventListener('click', () => aboutModal.open());
-    this.signOutButton = document.getElementById('handleSignOut');
+    // Sign Out is the header button only. It used to be both this and a row at
+    // the bottom of the list — the same action offered twice on one screen.
     this.signOutHeaderButton = document.getElementById('signOutMenuHeader');
-    const menuWrappedSignOut = withButtonCooldown([this.signOutButton, this.signOutHeaderButton], BUTTON_COOLDOWN_MS, null, async () => await this.handleSignOut());
-    this.signOutButton.addEventListener('click', menuWrappedSignOut);
+    const menuWrappedSignOut = withButtonCooldown([this.signOutHeaderButton], BUTTON_COOLDOWN_MS, null, async () => await this.handleSignOut());
     this.signOutHeaderButton.addEventListener('click', menuWrappedSignOut);
     this.bridgeButton = document.getElementById('openBridge');
     this.bridgeButton.addEventListener('click', () => bridgeModal.open());
@@ -2558,16 +2563,21 @@ class MenuModal {
     if (window?.ReactNativeWebView) {
       this.launchButton = document.getElementById('openLaunchUrl');
       this.launchButton.addEventListener('click', () => launchModal.open());
-      this.launchButton.style.display = 'block';
+      this.launchButton.hidden = false;
 
       this.updateButton = document.getElementById('openUpdate');
       this.updateButton.addEventListener('click', () => updateWarningModal.open());
-      this.updateButton.style.display = 'flex';
+      this.updateButton.hidden = false;
     }
   }
 
   open() {
+    // `myVersion` is this client's build. The About row carries it so the most
+    // common support question is answered without opening About.
+    const versionEl = document.getElementById('menuVersionValue');
+    if (versionEl) versionEl.textContent = myVersion || '';
     openModal(this.modal);
+    this.enableSignOutButtonWithDelay();
     enterFullscreen();
   }
 
@@ -6821,7 +6831,7 @@ class SettingsModal {
 
   load() {
     this.modal = document.getElementById('settingsModal');
-    lockRapidMenuClicks(this.modal.querySelector('.menu-list'));
+    lockRapidMenuClicks(this.modal.querySelector('.ui-nav'));
     this.closeButton = document.getElementById('closeSettings');
     this.closeButton.addEventListener('click', () => this.close());
     
@@ -6855,15 +6865,42 @@ class SettingsModal {
     this.secretButton = document.getElementById('openSecretModal');
     this.secretButton.addEventListener('click', () => secretModal.open());
     
-    this.signOutButton = document.getElementById('handleSignOutSettings');
+    // Header button only — see the note in MenuModal.load().
     this.signOutHeaderButton = document.getElementById('signOutSettingsHeader');
-    const settingsWrappedSignOut = withButtonCooldown([this.signOutButton, this.signOutHeaderButton], BUTTON_COOLDOWN_MS, null, async () => await menuModal.handleSignOut());
-    this.signOutButton.addEventListener('click', settingsWrappedSignOut);
+    const settingsWrappedSignOut = withButtonCooldown([this.signOutHeaderButton], BUTTON_COOLDOWN_MS, null, async () => await menuModal.handleSignOut());
     this.signOutHeaderButton.addEventListener('click', settingsWrappedSignOut);
+
+    this.appearanceValue = document.getElementById('settingsAppearanceValue');
+    this.chatValue = document.getElementById('settingsChatValue');
+    this.lockValue = document.getElementById('settingsLockValue');
+  }
+
+  /*
+   * The current setting, shown in its row. Only values that are local and
+   * synchronous live here — avatar style, chat font size and lock state are all
+   * read straight off localStorage, so they cannot be stale or half-loaded when
+   * the modal opens. The toll is deliberately NOT shown: it needs the network's
+   * stability factor to render as anything meaningful, and a number that is
+   * sometimes wrong is worse in a row than no number at all.
+   */
+  refreshValues() {
+    if (this.appearanceValue) {
+      const style = getAvatarStyle();
+      this.appearanceValue.textContent = style === 'identicon' ? 'Identicon' : 'Gradient';
+    }
+    if (this.chatValue) {
+      const px = Number(localStorage.getItem('chat_font_size_px')) || 16;
+      this.chatValue.textContent = px <= 14 ? 'Small' : px >= 20 ? 'Large' : 'Medium';
+    }
+    if (this.lockValue) {
+      this.lockValue.textContent = localStorage?.lock ? 'On' : 'Off';
+    }
   }
 
   open() {
+    this.refreshValues();
     openModal(this.modal);
+    this.enableSignOutButtonWithDelay();
     enterFullscreen();
   }
 
@@ -14785,8 +14822,12 @@ async function checkConnectivity() {
 
         // Wait a moment for the user to see the toast
         setTimeout(() => {
-            // Sign out the user
-            handleSignOut();
+            // Sign out the user.
+            // Was a bare `handleSignOut()`, which is not a function anywhere in
+            // this file — it only ever resolved because the <li id="handleSignOut">
+            // menu row leaked onto `window`, and calling an element throws too.
+            // So this path has always thrown; it just did it out of sight.
+            menuModal.handleSignOut();
         }, 5000);
     } else {
         console.log('Username verified successfully on reconnect');

@@ -39,8 +39,6 @@
       .n-row .ic { flex:none; width:20px; height:20px; background-repeat:no-repeat;
                    background-position:center; background-size:20px; opacity:.75 }
       .n-row .k { flex:1; min-width:0 }
-      .n-row .k small { display:block; font-size:12px; font-weight:400; color:var(--secondary-text-color);
-                        margin-top:1px }
       .n-row .v { flex:none; font-size:13.5px; color:var(--secondary-text-color) }
       .n-row::after { content:''; flex:none; width:16px; height:16px; opacity:.35;
                       background:var(--chev) center/16px no-repeat }
@@ -102,10 +100,14 @@
       // The icon is applied from JS after insertion, never interpolated into a
       // style attribute: the CSSOM returns `url("data:…")` WITH double quotes,
       // and those terminate the HTML attribute, leaving `background-image:url("")`.
-      const nRow = ([label, icon, note, value, mod]) => `
+      // No sub-labels. A two-line row centres its icon against the whole block,
+      // so the icon drops out of line with every single-line row around it —
+      // and the rows that wanted a note were the ones whose label already said
+      // it. One line per row keeps the icon column straight.
+      const nRow = ([label, icon, , value, mod]) => `
         <button class="n-row ${mod||''}">
           <span class="ic" data-icon="${icon}"></span>
-          <span class="k">${label}${note?`<small>${note}</small>`:''}</span>
+          <span class="k">${label}</span>
           ${value?`<span class="v">${value}</span>`:''}
         </button>`;
 
@@ -124,7 +126,7 @@
         ['Sign Out','log-out','sign-out']];
 
       const menuNew = [
-        ['', [['Invite someone','mail','Share a link to start a chat']]],
+        ['', [['Invite someone','mail']]],
         ['Assets', [['EVM Assets','assets'],['Farm','trending-up'],['Bridge','arrow-right-arrow-left']]],
         ['Network', [['Validator','shield'],['DAO','dao'],['Explorer','search'],['Network status','globe']]],
         ['About', [['Help','github'],['About Liberdus','info','',' 2026.08.21'],
@@ -139,8 +141,8 @@
       const setNew = [
         ['', [['Appearance','eye','','Gradient'],['Chat','chat','','Medium'],['Calls','call'],
               ['Contacts','contacts']]],
-        ['Your account', [['Profile','user','Name and links people see'],
-                          ['Toll','dollar-sign','What strangers pay to message you','1 LIB']]],
+        ['Your account', [['Profile','user'],
+                          ['Toll','dollar-sign','','1 LIB']]],
         ['Keys and recovery', [['App lock','lock','','Off'],
                                ['Backup account','download'],
                                ['Show private key','key']]],
@@ -224,8 +226,8 @@
         the stylesheet and is unused here. <b>Secret</b> is the private key — a label nobody can act on
         safely without knowing that. And rows that hold a value show none: you cannot see your toll, your
         avatar style or whether the lock is even on without opening each one.</p>
-        <p class="why">The proposal shows the value in the row, splits preferences from account from keys,
-        and puts the destructive row alone at the bottom in danger weight — separated by a gap rather than
+        <p class="why">The proposal shows the value in the row instead of a sub-label, splits preferences from
+        account from keys, and puts the destructive row alone at the bottom in danger weight — separated by a gap rather than
         sitting flush against Backup, so the tap that follows a mis-scroll is not the irreversible one.</p>
         <div class="pair">
           <div class="col"><div class="lbl"><b class="now">Now</b></div>
