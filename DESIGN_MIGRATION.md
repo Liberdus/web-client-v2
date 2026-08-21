@@ -200,20 +200,26 @@ and small in risk — a good one to hand to someone learning the system.
 
 ## 6. Two decisions to make before Wave 1
 
-### 6.1 Avatars — app-wide or group-only?
+### 6.1 Avatars — SETTLED
 
-The chat list currently shows **three** kinds of avatar side by side: uploaded
-photos, identicon patches (1:1 contacts), and gradient discs (groups). The
-identicons are the odd one out — the pattern does not reach the edges, so beside
-a filled circle they read as squares floating inside a circle.
+Resolved before Wave 1 rather than during it: **the style is the user's choice**,
+under Settings → Appearance, either gradient or identicon. Both are derived from
+the address, so both stay deterministic and need no storage per contact.
 
-Making it consistent is two lines: the `generateIdenticon` fallbacks in
-`getContactAvatarHtml` become `generateAvatar`, keeping `useAvatar: 'identicon'`
-working for anyone who explicitly chose it. `generateIdenticon` stays exported
-as the fallback either way.
+Every avatar in the app now goes through **`addressAvatar(address, size)`** in
+`lib.js`, which dispatches on the preference. `generateAvatar` and
+`generateIdenticon` remain exported, but calling them directly is reserved for
+the two option swatches on the Appearance screen, which must each show their own
+style regardless of what is selected.
 
-**Recommendation: do it, as the first commit of PR 1b.** The most visible single
-improvement available for the least code in the whole migration.
+**Rule for the rest of the migration: never call a generator directly.** A new
+call site that reaches past `addressAvatar` is a screen that silently ignores
+the setting, and it will only be noticed by whoever picked the non-default.
+
+The preference is device-level (`localStorage`, key `avatar_style`), applied at
+boot before any list renders. A per-contact `useAvatar: 'identicon'` still means
+"use the generated avatar rather than their photo" — it now renders in whichever
+style is chosen, which is what that setting always meant.
 
 ### 6.2 How far does 1:1 chat converge with group chat?
 

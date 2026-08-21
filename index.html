@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-23" />
+    <link rel="stylesheet" href="./styles.css?v=1455-24" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-34" type="module"></script>
+    <script src="./app.js?v=1455-36" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -675,6 +675,7 @@
             <li class="menu-item" id="openCallsModal" data-icon="call">Calls</li>
             <li class="menu-item" id="openAccountForm" data-icon="user">Profile</li>
             <li class="menu-item" id="openManageContactsModal" data-icon="contacts">Contacts</li>
+            <li class="menu-item" id="openAppearanceModal" data-icon="eye">Appearance</li>
             <li class="menu-item" id="openChatSettingsModal" data-icon="chat">Chat</li>
             <li class="menu-item" id="openToll" data-icon="dollar-sign">Toll</li>
             <li class="menu-item" id="openLockModal" data-icon="lock">Lock</li>
@@ -727,6 +728,60 @@
               <div class="form-actions chat-settings-actions">
                 <button type="button" id="saveChatSettingsButton" class="btn btn--primary btn--pill btn--full">Save Changes</button>
               </div>
+            </div>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Appearance Modal -->
+      <div class="modal fixed-header" id="appearanceModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeAppearanceModal"></button>
+          <div class="modal-title">Appearance</div>
+        </div>
+        <div class="modal-content">
+          <div class="form--narrow">
+            <div class="ui-section-title">Avatar style</div>
+            <!--
+              Applies to anyone without an uploaded photo, and to groups. A
+              display preference only: it changes what this device shows and is
+              never published, so it lives in localStorage beside the chat font
+              size rather than on the account.
+            -->
+            <ul class="ui-list" id="avatarStyleOptions">
+              <li class="ui-list-row ui-list-pick">
+                <label>
+                  <input type="radio" name="avatarStyle" value="gradient" />
+                  <span class="ui-list-avatar" id="avatarStyleSwatchGradient"></span>
+                  <span class="ui-list-name">
+                    Gradient
+                    <span class="ui-list-note">A colour derived from each address</span>
+                  </span>
+                  <span class="ui-list-check" aria-hidden="true"></span>
+                </label>
+              </li>
+              <li class="ui-list-row ui-list-pick">
+                <label>
+                  <input type="radio" name="avatarStyle" value="identicon" />
+                  <span class="ui-list-avatar" id="avatarStyleSwatchIdenticon"></span>
+                  <span class="ui-list-name">
+                    Identicon
+                    <span class="ui-list-note">A pattern derived from each address</span>
+                  </span>
+                  <span class="ui-list-check" aria-hidden="true"></span>
+                </label>
+              </li>
+            </ul>
+            <p class="form-hint">
+              Only changes what you see. People who have set their own picture always show it.
+            </p>
+
+            <!-- Real contacts, so the choice is judged on actual addresses
+                 rather than on two invented swatches. -->
+            <div class="ui-block">
+              <div class="ui-section-title">Preview</div>
+              <ul class="ui-list" id="avatarStylePreview"></ul>
             </div>
           </div>
         </div>
@@ -3112,7 +3167,11 @@
                 </div>
                 <div class="avatar-option" data-value="identicon" id="avatarOptionIdenticon">
                   <div class="avatar-thumb" id="avatarThumbIdenticon"></div>
-                  <div class="avatar-option-label">Identicon</div>
+                  <!-- Not "Identicon": this option means "do not use a photo
+                       for this contact", and the generated avatar it falls back
+                       to is drawn in whichever style Settings > Appearance is
+                       set to. Naming a style here would be wrong half the time. -->
+                  <div class="avatar-option-label">No photo</div>
                 </div>
               </div>
             </div>

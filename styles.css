@@ -10442,7 +10442,8 @@ small {
 }
 /* The native box carries the state and the keyboard affordance; it is hidden
    rather than removed so the label, focus and form semantics all still work. */
-.ui-list-pick input[type='checkbox'] {
+.ui-list-pick input[type='checkbox'],
+.ui-list-pick input[type='radio'] {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -10456,6 +10457,11 @@ small {
   border: 1.5px solid var(--border-color);
   border-radius: 6px;
   background: var(--background-color);
+}
+/* A radio is a single choice from a set, so its indicator is round; a checkbox
+   is many independent choices, so its indicator stays square. */
+.ui-list-pick input[type='radio'] ~ .ui-list-check {
+  border-radius: 50%;
 }
 .ui-list-pick input:checked ~ .ui-list-check {
   border-color: var(--primary-color);

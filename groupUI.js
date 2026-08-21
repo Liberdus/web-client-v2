@@ -15,7 +15,7 @@ import * as groups from './groupManager.js';
 import { MLS_CIPHERSUITE_ID, MLS_CIPHERSUITE_NAME } from './mlsEngine.js';
 import { renderTextConversation, buildSystemMessage } from './chatRender.js';
 import {
-  generateAvatar,
+  addressAvatar,
   escapeHtml,
   longAddress,
   normalizeAddress,
@@ -197,7 +197,7 @@ function pickerRow(address, checked) {
       <li class="ui-list-row ui-list-pick">
         <label>
           <input type="checkbox" value="${address}"${checked ? ' checked' : ''} />
-          <span class="ui-list-avatar">${generateAvatar(address, 28)}</span>
+          <span class="ui-list-avatar">${addressAvatar(address, 28)}</span>
           <span class="ui-list-name">${escapeHtml(displayName(address))}</span>
           <span class="ui-list-check" aria-hidden="true"></span>
         </label>
@@ -611,7 +611,7 @@ class GroupChatModal {
           : invite
             ? 'You have been invited'
             : `${count} member${count === 1 ? '' : 's'}`;
-    this.avatar.innerHTML = generateAvatar(this.groupId, 36);
+    this.avatar.innerHTML = addressAvatar(this.groupId, 36);
 
     this.renderStatus(health);
 
@@ -662,7 +662,7 @@ class GroupChatModal {
       senderLabelFor: (item) => displayName(item.from, this.groupId),
       // Identicon from the sender's address — the same fallback the rest of the
       // app uses when a contact has no uploaded avatar.
-      senderAvatarFor: (item) => generateAvatar(item.from, 28),
+      senderAvatarFor: (item) => addressAvatar(item.from, 28),
       // The "before you joined" separator is a real item in the list, emitted
       // by sync only when history was actually skipped, so nothing is inferred
       // from the epoch here.
@@ -932,7 +932,7 @@ class JoinGroupModal {
     try {
       const info = await groups.previewGroup(groupId);
       this.groupId = groupId;
-      $('joinGroupAvatar').innerHTML = generateAvatar(groupId, 56);
+      $('joinGroupAvatar').innerHTML = addressAvatar(groupId, 56);
 
       const fee = BigInt(info.joinFee || '0');
       $('joinGroupMeta').textContent =
@@ -1072,7 +1072,7 @@ class GroupInfoModal {
     const view = this.view();
     if (!view) return;
 
-    $('groupInfoAvatar').innerHTML = generateAvatar(this.groupId, 56);
+    $('groupInfoAvatar').innerHTML = addressAvatar(this.groupId, 56);
     $('groupInfoName').textContent = view.name || 'Group';
     /*
      * Member count and nothing else. This line used to read "epoch N · created
@@ -1170,7 +1170,7 @@ class GroupInfoModal {
     for (const r of this.requests) {
       rows.push(`
         <li class="ui-list-row ui-list-row--pending">
-          <span class="ui-list-avatar">${generateAvatar(r.address, 28)}</span>
+          <span class="ui-list-avatar">${addressAvatar(r.address, 28)}</span>
           <span class="ui-list-name">
             ${escapeHtml(displayName(r.address, this.groupId))}
             <span class="ui-list-label">wants to join</span>
@@ -1186,7 +1186,7 @@ class GroupInfoModal {
       const canRemove = canManage && !isMe;
       rows.push(`
         <li class="ui-list-row">
-          <span class="ui-list-avatar">${generateAvatar(address, 28)}</span>
+          <span class="ui-list-avatar">${addressAvatar(address, 28)}</span>
           <span class="ui-list-name">${escapeHtml(isMe ? 'You' : displayName(address, this.groupId))}</span>
           ${admin ? '<span class="ui-badge ui-badge--accent">admin</span>' : ''}
           ${canRemove ? `<button class="ui-list-more" data-menu="${address}" aria-label="More">⋯</button>` : ''}

@@ -232,8 +232,8 @@ on its own container.
 | `.btn--danger-quiet` | outlined destructive — for a recovery tool, not a primary action |
 | `.form-control`, `.form-group`, `.form-label`, `.form-hint`, `.form-actions` | forms |
 | `.icon-button` | a 30×40 icon-only control |
-| `generateAvatar(address, size)` | gradient disc avatar, deterministic per address |
-| `generateIdenticon(address, size)` | the older pattern avatar — still the fallback, still used outside group screens |
+| `addressAvatar(address, size)` | **use this** — the avatar for an address, in the style the user chose |
+| `generateAvatar` / `generateIdenticon` | the two styles themselves; direct calls bypass the user's setting |
 | `showToast(msg, ms, kind)` | transient confirmation |
 
 ### 4.2 New primitives — added with the group redesign
@@ -317,10 +317,18 @@ side — so the run reads as one block. Repeating the header on every line makes
 three short replies look like three separate arrivals. Handled in
 `renderTextConversation`, which only group chat uses; 1:1 has its own renderer.
 
+**Avatars go through `addressAvatar(address, size)`, never a generator
+directly.** Settings → Appearance lets people choose gradient or identicon, and
+`addressAvatar` is what honours it. Calling `generateAvatar` or
+`generateIdenticon` directly builds a screen that silently ignores the setting.
+The only exception is the Appearance screen's own two swatches, which must each
+show their own style whatever is selected.
+
 **Avatars are circles.** `generateAvatar` fills the frame edge to edge so the
-circle reads as one. The older `generateIdenticon` paints a small pattern on
-`#f0f0f0`, which on a white page looks like a floating square — the round
-container is invisible because its background is nearly the page colour.
+circle reads as one. `generateIdenticon` paints a small pattern on `#f0f0f0`,
+which on a white page looks like a floating square — the round container is
+invisible because its background is nearly the page colour. Either way the
+container clips: an avatar must be `width: 100%` of its frame.
 
 **Destructive actions sit low and quiet**, in `--danger-color`, above the
 drawer — but never *inside* it. Leaving a group is a real product action, not a

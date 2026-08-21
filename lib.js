@@ -224,6 +224,42 @@ export function generateAvatar(address, size = 50) {
     return generateAvatarSvg(address, size);
 }
 
+/**
+ * Which style address-derived avatars are drawn in: 'gradient' or 'identicon'.
+ *
+ * A display preference, not account state — it changes only what this person
+ * sees, never what anyone else sees, so it lives in localStorage beside the
+ * chat font size rather than on chain.
+ *
+ * Held here rather than read from storage per call because avatars are
+ * generated once per row of every list in the app.
+ */
+export const AVATAR_STYLES = ['gradient', 'identicon'];
+let avatarStyle = 'gradient';
+
+export function setAvatarStyle(style) {
+    avatarStyle = AVATAR_STYLES.includes(style) ? style : 'gradient';
+    return avatarStyle;
+}
+
+export function getAvatarStyle() {
+    return avatarStyle;
+}
+
+/**
+ * The avatar for an address, in whichever style the user chose.
+ *
+ * Every fallback in the app goes through here, so the preference is honoured
+ * everywhere at once and no call site has to know the setting exists. Use this
+ * rather than generateAvatar or generateIdenticon directly, unless a specific
+ * style is genuinely required regardless of preference.
+ */
+export function addressAvatar(address, size = 50) {
+    return avatarStyle === 'identicon'
+        ? generateIdenticonSvg(address, size)
+        : generateAvatarSvg(address, size);
+}
+
 // Format timestamp to relative time
 export function formatTime(timestamp, includeTimeForOld = true) {
     if (!timestamp || timestamp == 0){ return ''}
