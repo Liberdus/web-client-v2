@@ -8402,9 +8402,9 @@ small {
   background: rgba(61, 61, 206, 0.14);
   border-radius: var(--overlay-border-radius);
   box-sizing: border-box;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   padding: 8px 12px;
   width: 100%;
 }
@@ -8418,15 +8418,16 @@ small {
   color: var(--text-color);
   cursor: pointer;
   display: inline-flex;
-  flex: 1 0 auto;
   font-family: var(--font-primary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  gap: 6px;
+  gap: 4px;
   justify-content: center;
   line-height: 1.2;
   min-height: 36px;
-  padding: 8px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 6px 4px;
   transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
   white-space: nowrap;
 }
