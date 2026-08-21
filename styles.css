@@ -4321,12 +4321,27 @@ input[type='file'].form-control::file-selector-button {
   display: block;
 }
 /* Wallet Styles */
+/* --- wallet vertical rhythm ----------------------------------------------
+   One scale, so the page has a system instead of eight arbitrary numbers:
+
+     8   inside a unit   — caption to figure to native amount
+     16  between related — the two action tiers
+     32  between blocks  — balance to actions, actions to the asset list
+     48  page entry      — the top of the screen to the balance
+
+   The entry space is deliberately the largest value on the page. The balance
+   is the reason the screen exists, and it is a short block of text: without
+   room above it, it reads as the first row of a list rather than the subject.
+
+   Before this it ran 28 / 4 / 4 / 20 / 0 / 40 / 8, with the section break
+   getting more air than the balance and the two action tiers touching.
+   ------------------------------------------------------------------------ */
 .wallet-balance {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 28px 20px 20px;
+  gap: 8px;
+  padding: 48px 20px 0;
   color: var(--text-color);
   text-align: center;
 }
@@ -4488,7 +4503,7 @@ input[type='file'].form-control::file-selector-button {
 .wallet-primary-actions {
   display: flex;
   gap: 10px;
-  padding: 4px 16px 0;
+  padding: 32px 16px 0;
 }
 .wallet-primary-action {
   flex: 1 1 0;
@@ -4532,7 +4547,7 @@ input[type='file'].form-control::file-selector-button {
   justify-content: center;
   align-items: center;
   gap: 2px;
-  padding: 14px 12px 4px;
+  padding: 16px 12px 0;
 }
 .wallet-link {
   display: inline-flex;
@@ -4698,13 +4713,15 @@ input[type='file'].form-control::file-selector-button {
   text-transform: uppercase;
   color: var(--secondary-text-color);
   text-align: left;
-  margin: 1.5rem 0 0.5rem;
-  padding-bottom: 0.5rem;
+  margin: 32px 0 0;
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--border-color);
 }
 
+/* The section label owns the gap above it; this owns only the side inset and
+   the space that keeps the last asset clear of the tab bar. */
 .wallet-assets {
-  padding: 1rem;
+  padding: 0 16px 24px;
 }
 
 .assets-portfolio {
@@ -4961,7 +4978,8 @@ input[type='file'].form-control::file-selector-button {
 .asset-item {
   display: flex;
   align-items: center;
-  padding: 1rem;
+  gap: 12px;
+  padding: 12px 0;
 }
 
 .asset-logo {
