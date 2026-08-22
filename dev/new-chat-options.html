@@ -1,0 +1,149 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>New chat</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <style>
+      body { margin:0; background:#ececed; font-family:'Inter',sans-serif; }
+      .page { max-width:1240px; margin:0 auto; padding:26px 20px 90px; }
+      h2 { font-size:15px; margin:34px 0 4px; letter-spacing:-.01em }
+      .why { font-size:12.5px; line-height:1.6; color:#65676b; margin:0 0 14px; max-width:78ch }
+      .why code { background:#e2e2e8; padding:1px 4px; border-radius:3px; font-size:.9em }
+      .why b { color:#3a3c48 }
+      .pair { display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start }
+      .col { width:340px }
+      .lbl { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#797c8c; margin-bottom:6px }
+      .lbl b.now { color:#8a2018 } .lbl b.rec { color:#1f6b2a }
+      .stage { background:#fff; border:1px solid #dcdce4; border-radius:12px; height:660px;
+               display:flex; flex-direction:column; overflow:hidden }
+      .stage .modal-header { flex:none }
+      .body { flex:1; overflow-y:auto; min-height:0 }
+
+      /* the proposal reuses shipped primitives; only the search field and the
+         section spacing are new here */
+      .nc-search { padding:14px 16px 6px }
+      .nc-list { padding:0 4px 20px }
+      .nc-list .ui-list { border:0; border-radius:0; max-height:none }
+      .nc-sec { padding:14px 16px 6px; font-size:11px; font-weight:600; text-transform:uppercase;
+                letter-spacing:.05em; color:var(--secondary-text-color); text-align:left }
+    </style>
+  </head>
+  <body>
+    <div class="page" id="page"></div>
+    <script type="module">
+      const { addressAvatar } = await import('../lib.js');
+      const page = document.getElementById('page');
+      const cs = getComputedStyle(document.documentElement);
+      const ICON = (n) => cs.getPropertyValue(`--icon-${n}`).trim();
+
+      const PEOPLE = [
+        ['Ana Ruiz', '@ana', 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678'],
+        ['Brave', '@brave', 'b7c1d2e3f405162738495a6b7c8d9e0f11223344'],
+        ['Chen Wei', '@chenwei', 'c3d4e5f6071829304a5b6c7d8e9f001122334455'],
+        ['Dmitri K', '@dmitri', 'd4e5f60718293a4b5c6d7e8f90112233445566aa'],
+      ].map(([n, h, a]) => ({ n, h, a: a.padEnd(64, '0') }));
+
+      const header = (t) => `<div class="modal-header"><button class="back-button"></button>
+        <div class="modal-title">${t}</div></div>`;
+
+      // ---------------- NOW ----------------
+      const now = `
+        ${header('New Chat')}
+        <div class="body"><div class="form-container"><div class="form--narrow">
+          <div class="form-group">
+            <label>Recipient</label>
+            <div style="display:flex;align-items:center;gap:.5rem">
+              <input class="form-control" placeholder="Enter username" style="flex:1">
+              <span class="input-append-icons">
+                <button class="icon-button" id="newChatUploadQRButton" title="Upload QR image"></button>
+                <button class="icon-button" id="newChatScanQRButton" title="Scan QR"></button>
+              </span>
+            </div>
+          </div>
+          <div class="form-actions"><button class="btn btn--primary btn--pill btn--full">Continue</button></div>
+          <div class="form-group form-group--divider"><p>Or start an encrypted group chat.</p>
+            <button class="btn btn--secondary btn--pill btn--full">New Group</button></div>
+          <div class="form-group form-group--divider"><p>Or join a group you have a link to.</p>
+            <button class="btn btn--secondary btn--pill btn--full">Join Group</button></div>
+          <div class="form-group form-group--divider"><p>Or invite contacts from your other apps.</p>
+            <button class="btn btn--secondary btn--pill btn--full">Invite</button></div>
+        </div></div></div>`;
+
+      // ---------------- PROPOSED ----------------
+      const navRow = (label, icon) => `
+        <button type="button" class="ui-nav-row" data-icon="${icon}">
+          <span class="ui-nav-key">${label}</span>
+        </button>`;
+
+      const personRow = (p) => `
+        <li class="ui-list-row">
+          <span class="ui-list-avatar">${addressAvatar(p.a, 34)}</span>
+          <span class="ui-list-name">${p.n}<span class="ui-list-note">${p.h}</span></span>
+        </li>`;
+
+      const proposed = (query) => {
+        const matches = query
+          ? PEOPLE.filter((p) => (p.n + p.h).toLowerCase().includes(query.toLowerCase()))
+          : PEOPLE;
+        const list = matches.length
+          ? matches.map(personRow).join('')
+          : `<li><button type="button" class="ui-list-action">
+               <span class="ui-list-plus" aria-hidden="true">+</span>
+               <span class="ui-list-name">Start a chat with “${query}”</span>
+             </button></li>`;
+        return `
+        ${header('New chat')}
+        <div class="body">
+          <div class="nc-search">
+            <div class="search-bar">
+              <span class="search-icon"></span>
+              <input class="search-input" placeholder="Search contacts, or type a username"
+                     value="${query || ''}" readonly />
+            </div>
+          </div>
+          <nav class="ui-nav">
+            ${navRow('New group', 'contacts')}
+            ${navRow('Join a group', 'dao')}
+            ${navRow('Invite someone', 'mail')}
+          </nav>
+          <div class="nc-sec">${query ? 'Matches' : 'Contacts'}</div>
+          <div class="nc-list"><ul class="ui-list">${list}</ul></div>
+        </div>`;
+      };
+
+      page.innerHTML = `
+        <h2>New Chat — the app already solved this one screen over</h2>
+        <p class="why"><b>There is no contact list.</b> This is New Chat, in an app with a Contacts tab, and
+        the only way to start one is to type a username from memory. Meanwhile the group-invite flow already
+        has the right control — <code>renderPicker</code> in <code>groupUI.js</code>: a search field over
+        your contacts, with an <i>“Add username”</i> row when nothing matches. New Chat never got it.</p>
+        <p class="why"><b>Three sentences that all start with "Or."</b> Each explains a button whose label
+        already says it — "Or start an encrypted group chat" above a button reading <b>New Group</b>, where
+        the only word the caption adds is "encrypted", which is true of every chat in this app. §1.6:
+        explanatory notes are a smell. Three captions, three horizontal rules and three identical grey pills
+        for three things that are not alike — create, join-by-link, and invite-people-who-are-not-here-yet.</p>
+        <p class="why">The proposal keeps every action, and changes what they look like: the three become
+        <code>ui-nav</code> rows, the primitive built for exactly this in Wave 4, and the contact list takes
+        the space the captions and pills were using. <b>Continue disappears</b> — you tap the person, the way
+        you already do everywhere else in this app. Typing a name nobody has filters to <i>“Start a chat
+        with …”</i>, which is the group picker's own fallback.</p>
+        <p class="why">Two carry-overs from the send screen: <code>#chatRecipientError</code> is the same
+        inline <code>color:#dc3545; display:none</code> that just became <code>.field-status</code>, and
+        these QR buttons are styled by a rule literally commented <i>"Match New Chat QR buttons to Send Asset
+        styles"</i> — which I have just changed, so they are now lookalikes of something that no longer
+        exists.</p>
+        <div class="pair">
+          <div class="col"><div class="lbl"><b class="now">Now</b></div><div class="stage">${now}</div></div>
+          <div class="col"><div class="lbl"><b class="rec">Proposed</b></div><div class="stage">${proposed('')}</div></div>
+          <div class="col"><div class="lbl"><b class="rec">Proposed — no match</b></div><div class="stage">${proposed('zoe')}</div></div>
+        </div>`;
+
+      for (const el of page.querySelectorAll('.ui-nav-row[data-icon]')) {
+        // assigned here: a CSSOM url("…") cannot survive an inline style attribute
+        el.style.setProperty('--ui-icon', ICON(el.dataset.icon));
+      }
+    </script>
+  </body>
+</html>

@@ -191,6 +191,41 @@
             if (el) el.textContent = text;
           }
         },
+        'new chat': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('newChatModal').querySelector('.modal-content').innerHTML;
+          listHost.style.padding = '0';
+          const names = ['Ana Ruiz', 'Brave', 'Chen Wei'];
+          listHost.querySelector('#newChatPicker').innerHTML = REAL.slice(0, 3)
+            .map((a, i) => `<li class="ui-list-row" data-address="${a}">
+                 <span class="ui-list-avatar">${addrAvatar(a, 34)}</span>
+                 <span class="ui-list-name">${names[i]}</span></li>`).join('');
+        },
+        // The row that appears when no contact matches, in each state the
+        // username lookup can leave it in.
+        'new chat: lookup': () => {
+          scenes['new chat']();
+          listHost.querySelector('#chatRecipient').value = 'zoe';
+          listHost.querySelector('#newChatListTitle').textContent = 'Matches';
+          const row = (note) => `<li><button type="button" class="ui-list-action" data-resolve="1">
+               <span class="ui-list-plus" aria-hidden="true">+</span>
+               <span class="ui-list-name">Start a chat with &ldquo;zoe&rdquo;
+                 <span class="ui-list-note">${note}</span></span>
+             </button></li>`;
+          const rowOk = `<li><button type="button" class="ui-list-action" data-resolve="1">
+               <span class="ui-list-plus" aria-hidden="true">+</span>
+               <span class="ui-list-name">Start a chat with &ldquo;zoe&rdquo;
+                 <span class="ui-list-note ui-list-note--ok">Account found</span></span>
+             </button></li>`;
+          listHost.querySelector('#newChatPicker').innerHTML =
+            row('Checking…') + rowOk + row('Could not check — tap to try anyway')
+            + `<li><button type="button" class="ui-list-action" data-resolve="1">
+                 <span class="ui-list-plus" aria-hidden="true">+</span>
+                 <span class="ui-list-name">Start a chat with &ldquo;zoe&rdquo;</span>
+               </button></li>`
+            + '<li class="ui-list-empty ui-list-empty--error">No account called &ldquo;zoe&rdquo;.</li>'
+            + '<li class="ui-list-empty">That is your own account.</li>';
+        },
         'send': () => {
           listHost.style.display = 'block';
           listHost.innerHTML = doc.getElementById('sendAssetFormModal').querySelector('.modal-content').innerHTML;
