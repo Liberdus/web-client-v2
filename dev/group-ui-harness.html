@@ -191,6 +191,30 @@
             if (el) el.textContent = text;
           }
         },
+        'history': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('historyModal').querySelector('.modal-content').innerHTML;
+          listHost.style.padding = '0';
+          const names = ['Ana Ruiz', 'Chen Wei', 'Brave', '0x9f2a…c31d', 'Validator 7'];
+          const rows = [
+            ['For lunch', '\u221225 LIB', '2:14 PM', 'out', 'Today', ''],
+            ['Failed', '\u22123.25 LIB', '11:03 AM', 'out', '', 'failed'],
+            ['Received', '+120.5 LIB', '9:02 AM', 'in', 'Yesterday', ''],
+            ['Thanks!', '+0.01 LIB', '11:47 AM', 'in', '19 August', ''],
+            ['Staked', '\u2212500 LIB', '4:20 PM', 'out', '', ''],
+          ];
+          listHost.querySelector('#transactionList').innerHTML = rows
+            .map(([sub, amt, time, dir, head, state], i) =>
+              (head ? `<div class="tx-day">${head}</div>` : '') +
+              `<button class="tx ${dir === 'in' ? 'tx--in' : ''} ${state ? 'tx--' + state : ''}" data-kind="transfer">
+                 <span class="tx-av"><span class="tx-av-img">${addrAvatar(REAL[i % REAL.length], 38)}</span>
+                   <span class="tx-dir"></span></span>
+                 <span class="tx-main"><span class="tx-who">${names[i]}</span>
+                   <span class="tx-sub">${sub}</span></span>
+                 <span class="tx-right"><span class="tx-amt">${amt}</span>
+                   <span class="tx-time">${time}</span></span>
+               </button>`).join('');
+        },
         'contact': () => {
           listHost.style.display = 'block';
           listHost.innerHTML = doc.getElementById('contactInfoModal').querySelector('.modal-content').innerHTML;
