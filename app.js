@@ -1896,7 +1896,7 @@ class ChatsScreen {
         previewHTML = truncateMessage(escapeHtml(reactionText), 50);
       } else if (typeof latestActivity.amount === 'bigint') {
         // Latest item is a payment/transfer
-        const amountStr = parseFloat(big2str(latestActivity.amount, 18)).toFixed(6);
+        const amountStr = evmAssets.formatTokenAmount(parseFloat(big2str(latestActivity.amount, 18)));
         const amountDisplay = `${amountStr} ${latestActivity.symbol || 'LIB'}`;
         const directionText = latestActivity.my ? '-' : '+';
         // Create payment preview text
@@ -2348,7 +2348,7 @@ class WalletScreen {
       if (assets.length === 1) {
         const only = assets[0];
         const amount = Number(only.balance) / Number(wei);
-        this.nativeBalance.textContent = `${amount.toFixed(6)} ${only.symbol || 'LIB'}`;
+        this.nativeBalance.textContent = `${evmAssets.formatTokenAmount(amount)} ${only.symbol || 'LIB'}`;
       } else {
         this.nativeBalance.textContent = '';
       }
@@ -2363,8 +2363,8 @@ class WalletScreen {
       .map((asset) => {
         const assetUsdPrice = getAssetUsdPrice(asset);
         const assetNetworth = calculateAssetUsdValue(asset);
-        const assetPriceText = assetUsdPrice === null ? 'N/A' : `$${assetUsdPrice.toFixed(6)} / ${asset.symbol}`;
-        const assetNetworthText = assetNetworth === null ? 'N/A' : `$${assetNetworth.toFixed(6)}`;
+        const assetPriceText = assetUsdPrice === null ? 'N/A' : `${evmAssets.formatUsd(assetUsdPrice)} / ${asset.symbol}`;
+        const assetNetworthText = assetNetworth === null ? 'N/A' : evmAssets.formatUsd(assetNetworth);
         return `
               <div class="asset-item">
                   <!-- The wrapper is the 40px circle; the image just fills it.
@@ -2376,7 +2376,7 @@ class WalletScreen {
                       <div class="asset-symbol ui-num">${assetPriceText}</div>
                   </div>
                   <div class="asset-balance">
-                      <span>${(Number(asset.balance) / Number(wei)).toFixed(6)}</span>
+                      <span>${evmAssets.formatTokenAmount(Number(asset.balance) / Number(wei))}</span>
                       <span class="asset-symbol ui-num">${assetNetworthText}</span>
                   </div>
               </div>
@@ -9591,11 +9591,13 @@ class HistoryModal {
   static formatAmount(raw) {
     const n = Math.abs(Number(raw) / Number(wei));
     if (!Number.isFinite(n)) return '0';
-    const trimmed = n.toFixed(6).replace(/\.?0+$/, '') || '0';
-    // A dust amount is not nothing. Rounding 1 wei to "0" would say the
-    // transaction moved no money, which is the one thing it definitely did.
-    if (trimmed === '0' && n > 0) return '<0.000001';
-    return trimmed;
+    /*
+     * One money formatter for the whole app. It trims to at most six fraction
+     * digits with no minimum, and falls back to exponential below a millionth —
+     * where rounding to "0" would say the transaction moved no money, which is
+     * the one thing it definitely did.
+     */
+    return evmAssets.formatTokenAmount(n);
   }
 
   updateTransactionHistory() {
@@ -17487,7 +17489,7 @@ class TollModal {
     // Check if the toll is non-zero but less than minimum
     if (newToll > 0n) {
       if (this.currentCurrency === 'LIB' && newToll < this.minToll) {
-        showToast(`Toll must be at least ${parseFloat(big2str(this.minToll, 18)).toFixed(6)} LIB or 0 LIB`, 0, 'error');
+        showToast(`Toll must be at least ${evmAssets.formatTokenAmount(parseFloat(big2str(this.minToll, 18)))} LIB, or 0`, 0, 'error');
         return;
       }
       if (this.currentCurrency === 'USD') {
@@ -17554,8 +17556,8 @@ class TollModal {
       tollValueLIB = (usdFloat / stabilityFactor).toString();
     }
 
-    const usdDisplay = parseFloat(tollValueUSD).toFixed(6);
-    const libDisplay = stabilityFactor > 0 ? parseFloat(tollValueLIB).toFixed(6) : 'N/A';
+    const usdDisplay = evmAssets.formatTokenAmount(parseFloat(tollValueUSD));
+    const libDisplay = stabilityFactor > 0 ? evmAssets.formatTokenAmount(parseFloat(tollValueLIB)) : 'N/A';
 
     // USD-only UI
     document.getElementById('tollAmountUSD').textContent = `${usdDisplay} USD (≈ ${libDisplay} LIB)`;
@@ -17584,7 +17586,7 @@ class TollModal {
     }
     const lib = usd / factor;
     this.equivalentLibDisplay.style.display = 'block';
-    this.equivalentLibDisplay.textContent = `≈ ${lib.toFixed(6)} LIB`;
+    this.equivalentLibDisplay.textContent = `≈ ${evmAssets.formatTokenAmount(lib)} LIB`;
   }
 
   /**
@@ -17660,7 +17662,7 @@ class TollModal {
     // Check minimum toll requirements
     if (this.currentCurrency === 'LIB') {
       if (newToll < this.minToll) {
-        return `Toll must be at least ${parseFloat(big2str(this.minToll, 18)).toFixed(6)} LIB or 0 LIB`;
+        return `Toll must be at least ${evmAssets.formatTokenAmount(parseFloat(big2str(this.minToll, 18)))} LIB, or 0`;
       }
     } else {
       const stabilityFactor = getStabilityFactor();
@@ -18469,7 +18471,7 @@ class ValidatorStakingModal {
       const displayNetworkStakeLib =
         stakeAmountLibBaseUnits !== null ? big2str(stakeAmountLibBaseUnits, 18).slice(0, 7) : 'N/A';
       const displayStabilityFactor = stabilityFactor ? stabilityFactor.toFixed(6) : 'N/A';
-      const displayLibUsdPrice = libUsdPrice ? '$' + libUsdPrice.toFixed(6) : 'N/A';
+      const displayLibUsdPrice = libUsdPrice ? evmAssets.formatUsd(libUsdPrice) : 'N/A';
       // stabilityStakeUsdBaseUnits is a BigInt object or null. Pass its string representation.
       const displayStabilityStakeUsd =
         stabilityStakeUsdBaseUnits !== null ? '$' + big2str(stabilityStakeUsdBaseUnits, 18).slice(0, 6) : 'N/A';
@@ -18499,7 +18501,7 @@ class ValidatorStakingModal {
         
         // userStakedBaseUnits is a BigInt object or null/undefined. Pass its string representation.
         const displayUserStakedLib = userStakedBaseUnits != null ? big2str(userStakedBaseUnits, 18).slice(0, 6) : 'N/A';
-        const displayUserStakedUsd = userStakedUsd != null ? '$' + userStakedUsd.toFixed(6) : 'N/A';
+        const displayUserStakedUsd = userStakedUsd != null ? evmAssets.formatUsd(userStakedUsd) : 'N/A';
 
         this.nomineeLabelElement.textContent = 'Nominated Validator:';
         this.nomineeValueElement.textContent = nominee;
@@ -22017,7 +22019,7 @@ class ChatModal {
       const amountNum = parseFloat(amountStr);
       const symbol = item.symbol || 'LIB';
       // Trailing zeros dropped: one coin used to render "1.000000 LIB".
-      const amountDisplay = `${amountNum.toFixed(6).replace(/\.?0+$/, '') || '0'} ${symbol}`;
+      const amountDisplay = `${evmAssets.formatTokenAmount(amountNum)} ${symbol}`;
 
       /*
        * The dollar value alongside the coin amount. The toll bar sits directly
@@ -26061,13 +26063,17 @@ class ChatModal {
     const usdValue = tollUnit === 'USD' ? tollFloat : (factorValid ? tollFloat * factor : NaN);
     const libValue = factorValid ? (usdValue / factor) : NaN;
 
+    /*
+     * Trimmed, like every other amount in the app. This bar sits directly under
+     * the payment bubbles, which read "≈ $0.08" — while this read
+     * "0.050000 USD". Same screen, same money, two formats.
+     */
     let text;
     if (isNaN(usdValue) || isNaN(libValue)) {
-      text = `${tollFloat.toFixed(6)} USD`;
+      text = `${evmAssets.formatUsd(tollFloat)}`;
     } else {
-      // text = `${usdValue.toFixed(6)} USD (≈ ${libValue.toFixed(6)} LIB)`;
-      // Only show USD in display; LIB calculations kept for potential future use
-      text = `${usdValue.toFixed(6)} USD`;
+      // LIB value still computed above; only USD is shown.
+      text = `${evmAssets.formatUsd(usdValue)}`;
     }
 
     // Calculate libWei using BigInt arithmetic to preserve precision
@@ -31817,7 +31823,7 @@ class SendAssetFormModal {
     const tollInLibWei = normalizeTollToLibWei(toll, this.tollInfo.tollUnit);
     const effectiveTollLibWei = getEffectiveTollLibWei(tollInLibWei);
     const effectiveTollUsd = parseFloat(big2str(effectiveTollLibWei, 18)) * factor;
-    const usdString = `${effectiveTollUsd.toFixed(6)} USD (≈ ${parseFloat(big2str(effectiveTollLibWei, 18)).toFixed(6)} LIB)`;
+    const usdString = `${evmAssets.formatUsd(effectiveTollUsd)} (≈ ${evmAssets.formatTokenAmount(parseFloat(big2str(effectiveTollLibWei, 18)))} LIB)`;
     /*
      * Same rule as the chat toll readout: an amount only appears when there is
      * one to pay. This said "free; 0.050000 USD (≈ 0.050000 LIB)" — the price
@@ -31965,9 +31971,7 @@ class SendAssetFormModal {
     if (feeWei !== null && assetSymbol === 'LIB') {
       const feeStr = big2str(feeWei, 18).slice(0, -16);
       sendAssetConfirmModal.confirmFee.textContent = `${feeStr} ${assetSymbol}`;
-      // toFixed(6) then trim: fixed-point avoids float notation on small
-      // amounts, and nobody wants to read "25.010000 LIB".
-      const total = (parseFloat(libAmount) + parseFloat(feeStr)).toFixed(6).replace(/\.?0+$/, '');
+      const total = evmAssets.formatTokenAmount(parseFloat(libAmount) + parseFloat(feeStr));
       sendAssetConfirmModal.confirmTotal.textContent = `${total} ${assetSymbol}`;
       feeGroup.hidden = false;
       totalGroup.hidden = false;
@@ -32247,18 +32251,17 @@ class SendAssetFormModal {
    */
   updateBalanceAndFeeDisplay(balanceInLIB, feeInLIB, isUSD, stabilityFactor) {
     /*
-     * Trimmed, and trimmed the SAME WAY for both. The callers hand these in
-     * pre-formatted at different precisions, so the line read
-     * "Available 48.750000 LIB" beside "Fee 1.25 LIB" — two number formats on
-     * one line, which makes them look like different kinds of quantity.
+     * Both through the same formatter. The callers hand these in pre-formatted
+     * at different precisions, so the line read "Available 48.750000 LIB"
+     * beside "Fee 1.25 LIB" — two number formats on one line, which makes them
+     * look like different kinds of quantity.
      */
-    const trim = (v) => String(v).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
     if (isUSD) {
-      this.balanceAmount.textContent = '$' + trim((parseFloat(balanceInLIB) * stabilityFactor).toPrecision(6));
-      this.transactionFee.textContent = '$' + trim((parseFloat(feeInLIB) * stabilityFactor).toPrecision(2));
+      this.balanceAmount.textContent = evmAssets.formatUsd(parseFloat(balanceInLIB) * stabilityFactor);
+      this.transactionFee.textContent = evmAssets.formatUsd(parseFloat(feeInLIB) * stabilityFactor);
     } else {
-      this.balanceAmount.textContent = trim(balanceInLIB) + ' LIB';
-      this.transactionFee.textContent = trim(feeInLIB) + ' LIB';
+      this.balanceAmount.textContent = evmAssets.formatTokenAmount(parseFloat(balanceInLIB)) + ' LIB';
+      this.transactionFee.textContent = evmAssets.formatTokenAmount(parseFloat(feeInLIB)) + ' LIB';
     }
   }
 
