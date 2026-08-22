@@ -1,0 +1,209 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Contact info</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <style>
+      body { margin:0; background:#ececed; font-family:'Inter',sans-serif; }
+      .page { max-width:1240px; margin:0 auto; padding:26px 20px 90px; }
+      h2 { font-size:15px; margin:34px 0 4px; letter-spacing:-.01em }
+      .why { font-size:12.5px; line-height:1.6; color:#65676b; margin:0 0 14px; max-width:78ch }
+      .why code { background:#e2e2e8; padding:1px 4px; border-radius:3px; font-size:.9em }
+      .why b { color:#3a3c48 }
+      .pair { display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start }
+      .col { width:340px }
+      .lbl { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#797c8c; margin-bottom:6px }
+      .lbl b.now { color:#8a2018 } .lbl b.rec { color:#1f6b2a }
+      .stage { background:#fff; border:1px solid #dcdce4; border-radius:12px; height:680px;
+               display:flex; flex-direction:column; overflow:hidden }
+      .stage .modal-header { flex:none }
+      .body { flex:1; overflow-y:auto; min-height:0 }
+
+      /* proposal-only scaffolding */
+      .ci-actions { display:flex; gap:10px; padding:4px 16px 0 }
+      .ci-actions .btn { flex:1 1 0; height:46px; margin:0; border-radius:23px; padding:0 20px;
+                         font-size:15px }
+      .ci-rows { padding:22px 16px 24px }
+      .ci-rows-nav { padding:16px 4px 24px }
+      .ci-rows-nav .ui-nav-row { padding-left:16px; padding-right:16px }
+      /* Notes is up to 1000 characters — a paragraph, not a value. It gets the
+         full width instead of a right-aligned slot that would truncate it. */
+      .ci-notes { display:block; width:100%; padding:11px 16px; border:0; background:none;
+                  cursor:pointer; font-family:var(--font-primary); text-align:left }
+      .ci-notes:hover { background:var(--hover-background) }
+      /* The label line carries the chevron, exactly as the rows above do — the
+         paragraph then runs full width beneath it. Without this the block is a
+         button that looks like static text. */
+      .ci-notes-head { display:flex; align-items:center; gap:12px }
+      .ci-notes-key { flex:1; font-size:var(--font-size-base); font-weight:500;
+                      color:var(--text-color) }
+      .ci-notes-head::after { content:''; flex:none; width:16px; height:16px; opacity:.35;
+                              background:var(--icon-chevron-right) center/16px no-repeat }
+      .ci-notes-text { display:block; margin-top:4px; padding-right:28px; font-size:14px;
+                       color:var(--secondary-text-color); line-height:1.45 }
+      .ci-notes-text:empty::after { content:'Add a note'; color:var(--primary-color) }
+      /* The status value, carrying the colour the corner icon was carrying alone. */
+      .ci-status { font-weight:600 }
+      .ci-status--connection { color:var(--success-color) }
+      .ci-status--tolled { color:#b07800 }
+      .ci-status--blocked { color:var(--danger-color) }
+    </style>
+  </head>
+  <body>
+    <div class="page" id="page"></div>
+    <script type="module">
+      const { addressAvatar } = await import('../lib.js');
+      const page = document.getElementById('page');
+      const A = 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678'.padEnd(64, '0');
+
+      const now = `
+        <div class="modal-header"><button class="back-button"></button>
+          <div class="modal-title">Contact Info</div>
+          <div class="header-actions">
+            <button class="icon-button chat-icon" aria-label="Open chat"></button>
+            <button class="icon-button send-money-icon" aria-label="Send money"></button>
+            <button class="icon-button add-friend-icon status-2" aria-label="Add friend"></button>
+          </div></div>
+        <div class="body"><div class="form-container"><div class="contact-info-list">
+          <div class="contact-avatar-section">
+            <div class="avatar">${addressAvatar(A, 96)}</div>
+            <div class="name">Ana Ruiz</div>
+            <div class="address-container">
+              <div class="subtitle">0x${A.slice(0, 40)}</div>
+              <button class="icon-button address-copy-button"></button>
+            </div>
+          </div>
+          <div class="contact-info-item"><div class="contact-info-label">Username</div>
+            <div class="contact-info-value">ana</div></div>
+          <div class="contact-info-item"><div class="contact-info-label">Name</div>
+            <div class="contact-info-value-container"><div class="contact-info-value">Ana Ruiz</div>
+              <button class="icon-button edit-icon"></button></div></div>
+          <div class="contact-info-item"><div class="contact-info-label">Notes</div>
+            <div class="contact-info-value-container"><div class="contact-info-value">Met at the conference</div>
+              <button class="icon-button edit-icon"></button></div></div>
+        </div></div></div>`;
+
+      /* ---------- option A: every row a ui-nav row ---------- */
+      const navRow = (label, value, cls = '', flat = false) => `
+        <button type="button" class="ui-nav-row ui-nav-row--plain${flat ? ' ui-nav-row--flat' : ''}">
+          <span class="ui-nav-key">${label}</span>
+          <span class="ui-nav-value ${cls}">${value}</span>
+        </button>`;
+
+      /* ---------- option B: notes get their own shape ---------- */
+      const notesBlock = (text) => `
+        <button type="button" class="ci-notes">
+          <span class="ci-notes-head"><span class="ci-notes-key">Notes</span></span>
+          <span class="ci-notes-text">${text}</span>
+        </button>`;
+
+      const NOTES = 'Met at the Lisbon conference in March. Runs the validator working group — good person to ask about staking. Prefers email over messages.';
+
+      const row = (label, value, cls = '', edit = false) => `
+        <div class="contact-info-item">
+          <div class="contact-info-label">${label}</div>
+          ${edit
+            ? `<div class="contact-info-value-container">
+                 <div class="contact-info-value ${cls}">${value}</div>
+                 <button class="icon-button edit-icon"></button></div>`
+            : `<div class="contact-info-value ${cls}">${value}</div>`}
+        </div>`;
+
+      const proposed = (status, variant = 'B', notes = NOTES) => {
+        const S = {
+          connection: ['Connection', 'ci-status--connection'],
+          tolled: ['Tolled', 'ci-status--tolled'],
+          blocked: ['Blocked', 'ci-status--blocked'],
+        }[status];
+        return `
+        <div class="modal-header"><button class="back-button"></button>
+          <div class="modal-title">Contact</div></div>
+        <div class="body">
+          <div class="ui-identity">
+            <div class="ui-identity-avatar">${addressAvatar(A, 88)}</div>
+            <div class="ui-identity-name">Ana Ruiz</div>
+            <div class="ui-identity-handle">@ana</div>
+            <div class="ui-identity-address"><code>0xa1b2c3d4…12345678</code>
+              <button class="icon-button address-copy-button"></button></div>
+          </div>
+          <div class="ci-actions">
+            <button class="btn btn--primary btn--pill">Message</button>
+            <button class="btn btn--secondary btn--pill">Send</button>
+          </div>
+          ${variant === 'A'
+            ? `<div class="ci-rows-nav">
+                 ${navRow('Status', `<span class="ci-status ${S[1]}">${S[0]}</span>`)}
+                 ${navRow('Name', 'Ana Ruiz')}
+                 ${navRow('Username', '@ana', '', true)}
+                 ${navRow('Notes', 'Met at the Lisbon conference in…')}
+               </div>`
+            : `<div class="ci-rows-nav">
+                 ${navRow('Status', `<span class="ci-status ${S[1]}">${S[0]}</span>`)}
+                 ${navRow('Name', 'Ana Ruiz')}
+                 ${navRow('Username', '@ana', '', true)}
+               </div>
+               ${notesBlock(notes)}`}
+        </div>`;
+      };
+
+      page.innerHTML = `
+        <h2>Contact Info — the most important fact is a 24px icon in the corner</h2>
+        <p class="why"><b>Whether you have blocked someone is not shown on this screen.</b> The status is
+        encoded — the person icon in the header turns green for Connection, amber for Tolled and red for
+        Blocked — but it is an unlabelled 24px glyph in the corner, and nobody decodes "the little person is
+        yellow" as "messages from this contact cost money".</p>
+        <p class="why">That icon's label says <b>"Add friend"</b>, but it opens a modal titled <b>Contact
+        Status</b> where you pick Connection / Tolled / Blocked. The other two header icons are the screen's
+        real actions — message this person, send them money — as a speech bubble and a bare <code>$</code>.
+        And the hero is the You screen's twin: <b>a tinted card</b> around the only content on the screen,
+        and <b>an address wrapped across two lines</b> with the copy button beside the second one.</p>
+
+        <h2>Why the Status / Name / Notes rows read oddly</h2>
+        <p class="why">Three things, all in <code>contact-info-item</code>:</p>
+        <p class="why"><b>1. The label column is pinned at 100px.</b> With a 16px gap, every value starts at
+        exactly 116px however short its label is — so "Name" leaves a 76px dead gutter before "Ana Ruiz",
+        and the values float in the middle of the row attached to nothing.<br>
+        <b>2. The label and the value never share a baseline.</b> The row is
+        <code>align-items: flex-start</code>, the label is 14px with a <code>padding-top: 2px</code> nudge,
+        the value is 16px. Two different sizes, top-aligned, hand-corrected by 2px.<br>
+        <b>3. The pencil is as far from its value as the row allows.</b> <code>flex: 1</code> on the value
+        pushes it to the right edge, so the control sits nowhere near the thing it edits.</p>
+        <p class="why"><b>The pencils go.</b> The whole row is the affordance everywhere else in this app
+        now — that is how You, Settings and Menu already work — and a row you tap does not need a second,
+        smaller target inside it saying "tap here instead".</p>
+        <p class="why">I also want to correct myself on the previous note: I cited §5.1 to leave these rows
+        alone, but §5.1 is about the <i>contacts list</i>, and about not renaming a component for its own
+        sake. It does not apply here. On this screen Status, Name and Notes are all things you <b>change</b>
+        — that is a settings row, not a readout — and the You screen, which is this screen's twin, already
+        uses <code>ui-nav-row</code> for exactly that. Using a different component here was the
+        inconsistency.</p>
+
+        <h2>Two ways to do the rows</h2>
+        <p class="why"><b>A</b> makes every row a <code>ui-nav-row</code>: label left, value right, chevron,
+        whole row tappable. Perfectly consistent — but Notes takes <b>up to 1000 characters</b>, and a
+        right-aligned value slot truncates a paragraph after about four words.</p>
+        <p class="why"><b>B — recommended.</b> Short values stay <code>ui-nav-row</code>; Notes gets the full
+        width, because 1000 characters is a paragraph and a paragraph is a different shape of content from
+        "Connection" or "Ana Ruiz". Read-only rows like Username keep the row shape but drop the chevron,
+        since they do not go anywhere.</p>
+        <p class="why"><b>Editing Notes:</b> the whole block is the button, and <b>the chevron sits on the
+        "Notes" line</b> — the same place, at the same size, as on every row above it. Tapping anywhere in
+        the block opens the notes editor. In the first draft the block really was tappable but nothing said
+        so, which made it read as static text; a control whose only affordance is that you happen to try it
+        is not a control. With no note saved yet the paragraph slot reads <b>Add a note</b> in accent, so the
+        row still says what it is for.</p>
+        <div class="pair">
+          <div class="col"><div class="lbl"><b class="now">Now</b></div><div class="stage">${now}</div></div>
+          <div class="col"><div class="lbl">A — every row a nav row</div><div class="stage">${proposed('connection','A')}</div></div>
+          <div class="col"><div class="lbl"><b class="rec">B — recommended</b></div><div class="stage">${proposed('connection','B')}</div></div>
+        </div>
+        <div class="pair" style="margin-top:22px">
+          <div class="col"><div class="lbl"><b class="rec">B — blocked</b></div><div class="stage">${proposed('blocked','B')}</div></div>
+          <div class="col"><div class="lbl"><b class="rec">B — tolled</b></div><div class="stage">${proposed('tolled','B')}</div></div>
+          <div class="col"><div class="lbl"><b class="rec">B — no note yet</b></div><div class="stage">${proposed('connection','B','')}</div></div>
+        </div>`;
+    </script>
+  </body>
+</html>
