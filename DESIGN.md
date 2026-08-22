@@ -581,6 +581,21 @@ white on white and simply absent. Reuse those tokens as `mask-image` with
 the caller. Size the mask to the whole viewBox, not to the glyph — these icons
 carry their own padding, so sizing to the visible shape renders a fragment.
 
+**A dangerous outcome must be a choice, never a default you fall into.** The
+backup screen produced an *unencrypted* copy of the account's private keys when
+both password fields were left empty — the shortest path through the screen —
+warned about only by placeholder text, which disappears the moment anyone
+types. It is now two options with the protected one selected, and the
+consequence of the other is stated in `--danger-color` rather than implied by an
+empty field.
+
+Two rules that fall out of it: **clear the input a hidden choice no longer
+uses** — a password left behind after switching to "No password" would encrypt
+a file the user has just been told is unencrypted, with a password they never
+recorded. And **when context forces the choice, disable the alternative** rather
+than silently overriding it, so the screen never displays a selection it is not
+honouring.
+
 **Never guard a destructive action with a native `confirm()` or `prompt()`.**
 This app runs inside a React Native WebView, where Android does not implement
 those dialogs unless the host wires them up — so the guard on every irreversible
