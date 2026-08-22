@@ -581,6 +581,17 @@ white on white and simply absent. Reuse those tokens as `mask-image` with
 the caller. Size the mask to the whole viewBox, not to the glyph — these icons
 carry their own padding, so sizing to the visible shape renders a fragment.
 
+**One money formatter, app-wide.** Amounts were printed with `toFixed(6)` in
+thirteen places, so the toll bar read `0.050000 USD` directly beneath a payment
+bubble reading `≈ $0.08` — same screen, same money, two formats. Everything now
+goes through `evmAssets.formatTokenAmount` / `formatUsd`, which already existed
+for connected assets: at most six fraction digits, no minimum, thousands
+separated, and exponential below a millionth rather than a rounded `0` that
+would claim nothing moved.
+
+Two sites keep six decimals on purpose, and neither is money: a GPS coordinate
+(six places is about 11cm) and the network's stability factor, which is a rate.
+
 **Never build a pattern out of text a person typed.** Restore compiled the
 user's "old string" with `new RegExp(input, 'g')` and ran it across the backup
 file — so typing `.` replaced every character in the file, destroying the thing
