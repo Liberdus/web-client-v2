@@ -7862,46 +7862,107 @@ small {
 /* Styles for Payment Messages in Chat */
 
 /* Base styles for payment header (center, monospace, gap) */
-.payment-header {
+/*
+ * Was `.payment-header`: 30px of padding top AND bottom plus an 8px margin —
+ * sixty pixels of air around one line, which is why a payment bubble was the
+ * size of a photograph (124px against 78px now). It was also
+ * `font-family: Georgia, serif`, a serif that appears nowhere else in an app
+ * set in Inter, so a payment read as if it came from another product.
+ */
+.payment-row {
   display: flex;
-  justify-content: center;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
-  margin-bottom: 8px;
-  padding: 30px 0; /* User adjusted */
-  font-family: Georgia, serif; /* Changed font family */
-  font-size: var(--font-size-sm); /* Base size for header */
-  text-align: center;
+}
+/* The same arrows the wallet and history use, as a mask so they can take a
+   colour — --icon-arrow-out is drawn stroke:#ffffff for the indigo Send
+   button and is invisible anywhere else as a background image. */
+.payment-dir {
+  position: relative;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+}
+.payment-dir::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  -webkit-mask: var(--icon-arrow-out) center / 26px no-repeat;
+  mask: var(--icon-arrow-out) center / 26px no-repeat;
+}
+.message.sent .payment-dir {
+  background: rgba(255, 255, 255, 0.18);
+}
+.message.sent .payment-dir::before {
+  background-color: rgba(255, 255, 255, 0.9);
+}
+.message.received .payment-dir {
+  background: rgba(0, 0, 0, 0.06);
+}
+.message.received .payment-dir::before {
+  background-color: var(--success-color);
+  -webkit-mask-image: var(--icon-arrow-in);
+  mask-image: var(--icon-arrow-in);
+}
+.payment-figures {
+  min-width: 0;
+}
+
+/* One declaration. This pair was written out twice, identically. */
+.payment-amount {
+  display: block;
+  /*
+   * Scales WITH the chat font-size setting rather than being flattened to it.
+   * `.messages-list .payment-amount` used to sit in the list that applies
+   * --chat-message-font-size verbatim, so the amount rendered at exactly body
+   * size — and any size chosen here would have been silently overridden by a
+   * two-class selector.
+   */
+  font-size: calc(var(--chat-message-font-size, var(--font-size-base)) * 1.2);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.payment-usd {
+  display: block;
+  margin-top: 1px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.message.sent .payment-usd {
+  color: rgba(255, 255, 255, 0.72);
+}
+.message.received .payment-usd {
+  color: var(--secondary-text-color);
 }
 
 /* Styles for the direction/amount spans within the header */
-.payment-amount,
-.payment-direction {
-  font-weight: var(--font-weight-bold); /* Keep bold */
-  font-size: var(--font-size-base); /* Keep large */
-  /* Font family inherited from .payment-header */
-}
 
 /* Base styles for payment memo (italic, top border) */
+/*
+ * No border-top: a hairline inside a bubble is another frame around something
+ * already framed, and on the indigo sent bubble a 10%-black rule was invisible
+ * anyway. Space separates it instead.
+ *
+ * No word-break: break-all either — that splits ordinary words mid-character.
+ * break-word only breaks what cannot otherwise fit.
+ */
 .payment-memo {
+  margin-top: 8px;
   font-size: var(--font-size-sm);
-  font-style: italic;
-  opacity: 0.9;
-  margin-top: 4px;
-  border-top: 1px solid rgba(0, 0, 0, 0.1); /* User changed to solid */
-  padding-top: 4px;
+  line-height: 1.35;
   white-space: normal;
   overflow: hidden;
   word-wrap: break-word;
-  word-break: break-all;
+  word-break: break-word;
+}
+.message.sent .payment-memo {
+  color: rgba(255, 255, 255, 0.92);
 }
 
 /* Make direction and amount stand out */
-.payment-amount,
-.payment-direction {
-  font-weight: var(--font-weight-bold);
-  font-size: var(--font-size-base);
-}
 
 /* Common bubble padding */
 .message.sent.payment-info,
@@ -7913,14 +7974,11 @@ small {
   box-sizing: border-box; /* Include padding/border in width */
 }
 
-/* --- Styling for elements INSIDE SENT payments --- */
-.message.sent.payment-info .payment-header {
-  color: white;
-  /* No bottom border needed */
-}
+/* --- Styling for elements INSIDE SENT payments ---
+   `.payment-header` is gone; `.message.sent` already sets the bubble's colour
+   and the amount inherits it. The memo's border-top-color went with the border. */
 .message.sent.payment-info .payment-memo {
   color: rgba(255, 255, 255, 0.9);
-  border-top-color: rgba(255, 255, 255, 0.2);
 }
 .message.sent.payment-info .payment-memo a {
   color: white;
@@ -7931,14 +7989,8 @@ small {
 }
 
 /* --- Styling for elements INSIDE RECEIVED payments --- */
-.message.received.payment-info .payment-header {
-  color: var(--text-color);
-  width: 100%; /* Keep full width */
-  /* No bottom border needed (user removed) */
-}
 .message.received.payment-info .payment-memo {
   color: var(--secondary-text-color);
-  border-top-color: rgba(0, 0, 0, 0.15);
 }
 .message.received.payment-info .payment-memo a {
   color: var(--primary-color);
@@ -10261,9 +10313,6 @@ small {
 }
 
 .messages-list .message-content,
-.messages-list .payment-header,
-.messages-list .payment-direction,
-.messages-list .payment-amount,
 .messages-list .attachment-label,
 .messages-list .call-message-text,
 .messages-list .voice-message-text,

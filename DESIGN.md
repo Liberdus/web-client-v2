@@ -581,6 +581,14 @@ white on white and simply absent. Reuse those tokens as `mask-image` with
 the caller. Size the mask to the whole viewBox, not to the glyph — these icons
 carry their own padding, so sizing to the visible shape renders a fragment.
 
+**Money gets one unit per screen, or a conversion.** The chat quoted payments
+in LIB while the toll bar directly beneath quoted USD — the same screen showing
+money in two units and converting neither. A payment bubble now carries the
+coin amount and its dollar value together, and omits the dollar line entirely
+when the network has not supplied a rate: `getStabilityFactor()` is
+`parseFloat(undefined)` before parameters load, so the unguarded version renders
+"≈ $NaN". A missing line is better than a slot with nothing true in it.
+
 **Behaviour must not key off displayed text.** History decided whether to open
 the validator screen by reading a row's `.textContent` and testing
 `.includes('stake')`, and recovered a failed payment's memo by reading it out of

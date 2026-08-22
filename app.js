@@ -8482,7 +8482,6 @@ class ContactInfoModal {
     this.statusValue = document.getElementById('contactInfoStatus');
     this.nameValue = document.getElementById('contactInfoNameValue');
     this.copyButton = document.getElementById('contactInfoCopyAddress');
-    this.usernameDiv = document.getElementById('contactInfoUsername');
     this.avatarEditButton = document.createElement('button');
     this.avatarEditButton.className = 'icon-button edit-icon avatar-edit-button avatar-edit-button-outside';
     this.avatarEditButton.setAttribute('aria-label', 'Edit photo');
@@ -8506,7 +8505,14 @@ class ContactInfoModal {
 
     // Add send money button handler
     this.sendButton.addEventListener('click', () => {
-      sendAssetFormModal.username = this.usernameDiv.textContent;
+      /*
+       * From the contact record, not from a div. This read #contactInfoUsername's
+       * textContent — a row that has been removed as redundant, and which
+       * rendered "@name" with the prefix included, so the value handed to Send
+       * carried a stray "@" even while it existed.
+       */
+      sendAssetFormModal.username =
+        myData.contacts?.[this.currentContactAddress]?.username || '';
       sendAssetFormModal.open();
     });
 
@@ -8577,7 +8583,11 @@ class ContactInfoModal {
     // same order as the You screen. Falls back to the username when no name is
     // set, so the large slot is never empty.
     this.nameDiv.textContent = hasName ? displayInfo.name : displayInfo.username || 'Unknown';
-    this.handleDiv.textContent = displayInfo.username ? `@${displayInfo.username}` : '';
+    /*
+     * The handle only earns its line when the name above it is a nickname.
+     * Otherwise the name IS the username and this printed it a second time.
+     */
+    this.handleDiv.textContent = hasName && displayInfo.username ? `@${displayInfo.username}` : '';
 
     const addressWithPrefix = displayInfo.address?.startsWith('0x')
       ? displayInfo.address
@@ -8596,8 +8606,12 @@ class ContactInfoModal {
       this.nameValue.classList.toggle('ui-nav-value--empty', !hasName);
     }
 
+    /*
+     * No Username row. The hero already carries it — as the name when there is
+     * no nickname, and as the handle when there is — so a third copy on the
+     * same screen said "bridgeeth" three times.
+     */
     const optional = [
-      ['contactInfoUsernameRow', 'contactInfoUsername', displayInfo.username, null],
       ['contactInfoLinkedinRow', 'contactInfoLinkedin', displayInfo.linkedin, (v) => `https://linkedin.com/in/${encodeURIComponent(v)}`],
       ['contactInfoXRow', 'contactInfoX', displayInfo.x, (v) => `https://x.com/${encodeURIComponent(v)}`],
     ];
@@ -8608,7 +8622,7 @@ class ContactInfoModal {
       const text = raw === null || raw === undefined || raw === '' || raw === 'Not provided' ? '' : String(raw);
       row.hidden = !text;
       if (!text) continue;
-      value.textContent = rowId === 'contactInfoUsernameRow' ? `@${text}` : text;
+      value.textContent = text;
       if (href) row.href = href(text);
     }
 
@@ -21768,16 +21782,36 @@ class ChatModal {
       // Format amount correctly using big2str
       const amountStr = big2str(item.amount, 18);
       const amountNum = parseFloat(amountStr);
-      const amountDisplay = `${amountNum.toFixed(6)} ${item.symbol || 'LIB'}`;
-      const directionText = item.my ? '-' : '+';
+      const symbol = item.symbol || 'LIB';
+      // Trailing zeros dropped: one coin used to render "1.000000 LIB".
+      const amountDisplay = `${amountNum.toFixed(6).replace(/\.?0+$/, '') || '0'} ${symbol}`;
+
+      /*
+       * The dollar value alongside the coin amount. The toll bar sits directly
+       * under these bubbles quoted in USD while the bubbles were quoted in LIB,
+       * so one screen showed money in two units and converted neither.
+       *
+       * Only for LIB, and only when the network has actually given us a
+       * stability factor: getStabilityFactor() is parseFloat(undefined) => NaN
+       * before parameters load, and "≈ $NaN" is worse than no line at all.
+       */
+      const factor = getStabilityFactor();
+      const usdDisplay =
+        symbol === 'LIB' && Number.isFinite(factor) && factor > 0
+          ? `≈ $${(amountNum * factor).toFixed(2)}`
+          : '';
+
       const messageClass = `${item.my ? 'sent' : 'received'}${continuesRun ? ' message--continues' : ''}`;
       const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
       // --- Render Payment Transaction ---
       return `
           <div class="message ${messageClass} payment-info" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
-            <div class="payment-header">
-              <span class="payment-direction">${directionText}</span>
-              <span class="payment-amount">${amountDisplay}</span>
+            <div class="payment-row">
+              <span class="payment-dir" aria-hidden="true"></span>
+              <span class="payment-figures">
+                <span class="payment-amount">${amountDisplay}</span>
+                ${usdDisplay ? `<span class="payment-usd">${usdDisplay}</span>` : ''}
+              </span>
             </div>
             ${item.message ? `<div class="payment-memo">${linkifyUrls(item.message)}</div>` : ''}
             <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
@@ -25320,7 +25354,14 @@ class ChatModal {
     const isPayment = messageEl.classList.contains('payment-info');
     const paymentMemoEl = messageEl.querySelector('.payment-memo');
     if (isPayment && !paymentMemoEl) {
-      const dir = (messageEl.querySelector('.payment-direction')?.textContent || '').trim();
+      /*
+       * The direction comes from the bubble, not from a glyph inside it. This
+       * read `.payment-direction`'s textContent — an element that no longer
+       * exists, and one that was only ever a rendering of `item.my`. With it
+       * gone `dir` was '' and the preview fell through to the bubble's entire
+       * textContent, timestamp included.
+       */
+      const dir = messageEl.classList.contains('sent') ? '\u2212' : '+';
       const amount = (messageEl.querySelector('.payment-amount')?.textContent || '').trim();
       const ts = parseInt(messageEl.dataset.messageTimestamp || '', 10);
       const dateStr = Number.isFinite(ts) ? new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
@@ -30309,8 +30350,18 @@ class NewChatModal {
     const rows = await Promise.all(
       matches.map(async (contact) => {
         const avatar = await getContactAvatarHtml(contact, 34);
-        const name = escapeHtml(getContactDisplayName(contact));
-        const handle = contact.username ? `<span class="ui-list-note">@${escapeHtml(contact.username)}</span>` : '';
+        const display = getContactDisplayName(contact);
+        const name = escapeHtml(display);
+        /*
+         * Only when it says something the name does not. getContactDisplayName
+         * falls back to the username, so without this a contact with no
+         * nickname rendered "bridgeeth" over "@bridgeeth" — the same string
+         * twice. Same rule as the 1:1 chat header.
+         */
+        const handle =
+          contact.username && contact.username !== display
+            ? `<span class="ui-list-note">@${escapeHtml(contact.username)}</span>`
+            : '';
         return `<li class="ui-list-row" data-address="${escapeHtml(normalizeAddress(contact.address))}">
             <span class="ui-list-avatar">${avatar}</span>
             <span class="ui-list-name">${name}${handle}</span>
@@ -31580,7 +31631,17 @@ class SendAssetFormModal {
     }
 
     // Get form values
-    const assetSymbol = this.assetSelectDropdown.options[this.assetSelectDropdown.selectedIndex].text;
+    /*
+     * The <option>'s TEXT is "Liberdus (LIB)" — the asset's full label, built as
+     * `${asset.name} (${asset.symbol})`. That was fine when the confirm screen
+     * had a separate "Asset" row, but the amount now carries its own unit, so
+     * it needs the ticker: "10 LIB", not "10 Liberdus (LIB)". Keeping the label
+     * here also silently defeated the `=== 'LIB'` guard on the fee and total
+     * rows, so neither ever appeared.
+     */
+    const selectedForSymbol = this.getSelectedAsset();
+    const assetSymbol =
+      selectedForSymbol?.tokenSymbol || selectedForSymbol?.walletAsset?.symbol || 'LIB';
     const amount = this.amountInput.value;
     const memo = this.memoInput.value;
     const confirmButton = sendAssetConfirmModal.confirmSendButton;
@@ -31939,12 +32000,19 @@ class SendAssetFormModal {
    * @param {number} stabilityFactor - The factor to convert between LIB and USD
    */
   updateBalanceAndFeeDisplay(balanceInLIB, feeInLIB, isUSD, stabilityFactor) {
+    /*
+     * Trimmed, and trimmed the SAME WAY for both. The callers hand these in
+     * pre-formatted at different precisions, so the line read
+     * "Available 48.750000 LIB" beside "Fee 1.25 LIB" — two number formats on
+     * one line, which makes them look like different kinds of quantity.
+     */
+    const trim = (v) => String(v).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
     if (isUSD) {
-      this.balanceAmount.textContent = '$' + (parseFloat(balanceInLIB) * stabilityFactor).toPrecision(6);
-      this.transactionFee.textContent = '$' + (parseFloat(feeInLIB) * stabilityFactor).toPrecision(2);
+      this.balanceAmount.textContent = '$' + trim((parseFloat(balanceInLIB) * stabilityFactor).toPrecision(6));
+      this.transactionFee.textContent = '$' + trim((parseFloat(feeInLIB) * stabilityFactor).toPrecision(2));
     } else {
-      this.balanceAmount.textContent = balanceInLIB + ' LIB';
-      this.transactionFee.textContent = feeInLIB + ' LIB';
+      this.balanceAmount.textContent = trim(balanceInLIB) + ' LIB';
+      this.transactionFee.textContent = trim(feeInLIB) + ' LIB';
     }
   }
 
