@@ -566,6 +566,15 @@ source order decides.
 26 data URIs to convert one screen is how a stylesheet doubles in size during a
 migration that is supposed to shrink it.
 
+**A screen must not read another screen's DOM as its data source.** The edit
+sheet took four values out of the contact screen's markup — an avatar's
+innerHTML, a username div, an address subtitle and a hidden field — and
+rebuilding that screen broke all four at once: the username gained an `@`, the
+address became truncated, and the hidden field stopped existing, which turned
+a `.textContent` into a crash. The record was in `myData` the whole time. When
+a modal needs a value another modal is showing, both should read the same
+source; scraping is a dependency nobody can see from either end.
+
 **Before designing a screen, check whether the app already solved it.** New
 Chat had no contact list — in an app with a Contacts tab — while the
 group-invite flow next door already had the exact control: a search over your

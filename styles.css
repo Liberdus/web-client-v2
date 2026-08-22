@@ -89,6 +89,9 @@
   --primary-hover: #3535b8;
   --danger-color: #dc3545;
   --success-color: #28a745;
+  /* Amber as TEXT. --secondary-warning-color is tuned as a fill and fails
+     contrast on white at body size, so status words use this instead. */
+  --status-tolled: #b07800;
   --warning-color: #ef6c00;
   --warning-tint: rgba(239, 108, 0, 0.08); /* amber background for ui-banner / pending rows */
   --warning-text: #8a4200; /* amber text that still passes contrast on --warning-tint */
@@ -6101,26 +6104,6 @@ button.about-link {
 }
 
 /* Contact Info Link Styles */
-.contact-info-link {
-  display: inline-block;
-  color: var(--primary-color);
-  text-decoration: none;
-  font-family: var(--font-primary);
-  font-size: var(--font-size-base);
-  transition: opacity 0.2s ease;
-  word-break: break-word;
-  overflow-wrap: break-word;
-  max-width: 100%;
-}
-
-.contact-info-link:hover {
-  opacity: 0.7;
-}
-
-.contact-info-link:visited {
-  color: var(--primary-color);
-}
-
 /* Contact Avatar Section */
 .contact-avatar-section {
   display: flex;
@@ -8642,13 +8625,14 @@ small {
 }
 
 /* Friend Status Color Coding */
+/* Was #e53935 here and #dc3545 on the header icon: two reds for one state. */
 .radio-option.status-0 {
-  border-left: 6px solid #e53935; /* Red for Blocked */
-  background: rgba(229, 57, 53, 0.06);
+  border-left: 6px solid var(--danger-color);
+  background: rgba(220, 53, 69, 0.06);
 }
 .radio-option.status-1 {
-  border-left: 6px solid var(--secondary-warning-color); /* Yellow for Tolled */
-  background: rgba(255, 193, 7, 0.1);
+  border-left: 6px solid var(--status-tolled);
+  background: rgba(176, 120, 0, 0.08);
 }
 .radio-option.status-2 {
   border-left: 6px solid var(--success-color); /* Green for Connection */
@@ -11718,6 +11702,111 @@ button.ui-row-value:not(:disabled):hover {
   color: var(--success-color);
 }
 .new-chat-list .ui-list-empty--error {
+  color: var(--danger-color);
+}
+
+/* --- contact ------------------------------------------------------------- */
+.contact-actions {
+  display: flex;
+  gap: 10px;
+  padding: 4px 16px 0;
+}
+.contact-actions .btn {
+  /* Stated here, not inherited: .btn--primary and .btn--secondary carry
+     different horizontal padding, and with flex-basis 0 under border-box that
+     floors each item at a different width. Same trap as the wallet pair. */
+  flex: 1 1 0;
+  height: var(--btn-height);
+  margin: 0;
+  padding: 0 20px;
+  border-radius: 24px;
+}
+.contact-rows {
+  padding: 16px 4px 0;
+}
+/* A row that only reports. No chevron, no hover, no pointer — it goes nowhere. */
+.ui-nav-row--static {
+  cursor: default;
+}
+.ui-nav-row--static:hover {
+  background: none;
+}
+
+/*
+ * Notes. Up to 1000 characters, so it is a paragraph and takes the full width;
+ * a right-aligned value slot truncates it after about four words — and squeezes
+ * its own label down to "N…", because .ui-nav-key is the flexible half.
+ */
+.contact-notes {
+  display: block;
+  width: 100%;
+  padding: 11px 16px 14px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-primary);
+  text-align: left;
+}
+.contact-notes:hover {
+  background: var(--hover-background);
+}
+/* The chevron rides the label line, level with the rows above. Without it this
+   is a button that looks like static text, and a control whose only affordance
+   is that you happen to try it is not a control. */
+.contact-notes-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.contact-notes-key {
+  flex: 1;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-color);
+}
+.contact-notes-head::after {
+  content: '';
+  flex: none;
+  width: 16px;
+  height: 16px;
+  opacity: 0.35;
+  background: var(--icon-chevron-right) center / 16px no-repeat;
+}
+.contact-notes-text {
+  display: block;
+  margin-top: 4px;
+  padding-right: 28px;
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text-color);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+/* With nothing saved the slot still says what the row is for. */
+.contact-notes-text:empty::after {
+  content: 'Add a note';
+  color: var(--primary-color);
+}
+
+/*
+ * Contact status, in words and colour.
+ *
+ * These three states had FOUR different literals between them: the header icon
+ * used #dc3545 / #e0a800 / #28a745 and the status modal's radios used #e53935 /
+ * --secondary-warning-color / --success-color. Same three facts, two palettes.
+ * One set now, and --status-tolled is a token because amber on white needs to
+ * be darker than the amber used as a fill.
+ */
+.contact-status {
+  font-weight: var(--font-weight-semibold);
+}
+.contact-status--connection {
+  color: var(--success-color);
+}
+.contact-status--tolled {
+  color: var(--status-tolled);
+}
+.contact-status--blocked {
   color: var(--danger-color);
 }
 

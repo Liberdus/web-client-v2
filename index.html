@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-62" />
+    <link rel="stylesheet" href="./styles.css?v=1455-63" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-60" type="module"></script>
+    <script src="./app.js?v=1455-62" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -2582,89 +2582,75 @@
       <div class="modal fixed-header" id="contactInfoModal">
         <div class="modal-header">
           <button class="back-button" id="closeContactInfoModal"></button>
-          <div class="modal-title">Contact Info</div>
-          <!-- Add header actions container -->
-          <div class="header-actions">
-            <button class="icon-button chat-icon" id="contactInfoChatButton" aria-label="Open chat"></button>
-            <button class="icon-button send-money-icon" id="contactInfoSendButton" aria-label="Send money"></button>
-            <button
-              class="icon-button add-friend-icon"
-              id="addFriendButtonContactInfo"
-              aria-label="Add friend"
-            ></button>
-          </div>
+          <div class="modal-title">Contact</div>
         </div>
+        <!--
+          The three header icons are gone. Two of them were this screen's real
+          actions — message, send money — as a speech bubble and a bare "$" in
+          the corner where a modal usually keeps one overflow control. They are
+          labelled buttons now.
+
+          The third said "Add friend" and opened a modal titled Contact Status,
+          where you pick Connection / Tolled / Blocked. That status is the most
+          consequential fact on this screen — it decides whether someone can
+          reach you and whether it costs them — and it was legible only as the
+          colour of a 24px person glyph. It is a row with a word in it now.
+        -->
         <div class="modal-content">
-          <div class="form-container">
-            <div class="contact-info-list">
-              <div class="contact-avatar-section">
-                <div class="avatar" id="contactInfoAvatar"></div>
-                <div class="name"></div>
-                <div class="address-container">
-                  <div id="contactInfoDisplayAddress" class="subtitle"></div>
-                  <button
-                    id="contactInfoCopyAddress"
-                    class="icon-button address-copy-button"
-                    aria-label="Copy address"
-                  ></button>
-                </div>
-              </div>
-              <!-- Template for contact info items -->
-              <template id="contactInfoItemTemplate">
-                <div class="contact-info-item">
-                  <div class="contact-info-label"></div>
-                  <div class="contact-info-value"></div>
-                </div>
-              </template>
-              <!-- Contact info fields -->
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">Username</div>
-                <div class="contact-info-value" id="contactInfoUsername"></div>
-              </div>
-              <div class="contact-info-item">
-                <div class="contact-info-label">Name</div>
-                <div class="contact-info-value-container">
-                  <div class="contact-info-value" id="contactInfoName"></div>
-                  <button class="icon-button edit-icon" id="nameEditButton" aria-label="Edit name"></button>
-                </div>
-              </div>
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">Provided Name</div>
-                <div class="contact-info-value" id="contactInfoProvidedName"></div>
-              </div>
-              <!-- Email and Phone fields hidden - may want to restore later
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">Email</div>
-                <div class="contact-info-value">
-                  <a href="#" id="contactInfoEmail" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
-                </div>
-              </div>
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">Phone</div>
-                <div class="contact-info-value" id="contactInfoPhone"></div>
-              </div>
-              -->
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">LinkedIn</div>
-                <div class="contact-info-value">
-                  <a href="#" id="contactInfoLinkedin" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
-                </div>
-              </div>
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">X-Twitter</div>
-                <div class="contact-info-value">
-                  <a href="#" id="contactInfoX" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
-                </div>
-              </div>
-              <div class="contact-info-item">
-                <div class="contact-info-label">Notes</div>
-                <div class="contact-info-value-container">
-                  <div class="contact-info-value" id="contactInfoNotes"></div>
-                  <button class="icon-button edit-icon" id="notesEditButton" aria-label="Edit notes"></button>
-                </div>
-              </div>
+          <div class="ui-identity">
+            <div class="ui-identity-avatar avatar" id="contactInfoAvatar"></div>
+            <div class="ui-identity-name" id="contactInfoName"></div>
+            <div class="ui-identity-handle" id="contactInfoHandle"></div>
+            <div class="ui-identity-address">
+              <code id="contactInfoDisplayAddress" role="button" tabindex="0" aria-label="Copy address"></code>
+              <button
+                id="contactInfoCopyAddress"
+                class="icon-button address-copy-button"
+                aria-label="Copy address"
+              ></button>
             </div>
           </div>
+
+          <div class="contact-actions">
+            <button type="button" id="contactInfoChatButton" class="btn btn--primary btn--pill">Message</button>
+            <button type="button" id="contactInfoSendButton" class="btn btn--secondary btn--pill">Send</button>
+          </div>
+
+          <nav class="ui-nav contact-rows">
+            <button type="button" class="ui-nav-row ui-nav-row--plain" id="addFriendButtonContactInfo">
+              <span class="ui-nav-key">Status</span>
+              <span class="ui-nav-value contact-status" id="contactInfoStatus"></span>
+            </button>
+            <button type="button" class="ui-nav-row ui-nav-row--plain" id="nameEditButton">
+              <span class="ui-nav-key">Name</span>
+              <span class="ui-nav-value" id="contactInfoNameValue"></span>
+            </button>
+            <!-- Read-only: it goes nowhere, so it carries no chevron. -->
+            <div class="ui-nav-row ui-nav-row--plain ui-nav-row--flat ui-nav-row--static" id="contactInfoUsernameRow" hidden>
+              <span class="ui-nav-key">Username</span>
+              <span class="ui-nav-value" id="contactInfoUsername"></span>
+            </div>
+            <a class="ui-nav-row ui-nav-row--plain" id="contactInfoLinkedinRow" href="#" target="_blank" rel="noopener noreferrer" hidden>
+              <span class="ui-nav-key">LinkedIn</span>
+              <span class="ui-nav-value" id="contactInfoLinkedin"></span>
+            </a>
+            <a class="ui-nav-row ui-nav-row--plain" id="contactInfoXRow" href="#" target="_blank" rel="noopener noreferrer" hidden>
+              <span class="ui-nav-key">X</span>
+              <span class="ui-nav-value" id="contactInfoX"></span>
+            </a>
+          </nav>
+
+          <!--
+            Notes runs to 1000 characters, so it is a paragraph and gets the full
+            width rather than a right-aligned value slot that truncates after
+            four words. The chevron sits on the label line, in the same place and
+            at the same size as on every row above — without it the block is a
+            button that reads as static text.
+          -->
+          <button type="button" class="contact-notes" id="notesEditButton">
+            <span class="contact-notes-head"><span class="contact-notes-key">Notes</span></span>
+            <span class="contact-notes-text" id="contactInfoNotes"></span>
+          </button>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
@@ -3256,7 +3242,7 @@
                   </div>
                 </div>
               </div>
-              <div class="contact-info-item" id="editContactProvidedNameContainer" style="display: none">
+              <div class="contact-info-item" id="editContactProvidedNameContainer" hidden>
                 <div class="contact-info-label">Provided Name</div>
                 <div class="contact-info-value" id="editContactProvidedName"></div>
               </div>

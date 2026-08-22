@@ -191,6 +191,39 @@
             if (el) el.textContent = text;
           }
         },
+        'contact': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('contactInfoModal').querySelector('.modal-content').innerHTML;
+          listHost.style.padding = '0';
+          listHost.querySelector('#contactInfoAvatar').insertAdjacentHTML('afterbegin', addrAvatar(REAL[0], 88));
+          listHost.querySelector('#contactInfoName').textContent = 'Ana Ruiz';
+          listHost.querySelector('#contactInfoHandle').textContent = '@ana';
+          listHost.querySelector('#contactInfoDisplayAddress').textContent = '0xa1b2c3d4…12345678';
+          listHost.querySelector('#contactInfoNameValue').textContent = 'Ana Ruiz';
+          const st = listHost.querySelector('#contactInfoStatus');
+          st.textContent = 'Connection';
+          st.className = 'ui-nav-value contact-status contact-status--connection';
+          listHost.querySelector('#contactInfoUsernameRow').hidden = false;
+          listHost.querySelector('#contactInfoUsername').textContent = '@ana';
+          listHost.querySelector('#contactInfoNotes').textContent =
+            'Met at the Lisbon conference in March. Runs the validator working group.';
+        },
+        'contact: blocked': () => {
+          scenes['contact']();
+          const st = listHost.querySelector('#contactInfoStatus');
+          st.textContent = 'Blocked';
+          st.className = 'ui-nav-value contact-status contact-status--blocked';
+        },
+        'contact: tolled, no note': () => {
+          scenes['contact']();
+          const st = listHost.querySelector('#contactInfoStatus');
+          st.textContent = 'Tolled';
+          st.className = 'ui-nav-value contact-status contact-status--tolled';
+          listHost.querySelector('#contactInfoNotes').textContent = '';
+          const n = listHost.querySelector('#contactInfoNameValue');
+          n.textContent = 'Add';
+          n.classList.add('ui-nav-value--empty');
+        },
         'new chat': () => {
           listHost.style.display = 'block';
           listHost.innerHTML = doc.getElementById('newChatModal').querySelector('.modal-content').innerHTML;

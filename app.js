@@ -8475,10 +8475,12 @@ class ContactInfoModal {
     this.chatButton = document.getElementById('contactInfoChatButton');
     this.sendButton = document.getElementById('contactInfoSendButton');
     this.addFriendButton = document.getElementById('addFriendButtonContactInfo');
-    this.avatarSection = this.modal.querySelector('.contact-avatar-section');
-    this.avatarDiv = this.avatarSection.querySelector('.avatar');
-    this.nameDiv = this.avatarSection.querySelector('.name');
+    this.avatarDiv = document.getElementById('contactInfoAvatar');
+    this.nameDiv = document.getElementById('contactInfoName');
+    this.handleDiv = document.getElementById('contactInfoHandle');
     this.subtitleDiv = document.getElementById('contactInfoDisplayAddress');
+    this.statusValue = document.getElementById('contactInfoStatus');
+    this.nameValue = document.getElementById('contactInfoNameValue');
     this.copyButton = document.getElementById('contactInfoCopyAddress');
     this.usernameDiv = document.getElementById('contactInfoUsername');
     this.avatarEditButton = document.createElement('button');
@@ -8508,7 +8510,8 @@ class ContactInfoModal {
       sendAssetFormModal.open();
     });
 
-    // Add add friend button handler
+    // Opens Contact Status (Connection / Tolled / Blocked). It was labelled
+    // "Add friend", which is neither what it does nor where it goes.
     this.addFriendButton.addEventListener('click', () => {
       if (!this.currentContactAddress) return;
       friendModal.open();
@@ -8520,11 +8523,8 @@ class ContactInfoModal {
       this.openAvatarEdit();
     });
 
-    // Notes edit button
-    this.notesEditButton.addEventListener('click', (e) => {
-      e.stopPropagation();
-      editContactModal.open('notes');
-    });
+    // The whole notes block is the button.
+    this.notesEditButton.addEventListener('click', () => editContactModal.open('notes'));
 
     // Make the avatar itself clickable
     this.avatarDiv.addEventListener('click', (e) => {
@@ -8542,91 +8542,87 @@ class ContactInfoModal {
     this.subtitleDiv.addEventListener('click', () => this.copyAddress());
   }
 
+  /**
+   * Contact status, as a word in a colour rather than the tint of a 24px glyph.
+   * @param {object|undefined} contact
+   * @returns {void}
+   */
+  setStatus(contact) {
+    if (!this.statusValue) return;
+    // 3 is a legacy value treated as a connection, the same way the contacts
+    // list groups it.
+    const friend = contact?.friend;
+    const [label, mod] =
+      friend === 0 ? ['Blocked', 'blocked']
+      : friend === 2 || friend === 3 ? ['Connection', 'connection']
+      : ['Tolled', 'tolled'];
+    this.statusValue.textContent = label;
+    this.statusValue.className = `ui-nav-value contact-status contact-status--${mod}`;
+  }
+
   // Update contact info values
   async updateContactInfo(displayInfo) {
-    const avatarHtml = await getContactAvatarHtml(displayInfo, 96);
-
-    // Update the avatar section
+    const avatarHtml = await getContactAvatarHtml(displayInfo, 88);
     this.avatarDiv.innerHTML = avatarHtml;
 
     // Re-append the avatar edit button after setting the avatar content
     if (!this.avatarDiv.contains(this.avatarEditButton)) {
       this.avatarDiv.appendChild(this.avatarEditButton);
     }
-    this.nameDiv.textContent = displayInfo.name !== 'Not Entered' ? displayInfo.name : displayInfo.username;
-    
-    // Store and display address
-    const addressWithPrefix = displayInfo.address?.startsWith('0x') ? displayInfo.address : `0x${displayInfo.address || ''}`;
+
+    const contact = displayInfo.address ? myData.contacts?.[displayInfo.address] : null;
+    const hasName = displayInfo.name && displayInfo.name !== 'Not Entered';
+
+    // The display name leads and the username is the handle beneath it — the
+    // same order as the You screen. Falls back to the username when no name is
+    // set, so the large slot is never empty.
+    this.nameDiv.textContent = hasName ? displayInfo.name : displayInfo.username || 'Unknown';
+    this.handleDiv.textContent = displayInfo.username ? `@${displayInfo.username}` : '';
+
+    const addressWithPrefix = displayInfo.address?.startsWith('0x')
+      ? displayInfo.address
+      : `0x${displayInfo.address || ''}`;
     this.fullAddress = addressWithPrefix;
-    this.subtitleDiv.textContent = addressWithPrefix;
+    // Truncated in the middle; copy still yields the whole thing.
+    this.subtitleDiv.textContent = MyInfoModal.shortAddress(addressWithPrefix);
 
-    const fields = {
-      Username: 'contactInfoUsername',
-      Name: 'contactInfoName',
-      ProvidedName: 'contactInfoProvidedName',
-      // Email and Phone fields hidden - may want to restore later
-      // Email: 'contactInfoEmail',
-      // Phone: 'contactInfoPhone',
-      LinkedIn: 'contactInfoLinkedin',
-      X: 'contactInfoX',
-    };
+    /*
+     * Name is always shown — it is the one you can set from here, and a row
+     * that vanishes when unset cannot tell you the field exists. Username and
+     * the links only appear when there is something in them.
+     */
+    if (this.nameValue) {
+      this.nameValue.textContent = hasName ? displayInfo.name : 'Add';
+      this.nameValue.classList.toggle('ui-nav-value--empty', !hasName);
+    }
 
-    Object.entries(fields).forEach(([field, elementId]) => {
-      const element = document.getElementById(elementId);
-      if (!element) return;
+    const optional = [
+      ['contactInfoUsernameRow', 'contactInfoUsername', displayInfo.username, null],
+      ['contactInfoLinkedinRow', 'contactInfoLinkedin', displayInfo.linkedin, (v) => `https://linkedin.com/in/${encodeURIComponent(v)}`],
+      ['contactInfoXRow', 'contactInfoX', displayInfo.x, (v) => `https://x.com/${encodeURIComponent(v)}`],
+    ];
+    for (const [rowId, valueId, raw, href] of optional) {
+      const row = document.getElementById(rowId);
+      const value = document.getElementById(valueId);
+      if (!row || !value) continue;
+      const text = raw === null || raw === undefined || raw === '' || raw === 'Not provided' ? '' : String(raw);
+      row.hidden = !text;
+      if (!text) continue;
+      value.textContent = rowId === 'contactInfoUsernameRow' ? `@${text}` : text;
+      if (href) row.href = href(text);
+    }
 
-      const rawValue = displayInfo[field.toLowerCase()];
-      const value = (rawValue === null || rawValue === undefined || rawValue === '') ? 'Not provided' : rawValue;
-      const isEmpty = value === 'Not provided' || value === '';
-      
-      // Get the container to show/hide (contact-info-item div)
-      const container = field === 'Email' || field === 'LinkedIn' || field === 'X' 
-        ? element.parentElement.parentElement 
-        : element.parentElement;
+    // Empty string, not "Not Entered": `.contact-notes-text:empty` is what
+    // renders the "Add a note" prompt.
+    const notesRaw = displayInfo.notes ?? contact?.notes;
+    this.notesElement.textContent = notesRaw || '';
 
-      if (isEmpty) {
-        // Hide the entire field container (including label)
-        container.style.display = 'none';
-        return;
-      }
-
-      // Show the container and set the value (use flex to maintain side-by-side layout)
-      container.style.display = 'flex';
-      
-      if (field === 'Email') {
-        element.textContent = value;
-        element.href = `mailto:${value}`;
-      } else if (field === 'LinkedIn') {
-        element.textContent = value;
-        element.href = `https://linkedin.com/in/${value}`;
-      } else if (field === 'X') {
-        element.textContent = value;
-        element.href = `https://x.com/${value}`;
-      } else {
-        element.textContent = value;
-        // Add empty class only if the stored value is actually empty
-        if (field === 'Name') {
-          const storedName = displayInfo.address && myData.contacts?.[displayInfo.address]?.name;
-          element.classList.toggle('contact-info-value--empty', value === 'Not Entered' && !storedName);
-        } else {
-          element.classList.toggle('contact-info-value--empty', value === 'Not Entered');
-        }
-      }
-    });
-
-    // Notes
-    const notesRaw = displayInfo.notes ?? (displayInfo.address && myData.contacts?.[displayInfo.address]?.notes);
-    this.notesElement.textContent = notesRaw || 'Not Entered';
-    this.notesElement.classList.toggle('contact-info-value--empty', !notesRaw);
+    this.setStatus(contact);
   }
 
   // Set up chat button functionality
   setupChatButton(displayInfo) {
-    if (displayInfo.address) {
-      this.chatButton.style.display = 'block';
-    } else {
-      this.chatButton.style.display = 'none';
-    }
+    this.chatButton.hidden = !displayInfo.address;
   }
 
   async copyAddress() {
@@ -8652,11 +8648,9 @@ class ContactInfoModal {
     await this.updateContactInfo(displayInfo);
     this.setupChatButton(displayInfo);
 
-    // Update friend button status
-    const contact = myData.contacts[displayInfo.address];
-    if (contact) {
-      friendModal.updateFriendButton(contact, 'addFriendButtonContactInfo');
-    }
+    // The status row is filled by updateContactInfo above. It used to be
+    // friendModal.updateFriendButton painting a status-N class onto a person
+    // glyph in the header, which is where the colour was the only signal.
 
     openModal(this.modal);
   }
@@ -9179,7 +9173,18 @@ class FriendModal {
    * @returns {Promise<void>}
    */
   updateFriendButton(contact, buttonId) {
+    /*
+     * On Contact, the status is no longer a tinted glyph — it is a row with a
+     * word in it. Routing through here rather than patching the three call
+     * sites keeps every existing "the status changed, repaint it" path working,
+     * including any added later.
+     */
+    if (buttonId === 'addFriendButtonContactInfo') {
+      contactInfoModal.setStatus(contact);
+      return;
+    }
     const button = document.getElementById(buttonId);
+    if (!button) return;
     // Remove all status classes
     button.classList.remove('status-0', 'status-1', 'status-2');
     // Add the current status class
@@ -9300,56 +9305,58 @@ class EditContactModal {
   }
 
   open(focusField = 'name') {
-    // Get the avatar section elements
-    const nameDiv = this.avatarSection.querySelector('.name');
-    const subtitleDiv = this.avatarSection.querySelector('.subtitle');
-
-    // Update the avatar section
-    this.avatarDiv.innerHTML = document.getElementById('contactInfoAvatar').innerHTML;
-    // update the name and subtitle
-    nameDiv.textContent = contactInfoModal.usernameDiv.textContent;
-    subtitleDiv.textContent = contactInfoModal.subtitleDiv.textContent;
-
-    // update the provided name
-    const providedNameDiv = this.providedNameContainer.querySelector('.contact-info-value');
-
-    // if the textContent is 'Not provided', set it to an empty string
-    const providedName = document.getElementById('contactInfoProvidedName').textContent;
-    if (providedName === 'Not provided' || !providedName || providedName.trim() === '') {
-      this.providedNameContainer.style.display = 'none';
-    } else {
-      providedNameDiv.textContent = providedName;
-      this.providedNameContainer.style.display = 'flex';
-    }
-
-    // Get the original name from the contact info display
-    const contactNameDisplay = document.getElementById('contactInfoName');
-    let originalName = contactNameDisplay.textContent;
-    if (originalName === 'Not Entered') {
-      originalName = '';
-    }
-
-    // Set up the input field with the original name
-    this.nameInput.value = originalName;
-
-
-    // Get the current contact info from the contact info modal
+    /*
+     * Reads myData, not the Contact screen's DOM.
+     *
+     * This used to scrape four values out of #contactInfoModal — the avatar's
+     * innerHTML, the username div, the address subtitle and a hidden
+     * #contactInfoProvidedName. Every one of those was an assumption about
+     * another screen's markup, and rebuilding that screen broke all four at
+     * once: the username div gained an "@", the address became truncated, and
+     * the provided-name element stopped existing, which made this throw.
+     *
+     * The contact record is the actual source and it is already to hand.
+     */
     this.currentContactAddress = contactInfoModal.currentContactAddress;
-    if (!this.currentContactAddress || !myData.contacts[this.currentContactAddress]) {
+    const contact = this.currentContactAddress && myData.contacts?.[this.currentContactAddress];
+    if (!contact) {
       console.error('No current contact found');
       return;
     }
 
+    const addressWithPrefix = this.currentContactAddress.startsWith('0x')
+      ? this.currentContactAddress
+      : `0x${this.currentContactAddress}`;
+
+    this.avatarDiv.innerHTML = document.getElementById('contactInfoAvatar').innerHTML;
+    const nameDiv = this.avatarSection.querySelector('.name');
+    const subtitleDiv = this.avatarSection.querySelector('.subtitle');
+    if (nameDiv) nameDiv.textContent = contact.username ? `@${contact.username}` : '';
+    if (subtitleDiv) subtitleDiv.textContent = MyInfoModal.shortAddress(addressWithPrefix);
+
+    // The name the other side published, as distinct from the one you set.
+    const providedName = contact.senderInfo?.name || '';
+    const providedNameDiv = this.providedNameContainer.querySelector('.contact-info-value');
+    if (providedName.trim()) {
+      if (providedNameDiv) providedNameDiv.textContent = providedName;
+      this.providedNameContainer.hidden = false;
+    } else {
+      this.providedNameContainer.hidden = true;
+    }
+
+    // The name YOU set for this contact, which is what this field edits.
+    this.nameInput.value = contact.name || '';
+
     // Populate notes field
-    const contactNotes = myData.contacts[this.currentContactAddress]?.notes || '';
-    this.notesInput.value = contactNotes;
+    this.notesInput.value = contact.notes || '';
 
     // Show the edit contact modal
     openModal(this.modal);
-    // Delay focus to ensure transition completes (modal transition is 300ms)
+    // Delay focus to ensure transition completes (modal transition is 300ms).
+    // preventScroll: a plain focus() scrolls the modal container sideways.
     setTimeout(() => {
       const inputToFocus = focusField === 'notes' ? this.notesInput : this.nameInput;
-      inputToFocus.focus();
+      inputToFocus.focus({ preventScroll: true });
       // Set cursor position to the end of the input content
       inputToFocus.setSelectionRange(inputToFocus.value.length, inputToFocus.value.length);
     }, 325);
