@@ -192,6 +192,26 @@
           }
         },
         // Exactly the markup renderChatMessageHTML emits for a payment.
+        // The dialog that replaced fifteen native alert/confirm/prompt calls.
+        'confirm dialog': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('uiConfirmDialog').outerHTML;
+          listHost.style.padding = '0';
+          const d = listHost.querySelector('#uiConfirmDialog');
+          d.style.position = 'relative';
+          d.style.height = '340px';
+          d.classList.add('active');
+          d.querySelector('#uiConfirmTitle').textContent = 'Remove all accounts from this device?';
+          d.querySelector('#uiConfirmBody').textContent =
+            'This deletes every account here and everything stored with them — chats, contacts and history. '
+            + 'They stay on the network, but without a backup file you cannot get back in.';
+          d.querySelector('#uiConfirmTypeGroup').hidden = false;
+          d.querySelector('#uiConfirmTypeLabel').textContent = 'Type REMOVE ALL to confirm';
+          const accept = d.querySelector('#uiConfirmAccept');
+          accept.textContent = 'Remove all accounts';
+          accept.className = 'btn btn--pill btn--danger';
+          accept.disabled = true;
+        },
         'payment bubbles': () => {
           listHost.style.display = 'none';
           const m = document.getElementById('chatModal');
