@@ -28,7 +28,7 @@ async function checkVersion() {
   //console.log('myVersion < newVersion then reload', myVersion, newVersion)
   console.log(parseInt(myVersion.replace(/\D/g, '')), parseInt(newVersion.replace(/\D/g, '')));
   if (parseInt(myVersion.replace(/\D/g, '')) != parseInt(newVersion.replace(/\D/g, ''))) {
-    alert('Updating to new version: ' + newVersion + ' ' + version);
+    await uiAlert('Updating Liberdus', `Version ${newVersion} ${version}. The app will reload.`);
     localStorage.setItem(versionKey, newVersion); // Save new version with network-specific key
     const newUrl = window.location.href.split('?')[0];
 
@@ -6455,7 +6455,12 @@ class ProposalInfoModal {
     }
 
     const decision = this.formatCommitteeChoice(this.committeeChoice);
-    if (!window.confirm(`Submit review decision: ${decision}?`)) return;
+    const reviewConfirmed = await uiConfirm({
+      title: `Submit "${decision}"?`,
+      body: 'Your review decision is recorded on the network and cannot be changed.',
+      confirmLabel: 'Submit',
+    });
+    if (!reviewConfirmed) return;
 
     this.setSubmitting(true);
     const loadingToastId = showToast('Submitting committee review...', 0, 'loading');
@@ -6639,7 +6644,12 @@ class ProposalInfoModal {
     }
 
     const confirmedSpendWei = submission.spendWei;
-    if (!window.confirm(`Submit this vote and spend ${EthNum.toStr(confirmedSpendWei)} LIB?`)) return;
+    const voteConfirmed = await uiConfirm({
+      title: 'Submit this vote?',
+      body: `It spends ${EthNum.toStr(confirmedSpendWei)} LIB, which is not returned.`,
+      confirmLabel: 'Submit vote',
+    });
+    if (!voteConfirmed) return;
 
     submission = this.getVoteSubmission(proposal);
     if (!submission.ok) {
@@ -7925,7 +7935,7 @@ class SignInModal {
    * Reset the active network sign-in username order back to registry order.
    * @returns {void}
    */
-  handleResetRecentSignInUsernames() {
+  async handleResetRecentSignInUsernames() {
     const { netid } = network;
     const accounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
     const netidAccounts = accounts.netids[netid];
@@ -7935,7 +7945,11 @@ class SignInModal {
       return;
     }
 
-    const confirmed = confirm('Reset sign-in account order?');
+    const confirmed = await uiConfirm({
+      title: 'Reset sign-in order?',
+      body: 'Accounts go back to their original order on this device.',
+      confirmLabel: 'Reset',
+    });
     if (!confirmed) {
       return;
     }
@@ -14496,6 +14510,123 @@ function buildUserListToastHtml(title, usernames) {
 }
 
 // Add this function before the ContactInfoModal class
+/*
+ * The app's own confirmation dialog, replacing native alert/confirm/prompt.
+ *
+ * Those ten calls were the guard on every destructive action in the app —
+ * removing an account, removing all accounts, restoring over your data,
+ * unstaking, voting. This app runs inside a React Native WebView, and Android's
+ * WebView does not implement them unless the host explicitly wires them up. So
+ * depending on the shell, the guard either returned null and cancelled the
+ * action forever, or was auto-answered and skipped. Neither is a confirmation.
+ *
+ * Deliberately self-contained: it reads the DOM on each call rather than
+ * caching elements in a load() step, because checkVersion() needs it during
+ * bootstrap, before the modal classes have loaded.
+ *
+ * @param {object} opts
+ * @param {string} opts.title           - what is about to happen
+ * @param {string} [opts.body]          - the consequence, plain text
+ * @param {string} [opts.confirmLabel]  - defaults to "Confirm"
+ * @param {string} [opts.cancelLabel]   - defaults to "Cancel"
+ * @param {boolean} [opts.danger]       - paint the accept button as destructive
+ * @param {string} [opts.typeToConfirm] - require this exact text before accepting
+ * @param {boolean} [opts.alert]        - one button, always resolves true
+ * @returns {Promise<boolean>}
+ */
+function uiConfirm({ title, body = '', confirmLabel, cancelLabel = 'Cancel', danger = false, typeToConfirm = '', alert: isAlert = false } = {}) {
+  const modal = document.getElementById('uiConfirmDialog');
+  // No dialog in the DOM: fall back rather than silently doing nothing. An
+  // un-guarded destructive action is worse than an ugly one.
+  if (!modal) return Promise.resolve(isAlert ? true : window.confirm(`${title}\n\n${body}`));
+
+  const titleEl = document.getElementById('uiConfirmTitle');
+  const bodyEl = document.getElementById('uiConfirmBody');
+  const typeGroup = document.getElementById('uiConfirmTypeGroup');
+  const typeLabel = document.getElementById('uiConfirmTypeLabel');
+  const typeInput = document.getElementById('uiConfirmTypeInput');
+  const accept = document.getElementById('uiConfirmAccept');
+  const cancel = document.getElementById('uiConfirmCancel');
+
+  titleEl.textContent = title || '';
+  bodyEl.textContent = body || '';
+  accept.textContent = confirmLabel || (isAlert ? 'OK' : 'Confirm');
+  cancel.textContent = cancelLabel;
+  accept.className = `btn btn--pill ${danger ? 'btn--danger' : 'btn--primary'}`;
+  modal.classList.toggle('ui-confirm--alert', isAlert);
+
+  typeGroup.hidden = !typeToConfirm;
+  typeInput.value = '';
+  if (typeToConfirm) {
+    typeLabel.textContent = `Type ${typeToConfirm} to confirm`;
+    accept.disabled = true;
+  } else {
+    accept.disabled = false;
+  }
+
+  const previouslyFocused = document.activeElement;
+
+  return new Promise((resolve) => {
+    let done = false;
+
+    const finish = (result) => {
+      if (done) return;
+      done = true;
+      modal.classList.remove('active');
+      accept.removeEventListener('click', onAccept);
+      cancel.removeEventListener('click', onCancel);
+      modal.removeEventListener('click', onBackdrop);
+      typeInput.removeEventListener('input', onType);
+      typeInput.removeEventListener('keydown', onTypeKey);
+      document.removeEventListener('keydown', onKey, true);
+      // Never leave the typed phrase behind for the next caller to inherit.
+      typeInput.value = '';
+      if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+        previouslyFocused.focus({ preventScroll: true });
+      }
+      resolve(result);
+    };
+
+    const onAccept = () => { if (!accept.disabled) finish(true); };
+    const onCancel = () => finish(false);
+    // Only the backdrop itself, not a click that started inside the box.
+    const onBackdrop = (e) => { if (e.target === modal) finish(isAlert ? true : false); };
+    const onType = () => { accept.disabled = typeInput.value.trim() !== typeToConfirm; };
+    const onTypeKey = (e) => { if (e.key === 'Enter' && !accept.disabled) { e.preventDefault(); finish(true); } };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); finish(isAlert ? true : false); }
+    };
+
+    accept.addEventListener('click', onAccept);
+    cancel.addEventListener('click', onCancel);
+    modal.addEventListener('click', onBackdrop);
+    typeInput.addEventListener('input', onType);
+    typeInput.addEventListener('keydown', onTypeKey);
+    document.addEventListener('keydown', onKey, true);
+
+    modal.classList.add('active');
+    /*
+     * Focus the typing field when there is one; otherwise Cancel, not the
+     * accept button — on a destructive dialog the safe action is the one that
+     * should be under a stray Enter.
+     */
+    setTimeout(() => {
+      const target = typeToConfirm ? typeInput : (isAlert ? accept : cancel);
+      target.focus({ preventScroll: true });
+    }, 50);
+  });
+}
+
+/**
+ * A message with a single acknowledgement. Replaces alert().
+ * @param {string} title
+ * @param {string} [body]
+ * @returns {Promise<boolean>}
+ */
+function uiAlert(title, body = '') {
+  return uiConfirm({ title, body, alert: true, confirmLabel: 'OK' });
+}
+
 function showToast(message, duration = 2000, type = 'default', isHTML = false, options = {}) {
   const toastContainer = document.getElementById('toastContainer');
   
@@ -15164,7 +15295,7 @@ class RemoveAccountModal {
     window.location.reload();
   }
 
-  removeAccount(username = null) {
+  async removeAccount(username = null) {
     // Username must be provided explicitly - when called from sign-in modal, myAccount is not yet available
     if (!username) {
       // if myAccount is available and removeAccountModal is open, use myAccount.username
@@ -15175,7 +15306,12 @@ class RemoveAccountModal {
         return;
       }
     }
-    const confirmed = confirm(`Are you sure you want to remove the account "${username}" from this device?`);
+    const confirmed = await uiConfirm({
+      title: `Remove ${username} from this device?`,
+      body: 'The account stays on the network. Without a backup file you will not be able to sign in to it again on this device.',
+      confirmLabel: 'Remove account',
+      danger: true,
+    });
     if (!confirmed) return;
     
     const { netid } = network;
@@ -15414,11 +15550,17 @@ class RemoveAccountsModal {
     }, { once: true }); // attach once, inside we attach nested listeners via event bubbling
   }
 
-  handleSubmit() {
+  async handleSubmit() {
     const checked = this.listContainer.querySelectorAll('input[type="checkbox"]:checked');
     if (checked.length === 0) return;
-    const confirmText = confirm(`Remove ${checked.length} selected account(s) from this device?`);
-    if (!confirmText) return;
+    const n = checked.length;
+    const confirmed = await uiConfirm({
+      title: n === 1 ? 'Remove 1 account from this device?' : `Remove ${n} accounts from this device?`,
+      body: 'They stay on the network. Without a backup file you will not be able to sign in to them again on this device.',
+      confirmLabel: n === 1 ? 'Remove account' : `Remove ${n} accounts`,
+      danger: true,
+    });
+    if (!confirmed) return;
     const accountsObj = parse(localStorage.getItem('accounts') || '{"netids":{}}');
     checked.forEach(cb => {
       const username = cb.dataset.username;
@@ -15436,9 +15578,22 @@ class RemoveAccountsModal {
     this.close();
   }
 
-  handleRemoveAllAccounts() {
-    const confirmText = prompt(`WARNING: All accounts and data will be permanently removed from this device.\n\nType "REMOVE ALL" to confirm:`);
-    if (confirmText !== "REMOVE ALL") {
+  async handleRemoveAllAccounts() {
+    /*
+     * Keeps the typed confirmation — this is the one action in the app that
+     * cannot be undone from inside the app — but it is now the app's own
+     * dialog. As a native prompt() it was returning null and cancelling
+     * forever on any shell that does not implement it.
+     */
+    const confirmed = await uiConfirm({
+      title: 'Remove all accounts from this device?',
+      body: 'This deletes every account here and everything stored with them — chats, contacts and history. They stay on the network, but without a backup file you cannot get back in.',
+      confirmLabel: 'Remove all accounts',
+      cancelLabel: 'Cancel',
+      danger: true,
+      typeToConfirm: 'REMOVE ALL',
+    });
+    if (!confirmed) {
       showToast('Remove all cancelled', 2000, 'warning');
       return;
     }
@@ -16976,9 +17131,20 @@ class RestoreAccountModal {
       // We first parse to jsonData so that if the parse does not work we don't destroy myData
       let backupData = parse(fileContent);
 
-      // Instead of clearing localStorage, we'll merge accounts from backup into localStorage
-      // Ask for confirmation (previous behavior warned about clearing; keep a similar warning)
-      const confirmed = confirm('⚠️ WARNING: This will import all accounts from the backup file.\n\nExisting local accounts will not be removed. If "Overwrite existing accounts" is checked, accounts with the same username and netid will be replaced.\n\nIt is recommended to backup your current data before proceeding.\n\nDo you want to continue with the restore?');
+      /*
+       * The wording follows the checkbox rather than describing both branches
+       * at once. The native version was four paragraphs covering every case,
+       * which is how a warning stops being read.
+       */
+      const overwriting = this.overwriteAccountsCheckbox?.checked;
+      const confirmed = await uiConfirm({
+        title: 'Restore accounts from this file?',
+        body: overwriting
+          ? 'Accounts in the file replace any account here with the same username on the same network. That cannot be undone from inside the app.'
+          : 'Accounts in the file are added alongside what is already on this device. Nothing here is removed.',
+        confirmLabel: 'Restore',
+        danger: Boolean(overwriting),
+      });
 
       if (!confirmed) {
         showToast('Restore cancelled by user', 2000, 'info');
@@ -18423,8 +18589,12 @@ class ValidatorStakingModal {
     }
 
     // Confirmation dialog
-    const confirmationMessage = `Are you sure you want to unstake from validator: ${nominee}?`;
-    if (window.confirm(confirmationMessage)) {
+    const confirmed = await uiConfirm({
+      title: 'Unstake from this validator?',
+      body: `Your stake with ${nominee} is returned to your balance.`,
+      confirmLabel: 'Unstake',
+    });
+    if (confirmed) {
       await this.submitUnstakeTransaction(nominee);
     }
   }
@@ -19375,7 +19545,7 @@ class ChatModal {
     );
   }
 
-  handleResetRecentReactionEmojis() {
+  async handleResetRecentReactionEmojis() {
     if (!myData?.account) {
       return;
     }
@@ -19385,7 +19555,11 @@ class ChatModal {
       return;
     }
 
-    const confirmed = confirm('Reset recent emojis to the default set?');
+    const confirmed = await uiConfirm({
+      title: 'Reset recent emojis?',
+      body: 'Your recently used emojis go back to the default set.',
+      confirmLabel: 'Reset',
+    });
     if (!confirmed) {
       return;
     }
@@ -20674,7 +20848,11 @@ class ChatModal {
 
     const contact = myData.contacts[contactAddress];
     assert(contact, `Missing contact for reclaim prompt: ${contactAddress}`);
-    const confirmed = window.confirm(`Reclaim toll from ${getContactDisplayName(contact)}?`);
+    const confirmed = await uiConfirm({
+      title: `Reclaim toll from ${getContactDisplayName(contact)}?`,
+      body: 'The toll they paid to message you is returned to your balance.',
+      confirmLabel: 'Reclaim',
+    });
     if (!confirmed) {
       return;
     }
@@ -25608,10 +25786,17 @@ class ChatModal {
    * Deletes a message locally (and potentially from network if it's a sent message)
    * @param {HTMLElement} messageEl - The message element to delete
    */
-  deleteMessage(messageEl) {
+  async deleteMessage(messageEl) {
     const { txid, messageTimestamp: timestamp } = messageEl.dataset;
     
-    if (!timestamp || !confirm('Delete this message?')) return;
+    if (!timestamp) return;
+    const confirmed = await uiConfirm({
+      title: 'Delete this message?',
+      body: 'It is removed from this device only. Other people keep their copy.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!confirmed) return;
     
     try {
       const contact = myData.contacts[this.address];
@@ -25713,7 +25898,13 @@ class ChatModal {
 
       if (this.hasRecentDeleteForAllForTarget(targetTxid)) return;
 
-      if (!confirm('Delete this message for all participants?')) return;
+      const confirmedForAll = await uiConfirm({
+        title: 'Delete for everyone?',
+        body: 'The message is removed for every participant. This cannot be undone.',
+        confirmLabel: 'Delete for everyone',
+        danger: true,
+      });
+      if (!confirmedForAll) return;
       const deleteForAllGuard = this.markRecentDeleteForAllForTarget(targetTxid);
 
       // Create and send a "delete" message
@@ -32438,7 +32629,7 @@ class SendAssetConfirmModal {
       }
 
       /* if (!response || !response.result || !response.result.success) {
-              alert('Transaction failed: ' + response.result.reason);
+              await uiAlert('Transaction failed', String(response.result.reason || ''));
               return;
           } */
 
@@ -34207,7 +34398,7 @@ class ReactNativeApp {
     if (this.isReactNativeWebView) {
       this.captureInitialViewportHeight();
 
-      window.addEventListener('message', (event) => {
+      window.addEventListener('message', async (event) => {
         try {
           const data = JSON.parse(event.data);
 
@@ -34291,7 +34482,12 @@ class ReactNativeApp {
               // console.log('🔔 You are signed in to the account that received the message');
             } else {
               // We're signed in to a different account, ask user what to do
-              const shouldSignOut = confirm('You received a message for a different account. Would you like to sign out to switch to that account?');
+              const shouldSignOut = await uiConfirm({
+                title: 'Message for another account',
+                body: 'It arrived for a different account on this device. Sign out to switch to it?',
+                confirmLabel: 'Sign out and switch',
+                cancelLabel: 'Stay signed in',
+              });
               this.saveNotificationAddress(normalizedToAddress);
               if (shouldSignOut) {
                 // Sign out and save the notification address for priority

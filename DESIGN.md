@@ -581,6 +581,25 @@ white on white and simply absent. Reuse those tokens as `mask-image` with
 the caller. Size the mask to the whole viewBox, not to the glyph — these icons
 carry their own padding, so sizing to the visible shape renders a fragment.
 
+**Never guard a destructive action with a native `confirm()` or `prompt()`.**
+This app runs inside a React Native WebView, where Android does not implement
+those dialogs unless the host wires them up — so the guard on every irreversible
+action was either returning null and cancelling forever, or being auto-answered
+and skipped, depending on the shell. Neither is a confirmation. `uiConfirm`
+(built on `.modal-dialog`) is the app's own, so it is present and identical
+everywhere.
+
+Three properties it has that a native dialog cannot:
+
+- **The safe action holds focus.** On a destructive dialog, Cancel is focused,
+  not the accept button — a stray Enter should not delete anything.
+- **The consequence is stated in the body, in the danger colour.** "Are you sure
+  you want to remove the account X?" says nothing about what is lost; "Without a
+  backup file you will not be able to sign in again on this device" does.
+- **Irreversible actions can require typing the phrase**, and the accept button
+  stays disabled until it matches exactly. The typed value is cleared on close,
+  so reopening never inherits a previous confirmation.
+
 **Money gets one unit per screen, or a conversion.** The chat quoted payments
 in LIB while the toll bar directly beneath quoted USD — the same screen showing
 money in two units and converting neither. A payment bubble now carries the

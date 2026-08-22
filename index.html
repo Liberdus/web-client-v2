@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-66" />
+    <link rel="stylesheet" href="./styles.css?v=1455-67" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-66" type="module"></script>
+    <script src="./app.js?v=1455-67" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -3598,6 +3598,43 @@
       </div>
 
       <!-- Failed Transaction Modal -->
+      <!--
+        One confirmation dialog for the whole app.
+
+        It replaces ten native alert() / confirm() / prompt() calls. This app
+        runs inside a React Native WebView, and Android's WebView does not
+        implement those dialogs unless the host wires them up — so the guard on
+        every destructive action was either silently cancelling or silently
+        being skipped, depending on the shell. This one is the app's own, so it
+        is present and identical on every platform.
+
+        Built on .modal-dialog, the same overlay the failed-transaction sheet
+        uses, rather than a second dialog system.
+      -->
+      <div class="modal modal-dialog ui-confirm" id="uiConfirmDialog">
+        <div
+          class="dialog-box-content ui-confirm-box"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="uiConfirmTitle"
+          aria-describedby="uiConfirmBody"
+        >
+          <h2 class="ui-confirm-title" id="uiConfirmTitle"></h2>
+          <div class="ui-confirm-body" id="uiConfirmBody"></div>
+          <!-- Shown only for the irreversible cases: you have to type the words. -->
+          <div class="ui-confirm-type" id="uiConfirmTypeGroup" hidden>
+            <label for="uiConfirmTypeInput" id="uiConfirmTypeLabel"></label>
+            <input type="text" id="uiConfirmTypeInput" class="form-control" autocomplete="off"
+                   autocapitalize="characters" spellcheck="false" />
+          </div>
+          <div class="ui-confirm-actions">
+            <button type="button" class="btn btn--primary btn--pill" id="uiConfirmAccept">OK</button>
+            <button type="button" class="btn btn--secondary btn--pill" id="uiConfirmCancel">Cancel</button>
+          </div>
+        </div>
+        <a class="last-item" href="#"></a>
+      </div>
+
       <div class="modal modal-dialog" id="failedTransactionModal">
         <div class="dialog-box-content">
           <div class="modal-header">

@@ -11848,6 +11848,76 @@ button.ui-row-value:not(:disabled):hover {
   font-weight: var(--font-weight-normal);
 }
 
+/* --- ui-confirm ----------------------------------------------------------
+ *
+ * The app's own confirmation, replacing ten native alert/confirm/prompt calls.
+ * Built on .modal-dialog so there is one overlay system, not two.
+ */
+.ui-confirm-box {
+  width: 100%;
+  max-width: 360px;
+  padding: 20px 18px 16px;
+  text-align: left;
+}
+.ui-confirm-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: var(--text-color);
+  text-align: left;
+}
+.ui-confirm-body {
+  margin-top: 8px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--secondary-text-color);
+  text-align: left;
+  white-space: pre-line;
+}
+/* What is about to be lost, in the colour the app reserves for exactly that. */
+.ui-confirm-body strong {
+  color: var(--danger-color);
+  font-weight: var(--font-weight-semibold);
+}
+.ui-confirm-type {
+  margin-top: 14px;
+}
+.ui-confirm-type label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 12.5px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--secondary-text-color);
+  text-align: left;
+}
+.ui-confirm-type .form-control {
+  height: 44px;
+}
+/*
+ * Stacked, with the destructive action on top and Cancel beneath it. Side by
+ * side, the two would be the same size and a mis-tap either way is equally
+ * likely; stacked, Cancel is the one under your thumb.
+ */
+.ui-confirm-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+.ui-confirm-actions .btn {
+  width: 100%;
+  height: var(--btn-height);
+  margin: 0;
+  padding: 0 20px;
+  border-radius: 24px;
+}
+/* Alert mode: one button, nothing to cancel. */
+.ui-confirm--alert .ui-confirm-actions .btn--secondary {
+  display: none;
+}
+
 /* --- small shared bits --------------------------------------------------- */
 .ui-block {
   margin-top: 24px;
