@@ -566,6 +566,29 @@ source order decides.
 26 data URIs to convert one screen is how a stylesheet doubles in size during a
 migration that is supposed to shrink it.
 
+**Before designing a screen, check whether the app already solved it.** New
+Chat had no contact list — in an app with a Contacts tab — while the
+group-invite flow next door already had the exact control: a search over your
+contacts with an *"Add username"* row when nothing matches
+(`renderPicker`, `groupUI.js`). The redesign was mostly *moving a solved
+problem*, not solving one. A screen that makes you type from memory something
+the app already knows is the smell.
+
+**A list of "or do this instead" blocks is a navigation list wearing a form's
+clothes.** New Chat had three sentences that each began with "Or", each above a
+full-width grey pill, each explaining a button whose label already said it —
+and each with its own horizontal rule. Three captions, three rules and three
+identical pills for three things that are not alike. `ui-nav` rows say the same
+thing in a third of the height, and say it in the language the rest of the app
+now uses.
+
+**Do not report connectivity on a screen that is not about connectivity.**
+The header already carries the offline indicator; a second, screen-local
+"you are offline" note is the same fact twice and dates the moment it is wrong.
+What a screen still owes you is *not asserting something it has not checked* —
+so the New Chat lookup row simply carries no verdict when there was no probe,
+rather than saying "no such account" on the strength of a check that never ran.
+
 **A status line under a field is not always an error.** The send screen's
 recipient line reports `found` and `valid address` as well as `not found` and
 `too short`. One `.field-status` element, hidden by `:empty`, with a

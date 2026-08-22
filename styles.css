@@ -2315,19 +2315,6 @@ input[type='file'].form-control::file-selector-button {
 }
 
 /* Form group with divider (for sections after form actions) */
-.form-group.form-group--divider {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border-color);
-  text-align: center;
-}
-
-.form-group.form-group--divider p {
-  margin: 0 0 1rem 0;
-  color: var(--secondary-text-color);
-  font-size: var(--font-size-sm);
-}
-
 #addProposalModal .dao-proposal-form {
   display: grid;
   gap: 10px;
@@ -7230,22 +7217,6 @@ mark {
   transition: none;
 }
 
-/* QR Code Scan Button */
-/* Match New Chat QR buttons to Send Asset styles */
-#newChatScanQRButton,
-#newChatUploadQRButton {
-  color: var(--info-color);
-}
-
-#newChatScanQRButton::before,
-#newChatUploadQRButton::before {
-  content: '';
-  width: 24px;
-  height: 24px;
-  background-color: currentColor;
-  display: block;
-}
-
 /* Adjust media query styles */
 @media (max-width: 400px), (max-height: 700px) {
   #receiveModal .qr-data-preview {
@@ -7453,29 +7424,6 @@ mark {
 /* QR Scan canvas element (kept hidden; used for frame processing) */
 #canvas {
   display: none;
-}
-
-/* ========= New Chat: QR Scan/Upload icons next to input ========= */
-.input-append-icons {
-  display: inline-flex;
-  flex-shrink: 0;
-  gap: 8px;
-  margin-left: 8px;
-  vertical-align: middle;
-}
-
-#newChatForm #chatRecipient {
-  padding-right: 0.5rem;
-}
-
-#newChatScanQRButton::before {
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M3,3 L10,3 L10,10 L3,10 Z M5,5 L5,8 L8,8 L8,5 Z M14,3 L21,3 L21,10 L14,10 Z M16,5 L16,8 L19,8 L19,5 Z M3,14 L10,14 L10,21 L3,21 Z M5,16 L5,19 L8,19 L8,16 Z M14,14 L21,14 L21,21 L14,21 Z M16,16 L16,19 L19,19 L19,16 Z M11,3 L13,3 L13,10 L11,10 Z M11,14 L13,14 L13,21 L11,21 Z M3,11 L10,11 L10,13 L3,13 Z M14,11 L21,11 L21,13 L14,13 Z'/%3E%3C/svg%3E") no-repeat center / contain;
-          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M3,3 L10,3 L10,10 L3,10 Z M5,5 L5,8 L8,8 L8,5 Z M14,3 L21,3 L21,10 L14,10 Z M16,5 L16,8 L19,8 L19,5 Z M3,14 L10,14 L10,21 L3,21 Z M5,16 L5,19 L8,19 L8,16 Z M14,14 L21,14 L21,21 L14,21 Z M16,16 L16,19 L19,19 L19,16 Z M11,3 L13,3 L13,10 L11,10 Z M11,14 L13,14 L13,21 L11,21 Z M3,11 L10,11 L10,13 L3,13 Z M14,11 L21,11 L21,13 L14,13 Z'/%3E%3C/svg%3E") no-repeat center / contain;
-}
-
-#newChatUploadQRButton::before {
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z'/%3E%3C/svg%3E") no-repeat center / contain;
-          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23000'%3E%3Cpath d='M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z'/%3E%3C/svg%3E") no-repeat center / contain;
 }
 
 small {
@@ -11664,6 +11612,113 @@ button.ui-row-value:not(:disabled):hover {
 }
 .confirm-row--total .confirm-row-value {
   font-weight: var(--font-weight-bold);
+}
+
+/* --- search-bar actions --------------------------------------------------
+ *
+ * Buttons that live INSIDE the search pill. They act on what the field holds —
+ * a scanned or uploaded QR fills it — so they belong to the field rather than
+ * sitting beside it as separate controls.
+ *
+ * 28px inside a pill that is 10 + 24 + 10 = 44px tall, so they cost no height.
+ * Borderless and quiet: the field is the thing here, not the buttons.
+ */
+.search-bar-action {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin-left: 4px;
+  /* stated: the element selector `button { padding: 1rem 2rem }` would
+     otherwise blow this out to 96px wide */
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background-color: transparent;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 18px;
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 0.2s, background-color 0.2s;
+}
+.search-bar-action:hover {
+  opacity: 1;
+  background-color: var(--hover-background-dark);
+}
+.search-bar-action[data-icon='file-image'] {
+  background-image: var(--icon-file-image);
+}
+.search-bar-action[data-icon='camera'] {
+  background-image: var(--icon-camera);
+}
+
+/* --- new chat ------------------------------------------------------------
+ *
+ * Vertical rhythm, on the 8 / 16 / 32 scale in DESIGN.md §3. It ran
+ * 22 / 2 / 18 / 0 before, which is not a scale — and at 2px the search field
+ * and the navigation list below it read as one block, when they are a field and
+ * a list of places to go.
+ *
+ *   16  header      -> search field   (content starts)
+ *   16  search      -> actions        (related, but not the same thing)
+ *   32  actions     -> Contacts       (block boundary, the largest gap here)
+ *    8  Contacts    -> first row      (a heading and what it labels)
+ */
+.new-chat-search {
+  padding: 8px 16px 0;
+}
+/* The input has to yield to the buttons beside it inside the pill; `width:100%`
+   alone makes it refuse to shrink. */
+.new-chat-search .search-input {
+  flex: 1;
+  min-width: 0;
+  cursor: text;
+}
+.new-chat-search .search-bar {
+  cursor: text;
+}
+.new-chat-nav {
+  padding-top: 16px;
+  padding-bottom: 0;
+}
+.new-chat-heading {
+  padding: 32px 16px 8px;
+}
+.new-chat-list {
+  padding: 0 4px 24px;
+}
+/* The list is the page here, not a boxed picker inside a form — so it drops the
+   border, the radius and the 340px cap that .ui-list carries for its use inside
+   the group modals. */
+.new-chat-list .ui-list {
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+}
+.new-chat-list .ui-list-row {
+  cursor: pointer;
+}
+.new-chat-list .ui-list-row:hover {
+  background: var(--hover-background);
+}
+/* The resolve row carries a second line saying what we know about that
+   username. The name stays accent — it is the thing you tap — and the note
+   carries the verdict in colour: found is green, and a username nobody holds is
+   red, the same two tokens the send screen's recipient status uses. */
+.new-chat-list .ui-list-action .ui-list-name {
+  font-weight: var(--font-weight-semibold);
+}
+.new-chat-list .ui-list-action .ui-list-note {
+  font-weight: var(--font-weight-normal);
+  color: var(--secondary-text-color);
+}
+/* Matches the depth of the rule above it — a two-class selector loses to
+   `.new-chat-list .ui-list-action .ui-list-note` and the green never lands. */
+.new-chat-list .ui-list-action .ui-list-note--ok {
+  color: var(--success-color);
+}
+.new-chat-list .ui-list-empty--error {
+  color: var(--danger-color);
 }
 
 /* --- small shared bits --------------------------------------------------- */

@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-57" />
+    <link rel="stylesheet" href="./styles.css?v=1455-62" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-56" type="module"></script>
+    <script src="./app.js?v=1455-60" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -255,53 +255,71 @@
       <div class="modal fixed-header" id="newChatModal">
         <div class="modal-header">
           <button class="back-button" id="closeNewChatModal"></button>
-          <div class="modal-title">New Chat</div>
+          <div class="modal-title">New chat</div>
         </div>
+        <!--
+          This screen had no contact list. It was "New Chat", in an app with a
+          Contacts tab, and the only way to start one was to type a username from
+          memory — while the group-invite flow next door already had the right
+          control (renderPicker in groupUI.js): a search over your contacts with
+          an "Add username" row when nothing matches.
+
+          The three "Or …" blocks are gone. Each was a sentence explaining a
+          button whose label already said it, above three identical grey pills
+          for three things that are not alike. They are ui-nav rows now, which is
+          what "go somewhere" looks like in this app.
+        -->
         <div class="modal-content">
-          <div class="form-container">
-            <form id="newChatForm" class="form--narrow">
-              <div class="form-group">
-                <label for="recipient"
-                  >Recipient <span id="chatRecipientError" style="color: #dc3545; display: none"></span
-                ></label>
-                <div style="display: flex; align-items: center; gap: 0.5rem">
-                  <input
-                    type="text"
-                    id="chatRecipient"
-                    class="form-control"
-                    placeholder="Enter username"
-                    required
-                    pattern="[a-zA-Z0-9]*"
-                    inputmode="text"
-                    style="flex: 1"
-                  />
-                  <span class="input-append-icons">
-                    <button type="button" id="newChatUploadQRButton" class="icon-button" title="Upload QR image"></button>
-                    <button type="button" id="newChatScanQRButton" class="icon-button" title="Scan QR"></button>
-                  </span>
-                  <input type="file" id="newChatQRFileInput" accept="image/*" style="display: none" />
-                </div>
-              </div>
-              <div class="form-actions">
-                <button type="submit" class="btn btn--primary btn--pill btn--full">Continue</button>
-              </div>
-              <div class="form-group form-group--divider">
-                <p>Or start an encrypted group chat.</p>
-                <button type="button" id="newChatGroupButton" class="btn btn--secondary btn--pill btn--full">
-                  New Group
-                </button>
-              </div>
-              <div class="form-group form-group--divider">
-                <p>Or join a group you have a link to.</p>
-                <button type="button" id="newChatJoinGroupButton" class="btn btn--secondary btn--pill btn--full">
-                  Join Group
-                </button>
-              </div>
-              <div class="form-group form-group--divider">
-                <p>Or invite contacts from your other apps.</p>
-                <button type="button" id="newChatInviteButton" class="btn btn--secondary btn--pill btn--full">Invite</button>
-              </div>
-            </form>
+          <div class="new-chat-search">
+            <div class="search-bar">
+              <span class="search-icon"></span>
+              <input
+                type="text"
+                id="chatRecipient"
+                class="search-input"
+                placeholder="Search or type a username"
+                autocomplete="off"
+                pattern="[a-zA-Z0-9]*"
+                inputmode="text"
+              />
+              <!-- Inside the field, not beside it: these act on what the field
+                   holds, so they belong to it. -->
+              <button
+                type="button"
+                id="newChatUploadQRButton"
+                class="search-bar-action"
+                data-icon="file-image"
+                title="Upload a QR image"
+                aria-label="Upload a QR image"
+              ></button>
+              <button
+                type="button"
+                id="newChatScanQRButton"
+                class="search-bar-action"
+                data-icon="camera"
+                title="Scan a QR code"
+                aria-label="Scan a QR code"
+              ></button>
+              <input type="file" id="newChatQRFileInput" accept="image/*" hidden />
+            </div>
+            <span id="chatRecipientError" class="field-status"></span>
+          </div>
+
+          <nav class="ui-nav new-chat-nav" id="newChatActions">
+            <button type="button" class="ui-nav-row" id="newChatGroupButton" data-icon="contacts">
+              <span class="ui-nav-key">New group</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="newChatJoinGroupButton" data-icon="launch">
+              <span class="ui-nav-key">Join a group</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="newChatInviteButton" data-icon="mail">
+              <span class="ui-nav-key">Invite someone</span>
+            </button>
+          </nav>
+
+          <div class="ui-nav-title new-chat-heading" id="newChatListTitle">Contacts</div>
+          <div class="new-chat-list">
+            <ul class="ui-list" id="newChatPicker"></ul>
           </div>
         </div>
         <a class="last-item" href="#"> </a>

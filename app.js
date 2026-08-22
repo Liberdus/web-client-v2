@@ -14577,7 +14577,16 @@ function markConnectivityDependentElements() {
     // Chat related
     '#handleSendMessage',
     '#voiceRecordButton',
-    '#newChatForm button[type="submit"]',
+    /*
+     * Not '#chatRecipient'. That field used to be a username you looked up over
+     * the network; it now filters your local contacts, so disabling it offline
+     * would lock you out of your own contact list. The one thing on that screen
+     * that does need the network — resolving a username you have never chatted
+     * with — reports its own failure through the status line.
+     *
+     * Also dropped: '#newChatForm button[type="submit"]', which no longer
+     * exists.
+     */
 
     // Wallet related
     '#refreshBalance',
@@ -14585,7 +14594,6 @@ function markConnectivityDependentElements() {
     '#sendForm button[type="submit"]',
 
     // Send asset related
-    '#sendAssetForm button[type="submit"]',
     '#sendToAddress',
     '#toggleBalance',
 
@@ -14594,7 +14602,6 @@ function markConnectivityDependentElements() {
     '#friendForm input[name="friendStatus"]',
 
     // Contact related
-    '#chatRecipient',
     '#chatAddFriendButton',
     '#addFriendButton',
 
@@ -30119,28 +30126,39 @@ class NewChatModal {
   load() {
     this.modal = document.getElementById('newChatModal');
     this.closeNewChatModalButton = document.getElementById('closeNewChatModal');
-    this.newChatForm = document.getElementById('newChatForm');
     this.usernameAvailable = document.getElementById('chatRecipientError');
     this.recipientInput = document.getElementById('chatRecipient');
-    this.submitButton = document.querySelector('#newChatForm button[type="submit"]');
+    this.picker = document.getElementById('newChatPicker');
+    this.listTitle = document.getElementById('newChatListTitle');
 
     this.closeNewChatModalButton.addEventListener('click', this.close.bind(this));
-    this.newChatForm.addEventListener('submit', withButtonCooldown(
-      this.submitButton,
-      BUTTON_COOLDOWN_MS,
-      () => {
-        if (!this.isActive()) return;
-        // Re-run username validation so submit button disabled state is refreshed from current recipient.
-        this.recipientInput.dispatchEvent(new Event('input', { bubbles: true }));
-      },
-      (event) => this.handleNewChat(event)
-    ));
-    // Disable submit and clear status immediately so there is no 300ms window where the button stays enabled after input change
+
+    /*
+     * No submit button. You tap the person, which is how every other list in
+     * this app works — the old screen made you type a username from memory and
+     * press Continue, in an app that has your contacts one tab away.
+     */
     this.recipientInput.addEventListener('input', () => {
-      this.submitButton.disabled = true;
-      this.usernameAvailable.style.display = 'none';
+      this.setRecipientStatus('');
+      this.renderPicker();
     });
-    this.recipientInput.addEventListener('input', debounce(this.handleUsernameInput.bind(this), 300));
+    this.recipientInput.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      const query = this.recipientInput.value.trim();
+      if (query) this.startChatWithUsername(query);
+    });
+
+    // Delegated: the rows are rebuilt on every keystroke.
+    this.picker.addEventListener('click', (event) => {
+      const row = event.target.closest('[data-address]');
+      if (row) {
+        this.openChat(row.dataset.address);
+        return;
+      }
+      const resolve = event.target.closest('[data-resolve]');
+      if (resolve) this.startChatWithUsername(this.recipientInput.value.trim());
+    });
 
     this.scanButton = document.getElementById('newChatScanQRButton');
     this.uploadButton = document.getElementById('newChatUploadQRButton');
@@ -30169,6 +30187,191 @@ class NewChatModal {
   }
 
   /**
+   * Sets the status line under the search field. `''` clears it; the hiding is
+   * `.field-status:empty`, so setting the text is the only thing to get right.
+   * @param {string} text
+   * @returns {void}
+   */
+  setRecipientStatus(text) {
+    if (this.usernameAvailable) this.usernameAvailable.textContent = text || '';
+  }
+
+  /**
+   * Contacts you can start a chat with. Blocked contacts and the faucet are
+   * excluded — the faucet is not a person, and offering to message someone you
+   * blocked is not a shortcut anyone wants.
+   * @returns {Array<object>}
+   */
+  chatCandidates() {
+    return Object.values(myData?.contacts || {})
+      .filter((contact) => contact?.address)
+      .filter((contact) => contact.friend !== 0)
+      .filter((contact) => !isFaucetAddress(contact.address))
+      .sort((a, b) => getContactDisplayName(a).localeCompare(getContactDisplayName(b)));
+  }
+
+  /**
+   * Renders the contact list, filtered by whatever is in the search field.
+   * @returns {Promise<void>}
+   */
+  async renderPicker() {
+    if (!this.picker) return;
+    const query = this.recipientInput.value.trim().toLowerCase();
+    const matches = this.chatCandidates().filter((contact) => {
+      if (!query) return true;
+      const name = getContactDisplayName(contact).toLowerCase();
+      return name.includes(query) || String(contact.username || '').toLowerCase().includes(query);
+    });
+
+    if (this.listTitle) this.listTitle.textContent = query ? 'Matches' : 'Contacts';
+
+    /*
+     * A render token, because this is async (avatars) and fires on every
+     * keystroke: without it a slow render for "an" can land after "ana" and
+     * repaint the list with the wrong query's results.
+     */
+    const token = (this.renderToken = Symbol('render'));
+    const rows = await Promise.all(
+      matches.map(async (contact) => {
+        const avatar = await getContactAvatarHtml(contact, 34);
+        const name = escapeHtml(getContactDisplayName(contact));
+        const handle = contact.username ? `<span class="ui-list-note">@${escapeHtml(contact.username)}</span>` : '';
+        return `<li class="ui-list-row" data-address="${escapeHtml(normalizeAddress(contact.address))}">
+            <span class="ui-list-avatar">${avatar}</span>
+            <span class="ui-list-name">${name}${handle}</span>
+          </li>`;
+      })
+    );
+    if (token !== this.renderToken) return;
+
+    if (rows.length) {
+      this.picker.innerHTML = rows.join('');
+      return;
+    }
+
+    /*
+     * Nothing matched locally. Offer the username route rather than a dead end
+     * — the same fallback the group invite picker uses — and say whether that
+     * username actually exists before the tap rather than after it.
+     */
+    const raw = this.recipientInput.value.trim();
+    if (!raw) {
+      this.picker.innerHTML = '<li class="ui-list-empty">No contacts yet — type a username to start a chat.</li>';
+      return;
+    }
+    if (raw.length < 3 && !isValidEthereumAddress(raw)) {
+      this.renderResolveRow(raw, 'short');
+      return;
+    }
+    this.renderResolveRow(raw, 'checking');
+    this.scheduleLookup(raw);
+  }
+
+  /**
+   * The one row you get when no contact matches: the username route, with what
+   * we currently know about that username.
+   * @param {string} raw - exactly what was typed
+   * @param {'short'|'checking'|'found'|'missing'|'error'} state
+   * @returns {void}
+   */
+  renderResolveRow(raw, state) {
+    const name = escapeHtml(raw);
+    if (state === 'short') {
+      this.picker.innerHTML = '<li class="ui-list-empty">Usernames are at least 3 characters.</li>';
+      return;
+    }
+    if (state === 'missing') {
+      this.picker.innerHTML =
+        `<li class="ui-list-empty ui-list-empty--error">No account called &ldquo;${name}&rdquo;.</li>`;
+      return;
+    }
+    const note =
+      state === 'checking' ? 'Checking…'
+      : state === 'error' ? 'Could not check — tap to try anyway'
+      : state === 'found' ? 'Account found'
+      : '';
+    /*
+     * `unknown` carries no note at all. It is the state where we have not asked
+     * — because there is nothing to ask with — and claiming either outcome
+     * would be a guess. Whether the device is online is the header's job, not
+     * this row's.
+     */
+    const noteHtml = note
+      ? `<span class="ui-list-note${state === 'found' ? ' ui-list-note--ok' : ''}">${note}</span>`
+      : '';
+    /*
+     * Tappable in every one of these states: the lookup on tap is the one that
+     * decides, and refusing the tap because a background probe has not answered
+     * yet would make a slow network feel like a broken screen.
+     */
+    this.picker.innerHTML = `<li><button type="button" class="ui-list-action" data-resolve="1">
+         <span class="ui-list-plus" aria-hidden="true">+</span>
+         <span class="ui-list-name">Start a chat with &ldquo;${name}&rdquo;${noteHtml}</span>
+       </button></li>`;
+  }
+
+  /**
+   * Checks whether a typed username exists, debounced.
+   *
+   * This is what the old `handleUsernameInput` did, kept because it answers the
+   * question before you commit — but it now feeds the row you are about to tap
+   * instead of enabling a Continue button, and it only runs for the queries the
+   * local contact list could not already answer.
+   *
+   * @param {string} raw
+   * @returns {void}
+   */
+  scheduleLookup(raw) {
+    clearTimeout(this.usernameInputCheckTimeout);
+    if (isValidEthereumAddress(raw)) {
+      this.renderResolveRow(raw, 'found');
+      return;
+    }
+    /*
+     * Offline, checkUsernameAvailability consults only THIS DEVICE'S accounts
+     * and returns 'available' for everyone else — so a stranger's username
+     * would come back as "no such account" when the truth is that nobody
+     * looked. Skip the probe and leave the row unannotated: this screen does
+     * not report connectivity (the header does), but it must not state a
+     * verdict it has not got.
+     */
+    if (!isOnline) {
+      this.renderResolveRow(raw, 'unknown');
+      return;
+    }
+    const username = normalizeUsername(raw);
+    this.usernameInputCheckTimeout = setTimeout(async () => {
+      let state;
+      try {
+        const taken = await checkUsernameAvailability(username, myAccount?.keys?.address);
+        // 'taken' means someone holds it, which is exactly what we want here.
+        // 'mine' is your own account; 'available' means nobody has it.
+        state = taken === 'taken' ? 'found' : taken === 'mine' ? 'self' : taken === 'available' ? 'missing' : 'error';
+      } catch (error) {
+        console.error('Error checking username:', error);
+        state = 'error';
+      }
+      // The field may have moved on while the network was thinking.
+      if (this.recipientInput.value.trim() !== raw) return;
+      if (state === 'self') {
+        this.picker.innerHTML = '<li class="ui-list-empty">That is your own account.</li>';
+        return;
+      }
+      this.renderResolveRow(raw, state);
+    }, 500);
+  }
+
+  /**
+   * Opens a chat with someone already in your contacts.
+   * @param {string} address
+   * @returns {void}
+   */
+  openChat(address) {
+    this.close();
+    chatModal.open(normalizeAddress(address));
+  }
+
+  /**
    * Invoked when the user clicks the new chat button
    * It will open the new chat modal
    * @returns {void}
@@ -30176,12 +30379,14 @@ class NewChatModal {
   openNewChatModal() {
     openModal(this.modal);
     footer.closeNewChatButton();
-    this.usernameAvailable.style.display = 'none';
-    this.submitButton.disabled = true;
+    this.recipientInput.value = '';
+    this.setRecipientStatus('');
+    this.renderPicker();
     walletScreen.updateWalletBalances();
-    // Delay focus to ensure transition completes (modal transition is 300ms)
+    // Delay focus to ensure transition completes (modal transition is 300ms).
+    // preventScroll: a plain focus() scrolls the modal container sideways.
     setTimeout(() => {
-      this.recipientInput.focus();
+      this.recipientInput.focus({ preventScroll: true });
     }, 325);
   }
 
@@ -30192,7 +30397,9 @@ class NewChatModal {
    */
   close() {
     this.modal.classList.remove('active');
-    this.newChatForm.reset();
+    clearTimeout(this.usernameInputCheckTimeout);
+    this.recipientInput.value = '';
+    this.setRecipientStatus('');
     if (chatsScreen.isActive()) {
       footer.openNewChatButton();
     }
@@ -30211,13 +30418,13 @@ class NewChatModal {
    * @param {Event} event - The event object
    * @returns {void}
    */
-  async handleNewChat(event) {
-    event.preventDefault();
-    const input = this.recipientInput.value.trim();
+  async startChatWithUsername(rawInput) {
+    const input = String(rawInput || '').trim();
+    if (!input) return;
     let recipientAddress;
     let username;
 
-    this.hideRecipientError();
+    this.setRecipientStatus('');
 
     // Treat as an address only when the full input is a valid Ethereum address.
     if (isValidEthereumAddress(input)) {
@@ -30225,7 +30432,7 @@ class NewChatModal {
       recipientAddress = normalizeAddress(input);
     } else {
       if (input.length < 3) {
-        this.showRecipientError('Username too short');
+        this.setRecipientStatus('Username too short');
         return;
       }
       username = normalizeUsername(input);
@@ -30235,14 +30442,14 @@ class NewChatModal {
       try {
         const data = await queryNetwork(`/address/${usernameHash}`);
         if (!data || !data.address) {
-          this.showRecipientError('Username not found');
+          this.setRecipientStatus('Username not found');
           return;
         }
         // Normalize address from API if it has 0x prefix or trailing zeros
         recipientAddress = normalizeAddress(data.address);
       } catch (error) {
         console.error('Error looking up username:', error);
-        this.showRecipientError('Error looking up username');
+        this.setRecipientStatus('Error looking up username');
         return;
       }
     }
@@ -30381,72 +30588,14 @@ class NewChatModal {
     }
   }
 
-  /**
-   * Hide error message in the new chat form
-   * @returns {void}
+  /*
+   * handleUsernameInput is gone, but what it TOLD you is not: see
+   * scheduleLookup. The old version asked the network on every keystroke, about
+   * contacts that were sitting in local storage, purely to enable a Continue
+   * button. The list answers the local case instantly and offline now, and the
+   * lookup runs only for a username no contact matched — feeding the row you
+   * are about to tap rather than a status line beside a button.
    */
-  hideRecipientError() {
-    this.usernameAvailable.style.display = 'none';
-  }
-
-  /**
-   * Show error message in the new chat form
-   * @param {string} message - The error message to show
-   * @returns {void}
-   */
-  showRecipientError(message) {
-    this.usernameAvailable.textContent = message;
-    this.usernameAvailable.style.color = '#dc3545'; // Always red for errors
-    this.usernameAvailable.style.display = 'inline';
-  }
-
-  /**
-   * Invoked when the user types in the username input
-   * It will check if the username is too short, available, or not available
-   * @param {Event} e - The event object
-   * @returns {void}
-   */
-  handleUsernameInput(e) {
-    this.usernameAvailable.style.display = 'none';
-    this.submitButton.disabled = true;
-
-    const username = normalizeUsername(e.target.value);
-    e.target.value = username;
-
-    // Clear previous timeout
-    if (this.usernameInputCheckTimeout) {
-      clearTimeout(this.usernameInputCheckTimeout);
-    }
-
-    // Check if username is too short
-    if (username.length < 3) {
-      this.usernameAvailable.textContent = 'too short';
-      this.usernameAvailable.style.color = '#dc3545';
-      this.usernameAvailable.style.display = 'inline';
-      return;
-    }
-
-    // Check username availability
-    this.usernameInputCheckTimeout = setTimeout(async () => {
-      const taken = await checkUsernameAvailability(username, myAccount.keys.address);
-      if (taken == 'taken') {
-        this.usernameAvailable.textContent = 'found';
-        this.usernameAvailable.style.color = '#28a745';
-        this.usernameAvailable.style.display = 'inline';
-        this.submitButton.disabled = false;
-      } else if (taken == 'mine' || taken == 'available') {
-        this.usernameAvailable.textContent = 'not found';
-        this.usernameAvailable.style.color = '#dc3545';
-        this.usernameAvailable.style.display = 'inline';
-        this.submitButton.disabled = true;
-      } else {
-        this.usernameAvailable.textContent = 'network error';
-        this.usernameAvailable.style.color = '#dc3545';
-        this.usernameAvailable.style.display = 'inline';
-        this.submitButton.disabled = true;
-      }
-    }, 1000);
-  }
 
   /**
    * Invoked when the user clicks the Invite button

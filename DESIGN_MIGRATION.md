@@ -220,6 +220,12 @@ Seen on every cold start, and the first thing a new user ever sees. `#signInModa
 has 17 bespoke rules — the most of any screen in scope — and create account,
 welcome and the lock screens have none, so most of the wave is markup swaps.
 
+### Beyond the waves
+
+Screens taken after the four waves, in the same one-screen-at-a-time way:
+**wallet send / receive / confirm** (refined in place, layout untouched) and
+**new chat** (rebuilt around the contact picker the group flow already had).
+
 ### Wave 4 — settings and account — DONE
 
 Menu, settings, my info, account.
