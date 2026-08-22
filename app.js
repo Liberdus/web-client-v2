@@ -9480,9 +9480,11 @@ class HistoryModal {
     this.assetSelect = document.getElementById('historyAsset');
     this.transactionList = document.getElementById('transactionList');
     this.closeButton = document.getElementById('closeHistoryModal');
+    this.assetGroup = document.getElementById('historyAssetGroup');
 
-    // Cache the form container for scrollToTop
-    this.formContainer = this.modal.querySelector('.form-container');
+    // The scroll container is .modal-content: the list is no longer nested in
+    // a .form-container, which only ever wrapped it because it began as a form.
+    this.formContainer = this.modal.querySelector('.modal-content');
 
     // Setup event listeners
     this.closeButton.addEventListener('click', () => this.close());
@@ -9510,118 +9512,185 @@ class HistoryModal {
 
   populateAssets() {
     const walletData = myData.wallet;
-    
-    if (!walletData.assets || walletData.assets.length === 0) {
+    const assets = walletData.assets || [];
+
+    if (assets.length === 0) {
       this.assetSelect.innerHTML = '<option value="">No assets available</option>';
+      if (this.assetGroup) this.assetGroup.hidden = true;
       return;
     }
-    
-    this.assetSelect.innerHTML = walletData.assets
+
+    this.assetSelect.innerHTML = assets
       .map((asset, index) => `<option value="${index}">${asset.name} (${asset.symbol})</option>`)
       .join('');
+
+    // A select with one option is not a choice. Same rule as the wallet's
+    // single-asset case.
+    if (this.assetGroup) this.assetGroup.hidden = assets.length < 2;
+  }
+
+  /**
+   * The day a timestamp falls on, as a heading. Stated once per day rather than
+   * a full date on every row.
+   * @param {number} ts
+   * @returns {string}
+   */
+  static dayHeading(ts) {
+    const d = new Date(ts);
+    const today = new Date();
+    const startOf = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const days = Math.round((startOf(today) - startOf(d)) / 86400000);
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Yesterday';
+    return d.toLocaleDateString(undefined, {
+      day: 'numeric',
+      month: 'long',
+      ...(d.getFullYear() === today.getFullYear() ? {} : { year: 'numeric' }),
+    });
+  }
+
+  /**
+   * An amount with its trailing zeros trimmed.
+   *
+   * Every row used to be toFixed(6), which made "0.010000" and "120.500000"
+   * nearly the same length — so the column could not be scanned for size, which
+   * is the one thing a history list is for. Six decimals are kept when they
+   * carry information and dropped when they do not.
+   *
+   * @param {bigint|number|string} raw - amount in wei
+   * @returns {string}
+   */
+  static formatAmount(raw) {
+    const n = Math.abs(Number(raw) / Number(wei));
+    if (!Number.isFinite(n)) return '0';
+    const trimmed = n.toFixed(6).replace(/\.?0+$/, '') || '0';
+    // A dust amount is not nothing. Rounding 1 wei to "0" would say the
+    // transaction moved no money, which is the one thing it definitely did.
+    if (trimmed === '0' && n > 0) return '<0.000001';
+    return trimmed;
   }
 
   updateTransactionHistory() {
     const walletData = myData.wallet;
     const assetIndex = this.assetSelect.value;
-    
+
     if (!walletData.history || walletData.history.length === 0) {
       this.showEmptyState();
       return;
     }
-    
+
     const asset = walletData.assets[assetIndex];
     const contacts = myData.contacts;
-    
-    this.transactionList.innerHTML = walletData.history
-      .map((tx) => {
-        const txidAttr = tx?.txid ? `data-txid="${tx.txid}"` : '';
-        const statusAttr = tx?.status ? `data-status="${tx.status}"` : '';
-        
-        // Check if transaction was deleted
-        if (isDeleted(tx)) {
-          return `
-            <div class="transaction-item deleted-transaction" ${txidAttr} ${statusAttr}>
-              <div class="transaction-info">
-                <div class="transaction-type deleted">
-                  <span class="delete-icon"></span>
-                  Deleted
-                </div>
-                <div class="transaction-amount">-- --</div>
-              </div>
-              <div class="transaction-memo">${escapeHtml(getDeletedPlaceholderText(tx))}</div>
-            </div>
-          `;
-        }
-        
-        // Handle stake transactions differently
-        if (tx.type === 'deposit_stake' || tx.type === 'withdraw_stake') {
-          const isStake = tx.type === 'deposit_stake';
-          const isUnstake = tx.type === 'withdraw_stake';
-          const stakeType = isStake ? 'stake' : 'unstake';
-          
-          // Determine unstake color based on amount (positive = blue, negative = red)
-          let unstakeTypeClass = '';
-          if (isUnstake) {
-            const amount = Number(tx.amount);
-            unstakeTypeClass = amount >= 0 ? 'unstake-positive' : 'unstake-negative';
+
+    /*
+     * Rendered from a token, because the avatars are async: a slow render for
+     * one asset must not land on top of a newer one for another.
+     */
+    const token = (this.renderToken = Symbol('history'));
+
+    const rows = walletData.history.map((tx) => {
+      if (isDeleted(tx)) {
+        return {
+          kind: 'deleted',
+          tx,
+          who: 'Deleted',
+          sub: getDeletedPlaceholderText(tx),
+          amount: '',
+        };
+      }
+
+      const isStake = tx.type === 'deposit_stake';
+      const isUnstake = tx.type === 'withdraw_stake';
+
+      if (isStake || isUnstake) {
+        // An unstake can come back negative, in which case it is money leaving.
+        const outgoing = isStake || Number(tx.amount) < 0;
+        return {
+          kind: 'stake',
+          tx,
+          who: tx.nominee || 'Unknown validator',
+          sub: isStake ? 'Staked' : 'Unstaked',
+          amount: `${outgoing ? '\u2212' : '+'}${HistoryModal.formatAmount(tx.amount)}`,
+          outgoing,
+        };
+      }
+
+      const outgoing = tx.sign === -1;
+      return {
+        kind: 'transfer',
+        tx,
+        address: tx.address,
+        who: tx.nominee || getContactDisplayName(contacts[tx.address]),
+        // The memo if there is one; otherwise the direction, which used to be
+        // stated twice — once as "↑ Sent" and again as "To:".
+        sub: tx.memo ? linkifyUrls(tx.memo) : outgoing ? 'Sent' : 'Received',
+        amount: `${outgoing ? '\u2212' : '+'}${HistoryModal.formatAmount(tx.amount)}`,
+        outgoing,
+      };
+    });
+
+    Promise.all(
+      rows.map((r) =>
+        r.kind === 'deleted' || !r.address
+          ? getContactAvatarHtml(r.tx?.nominee || r.tx?.address || '0'.repeat(64), 38).catch(() => '')
+          : getContactAvatarHtml(contacts[r.address] || r.address, 38).catch(() => '')
+      )
+    ).then((avatars) => {
+      if (token !== this.renderToken) return;
+
+      let lastDay = null;
+      const html = rows
+        .map((r, idx) => {
+          const day = HistoryModal.dayHeading(r.tx.timestamp);
+          const heading = day === lastDay ? '' : `<div class="tx-day">${escapeHtml(day)}</div>`;
+          lastDay = day;
+
+          if (r.kind === 'deleted') {
+            return `${heading}
+              <div class="tx tx--deleted" data-kind="deleted"${r.tx?.txid ? ` data-txid="${escapeHtml(r.tx.txid)}"` : ''}>
+                <span class="tx-av"><span class="tx-av-img"></span></span>
+                <span class="tx-main">
+                  <span class="tx-who">Deleted</span>
+                  <span class="tx-sub">${escapeHtml(r.sub)}</span>
+                </span>
+                <span class="tx-right"><span class="tx-time">${escapeHtml(formatTime(r.tx.timestamp))}</span></span>
+              </div>`;
           }
-          
-          // Add data attribute for negative unstake transactions to help with CSS styling
-          const amountNegativeAttr = (isUnstake && Number(tx.amount) < 0) ? 'data-amount-negative="true"' : '';
-          
-          return `
-            <div class="transaction-item" data-memo="${stakeType}" ${txidAttr} ${statusAttr} ${amountNegativeAttr}>
-              <div class="transaction-info">
-                <div class="transaction-type ${isStake ? 'stake' : unstakeTypeClass}">
-                  ${isStake ? '↑ Staked' : '↓ Unstaked'}
-                </div>
-                <div class="transaction-amount">
-                  ${isStake ? '-' : (Number(tx.amount) >= 0 ? '+' : '-')} ${Math.abs(Number(tx.amount) / Number(wei)).toFixed(6)} ${asset.symbol}
-                </div>
-              </div>
-              <div class="transaction-details">
-                <div class="transaction-address">
-                  ${isStake ? 'To:' : 'From:'} ${tx.nominee || 'Unknown Validator'}
-                </div>
-                <div class="transaction-time">${formatTime(tx.timestamp)}</div>
-              </div>
-              <div class="transaction-memo">${stakeType}</div>
-            </div>
-          `;
-        }
-        
-        // Render normal transaction
-        const contactName = getContactDisplayName(contacts[tx.address]);
-        
-        return `
-          <div class="transaction-item" data-address="${tx.address}" ${txidAttr} ${statusAttr}>
-            <div class="transaction-info">
-              <div class="transaction-type ${tx.sign === -1 ? 'send' : 'receive'}">
-                ${tx.sign === -1 ? '↑ Sent' : '↓ Received'}
-              </div>
-              <div class="transaction-amount">
-                ${tx.sign === -1 ? '-' : '+'} ${(Number(tx.amount) / Number(wei)).toFixed(6)} ${asset.symbol}
-              </div>
-            </div>
-            <div class="transaction-details">
-              <div class="transaction-address">
-                ${tx.sign === -1 ? 'To:' : 'From:'} ${tx.nominee || contactName}
-              </div>
-              <div class="transaction-time">${formatTime(tx.timestamp)}</div>
-            </div>
-            ${tx.memo ? `<div class="transaction-memo">${linkifyUrls(tx.memo)}</div>` : ''}
-          </div>
-        `;
-      })
-      .join('');
-    
-    // Scroll the form container to top after rendering
-    requestAnimationFrame(() => (this.formContainer.scrollTop = 0));
+
+          const failed = r.tx?.status === 'failed';
+          const classes = [
+            'tx',
+            !r.outgoing ? 'tx--in' : '',
+            failed ? 'tx--failed' : '',
+          ].filter(Boolean).join(' ');
+
+          return `${heading}
+            <button type="button" class="${classes}" data-kind="${r.kind}"${
+              r.address ? ` data-address="${escapeHtml(r.address)}"` : ''
+            }${r.tx?.txid ? ` data-txid="${escapeHtml(r.tx.txid)}"` : ''}${
+              r.tx?.status ? ` data-status="${escapeHtml(r.tx.status)}"` : ''
+            }${r.tx?.memo ? ` data-memo="${escapeHtml(r.tx.memo)}"` : ''}>
+              <span class="tx-av"><span class="tx-av-img">${avatars[idx]}</span><span class="tx-dir"></span></span>
+              <span class="tx-main">
+                <span class="tx-who">${escapeHtml(r.who)}</span>
+                <span class="tx-sub">${failed ? 'Failed' : r.sub}</span>
+              </span>
+              <span class="tx-right">
+                <span class="tx-amt">${escapeHtml(r.amount)} ${escapeHtml(asset.symbol)}</span>
+                <span class="tx-time">${escapeHtml(formatTime(r.tx.timestamp))}</span>
+              </span>
+            </button>`;
+        })
+        .join('');
+
+      this.transactionList.innerHTML = html;
+      requestAnimationFrame(() => (this.formContainer.scrollTop = 0));
+    });
   }
 
   showEmptyState() {
-    this.transactionList.querySelector('.empty-state').style.display = 'block';
+    const empty = this.transactionList.querySelector('.empty-state');
+    if (empty) empty.hidden = false;
   }
 
   handleAssetChange() {
@@ -9629,29 +9698,28 @@ class HistoryModal {
   }
 
   handleItemClick(event) {
-    const item = event.target.closest('.transaction-item');
-    
-    if (!item) return;
-    
-    // Prevent clicking on deleted transactions
-    if (item.classList.contains('deleted-transaction')) {
-      return;
-    }
-    
-    if (item.dataset.status === 'failed') {
+    const item = event.target.closest('.tx');
 
-      if (event.target.closest('.transaction-item')) {
-        failedTransactionModal.open(item.dataset.txid, item);
-      }
+    if (!item) return;
+
+    if (item.dataset.kind === 'deleted') return;
+
+    if (item.dataset.status === 'failed') {
+      failedTransactionModal.open(item.dataset.txid, item);
       return;
     }
-    
-    const type = item.querySelector('.transaction-type')?.textContent;
-    if (type.includes('stake')) {
+
+    /*
+     * Keyed off data-kind, not the row's displayed text. This used to read
+     * `.transaction-type`'s textContent and test `.includes('stake')`, so what
+     * the screen DID depended on what it happened to SAY — renaming "↑ Staked"
+     * would have silently stopped it opening the validator screen.
+     */
+    if (item.dataset.kind === 'stake') {
       validatorModal.open();
       return;
     }
-    
+
     const address = item.dataset.address;
     // Don't open chat modal for faucet address
     if (address && isFaucetAddress(address)) {
@@ -32800,8 +32868,17 @@ class FailedTransactionModal {
   open(txid, element) {  
     // Get the address and memo from the original failed transfer element
     const address = element?.dataset?.address || chatModal.address;
+    /*
+     * data-memo first. This used to read `.transaction-memo` out of the row,
+     * which meant retrying a failed payment depended on the memo being on
+     * screen — and a failed row now says "Failed" in that slot, so the memo
+     * would have been lost. The row carries the raw value regardless of what it
+     * displays; the .payment-memo fallback is the chat-bubble case.
+     */
     const memo =
-      element?.querySelector('.transaction-memo')?.textContent || element?.querySelector('.payment-memo')?.textContent;
+      element?.dataset?.memo ||
+      element?.querySelector('.payment-memo')?.textContent ||
+      '';
     //const assetID = element?.dataset?.assetID || ''; // TODO: need to add assetID to `myData.wallet.history` for when we have multiple assets
   
     // Store the address and memo in properties of open

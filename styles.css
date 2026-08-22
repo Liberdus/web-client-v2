@@ -991,7 +991,6 @@ body {
   }
 }
 
-
 .chat-avatar svg,
 .chat-avatar img {
   /* The avatar fills its frame. Without this the SVG renders at whatever
@@ -1075,7 +1074,6 @@ body {
   position: relative;
   border-bottom: 1px solid var(--border-color, rgba(0,0,0,0.06));
 }
-
 
 /* Group call styling */
 .group-call {
@@ -1227,7 +1225,6 @@ body {
   font-size: 0.95rem;
   color: var(--text-color);
 }
-
 
 #callsModal .chat-content {
   padding-right: 64px; /* room for the floating call button */
@@ -1529,7 +1526,6 @@ button:not(:disabled):hover {
 .btn--danger:not(:disabled):hover {
   opacity: 0.9;
 }
-
 
 /* Icon buttons */
 .icon-button:hover {
@@ -1891,7 +1887,6 @@ button:disabled {
   transform: translateY(-50%); /* Vertically center the container */
 }
 
-
 .chat-user-info:hover {
   opacity: 0.8;
 }
@@ -2047,7 +2042,6 @@ button:disabled {
   border-bottom: none;
   margin-top: auto;
 }
-
 
 /* Form Container Base Styles */
 .form-container {
@@ -4664,7 +4658,6 @@ input[type='file'].form-control::file-selector-button {
   transform: rotate(180deg);
 }
 
-
 /* Line break element to force new row in wallet actions */
 .wallet-actions-break {
   flex-basis: 100%;
@@ -4813,7 +4806,6 @@ input[type='file'].form-control::file-selector-button {
     transition: none;
   }
 }
-
 
 /* Notification indicator for wallet action buttons */
 .wallet-action-button::after {
@@ -5216,103 +5208,6 @@ input[type='file'].form-control::file-selector-button {
   font-variant-numeric: tabular-nums;
 }
 
-/* Transaction History Styles */
-.transaction-list {
-  margin-top: 1rem;
-  max-width: 390px;
-  margin: 0 auto;
-}
-
-.transaction-item {
-  padding: 1rem;
-}
-
-.transaction-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.transaction-type {
-  font-family: var(--font-primary);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-color);
-}
-
-.transaction-type.send {
-  color: var(--danger-color);
-}
-
-.transaction-type.receive {
-  color: var(--success-color);
-}
-
-.transaction-type.stake {
-  color: var(--warning-color); /* Orange color for stake transactions */
-}
-
-.transaction-type.unstake-positive {
-  color: var(--info-color); /* Blue color for positive unstake transactions */
-}
-
-.transaction-type.unstake-negative {
-  color: var(--danger-color); /* Red color for negative unstake transactions */
-}
-
-/* Add visual distinction for stake transactions */
-.transaction-item[data-memo="stake"] {
-  border-left: 3px solid var(--warning-color);
-  padding-left: calc(1rem - 3px); /* Adjust padding to account for border */
-}
-
-/* Add visual distinction for unstake transactions */
-.transaction-item[data-memo="unstake"] {
-  border-left: 3px solid var(--info-color); /* Default blue border for unstake */
-  padding-left: calc(1rem - 3px); /* Adjust padding to account for border */
-}
-
-/* Override border color for negative unstake transactions */
-.transaction-item[data-memo="unstake"][data-amount-negative="true"] {
-  border-left-color: var(--danger-color);
-}
-
-.transaction-amount {
-  font-family: var(--font-primary);
-  font-weight: var(--font-weight-semibold);
-}
-
-.transaction-details {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  font-size: var(--font-size-sm);
-  color: var(--secondary-text-color);
-  font-family: var(--font-primary);
-}
-
-.transaction-address {
-  word-break: break-all;
-  flex: 1;
-  margin-right: 1rem;
-}
-
-.transaction-time {
-  white-space: nowrap;
-  color: var(--secondary-text-color);
-}
-
-.transaction-memo {
-  margin-top: 0.5rem;
-  font-size: var(--font-size-sm);
-  color: var(--secondary-text-color);
-  font-style: italic;
-  font-family: var(--font-primary);
-  overflow-wrap: break-word; /* Allow breaking long words */
-  word-break: break-word; /* Ensure words break correctly */
-  white-space: normal; /* Ensure text wraps */
-}
-
 /* Style the text that shows the selected file */
 input[type='file'].form-control {
   color: var(--secondary-text-color);
@@ -5362,7 +5257,6 @@ input[type='file'].form-control {
   align-items: center;
   justify-content: center;
 }
-
 
 #copySecretButton {
   color: #007bff;
@@ -5648,7 +5542,6 @@ input[type='number'].form-control::-webkit-inner-spin-button {
   margin: 0;
 }
 
-
 #migrateAccountsModal .modal-summary {
   font-family: var(--font-primary);
   font-size: var(--font-size-base);
@@ -5872,8 +5765,6 @@ input[type='number'].form-control::-webkit-inner-spin-button {
 #signInModal .sign-in-account-item.is-private .sign-in-account-card {
   border-color: rgba(220, 53, 69, 0.35);
 }
-
-
 
 #signInModal .sign-in-account-item.is-private:hover .sign-in-account-card {
   border-color: var(--danger-color);
@@ -7235,8 +7126,6 @@ mark {
   color: var(--text-color);
 }
 
-
-
 .qr-data-preview {
   font-size: 0.875rem;
   padding: 15px;
@@ -7402,8 +7291,6 @@ mark {
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3);
 }
 
-
-
 /* QR Scan canvas element (kept hidden; used for frame processing) */
 #canvas {
   display: none;
@@ -7430,8 +7317,6 @@ small {
   margin-bottom: 8px;
   font-weight: var(--font-weight-medium);
 }
-
-
 
 #sendAssetConfirmModal .btn,
 #sendAssetConfirmModal .btn.btn--secondary {
@@ -8264,33 +8149,6 @@ small {
   text-align: left;
 }
 
-/* Style for failed transactions in history */
-.transaction-item[data-status='failed'] {
-  background-color: rgba(220, 53, 69, 0.08); /* Light red background */
-  border-left: 3px solid var(--danger-color); /* Red border on the left */
-  position: relative; /* Needed for absolute positioning of the icon */
-  padding-right: 32px; /* Space for the icon on the right */
-}
-
-.transaction-item[data-status='failed']::after {
-  content: '!';
-  position: absolute;
-  right: 8px; /* Position at the right of the transaction item */
-  top: 50%;
-  transform: translateY(-50%);
-  width: 20px;
-  height: 20px;
-  background-color: var(--danger-color);
-  color: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: bold;
-  line-height: 1;
-}
-
 /* Style for failed payment messages in chat */
 .message.sent.payment-info[data-status='failed'] {
   background-color: var(--primary-muted); /* Slightly desaturated blue */
@@ -8360,11 +8218,6 @@ small {
   width: 300px; /* Override general button widths */
   height: var(--btn-height); /* Let padding and content determine height */
   margin: 0; /* Reset margin, rely on flex gap */
-}
-
-.transaction-item[data-status='failed'] {
-  border-left: 4px solid var(--danger-color);
-  padding-left: 10px; /* Add some padding so content doesn't touch the border */
 }
 
 /* Styles for the failed message pop-up dialog */
@@ -8683,7 +8536,6 @@ small {
 .last-item:focus {
   outline: none;
 }
-
 
 /* Add subtle spacing between emoji and text */
 .menu-item:first-letter {
@@ -9659,27 +9511,6 @@ small {
   font-size: 0.9em;
 }
 
-/* Deleted transaction styling in history modal */
-.deleted-transaction {
-  opacity: 0.6;
-}
-
-.deleted-transaction .transaction-type.deleted {
-  color: var(--secondary-text-color) !important;
-  font-style: italic;
-  display: flex;
-  gap: 6px;
-}
-
-.deleted-transaction .delete-icon {
-  width: 16px;
-  height: 16px;
-  background-image: url("data:image/svg+xml,%3Csvg fill='none' stroke='%23888' stroke-width='2' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='3 6 5 6 21 6'/%3E%3Cpath d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2'/%3E%3Cline x1='10' y1='11' x2='10' y2='17'/%3E%3Cline x1='14' y1='11' x2='14' y2='17'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: contain;
-}
-
 .reply-preview {
   display: flex;
   align-items: flex-start;
@@ -9826,21 +9657,6 @@ small {
 }
 .message.received .reply-quote-text {
   color: var(--secondary-text-color);
-}
-
-.deleted-transaction .transaction-amount {
-  color: var(--secondary-text-color) !important;
-  font-style: italic;
-}
-
-.deleted-transaction .transaction-address {
-  color: var(--secondary-text-color) !important;
-  font-style: italic;
-}
-
-.deleted-transaction .transaction-memo {
-  color: var(--secondary-text-color) !important;
-  font-style: italic;
 }
 
 /* Failed message context menu - inherits from base context menu */
@@ -11810,6 +11626,179 @@ button.ui-row-value:not(:disabled):hover {
   color: var(--danger-color);
 }
 
+/* --- transaction history -------------------------------------------------
+ *
+ * A row here is the same shape as a chat row: avatar, who, amount. What it
+ * replaced put "↑ Sent" and "To: ana" on separate lines — stating the
+ * direction twice — with everything drifting to the middle, because
+ * `.container` centres the app and none of these ever opted out.
+ */
+.history-asset {
+  padding-bottom: 4px;
+}
+.tx-list {
+  padding: 0 0 24px;
+  text-align: left;
+}
+
+/* Day headings, so a date is stated once per day instead of on every row. */
+.tx-day {
+  padding: 18px 16px 6px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--secondary-text-color);
+  text-align: left;
+}
+
+.tx {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 16px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-primary);
+  text-align: left;
+}
+.tx:hover {
+  background: var(--hover-background);
+}
+
+/*
+ * The wrapper positions, the inner element clips. The badge cannot live inside
+ * the rounded `overflow: hidden` element or that circle clips it too, leaving
+ * only the sliver that happens to overlap the avatar.
+ */
+.tx-av {
+  flex: none;
+  position: relative;
+  width: 38px;
+  height: 38px;
+}
+.tx-av-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--light-color);
+}
+.tx-av-img svg,
+.tx-av-img img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/*
+ * Direction badge. The glyph is a MASK, not a background image: --icon-arrow-out
+ * is drawn with stroke:#ffffff for the wallet's indigo Send button, so as a
+ * background on a light disc it is white on white and does not appear at all.
+ * As a mask the artwork is only its alpha and the colour is ours.
+ *
+ * The mask is sized to the full 24px viewBox rather than to the arrow, which
+ * spans only units 7..17 and so carries its own padding; sizing to the arrow
+ * renders a fragment.
+ */
+.tx-dir {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  /* The ring separates the badge FROM the avatar, so it cannot also be the
+     badge's fill — both were white before, which left the arrow floating. */
+  background: var(--input-background);
+  box-shadow: 0 0 0 2px var(--background-color);
+}
+.tx-dir::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: var(--secondary-text-color);
+  -webkit-mask: var(--icon-arrow-out) center / 17px no-repeat;
+  mask: var(--icon-arrow-out) center / 17px no-repeat;
+}
+.tx--in .tx-dir::before {
+  background-color: var(--success-color);
+  -webkit-mask-image: var(--icon-arrow-in);
+  mask-image: var(--icon-arrow-in);
+}
+
+.tx-main {
+  flex: 1;
+  min-width: 0;
+}
+.tx-who {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tx-sub {
+  display: block;
+  margin-top: 1px;
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tx-right {
+  flex: none;
+  text-align: right;
+}
+/* tabular-nums so a column of amounts can be compared at a glance, which is
+   the one thing this list is for. */
+.tx-amt {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color);
+  font-variant-numeric: tabular-nums;
+}
+.tx--in .tx-amt {
+  color: var(--success-color);
+}
+.tx-time {
+  display: block;
+  margin-top: 1px;
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Red, and only here. */
+.tx--failed .tx-amt {
+  color: var(--danger-color);
+  text-decoration: line-through;
+}
+.tx--failed .tx-sub {
+  color: var(--danger-color);
+}
+
+/* Deleted: nothing to show and nowhere to go. */
+.tx--deleted {
+  cursor: default;
+}
+.tx--deleted:hover {
+  background: none;
+}
+.tx--deleted .tx-who,
+.tx--deleted .tx-amt {
+  color: var(--muted-text-color);
+  font-style: italic;
+  font-weight: var(--font-weight-normal);
+}
+
 /* --- small shared bits --------------------------------------------------- */
 .ui-block {
   margin-top: 24px;
@@ -11861,8 +11850,6 @@ button.ui-row-value:not(:disabled):hover {
   font-family: var(--font-monospace);
   font-size: var(--font-size-xs);
 }
-
-
 
 /* ==========================================================================
    Group chat — what genuinely is group-specific.

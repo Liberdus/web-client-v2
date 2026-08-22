@@ -566,6 +566,28 @@ source order decides.
 26 data URIs to convert one screen is how a stylesheet doubles in size during a
 migration that is supposed to shrink it.
 
+**A badge inside a rounded, `overflow: hidden` avatar is clipped by it.** The
+element that rounds the avatar off cannot also be the one that positions
+anything overhanging it — only the sliver overlapping the avatar survives. Use a
+plain wrapper for position and an inner element for the clip. Worth checking
+first whenever a shape is *cut off*: that symptom points at containment, not at
+colour.
+
+**A shared icon token with a baked-in stroke colour only works on the
+background it was drawn for.** `--icon-arrow-out` is `stroke='#ffffff'` because
+it was made for the wallet's indigo Send button; on any light surface it is
+white on white and simply absent. Reuse those tokens as `mask-image` with
+`background-color`, which takes the artwork as alpha and leaves the colour to
+the caller. Size the mask to the whole viewBox, not to the glyph — these icons
+carry their own padding, so sizing to the visible shape renders a fragment.
+
+**Behaviour must not key off displayed text.** History decided whether to open
+the validator screen by reading a row's `.textContent` and testing
+`.includes('stake')`, and recovered a failed payment's memo by reading it out of
+the row. Both made what the screen *did* depend on what it happened to *say* —
+renaming a label or showing "Failed" in place of the memo would have broken them
+silently. Put the value in a `data-` attribute and read that.
+
 **A screen must not read another screen's DOM as its data source.** The edit
 sheet took four values out of the contact screen's markup — an avatar's
 innerHTML, a username div, an address subtitle and a hidden field — and

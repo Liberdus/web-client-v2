@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-63" />
+    <link rel="stylesheet" href="./styles.css?v=1455-65" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-62" type="module"></script>
+    <script src="./app.js?v=1455-63" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -2789,22 +2789,32 @@
       <div class="modal fixed-header" id="historyModal">
         <div class="modal-header">
           <button class="back-button" id="closeHistoryModal"></button>
-          <div class="modal-title">Transaction History</div>
+          <div class="modal-title">History</div>
         </div>
+        <!--
+          Rows are the shape of a chat row now: avatar, who, amount. The
+          direction rides the avatar as a badge, so who and which-way are one
+          object rather than two lines saying "↑ Sent" and "To: ana".
+
+          Red is reserved for failed. `.transaction-type.send` used to be
+          --danger-color, so every successful outgoing payment was painted in
+          the error colour — on a list where failed rows were also red.
+        -->
         <div class="modal-content">
-          <div class="form-container">
+          <!-- Only shown when there is more than one asset to choose between. -->
+          <div class="form-container history-asset" id="historyAssetGroup" hidden>
             <div class="form-group">
               <label for="historyAsset">Asset</label>
               <select id="historyAsset" class="form-control"></select>
             </div>
-            <div class="transaction-list" id="transactionList">
-              <div class="empty-state">
-                <div></div>
-                <div>No Transactions</div>
-                <div>Your transaction history will appear here</div>
-              </div>
-              <!-- Transactions will be populated here -->
+          </div>
+          <div class="tx-list" id="transactionList">
+            <div class="empty-state">
+              <div></div>
+              <div>No Transactions</div>
+              <div>Your transaction history will appear here</div>
             </div>
+            <!-- Transactions will be populated here -->
           </div>
         </div>
         <a class="last-item" href="#"> </a>
