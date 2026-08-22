@@ -581,6 +581,20 @@ white on white and simply absent. Reuse those tokens as `mask-image` with
 the caller. Size the mask to the whole viewBox, not to the glyph — these icons
 carry their own padding, so sizing to the visible shape renders a fragment.
 
+**Never build a pattern out of text a person typed.** Restore compiled the
+user's "old string" with `new RegExp(input, 'g')` and ran it across the backup
+file — so typing `.` replaced every character in the file, destroying the thing
+being restored. `split(old).join(new)` replaces every occurrence with no pattern
+semantics at all. Regex is for patterns you wrote; a value someone typed is a
+value.
+
+**Label a feature by what it does, not by who you imagine uses it.**
+"Developer Options" on the restore screen turned out to be network migration —
+its dropdowns are populated with netids and it rewrites one to another. Named
+for its audience it read as debug scaffolding left in a shipping build; named
+for its job, "Backup is from a different network", it is an ordinary option a
+person can decide about.
+
 **A dangerous outcome must be a choice, never a default you fall into.** The
 backup screen produced an *unencrypted* copy of the account's private keys when
 both password fields were left empty — the shortest path through the screen —
