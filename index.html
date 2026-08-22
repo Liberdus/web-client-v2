@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-67" />
+    <link rel="stylesheet" href="./styles.css?v=1455-68" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-67" type="module"></script>
+    <script src="./app.js?v=1455-68" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -3091,61 +3091,77 @@
       <div class="modal fixed-header" id="backupModal">
         <div class="modal-header">
           <button class="back-button" id="closeBackupForm"></button>
-          <div class="modal-title">Backup Account</div>
+          <div class="modal-title">Back up account</div>
         </div>
+        <!--
+          Encryption is a choice you make here, not one you fall into.
+
+          Before, an empty password produced a valid backup and it was not
+          encrypted — so the shortest path through this screen (open it, press
+          the only button) wrote the account's private keys to a file in the
+          clear. The only warning was grey placeholder text that vanished the
+          moment you typed.
+        -->
         <div class="modal-content">
-          <div class="form-container">
-            <!-- have description of what this is -->
-            <p>
-              This will save a file that contains your account data. You can use this file to restore your account on another device.
-            </p>
-            <p>
-              If you are signed in you can choose to backup all accounts or just the signed in account. If you are not signed in, this will save all accounts.
+          <div class="form-container form--quiet">
+            <p class="modal-summary">
+              A backup file is the only way back into this account if you lose this device.
             </p>
             <form id="backupForm" class="form--narrow">
-              <div class="form-group" id="backupAllAccountsGroup" style="display: none;">
+              <div class="form-group" id="backupAllAccountsGroup" hidden>
                 <label class="checkbox-label">
                   <input type="checkbox" id="backupAllAccounts" />
                   <span class="checkmark"></span>
-                  Backup all accounts
+                  Include every account on this device
                 </label>
               </div>
               <div class="form-group">
-                <label for="backupStorageLocation">Storage Location</label>
+                <label for="backupStorageLocation">Storage</label>
                 <select id="backupStorageLocation" class="form-control">
-                  <option value="local" selected>Local</option>
+                  <option value="local" selected>This device</option>
                   <option value="google-drive">Google Drive</option>
                 </select>
               </div>
-              <div class="form-group">
-                <label for="backupPassword">
-                  File Password
-                  <span id="backupPasswordWarning" style="color: #dc3545; display: none">too short</span>
-                  <span id="backupPasswordRequired" style="color: #dc3545; display: none">required</span>
+
+              <div class="backup-encryption" id="backupEncryptionGroup" role="radiogroup"
+                   aria-label="Backup file protection">
+                <label class="backup-enc-option">
+                  <input type="radio" name="backupEncryption" value="password" checked />
+                  <span class="backup-enc-tick" aria-hidden="true"></span>
+                  <span class="backup-enc-text">
+                    <b>Protect with a password</b>
+                    <span>You will need it to restore the file. Required for Google Drive.</span>
+                  </span>
                 </label>
-                <input
-                  type="password"
-                  id="backupPassword"
-                  class="form-control"
-                  placeholder="Leave empty for unencrypted backup"
-                />
+                <label class="backup-enc-option">
+                  <input type="radio" name="backupEncryption" value="none" />
+                  <span class="backup-enc-tick" aria-hidden="true"></span>
+                  <span class="backup-enc-text">
+                    <b>No password</b>
+                    <span class="backup-enc-warn">
+                      Anyone who opens the file gets this account. Keep it off shared drives and cloud folders.
+                    </span>
+                  </span>
+                </label>
               </div>
-              <div class="form-group">
-                <label for="backupPasswordConfirm">
-                  Confirm File Password
-                  <span id="backupPasswordConfirmWarning" style="color: #dc3545; display: none">passwords don't match</span>
-                </label>
-                <input
-                  type="password"
-                  id="backupPasswordConfirm"
-                  class="form-control"
-                  placeholder="Confirm your file password"
-                />
+
+              <!-- Only present once you have chosen to use one. -->
+              <div id="backupPasswordFields">
+                <div class="form-group">
+                  <label for="backupPassword">Password</label>
+                  <input type="password" id="backupPassword" class="form-control" autocomplete="new-password" />
+                  <span id="backupPasswordWarning" class="field-status"></span>
+                </div>
+                <div class="form-group">
+                  <label for="backupPasswordConfirm">Confirm password</label>
+                  <input type="password" id="backupPasswordConfirm" class="form-control" autocomplete="new-password" />
+                  <span id="backupPasswordConfirmWarning" class="field-status"></span>
+                </div>
               </div>
               <div class="form-actions">
                 <button type="submit" class="btn btn--primary btn--pill btn--full backup-submit-button">
                   <span class="backup-submit-spinner" aria-hidden="true"></span>
-                  <span>Save Data</span>
+                  <span>Save backup file</span>
                 </button>
               </div>
             </form>

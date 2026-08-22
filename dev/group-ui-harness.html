@@ -193,6 +193,17 @@
         },
         // Exactly the markup renderChatMessageHTML emits for a payment.
         // The dialog that replaced fifteen native alert/confirm/prompt calls.
+        'backup': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('backupModal').querySelector('.modal-content').innerHTML;
+          listHost.style.padding = '0';
+          listHost.querySelector('#backupAllAccountsGroup').hidden = false;
+        },
+        'backup: no password': () => {
+          scenes['backup']();
+          listHost.querySelector('input[name="backupEncryption"][value="none"]').checked = true;
+          listHost.querySelector('#backupPasswordFields').hidden = true;
+        },
         'confirm dialog': () => {
           listHost.style.display = 'block';
           listHost.innerHTML = doc.getElementById('uiConfirmDialog').outerHTML;

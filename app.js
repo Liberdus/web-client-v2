@@ -15624,9 +15624,10 @@ class BackupAccountModal {
     this.modal = document.getElementById('backupModal');
     this.passwordInput = document.getElementById('backupPassword');
     this.passwordWarning = document.getElementById('backupPasswordWarning');
-    this.passwordRequired = document.getElementById('backupPasswordRequired');
     this.passwordConfirmInput = document.getElementById('backupPasswordConfirm');
     this.passwordConfirmWarning = document.getElementById('backupPasswordConfirmWarning');
+    this.passwordFields = document.getElementById('backupPasswordFields');
+    this.encryptionInputs = [...document.querySelectorAll('input[name="backupEncryption"]')];
     this.submitButton = document.getElementById('backupForm').querySelector('button[type="submit"]');
     this.backupAllAccountsCheckbox = document.getElementById('backupAllAccounts');
     this.backupAllAccountsGroup = document.getElementById('backupAllAccountsGroup');
@@ -15643,6 +15644,9 @@ class BackupAccountModal {
     this.passwordInput.addEventListener('input', () => this.updateButtonState());
     this.passwordConfirmInput.addEventListener('input', () => this.updateButtonState());
     this.storageLocationSelect.addEventListener('change', () => this.handleStorageLocationChange());
+    for (const input of this.encryptionInputs) {
+      input.addEventListener('change', () => this.handleEncryptionChange());
+    }
 
     // Handle legacy OAuth callback (in case someone lands on page with OAuth hash)
     this.handleGoogleOAuthCallback();
@@ -15655,15 +15659,18 @@ class BackupAccountModal {
     // Show/hide checkbox based on login status
     if (myData) {
       // User is signed in - show checkbox
-      this.backupAllAccountsGroup.style.display = 'block';
+      this.backupAllAccountsGroup.hidden = false;
       this.backupAllAccountsCheckbox.checked = false; // Default to current account
     } else {
       // User is not signed in - hide checkbox but default to all accounts
-      this.backupAllAccountsGroup.style.display = 'none';
+      this.backupAllAccountsGroup.hidden = true;
       this.backupAllAccountsCheckbox.checked = true; // Default to all accounts
     }
-    
-    this.updateButtonState();
+
+    // Always reopen on the protected option, never on whatever was left over.
+    const withPassword = this.encryptionInputs.find((i) => i.value === 'password');
+    if (withPassword) withPassword.checked = true;
+    this.handleStorageLocationChange();
   }
 
   close() {
@@ -15678,6 +15685,8 @@ class BackupAccountModal {
     // Clear passwords for security
     this.passwordInput.value = '';
     this.passwordConfirmInput.value = '';
+    this.passwordWarning.textContent = '';
+    this.passwordConfirmWarning.textContent = '';
     // Reset checkbox
     this.backupAllAccountsCheckbox.checked = false;
     // Reset storage location to default
@@ -16450,42 +16459,72 @@ class BackupAccountModal {
     return myLocalStore;
   }
 
+  /**
+   * Which protection the user chose. Google Drive has no unencrypted option —
+   * the file leaves the device — so it is forced regardless of the radio.
+   * @returns {boolean}
+   */
+  wantsPassword() {
+    if (this.storageLocationSelect.value === 'google-drive') return true;
+    return this.encryptionInputs.find((i) => i.checked)?.value !== 'none';
+  }
+
+  /**
+   * Shows or hides the password fields, and keeps them empty when unused.
+   *
+   * Clearing matters: a value left behind after switching to "No password"
+   * would encrypt a file the user has just been told is unencrypted, and they
+   * would have no idea what the password was.
+   * @returns {void}
+   */
+  handleEncryptionChange() {
+    const wants = this.wantsPassword();
+    this.passwordFields.hidden = !wants;
+    if (!wants) {
+      this.passwordInput.value = '';
+      this.passwordConfirmInput.value = '';
+      this.passwordWarning.textContent = '';
+      this.passwordConfirmWarning.textContent = '';
+    }
+    this.updateButtonState();
+  }
+
   updateButtonState() {
     const password = this.passwordInput.value;
     const confirmPassword = this.passwordConfirmInput.value;
-    const isGoogleDrive = this.storageLocationSelect.value === 'google-drive';
-    
-    // Password is required for Google Drive, optional for local
+    const wantsPassword = this.wantsPassword();
+
     let isValid = true;
-    
-    // Check if password is required (Google Drive)
-    if (isGoogleDrive && password.length === 0) {
-      isValid = false;
-      this.passwordRequired.style.display = 'inline';
-      this.passwordWarning.style.display = 'none';
-    } else if (password.length > 0 && password.length < 4) {
-      // Validate password length
-      isValid = false;
-      this.passwordWarning.style.display = 'inline';
-      this.passwordRequired.style.display = 'none';
+
+    /*
+     * With "No password" chosen there is nothing to validate — that is the
+     * point of making it an explicit choice rather than an empty field. With a
+     * password chosen it is genuinely required, so an empty one is an error
+     * rather than a silent fall-through to an unencrypted file.
+     */
+    if (!wantsPassword) {
+      this.passwordWarning.textContent = '';
+      this.passwordConfirmWarning.textContent = '';
     } else {
-      this.passwordWarning.style.display = 'none';
-      this.passwordRequired.style.display = 'none';
-    }
-    
-    // Validate password confirmation
-    // If password has been entered, confirmation is required and must match
-    if (password.length > 0) {
-      if (confirmPassword.length === 0) {
+      if (password.length === 0) {
         isValid = false;
+        this.passwordWarning.textContent = '';
+      } else if (password.length < 4) {
+        isValid = false;
+        this.passwordWarning.textContent = 'At least 4 characters.';
+      } else {
+        this.passwordWarning.textContent = '';
+      }
+
+      if (password.length === 0 || confirmPassword.length === 0) {
+        isValid = false;
+        this.passwordConfirmWarning.textContent = '';
       } else if (confirmPassword !== password) {
         isValid = false;
-        this.passwordConfirmWarning.style.display = 'inline';
+        this.passwordConfirmWarning.textContent = "Passwords don't match.";
       } else {
-        this.passwordConfirmWarning.style.display = 'none';
+        this.passwordConfirmWarning.textContent = '';
       }
-    } else {
-      this.passwordConfirmWarning.style.display = 'none';
     }
     
     // Update button state
@@ -16494,16 +16533,22 @@ class BackupAccountModal {
 
   handleStorageLocationChange() {
     const isGoogleDrive = this.storageLocationSelect.value === 'google-drive';
-    
-    // Update placeholder text based on storage location
-    if (isGoogleDrive) {
-      this.passwordInput.placeholder = 'Password required for Google Drive';
-    } else {
-      this.passwordInput.placeholder = 'Leave empty for unencrypted backup';
+
+    /*
+     * Google Drive means the file leaves the device, so there is no
+     * unencrypted option — the choice is forced and the alternative is
+     * disabled rather than silently ignored, so the screen never shows a
+     * selection it is not honouring.
+     */
+    const none = this.encryptionInputs.find((i) => i.value === 'none');
+    const withPassword = this.encryptionInputs.find((i) => i.value === 'password');
+    if (none) {
+      none.disabled = isGoogleDrive;
+      none.closest('.backup-enc-option')?.classList.toggle('is-disabled', isGoogleDrive);
     }
-    
-    // Re-validate form
-    this.updateButtonState();
+    if (isGoogleDrive && withPassword) withPassword.checked = true;
+
+    this.handleEncryptionChange();
   }
 }
 const backupModal = new BackupAccountModal();
