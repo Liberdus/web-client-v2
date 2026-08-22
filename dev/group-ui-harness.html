@@ -193,6 +193,17 @@
         },
         // Exactly the markup renderChatMessageHTML emits for a payment.
         // The dialog that replaced fifteen native alert/confirm/prompt calls.
+        'restore': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('importModal').querySelector('.modal-content').innerHTML;
+          listHost.style.padding = '0';
+        },
+        'restore: overwriting': () => {
+          scenes['restore']();
+          const cb = listHost.querySelector('#overwriteAccountsCheckbox');
+          cb.checked = true;
+          listHost.querySelector('.restore-advanced').open = true;
+        },
         'backup': () => {
           listHost.style.display = 'block';
           listHost.innerHTML = doc.getElementById('backupModal').querySelector('.modal-content').innerHTML;

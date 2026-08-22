@@ -11991,6 +11991,95 @@ button.ui-row-value:not(:disabled):hover {
   cursor: not-allowed;
 }
 
+/* --- restore -------------------------------------------------------------- */
+/*
+ * The overwrite option. It replaces accounts you already have, so it does not
+ * sit among the plain checkboxes it used to — it states what it does and what
+ * that costs, in the same shape as the backup encryption choice.
+ */
+.restore-overwrite {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 4px 0 18px;
+  padding: 12px 2px;
+  cursor: pointer;
+  text-align: left;
+}
+.restore-overwrite input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.restore-overwrite-tick {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border: 1.5px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--background-color);
+}
+.restore-overwrite input:checked ~ .restore-overwrite-tick {
+  border-color: var(--danger-color);
+  background: var(--danger-color) var(--icon-check-white) center / 14px 14px no-repeat;
+}
+.restore-overwrite input:focus-visible ~ .restore-overwrite-tick {
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.18);
+}
+.restore-overwrite-text {
+  flex: 1;
+  min-width: 0;
+}
+.restore-overwrite-text b {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-color);
+}
+.restore-overwrite-text span {
+  display: block;
+  margin-top: 1px;
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  color: var(--secondary-text-color);
+}
+/* Ticked, it is the destructive path — so it says so once ticked, not before. */
+.restore-overwrite input:checked ~ .restore-overwrite-text span {
+  color: var(--danger-color);
+}
+
+/* Network substitution, behind a disclosure rather than a checkbox that looked
+   like the destructive one above it. */
+.restore-advanced {
+  margin-top: 18px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 14px;
+}
+.restore-advanced summary {
+  list-style: none;
+  cursor: pointer;
+}
+.restore-advanced summary::-webkit-details-marker {
+  display: none;
+}
+.restore-advanced-summary {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--primary-color);
+  text-align: left;
+}
+.restore-advanced-note {
+  margin: 8px 0 4px;
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+  color: var(--secondary-text-color);
+  text-align: left;
+}
+
 /* --- small shared bits --------------------------------------------------- */
 .ui-block {
   margin-top: 24px;

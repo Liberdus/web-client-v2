@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-68" />
+    <link rel="stylesheet" href="./styles.css?v=1455-69" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-68" type="module"></script>
+    <script src="./app.js?v=1455-69" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -1442,87 +1442,110 @@
       <div class="modal fixed-header" id="importModal">
         <div class="modal-header">
           <button class="back-button" id="closeImportForm"></button>
-          <div class="modal-title">Restore Account</div>
+          <div class="modal-title">Restore account</div>
         </div>
+        <!--
+          "Developer Options" was a checkbox in the normal restore flow revealing
+          "Old String" / "New String" fields. It is not a debugging tool: the
+          dropdowns are populated with network ids, and it rewrites one netid to
+          another throughout the file. That is "this backup came from a different
+          network", so it says that now — and it sits behind a <details>, not a
+          checkbox that looks like the destructive one above it.
+        -->
         <div class="modal-content">
-          <div class="form-container">
+          <div class="form-container form--quiet">
             <form id="importForm" class="form--narrow">
               <div class="form-group">
-                <label for="restoreSourceLocation">Source Location</label>
+                <label for="restoreSourceLocation">Source</label>
                 <select id="restoreSourceLocation" class="form-control">
-                  <option value="local" selected>Local</option>
+                  <option value="local" selected>This device</option>
                   <option value="google-drive">Google Drive</option>
                 </select>
               </div>
               <div class="form-group" id="localFileGroup">
-                <label for="importFile">Select File</label>
+                <label for="importFile">Backup file</label>
                 <input type="file" id="importFile" class="form-control" accept=".json,application/json" />
               </div>
-              <div class="form-group" id="googleDriveFileGroup" style="display: none;">
-                <label>Google Drive File</label>
-                <button type="button" id="pickGoogleDriveFile" class="btn btn--secondary btn--pill btn--full">Pick File from Google Drive</button>
-                <div id="selectedGoogleDriveFile" class="u-mt-5" style="display: none;">
+              <div class="form-group" id="googleDriveFileGroup" hidden>
+                <label>Google Drive file</label>
+                <button type="button" id="pickGoogleDriveFile" class="btn btn--secondary btn--pill btn--full">Choose a file</button>
+                <div id="selectedGoogleDriveFile" class="u-mt-5" hidden>
                   <span class="selected-file-name"></span>
                   <button type="button" id="clearGoogleDriveFile" class="btn btn--text">Clear</button>
                 </div>
               </div>
               <div class="form-group">
-                <label for="importPassword">
-                  File Password
-                  <span id="importPasswordRequired" style="color: var(--danger-color); display: none;">required</span>
-                </label>
+                <label for="importPassword">File password</label>
                 <input
                   type="password"
                   id="importPassword"
                   class="form-control"
-                  placeholder="Enter password for encrypted files"
+                  placeholder="If the file was saved with one"
                 />
-              </div>
-              <div class="form-group">
-                <label>
-                  <input type="checkbox" id="overwriteAccountsCheckbox"> 
-                  Overwrite existing accounts from backup file
-                </label>
+                <span id="importPasswordRequired" class="field-status"></span>
               </div>
 
-              <div class="form-group" id="backupAccountLockGroup" style="display: none;">
-                <label for="backupAccountLock">Backup Account Password</label>
+              <!--
+                A different password from the one above: this one unlocks the
+                accounts stored INSIDE the file, and only appears when the file
+                carries a lock this device does not already know.
+              -->
+              <div class="form-group" id="backupAccountLockGroup" hidden>
+                <label for="backupAccountLock">App lock password</label>
                 <input
                   type="password"
                   id="backupAccountLock"
                   class="form-control"
-                  placeholder="Enter password used to lock accounts in backup"
+                  placeholder="The password that locked these accounts"
                 />
               </div>
+
+              <!--
+                The destructive option on this screen. It replaces accounts you
+                already have, so it is not a plain checkbox among plain
+                checkboxes any more.
+              -->
+              <label class="restore-overwrite" for="overwriteAccountsCheckbox">
+                <input type="checkbox" id="overwriteAccountsCheckbox" />
+                <span class="restore-overwrite-tick" aria-hidden="true"></span>
+                <span class="restore-overwrite-text">
+                  <b>Replace accounts that already exist here</b>
+                  <span>Any account in the file with the same username on the same network overwrites the one on this device.</span>
+                </span>
+              </label>
+
               <div class="form-actions">
-                <button type="submit" id="restoreSubmitButton" class="btn btn--primary btn--pill btn--full" disabled>Load Account</button>
+                <button type="submit" id="restoreSubmitButton" class="btn btn--primary btn--pill btn--full" disabled>Restore</button>
               </div>
-              <div class="form-group">
-                <label>
-                  <input type="checkbox" id="developerOptionsToggle"> 
-                  Developer Options
-                </label>
-              </div>
-              <!-- Developer options section (initially hidden) -->
-              <div id="developerOptionsSection" class="developer-options" style="display: none;">
-                <div class="form-group">
-                  <label for="oldStringSelect">Old String</label>
-                  <select id="oldStringSelect" class="form-control">
-                    <option value="">Select or enter custom...</option>
-                  </select>
-                  <input type="text" id="oldStringCustom" class="form-control u-mt-5" 
-                        placeholder="Enter custom old string">
+
+              <details class="restore-advanced">
+                <summary>
+                  <span class="restore-advanced-summary">Backup is from a different network</span>
+                </summary>
+                <p class="restore-advanced-note">
+                  Rewrites the network id throughout the file so the accounts land on the network
+                  selected below. Leave this alone unless you know the backup came from elsewhere.
+                </p>
+                <div id="developerOptionsSection" class="developer-options">
+                  <div class="form-group">
+                    <label for="oldStringSelect">Network in the file</label>
+                    <select id="oldStringSelect" class="form-control">
+                      <option value="">Select or enter custom...</option>
+                    </select>
+                    <input type="text" id="oldStringCustom" class="form-control u-mt-5"
+                          placeholder="Or type the network id" />
+                  </div>
+
+                  <div class="form-group">
+                    <label for="newStringSelect">Network to restore onto</label>
+                    <select id="newStringSelect" class="form-control">
+                      <option value="">Select or enter custom...</option>
+                    </select>
+                    <input type="text" id="newStringCustom" class="form-control u-mt-5"
+                          placeholder="Or type the network id" />
+                  </div>
                 </div>
-                
-                <div class="form-group">
-                  <label for="newStringSelect">New String</label>
-                  <select id="newStringSelect" class="form-control">
-                    <option value="">Select or enter custom...</option>
-                  </select>
-                  <input type="text" id="newStringCustom" class="form-control u-mt-5" 
-                        placeholder="Enter custom new string">
-                </div>
-              </div>
+              </details>
             </form>
           </div>
         </div>

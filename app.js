@@ -16564,7 +16564,6 @@ class RestoreAccountModal {
   load() {
     // called when the DOM is loaded; can setup event handlers here
     this.modal = document.getElementById('importModal');
-    this.developerOptionsToggle = document.getElementById('developerOptionsToggle');
     this.oldStringSelect = document.getElementById('oldStringSelect');
     this.oldStringCustom = document.getElementById('oldStringCustom');
     this.newStringSelect = document.getElementById('newStringSelect');
@@ -16604,7 +16603,8 @@ class RestoreAccountModal {
     ));
 
     // Add new event listeners for developer options
-    this.developerOptionsToggle.addEventListener('change', () => this.toggleDeveloperOptions());
+    this.advancedDetails = document.querySelector('#importModal .restore-advanced');
+    this.advancedDetails?.addEventListener('toggle', () => this.toggleDeveloperOptions());
     // setup mutual exclusion for the developer options
     this.setupMutualExclusion(this.oldStringSelect, this.oldStringCustom);
     this.setupMutualExclusion(this.newStringSelect, this.newStringCustom);
@@ -16664,9 +16664,13 @@ class RestoreAccountModal {
   }
 
   // toggle the developer options section
+  /*
+   * Enabled by the disclosure being open, not by a hidden checkbox. The section
+   * is always in the DOM inside <details>, which handles the showing; what this
+   * tracks is whether the substitution should apply at all.
+   */
   toggleDeveloperOptions() {
-    this.developerOptionsEnabled = !!this.developerOptionsToggle?.checked;
-    this.developerOptionsSection.style.display = this.developerOptionsEnabled ? 'block' : 'none';
+    this.developerOptionsEnabled = Boolean(this.advancedDetails?.open);
   }
 
   // Handle source location change (Local vs Google Drive)
@@ -16674,8 +16678,8 @@ class RestoreAccountModal {
     const isGoogleDrive = this.sourceLocationSelect.value === 'google-drive';
     
     // Toggle visibility of file selection groups
-    this.localFileGroup.style.display = isGoogleDrive ? 'none' : 'block';
-    this.googleDriveFileGroup.style.display = isGoogleDrive ? 'block' : 'none';
+    this.localFileGroup.hidden = isGoogleDrive;
+    this.googleDriveFileGroup.hidden = !isGoogleDrive;
     
     // Clear selections when switching
     if (isGoogleDrive) {
@@ -16686,7 +16690,7 @@ class RestoreAccountModal {
     
     // Update password required indicator
     if (this.passwordRequired) {
-      this.passwordRequired.style.display = isGoogleDrive ? 'inline' : 'none';
+      this.passwordRequired.textContent = isGoogleDrive ? 'Required for Google Drive files.' : '';
     }
     
     this.updateButtonState();
@@ -16856,7 +16860,7 @@ class RestoreAccountModal {
       this.googleDriveFileContent = fileContent;
       
       // Update UI
-      this.selectedGoogleDriveFileDisplay.style.display = 'flex';
+      this.selectedGoogleDriveFileDisplay.hidden = false;
       this.selectedGoogleDriveFileDisplay.querySelector('.selected-file-name').textContent = file.name;
       
       // Close picker and update button state
@@ -16913,7 +16917,7 @@ class RestoreAccountModal {
       // Check if backup requires password
       const requiresBackupPassword = data.lock && !(localStorage.lock && data.lock === localStorage.lock);
       if (requiresBackupPassword) {
-        this.backupAccountLockGroup.style.display = 'block';
+        this.backupAccountLockGroup.hidden = false;
       } else {
         this.resetBackupLockPrompt();
       }
@@ -16955,7 +16959,7 @@ class RestoreAccountModal {
   clearSelectedGoogleDriveFile() {
     this.selectedGoogleDriveFile = null;
     this.googleDriveFileContent = null;
-    this.selectedGoogleDriveFileDisplay.style.display = 'none';
+    this.selectedGoogleDriveFileDisplay.hidden = true;
     this.selectedGoogleDriveFileDisplay.querySelector('.selected-file-name').textContent = '';
     this.removeFileInjectedNetids();
     this.resetBackupLockPrompt();
@@ -17003,14 +17007,19 @@ class RestoreAccountModal {
   performStringSubstitution(fileContent, substitution) {
     if (!substitution) return fileContent;
 
-    // Count occurrences before replacement
-    const regex = new RegExp(substitution.oldString, 'g');
-    
-    // Global string replacement (like sed -i 's/old/new/g')
-    const modifiedContent = fileContent.replace(regex, substitution.newString);
-
-    
-    return modifiedContent;
+    /*
+     * A LITERAL replacement, not a regex.
+     *
+     * This was `new RegExp(oldString, 'g')` over a string the user typed, run
+     * across the file that holds their keys. A netid is hex so it survives,
+     * but anything typed into the custom field was compiled as a pattern: a
+     * "." matched every character and replaced the whole file with repetitions
+     * of the new string. On a recovery screen, silently corrupting the file
+     * being recovered is the worst thing this code could do.
+     *
+     * split/join replaces every occurrence with no pattern semantics at all.
+     */
+    return fileContent.split(substitution.oldString).join(substitution.newString);
   }
 
   /**
@@ -17243,7 +17252,8 @@ class RestoreAccountModal {
   clearForm() {
     this.fileInput.value = '';
     this.passwordInput.value = '';
-    this.developerOptionsToggle.checked = false;
+    // Close the disclosure, which is what enables the substitution now.
+    if (this.advancedDetails) this.advancedDetails.open = false;
     this.oldStringCustom.value = '';
     this.newStringCustom.value = '';
     this.oldStringSelect.value = '';
@@ -17265,7 +17275,7 @@ class RestoreAccountModal {
 
   resetBackupLockPrompt() {
     if (this.backupAccountLockGroup) {
-      this.backupAccountLockGroup.style.display = 'none';
+      this.backupAccountLockGroup.hidden = true;
     }
     if (this.backupAccountLock) {
       this.backupAccountLock.value = '';
