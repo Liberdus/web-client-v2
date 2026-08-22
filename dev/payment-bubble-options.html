@@ -1,0 +1,140 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Payment bubbles</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <style>
+      body { margin:0; background:#ececed; font-family:'Inter',sans-serif; }
+      .page { max-width:1240px; margin:0 auto; padding:26px 20px 90px; }
+      h2 { font-size:15px; margin:34px 0 4px; letter-spacing:-.01em }
+      .why { font-size:12.5px; line-height:1.6; color:#65676b; margin:0 0 14px; max-width:78ch }
+      .why code { background:#e2e2e8; padding:1px 4px; border-radius:3px; font-size:.9em }
+      .why b { color:#3a3c48 }
+      .pair { display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start }
+      .col { width:360px }
+      .lbl { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#797c8c; margin-bottom:6px }
+      .lbl b.now { color:#8a2018 } .lbl b.rec { color:#1f6b2a }
+      .stage { background:#fff; border:1px solid #dcdce4; border-radius:12px; padding:14px 12px 20px }
+      .stage .messages-list { display:flex; flex-direction:column; gap:4px; padding:0 }
+      .meas { font-size:11px; color:#9a9daf; margin-top:6px; font-variant-numeric:tabular-nums }
+
+      /* ---------- proposed ---------- */
+      .pay { display:flex; align-items:center; gap:10px }
+      .pay-dir { flex:none; width:26px; height:26px; border-radius:50%; position:relative }
+      .message.sent .pay-dir { background:rgba(255,255,255,.18) }
+      .message.received .pay-dir { background:rgba(0,0,0,.06) }
+      .pay-dir::before { content:''; position:absolute; inset:0;
+                         -webkit-mask:var(--dir) center / 26px no-repeat;
+                         mask:var(--dir) center / 26px no-repeat }
+      .message.sent .pay-dir::before { background-color:rgba(255,255,255,.9) }
+      .message.received .pay-dir::before { background-color:var(--success-color) }
+      .pay-figures { min-width:0 }
+      .pay-amt { display:block; font-size:19px; font-weight:600; letter-spacing:-.01em;
+                 font-variant-numeric:tabular-nums; line-height:1.2 }
+      .pay-usd { display:block; font-size:12.5px; margin-top:1px; font-variant-numeric:tabular-nums }
+      .message.sent .pay-usd { color:rgba(255,255,255,.72) }
+      .message.received .pay-usd { color:var(--secondary-text-color) }
+      /* No rule above it: a hairline inside a bubble is another frame around
+         something already framed. Space does the separating. */
+      .pay-memo { margin-top:8px; font-size:14px; line-height:1.35 }
+      .message.sent .pay-memo { color:rgba(255,255,255,.92) }
+
+      /* ---------- variant B ---------- */
+      .payB-line { display:flex; align-items:baseline; gap:8px }
+      .payB-amt { font-size:19px; font-weight:600; font-variant-numeric:tabular-nums }
+      .payB-usd { font-size:13px; font-variant-numeric:tabular-nums }
+      .message.sent .payB-usd { color:rgba(255,255,255,.72) }
+      .message.received .payB-usd { color:var(--secondary-text-color) }
+    </style>
+  </head>
+  <body>
+    <div class="page" id="page"></div>
+    <script type="module">
+      const page = document.getElementById('page');
+      const cs = getComputedStyle(document.documentElement);
+      const OUT = cs.getPropertyValue('--icon-arrow-out').trim();
+      const IN = cs.getPropertyValue('--icon-arrow-in').trim();
+
+      const now = (cls, sign, amt, memo, time) => `
+        <div class="message ${cls} payment-info">
+          <div class="payment-header">
+            <span class="payment-direction">${sign}</span>
+            <span class="payment-amount">${amt}</span>
+          </div>
+          ${memo ? `<div class="payment-memo">${memo}</div>` : ''}
+          <div class="message-time">${time}</div>
+        </div>`;
+
+      const A = (cls, dir, amt, usd, memo, time) => `
+        <div class="message ${cls} payment-info">
+          <div class="pay">
+            <span class="pay-dir" data-dir="${dir}"></span>
+            <span class="pay-figures">
+              <span class="pay-amt">${amt}</span>
+              ${usd ? `<span class="pay-usd">${usd}</span>` : ''}
+            </span>
+          </div>
+          ${memo ? `<div class="pay-memo">${memo}</div>` : ''}
+          <div class="message-time">${time}</div>
+        </div>`;
+
+      const B = (cls, amt, usd, memo, time) => `
+        <div class="message ${cls} payment-info">
+          <div class="payB-line">
+            <span class="payB-amt">${amt}</span>
+            ${usd ? `<span class="payB-usd">${usd}</span>` : ''}
+          </div>
+          ${memo ? `<div class="payB-memo pay-memo">${memo}</div>` : ''}
+          <div class="message-time">${time}</div>
+        </div>`;
+
+      page.innerHTML = `
+        <h2>Payment bubbles — 60px of padding around one number</h2>
+        <p class="why"><b><code>.payment-header</code> is <code>padding: 30px 0</code></b>, marked
+        <code>/* User adjusted */</code>, plus an 8px margin under it. That is the whole reason the bubble is
+        the size of a photograph: sixty pixels of air wrapped around a single line of text.</p>
+        <p class="why">It is also set in <b><code>font-family: Georgia, serif</code></b> — a serif that
+        appears nowhere else in an app that is Inter throughout, so a payment reads as if it came from a
+        different product. The amount is <code>toFixed(6)</code>, so one coin is "1.000000 LIB". And there is
+        <b>no second currency</b>: the toll bar directly beneath these bubbles is quoted in USD, so the same
+        screen shows you money in two units and converts neither.</p>
+        <p class="why">Smaller things: <code>.payment-amount</code> and <code>.payment-direction</code> are
+        each declared <b>twice, identically</b>; the memo carries a <code>border-top</code>, which is a
+        hairline drawn inside a bubble that is already a frame; and its
+        <code>word-break: break-all</code> will split an ordinary word across lines mid-character.</p>
+        <p class="why"><b>A</b> keeps the direction as a glyph — the same arrows the wallet and history use —
+        with the amount and its dollar value stacked beside it. <b>B</b> puts them on one line, which is
+        tighter still but gives the dollar value less standing. Both drop the trailing zeros and use
+        <code>tabular-nums</code>.</p>
+        <div class="pair">
+          <div class="col"><div class="lbl"><b class="now">Now</b></div>
+            <div class="stage"><div class="messages-list" id="s-now">
+              ${now('sent', '-', '1.000000 LIB', '', '11:50 AM')}
+              ${now('received', '+', '2.000000 LIB', 'For coffee', '11:51 AM')}
+            </div></div><div class="meas" id="m-now"></div></div>
+          <div class="col"><div class="lbl"><b class="rec">A — stacked</b></div>
+            <div class="stage"><div class="messages-list" id="s-a">
+              ${A('sent', 'out', '1 LIB', '≈ $1.02', '', '11:50 AM')}
+              ${A('received', 'in', '2 LIB', '≈ $2.04', 'For coffee', '11:51 AM')}
+            </div></div><div class="meas" id="m-a"></div></div>
+          <div class="col"><div class="lbl">B — one line</div>
+            <div class="stage"><div class="messages-list" id="s-b">
+              ${B('sent', '−1 LIB', '≈ $1.02', '', '11:50 AM')}
+              ${B('received', '+2 LIB', '≈ $2.04', 'For coffee', '11:51 AM')}
+            </div></div><div class="meas" id="m-b"></div></div>
+        </div>`;
+
+      for (const el of page.querySelectorAll('.pay-dir')) {
+        el.style.setProperty('--dir', el.dataset.dir === 'out' ? OUT : IN);
+      }
+      // report the actual heights, since "too big" is the complaint
+      for (const [list, out] of [['s-now', 'm-now'], ['s-a', 'm-a'], ['s-b', 'm-b']]) {
+        const hs = [...document.getElementById(list).children]
+          .map((c) => Math.round(c.getBoundingClientRect().height));
+        document.getElementById(out).textContent = `bubble heights: ${hs.join(' / ')} px`;
+      }
+    </script>
+  </body>
+</html>

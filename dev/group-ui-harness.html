@@ -191,6 +191,32 @@
             if (el) el.textContent = text;
           }
         },
+        // Exactly the markup renderChatMessageHTML emits for a payment.
+        'payment bubbles': () => {
+          listHost.style.display = 'none';
+          const m = document.getElementById('chatModal');
+          m.querySelector('.modal-title').textContent = 'brave';
+          m.querySelector('#chatSubtitle').textContent = '@brave';
+          m.querySelector('.modal-avatar').innerHTML = addrAvatar(REAL[1], 36);
+          const pay = (cls, amt, usd, memo, time) => `
+            <div class="message ${cls} payment-info" data-message-timestamp="1">
+              <div class="payment-row">
+                <span class="payment-dir" aria-hidden="true"></span>
+                <span class="payment-figures">
+                  <span class="payment-amount">${amt}</span>
+                  ${usd ? `<span class="payment-usd">${usd}</span>` : ''}
+                </span>
+              </div>
+              ${memo ? `<div class="payment-memo">${memo}</div>` : ''}
+              <div class="message-time">${time}</div>
+            </div>`;
+          m.querySelector('.messages-list').innerHTML =
+            pay('sent', '1 LIB', '≈ $1.02', '', '11:50 AM') +
+            pay('received', '2 LIB', '≈ $2.04', 'For coffee', '11:51 AM') +
+            // no stability factor yet: the USD line is omitted, not blanked
+            pay('sent', '0.5 LIB', '', 'Before parameters load', '11:52 AM');
+          m.classList.add('active');
+        },
         'history': () => {
           listHost.style.display = 'block';
           listHost.innerHTML = doc.getElementById('historyModal').querySelector('.modal-content').innerHTML;
@@ -227,8 +253,6 @@
           const st = listHost.querySelector('#contactInfoStatus');
           st.textContent = 'Connection';
           st.className = 'ui-nav-value contact-status contact-status--connection';
-          listHost.querySelector('#contactInfoUsernameRow').hidden = false;
-          listHost.querySelector('#contactInfoUsername').textContent = '@ana';
           listHost.querySelector('#contactInfoNotes').textContent =
             'Met at the Lisbon conference in March. Runs the validator working group.';
         },
