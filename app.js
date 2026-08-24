@@ -91,6 +91,7 @@ import {
   daoRepo,
   DAO_STATES,
   getDaoFinalVoteResult,
+  getDaoNotificationSummary,
   getDaoTransactionMessage,
   getDaoTrackedProposalMetadataEntries,
   getDaoProposalClaimWindow,
@@ -412,6 +413,9 @@ function newDataRecord(myAccount) {
     },
     contacts: {},
     daoUserVotes: {},
+    daoNotifications: {
+      lastDaoOpenedAt: 0,
+    },
     chats: [],
     wallet: {
       networth: 0.0,
@@ -462,6 +466,7 @@ function clearMyData() {
   myAccount = null;
   evmAssets.reset();
   daoRepo.reset();
+  resetDaoNotificationSummary();
 }
 
 /**
@@ -2486,6 +2491,44 @@ const daoProposalVoteTracker = createDaoProposalVoteTracker({
     myData.daoUserVotes = votes;
   },
 });
+
+function createEmptyDaoNotificationSummary() {
+  return {
+    newVoting: [],
+    endedVoting: [],
+    finalizedTrackedVote: [],
+  };
+}
+
+let daoNotificationSummary = createEmptyDaoNotificationSummary();
+
+function resetDaoNotificationSummary() {
+  daoNotificationSummary = createEmptyDaoNotificationSummary();
+}
+
+async function refreshDaoNotificationSummary() {
+  const accountData = myData;
+  if (!accountData) {
+    resetDaoNotificationSummary();
+    return false;
+  }
+
+  try {
+    await daoRepo.refresh({ force: true });
+    if (accountData !== myData) return false;
+
+    daoNotificationSummary = getDaoNotificationSummary({
+      metadataEntries: daoRepo.getProposalMetaForUi(),
+      daoUserVotes: accountData.daoUserVotes,
+      lastDaoOpenedAt: accountData.daoNotifications?.lastDaoOpenedAt || 0,
+      now: getTransactionTimestamp(),
+    });
+    return true;
+  } catch (error) {
+    console.warn('Failed to refresh DAO notifications:', error);
+    return false;
+  }
+}
 
 const DAO_PROPOSAL_PAGE_SIZE = 10;
 const DAO_ALL_FILTER = { key: 'all', label: 'All' };
@@ -7676,6 +7719,9 @@ class SignInModal {
     }
     
     await footer.switchView('chats'); // Default view
+
+    // DAO reminders use only the metadata index and must not block sign-in.
+    await refreshDaoNotificationSummary();
     
     // Restore wallet/history notification dots if there are unread transfers
     if (myData?.wallet?.history && Array.isArray(myData.wallet.history) && myData.wallet.history.length > 0) {

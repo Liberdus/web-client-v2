@@ -1079,6 +1079,48 @@ function normalizeDaoProposalIndexEntries(entries) {
     .filter(Boolean);
 }
 
+export function getDaoNotificationSummary({
+  metadataEntries,
+  daoUserVotes,
+  lastDaoOpenedAt,
+  now,
+}) {
+  const entries = normalizeDaoProposalIndexEntries(metadataEntries);
+  const trackedVotes = normalizeDaoUserVotes(daoUserVotes);
+  const lastOpenedAt = normalizeDaoTimestamp(lastDaoOpenedAt);
+  const currentTimestamp = normalizeDaoTimestamp(now);
+  const summary = {
+    newVoting: [],
+    endedVoting: [],
+    finalizedTrackedVote: [],
+  };
+
+  for (const entry of entries) {
+    const trackedVote = trackedVotes[entry.proposal];
+    if (entry.status === 'voting') {
+      if (entry.timestamp > lastOpenedAt) summary.newVoting.push(entry.proposal);
+
+      const reminderSchedule = normalizeDaoVoteReminderSchedule(trackedVote);
+      if (reminderSchedule
+        && currentTimestamp >= reminderSchedule.votingEndsAt
+        && lastOpenedAt < reminderSchedule.votingEndsAt) {
+        summary.endedVoting.push(entry.proposal);
+      }
+      continue;
+    }
+
+    if (!DAO_REWARD_STATE_KEYS.includes(entry.status) || !trackedVote) continue;
+    const reminderSchedule = normalizeDaoVoteReminderSchedule(trackedVote);
+    if (reminderSchedule
+      && entry.timestamp > lastOpenedAt
+      && currentTimestamp <= reminderSchedule.reminderExpiresAt) {
+      summary.finalizedTrackedVote.push(entry.proposal);
+    }
+  }
+
+  return summary;
+}
+
 export function getDaoTrackedProposalMetadataEntries(entries, proposalNumbers) {
   const tracked = new Set(
     (Array.isArray(proposalNumbers) ? proposalNumbers : [])
