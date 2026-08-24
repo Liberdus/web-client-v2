@@ -40,7 +40,9 @@ async function checkVersion() {
   const newComparableVersion = getComparableVersion(newVersion);
   console.log(currentComparableVersion, newComparableVersion);
   if (currentComparableVersion !== newComparableVersion) {
-    await uiAlert('Updating Liberdus', `Version ${newVersion} ${version}. The app will reload.`);
+    // `version` is a one-letter internal build tag; it means nothing to the
+    // person reading this, so it stays out of the sentence.
+    await uiAlert('Updating Liberdus', `Version ${newVersion}. The app will reload.`);
     localStorage.setItem(versionKey, newVersion); // Save new version with network-specific key
     const newUrl = window.location.href.split('?')[0];
 
@@ -33096,17 +33098,26 @@ class NewChatModal {
     this.hiddenFileInput.addEventListener('change', (e) => this.handleQRImageUpload(e.target.files?.[0] || null));
     this.inviteButton.addEventListener('click', () => this.handleInviteClick());
 
+    /*
+     * close(), not classList.remove('active').
+     *
+     * openNewChatModal() hides the "+" button; close() is what puts it back.
+     * Dismissing this modal by stripping the class instead skipped that, so
+     * leaving here for New group or Join a group left the "+" hidden until
+     * something else restored it — switchView() does, which is why changing
+     * tabs made it reappear.
+     */
     this.groupButton = document.getElementById('newChatGroupButton');
     if (this.groupButton) {
       this.groupButton.addEventListener('click', () => {
-        this.modal.classList.remove('active');
+        this.close();
         createGroupModal.open();
       });
     }
     this.joinGroupButton = document.getElementById('newChatJoinGroupButton');
     if (this.joinGroupButton) {
       this.joinGroupButton.addEventListener('click', () => {
-        this.modal.classList.remove('active');
+        this.close();
         joinGroupModal.open();
       });
     }
