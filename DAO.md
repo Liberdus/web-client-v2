@@ -115,8 +115,8 @@ Important implementation detail:
 - New accounts initialize `daoNotifications.lastDaoOpenedAt` to `0`; existing accounts use the same value lazily when the field is absent.
 - Opening the DAO from either the header or menu clears the current header reminder only after metadata loads successfully.
 - The successful open timestamp is saved immediately with the account record.
-- Claim reminders take routing priority over voting reminders. When both exist, the DAO opens Claimable and Voting remains marked with a filter dot for the current modal session.
-- Proposals from the opening notification batch receive an in-memory dot. Successfully opening an individual proposal clears its dot, while unopened proposal dots survive closing and reopening the DAO during the current signed-in session. Account changes, sign-out, and reload clear them without persisting per-proposal read state.
+- Claim reminders take routing priority over voting reminders. When both exist, the DAO opens Claimable and both categories remain marked until all notified proposals in each category have been opened successfully.
+- Proposals from the opening notification batch receive an in-memory dot. Successfully opening an individual proposal clears its dot and removes it from the corresponding filter notification. Unopened proposal and filter dots survive closing and reopening the DAO during the current signed-in session. Account changes, sign-out, and reload clear them without persisting per-proposal read state.
 - The one-day reminder buffer is local notification timing only. Proposal details and the server remain authoritative for actual claim eligibility.
 
 ## Backend Data Boundary
