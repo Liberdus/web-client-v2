@@ -48,6 +48,7 @@
   --icon-clock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cpolyline points='12 6 12 12 16 14'%3E%3C/polyline%3E%3C/svg%3E");
   --icon-info: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cline x1='12' y1='16' x2='12' y2='12'%3E%3C/line%3E%3Cline x1='12' y1='8' x2='12.01' y2='8'%3E%3C/line%3E%3C/svg%3E");
   --icon-bridge: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 8l-4 4 4 4'%3E%3C/path%3E%3Cpath d='M17 8l4 4-4 4'%3E%3C/path%3E%3Cpath d='M3 12h18'%3E%3C/path%3E%3C/svg%3E");
+  --icon-dao: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2l9 5-9 5-9-5 9-5z'/%3E%3Cpath d='M3 7v10l9 5 9-5V7'/%3E%3Cpath d='M12 12v10'/%3E%3C/svg%3E");
   --icon-download: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'%3E%3C/path%3E%3Cpolyline points='7,10 12,15 17,10'%3E%3C/polyline%3E%3Cline x1='12' y1='15' x2='12' y2='3'%3E%3C/line%3E%3C/svg%3E");
   --icon-share: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='18' cy='5' r='3'%3E%3C/circle%3E%3Ccircle cx='6' cy='12' r='3'%3E%3C/circle%3E%3Ccircle cx='18' cy='19' r='3'%3E%3C/circle%3E%3Cline x1='8.59' y1='13.51' x2='15.42' y2='17.49'%3E%3C/line%3E%3Cline x1='15.41' y1='6.51' x2='8.59' y2='10.49'%3E%3C/line%3E%3C/svg%3E");
   --icon-location: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0'%3E%3C/path%3E%3Ccircle cx='12' cy='10' r='3'%3E%3C/circle%3E%3C/svg%3E");
@@ -640,6 +641,10 @@ body {
   padding: 5px; /* Prevent `::before` icons (e.g. settings/menu) from being clipped */
 }
 
+.header-icons .icon-button[hidden] {
+  display: none;
+}
+
 .icon-button {
   background: none;
   border: none;
@@ -708,11 +713,24 @@ body {
   margin: 1px;
 }
 
-.icon-button#upcomingCallsBtn.upcoming-calls-glow {
-  animation: callsGlow 1.5s ease-in-out infinite;
+.icon-button#daoNotificationsBtn::before {
+  content: '';
+  width: 19px;
+  height: 19px;
+  display: block;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 19px 19px;
+  background-image: var(--icon-dao);
+  margin: 1px;
 }
 
-@keyframes callsGlow {
+.icon-button#upcomingCallsBtn.upcoming-calls-glow,
+.icon-button#daoNotificationsBtn.dao-notification-glow {
+  animation: headerIconGlow 1.5s ease-in-out infinite;
+}
+
+@keyframes headerIconGlow {
   0%, 100% {
     filter: drop-shadow(0 0 2px var(--primary-color)) drop-shadow(0 0 4px var(--primary-color));
   }
@@ -8367,7 +8385,7 @@ small {
 
 /* DAO icon for menu item */
 .menu-item[data-icon="dao"]::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2l9 5-9 5-9-5 9-5z'/%3E%3Cpath d='M3 7v10l9 5 9-5V7'/%3E%3Cpath d='M12 12v10'/%3E%3C/svg%3E");
+  background-image: var(--icon-dao);
 }
 
 /* DAO modal: keep the header fixed while the proposal list scrolls. */
@@ -8428,8 +8446,20 @@ small {
   min-width: 0;
   overflow: hidden;
   padding: 6px 4px;
+  position: relative;
   transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
   white-space: nowrap;
+}
+
+#daoModal .dao-filter-chip.has-notification::after {
+  background: var(--primary-color);
+  border-radius: 50%;
+  content: '';
+  height: 7px;
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 7px;
 }
 
 #daoModal .dao-filter-chip:hover {

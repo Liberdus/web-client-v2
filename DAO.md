@@ -7,6 +7,8 @@ This document describes the DAO / proposals feature as currently implemented in 
 ### Entry point
 
 - The DAO UI is opened from the main menu ("DAO").
+- A glowing DAO header icon appears when proposal metadata reveals a new vote, a tracked vote reaches its scheduled end while still in Voting, or a tracked vote enters a final reward state.
+- The notification icon opens Voting first when voting and claim reminders coexist; otherwise it opens the filter matching the reminder.
 
 ### Modals
 
@@ -88,6 +90,7 @@ For current multi-option proposals:
 
 Important implementation detail:
 
+- Sign-in notification detection requests only the complete metadata index and combines it with the current account's locally tracked vote schedules. It does not request proposal details.
 - The DAO UI requests the complete metadata index whenever the DAO is refreshed; proposal metadata is not persisted.
 - Proposal details are not persisted. Status filters fetch fresh details for the visible 10 entries, “Load more” fetches the next 10, and opening a proposal refreshes that proposal again.
 - The Claimable filter queries only proposals from the current account's confirmed vote history whose authoritative reward-claim window is currently open. It does not scan every finalized proposal, and it renders a candidate only when fresh details report that it is claimable.
@@ -99,13 +102,21 @@ Important implementation detail:
 - New accounts initialize an empty `daoUserVotes` map. For existing accounts without the map, the first confirmed vote creates it and adds its proposal number with the proposal's locally estimated voting end, claim end, and one-day reminder buffer.
 - Vote-history changes update `myData` in memory and rely on the normal account save lifecycle; DAO tracking does not trigger an extra save.
 - Vote reminder timing is calculated from the proposal already loaded when the vote is submitted, copied into the pending transaction, and persisted only after the vote confirms.
-- On each DAO metadata refresh, tracked proposals that have entered a final state are refreshed once and updated with the authoritative claim window derived from `votingEndedAt`.
+- When the DAO modal refreshes metadata, tracked proposals that have entered a final state are refreshed once and updated with the authoritative claim window derived from `votingEndedAt`.
 - Repeated confirmed votes on one proposal keep a single stored entry.
 - Confirmed reward claims remove their proposal number. Submitted, failed, and timed-out claims leave it available for retry.
 - Proposals are hidden until their authoritative claim window opens and after it ends. Expired entries are removed from the account record when claim candidates are evaluated.
 - The authoritative saved claim window narrows the account's candidate list. Fresh proposal details must confirm current eligibility before rendering, and the server remains authoritative when a claim is submitted.
 - Account backups include this vote history and restore it with the rest of the account data. It does not discover votes that are absent from the restored account record.
 - Otherwise ineligible candidates can remain stored until a reward is successfully claimed or the account data is cleared, but fresh details exclude them from the rendered list.
+
+### Local notification acknowledgement
+
+- New accounts initialize `daoNotifications.lastDaoOpenedAt` to `0`; existing accounts use the same value lazily when the field is absent.
+- Opening the DAO from either the header or menu clears the current header reminder only after metadata loads successfully.
+- The successful open timestamp is saved immediately with the account record.
+- Voting reminders take routing priority over claim reminders. A second category remains marked with a filter dot for the current modal session.
+- The one-day reminder buffer is local notification timing only. Proposal details and the server remain authoritative for actual claim eligibility.
 
 ## Backend Data Boundary
 
