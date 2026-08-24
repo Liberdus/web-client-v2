@@ -1449,7 +1449,7 @@ class AssetDetailsModal {
     const amountText = `${formatConnectedTokenAmount(asset.tokenAmount)} ${asset.tokenSymbol}`;
 
     this.title.textContent = asset.tokenSymbol;
-    this.symbol.textContent = asset.tokenName;
+    this.symbol.textContent = `${asset.tokenName} price`;
     this.price.textContent = priceText;
     this.price.style.color = asset.tokenPriceUsd === null ? 'var(--danger-color)' : '';
     this.updated.textContent = formatAssetDetailsUpdatedAt(this.controller.getUpdatedAt());
