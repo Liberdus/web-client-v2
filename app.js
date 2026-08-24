@@ -466,6 +466,7 @@ function clearMyData() {
   myAccount = null;
   evmAssets.reset();
   daoRepo.reset();
+  daoModal.resetNotificationState();
   resetDaoNotificationSummary();
 }
 
@@ -2544,8 +2545,8 @@ function hasDaoClaimNotifications(summary) {
 }
 
 function getDaoNotificationInitialFilter(summary) {
-  if (hasDaoVotingNotifications(summary)) return 'voting';
   if (hasDaoClaimNotifications(summary)) return 'claimable';
+  if (hasDaoVotingNotifications(summary)) return 'voting';
   return '';
 }
 
@@ -2686,7 +2687,9 @@ class DaoModal {
     const filterKey = initialFilterKey || getDaoNotificationInitialFilter(daoNotificationSummary);
     assert(!filterKey || DAO_FILTER_OPTIONS.some((filter) => filter.key === filterKey), 'Unknown DAO initial filter');
     this.notificationBatch = copyDaoNotificationSummary(daoNotificationSummary);
-    this.notificationProposalNumbers = getDaoNotificationProposalNumbers(this.notificationBatch);
+    for (const proposalNumber of getDaoNotificationProposalNumbers(this.notificationBatch)) {
+      this.notificationProposalNumbers.add(proposalNumber);
+    }
     this._open(filterKey);
   }
 
@@ -2737,7 +2740,6 @@ class DaoModal {
     this.proposalOpenSequence += 1;
     this.detailsRequest = null;
     this.notificationBatch = createEmptyDaoNotificationSummary();
-    this.notificationProposalNumbers = new Set();
     this.modal.classList.remove('active');
     enterFullscreen();
 
@@ -2754,6 +2756,11 @@ class DaoModal {
 
   isActive() {
     return this.modal.classList.contains('active');
+  }
+
+  resetNotificationState() {
+    this.notificationBatch = createEmptyDaoNotificationSummary();
+    this.notificationProposalNumbers.clear();
   }
 
   acknowledgeNotifications(notificationCutoff) {
