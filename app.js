@@ -30602,7 +30602,11 @@ class NewChatModal {
       return name.includes(query) || String(contact.username || '').toLowerCase().includes(query);
     });
 
-    if (this.listTitle) this.listTitle.textContent = query ? 'Matches' : 'Contacts';
+    if (this.listTitle) {
+      this.listTitle.textContent = query ? 'Matches' : 'Contacts';
+      // Restored here; the no-contacts branch below hides it again.
+      this.listTitle.hidden = false;
+    }
 
     /*
      * A render token, because this is async (avatars) and fires on every
@@ -30645,7 +30649,14 @@ class NewChatModal {
      */
     const raw = this.recipientInput.value.trim();
     if (!raw) {
-      this.picker.innerHTML = '<li class="ui-list-empty">No contacts yet — type a username to start a chat.</li>';
+      /*
+       * Nothing typed and no contacts: the whole section goes, heading and all.
+       * The search field directly above already says to type a username, so a
+       * row repeating that is a line of text standing in for a list — and a
+       * heading over an empty list is a promise of content that is not there.
+       */
+      this.picker.innerHTML = '';
+      if (this.listTitle) this.listTitle.hidden = true;
       return;
     }
     if (raw.length < 3 && !isValidEthereumAddress(raw)) {
@@ -30868,24 +30879,21 @@ class NewChatModal {
     // Get or create chat data
     const chatsData = myData;
 
-    // Check if contact exists
+    /*
+     * Starting a chat does not change anyone's status.
+     *
+     * This used to inject a toll_update transaction setting the contact to
+     * Connection (friend = 2) before the chat could open — so merely messaging
+     * someone silently waived their toll, and produced a "You changed X's
+     * status to Connection" divider in a conversation the user had not had yet.
+     * It also gated opening the chat on that transaction succeeding, so a
+     * network hiccup meant no chat at all.
+     *
+     * createNewContact defaults to friend = 1, Tolled, which is the status
+     * someone gets until you deliberately change it in Contact Status.
+     */
     if (!chatsData.contacts[recipientAddress]) {
-      // Default to 2 (Acquaintance) so recipient does not need to pay toll.
-      // Only create the local contact if the network inject succeeds.
-      try {
-        const res = await friendModal.postUpdateTollRequired(recipientAddress, 2);
-        if (res?.result?.success !== true) {
-          return;
-        }
-      } catch (error) {
-        console.error('Error updating toll in create when creating new contact:', error);
-        return;
-      }
-
-      createNewContact(recipientAddress, username, 2);
-      // If the backend ultimately rejects this tx, the pending-tx failure handler
-      // reverts `friend` back to `friendOld` so initializing fieldOld to toll required (1).
-      chatsData.contacts[recipientAddress].friendOld = 1;
+      createNewContact(recipientAddress, username);
     }
     chatsData.contacts[recipientAddress].username = username;
 

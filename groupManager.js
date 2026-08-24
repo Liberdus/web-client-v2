@@ -623,19 +623,7 @@ export async function listJoinRequests(groupId) {
    * this an admin is asked to approve a raw 64-character address.
    */
   const view = ensureGroupView(groupId);
-  view.memberNames ??= {};
-  const unknown = normalised.map((r) => r.address).filter((a) => !view.memberNames[a]);
-  await Promise.all(
-    unknown.map(async (address) => {
-      try {
-        const account = await deps.queryNetwork(`/account/${address}`);
-        const alias = account?.account?.alias;
-        if (alias) view.memberNames[address] = alias;
-      } catch {
-        /* leave unresolved; displayName falls back to a short address */
-      }
-    }),
-  );
+  await cacheMemberNames(view, normalised.map((r) => r.address));
   return normalised;
 }
 
@@ -706,6 +694,13 @@ export async function addMembers(groupId, addresses) {
   const snapshot = await mls.snapshotGroup(id.address, groupId);
   const commit = await mls.addMembers(id, groupId, newMembers);
   const view = deps.getMyData().groups?.[groupId];
+  /*
+   * Resolve their names BEFORE the pending state goes up. Someone being added
+   * is not a member yet and usually not a contact, so the "Adding …" hint had
+   * nothing to show but a truncated address — for a person whose username the
+   * admin had just typed.
+   */
+  await cacheMemberNames(ensureGroupView(groupId), commit.addedMembers);
   const tx = {
     ...baseTx('group_commit'),
     groupId,
@@ -947,6 +942,37 @@ function applyMembershipLocally(groupId, { added = [], removed = [] }, epoch) {
  * member and nothing thereafter. Failures are silent: the UI falls back to a
  * truncated address, which is worse-looking but never wrong.
  */
+/**
+ * Fills `view.memberNames` for any of `addresses` not already cached.
+ *
+ * Written out three times before this: for join requests, for the roster, and
+ * not at all for a pending add — which is why "Adding 40997842…" showed an
+ * address for someone whose username the user had just typed.
+ *
+ * Failures are silent; displayName falls back to a truncated address, which is
+ * worse-looking but never wrong.
+ *
+ * @param {Object} view
+ * @param {string[]} addresses
+ * @returns {Promise<void>}
+ */
+async function cacheMemberNames(view, addresses) {
+  view.memberNames ??= {};
+  const unknown = [...new Set(addresses)].filter((a) => a && !view.memberNames[a]);
+  if (unknown.length === 0) return;
+  await Promise.all(
+    unknown.map(async (address) => {
+      try {
+        const res = await deps.queryNetwork(`/account/${address}`);
+        const alias = res?.account?.alias;
+        if (alias) view.memberNames[address] = alias;
+      } catch {
+        /* leave it unresolved */
+      }
+    }),
+  );
+}
+
 export async function refreshMemberNames(groupId) {
   const view = ensureGroupView(groupId);
   view.memberNames ??= {};
@@ -958,20 +984,9 @@ export async function refreshMemberNames(groupId) {
    */
   const senders = (view.messages || []).map((m) => m.from).filter(Boolean);
   const candidates = [...new Set([...(view.members || []), ...senders])];
-  const unknown = candidates.filter((a) => a && !view.memberNames[a]);
-  if (unknown.length === 0) return;
-
-  await Promise.all(
-    unknown.map(async (address) => {
-      try {
-        const res = await deps.queryNetwork(`/account/${address}`);
-        const alias = res?.account?.alias;
-        if (alias) view.memberNames[address] = alias;
-      } catch {
-        /* leave it unresolved; displayName falls back to a short address */
-      }
-    }),
-  );
+  const before = Object.keys(view.memberNames).length;
+  await cacheMemberNames(view, candidates);
+  if (Object.keys(view.memberNames).length === before) return;
   if (deps.onGroupUpdated) deps.onGroupUpdated(groupId);
 }
 
