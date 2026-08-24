@@ -16354,6 +16354,7 @@ class RestoreAccountModal {
 
     cleanup(this.oldStringSelect);
     cleanup(this.newStringSelect);
+    PopupSelect.syncAll(this.importForm);
   }
 
   parseBackupAccountsRegistry(backupData) {
@@ -30443,6 +30444,7 @@ class SendAssetFormModal {
     chatsScreen.updateChatList();
     this.modal.classList.remove('active');
     this.sendForm.reset();
+    PopupSelect.syncAll(this.sendForm);
     this.username = null;
   }
 
@@ -31024,6 +31026,7 @@ class SendAssetFormModal {
    */
   resetForm(){
     this.sendForm?.reset();
+    PopupSelect.syncAll(this.sendForm);
     this.usernameAvailable.textContent = '';
     this.balanceWarning.textContent = '';
   }
