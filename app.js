@@ -2527,6 +2527,14 @@ function copyDaoNotificationSummary(summary) {
   };
 }
 
+function getDaoNotificationProposalNumbers(summary) {
+  return new Set([
+    ...summary.newVoting,
+    ...summary.endedVoting,
+    ...summary.finalizedTrackedVote,
+  ]);
+}
+
 function hasDaoVotingNotifications(summary) {
   return summary.newVoting.length > 0 || summary.endedVoting.length > 0;
 }
@@ -2637,6 +2645,7 @@ class DaoModal {
     this.detailsRequest = null;
     this.proposalOpenSequence = 0;
     this.notificationBatch = createEmptyDaoNotificationSummary();
+    this.notificationProposalNumbers = new Set();
   }
 
   load() {
@@ -2677,6 +2686,7 @@ class DaoModal {
     const filterKey = initialFilterKey || getDaoNotificationInitialFilter(daoNotificationSummary);
     assert(!filterKey || DAO_FILTER_OPTIONS.some((filter) => filter.key === filterKey), 'Unknown DAO initial filter');
     this.notificationBatch = copyDaoNotificationSummary(daoNotificationSummary);
+    this.notificationProposalNumbers = getDaoNotificationProposalNumbers(this.notificationBatch);
     this._open(filterKey);
   }
 
@@ -2727,6 +2737,7 @@ class DaoModal {
     this.proposalOpenSequence += 1;
     this.detailsRequest = null;
     this.notificationBatch = createEmptyDaoNotificationSummary();
+    this.notificationProposalNumbers = new Set();
     this.modal.classList.remove('active');
     enterFullscreen();
 
@@ -3020,10 +3031,15 @@ class DaoModal {
       const title = escapeHtml(rowTitleText);
       const typeLabel = escapeHtml(getDaoTypeLabel(p.proposalType) || 'Proposal');
       const previewHtml = this.renderProposalRowPreview(p);
+      const hasNotification = this.notificationProposalNumbers.has(p.number);
 
       li.tabIndex = 0;
       li.setAttribute('role', 'button');
-      li.setAttribute('aria-label', `Open ${p.emergency === true ? 'emergency ' : ''}${rowTitleText}`);
+      li.classList.toggle('has-notification', hasNotification);
+      li.setAttribute(
+        'aria-label',
+        `${hasNotification ? 'New DAO activity. ' : ''}Open ${p.emergency === true ? 'emergency ' : ''}${rowTitleText}`,
+      );
       li.innerHTML = `
         <div class="dao-row-content">
           <div class="dao-row-title">${title}</div>
@@ -3035,11 +3051,11 @@ class DaoModal {
           </div>
         </div>
       `;
-      li.onclick = () => this.openProposal(p);
+      li.onclick = () => this.openProposal(p, li);
       li.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter' && e.key !== ' ') return;
         e.preventDefault();
-        this.openProposal(p);
+        this.openProposal(p, li);
       });
       this.list.appendChild(li);
     }
@@ -3183,12 +3199,17 @@ class DaoModal {
     `;
   }
 
-  async openProposal(proposal) {
+  async openProposal(proposal, proposalRow) {
     const openId = ++this.proposalOpenSequence;
     try {
       const refreshed = await daoRepo.refreshProposal(proposal.number);
       if (openId !== this.proposalOpenSequence || !this.isActive()) return;
       if (!refreshed) throw new Error(`Proposal #${proposal.number} is unavailable`);
+      if (this.notificationProposalNumbers.delete(proposal.number)) {
+        proposalRow.classList.remove('has-notification');
+        const ariaLabel = proposalRow.getAttribute('aria-label');
+        if (ariaLabel) proposalRow.setAttribute('aria-label', ariaLabel.replace(/^New DAO activity\. /, ''));
+      }
       proposalInfoModal.open(proposal.id);
     } catch (error) {
       if (openId !== this.proposalOpenSequence || !this.isActive()) return;
