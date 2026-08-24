@@ -11957,6 +11957,18 @@ async function processChats(chats, keys) {
                           console.warn('Ignoring edit outside allowed time window', { originalTs, editTs, txid: txidToEdit });
                           continue; // too old or invalid edit; skip processing this control message
                         }
+                        /*
+                         * An edit already applied is a no-op, not a repeat. The
+                         * text assignments below are idempotent but
+                         * editIncrements is not, so re-processing this control
+                         * message inflated contact.unread every time.
+                         */
+                        if (
+                          messageToEdit.edited === 1 &&
+                          Number(messageToEdit.edited_timestamp || 0) === Number(tx.timestamp || 0)
+                        ) {
+                          continue;
+                        }
                         // Update chat message memo/text
                         messageToEdit.message = newText;
                         messageToEdit.edited = 1;
@@ -12219,10 +12231,10 @@ async function processChats(chats, keys) {
            * this pass already stored. Without this check that re-fetch would
            * insert each of them a second time.
            */
-          const alreadyStored = contact.messages.some(
-            (m) =>
-              (m.txid && m.txid === txidHex) ||
-              (m.sent_timestamp === payload.sent_timestamp && !!m.my === !!payload.my)
+          const alreadyStored = contact.messages.some((m) =>
+            m.txid
+              ? m.txid === txidHex
+              : m.sent_timestamp === payload.sent_timestamp && !!m.my === !!payload.my
           );
           if (alreadyStored) {
             noteTxSyncSuccess(txidHex);
