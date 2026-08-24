@@ -1323,8 +1323,12 @@ class AssetsModal {
     const visibleNetworks = selectedNetworkId === 'all'
       ? catalog
       : catalog.filter((walletNetwork) => walletNetwork.id === selectedNetworkId);
+    const assetUsdValue = ({ asset }) => asset.tokenValueUsd === null ? -Infinity : Number(asset.tokenValueUsd);
+    const visibleAssets = visibleNetworks
+      .flatMap((walletNetwork) => walletNetwork.assets.map((asset) => ({ walletNetwork, asset })))
+      .sort((left, right) => assetUsdValue(right) - assetUsdValue(left));
 
-    if (visibleNetworks.length === 0) {
+    if (visibleAssets.length === 0) {
       this.assetsList.innerHTML = `
         <div class="empty-state">
           <div></div>
@@ -1335,18 +1339,9 @@ class AssetsModal {
       return;
     }
 
-    this.assetsList.innerHTML = visibleNetworks.map((walletNetwork) => `
-      <section class="wallet-network-assets" data-network-id="${escapeHtml(walletNetwork.id)}">
-        <div class="wallet-network-row">
-          <div>
-            <div class="wallet-network-name">${escapeHtml(walletNetwork.name)}</div>
-            <div class="wallet-network-chain">Chain ID ${escapeHtml(String(walletNetwork.chainId ?? '—'))}</div>
-          </div>
-          <span class="wallet-network-status ${walletNetwork.connected ? 'connected' : 'available'}">
-            ${walletNetwork.connected ? 'Connected' : 'Ready'}
-          </span>
-        </div>
-        ${walletNetwork.assets.map((asset) => `
+    this.assetsList.innerHTML = `
+      <section class="wallet-network-assets">
+        ${visibleAssets.map(({ walletNetwork, asset }) => `
           <button
             type="button"
             class="asset-item connected-asset-item connected-asset-button"
@@ -1359,6 +1354,7 @@ class AssetsModal {
             </div>
             <div class="asset-info">
               <div class="asset-name">${escapeHtml(asset.tokenName)}</div>
+              <div class="wallet-network-chain">${escapeHtml(walletNetwork.name)}</div>
               <div class="asset-symbol">
                 ${asset.tokenPriceUsd === null ? '<span style="color: var(--danger-color)">$0</span>' : `${formatConnectedUsd(asset.tokenPriceUsd)} / ${escapeHtml(asset.tokenSymbol)}`}
               </div>
@@ -1371,7 +1367,7 @@ class AssetsModal {
           </button>
         `).join('')}
       </section>
-    `).join('');
+    `;
   }
 }
 
