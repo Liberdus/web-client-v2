@@ -2528,6 +2528,17 @@ function copyDaoNotificationSummary(summary) {
   };
 }
 
+function mergeDaoNotificationSummaries(current, incoming) {
+  return {
+    newVoting: [...new Set([...current.newVoting, ...incoming.newVoting])],
+    endedVoting: [...new Set([...current.endedVoting, ...incoming.endedVoting])],
+    finalizedTrackedVote: [...new Set([
+      ...current.finalizedTrackedVote,
+      ...incoming.finalizedTrackedVote,
+    ])],
+  };
+}
+
 function getDaoNotificationProposalNumbers(summary) {
   return new Set([
     ...summary.newVoting,
@@ -2686,8 +2697,9 @@ class DaoModal {
     assert(getDaoCurrentAccountAddress(), 'DAO modal requires an active account');
     const filterKey = initialFilterKey || getDaoNotificationInitialFilter(daoNotificationSummary);
     assert(!filterKey || DAO_FILTER_OPTIONS.some((filter) => filter.key === filterKey), 'Unknown DAO initial filter');
-    this.notificationBatch = copyDaoNotificationSummary(daoNotificationSummary);
-    for (const proposalNumber of getDaoNotificationProposalNumbers(this.notificationBatch)) {
+    const incomingNotifications = copyDaoNotificationSummary(daoNotificationSummary);
+    this.notificationBatch = mergeDaoNotificationSummaries(this.notificationBatch, incomingNotifications);
+    for (const proposalNumber of getDaoNotificationProposalNumbers(incomingNotifications)) {
       this.notificationProposalNumbers.add(proposalNumber);
     }
     this._open(filterKey);
@@ -2707,7 +2719,6 @@ class DaoModal {
     enterFullscreen();
 
     this.selectedFilterKey = initialFilterKey || this.selectedFilterKey || 'voting';
-    this.clearNotificationForFilter(this.selectedFilterKey);
     this.visibleProposalCount = DAO_PROPOSAL_PAGE_SIZE;
     this.render();
 
@@ -2739,7 +2750,6 @@ class DaoModal {
     this.openRefreshId = ++this.refreshSequence;
     this.proposalOpenSequence += 1;
     this.detailsRequest = null;
-    this.notificationBatch = createEmptyDaoNotificationSummary();
     this.modal.classList.remove('active');
     enterFullscreen();
 
@@ -2774,13 +2784,21 @@ class DaoModal {
     resetDaoNotificationSummary();
   }
 
-  clearNotificationForFilter(key) {
-    if (key === 'voting') {
-      this.notificationBatch.newVoting = [];
-      this.notificationBatch.endedVoting = [];
-    } else if (key === DAO_CLAIMABLE_FILTER.key) {
-      this.notificationBatch.finalizedTrackedVote = [];
+  clearNotificationForProposal(proposalNumber) {
+    if (!this.notificationProposalNumbers.delete(proposalNumber)) return false;
+
+    this.notificationBatch.newVoting = this.notificationBatch.newVoting
+      .filter((number) => number !== proposalNumber);
+    this.notificationBatch.endedVoting = this.notificationBatch.endedVoting
+      .filter((number) => number !== proposalNumber);
+    this.notificationBatch.finalizedTrackedVote = this.notificationBatch.finalizedTrackedVote
+      .filter((number) => number !== proposalNumber);
+
+    for (const filter of DAO_FILTER_OPTIONS) {
+      const chip = this.filterBar?.querySelector(`.dao-filter-chip[data-filter-key="${filter.key}"]`);
+      chip?.classList.toggle('has-notification', this.hasNotificationForFilter(filter.key));
     }
+    return true;
   }
 
   hasNotificationForFilter(key) {
@@ -2930,7 +2948,6 @@ class DaoModal {
     if (key === this.selectedFilterKey || this.detailsRequest) return;
     this.proposalOpenSequence += 1;
     this.selectedFilterKey = key;
-    this.clearNotificationForFilter(key);
     try {
       await this.loadSelectedFilter({ reset: true });
     } catch (error) {
@@ -3212,7 +3229,7 @@ class DaoModal {
       const refreshed = await daoRepo.refreshProposal(proposal.number);
       if (openId !== this.proposalOpenSequence || !this.isActive()) return;
       if (!refreshed) throw new Error(`Proposal #${proposal.number} is unavailable`);
-      if (this.notificationProposalNumbers.delete(proposal.number)) {
+      if (this.clearNotificationForProposal(proposal.number)) {
         proposalRow.classList.remove('has-notification');
         const ariaLabel = proposalRow.getAttribute('aria-label');
         if (ariaLabel) proposalRow.setAttribute('aria-label', ariaLabel.replace(/^New DAO activity\. /, ''));
