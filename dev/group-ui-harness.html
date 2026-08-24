@@ -121,6 +121,21 @@
         onChatListChanged: () => {},
       });
 
+      /*
+       * groupUI reads some view-model state through groupManager (mute, read
+       * marks), which no-ops silently until its deps exist. Only getMyData is
+       * needed here -- nothing in these scenes touches the network or MLS.
+       */
+      const { initGroupManager } = await import('../groupManager.js');
+      initGroupManager({
+        queryNetwork: async () => ({}),
+        getMyAccount: () => ({ keys: { address: ME } }),
+        getMyData: () => myData,
+        getNetworkId: () => 'harness',
+        saveState: () => {},
+        onGroupUpdated: () => {},
+      });
+
       const view = () => myData.groups[GROUP.groupId];
       const reset = () => { myData.groups[GROUP.groupId] = structuredClone(GROUP); };
       const closeAll = () => { document.querySelectorAll('.modal.active').forEach((m) => m.classList.remove('active')); listHost.style.display = 'none'; };

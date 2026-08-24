@@ -10900,6 +10900,25 @@ button.ui-row-value {
 button.ui-row-value:not(:disabled):hover {
   color: var(--text-color);
 }
+/* A row that is itself a switch. The value carries the state, so it goes to
+   full-strength text when on and stays quiet when off — the difference has to
+   be legible without reading the word. */
+.ui-row--switch {
+  cursor: pointer;
+}
+.ui-row--switch:hover {
+  background: var(--hover-background-purple);
+}
+.ui-row--switch[aria-checked='true'] .ui-row-value {
+  color: var(--primary-color);
+  font-weight: var(--font-weight-medium);
+}
+.ui-row--switch:focus-visible {
+  outline: 0;
+  box-shadow: var(--focus-ring-primary);
+  border-radius: 8px;
+}
+
 /* Destructive actions sit low and quiet, but never inside the drawer: leaving
    a group is a product action, not a diagnostic. */
 .ui-row--danger {

@@ -10417,6 +10417,20 @@ function setupGroupChat() {
     getMyAccount: () => myAccount,
     getMyData: () => myData,
     getNetworkId: () => network.netid,
+    saveState,
+    /*
+     * Mirrors 1:1: a sound only when the message is not already on screen, or
+     * the app is in the background. Muting is per group, checked here rather
+     * than in groupManager so the sync path stays free of UI policy.
+     */
+    onGroupMessages: (groupId) => {
+      if (groups.isGroupMuted(groupId)) return;
+      const watchingThisGroup =
+        groupChatModal.isActive() && groupChatModal.groupId === groupId;
+      if (!watchingThisGroup || document.visibilityState === 'hidden') {
+        playChatSound();
+      }
+    },
     onGroupUpdated: (groupId) => {
       // Cheap: the chat list re-reads myData.groups on its next render.
       if (typeof chatsScreen !== 'undefined' && chatsScreen.updateChatList) {

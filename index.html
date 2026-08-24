@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-70" />
+    <link rel="stylesheet" href="./styles.css?v=1455-71" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-78" type="module"></script>
+    <script src="./app.js?v=1455-79" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -2559,6 +2559,24 @@
               full-width button would imply more substance than there is.
             -->
             <div class="ui-rows">
+              <!--
+                A switch, not a link: the state IS the control, so it reads and
+                changes in one place. Local to this device.
+              -->
+              <button
+                type="button"
+                class="ui-row ui-row--switch"
+                id="groupMuteRow"
+                role="switch"
+                aria-checked="false"
+              >
+                <span class="ui-row-key">
+                  Notification sound
+                  <span class="ui-row-sub">Plays when someone sends a message</span>
+                </span>
+                <span class="ui-row-value" id="groupMuteState">On</span>
+              </button>
+
               <div class="ui-row" id="groupInviteLinkRow">
                 <span class="ui-row-key">
                   Invite link

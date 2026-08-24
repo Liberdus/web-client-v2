@@ -1013,6 +1013,7 @@ class GroupInfoModal {
     $('groupInfoAddButton').addEventListener('click', () => this.addSelected());
     $('groupInfoAddCancel').addEventListener('click', () => this.toggleAdd(false));
     $('groupLeaveButton').addEventListener('click', () => this.leave());
+    $('groupMuteRow').addEventListener('click', () => this.toggleMute());
 
     /*
      * One delegated handler for the whole people list. Members, requests and
@@ -1242,6 +1243,10 @@ class GroupInfoModal {
      */
     const canInvite = !view.removed && !view.invitePending;
     $('groupInviteLinkRow').hidden = !canInvite;
+
+    const muted = groups.isGroupMuted(this.groupId);
+    $('groupMuteRow').setAttribute('aria-checked', String(!muted));
+    $('groupMuteState').textContent = muted ? 'Off' : 'On';
     /*
      * The clipboard fallback is NOT reset here. render() runs on every
      * background sync, which would re-hide the link a second after a failed
@@ -1533,6 +1538,21 @@ class GroupInfoModal {
   async leaveFrom(groupId) {
     this.groupId = groupId;
     await this.leave();
+  }
+
+  /*
+   * Local and immediate: no transaction, nothing to confirm, nothing that can
+   * fail. Re-rendering the row is the whole feedback.
+   */
+  toggleMute() {
+    if (!this.groupId) return;
+    const nowMuted = groups.setGroupMuted(this.groupId, !groups.isGroupMuted(this.groupId));
+    this.renderRows();
+    toast(
+      nowMuted ? 'Notification sound off for this group' : 'Notification sound on for this group',
+      2000,
+      'info'
+    );
   }
 
   async leave() {

@@ -917,6 +917,11 @@ function ensureGroupView(groupId) {
       memberSinceEpoch: 0,
       messages: [],
       unread: 0,
+      /**
+       * Per-group notification sound, toggled from Group info. Local to this
+       * device: nothing about who wants to be interrupted belongs on-chain.
+       */
+      muted: false,
       lastActivity: 0,
       // Set once the chain roster no longer contains us. History stays readable
       // up to the removing commit; nothing after it ever becomes decryptable.
@@ -1319,6 +1324,11 @@ export async function syncGroup(groupId) {
   }
 
   // --- application messages -------------------------------------------------
+  /*
+   * Counted separately from `changed`, which is also set by commits and roster
+   * updates. Only a message someone else sent should make a sound.
+   */
+  let received = 0;
   const since = (local.lastMessageTimestamp || 0) + 1;
   const msgs = await deps.queryNetwork(`/group/${groupId}/messages/${since}`);
   const list = Array.isArray(msgs?.messages) ? msgs.messages : [];
@@ -1351,6 +1361,7 @@ export async function syncGroup(groupId) {
       });
       const view = ensureGroupView(groupId);
       view.unread = (view.unread || 0) + 1;
+      received += 1;
       changed = true;
     } catch (e) {
       // A sender mismatch is an attack signal, not a transient error.
@@ -1360,6 +1371,11 @@ export async function syncGroup(groupId) {
   }
 
   if (changed) await upsertGroupView(groupId);
+  /*
+   * After upsertGroupView, so whoever handles this sees the settled view --
+   * including `muted`, which is what decides whether anything is heard.
+   */
+  if (received > 0 && deps.onGroupMessages) deps.onGroupMessages(groupId, received);
   return changed;
 }
 
@@ -1623,6 +1639,28 @@ export async function restoreGroups() {
     }
   }
   return records.length;
+}
+
+/** Is this group's notification sound off? View-model only, no network. */
+export function isGroupMuted(groupId) {
+  const myData = deps && deps.getMyData();
+  return !!myData?.groups?.[groupId]?.muted;
+}
+
+/**
+ * Turn this group's notification sound on or off.
+ * @returns {boolean} the resulting muted state.
+ */
+export function setGroupMuted(groupId, muted) {
+  const myData = deps && deps.getMyData();
+  const view = myData?.groups?.[groupId];
+  if (!view) return false;
+  view.muted = !!muted;
+  // Explicit: group views are otherwise only persisted by the sync path, and a
+  // preference that does not survive a reload is not a preference.
+  if (deps.saveState) deps.saveState();
+  if (deps.onGroupUpdated) deps.onGroupUpdated(groupId);
+  return view.muted;
 }
 
 /** View-model only, so it stays usable before initGroupManager has run. */
