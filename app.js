@@ -2698,10 +2698,11 @@ class DaoModal {
     this.visibleProposalCount = DAO_PROPOSAL_PAGE_SIZE;
     this.render();
 
+    const notificationCutoff = getCorrectedTimestamp();
     try {
       await daoRepo.refresh({ force: true });
       if (!this.isActive() || refreshId !== this.openRefreshId) return;
-      this.acknowledgeNotifications();
+      this.acknowledgeNotifications(notificationCutoff);
       const refreshedClaimProposalNumbers = await this.syncTrackedClaimWindows();
       if (!this.isActive() || refreshId !== this.openRefreshId) return;
       this.refreshState = 'ready';
@@ -2744,12 +2745,12 @@ class DaoModal {
     return this.modal.classList.contains('active');
   }
 
-  acknowledgeNotifications() {
+  acknowledgeNotifications(notificationCutoff) {
     if (!myData) return;
 
     const lastOpenedAt = Number(myData.daoNotifications?.lastDaoOpenedAt) || 0;
     myData.daoNotifications = {
-      lastDaoOpenedAt: Math.max(lastOpenedAt, getTransactionTimestamp()),
+      lastDaoOpenedAt: Math.max(lastOpenedAt, notificationCutoff),
     };
     saveState();
     resetDaoNotificationSummary();
