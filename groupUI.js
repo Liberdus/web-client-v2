@@ -1172,13 +1172,22 @@ class GroupInfoModal {
         </li>`);
     }
 
+    /*
+     * Whoever the in-flight commit is adding is marked as such, in place of
+     * their Approve button. Without it the row you just approved sits there
+     * still saying "wants to join" with no button, which reads as a failure.
+     */
+    const beingAdded = new Set(
+      pending?.kind === 'add' ? (pending.addresses || []).map((a) => String(a).toLowerCase()) : [],
+    );
     for (const r of this.requests) {
+      const adding = beingAdded.has(String(r.address).toLowerCase());
       rows.push(`
         <li class="ui-list-row ui-list-row--pending">
           <span class="ui-list-avatar">${addressAvatar(r.address, 28)}</span>
           <span class="ui-list-name">
             ${escapeHtml(displayName(r.address, this.groupId))}
-            <span class="ui-list-label">wants to join</span>
+            <span class="ui-list-label">${adding ? 'adding…' : 'wants to join'}</span>
             ${r.message ? `<span class="ui-list-note">${escapeHtml(r.message)}</span>` : ''}
           </span>
           ${canManage ? `<button class="btn--tiny btn--tiny-primary" data-approve="${r.address}">Approve</button>` : ''}
@@ -1299,8 +1308,25 @@ class GroupInfoModal {
    * ordinary add — the server accepts it precisely because the request exists.
    */
   async loadRequests() {
-    if (!this.isAdmin() || this.view()?.pendingChange) {
+    if (!this.isAdmin()) {
       this.requests = [];
+      this.renderPeople();
+      return;
+    }
+    /*
+     * A commit is in flight. Keep the queue exactly as it is and re-render.
+     *
+     * This used to empty `this.requests` here, so approving one of several
+     * requests made all the others vanish behind "Adding …" and reappear when
+     * the receipt landed — as though approving one had discarded the rest.
+     * Their requests are unaffected by a commit that does not concern them.
+     *
+     * Re-fetching mid-commit is what is actually unsafe: the server's answer
+     * races the receipt. Not fetching is the whole restriction; renderPeople
+     * already withholds the Approve buttons while pending, so nothing here can
+     * build a second, conflicting commit.
+     */
+    if (this.view()?.pendingChange) {
       this.renderPeople();
       return;
     }
@@ -1308,8 +1334,16 @@ class GroupInfoModal {
       const requests = await groups.listJoinRequests(this.groupId);
       // The screen may have moved on while this was in flight.
       if (!this.modal.classList.contains('active')) return;
+      /*
+       * A commit may have started while this fetch was in flight. Its answer is
+       * now older than the approval that caused the commit — and may already
+       * omit the request being approved — so keep what is on screen rather than
+       * overwriting it with a list that races the receipt.
+       */
+      if (this.view()?.pendingChange) return;
       this.requests = Array.isArray(requests) ? requests : [];
     } catch {
+      if (this.view()?.pendingChange) return;
       this.requests = [];
     }
     this.renderPeople();
