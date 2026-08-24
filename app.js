@@ -96,6 +96,7 @@ import {
   getDaoProposalClaimWindow,
   getDaoPendingFinalizationOutcome,
   getDaoProposalTimeline,
+  getDaoVoteReminderSchedule,
   getDaoRewardClaimStatus,
   getDaoStateLabel,
   getDaoTypeForLifecycleKind,
@@ -2739,6 +2740,9 @@ class DaoModal {
       type: pendingTxInfo?.type,
       outcome,
       proposalNumber: pendingTxInfo?.proposalNumber,
+      votingEndsAt: pendingTxInfo?.votingEndsAt,
+      estimatedClaimEndsAt: pendingTxInfo?.estimatedClaimEndsAt,
+      reminderExpiresAt: pendingTxInfo?.reminderExpiresAt,
     });
 
     let didRefreshDaoData = false;
@@ -5926,6 +5930,7 @@ class ProposalInfoModal {
       from: result.transaction.from,
       networkId: result.transaction.networkId,
     });
+    return pendingAction;
   }
 
   async submitDaoTransaction(transaction) {
@@ -6332,7 +6337,11 @@ class ProposalInfoModal {
         return;
       }
 
-      this.recordAcceptedDaoAction(result, proposal);
+      const pendingAction = this.recordAcceptedDaoAction(result, proposal);
+      const reminderSchedule = getDaoVoteReminderSchedule(proposal);
+      assert(reminderSchedule, 'Accepted DAO vote missing reminder schedule');
+      Object.assign(pendingAction, reminderSchedule);
+      saveState();
       showToast(getDaoTransactionMessage(DAO_ACTION_TYPES.VOTE, 'pending'), 4000, 'info');
       this.updateSubmitButtons();
     } catch (error) {

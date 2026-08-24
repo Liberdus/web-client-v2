@@ -96,8 +96,9 @@ Important implementation detail:
 
 ### Account claim candidates
 
-- New accounts initialize an empty `daoUserVotes` map. For existing accounts without the map, the first confirmed vote creates it and adds its proposal number.
+- New accounts initialize an empty `daoUserVotes` map. For existing accounts without the map, the first confirmed vote creates it and adds its proposal number with the proposal's locally estimated voting end, claim end, and one-day reminder buffer.
 - Vote-history changes update `myData` in memory and rely on the normal account save lifecycle; DAO tracking does not trigger an extra save.
+- Vote reminder timing is calculated from the proposal already loaded when the vote is submitted, copied into the pending transaction, and persisted only after the vote confirms.
 - On each DAO metadata refresh, tracked proposals that have entered a final state are refreshed once and updated with the authoritative claim window derived from `votingEndedAt`.
 - Repeated confirmed votes on one proposal keep a single stored entry.
 - Confirmed reward claims remove their proposal number. Submitted, failed, and timed-out claims leave it available for retry.
