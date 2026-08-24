@@ -552,7 +552,7 @@ body {
   -webkit-overflow-scrolling: touch;
   /* dvh, not vh: on mobile `100vh` is the viewport with the browser chrome
      retracted, so it overflows by the height of the address bar. */
-  min-height: 100dvh;
+  /* min-height: 100dvh; */
 }
 
 /* --- create account -------------------------------------------------------

@@ -11593,8 +11593,45 @@ function syncChatTabNotificationBubble() {
 }
 
 // Actually payments also appear in the chats, so we can add these to
+/*
+ * Transactions the sync could not commit yet, by txid, with an attempt count.
+ *
+ * A tx is skipped for reasons that are usually transient -- the sender's public
+ * key is not cached yet, an alias lookup did not answer, a decrypt failed. The
+ * watermark must not move past a skipped tx or it can never be fetched again,
+ * but retrying one forever would wedge every later message in that chat behind
+ * it. So retries are bounded: after MAX_TX_SYNC_RETRIES the tx is given up on
+ * loudly and the watermark is allowed past.
+ */
+const txSyncFailures = new Map();
+const MAX_TX_SYNC_RETRIES = 5;
+
+/** @returns {boolean} true to hold the watermark back and retry, false to give up. */
+function noteTxSyncFailure(txidHex, reason) {
+  const attempts = (txSyncFailures.get(txidHex) || 0) + 1;
+  if (attempts > MAX_TX_SYNC_RETRIES) {
+    console.error(`[sync] giving up on ${txidHex} after ${MAX_TX_SYNC_RETRIES} attempts: ${reason}`);
+    txSyncFailures.delete(txidHex);
+    return false;
+  }
+  txSyncFailures.set(txidHex, attempts);
+  console.warn(`[sync] deferring ${txidHex} (attempt ${attempts}): ${reason}`);
+  return true;
+}
+
+function noteTxSyncSuccess(txidHex) {
+  if (txSyncFailures.size) txSyncFailures.delete(txidHex);
+}
+
 async function processChats(chats, keys) {
   let newTimestamp = 0;
+  /*
+   * The oldest tx this pass could not commit. newTimestamp is the newest tx
+   * SEEN, which is not the same thing: a skipped tx sits below it, and moving
+   * the watermark to newTimestamp would put that tx permanently out of reach of
+   * the next /messages query. The watermark is clamped below this at the end.
+   */
+  let earliestUnresolved = Infinity;
   const timestamp = myAccount.chatTimestamp || 0;
   const messageQueryTimestamp = Math.max(0, timestamp+1);
   let hasAnyTransfer = false;
@@ -11756,7 +11793,9 @@ async function processChats(chats, keys) {
           else if (payload.encrypted) {
             await ensureContactKeys(from);
             if (!myData.contacts[from]?.public) {
-              console.warn(`no public key found for sender ${sender}`);
+              if (noteTxSyncFailure(txidHex, `no public key for sender ${sender}`)) {
+                earliestUnresolved = Math.min(earliestUnresolved, tx.timestamp);
+              }
               continue;
             }
             payload.public = myData.contacts[from].public;
@@ -11776,7 +11815,21 @@ async function processChats(chats, keys) {
             }
           }
           //console.log("payload", payload)
-          decryptMessage(payload, keys, mine); // modifies the payload object
+          /*
+           * Not fatal to the pass. This throws on a malformed or
+           * undecryptable payload, and being outside a catch meant one such tx
+           * aborted processChats for EVERY chat -- and aborted it before the
+           * watermark update at the end, so the same tx threw again on every
+           * poll and nothing after it ever synced.
+           */
+          try {
+            decryptMessage(payload, keys, mine); // modifies the payload object
+          } catch (e) {
+            if (noteTxSyncFailure(txidHex, `decrypt failed: ${e?.message || e}`)) {
+              earliestUnresolved = Math.min(earliestUnresolved, tx.timestamp);
+            }
+            continue;
+          }
           
           // Process new message format if it's JSON, otherwise keep old format
           if (typeof payload.message === 'string') {
@@ -12097,12 +12150,17 @@ async function processChats(chats, keys) {
             } else if (contact.senderInfo.username) {
               const verifiedUsername = await getVerifiedUsername(contact.senderInfo.username, tx.from, getUsernameAddress);
               if (!verifiedUsername) {
-                console.error(`Username: ${contact.senderInfo.username} does not match address ${tx.from}`);
+                // username doesn't match address so skipping this message
+                if (noteTxSyncFailure(txidHex, `username ${contact.senderInfo.username} does not match ${tx.from}`)) {
+                  earliestUnresolved = Math.min(earliestUnresolved, tx.timestamp);
+                }
                 continue;
               }
               contact.username = verifiedUsername;
             } else {
-              console.error(`Username not provided in senderInfo.`)
+              if (noteTxSyncFailure(txidHex, 'no username in senderInfo')) {
+                earliestUnresolved = Math.min(earliestUnresolved, tx.timestamp);
+              }
               continue
             }
           }
@@ -12155,7 +12213,23 @@ async function processChats(chats, keys) {
             delete payload.attachments;
           }
           
+          /*
+           * Idempotent, because a deferred tx now holds the watermark back and
+           * the next poll re-fetches everything after it -- including messages
+           * this pass already stored. Without this check that re-fetch would
+           * insert each of them a second time.
+           */
+          const alreadyStored = contact.messages.some(
+            (m) =>
+              (m.txid && m.txid === txidHex) ||
+              (m.sent_timestamp === payload.sent_timestamp && !!m.my === !!payload.my)
+          );
+          if (alreadyStored) {
+            noteTxSyncSuccess(txidHex);
+            continue;
+          }
           insertSorted(contact.messages, payload, 'timestamp');
+          noteTxSyncSuccess(txidHex);
           if (payload.type === 'call' && shouldRefreshUpcomingCallsUiForCallTime(payload.callTime)) {
             needsUpcomingCallsUiRefresh = true;
           }
@@ -12187,13 +12261,29 @@ async function processChats(chats, keys) {
           else if (payload.encrypted) {
             await ensureContactKeys(from);
             if (!myData.contacts[from]?.public) {
-              console.warn(`no public key found for sender ${sender}`);
+              if (noteTxSyncFailure(txidHex, `no public key for sender ${sender}`)) {
+                earliestUnresolved = Math.min(earliestUnresolved, tx.timestamp);
+              }
               continue;
             }
             payload.public = myData.contacts[from].public;
           }
           //console.log("payload", payload)
-          decryptMessage(payload, keys, mine); // modifies the payload object
+          /*
+           * Not fatal to the pass. This throws on a malformed or
+           * undecryptable payload, and being outside a catch meant one such tx
+           * aborted processChats for EVERY chat -- and aborted it before the
+           * watermark update at the end, so the same tx threw again on every
+           * poll and nothing after it ever synced.
+           */
+          try {
+            decryptMessage(payload, keys, mine); // modifies the payload object
+          } catch (e) {
+            if (noteTxSyncFailure(txidHex, `decrypt failed: ${e?.message || e}`)) {
+              earliestUnresolved = Math.min(earliestUnresolved, tx.timestamp);
+            }
+            continue;
+          }
 
           // Process new message format if it's JSON, otherwise keep old format
           if (typeof payload.message === 'string') {
@@ -12244,12 +12334,17 @@ async function processChats(chats, keys) {
             } else if (contact.senderInfo.username) {
               const verifiedUsername = await getVerifiedUsername(contact.senderInfo.username, tx.from, getUsernameAddress);
               if (!verifiedUsername) {
-                console.error(`Username: ${contact.senderInfo.username} does not match address ${tx.from}`);
+                // username doesn't match address so skipping this message
+                if (noteTxSyncFailure(txidHex, `username ${contact.senderInfo.username} does not match ${tx.from}`)) {
+                  earliestUnresolved = Math.min(earliestUnresolved, tx.timestamp);
+                }
                 continue;
               }
               contact.username = verifiedUsername;
             } else {
-              console.error(`Username not provided in senderInfo.`)
+              if (noteTxSyncFailure(txidHex, 'no username in senderInfo')) {
+                earliestUnresolved = Math.min(earliestUnresolved, tx.timestamp);
+              }
               continue
             }
           }
@@ -12279,6 +12374,7 @@ async function processChats(chats, keys) {
             memo: payload.message,
           };
           insertSorted(history, newPayment, 'timestamp');
+          noteTxSyncSuccess(txidHex);
           // TODO: redundant but keep for now
           //  sort history array based on timestamp field in descending order
           //history.sort((a, b) => b.timestamp - a.timestamp);
@@ -12463,8 +12559,17 @@ async function processChats(chats, keys) {
 
   // Update the global timestamp AFTER processing all senders
   if (newTimestamp > 0) {
-    // Update the timestamp
-    myAccount.chatTimestamp = newTimestamp;
+    /*
+     * Never past a tx still owed, or the next /messages query -- which asks for
+     * timestamp+1 -- skips it for good. Deferred txs are retried on the next
+     * poll and the watermark catches up once they land.
+     */
+    if (earliestUnresolved !== Infinity) {
+      newTimestamp = Math.min(newTimestamp, earliestUnresolved - 1);
+    }
+    if (newTimestamp > (myAccount.chatTimestamp || 0)) {
+      myAccount.chatTimestamp = newTimestamp;
+    }
   }
 }
 
