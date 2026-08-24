@@ -149,6 +149,29 @@
           reset(); groupInfoModal.open(GROUP.groupId); groupInfoModal.toggleAdd(true);
         },
         'info: non-admin': () => { reset(); view().admins = [addr(2)]; groupInfoModal.open(GROUP.groupId); },
+        // Three people waiting, one of them mid-commit. The others must stay on
+        // screen — they used to vanish until the receipt landed.
+        'info: approving one of three': () => {
+          reset();
+          groupInfoModal.open(GROUP.groupId);
+          // Non-members, so they read as genuine requests rather than roster rows.
+          // Applied on a timer so open()'s own async loadRequests has landed
+          // first. Longer than the 900ms in 'info: admin': clicking every scene
+          // in turn leaves that scene's timer still pending, and it would
+          // otherwise land on top of this one's fixture.
+          setTimeout(() => {
+          groupInfoModal.requests = [
+            { address: addr(6), message: 'Met at the conference' },
+            { address: addr(7), message: '' },
+            { address: addr(8), message: 'Please add me' },
+          ];
+          view().memberNames[addr(6)] = 'erin';
+          view().memberNames[addr(7)] = 'femi';
+          view().memberNames[addr(8)] = 'gus';
+          view().pendingChange = { kind: 'add', addresses: [addr(6)], since: Date.now() };
+          groupInfoModal.renderPeople();
+          }, 1200);
+        },
         'chat list': () => {
           listHost.style.display = 'block';
           // Reproduces renderChatList's markup exactly — keep in step with it.
