@@ -1889,6 +1889,7 @@ class EvmAssetsController {
     this.openSend = () => {};
     this.openReceive = () => {};
     this.showToast = () => {};
+    this.syncSelect = () => {};
     this.confirmationModal = new EvmSendConfirmationModal();
     this.confirmTransfer = (...args) => this.confirmationModal.confirm(...args);
     this.loaded = false;
@@ -1918,6 +1919,7 @@ class EvmAssetsController {
     openReceive,
     showToast,
     confirmTransfer,
+    syncSelect,
   } = {}) {
     if (typeof getAccount === 'function') this.getAccount = getAccount;
     if (typeof getLiberdusAsset === 'function') this.getLiberdusAsset = getLiberdusAsset;
@@ -1925,6 +1927,7 @@ class EvmAssetsController {
     if (typeof openReceive === 'function') this.openReceive = openReceive;
     if (typeof showToast === 'function') this.showToast = showToast;
     if (typeof confirmTransfer === 'function') this.confirmTransfer = confirmTransfer;
+    if (typeof syncSelect === 'function') this.syncSelect = syncSelect;
   }
 
   load() {
@@ -1970,10 +1973,12 @@ class EvmAssetsController {
     return this.discovery.findAsset(networkId, assetKey, options);
   }
   populateNetworkSelect(select, options) {
-    return this.discovery.populateNetworkSelect(select, options);
+    this.discovery.populateNetworkSelect(select, options);
+    this.syncSelect(select);
   }
   populateAssetSelect(select, networkId) {
-    return this.discovery.populateAssetSelect(select, networkId);
+    this.discovery.populateAssetSelect(select, networkId);
+    this.syncSelect(select);
   }
   validateTransfer({ networkId, assetKey, recipient, amount }) {
     const { walletNetwork, asset } = this.findAsset(networkId, assetKey, { evmOnly: true });

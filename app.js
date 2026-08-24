@@ -911,6 +911,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Remove Accounts Modal
   removeAccountsModal.load();
 
+  // Feature loaders may update native select values and options programmatically.
+  PopupSelect.syncAll(document);
+
   // add event listener for back-button presses to prevent shift+tab
   document.querySelectorAll('.back-button').forEach((button) => {
     button.addEventListener('keydown', ignoreShiftTabKey);
@@ -3146,8 +3149,6 @@ class AddProposalModal {
     this.gracePeriodLimit = document.getElementById('addProposalGracePeriodLimit');
     this.gracePeriodLoadError = false;
     this.submitButton = this.form?.querySelector('button[type="submit"]');
-    if (this.typeSelect) PopupSelect.enhance(this.typeSelect);
-    if (this.emergencySelect) PopupSelect.enhance(this.emergencySelect);
     this.resetConfigCache();
 
     if (this.closeButton) this.closeButton.addEventListener('click', () => this.close());
@@ -3522,8 +3523,7 @@ class AddProposalModal {
       )),
     ].join('');
 
-    this.optionsList.querySelectorAll('select')
-      .forEach((select) => PopupSelect.enhance(select));
+    PopupSelect.enhanceAll(this.optionsList);
 
     if (this.addOptionButton) {
       this.addOptionButton.disabled = configOptions.length === 0 || isEmergency || this.options.length >= 9;
@@ -5952,7 +5952,10 @@ class ProposalInfoModal {
 
     if (this.acceptButton) this.acceptButton.disabled = disableCommittee || this.currentCommitteeVote === 'accept';
     if (this.withholdButton) this.withholdButton.disabled = disableCommittee || this.currentCommitteeVote === 'withhold';
-    if (this.withholdReasonSelect) this.withholdReasonSelect.disabled = disableCommittee || isSameVote;
+    if (this.withholdReasonSelect) {
+      this.withholdReasonSelect.disabled = disableCommittee || isSameVote;
+      PopupSelect.sync(this.withholdReasonSelect);
+    }
     if (this.customReasonInput) this.customReasonInput.disabled = disableCommittee || isSameVote;
     if (this.submitButton) {
       this.submitButton.disabled = disableCommittee || isSameVote;
@@ -8988,6 +8991,7 @@ class HistoryModal {
   open() {
     openModal(this.modal);
     this.populateAssets();
+    PopupSelect.sync(this.assetSelect);
     this.updateTransactionHistory();
     
     // Update last viewed timestamp when user opens history modal
@@ -14806,6 +14810,7 @@ class BackupAccountModal {
     this.backupAllAccountsCheckbox.checked = false;
     // Reset storage location to default
     this.storageLocationSelect.value = 'local';
+    PopupSelect.sync(this.storageLocationSelect);
     this.handleStorageLocationChange();
   }
 
@@ -15721,6 +15726,7 @@ class RestoreAccountModal {
     inputElement.addEventListener('change', (e) => {
       if (e.target.value.trim()) {
         selectElement.value = '';
+        PopupSelect.sync(selectElement);
       }
     });
   }
@@ -16326,6 +16332,7 @@ class RestoreAccountModal {
     this.sourceLocationSelect.value = 'local';
     this.clearSelectedGoogleDriveFile();
     this.handleSourceLocationChange();
+    PopupSelect.syncAll(this.importForm);
   }
 
   resetBackupLockPrompt() {
@@ -28273,7 +28280,7 @@ class DurationPickerModal {
     this.minutesSelect.value = String(initialParts.minutes);
     openModal(this.modal);
     this._updateAvailableOptions();
-    requestAnimationFrame(() => this.daysSelect?.focus());
+    requestAnimationFrame(() => PopupSelect.focus(this.daysSelect));
   }
 
   close() {
@@ -28317,6 +28324,7 @@ class DurationPickerModal {
       option.disabled = durationPartsToMilliseconds(selectedDays, selectedHours, Number(option.value)) > maxDurationMs;
     });
     if (this.minutesSelect?.selectedOptions[0]?.disabled) this.minutesSelect.value = '0';
+    PopupSelect.syncAll(this.form);
     this._updatePreview();
   }
 
@@ -28481,6 +28489,7 @@ class DateTimePickerModal {
     }
     if (this.minuteSelect) this.minuteSelect.value = this._pad2(date.getMinutes());
     if (this.ampmSelect) this.ampmSelect.value = date.getHours() >= 12 ? 'PM' : 'AM';
+    PopupSelect.syncAll(this.form);
   }
 
   _getSelectedTimestamp() {
@@ -30371,6 +30380,7 @@ class SendAssetFormModal {
     evmAssets.populateAssetSelect(this.assetSelectDropdown, this.networkSelect.value);
     if (assetKey && [...this.assetSelectDropdown.options].some((option) => option.value === assetKey)) {
       this.assetSelectDropdown.value = assetKey;
+      PopupSelect.sync(this.assetSelectDropdown);
     }
 
     const asset = this.getSelectedAsset();
@@ -31579,6 +31589,7 @@ class ReceiveModal {
     evmAssets.populateAssetSelect(this.assetSelect, this.networkSelect.value);
     if (assetKey && [...this.assetSelect.options].some((option) => option.value === assetKey)) {
       this.assetSelect.value = assetKey;
+      PopupSelect.sync(this.assetSelect);
     }
 
     const walletNetwork = this.getSelectedNetwork();
@@ -31826,6 +31837,7 @@ evmAssets.configure({
   openSend: (options) => sendAssetFormModal.open(options),
   openReceive: (options) => receiveModal.open(options),
   showToast,
+  syncSelect: (select) => PopupSelect.sync(select),
 });
 
 /**
@@ -32024,7 +32036,8 @@ class BridgeModal {
       if (network.bridges.length > 0) {
         this.selectedNetwork = network.bridges[0];
       }
-    } 
+    }
+    PopupSelect.sync(this.networkSelect);
   }
   
   updateSelectedNetwork() {
@@ -32063,6 +32076,7 @@ class BridgeModal {
     
     // Set initial visibility of network dropdown
     this.handleDirectionChange();
+    PopupSelect.sync(this.directionSelect);
   }
 
   close() {
@@ -35926,6 +35940,7 @@ class PopupSelect {
     window.visualViewport?.addEventListener('scroll', PopupSelect.hide, { passive: true });
     window.visualViewport?.addEventListener('resize', PopupSelect.hide);
     PopupSelect.menu.addEventListener('scroll', PopupSelect.updateScrollIndicator, { passive: true });
+    PopupSelect.enhanceAll(document);
   }
 
   static handleDocumentPointerDown(event) {
@@ -36013,6 +36028,14 @@ class PopupSelect {
     trigger?.focus({ preventScroll: true });
   }
 
+  static enhanceAll(root) {
+    root?.querySelectorAll('select').forEach((select) => PopupSelect.enhance(select));
+  }
+
+  static syncAll(root) {
+    root?.querySelectorAll('select').forEach((select) => PopupSelect.sync(select));
+  }
+
   static enhance(select) {
     if (select?.tagName !== 'SELECT') throw new TypeError('PopupSelect requires a select element');
     if (!PopupSelect.menu) throw new Error('PopupSelect.load() must be called before creating controls');
@@ -36035,7 +36058,8 @@ class PopupSelect {
   static createTrigger(select, label) {
     const trigger = document.createElement('button');
     trigger.id = `${select.id}PopupTrigger`;
-    trigger.className = 'form-control popup-select__trigger';
+    trigger.className = select.className;
+    trigger.classList.add('form-control', 'popup-select__trigger');
     trigger.type = 'button';
     trigger.setAttribute('role', 'combobox');
     trigger.setAttribute('aria-haspopup', 'listbox');
