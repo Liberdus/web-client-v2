@@ -236,12 +236,17 @@ function renderPicker(listEl, candidates, query = '') {
     return;
   }
   // Nothing matched. Offer the username route rather than a dead end.
+  /*
+   * With no contacts and nothing typed there is nothing to say: the search
+   * field above already invites a username, so a line repeating that is a row
+   * of text where a list should be. The list empties and its section collapses.
+   */
   listEl.innerHTML = q
     ? `<li><button type="button" class="ui-list-action" data-resolve="1">
          <span class="ui-list-plus" aria-hidden="true">+</span>
          <span class="ui-list-name">Add “${escapeHtml(query.trim())}”</span>
        </button></li>`
-    : '<li class="ui-list-empty">No contacts yet — type a username to add someone.</li>';
+    : '';
 }
 /**
  * Resolves a username and checks the account can actually be added.
