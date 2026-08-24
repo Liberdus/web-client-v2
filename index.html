@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-69" />
+    <link rel="stylesheet" href="./styles.css?v=1455-70" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-73" type="module"></script>
+    <script src="./app.js?v=1455-75" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -315,6 +315,15 @@
             <button type="button" class="ui-nav-row" id="newChatInviteButton" data-icon="mail">
               <span class="ui-nav-key">Invite someone</span>
             </button>
+            <!--
+              Shown in place of the two group rows on a network whose nodes do
+              not handle group transactions. Saying so beats hiding them without
+              explanation — "where did New group go" is a question this screen
+              can answer itself.
+            -->
+            <p class="ui-nav-note" id="newChatGroupUnsupported" hidden>
+              Group chat is not available on this network.
+            </p>
           </nav>
 
           <div class="ui-nav-title new-chat-heading" id="newChatListTitle">Contacts</div>

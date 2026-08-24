@@ -225,6 +225,67 @@ async function decryptMeta(groupId, blob) {
   }
 }
 
+// ----------------------------------------------------- network capability --
+
+/*
+ * Whether this network understands group transactions.
+ *
+ * `null` until probed, then true/false, keyed by netid so switching networks
+ * re-asks. Held in memory only: a wrong answer cached to disk would outlive the
+ * upgrade that made it wrong.
+ */
+let groupSupport = { netid: null, supported: null };
+
+/**
+ * Has this network got group support?
+ * @returns {boolean|null} null when not yet probed
+ */
+export function isGroupSupported() {
+  if (groupSupport.netid !== deps.getNetworkId?.()) return null;
+  return groupSupport.supported;
+}
+
+/**
+ * Asks the network once whether it handles group transactions.
+ *
+ * There is no capability list in /network/parameters, so this infers it from a
+ * route: a network with group support answers /account/<addr>/keypackages, and
+ * one without returns 404 and an HTML error page.
+ *
+ * The account read has to succeed first. Without that check a gateway hiccup
+ * would look identical to "this network has no groups" — and we would then stop
+ * publishing key packages on a network that was merely briefly unreachable,
+ * which is the failure this whole probe exists to avoid.
+ *
+ * @returns {Promise<boolean|null>} null when the network could not be reached
+ */
+export async function detectGroupSupport() {
+  const netid = deps.getNetworkId?.();
+  if (groupSupport.netid === netid && groupSupport.supported !== null) {
+    return groupSupport.supported;
+  }
+  let address;
+  try {
+    address = myAddress();
+  } catch {
+    // Signed out mid-probe; nothing to conclude.
+    return null;
+  }
+  if (!address) return null;
+
+  const account = await deps.queryNetwork(`/account/${address}`);
+  // Gateway unreachable or not answering: conclude nothing, ask again later.
+  if (account === null || account === undefined) return null;
+
+  const res = await deps.queryNetwork(`/account/${address}/keypackages`);
+  const supported = res !== null && res !== undefined;
+  groupSupport = { netid, supported };
+  if (!supported) {
+    console.warn('[groups] this network has no group support; group features are off');
+  }
+  return supported;
+}
+
 // -------------------------------------------------------------- key packages --
 
 /** Publishes a fresh pool of single-use KeyPackages so others can add us. */
@@ -254,6 +315,14 @@ export async function publishKeyPackages(count = KEY_PACKAGE_POOL) {
 
 /** Tops the pool back up once adds have consumed most of it. */
 export async function ensureKeyPackages() {
+  /*
+   * Nothing is being suppressed here: on a network without group support the
+   * publish would be rejected, so we do not send it. On a network that DOES
+   * support groups a genuine failure still surfaces, which it must — see the
+   * note on publishKeyPackages.
+   */
+  if ((await detectGroupSupport()) === false) return false;
+
   const res = await deps.queryNetwork(`/account/${myAddress()}/keypackages`);
   const remaining = Array.isArray(res?.keyPackages) ? res.keyPackages.length : 0;
   const suiteMismatch = res?.cipherSuite && res.cipherSuite !== mls.MLS_CIPHERSUITE_ID;

@@ -10355,8 +10355,18 @@ async function queryNetwork(url, abortSignal = null) {
 //      showToast(`${now} query ${selectedGateway.web}${url}`, 0, 'info')
     }
     const response = await fetch(`${selectedGateway.web}${url}`, { signal: abortSignal });
-    const data = parse(await response.text());
-    return data;
+    const body = await response.text();
+    /*
+     * A route this network does not have answers with an HTML error page, and
+     * parsing that threw a SyntaxError which was logged as if the request had
+     * failed. It had not: the gateway answered, it just does not know the
+     * route. Report it as the 404 it is and let callers decide.
+     */
+    if (!response.ok) {
+      console.warn(`queryNetwork ${response.status} ${url}`);
+      return null;
+    }
+    return parse(body);
   } catch (error) {
     // Check if error is due to abort
     if (error.name === 'AbortError') {
@@ -10427,9 +10437,24 @@ function setupGroupChat() {
 
   // Restore the view model for groups this device already holds MLS state for,
   // then make sure we have KeyPackages published so others can add us.
+  /*
+   * The capability probe runs FIRST, and on its own.
+   *
+   * It is two plain GETs and has no dependency on MLS — whereas restoreGroups()
+   * awaits the MLS store, which on a network without group support is the least
+   * likely thing to come up. Putting the probe behind it meant the one network
+   * the probe exists for was the one where it never ran.
+   *
+   * On an unsupported network there is then nothing else to do: no restore, no
+   * key packages, no rejected transaction to explain away.
+   */
   groups
-    .restoreGroups()
-    .then(() => groups.ensureKeyPackages())
+    .detectGroupSupport()
+    .then((supported) => {
+      newChatModal.refreshGroupAvailability();
+      if (supported === false) return null;
+      return groups.restoreGroups().then(() => groups.ensureKeyPackages());
+    })
     .catch((e) => console.warn('group chat setup:', e));
 
   /*
@@ -12876,8 +12901,14 @@ async function injectTx(tx, txid) {
       const failureReason = normalizedReason;
       const feeMismatchStatus = await refreshNetworkParamsOnTxFeeMismatch(failureReason);
       const userFailureReason = getUserFacingTxFailureReason(failureReason, feeMismatchStatus);
+      /*
+       * The server echoes the whole transaction in its reason — key packages
+       * run to kilobytes of base64 — and putting that in a toast covered the
+       * entire screen with it. The full text still goes to the console and the
+       * logs modal, which is where anyone debugging will look.
+       */
       let toastMessage = userFailureReason === failureReason
-        ? 'Error injecting transaction: ' + failureReason
+        ? 'Error injecting transaction: ' + truncateForToast(failureReason)
         : userFailureReason;
       console.error('Error injecting transaction:', failureReason);
       logsModal.log('Error injecting transaction:', failureReason);
@@ -12898,9 +12929,9 @@ async function injectTx(tx, txid) {
   } catch (error) {
     // if error is a string and contains 'timestamp out of range' 
     if (typeof error === 'string' && error.includes('timestamp out of range')) {
-      showToast('Error injecting transaction (Please try again): ' + error, 0, 'error');
+      showToast('Error injecting transaction (Please try again): ' + truncateForToast(error), 0, 'error');
     } else {
-      showToast('Error injecting transaction: ' + error, 0, 'error');
+      showToast('Error injecting transaction: ' + truncateForToast(error), 0, 'error');
     }
     console.error('Error injecting transaction:', error);
     const errorReason = typeof error === 'string' ? error : (error?.message || String(error) || 'inject_failed');
@@ -14629,6 +14660,23 @@ function uiConfirm({ title, body = '', confirmLabel, cancelLabel = 'Cancel', dan
  */
 function uiAlert(title, body = '') {
   return uiConfirm({ title, body, alert: true, confirmLabel: 'OK' });
+}
+
+/**
+ * Caps a server message before it goes into a toast.
+ *
+ * Failure reasons echo the transaction that failed, and a key-package publish
+ * is kilobytes of base64 — enough to cover the whole screen in a red panel with
+ * no way to read past it. Callers keep logging the full text.
+ *
+ * @param {*} reason
+ * @param {number} [max]
+ * @returns {string}
+ */
+function truncateForToast(reason, max = 160) {
+  const text = typeof reason === 'string' ? reason : (reason?.message || String(reason ?? ''));
+  const oneLine = text.replace(/\s+/g, ' ').trim();
+  return oneLine.length > max ? `${oneLine.slice(0, max)}…` : oneLine;
 }
 
 function showToast(message, duration = 2000, type = 'default', isHTML = false, options = {}) {
@@ -30550,6 +30598,7 @@ class NewChatModal {
      * tabs made it reappear.
      */
     this.groupButton = document.getElementById('newChatGroupButton');
+    this.groupUnsupportedNote = document.getElementById('newChatGroupUnsupported');
     if (this.groupButton) {
       this.groupButton.addEventListener('click', () => {
         this.close();
@@ -30563,6 +30612,27 @@ class NewChatModal {
         joinGroupModal.open();
       });
     }
+  }
+
+  /**
+   * Shows or hides the group entry points to match what the network supports.
+   *
+   * On a network without group transactions, creating or joining a group dies
+   * at the first commit. Offering the buttons anyway and failing halfway is
+   * worse than saying so — and saying so is also more useful than hiding them
+   * without explanation, since "where did New group go" is a question the
+   * screen can answer itself.
+   *
+   * @returns {void}
+   */
+  refreshGroupAvailability() {
+    const supported = groups.isGroupSupported();
+    // null means not probed yet; leave the buttons as they are rather than
+    // flickering them off and back on.
+    if (supported === null) return;
+    if (this.groupButton) this.groupButton.hidden = !supported;
+    if (this.joinGroupButton) this.joinGroupButton.hidden = !supported;
+    if (this.groupUnsupportedNote) this.groupUnsupportedNote.hidden = supported;
   }
 
   /**
@@ -30778,6 +30848,7 @@ class NewChatModal {
    */
   openNewChatModal() {
     openModal(this.modal);
+    this.refreshGroupAvailability();
     footer.closeNewChatButton();
     this.recipientInput.value = '';
     this.setRecipientStatus('');

@@ -11158,6 +11158,15 @@ button.ui-row-value:not(:disabled):hover {
 .ui-nav-row--plain::before {
   display: none;
 }
+/* A line where rows would be, when there are none to show. */
+.ui-nav-note {
+  margin: 0;
+  padding: 10px 16px;
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text-color);
+  text-align: left;
+}
+
 /* Separates the destructive row from the list above it, so the tap that
    follows a mis-scroll is not the irreversible one. */
 .ui-nav-gap {
