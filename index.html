@@ -320,6 +320,15 @@
             <button type="button" class="ui-nav-row" id="newChatInviteButton" data-icon="mail">
               <span class="ui-nav-key">Invite someone</span>
             </button>
+            <!--
+              Shown in place of the two group rows on a network whose nodes do
+              not handle group transactions. Saying so beats hiding them without
+              explanation — "where did New group go" is a question this screen
+              can answer itself.
+            -->
+            <p class="ui-nav-note" id="newChatGroupUnsupported" hidden>
+              Group chat is not available on this network.
+            </p>
           </nav>
 
           <div class="ui-nav-title new-chat-heading" id="newChatListTitle">Contacts</div>
