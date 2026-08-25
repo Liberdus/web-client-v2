@@ -5715,10 +5715,10 @@ class ProposalInfoModal {
     if (this.content) {
       this.content.innerHTML = [
         renderDaoProposalHeading(proposal),
-        renderDaoProposalOptions(proposal),
         proposal.proposalType === DAO_PROJECT_TYPE
           ? renderDaoProjectProposalInfo(proposal, state)
           : '',
+        renderDaoProposalOptions(proposal),
         state === 'voting' ? this.renderCurrentVoteTotals(proposal) : '',
         this.renderProposalResults(resultSummary, committeeReview, currentAddress),
         state === 'review'
