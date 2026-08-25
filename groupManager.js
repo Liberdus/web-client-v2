@@ -899,13 +899,28 @@ export async function forgetGroup(groupId) {
 
 // -------------------------------------------------------------------- sending --
 
-export async function sendGroupMessage(groupId, text) {
+/**
+ * @param {string} groupId
+ * @param {string} text
+ * @param {{ id: string, message: string, from: string }} [reply]
+ *   The message being replied to: its txid, a short preview, and the ADDRESS of
+ *   whoever wrote it. The address rather than 1:1's viewer-relative
+ *   `replyOwnerIsMine` flag, because in a group "was it mine?" has a different
+ *   answer for every member — an address has the same answer for all of them.
+ */
+export async function sendGroupMessage(groupId, text, reply = null) {
   const id = identity();
   const sentTimestamp = deps.getTransactionTimestamp();
-  const { message, epoch } = await mls.encryptMessage(id, groupId, {
+  const payload = {
     message: text,
     sent_timestamp: sentTimestamp,
-  });
+  };
+  if (reply && reply.id) {
+    payload.replyId = reply.id;
+    payload.replyMessage = reply.message || '';
+    payload.replyFrom = reply.from || '';
+  }
+  const { message, epoch } = await mls.encryptMessage(id, groupId, payload);
 
   const tx = { ...baseTx('group_message'), groupId, epoch, message };
   /*
@@ -926,6 +941,9 @@ export async function sendGroupMessage(groupId, text) {
     sent_timestamp: sentTimestamp,
     timestamp: tx.timestamp,
     mine: true,
+    replyId: payload.replyId,
+    replyMessage: payload.replyMessage,
+    replyFrom: payload.replyFrom,
     // Settled by reconcilePendingMessages once the receipt is available.
     status: 'pending',
   });
@@ -1388,6 +1406,11 @@ export async function syncGroup(groupId) {
         sent_timestamp: payload.sent_timestamp || record.timestamp,
         timestamp: record.timestamp,
         mine: false,
+        // Undefined on an ordinary message; appendLocalMessage stores the
+        // record as given, so absent fields simply never appear.
+        replyId: payload.replyId,
+        replyMessage: payload.replyMessage,
+        replyFrom: payload.replyFrom,
       });
       const view = ensureGroupView(groupId);
       view.unread = (view.unread || 0) + 1;

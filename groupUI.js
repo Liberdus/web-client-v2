@@ -58,6 +58,12 @@ const toast = (msg, ms, kind) => deps.showToast && deps.showToast(msg, ms, kind)
  * not a well-formed address, and this runs once per rendered message. A single
  * odd roster entry must not be able to blank the whole conversation.
  */
+/** Same 40-character preview 1:1 stages in its reply bar. */
+function truncateReplyText(text) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  return clean.length <= 40 ? clean : clean.slice(0, 40) + '...';
+}
+
 function displayName(address, groupId) {
   const addr = String(address || '').toLowerCase();
   try {
@@ -520,6 +526,10 @@ class CreateGroupModal {
 class GroupChatModal {
   constructor() {
     this.groupId = null;
+    /** The message being replied to: {id, message, from}, or null. */
+    this.replyTo = null;
+    /** The bubble whose menu is open, or null. */
+    this.menuFor = null;
   }
 
   load() {
@@ -552,6 +562,109 @@ class GroupChatModal {
         this.send();
       }
     });
+
+    /*
+     * Guarded rather than assumed. load() already returns early on a missing
+     * modal, and the menu lives OUTSIDE #groupChatModal — so any host that
+     * mounts the modal without it (the harness did) would crash the whole of
+     * group chat on a null addEventListener.
+     */
+    this.menu = $('groupMessageMenu');
+    this.replyPreview = $('groupReplyPreview');
+    this.replyPreviewText = $('groupReplyPreviewText');
+    $('groupReplyPreviewClose')?.addEventListener('click', () => this.cancelReply());
+
+    /*
+     * One delegated handler for the whole transcript. A tap on the quote jumps
+     * to the original; a tap anywhere else on a bubble opens its menu — the
+     * same gesture 1:1 uses, so the two chats do not want different habits.
+     */
+    this.list.addEventListener('click', (e) => {
+      const quote = e.target.closest('.reply-quote');
+      if (quote) {
+        e.preventDefault();
+        e.stopPropagation();
+        return this.scrollToMessage(quote.dataset.replyTxid);
+      }
+      // Links inside a message belong to the link, not to the menu.
+      if (e.target.closest('a')) return;
+      const bubble = e.target.closest('.message');
+      if (!bubble || bubble.classList.contains('system-message')) return;
+      this.openMessageMenu(e, bubble);
+    });
+
+    this.menu?.addEventListener('click', (e) => {
+      const option = e.target.closest('[data-action]');
+      if (!option) return;
+      if (option.dataset.action === 'reply') this.startReply(this.menuFor);
+      this.closeMessageMenu();
+    });
+
+    // Any tap outside, or a scroll, dismisses it.
+    document.addEventListener('click', (e) => {
+      if (!this.menu || this.menu.style.display === 'none') return;
+      if (this.menu.contains(e.target) || e.target.closest('.message')) return;
+      this.closeMessageMenu();
+    });
+    const scroller = this.list.parentElement;
+    if (scroller) scroller.addEventListener('scroll', () => this.closeMessageMenu(), { passive: true });
+  }
+
+  openMessageMenu(e, bubble) {
+    if (!this.menu) return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.menuFor = bubble;
+    // Reused from ChatModal: it already handles the visual viewport, the
+    // on-screen keyboard and clamping to the scroller's bounds.
+    if (deps.positionMenu) deps.positionMenu(this.menu, bubble);
+    this.menu.style.display = 'block';
+  }
+
+  closeMessageMenu() {
+    if (this.menu) this.menu.style.display = 'none';
+    this.menuFor = null;
+  }
+
+  /** Stages a reply. The preview bar is the only thing that records it. */
+  startReply(bubble) {
+    if (!bubble) return;
+    const txid = bubble.dataset.txid;
+    if (!txid) return toast('Cannot reply: this message has no id yet', 2500, 'error');
+
+    const view = this.view();
+    const target = (view?.messages || []).find((m) => m.txid === txid);
+    const preview = truncateReplyText(target?.message || bubble.querySelector('.message-content')?.textContent);
+    if (!preview) return toast('Cannot reply to an empty message', 2500, 'error');
+
+    this.replyTo = { id: txid, message: preview, from: target?.from || '' };
+    if (this.replyPreviewText) this.replyPreviewText.textContent = preview;
+    if (this.replyPreview) this.replyPreview.style.display = '';
+    this.input.focus({ preventScroll: true });
+  }
+
+  cancelReply() {
+    this.replyTo = null;
+    if (this.replyPreview) this.replyPreview.style.display = 'none';
+    if (this.replyPreviewText) this.replyPreviewText.textContent = '';
+  }
+
+  /** Jumps to a quoted message, or says so when it is not held locally. */
+  scrollToMessage(txid) {
+    if (!txid) return;
+    const target = this.list.querySelector(`[data-txid="${CSS.escape(txid)}"]`);
+    if (!target) {
+      /*
+       * Expected in a group, unlike 1:1: forward secrecy means anything sent
+       * before we joined is undecryptable, so a reply can legitimately quote a
+       * message this device will never hold.
+       */
+      return toast('That message is not available on this device', 2500, 'info');
+    }
+    target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    // The same 2s flash 1:1 uses when jumping to a quoted message.
+    target.classList.add('highlighted');
+    setTimeout(() => target.classList.remove('highlighted'), 2000);
   }
 
   isActive() {
@@ -559,6 +672,9 @@ class GroupChatModal {
   }
 
   open(groupId) {
+    // A reply staged in one group must not follow you into another.
+    if (this.groupId !== groupId) this.cancelReply();
+    this.closeMessageMenu();
     this.groupId = groupId;
     /*
      * Modals stack, and closing one reveals whatever is still active beneath it.
@@ -580,6 +696,8 @@ class GroupChatModal {
   }
 
   close() {
+    this.closeMessageMenu();
+    this.cancelReply();
     this.groupId = null;
     this.modal.classList.remove('active');
   }
@@ -671,6 +789,20 @@ class GroupChatModal {
       // The "before you joined" separator is a real item in the list, emitted
       // by sync only when history was actually skipped, so nothing is inferred
       // from the epoch here.
+      /*
+       * Who wrote the quoted message. The address travels with the reply, so
+       * this is the same answer for every member — but fall back to the local
+       * copy of the target for replies sent before replyFrom existed.
+       */
+      replyNameFor: (item) => {
+        let addr = String(item.replyFrom || '').toLowerCase();
+        if (!addr) {
+          const target = (view.messages || []).find((m) => m.txid === item.replyId);
+          addr = String(target?.from || '').toLowerCase();
+        }
+        if (!addr) return ['Unknown', false];
+        return [displayName(addr, this.groupId), addr === myAddr()];
+      },
       emptyHTML: buildSystemMessage('No messages yet. Say hello.'),
     });
 
@@ -818,15 +950,24 @@ class GroupChatModal {
     const text = this.input.value.trim();
     if (!text || !this.groupId) return;
 
+    const reply = this.replyTo;
     this.sendButton.disabled = true;
     this.input.value = '';
+    // Cleared up front so the bar does not linger over a sent message; restored
+    // with the text if the send fails.
+    this.cancelReply();
     try {
-      await groups.sendGroupMessage(this.groupId, text);
+      await groups.sendGroupMessage(this.groupId, text, reply);
       this.render();
       deps.onChatListChanged && deps.onChatListChanged();
     } catch (err) {
-      // Put the text back so it is not lost.
+      // Put the text back so it is not lost, and the reply with it.
       this.input.value = text;
+      if (reply) {
+        this.replyTo = reply;
+        if (this.replyPreviewText) this.replyPreviewText.textContent = reply.message;
+        if (this.replyPreview) this.replyPreview.style.display = '';
+      }
       toast(`Could not send: ${err.message}`, 5000, 'error');
     } finally {
       this.sendButton.disabled = false;

@@ -65,7 +65,7 @@
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-79" type="module"></script>
+    <script src="./app.js?v=1455-80" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -1948,6 +1948,20 @@
       </div>
 
       <!-- Message Context Menu -->
+      <!--
+        Group chat's per-message menu. Deliberately separate from
+        #messageContextMenu: that one is configured per message by ChatModal
+        across a dozen option branches, and sharing it would mean two modals
+        writing the same element's visibility. Reply is the only entry for now;
+        reactions will join it here.
+      -->
+      <div class="message-context-menu" id="groupMessageMenu" style="display: none;">
+        <div class="context-menu-option" data-action="reply" data-icon="reply">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text">Reply</span>
+        </div>
+      </div>
+
       <div class="message-context-menu" id="messageContextMenu" style="display: none;">
         <div class="message-context-reactions" id="messageContextReactions" aria-label="Quick reactions">
           <button class="message-context-reaction-button" type="button" data-emoji="👍" data-default-emoji="👍" data-default-aria-label="React with thumbs up" aria-label="React with thumbs up">👍</button>
@@ -2411,6 +2425,15 @@
         </div>
         <div class="message-input-container" id="groupComposer">
           <div class="message-byte-counter" id="groupByteCounter"></div>
+          <!-- Same markup and classes as 1:1's reply preview, so it inherits
+               every rule under .reply-preview rather than needing its own. -->
+          <div class="reply-preview" id="groupReplyPreview" style="display: none;">
+            <div class="reply-preview-content">
+              <div class="reply-preview-label">Replying to:</div>
+              <div class="reply-preview-text" id="groupReplyPreviewText"></div>
+            </div>
+            <button class="reply-preview-close" id="groupReplyPreviewClose" aria-label="Cancel reply" type="button"></button>
+          </div>
           <div class="message-input-row">
             <div class="message-input-wrapper">
               <textarea class="message-input" id="groupMessageInput" placeholder="Type a message..."></textarea>

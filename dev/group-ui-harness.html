@@ -38,7 +38,7 @@
       const html = await (await fetch('../index.html')).text();
       const doc = new DOMParser().parseFromString(html, 'text/html');
       const host = document.getElementById('host');
-      for (const id of ['createGroupModal', 'groupChatModal', 'joinGroupModal', 'groupInfoModal', 'appearanceModal', 'chatModal', 'signInModal', 'createAccountModal']) {
+      for (const id of ['createGroupModal', 'groupChatModal', 'joinGroupModal', 'groupInfoModal', 'appearanceModal', 'chatModal', 'signInModal', 'createAccountModal', 'groupMessageMenu']) {
         host.appendChild(doc.getElementById(id));
       }
 
@@ -86,12 +86,12 @@
         chainEpoch: 5,
         memberSinceEpoch: 2,
         messages: [
-          { from: addr(2), message: 'Trailhead at 7? Parking fills up fast.', timestamp: Date.now() - 9e5 },
+          { txid: 'tx1', from: addr(2), message: 'Trailhead at 7? Parking fills up fast.', timestamp: Date.now() - 9e5 },
           // Two in a row from one person, to exercise sender-run grouping.
-          { from: addr(2), message: 'Bring water, there is no tap at the top.', timestamp: Date.now() - 85e4 },
-          { from: ME, mine: true, message: "Works for me. I'll bring the extra poles.", timestamp: Date.now() - 5e5 },
-          { from: ME, mine: true, message: 'Parking spot 4 if anyone is late.', timestamp: Date.now() - 48e4 },
-          { from: addr(3), message: 'Same. Weather looks clear until 2.', timestamp: Date.now() - 4e5 },
+          { txid: 'tx2', from: addr(2), message: 'Bring water, there is no tap at the top.', timestamp: Date.now() - 85e4 },
+          { txid: 'tx3', from: ME, mine: true, message: "Works for me. I'll bring the extra poles.", timestamp: Date.now() - 5e5 },
+          { txid: 'tx4', from: ME, mine: true, message: 'Parking spot 4 if anyone is late.', timestamp: Date.now() - 48e4 },
+          { txid: 'tx5', from: addr(3), message: 'Same. Weather looks clear until 2.', timestamp: Date.now() - 4e5 },
         ],
         unread: 0,
         lastActivity: Date.now(),
@@ -142,6 +142,29 @@
 
       const scenes = {
         'chat: fine': () => { reset(); groupChatModal.open(GROUP.groupId); },
+        'chat: replies': () => {
+          reset();
+          const v = view();
+          // Someone quoting another member, me quoting them, and a reply whose
+          // target predates our join — the case 1:1 never has to render.
+          v.messages.push(
+            { txid: 'tx6', from: addr(3), message: 'Poles would help on the scree.',
+              timestamp: Date.now() - 3e5,
+              replyId: 'tx3', replyMessage: "Works for me. I'll bring the extra poles.", replyFrom: ME },
+            { txid: 'tx7', from: ME, mine: true, message: 'Got two spare pairs.',
+              timestamp: Date.now() - 2e5,
+              replyId: 'tx6', replyMessage: 'Poles would help on the scree.', replyFrom: addr(3) },
+            { txid: 'tx8', from: addr(4), message: 'Agreed, that was the plan.',
+              timestamp: Date.now() - 1e5,
+              replyId: 'gone', replyMessage: 'a message from before you joined', replyFrom: addr(5) },
+          );
+          groupChatModal.open(GROUP.groupId);
+        },
+        'chat: replying (composer)': () => {
+          reset(); groupChatModal.open(GROUP.groupId);
+          setTimeout(() => groupChatModal.startReply(
+            document.querySelector('#groupMessagesList .message[data-txid="tx1"]')), 60);
+        },
         'chat: catching up': () => { reset(); view().chainEpoch = 7; groupChatModal.open(GROUP.groupId); },
         'chat: needs attention': () => { reset(); view().applyFailedAtEpoch = 6; view().chainEpoch = 7; groupChatModal.open(GROUP.groupId); },
         'chat: unrecoverable': () => { reset(); view().needsRecovery = true; groupChatModal.open(GROUP.groupId); },
