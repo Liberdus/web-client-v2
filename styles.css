@@ -2412,6 +2412,16 @@ input[type='file'].form-control::file-selector-button {
   width: 100%;
 }
 
+#confirmProposalModal .proposal-info > *,
+#confirmProposalModal .proposal-info-heading,
+#confirmProposalModal .proposal-info-section,
+#confirmProposalModal .proposal-info-grid,
+#confirmProposalModal .dao-project-review-notice {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+}
+
 #confirmProposalModal .proposal-info-heading,
 #proposalInfoModal .proposal-info-heading {
   display: grid;
@@ -2422,6 +2432,14 @@ input[type='file'].form-control::file-selector-button {
 #confirmProposalModal .proposal-info-title,
 #proposalInfoModal .proposal-info-title {
   margin-bottom: 0;
+}
+
+#confirmProposalModal .proposal-info-title,
+#confirmProposalModal .proposal-info-description,
+#confirmProposalModal .dao-project-review-notice > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 #confirmProposalModal .proposal-info-description,
@@ -2599,7 +2617,11 @@ input[type='file'].form-control::file-selector-button {
 
 #confirmProposalModal .dao-project-review-funding .proposal-info-value {
   justify-self: end;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
   text-align: right;
+  word-break: break-word;
 }
 
 #addProposalModal .proposal-option-label,
