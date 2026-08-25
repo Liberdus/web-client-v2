@@ -7,8 +7,8 @@ This document describes the DAO / proposals feature as currently implemented in 
 ### Entry point
 
 - The DAO UI is opened from the main menu ("DAO").
-- A glowing DAO header icon appears when proposal metadata reveals a new vote, a tracked vote reaches its scheduled end while still in Voting, or a tracked vote enters a final reward state.
-- The notification icon opens Voting first when voting and claim reminders coexist; otherwise it opens the filter matching the reminder.
+- A glowing DAO header icon appears when proposal metadata reveals a new proposal in Voting, a tracked proposal reaches its scheduled voting end while still in Voting, or a tracked vote enters a final reward state before its local reminder expires.
+- The notification icon opens Claimable first when voting and claim reminders coexist; otherwise it opens the filter matching the reminder.
 
 ### Modals
 
@@ -99,9 +99,10 @@ Important implementation detail:
 
 ### Account claim candidates
 
-- New accounts initialize an empty `daoUserVotes` map. For existing accounts without the map, the first confirmed vote creates it and adds its proposal number with the proposal's locally estimated voting end, claim end, and one-day reminder buffer.
-- Vote-history changes update `myData` in memory and rely on the normal account save lifecycle; DAO tracking does not trigger an extra save.
-- Vote reminder timing is calculated from the proposal already loaded when the vote is submitted, copied into the pending transaction, and persisted only after the vote confirms.
+- New accounts initialize an empty `daoUserVotes` map. For existing accounts without the map, the first confirmed vote creates it and adds its proposal number with the proposal's local reminder schedule.
+- The schedule is calculated from the proposal already loaded when the vote is submitted: `votingEndsAt` is the estimated voting end, `estimatedClaimEndsAt` is `votingEndsAt + claimDuration`, and `reminderExpiresAt` adds one more day.
+- The schedule is saved with the pending transaction so it survives a reload, then copied into `daoUserVotes` only after the vote confirms. Failed and timed-out votes are not tracked.
+- Vote-history changes update `myData` in memory and otherwise rely on the normal account save lifecycle.
 - When the DAO modal refreshes metadata, tracked proposals that have entered a final state are refreshed once and updated with the authoritative claim window derived from `votingEndedAt`.
 - Repeated confirmed votes on one proposal keep a single stored entry.
 - Confirmed reward claims remove their proposal number. Submitted, failed, and timed-out claims leave it available for retry.
@@ -114,9 +115,10 @@ Important implementation detail:
 
 - New accounts initialize `daoNotifications.lastDaoOpenedAt` to `0`; existing accounts use the same value lazily when the field is absent.
 - Opening the DAO from either the header or menu clears the current header reminder only after metadata loads successfully.
-- The successful open timestamp is saved immediately with the account record.
+- A cutoff timestamp captured before the metadata request is saved with the account record only after that request succeeds. Closing the DAO does not update it.
 - Claim reminders take routing priority over voting reminders. When both exist, the DAO opens Claimable and both categories remain marked until all notified proposals in each category have been opened successfully.
-- Proposals from the opening notification batch receive an in-memory dot. Successfully opening an individual proposal clears its dot and removes it from the corresponding filter notification. Unopened proposal and filter dots survive closing and reopening the DAO during the current signed-in session. Account changes, sign-out, and reload clear them without persisting per-proposal read state.
+- Proposals from the opening notification batch receive an in-memory dot. Successfully opening an individual proposal clears its dot and removes it from the corresponding filter notification; selecting the filter alone does not clear either dot.
+- Unopened proposal and filter dots survive closing and reopening the DAO during the current signed-in session. Account changes, sign-out, and reload clear them without persisting per-proposal read state.
 - The one-day reminder buffer is local notification timing only. Proposal details and the server remain authoritative for actual claim eligibility.
 
 ## Backend Data Boundary
