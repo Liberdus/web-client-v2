@@ -2582,6 +2582,26 @@ input[type='file'].form-control::file-selector-button {
   flex-basis: calc((100% - 8px) / 2);
 }
 
+#confirmProposalModal .dao-project-review-funding .proposal-info-row {
+  align-items: center;
+  flex-basis: 100%;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: none;
+  min-height: 0;
+  width: 100%;
+}
+
+#confirmProposalModal .dao-project-review-funding .proposal-info-row > span:not(.proposal-info-value) {
+  align-self: center;
+  justify-self: start;
+  text-align: left;
+}
+
+#confirmProposalModal .dao-project-review-funding .proposal-info-value {
+  justify-self: end;
+  text-align: right;
+}
+
 #addProposalModal .proposal-option-label,
 #confirmProposalModal .proposal-option-label,
 #proposalInfoModal .proposal-option-label {
