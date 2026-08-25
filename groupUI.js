@@ -13,7 +13,7 @@
 
 import * as groups from './groupManager.js';
 import { MLS_CIPHERSUITE_ID, MLS_CIPHERSUITE_NAME } from './mlsEngine.js';
-import { renderTextConversation, buildSystemMessage } from './chatRender.js';
+import { renderTextConversation, buildSystemMessage, buildReactionChips } from './chatRender.js';
 import {
   addressAvatar,
   escapeHtml,
@@ -594,6 +594,12 @@ class GroupChatModal {
     });
 
     this.menu?.addEventListener('click', (e) => {
+      const emojiButton = e.target.closest('[data-emoji]');
+      if (emojiButton) {
+        const bubble = this.menuFor;
+        this.closeMessageMenu();
+        return this.react(bubble, emojiButton.dataset.emoji);
+      }
       const option = e.target.closest('[data-action]');
       if (!option) return;
       if (option.dataset.action === 'reply') this.startReply(this.menuFor);
@@ -624,6 +630,45 @@ class GroupChatModal {
   closeMessageMenu() {
     if (this.menu) this.menu.style.display = 'none';
     this.menuFor = null;
+  }
+
+  /**
+   * Adds, changes or clears our reaction on a message.
+   *
+   * Tapping the emoji already showing clears it, which is what 1:1 does and
+   * what every other chat app trains people to expect. Any other emoji
+   * replaces ours -- the state machine purges the old one, so this is one
+   * transaction, not a remove followed by a set.
+   */
+  async react(bubble, emoji) {
+    if (!bubble || !this.groupId) return;
+    const txid = bubble.dataset.txid;
+    if (!txid) return toast('Cannot react: this message has no id yet', 2500, 'error');
+
+    /*
+     * Both sides normalised. myAddr() is the padded 64-char chain form and the
+     * reaction engine stores senders in the 40-char form, so comparing them
+     * raw silently never matches -- which shows up as your own chip not being
+     * marked as yours, and as a tap adding a second reaction instead of
+     * clearing the one you already had.
+     */
+    const me = normalizeAddress(myAddr());
+    const mine = groups
+      .groupReactionsFor(this.groupId, txid)
+      .find((r) => normalizeAddress(r.sender) === me);
+
+    const reaction = mine && mine.emoji === emoji
+      ? { reactId: txid, reactAction: 'remove', targetReactionTxId: mine.reactionTxId }
+      : { reactId: txid, reactAction: 'set', reactMessage: emoji };
+
+    try {
+      await groups.sendGroupReaction(this.groupId, reaction);
+      deps.onChatListChanged && deps.onChatListChanged();
+    } catch (err) {
+      // sendGroupReaction has already put the chips back.
+      this.render();
+      toast(`Could not react: ${err.message}`, 5000, 'error');
+    }
   }
 
   /** Stages a reply. The preview bar is the only thing that records it. */
@@ -803,6 +848,10 @@ class GroupChatModal {
         if (!addr) return ['Unknown', false];
         return [displayName(addr, this.groupId), addr === myAddr()];
       },
+      reactionsFor: (item) =>
+        item.txid
+          ? buildReactionChips(groups.groupReactionsFor(this.groupId, item.txid), normalizeAddress(myAddr()))
+          : '',
       emptyHTML: buildSystemMessage('No messages yet. Say hello.'),
     });
 
