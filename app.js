@@ -11847,6 +11847,12 @@ function setupGroupChat() {
     getMyData: () => myData,
     showToast,
     onChatListChanged: () => chatsScreen.updateChatList(),
+    /*
+     * Reused rather than reimplemented: this already handles the visual
+     * viewport, the on-screen keyboard and clamping to the scroller, none of
+     * which is worth writing twice.
+     */
+    positionMenu: (menu, el) => chatModal.positionContextMenu(menu, el),
   });
   groupChatReady = true;
 

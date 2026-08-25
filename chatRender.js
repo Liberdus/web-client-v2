@@ -25,6 +25,30 @@ export function buildTextContent(text, opts = {}) {
 }
 
 /**
+ * The quoted original above a reply.
+ *
+ * Mirrors 1:1's markup exactly, so the two share every rule under .reply-quote
+ * and cannot drift apart. The one difference is whose name is shown: 1:1 infers
+ * it from a viewer-relative `replyOwnerIsMine` flag, which cannot work in a
+ * group, so a group message carries the original sender's ADDRESS and the
+ * caller resolves it. That is absolute — every member reaches the same answer.
+ *
+ * @param {Object} item          the replying message
+ * @param {string} ownerName     resolved display name of whoever wrote the original
+ * @param {boolean} ownerIsMine  drives the accent colour, as in 1:1
+ */
+export function buildReplyQuote(item, ownerName, ownerIsMine) {
+  const cls = ownerIsMine ? 'reply-owner-me' : 'reply-owner-contact';
+  const text = escapeHtml(item.replyMessage || 'View original message');
+  return `
+    <div class="reply-quote ${cls}" data-reply-txid="${escapeHtml(item.replyId)}">
+      <span class="reply-quote-label ${cls}">${escapeHtml(ownerName)}</span>
+      <div class="reply-quote-text">${text}</div>
+    </div>
+  `;
+}
+
+/**
  * Assembles one message bubble.
  *
  * Deliberately generic: `beforeContent` carries whatever the caller wants above
@@ -141,6 +165,14 @@ export function renderTextConversation(container, items, opts = {}) {
         txid: item.txid,
         status: item.status,
         contentHTML: buildTextContent(item.message),
+        /*
+         * The quote sits above the text, in the same slot 1:1 uses for it.
+         * replyNameFor resolves the original sender's address; without it the
+         * quote still renders, just without attribution.
+         */
+        beforeContent: item.replyId && opts.replyNameFor
+          ? buildReplyQuote(item, ...opts.replyNameFor(item))
+          : '',
         // Attribution only matters when more than one person can be speaking,
         // and only on the first message of each person's run.
         senderLabel: item.mine || !startsRun ? '' : opts.senderLabelFor && opts.senderLabelFor(item),
