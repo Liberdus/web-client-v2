@@ -407,7 +407,7 @@ body {
   width: 318px;
   height: 318px;
   border-radius: 50%;
-  background: var(--primary-tint-12);
+  background: transparent;
   opacity: 0;
   transform: translate(-50%, -50%) scale(0.74);
 }
