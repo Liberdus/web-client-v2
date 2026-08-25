@@ -7,6 +7,7 @@ import { normalizeAddress, utf82bin } from './lib.js';
 const DAO_REWARD_STATE_KEYS = ['accepted', 'rejected', 'applied'];
 
 export const DAO_PROJECT_TYPE = 'project';
+export const DAO_PROJECT_PREVIEW_KIND = 'project-preview';
 export const DAO_PROJECT_MAX_MILESTONES = 10;
 export const DAO_PROJECT_MILESTONE_TITLE_MAX_LENGTH = 100;
 export const DAO_PROJECT_MILESTONE_TEXT_MAX_LENGTH = 1000;
@@ -436,6 +437,35 @@ export function buildDaoProposalCreateDraft({
   };
 }
 
+export function buildDaoProjectProposalPreviewDraft({
+  displayTitle,
+  description,
+  project,
+  proposalFeeUsdStr,
+  reviewStartTimeMs,
+  gracePeriodMs,
+  maxGracePeriodMs,
+} = {}) {
+  const proposal = {
+    proposalType: DAO_PROJECT_TYPE,
+    emergency: false,
+    title: requireDaoDraftString(displayTitle, 'DAO proposal title', DAO_PROPOSAL_TITLE_MAX_LENGTH),
+    description: requireDaoDraftString(description, 'DAO proposal description'),
+    options: ['no', 'Fund project'],
+    gracePeriod: normalizeDaoDraftGracePeriodMs(gracePeriodMs, maxGracePeriodMs),
+    project: normalizeDaoProjectDraft(project),
+  };
+
+  return {
+    kind: DAO_PROJECT_PREVIEW_KIND,
+    canSubmit: false,
+    displayTitle: proposal.title,
+    proposalFeeUsdStr: requireDaoProjectUsdString(proposalFeeUsdStr, 'DAO proposal fee'),
+    reviewStartTimeMs: normalizeDaoDraftReviewStartTime(reviewStartTimeMs),
+    proposal,
+  };
+}
+
 export function buildDaoProposalCreateTransaction({
   draft,
   timestamp,
@@ -819,27 +849,58 @@ export function normalizeDaoAddress(value) {
   return normalizeAddress(address);
 }
 
-function requireDaoProjectUsdString(value, label, { positive = false } = {}) {
+function createDaoProjectValidationError(message, field, milestoneIndex) {
+  const error = new Error(message);
+  error.daoProjectField = field;
+  if (Number.isSafeInteger(milestoneIndex)) error.daoProjectMilestoneIndex = milestoneIndex;
+  return error;
+}
+
+function requireDaoProjectText(value, label, maxLength, field, milestoneIndex) {
+  try {
+    return requireDaoDraftString(value, label, maxLength);
+  } catch (error) {
+    throw createDaoProjectValidationError(error.message, field, milestoneIndex);
+  }
+}
+
+function requireDaoProjectUsdString(value, label, {
+  field,
+  milestoneIndex,
+  positive = false,
+} = {}) {
   const text = String(value ?? '').trim();
   if (!isValidDaoDecimalString(text)) {
-    throw new Error(`${label} must be a non-negative USD amount`);
+    throw createDaoProjectValidationError(
+      `${label} must be a non-negative USD amount`,
+      field,
+      milestoneIndex,
+    );
   }
   if (positive && /^0(?:\.0+)?$/.test(text)) {
-    throw new Error(`${label} must be greater than zero`);
+    throw createDaoProjectValidationError(`${label} must be greater than zero`, field, milestoneIndex);
   }
   return text;
 }
 
 export function normalizeDaoProjectDraft(value) {
   const normalizedAddress = normalizeDaoAddress(value?.address);
-  if (!normalizedAddress) throw new Error('Project recipient must be a valid Liberdus address');
+  if (!normalizedAddress) {
+    throw createDaoProjectValidationError(
+      'Project recipient must be a valid Liberdus address',
+      'address',
+    );
+  }
 
   const milestones = value?.milestones;
   if (!Array.isArray(milestones) || milestones.length === 0) {
-    throw new Error('Project needs at least one milestone');
+    throw createDaoProjectValidationError('Project needs at least one milestone', 'milestones');
   }
   if (milestones.length > DAO_PROJECT_MAX_MILESTONES) {
-    throw new Error(`Project can have at most ${DAO_PROJECT_MAX_MILESTONES} milestones`);
+    throw createDaoProjectValidationError(
+      `Project can have at most ${DAO_PROJECT_MAX_MILESTONES} milestones`,
+      'milestones',
+    );
   }
 
   return {
@@ -848,33 +909,57 @@ export function normalizeDaoProjectDraft(value) {
       const label = `Milestone ${index + 1}`;
       const durationText = String(milestone?.durationDays ?? '').trim();
       if (!/^[1-9]\d*$/.test(durationText)) {
-        throw new Error(`${label} duration must be a positive whole number of days`);
+        throw createDaoProjectValidationError(
+          `${label} duration must be a positive whole number of days`,
+          'durationDays',
+          index,
+        );
       }
       const durationDays = Number(durationText);
       if (!Number.isSafeInteger(durationDays) || durationDays > DAO_PROJECT_DURATION_MAX_DAYS) {
-        throw new Error(`${label} duration must not exceed ${DAO_PROJECT_DURATION_MAX_DAYS} days`);
+        throw createDaoProjectValidationError(
+          `${label} duration must not exceed ${DAO_PROJECT_DURATION_MAX_DAYS} days`,
+          'durationDays',
+          index,
+        );
       }
 
       return {
-        title: requireDaoDraftString(
+        title: requireDaoProjectText(
           milestone?.title,
           `${label} title`,
           DAO_PROJECT_MILESTONE_TITLE_MAX_LENGTH,
+          'title',
+          index,
         ),
-        description: requireDaoDraftString(
+        description: requireDaoProjectText(
           milestone?.description,
           `${label} description`,
           DAO_PROJECT_MILESTONE_TEXT_MAX_LENGTH,
+          'description',
+          index,
         ),
-        deliverable: requireDaoDraftString(
+        deliverable: requireDaoProjectText(
           milestone?.deliverable,
           `${label} deliverable`,
           DAO_PROJECT_MILESTONE_TEXT_MAX_LENGTH,
+          'deliverable',
+          index,
         ),
         durationDays,
-        costUsdStr: requireDaoProjectUsdString(milestone?.costUsdStr, `${label} cost`, { positive: true }),
-        penaltyUsdStr: requireDaoProjectUsdString(milestone?.penaltyUsdStr, `${label} late penalty`),
-        bonusUsdStr: requireDaoProjectUsdString(milestone?.bonusUsdStr, `${label} early bonus`),
+        costUsdStr: requireDaoProjectUsdString(milestone?.costUsdStr, `${label} cost`, {
+          field: 'costUsdStr',
+          milestoneIndex: index,
+          positive: true,
+        }),
+        penaltyUsdStr: requireDaoProjectUsdString(milestone?.penaltyUsdStr, `${label} late penalty`, {
+          field: 'penaltyUsdStr',
+          milestoneIndex: index,
+        }),
+        bonusUsdStr: requireDaoProjectUsdString(milestone?.bonusUsdStr, `${label} early bonus`, {
+          field: 'bonusUsdStr',
+          milestoneIndex: index,
+        }),
       };
     }),
   };

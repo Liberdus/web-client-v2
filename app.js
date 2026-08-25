@@ -90,8 +90,10 @@ import {
   DAO_PROJECT_MAX_MILESTONES,
   DAO_PROJECT_MILESTONE_TEXT_MAX_LENGTH,
   DAO_PROJECT_MILESTONE_TITLE_MAX_LENGTH,
+  DAO_PROJECT_PREVIEW_KIND,
   DAO_PROJECT_TYPE,
   DAO_PARAMETER_MAX_WHOLE_DIGITS,
+  buildDaoProjectProposalPreviewDraft,
   buildDaoProposalCreateDraft,
   daoRepo,
   DAO_STATES,
@@ -3329,7 +3331,6 @@ class AddProposalModal {
     this.projectMaximumBonus = document.getElementById('addProposalProjectMaximumBonus');
     this.projectMaximumBudget = document.getElementById('addProposalProjectMaximumBudget');
     this.projectLive = document.getElementById('addProposalProjectLive');
-    this.projectReviewHelp = document.getElementById('addProposalProjectReviewHelp');
     this.emergencySelect = document.getElementById('addProposalEmergency');
     this.emergencyHelp = document.getElementById('addProposalEmergencyHelp');
     this.reviewStartButton = document.getElementById('addProposalReviewStartTime');
@@ -3349,7 +3350,7 @@ class AddProposalModal {
       this.form.addEventListener('submit', withButtonCooldown(
         this.submitButton,
         BUTTON_COOLDOWN_MS,
-        () => this.updateSubmitAvailability(),
+        null,
         () => this.handleCreate()
       ));
       this.form.addEventListener('input', (event) => this.clearValidationError(event.target));
@@ -3435,15 +3436,10 @@ class AddProposalModal {
     return this.typeSelect?.value === DAO_PROJECT_TYPE;
   }
 
-  updateSubmitAvailability() {
-    if (this.submitButton) this.submitButton.disabled = this.isProjectProposal();
-  }
-
   renderProposalTypeEditor() {
     const isProject = this.isProjectProposal();
     this.parameterEditor?.classList.toggle('hidden', isProject);
     this.projectEditor?.classList.toggle('hidden', !isProject);
-    this.projectReviewHelp?.classList.toggle('hidden', !isProject);
 
     if (this.typeHelp) {
       this.typeHelp.textContent = isProject
@@ -3463,7 +3459,6 @@ class AddProposalModal {
     }
 
     this.renderProposalFee();
-    this.updateSubmitAvailability();
   }
 
   handleProposalTypeChange() {
@@ -4370,16 +4365,27 @@ class AddProposalModal {
     };
   }
 
+  getProjectValidationTarget(error) {
+    const field = error?.daoProjectField;
+    if (field === 'address') return this.projectAddressInput;
+    if (field === 'milestones') return this.projectMilestonesList;
+
+    const index = error?.daoProjectMilestoneIndex;
+    const uiId = Number.isSafeInteger(index) ? this.projectDraft?.milestones?.[index]?.uiId : '';
+    if (!uiId || !field) return null;
+
+    const milestoneElement = this.projectMilestonesList?.querySelector(
+      `[data-dao-milestone-id="${uiId}"]`
+    );
+    return milestoneElement?.querySelector(`[data-dao-milestone-field="${field}"]`)
+      || milestoneElement;
+  }
+
   async handleCreate() {
     this.clearValidationErrors();
     const title = (this.titleInput?.value || '').trim();
     const proposalType = (this.typeSelect?.value || '').trim();
     const description = (this.descriptionInput?.value || '').trim();
-
-    if (proposalType === DAO_PROJECT_TYPE) {
-      showToast('Project Review Draft will be added in the next phase', 2500, 'info');
-      return;
-    }
 
     if (!title) {
       this.showValidationError(this.createValidationError('Please enter a title', this.titleInput));
@@ -4389,7 +4395,7 @@ class AddProposalModal {
       this.showValidationError(this.createValidationError(`Title must be ${DAO_PROPOSAL_TITLE_MAX_LENGTH} characters or less`, this.titleInput));
       return;
     }
-    if (!isDaoParameterProposalTypeKey(proposalType)) {
+    if (proposalType !== DAO_PROJECT_TYPE && !isDaoParameterProposalTypeKey(proposalType)) {
       this.showValidationError(this.createValidationError('Please select a DAO proposal type', this.typeSelect));
       return;
     }
@@ -4399,7 +4405,6 @@ class AddProposalModal {
     }
 
     try {
-      const { options, changes } = this.getValidatedOptions();
       const reviewStartTimeMs = this.getReviewStartTimeMs();
       const gracePeriodMs = this.gracePeriodMs;
       if (!Number.isSafeInteger(this.maxGracePeriodMs) || this.maxGracePeriodMs < 0) {
@@ -4413,6 +4418,21 @@ class AddProposalModal {
         throw this.createValidationError('Current DAO proposal fee is not loaded yet', this.proposalFeeInput);
       }
 
+      if (proposalType === DAO_PROJECT_TYPE) {
+        const draft = buildDaoProjectProposalPreviewDraft({
+          displayTitle: title,
+          description,
+          project: this.projectDraft,
+          proposalFeeUsdStr: this.proposalFeeUsdStr,
+          reviewStartTimeMs,
+          gracePeriodMs,
+          maxGracePeriodMs: this.maxGracePeriodMs,
+        });
+        confirmProposalModal.open(draft);
+        return;
+      }
+
+      const { options, changes } = this.getValidatedOptions();
       const draft = buildDaoProposalCreateDraft({
         from: myAccount?.keys?.address ? longAddress(myAccount.keys.address) : '',
         displayTitle: title,
@@ -4428,6 +4448,9 @@ class AddProposalModal {
       });
       confirmProposalModal.open(draft);
     } catch (e) {
+      if (!e.validationTarget && proposalType === DAO_PROJECT_TYPE) {
+        e.validationTarget = this.getProjectValidationTarget(e);
+      }
       this.showValidationError(e);
     }
   }
@@ -4490,7 +4513,18 @@ function renderDaoProposalHeading(proposal) {
 }
 
 function renderDaoProposalSection(title, rows) {
-  const rowHtml = rows
+  const rowHtml = renderDaoProposalRows(rows);
+
+  return `
+    <section class="proposal-info-section">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="proposal-info-grid">${rowHtml}</div>
+    </section>
+  `;
+}
+
+function renderDaoProposalRows(rows) {
+  return rows
     .map(([label, value, tone]) => {
       const displayValue = formatDaoDetailValue(value);
       const toneClass = tone ? ` proposal-info-row--${tone}` : '';
@@ -4503,24 +4537,20 @@ function renderDaoProposalSection(title, rows) {
     `;
     })
     .join('');
-
-  return `
-    <section class="proposal-info-section">
-      <h3>${escapeHtml(title)}</h3>
-      <div class="proposal-info-grid">${rowHtml}</div>
-    </section>
-  `;
 }
 
 function renderDaoProposalOptions(proposal) {
   const options = getDaoProposalOptions(proposal);
   const changeSets = proposal?.[proposal?.proposalType]?.changes;
+  const isProject = proposal?.proposalType === DAO_PROJECT_TYPE;
   const optionCards = options.map((option, index) => {
-    const noChangeClass = index === 0 ? ' proposal-option-section--no-change' : '';
+    const noChangeClass = index === 0 && !isProject ? ' proposal-option-section--no-change' : '';
     return `
       <div class="proposal-option-section${noChangeClass}">
         <span class="proposal-option-label">${escapeHtml(option)}</span>
-        ${renderDaoProposalOptionDetails(index, changeSets)}
+        ${isProject
+          ? renderDaoProjectProposalOptionDetails(index)
+          : renderDaoProposalOptionDetails(index, changeSets)}
       </div>
     `;
   }).join('');
@@ -4528,9 +4558,16 @@ function renderDaoProposalOptions(proposal) {
   return `
     <section class="proposal-info-section">
       <h3>Proposal Options</h3>
-      <div class="proposal-option-cards">${optionCards}</div>
+      <div class="proposal-option-cards${isProject ? ' dao-project-ballot' : ''}">${optionCards}</div>
     </section>
   `;
+}
+
+function renderDaoProjectProposalOptionDetails(optionIndex) {
+  const description = optionIndex === 0
+    ? 'Project is not funded.'
+    : 'Approve the recipient, milestones, and maximum budget below.';
+  return `<div class="proposal-option-changes"><p class="proposal-info-muted">${description}</p></div>`;
 }
 
 function renderDaoProposalOptionDetails(optionIndex, changeSets) {
@@ -4567,6 +4604,39 @@ function renderDaoProposalChangeRows(changes) {
       `;
     })
     .join('');
+}
+
+function renderDaoProjectMilestones(milestones) {
+  const milestoneHtml = milestones.map((milestone, index) => `
+    <article class="dao-project-review-milestone">
+      <h4><span>Milestone ${index + 1}</span><strong>${escapeHtml(milestone.title)}</strong></h4>
+      <div class="dao-project-review-copy">
+        <div>
+          <span>Description</span>
+          <p>${escapeHtml(milestone.description)}</p>
+        </div>
+        <div>
+          <span>Deliverable / Acceptance Criteria</span>
+          <p>${escapeHtml(milestone.deliverable)}</p>
+        </div>
+      </div>
+      <div class="proposal-info-grid">
+        ${renderDaoProposalRows([
+          ['Duration', `${milestone.durationDays} days`],
+          ['Cost', `${milestone.costUsdStr} USD`],
+          ['Late penalty', `${milestone.penaltyUsdStr} USD`],
+          ['Early bonus', `${milestone.bonusUsdStr} USD`],
+        ])}
+      </div>
+    </article>
+  `).join('');
+
+  return `
+    <section class="proposal-info-section dao-project-review-milestones">
+      <h3>Milestones</h3>
+      <div class="dao-project-review-milestone-list">${milestoneHtml}</div>
+    </section>
+  `;
 }
 
 class ConfirmProposalModal {
@@ -4606,15 +4676,22 @@ class ConfirmProposalModal {
 
   setSubmitting(isSubmitting) {
     this.isSubmitting = Boolean(isSubmitting);
+    const isProjectPreview = this.currentDraft?.kind === DAO_PROJECT_PREVIEW_KIND;
     if (this.closeButton) this.closeButton.disabled = this.isSubmitting;
     if (this.backButton) this.backButton.disabled = this.isSubmitting;
     if (this.signButton) {
-      this.signButton.disabled = this.isSubmitting;
-      this.signButton.textContent = this.isSubmitting ? 'Signing...' : this.signButtonLabel;
+      this.signButton.disabled = this.isSubmitting || isProjectPreview;
+      this.signButton.textContent = isProjectPreview
+        ? 'Project submission unavailable'
+        : (this.isSubmitting ? 'Signing...' : this.signButtonLabel);
     }
   }
 
   async handleSign() {
+    if (this.currentDraft?.kind === DAO_PROJECT_PREVIEW_KIND) {
+      showToast('Project submission is unavailable until backend support is implemented', 3000, 'info');
+      return;
+    }
     if (this.isSubmitting) return;
     if (!this.currentDraft?.transaction?.from) {
       showToast('Proposal draft is unavailable', 3000, 'warning');
@@ -4703,6 +4780,10 @@ class ConfirmProposalModal {
   render() {
     if (!this.content) return;
     const draft = this.currentDraft;
+    if (draft?.kind === DAO_PROJECT_PREVIEW_KIND) {
+      this.renderProjectPreview(draft);
+      return;
+    }
     if (!draft?.transaction?.from) {
       this.setTitle('Review Proposal');
       this.content.innerHTML = '<section class="proposal-info-section"><h3>Review Proposal</h3><p class="proposal-info-muted">Proposal draft is unavailable.</p></section>';
@@ -4730,6 +4811,47 @@ class ConfirmProposalModal {
         ['Grace period', formatDaoDurationSummary(tx.gracePeriod)],
       ]),
       '<p class="proposal-info-muted">The proposal fee is derived from DAO params and seeds the voter reward pool for regular proposals. Signing submits this proposal for review.</p>',
+    ].join('');
+  }
+
+  renderProjectPreview(draft) {
+    const proposal = draft.proposal;
+    const project = proposal?.project;
+    if (!project) {
+      this.setTitle('Review Project Draft');
+      this.content.innerHTML = '<section class="proposal-info-section"><h3>Review Project Draft</h3><p class="proposal-info-muted">Project draft is unavailable.</p></section>';
+      return;
+    }
+
+    const budget = getDaoProjectBudgetSummary(project.milestones);
+    const reviewDelayIfSubmittedNowMs = draft.reviewStartTimeMs > 0
+      ? Math.max(0, draft.reviewStartTimeMs - getTransactionTimestamp())
+      : 0;
+    this.setTitle('Review Project Draft');
+    this.content.innerHTML = [
+      renderDaoProposalHeading(proposal),
+      '<div class="dao-project-review-notice" role="status"><strong>Project UI preview</strong><span>Project submission is unavailable until backend support is implemented.</span></div>',
+      renderDaoProposalOptions(proposal),
+      renderDaoProposalSection('Project Funding', [
+        ['Recipient', project.address],
+        ['Base cost', `${budget.baseCostUsdStr} USD`],
+        ['Maximum bonuses', `${budget.maximumBonusUsdStr} USD`],
+        ['Maximum authorized', `${budget.maximumAuthorizedUsdStr} USD`],
+      ]),
+      renderDaoProjectMilestones(project.milestones),
+      renderDaoProposalSection('Overview', [
+        ['Type', getDaoTypeLabel(proposal.proposalType)],
+        ['Proposal fee', `${draft.proposalFeeUsdStr || '0'} USD`],
+        ['Initial state', 'Not submitted (preview only)'],
+      ]),
+      renderDaoProposalSection('Review Timeline', [
+        ['Scheduled review start', draft.reviewStartTimeMs
+          ? formatDaoTimestamp(draft.reviewStartTimeMs)
+          : 'Start now'],
+        ['Time until start if submitted now', formatDaoDurationSummary(reviewDelayIfSubmittedNowMs)],
+        ['Grace period', formatDaoDurationSummary(proposal.gracePeriod)],
+      ]),
+      '<p class="proposal-info-muted">The proposal fee is derived from DAO params. This preview cannot be signed, submitted, or saved to the DAO.</p>',
     ].join('');
   }
 
