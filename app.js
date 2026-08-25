@@ -172,6 +172,7 @@ import {
   normalizeUnsignedFloat,
   getVerifiedUsername,
   EthNum,
+  insertSorted,
 } from './lib.js';
 
 import {
@@ -187,6 +188,19 @@ import { evmAssets } from './evm-assets.js';
 // (queryNetwork, signObj, injectTx, ...) are module-scoped here, so they are
 // handed over explicitly through initGroupManager rather than imported.
 import * as groups from './groupManager.js';
+import {
+  applyIncomingReaction,
+  areReactionSnapshotsEqual,
+  copyReactionSnapshot,
+  getContactReactionsForTarget,
+  getEffectiveReactionForSenderTarget,
+  getLatestReactionStateForSenderTarget,
+  purgeContactReactionsForTarget,
+  purgeReactionStackForSenderTarget,
+  recordReactionRemovalActivity,
+  removeReactionByReactionTxId,
+  setVisibleReaction,
+} from './reactions.js';
 import { initGroupUI, createGroupModal, groupChatModal, groupInfoModal, joinGroupModal, parseGroupInvite, refreshOpenGroup } from './groupUI.js';
 import { buildMessageBubble } from './chatRender.js';
 
@@ -10636,201 +10650,6 @@ async function ensureContactKeys(address) {
  */
 
 /**
- * Returns the newest effective reaction for a specific sender and target message.
- * @param {Object} contact
- * @param {string} targetTxid
- * @param {string} sender
- * @returns {Object|null}
- */
-function getEffectiveReactionForSenderTarget(contact, targetTxid, sender) {
-  const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
-  const normalizedSender = normalizeAddress(sender);
-
-  for (const reaction of reactions) {
-    if (!reaction.emoji) {
-      continue;
-    }
-    if (reaction.targetTxid === targetTxid && normalizeAddress(reaction.sender) === normalizedSender) {
-      return reaction;
-    }
-  }
-
-  return null;
-}
-
-/**
- * Returns the newest reaction state, including empty-emoji removal markers.
- * @param {Object} contact
- * @param {string} targetTxid
- * @param {string} sender
- * @returns {Object|null}
- */
-function getLatestReactionStateForSenderTarget(contact, targetTxid, sender) {
-  const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
-  const normalizedSender = normalizeAddress(sender);
-
-  for (const reaction of reactions) {
-    if (reaction.targetTxid === targetTxid && normalizeAddress(reaction.sender) === normalizedSender) {
-      return reaction;
-    }
-  }
-
-  return null;
-}
-
-/**
- * Returns the effective reactions for a specific target message.
- * @param {Object} contact
- * @param {string} targetTxid
- * @returns {Array<Object>}
- */
-function getContactReactionsForTarget(contact, targetTxid) {
-  const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
-  const seen = new Set();
-  const effectiveReactions = [];
-
-  for (const reaction of reactions) {
-    if (!reaction.emoji) {
-      continue;
-    }
-    if (reaction.targetTxid !== targetTxid) {
-      continue;
-    }
-
-    const senderKey = normalizeAddress(reaction.sender);
-    if (seen.has(senderKey)) {
-      continue;
-    }
-
-    seen.add(senderKey);
-    effectiveReactions.push(reaction);
-  }
-
-  return effectiveReactions;
-}
-
-/**
- * Removes every raw reaction entry for a given sender and target.
- * @param {Object} contact
- * @param {string} targetTxid
- * @param {string} sender
- * @returns {boolean}
- */
-function purgeReactionStackForSenderTarget(contact, targetTxid, sender) {
-  if (!Array.isArray(contact.reactions)) {
-    return false;
-  }
-
-  const normalizedSender = normalizeAddress(sender);
-  const initialLength = contact.reactions.length;
-  contact.reactions = contact.reactions.filter((reaction) => {
-    return !(reaction.targetTxid === targetTxid && normalizeAddress(reaction.sender) === normalizedSender);
-  });
-  return contact.reactions.length !== initialLength;
-}
-
-/**
- * Removes a raw reaction entry by the txid of the reaction-control transaction that created it.
- * @param {Object} contact
- * @param {string} reactionTxId
- * @returns {boolean}
- */
-function removeReactionByReactionTxId(contact, reactionTxId) {
-  if (!Array.isArray(contact.reactions) || !reactionTxId) {
-    return false;
-  }
-
-  const index = contact.reactions.findIndex((reaction) => reaction.reactionTxId === reactionTxId);
-  if (index === -1) {
-    return false;
-  }
-
-  contact.reactions.splice(index, 1);
-  return true;
-}
-
-/**
- * Records a reaction removal as chat-list activity without creating a visible chip.
- * @param {Object} contact
- * @param {Extract<ReactionUpdate, { action: 'remove' }>} reaction
- * @returns {void}
- */
-function recordReactionRemovalActivity(contact, reaction) {
-  insertSorted(contact.reactions, {
-    sender: normalizeAddress(reaction.sender),
-    targetTxid: reaction.reactId,
-    emoji: '',
-    timestamp: reaction.timestamp,
-    reactionTxId: reaction.reactionTxId
-  }, 'timestamp');
-}
-
-/**
- * Returns a normalized copy of a reaction snapshot or null.
- * @param {ReactionSnapshot | null} reaction
- * @returns {ReactionSnapshot | null}
- */
-function copyReactionSnapshot(reaction) {
-  if (!reaction) {
-    return null;
-  }
-
-  return {
-    sender: normalizeAddress(reaction.sender),
-    targetTxid: reaction.targetTxid,
-    emoji: reaction.emoji,
-    timestamp: Number(reaction.timestamp),
-    reactionTxId: reaction.reactionTxId
-  };
-}
-
-/**
- * Returns whether two reaction snapshots describe the same visible reaction.
- * @param {ReactionSnapshot | null} left
- * @param {ReactionSnapshot | null} right
- * @returns {boolean}
- */
-function areReactionSnapshotsEqual(left, right) {
-  if (!left && !right) {
-    return true;
-  }
-  if (!left || !right) {
-    return false;
-  }
-
-  return normalizeAddress(left.sender) === normalizeAddress(right.sender) &&
-    left.targetTxid === right.targetTxid &&
-    left.emoji === right.emoji &&
-    Number(left.timestamp) === Number(right.timestamp) &&
-    left.reactionTxId === right.reactionTxId;
-}
-
-/**
- * Replaces the visible reaction for one sender+target pair with the provided snapshot.
- * @param {Object} contact
- * @param {string} targetTxid
- * @param {string} sender
- * @param {ReactionSnapshot | null} reaction
- * @returns {void}
- */
-function setVisibleReaction(contact, targetTxid, sender, reaction) {
-  contact.reactions ??= [];
-  purgeReactionStackForSenderTarget(contact, targetTxid, sender);
-
-  if (!reaction) {
-    return;
-  }
-
-  insertSorted(contact.reactions, {
-    sender: normalizeAddress(reaction.sender),
-    targetTxid: reaction.targetTxid,
-    emoji: reaction.emoji,
-    timestamp: Number(reaction.timestamp),
-    reactionTxId: reaction.reactionTxId
-  }, 'timestamp');
-}
-
-/**
  * Returns the pending reaction chain entries for one contact+target pair.
  * @param {string} contactAddress
  * @param {string} targetTxid
@@ -10935,22 +10754,6 @@ function cleanupResolvedReactionChain(contactAddress, targetTxid) {
 }
 
 /**
- * Removes all active reactions that target a specific message.
- * @param {Object} contact
- * @param {string} targetTxid
- * @returns {boolean}
- */
-function purgeContactReactionsForTarget(contact, targetTxid) {
-  if (!Array.isArray(contact.reactions)) {
-    return false;
-  }
-
-  const initialLength = contact.reactions.length;
-  contact.reactions = contact.reactions.filter((reaction) => reaction.targetTxid !== targetTxid);
-  return contact.reactions.length !== initialLength;
-}
-
-/**
  * Removes pending reaction transactions that would rematerialize chips for a deleted message.
  * @param {string} contactAddress
  * @param {string} targetTxid
@@ -10972,85 +10775,6 @@ function purgePendingReactionsForTarget(contactAddress, targetTxid) {
     }
     return pendingTx.reactionInjectPending === true;
   });
-}
-
-/**
- * Applies a reaction control message to the contact-level active reaction state.
- * @param {Object} contact
- * @param {ReactionUpdate} reaction
- * @returns {boolean}
- */
-function applyIncomingReaction(contact, reaction) {
-  const targetMessage = contact.messages.find((message) => message.txid === reaction.reactId);
-  if (!targetMessage || isDeleted(targetMessage)) {
-    console.warn('Reaction target not found locally', reaction);
-    return false;
-  }
-
-  if (!Array.isArray(contact.reactions)) {
-    if (reaction.action === 'remove') {
-      return false;
-    }
-    contact.reactions = [];
-  }
-
-  const sender = normalizeAddress(reaction.sender);
-  const latestReactionState = getLatestReactionStateForSenderTarget(contact, reaction.reactId, sender);
-  const isIncomingOlderThanCurrent = !!latestReactionState && latestReactionState.timestamp > reaction.timestamp;
-
-  switch (reaction.action) {
-    case 'remove': {
-      if (reaction.targetReactionTxId) {
-        const targetReaction = contact.reactions.find((entry) => {
-          return entry.targetTxid === reaction.reactId &&
-            normalizeAddress(entry.sender) === sender &&
-            entry.reactionTxId === reaction.targetReactionTxId;
-        });
-        if (!targetReaction) {
-          return false;
-        }
-        removeReactionByReactionTxId(contact, targetReaction.reactionTxId);
-        recordReactionRemovalActivity(contact, reaction);
-        return true;
-      }
-      if (isIncomingOlderThanCurrent) {
-        return false;
-      }
-      if (!purgeReactionStackForSenderTarget(contact, reaction.reactId, sender)) {
-        return false;
-      }
-      recordReactionRemovalActivity(contact, reaction);
-      return true;
-    }
-
-    case 'set': {
-      const emoji = reaction.emoji.trim();
-      const currentReaction = getEffectiveReactionForSenderTarget(contact, reaction.reactId, sender);
-      // don't allow duplicate reactions
-      if (reaction.reactionTxId && contact.reactions.some((entry) => entry.reactionTxId === reaction.reactionTxId)) {
-        return false;
-      }
-      if (isIncomingOlderThanCurrent) {
-        return false;
-      }
-      if (currentReaction && currentReaction.emoji === emoji) {
-        return false;
-      }
-      purgeReactionStackForSenderTarget(contact, reaction.reactId, sender);
-
-      insertSorted(contact.reactions, {
-        sender,
-        targetTxid: reaction.reactId,
-        emoji,
-        timestamp: reaction.timestamp,
-        reactionTxId: reaction.reactionTxId
-      }, 'timestamp');
-      return true;
-    }
-
-    default:
-      throw new Error(`Unknown reaction action: ${reaction.action}`);
-  }
 }
 
 /**
@@ -12473,7 +12197,7 @@ async function processChats(chats, keys) {
           ) {
             continue;
           }
-          if (applyIncomingReaction(contact, pendingReaction)) {
+          if (applyIncomingReaction(contact, pendingReaction, { isDeleted })) {
             didApplyPendingReaction = true;
             syncChatLatestActivityTimestamp(from, contact);
             didChangeReactionPreview = true;
@@ -15310,30 +15034,6 @@ function getGatewayForRequest() {
 
   // Otherwise use random selection
   return myData.network.gateways[Math.floor(Math.random() * myData.network.gateways.length)];
-}
-
-/**
- * Inserts an item into an array while maintaining descending order based on a timestamp field.
- * Assumes the array is already sorted in descending order.
- *
- * @param {Array<Object>} array - The array to insert into (e.g., myData.chats, contact.messages, myData.wallet.history).
- * @param {Object} item - The item to insert (e.g., chatUpdate, newMessage, newPayment).
- * @param {string} [timestampField='timestamp'] - The name of the field containing the timestamp to sort by.
- */
-function insertSorted(array, item, timestampField = 'timestamp') {
-  // Find the index where the new item should be inserted.
-  // We are looking for the first element with a timestamp LESS THAN the new item's timestamp.
-  // This is because the array is sorted descending (newest first).
-  const index = array.findIndex((existingItem) => existingItem[timestampField] < item[timestampField]);
-
-  if (index === -1) {
-    // If no such element is found, the new item is the oldest (or the array is empty),
-    // so add it to the end.
-    array.push(item);
-  } else {
-    // Otherwise, insert the new item at the found index.
-    array.splice(index, 0, item);
-  }
 }
 
 /**

@@ -986,3 +986,25 @@ export class EthNum {
     return EthNum.toStr(quotientWei);
   }
 }
+
+/**
+ * Inserts an item into an array while keeping it in descending timestamp order.
+ * Assumes the array is already sorted that way.
+ *
+ * Moved here from app.js so reactions.js can use it without importing the
+ * application module -- it is a generic array helper with no app state in it.
+ *
+ * @param {Array<Object>} array
+ * @param {Object} item
+ * @param {string} [timestampField='timestamp']
+ */
+export function insertSorted(array, item, timestampField = 'timestamp') {
+  // The first element OLDER than the new item is where it belongs, because the
+  // array runs newest first.
+  const index = array.findIndex((existingItem) => existingItem[timestampField] < item[timestampField]);
+  if (index === -1) {
+    array.push(item);
+  } else {
+    array.splice(index, 0, item);
+  }
+}

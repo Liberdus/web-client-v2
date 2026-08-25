@@ -17,7 +17,8 @@
     "test:tree": "node test/tree-delta.mjs",
     "test:paths": "node test/path-maintenance.mjs",
     "test:reply": "node test/reply-roundtrip.mjs",
-    "test:mls": "npm run test:security && npm run test:tree && npm run test:paths && npm run test:reply"
+    "test:reactions": "node test/reactions.mjs",
+    "test:mls": "npm run test:security && npm run test:tree && npm run test:paths && npm run test:reply && npm run test:reactions"
   },
   "devDependencies": {
     "@hpke/chacha20poly1305": "1.7.1",
