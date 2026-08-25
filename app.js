@@ -4834,7 +4834,7 @@ class ConfirmProposalModal {
       '<div class="dao-project-review-notice" role="status"><strong>Project UI preview</strong><span>Project submission is unavailable until backend support is implemented.</span></div>',
       renderDaoProposalOptions(proposal),
       renderDaoProposalSection('Project Funding', [
-        ['Recipient', project.address],
+        ['Recipient', normalizeDaoAddress(project.address)],
         ['Base cost', `${budget.baseCostUsdStr} USD`],
         ['Maximum bonuses', `${budget.maximumBonusUsdStr} USD`],
         ['Maximum authorized', `${budget.maximumAuthorizedUsdStr} USD`],
