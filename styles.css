@@ -2416,7 +2416,11 @@ input[type='file'].form-control::file-selector-button {
 #confirmProposalModal .proposal-info-heading,
 #confirmProposalModal .proposal-info-section,
 #confirmProposalModal .proposal-info-grid,
-#confirmProposalModal .dao-project-review-notice {
+#confirmProposalModal .dao-project-review-notice,
+#proposalInfoModal .proposal-info > *,
+#proposalInfoModal .proposal-info-heading,
+#proposalInfoModal .proposal-info-section,
+#proposalInfoModal .proposal-info-grid {
   box-sizing: border-box;
   max-width: 100%;
   min-width: 0;
@@ -2532,12 +2536,14 @@ input[type='file'].form-control::file-selector-button {
   grid-template-rows: auto minmax(0, 1fr);
 }
 
-#confirmProposalModal .dao-project-review-milestone-list {
+#confirmProposalModal .dao-project-review-milestone-list,
+#proposalInfoModal .dao-project-review-milestone-list {
   display: grid;
   gap: 10px;
 }
 
-#confirmProposalModal .dao-project-review-milestone {
+#confirmProposalModal .dao-project-review-milestone,
+#proposalInfoModal .dao-project-review-milestone {
   background: rgba(61, 61, 206, 0.055);
   border-radius: var(--overlay-border-radius);
   display: grid;
@@ -2546,7 +2552,8 @@ input[type='file'].form-control::file-selector-button {
   padding: 10px;
 }
 
-#confirmProposalModal .dao-project-review-milestone h4 {
+#confirmProposalModal .dao-project-review-milestone h4,
+#proposalInfoModal .dao-project-review-milestone h4 {
   display: grid;
   gap: 2px;
   margin: 0;
@@ -2554,14 +2561,17 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #confirmProposalModal .dao-project-review-milestone h4 > span,
-#confirmProposalModal .dao-project-review-copy span {
+#confirmProposalModal .dao-project-review-copy span,
+#proposalInfoModal .dao-project-review-milestone h4 > span,
+#proposalInfoModal .dao-project-review-copy span {
   color: var(--secondary-text-color);
   font-size: 12px;
   font-weight: var(--font-weight-medium);
   line-height: 1.35;
 }
 
-#confirmProposalModal .dao-project-review-milestone h4 > strong {
+#confirmProposalModal .dao-project-review-milestone h4 > strong,
+#proposalInfoModal .dao-project-review-milestone h4 > strong {
   color: var(--text-color);
   font-size: 14px;
   font-weight: var(--font-weight-semibold);
@@ -2570,17 +2580,21 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #confirmProposalModal .dao-project-review-copy,
-#confirmProposalModal .dao-project-review-copy > div {
+#confirmProposalModal .dao-project-review-copy > div,
+#proposalInfoModal .dao-project-review-copy,
+#proposalInfoModal .dao-project-review-copy > div {
   display: grid;
   gap: 4px;
   min-width: 0;
 }
 
-#confirmProposalModal .dao-project-review-copy {
+#confirmProposalModal .dao-project-review-copy,
+#proposalInfoModal .dao-project-review-copy {
   gap: 8px;
 }
 
-#confirmProposalModal .dao-project-review-copy p {
+#confirmProposalModal .dao-project-review-copy p,
+#proposalInfoModal .dao-project-review-copy p {
   color: var(--text-color);
   font-size: 13px;
   line-height: 1.35;
@@ -2589,8 +2603,50 @@ input[type='file'].form-control::file-selector-button {
   white-space: pre-wrap;
 }
 
-#confirmProposalModal .dao-project-review-milestone .proposal-info-row {
+#confirmProposalModal .dao-project-review-milestone .proposal-info-row,
+#proposalInfoModal .dao-project-review-milestone .proposal-info-row {
   flex-basis: calc((100% - 8px) / 2);
+}
+
+#proposalInfoModal .dao-project-info-notice {
+  background: rgba(61, 61, 206, 0.08);
+  border: 1px solid var(--primary-tint-60);
+  border-radius: 10px;
+  color: var(--text-color);
+  display: grid;
+  font-size: 13px;
+  gap: 3px;
+  line-height: 1.35;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 10px;
+}
+
+#proposalInfoModal .dao-project-info-notice--partial {
+  background: rgba(239, 108, 0, 0.1);
+  border-color: rgba(239, 108, 0, 0.28);
+}
+
+#proposalInfoModal .dao-project-info-notice--unavailable {
+  background: var(--input-background);
+  border-color: var(--border-color);
+}
+
+#proposalInfoModal .dao-project-info-notice span {
+  color: var(--secondary-text-color);
+}
+
+#proposalInfoModal .dao-project-info-status .proposal-info-row {
+  flex-basis: calc((100% - 8px) / 2);
+}
+
+#proposalInfoModal .dao-project-info-funding .proposal-info-row:first-child {
+  flex-basis: 100%;
+}
+
+#proposalInfoModal .dao-project-info-runtime {
+  border-top: 1px solid var(--border-color);
+  padding-top: 10px;
 }
 
 #confirmProposalModal .dao-project-review-funding .proposal-info-row {
@@ -2674,6 +2730,11 @@ input[type='file'].form-control::file-selector-button {
   border: 1px solid rgba(30, 126, 52, 0.34);
 }
 
+#proposalInfoModal .proposal-info-row--rejected {
+  background: rgba(196, 45, 45, 0.12);
+  border: 1px solid rgba(196, 45, 45, 0.3);
+}
+
 #addProposalModal .proposal-info-row > span:not(.proposal-info-value),
 #confirmProposalModal .proposal-info-row > span:not(.proposal-info-value),
 #confirmProposalModal .proposal-change-row span,
@@ -2690,6 +2751,10 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-info-row--accept span {
   color: #1e7e34;
+}
+
+#proposalInfoModal .proposal-info-row--rejected span {
+  color: #8f1d16;
 }
 
 #confirmProposalModal .proposal-change-row strong,
@@ -2719,6 +2784,10 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-info-row--accept .proposal-info-value {
   color: #0f5f27;
+}
+
+#proposalInfoModal .proposal-info-row--rejected .proposal-info-value {
+  color: #7a1711;
 }
 
 #addProposalModal .proposal-info-row > span:not(.proposal-info-value),
@@ -3148,6 +3217,12 @@ input[type='file'].form-control::file-selector-button {
   #confirmProposalModal .proposal-info-row,
   #proposalInfoModal .proposal-info-row {
     flex-basis: calc((100% - 8px) / 2);
+  }
+
+  #proposalInfoModal .dao-project-info-status .proposal-info-row,
+  #proposalInfoModal .dao-project-info-funding .proposal-info-row,
+  #proposalInfoModal .dao-project-review-milestone .proposal-info-row {
+    flex-basis: 100%;
   }
 }
 
