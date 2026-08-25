@@ -4512,11 +4512,12 @@ function renderDaoProposalHeading(proposal) {
   `;
 }
 
-function renderDaoProposalSection(title, rows) {
+function renderDaoProposalSection(title, rows, sectionClass = '') {
   const rowHtml = renderDaoProposalRows(rows);
+  const className = sectionClass ? ` ${sectionClass}` : '';
 
   return `
-    <section class="proposal-info-section">
+    <section class="proposal-info-section${className}">
       <h3>${escapeHtml(title)}</h3>
       <div class="proposal-info-grid">${rowHtml}</div>
     </section>
@@ -4837,7 +4838,7 @@ class ConfirmProposalModal {
         ['Base cost', `${budget.baseCostUsdStr} USD`],
         ['Maximum bonuses', `${budget.maximumBonusUsdStr} USD`],
         ['Maximum authorized', `${budget.maximumAuthorizedUsdStr} USD`],
-      ]),
+      ], 'dao-project-review-funding'),
       renderDaoProjectMilestones(project.milestones),
       renderDaoProposalSection('Overview', [
         ['Type', getDaoTypeLabel(proposal.proposalType)],
