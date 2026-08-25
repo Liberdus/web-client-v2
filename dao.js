@@ -96,7 +96,7 @@ export function isDaoParameterProposalTypeKey(proposalType) {
 }
 
 function parseDaoDecimalString(value, label) {
-  const text = String(value ?? '').trim();
+  const text = value.trim();
   if (!isValidDaoDecimalString(text)) throw new Error(`${label} must be a non-negative number`);
   const [whole, fraction = ''] = text.split('.');
   return { whole, fraction };
@@ -975,6 +975,189 @@ export function normalizeDaoProjectDraft(value) {
       };
     }),
   };
+}
+
+const DAO_PROJECT_STATUS_LABELS = Object.freeze({
+  pending: 'Pending',
+  started: 'Started',
+  completed: 'Completed',
+  terminated: 'Terminated',
+});
+
+const DAO_PROJECT_MILESTONE_STATUS_LABELS = Object.freeze({
+  pending: 'Pending',
+  started: 'Started',
+  completed: 'Completed',
+});
+
+function normalizeDaoProjectPresentationText(value, maxLength, issues, label) {
+  if (typeof value !== 'string') {
+    issues.push(`${label} is unavailable`);
+    return null;
+  }
+  const text = String(value ?? '').trim();
+  if (!text) {
+    issues.push(`${label} is unavailable`);
+    return null;
+  }
+  if (text.length > maxLength) {
+    issues.push(`${label} exceeds the supported length`);
+    return text.slice(0, maxLength);
+  }
+  return text;
+}
+
+function normalizeDaoProjectPresentationUsd(value, issues, label) {
+  const text = String(value ?? '').trim();
+  if (!isValidDaoDecimalString(text)) {
+    issues.push(`${label} is unavailable`);
+    return null;
+  }
+  return text;
+}
+
+function normalizeDaoProjectPresentationStatus(value, labels, issues, label) {
+  const key = String(value ?? '').trim().toLowerCase();
+  if (!key) {
+    issues.push(`${label} is unavailable`);
+    return null;
+  }
+  if (!labels[key]) {
+    issues.push(`${label} is unknown`);
+    return null;
+  }
+  return { key, label: labels[key] };
+}
+
+function normalizeDaoProjectPresentationTimestamp(value, issues, label) {
+  if (value === undefined || value === null || value === '') return null;
+  const timestamp = normalizeDaoTimestamp(value);
+  if (!timestamp) issues.push(`${label} is unavailable`);
+  return timestamp || null;
+}
+
+function normalizeDaoProjectPresentationWei(value, issues, label, required = false) {
+  if (value === undefined || value === null || value === '') {
+    if (required) issues.push(`${label} is unavailable`);
+    return null;
+  }
+  const amount = parseDaoUnsignedBigInt(value);
+  if (amount === null) issues.push(`${label} is unavailable`);
+  return amount;
+}
+
+function normalizeDaoProjectPresentationMilestone(value, index, issues) {
+  const milestone = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const label = `Milestone ${index + 1}`;
+  if (milestone !== value) issues.push(`${label} is malformed`);
+
+  const durationDays = Number(milestone.durationDays);
+  const normalizedDurationDays = Number.isSafeInteger(durationDays)
+    && durationDays > 0
+    && durationDays <= DAO_PROJECT_DURATION_MAX_DAYS
+    ? durationDays
+    : null;
+  if (normalizedDurationDays === null) issues.push(`${label} duration is unavailable`);
+
+  let paid = null;
+  if (typeof milestone.paid === 'boolean') {
+    paid = milestone.paid;
+  } else {
+    issues.push(`${label} paid state is unavailable`);
+  }
+
+  return {
+    title: normalizeDaoProjectPresentationText(
+      milestone.title,
+      DAO_PROJECT_MILESTONE_TITLE_MAX_LENGTH,
+      issues,
+      `${label} title`,
+    ),
+    description: normalizeDaoProjectPresentationText(
+      milestone.description,
+      DAO_PROJECT_MILESTONE_TEXT_MAX_LENGTH,
+      issues,
+      `${label} description`,
+    ),
+    deliverable: normalizeDaoProjectPresentationText(
+      milestone.deliverable,
+      DAO_PROJECT_MILESTONE_TEXT_MAX_LENGTH,
+      issues,
+      `${label} deliverable`,
+    ),
+    durationDays: normalizedDurationDays,
+    costUsdStr: normalizeDaoProjectPresentationUsd(milestone.costUsdStr, issues, `${label} cost`),
+    penaltyUsdStr: normalizeDaoProjectPresentationUsd(milestone.penaltyUsdStr, issues, `${label} penalty`),
+    bonusUsdStr: normalizeDaoProjectPresentationUsd(milestone.bonusUsdStr, issues, `${label} bonus`),
+    status: normalizeDaoProjectPresentationStatus(
+      milestone.status,
+      DAO_PROJECT_MILESTONE_STATUS_LABELS,
+      issues,
+      `${label} status`,
+    ),
+    startedAt: normalizeDaoProjectPresentationTimestamp(milestone.startedAt, issues, `${label} start time`),
+    completedAt: normalizeDaoProjectPresentationTimestamp(milestone.completedAt, issues, `${label} completion time`),
+    paid,
+    paidAt: normalizeDaoProjectPresentationTimestamp(milestone.paidAt, issues, `${label} paid time`),
+    payoutWei: normalizeDaoProjectPresentationWei(milestone.payoutWei, issues, `${label} payout`),
+  };
+}
+
+export function getDaoProjectPresentation(proposal) {
+  const project = proposal?.project;
+  if (proposal?.proposalType !== DAO_PROJECT_TYPE
+    || !project
+    || typeof project !== 'object'
+    || Array.isArray(project)) {
+    return Object.freeze({
+      kind: 'unavailable',
+      message: 'Project details are unavailable for this proposal.',
+    });
+  }
+
+  const issues = [];
+  const address = normalizeDaoAddress(project.address);
+  if (!address) issues.push('Project recipient is unavailable');
+
+  const rawMilestones = Array.isArray(project.milestones) ? project.milestones : [];
+  if (!Array.isArray(project.milestones)) issues.push('Project milestones are unavailable');
+  if (rawMilestones.length === 0) issues.push('Project has no milestones');
+  if (rawMilestones.length > DAO_PROJECT_MAX_MILESTONES) {
+    issues.push(`Project exceeds ${DAO_PROJECT_MAX_MILESTONES} milestones`);
+  }
+
+  const milestones = rawMilestones
+    .slice(0, DAO_PROJECT_MAX_MILESTONES)
+    .map((milestone, index) => normalizeDaoProjectPresentationMilestone(milestone, index, issues));
+  const canCalculateBudget = milestones.length > 0
+    && milestones.every((milestone) => (
+      milestone.costUsdStr !== null && milestone.bonusUsdStr !== null
+    ));
+  const status = normalizeDaoProjectPresentationStatus(
+    project.status,
+    DAO_PROJECT_STATUS_LABELS,
+    issues,
+    'Project status',
+  );
+  const balanceWei = normalizeDaoProjectPresentationWei(project.balance, issues, 'Project balance', true);
+  const claimableBalanceWei = normalizeDaoProjectPresentationWei(
+    project.claimableBalance,
+    issues,
+    'Project claimable balance',
+    true,
+  );
+
+  return Object.freeze({
+    kind: 'available',
+    completeness: issues.length === 0 ? 'complete' : 'partial',
+    issueCount: issues.length,
+    address: address || null,
+    status,
+    balanceWei,
+    claimableBalanceWei,
+    budget: canCalculateBudget ? getDaoProjectBudgetSummary(milestones) : null,
+    milestones,
+  });
 }
 
 function normalizeDaoVoteReminderSchedule(value) {
