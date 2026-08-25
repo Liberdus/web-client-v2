@@ -202,7 +202,7 @@ import {
   setVisibleReaction,
 } from './reactions.js';
 import { initGroupUI, createGroupModal, groupChatModal, groupInfoModal, joinGroupModal, parseGroupInvite, refreshOpenGroup } from './groupUI.js';
-import { buildMessageBubble } from './chatRender.js';
+import { buildMessageBubble, buildReactionChips } from './chatRender.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
@@ -23983,47 +23983,15 @@ class ChatModal {
 
   /**
    * Builds reaction chip markup for a specific target message.
+   *
+   * The markup itself lives in chatRender.js so group chat renders chips
+   * identically; this keeps the call site and supplies the viewer address.
+   *
    * @param {Array<Object>} reactionsForTarget
    * @returns {string}
    */
   buildReactionChipsHTML(reactionsForTarget) {
-    if (reactionsForTarget.length === 0) {
-      return '';
-    }
-
-    const currentUserAddress = normalizeAddress(myAccount.keys.address);
-
-    /*
-     * Grouped by emoji, not one chip per person. Three people reacting with the
-     * same emoji used to draw three chips overlapping at -8px each — a smear
-     * that says nothing a single "👍 3" does not say better.
-     *
-     * Insertion order is preserved, so the first emoji anyone used stays first
-     * and chips do not reshuffle underneath someone as reactions arrive.
-     */
-    const byEmoji = new Map();
-    for (const reaction of reactionsForTarget) {
-      if (!reaction.emoji) continue;
-      const entry = byEmoji.get(reaction.emoji) || { count: 0, mine: false };
-      entry.count += 1;
-      if (normalizeAddress(reaction.sender) === currentUserAddress) entry.mine = true;
-      byEmoji.set(reaction.emoji, entry);
-    }
-    if (byEmoji.size === 0) return '';
-
-    const chips = [...byEmoji.entries()].map(
-      ([emoji, { count, mine }]) => `
-        <span class="message-reaction-chip${mine ? ' my-reaction' : ''}">
-          <span class="message-reaction-emoji">${escapeHtml(emoji)}</span>
-          ${count > 1 ? `<span class="message-reaction-count">${count}</span>` : ''}
-        </span>`,
-    );
-
-    return `
-      <div class="message-reactions" aria-label="Reactions">
-        ${chips.join('')}
-      </div>
-    `;
+    return buildReactionChips(reactionsForTarget, normalizeAddress(myAccount.keys.address));
   }
 
   /**

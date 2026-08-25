@@ -129,11 +129,26 @@
       const { initGroupManager } = await import('../groupManager.js');
       initGroupManager({
         queryNetwork: async () => ({}),
-        getMyAccount: () => ({ keys: { address: ME } }),
+        /*
+         * pqSeed is not decoration: deriveIdentity hex-decodes it, so without
+         * one every call that needs an identity throws before reaching the code
+         * under test -- which made an optimistic-then-revert path look like it
+         * had passed when nothing had run at all.
+         */
+        getMyAccount: () => ({ keys: { address: ME, pqSeed: 'ab'.repeat(64) } }),
         getMyData: () => myData,
         getNetworkId: () => 'harness',
+        // Enough of the transaction surface for the optimistic paths to run.
+        // The send itself still fails (no MLS state), which is what exercises
+        // the revert.
+        getTransactionTimestamp: () => Date.now(),
+        getTransactionFeeWei: () => 0n,
+        signObj: () => {},
+        injectTx: async () => ({ result: { success: false, reason: 'harness: no network' } }),
         saveState: () => {},
-        onGroupUpdated: () => {},
+        // The app re-renders the open group here; scenes that change state
+        // mid-flight show nothing without it.
+        onGroupUpdated: () => { if (groupChatModal.isActive()) groupChatModal.render(); },
       });
 
       const view = () => myData.groups[GROUP.groupId];
@@ -142,6 +157,19 @@
 
       const scenes = {
         'chat: fine': () => { reset(); groupChatModal.open(GROUP.groupId); },
+        'chat: reactions': () => {
+          reset();
+          const v = view();
+          v.reactions = [
+            // Two people on one message, one of them us, so the count and the
+            // "mine" accent both show; and a single reaction on another.
+            { sender: ME,      targetTxid: 'tx1', emoji: '\u{1F44D}', timestamp: Date.now() - 1e5, reactionTxId: 'r1' },
+            { sender: addr(2), targetTxid: 'tx1', emoji: '\u{1F44D}', timestamp: Date.now() - 9e4, reactionTxId: 'r2' },
+            { sender: addr(3), targetTxid: 'tx1', emoji: '\u{1F389}', timestamp: Date.now() - 8e4, reactionTxId: 'r3' },
+            { sender: addr(2), targetTxid: 'tx3', emoji: '\u{2764}\u{FE0F}', timestamp: Date.now() - 7e4, reactionTxId: 'r4' },
+          ];
+          groupChatModal.open(GROUP.groupId);
+        },
         'chat: replies': () => {
           reset();
           const v = view();

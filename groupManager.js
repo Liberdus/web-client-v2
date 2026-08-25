@@ -13,6 +13,7 @@
 
 import * as mls from './mlsEngine.js';
 import { mlsStore, onGroupChanged, locksSupported } from './mlsStore.js';
+import { applyIncomingReaction, getContactReactionsForTarget } from './reactions.js';
 import { hashBytes, encryptChacha, decryptChacha, generateRandomBytes } from './crypto.js';
 import { longAddress, normalizeAddress, bin2hex, bin2base64 } from './lib.js';
 
@@ -145,6 +146,29 @@ const PATH_UPDATE_BACKOFF_MS = 15000;
 function pathUpdateSlotDelay(leafIndex) {
   const leaf = Number.isInteger(leafIndex) && leafIndex > 0 ? leafIndex : 0;
   return (leaf % PATH_UPDATE_SLOTS) * PATH_UPDATE_STAGGER_MS;
+}
+
+/**
+ * The server throttles group_message to one per member per group per second
+ * (groupMessageMinIntervalMs), which is invisible until a reaction makes
+ * sending two things in quick succession normal: react, then type, and the
+ * message is rejected for "sending too fast".
+ *
+ * So outbound group messages queue behind each other. The extra 100ms is for
+ * clock skew between us and the node validating tx.timestamp -- landing exactly
+ * on the boundary is a rejection.
+ *
+ * Per group, because the limit is per group. Seeded empty on load: a send made
+ * just before a reload can still be raced, and the server's rejection is the
+ * backstop for that.
+ */
+const MIN_GROUP_SEND_GAP_MS = 1100;
+const lastGroupSendAt = new Map();
+
+async function spaceGroupSend(groupId) {
+  const wait = (lastGroupSendAt.get(groupId) || 0) + MIN_GROUP_SEND_GAP_MS - Date.now();
+  if (wait > 0) await sleep(wait);
+  lastGroupSendAt.set(groupId, Date.now());
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -922,6 +946,7 @@ export async function sendGroupMessage(groupId, text, reply = null) {
   }
   const { message, epoch } = await mls.encryptMessage(id, groupId, payload);
 
+  await spaceGroupSend(groupId);
   const tx = { ...baseTx('group_message'), groupId, epoch, message };
   /*
    * Deliberately NOT submitAndConfirm. A chat message should appear the instant
@@ -948,6 +973,82 @@ export async function sendGroupMessage(groupId, text, reply = null) {
     status: 'pending',
   });
   return txid;
+}
+
+/**
+ * Reacts to a group message, or clears our reaction on one.
+ *
+ * The chip is applied locally first and the transaction follows. That is not
+ * just for responsiveness: outbound sends are spaced to clear the server's
+ * one-per-second throttle, so waiting for the network would make a tap take up
+ * to a second to show anything.
+ *
+ * Reverting on failure is the whole of the reconciliation. Unlike 1:1 -- which
+ * keeps a pending chain per target because a reaction can be in flight while
+ * another arrives -- a group sender never sees its own message come back:
+ * syncGroup skips records from us, since MLS cannot decrypt our own outbound.
+ * So the optimistic copy IS the only copy, exactly like the message echo, and
+ * there is nothing later to reconcile it against.
+ *
+ * @param {string} groupId
+ * @param {{reactId: string, reactAction: 'set'|'remove', reactMessage?: string, targetReactionTxId?: string}} reaction
+ * @returns {Promise<boolean>} false when the reaction was a no-op and no
+ *   transaction was spent.
+ */
+export async function sendGroupReaction(groupId, reaction) {
+  const id = identity();
+  const view = ensureGroupView(groupId);
+  view.reactions ??= [];
+
+  const sentTimestamp = deps.getTransactionTimestamp();
+  /*
+   * A local id, because the real txid only exists after submit and the chip
+   * needs one now. It never has to be reconciled: nothing else will ever
+   * reference this reaction, since we do not receive our own messages back.
+   */
+  const localReactionTxId = `local-${sentTimestamp}-${Math.random().toString(36).slice(2, 8)}`;
+  const before = view.reactions.map((r) => ({ ...r }));
+
+  const applied = applyIncomingReaction(view, {
+    sender: norm(id.address),
+    reactId: reaction.reactId,
+    action: reaction.reactAction,
+    emoji: reaction.reactMessage,
+    targetReactionTxId: reaction.targetReactionTxId,
+    timestamp: sentTimestamp,
+    reactionTxId: localReactionTxId,
+  });
+  // Nothing changed -- the same emoji was already set, or there was nothing to
+  // remove. Spending a transaction on that is pure cost.
+  if (!applied) return false;
+  if (deps.onGroupUpdated) deps.onGroupUpdated(groupId);
+
+  const payload = {
+    sent_timestamp: sentTimestamp,
+    reactId: reaction.reactId,
+    reactAction: reaction.reactAction,
+  };
+  if (reaction.reactAction === 'set') payload.reactMessage = reaction.reactMessage;
+  if (reaction.reactAction === 'remove') payload.targetReactionTxId = reaction.targetReactionTxId;
+
+  try {
+    const { message, epoch } = await mls.encryptMessage(id, groupId, payload);
+    await spaceGroupSend(groupId);
+    const tx = { ...baseTx('group_message'), groupId, epoch, message };
+    await submit(tx);
+    return true;
+  } catch (e) {
+    view.reactions = before;
+    if (deps.onGroupUpdated) deps.onGroupUpdated(groupId);
+    throw e;
+  }
+}
+
+/** Everyone's reactions on one message, for rendering. */
+export function groupReactionsFor(groupId, targetTxid) {
+  const view = deps.getMyData().groups?.[groupId];
+  if (!view || !Array.isArray(view.reactions)) return [];
+  return getContactReactionsForTarget(view, targetTxid);
 }
 
 // ----------------------------------------------------------------- view model --
@@ -981,6 +1082,11 @@ function ensureGroupView(groupId) {
        * sender label falls back to a truncated address.
        */
       memberNames: {},
+      /**
+       * Chips, in the same shape 1:1 stores them, so the shared engine in
+       * reactions.js operates on this view exactly as it does on a contact.
+       */
+      reactions: [],
     };
   }
   if (!Array.isArray(myData.chats)) myData.chats = [];
@@ -1399,6 +1505,32 @@ export async function syncGroup(groupId) {
     try {
       const payload = await mls.decryptMessage(id, groupId, record);
       if (!payload) continue;
+
+      /*
+       * A reaction is an ordinary group_message whose payload happens to be a
+       * control object -- the same trick 1:1 uses. It updates the chips on an
+       * existing message instead of becoming one, so it never reaches
+       * appendLocalMessage and never counts toward unread.
+       */
+      if (payload.reactAction) {
+        const view = ensureGroupView(groupId);
+        view.reactions ??= [];
+        const applied = applyIncomingReaction(view, {
+          sender: norm(record.from),
+          reactId: payload.reactId,
+          action: payload.reactAction,
+          emoji: payload.reactMessage,
+          targetReactionTxId: payload.targetReactionTxId,
+          timestamp: payload.sent_timestamp || record.timestamp,
+          reactionTxId: record.txId,
+        });
+        if (applied) {
+          changed = true;
+          if (deps.onGroupUpdated) deps.onGroupUpdated(groupId);
+        }
+        continue;
+      }
+
       appendLocalMessage(groupId, {
         txid: record.txId,
         from: record.from,

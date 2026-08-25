@@ -10,7 +10,7 @@
  * reading myData or a modal's `this`, so either caller can use them.
  */
 
-import { linkifyUrls, escapeHtml, formatTime } from './lib.js';
+import { linkifyUrls, escapeHtml, formatTime, normalizeAddress } from './lib.js';
 
 /**
  * The message-content block. Text is linkified (which escapes internally) and
@@ -65,6 +65,7 @@ export function buildReplyQuote(item, ownerName, ownerIsMine) {
  * @param {string}  [o.extraClass]
  * @param {string}  [o.extraAttrs]    additional data- attributes
  * @param {string}  [o.beforeContent] HTML placed above the content
+ * @param {string}  [o.afterContent]  HTML placed below the time row (reaction chips)
  * @param {string}  [o.senderLabel]   plain text; escaped here
  * @param {string}  [o.senderAvatar]  pre-rendered avatar HTML, group chat only
  * @param {string}  [o.timeSuffix]    HTML appended inside the time row
@@ -91,6 +92,58 @@ export function buildMessageBubble(o) {
       ${o.beforeContent || ''}
       ${o.contentHTML}
       <div class="message-time">${formatTime(o.timestamp)}${o.timeSuffix || ''}</div>
+      ${o.afterContent || ''}
+    </div>
+  `;
+}
+
+/**
+ * The reaction chip row under a message.
+ *
+ * Shared so 1:1 and group chat cannot drift: the chips key off .message in
+ * styles.css, and both callers emit the same markup into the same slot.
+ * The viewer's address is a parameter rather than read from app state, which
+ * is what lets groupUI call it.
+ *
+ * @param {Array<Object>} reactionsForTarget  one effective reaction per sender
+ * @param {string} currentUserAddress         normalized, for the "mine" accent
+ * @returns {string}
+ */
+export function buildReactionChips(reactionsForTarget, currentUserAddress) {
+  if (reactionsForTarget.length === 0) {
+    return '';
+  }
+
+
+  /*
+   * Grouped by emoji, not one chip per person. Three people reacting with the
+   * same emoji used to draw three chips overlapping at -8px each — a smear
+   * that says nothing a single "👍 3" does not say better.
+   *
+   * Insertion order is preserved, so the first emoji anyone used stays first
+   * and chips do not reshuffle underneath someone as reactions arrive.
+   */
+  const byEmoji = new Map();
+  for (const reaction of reactionsForTarget) {
+    if (!reaction.emoji) continue;
+    const entry = byEmoji.get(reaction.emoji) || { count: 0, mine: false };
+    entry.count += 1;
+    if (normalizeAddress(reaction.sender) === currentUserAddress) entry.mine = true;
+    byEmoji.set(reaction.emoji, entry);
+  }
+  if (byEmoji.size === 0) return '';
+
+  const chips = [...byEmoji.entries()].map(
+    ([emoji, { count, mine }]) => `
+      <span class="message-reaction-chip${mine ? ' my-reaction' : ''}">
+        <span class="message-reaction-emoji">${escapeHtml(emoji)}</span>
+        ${count > 1 ? `<span class="message-reaction-count">${count}</span>` : ''}
+      </span>`,
+  );
+
+  return `
+    <div class="message-reactions" aria-label="Reactions">
+      ${chips.join('')}
     </div>
   `;
 }
@@ -158,6 +211,10 @@ export function renderTextConversation(container, items, opts = {}) {
     const startsRun = speaker !== lastSpeaker;
     lastSpeaker = speaker;
 
+    // Built first: the bubble needs a class reserving room for chips, and that
+    // has to be decided before the bubble is assembled.
+    const chipsHTML = opts.reactionsFor ? opts.reactionsFor(item) : '';
+
     parts.push(
       buildMessageBubble({
         mine: !!item.mine,
@@ -173,11 +230,18 @@ export function renderTextConversation(container, items, opts = {}) {
         beforeContent: item.replyId && opts.replyNameFor
           ? buildReplyQuote(item, ...opts.replyNameFor(item))
           : '',
+        /*
+         * Chips hang off the bubble's bottom edge, so the bubble needs a class
+         * reserving room for them — the same one 1:1 sets.
+         */
+        afterContent: chipsHTML,
         // Attribution only matters when more than one person can be speaking,
         // and only on the first message of each person's run.
         senderLabel: item.mine || !startsRun ? '' : opts.senderLabelFor && opts.senderLabelFor(item),
         senderAvatar: item.mine || !startsRun ? '' : opts.senderAvatarFor && opts.senderAvatarFor(item),
-        extraClass: startsRun ? '' : 'message--continues',
+        extraClass: [startsRun ? '' : 'message--continues', chipsHTML ? 'has-reactions' : '']
+          .filter(Boolean)
+          .join(' '),
       }),
     );
   }

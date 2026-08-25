@@ -65,7 +65,7 @@
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-80" type="module"></script>
+    <script src="./app.js?v=1455-81" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -1956,6 +1956,17 @@
         reactions will join it here.
       -->
       <div class="message-context-menu" id="groupMessageMenu" style="display: none;">
+        <!-- Same classes as 1:1's quick-reaction row, so it inherits the
+             styling rather than needing its own. No "+" picker yet: the full
+             emoji picker is wired into ChatModal, and reaching it from here is
+             a separate piece of work. -->
+        <div class="message-context-reactions" id="groupMessageReactions" aria-label="Quick reactions">
+          <button class="message-context-reaction-button" type="button" data-emoji="👍" aria-label="React with thumbs up">👍</button>
+          <button class="message-context-reaction-button" type="button" data-emoji="❤️" aria-label="React with heart">❤️</button>
+          <button class="message-context-reaction-button" type="button" data-emoji="😂" aria-label="React with tears of joy">😂</button>
+          <button class="message-context-reaction-button" type="button" data-emoji="😮" aria-label="React with surprised face">😮</button>
+          <button class="message-context-reaction-button" type="button" data-emoji="👎" aria-label="React with thumbs down">👎</button>
+        </div>
         <div class="context-menu-option" data-action="reply" data-icon="reply">
           <span class="context-menu-icon"></span>
           <span class="context-menu-text">Reply</span>
