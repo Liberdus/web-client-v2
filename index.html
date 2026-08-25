@@ -483,7 +483,7 @@
                     <option value="false">No</option>
                     <option value="true">Yes</option>
                   </select>
-                  <div class="dao-form-help">Emergency proposals allow only one additional option.</div>
+                  <div class="dao-form-help" id="addProposalEmergencyHelp">Emergency proposals allow only one additional option.</div>
                 </div>
                 <div class="form-group">
                   <label for="addProposalFee">Proposal Fee</label>
@@ -505,10 +505,11 @@
                   <option value="governance">Governance</option>
                   <option value="economic">Economic</option>
                   <option value="protocol">Protocol</option>
+                  <option value="project">Project</option>
                 </select>
-                <div class="dao-form-help">Choose governance, economic, or protocol. This controls which parameters can be selected below.</div>
+                <div class="dao-form-help" id="addProposalTypeHelp">Choose governance, economic, protocol, or Project.</div>
               </div>
-              <div class="form-group dao-form-section">
+              <div class="form-group dao-form-section" id="addProposalParameterEditor">
                 <div class="dao-form-label-with-help">
                   <label>Options and Parameter Changes <span class="dao-form-required" aria-hidden="true">*</span></label>
                   <button
@@ -526,6 +527,75 @@
                   <span>Add option</span>
                 </button>
               </div>
+              <section class="dao-project-editor hidden" id="addProposalProjectEditor" aria-labelledby="addProposalProjectHeading">
+                <div class="dao-project-preview-notice" role="status">
+                  <strong>Project UI preview</strong>
+                  <span>Project review and submission are not available yet.</span>
+                </div>
+                <div class="dao-form-section-header">
+                  <label id="addProposalProjectHeading">Project Details</label>
+                </div>
+                <div class="dao-form-section-header">
+                  <label>Milestones <span class="dao-form-required" aria-hidden="true">*</span></label>
+                  <span class="dao-form-help" id="addProposalProjectMilestoneLimit"></span>
+                </div>
+                <div class="dao-form-list" id="addProposalProjectMilestones"></div>
+                <button type="button" class="btn btn--secondary dao-form-add-button" id="addProposalProjectAddMilestone">
+                  <span class="dao-form-add-icon" aria-hidden="true"><span class="plus-glyph">+</span></span>
+                  <span>Add milestone</span>
+                </button>
+                <div class="sr-only" id="addProposalProjectLive" aria-live="polite"></div>
+                <div class="form-group">
+                  <label for="addProposalProjectAddress">Recipient Address <span class="dao-form-required" aria-hidden="true">*</span></label>
+                  <input
+                    id="addProposalProjectAddress"
+                    class="form-control"
+                    type="text"
+                    maxlength="66"
+                    placeholder="Recipient Liberdus address"
+                    autocomplete="off"
+                    autocapitalize="none"
+                    spellcheck="false"
+                    data-dao-project-field="address"
+                    required
+                  />
+                  <div class="dao-form-help">The recipient that will be eligible for approved project payments.</div>
+                </div>
+                <div class="form-group">
+                  <label>Budget Summary</label>
+                  <div class="proposal-info-grid dao-project-budget" aria-live="polite">
+                    <div class="proposal-info-row dao-project-budget-item">
+                      <span>Base cost</span>
+                      <div class="proposal-info-value dao-project-budget-value"><span class="dao-project-budget-amount" id="addProposalProjectBaseCost">0</span><span>USD</span></div>
+                    </div>
+                    <div class="proposal-info-row dao-project-budget-item">
+                      <span>Maximum bonuses</span>
+                      <div class="proposal-info-value dao-project-budget-value"><span class="dao-project-budget-amount" id="addProposalProjectMaximumBonus">0</span><span>USD</span></div>
+                    </div>
+                    <div class="proposal-info-row dao-project-budget-item">
+                      <span>Maximum authorized</span>
+                      <div class="proposal-info-value dao-project-budget-value"><span class="dao-project-budget-amount" id="addProposalProjectMaximumBudget">0</span><span>USD</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Proposal Options</label>
+                  <div class="proposal-option-cards dao-project-ballot" aria-label="Project ballot choices">
+                    <div class="proposal-option-section">
+                      <span class="proposal-option-label">No change</span>
+                      <div class="proposal-option-changes">
+                        <p class="proposal-info-muted">Project is not funded.</p>
+                      </div>
+                    </div>
+                    <div class="proposal-option-section">
+                      <span class="proposal-option-label">Fund project</span>
+                      <div class="proposal-option-changes">
+                        <p class="proposal-info-muted">Approve the recipient, milestones, and maximum budget below.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
               <div class="form-group dao-form-section">
                 <label>Timing</label>
                 <div class="dao-form-grid dao-form-grid--timing">
@@ -562,9 +632,10 @@
                   </div>
                 </div>
               </div>
+              <div class="dao-form-help dao-project-review-help hidden" id="addProposalProjectReviewHelp">Project Review Draft will be added in the next phase.</div>
               <div class="form-actions">
                 <button type="button" id="cancelAddProposal" class="btn btn--secondary btn--pill btn--full">Cancel</button>
-                <button type="submit" class="btn btn--primary btn--pill btn--full">Review Draft</button>
+                <button type="submit" class="btn btn--primary btn--pill btn--full" id="addProposalSubmitButton">Review Draft</button>
               </div>
             </form>
           </div>

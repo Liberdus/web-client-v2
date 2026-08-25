@@ -2259,6 +2259,127 @@ input[type='file'].form-control::file-selector-button {
   border-color: var(--danger-color);
 }
 
+#addProposalModal .dao-project-editor {
+  display: grid;
+  gap: 10px;
+}
+
+#addProposalModal .dao-project-editor.hidden {
+  display: none;
+}
+
+#addProposalModal .dao-form-section.hidden {
+  display: none;
+}
+
+#addProposalModal .dao-project-preview-notice {
+  background: rgba(61, 61, 206, 0.08);
+  border: 1px solid var(--primary-tint-60);
+  border-radius: 10px;
+  color: var(--text-color);
+  display: grid;
+  font-size: 13px;
+  gap: 3px;
+  line-height: 1.35;
+  padding: 10px;
+}
+
+#addProposalModal .dao-project-preview-notice span {
+  color: var(--secondary-text-color);
+}
+
+#addProposalModal .proposal-info-row.dao-project-budget-item {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+#addProposalModal .proposal-info-value.dao-project-budget-value {
+  align-items: baseline;
+  align-self: end;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 14px;
+  gap: 4px;
+  justify-content: center;
+  line-height: 1.35;
+}
+
+#addProposalModal .dao-project-budget-amount {
+  color: var(--text-color);
+  font-size: inherit;
+  font-weight: var(--font-weight-normal);
+  line-height: inherit;
+}
+
+#addProposalModal .dao-project-budget-value span {
+  color: var(--secondary-text-color);
+  font-size: inherit;
+  font-weight: var(--font-weight-normal);
+  line-height: inherit;
+}
+
+#addProposalModal .dao-project-milestone {
+  background: var(--input-background);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+}
+
+#addProposalModal .dao-project-milestone-fields .form-group--full {
+  grid-column: 1 / -1;
+}
+
+#addProposalModal .dao-project-milestone > .dao-form-row-title {
+  flex-wrap: wrap;
+}
+
+#addProposalModal .dao-project-milestone-actions {
+  display: grid;
+  flex: 1 1 240px;
+  gap: 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#addProposalModal .dao-project-milestone-actions .btn {
+  box-sizing: border-box;
+  border-radius: 8px;
+  font-size: 12px;
+  height: 38px;
+  min-height: 38px;
+  padding: 8px 4px;
+  white-space: nowrap;
+  width: 100%;
+}
+
+#addProposalModal .dao-project-review-help {
+  background: var(--input-background);
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+#addProposalModal .dao-project-editor input,
+#addProposalModal .dao-project-editor textarea {
+  box-sizing: border-box;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  width: 100%;
+}
+
+@media (max-width: 520px) {
+  #addProposalModal .dao-project-milestone-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #addProposalModal .dao-project-milestone-fields .form-group--full {
+    grid-column: auto;
+  }
+}
+
 #addProposalModal .form-actions {
   display: grid;
   gap: 10px;
@@ -2345,6 +2466,7 @@ input[type='file'].form-control::file-selector-button {
   text-align: center;
 }
 
+#addProposalModal .proposal-info-grid,
 #confirmProposalModal .proposal-info-grid,
 #proposalInfoModal .proposal-info-grid {
   display: flex;
@@ -2353,6 +2475,7 @@ input[type='file'].form-control::file-selector-button {
   justify-content: center;
 }
 
+#addProposalModal .proposal-option-cards,
 #confirmProposalModal .proposal-option-cards,
 #proposalInfoModal .proposal-option-cards {
   display: grid;
@@ -2360,6 +2483,7 @@ input[type='file'].form-control::file-selector-button {
   grid-template-columns: minmax(0, 1fr);
 }
 
+#addProposalModal .proposal-option-section,
 #confirmProposalModal .proposal-option-section,
 #proposalInfoModal .proposal-option-section {
   background: rgba(61, 61, 206, 0.055);
@@ -2374,6 +2498,15 @@ input[type='file'].form-control::file-selector-button {
   text-align: left;
 }
 
+#addProposalModal .dao-project-ballot .proposal-option-section {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+#addProposalModal .dao-project-ballot {
+  grid-auto-rows: 1fr;
+}
+
+#addProposalModal .proposal-option-label,
 #confirmProposalModal .proposal-option-label,
 #proposalInfoModal .proposal-option-label {
   align-items: center;
@@ -2387,6 +2520,7 @@ input[type='file'].form-control::file-selector-button {
   overflow-wrap: anywhere;
 }
 
+#addProposalModal .proposal-option-label::after,
 #confirmProposalModal .proposal-option-label::after,
 #proposalInfoModal .proposal-option-label::after {
   border-top: 1px solid var(--border-color);
@@ -2395,12 +2529,14 @@ input[type='file'].form-control::file-selector-button {
   min-width: 0;
 }
 
+#addProposalModal .proposal-option-changes,
 #confirmProposalModal .proposal-option-changes,
 #proposalInfoModal .proposal-option-changes {
   display: grid;
   gap: 0;
 }
 
+#addProposalModal .proposal-info-row,
 #confirmProposalModal .proposal-info-row,
 #proposalInfoModal .proposal-info-row {
   background: var(--input-background);
@@ -2415,6 +2551,7 @@ input[type='file'].form-control::file-selector-button {
   text-align: center;
 }
 
+#addProposalModal .proposal-info-row,
 #confirmProposalModal .proposal-info-row,
 #proposalInfoModal .proposal-info-row {
   background: rgba(255, 255, 255, 0.92);
@@ -2426,6 +2563,7 @@ input[type='file'].form-control::file-selector-button {
   border: 1px solid rgba(30, 126, 52, 0.34);
 }
 
+#addProposalModal .proposal-info-row > span:not(.proposal-info-value),
 #confirmProposalModal .proposal-info-row > span:not(.proposal-info-value),
 #confirmProposalModal .proposal-change-row span,
 #proposalInfoModal .proposal-info-row > span:not(.proposal-info-value),
@@ -2455,6 +2593,7 @@ input[type='file'].form-control::file-selector-button {
   white-space: pre-wrap;
 }
 
+#addProposalModal .proposal-info-value,
 #confirmProposalModal .proposal-info-value,
 #proposalInfoModal .proposal-info-value {
   color: var(--text-color);
@@ -2471,12 +2610,14 @@ input[type='file'].form-control::file-selector-button {
   color: #0f5f27;
 }
 
+#addProposalModal .proposal-info-row > span:not(.proposal-info-value),
 #confirmProposalModal .proposal-info-row > span:not(.proposal-info-value),
 #proposalInfoModal .proposal-info-row > span:not(.proposal-info-value) {
   align-self: start;
   justify-self: center;
 }
 
+#addProposalModal .proposal-info-value,
 #confirmProposalModal .proposal-info-value,
 #proposalInfoModal .proposal-info-value {
   align-self: center;
@@ -2795,6 +2936,7 @@ input[type='file'].form-control::file-selector-button {
   letter-spacing: -0.01em;
 }
 
+#addProposalModal .proposal-change-arrow,
 #confirmProposalModal .proposal-change-arrow,
 #proposalInfoModal .proposal-change-arrow {
   color: var(--secondary-text-color);
@@ -2804,6 +2946,7 @@ input[type='file'].form-control::file-selector-button {
   text-align: center;
 }
 
+#addProposalModal .proposal-info-muted,
 #confirmProposalModal .proposal-info-muted,
 #confirmProposalModal .proposal-change-row small,
 #proposalInfoModal .proposal-info-muted,
@@ -2818,6 +2961,7 @@ input[type='file'].form-control::file-selector-button {
   margin: 0;
 }
 
+#addProposalModal .proposal-option-section--no-change .proposal-info-muted,
 #confirmProposalModal .proposal-option-section--no-change .proposal-info-muted,
 #proposalInfoModal .proposal-option-section--no-change .proposal-info-muted {
   align-self: center;
@@ -2832,12 +2976,14 @@ input[type='file'].form-control::file-selector-button {
   text-align: right;
 }
 
+#addProposalModal .proposal-option-section--no-change,
 #confirmProposalModal .proposal-option-section--no-change,
 #proposalInfoModal .proposal-option-section--no-change {
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 110px;
 }
 
+#addProposalModal .proposal-option-section--no-change .proposal-change-arrow,
 #confirmProposalModal .proposal-option-section--no-change .proposal-change-arrow,
 #proposalInfoModal .proposal-option-section--no-change .proposal-change-arrow {
   align-self: baseline;
@@ -2887,6 +3033,7 @@ input[type='file'].form-control::file-selector-button {
 }
 
 @media (max-width: 420px) {
+  #addProposalModal .proposal-info-row,
   #confirmProposalModal .proposal-info-row,
   #proposalInfoModal .proposal-info-row {
     flex-basis: calc((100% - 8px) / 2);

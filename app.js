@@ -86,12 +86,18 @@ import {
   DAO_PROPOSAL_DAY_MS,
   DAO_PROPOSAL_GRACE_PERIOD_MAX_MS,
   DAO_PROPOSAL_TITLE_MAX_LENGTH,
+  DAO_PROJECT_DURATION_MAX_DAYS,
+  DAO_PROJECT_MAX_MILESTONES,
+  DAO_PROJECT_MILESTONE_TEXT_MAX_LENGTH,
+  DAO_PROJECT_MILESTONE_TITLE_MAX_LENGTH,
+  DAO_PROJECT_TYPE,
   DAO_PARAMETER_MAX_WHOLE_DIGITS,
   buildDaoProposalCreateDraft,
   daoRepo,
   DAO_STATES,
   getDaoFinalVoteResult,
   getDaoNotificationSummary,
+  getDaoProjectBudgetSummary,
   getDaoTransactionMessage,
   getDaoTrackedProposalMetadataEntries,
   getDaoProposalClaimWindow,
@@ -104,6 +110,7 @@ import {
   getDaoTypeLabel,
   getEffectiveDaoState,
   hasPendingDaoAction,
+  isDaoParameterProposalTypeKey,
   isValidDaoDecimalString,
   isDaoTransactionType,
   normalizeDaoAddress,
@@ -3308,17 +3315,30 @@ class AddProposalModal {
     this.typeSelect = document.getElementById('addProposalType');
     this.descriptionInput = document.getElementById('addProposalDescription');
     this.proposalFeeInput = document.getElementById('addProposalFee');
+    this.typeHelp = document.getElementById('addProposalTypeHelp');
+    this.parameterEditor = document.getElementById('addProposalParameterEditor');
     this.optionsList = document.getElementById('addProposalOptionsList');
     this.optionsLimitHelp = document.getElementById('addProposalOptionsLimitHelp');
     this.addOptionButton = document.getElementById('addProposalOptionButton');
+    this.projectEditor = document.getElementById('addProposalProjectEditor');
+    this.projectAddressInput = document.getElementById('addProposalProjectAddress');
+    this.projectMilestonesList = document.getElementById('addProposalProjectMilestones');
+    this.projectAddMilestoneButton = document.getElementById('addProposalProjectAddMilestone');
+    this.projectMilestoneLimit = document.getElementById('addProposalProjectMilestoneLimit');
+    this.projectBaseCost = document.getElementById('addProposalProjectBaseCost');
+    this.projectMaximumBonus = document.getElementById('addProposalProjectMaximumBonus');
+    this.projectMaximumBudget = document.getElementById('addProposalProjectMaximumBudget');
+    this.projectLive = document.getElementById('addProposalProjectLive');
+    this.projectReviewHelp = document.getElementById('addProposalProjectReviewHelp');
     this.emergencySelect = document.getElementById('addProposalEmergency');
+    this.emergencyHelp = document.getElementById('addProposalEmergencyHelp');
     this.reviewStartButton = document.getElementById('addProposalReviewStartTime');
     this.reviewStartHelp = document.getElementById('addProposalReviewStartHelp');
     this.gracePeriodButton = document.getElementById('addProposalGracePeriodMs');
     this.gracePeriodHelp = document.getElementById('addProposalGracePeriodHelp');
     this.gracePeriodLimit = document.getElementById('addProposalGracePeriodLimit');
     this.gracePeriodLoadError = false;
-    this.submitButton = this.form?.querySelector('button[type="submit"]');
+    this.submitButton = document.getElementById('addProposalSubmitButton');
     this.resetConfigCache();
 
     if (this.closeButton) this.closeButton.addEventListener('click', () => this.close());
@@ -3329,7 +3349,7 @@ class AddProposalModal {
       this.form.addEventListener('submit', withButtonCooldown(
         this.submitButton,
         BUTTON_COOLDOWN_MS,
-        null,
+        () => this.updateSubmitAvailability(),
         () => this.handleCreate()
       ));
       this.form.addEventListener('input', (event) => this.clearValidationError(event.target));
@@ -3338,10 +3358,7 @@ class AddProposalModal {
     }
 
     if (this.typeSelect) {
-      this.typeSelect.addEventListener('change', () => {
-        this.options = this.options.map((proposalOption) => ({ ...proposalOption, changes: [] }));
-        this.refreshSelectedConfigOptions();
-      });
+      this.typeSelect.addEventListener('change', () => this.handleProposalTypeChange());
     }
 
     if (this.emergencySelect) {
@@ -3357,6 +3374,13 @@ class AddProposalModal {
       this.optionsList.addEventListener('click', (event) => this.handleOptionsClick(event));
       this.optionsList.addEventListener('input', (event) => this.handleOptionsInput(event));
       this.optionsList.addEventListener('change', (event) => this.handleOptionsChange(event));
+    }
+    if (this.projectAddMilestoneButton) {
+      this.projectAddMilestoneButton.addEventListener('click', () => this.addProjectMilestone());
+    }
+    if (this.projectEditor) {
+      this.projectEditor.addEventListener('input', (event) => this.handleProjectInput(event));
+      this.projectEditor.addEventListener('click', (event) => this.handleProjectClick(event));
     }
   }
 
@@ -3379,8 +3403,15 @@ class AddProposalModal {
     }
     this.reviewStartTimeMs = 0;
     this.gracePeriodMs = 0;
+    this.projectMilestoneSequence = 0;
+    this.projectDraft = {
+      address: '',
+      milestones: [this.createProjectMilestone()],
+    };
     this.renderReviewStartTime();
     this.options = [this.createOption()];
+    this.renderProposalTypeEditor();
+    this.renderProjectEditor();
     this.renderOptions('Loading current DAO config values...');
     this.renderGracePeriodLimitHint();
     this.refreshProposalDefaults();
@@ -3398,6 +3429,55 @@ class AddProposalModal {
 
   isActive() {
     return this.modal.classList.contains('active');
+  }
+
+  isProjectProposal() {
+    return this.typeSelect?.value === DAO_PROJECT_TYPE;
+  }
+
+  updateSubmitAvailability() {
+    if (this.submitButton) this.submitButton.disabled = this.isProjectProposal();
+  }
+
+  renderProposalTypeEditor() {
+    const isProject = this.isProjectProposal();
+    this.parameterEditor?.classList.toggle('hidden', isProject);
+    this.projectEditor?.classList.toggle('hidden', !isProject);
+    this.projectReviewHelp?.classList.toggle('hidden', !isProject);
+
+    if (this.typeHelp) {
+      this.typeHelp.textContent = isProject
+        ? 'Project proposals fund a recipient through milestones. This editor is a UI preview.'
+        : 'Choose governance, economic, or protocol. This controls which parameters can be selected below.';
+    }
+
+    if (this.emergencySelect) {
+      if (isProject) this.emergencySelect.value = 'false';
+      this.emergencySelect.disabled = isProject;
+      PopupSelect.sync(this.emergencySelect);
+    }
+    if (this.emergencyHelp) {
+      this.emergencyHelp.textContent = isProject
+        ? 'Project proposals cannot be emergency proposals.'
+        : 'Emergency proposals allow only one additional option.';
+    }
+
+    this.renderProposalFee();
+    this.updateSubmitAvailability();
+  }
+
+  handleProposalTypeChange() {
+    this.clearValidationErrors();
+    this.renderProposalTypeEditor();
+
+    if (this.isProjectProposal()) {
+      this.configRequestId += 1;
+      this.renderProjectEditor();
+      return;
+    }
+
+    this.options = this.options.map((proposalOption) => ({ ...proposalOption, changes: [] }));
+    this.refreshSelectedConfigOptions();
   }
 
   resetConfigCache() {
@@ -3536,6 +3616,8 @@ class AddProposalModal {
 
   async refreshSelectedConfigOptions() {
     const proposalType = this.typeSelect?.value || 'governance';
+    if (!isDaoParameterProposalTypeKey(proposalType)) return;
+
     const requestId = ++this.configRequestId;
     this.renderConfigLoadingState();
 
@@ -3639,6 +3721,174 @@ class AddProposalModal {
     }
 
     return this.fetchNetworkAccountConfig();
+  }
+
+  createProjectMilestone() {
+    this.projectMilestoneSequence += 1;
+    return {
+      uiId: `milestone-${this.projectMilestoneSequence}`,
+      title: '',
+      description: '',
+      deliverable: '',
+      durationDays: '',
+      costUsdStr: '',
+      penaltyUsdStr: '0',
+      bonusUsdStr: '0',
+    };
+  }
+
+  renderProjectEditor() {
+    if (!this.projectMilestonesList || !this.projectDraft) return;
+
+    if (this.projectAddressInput) this.projectAddressInput.value = this.projectDraft.address;
+    this.projectMilestonesList.innerHTML = this.projectDraft.milestones
+      .map((milestone, index) => this.renderProjectMilestone(milestone, index))
+      .join('');
+
+    const milestoneCount = this.projectDraft.milestones.length;
+    if (this.projectMilestoneLimit) {
+      this.projectMilestoneLimit.textContent = `${milestoneCount} of ${DAO_PROJECT_MAX_MILESTONES}`;
+    }
+    if (this.projectAddMilestoneButton) {
+      this.projectAddMilestoneButton.disabled = milestoneCount >= DAO_PROJECT_MAX_MILESTONES;
+    }
+    this.renderProjectBudgetSummary();
+  }
+
+  renderProjectMilestone(milestone, index) {
+    const milestoneNumber = index + 1;
+    const uiId = escapeDaoFormAttribute(milestone.uiId);
+    const idPrefix = `addProposalProject${milestone.uiId}`;
+    const moveUpDisabled = index === 0 ? 'disabled' : '';
+    const moveDownDisabled = index === this.projectDraft.milestones.length - 1 ? 'disabled' : '';
+    const removeDisabled = this.projectDraft.milestones.length === 1 ? 'disabled' : '';
+
+    return `
+      <section class="dao-project-milestone" data-dao-milestone-id="${uiId}" aria-labelledby="${idPrefix}Heading">
+        <div class="dao-form-row-title">
+          <label id="${idPrefix}Heading">Milestone ${milestoneNumber}</label>
+          <div class="dao-project-milestone-actions">
+            <button type="button" class="btn btn--secondary dao-project-milestone-action" data-dao-milestone-move="-1" aria-label="Move milestone ${milestoneNumber} up" ${moveUpDisabled}>Move up</button>
+            <button type="button" class="btn btn--secondary dao-project-milestone-action" data-dao-milestone-move="1" aria-label="Move milestone ${milestoneNumber} down" ${moveDownDisabled}>Move down</button>
+            <button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-milestone aria-label="Remove milestone ${milestoneNumber}" ${removeDisabled}>Remove</button>
+          </div>
+        </div>
+        <div class="dao-form-grid dao-project-milestone-fields">
+          <div class="form-group form-group--full">
+            <label for="${idPrefix}Title">Title <span class="dao-form-required" aria-hidden="true">*</span></label>
+            <input id="${idPrefix}Title" class="form-control" type="text" maxlength="${DAO_PROJECT_MILESTONE_TITLE_MAX_LENGTH}" value="${escapeDaoFormAttribute(milestone.title)}" data-dao-milestone-field="title" data-dao-milestone-id="${uiId}" required />
+          </div>
+          <div class="form-group form-group--full">
+            <label for="${idPrefix}Description">Description <span class="dao-form-required" aria-hidden="true">*</span></label>
+            <textarea id="${idPrefix}Description" class="form-control" rows="3" maxlength="${DAO_PROJECT_MILESTONE_TEXT_MAX_LENGTH}" data-dao-milestone-field="description" data-dao-milestone-id="${uiId}" required>${escapeHtml(milestone.description)}</textarea>
+          </div>
+          <div class="form-group form-group--full">
+            <label for="${idPrefix}Deliverable">Deliverable / Acceptance Criteria <span class="dao-form-required" aria-hidden="true">*</span></label>
+            <textarea id="${idPrefix}Deliverable" class="form-control" rows="3" maxlength="${DAO_PROJECT_MILESTONE_TEXT_MAX_LENGTH}" data-dao-milestone-field="deliverable" data-dao-milestone-id="${uiId}" required>${escapeHtml(milestone.deliverable)}</textarea>
+          </div>
+          <div class="form-group">
+            <label for="${idPrefix}Duration">Duration (days) <span class="dao-form-required" aria-hidden="true">*</span></label>
+            <input id="${idPrefix}Duration" class="form-control" type="text" inputmode="numeric" maxlength="4" placeholder="30" value="${escapeDaoFormAttribute(milestone.durationDays)}" data-dao-milestone-field="durationDays" data-dao-milestone-id="${uiId}" required />
+            <div class="dao-form-help">1–${DAO_PROJECT_DURATION_MAX_DAYS} days</div>
+          </div>
+          <div class="form-group">
+            <label for="${idPrefix}Cost">Cost (USD) <span class="dao-form-required" aria-hidden="true">*</span></label>
+            <input id="${idPrefix}Cost" class="form-control" type="text" inputmode="decimal" maxlength="34" placeholder="0" value="${escapeDaoFormAttribute(milestone.costUsdStr)}" data-dao-milestone-field="costUsdStr" data-dao-milestone-id="${uiId}" required />
+          </div>
+          <div class="form-group">
+            <label for="${idPrefix}Penalty">Late Penalty (USD) <span class="dao-form-required" aria-hidden="true">*</span></label>
+            <input id="${idPrefix}Penalty" class="form-control" type="text" inputmode="decimal" maxlength="34" value="${escapeDaoFormAttribute(milestone.penaltyUsdStr)}" data-dao-milestone-field="penaltyUsdStr" data-dao-milestone-id="${uiId}" required />
+          </div>
+          <div class="form-group">
+            <label for="${idPrefix}Bonus">Early Bonus (USD) <span class="dao-form-required" aria-hidden="true">*</span></label>
+            <input id="${idPrefix}Bonus" class="form-control" type="text" inputmode="decimal" maxlength="34" value="${escapeDaoFormAttribute(milestone.bonusUsdStr)}" data-dao-milestone-field="bonusUsdStr" data-dao-milestone-id="${uiId}" required />
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  handleProjectInput(event) {
+    if (event.target.matches('[data-dao-project-field="address"]')) {
+      this.projectDraft.address = event.target.value;
+      return;
+    }
+    if (!event.target.matches('[data-dao-milestone-field]')) return;
+
+    const milestone = this.projectDraft.milestones.find(
+      (item) => item.uiId === event.target.dataset.daoMilestoneId
+    );
+    if (!milestone) return;
+
+    const field = event.target.dataset.daoMilestoneField;
+    let value = event.target.value;
+    if (field === 'durationDays') {
+      value = value.replace(/\D/g, '').slice(0, String(DAO_PROJECT_DURATION_MAX_DAYS).length);
+    } else if (field === 'costUsdStr' || field === 'penaltyUsdStr' || field === 'bonusUsdStr') {
+      value = normalizeDaoParameterInput(value);
+    }
+
+    event.target.value = value;
+    milestone[field] = value;
+    if (field === 'costUsdStr' || field === 'bonusUsdStr') this.renderProjectBudgetSummary();
+  }
+
+  handleProjectClick(event) {
+    const actionButton = event.target.closest('[data-dao-milestone-move], [data-dao-remove-milestone]');
+    if (!actionButton) return;
+
+    const milestoneElement = actionButton.closest('[data-dao-milestone-id]');
+    const uiId = milestoneElement?.dataset.daoMilestoneId;
+    const index = this.projectDraft.milestones.findIndex((milestone) => milestone.uiId === uiId);
+    if (index < 0) return;
+
+    if (actionButton.matches('[data-dao-remove-milestone]')) {
+      if (this.projectDraft.milestones.length === 1) return;
+      this.projectDraft.milestones.splice(index, 1);
+      this.renderProjectEditor();
+      const nextIndex = Math.min(index, this.projectDraft.milestones.length - 1);
+      this.focusProjectMilestone(this.projectDraft.milestones[nextIndex].uiId);
+      this.announceProjectChange(`Removed milestone ${index + 1}`);
+      return;
+    }
+
+    const destination = index + Number(actionButton.dataset.daoMilestoneMove);
+    if (destination < 0 || destination >= this.projectDraft.milestones.length) return;
+    const [milestone] = this.projectDraft.milestones.splice(index, 1);
+    this.projectDraft.milestones.splice(destination, 0, milestone);
+    this.renderProjectEditor();
+    this.focusProjectMilestone(uiId);
+    this.announceProjectChange(`Moved milestone to position ${destination + 1}`);
+  }
+
+  addProjectMilestone() {
+    if (this.projectDraft.milestones.length >= DAO_PROJECT_MAX_MILESTONES) {
+      showToast(`Projects can have at most ${DAO_PROJECT_MAX_MILESTONES} milestones`, 2500, 'warning');
+      return;
+    }
+
+    const milestone = this.createProjectMilestone();
+    this.projectDraft.milestones.push(milestone);
+    this.renderProjectEditor();
+    this.focusProjectMilestone(milestone.uiId);
+    this.announceProjectChange(`Added milestone ${this.projectDraft.milestones.length}`);
+  }
+
+  focusProjectMilestone(uiId) {
+    this.projectMilestonesList?.querySelector(
+      `[data-dao-milestone-id="${uiId}"] [data-dao-milestone-field="title"]`
+    )?.focus();
+  }
+
+  announceProjectChange(message) {
+    if (this.projectLive) this.projectLive.textContent = message;
+  }
+
+  renderProjectBudgetSummary() {
+    const summary = getDaoProjectBudgetSummary(this.projectDraft?.milestones);
+    if (this.projectBaseCost) this.projectBaseCost.textContent = summary.baseCostUsdStr;
+    if (this.projectMaximumBonus) this.projectMaximumBonus.textContent = summary.maximumBonusUsdStr;
+    if (this.projectMaximumBudget) this.projectMaximumBudget.textContent = summary.maximumAuthorizedUsdStr;
   }
 
   createOption() {
@@ -4109,6 +4359,11 @@ class AddProposalModal {
     const proposalType = (this.typeSelect?.value || '').trim();
     const description = (this.descriptionInput?.value || '').trim();
 
+    if (proposalType === DAO_PROJECT_TYPE) {
+      showToast('Project Review Draft will be added in the next phase', 2500, 'info');
+      return;
+    }
+
     if (!title) {
       this.showValidationError(this.createValidationError('Please enter a title', this.titleInput));
       return;
@@ -4117,7 +4372,7 @@ class AddProposalModal {
       this.showValidationError(this.createValidationError(`Title must be ${DAO_PROPOSAL_TITLE_MAX_LENGTH} characters or less`, this.titleInput));
       return;
     }
-    if (!DAO_CONFIG_CHANGE_OPTIONS[proposalType]) {
+    if (!isDaoParameterProposalTypeKey(proposalType)) {
       this.showValidationError(this.createValidationError('Please select a DAO proposal type', this.typeSelect));
       return;
     }
