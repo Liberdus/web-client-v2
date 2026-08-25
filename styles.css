@@ -2505,6 +2505,7 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .proposal-option-cards {
   display: grid;
   gap: 10px;
+  grid-auto-rows: 1fr;
   grid-template-columns: minmax(0, 1fr);
 }
 
@@ -2525,14 +2526,6 @@ input[type='file'].form-control::file-selector-button {
 
 #addProposalModal .dao-project-ballot .proposal-option-section {
   grid-template-rows: auto minmax(0, 1fr);
-}
-
-#addProposalModal .dao-project-ballot {
-  grid-auto-rows: 1fr;
-}
-
-#confirmProposalModal .dao-project-ballot {
-  grid-auto-rows: 1fr;
 }
 
 #confirmProposalModal .dao-project-ballot .proposal-option-section {
