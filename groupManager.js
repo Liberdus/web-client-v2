@@ -109,13 +109,43 @@ const AHEAD_GRACE_MS = 45000;
  * creator's own deferred rotation — so without spacing they race, one loses,
  * and the loser has paid a transaction fee for a rejection.
  *
- * Staggering by leaf index gives every member a distinct slot from the same
- * public tree, with no coordination. One stagger step has to outlast a receipt
+ * Staggering by leaf index gives members distinct slots from the same public
+ * tree, with no coordination. One stagger step has to outlast a receipt
  * confirmation, or the next member starts before the previous one has landed.
+ * Slots wrap (see PATH_UPDATE_SLOTS) so the wait stays bounded.
  */
 const PATH_UPDATE_STAGGER_MS = 12000;
+/**
+ * How many distinct start slots the stagger uses.
+ *
+ * The delay was leafIndex * STAGGER, which grows without bound: leaf 20 waited
+ * four minutes before its FIRST attempt, and a member with no path update is a
+ * member with no post-compromise security. Slots are taken modulo this instead,
+ * so the longest anyone waits is fixed however large the group gets.
+ *
+ * Ten because at most groupMaxMembersPerCommit (10) members can be admitted in
+ * one commit, and it is precisely that batch which becomes eligible at the same
+ * moment and needs distinct slots. Members further apart than this share a slot,
+ * which costs a lost race and a backoff -- never correctness, since the epoch
+ * fence rejects the loser cleanly.
+ */
+const PATH_UPDATE_SLOTS = 10;
 /** After losing a race, wait rather than immediately re-racing the winner. */
 const PATH_UPDATE_BACKOFF_MS = 15000;
+
+/**
+ * How long this member waits before its first path-update attempt.
+ *
+ * Derived from the leaf index alone, so every client computes the same slot for
+ * the same member from public tree structure, with nothing to coordinate.
+ *
+ * @param {number} leafIndex
+ * @returns {number} milliseconds, bounded by (PATH_UPDATE_SLOTS - 1) steps.
+ */
+function pathUpdateSlotDelay(leafIndex) {
+  const leaf = Number.isInteger(leafIndex) && leafIndex > 0 ? leafIndex : 0;
+  return (leaf % PATH_UPDATE_SLOTS) * PATH_UPDATE_STAGGER_MS;
+}
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -521,7 +551,7 @@ async function flushPathUpdate(groupId) {
     } catch {
       /* no state yet; treat as leaf 0 */
     }
-    view.pathUpdateNotBefore = Date.now() + myLeaf * PATH_UPDATE_STAGGER_MS;
+    view.pathUpdateNotBefore = Date.now() + pathUpdateSlotDelay(myLeaf);
   }
   if (Date.now() < view.pathUpdateNotBefore) return false;
 
