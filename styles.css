@@ -8760,6 +8760,14 @@ small {
   width: 100%;
 }
 
+#daoModal .dao-project-filter-row {
+  display: grid;
+  gap: 4px;
+  grid-column: 1 / -1;
+  grid-template-columns: max-content repeat(3, minmax(0, 1fr));
+  min-width: 0;
+}
+
 #daoModal .dao-filter-chip {
   align-items: center;
   appearance: none;
@@ -8845,6 +8853,10 @@ small {
 }
 
 @media (max-width: 640px) {
+  #daoModal .dao-project-filter-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
   #daoModal .dao-filter-chip,
   #daoModal .dao-filter-row-label {
     font-size: clamp(9px, 2.8vw, 12px);
