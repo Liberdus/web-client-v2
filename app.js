@@ -90,6 +90,7 @@ import {
   DAO_PROJECT_MAX_MILESTONES,
   DAO_PROJECT_MILESTONE_TEXT_MAX_LENGTH,
   DAO_PROJECT_MILESTONE_TITLE_MAX_LENGTH,
+  DAO_PROJECT_FILTERS,
   DAO_PROJECT_PREVIEW_KIND,
   DAO_PROJECT_TYPE,
   DAO_PARAMETER_MAX_WHOLE_DIGITS,
@@ -102,6 +103,7 @@ import {
   getDaoProjectBudgetSummary,
   getDaoProjectPresentation,
   getDaoProposalInfoStateLabel,
+  getDaoProposalListFilterKey,
   getDaoTransactionMessage,
   getDaoTrackedProposalMetadataEntries,
   getDaoProposalClaimWindow,
@@ -2608,7 +2610,14 @@ async function refreshDaoNotificationSummary() {
 const DAO_PROPOSAL_PAGE_SIZE = 10;
 const DAO_ALL_FILTER = { key: 'all', label: 'All' };
 const DAO_CLAIMABLE_FILTER = { key: 'claimable', label: 'Claimable' };
-const DAO_FILTER_OPTIONS = [DAO_ALL_FILTER, ...DAO_STATES, DAO_CLAIMABLE_FILTER];
+const DAO_FILTER_OPTIONS = [
+  DAO_ALL_FILTER,
+  ...DAO_STATES,
+  DAO_CLAIMABLE_FILTER,
+  ...DAO_PROJECT_FILTERS,
+];
+const DAO_PROJECT_FILTER_KEYS = new Set(DAO_PROJECT_FILTERS.map(({ key }) => key));
+const DAO_PROJECT_CANDIDATE_STATES = new Set(['accepted', 'applied']);
 
 function formatDaoTimestamp(ts) {
   const n = Number(ts || 0);
@@ -2739,12 +2748,17 @@ class DaoModal {
       await daoRepo.refresh({ force: true });
       if (!this.isActive() || refreshId !== this.openRefreshId) return;
       this.acknowledgeNotifications(notificationCutoff);
+      const projectFilterProposalNumbers = await this.loadProjectFilterCandidates();
+      if (!this.isActive() || refreshId !== this.openRefreshId) return;
       const refreshedClaimProposalNumbers = await this.syncTrackedClaimWindows();
       if (!this.isActive() || refreshId !== this.openRefreshId) return;
       this.refreshState = 'ready';
       await this.loadSelectedFilter({
         reset: true,
-        reuseProposalNumbers: refreshedClaimProposalNumbers,
+        reuseProposalNumbers: new Set([
+          ...projectFilterProposalNumbers,
+          ...refreshedClaimProposalNumbers,
+        ]),
       });
       this.lastSuccessfulRefreshId = Math.max(this.lastSuccessfulRefreshId, refreshId);
       if (!this.isActive() || refreshId !== this.openRefreshId) return;
@@ -2861,7 +2875,26 @@ class DaoModal {
   getSelectedMetadataEntries(entries) {
     if (this.selectedFilterKey === DAO_ALL_FILTER.key) return entries;
     if (this.selectedFilterKey === DAO_CLAIMABLE_FILTER.key) return this.getClaimCandidateMetadataEntries(entries);
-    return entries.filter((entry) => entry.status === this.selectedFilterKey);
+    const proposalsByNumber = new Map(
+      daoRepo.getProposalsForUi().map((proposal) => [proposal.number, proposal]),
+    );
+    return entries.filter((entry) => {
+      const proposal = proposalsByNumber.get(entry.proposal);
+      const filterKey = proposal ? getDaoProposalListFilterKey(proposal) : entry.status;
+      return filterKey === this.selectedFilterKey;
+    });
+  }
+
+  async loadProjectFilterCandidates() {
+    const entries = daoRepo.getProposalMetaForUi()
+      .filter((entry) => DAO_PROJECT_CANDIDATE_STATES.has(entry.status));
+    await daoRepo.loadProposalEntries(entries, { append: true });
+    const candidateNumbers = new Set(entries.map((entry) => entry.proposal));
+    return new Set(
+      daoRepo.getProposalsForUi()
+        .map((proposal) => proposal.number)
+        .filter((proposalNumber) => candidateNumbers.has(proposalNumber)),
+    );
   }
 
   async loadSelectedFilter({ reset, reuseProposalNumbers = new Set() }) {
@@ -2871,9 +2904,8 @@ class DaoModal {
     const pageStart = reset ? 0 : Math.max(this.visibleProposalCount - DAO_PROPOSAL_PAGE_SIZE, 0);
     const entriesToLoad = entries.slice(pageStart, this.visibleProposalCount);
     const entriesToFetch = entriesToLoad.filter((entry) => !reuseProposalNumbers.has(entry.proposal));
-    const reusedFreshDetails = entriesToFetch.length < entriesToLoad.length;
 
-    const request = daoRepo.loadProposalEntries(entriesToFetch, { append: !reset || reusedFreshDetails });
+    const request = daoRepo.loadProposalEntries(entriesToFetch, { append: true });
     this.detailsRequest = request;
     this.render();
 
@@ -2915,11 +2947,15 @@ class DaoModal {
     let didRefreshDaoData = false;
     try {
       await daoRepo.refresh({ force: true });
+      const projectFilterProposalNumbers = await this.loadProjectFilterCandidates();
       const refreshedClaimProposalNumbers = await this.syncTrackedClaimWindows();
       if (this.isActive()) {
         await this.loadSelectedFilter({
           reset: true,
-          reuseProposalNumbers: refreshedClaimProposalNumbers,
+          reuseProposalNumbers: new Set([
+            ...projectFilterProposalNumbers,
+            ...refreshedClaimProposalNumbers,
+          ]),
         });
       }
       if (!daoRepo.getProposalById(pendingTxInfo?.proposalStoreId)) {
@@ -2983,8 +3019,11 @@ class DaoModal {
       : this.getSelectedMetadataEntries(metadataEntries);
 
     const counts = Object.fromEntries(DAO_FILTER_OPTIONS.map((filter) => [filter.key, 0]));
+    const proposalsByNumber = new Map(proposals.map((proposal) => [proposal.number, proposal]));
     for (const entry of metadataEntries) {
-      if (counts[entry.status] !== undefined) counts[entry.status] += 1;
+      const proposal = proposalsByNumber.get(entry.proposal);
+      const filterKey = proposal ? getDaoProposalListFilterKey(proposal) : entry.status;
+      if (counts[filterKey] !== undefined) counts[filterKey] += 1;
     }
     counts[DAO_ALL_FILTER.key] = metadataEntries.length;
     counts[DAO_CLAIMABLE_FILTER.key] = claimCandidateMetadataEntries.length;
@@ -3004,9 +3043,13 @@ class DaoModal {
         countEl.textContent = hasFreshData ? String(count) : '—';
         let countAriaLabel = `${filter.label} count unavailable`;
         if (hasFreshData) {
-          countAriaLabel = filter.key === DAO_CLAIMABLE_FILTER.key
-            ? `${count} tracked claim candidates`
-            : `${count} ${filter.label.toLowerCase()} proposals`;
+          if (filter.key === DAO_CLAIMABLE_FILTER.key) {
+            countAriaLabel = `${count} tracked claim candidates`;
+          } else if (DAO_PROJECT_FILTER_KEYS.has(filter.key)) {
+            countAriaLabel = `${count} ${filter.label.toLowerCase()} projects`;
+          } else {
+            countAriaLabel = `${count} ${filter.label.toLowerCase()} proposals`;
+          }
         }
         countEl.setAttribute('aria-label', countAriaLabel);
       }
@@ -3051,6 +3094,9 @@ class DaoModal {
       } else if (isClaimableFilter) {
         if (headlineEl) headlineEl.textContent = 'No claimable proposals found';
         if (sublineEl) sublineEl.textContent = 'Claimable proposals appear here when available';
+      } else if (DAO_PROJECT_FILTER_KEYS.has(this.selectedFilterKey)) {
+        if (headlineEl) headlineEl.textContent = `No ${label.toLowerCase()} projects found`;
+        if (sublineEl) sublineEl.textContent = 'Projects appear here after proposal acceptance';
       } else {
         if (headlineEl) headlineEl.textContent = 'No proposals found';
         if (sublineEl) sublineEl.textContent = 'Proposal data appears here when available';
