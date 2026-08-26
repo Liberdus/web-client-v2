@@ -103,6 +103,7 @@ import {
   getDaoTransactionMessage,
   getDaoTrackedProposalMetadataEntries,
   getDaoProposalClaimWindow,
+  getDaoProposalOptionLabels,
   getDaoPendingFinalizationOutcome,
   getDaoProposalTimeline,
   getDaoVoteReminderSchedule,
@@ -4541,7 +4542,7 @@ function renderDaoProposalRows(rows) {
 }
 
 function renderDaoProposalOptions(proposal) {
-  const options = getDaoProposalOptions(proposal);
+  const options = getDaoProposalOptionLabels(proposal);
   const changeSets = proposal?.[proposal?.proposalType]?.changes;
   const isProject = proposal?.proposalType === DAO_PROJECT_TYPE;
   const optionCards = options.map((option, index) => {
@@ -5062,18 +5063,11 @@ function formatDaoBigIntPercent(part, total) {
   return fraction === 0n ? `${whole}%` : `${whole}.${fraction}%`;
 }
 
-function getDaoProposalOptions(proposal) {
-  const firstOptionLabel = proposal.proposalType === DAO_PROJECT_TYPE ? 'Reject' : 'No change';
-  return proposal.options.map((option, index) => (
-    index === 0 && String(option).toLowerCase() === 'no' ? firstOptionLabel : String(option)
-  ));
-}
-
 function getDaoVoteTotals(proposal) {
   const totalVote = proposal.totalVote;
   if (totalVote.length === 0) return [];
 
-  const options = getDaoProposalOptions(proposal);
+  const options = getDaoProposalOptionLabels(proposal);
   const rowCount = Math.max(options.length, totalVote.length);
   return Array.from({ length: rowCount }, (_, index) => ({
     index,
@@ -5651,7 +5645,7 @@ class ProposalInfoModal {
   }
 
   getCurrentVoteTotalRows(proposal) {
-    const options = getDaoProposalOptions(proposal);
+    const options = getDaoProposalOptionLabels(proposal);
     const totalVote = proposal.totalVote;
     return options.map((option, index) => ({
       option,
@@ -6085,7 +6079,7 @@ class ProposalInfoModal {
   }
 
   resetVoteState(proposal) {
-    const options = getDaoProposalOptions(proposal);
+    const options = getDaoProposalOptionLabels(proposal);
     this.voteWeights = options.map(() => 0);
     this.voteSpendMultiple = '1';
     if (this.voteSpendMultipleInput) this.voteSpendMultipleInput.value = '1';
@@ -6104,7 +6098,7 @@ class ProposalInfoModal {
       return;
     }
 
-    const options = getDaoProposalOptions(proposal);
+    const options = getDaoProposalOptionLabels(proposal);
     if (this.voteWeights.length !== options.length) {
       this.voteWeights = options.map(() => 0);
     }
@@ -6300,7 +6294,7 @@ class ProposalInfoModal {
     }
     this.votePreview.classList.remove('proposal-vote-preview--message');
 
-    const optionRows = getDaoProposalOptions(proposal)
+    const optionRows = getDaoProposalOptionLabels(proposal)
       .map((option, index) => {
         const weight = this.voteWeights[index] || 0;
         const share = weight / submission.totalWeight;
