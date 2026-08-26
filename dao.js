@@ -1020,6 +1020,8 @@ export function getDaoProposalInfoStateLabel(proposal) {
   return DAO_PROJECT_STATUS_LABELS[projectStatus] || proposalStateLabel;
 }
 
+const DAO_PROJECT_RUNTIME_STATUS_KEYS = new Set(['started', 'terminated', 'completed']);
+
 const DAO_PROJECT_MILESTONE_STATUS_LABELS = Object.freeze({
   pending: 'Pending',
   started: 'Started',
@@ -1200,6 +1202,10 @@ export function shouldOpenDaoProjectMilestoneByDefault(project, proposalState, m
   if (proposalState === 'review' || proposalState === 'voting') return true;
   if (project?.status?.key !== 'started' || !Array.isArray(project.milestones)) return false;
   return project.milestones.findIndex((milestone) => milestone?.status?.key === 'started') === milestoneIndex;
+}
+
+export function shouldShowDaoProjectMilestoneRuntime(project) {
+  return DAO_PROJECT_RUNTIME_STATUS_KEYS.has(project?.status?.key);
 }
 
 function normalizeDaoVoteReminderSchedule(value) {
