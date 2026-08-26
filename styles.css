@@ -2614,7 +2614,7 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .dao-project-info-milestone summary {
-  align-items: start;
+  align-items: center;
   cursor: pointer;
   display: grid;
   gap: 8px;
@@ -2635,16 +2635,11 @@ input[type='file'].form-control::file-selector-button {
   height: 8px;
   justify-self: center;
   transform: rotate(45deg);
-  transition: transform 0.2s ease;
   width: 8px;
 }
 
 #proposalInfoModal .dao-project-info-milestone[open] summary {
   border-bottom: 1px solid var(--border-color);
-}
-
-#proposalInfoModal .dao-project-info-milestone[open] summary::after {
-  transform: rotate(225deg);
 }
 
 #proposalInfoModal .dao-project-info-milestone summary:focus-visible {
@@ -2656,6 +2651,11 @@ input[type='file'].form-control::file-selector-button {
   display: grid;
   gap: 2px;
   min-width: 0;
+  text-align: left;
+}
+
+#proposalInfoModal .dao-project-info-milestone .dao-project-review-copy {
+  text-align: left;
 }
 
 #proposalInfoModal .dao-project-info-milestone-heading > span {
@@ -2674,41 +2674,12 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .dao-project-info-milestone-status {
-  align-self: center;
   background: var(--input-background);
   border-radius: 999px;
   color: var(--secondary-text-color);
   font-size: 12px;
   font-weight: var(--font-weight-semibold);
   padding: 3px 7px;
-}
-
-#proposalInfoModal .dao-project-info-milestone-copy,
-#proposalInfoModal .dao-project-info-milestone-copy > span {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  text-align: left;
-}
-
-#proposalInfoModal .dao-project-info-milestone-copy {
-  gap: 8px;
-  grid-column: 1 / -1;
-}
-
-#proposalInfoModal .dao-project-info-milestone-copy-label {
-  color: var(--secondary-text-color);
-  font-size: 12px;
-  font-weight: var(--font-weight-medium);
-  line-height: 1.35;
-}
-
-#proposalInfoModal .dao-project-info-milestone-copy-value {
-  color: var(--text-color);
-  font-size: 13px;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
 }
 
 #proposalInfoModal .dao-project-info-milestone-content {
