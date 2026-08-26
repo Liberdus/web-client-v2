@@ -4737,18 +4737,18 @@ function renderDaoProjectInfoMilestones(project) {
             <strong>${escapeHtml(title)}</strong>
           </span>
           <span class="dao-project-info-milestone-status">${escapeHtml(statusLabel)}</span>
-          <span class="dao-project-info-milestone-copy">
-            <span>
-              <span class="dao-project-info-milestone-copy-label">Description</span>
-              <span class="dao-project-info-milestone-copy-value">${escapeHtml(description)}</span>
-            </span>
-            <span>
-              <span class="dao-project-info-milestone-copy-label">Deliverable / Acceptance Criteria</span>
-              <span class="dao-project-info-milestone-copy-value">${escapeHtml(deliverable)}</span>
-            </span>
-          </span>
         </summary>
         <div class="dao-project-info-milestone-content">
+          <div class="dao-project-review-copy">
+            <div>
+              <span>Description</span>
+              <p>${escapeHtml(description)}</p>
+            </div>
+            <div>
+              <span>Deliverable / Acceptance Criteria</span>
+              <p>${escapeHtml(deliverable)}</p>
+            </div>
+          </div>
           <div class="proposal-info-grid" aria-label="Milestone ${milestoneNumber} terms">
             ${renderDaoProposalRows([
               ['Duration', milestone.durationDays === null ? null : `${milestone.durationDays} days`],
