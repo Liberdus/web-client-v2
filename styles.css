@@ -2720,10 +2720,6 @@ input[type='file'].form-control::file-selector-button {
   color: var(--secondary-text-color);
 }
 
-#proposalInfoModal .dao-project-info-status .proposal-info-row {
-  flex-basis: calc((100% - 8px) / 2);
-}
-
 #proposalInfoModal .dao-project-info-funding .proposal-info-row:first-child {
   flex-basis: 100%;
 }
@@ -3303,7 +3299,6 @@ input[type='file'].form-control::file-selector-button {
     flex-basis: calc((100% - 8px) / 2);
   }
 
-  #proposalInfoModal .dao-project-info-status .proposal-info-row,
   #proposalInfoModal .dao-project-info-funding .proposal-info-row,
   #proposalInfoModal .dao-project-review-milestone .proposal-info-row {
     flex-basis: 100%;
