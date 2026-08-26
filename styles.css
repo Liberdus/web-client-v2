@@ -2334,25 +2334,37 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #addProposalModal .dao-project-milestone > .dao-form-row-title {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 #addProposalModal .dao-project-milestone-actions {
-  display: grid;
-  flex: 1 1 240px;
-  gap: 6px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
 }
 
 #addProposalModal .dao-project-milestone-actions .btn {
+  align-items: center;
   box-sizing: border-box;
   border-radius: 8px;
-  font-size: 12px;
-  height: 38px;
-  min-height: 38px;
-  padding: 8px 4px;
-  white-space: nowrap;
-  width: 100%;
+  display: inline-flex;
+  height: 32px;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0;
+  width: 32px;
+}
+
+#addProposalModal .dao-project-milestone-action-icon {
+  fill: none;
+  height: 17px;
+  pointer-events: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  width: 17px;
 }
 
 #addProposalModal .dao-project-review-help {
