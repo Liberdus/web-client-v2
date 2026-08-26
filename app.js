@@ -4540,15 +4540,16 @@ function renderDaoProposalRows(rows) {
     .join('');
 }
 
-function renderDaoProposalOptions(proposal) {
+function renderDaoProposalOptions(proposal, firstOptionLabel = '') {
   const options = getDaoProposalOptions(proposal);
   const changeSets = proposal?.[proposal?.proposalType]?.changes;
   const isProject = proposal?.proposalType === DAO_PROJECT_TYPE;
   const optionCards = options.map((option, index) => {
     const noChangeClass = index === 0 && !isProject ? ' proposal-option-section--no-change' : '';
+    const optionLabel = index === 0 && firstOptionLabel ? firstOptionLabel : option;
     return `
       <div class="proposal-option-section${noChangeClass}">
-        <span class="proposal-option-label">${escapeHtml(option)}</span>
+        <span class="proposal-option-label">${escapeHtml(optionLabel)}</span>
         ${isProject
           ? renderDaoProjectProposalOptionDetails(index)
           : renderDaoProposalOptionDetails(index, changeSets)}
@@ -4832,7 +4833,7 @@ class ConfirmProposalModal {
     this.content.innerHTML = [
       renderDaoProposalHeading(proposal),
       '<div class="dao-project-review-notice" role="status"><strong>Project UI preview</strong><span>Project submission is unavailable until backend support is implemented.</span></div>',
-      renderDaoProposalOptions(proposal),
+      renderDaoProposalOptions(proposal, 'Reject'),
       renderDaoProposalSection('Project Funding', [
         ['Recipient', normalizeDaoAddress(project.address)],
         ['Base cost', `${budget.baseCostUsdStr} USD`],
