@@ -261,6 +261,18 @@ export function getDaoTypeLabel(typeKey) {
   return DAO_TYPE_OPTIONS.find((t) => t.key === typeKey)?.label || typeKey || '';
 }
 
+function getDaoDefaultProposalOptionLabel(proposalType) {
+  return proposalType === DAO_PROJECT_TYPE ? 'Reject' : 'No change';
+}
+
+export function getDaoProposalOptionLabels(proposal) {
+  const options = Array.isArray(proposal?.options) ? proposal.options : [];
+  const firstOptionLabel = getDaoDefaultProposalOptionLabel(proposal?.proposalType);
+  return options.map((option, index) => (
+    index === 0 && String(option).toLowerCase() === 'no' ? firstOptionLabel : String(option)
+  ));
+}
+
 export function getDaoStateLabel(key) {
   return DAO_STATES.find((state) => state.key === key)?.label
     || DAO_NON_FILTER_STATE_LABELS.get(key)
@@ -1211,9 +1223,10 @@ export function getDaoPendingFinalizationOutcome(proposal, now = Date.now()) {
   }
 
   if (state === 'voting' && timestamp > timeline.votingEnd && hasZeroDaoVoteTotals(proposal)) {
+    const defaultOptionLabel = getDaoDefaultProposalOptionLabel(proposal?.proposalType);
     return {
       nextState: 'rejected',
-      message: 'No votes were cast. Finalizing the vote result rejects this proposal because the default No change option wins.',
+      message: `No votes were cast. Finalizing the vote result rejects this proposal because the default ${defaultOptionLabel} option wins.`,
     };
   }
 
