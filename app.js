@@ -3172,6 +3172,9 @@ class DaoModal {
   renderProposalRowPreview(proposal) {
     const chips = [];
     const state = getEffectiveDaoState(proposal);
+    const projectFilter = DAO_PROJECT_FILTERS.find(
+      ({ key }) => key === getDaoProposalListFilterKey(proposal),
+    );
     const result = getDaoProposalResultSummary(proposal);
     const reward = getDaoProposalRewardSummary(proposal);
 
@@ -3264,7 +3267,12 @@ class DaoModal {
         });
       }
     }
-    if (result && state !== 'accepted') {
+    if (projectFilter) {
+      chips.push({
+        value: projectFilter.label,
+        tone: getDaoProjectStatusTone(proposal?.project?.status) || 'neutral',
+      });
+    } else if (result && state !== 'accepted') {
       chips.push({
         value: result.headline,
         tone: result.tone,
@@ -4701,12 +4709,6 @@ function getDaoProjectStatusTone(status) {
   return '';
 }
 
-function getDaoProposalStatusTone(status) {
-  if (status === 'accepted' || status === 'applied') return 'accept';
-  if (status === 'rejected' || status === 'withheld' || status === 'canceled') return 'rejected';
-  return '';
-}
-
 function renderDaoProjectInfoMilestones(project, proposalState, showRuntimeStatus) {
   if (project.milestones.length === 0) {
     return `
@@ -4805,20 +4807,10 @@ function renderDaoProjectProposalInfo(proposal, proposalState) {
     `
     : '';
   const budget = project.budget;
-  const projectStatus = project.status?.label || 'Unavailable';
-  const projectStatusTone = getDaoProjectStatusTone(project.status?.key);
-  const proposalStatusTone = getDaoProposalStatusTone(proposalState);
   const showRuntimeStatus = shouldShowDaoProjectRuntime(project);
-  const projectStatusRows = [
-    ['Proposal status', getDaoStateLabel(proposalState), proposalStatusTone],
-  ];
-  if (showRuntimeStatus) {
-    projectStatusRows.push(['Project status', projectStatus, projectStatusTone]);
-  }
 
   return [
     partialNotice,
-    renderDaoProposalSection('Project Status', projectStatusRows, 'dao-project-info-status'),
     renderDaoProposalSection('Project Funding', [
       ['Recipient', project.address],
       ['Base cost', budget ? `${budget.baseCostUsdStr} USD` : null],
