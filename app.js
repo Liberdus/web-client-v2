@@ -125,7 +125,7 @@ import {
   parseDaoUnsignedBigInt,
   setDaoBackendFetcher,
   shouldOpenDaoProjectMilestoneByDefault,
-  shouldShowDaoProjectMilestoneRuntime,
+  shouldShowDaoProjectRuntime,
 } from './dao.js';
 
 // Import crypto functions from crypto.js
@@ -4707,7 +4707,7 @@ function getDaoProposalStatusTone(status) {
   return '';
 }
 
-function renderDaoProjectInfoMilestones(project, proposalState) {
+function renderDaoProjectInfoMilestones(project, proposalState, showRuntimeStatus) {
   if (project.milestones.length === 0) {
     return `
       <section class="proposal-info-section dao-project-info-milestones">
@@ -4720,7 +4720,6 @@ function renderDaoProjectInfoMilestones(project, proposalState) {
     `;
   }
 
-  const showRuntimeStatus = shouldShowDaoProjectMilestoneRuntime(project);
   const milestoneHtml = project.milestones.map((milestone, index) => {
     const milestoneNumber = index + 1;
     const title = formatDaoDetailValue(milestone.title);
@@ -4809,13 +4808,17 @@ function renderDaoProjectProposalInfo(proposal, proposalState) {
   const projectStatus = project.status?.label || 'Unavailable';
   const projectStatusTone = getDaoProjectStatusTone(project.status?.key);
   const proposalStatusTone = getDaoProposalStatusTone(proposalState);
+  const showRuntimeStatus = shouldShowDaoProjectRuntime(project);
+  const projectStatusRows = [
+    ['Proposal status', getDaoStateLabel(proposalState), proposalStatusTone],
+  ];
+  if (showRuntimeStatus) {
+    projectStatusRows.push(['Project status', projectStatus, projectStatusTone]);
+  }
 
   return [
     partialNotice,
-    renderDaoProposalSection('Project Status', [
-      ['Proposal status', getDaoStateLabel(proposalState), proposalStatusTone],
-      ['Project status', projectStatus, projectStatusTone],
-    ], 'dao-project-info-status'),
+    renderDaoProposalSection('Project Status', projectStatusRows, 'dao-project-info-status'),
     renderDaoProposalSection('Project Funding', [
       ['Recipient', project.address],
       ['Base cost', budget ? `${budget.baseCostUsdStr} USD` : null],
@@ -4824,7 +4827,7 @@ function renderDaoProjectProposalInfo(proposal, proposalState) {
       ['Treasury balance', project.balanceWei === null ? null : formatDaoLibWei(project.balanceWei)],
       ['Claimable balance', project.claimableBalanceWei === null ? null : formatDaoLibWei(project.claimableBalanceWei)],
     ], 'dao-project-info-funding'),
-    renderDaoProjectInfoMilestones(project, proposalState),
+    renderDaoProjectInfoMilestones(project, proposalState, showRuntimeStatus),
   ].filter(Boolean).join('');
 }
 
