@@ -1196,9 +1196,10 @@ export function getDaoProjectPresentation(proposal) {
   });
 }
 
-export function getDaoDefaultOpenProjectMilestoneIndex(project) {
-  if (project?.status?.key !== 'started' || !Array.isArray(project.milestones)) return -1;
-  return project.milestones.findIndex((milestone) => milestone?.status?.key === 'started');
+export function shouldOpenDaoProjectMilestoneByDefault(project, proposalState, milestoneIndex) {
+  if (proposalState === 'review' || proposalState === 'voting') return true;
+  if (project?.status?.key !== 'started' || !Array.isArray(project.milestones)) return false;
+  return project.milestones.findIndex((milestone) => milestone?.status?.key === 'started') === milestoneIndex;
 }
 
 function normalizeDaoVoteReminderSchedule(value) {

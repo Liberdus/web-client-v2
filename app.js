@@ -98,7 +98,6 @@ import {
   buildDaoProposalCreateDraft,
   daoRepo,
   DAO_STATES,
-  getDaoDefaultOpenProjectMilestoneIndex,
   getDaoFinalVoteResult,
   getDaoNotificationSummary,
   getDaoProjectBudgetSummary,
@@ -125,6 +124,7 @@ import {
   normalizeDaoParameterInput,
   parseDaoUnsignedBigInt,
   setDaoBackendFetcher,
+  shouldOpenDaoProjectMilestoneByDefault,
 } from './dao.js';
 
 // Import crypto functions from crypto.js
@@ -4706,7 +4706,7 @@ function getDaoProposalStatusTone(status) {
   return '';
 }
 
-function renderDaoProjectInfoMilestones(project) {
+function renderDaoProjectInfoMilestones(project, proposalState) {
   if (project.milestones.length === 0) {
     return `
       <section class="proposal-info-section dao-project-info-milestones">
@@ -4719,7 +4719,6 @@ function renderDaoProjectInfoMilestones(project) {
     `;
   }
 
-  const defaultOpenMilestoneIndex = getDaoDefaultOpenProjectMilestoneIndex(project);
   const milestoneHtml = project.milestones.map((milestone, index) => {
     const milestoneNumber = index + 1;
     const title = formatDaoDetailValue(milestone.title);
@@ -4727,7 +4726,7 @@ function renderDaoProjectInfoMilestones(project) {
     const deliverable = formatDaoDetailValue(milestone.deliverable);
     const statusLabel = milestone.status?.label || 'Unavailable';
     const statusTone = getDaoProjectStatusTone(milestone.status?.key);
-    const isDefaultOpen = index === defaultOpenMilestoneIndex;
+    const isDefaultOpen = shouldOpenDaoProjectMilestoneByDefault(project, proposalState, index);
 
     return `
       <details class="dao-project-review-milestone dao-project-info-milestone"${isDefaultOpen ? ' open' : ''}>
@@ -4821,7 +4820,7 @@ function renderDaoProjectProposalInfo(proposal, proposalState) {
       ['Treasury balance', project.balanceWei === null ? null : formatDaoLibWei(project.balanceWei)],
       ['Claimable balance', project.claimableBalanceWei === null ? null : formatDaoLibWei(project.claimableBalanceWei)],
     ], 'dao-project-info-funding'),
-    renderDaoProjectInfoMilestones(project),
+    renderDaoProjectInfoMilestones(project, proposalState),
   ].filter(Boolean).join('');
 }
 
