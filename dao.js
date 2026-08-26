@@ -1204,7 +1204,7 @@ export function shouldOpenDaoProjectMilestoneByDefault(project, proposalState, m
   return project.milestones.findIndex((milestone) => milestone?.status?.key === 'started') === milestoneIndex;
 }
 
-export function shouldShowDaoProjectMilestoneRuntime(project) {
+export function shouldShowDaoProjectRuntime(project) {
   return DAO_PROJECT_RUNTIME_STATUS_KEYS.has(project?.status?.key);
 }
 
