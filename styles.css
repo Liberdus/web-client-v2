@@ -2642,6 +2642,10 @@ input[type='file'].form-control::file-selector-button {
   border-bottom: 1px solid var(--border-color);
 }
 
+#proposalInfoModal .dao-project-info-milestone[open] summary::after {
+  transform: rotate(225deg);
+}
+
 #proposalInfoModal .dao-project-info-milestone summary:focus-visible {
   outline: 2px solid var(--primary-color);
   outline-offset: -2px;
