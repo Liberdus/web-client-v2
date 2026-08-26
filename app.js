@@ -22387,7 +22387,12 @@ class ChatModal {
     if (!url || url === '#') return false;
 
     try {
-      const thumbnailBlob = await thumbnailCache.get(url);
+      let thumbnailBlob = await thumbnailCache.get(url);
+      if (!thumbnailBlob && attachmentRow.dataset.pUrl) {
+        const item = this.getMessageRecordFromRenderedChild(attachmentRow);
+        thumbnailBlob = await this.decryptAttachmentToBlob(item, attachmentRow, attachmentRow.dataset.pUrl);
+        await thumbnailCache.save(url, thumbnailBlob, 'image/jpeg');
+      }
       if (!thumbnailBlob || !attachmentRow.isConnected) return false;
       return this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
     } catch (error) {
