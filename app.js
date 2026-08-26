@@ -4546,10 +4546,9 @@ function renderDaoProposalOptions(proposal) {
   const isProject = proposal?.proposalType === DAO_PROJECT_TYPE;
   const optionCards = options.map((option, index) => {
     const noChangeClass = index === 0 && !isProject ? ' proposal-option-section--no-change' : '';
-    const optionLabel = index === 0 && isProject ? 'Reject' : option;
     return `
       <div class="proposal-option-section${noChangeClass}">
-        <span class="proposal-option-label">${escapeHtml(optionLabel)}</span>
+        <span class="proposal-option-label">${escapeHtml(option)}</span>
         ${isProject
           ? renderDaoProjectProposalOptionDetails(index)
           : renderDaoProposalOptionDetails(index, changeSets)}
@@ -5064,8 +5063,9 @@ function formatDaoBigIntPercent(part, total) {
 }
 
 function getDaoProposalOptions(proposal) {
+  const firstOptionLabel = proposal.proposalType === DAO_PROJECT_TYPE ? 'Reject' : 'No change';
   return proposal.options.map((option, index) => (
-    index === 0 && String(option).toLowerCase() === 'no' ? 'No change' : String(option)
+    index === 0 && String(option).toLowerCase() === 'no' ? firstOptionLabel : String(option)
   ));
 }
 
