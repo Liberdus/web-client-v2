@@ -2614,13 +2614,14 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .dao-project-info-milestone summary {
-  align-items: center;
+  align-items: start;
   cursor: pointer;
   display: grid;
   gap: 8px;
   grid-template-columns: minmax(0, 1fr) auto 18px;
   list-style: none;
   padding: 10px;
+  text-align: left;
 }
 
 #proposalInfoModal .dao-project-info-milestone summary::-webkit-details-marker {
@@ -2673,12 +2674,41 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .dao-project-info-milestone-status {
+  align-self: center;
   background: var(--input-background);
   border-radius: 999px;
   color: var(--secondary-text-color);
   font-size: 12px;
   font-weight: var(--font-weight-semibold);
   padding: 3px 7px;
+}
+
+#proposalInfoModal .dao-project-info-milestone-copy,
+#proposalInfoModal .dao-project-info-milestone-copy > span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  text-align: left;
+}
+
+#proposalInfoModal .dao-project-info-milestone-copy {
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+#proposalInfoModal .dao-project-info-milestone-copy-label {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+}
+
+#proposalInfoModal .dao-project-info-milestone-copy-value {
+  color: var(--text-color);
+  font-size: 13px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 #proposalInfoModal .dao-project-info-milestone-content {
