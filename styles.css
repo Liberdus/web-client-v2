@@ -2720,8 +2720,40 @@ input[type='file'].form-control::file-selector-button {
   color: var(--secondary-text-color);
 }
 
-#proposalInfoModal .dao-project-info-funding .proposal-info-row:first-child {
-  flex-basis: 100%;
+#proposalInfoModal .dao-project-info-funding .proposal-info-grid {
+  display: grid;
+  gap: 0;
+}
+
+#proposalInfoModal .dao-project-info-funding .proposal-info-row {
+  align-items: baseline;
+  background: transparent;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
+  box-shadow: none;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(120px, auto) minmax(0, 1fr);
+  grid-template-rows: none;
+  min-height: 0;
+  padding: 5px 0;
+  text-align: left;
+}
+
+#proposalInfoModal .dao-project-info-funding .proposal-info-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+#proposalInfoModal .dao-project-info-funding .proposal-info-row > span:not(.proposal-info-value) {
+  align-self: baseline;
+  justify-self: start;
+  text-align: left;
+}
+
+#proposalInfoModal .dao-project-info-funding .proposal-info-value {
+  justify-self: end;
+  text-align: right;
 }
 
 #proposalInfoModal .dao-project-info-runtime {
@@ -3299,9 +3331,12 @@ input[type='file'].form-control::file-selector-button {
     flex-basis: calc((100% - 8px) / 2);
   }
 
-  #proposalInfoModal .dao-project-info-funding .proposal-info-row,
   #proposalInfoModal .dao-project-review-milestone .proposal-info-row {
     flex-basis: 100%;
+  }
+
+  #proposalInfoModal .dao-project-info-funding .proposal-info-row {
+    grid-template-columns: minmax(100px, auto) minmax(0, 1fr);
   }
 }
 
