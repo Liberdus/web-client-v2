@@ -125,6 +125,7 @@ import {
   parseDaoUnsignedBigInt,
   setDaoBackendFetcher,
   shouldOpenDaoProjectMilestoneByDefault,
+  shouldShowDaoProjectMilestoneRuntime,
 } from './dao.js';
 
 // Import crypto functions from crypto.js
@@ -4719,6 +4720,7 @@ function renderDaoProjectInfoMilestones(project, proposalState) {
     `;
   }
 
+  const showRuntimeStatus = shouldShowDaoProjectMilestoneRuntime(project);
   const milestoneHtml = project.milestones.map((milestone, index) => {
     const milestoneNumber = index + 1;
     const title = formatDaoDetailValue(milestone.title);
@@ -4756,6 +4758,7 @@ function renderDaoProjectInfoMilestones(project, proposalState) {
               ['Early bonus', formatDaoProjectUsd(milestone.bonusUsdStr)],
             ])}
           </div>
+          ${showRuntimeStatus ? `
           <div class="proposal-info-grid dao-project-info-runtime" aria-label="Milestone ${milestoneNumber} runtime status">
             ${renderDaoProposalRows([
               ['Milestone status', statusLabel, statusTone],
@@ -4766,6 +4769,7 @@ function renderDaoProjectInfoMilestones(project, proposalState) {
               ['Paid at', milestone.paidAt === null ? null : formatDaoDetailTimestamp(milestone.paidAt)],
             ])}
           </div>
+          ` : ''}
         </div>
       </details>
     `;
