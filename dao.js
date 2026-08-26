@@ -149,6 +149,18 @@ export const DAO_STATES = [
   { key: 'applied', label: 'Applied' },
 ];
 
+export const DAO_PROJECT_FILTERS = [
+  { key: 'executing', label: 'Executing' },
+  { key: 'terminated', label: 'Terminated' },
+  { key: 'completed', label: 'Completed' },
+];
+
+const DAO_PROJECT_STATUS_FILTER_KEYS = new Map([
+  ['started', 'executing'],
+  ['terminated', 'terminated'],
+  ['completed', 'completed'],
+]);
+
 const DAO_NON_FILTER_STATE_LABELS = new Map([
   ['canceled', 'Canceled'],
 ]);
@@ -281,6 +293,19 @@ export function getDaoStateLabel(key) {
 
 export function getEffectiveDaoState(proposal) {
   return proposal?.status || proposal?.state || 'review';
+}
+
+export function getDaoProposalListFilterKey(proposal) {
+  const proposalState = getEffectiveDaoState(proposal);
+  if (proposal?.proposalType !== DAO_PROJECT_TYPE) return proposalState;
+
+  const projectStatus = String(proposal?.project?.status || '').trim().toLowerCase();
+  const projectFilterKey = DAO_PROJECT_STATUS_FILTER_KEYS.get(projectStatus);
+  if (projectFilterKey) return projectFilterKey;
+
+  // Applied is reserved for parameter changes. A malformed or not-yet-started
+  // Project remains available through All instead of appearing as Applied.
+  return proposalState === 'applied' ? '' : proposalState;
 }
 
 function requireDaoDraftString(value, label, maxLength) {
@@ -1669,6 +1694,7 @@ function storeToUiList(store) {
         title: proposal.title,
         description: proposal.description,
         proposalType: proposal.proposalType,
+        project: proposal.project,
         emergency: Boolean(proposal.emergency),
         createdAt: proposal.created,
         state,
