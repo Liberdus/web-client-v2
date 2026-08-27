@@ -101,6 +101,7 @@ import {
   getDaoNotificationSummary,
   getDaoProjectBudgetSummary,
   getDaoProjectPresentation,
+  getDaoProposalInfoStateLabel,
   getDaoTransactionMessage,
   getDaoTrackedProposalMetadataEntries,
   getDaoProposalClaimWindow,
@@ -5685,7 +5686,7 @@ class ProposalInfoModal {
   renderProposal(proposal) {
     const now = getTransactionTimestamp();
     const state = getEffectiveDaoState(proposal);
-    this.setTitle(getDaoStateLabel(state) || state || 'Proposal');
+    this.setTitle(getDaoProposalInfoStateLabel(proposal));
     const reviewWindow = getDaoProposalReviewWindow(proposal, now);
     const committeeReview = getDaoCommitteeReview(proposal);
     const { committeeAddresses, committeeAddressSet, votes } = committeeReview;
