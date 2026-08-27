@@ -23,6 +23,15 @@ Governance and economic rows cover the complete `NetworkParameters` interface. P
 | `votingDuration` | Yes | `number` | `number` | milliseconds | `691,200,000 (8 days)` | 3,600,000–2,592,000,000 (1 hour–30 days) |  |
 | `committeeAddresses` | No | — | `string[]` | addresses | `[5 addresses]` | 4–10 unique valid addresses | Planned |
 
+### How the governance parameters interact
+
+- **Voting eligibility and cost:** `voteThresholdUsdStr` is the minimum wallet balance required to cast a vote. It is not a turnout threshold and is not deducted. `minimumSpendUsdStr` is the minimum amount committed by one vote; the web client lets the voter choose a positive whole-number multiple of it. The wallet must cover both rules, so the effective balance requirement is `max(voteThreshold, selected spend + transaction fee)`. With the current values, a wallet needs at least the LIB equivalent of USD 100, the minimum vote spends the equivalent of USD 1, and the separate transaction fee also applies.
+- **Voting power:** The selected spend is deducted and added to the proposal's voter reward pool. `voteExponent` controls how strongly spending above `minimumSpendUsdStr` increases voting power. Option weights only divide that power among the ballot choices. Votes in the first half of `votingDuration` receive the full time factor; during the second half, that factor declines linearly toward zero. Multiple votes are additive and each one spends funds again.
+- **Proposal lifecycle:** `reviewDuration` runs first, followed by `votingDuration` for a regular proposal. `claimDuration` starts after the vote result is finalized and limits how long voters can claim rewards. A proposal can request its own grace period before accepted changes are applied, but `graceDuration` is the maximum grace period it may request; it is not automatically added to every proposal.
+- **Committee control:** `committeeAddresses` is copied into each proposal when it is created. Those snapshotted members review regular proposals and can create emergency proposals. More than half of the committee must vote to withhold a regular proposal; otherwise it advances to community voting after review. Emergency proposals skip the community vote when the committee reaches a decisive acceptance.
+- **Fees, rewards, and burning:** `proposalFeeUsdStr` is charged only for non-emergency proposals and initially seeds the voter reward pool. Vote spends add to that pool. After voting, `pctBurned` is removed from the pool, voters may claim from what remains during `claimDuration`, and any unclaimed remainder is burned after the claim window. A committee-withheld regular proposal burns its seeded pool. This DAO proposal fee is distinct from the legacy economic `proposalFee` bigint row below.
+- **When changes take effect:** These governance values are snapshotted when a proposal is created, so later parameter changes do not rewrite an open proposal's rules. USD-denominated voting requirements are converted to LIB using the network pricing in effect when the vote is validated.
+
 ## Economic
 
 | Parameter | Shown in web-client-v2 | web-client-v2 value type | Server value type | Units | Current server value | Estimated safe range | Future web-client status |
@@ -71,6 +80,15 @@ Governance and economic rows cover the complete `NetworkParameters` interface. P
 | `title` | No | — | `string` | n/a | `"Initial parameters"` | Not assessed |  |
 | `transactionFee` | No | — | `bigint` | wei | `100,000,000,000,000,000n` | Not assessed |  |
 | `transactionFeeUsdStr` | No | — | `string` | USD decimal string | `"0.01"` | Not assessed |  |
+
+### How the economic parameters interact
+
+- **USD values and LIB amounts:** `stabilityFactorStr` is the conversion factor used to turn USD-denominated settings into LIB amounts. Parameters such as `transactionFeeUsdStr`, `stakeRequiredUsdStr`, `nodeRewardAmountUsdStr`, `nodePenaltyUsdStr`, `minTollUsdStr`, and `defaultTollUsdStr` keep their nominal USD value while their LIB amount changes with the factor. At the current `activeVersion`, the server uses these string fields; the matching bigint fields are retained for older-version paths.
+- **Validator economics:** `stakeRequiredUsdStr` sets the stake target, while `stakeLockTime` and `restakeCooldown` control when stake can move or be reused. `nodeRewardAmountUsdStr` is the reward unit and `nodeRewardInterval` controls how frequently that unit accrues; changing the interval changes rewards per unit of elapsed time unless the amount is changed with it. `certCycleDuration` separately controls how many network cycles a staking certificate remains valid.
+- **Slashing:** `enableNodeSlashing` is the overall gate. Each event also has its own enable flag—`enableLeftNetworkEarlySlashing`, `enableNodeRefutedSlashing`, or `enableSyncTimeoutSlashing`—and a matching penalty ratio. A penalty is operational only when slashing and that event's flag are enabled; the matching `*PenaltyPercent` then determines the fraction of stake removed.
+- **Account maintenance:** `maintenanceInterval` works with `maintenanceFee`: once enough time has elapsed, the server calculates an account maintenance charge over the elapsed intervals. It does not schedule message cleanup.
+- **Message cleanup:** `messageMaxLength` caps the retained messages per chat and `messageRetentionDays` sets the age limit. Both limits are enforced opportunistically when a new message is processed, so an inactive chat is not cleaned merely because the retention period elapsed.
+- **Transaction availability:** `txPause` and protocol `allowEndUserTxnInjections` look like related gates, but they are not coupled. In the current Liberdus server source, `txPause` is stored in configuration but is not enforced in transaction handling; `allowEndUserTxnInjections` is a Shardus-level injection switch. Do not treat them as an interchangeable kill switch without another implementation review.
 
 ## Protocol
 
@@ -446,3 +464,12 @@ Governance and economic rows cover the complete `NetworkParameters` interface. P
 | `waitTimeBeforeReceipt` | No | — | `number` | Not assessed | `200` | Not assessed |  |
 | `waitUpstreamTx` | No | — | `boolean` | n/a | `false` | Not assessed |  |
 | `writeSyncProtocolV2` | No | — | `boolean` | n/a | `false` | Not assessed |  |
+
+### How the protocol parameters interact
+
+- **Network size and safety:** Keep `nodesPerConsensusGroup ≤ minNodes ≤ baselineNodes ≤ maxNodes`. The autoscaler uses `minNodes` as its desired floor and `maxNodes` as its ceiling. `baselineNodes` is a separate threshold for entering safety, recovery, and restore modes only when `networkBaselineEnabled` is enabled; with the current `false` value, those modes use `minNodes` instead.
+- **Scaling and removal:** `amountToGrow` changes the desired node count on scale-up. In the pinned Shardus version, that same value is also subtracted on autoscale-down, while `amountToShrink` and `maxShrinkMultiplier` limit how many active nodes rotation may actually remove. `maxDesiredMultiplier` separately caps scale-up relative to the active node count. These values therefore cannot be treated as symmetric grow/shrink knobs.
+- **Joining and syncing:** `maxJoinedPerCycle` is the base join allowance. `maxSyncingPerCycle` caps syncing nodes and is multiplied by the scale factor; `syncBoostEnabled` adds another multiplier for smaller networks. `syncingMaxAddPercent` is a separate mode-transition cap based on active-node count. `cycleDuration` turns these per-cycle limits into wall-clock rates, so shorter cycles allow the same limit to be exercised more often.
+- **Consensus participation:** `nodesPerConsensusGroup` defines the shard consensus-group size. `voterPercentage` selects `max(3, floor(execution group size × voterPercentage))` eligible transaction-consensus voters. This is protocol transaction voting and is unrelated to the DAO `voteThresholdUsdStr` balance requirement.
+- **Load and rate controls:** The `loadDetection` group converts `desiredTxTime`, `queueLimit`, and `executeQueueLimit` into normalized load. Load above `highThreshold` requests scale-up; load below `lowThreshold` requests scale-down, so `lowThreshold` must remain below `highThreshold`. Rate limiting is separate: when `limitRate` is enabled, each `loadLimit` value sets the point where that load metric begins probabilistic transaction rejection.
+- **Scope warning:** The protocol table flattens Shardus container names and unique leaf keys into one catalog. Many server-only rows are debug flags, rollout switches, or internal timeout pairs whose meaning depends on their containing subsystem. Treat `Not assessed` as requiring a source-level review of the entire related group, not as an independent parameter that is safe to tune alone.
