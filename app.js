@@ -5698,7 +5698,17 @@ class ProposalInfoModal {
       currentAddress,
       committeeAddressSet,
     });
+    const isProjectProposal = proposal.proposalType === DAO_PROJECT_TYPE;
+    const projectProposalInfoSection = isProjectProposal
+      ? renderDaoProjectProposalInfo(proposal, state)
+      : '';
+    const proposalOptionsSection = renderDaoProposalOptions(proposal);
     const resultSummary = getDaoProposalResultSummary(proposal);
+    const proposalResultsSection = this.renderProposalResults(
+      resultSummary,
+      committeeReview,
+      currentAddress,
+    );
     const rewardSummary = getDaoProposalRewardSummary(proposal, currentAddress);
     const lifecycleActions = getDaoProposalLifecycleActions(proposal, rewardSummary, currentAddress, now);
     const pendingFinalizationOutcome = getDaoPendingFinalizationOutcome(proposal, now);
@@ -5716,12 +5726,10 @@ class ProposalInfoModal {
     if (this.content) {
       this.content.innerHTML = [
         renderDaoProposalHeading(proposal),
-        proposal.proposalType === DAO_PROJECT_TYPE
-          ? renderDaoProjectProposalInfo(proposal, state)
-          : '',
-        renderDaoProposalOptions(proposal),
+        projectProposalInfoSection,
+        isProjectProposal ? '' : proposalOptionsSection,
         state === 'voting' ? this.renderCurrentVoteTotals(proposal) : '',
-        this.renderProposalResults(resultSummary, committeeReview, currentAddress),
+        isProjectProposal ? '' : proposalResultsSection,
         state === 'review'
           ? this.renderCommitteeReviewStatus(committeeReview, reviewWindow, currentAddress)
           : '',
@@ -5734,6 +5742,9 @@ class ProposalInfoModal {
         reviewWindow,
         rewardSummary,
         committeeReviewSection,
+        projectProposalSections: isProjectProposal
+          ? [proposalOptionsSection, proposalResultsSection]
+          : [],
       });
     }
 
@@ -6054,8 +6065,16 @@ class ProposalInfoModal {
     ]);
   }
 
-  renderProposalDetails({ proposal, state, reviewWindow, rewardSummary, committeeReviewSection }) {
+  renderProposalDetails({
+    proposal,
+    state,
+    reviewWindow,
+    rewardSummary,
+    committeeReviewSection,
+    projectProposalSections,
+  }) {
     const sections = [
+      ...projectProposalSections,
       renderDaoProposalSection('Overview', [
         ['Number', proposal.number ? `#${proposal.number}` : 'Unavailable'],
         ['Type', getDaoTypeLabel(proposal.proposalType) || 'Unavailable'],
@@ -6076,15 +6095,21 @@ class ProposalInfoModal {
       <details class="proposal-more">
         <summary>
           <span class="proposal-more-title">Show proposal details</span>
-          <span class="proposal-more-note">${escapeHtml(this.getProposalDetailsSummary(state, rewardSummary))}</span>
+          <span class="proposal-more-note">${escapeHtml(this.getProposalDetailsSummary(
+            proposal,
+            state,
+            rewardSummary,
+          ))}</span>
         </summary>
         <div class="proposal-more-content">${sections.join('')}</div>
       </details>
     `;
   }
 
-  getProposalDetailsSummary(state, rewardSummary) {
-    const parts = ['Overview', 'review timeline'];
+  getProposalDetailsSummary(proposal, state, rewardSummary) {
+    const parts = proposal.proposalType === DAO_PROJECT_TYPE
+      ? ['Proposal options', 'results', 'overview', 'review timeline']
+      : ['Overview', 'review timeline'];
     if (state === 'review') parts.push('committee review');
     if (rewardSummary) parts.push('reward accounting');
     return parts.join(', ');
