@@ -984,6 +984,17 @@ const DAO_PROJECT_STATUS_LABELS = Object.freeze({
   terminated: 'Terminated',
 });
 
+export function getDaoProposalInfoStateLabel(proposal) {
+  const proposalState = getEffectiveDaoState(proposal);
+  const proposalStateLabel = getDaoStateLabel(proposalState) || proposalState || 'Proposal';
+  if (proposal?.proposalType !== DAO_PROJECT_TYPE || proposalState !== 'applied') {
+    return proposalStateLabel;
+  }
+
+  const projectStatus = String(proposal?.project?.status || '').trim().toLowerCase();
+  return DAO_PROJECT_STATUS_LABELS[projectStatus] || proposalStateLabel;
+}
+
 const DAO_PROJECT_MILESTONE_STATUS_LABELS = Object.freeze({
   pending: 'Pending',
   started: 'Started',
