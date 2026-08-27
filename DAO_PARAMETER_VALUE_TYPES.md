@@ -21,7 +21,7 @@ Governance and economic rows cover the complete `NetworkParameters` interface. P
 | `voteExponent` | Yes | `number` | `number` | unitless exponent | `0.1` | (0, 1] |  |
 | `voteThresholdUsdStr` | Yes | `string` | `string` | USD decimal string | `100.0` | ≥ 0; at most 15 whole and 18 fractional digits |  |
 | `votingDuration` | Yes | `number` | `number` | milliseconds | `691,200,000 (8 days)` | 3,600,000–2,592,000,000 (1 hour–30 days) |  |
-| `committeeAddresses` | No | — | `string[]` | addresses | `[5 addresses]` | 4–10 unique valid addresses |  |
+| `committeeAddresses` | No | — | `string[]` | addresses | `[5 addresses]` | 4–10 unique valid addresses | Planned |
 
 ## Economic
 
