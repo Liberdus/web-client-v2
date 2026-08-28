@@ -1,676 +1,109 @@
-# DAO Mock Screen Flow And Needed Screens
+# DAO Screen Flow
 
-This document maps the DAO UI that exists in the web client today, marks what is mock-only, and sketches screens that may need to be added for the full DAO policy flow.
+This document describes the DAO UI that exists on `main` at `9c02dfb3` (August 26, 2026). The interactive reference is [`mock/index.html`](mock/index.html).
 
-## Legend
+## Entry and list
 
-```text
-[CURRENT MOCK]  Exists in the app today, backed by in-memory mock data.
-[PARTIAL]       Exists, but only covers a small part of the policy requirement.
-[NEEDED]        Not implemented as a screen yet.
-[BACKEND]       Needs live network or indexer integration.
-```
+The Devnet-only **DAO** Menu item opens `daoModal`. The modal loads proposal metadata and details from the DAO backend and defaults to the **Vote** filter. A DAO notification can choose **Vote** or **Claim** as the initial filter.
 
-## Current Mock Entry Flow
+The fixed, two-row filter bar contains:
 
-```text
-+-------------------------+
-| Main App                |
-| Chats / Contacts / ...  |
-+-----------+-------------+
-            |
-            | Menu -> DAO
-            | Note: DAO menu item is shown only on Devnet today.
-            v
-+-------------------------+
-| [CURRENT MOCK] DAO List |
-| Title: DAO - group/state|
-|                         |
-| [Active N] [Archived N] |
-| Filter: status menu     |
-|                         |
-| #N Proposal title       |
-| summary + state time    |
-|                         |
-|                    (+)  |
-+------+-------------+----+
-       |             |
-       | tap row     | tap +
-       v             v
-+-------------------+     +-----------------------------+
-| [CURRENT MOCK]    |     | [CURRENT MOCK] Add Proposal |
-| Proposal Detail   |     |                             |
-|                   |     | Title                       |
-| #N / title / type |     | Type select                 |
-| state / createdBy |     | Type-specific mock fields   |
-| summary           |     | Summary                     |
-| fields            |     |                             |
-|                   |     | Submit -> creates           |
-| If state=voting:  |     | state=discussion in memory  |
-| [Yes] [No]        |     +-----------------------------+
-| Yes: N / No: N    |
-+-------------------+
-```
+1. Review
+2. Vote
+3. Accepted
+4. Claim
+5. Withheld
+6. Rejected
+7. Applied
+8. All
 
-## Current Mock Screens
+All except **Claim** and **All** are server proposal-status filters. **All** contains every metadata entry. **Claim** is account-specific: it starts with locally tracked claim candidates, loads fresh proposal details, and only displays rows that are currently claimable.
 
-### 1. DAO List
+Proposal rows show the title, proposal type, and contextual preview badges. Preview badges expose important timing and actions without adding separate screens, including:
+
+- review or voting deadlines;
+- ready-to-finalize status;
+- accepted, rejected, or emergency results;
+- ready-to-claim, ready-to-burn, and ready-to-apply actions.
+
+The floating **+** button opens `addProposalModal`.
+
+## Proposal creation
 
 ```text
-+------------------------------------------------+
-| <  DAO - Active - Voting                 [F]   |
-+------------------------------------------------+
-| [ Active 22 ] [ Archived 14 ]                  |
-|                                                |
-| #3 Adjust minimum transaction fee       9:10 AM|
-| Change the minimum transaction fee...          |
-|                                                |
-| Empty state when no proposal matches filter:   |
-| No proposals found                             |
-| Use + to create a proposal                     |
-|                                           (+)  |
-+------------------------------------------------+
+DAO list
+  -> Add Proposal
+  -> Review Proposal
+  -> Sign Proposal
+  -> previous DAO filter + pending confirmation toast
+  -> Review filter after settlement
 ```
 
-Status: `[CURRENT MOCK]`
+**Add Proposal** includes:
 
-What it does today:
+- emergency and proposal-fee fields;
+- title, description, and proposal type;
+- the fixed first **no change** option;
+- one to nine additional options with typed parameter changes;
+- review-delay and grace-period pickers;
+- Cancel and Review Draft actions.
 
-- Opens from the main menu when `network.name === 'Devnet'`.
-- Loads proposals through `daoRepo.refresh()`.
-- Defaults to `Active` group and `Voting` status.
-- Supports `Active` and `Archived` groups.
-- Supports status filtering with counts.
-- Sorts by newest `state_changed` timestamp.
-- Uses mock data from `dao.mock-data.js`.
+**Review Proposal** reuses the same heading, option cards, overview cards, and review-timeline cards as the shared Proposal modal. Signing closes the creation modals and returns to the previously selected DAO filter. It does not automatically open the new proposal or select Review.
 
-Mock-only notes:
+## Shared Proposal modal
 
-- No backend endpoint is called.
-- Data is held in module memory.
-- Reloading the page resets the mock store.
-- Archived is derived locally by age and status, not loaded from chain.
+Every proposal row opens `proposalInfoModal`. The modal title reflects the effective proposal state, and the body always starts with the proposal heading and option cards. State-, role-, account-, and time-dependent sections are added below them.
 
-### 2. Status Filter Menu
+| Effective state | Always visible | Contextual actions |
+| --- | --- | --- |
+| Review | Proposal options and committee totals | Committee members can submit Accept or Withhold while review is open. After `reviewEnd`, a funded user can finalize the review result. |
+| Voting | Proposal options and current weighted totals | Eligible users can allocate integer weights, select a whole-number minimum-spend multiple, preview power, and submit a vote. After `votingEnd`, a funded user can finalize the vote result. |
+| Accepted | Winning option, result meter, and expandable details | Claim reward during the account's eligible claim window; apply parameters after the grace period; burn unclaimed rewards after the claim window. |
+| Rejected | Winning option, result meter, and expandable details | Claim or burn rewards when the corresponding lifecycle conditions are met. |
+| Withheld | Committee result, committee votes, and expandable details | Reward lifecycle actions when available. |
+| Applied | Result and expandable reward accounting | Remaining reward lifecycle actions when available. |
+
+The expandable **Show proposal details** section contains overview data, the review timeline, committee review information during Review, and reward accounting when available.
+
+## State transitions
 
 ```text
-+------------------+
-| Discussion 2     |
-| Withheld 7       |
-| Voting 1         |
-| Rejected 1       |
-| Accepted 2       |
-| Applied 3        |
-| Executing 1      |
-| Terminated 0     |
-| Completed 5      |
-+------------------+
+Review
+  -> committee votes during the review window
+  -> Finalize review result
+     -> Voting for an accepted standard proposal
+     -> Accepted for an accepted emergency proposal
+     -> Withheld when withhold wins
+
+Voting
+  -> weighted user votes during the voting window
+  -> Finalize vote result
+     -> Accepted when a change option wins
+     -> Rejected when no-change wins
+
+Accepted
+  -> Claim reward during claim window, when eligible
+  -> Apply parameters after grace period
+  -> Burn unclaimed reward after claim window
+  -> Applied after parameters are applied
 ```
 
-Status: `[CURRENT MOCK]`
+## Concepts removed from the old mock
 
-What it does today:
+The current client does not use these older prototype concepts:
 
-- Filters the selected group by proposal state.
-- Displays counts for the selected group.
+- in-memory DAO mock data;
+- Active/Archived tabs;
+- a funnel-based status overlay;
+- a DAO category dashboard;
+- a separate committee queue;
+- standalone Vote, Results, Rewards, Parameters, Ready Actions, or Apply Parameters modals.
 
-Mock-only notes:
+Their functions now live in the filter bar, proposal-row preview badges, and the shared Proposal modal.
 
-- Counts come from the in-memory mock store.
-- There is no server-side pagination, search, or chain-backed count source.
+## Interactive mock controls
 
-### 3. Add Proposal
-
-```text
-+------------------------------------------------+
-| <  Add Proposal                                |
-+------------------------------------------------+
-| Title                                          |
-| [__________________________________________]   |
-|                                                |
-| Type                                           |
-| [Project v]                                    |
-|                                                |
-| Type-specific mock fields                      |
-| [Address]                                      |
-| [Amount]                                       |
-|                                                |
-| Summary                                        |
-| [__________________________________________]   |
-| [__________________________________________]   |
-|                                                |
-| [Submit]                                      |
-| [Cancel]                                      |
-+------------------------------------------------+
-```
-
-Status: `[CURRENT MOCK]` / `[PARTIAL]`
-
-What it does today:
-
-- Creates an in-memory proposal.
-- New proposals always start in `discussion`.
-- Captures only a minimal type-specific field set.
-
-Mock-only notes:
-
-- No proposal fee.
-- No transaction signing.
-- No discussion-period enforcement.
-- No committee review submission.
-- No options editor; voting is implicitly Yes/No in the detail screen.
-- No emergency proposal path.
-
-### 4. Proposal Detail
-
-```text
-+------------------------------------------------+
-| <  Proposal                                    |
-+------------------------------------------------+
-| Proposal #3                                    |
-| Adjust minimum transaction fee                 |
-| Type: Economic                                 |
-| Voting - 6/15/2026, 9:10 AM - by carol        |
-|                                                |
-| Change the minimum transaction fee...          |
-|                                                |
-| minTxFee: 0.001                                |
-| nodeRewards: unchanged                         |
-|                                                |
-| Vote                                           |
-| [Yes] [No]                                     |
-| Yes: 12 - No: 4                                |
-+------------------------------------------------+
-```
-
-Status: `[CURRENT MOCK]` / `[PARTIAL]`
-
-What it does today:
-
-- Shows proposal number, title, type, state timestamp, creator, summary, and fields.
-- Shows Yes/No voting controls only for `voting` proposals.
-- Stores one current mock vote per local voter id.
-- Clicking the selected vote again removes the mock vote.
-
-Mock-only notes:
-
-- Real DAO policy allows weighted ballots, additive votes, spend amount, time decay, and multiple options.
-- Current mock voting is simple Yes/No integer counts.
-- No vote eligibility check.
-- No transaction confirmation.
-- No audit trail.
-- No reward claim information.
-- No committee vote details.
-- No grace period or apply action.
-
-## Current Mock Data Shape
-
-```text
-daoRepo
-  |
-  +-- mode: mock
-  +-- refresh()
-  +-- getProposalsForUi(group)
-  +-- createProposal()
-  +-- castVote()
-  |
-  v
-in-memory store
-  |
-  +-- meta
-  +-- activeProposals[]
-  +-- archivedProposals[]
-  +-- proposals{proposalId}
-```
-
-Seeded mock proposal states:
-
-```text
-Active group:
-  discussion  2
-  withheld    7
-  voting      1
-  rejected    1
-  accepted    2
-  applied     3
-  executing   1
-  terminated  0
-  completed   5
-
-Archived group:
-  14 seeded historical proposals after local age normalization
-```
-
-## Full Policy Flow With Needed Screens
-
-```text
-+-----------------------------+
-| [NEEDED] DAO Home / Overview|
-| active proposals            |
-| reward pools                |
-| parameters                  |
-| my pending actions          |
-+--------------+--------------+
-               |
-               v
-+-----------------------------+
-| [NEEDED] Discussion List    |
-| potential proposals         |
-| discussion timers           |
-| comments / signals          |
-+--------------+--------------+
-               |
-               v
-+-----------------------------+
-| [PARTIAL] Proposal Builder  |
-| title / summary / type      |
-| options / parameters        |
-| fee / grace / emergency     |
-+--------------+--------------+
-               |
-               v
-+-----------------------------+
-| [NEEDED] Review And Submit  |
-| fee preview                 |
-| payload preview             |
-| sign dao_proposal_create    |
-+--------------+--------------+
-               |
-               v
-+-----------------------------+
-| [NEEDED] Committee Review   |
-| accept / withhold           |
-| withhold reason             |
-| emergency handling          |
-+------+----------------------+
-       |
-       +-----------------------+
-       |                       |
-       v                       v
-+-------------------+   +-----------------------------+
-| [NEEDED] Withheld |   | [NEEDED] Community Voting   |
-| reason / burn     |   | eligibility                 |
-| audit trail       |   | weighted ballot             |
-+-------------------+   | spend amount                |
-                        | live results                |
-                        +-------------+---------------+
-                                      |
-                                      v
-                        +-----------------------------+
-                        | [NEEDED] Result / Rewards   |
-                        | winner                      |
-                        | reward pool burn            |
-                        | voter reward claim          |
-                        | grace countdown             |
-                        +-------------+---------------+
-                                      |
-                                      v
-                        +-----------------------------+
-                        | [NEEDED] Apply / Execute    |
-                        | apply tx                    |
-                        | project milestones          |
-                        | parameter change status     |
-                        +-------------+---------------+
-                                      |
-                                      v
-                        +-----------------------------+
-                        | [PARTIAL] Archive / History |
-                        | final state                 |
-                        | full audit trail            |
-                        +-----------------------------+
-```
-
-## Screens To Add Or Expand
-
-### A. DAO Home / Overview
-
-```text
-+------------------------------------------------+
-| DAO                                            |
-+------------------------------------------------+
-| Active proposals: N                            |
-| Voting now: N                                  |
-| Rewards available to claim: N LIB              |
-|                                                |
-| [Create] [My votes] [Parameters]               |
-|                                                |
-| Needs attention                                |
-| - Committee vote required                      |
-| - Claim reward available                       |
-| - Proposal ready to apply                      |
-+------------------------------------------------+
-```
-
-Why it may be needed:
-
-- The current DAO list is useful, but the full policy creates different user tasks depending on role and proposal state.
-- A dashboard can surface "things I can do now" instead of forcing users through filters.
-
-### B. Discussion Screen
-
-```text
-+------------------------------------------------+
-| <  Proposal Discussion                         |
-+------------------------------------------------+
-| Draft: Increase minimum spend                  |
-| Discussion ends in 2d 4h                       |
-|                                                |
-| Summary / motivation                           |
-|                                                |
-| Comments                                      |
-| alice: ...                                     |
-| bob: ...                                       |
-|                                                |
-| [Comment] [Create proposal]                    |
-+------------------------------------------------+
-```
-
-Why it may be needed:
-
-- Policy says potential proposals should usually have a discussion period before creation.
-- Current `discussion` is a proposal state, but there is no discussion UI or comment thread.
-
-### C. Full Proposal Builder
-
-```text
-+------------------------------------------------+
-| <  Create Proposal                             |
-+------------------------------------------------+
-| Step 1: Type                                   |
-| ( ) Project                                    |
-| ( ) Governance parameter                       |
-| ( ) Economic parameter                         |
-| ( ) Protocol parameter                         |
-|                                                |
-| Step 2: Ballot options                         |
-| [Yes] [No] [+ option]                          |
-|                                                |
-| Step 3: Type-specific payload                  |
-| [changes / milestones / funding / versions]    |
-|                                                |
-| Step 4: Timing and fee                         |
-| discussion proof                               |
-| grace duration                                 |
-| emergency flag                                 |
-+------------------------------------------------+
-```
-
-What is missing from current Add Proposal:
-
-- Options array for ballots.
-- Proposal fee preview and payment.
-- Emergency proposal mode.
-- Grace duration selection.
-- Committee submission timing.
-- Full project milestone structure.
-- Governance/economic/protocol parameter change arrays.
-- Duplicate/reproposal warning for the 90-day rule.
-
-### D. Submit Confirmation / Transaction Screen
-
-```text
-+------------------------------------------------+
-| <  Confirm Proposal                            |
-+------------------------------------------------+
-| Proposal fee: 100 USD equivalent               |
-| Starts: committee review                       |
-| Type: Governance                               |
-|                                                |
-| Payload preview                                |
-| hash / account address                         |
-|                                                |
-| [Sign and submit]                              |
-+------------------------------------------------+
-```
-
-Why it may be needed:
-
-- `dao_proposal_create` is a real network transaction in the policy.
-- Users should see the cost, payload, and final transaction state before leaving the screen.
-
-### E. Committee Review Screen
-
-```text
-+------------------------------------------------+
-| <  Committee Review                            |
-+------------------------------------------------+
-| Proposal #21                                   |
-| Review ends in 1d 3h                           |
-|                                                |
-| Committee votes                                |
-| Accept: 4                                      |
-| Withhold: 2                                    |
-| Needed for decisive result: >50% same choice   |
-|                                                |
-| [Accept] [Withhold]                            |
-| Withhold reason: [select v]                    |
-+------------------------------------------------+
-```
-
-Why it may be needed:
-
-- Committee members must accept or withhold proposals during review.
-- Withhold requires a reason dropdown.
-- Emergency proposals have different default outcomes and no community voting.
-- Emergency approvals require a written explanation within 3 days.
-
-### F. Community Voting Screen
-
-```text
-+------------------------------------------------+
-| <  Vote                                        |
-+------------------------------------------------+
-| Eligibility: balance above threshold           |
-| Voting ends in 5d 2h                           |
-|                                                |
-| Options                                        |
-| [Yes] weight: 3                                |
-| [No ] weight: 1                                |
-|                                                |
-| Spend amount: [10.00 USD]                      |
-| Estimated applied weight: 12.59                |
-| Reward pool after vote: 312 LIB                |
-|                                                |
-| [Preview] [Submit vote]                        |
-+------------------------------------------------+
-```
-
-Why it may be needed:
-
-- Policy voting is not a simple Yes/No toggle.
-- A vote contains option weights and a spend amount.
-- Vote weight depends on spend, minimum spend, vote exponent, and time left.
-- Votes are additive, not replacements.
-- The user should understand cost, applied weight, and reward-pool impact before signing.
-
-### G. Live Results / Audit Screen
-
-```text
-+------------------------------------------------+
-| <  Results                                     |
-+------------------------------------------------+
-| Current winner: Yes                            |
-|                                                |
-| Yes  124.44                                    |
-| No    88.10                                    |
-|                                                |
-| Recent votes                                   |
-| address...  spend  option weights  time        |
-| address...  spend  option weights  time        |
-|                                                |
-| [Verify on chain]                              |
-+------------------------------------------------+
-```
-
-Why it may be needed:
-
-- Policy requires transparent, auditable voting.
-- Current proposal detail only shows aggregate mock counts.
-- Users need to verify their own vote and inspect vote history.
-
-### H. Result Finalization And Reward Claim
-
-```text
-+------------------------------------------------+
-| <  Final Result                                |
-+------------------------------------------------+
-| Winner: Yes                                    |
-| Initial burn: 50% of reward pool               |
-| Claim period ends in 23d                       |
-|                                                |
-| Your reward estimate: 4.23 LIB                 |
-| Claim status: available                        |
-|                                                |
-| [Claim reward]                                 |
-+------------------------------------------------+
-```
-
-Why it may be needed:
-
-- After voting ends, 50% of the reward pool is burned.
-- Eligible unique voters can claim rewards.
-- Unclaimed funds burn after the claim period.
-- Current UI has no reward claim flow.
-
-### I. Grace Period / Apply Screen
-
-```text
-+------------------------------------------------+
-| <  Apply Proposal                              |
-+------------------------------------------------+
-| Accepted proposal                              |
-| Grace period ends in 6d 4h                     |
-|                                                |
-| Change summary                                 |
-| affected parameters / project escrow / version |
-|                                                |
-| [Apply when available]                         |
-+------------------------------------------------+
-```
-
-Why it may be needed:
-
-- Accepted community proposals are applied after a grace period.
-- Emergency proposals can be applied immediately by committee members.
-- Current UI has `accepted` and `applied` states but no apply action.
-
-### J. Project Execution / Milestones
-
-```text
-+------------------------------------------------+
-| <  Project Execution                           |
-+------------------------------------------------+
-| Project: Documentation sprint                  |
-| Escrow balance: 5000 USD equivalent            |
-|                                                |
-| Milestone 1: Started                           |
-| deliverable / duration / cost / penalty / bonus|
-| [Mark complete] [Claim payment]                |
-|                                                |
-| Milestone 2: Pending                           |
-+------------------------------------------------+
-```
-
-Why it may be needed:
-
-- Project proposals have milestones, escrow balance, payment, bonus, penalty, and termination states.
-- Current UI only stores minimal project address/amount fields.
-
-### K. DAO Parameters Screen
-
-```text
-+------------------------------------------------+
-| DAO Parameters                                 |
-+------------------------------------------------+
-| proposalFee       100 USD                      |
-| voteThreshold     ...                          |
-| minimumSpend      ...                          |
-| voteExponent      1.1                          |
-| pctBurned         50%                          |
-| reviewDuration    2d                           |
-| votingDuration    8d                           |
-| graceDuration     7d                           |
-| claimDuration     30d                          |
-+------------------------------------------------+
-```
-
-Why it may be needed:
-
-- Policy says DAO parameters are global network parameters and can be changed by DAO voting.
-- Users need to see current values before creating or voting on proposals.
-
-## Backend Integration Flow
-
-```text
-+------------------------+
-| app.js DAO screens     |
-+-----------+------------+
-            |
-            v
-+------------------------+
-| dao.repo.js            |
-| normalizeDaoStore()    |
-+-----------+------------+
-            |
-            v
-+------------------------+
-| [BACKEND] fetcher      |
-| list proposals         |
-| get proposal           |
-| create proposal tx     |
-| committee vote tx      |
-| cast weighted vote tx  |
-| claim reward tx        |
-| apply proposal tx      |
-+-----------+------------+
-            |
-            v
-+------------------------+
-| Network / chain state  |
-| proposal accounts      |
-| meta account           |
-| global DAO params      |
-+------------------------+
-```
-
-Current backend status:
-
-- `daoRepo` has a backend mode hook.
-- No backend endpoints or transaction calls are implemented.
-- `createProposal()` and `castVote()` mutate local memory only.
-
-## Suggested Build Order
-
-```text
-1. Keep current mock list/detail/add screens.
-2. Add full proposal detail sections:
-   timeline, committee votes, voting config, rewards, audit.
-3. Replace mock Yes/No vote with weighted vote preview.
-4. Add transaction confirmation screens for create/vote.
-5. Add committee review screens and emergency flow.
-6. Add reward claim and apply screens.
-7. Add project milestone execution screens.
-8. Wire dao.repo.js to backend/indexer data.
-```
-
-## Short Gap Summary
-
-```text
-Current:
-  Menu -> DAO list -> Add Proposal
-                  -> Proposal Detail -> Mock Yes/No vote
-
-Needed:
-  DAO overview
-  Discussion/comments
-  Full proposal builder
-  Submit confirmation
-  Committee review
-  Weighted vote entry
-  Live results/audit
-  Final result/reward claim
-  Grace/apply
-  Project milestone execution
-  DAO parameter browser
-  Backend transaction/status handling
-```
+- Use **+**, **−**, the mouse wheel, or the percentage button to control zoom.
+- Drag the board background to pan.
+- Click a flow arrow, arrow label, or connected source control to pin its animated highlight.
+- Run `node mock/validate-current-flow.mjs` after changing production DAO modal labels or actions.
